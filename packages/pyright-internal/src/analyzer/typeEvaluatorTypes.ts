@@ -658,8 +658,7 @@ export interface TypeEvaluator {
         destType: Type,
         srcType: Type,
         diag?: DiagnosticAddendum,
-        destConstraints?: ConstraintTracker,
-        srcConstraints?: ConstraintTracker,
+        constraints?: ConstraintTracker,
         flags?: AssignTypeFlags,
         recursionCount?: number
     ) => boolean;
@@ -695,8 +694,7 @@ export interface TypeEvaluator {
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
-        destConstraints: ConstraintTracker | undefined,
-        srcConstraints: ConstraintTracker | undefined,
+        constraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ) => boolean;

@@ -1122,8 +1122,7 @@ export function createTypeEvaluator(
                         inferenceContext.expectedType,
                         typeResult.type,
                         diag,
-                        /* destConstraints */ undefined,
-                        /* srcConstraints */ undefined,
+                        /* constraints */ undefined,
                         AssignTypeFlags.Default
                     )
                 ) {
@@ -11266,8 +11265,7 @@ export function createTypeEvaluator(
                         expectedSubtype,
                         returnType,
                         /* diag */ undefined,
-                        /* destConstraints */ undefined,
-                        /* srcConstraints */ undefined,
+                        /* constraints */ undefined,
                         AssignTypeFlags.Default
                     )
                 ) {
@@ -11385,14 +11383,7 @@ export function createTypeEvaluator(
 
         expectedType = transformExpectedType(expectedType, liveTypeVarScopes, errorNode.start);
 
-        assignType(
-            returnType,
-            expectedType,
-            /* diag */ undefined,
-            constraints,
-            /* srcConstraints */ undefined,
-            assignFlags
-        );
+        assignType(returnType, expectedType, /* diag */ undefined, constraints, assignFlags);
 
         return validateArgTypes(errorNode, matchResults, constraints, skipUnknownArgCheck);
     }
@@ -11860,7 +11851,7 @@ export function createTypeEvaluator(
 
         const matchResults = matchArgsToParams(errorNode, argList, { type: paramSpecType }, 0);
         const functionType = matchResults.overload;
-        const srcConstraints = new ConstraintTracker();
+        const constraints = new ConstraintTracker();
 
         if (matchResults.argumentErrors) {
             // Evaluate types of all args. This will ensure that referenced symbols are
@@ -11871,7 +11862,7 @@ export function createTypeEvaluator(
                 }
             });
 
-            return { argumentErrors: true, constraintTrackers: [srcConstraints] };
+            return { argumentErrors: true, constraintTrackers: [constraints] };
         }
 
         const functionParamSpec = FunctionType.getParamSpecFromArgsKwargs(functionType);
@@ -11922,11 +11913,11 @@ export function createTypeEvaluator(
                 );
             }
 
-            return { argumentErrors, constraintTrackers: [srcConstraints] };
+            return { argumentErrors, constraintTrackers: [constraints] };
         }
 
-        const result = validateArgTypes(errorNode, matchResults, srcConstraints, /* skipUnknownArgCheck */ undefined);
-        return { argumentErrors: !!result.argumentErrors, constraintTrackers: [srcConstraints] };
+        const result = validateArgTypes(errorNode, matchResults, constraints, /* skipUnknownArgCheck */ undefined);
+        return { argumentErrors: !!result.argumentErrors, constraintTrackers: [constraints] };
     }
 
     function validateArgType(
@@ -12010,7 +12001,6 @@ export function createTypeEvaluator(
                             argType,
                             /* diag */ undefined,
                             clonedConstraints,
-                            /* srcConstraints */ undefined,
                             options?.isArgFirstPass ? AssignTypeFlags.ArgAssignmentFirstPass : AssignTypeFlags.Default
                         )
                     ) {
@@ -12097,16 +12087,7 @@ export function createTypeEvaluator(
             assignTypeFlags |= AssignTypeFlags.ArgAssignmentFirstPass;
         }
 
-        if (
-            !assignType(
-                argParam.paramType,
-                argType,
-                diag?.createAddendum(),
-                constraints,
-                /* srcConstraints */ undefined,
-                assignTypeFlags
-            )
-        ) {
+        if (!assignType(argParam.paramType, argType, diag?.createAddendum(), constraints, assignTypeFlags)) {
             if (!options?.skipReportError) {
                 // Mismatching parameter types are common in untyped code; don't bother spending time
                 // printing types if the diagnostic is disabled.
@@ -13705,7 +13686,6 @@ export function createTypeEvaluator(
                             unexpandedType,
                             /* diag */ undefined,
                             mappingConstraints,
-                            /* srcConstraints */ undefined,
                             AssignTypeFlags.RetainLiteralsForTypeVar
                         )
                     ) {
@@ -22602,8 +22582,7 @@ export function createTypeEvaluator(
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
-        destConstraints: ConstraintTracker | undefined,
-        srcConstraints: ConstraintTracker | undefined,
+        constraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number,
         reportErrorsUsingObjType: boolean
@@ -22625,7 +22604,7 @@ export function createTypeEvaluator(
                         destType,
                         srcType,
                         diag,
-                        destConstraints,
+                        constraints,
                         flags,
                         recursionCount
                     )
@@ -22644,7 +22623,7 @@ export function createTypeEvaluator(
                 }
 
                 // If invariance is being enforced, the two TypedDicts must be assignable to each other.
-                if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+                if ((flags & AssignTypeFlags.Invariant) !== 0) {
                     return assignTypedDictToTypedDict(
                         evaluatorInterface,
                         srcType,
@@ -22700,7 +22679,7 @@ export function createTypeEvaluator(
                     srcType.shared.mro.some((mroClass) => isClass(mroClass) && srcName === mroClass.shared.fullName)
                 )
             ) {
-                if ((flags & AssignTypeFlags.EnforceInvariance) === 0) {
+                if ((flags & AssignTypeFlags.Invariant) === 0) {
                     return true;
                 }
             }
@@ -22721,8 +22700,7 @@ export function createTypeEvaluator(
                     destType,
                     ClassType.cloneAsInstance(srcType),
                     diag?.createAddendum(),
-                    destConstraints,
-                    srcConstraints,
+                    constraints,
                     flags,
                     recursionCount
                 )
@@ -22743,11 +22721,11 @@ export function createTypeEvaluator(
         // considered a subtype of `bool`.
         if (isInstantiableClass(srcType) && ClassType.isBuiltIn(srcType, ['TypeGuard', 'TypeIs'])) {
             if (isInstantiableClass(destType) && ClassType.isBuiltIn(destType, 'bool')) {
-                return (flags & AssignTypeFlags.EnforceInvariance) === 0;
+                return (flags & AssignTypeFlags.Invariant) === 0;
             }
         }
 
-        if ((flags & AssignTypeFlags.EnforceInvariance) === 0 || ClassType.isSameGenericClass(srcType, destType)) {
+        if ((flags & AssignTypeFlags.Invariant) === 0 || ClassType.isSameGenericClass(srcType, destType)) {
             if (isDerivedFrom) {
                 assert(inheritanceChain.length > 0);
 
@@ -22757,8 +22735,7 @@ export function createTypeEvaluator(
                         srcType,
                         inheritanceChain,
                         diag?.createAddendum(),
-                        destConstraints,
-                        srcConstraints,
+                        constraints,
                         flags,
                         recursionCount
                     )
@@ -22770,7 +22747,7 @@ export function createTypeEvaluator(
 
         // Everything is assignable to an object.
         if (ClassType.isBuiltIn(destType, 'object')) {
-            if ((flags & AssignTypeFlags.EnforceInvariance) === 0) {
+            if ((flags & AssignTypeFlags.Invariant) === 0) {
                 return true;
             }
         }
@@ -22888,7 +22865,7 @@ export function createTypeEvaluator(
                         // private or protected, since these are presumably
                         // not modifiable outside of the class.
                         if (!isPrivateOrProtectedName(name)) {
-                            flags |= AssignTypeFlags.EnforceInvariance;
+                            flags |= AssignTypeFlags.Invariant;
                         }
                     }
 
@@ -22897,8 +22874,7 @@ export function createTypeEvaluator(
                             destMemberType,
                             srcMemberType,
                             /* diag */ undefined,
-                            /* destConstraints */ undefined,
-                            /* srcConstraints */ undefined,
+                            /* constraints */ undefined,
                             flags | AssignTypeFlags.SkipSelfClsParamCheck,
                             recursionCount
                         )
@@ -22980,8 +22956,7 @@ export function createTypeEvaluator(
         srcType: ClassType,
         inheritanceChain: InheritanceChain,
         diag: DiagnosticAddendum | undefined,
-        destConstraints: ConstraintTracker | undefined,
-        srcConstraints: ConstraintTracker | undefined,
+        constraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
@@ -22991,7 +22966,7 @@ export function createTypeEvaluator(
         inferVarianceForClass(destType);
 
         // If we're enforcing invariance, literal types must match.
-        if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+        if ((flags & AssignTypeFlags.Invariant) !== 0) {
             const srcIsLiteral = srcType.priv.literalValue !== undefined;
             const destIsLiteral = destType.priv.literalValue !== undefined;
             if (srcIsLiteral !== destIsLiteral) {
@@ -23050,7 +23025,7 @@ export function createTypeEvaluator(
         }
 
         // If we're enforcing invariance, literal types must match as well.
-        if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+        if ((flags & AssignTypeFlags.Invariant) !== 0) {
             const srcIsLiteral = srcType.priv.literalValue !== undefined;
             const destIsLiteral = destType.priv.literalValue !== undefined;
             if (srcIsLiteral !== destIsLiteral) {
@@ -23065,8 +23040,7 @@ export function createTypeEvaluator(
                 destType,
                 curSrcType,
                 diag,
-                destConstraints,
-                srcConstraints,
+                constraints,
                 flags,
                 recursionCount
             );
@@ -23081,15 +23055,14 @@ export function createTypeEvaluator(
                 // Don't emit a diag addendum if we're in an invariant context. It's
                 // sufficient to simply indicate that the types are not the same
                 // in this case. Adding more information is unnecessary and confusing.
-                (flags & AssignTypeFlags.EnforceInvariance) === 0 ? diag : undefined,
-                destConstraints,
-                srcConstraints,
+                (flags & AssignTypeFlags.Invariant) === 0 ? diag : undefined,
+                constraints,
                 flags,
                 recursionCount
             );
         }
 
-        if (destConstraints && curSrcType.priv.typeArgs && !destConstraints.isLocked()) {
+        if (constraints && curSrcType.priv.typeArgs && !constraints.isLocked()) {
             // Populate the typeVar map with type arguments of the source.
             const srcTypeArgs = curSrcType.priv.typeArgs;
             for (let i = 0; i < destType.shared.typeParams.length; i++) {
@@ -23105,7 +23078,7 @@ export function createTypeEvaluator(
                     typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
                 }
 
-                destConstraints.setBounds(
+                constraints.setBounds(
                     typeParam,
                     variance !== Variance.Contravariant ? typeArgType : undefined,
                     variance !== Variance.Covariant ? typeArgType : undefined,
@@ -23137,8 +23110,7 @@ export function createTypeEvaluator(
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
-        destConstraints: ConstraintTracker | undefined,
-        srcConstraints: ConstraintTracker | undefined,
+        constraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
@@ -23192,11 +23164,10 @@ export function createTypeEvaluator(
                 effectiveFlags = flags | AssignTypeFlags.RetainLiteralsForTypeVar;
                 errorSource = LocAddendum.typeVarIsCovariant;
             } else if (variance === Variance.Contravariant) {
-                effectiveFlags =
-                    (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar;
+                effectiveFlags = (flags ^ AssignTypeFlags.Contravariant) | AssignTypeFlags.RetainLiteralsForTypeVar;
                 errorSource = LocAddendum.typeVarIsContravariant;
             } else {
-                effectiveFlags = flags | AssignTypeFlags.EnforceInvariance | AssignTypeFlags.RetainLiteralsForTypeVar;
+                effectiveFlags = flags | AssignTypeFlags.Invariant | AssignTypeFlags.RetainLiteralsForTypeVar;
                 errorSource = LocAddendum.typeVarIsInvariant;
 
                 // Omit the diagnostic addendum for the invariant case because it's obvious
@@ -23209,8 +23180,7 @@ export function createTypeEvaluator(
                     variance === Variance.Contravariant ? srcTypeArg : destTypeArg,
                     variance === Variance.Contravariant ? destTypeArg : srcTypeArg,
                     assignmentDiag,
-                    variance === Variance.Contravariant ? srcConstraints : destConstraints,
-                    variance === Variance.Contravariant ? destConstraints : srcConstraints,
+                    constraints,
                     effectiveFlags,
                     recursionCount
                 )
@@ -23264,8 +23234,7 @@ export function createTypeEvaluator(
         destType: Type,
         srcType: Type,
         diag?: DiagnosticAddendum,
-        destConstraints?: ConstraintTracker,
-        srcConstraints?: ConstraintTracker,
+        constraints?: ConstraintTracker,
         flags = AssignTypeFlags.Default,
         recursionCount = 0
     ): boolean {
@@ -23322,17 +23291,7 @@ export function createTypeEvaluator(
                 const srcTypeArgs = srcAliasInfo.typeArgs;
                 destAliasInfo.typeArgs.forEach((destTypeArg, index) => {
                     const srcTypeArg = index < srcTypeArgs.length ? srcTypeArgs[index] : UnknownType.create();
-                    if (
-                        !assignType(
-                            destTypeArg,
-                            srcTypeArg,
-                            diag,
-                            destConstraints,
-                            srcConstraints,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
+                    if (!assignType(destTypeArg, srcTypeArg, diag, constraints, flags, recursionCount)) {
                         isAssignable = false;
                     }
                 });
@@ -23431,8 +23390,8 @@ export function createTypeEvaluator(
                 TypeVarType.isBound(destType) === TypeVarType.isBound(srcType) &&
                 TypeBase.isInstance(srcType) === TypeBase.isInstance(destType)
             ) {
-                if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 && destConstraints) {
-                    assignTypeVar(evaluatorInterface, destType, srcType, diag, destConstraints, flags, recursionCount);
+                if ((flags & AssignTypeFlags.Contravariant) === 0 && constraints) {
+                    assignTypeVar(evaluatorInterface, destType, srcType, diag, constraints, flags, recursionCount);
                 }
                 return true;
             }
@@ -23451,20 +23410,8 @@ export function createTypeEvaluator(
                 }
             }
 
-            if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 || !isTypeVar(srcType)) {
-                const targetConstraints =
-                    (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destConstraints : srcConstraints;
-                if (
-                    !assignTypeVar(
-                        evaluatorInterface,
-                        destType,
-                        srcType,
-                        diag,
-                        targetConstraints,
-                        flags,
-                        recursionCount
-                    )
-                ) {
+            if ((flags & AssignTypeFlags.Contravariant) === 0 || !isTypeVar(srcType)) {
+                if (!assignTypeVar(evaluatorInterface, destType, srcType, diag, constraints, flags, recursionCount)) {
                     return false;
                 }
 
@@ -23477,22 +23424,19 @@ export function createTypeEvaluator(
         }
 
         if (isTypeVar(srcType)) {
-            if ((flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
-                // The caller has requested that we solve for source type variables
-                // rather than dest.
+            if ((flags & AssignTypeFlags.Contravariant) !== 0) {
                 if (TypeVarType.isBound(srcType)) {
                     return assignType(
                         makeTopLevelTypeVarsConcrete(destType),
                         makeTopLevelTypeVarsConcrete(srcType),
                         diag,
-                        /* destConstraints */ undefined,
-                        /* srcConstraints */ undefined,
+                        /* constraints */ undefined,
                         flags,
                         recursionCount
                     );
                 }
 
-                if (assignTypeVar(evaluatorInterface, srcType, destType, diag, srcConstraints, flags, recursionCount)) {
+                if (assignTypeVar(evaluatorInterface, srcType, destType, diag, constraints, flags, recursionCount)) {
                     return true;
                 }
 
@@ -23506,7 +23450,7 @@ export function createTypeEvaluator(
                                 srcType as TypeVarType,
                                 destSubtype,
                                 diag,
-                                srcConstraints,
+                                constraints,
                                 flags,
                                 recursionCount
                             )
@@ -23518,7 +23462,7 @@ export function createTypeEvaluator(
                 return isAssignable;
             }
 
-            if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+            if ((flags & AssignTypeFlags.Invariant) !== 0) {
                 if (isAnyOrUnknown(destType)) {
                     return true;
                 }
@@ -23561,14 +23505,12 @@ export function createTypeEvaluator(
         }
 
         if (isAnyOrUnknown(srcType) && !srcType.props?.specialForm) {
-            const targetConstraints =
-                (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destConstraints : srcConstraints;
-            if (targetConstraints) {
+            if (constraints) {
                 // If it's an ellipsis type, convert it to a regular "Any"
                 // type. These are functionally equivalent, but "Any" looks
                 // better in the text representation.
                 const typeVarSubstitution = isEllipsisType(srcType) ? AnyType.create() : srcType;
-                setTypeArgsRecursive(destType, typeVarSubstitution, targetConstraints, recursionCount);
+                setTypeArgsRecursive(destType, typeVarSubstitution, constraints, recursionCount);
             }
             if ((flags & AssignTypeFlags.OverloadOverlap) === 0) {
                 return true;
@@ -23576,7 +23518,7 @@ export function createTypeEvaluator(
         }
 
         if (isNever(srcType)) {
-            if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+            if ((flags & AssignTypeFlags.Invariant) !== 0) {
                 if (isNever(destType)) {
                     return true;
                 }
@@ -23585,11 +23527,8 @@ export function createTypeEvaluator(
                 return false;
             }
 
-            const targetConstraints =
-                (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destConstraints : srcConstraints;
-
-            if (targetConstraints) {
-                setTypeArgsRecursive(destType, UnknownType.create(), targetConstraints, recursionCount);
+            if (constraints) {
+                setTypeArgsRecursive(destType, UnknownType.create(), constraints, recursionCount);
             }
             return true;
         }
@@ -23598,35 +23537,13 @@ export function createTypeEvaluator(
             // If both the source and dest are unions, use assignFromUnionType which has
             // special-case logic to handle this case.
             if (isUnion(srcType)) {
-                return assignFromUnionType(
-                    destType,
-                    srcType,
-                    /* diag */ undefined,
-                    destConstraints,
-                    srcConstraints,
-                    flags,
-                    recursionCount
-                );
+                return assignFromUnionType(destType, srcType, /* diag */ undefined, constraints, flags, recursionCount);
             }
 
-            const clonedDestConstraints = destConstraints?.clone();
-            const clonedSrcConstraints = srcConstraints?.clone();
-            if (
-                assignToUnionType(
-                    destType,
-                    srcType,
-                    /* diag */ undefined,
-                    clonedDestConstraints,
-                    clonedSrcConstraints,
-                    flags,
-                    recursionCount
-                )
-            ) {
-                if (destConstraints && clonedDestConstraints) {
-                    destConstraints.copyFromClone(clonedDestConstraints);
-                }
-                if (srcConstraints && clonedSrcConstraints) {
-                    srcConstraints.copyFromClone(clonedSrcConstraints);
+            const clonedConstraints = constraints?.clone();
+            if (assignToUnionType(destType, srcType, /* diag */ undefined, clonedConstraints, flags, recursionCount)) {
+                if (constraints && clonedConstraints) {
+                    constraints.copyFromClone(clonedConstraints);
                 }
                 return true;
             }
@@ -23634,19 +23551,11 @@ export function createTypeEvaluator(
 
         const expandedSrcType = makeTopLevelTypeVarsConcrete(srcType);
         if (isUnion(expandedSrcType)) {
-            return assignFromUnionType(
-                destType,
-                expandedSrcType,
-                diag,
-                destConstraints,
-                srcConstraints,
-                flags,
-                recursionCount
-            );
+            return assignFromUnionType(destType, expandedSrcType, diag, constraints, flags, recursionCount);
         }
 
         if (isUnion(destType)) {
-            return assignToUnionType(destType, srcType, diag, destConstraints, srcConstraints, flags, recursionCount);
+            return assignToUnionType(destType, srcType, diag, constraints, flags, recursionCount);
         }
 
         // Is the src a specialized "type" object?
@@ -23670,8 +23579,7 @@ export function createTypeEvaluator(
                         destType,
                         convertToInstantiable(typeTypeArg),
                         diag?.createAddendum(),
-                        destConstraints,
-                        srcConstraints,
+                        constraints,
                         flags,
                         recursionCount
                     )
@@ -23714,8 +23622,7 @@ export function createTypeEvaluator(
                             destType.props.specialForm,
                             expandedSrcType,
                             diag,
-                            destConstraints,
-                            srcConstraints,
+                            constraints,
                             flags,
                             recursionCount
                         );
@@ -23725,8 +23632,7 @@ export function createTypeEvaluator(
                         destType,
                         expandedSrcType,
                         diag,
-                        destConstraints,
-                        srcConstraints,
+                        constraints,
                         flags,
                         recursionCount,
                         /* reportErrorsUsingObjType */ false
@@ -23748,8 +23654,7 @@ export function createTypeEvaluator(
                             ClassType.cloneAsInstance(destMetaclass),
                             expandedSrcType,
                             diag,
-                            destConstraints,
-                            srcConstraints,
+                            constraints,
                             flags,
                             recursionCount,
                             /* reportErrorsUsingObjType */ false
@@ -23781,8 +23686,7 @@ export function createTypeEvaluator(
                             destTypeArgs[0],
                             convertToInstance(srcType),
                             diag,
-                            destConstraints,
-                            srcConstraints,
+                            constraints,
                             flags,
                             recursionCount
                         );
@@ -23834,7 +23738,7 @@ export function createTypeEvaluator(
                         ClassType.isBuiltIn(concreteSrcType, 'str') &&
                         concreteSrcType.priv.literalValue !== undefined
                     ) {
-                        return (flags & AssignTypeFlags.EnforceInvariance) === 0;
+                        return (flags & AssignTypeFlags.Invariant) === 0;
                     } else if (ClassType.isBuiltIn(concreteSrcType, 'LiteralString')) {
                         return true;
                     }
@@ -23842,7 +23746,7 @@ export function createTypeEvaluator(
                     ClassType.isBuiltIn(concreteSrcType, 'LiteralString') &&
                     strClass &&
                     isInstantiableClass(strClass) &&
-                    (flags & AssignTypeFlags.EnforceInvariance) === 0
+                    (flags & AssignTypeFlags.Invariant) === 0
                 ) {
                     concreteSrcType = ClassType.cloneAsInstance(strClass);
                 }
@@ -23852,8 +23756,7 @@ export function createTypeEvaluator(
                         ClassType.cloneAsInstantiable(destType),
                         ClassType.cloneAsInstantiable(concreteSrcType),
                         diag,
-                        destConstraints,
-                        srcConstraints,
+                        constraints,
                         flags,
                         recursionCount,
                         /* reportErrorsUsingObjType */ true
@@ -23867,15 +23770,7 @@ export function createTypeEvaluator(
                 // Is the destination a callback protocol (defined in PEP 544)?
                 const destCallbackType = getCallbackProtocolType(destType, recursionCount);
                 if (destCallbackType) {
-                    return assignType(
-                        destCallbackType,
-                        concreteSrcType,
-                        diag,
-                        destConstraints,
-                        srcConstraints,
-                        flags,
-                        recursionCount
-                    );
+                    return assignType(destCallbackType, concreteSrcType, diag, constraints, flags, recursionCount);
                 }
 
                 // All functions are considered instances of "builtins.function".
@@ -23884,8 +23779,7 @@ export function createTypeEvaluator(
                         destType,
                         convertToInstance(functionClass),
                         diag,
-                        destConstraints,
-                        srcConstraints,
+                        constraints,
                         flags,
                         recursionCount
                     );
@@ -23902,7 +23796,7 @@ export function createTypeEvaluator(
                         ClassType.cloneAsInstantiable(destType),
                         concreteSrcType,
                         diag,
-                        destConstraints,
+                        constraints,
                         flags,
                         recursionCount
                     );
@@ -23912,15 +23806,7 @@ export function createTypeEvaluator(
                 // class that is effectively a function.
                 const callbackType = getCallbackProtocolType(destType, recursionCount);
                 if (callbackType) {
-                    return assignType(
-                        callbackType,
-                        concreteSrcType,
-                        diag,
-                        destConstraints,
-                        srcConstraints,
-                        flags,
-                        recursionCount
-                    );
+                    return assignType(callbackType, concreteSrcType, diag, constraints, flags, recursionCount);
                 }
 
                 // If the destType is an instantiation of a Protocol,
@@ -23931,8 +23817,7 @@ export function createTypeEvaluator(
                         ClassType.cloneAsInstantiable(destType),
                         concreteSrcType,
                         diag,
-                        destConstraints,
-                        srcConstraints,
+                        constraints,
                         flags,
                         recursionCount
                     );
@@ -23948,8 +23833,7 @@ export function createTypeEvaluator(
                             ClassType.cloneAsInstantiable(destType),
                             metaclass,
                             diag,
-                            destConstraints,
-                            srcConstraints,
+                            constraints,
                             flags,
                             recursionCount,
                             /* reportErrorsUsingObjType */ false
@@ -23959,15 +23843,7 @@ export function createTypeEvaluator(
             } else if (isAnyOrUnknown(concreteSrcType) && !concreteSrcType.props?.specialForm) {
                 return (flags & AssignTypeFlags.OverloadOverlap) === 0;
             } else if (isUnion(concreteSrcType)) {
-                return assignType(
-                    destType,
-                    concreteSrcType,
-                    diag,
-                    destConstraints,
-                    srcConstraints,
-                    flags,
-                    recursionCount
-                );
+                return assignType(destType, concreteSrcType, diag, constraints, flags, recursionCount);
             }
         }
 
@@ -24001,15 +23877,7 @@ export function createTypeEvaluator(
                     // The constructor conversion may result in a union of the
                     // __init__ and __new__ callables.
                     if (isUnion(concreteSrcType)) {
-                        return assignType(
-                            destType,
-                            concreteSrcType,
-                            diag,
-                            destConstraints,
-                            srcConstraints,
-                            flags,
-                            recursionCount
-                        );
+                        return assignType(destType, concreteSrcType, diag, constraints, flags, recursionCount);
                     }
                 }
             }
@@ -24031,33 +23899,17 @@ export function createTypeEvaluator(
                 // Find all of the overloaded functions that match the parameters.
                 const overloads = OverloadedFunctionType.getOverloads(concreteSrcType);
                 const filteredOverloads: FunctionType[] = [];
-                const destTypeVarSignatures: ConstraintSet[] = [];
-                const srcTypeVarSignatures: ConstraintSet[] = [];
+                const typeVarSignatures: ConstraintSet[] = [];
 
                 overloads.forEach((overload) => {
                     const overloadScopeId = getTypeVarScopeId(overload) ?? '';
-                    const destConstraintsClone = destConstraints?.cloneWithSignature(overloadScopeId);
-                    const srcConstraintsClone = srcConstraints?.cloneWithSignature(overloadScopeId);
+                    const constraintsClone = constraints?.cloneWithSignature(overloadScopeId);
 
-                    if (
-                        assignType(
-                            destType,
-                            overload,
-                            /* diag */ undefined,
-                            destConstraintsClone,
-                            srcConstraintsClone,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
+                    if (assignType(destType, overload, /* diag */ undefined, constraintsClone, flags, recursionCount)) {
                         filteredOverloads.push(overload);
 
-                        if (destConstraintsClone) {
-                            appendArray(destTypeVarSignatures, destConstraintsClone.getConstraintSets());
-                        }
-
-                        if (srcConstraintsClone) {
-                            appendArray(srcTypeVarSignatures, srcConstraintsClone.getConstraintSets());
+                        if (constraintsClone) {
+                            appendArray(typeVarSignatures, constraintsClone.getConstraintSets());
                         }
                     }
                 });
@@ -24068,12 +23920,8 @@ export function createTypeEvaluator(
                 }
 
                 if (filteredOverloads.length === 1 || (flags & AssignTypeFlags.ArgAssignmentFirstPass) === 0) {
-                    if (destConstraints) {
-                        destConstraints.addConstraintSets(destTypeVarSignatures);
-                    }
-
-                    if (srcConstraints) {
-                        srcConstraints.addConstraintSets(srcTypeVarSignatures);
+                    if (constraints) {
+                        constraints.addConstraintSets(typeVarSignatures);
                     }
                 }
 
@@ -24086,8 +23934,7 @@ export function createTypeEvaluator(
                         destType,
                         concreteSrcType,
                         diag?.createAddendum(),
-                        destConstraints ?? new ConstraintTracker(),
-                        srcConstraints ?? new ConstraintTracker(),
+                        constraints ?? new ConstraintTracker(),
                         flags,
                         recursionCount
                     )
@@ -24116,8 +23963,7 @@ export function createTypeEvaluator(
                                 destOverload,
                                 srcOverload,
                                 /* diag */ undefined,
-                                destConstraints,
-                                srcConstraints,
+                                constraints,
                                 flags,
                                 recursionCount
                             );
@@ -24133,8 +23979,7 @@ export function createTypeEvaluator(
                     destOverload,
                     srcType,
                     overloadDiag?.createAddendum(),
-                    destConstraints,
-                    srcConstraints,
+                    constraints,
                     flags,
                     recursionCount
                 );
@@ -24159,7 +24004,7 @@ export function createTypeEvaluator(
 
         if (isClass(destType) && ClassType.isBuiltIn(destType, 'object')) {
             if ((isInstantiableClass(destType) && TypeBase.isInstantiable(srcType)) || isClassInstance(destType)) {
-                if ((flags & AssignTypeFlags.EnforceInvariance) === 0) {
+                if ((flags & AssignTypeFlags.Invariant) === 0) {
                     // All types (including None, Module, OverloadedFunction) derive from object.
                     return true;
                 }
@@ -24174,8 +24019,7 @@ export function createTypeEvaluator(
                     ClassType.cloneAsInstantiable(destType),
                     ClassType.cloneAsInstance(noneTypeClass),
                     diag,
-                    destConstraints,
-                    srcConstraints,
+                    constraints,
                     flags,
                     recursionCount
                 );
@@ -24196,8 +24040,7 @@ export function createTypeEvaluator(
         destType: Type,
         srcType: UnionType,
         diag: DiagnosticAddendum | undefined,
-        destConstraints: ConstraintTracker | undefined,
-        srcConstraints: ConstraintTracker | undefined,
+        constraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
@@ -24219,15 +24062,7 @@ export function createTypeEvaluator(
             // the getattr function.
             const nonAnySubtypes = destType.priv.subtypes.filter((t) => !isAnyOrUnknown(t));
             if (nonAnySubtypes.length === 1 && isTypeVar(nonAnySubtypes[0])) {
-                assignType(
-                    nonAnySubtypes[0],
-                    srcType,
-                    /* diag */ undefined,
-                    destConstraints,
-                    srcConstraints,
-                    flags,
-                    recursionCount
-                );
+                assignType(nonAnySubtypes[0], srcType, /* diag */ undefined, constraints, flags, recursionCount);
 
                 // This always succeeds because the destination contains Any.
                 return true;
@@ -24280,8 +24115,7 @@ export function createTypeEvaluator(
                                     srcSubtype,
                                     destSubtype,
                                     /* diag */ undefined,
-                                    /* destConstraints */ undefined,
-                                    /* srcConstraints */ undefined,
+                                    /* constraints */ undefined,
                                     flags,
                                     recursionCount
                                 )
@@ -24306,8 +24140,7 @@ export function createTypeEvaluator(
                             remainingDestSubtypes[destTypeIndex],
                             srcSubtype,
                             /* diag */ undefined,
-                            destConstraints,
-                            srcConstraints,
+                            constraints,
                             flags,
                             recursionCount
                         )
@@ -24327,7 +24160,7 @@ export function createTypeEvaluator(
             // If there is are remaining dest subtypes and they're all type variables,
             // attempt to assign the remaining source subtypes to them.
             if (canUseFastPath && (remainingDestSubtypes.length !== 0 || remainingSrcSubtypes.length !== 0)) {
-                if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+                if ((flags & AssignTypeFlags.Invariant) !== 0) {
                     // If we have no src subtypes remaining but not all dest types have been subsumed
                     // by other dest types, then the types are not compatible if we're enforcing invariance.
                     if (remainingSrcSubtypes.length === 0) {
@@ -24342,8 +24175,8 @@ export function createTypeEvaluator(
                     }
                 }
 
-                const isReversed = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
-                const effectiveDestSubtypes = isReversed ? remainingSrcSubtypes : remainingDestSubtypes;
+                const isContra = (flags & AssignTypeFlags.Contravariant) !== 0;
+                const effectiveDestSubtypes = isContra ? remainingSrcSubtypes : remainingDestSubtypes;
 
                 if (effectiveDestSubtypes.length === 0 || effectiveDestSubtypes.some((t) => !isTypeVar(t))) {
                     canUseFastPath = false;
@@ -24364,8 +24197,7 @@ export function createTypeEvaluator(
                                     reorderedDestSubtypes[destIndex],
                                     remainingSrcSubtypes[srcIndex],
                                     diag?.createAddendum(),
-                                    destConstraints,
-                                    srcConstraints,
+                                    constraints,
                                     flags,
                                     recursionCount
                                 )
@@ -24392,15 +24224,7 @@ export function createTypeEvaluator(
                         // any TypeVars unsolved. Assign the full type to the remaining
                         // dest TypeVars.
                         remainingDestSubtypes.forEach((destSubtype) => {
-                            assignType(
-                                destSubtype,
-                                srcType,
-                                /* diag */ undefined,
-                                destConstraints,
-                                srcConstraints,
-                                flags,
-                                recursionCount
-                            );
+                            assignType(destSubtype, srcType, /* diag */ undefined, constraints, flags, recursionCount);
                         });
                     }
 
@@ -24411,11 +24235,10 @@ export function createTypeEvaluator(
                     // the first destination TypeVar.
                     if (
                         !assignType(
-                            isReversed ? combineTypes(remainingDestSubtypes) : remainingDestSubtypes[0],
-                            isReversed ? remainingSrcSubtypes[0] : combineTypes(remainingSrcSubtypes),
+                            isContra ? combineTypes(remainingDestSubtypes) : remainingDestSubtypes[0],
+                            isContra ? remainingSrcSubtypes[0] : combineTypes(remainingSrcSubtypes),
                             diag?.createAddendum(),
-                            destConstraints,
-                            srcConstraints,
+                            constraints,
                             flags,
                             recursionCount
                         )
@@ -24443,17 +24266,7 @@ export function createTypeEvaluator(
                 return;
             }
 
-            if (
-                !assignType(
-                    destType,
-                    subtype,
-                    /* diag */ undefined,
-                    destConstraints,
-                    srcConstraints,
-                    flags,
-                    recursionCount
-                )
-            ) {
+            if (!assignType(destType, subtype, /* diag */ undefined, constraints, flags, recursionCount)) {
                 // Determine if the current subtype is subsumed by another subtype
                 // in the same union. If so, we can ignore this.
                 const isSubtypeSubsumed = isTypeSubsumedByOtherType(
@@ -24466,15 +24279,7 @@ export function createTypeEvaluator(
                 // Try again with a concrete version of the subtype.
                 if (
                     !isSubtypeSubsumed &&
-                    !assignType(
-                        destType,
-                        subtype,
-                        diag?.createAddendum(),
-                        destConstraints,
-                        srcConstraints,
-                        flags,
-                        recursionCount
-                    )
+                    !assignType(destType, subtype, diag?.createAddendum(), constraints, flags, recursionCount)
                 ) {
                     isIncompatible = true;
                 }
@@ -24556,8 +24361,7 @@ export function createTypeEvaluator(
                 destType,
                 srcType,
                 /* diag */ undefined,
-                /* destConstraints */ undefined,
-                /* srcConstraints */ undefined,
+                /* constraints */ undefined,
                 AssignTypeFlags.Default,
                 recursionCount
             ) &&
@@ -24565,8 +24369,7 @@ export function createTypeEvaluator(
                 srcType,
                 destType,
                 /* diag */ undefined,
-                /* destConstraints */ undefined,
-                /* srcConstraints */ undefined,
+                /* constraints */ undefined,
                 AssignTypeFlags.Default,
                 recursionCount
             )
@@ -24577,29 +24380,20 @@ export function createTypeEvaluator(
         destType: UnionType,
         srcType: Type,
         diag: DiagnosticAddendum | undefined,
-        destConstraints: ConstraintTracker | undefined,
-        srcConstraints: ConstraintTracker | undefined,
+        constraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
         // If we need to enforce invariance, the source needs to be compatible
         // with all subtypes in the dest, unless those subtypes are subclasses
         // of other subtypes.
-        if (flags & AssignTypeFlags.EnforceInvariance) {
+        if (flags & AssignTypeFlags.Invariant) {
             let isIncompatible = false;
 
             doForEachSubtype(destType, (subtype, index) => {
                 if (
                     !isIncompatible &&
-                    !assignType(
-                        subtype,
-                        srcType,
-                        diag?.createAddendum(),
-                        destConstraints,
-                        srcConstraints,
-                        flags,
-                        recursionCount
-                    )
+                    !assignType(subtype, srcType, diag?.createAddendum(), constraints, flags, recursionCount)
                 ) {
                     // Determine whether this subtype is subsumed by some other
                     // subtype in the union. If so, we can ignore the incompatibility.
@@ -24616,8 +24410,7 @@ export function createTypeEvaluator(
                                         adjOtherSubtype,
                                         adjSubtype,
                                         /* diag */ undefined,
-                                        /* destConstraints */ undefined,
-                                        /* srcConstraints */ undefined,
+                                        /* constraints */ undefined,
                                         AssignTypeFlags.Default,
                                         recursionCount
                                     )
@@ -24650,17 +24443,7 @@ export function createTypeEvaluator(
         // If so, we need to use a slower path.
         if (!requiresSpecialization(destType)) {
             for (const subtype of destType.priv.subtypes) {
-                if (
-                    assignType(
-                        subtype,
-                        srcType,
-                        diagAddendum?.createAddendum(),
-                        destConstraints,
-                        srcConstraints,
-                        flags,
-                        recursionCount
-                    )
-                ) {
+                if (assignType(subtype, srcType, diagAddendum?.createAddendum(), constraints, flags, recursionCount)) {
                     foundMatch = true;
                     break;
                 }
@@ -24673,8 +24456,7 @@ export function createTypeEvaluator(
             if (isNoneInstance(srcType) && isOptionalType(destType)) {
                 foundMatch = true;
             } else {
-                let bestDestConstraints: ConstraintTracker | undefined;
-                let bestSrcConstraints: ConstraintTracker | undefined;
+                let bestConstraints: ConstraintTracker | undefined;
                 let bestConstraintsScore: number | undefined;
                 let nakedTypeVarMatches = 0;
 
@@ -24693,27 +24475,25 @@ export function createTypeEvaluator(
                     (subtype) => {
                         // Make a temporary clone of the constraints. We don't want to modify
                         // the original constraints until we find the "optimal" typeVar mapping.
-                        const destConstraintsClone = destConstraints?.clone();
-                        const srcConstraintsClone = srcConstraints?.clone();
+                        const constraintsClone = constraints?.clone();
                         if (
                             assignType(
                                 subtype,
                                 srcType,
                                 diagAddendum?.createAddendum(),
-                                destConstraintsClone,
-                                srcConstraintsClone,
+                                constraintsClone,
                                 flags,
                                 recursionCount
                             )
                         ) {
                             foundMatch = true;
-                            if (destConstraintsClone) {
+                            if (constraintsClone) {
                                 // Ask the constraints to compute a "score" for the current
                                 // contents of the table.
-                                let constraintsScore = destConstraintsClone.getScore();
+                                let constraintsScore = constraintsClone.getScore();
 
                                 if (isTypeVar(subtype)) {
-                                    if (!destConstraints?.getMainConstraintSet().getTypeVar(subtype)) {
+                                    if (!constraints?.getMainConstraintSet().getTypeVar(subtype)) {
                                         nakedTypeVarMatches++;
 
                                         // Handicap the solution slightly so another type var with
@@ -24730,8 +24510,7 @@ export function createTypeEvaluator(
                                 if (bestConstraintsScore === undefined || bestConstraintsScore <= constraintsScore) {
                                     // We found a typeVar mapping with a higher score than before.
                                     bestConstraintsScore = constraintsScore;
-                                    bestDestConstraints = destConstraintsClone;
-                                    bestSrcConstraints = srcConstraintsClone;
+                                    bestConstraints = constraintsClone;
                                 }
                             }
                         }
@@ -24745,16 +24524,12 @@ export function createTypeEvaluator(
                 // Typically, they will receive some constraints via some
                 // later argument assignment.
                 if (nakedTypeVarMatches > 1 && (flags & AssignTypeFlags.ArgAssignmentFirstPass) !== 0) {
-                    bestDestConstraints = undefined;
-                    bestSrcConstraints = undefined;
+                    bestConstraints = undefined;
                 }
 
                 // If we found a winning type var mapping, copy it back to constraints.
-                if (destConstraints && bestDestConstraints) {
-                    destConstraints.copyFromClone(bestDestConstraints);
-                }
-                if (srcConstraints && bestSrcConstraints) {
-                    srcConstraints.copyFromClone(bestSrcConstraints);
+                if (constraints && bestConstraints) {
+                    constraints.copyFromClone(bestConstraints);
                 }
             }
         }
@@ -24767,8 +24542,7 @@ export function createTypeEvaluator(
                     destType,
                     makeTopLevelTypeVarsConcrete(srcType),
                     diagAddendum?.createAddendum(),
-                    destConstraints,
-                    srcConstraints,
+                    constraints,
                     flags,
                     recursionCount
                 );
@@ -24822,8 +24596,7 @@ export function createTypeEvaluator(
                             destType.shared.boundType,
                             srcSubtype,
                             /* diag */ undefined,
-                            /* destConstraints */ undefined,
-                            /* srcConstraints */ undefined,
+                            /* constraints */ undefined,
                             AssignTypeFlags.Default,
                             recursionCount
                         );
@@ -24839,8 +24612,7 @@ export function createTypeEvaluator(
                             destType.shared.constraints[condition.constraintIndex],
                             srcSubtype,
                             /* diag */ undefined,
-                            /* destConstraints */ undefined,
-                            /* srcConstraints */ undefined,
+                            /* constraints */ undefined,
                             AssignTypeFlags.Default,
                             recursionCount
                         );
@@ -24897,8 +24669,7 @@ export function createTypeEvaluator(
         srcType: Type,
         paramIndex: number | undefined,
         diag: DiagnosticAddendum | undefined,
-        destConstraints: ConstraintTracker,
-        srcConstraints: ConstraintTracker,
+        constraints: ConstraintTracker,
         flags: AssignTypeFlags,
         recursionCount: number
     ) {
@@ -24925,28 +24696,21 @@ export function createTypeEvaluator(
         if ((flags & AssignTypeFlags.OverloadOverlap) === 0) {
             const isFirstPass = (flags & AssignTypeFlags.ArgAssignmentFirstPass) !== 0;
 
-            if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
+            if ((flags & AssignTypeFlags.Contravariant) === 0) {
                 if (!isFirstPass) {
                     specializedDestType = solveAndApplyConstraints(
                         destType,
-                        destConstraints,
+                        constraints,
                         /* applyOptions */ undefined,
-                        {
-                            useLowerBoundOnly: true,
-                        }
+                        { useLowerBoundOnly: true }
                     );
                 }
                 doSpecializationStep = requiresSpecialization(specializedDestType);
             } else {
                 if (!isFirstPass) {
-                    specializedSrcType = solveAndApplyConstraints(
-                        srcType,
-                        srcConstraints,
-                        /* applyOptions */ undefined,
-                        {
-                            useLowerBoundOnly: true,
-                        }
-                    );
+                    specializedSrcType = solveAndApplyConstraints(srcType, constraints, /* applyOptions */ undefined, {
+                        useLowerBoundOnly: true,
+                    });
                 }
                 doSpecializationStep = requiresSpecialization(specializedSrcType);
             }
@@ -24959,17 +24723,12 @@ export function createTypeEvaluator(
                     specializedSrcType,
                     specializedDestType,
                     /* diag */ undefined,
-                    srcConstraints,
-                    destConstraints,
-                    (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar,
+                    constraints,
+                    (flags ^ AssignTypeFlags.Contravariant) | AssignTypeFlags.RetainLiteralsForTypeVar,
                     recursionCount
                 )
             ) {
-                if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
-                    specializedDestType = solveAndApplyConstraints(destType, destConstraints);
-                } else {
-                    specializedSrcType = solveAndApplyConstraints(srcType, srcConstraints);
-                }
+                specializedDestType = solveAndApplyConstraints(destType, constraints);
             }
         }
 
@@ -24978,8 +24737,7 @@ export function createTypeEvaluator(
                 specializedSrcType,
                 specializedDestType,
                 diag?.createAddendum(),
-                srcConstraints,
-                destConstraints,
+                constraints,
                 flags,
                 recursionCount
             )
@@ -25103,14 +24861,13 @@ export function createTypeEvaluator(
         destType: FunctionType,
         srcType: FunctionType,
         diag: DiagnosticAddendum | undefined,
-        destConstraints: ConstraintTracker,
-        srcConstraints: ConstraintTracker,
+        constraints: ConstraintTracker,
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
         let canAssign = true;
         const checkReturnType = (flags & AssignTypeFlags.SkipReturnTypeCheck) === 0;
-        const reverseMatching = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
+        const isContra = (flags & AssignTypeFlags.Contravariant) !== 0;
         flags &= ~AssignTypeFlags.SkipReturnTypeCheck;
 
         const destParamSpec = FunctionType.getParamSpecFromArgsKwargs(destType);
@@ -25127,11 +24884,11 @@ export function createTypeEvaluator(
         const srcParamDetails = getParamListDetails(srcType);
 
         adjustSourceParamDetailsForDestVariadic(
-            reverseMatching ? destParamDetails : srcParamDetails,
-            reverseMatching ? srcParamDetails : destParamDetails
+            isContra ? destParamDetails : srcParamDetails,
+            isContra ? srcParamDetails : destParamDetails
         );
 
-        const targetIncludesParamSpec = reverseMatching ? !!srcParamSpec : !!destParamSpec;
+        const targetIncludesParamSpec = isContra ? !!srcParamSpec : !!destParamSpec;
 
         const destPositionalCount = destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
         const srcPositionalCount = srcParamDetails.firstKeywordOnlyIndex ?? srcParamDetails.params.length;
@@ -25221,8 +24978,7 @@ export function createTypeEvaluator(
                     srcParamType,
                     paramIndex,
                     diag?.createAddendum(),
-                    destConstraints,
-                    srcConstraints,
+                    constraints,
                     flags,
                     recursionCount
                 )
@@ -25283,8 +25039,7 @@ export function createTypeEvaluator(
                             srcParamType,
                             i,
                             diag?.createAddendum(),
-                            destConstraints,
-                            srcConstraints,
+                            constraints,
                             flags,
                             recursionCount
                         )
@@ -25305,14 +25060,16 @@ export function createTypeEvaluator(
                     const paramInfo = srcParamDetails.params[i];
                     const defaultArgType = paramInfo.defaultType ?? paramInfo.defaultType;
 
+                    // Enforce invariance below because the default arg value
+                    // is constructed prior to the call, so its type is already
+                    // fixed.
                     if (
                         defaultArgType &&
                         !assignType(
                             paramInfo.type,
                             defaultArgType,
                             diag?.createAddendum(),
-                            srcConstraints,
-                            /* destConstraints */ undefined,
+                            constraints,
                             flags,
                             recursionCount
                         )
@@ -25369,8 +25126,7 @@ export function createTypeEvaluator(
                                 srcArgsType,
                                 paramIndex,
                                 diag?.createAddendum(),
-                                destConstraints,
-                                srcConstraints,
+                                constraints,
                                 flags,
                                 recursionCount
                             )
@@ -25435,8 +25191,7 @@ export function createTypeEvaluator(
                     srcArgsType,
                     destParamDetails.params[destParamDetails.argsIndex].index,
                     diag?.createAddendum(),
-                    destConstraints,
-                    srcConstraints,
+                    constraints,
                     flags,
                     recursionCount
                 )
@@ -25517,8 +25272,7 @@ export function createTypeEvaluator(
                                             srcParamType,
                                             destParamDetails.params[destParamDetails.kwargsIndex].index,
                                             diag?.createAddendum(),
-                                            destConstraints,
-                                            srcConstraints,
+                                            constraints,
                                             flags,
                                             recursionCount
                                         )
@@ -25536,8 +25290,7 @@ export function createTypeEvaluator(
                                             srcParamInfo.type,
                                             defaultArgType,
                                             diag?.createAddendum(),
-                                            srcConstraints,
-                                            /* destConstraints */ undefined,
+                                            constraints,
                                             flags,
                                             recursionCount
                                         )
@@ -25547,8 +25300,8 @@ export function createTypeEvaluator(
                                 }
                             } else {
                                 const destParamType = destParamInfo.type;
-                                const specializedDestParamType = destConstraints
-                                    ? solveAndApplyConstraints(destParamType, destConstraints)
+                                const specializedDestParamType = constraints
+                                    ? solveAndApplyConstraints(destParamType, constraints)
                                     : destParamType;
 
                                 if (
@@ -25557,8 +25310,7 @@ export function createTypeEvaluator(
                                         srcParamType,
                                         /* paramIndex */ undefined,
                                         paramDiag?.createAddendum(),
-                                        destConstraints,
-                                        srcConstraints,
+                                        constraints,
                                         flags,
                                         recursionCount
                                     )
@@ -25601,8 +25353,7 @@ export function createTypeEvaluator(
                             srcParamDetails.params[srcParamDetails.kwargsIndex].type,
                             destParamInfo.index,
                             diag?.createAddendum(),
-                            destConstraints,
-                            srcConstraints,
+                            constraints,
                             flags,
                             recursionCount
                         )
@@ -25626,8 +25377,7 @@ export function createTypeEvaluator(
                         srcParamDetails.params[srcParamDetails.kwargsIndex].type,
                         destParamDetails.params[destParamDetails.kwargsIndex].index,
                         diag?.createAddendum(),
-                        destConstraints,
-                        srcConstraints,
+                        constraints,
                         flags,
                         recursionCount
                     )
@@ -25661,36 +25411,13 @@ export function createTypeEvaluator(
             }
         }
 
-        // If the target function was generic and we solved some of the type variables
-        // in that generic type, assign them back to the destination typeVar.
-        const effectiveSrcConstraints = reverseMatching ? destConstraints : srcConstraints;
-        if (!effectiveSrcConstraints.isEmpty()) {
-            const srcConstraintSet = effectiveSrcConstraints.getMainConstraintSet();
-            const solutionSet = solveConstraints(evaluatorInterface, effectiveSrcConstraints).getMainSolutionSet();
-
-            srcConstraintSet.doForEachTypeVar((entry) => {
-                const solvedValue = solutionSet.getType(entry.typeVar);
-                if (solvedValue) {
-                    assignType(
-                        entry.typeVar,
-                        solvedValue,
-                        /* diag */ undefined,
-                        destConstraints,
-                        srcConstraints,
-                        AssignTypeFlags.Default,
-                        recursionCount
-                    );
-                }
-            });
-        }
-
         // Are we assigning to a function with a ParamSpec?
         if (targetIncludesParamSpec) {
-            const effectiveSrcType = reverseMatching ? destType : srcType;
-            const effectiveDestType = reverseMatching ? srcType : destType;
+            const effectiveSrcType = isContra ? destType : srcType;
+            const effectiveDestType = isContra ? srcType : destType;
 
-            const effectiveSrcParamSpec = reverseMatching ? destParamSpec : srcParamSpec;
-            const effectiveDestParamSpec = reverseMatching ? srcParamSpec : destParamSpec;
+            const effectiveSrcParamSpec = isContra ? destParamSpec : srcParamSpec;
+            const effectiveDestParamSpec = isContra ? srcParamSpec : destParamSpec;
 
             if (effectiveDestParamSpec) {
                 const requiredMatchParamCount = effectiveDestType.shared.parameters.filter((p, i) => {
@@ -25759,14 +25486,7 @@ export function createTypeEvaluator(
                     }
 
                     if (
-                        !assignType(
-                            effectiveDestParamSpec,
-                            remainingFunction,
-                            /* diag */ undefined,
-                            destConstraints,
-                            srcConstraints,
-                            flags
-                        )
+                        !assignType(effectiveDestParamSpec, remainingFunction, /* diag */ undefined, constraints, flags)
                     ) {
                         // If we couldn't assign the function to the ParamSpec, see if we can
                         // assign only the ParamSpec. This is possible if there were no
@@ -25778,8 +25498,7 @@ export function createTypeEvaluator(
                                 convertToInstance(effectiveDestParamSpec),
                                 convertToInstance(effectiveSrcParamSpec),
                                 /* diag */ undefined,
-                                destConstraints,
-                                srcConstraints,
+                                constraints,
                                 flags
                             )
                         ) {
@@ -25794,7 +25513,7 @@ export function createTypeEvaluator(
         if (checkReturnType) {
             const destReturnType = getFunctionEffectiveReturnType(destType);
             if (!isAnyOrUnknown(destReturnType)) {
-                const srcReturnType = solveAndApplyConstraints(getFunctionEffectiveReturnType(srcType), srcConstraints);
+                const srcReturnType = solveAndApplyConstraints(getFunctionEffectiveReturnType(srcType), constraints);
                 const returnDiag = diag?.createAddendum();
 
                 let isReturnTypeCompatible = false;
@@ -25816,8 +25535,7 @@ export function createTypeEvaluator(
                         destReturnType,
                         srcReturnType,
                         returnDiag?.createAddendum(),
-                        destConstraints,
-                        srcConstraints,
+                        constraints,
                         effectiveFlags,
                         recursionCount
                     )
@@ -25838,8 +25556,7 @@ export function createTypeEvaluator(
                                 destReturnType,
                                 ClassType.cloneAsInstance(boolClass),
                                 returnDiag?.createAddendum(),
-                                destConstraints,
-                                srcConstraints,
+                                constraints,
                                 flags,
                                 recursionCount
                             )
@@ -25862,10 +25579,6 @@ export function createTypeEvaluator(
                 }
             }
         }
-
-        // Apply any solved source TypeVars to the dest TypeVar solutions. This
-        // allows for higher-order functions to accept generic callbacks.
-        applySourceSolutionToConstraints(destConstraints, solveConstraints(evaluatorInterface, srcConstraints));
 
         return canAssign;
     }
@@ -26234,8 +25947,7 @@ export function createTypeEvaluator(
             baseParamDetails.params[0].type,
             childSelfOrClsType,
             /* diag */ undefined,
-            /* destConstraints */ undefined,
-            /* srcConstraints */ undefined,
+            /* constraints */ undefined,
             AssignTypeFlags.Default
         );
     }
@@ -26297,8 +26009,7 @@ export function createTypeEvaluator(
                                 overrideArgsType,
                                 baseParamDetails.params[i].type,
                                 diag?.createAddendum(),
-                                /* destConstraints */ undefined,
-                                /* srcConstraints */ undefined,
+                                /* constraints */ undefined,
                                 AssignTypeFlags.Default
                             )
                         ) {
@@ -26420,8 +26131,7 @@ export function createTypeEvaluator(
                                 overrideParamType,
                                 baseParamType,
                                 diag?.createAddendum(),
-                                /* destConstraints */ undefined,
-                                /* srcConstraints */ undefined,
+                                /* constraints */ undefined,
                                 AssignTypeFlags.Default
                             )
                         ) {
@@ -26483,8 +26193,7 @@ export function createTypeEvaluator(
                             overrideParamType,
                             baseParamType,
                             diag?.createAddendum(),
-                            /* destConstraints */ undefined,
-                            /* srcConstraints */ undefined,
+                            /* constraints */ undefined,
                             AssignTypeFlags.Default
                         )
                     ) {
@@ -26529,8 +26238,7 @@ export function createTypeEvaluator(
                             targetParamType,
                             paramInfo.type,
                             diag?.createAddendum(),
-                            /* destConstraints */ undefined,
-                            /* srcConstraints */ undefined,
+                            /* constraints */ undefined,
                             AssignTypeFlags.Default
                         )
                     ) {
@@ -26611,8 +26319,7 @@ export function createTypeEvaluator(
                 baseReturnType,
                 overrideReturnType,
                 diag?.createAddendum(),
-                /* destConstraints */ undefined,
-                /* srcConstraints */ undefined,
+                /* constraints */ undefined,
                 AssignTypeFlags.Default
             )
         ) {
@@ -26661,8 +26368,7 @@ export function createTypeEvaluator(
                     destType.shared.boundType,
                     effectiveSrcType,
                     diag.createAddendum(),
-                    /* destConstraints */ undefined,
-                    /* srcConstraints */ undefined
+                    /* constraints */ undefined
                 )
             ) {
                 // Avoid adding a message that will confuse users if the TypeVar was
@@ -26916,7 +26622,6 @@ export function createTypeEvaluator(
                         firstParamType,
                         subDiag?.createAddendum(),
                         constraints,
-                        /* srcConstraints */ undefined,
                         AssignTypeFlags.AllowUnspecifiedTypeArgs,
                         recursionCount
                     )

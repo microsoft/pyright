@@ -862,9 +862,8 @@ export function getTypedDictDictEquivalent(
                 dictValueType,
                 entry.valueType,
                 /* diag */ undefined,
-                /* destConstraints */ undefined,
-                /* srcConstraints */ undefined,
-                AssignTypeFlags.EnforceInvariance,
+                /* constraints */ undefined,
+                AssignTypeFlags.Invariant,
                 recursionCount + 1
             )
         ) {
@@ -1087,7 +1086,6 @@ export function assignTypedDictToTypedDict(
                             extraSrcEntries.valueType,
                             subDiag?.createAddendum(),
                             constraints,
-                            /* srcConstraints */ undefined,
                             flags,
                             recursionCount
                         )
@@ -1129,8 +1127,7 @@ export function assignTypedDictToTypedDict(
                     srcEntry.valueType,
                     subDiag?.createAddendum(),
                     constraints,
-                    /* srcConstraints */ undefined,
-                    destEntry.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
+                    destEntry.isReadOnly ? flags : flags | AssignTypeFlags.Invariant,
                     recursionCount
                 )
             ) {
@@ -1185,8 +1182,7 @@ export function assignTypedDictToTypedDict(
                         srcEntry.valueType,
                         subDiag?.createAddendum(),
                         constraints,
-                        /* srcConstraints */ undefined,
-                        destEntries.extraItems.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
+                        destEntries.extraItems.isReadOnly ? flags : flags | AssignTypeFlags.Invariant,
                         recursionCount
                     )
                 ) {
@@ -1216,8 +1212,7 @@ export function assignTypedDictToTypedDict(
                 extraSrcEntries.valueType,
                 subDiag?.createAddendum(),
                 constraints,
-                /* srcConstraints */ undefined,
-                extraDestEntries.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
+                extraDestEntries.isReadOnly ? flags : flags | AssignTypeFlags.Invariant,
                 recursionCount
             )
         ) {
@@ -1293,7 +1288,6 @@ export function assignToTypedDict(
                             valueTypes[index].type,
                             subDiag?.createAddendum(),
                             constraints,
-                            /* srcConstraints */ undefined,
                             AssignTypeFlags.RetainLiteralsForTypeVar
                         )
                     ) {
@@ -1333,7 +1327,6 @@ export function assignToTypedDict(
                         valueTypes[index].type,
                         subDiag?.createAddendum(),
                         constraints,
-                        /* srcConstraints */ undefined,
                         AssignTypeFlags.RetainLiteralsForTypeVar
                     )
                 ) {

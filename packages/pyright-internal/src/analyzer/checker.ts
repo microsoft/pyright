@@ -2703,8 +2703,7 @@ export class Checker extends ParseTreeWalker {
                         returnType,
                         prevReturnType,
                         /* diag */ undefined,
-                        /* destConstraints */ undefined,
-                        /* srcConstraints */ undefined,
+                        /* constraints */ undefined,
                         AssignTypeFlags.Default
                     )
                 ) {
@@ -2778,8 +2777,7 @@ export class Checker extends ParseTreeWalker {
             functionType,
             prevOverload,
             /* diag */ undefined,
-            /* destConstraints */ undefined,
-            /* srcConstraints */ undefined,
+            /* constraints */ undefined,
             flags
         );
     }
@@ -2793,27 +2791,25 @@ export class Checker extends ParseTreeWalker {
         implementation: FunctionType,
         diag: DiagnosticAddendum | undefined
     ): boolean {
-        const implConstraints = new ConstraintTracker();
-        const overloadConstraints = new ConstraintTracker();
+        const constraints = new ConstraintTracker();
 
         // First check the parameters to see if they are assignable.
         let isLegal = this._evaluator.assignType(
             overload,
             implementation,
             diag,
-            overloadConstraints,
-            implConstraints,
-            AssignTypeFlags.SkipReturnTypeCheck |
-                AssignTypeFlags.ReverseTypeVarMatching |
-                AssignTypeFlags.SkipSelfClsTypeCheck
+            constraints,
+            AssignTypeFlags.SkipReturnTypeCheck | AssignTypeFlags.Contravariant | AssignTypeFlags.SkipSelfClsTypeCheck
         );
 
         // Now check the return types.
-        let overloadReturnType =
-            overload.shared.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload);
+        let overloadReturnType = this._evaluator.solveAndApplyConstraints(
+            overload.shared.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload),
+            constraints
+        );
         let implementationReturnType = this._evaluator.solveAndApplyConstraints(
             implementation.shared.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
-            implConstraints
+            constraints
         );
 
         if (implementation.shared.declaration?.node?.parent) {
@@ -2832,8 +2828,7 @@ export class Checker extends ParseTreeWalker {
                 implementationReturnType,
                 overloadReturnType,
                 returnDiag.createAddendum(),
-                implConstraints,
-                overloadConstraints,
+                constraints,
                 AssignTypeFlags.Default
             )
         ) {
@@ -5739,16 +5734,14 @@ export class Checker extends ParseTreeWalker {
                 newMemberType,
                 initMemberType,
                 /* diag */ undefined,
-                /* destConstraints */ undefined,
-                /* srcConstraints */ undefined,
+                /* constraints */ undefined,
                 AssignTypeFlags.SkipReturnTypeCheck
             ) ||
             !this._evaluator.assignType(
                 initMemberType,
                 newMemberType,
                 /* diag */ undefined,
-                /* destConstraints */ undefined,
-                /* srcConstraints */ undefined,
+                /* constraints */ undefined,
                 AssignTypeFlags.SkipReturnTypeCheck
             )
         ) {
@@ -6134,9 +6127,8 @@ export class Checker extends ParseTreeWalker {
                         overriddenType,
                         childOverrideType ?? overrideType,
                         /* diag */ undefined,
-                        /* destConstraints */ undefined,
-                        /* srcConstraints */ undefined,
-                        isInvariant ? AssignTypeFlags.EnforceInvariance : AssignTypeFlags.Default
+                        /* constraints */ undefined,
+                        isInvariant ? AssignTypeFlags.Invariant : AssignTypeFlags.Default
                     )
                 ) {
                     diag = this._evaluator.addDiagnostic(
@@ -6448,10 +6440,9 @@ export class Checker extends ParseTreeWalker {
                             baseExtraItemsType,
                             entry.valueType,
                             /* diag */ undefined,
-                            /* destConstraints */ undefined,
-                            /* srcConstraints */ undefined,
+                            /* constraints */ undefined,
                             !baseTypedDictEntries.extraItems.isReadOnly
-                                ? AssignTypeFlags.EnforceInvariance
+                                ? AssignTypeFlags.Invariant
                                 : AssignTypeFlags.Default
                         )
                     ) {
@@ -6477,10 +6468,9 @@ export class Checker extends ParseTreeWalker {
                         baseExtraItemsType,
                         typedDictEntries.extraItems.valueType,
                         /* diag */ undefined,
-                        /* destConstraints */ undefined,
-                        /* srcConstraints */ undefined,
+                        /* constraints */ undefined,
                         !baseTypedDictEntries.extraItems.isReadOnly
-                            ? AssignTypeFlags.EnforceInvariance
+                            ? AssignTypeFlags.Invariant
                             : AssignTypeFlags.Default
                     )
                 ) {
@@ -6925,9 +6915,8 @@ export class Checker extends ParseTreeWalker {
                             baseType,
                             overrideType,
                             diagAddendum,
-                            /* destConstraints */ undefined,
-                            /* srcConstraints */ undefined,
-                            isInvariant ? AssignTypeFlags.EnforceInvariance : AssignTypeFlags.Default
+                            /* constraints */ undefined,
+                            isInvariant ? AssignTypeFlags.Invariant : AssignTypeFlags.Default
                         )
                     ) {
                         if (isInvariant) {

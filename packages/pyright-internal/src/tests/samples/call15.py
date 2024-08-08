@@ -2,22 +2,22 @@
 # value for a parameter with a generic type.
 
 from collections.abc import Callable
-from typing import Iterable, Mapping, TypeVar
+from typing import Iterable, TypeVar
 
 T = TypeVar("T")
 
 default_value: dict[str, int] = {}
 
 
-def func1(x: T, y: Mapping[str, T] = default_value, /) -> T:
+def func1(x: T, y: dict[str, T] = default_value, /) -> T:
     ...
 
 
-def func2(x: T, y: Mapping[str, T] = default_value) -> T:
+def func2(x: T, y: dict[str, T] = default_value) -> T:
     ...
 
 
-def func3(x: T, *, y: Mapping[str, T] = default_value) -> T:
+def func3(x: T, *, y: dict[str, T] = default_value) -> T:
     ...
 
 
@@ -51,11 +51,6 @@ def func6(x: T, *, y: Iterable[T] = default_value, z: T = "") -> T:
     ...
 
 
-# This should generate an error.
-test1(func4, 1)
-
-# This should generate an error.
-test1(func5, 1)
-
-# This should generate an error.
-test1(func6, 1)
+reveal_type(test1(func4, 1), expected_text="str | int")
+reveal_type(test1(func5, 1), expected_text="str | int")
+reveal_type(test1(func6, 1), expected_text="str | int")
