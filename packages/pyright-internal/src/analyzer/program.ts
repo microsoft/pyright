@@ -2032,8 +2032,13 @@ export class Program {
             }
 
             // We might not have the file info if binding failed for whatever reasons.
+            // Check whether the file has been bound
+            if (file.sourceFile.isBindingRequired()) {
+                continue;
+            }
+
             const fileInfo = AnalyzerNodeInfo.getFileInfo(parseResults.parseTree);
-            if (fileInfo && fileInfo.accessedSymbolSet) {
+            if (fileInfo.accessedSymbolSet) {
                 dependentFiles.push(parseResults);
             }
         }
