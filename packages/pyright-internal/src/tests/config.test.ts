@@ -11,7 +11,7 @@ import assert from 'assert';
 
 import { AnalyzerService } from '../analyzer/service';
 import { deserialize, serialize } from '../backgroundThreadBase';
-import { CommandLineOptions } from '../common/commandLineOptions';
+import { CommandLineOptions, DiagnosticSeverityOverrides } from '../common/commandLineOptions';
 import { ConfigOptions, ExecutionEnvironment, getStandardDiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../common/console';
 import { NoAccessHost } from '../common/host';
@@ -463,4 +463,47 @@ test('Include file paths can be added to by an extension without a config', () =
     const configOptions = service.test_getConfigOptions(commandLineOptions);
     assert.equal(configOptions.include.length, 1);
     assert.ok(configOptions.include[0].regExp.source.includes('/test)'));
+});
+
+test('Command line options can override config but only when not using extension', () => {
+    const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_all_config'));
+    const service = createAnalyzer();
+    const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ false);
+    service.setOptions(commandLineOptions);
+
+    // First get the default.
+    const defaultOptions = service.test_getConfigOptions(commandLineOptions);
+
+    // Now set all of the different options and make sure the command line options override.
+    commandLineOptions.typeCheckingMode = 'strict';
+    commandLineOptions.venvPath = 'test2';
+    commandLineOptions.typeshedPath = 'test2';
+    commandLineOptions.stubPath = 'test2';
+    commandLineOptions.useLibraryCodeForTypes = true;
+    commandLineOptions.includeFileSpecs = ['test2'];
+    commandLineOptions.excludeFileSpecs = ['test2'];
+    commandLineOptions.extraPaths = ['test2'];
+    commandLineOptions.diagnosticSeverityOverrides = { reportMissingImports: DiagnosticSeverityOverrides.Error };
+    commandLineOptions.ignoreFileSpecs = ['test2'];
+
+    service.setOptions(commandLineOptions);
+    const overriddenOptions = service.test_getConfigOptions(commandLineOptions);
+    assert.notDeepStrictEqual(defaultOptions.include, overriddenOptions.include);
+    assert.notDeepStrictEqual(defaultOptions.exclude, overriddenOptions.exclude);
+    assert.notDeepStrictEqual(defaultOptions.ignore, overriddenOptions.ignore);
+    assert.notDeepStrictEqual(defaultOptions.diagnosticRuleSet, overriddenOptions.diagnosticRuleSet);
+    assert.notDeepStrictEqual(
+        defaultOptions.executionEnvironments[0].extraPaths,
+        overriddenOptions.executionEnvironments[0].extraPaths
+    );
+    // Venv, typeshed and stub path are an exception, it should just be reported as a dupe.
+    assert.deepStrictEqual(defaultOptions.venvPath, overriddenOptions.venvPath);
+    assert.deepStrictEqual(defaultOptions.typeshedPath, overriddenOptions.typeshedPath);
+    assert.deepStrictEqual(defaultOptions.stubPath, overriddenOptions.stubPath);
+
+    // Do the same with an extension based config, but make sure we get the default back.
+    const commandLineOptions2 = new CommandLineOptions(cwd, /* fromVsCodeExtension */ true);
+    service.setOptions(commandLineOptions2);
+    const overriddenOptions2 = service.test_getConfigOptions(commandLineOptions2);
+    assert.deepStrictEqual(defaultOptions, overriddenOptions2);
 });

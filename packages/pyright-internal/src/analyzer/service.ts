@@ -616,8 +616,7 @@ export class AnalyzerService {
                     config.configFileJsonObj,
                     config.configFileDirUri,
                     this.serviceProvider,
-                    host,
-                    commandLineOptions
+                    host
                 );
             }
 
@@ -784,6 +783,34 @@ export class AnalyzerService {
             configOptions.initializeTypeCheckingMode(commandLineOptions.typeCheckingMode);
         }
 
+        if (commandLineOptions.extraPaths) {
+            const oldExtraPaths = configOptions.defaultExtraPaths ? [...configOptions.defaultExtraPaths] : [];
+            configOptions.ensureDefaultExtraPaths(
+                this.fs,
+                commandLineOptions.autoSearchPaths ?? false,
+                commandLineOptions.extraPaths
+            );
+
+            // Execution environments inherit the default extra paths, so we need to update them as well.
+            configOptions.executionEnvironments.forEach((env) => {
+                env.extraPaths = env.extraPaths.filter(
+                    (path) => !oldExtraPaths.some((oldPath) => oldPath.equals(path))
+                );
+                env.extraPaths.push(...configOptions.defaultExtraPaths!);
+            });
+        }
+
+        if (commandLineOptions.pythonVersion || commandLineOptions.pythonPlatform) {
+            configOptions.defaultPythonVersion = commandLineOptions.pythonVersion ?? configOptions.defaultPythonVersion;
+            configOptions.defaultPythonPlatform =
+                commandLineOptions.pythonPlatform ?? configOptions.defaultPythonPlatform;
+            // This should also override any of the execution environment settings.
+            configOptions.executionEnvironments.forEach((env) => {
+                env.pythonVersion = commandLineOptions.pythonVersion ?? env.pythonVersion;
+                env.pythonPlatform = commandLineOptions.pythonPlatform ?? env.pythonPlatform;
+            });
+        }
+
         if (commandLineOptions.pythonPath) {
             this._console.info(
                 `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
@@ -862,12 +889,24 @@ export class AnalyzerService {
             }
         }
 
-        configOptions.verboseOutput = commandLineOptions.verboseOutput ?? configOptions.verboseOutput;
-        configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
-        configOptions.autoImportCompletions = !!commandLineOptions.autoImportCompletions;
-        configOptions.indexing = !!commandLineOptions.indexing;
-        configOptions.taskListTokens = commandLineOptions.taskListTokens;
-        configOptions.logTypeEvaluationTime = !!commandLineOptions.logTypeEvaluationTime;
+        if (commandLineOptions.verboseOutput !== undefined) {
+            configOptions.verboseOutput = commandLineOptions.verboseOutput;
+        }
+        if (commandLineOptions.checkOnlyOpenFiles !== undefined) {
+            configOptions.checkOnlyOpenFiles = commandLineOptions.checkOnlyOpenFiles;
+        }
+        if (commandLineOptions.autoImportCompletions !== undefined) {
+            configOptions.autoImportCompletions = commandLineOptions.autoImportCompletions;
+        }
+        if (commandLineOptions.indexing !== undefined) {
+            configOptions.indexing = commandLineOptions.indexing;
+        }
+        if (commandLineOptions.taskListTokens) {
+            configOptions.taskListTokens = commandLineOptions.taskListTokens;
+        }
+        if (commandLineOptions.logTypeEvaluationTime !== undefined) {
+            configOptions.logTypeEvaluationTime = commandLineOptions.logTypeEvaluationTime;
+        }
         configOptions.typeEvaluationTimeThreshold = commandLineOptions.typeEvaluationTimeThreshold;
 
         // If useLibraryCodeForTypes was not specified in the config, allow the command line to override it.
