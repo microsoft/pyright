@@ -228,11 +228,6 @@ export function isCodeUnreachable(node: ParseNode): boolean {
     return false;
 }
 
-export function hasAnalyzerInfo(node: ParseNode): boolean {
-    const info = getAnalyzerInfo(node);
-    return info?.fileInfo? true : false;
-}
-
 function getAnalyzerInfo(node: ParseNode): AnalyzerNodeInfo | undefined {
     return node.a as AnalyzerNodeInfo | undefined;
 }
