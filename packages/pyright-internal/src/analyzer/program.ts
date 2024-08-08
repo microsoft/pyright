@@ -2038,7 +2038,7 @@ export class Program {
             }
 
             const fileInfo = AnalyzerNodeInfo.getFileInfo(parseResults.parseTree);
-            if (fileInfo && fileInfo.accessedSymbolSet) {
+            if (fileInfo.accessedSymbolSet) {
                 dependentFiles.push(parseResults);
             }
         }
