@@ -3182,15 +3182,15 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        let implementationFunction: FunctionType | undefined;
+        let implementation: Type | undefined;
 
         if (isOverloadedFunction(type)) {
-            implementationFunction = OverloadedFunctionType.getImplementation(type);
+            implementation = OverloadedFunctionType.getImplementation(type);
         } else if (isFunction(type) && !FunctionType.isOverloaded(type)) {
-            implementationFunction = type;
+            implementation = type;
         }
 
-        if (!implementationFunction) {
+        if (!implementation) {
             const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(primaryDecl.node);
             if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
                 const classType = this._evaluator.getTypeOfClass(containingClassNode);
@@ -3236,15 +3236,19 @@ export class Checker extends ParseTreeWalker {
         // Verify that all overload signatures are assignable to implementation signature.
         OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
             const diag = new DiagnosticAddendum();
-            if (!this._validateOverloadImplementation(overload, implementationFunction!, diag)) {
-                if (implementationFunction!.shared.declaration) {
+            if (
+                implementation &&
+                isFunction(implementation) &&
+                !this._validateOverloadImplementation(overload, implementation, diag)
+            ) {
+                if (implementation!.shared.declaration) {
                     const diagnostic = this._evaluator.addDiagnostic(
                         DiagnosticRule.reportInconsistentOverload,
                         LocMessage.overloadImplementationMismatch().format({
                             name,
                             index: index + 1,
                         }) + diag.getString(),
-                        implementationFunction!.shared.declaration.node.d.name
+                        implementation!.shared.declaration.node.d.name
                     );
 
                     if (diagnostic && overload.shared.declaration) {
@@ -4428,11 +4432,11 @@ export class Checker extends ParseTreeWalker {
 
                 // If there the implementation itself is deprecated, assume it
                 // is deprecated even if it's outside of a call expression.
-                const overloadImpl = OverloadedFunctionType.getImplementation(subtype);
-                if (overloadImpl?.shared.deprecatedMessage !== undefined) {
-                    if (!overloadImpl.shared.name || node.d.value === overloadImpl.shared.name) {
-                        deprecatedMessage = overloadImpl.shared.deprecatedMessage;
-                        errorMessage = getDeprecatedMessageForFunction(overloadImpl);
+                const impl = OverloadedFunctionType.getImplementation(subtype);
+                if (impl && isFunction(impl) && impl.shared.deprecatedMessage !== undefined) {
+                    if (!impl.shared.name || node.d.value === impl.shared.name) {
+                        deprecatedMessage = impl.shared.deprecatedMessage;
+                        errorMessage = getDeprecatedMessageForFunction(impl);
                     }
                 }
             }
@@ -5709,7 +5713,7 @@ export class Checker extends ParseTreeWalker {
             // Find the implementation, not the overloaded signatures.
             newMemberType = OverloadedFunctionType.getImplementation(newMemberType);
 
-            if (!newMemberType) {
+            if (!newMemberType || !isFunction(newMemberType)) {
                 return;
             }
         }
@@ -5723,7 +5727,7 @@ export class Checker extends ParseTreeWalker {
             // Find the implementation, not the overloaded signatures.
             initMemberType = OverloadedFunctionType.getImplementation(initMemberType);
 
-            if (!initMemberType) {
+            if (!initMemberType || !isFunction(initMemberType)) {
                 return;
             }
         }
@@ -6032,12 +6036,14 @@ export class Checker extends ParseTreeWalker {
                 overrideFunction = overrideType;
             } else if (isOverloadedFunction(overrideType)) {
                 // Use the last overload.
-                overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
+                const impl = OverloadedFunctionType.getImplementation(overrideType);
 
                 // If the last overload isn't an implementation, skip the check for this symbol.
-                if (!overrideFunction) {
+                if (!impl || !isFunction(impl)) {
                     return;
                 }
+
+                overrideFunction = impl;
             }
 
             if (overrideFunction) {
@@ -6359,45 +6365,88 @@ export class Checker extends ParseTreeWalker {
             }
 
             const overloads = OverloadedFunctionType.getOverloads(typeOfSymbol);
-
-            // If there's an implementation, it will determine whether the
-            // function is @final.
             const implementation = OverloadedFunctionType.getImplementation(typeOfSymbol);
-            if (implementation) {
-                // If one or more of the overloads is marked @final but the
-                // implementation is not, report an error.
-                if (!FunctionType.isFinal(implementation)) {
-                    overloads.forEach((overload) => {
-                        if (FunctionType.isFinal(overload) && overload.shared.declaration?.node) {
-                            this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportInconsistentOverload,
-                                LocMessage.overloadFinalInconsistencyImpl().format({
-                                    name: overload.shared.name,
-                                }),
-                                getNameNodeForDeclaration(overload.shared.declaration) ??
-                                    overload.shared.declaration.node
-                            );
-                        }
-                    });
-                }
-                return;
-            }
 
-            if (!FunctionType.isFinal(overloads[0])) {
-                overloads.slice(1).forEach((overload, index) => {
+            this._validateOverloadFinalConsistency(overloads, implementation);
+            this._validateOverloadAbstractConsistency(overloads, implementation);
+        });
+    }
+
+    private _validateOverloadAbstractConsistency(overloads: FunctionType[], implementation: Type | undefined) {
+        // If there's an implementation, it will determine whether the
+        // function is abstract.
+        if (implementation && isFunction(implementation)) {
+            const isImplAbstract = FunctionType.isAbstractMethod(implementation);
+
+            overloads.forEach((overload) => {
+                if (FunctionType.isAbstractMethod(overload) !== isImplAbstract && overload.shared.declaration) {
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportInconsistentOverload,
+                        LocMessage.overloadAbstractImplMismatch().format({
+                            name: overload.shared.name,
+                        }),
+                        getNameNodeForDeclaration(overload.shared.declaration) ?? overload.shared.declaration.node
+                    );
+                }
+            });
+            return;
+        }
+
+        if (overloads.length < 2) {
+            return;
+        }
+
+        const isFirstOverloadAbstract = FunctionType.isAbstractMethod(overloads[0]);
+
+        overloads.slice(1).forEach((overload, index) => {
+            if (FunctionType.isAbstractMethod(overload) !== isFirstOverloadAbstract && overload.shared.declaration) {
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportInconsistentOverload,
+                    LocMessage.overloadAbstractMismatch().format({
+                        name: overload.shared.name,
+                    }),
+                    getNameNodeForDeclaration(overload.shared.declaration) ?? overload.shared.declaration.node
+                );
+            }
+        });
+    }
+
+    private _validateOverloadFinalConsistency(overloads: FunctionType[], implementation: Type | undefined) {
+        // If there's an implementation, it will determine whether the
+        // function is @final.
+        if (implementation && isFunction(implementation)) {
+            // If one or more of the overloads is marked @final but the
+            // implementation is not, report an error.
+            if (!FunctionType.isFinal(implementation)) {
+                overloads.forEach((overload) => {
                     if (FunctionType.isFinal(overload) && overload.shared.declaration?.node) {
                         this._evaluator.addDiagnostic(
                             DiagnosticRule.reportInconsistentOverload,
-                            LocMessage.overloadFinalInconsistencyNoImpl().format({
+                            LocMessage.overloadFinalInconsistencyImpl().format({
                                 name: overload.shared.name,
-                                index: index + 2,
                             }),
                             getNameNodeForDeclaration(overload.shared.declaration) ?? overload.shared.declaration.node
                         );
                     }
                 });
             }
-        });
+            return;
+        }
+
+        if (overloads.length > 0 && !FunctionType.isFinal(overloads[0])) {
+            overloads.slice(1).forEach((overload, index) => {
+                if (FunctionType.isFinal(overload) && overload.shared.declaration?.node) {
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportInconsistentOverload,
+                        LocMessage.overloadFinalInconsistencyNoImpl().format({
+                            name: overload.shared.name,
+                            index: index + 2,
+                        }),
+                        getNameNodeForDeclaration(overload.shared.declaration) ?? overload.shared.declaration.node
+                    );
+                }
+            });
+        }
     }
 
     // For a TypedDict class that derives from another TypedDict class
@@ -6602,7 +6651,10 @@ export class Checker extends ParseTreeWalker {
         if (isFunction(overrideType)) {
             overrideFunction = overrideType;
         } else if (isOverloadedFunction(overrideType)) {
-            overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
+            const impl = OverloadedFunctionType.getImplementation(overrideType);
+            if (impl && isFunction(impl)) {
+                overrideFunction = impl;
+            }
         } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
             if (overrideType.priv.fgetInfo) {
                 overrideFunction = overrideType.priv.fgetInfo.methodType;
@@ -6655,7 +6707,10 @@ export class Checker extends ParseTreeWalker {
         if (isFunction(overrideType)) {
             overrideFunction = overrideType;
         } else if (isOverloadedFunction(overrideType)) {
-            overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
+            const impl = OverloadedFunctionType.getImplementation(overrideType);
+            if (impl && isFunction(impl)) {
+                overrideFunction = impl;
+            }
         } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
             if (overrideType.priv.fgetInfo) {
                 overrideFunction = overrideType.priv.fgetInfo.methodType;

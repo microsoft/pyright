@@ -2254,6 +2254,9 @@ export namespace FunctionType {
 export interface OverloadedFunctionDetailsPriv {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     _overloads: FunctionType[];
+
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    _implementation: Type | undefined;
 }
 
 export interface OverloadedFunctionType extends TypeBase<TypeCategory.OverloadedFunction> {
@@ -2261,7 +2264,7 @@ export interface OverloadedFunctionType extends TypeBase<TypeCategory.Overloaded
 }
 
 export namespace OverloadedFunctionType {
-    export function create(overloads: FunctionType[]) {
+    export function create(overloads: FunctionType[], implementation?: Type): OverloadedFunctionType {
         const newType: OverloadedFunctionType = {
             category: TypeCategory.OverloadedFunction,
             flags: TypeFlags.Instance,
@@ -2270,6 +2273,7 @@ export namespace OverloadedFunctionType {
             shared: undefined,
             priv: {
                 _overloads: [],
+                _implementation: implementation,
             },
         };
 
@@ -2287,11 +2291,11 @@ export namespace OverloadedFunctionType {
     }
 
     export function getOverloads(type: OverloadedFunctionType): FunctionType[] {
-        return type.priv._overloads.filter((func) => FunctionType.isOverloaded(func));
+        return type.priv._overloads;
     }
 
-    export function getImplementation(type: OverloadedFunctionType): FunctionType | undefined {
-        return type.priv._overloads.find((func) => !FunctionType.isOverloaded(func));
+    export function getImplementation(type: OverloadedFunctionType): Type | undefined {
+        return type.priv._implementation;
     }
 }
 
