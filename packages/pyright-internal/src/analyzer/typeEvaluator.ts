@@ -14993,7 +14993,7 @@ export function createTypeEvaluator(
             if (!type) {
                 const exprType = getTypeOfExpression(
                     itemExpr,
-                    (flags & EvalFlags.ForwardRefs) | EvalFlags.NoConvertSpecialForm | EvalFlags.TypeExpression
+                    (flags & (EvalFlags.ForwardRefs | EvalFlags.TypeExpression)) | EvalFlags.NoConvertSpecialForm
                 );
 
                 // Is this an enum type?
@@ -15022,8 +15022,12 @@ export function createTypeEvaluator(
             }
 
             if (!type) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalUnsupportedType(), item);
-                type = UnknownType.create();
+                if ((flags & EvalFlags.TypeExpression) !== 0) {
+                    addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalUnsupportedType(), item);
+                    type = UnknownType.create();
+                } else {
+                    return ClassType.cloneAsInstance(classType);
+                }
             }
 
             literalTypes.push(type);
