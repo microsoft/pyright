@@ -583,12 +583,7 @@ function assignBoundTypeVar(
     }
 
     // Is this the equivalent of an "Unknown" for a ParamSpec?
-    if (
-        isParamSpec(destType) &&
-        isFunction(srcType) &&
-        FunctionType.isParamSpecValue(srcType) &&
-        FunctionType.isGradualCallableForm(srcType)
-    ) {
+    if (isParamSpec(destType) && isFunction(srcType) && FunctionType.isGradualCallableForm(srcType)) {
         return true;
     }
 
