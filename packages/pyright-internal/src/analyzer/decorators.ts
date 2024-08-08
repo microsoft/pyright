@@ -9,8 +9,6 @@
  */
 
 import { appendArray } from '../common/collectionUtils';
-import { DiagnosticRule } from '../common/diagnosticRules';
-import { LocMessage } from '../localization/localize';
 import { ArgCategory, CallNode, DecoratorNode, FunctionNode, ParamCategory, ParseNodeType } from '../parser/parseNodes';
 import { getDeclaration, getFileInfo } from './analyzerNodeInfo';
 import {
@@ -472,8 +470,10 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
 // method searches for prior function nodes that are marked as @overload
 // and creates an OverloadedFunctionType that includes this function and
 // all previous ones.
-export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: FunctionNode, type: FunctionType): Type {
+export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: FunctionNode, type: Type): Type {
     let functionDecl: FunctionDeclaration | undefined;
+    let implementation: Type | undefined;
+
     const decl = getDeclaration(node);
     if (decl) {
         functionDecl = decl as FunctionDeclaration;
@@ -507,26 +507,44 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
                             overloadedTypes.push(prevDeclDeclTypeInfo.decoratedType);
                         }
                     } else if (isOverloadedFunction(prevDeclDeclTypeInfo.decoratedType)) {
+                        implementation = OverloadedFunctionType.getImplementation(prevDeclDeclTypeInfo.decoratedType);
+                        // If the previous overloaded function already had an implementation,
+                        // this new function completely replaces the previous one.
+                        if (implementation) {
+                            return type;
+                        }
+
                         // If the previous declaration was itself an overloaded function,
                         // copy the entries from it.
-                        appendArray(overloadedTypes, prevDeclDeclTypeInfo.decoratedType.priv.overloads);
+                        appendArray(
+                            overloadedTypes,
+                            OverloadedFunctionType.getOverloads(prevDeclDeclTypeInfo.decoratedType)
+                        );
                     }
                 }
             }
 
-            overloadedTypes.push(type);
+            if (isFunction(type) && FunctionType.isOverloaded(type)) {
+                overloadedTypes.push(type);
+            } else {
+                implementation = type;
+            }
 
-            if (overloadedTypes.length === 1) {
+            if (overloadedTypes.length === 1 && !implementation) {
                 return overloadedTypes[0];
+            }
+
+            if (overloadedTypes.length === 0 && implementation) {
+                return implementation;
             }
 
             // Apply the implementation's docstring to any overloads that don't
             // have their own docstrings.
-            const implementation = overloadedTypes.find((signature) => !FunctionType.isOverloaded(signature));
-            if (implementation?.shared.docString) {
+            if (implementation && isFunction(implementation) && implementation.shared.docString) {
+                const docString = implementation.shared.docString;
                 overloadedTypes = overloadedTypes.map((overload) => {
                     if (FunctionType.isOverloaded(overload) && !overload.shared.docString) {
-                        return FunctionType.cloneWithDocString(overload, implementation.shared.docString);
+                        return FunctionType.cloneWithDocString(overload, docString);
                     }
                     return overload;
                 });
@@ -535,35 +553,17 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
             // PEP 702 indicates that if the implementation of an overloaded
             // function is marked deprecated, all of the overloads should be
             // treated as deprecated as well.
-            if (implementation && implementation.shared.deprecatedMessage !== undefined) {
+            if (implementation && isFunction(implementation) && implementation.shared.deprecatedMessage !== undefined) {
+                const deprecationMessage = implementation.shared.deprecatedMessage;
                 overloadedTypes = overloadedTypes.map((overload) => {
                     if (FunctionType.isOverloaded(overload) && overload.shared.deprecatedMessage === undefined) {
-                        return FunctionType.cloneWithDeprecatedMessage(
-                            overload,
-                            implementation.shared.deprecatedMessage
-                        );
+                        return FunctionType.cloneWithDeprecatedMessage(overload, deprecationMessage);
                     }
                     return overload;
                 });
             }
 
-            // Create a new overloaded type that copies the contents of the previous
-            // one and adds a new function.
-            const newOverload = OverloadedFunctionType.create(overloadedTypes);
-
-            const prevOverload = overloadedTypes[overloadedTypes.length - 2];
-            const isPrevOverloadAbstract = FunctionType.isAbstractMethod(prevOverload);
-            const isCurrentOverloadAbstract = FunctionType.isAbstractMethod(type);
-
-            if (isPrevOverloadAbstract !== isCurrentOverloadAbstract) {
-                evaluator.addDiagnostic(
-                    DiagnosticRule.reportInconsistentOverload,
-                    LocMessage.overloadAbstractMismatch().format({ name: node.d.name.d.value }),
-                    node.d.name
-                );
-            }
-
-            return newOverload;
+            return OverloadedFunctionType.create(overloadedTypes, implementation);
         }
     }
 

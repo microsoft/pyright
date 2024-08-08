@@ -11,7 +11,6 @@ import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { ArgumentNode, ParamCategory } from '../parser/parseNodes';
 import { ConstraintSolution, ConstraintSolutionSet } from './constraintSolution';
-import { ConstraintTracker } from './constraintTracker';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isEffectivelyClassVar, isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
@@ -525,12 +524,13 @@ export function mapSignatures(
 
     // Add the unmodified implementation if it's present.
     const implementation = OverloadedFunctionType.getImplementation(type);
-    if (implementation) {
-        const newImplementation = callback(implementation);
+    let newImplementation: Type | undefined = implementation;
+
+    if (implementation && isFunction(implementation)) {
+        newImplementation = callback(implementation);
 
         if (newImplementation) {
             changeMade = true;
-            newSignatures.push(newImplementation);
         }
     }
 
@@ -542,7 +542,7 @@ export function mapSignatures(
         return newSignatures[0];
     }
 
-    return OverloadedFunctionType.create(newSignatures);
+    return OverloadedFunctionType.create(newSignatures, newImplementation);
 }
 
 // The code flow engine uses a special form of the UnknownType (with the
@@ -687,14 +687,16 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
         case TypeCategory.OverloadedFunction: {
             const bOver = b as OverloadedFunctionType;
 
-            const aOverloadCount = a.priv.overloads.length;
-            const bOverloadCount = bOver.priv.overloads.length;
+            const aOverloads = OverloadedFunctionType.getOverloads(a);
+            const bOverloads = OverloadedFunctionType.getOverloads(bOver);
+            const aOverloadCount = aOverloads.length;
+            const bOverloadCount = bOverloads.length;
             if (aOverloadCount !== bOverloadCount) {
                 return bOverloadCount - aOverloadCount;
             }
 
             for (let i = 0; i < aOverloadCount; i++) {
-                const typeComparison = compareTypes(a.priv.overloads[i], bOver.priv.overloads[i]);
+                const typeComparison = compareTypes(aOverloads[i], bOverloads[i]);
                 if (typeComparison !== 0) {
                     return typeComparison;
                 }
@@ -918,8 +920,17 @@ export function getFullNameOfType(type: Type): string | undefined {
         case TypeCategory.Module:
             return type.priv.moduleName;
 
-        case TypeCategory.OverloadedFunction:
-            return type.priv.overloads[0].shared.fullName;
+        case TypeCategory.OverloadedFunction: {
+            const overloads = OverloadedFunctionType.getOverloads(type);
+            if (overloads.length > 0) {
+                return overloads[0].shared.fullName;
+            }
+
+            const impl = OverloadedFunctionType.getImplementation(type);
+            if (impl && isFunction(impl)) {
+                return impl.shared.fullName;
+            }
+        }
     }
 
     return undefined;
@@ -954,7 +965,9 @@ export function addConditionToType<T extends Type>(
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
 
         case TypeCategory.OverloadedFunction:
-            return OverloadedFunctionType.create(type.priv.overloads.map((t) => addConditionToType(t, condition))) as T;
+            return OverloadedFunctionType.create(
+                OverloadedFunctionType.getOverloads(type).map((t) => addConditionToType(t, condition))
+            ) as T;
 
         case TypeCategory.Class:
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
@@ -2006,85 +2019,6 @@ export function specializeClassType(type: ClassType): ClassType {
     return applySolvedTypeVars(type, solution) as ClassType;
 }
 
-// Recursively finds all of the type arguments and sets them
-// to the specified srcType.
-export function setTypeArgsRecursive(
-    destType: Type,
-    srcType: UnknownType | AnyType,
-    constraints: ConstraintTracker,
-    recursionCount = 0
-) {
-    if (recursionCount > maxTypeRecursionCount) {
-        return;
-    }
-    recursionCount++;
-
-    if (constraints.isLocked()) {
-        return;
-    }
-
-    switch (destType.category) {
-        case TypeCategory.Union:
-            doForEachSubtype(destType, (subtype) => {
-                setTypeArgsRecursive(subtype, srcType, constraints, recursionCount);
-            });
-            break;
-
-        case TypeCategory.Class:
-            if (destType.priv.typeArgs) {
-                destType.priv.typeArgs.forEach((typeArg) => {
-                    setTypeArgsRecursive(typeArg, srcType, constraints, recursionCount);
-                });
-            }
-            if (destType.priv.tupleTypeArgs) {
-                destType.priv.tupleTypeArgs.forEach((typeArg) => {
-                    setTypeArgsRecursive(typeArg.type, srcType, constraints, recursionCount);
-                });
-            }
-            break;
-
-        case TypeCategory.Function:
-            if (destType.priv.specializedTypes) {
-                destType.priv.specializedTypes.parameterTypes.forEach((paramType) => {
-                    setTypeArgsRecursive(paramType, srcType, constraints, recursionCount);
-                });
-                if (destType.priv.specializedTypes.returnType) {
-                    setTypeArgsRecursive(
-                        destType.priv.specializedTypes.returnType,
-                        srcType,
-                        constraints,
-                        recursionCount
-                    );
-                }
-            } else {
-                destType.shared.parameters.forEach((_, index) => {
-                    setTypeArgsRecursive(
-                        FunctionType.getParamType(destType, index),
-                        srcType,
-                        constraints,
-                        recursionCount
-                    );
-                });
-                if (destType.shared.declaredReturnType) {
-                    setTypeArgsRecursive(destType.shared.declaredReturnType, srcType, constraints, recursionCount);
-                }
-            }
-            break;
-
-        case TypeCategory.OverloadedFunction:
-            destType.priv.overloads.forEach((subtype) => {
-                setTypeArgsRecursive(subtype, srcType, constraints, recursionCount);
-            });
-            break;
-
-        case TypeCategory.TypeVar:
-            if (!constraints.getMainConstraintSet().getTypeVar(destType)) {
-                constraints.setBounds(destType, srcType);
-            }
-            break;
-    }
-}
-
 // Builds a mapping between type parameters and their specialized
 // types. For example, if the generic type is Dict[_T1, _T2] and the
 // specialized type is Dict[str, int], it returns a map that associates
@@ -2887,7 +2821,17 @@ function _requiresSpecialization(type: Type, options?: RequiresSpecializationOpt
         }
 
         case TypeCategory.OverloadedFunction: {
-            return type.priv.overloads.some((overload) => requiresSpecialization(overload, options, recursionCount));
+            const overloads = OverloadedFunctionType.getOverloads(type);
+            if (overloads.some((overload) => requiresSpecialization(overload, options, recursionCount))) {
+                return true;
+            }
+
+            const impl = OverloadedFunctionType.getImplementation(type);
+            if (impl) {
+                return requiresSpecialization(impl, options, recursionCount);
+            }
+
+            return false;
         }
 
         case TypeCategory.Union: {
@@ -3188,9 +3132,14 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
         }
 
         case TypeCategory.OverloadedFunction: {
-            type.priv.overloads.forEach((overload) => {
+            const overloads = OverloadedFunctionType.getOverloads(type);
+            overloads.forEach((overload) => {
                 addDeclaringModuleNamesForType(overload, moduleList, recursionCount);
             });
+            const impl = OverloadedFunctionType.getImplementation(type);
+            if (impl) {
+                addDeclaringModuleNamesForType(impl, moduleList, recursionCount);
+            }
             break;
         }
 
@@ -3449,14 +3398,16 @@ export class TypeVarTransformer {
             let requiresUpdate = false;
 
             // Specialize each of the functions in the overload.
+            const overloads = OverloadedFunctionType.getOverloads(type);
             const newOverloads: FunctionType[] = [];
-            type.priv.overloads.forEach((entry) => {
+
+            overloads.forEach((entry) => {
                 const replacementType = this.transformTypeVarsInFunctionType(entry, recursionCount);
 
                 if (isFunction(replacementType)) {
                     newOverloads.push(replacementType);
                 } else {
-                    appendArray(newOverloads, replacementType.priv.overloads);
+                    appendArray(newOverloads, OverloadedFunctionType.getOverloads(replacementType));
                 }
 
                 if (replacementType !== entry) {
@@ -3464,10 +3415,21 @@ export class TypeVarTransformer {
                 }
             });
 
+            const impl = OverloadedFunctionType.getImplementation(type);
+            let newImpl: Type | undefined = impl;
+
+            if (impl) {
+                newImpl = this.apply(impl, recursionCount);
+
+                if (newImpl !== impl) {
+                    requiresUpdate = true;
+                }
+            }
+
             this._pendingFunctionTransformations.pop();
 
             // Construct a new overload with the specialized function types.
-            return requiresUpdate ? OverloadedFunctionType.create(newOverloads) : type;
+            return requiresUpdate ? OverloadedFunctionType.create(newOverloads, newImpl) : type;
         }
 
         return type;

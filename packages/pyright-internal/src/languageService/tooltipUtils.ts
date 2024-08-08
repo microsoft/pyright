@@ -145,7 +145,7 @@ export function getConstructorTooltip(
     let signature = '';
 
     if (isOverloadedFunction(type)) {
-        const overloads = type.priv.overloads.map((overload) =>
+        const overloads = OverloadedFunctionType.getOverloads(type).map((overload) =>
             getConstructorTooltip(constructorName, overload, evaluator, functionSignatureDisplay)
         );
         overloads.forEach((overload, index) => {
@@ -189,17 +189,18 @@ export function getOverloadedFunctionDocStringsFromType(
     sourceMapper: SourceMapper,
     evaluator: TypeEvaluator
 ) {
-    if (type.priv.overloads.length === 0) {
+    const overloads = OverloadedFunctionType.getOverloads(type);
+    if (overloads.length === 0) {
         return [];
     }
 
-    const decl = type.priv.overloads[0].shared.declaration;
+    const decl = overloads[0].shared.declaration;
     const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
     const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
 
     return getOverloadedFunctionDocStringsInherited(
         type,
-        type.priv.overloads.map((o) => o.shared.declaration).filter(isDefined),
+        overloads.map((o) => o.shared.declaration).filter(isDefined),
         sourceMapper,
         evaluator,
 

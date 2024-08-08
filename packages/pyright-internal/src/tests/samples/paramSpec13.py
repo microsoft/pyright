@@ -2,8 +2,16 @@
 # for a generic type alias, a generic function, and a generic class.
 
 import asyncio
-from typing import Any, Callable, Concatenate, Coroutine, Generic, ParamSpec, TypeVar
-
+from typing import (
+    Any,
+    Callable,
+    Concatenate,
+    Coroutine,
+    Generic,
+    ParamSpec,
+    TypeAlias,
+    TypeVar,
+)
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -101,3 +109,11 @@ asyncio.run(takes_check_func(my_check_func, 1, "2"))
 
 # This should generate an error because the signature doesn't match.
 asyncio.run(takes_check_func(my_check_func, 1, 2))
+
+
+TA1: TypeAlias = Callable[_P, Any]
+
+ta1_1: TA1[()] = lambda: 0
+
+# This should generate an error.
+ta1_2: TA1[()] = lambda x: x

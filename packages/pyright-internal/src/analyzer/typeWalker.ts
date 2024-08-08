@@ -157,11 +157,17 @@ export class TypeWalker {
     }
 
     visitOverloadedFunction(type: OverloadedFunctionType): void {
-        for (const overload of type.priv.overloads) {
+        const overloads = OverloadedFunctionType.getOverloads(type);
+        for (const overload of overloads) {
             this.walk(overload);
             if (this._isWalkCanceled) {
                 break;
             }
+        }
+
+        const impl = OverloadedFunctionType.getImplementation(type);
+        if (impl) {
+            this.walk(impl);
         }
     }
 
