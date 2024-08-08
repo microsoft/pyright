@@ -525,12 +525,13 @@ export function mapSignatures(
 
     // Add the unmodified implementation if it's present.
     const implementation = OverloadedFunctionType.getImplementation(type);
-    if (implementation) {
-        const newImplementation = callback(implementation);
+    let newImplementation: Type | undefined = implementation;
+
+    if (implementation && isFunction(implementation)) {
+        newImplementation = callback(implementation);
 
         if (newImplementation) {
             changeMade = true;
-            newSignatures.push(newImplementation);
         }
     }
 
@@ -542,7 +543,7 @@ export function mapSignatures(
         return newSignatures[0];
     }
 
-    return OverloadedFunctionType.create(newSignatures);
+    return OverloadedFunctionType.create(newSignatures, newImplementation);
 }
 
 // The code flow engine uses a special form of the UnknownType (with the
@@ -3495,15 +3496,12 @@ export class TypeVarTransformer {
             });
 
             const impl = OverloadedFunctionType.getImplementation(type);
-            if (impl && isFunction(impl)) {
-                const replacementType = this.transformTypeVarsInFunctionType(impl, recursionCount);
-                if (isFunction(replacementType)) {
-                    newOverloads.push(replacementType);
-                } else {
-                    appendArray(newOverloads, OverloadedFunctionType.getOverloads(replacementType));
-                }
+            let newImpl: Type | undefined = impl;
 
-                if (replacementType !== impl) {
+            if (impl) {
+                newImpl = this.apply(impl, recursionCount);
+
+                if (newImpl !== impl) {
                     requiresUpdate = true;
                 }
             }
@@ -3511,7 +3509,7 @@ export class TypeVarTransformer {
             this._pendingFunctionTransformations.pop();
 
             // Construct a new overload with the specialized function types.
-            return requiresUpdate ? OverloadedFunctionType.create(newOverloads) : type;
+            return requiresUpdate ? OverloadedFunctionType.create(newOverloads, newImpl) : type;
         }
 
         return type;

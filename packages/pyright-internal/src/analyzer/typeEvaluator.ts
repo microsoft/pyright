@@ -6345,7 +6345,7 @@ export function createTypeEvaluator(
                 ? concreteType
                 : OverloadedFunctionType.getImplementation(concreteType);
 
-            if (impl && FunctionType.isFinal(impl) && memberInfo && isClass(memberInfo.classType)) {
+            if (impl && isFunction(impl) && FunctionType.isFinal(impl) && memberInfo && isClass(memberInfo.classType)) {
                 diag?.addMessage(
                     LocMessage.finalMethodOverride().format({
                         name: memberName,
@@ -17807,9 +17807,9 @@ export function createTypeEvaluator(
                     markParamAccessed(param);
                 });
             }
-
-            decoratedType = addOverloadsToFunctionType(evaluatorInterface, node, decoratedType);
         }
+
+        decoratedType = addOverloadsToFunctionType(evaluatorInterface, node, decoratedType);
 
         writeTypeCache(node, { type: decoratedType }, EvalFlags.None);
 
