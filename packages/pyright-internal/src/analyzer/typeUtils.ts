@@ -11,7 +11,6 @@ import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { ArgumentNode, ParamCategory } from '../parser/parseNodes';
 import { ConstraintSolution, ConstraintSolutionSet } from './constraintSolution';
-import { ConstraintTracker } from './constraintTracker';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isEffectivelyClassVar, isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
@@ -2018,85 +2017,6 @@ export function specializeClassType(type: ClassType): ClassType {
     });
 
     return applySolvedTypeVars(type, solution) as ClassType;
-}
-
-// Recursively finds all of the type arguments and sets them
-// to the specified srcType.
-export function setTypeArgsRecursive(
-    destType: Type,
-    srcType: UnknownType | AnyType,
-    constraints: ConstraintTracker,
-    recursionCount = 0
-) {
-    if (recursionCount > maxTypeRecursionCount) {
-        return;
-    }
-    recursionCount++;
-
-    if (constraints.isLocked()) {
-        return;
-    }
-
-    switch (destType.category) {
-        case TypeCategory.Union:
-            doForEachSubtype(destType, (subtype) => {
-                setTypeArgsRecursive(subtype, srcType, constraints, recursionCount);
-            });
-            break;
-
-        case TypeCategory.Class:
-            if (destType.priv.typeArgs) {
-                destType.priv.typeArgs.forEach((typeArg) => {
-                    setTypeArgsRecursive(typeArg, srcType, constraints, recursionCount);
-                });
-            }
-            if (destType.priv.tupleTypeArgs) {
-                destType.priv.tupleTypeArgs.forEach((typeArg) => {
-                    setTypeArgsRecursive(typeArg.type, srcType, constraints, recursionCount);
-                });
-            }
-            break;
-
-        case TypeCategory.Function:
-            if (destType.priv.specializedTypes) {
-                destType.priv.specializedTypes.parameterTypes.forEach((paramType) => {
-                    setTypeArgsRecursive(paramType, srcType, constraints, recursionCount);
-                });
-                if (destType.priv.specializedTypes.returnType) {
-                    setTypeArgsRecursive(
-                        destType.priv.specializedTypes.returnType,
-                        srcType,
-                        constraints,
-                        recursionCount
-                    );
-                }
-            } else {
-                destType.shared.parameters.forEach((_, index) => {
-                    setTypeArgsRecursive(
-                        FunctionType.getParamType(destType, index),
-                        srcType,
-                        constraints,
-                        recursionCount
-                    );
-                });
-                if (destType.shared.declaredReturnType) {
-                    setTypeArgsRecursive(destType.shared.declaredReturnType, srcType, constraints, recursionCount);
-                }
-            }
-            break;
-
-        case TypeCategory.OverloadedFunction:
-            OverloadedFunctionType.getOverloads(destType).forEach((subtype) => {
-                setTypeArgsRecursive(subtype, srcType, constraints, recursionCount);
-            });
-            break;
-
-        case TypeCategory.TypeVar:
-            if (!constraints.getMainConstraintSet().getTypeVar(destType)) {
-                constraints.setBounds(destType, srcType);
-            }
-            break;
-    }
 }
 
 // Builds a mapping between type parameters and their specialized
