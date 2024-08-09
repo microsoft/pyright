@@ -2504,7 +2504,7 @@ export function createTypeEvaluator(
         );
 
         // Add a keyword separator if necessary.
-        if (kwSeparatorIndex < 0) {
+        if (kwSeparatorIndex < 0 && tdEntries.size > 0) {
             FunctionType.addKeywordOnlyParamSeparator(newFunction);
         }
 

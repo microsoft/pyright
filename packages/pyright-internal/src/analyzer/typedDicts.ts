@@ -277,10 +277,17 @@ export function synthesizeTypedDictClassMethods(
             '__map'
         )
     );
-    FunctionType.addPositionOnlyParamSeparator(initOverride1);
 
-    // All subsequent parameters must be named, so insert an empty "*".
-    FunctionType.addKeywordOnlyParamSeparator(initOverride1);
+    const entries = getTypedDictMembersForClass(evaluator, classType);
+    const extraEntriesInfo = entries.extraItems ?? getEffectiveExtraItemsEntryType(evaluator, classType);
+    let allEntriesAreReadOnly = entries.knownItems.size > 0;
+
+    if (entries.knownItems.size > 0) {
+        FunctionType.addPositionOnlyParamSeparator(initOverride1);
+
+        // All subsequent parameters must be named, so insert an empty "*".
+        FunctionType.addKeywordOnlyParamSeparator(initOverride1);
+    }
 
     const initOverride2 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
     FunctionType.addParam(
@@ -295,12 +302,10 @@ export function synthesizeTypedDictClassMethods(
     initOverride2.shared.declaredReturnType = evaluator.getNoneType();
     initOverride2.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
-    // All parameters must be named, so insert an empty "*".
-    FunctionType.addKeywordOnlyParamSeparator(initOverride2);
-
-    const entries = getTypedDictMembersForClass(evaluator, classType);
-    const extraEntriesInfo = entries.extraItems ?? getEffectiveExtraItemsEntryType(evaluator, classType);
-    let allEntriesAreReadOnly = entries.knownItems.size > 0;
+    if (entries.knownItems.size > 0) {
+        // All parameters must be named, so insert an empty "*".
+        FunctionType.addKeywordOnlyParamSeparator(initOverride2);
+    }
 
     entries.knownItems.forEach((entry, name) => {
         FunctionType.addParam(
@@ -528,8 +533,10 @@ export function synthesizeTypedDictClassMethods(
                 )
             );
 
-            FunctionType.addPositionOnlyParamSeparator(updateMethod1);
-            FunctionType.addKeywordOnlyParamSeparator(updateMethod3);
+            if (entries.knownItems.size > 0) {
+                FunctionType.addPositionOnlyParamSeparator(updateMethod1);
+                FunctionType.addKeywordOnlyParamSeparator(updateMethod3);
+            }
 
             updateMethod1.shared.declaredReturnType = evaluator.getNoneType();
             updateMethod2.shared.declaredReturnType = evaluator.getNoneType();
@@ -582,7 +589,9 @@ export function synthesizeTypedDictClassMethods(
                 );
             }
 
-            FunctionType.addPositionOnlyParamSeparator(updateMethod2);
+            if (entries.knownItems.size > 0) {
+                FunctionType.addPositionOnlyParamSeparator(updateMethod2);
+            }
 
             // Note that the order of method1 and method2 is swapped. This is done so
             // the method1 signature is used in the error message when neither method2
