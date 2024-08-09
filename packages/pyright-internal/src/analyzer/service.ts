@@ -571,7 +571,7 @@ export class AnalyzerService {
             // If pyright is being executed from the command line, the working
             // directory may be deep within a project, and we need to walk up the
             // directory hierarchy to find the project root.
-            if (!configFilePath && !commandLineOptions.fromVsCodeExtension) {
+            if (!configFilePath && !commandLineOptions.fromLanguageServer) {
                 configFilePath = findConfigFileHereOrUp(this.fs, projectRoot);
             }
 
@@ -587,7 +587,7 @@ export class AnalyzerService {
             // See if we can find a pyproject.toml file in this directory.
             pyprojectFilePath = findPyprojectTomlFile(this.fs, projectRoot);
 
-            if (!pyprojectFilePath && !commandLineOptions.fromVsCodeExtension) {
+            if (!pyprojectFilePath && !commandLineOptions.fromLanguageServer) {
                 pyprojectFilePath = findPyprojectTomlFileHereOrUp(this.fs, projectRoot);
             }
 
@@ -605,7 +605,7 @@ export class AnalyzerService {
         const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
         if (configs && configs.length > 0) {
             // With a pyrightconfig.json set, we want the typeCheckingMode to always be standard
-            // as that's what the Pyright CLI will expect. Command line options (if not a VS code extension) and
+            // as that's what the Pyright CLI will expect. Command line options (if not a language server) and
             // the config file can override this.
             configOptions.initializeTypeCheckingMode('standard');
 
@@ -620,14 +620,14 @@ export class AnalyzerService {
                 );
             }
 
-            // When not in VS code mode, command line options override config file options.
-            if (!commandLineOptions.fromVsCodeExtension) {
+            // When not in language server mode, command line options override config file options.
+            if (!commandLineOptions.fromLanguageServer) {
                 this._applyCommandLineOptionsToConfig(configOptions, commandLineOptions, projectRoot);
             }
         } else {
-            // Initialize the type checking mode based on if this is for a VS code extension or not. VS code
-            // extensions default to 'off' when no config file is found.
-            configOptions.initializeTypeCheckingMode(commandLineOptions.fromVsCodeExtension ? 'off' : 'standard');
+            // Initialize the type checking mode based on if this is for a language server or not. Language
+            // servers default to 'off' when no config file is found.
+            configOptions.initializeTypeCheckingMode(commandLineOptions.fromLanguageServer ? 'off' : 'standard');
 
             // If there are no config files, we can then directly apply the command line options.
             this._applyCommandLineOptionsToConfig(configOptions, commandLineOptions, projectRoot);
@@ -860,7 +860,7 @@ export class AnalyzerService {
         }
 
         const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
-            const settingSource = commandLineOptions.fromVsCodeExtension
+            const settingSource = commandLineOptions.fromLanguageServer
                 ? 'the client settings'
                 : 'a command-line option';
             this._console.warn(
@@ -1763,7 +1763,7 @@ export class AnalyzerService {
 
         this._backgroundAnalysisProgram.setImportResolver(importResolver);
 
-        if (this._commandLineOptions?.fromVsCodeExtension || this._configOptions.verboseOutput) {
+        if (this._commandLineOptions?.fromLanguageServer || this._configOptions.verboseOutput) {
             const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
             for (const execEnv of this._configOptions.getExecutionEnvironments()) {
                 log(this._console, logLevel, `Search paths for ${execEnv.root || '<default>'}`);
