@@ -119,10 +119,10 @@ export class CommandLineOptions {
     // 'basic', 'standard', or 'strict'.
     typeCheckingMode?: string | undefined;
 
-    // Indicates that the settings came from a language server rather than
+    // Indicates that the settings came from VS Code rather than
     // from the command-line. Useful for providing clearer error
     // messages.
-    fromLanguageServer: boolean;
+    fromVsCodeExtension: boolean;
 
     // Indicates diagnostic severity overrides
     diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap | undefined;
@@ -151,8 +151,8 @@ export class CommandLineOptions {
     // Disable reporting of hint diagnostics with tags?
     disableTaggedHints?: boolean;
 
-    constructor(executionRoot: string | Uri | undefined, fromLanguageServer: boolean) {
+    constructor(executionRoot: string | Uri | undefined, fromVsCodeExtension: boolean) {
         this.executionRoot = executionRoot;
-        this.fromLanguageServer = fromLanguageServer;
+        this.fromVsCodeExtension = fromVsCodeExtension;
     }
 }

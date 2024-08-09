@@ -40,7 +40,6 @@ import { ConsoleInterface, ConsoleWithLogLevel, NullConsole } from '../../../com
 import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
 import * as debug from '../../../common/debug';
 import { DiagnosticCategory } from '../../../common/diagnostic';
-import { PyrightDocStringService } from '../../../common/docStringService';
 import { FileEditAction } from '../../../common/editAction';
 import { ReadOnlyFileSystem } from '../../../common/fileSystem';
 import { LanguageServerInterface } from '../../../common/languageServerInterface';
@@ -98,6 +97,7 @@ import {
 import { TestFeatures, TestLanguageService } from './testLanguageService';
 import { createVfsInfoFromFourSlashData, getMarkerByName, getMarkerName, getMarkerNames } from './testStateUtils';
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
+import { PyrightDocStringService } from '../../../common/docStringService';
 
 export interface TextChange {
     span: TextRange;
@@ -1505,7 +1505,7 @@ export class TestState {
     ) {
         const commandLineOptions = new CommandLineOptions(
             this.configOptions.projectRoot.getFilePath(),
-            /* fromLanguageServer */ false
+            /* fromVsCodeExtension */ false
         );
         commandLineOptions.verboseOutput = verboseOutput;
         const verifier = new PackageTypeVerifier(

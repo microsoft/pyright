@@ -6,13 +6,13 @@ Pyright settings can also be specified in a `[tool.pyright]` section of a “pyp
 
 Relative paths specified within the config file are relative to the config file’s location. Paths with shell variables (including `~`) are not supported. Paths within a config file should generally be relative paths so the config file can be shared by other developers who contribute to the project.
 
-## Environment Options
-
-The following settings control the *environment* in which Pyright will check for diagnostics. These settings determine how Pyright finds source files, imports, and what Python version specific rules are applied.
+## Main Configuration Options
 
 - **include** [array of paths, optional]: Paths of directories or files that should be considered part of the project. If no paths are specified, pyright defaults to the directory that contains the config file. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character). If no include paths are specified, the root path for the workspace is assumed.
 
 - **exclude** [array of paths, optional]: Paths of directories or files that should not be considered part of the project. These override the directories and files that `include` matched, allowing specific subdirectories to be excluded. Note that files in the exclude paths may still be included in the analysis if they are referenced (imported) by source files that are not excluded. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character). If no exclude paths are specified, Pyright automatically excludes the following: `**/node_modules`, `**/__pycache__`, `**/.*`. Pylance also excludes any virtual environment directories regardless of the exclude paths specified. For more detail on Python environment specification and discovery, refer to the [import resolution](import-resolution.md#configuring-your-python-environment) documentation.
+
+- **ignore** [array of paths, optional]: Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed even if they are an included file or within the transitive closure of an included file. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
 
 - **strict** [array of paths, optional]: Paths of directories or files that should use “strict” analysis if they are included. This is the same as manually adding a “# pyright: strict” comment. In strict mode, most type-checking rules are enabled. Refer to [this table](configuration.md#diagnostic-settings-defaults) for details about which rules are enabled in strict mode. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
 
@@ -24,9 +24,9 @@ The following settings control the *environment* in which Pyright will check for
 
 - **stubPath** [path, optional]: Path to a directory that contains custom type stubs. Each package's type stub file(s) are expected to be in its own subdirectory. The default value of this setting is "./typings". (typingsPath is now deprecated)
 
-- **venvPath** [path, optional]: Path to a directory containing one or more subdirectories, each of which contains a virtual environment. When used in conjunction with a **venv** setting (see below), pyright will search for imports in the virtual environment’s site-packages directory rather than the paths specified by the default Python interpreter. If you are working on a project with other developers, it is best not to specify this setting in the config file, since this path will typically differ for each developer. Instead, it can be specified on the command line or in a per-user setting. For more details, refer to the [import resolution](import-resolution.md#configuring-your-python-environment) documentation. This setting is ignored when using Pylance. VS Code's python interpreter path is used instead.
+- **venvPath** [path, optional]: Path to a directory containing one or more subdirectories, each of which contains a virtual environment. When used in conjunction with a **venv** setting (see below), pyright will search for imports in the virtual environment’s site-packages directory rather than the paths specified by the default Python interpreter. If you are working on a project with other developers, it is best not to specify this setting in the config file, since this path will typically differ for each developer. Instead, it can be specified on the command line or in a per-user setting. For more details, refer to the [import resolution](import-resolution.md#configuring-your-python-environment) documentation.
 
-- **venv** [string, optional]: Used in conjunction with the venvPath, specifies the virtual environment to use. For more details, refer to the [import resolution](import-resolution.md#configuring-your-python-environment) documentation. This setting is ignored when using Pylance.
+- **venv** [string, optional]: Used in conjunction with the venvPath, specifies the virtual environment to use. For more details, refer to the [import resolution](import-resolution.md#configuring-your-python-environment) documentation.
 
 - **verboseOutput** [boolean]: Specifies whether output logs should be verbose. This is useful when diagnosing certain problems like import resolution issues.
 
@@ -38,11 +38,12 @@ The following settings control the *environment* in which Pyright will check for
 
 - **executionEnvironments** [array of objects, optional]: Specifies a list of execution environments (see [below](configuration.md#execution-environment-options)). Execution environments are searched from start to finish by comparing the path of a source file with the root path specified in the execution environment.
 
+- **typeCheckingMode** ["off", "basic", "standard", "strict"]: Specifies the default rule set to use. Some rules can be overridden using additional configuration flags documented below. The default value for this setting is "standard". If set to "off", all type-checking rules are disabled, but Python syntax and semantic errors are still reported.
+
 - **useLibraryCodeForTypes** [boolean]: Determines whether pyright reads, parses and analyzes library code to extract type information in the absence of type stub files. Type information will typically be incomplete. We recommend using type stubs where possible. The default value for this option is true.
 
-## Type Evaluation Settings
 
-The following settings determine how different types should be evaluated.
+## Type Evaluation Settings
 
 - <a name="strictListInference"></a> **strictListInference** [boolean]: When inferring the type of a list, use strict type assumptions. For example, the expression `[1, 'a', 3.4]` could be inferred to be of type `list[Any]` or `list[int | str | float]`. If this setting is true, it will use the latter (stricter) type. The default value for this setting is `false`.
 
@@ -64,16 +65,9 @@ The following settings determine how different types should be evaluated.
 
 - <a name="disableBytesTypePromotions"></a> **disableBytesTypePromotions** [boolean]: Disables legacy behavior where `bytearray` and `memoryview` are considered subtypes of `bytes`. [PEP 688](https://peps.python.org/pep-0688/#no-special-meaning-for-bytes) deprecates this behavior, but this switch is provided to restore the older behavior. The default value for this setting is `false`.
 
+
 ## Type Check Diagnostics Settings
-The following settings control pyright’s diagnostic output (warnings or errors).
-
-- **typeCheckingMode** ["off", "basic", "standard", "strict"]: Specifies the default rule set to use. Some rules can be overridden using additional configuration flags documented below. The default value for this setting is "standard". If set to "off", all type-checking rules are disabled, but Python syntax and semantic errors are still reported.
-
-- **ignore** [array of paths, optional]: Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed even if they are an included file or within the transitive closure of an included file. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character). This setting can be overridden in VS code in your settings.json.
-
-### Type Check Rule Overrides
-
-The following settings allow more fine grained control over the **typeCheckingMode**. Unless otherwise specified, each diagnostic setting can specify a boolean value (`false` indicating that no error is generated and `true` indicating that an error is generated). Alternatively, a string value of `"none"`, `"warning"`, `"information"`, or `"error"` can be used to specify the diagnostic level.
+The following settings control pyright’s diagnostic output (warnings or errors). Unless otherwise specified, each diagnostic setting can specify a boolean value (`false` indicating that no error is generated and `true` indicating that an error is generated). Alternatively, a string value of `"none"`, `"warning"`, `"information"`, or `"error"` can be used to specify the diagnostic level.
 
 - <a name="reportGeneralTypeIssues"></a> **reportGeneralTypeIssues** [boolean or string, optional]: Generate or suppress diagnostics for general type inconsistencies, unsupported operations, argument/parameter mismatches, etc. This covers all of the basic type-checking rules not covered by other rules. It does not include syntax errors. The default value for this setting is `"error"`.
 
@@ -441,11 +435,6 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUnnecessaryTypeIgnoreComment        | "none"     | "none"     | "none"     | "none"     |
 | reportUnusedCallResult                    | "none"     | "none"     | "none"     | "none"     |
 
-## Overriding settings (in VS Code)
-
-If a pyproject.toml (with a pyright section) or a pyrightconfig.json exists, any pyright settings in a VS code setttings.json will be ignored. Pyrightconfig.json is prescribing the environment to be used for a particular project. Changing the environment per user is not supported.
-
-If a pyproject.toml (with a pyright section) or a pyrightconfig.json does not exist, then the VS Code settings.json settings apply.
 
 ## Locale Configuration
 

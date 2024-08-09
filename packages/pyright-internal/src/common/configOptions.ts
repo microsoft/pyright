@@ -12,7 +12,7 @@ import { isAbsolute } from 'path';
 import { getPathsFromPthFiles } from '../analyzer/pythonPathUtils';
 import * as pathConsts from '../common/pathConsts';
 import { appendArray } from './collectionUtils';
-import { DiagnosticSeverityOverrides, DiagnosticSeverityOverridesMap } from './commandLineOptions';
+import { CommandLineOptions, DiagnosticSeverityOverrides, DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { ConsoleInterface, NullConsole } from './console';
 import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
@@ -1123,7 +1123,13 @@ export class ConfigOptions {
     }
 
     // Initialize the structure from a JSON object.
-    initializeFromJson(configObj: any, configDirUri: Uri, serviceProvider: ServiceProvider, host: Host) {
+    initializeFromJson(
+        configObj: any,
+        configDirUri: Uri,
+        serviceProvider: ServiceProvider,
+        host: Host,
+        commandLineOptions?: CommandLineOptions
+    ) {
         this.initializedFromJson = true;
         const console = serviceProvider.tryGet(ServiceKeys.console) ?? new NullConsole();
 
@@ -1226,24 +1232,22 @@ export class ConfigOptions {
         }
 
         // Apply overrides from the config file for the boolean rules.
-        const configRuleSet = { ...this.diagnosticRuleSet };
         getBooleanDiagnosticRules(/* includeNonOverridable */ true).forEach((ruleName) => {
-            (configRuleSet as any)[ruleName] = this._convertBoolean(
+            (this.diagnosticRuleSet as any)[ruleName] = this._convertBoolean(
                 configObj[ruleName],
                 ruleName,
-                configRuleSet[ruleName] as boolean
+                this.diagnosticRuleSet[ruleName] as boolean
             );
         });
 
         // Apply overrides from the config file for the diagnostic level rules.
         getDiagLevelDiagnosticRules().forEach((ruleName) => {
-            (configRuleSet as any)[ruleName] = this._convertDiagnosticLevel(
+            (this.diagnosticRuleSet as any)[ruleName] = this._convertDiagnosticLevel(
                 configObj[ruleName],
                 ruleName,
-                configRuleSet[ruleName] as DiagnosticLevel
+                this.diagnosticRuleSet[ruleName] as DiagnosticLevel
             );
         });
-        this.diagnosticRuleSet = { ...configRuleSet };
 
         // Read the "venvPath".
         if (configObj.venvPath !== undefined) {
@@ -1263,9 +1267,9 @@ export class ConfigOptions {
             }
         }
 
-        // Read the config "extraPaths".
-        const configExtraPaths: Uri[] = [];
+        // Read the default "extraPaths".
         if (configObj.extraPaths !== undefined) {
+            this.defaultExtraPaths = [];
             if (!Array.isArray(configObj.extraPaths)) {
                 console.error(`Config "extraPaths" field must contain an array.`);
             } else {
@@ -1274,20 +1278,17 @@ export class ConfigOptions {
                     if (typeof path !== 'string') {
                         console.error(`Config "extraPaths" field ${pathIndex} must be a string.`);
                     } else {
-                        configExtraPaths!.push(configDirUri.resolvePaths(path));
+                        this.defaultExtraPaths!.push(configDirUri.resolvePaths(path));
                     }
                 });
-                this.defaultExtraPaths = [...configExtraPaths];
             }
         }
 
         // Read the default "pythonVersion".
-        let configPythonVersion: PythonVersion | undefined = undefined;
         if (configObj.pythonVersion !== undefined) {
             if (typeof configObj.pythonVersion === 'string') {
                 const version = PythonVersion.fromString(configObj.pythonVersion);
                 if (version) {
-                    configPythonVersion = version;
                     this.defaultPythonVersion = version;
                 } else {
                     console.error(`Config "pythonVersion" field contains unsupported version.`);
@@ -1297,17 +1298,24 @@ export class ConfigOptions {
             }
         }
 
+        // Override the default python version if it was specified on the command line.
+        if (commandLineOptions?.pythonVersion) {
+            this.defaultPythonVersion = commandLineOptions.pythonVersion;
+        }
+
         this.ensureDefaultPythonVersion(host, console);
 
         // Read the default "pythonPlatform".
-        let configPythonPlatform: string | undefined = undefined;
         if (configObj.pythonPlatform !== undefined) {
             if (typeof configObj.pythonPlatform !== 'string') {
                 console.error(`Config "pythonPlatform" field must contain a string.`);
             } else {
                 this.defaultPythonPlatform = configObj.pythonPlatform;
-                configPythonPlatform = configObj.pythonPlatform;
             }
+        }
+
+        if (commandLineOptions?.pythonPlatform) {
+            this.defaultPythonPlatform = commandLineOptions.pythonPlatform;
         }
 
         this.ensureDefaultPythonPlatform(host, console);
@@ -1397,10 +1405,7 @@ export class ConfigOptions {
                         configDirUri,
                         index,
                         console,
-                        configRuleSet,
-                        configPythonVersion,
-                        configPythonPlatform,
-                        configExtraPaths
+                        commandLineOptions
                     );
 
                     if (execEnv) {
@@ -1578,19 +1583,16 @@ export class ConfigOptions {
         configDirUri: Uri,
         index: number,
         console: ConsoleInterface,
-        configDiagnosticRuleSet: DiagnosticRuleSet,
-        configPythonVersion: PythonVersion | undefined,
-        configPythonPlatform: string | undefined,
-        configExtraPaths: Uri[]
+        commandLineOptions?: CommandLineOptions
     ): ExecutionEnvironment | undefined {
         try {
             const newExecEnv = new ExecutionEnvironment(
                 this._getEnvironmentName(),
                 configDirUri,
-                configDiagnosticRuleSet,
-                configPythonVersion,
-                configPythonPlatform,
-                configExtraPaths
+                this.diagnosticRuleSet,
+                this.defaultPythonVersion,
+                this.defaultPythonPlatform,
+                this.defaultExtraPaths
             );
 
             // Validate the root.
@@ -1635,6 +1637,12 @@ export class ConfigOptions {
                 }
             }
 
+            // If the pythonVersion was specified on the command line, it overrides
+            // the configuration settings for the execution environment.
+            if (commandLineOptions?.pythonVersion) {
+                newExecEnv.pythonVersion = commandLineOptions.pythonVersion;
+            }
+
             // Validate the pythonPlatform.
             if (envObj.pythonPlatform) {
                 if (typeof envObj.pythonPlatform === 'string') {
@@ -1642,6 +1650,12 @@ export class ConfigOptions {
                 } else {
                     console.error(`Config executionEnvironments index ${index} pythonPlatform must be a string.`);
                 }
+            }
+
+            // If the pythonPlatform was specified on the command line, it overrides
+            // the configuration settings for the execution environment.
+            if (commandLineOptions?.pythonPlatform) {
+                newExecEnv.pythonPlatform = commandLineOptions.pythonPlatform;
             }
 
             // Validate the name

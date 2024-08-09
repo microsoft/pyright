@@ -571,7 +571,7 @@ export class AnalyzerService {
             // If pyright is being executed from the command line, the working
             // directory may be deep within a project, and we need to walk up the
             // directory hierarchy to find the project root.
-            if (!configFilePath && !commandLineOptions.fromLanguageServer) {
+            if (!configFilePath && !commandLineOptions.fromVsCodeExtension) {
                 configFilePath = findConfigFileHereOrUp(this.fs, projectRoot);
             }
 
@@ -587,7 +587,7 @@ export class AnalyzerService {
             // See if we can find a pyproject.toml file in this directory.
             pyprojectFilePath = findPyprojectTomlFile(this.fs, projectRoot);
 
-            if (!pyprojectFilePath && !commandLineOptions.fromLanguageServer) {
+            if (!pyprojectFilePath && !commandLineOptions.fromVsCodeExtension) {
                 pyprojectFilePath = findPyprojectTomlFileHereOrUp(this.fs, projectRoot);
             }
 
@@ -600,53 +600,70 @@ export class AnalyzerService {
         }
 
         const configOptions = new ConfigOptions(projectRoot);
+        configOptions.initializeTypeCheckingMode(
+            this._typeCheckingMode,
+            commandLineOptions.diagnosticSeverityOverrides
+        );
+        const defaultExcludes = ['**/node_modules', '**/__pycache__', '**/.*'];
 
-        // If we found a config file, load it and apply its settings.
+        if (commandLineOptions.pythonPath) {
+            this._console.info(
+                `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
+            );
+            configOptions.pythonPath = this.fs.realCasePath(
+                Uri.file(commandLineOptions.pythonPath, this.serviceProvider, /* checkRelative */ true)
+            );
+        }
+
+        if (commandLineOptions.pythonEnvironmentName) {
+            this._console.info(
+                `Setting environmentName for service "${this._instanceName}": ` +
+                    `"${commandLineOptions.pythonEnvironmentName}"`
+            );
+            configOptions.pythonEnvironmentName = commandLineOptions.pythonEnvironmentName;
+        }
+
+        // The pythonPlatform and pythonVersion from the command-line can be overridden
+        // by the config file, so initialize them upfront.
+        configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
+        configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
+        configOptions.ensureDefaultExtraPaths(
+            this.fs,
+            commandLineOptions.autoSearchPaths ?? false,
+            commandLineOptions.extraPaths
+        );
+
+        commandLineOptions.includeFileSpecs.forEach((fileSpec) => {
+            configOptions.include.push(getFileSpec(projectRoot, fileSpec));
+        });
+
+        commandLineOptions.excludeFileSpecs.forEach((fileSpec) => {
+            configOptions.exclude.push(getFileSpec(projectRoot, fileSpec));
+        });
+
+        commandLineOptions.ignoreFileSpecs.forEach((fileSpec) => {
+            configOptions.ignore.push(getFileSpec(projectRoot, fileSpec));
+        });
+
+        configOptions.disableTaggedHints = !!commandLineOptions.disableTaggedHints;
+
+        configOptions.initializeTypeCheckingMode(commandLineOptions.typeCheckingMode ?? 'standard');
+
         const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
-        if (configs && configs.length > 0) {
-            // With a pyrightconfig.json set, we want the typeCheckingMode to always be standard
-            // as that's what the Pyright CLI will expect. Command line options (if not a language server) and
-            // the config file can override this.
-            configOptions.initializeTypeCheckingMode('standard');
 
-            // Then we apply the config file settings. This can update the
-            // the typeCheckingMode.
+        if (configs && configs.length > 0) {
             for (const config of configs) {
                 configOptions.initializeFromJson(
                     config.configFileJsonObj,
                     config.configFileDirUri,
                     this.serviceProvider,
-                    host
+                    host,
+                    commandLineOptions
                 );
             }
-
-            // When not in language server mode, command line options override config file options.
-            if (!commandLineOptions.fromLanguageServer) {
-                this._applyCommandLineOptionsToConfig(configOptions, commandLineOptions, projectRoot);
-            }
         } else {
-            // Initialize the type checking mode based on if this is for a language server or not. Language
-            // servers default to 'off' when no config file is found.
-            configOptions.initializeTypeCheckingMode(commandLineOptions.fromLanguageServer ? 'off' : 'standard');
-
-            // If there are no config files, we can then directly apply the command line options.
-            this._applyCommandLineOptionsToConfig(configOptions, commandLineOptions, projectRoot);
+            configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
         }
-
-        // Ensure that if no command line or config options were applied, we have some defaults.
-        this._ensureDefaultOptions(host, configOptions, projectRoot, executionRoot, commandLineOptions);
-
-        return configOptions;
-    }
-
-    private _ensureDefaultOptions(
-        host: Host,
-        configOptions: ConfigOptions,
-        projectRoot: Uri,
-        executionRoot: Uri,
-        commandLineOptions: CommandLineOptions
-    ) {
-        const defaultExcludes = ['**/node_modules', '**/__pycache__', '**/.*'];
 
         // If no include paths were provided, assume that all files within
         // the project should be included.
@@ -668,19 +685,50 @@ export class AnalyzerService {
             }
         }
 
-        if (!configOptions.defaultExtraPaths) {
-            configOptions.ensureDefaultExtraPaths(
-                this.fs,
-                commandLineOptions.autoSearchPaths ?? false,
-                commandLineOptions.extraPaths
-            );
+        // Override the analyzeUnannotatedFunctions setting based on the command-line setting.
+        if (commandLineOptions.analyzeUnannotatedFunctions !== undefined) {
+            configOptions.diagnosticRuleSet.analyzeUnannotatedFunctions =
+                commandLineOptions.analyzeUnannotatedFunctions;
         }
 
-        if (configOptions.defaultPythonPlatform === undefined) {
-            configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
+        // Override the include based on command-line settings.
+        if (commandLineOptions.includeFileSpecsOverride) {
+            configOptions.include = [];
+            commandLineOptions.includeFileSpecsOverride.forEach((include) => {
+                configOptions.include.push(
+                    getFileSpec(Uri.file(include, this.serviceProvider, /* checkRelative */ true), '.')
+                );
+            });
         }
-        if (configOptions.defaultPythonVersion === undefined) {
-            configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
+
+        const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
+            const settingSource = commandLineOptions.fromVsCodeExtension
+                ? 'the client settings'
+                : 'a command-line option';
+            this._console.warn(
+                `The ${settingName} has been specified in both the config file and ` +
+                    `${settingSource}. The value in the config file (${configValue}) ` +
+                    `will take precedence`
+            );
+        };
+
+        // Apply the command-line options if the corresponding
+        // item wasn't already set in the config file. Report any
+        // duplicates.
+        if (commandLineOptions.venvPath) {
+            if (!configOptions.venvPath) {
+                configOptions.venvPath = projectRoot.resolvePaths(commandLineOptions.venvPath);
+            } else {
+                reportDuplicateSetting('venvPath', configOptions.venvPath.toUserVisibleString());
+            }
+        }
+
+        if (commandLineOptions.typeshedPath) {
+            if (!configOptions.typeshedPath) {
+                configOptions.typeshedPath = projectRoot.resolvePaths(commandLineOptions.typeshedPath);
+            } else {
+                reportDuplicateSetting('typeshedPath', configOptions.typeshedPath.toUserVisibleString());
+            }
         }
 
         // If the caller specified that "typeshedPath" is the root of the project,
@@ -704,10 +752,35 @@ export class AnalyzerService {
             });
         }
 
+        configOptions.verboseOutput = commandLineOptions.verboseOutput ?? configOptions.verboseOutput;
+        configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
+        configOptions.autoImportCompletions = !!commandLineOptions.autoImportCompletions;
+        configOptions.indexing = !!commandLineOptions.indexing;
+        configOptions.taskListTokens = commandLineOptions.taskListTokens;
+        configOptions.logTypeEvaluationTime = !!commandLineOptions.logTypeEvaluationTime;
+        configOptions.typeEvaluationTimeThreshold = commandLineOptions.typeEvaluationTimeThreshold;
+
+        // If useLibraryCodeForTypes was not specified in the config, allow the settings
+        // or command line to override it.
+        if (configOptions.useLibraryCodeForTypes === undefined) {
+            configOptions.useLibraryCodeForTypes = commandLineOptions.useLibraryCodeForTypes;
+        } else if (commandLineOptions.useLibraryCodeForTypes !== undefined) {
+            reportDuplicateSetting('useLibraryCodeForTypes', configOptions.useLibraryCodeForTypes);
+        }
+
         // If useLibraryCodeForTypes is unspecified, default it to true.
         if (configOptions.useLibraryCodeForTypes === undefined) {
             configOptions.useLibraryCodeForTypes = true;
         }
+
+        if (commandLineOptions.stubPath) {
+            if (!configOptions.stubPath) {
+                configOptions.stubPath = this.fs.realCasePath(projectRoot.resolvePaths(commandLineOptions.stubPath));
+            } else {
+                reportDuplicateSetting('stubPath', configOptions.stubPath.toUserVisibleString());
+            }
+        }
+
         if (configOptions.stubPath) {
             // If there was a stub path specified, validate it.
             if (!this.fs.existsSync(configOptions.stubPath) || !isDirectory(this.fs, configOptions.stubPath)) {
@@ -772,157 +845,8 @@ export class AnalyzerService {
                 );
             }
         }
-    }
 
-    private _applyCommandLineOptionsToConfig(
-        configOptions: ConfigOptions,
-        commandLineOptions: CommandLineOptions,
-        projectRoot: Uri
-    ) {
-        if (commandLineOptions.typeCheckingMode) {
-            configOptions.initializeTypeCheckingMode(commandLineOptions.typeCheckingMode);
-        }
-
-        if (commandLineOptions.extraPaths) {
-            const oldExtraPaths = configOptions.defaultExtraPaths ? [...configOptions.defaultExtraPaths] : [];
-            configOptions.ensureDefaultExtraPaths(
-                this.fs,
-                commandLineOptions.autoSearchPaths ?? false,
-                commandLineOptions.extraPaths
-            );
-
-            // Execution environments inherit the default extra paths, so we need to update them as well.
-            configOptions.executionEnvironments.forEach((env) => {
-                env.extraPaths = env.extraPaths.filter(
-                    (path) => !oldExtraPaths.some((oldPath) => oldPath.equals(path))
-                );
-                env.extraPaths.push(...configOptions.defaultExtraPaths!);
-            });
-        }
-
-        if (commandLineOptions.pythonVersion || commandLineOptions.pythonPlatform) {
-            configOptions.defaultPythonVersion = commandLineOptions.pythonVersion ?? configOptions.defaultPythonVersion;
-            configOptions.defaultPythonPlatform =
-                commandLineOptions.pythonPlatform ?? configOptions.defaultPythonPlatform;
-            // This should also override any of the execution environment settings.
-            configOptions.executionEnvironments.forEach((env) => {
-                env.pythonVersion = commandLineOptions.pythonVersion ?? env.pythonVersion;
-                env.pythonPlatform = commandLineOptions.pythonPlatform ?? env.pythonPlatform;
-            });
-        }
-
-        if (commandLineOptions.pythonPath) {
-            this._console.info(
-                `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
-            );
-            configOptions.pythonPath = this.fs.realCasePath(
-                Uri.file(commandLineOptions.pythonPath, this.serviceProvider, /* checkRelative */ true)
-            );
-        }
-
-        if (commandLineOptions.pythonEnvironmentName) {
-            this._console.info(
-                `Setting environmentName for service "${this._instanceName}": ` +
-                    `"${commandLineOptions.pythonEnvironmentName}"`
-            );
-            configOptions.pythonEnvironmentName = commandLineOptions.pythonEnvironmentName;
-        }
-
-        commandLineOptions.includeFileSpecs.forEach((fileSpec) => {
-            configOptions.include.push(getFileSpec(projectRoot, fileSpec));
-        });
-
-        commandLineOptions.excludeFileSpecs.forEach((fileSpec) => {
-            configOptions.exclude.push(getFileSpec(projectRoot, fileSpec));
-        });
-
-        commandLineOptions.ignoreFileSpecs.forEach((fileSpec) => {
-            configOptions.ignore.push(getFileSpec(projectRoot, fileSpec));
-        });
-
-        configOptions.disableTaggedHints = !!commandLineOptions.disableTaggedHints;
-        configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
-
-        // Override the analyzeUnannotatedFunctions setting based on the command-line setting.
-        if (commandLineOptions.analyzeUnannotatedFunctions !== undefined) {
-            configOptions.diagnosticRuleSet.analyzeUnannotatedFunctions =
-                commandLineOptions.analyzeUnannotatedFunctions;
-        }
-
-        // Override the include based on command-line settings.
-        if (commandLineOptions.includeFileSpecsOverride) {
-            configOptions.include = [];
-            commandLineOptions.includeFileSpecsOverride.forEach((include) => {
-                configOptions.include.push(
-                    getFileSpec(Uri.file(include, this.serviceProvider, /* checkRelative */ true), '.')
-                );
-            });
-        }
-
-        const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
-            const settingSource = commandLineOptions.fromLanguageServer
-                ? 'the client settings'
-                : 'a command-line option';
-            this._console.warn(
-                `The ${settingName} has been specified in both the config file and ` +
-                    `${settingSource}. The value in the config file (${configValue}) ` +
-                    `will take precedence`
-            );
-        };
-
-        // Apply the command-line options if the corresponding
-        // item wasn't already set in the config file. Report any
-        // duplicates.
-        if (commandLineOptions.venvPath) {
-            if (!configOptions.venvPath) {
-                configOptions.venvPath = projectRoot.resolvePaths(commandLineOptions.venvPath);
-            } else {
-                reportDuplicateSetting('venvPath', configOptions.venvPath.toUserVisibleString());
-            }
-        }
-
-        if (commandLineOptions.typeshedPath) {
-            if (!configOptions.typeshedPath) {
-                configOptions.typeshedPath = projectRoot.resolvePaths(commandLineOptions.typeshedPath);
-            } else {
-                reportDuplicateSetting('typeshedPath', configOptions.typeshedPath.toUserVisibleString());
-            }
-        }
-
-        if (commandLineOptions.verboseOutput !== undefined) {
-            configOptions.verboseOutput = commandLineOptions.verboseOutput;
-        }
-        if (commandLineOptions.checkOnlyOpenFiles !== undefined) {
-            configOptions.checkOnlyOpenFiles = commandLineOptions.checkOnlyOpenFiles;
-        }
-        if (commandLineOptions.autoImportCompletions !== undefined) {
-            configOptions.autoImportCompletions = commandLineOptions.autoImportCompletions;
-        }
-        if (commandLineOptions.indexing !== undefined) {
-            configOptions.indexing = commandLineOptions.indexing;
-        }
-        if (commandLineOptions.taskListTokens) {
-            configOptions.taskListTokens = commandLineOptions.taskListTokens;
-        }
-        if (commandLineOptions.logTypeEvaluationTime !== undefined) {
-            configOptions.logTypeEvaluationTime = commandLineOptions.logTypeEvaluationTime;
-        }
-        configOptions.typeEvaluationTimeThreshold = commandLineOptions.typeEvaluationTimeThreshold;
-
-        // If useLibraryCodeForTypes was not specified in the config, allow the command line to override it.
-        if (configOptions.useLibraryCodeForTypes === undefined) {
-            configOptions.useLibraryCodeForTypes = commandLineOptions.useLibraryCodeForTypes;
-        } else if (commandLineOptions.useLibraryCodeForTypes !== undefined) {
-            reportDuplicateSetting('useLibraryCodeForTypes', configOptions.useLibraryCodeForTypes);
-        }
-
-        if (commandLineOptions.stubPath) {
-            if (!configOptions.stubPath) {
-                configOptions.stubPath = this.fs.realCasePath(projectRoot.resolvePaths(commandLineOptions.stubPath));
-            } else {
-                reportDuplicateSetting('stubPath', configOptions.stubPath.toUserVisibleString());
-            }
-        }
+        return configOptions;
     }
 
     // Loads the config JSON object from the specified config file along with any
@@ -1763,7 +1687,7 @@ export class AnalyzerService {
 
         this._backgroundAnalysisProgram.setImportResolver(importResolver);
 
-        if (this._commandLineOptions?.fromLanguageServer || this._configOptions.verboseOutput) {
+        if (this._commandLineOptions?.fromVsCodeExtension || this._configOptions.verboseOutput) {
             const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
             for (const execEnv of this._configOptions.getExecutionEnvironments()) {
                 log(this._console, logLevel, `Search paths for ${execEnv.root || '<default>'}`);
