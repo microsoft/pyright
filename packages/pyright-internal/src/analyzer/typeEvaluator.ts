@@ -11343,7 +11343,7 @@ export function createTypeEvaluator(
         returnType: Type
     ): CallResult {
         const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
-        let assignFlags = AssignTypeFlags.PopulatingExpectedType;
+        let assignFlags = AssignTypeFlags.PopulateExpectedType;
         if (containsLiteralType(expectedType, /* includeTypeArgs */ true)) {
             assignFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
         }
@@ -24205,7 +24205,7 @@ export function createTypeEvaluator(
                     // We can avoid checking the source subtypes that have already been checked.
                     sortedSrcTypes = remainingSrcSubtypes;
                 } else if (remainingSrcSubtypes.length === 0) {
-                    if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
+                    if ((flags & AssignTypeFlags.PopulateExpectedType) !== 0) {
                         // If we're populating an expected type, try not to leave
                         // any TypeVars unsolved. Assign the full type to the remaining
                         // dest TypeVars.

@@ -774,7 +774,7 @@ function createProtocolConstraints(
                 flags = AssignTypeFlags.Default;
                 hasUnsolvedTypeVars = requiresSpecialization(typeArg);
             } else {
-                flags = AssignTypeFlags.PopulatingExpectedType;
+                flags = AssignTypeFlags.PopulateExpectedType;
 
                 const variance = TypeVarType.getVariance(typeParam);
                 if (variance === Variance.Invariant) {

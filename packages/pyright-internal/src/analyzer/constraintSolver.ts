@@ -345,7 +345,7 @@ export function addConstraintsForExpectedType(
             expectedType,
             /* diag */ undefined,
             constraints,
-            AssignTypeFlags.PopulatingExpectedType
+            AssignTypeFlags.PopulateExpectedType
         );
     }
 
@@ -412,7 +412,7 @@ export function addConstraintsForExpectedType(
             specializedType,
             /* diag */ undefined,
             syntheticConstraints,
-            AssignTypeFlags.PopulatingExpectedType
+            AssignTypeFlags.PopulateExpectedType
         )
     ) {
         let isResultValid = true;
@@ -672,7 +672,7 @@ function assignUnconstrainedTypeVar(
         return false;
     }
 
-    if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
+    if ((flags & AssignTypeFlags.PopulateExpectedType) !== 0) {
         if ((flags & AssignTypeFlags.SkipPopulateUnknownExpectedType) !== 0 && isUnknown(adjSrcType)) {
             return true;
         }
@@ -977,7 +977,7 @@ function assignUnconstrainedTypeVar(
             destType,
             newLowerBound,
             newUpperBound,
-            (flags & (AssignTypeFlags.PopulatingExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) !== 0
+            (flags & (AssignTypeFlags.PopulateExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) !== 0
         );
     }
 

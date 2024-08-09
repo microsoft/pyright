@@ -219,8 +219,9 @@ export const enum AssignTypeFlags {
 
     // We're initially populating the constraints with an expected type,
     // so TypeVars should match the specified type exactly rather than
-    // employing narrowing or widening, and don't strip literals.
-    PopulatingExpectedType = 1 << 11,
+    // employing narrowing or widening. The variance context determines
+    // whether the upper bound, lower bound, or both are established.
+    PopulateExpectedType = 1 << 11,
 
     // Used with PopulatingExpectedType, this flag indicates that a TypeVar
     // constraint that is Unknown should be ignored.
