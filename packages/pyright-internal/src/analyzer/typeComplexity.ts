@@ -33,7 +33,7 @@ export function getComplexityScoreForType(type: Type, recursionCount = 0): numbe
         }
 
         case TypeCategory.Function:
-        case TypeCategory.OverloadedFunction: {
+        case TypeCategory.Overloaded: {
             // Classes and unions should be preferred over functions,
             // so make this relatively high (more than 0.75).
             return TypeBase.isInstantiable(type) ? 0.85 : 0.8;

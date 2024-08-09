@@ -36,7 +36,7 @@ export const enum TypeCategory {
 
     // Functions defined with @overload decorator in stub files that
     // have multiple function declarations for a common implementation.
-    OverloadedFunction,
+    Overloaded,
 
     // Class definition, including associated instance methods,
     // class methods, static methods, properties, and variables.
@@ -75,7 +75,7 @@ export type UnionableType =
     | UnknownType
     | AnyType
     | FunctionType
-    | OverloadedFunctionType
+    | OverloadedType
     | ClassType
     | ModuleType
     | TypeVarType;
@@ -1598,7 +1598,7 @@ export interface CallSiteInferenceTypeCacheEntry {
 }
 
 export interface SignatureWithOffsets {
-    type: FunctionType | OverloadedFunctionType;
+    type: FunctionType | OverloadedType;
     expressionOffsets: number[];
 }
 
@@ -1632,7 +1632,7 @@ export interface FunctionDetailsPriv {
 
     // If this function is part of an overloaded function, this
     // refers back to the overloaded function type.
-    overloaded?: OverloadedFunctionType;
+    overloaded?: OverloadedType;
 
     // If this function is created with a "Callable" annotation with
     // type arguments? This allows us to detect and report an error
@@ -2251,7 +2251,7 @@ export namespace FunctionType {
     }
 }
 
-export interface OverloadedFunctionDetailsPriv {
+export interface OverloadedDetailsPriv {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     _overloads: FunctionType[];
 
@@ -2259,14 +2259,14 @@ export interface OverloadedFunctionDetailsPriv {
     _implementation: Type | undefined;
 }
 
-export interface OverloadedFunctionType extends TypeBase<TypeCategory.OverloadedFunction> {
-    priv: OverloadedFunctionDetailsPriv;
+export interface OverloadedType extends TypeBase<TypeCategory.Overloaded> {
+    priv: OverloadedDetailsPriv;
 }
 
-export namespace OverloadedFunctionType {
-    export function create(overloads: FunctionType[], implementation?: Type): OverloadedFunctionType {
-        const newType: OverloadedFunctionType = {
-            category: TypeCategory.OverloadedFunction,
+export namespace OverloadedType {
+    export function create(overloads: FunctionType[], implementation?: Type): OverloadedType {
+        const newType: OverloadedType = {
+            category: TypeCategory.Overloaded,
             flags: TypeFlags.Instance,
             props: undefined,
             cached: undefined,
@@ -2278,23 +2278,23 @@ export namespace OverloadedFunctionType {
         };
 
         overloads.forEach((overload) => {
-            OverloadedFunctionType.addOverload(newType, overload);
+            OverloadedType.addOverload(newType, overload);
         });
 
         return newType;
     }
 
     // Adds a new overload or an implementation.
-    export function addOverload(type: OverloadedFunctionType, functionType: FunctionType) {
+    export function addOverload(type: OverloadedType, functionType: FunctionType) {
         functionType.priv.overloaded = type;
         type.priv._overloads.push(functionType);
     }
 
-    export function getOverloads(type: OverloadedFunctionType): FunctionType[] {
+    export function getOverloads(type: OverloadedType): FunctionType[] {
         return type.priv._overloads;
     }
 
-    export function getImplementation(type: OverloadedFunctionType): Type | undefined {
+    export function getImplementation(type: OverloadedType): Type | undefined {
         return type.priv._implementation;
     }
 }
@@ -3140,8 +3140,8 @@ export function isFunction(type: Type): type is FunctionType {
     return type.category === TypeCategory.Function;
 }
 
-export function isOverloadedFunction(type: Type): type is OverloadedFunctionType {
-    return type.category === TypeCategory.OverloadedFunction;
+export function isOverloaded(type: Type): type is OverloadedType {
+    return type.category === TypeCategory.Overloaded;
 }
 
 export function getTypeAliasInfo(type: Type) {
@@ -3344,9 +3344,9 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             return true;
         }
 
-        case TypeCategory.OverloadedFunction: {
+        case TypeCategory.Overloaded: {
             // Make sure the overload counts match.
-            const functionType2 = type2 as OverloadedFunctionType;
+            const functionType2 = type2 as OverloadedType;
             if (type1.priv._overloads.length !== functionType2.priv._overloads.length) {
                 return false;
             }

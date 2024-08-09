@@ -59,7 +59,7 @@ import {
     isFunction,
     isInstantiableClass,
     isNever,
-    isOverloadedFunction,
+    isOverloaded,
     isUnion,
 } from './types';
 
@@ -1241,7 +1241,7 @@ function customMetaclassSupportsMethod(type: Type, methodName: string): boolean 
 // of the capabilities of an object. This function converts a function
 // to an object instance.
 function convertFunctionToObject(evaluator: TypeEvaluator, type: Type) {
-    if (isFunction(type) || isOverloadedFunction(type)) {
+    if (isFunction(type) || isOverloaded(type)) {
         return evaluator.getObjectType();
     }
 

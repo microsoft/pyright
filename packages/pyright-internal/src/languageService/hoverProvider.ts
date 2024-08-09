@@ -31,7 +31,7 @@ import {
     isClassInstance,
     isFunction,
     isModule,
-    isOverloadedFunction,
+    isOverloaded,
     isParamSpec,
     isTypeVar,
 } from '../analyzer/types';
@@ -156,7 +156,7 @@ export function getVariableTypeText(
     }
 
     // Handle the case where type is a function and was assigned to a variable.
-    if (type.category === TypeCategory.Function || type.category === TypeCategory.OverloadedFunction) {
+    if (type.category === TypeCategory.Function || type.category === TypeCategory.Overloaded) {
         return getToolTipForType(type, label, name, evaluator, /* isProperty */ false, functionSignatureDisplay);
     }
 
@@ -480,7 +480,7 @@ export class HoverProvider {
             return false;
         }
 
-        if (result.methodType && (isFunction(result.methodType) || isOverloadedFunction(result.methodType))) {
+        if (result.methodType && (isFunction(result.methodType) || isOverloaded(result.methodType))) {
             this._addResultsPart(
                 parts,
                 getConstructorTooltip(node.d.value, result.methodType, this._evaluator, this._functionSignatureDisplay),

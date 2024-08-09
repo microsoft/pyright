@@ -49,7 +49,7 @@ import {
     isTypeSame,
     isUnknown,
     ModuleType,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
     TypeBase,
     TypeCategory,
@@ -832,8 +832,8 @@ export class PackageTypeVerifier {
                 break;
             }
 
-            case TypeCategory.OverloadedFunction: {
-                for (const overload of OverloadedFunctionType.getOverloads(type)) {
+            case TypeCategory.Overloaded: {
+                for (const overload of OverloadedType.getOverloads(type)) {
                     knownStatus = this._updateKnownStatusIfWorse(
                         knownStatus,
                         this._getSymbolTypeKnownStatus(
@@ -1346,8 +1346,8 @@ export class PackageTypeVerifier {
                 break;
             }
 
-            case TypeCategory.OverloadedFunction: {
-                for (const overload of OverloadedFunctionType.getOverloads(type)) {
+            case TypeCategory.Overloaded: {
+                for (const overload of OverloadedType.getOverloads(type)) {
                     knownStatus = this._updateKnownStatusIfWorse(
                         knownStatus,
                         this._getTypeKnownStatus(report, overload, publicSymbols, diag.createAddendum())
@@ -1425,7 +1425,7 @@ export class PackageTypeVerifier {
 
         switch (type.category) {
             case TypeCategory.Function:
-            case TypeCategory.OverloadedFunction: {
+            case TypeCategory.Overloaded: {
                 const funcDecl = symbol
                     .getDeclarations()
                     .find((decl) => decl.type === DeclarationType.Function) as FunctionDeclaration;
