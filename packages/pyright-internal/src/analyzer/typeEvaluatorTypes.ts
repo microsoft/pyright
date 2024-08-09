@@ -380,7 +380,6 @@ export interface ArgResult {
     argType: Type;
     isTypeIncomplete?: boolean | undefined;
     condition?: TypeCondition[];
-    skippedOverloadArg?: boolean;
     skippedBareTypeVarExpectedType?: boolean;
 }
 

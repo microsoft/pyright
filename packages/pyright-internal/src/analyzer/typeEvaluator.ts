@@ -11453,20 +11453,14 @@ export function createTypeEvaluator(
         }
 
         // Run through all args and validate them against their matched parameter.
-        // We'll do two passes. The first one will match any type arguments. The second
-        // will perform the actual validation. We can skip the first pass if there
-        // are no type vars to match.
-        const typeVarMatchingCount = matchResults.argParams.filter((arg) => arg.requiresTypeVarMatching).length;
-        if (typeVarMatchingCount > 0) {
-            // In theory, we may need to do up to n passes where n is the number of
-            // arguments that need type var matching. That's because later matches
-            // can provide bidirectional type hints for earlier matches. The best
-            // example of this is the built-in "map" method whose first parameter is
-            // a lambda and second parameter indicates what type the lambda should accept.
-            // In practice, we will limit the number of passes to 2 because it can get
-            // very expensive to go beyond this, and we don't generally see cases
-            // where more than two passes are needed.
-            let passCount = Math.min(typeVarMatchingCount, 2);
+        // We'll do two phases. The first one establishes constraints for type
+        // variables. The second perform type validation using the solved
+        // types. We can skip the first pass if there are no type vars to solve.
+        const typeVarCount = matchResults.argParams.filter((arg) => arg.requiresTypeVarMatching).length;
+        if (typeVarCount > 0) {
+            // Do up to two passes.
+            let passCount = Math.min(typeVarCount, 2);
+
             for (let i = 0; i < passCount; i++) {
                 useSpeculativeMode(speculativeNode, () => {
                     matchResults.argParams.forEach((argParam) => {
@@ -11474,15 +11468,6 @@ export function createTypeEvaluator(
                             return;
                         }
 
-                        // Populate the constraints for the argument. If the argument
-                        // is an overload function, skip it during the first pass
-                        // because the selection of the proper overload may depend
-                        // on type arguments supplied by other function arguments.
-
-                        // If the param type is a "bare" TypeVar, don't use it as an
-                        // expected type during the first pass. This causes problems for
-                        // cases where the the call expression result can influence the
-                        // type of the TypeVar, such as in the expression "min(1, max(2, 0.5))".
                         const argResult = validateArgType(
                             argParam,
                             constraints,
@@ -11499,9 +11484,9 @@ export function createTypeEvaluator(
                             isTypeIncomplete = true;
                         }
 
-                        // If we skipped an overload arg or a bare type var during the first pass,
-                        // add another pass to ensure that we handle all of the type variables.
-                        if (i === 0 && (argResult.skippedOverloadArg || argResult.skippedBareTypeVarExpectedType)) {
+                        // If we skipped a bare type var during the first pass, add
+                        // another pass to ensure that we handle all of the type variables.
+                        if (i === 0 && argResult.skippedBareTypeVarExpectedType) {
                             passCount++;
                         }
                     });
