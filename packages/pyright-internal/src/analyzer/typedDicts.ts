@@ -48,7 +48,7 @@ import {
     isNever,
     maxTypeRecursionCount,
     NeverType,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
     TypedDictEntries,
     TypedDictEntry,
@@ -353,7 +353,7 @@ export function synthesizeTypedDictClassMethods(
     }
 
     const symbolTable = ClassType.getSymbolTable(classType);
-    const initType = OverloadedFunctionType.create([initOverride1, initOverride2]);
+    const initType = OverloadedType.create([initOverride1, initOverride2]);
     symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
     symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
 
@@ -587,7 +587,7 @@ export function synthesizeTypedDictClassMethods(
             // Note that the order of method1 and method2 is swapped. This is done so
             // the method1 signature is used in the error message when neither method2
             // or method1 match.
-            return OverloadedFunctionType.create([updateMethod2, updateMethod1, updateMethod3]);
+            return OverloadedType.create([updateMethod2, updateMethod1, updateMethod3]);
         }
 
         const getOverloads: FunctionType[] = [];
@@ -643,22 +643,16 @@ export function synthesizeTypedDictClassMethods(
             getOverloads.push(createGetMethod(strType, AnyType.create(), /* includeDefault */ true));
         }
 
-        symbolTable.set(
-            'get',
-            Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(getOverloads))
-        );
+        symbolTable.set('get', Symbol.createWithType(SymbolFlags.ClassMember, OverloadedType.create(getOverloads)));
 
         if (popOverloads.length > 0) {
-            symbolTable.set(
-                'pop',
-                Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(popOverloads))
-            );
+            symbolTable.set('pop', Symbol.createWithType(SymbolFlags.ClassMember, OverloadedType.create(popOverloads)));
         }
 
         if (setDefaultOverloads.length > 0) {
             symbolTable.set(
                 'setdefault',
-                Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(setDefaultOverloads))
+                Symbol.createWithType(SymbolFlags.ClassMember, OverloadedType.create(setDefaultOverloads))
             );
         }
 

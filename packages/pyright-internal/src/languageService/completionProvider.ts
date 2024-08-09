@@ -54,7 +54,7 @@ import {
     isFunction,
     isInstantiableClass,
     isModule,
-    isOverloadedFunction,
+    isOverloaded,
     isUnknown,
     Type,
     TypeBase,
@@ -770,7 +770,7 @@ export class CompletionProvider {
                 }
             } else if (isModule(subtype)) {
                 getMembersForModule(subtype, symbolTable);
-            } else if (isFunction(subtype) || isOverloadedFunction(subtype)) {
+            } else if (isFunction(subtype) || isOverloaded(subtype)) {
                 const functionClass = this.evaluator.getBuiltInType(leftExprNode, 'function');
                 if (functionClass && isInstantiableClass(functionClass)) {
                     getMembersForClass(functionClass, symbolTable, /* includeInstanceVars */ true);
@@ -3093,7 +3093,7 @@ export class CompletionProvider {
             case TypeCategory.Class:
                 return CompletionItemKind.Class;
             case TypeCategory.Function:
-            case TypeCategory.OverloadedFunction:
+            case TypeCategory.Overloaded:
                 if (isMaybeDescriptorInstance(type, /* requireSetter */ false)) {
                     return CompletionItemKind.Property;
                 }

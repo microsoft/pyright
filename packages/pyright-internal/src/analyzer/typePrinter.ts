@@ -29,7 +29,7 @@ import {
     isUnknown,
     isUnpacked,
     maxTypeRecursionCount,
-    OverloadedFunctionType,
+    OverloadedType,
     TupleTypeArg,
     Type,
     TypeBase,
@@ -497,8 +497,8 @@ function printTypeInternal(
                 );
             }
 
-            case TypeCategory.OverloadedFunction: {
-                const overloads = OverloadedFunctionType.getOverloads(type).map((overload) =>
+            case TypeCategory.Overloaded: {
+                const overloads = OverloadedType.getOverloads(type).map((overload) =>
                     printTypeInternal(
                         overload,
                         printTypeFlags,
@@ -1393,8 +1393,8 @@ class UniqueNameMap {
                     break;
                 }
 
-                case TypeCategory.OverloadedFunction: {
-                    OverloadedFunctionType.getOverloads(type).forEach((overload) => {
+                case TypeCategory.Overloaded: {
+                    OverloadedType.getOverloads(type).forEach((overload) => {
                         this.build(overload, recursionTypes, recursionCount);
                     });
                     break;

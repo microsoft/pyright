@@ -52,14 +52,14 @@ import {
     isFunction,
     isInstantiableClass,
     isNever,
-    isOverloadedFunction,
+    isOverloaded,
     isParamSpec,
     isTypeSame,
     isTypeVar,
     isTypeVarTuple,
     maxTypeRecursionCount,
     NeverType,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
     TypeVarType,
     UnboundType,
@@ -1726,7 +1726,7 @@ export function getCodeFlowEngine(
 
                     const newMethodResult = getBoundNewMethod(evaluator, node, callSubtype);
                     if (newMethodResult) {
-                        if (isFunction(newMethodResult.type) || isOverloadedFunction(newMethodResult.type)) {
+                        if (isFunction(newMethodResult.type) || isOverloaded(newMethodResult.type)) {
                             callSubtype = newMethodResult.type;
                         }
                     }
@@ -1743,11 +1743,11 @@ export function getCodeFlowEngine(
                     if (isFunctionNoReturn(callSubtype, isCallAwaited)) {
                         noReturnTypeCount++;
                     }
-                } else if (isOverloadedFunction(callSubtype)) {
+                } else if (isOverloaded(callSubtype)) {
                     let overloadCount = 0;
                     let noReturnOverloadCount = 0;
 
-                    OverloadedFunctionType.getOverloads(callSubtype).forEach((overload) => {
+                    OverloadedType.getOverloads(callSubtype).forEach((overload) => {
                         overloadCount++;
 
                         if (isFunctionNoReturn(overload, isCallAwaited)) {

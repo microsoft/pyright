@@ -33,7 +33,7 @@ import {
     FunctionParam,
     FunctionType,
     FunctionTypeFlags,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
     TypeBase,
     UnknownType,
@@ -41,7 +41,7 @@ import {
     isClassInstance,
     isFunction,
     isInstantiableClass,
-    isOverloadedFunction,
+    isOverloaded,
 } from './types';
 
 export interface FunctionDecoratorInfo {
@@ -315,7 +315,7 @@ export function applyClassDecorator(
         }
     }
 
-    if (isOverloadedFunction(decoratorType)) {
+    if (isOverloaded(decoratorType)) {
         const dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorType);
         if (dataclassBehaviors) {
             applyDataClassDecorator(
@@ -468,7 +468,7 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
 
 // Given a function node and the function type associated with it, this
 // method searches for prior function nodes that are marked as @overload
-// and creates an OverloadedFunctionType that includes this function and
+// and creates an OverloadedType that includes this function and
 // all previous ones.
 export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: FunctionNode, type: Type): Type {
     let functionDecl: FunctionDeclaration | undefined;
@@ -506,8 +506,8 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
                         if (FunctionType.isOverloaded(prevDeclDeclTypeInfo.decoratedType)) {
                             overloadedTypes.push(prevDeclDeclTypeInfo.decoratedType);
                         }
-                    } else if (isOverloadedFunction(prevDeclDeclTypeInfo.decoratedType)) {
-                        implementation = OverloadedFunctionType.getImplementation(prevDeclDeclTypeInfo.decoratedType);
+                    } else if (isOverloaded(prevDeclDeclTypeInfo.decoratedType)) {
+                        implementation = OverloadedType.getImplementation(prevDeclDeclTypeInfo.decoratedType);
                         // If the previous overloaded function already had an implementation,
                         // this new function completely replaces the previous one.
                         if (implementation) {
@@ -516,10 +516,7 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
 
                         // If the previous declaration was itself an overloaded function,
                         // copy the entries from it.
-                        appendArray(
-                            overloadedTypes,
-                            OverloadedFunctionType.getOverloads(prevDeclDeclTypeInfo.decoratedType)
-                        );
+                        appendArray(overloadedTypes, OverloadedType.getOverloads(prevDeclDeclTypeInfo.decoratedType));
                     }
                 }
             }
@@ -563,7 +560,7 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
                 });
             }
 
-            return OverloadedFunctionType.create(overloadedTypes, implementation);
+            return OverloadedType.create(overloadedTypes, implementation);
         }
     }
 

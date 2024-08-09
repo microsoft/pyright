@@ -17,7 +17,7 @@ import {
     getFunctionDocStringInherited,
     getModuleDocString,
     getModuleDocStringFromUris,
-    getOverloadedFunctionDocStringsInherited,
+    getOverloadedDocStringsInherited,
     getPropertyDocStringInherited,
     getVariableDocString,
 } from '../analyzer/typeDocStringUtils';
@@ -26,7 +26,7 @@ import { MemberAccessFlags, lookUpClassMember } from '../analyzer/typeUtils';
 import {
     ClassType,
     FunctionType,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
     TypeBase,
     TypeCategory,
@@ -36,7 +36,7 @@ import {
     isFunction,
     isInstantiableClass,
     isModule,
-    isOverloadedFunction,
+    isOverloaded,
 } from '../analyzer/types';
 import { SignatureDisplayType } from '../common/configOptions';
 import { isDefined } from '../common/core';
@@ -54,9 +54,9 @@ export function getToolTipForType(
     functionSignatureDisplay: SignatureDisplayType
 ): string {
     let signatureString = '';
-    if (isOverloadedFunction(type)) {
+    if (isOverloaded(type)) {
         signatureString = label.length > 0 ? `(${label})\n` : '';
-        signatureString += `${getOverloadedFunctionTooltip(type, evaluator, functionSignatureDisplay)}`;
+        signatureString += `${getOverloadedTooltip(type, evaluator, functionSignatureDisplay)}`;
     } else if (isFunction(type)) {
         signatureString = `${getFunctionTooltip(label, name, type, evaluator, isProperty, functionSignatureDisplay)}`;
     } else {
@@ -68,14 +68,14 @@ export function getToolTipForType(
 }
 
 // 70 is vscode's default hover width size.
-export function getOverloadedFunctionTooltip(
-    type: OverloadedFunctionType,
+export function getOverloadedTooltip(
+    type: OverloadedType,
     evaluator: TypeEvaluator,
     functionSignatureDisplay: SignatureDisplayType,
     columnThreshold = 70
 ) {
     let content = '';
-    const overloads = OverloadedFunctionType.getOverloads(type).map((o) =>
+    const overloads = OverloadedType.getOverloads(type).map((o) =>
         getFunctionTooltip(
             /* label */ '',
             o.shared.name,
@@ -144,8 +144,8 @@ export function getConstructorTooltip(
     const classText = `class `;
     let signature = '';
 
-    if (isOverloadedFunction(type)) {
-        const overloads = OverloadedFunctionType.getOverloads(type).map((overload) =>
+    if (isOverloaded(type)) {
+        const overloads = OverloadedType.getOverloads(type).map((overload) =>
             getConstructorTooltip(constructorName, overload, evaluator, functionSignatureDisplay)
         );
         overloads.forEach((overload, index) => {
@@ -184,12 +184,12 @@ export function getFunctionDocStringFromType(type: FunctionType, sourceMapper: S
     return getFunctionDocStringInherited(type, decl, sourceMapper, classResults?.classType);
 }
 
-export function getOverloadedFunctionDocStringsFromType(
-    type: OverloadedFunctionType,
+export function getOverloadedDocStringsFromType(
+    type: OverloadedType,
     sourceMapper: SourceMapper,
     evaluator: TypeEvaluator
 ) {
-    const overloads = OverloadedFunctionType.getOverloads(type);
+    const overloads = OverloadedType.getOverloads(type);
     if (overloads.length === 0) {
         return [];
     }
@@ -198,7 +198,7 @@ export function getOverloadedFunctionDocStringsFromType(
     const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
     const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
 
-    return getOverloadedFunctionDocStringsInherited(
+    return getOverloadedDocStringsInherited(
         type,
         overloads.map((o) => o.shared.declaration).filter(isDefined),
         sourceMapper,
@@ -273,12 +273,12 @@ function getDocumentationPartForType(
                 return doc;
             }
         }
-    } else if (isOverloadedFunction(type)) {
+    } else if (isOverloaded(type)) {
         const functionType = boundObjectOrClass
             ? evaluator.bindFunctionToClassOrObject(boundObjectOrClass, type)
             : type;
-        if (functionType && isOverloadedFunction(functionType)) {
-            const doc = getOverloadedFunctionDocStringsFromType(functionType, sourceMapper, evaluator).find((d) => d);
+        if (functionType && isOverloaded(functionType)) {
+            const doc = getOverloadedDocStringsFromType(functionType, sourceMapper, evaluator).find((d) => d);
 
             if (doc) {
                 return doc;
@@ -419,7 +419,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
     if (initMember) {
         const functionType = evaluator.getTypeOfMember(initMember);
 
-        if (isFunction(functionType) || isOverloadedFunction(functionType)) {
+        if (isFunction(functionType) || isOverloaded(functionType)) {
             methodType = bindFunctionToClassOrObjectToolTip(evaluator, node, instanceType, functionType);
         }
     }
@@ -442,7 +442,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
             const newMemberType = evaluator.getTypeOfMember(newMember);
 
             // Prefer `__new__` if it doesn't have default params (*args: Any, **kwargs: Any) or no params ().
-            if (isFunction(newMemberType) || isOverloadedFunction(newMemberType)) {
+            if (isFunction(newMemberType) || isOverloaded(newMemberType)) {
                 // Set `treatConstructorAsClassMethod` to true to exclude `cls` as a parameter.
                 methodType = bindFunctionToClassOrObjectToolTip(
                     evaluator,
@@ -462,9 +462,9 @@ export function bindFunctionToClassOrObjectToolTip(
     evaluator: TypeEvaluator,
     node: ExpressionNode,
     baseType: ClassType | undefined,
-    memberType: FunctionType | OverloadedFunctionType,
+    memberType: FunctionType | OverloadedType,
     treatConstructorAsClassMethod?: boolean
-): FunctionType | OverloadedFunctionType | undefined {
+): FunctionType | OverloadedType | undefined {
     const methodType = evaluator.bindFunctionToClassOrObject(
         baseType,
         memberType,
@@ -483,11 +483,11 @@ export function limitOverloadBasedOnCall<T extends Type>(
     evaluator: TypeEvaluator,
     type: T,
     node: ExpressionNode
-): T | FunctionType | OverloadedFunctionType {
+): T | FunctionType | OverloadedType {
     // If it's an overloaded function, see if it's part of a call expression.
     // If so, we may be able to eliminate some of the overloads based on
     // the overload resolution.
-    if (!isOverloadedFunction(type) || node.nodeType !== ParseNodeType.Name) {
+    if (!isOverloaded(type) || node.nodeType !== ParseNodeType.Name) {
         return type;
     }
 
@@ -505,7 +505,7 @@ export function limitOverloadBasedOnCall<T extends Type>(
         return callTypeResult.overloadsUsedForCall[0];
     }
 
-    return OverloadedFunctionType.create(callTypeResult.overloadsUsedForCall);
+    return OverloadedType.create(callTypeResult.overloadsUsedForCall);
 }
 
 export function getTypeForToolTip(evaluator: TypeEvaluator, node: ExpressionNode) {

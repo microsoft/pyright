@@ -21,7 +21,7 @@ import {
     isClassInstance,
     isFunction,
     isInstantiableClass,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
 } from './types';
 import { ClassMember, lookUpObjectMember, MemberAccessFlags, synthesizeTypeVarForSelfCls } from './typeUtils';
@@ -30,7 +30,7 @@ export function applyFunctionTransform(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     argList: Arg[],
-    functionType: FunctionType | OverloadedFunctionType,
+    functionType: FunctionType | OverloadedType,
     result: FunctionResult
 ): FunctionResult {
     if (isFunction(functionType)) {

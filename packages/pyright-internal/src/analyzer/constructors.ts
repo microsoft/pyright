@@ -26,7 +26,7 @@ import {
     FunctionType,
     FunctionTypeFlags,
     InheritanceChain,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
     TypeVarType,
     UnknownType,
@@ -39,7 +39,7 @@ import {
     isFunction,
     isInstantiableClass,
     isNever,
-    isOverloadedFunction,
+    isOverloaded,
     isTypeVar,
     isUnknown,
 } from './types';
@@ -538,7 +538,7 @@ function validateFallbackConstructorCall(
     // If there was no object.__new__ or it's not a callable, then something has
     // gone terribly wrong in the typeshed stubs. To avoid crashing, simply
     // return the instance.
-    if (!newMethodType || (!isFunction(newMethodType) && !isOverloadedFunction(newMethodType))) {
+    if (!newMethodType || (!isFunction(newMethodType) && !isOverloaded(newMethodType))) {
         return { returnType: convertToInstance(type) };
     }
 
@@ -731,7 +731,7 @@ function createFunctionFromMetaclassCall(
     evaluator: TypeEvaluator,
     classType: ClassType,
     recursionCount: number
-): FunctionType | OverloadedFunctionType | undefined {
+): FunctionType | OverloadedType | undefined {
     const metaclass = classType.shared.effectiveMetaclass;
     if (!metaclass || !isClass(metaclass)) {
         return undefined;
@@ -750,7 +750,7 @@ function createFunctionFromMetaclassCall(
     }
 
     const callType = evaluator.getTypeOfMember(callInfo);
-    if (!isFunction(callType) && !isOverloadedFunction(callType)) {
+    if (!isFunction(callType) && !isOverloaded(callType)) {
         return undefined;
     }
 
@@ -790,7 +790,7 @@ function createFunctionFromNewMethod(
     classType: ClassType,
     selfType: ClassType | TypeVarType | undefined,
     recursionCount: number
-): FunctionType | OverloadedFunctionType | undefined {
+): FunctionType | OverloadedType | undefined {
     const newInfo = lookUpClassMember(
         classType,
         '__new__',
@@ -850,12 +850,12 @@ function createFunctionFromNewMethod(
         return convertNewToConstructor(newType);
     }
 
-    if (!isOverloadedFunction(newType)) {
+    if (!isOverloaded(newType)) {
         return undefined;
     }
 
     const newOverloads: FunctionType[] = [];
-    OverloadedFunctionType.getOverloads(newType).forEach((overload) => {
+    OverloadedType.getOverloads(newType).forEach((overload) => {
         const converted = convertNewToConstructor(overload);
         if (converted) {
             newOverloads.push(converted);
@@ -870,7 +870,7 @@ function createFunctionFromNewMethod(
         return newOverloads[0];
     }
 
-    return OverloadedFunctionType.create(newOverloads);
+    return OverloadedType.create(newOverloads);
 }
 
 function createFunctionFromObjectNewMethod(classType: ClassType) {
@@ -896,7 +896,7 @@ function createFunctionFromInitMethod(
     classType: ClassType,
     selfType: ClassType | TypeVarType | undefined,
     recursionCount: number
-): FunctionType | OverloadedFunctionType | undefined {
+): FunctionType | OverloadedType | undefined {
     // Use the __init__ method if available. It's usually more detailed.
     const initInfo = lookUpClassMember(
         classType,
@@ -980,12 +980,12 @@ function createFunctionFromInitMethod(
         return convertInitToConstructor(initType);
     }
 
-    if (!isOverloadedFunction(initType)) {
+    if (!isOverloaded(initType)) {
         return undefined;
     }
 
     const initOverloads: FunctionType[] = [];
-    OverloadedFunctionType.getOverloads(initType).forEach((overload) => {
+    OverloadedType.getOverloads(initType).forEach((overload) => {
         const converted = convertInitToConstructor(overload);
         if (converted) {
             initOverloads.push(converted);
@@ -1000,7 +1000,7 @@ function createFunctionFromInitMethod(
         return initOverloads[0];
     }
 
-    return OverloadedFunctionType.create(initOverloads);
+    return OverloadedType.create(initOverloads);
 }
 
 // If the __call__ method returns a type that is not an instance of the class,
