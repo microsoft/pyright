@@ -21,15 +21,15 @@ import {
     ClassDeclaration,
     Declaration,
     FunctionDeclaration,
-    ParamDeclaration,
-    SpecialBuiltInClassDeclaration,
-    VariableDeclaration,
     isAliasDeclaration,
     isClassDeclaration,
     isFunctionDeclaration,
     isParamDeclaration,
     isSpecialBuiltInClassDeclaration,
     isVariableDeclaration,
+    ParamDeclaration,
+    SpecialBuiltInClassDeclaration,
+    VariableDeclaration,
 } from './declaration';
 import { ImportResolver } from './importResolver';
 import { SourceFile } from './sourceFile';
@@ -38,7 +38,7 @@ import { isUserCode } from './sourceFileInfoUtils';
 import { buildImportTree } from './sourceMapperUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import { lookUpClassMember } from './typeUtils';
-import { ClassType, isFunction, isInstantiableClass, isOverloadedFunction } from './types';
+import { ClassType, isFunction, isInstantiableClass, isOverloadedFunction, OverloadedFunctionType } from './types';
 
 type ClassOrFunctionOrVariableDeclaration =
     | ClassDeclaration
@@ -521,7 +521,8 @@ export class SourceMapper {
             if (isFunction(type) && type.shared.declaration) {
                 this._addClassOrFunctionDeclarations(type.shared.declaration, result, recursiveDeclCache);
             } else if (isOverloadedFunction(type)) {
-                for (const overloadDecl of type.priv.overloads.map((o) => o.shared.declaration).filter(isDefined)) {
+                const overloads = OverloadedFunctionType.getOverloads(type);
+                for (const overloadDecl of overloads.map((o) => o.shared.declaration).filter(isDefined)) {
                     this._addClassOrFunctionDeclarations(overloadDecl, result, recursiveDeclCache);
                 }
             } else if (isInstantiableClass(type)) {

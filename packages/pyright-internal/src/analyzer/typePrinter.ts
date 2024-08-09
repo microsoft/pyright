@@ -1394,7 +1394,7 @@ class UniqueNameMap {
                 }
 
                 case TypeCategory.OverloadedFunction: {
-                    type.priv.overloads.forEach((overload) => {
+                    OverloadedFunctionType.getOverloads(type).forEach((overload) => {
                         this.build(overload, recursionTypes, recursionCount);
                     });
                     break;

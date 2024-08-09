@@ -340,7 +340,6 @@ import {
     requiresSpecialization,
     requiresTypeArgs,
     selfSpecializeClass,
-    setTypeArgsRecursive,
     simplifyFunctionToParamSpec,
     sortTypes,
     specializeClassType,
@@ -5649,8 +5648,19 @@ export function createTypeEvaluator(
                 if (memberName === '__self__') {
                     // The "__self__" member is not currently defined in the "function"
                     // class, so we'll special-case it here.
-                    const functionType = isFunction(baseType) ? baseType : baseType.priv.overloads[0];
+                    let functionType: FunctionType | undefined;
+
+                    if (isFunction(baseType)) {
+                        functionType = baseType;
+                    } else {
+                        const overloads = OverloadedFunctionType.getOverloads(baseType);
+                        if (overloads.length > 0) {
+                            functionType = overloads[0];
+                        }
+                    }
+
                     if (
+                        functionType &&
                         functionType.priv.preBoundFlags !== undefined &&
                         (functionType.priv.preBoundFlags & FunctionTypeFlags.StaticMethod) === 0
                     ) {
@@ -6334,7 +6344,7 @@ export function createTypeEvaluator(
                 ? concreteType
                 : OverloadedFunctionType.getImplementation(concreteType);
 
-            if (impl && FunctionType.isFinal(impl) && memberInfo && isClass(memberInfo.classType)) {
+            if (impl && isFunction(impl) && FunctionType.isFinal(impl) && memberInfo && isClass(memberInfo.classType)) {
                 diag?.addMessage(
                     LocMessage.finalMethodOverride().format({
                         name: memberName,
@@ -6814,7 +6824,7 @@ export function createTypeEvaluator(
                 typeArgs = [
                     {
                         type: UnknownType.create(),
-                        node: typeArgs[0].node,
+                        node: typeArgs.length > 0 ? typeArgs[0].node : node,
                         typeList: typeArgs,
                     },
                 ];
@@ -9092,7 +9102,11 @@ export function createTypeEvaluator(
             // Skip the error message if we're in speculative mode because it's very
             // expensive, and we're going to suppress the diagnostic anyway.
             if (!canSkipDiagnosticForNode(errorNode)) {
-                const functionName = type.priv.overloads[0].shared.name || '<anonymous function>';
+                const overloads = OverloadedFunctionType.getOverloads(type);
+                const functionName =
+                    overloads.length > 0 && overloads[0].shared.name
+                        ? overloads[0].shared.name
+                        : '<anonymous function>';
                 const diagAddendum = new DiagnosticAddendum();
                 const argTypes = argList.map((t) => {
                     const typeString = printType(getTypeOfArg(t, /* inferenceContext */ undefined).type);
@@ -9688,9 +9702,11 @@ export function createTypeEvaluator(
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
+        const overloads = OverloadedFunctionType.getOverloads(expandedCallType);
         // Handle the 'cast' call as a special case.
         if (
-            FunctionType.isBuiltIn(expandedCallType.priv.overloads[0], ['typing.cast', 'typing_extensions.cast']) &&
+            overloads.length > 0 &&
+            FunctionType.isBuiltIn(overloads[0], ['typing.cast', 'typing_extensions.cast']) &&
             argList.length === 2
         ) {
             return { returnType: evaluateCastCall(argList, errorNode) };
@@ -14976,7 +14992,7 @@ export function createTypeEvaluator(
             if (!type) {
                 const exprType = getTypeOfExpression(
                     itemExpr,
-                    (flags & EvalFlags.ForwardRefs) | EvalFlags.NoConvertSpecialForm | EvalFlags.TypeExpression
+                    (flags & (EvalFlags.ForwardRefs | EvalFlags.TypeExpression)) | EvalFlags.NoConvertSpecialForm
                 );
 
                 // Is this an enum type?
@@ -15005,8 +15021,12 @@ export function createTypeEvaluator(
             }
 
             if (!type) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalUnsupportedType(), item);
-                type = UnknownType.create();
+                if ((flags & EvalFlags.TypeExpression) !== 0) {
+                    addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalUnsupportedType(), item);
+                    type = UnknownType.create();
+                } else {
+                    return ClassType.cloneAsInstance(classType);
+                }
             }
 
             literalTypes.push(type);
@@ -17790,9 +17810,9 @@ export function createTypeEvaluator(
                     markParamAccessed(param);
                 });
             }
-
-            decoratedType = addOverloadsToFunctionType(evaluatorInterface, node, decoratedType);
         }
+
+        decoratedType = addOverloadsToFunctionType(evaluatorInterface, node, decoratedType);
 
         writeTypeCache(node, { type: decoratedType }, EvalFlags.None);
 
@@ -21044,7 +21064,7 @@ export function createTypeEvaluator(
                             declarations.push(paramDecl);
                         }
                     } else if (isOverloadedFunction(baseType)) {
-                        baseType.priv.overloads.forEach((f) => {
+                        OverloadedFunctionType.getOverloads(baseType).forEach((f) => {
                             const paramDecl = getDeclarationFromKeywordParam(f, paramName);
                             if (paramDecl) {
                                 declarations.push(paramDecl);
@@ -22141,9 +22161,14 @@ export function createTypeEvaluator(
         if (isFunction(type)) {
             getFunctionEffectiveReturnType(type);
         } else if (isOverloadedFunction(type)) {
-            type.priv.overloads.forEach((overload) => {
+            OverloadedFunctionType.getOverloads(type).forEach((overload) => {
                 getFunctionEffectiveReturnType(overload);
             });
+
+            const impl = OverloadedFunctionType.getImplementation(type);
+            if (impl && isFunction(impl)) {
+                getFunctionEffectiveReturnType(impl);
+            }
         }
     }
 
@@ -23546,7 +23571,7 @@ export function createTypeEvaluator(
                 // type. These are functionally equivalent, but "Any" looks
                 // better in the text representation.
                 const typeVarSubstitution = isEllipsisType(srcType) ? AnyType.create() : srcType;
-                setTypeArgsRecursive(destType, typeVarSubstitution, targetConstraints, recursionCount);
+                setConstraintsForFreeTypeVars(destType, typeVarSubstitution, targetConstraints);
             }
             if ((flags & AssignTypeFlags.OverloadOverlap) === 0) {
                 return true;
@@ -23567,7 +23592,7 @@ export function createTypeEvaluator(
                 (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destConstraints : srcConstraints;
 
             if (targetConstraints) {
-                setTypeArgsRecursive(destType, UnknownType.create(), targetConstraints, recursionCount);
+                setConstraintsForFreeTypeVars(destType, UnknownType.create(), targetConstraints);
             }
             return true;
         }
@@ -24120,10 +24145,12 @@ export function createTypeEvaluator(
             });
 
             if (!isAssignable) {
-                if (overloadDiag) {
+                const overloads = OverloadedFunctionType.getOverloads(destType);
+
+                if (overloadDiag && overloads.length > 0) {
                     overloadDiag.addMessage(
                         LocAddendum.overloadNotAssignable().format({
-                            name: destType.priv.overloads[0].shared.name,
+                            name: overloads[0].shared.name,
                         })
                     );
                 }
@@ -24479,6 +24506,28 @@ export function createTypeEvaluator(
         }
 
         return ClassType.isSpecialFormClass(classType);
+    }
+
+    // Finds unsolved type variables in the destType and establishes constraints
+    // in the constraint tracker for them based on the srcType.
+    function setConstraintsForFreeTypeVars(
+        destType: Type,
+        srcType: UnknownType | AnyType,
+        constraints: ConstraintTracker
+    ) {
+        if (constraints.isLocked()) {
+            return;
+        }
+
+        const typeVars = getTypeVarArgsRecursive(destType);
+        typeVars.forEach((typeVar) => {
+            if (!TypeVarType.isBound(typeVar) && !constraints.getMainConstraintSet().getTypeVar(typeVar)) {
+                // Don't set ParamSpecs or TypeVarTuples.
+                if (!isParamSpec(srcType) && !isTypeVarTuple(srcType)) {
+                    constraints.setBounds(typeVar, srcType);
+                }
+            }
+        });
     }
 
     // Determines whether a type is "subsumed by" (i.e. is a proper subtype of) another type.
@@ -26059,10 +26108,16 @@ export function createTypeEvaluator(
                 return validateOverrideMethodInternal(baseMethod, overrideMethod, diag, enforceParamNames);
             }
 
+            const overloadsAndImpl = [...OverloadedFunctionType.getOverloads(overrideMethod)];
+            const impl = OverloadedFunctionType.getImplementation(overrideMethod);
+            if (impl && isFunction(impl)) {
+                overloadsAndImpl.push(impl);
+            }
+
             // For an overload overriding a base method, at least one overload
             // or the implementation must be compatible with the base method.
             if (
-                overrideMethod.priv.overloads.some((overrideOverload) => {
+                overloadsAndImpl.some((overrideOverload) => {
                     return validateOverrideMethodInternal(
                         baseMethod,
                         overrideOverload,

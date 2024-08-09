@@ -60,3 +60,8 @@ reveal_type(bytes4, expected_text='Literal[b"\'"]')
 
 x = [Literal[1], Literal[2]]
 reveal_type(x, expected_text="list[type[Literal]]")
+
+
+values = ("a", "b", "c")
+t1 = Literal[values]
+reveal_type(t1, expected_text="Literal")

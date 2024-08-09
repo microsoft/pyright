@@ -17,7 +17,7 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol } from './symbol';
-import { Type, TypeBase, TypeCategory } from './types';
+import { OverloadedFunctionType, Type, TypeBase, TypeCategory } from './types';
 
 export type PrintableType = ParseNode | Declaration | Symbol | Type | undefined;
 
@@ -78,7 +78,9 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
                     return `Never ${wrap(type.props?.typeAliasInfo?.fullName)}`;
 
                 case TypeCategory.OverloadedFunction:
-                    return `OverloadedFunction [${type.priv.overloads.map((o) => wrap(printType(o), '"')).join(',')}]`;
+                    return `OverloadedFunction [${OverloadedFunctionType.getOverloads(type)
+                        .map((o) => wrap(printType(o), '"'))
+                        .join(',')}]`;
 
                 case TypeCategory.TypeVar:
                     return `TypeVar '${type.shared.name}' ${wrap(type.props?.typeAliasInfo?.fullName)}`;
