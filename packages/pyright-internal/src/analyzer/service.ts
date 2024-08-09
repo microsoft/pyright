@@ -14,7 +14,11 @@ import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-langu
 
 import { BackgroundAnalysisBase, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
-import { CommandLineOptions } from '../common/commandLineOptions';
+import {
+    CommandLineConfigOptions,
+    CommandLineLanguageServerOptions,
+    CommandLineOptions,
+} from '../common/commandLineOptions';
 import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
 import { isString } from '../common/core';
@@ -501,19 +505,22 @@ export class AnalyzerService {
     }
 
     private get _watchForSourceChanges() {
-        return !!this._commandLineOptions?.watchForSourceChanges;
+        return !!this._commandLineOptions?.languageServerSettings.watchForSourceChanges;
     }
 
     private get _watchForLibraryChanges() {
-        return !!this._commandLineOptions?.watchForLibraryChanges && !!this._options.libraryReanalysisTimeProvider;
+        return (
+            !!this._commandLineOptions?.languageServerSettings.watchForLibraryChanges &&
+            !!this._options.libraryReanalysisTimeProvider
+        );
     }
 
     private get _watchForConfigChanges() {
-        return !!this._commandLineOptions?.watchForConfigChanges;
+        return !!this._commandLineOptions?.languageServerSettings.watchForConfigChanges;
     }
 
     private get _typeCheckingMode() {
-        return this._commandLineOptions?.typeCheckingMode;
+        return this._commandLineOptions?.configSettings.typeCheckingMode;
     }
 
     private get _verboseOutput(): boolean {
@@ -521,7 +528,7 @@ export class AnalyzerService {
     }
 
     private get _typeStubTargetImportName() {
-        return this._commandLineOptions?.typeStubTargetImportName;
+        return this._commandLineOptions?.languageServerSettings.typeStubTargetImportName;
     }
 
     // Calculates the effective options based on the command-line options,
@@ -622,7 +629,7 @@ export class AnalyzerService {
 
             // When not in language server mode, command line options override config file options.
             if (!commandLineOptions.fromLanguageServer) {
-                this._applyCommandLineOptionsToConfig(configOptions, commandLineOptions, projectRoot);
+                this._applyCommandLineOverrides(configOptions, commandLineOptions.configSettings, projectRoot, false);
             }
         } else {
             // Initialize the type checking mode based on if this is for a language server or not. Language
@@ -630,8 +637,17 @@ export class AnalyzerService {
             configOptions.initializeTypeCheckingMode(commandLineOptions.fromLanguageServer ? 'off' : 'standard');
 
             // If there are no config files, we can then directly apply the command line options.
-            this._applyCommandLineOptionsToConfig(configOptions, commandLineOptions, projectRoot);
+            this._applyCommandLineOverrides(
+                configOptions,
+                commandLineOptions.configSettings,
+                projectRoot,
+                commandLineOptions.fromLanguageServer
+            );
         }
+
+        // Apply the command line options that are not in the config file. These settings
+        // only apply to the language server.
+        this._applyLanguageServerOptions(configOptions, commandLineOptions.languageServerSettings);
 
         // Ensure that if no command line or config options were applied, we have some defaults.
         this._ensureDefaultOptions(host, configOptions, projectRoot, executionRoot, commandLineOptions);
@@ -671,16 +687,16 @@ export class AnalyzerService {
         if (!configOptions.defaultExtraPaths) {
             configOptions.ensureDefaultExtraPaths(
                 this.fs,
-                commandLineOptions.autoSearchPaths ?? false,
-                commandLineOptions.extraPaths
+                commandLineOptions.configSettings.autoSearchPaths ?? false,
+                commandLineOptions.configSettings.extraPaths
             );
         }
 
         if (configOptions.defaultPythonPlatform === undefined) {
-            configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
+            configOptions.defaultPythonPlatform = commandLineOptions.configSettings.pythonPlatform;
         }
         if (configOptions.defaultPythonVersion === undefined) {
-            configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
+            configOptions.defaultPythonVersion = commandLineOptions.configSettings.pythonVersion;
         }
 
         // If the caller specified that "typeshedPath" is the root of the project,
@@ -772,12 +788,42 @@ export class AnalyzerService {
                 );
             }
         }
+
+        // This is a special case. It can be set in the config file, but if it's set on the command line, we should always
+        // override it.
+        if (commandLineOptions.configSettings.verboseOutput !== undefined) {
+            configOptions.verboseOutput = commandLineOptions.configSettings.verboseOutput;
+        }
     }
 
-    private _applyCommandLineOptionsToConfig(
+    private _applyLanguageServerOptions(
         configOptions: ConfigOptions,
-        commandLineOptions: CommandLineOptions,
-        projectRoot: Uri
+        languageServerOptions: CommandLineLanguageServerOptions
+    ) {
+        configOptions.disableTaggedHints = !!languageServerOptions.disableTaggedHints;
+        if (languageServerOptions.checkOnlyOpenFiles !== undefined) {
+            configOptions.checkOnlyOpenFiles = languageServerOptions.checkOnlyOpenFiles;
+        }
+        if (languageServerOptions.autoImportCompletions !== undefined) {
+            configOptions.autoImportCompletions = languageServerOptions.autoImportCompletions;
+        }
+        if (languageServerOptions.indexing !== undefined) {
+            configOptions.indexing = languageServerOptions.indexing;
+        }
+        if (languageServerOptions.taskListTokens) {
+            configOptions.taskListTokens = languageServerOptions.taskListTokens;
+        }
+        if (languageServerOptions.logTypeEvaluationTime !== undefined) {
+            configOptions.logTypeEvaluationTime = languageServerOptions.logTypeEvaluationTime;
+        }
+        configOptions.typeEvaluationTimeThreshold = languageServerOptions.typeEvaluationTimeThreshold;
+    }
+
+    private _applyCommandLineOverrides(
+        configOptions: ConfigOptions,
+        commandLineOptions: CommandLineConfigOptions,
+        projectRoot: Uri,
+        fromLanguageServer: boolean
     ) {
         if (commandLineOptions.typeCheckingMode) {
             configOptions.initializeTypeCheckingMode(commandLineOptions.typeCheckingMode);
@@ -840,7 +886,6 @@ export class AnalyzerService {
             configOptions.ignore.push(getFileSpec(projectRoot, fileSpec));
         });
 
-        configOptions.disableTaggedHints = !!commandLineOptions.disableTaggedHints;
         configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
 
         // Override the analyzeUnannotatedFunctions setting based on the command-line setting.
@@ -860,9 +905,7 @@ export class AnalyzerService {
         }
 
         const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
-            const settingSource = commandLineOptions.fromLanguageServer
-                ? 'the client settings'
-                : 'a command-line option';
+            const settingSource = fromLanguageServer ? 'the client settings' : 'a command-line option';
             this._console.warn(
                 `The ${settingName} has been specified in both the config file and ` +
                     `${settingSource}. The value in the config file (${configValue}) ` +
@@ -888,26 +931,6 @@ export class AnalyzerService {
                 reportDuplicateSetting('typeshedPath', configOptions.typeshedPath.toUserVisibleString());
             }
         }
-
-        if (commandLineOptions.verboseOutput !== undefined) {
-            configOptions.verboseOutput = commandLineOptions.verboseOutput;
-        }
-        if (commandLineOptions.checkOnlyOpenFiles !== undefined) {
-            configOptions.checkOnlyOpenFiles = commandLineOptions.checkOnlyOpenFiles;
-        }
-        if (commandLineOptions.autoImportCompletions !== undefined) {
-            configOptions.autoImportCompletions = commandLineOptions.autoImportCompletions;
-        }
-        if (commandLineOptions.indexing !== undefined) {
-            configOptions.indexing = commandLineOptions.indexing;
-        }
-        if (commandLineOptions.taskListTokens) {
-            configOptions.taskListTokens = commandLineOptions.taskListTokens;
-        }
-        if (commandLineOptions.logTypeEvaluationTime !== undefined) {
-            configOptions.logTypeEvaluationTime = commandLineOptions.logTypeEvaluationTime;
-        }
-        configOptions.typeEvaluationTimeThreshold = commandLineOptions.typeEvaluationTimeThreshold;
 
         // If useLibraryCodeForTypes was not specified in the config, allow the command line to override it.
         if (configOptions.useLibraryCodeForTypes === undefined) {
@@ -1790,7 +1813,7 @@ export class AnalyzerService {
     }
 
     private _scheduleReanalysis(requireTrackedFileUpdate: boolean) {
-        if (this._disposed || !this._commandLineOptions?.enableAmbientAnalysis) {
+        if (this._disposed || !this._commandLineOptions?.languageServerSettings.enableAmbientAnalysis) {
             // already disposed
             return;
         }

@@ -88,14 +88,14 @@ export class PackageTypeVerifier {
 
         // Make sure we have a default python platform and version.
         // Allow the command-line parameters to override the normal defaults.
-        if (commandLineOptions.pythonPlatform) {
-            this._configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
+        if (commandLineOptions.configSettings.pythonPlatform) {
+            this._configOptions.defaultPythonPlatform = commandLineOptions.configSettings.pythonPlatform;
         } else {
             this._configOptions.ensureDefaultPythonPlatform(host, console);
         }
 
-        if (commandLineOptions.pythonVersion) {
-            this._configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
+        if (commandLineOptions.configSettings.pythonVersion) {
+            this._configOptions.defaultPythonVersion = commandLineOptions.configSettings.pythonVersion;
         } else {
             this._configOptions.ensureDefaultPythonVersion(host, console);
         }
