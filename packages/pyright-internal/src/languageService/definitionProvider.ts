@@ -23,7 +23,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper, isStubFile } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { doForEachSubtype } from '../analyzer/typeUtils';
-import { OverloadedFunctionType, TypeCategory, isOverloadedFunction } from '../analyzer/types';
+import { OverloadedType, TypeCategory, isOverloaded } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
@@ -88,8 +88,8 @@ export function addDeclarationsToDefinitions(
         if (isFunctionDeclaration(resolvedDecl)) {
             // Handle overloaded function case
             const functionType = evaluator.getTypeForDeclaration(resolvedDecl)?.type;
-            if (functionType && isOverloadedFunction(functionType)) {
-                for (const overloadDecl of OverloadedFunctionType.getOverloads(functionType)
+            if (functionType && isOverloaded(functionType)) {
+                for (const overloadDecl of OverloadedType.getOverloads(functionType)
                     .map((o) => o.shared.declaration)
                     .filter(isDefined)) {
                     _addIfUnique(definitions, {

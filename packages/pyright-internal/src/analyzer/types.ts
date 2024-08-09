@@ -12,43 +12,36 @@ import { Uri } from '../common/uri/uri';
 import { ArgumentNode, NameNode, ParamCategory } from '../parser/parseNodes';
 import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
-import { getTypeVarScopeId } from './typeUtils';
 
 export const enum TypeCategory {
-    // Name is not bound to a value of any type.
+    // Name is not bound to a value of any type
     Unbound,
 
-    // Type exists but is not currently known by the
-    // type analyzer (e.g. there is no available typings file).
-    // Unknown types are treated the same as "Any" at analysis time.
+    // Implicit Any type
     Unknown,
 
-    // Type can be anything.
+    // Type can be anything
     Any,
 
-    // Used in type narrowing to indicate that all possible
-    // subtypes in a union have been eliminated, and execution
-    // should never get to this point.
+    // The bottom type, equivalent to an empty union
     Never,
 
-    // Callable type with typed input parameters and return parameter.
+    // Callable type
     Function,
 
-    // Functions defined with @overload decorator in stub files that
-    // have multiple function declarations for a common implementation.
-    OverloadedFunction,
+    // Functions defined with @overload decorator
+    Overloaded,
 
-    // Class definition, including associated instance methods,
-    // class methods, static methods, properties, and variables.
+    // Class definition
     Class,
 
-    // Module instance.
+    // Module instance
     Module,
 
-    // Composite type (e.g. Number OR String).
+    // Union of two or more other types
     Union,
 
-    // Type variable (defined with TypeVar)
+    // Type variable
     TypeVar,
 }
 
@@ -75,16 +68,20 @@ export type UnionableType =
     | UnknownType
     | AnyType
     | FunctionType
-    | OverloadedFunctionType
+    | OverloadedType
     | ClassType
     | ModuleType
     | TypeVarType;
 
 export type Type = UnionableType | NeverType | UnionType;
 
+// A string that uniquely identifies a TypeVar that is bound to a scope
+// (a generic class, function, or type alias).
 export type TypeVarScopeId = string;
-export const UnificationScopeId = '-';
+export const UnificationScopeId: TypeVarScopeId = '-';
 
+// Information about an enum member that can be used within a Literal
+// type annotation.
 export class EnumLiteral {
     constructor(
         public classFullName: string,
@@ -114,6 +111,7 @@ export const maxTypeRecursionCount = 20;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
+// Options used with the isTypeSame function
 export interface TypeSameOptions {
     ignorePseudoGeneric?: boolean;
     ignoreTypeFlags?: boolean;
@@ -1598,7 +1596,7 @@ export interface CallSiteInferenceTypeCacheEntry {
 }
 
 export interface SignatureWithOffsets {
-    type: FunctionType | OverloadedFunctionType;
+    type: FunctionType | OverloadedType;
     expressionOffsets: number[];
 }
 
@@ -1632,7 +1630,7 @@ export interface FunctionDetailsPriv {
 
     // If this function is part of an overloaded function, this
     // refers back to the overloaded function type.
-    overloaded?: OverloadedFunctionType;
+    overloaded?: OverloadedType;
 
     // If this function is created with a "Callable" annotation with
     // type arguments? This allows us to detect and report an error
@@ -1708,7 +1706,7 @@ export namespace FunctionType {
 
         if (boundToType) {
             if (type.shared.name === '__new__' || type.shared.name === '__init__') {
-                newFunction.priv.constructorTypeVarScopeId = getTypeVarScopeId(boundToType);
+                newFunction.priv.constructorTypeVarScopeId = boundToType.shared.typeVarScopeId;
             }
         }
 
@@ -2251,7 +2249,7 @@ export namespace FunctionType {
     }
 }
 
-export interface OverloadedFunctionDetailsPriv {
+export interface OverloadedDetailsPriv {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     _overloads: FunctionType[];
 
@@ -2259,14 +2257,14 @@ export interface OverloadedFunctionDetailsPriv {
     _implementation: Type | undefined;
 }
 
-export interface OverloadedFunctionType extends TypeBase<TypeCategory.OverloadedFunction> {
-    priv: OverloadedFunctionDetailsPriv;
+export interface OverloadedType extends TypeBase<TypeCategory.Overloaded> {
+    priv: OverloadedDetailsPriv;
 }
 
-export namespace OverloadedFunctionType {
-    export function create(overloads: FunctionType[], implementation?: Type): OverloadedFunctionType {
-        const newType: OverloadedFunctionType = {
-            category: TypeCategory.OverloadedFunction,
+export namespace OverloadedType {
+    export function create(overloads: FunctionType[], implementation?: Type): OverloadedType {
+        const newType: OverloadedType = {
+            category: TypeCategory.Overloaded,
             flags: TypeFlags.Instance,
             props: undefined,
             cached: undefined,
@@ -2278,23 +2276,23 @@ export namespace OverloadedFunctionType {
         };
 
         overloads.forEach((overload) => {
-            OverloadedFunctionType.addOverload(newType, overload);
+            OverloadedType.addOverload(newType, overload);
         });
 
         return newType;
     }
 
     // Adds a new overload or an implementation.
-    export function addOverload(type: OverloadedFunctionType, functionType: FunctionType) {
+    export function addOverload(type: OverloadedType, functionType: FunctionType) {
         functionType.priv.overloaded = type;
         type.priv._overloads.push(functionType);
     }
 
-    export function getOverloads(type: OverloadedFunctionType): FunctionType[] {
+    export function getOverloads(type: OverloadedType): FunctionType[] {
         return type.priv._overloads;
     }
 
-    export function getImplementation(type: OverloadedFunctionType): Type | undefined {
+    export function getImplementation(type: OverloadedType): Type | undefined {
         return type.priv._implementation;
     }
 }
@@ -3140,8 +3138,8 @@ export function isFunction(type: Type): type is FunctionType {
     return type.category === TypeCategory.Function;
 }
 
-export function isOverloadedFunction(type: Type): type is OverloadedFunctionType {
-    return type.category === TypeCategory.OverloadedFunction;
+export function isOverloaded(type: Type): type is OverloadedType {
+    return type.category === TypeCategory.Overloaded;
 }
 
 export function getTypeAliasInfo(type: Type) {
@@ -3344,9 +3342,9 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             return true;
         }
 
-        case TypeCategory.OverloadedFunction: {
+        case TypeCategory.Overloaded: {
             // Make sure the overload counts match.
-            const functionType2 = type2 as OverloadedFunctionType;
+            const functionType2 = type2 as OverloadedType;
             if (type1.priv._overloads.length !== functionType2.priv._overloads.length) {
                 return false;
             }

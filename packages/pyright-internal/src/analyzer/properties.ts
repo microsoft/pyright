@@ -33,7 +33,7 @@ import {
     isTypeSame,
     isTypeVar,
     ModuleType,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
     TypeVarType,
     UnknownType,
@@ -344,7 +344,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     // problems specifically for the `NoneType` class because None.__class__
     // is a property, and both overloads match in this case because None
     // is passed for the "obj" parameter.
-    const getFunctionOverload = OverloadedFunctionType.create([getFunction2, getFunction1]);
+    const getFunctionOverload = OverloadedType.create([getFunction2, getFunction1]);
     const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunctionOverload);
     fields.set('__get__', getSymbol);
 }
@@ -569,7 +569,6 @@ export function assignProperty(
                     boundSrcAccessType,
                     diag,
                     constraints,
-                    /* srcConstraints */ undefined,
                     AssignTypeFlags.Default,
                     recursionCount
                 )

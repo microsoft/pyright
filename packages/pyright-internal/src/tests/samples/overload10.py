@@ -25,7 +25,7 @@ def func1(*iterables: Iterable[_T1]) -> float:
     ...
 
 
-def func1(*iterables: Iterable[_T1]) -> Tuple[_T1, ...] | float:
+def func1(*iterables: Iterable[_T1 | _T2]) -> Tuple[_T1 | _T2, ...] | float:
     ...
 
 

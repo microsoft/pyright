@@ -15,7 +15,7 @@ import {
     FunctionType,
     ModuleType,
     NeverType,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
     TypeCategory,
     TypeVarType,
@@ -75,8 +75,8 @@ export class TypeWalker {
                 this.visitFunction(type);
                 break;
 
-            case TypeCategory.OverloadedFunction:
-                this.visitOverloadedFunction(type);
+            case TypeCategory.Overloaded:
+                this.visitOverloaded(type);
                 break;
 
             case TypeCategory.Class:
@@ -156,8 +156,8 @@ export class TypeWalker {
         }
     }
 
-    visitOverloadedFunction(type: OverloadedFunctionType): void {
-        const overloads = OverloadedFunctionType.getOverloads(type);
+    visitOverloaded(type: OverloadedType): void {
+        const overloads = OverloadedType.getOverloads(type);
         for (const overload of overloads) {
             this.walk(overload);
             if (this._isWalkCanceled) {
@@ -165,7 +165,7 @@ export class TypeWalker {
             }
         }
 
-        const impl = OverloadedFunctionType.getImplementation(type);
+        const impl = OverloadedType.getImplementation(type);
         if (impl) {
             this.walk(impl);
         }

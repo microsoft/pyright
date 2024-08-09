@@ -43,7 +43,7 @@ import {
     ClassType,
     FunctionParam,
     FunctionType,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
     TypeCondition,
     TypeVarScopeId,
@@ -380,7 +380,6 @@ export interface ArgResult {
     argType: Type;
     isTypeIncomplete?: boolean | undefined;
     condition?: TypeCondition[];
-    skippedOverloadArg?: boolean;
     skippedBareTypeVarExpectedType?: boolean;
 }
 
@@ -547,7 +546,7 @@ export interface TypeEvaluator {
     validateOverloadedArgTypes: (
         errorNode: ExpressionNode,
         argList: Arg[],
-        typeResult: TypeResult<OverloadedFunctionType>,
+        typeResult: TypeResult<OverloadedType>,
         constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean,
         inferenceContext: InferenceContext | undefined
@@ -613,7 +612,7 @@ export interface TypeEvaluator {
     getFunctionInferredReturnType: (type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) => Type;
     getBestOverloadForArgs: (
         errorNode: ExpressionNode,
-        typeResult: TypeResult<OverloadedFunctionType>,
+        typeResult: TypeResult<OverloadedType>,
         argList: Arg[]
     ) => FunctionType | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;
@@ -633,7 +632,7 @@ export interface TypeEvaluator {
         selfType?: ClassType | TypeVarType | undefined,
         diag?: DiagnosticAddendum,
         recursionCount?: number
-    ) => FunctionType | OverloadedFunctionType | undefined;
+    ) => FunctionType | OverloadedType | undefined;
     getTypeOfMagicMethodCall: (
         objType: Type,
         methodName: string,
@@ -643,13 +642,13 @@ export interface TypeEvaluator {
     ) => TypeResult | undefined;
     bindFunctionToClassOrObject: (
         baseType: ClassType | undefined,
-        memberType: FunctionType | OverloadedFunctionType,
+        memberType: FunctionType | OverloadedType,
         memberClass?: ClassType,
         treatConstructorAsClassMethod?: boolean,
         selfType?: ClassType | TypeVarType,
         diag?: DiagnosticAddendum,
         recursionCount?: number
-    ) => FunctionType | OverloadedFunctionType | undefined;
+    ) => FunctionType | OverloadedType | undefined;
     getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
     getAbstractSymbols: (classType: ClassType) => AbstractSymbol[];
     narrowConstrainedTypeVar: (node: ParseNode, typeVar: TypeVarType) => Type | undefined;
@@ -658,14 +657,13 @@ export interface TypeEvaluator {
         destType: Type,
         srcType: Type,
         diag?: DiagnosticAddendum,
-        destConstraints?: ConstraintTracker,
-        srcConstraints?: ConstraintTracker,
+        constraints?: ConstraintTracker,
         flags?: AssignTypeFlags,
         recursionCount?: number
     ) => boolean;
     validateOverrideMethod: (
         baseMethod: Type,
-        overrideMethod: FunctionType | OverloadedFunctionType,
+        overrideMethod: FunctionType | OverloadedType,
         baseClass: ClassType | undefined,
         diag: DiagnosticAddendum,
         enforceParamNames?: boolean
@@ -695,8 +693,7 @@ export interface TypeEvaluator {
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
-        destConstraints: ConstraintTracker | undefined,
-        srcConstraints: ConstraintTracker | undefined,
+        constraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ) => boolean;

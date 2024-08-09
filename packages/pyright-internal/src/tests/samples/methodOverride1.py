@@ -13,10 +13,11 @@ from typing import (
     overload,
 )
 
-
 T_ParentClass = TypeVar("T_ParentClass", bound="ParentClass")
 
 P = ParamSpec("P")
+T = TypeVar("T")
+S = TypeVar("S")
 
 
 def decorator(func: Callable[P, None]) -> Callable[P, int]:
@@ -558,3 +559,40 @@ class C(Base4, Base5):
 
 class MyObject(TypedDict):
     values: list[str]
+
+
+class Base6(Generic["T"]):
+    def method1(self, v: int) -> None:
+        ...
+
+    def method2(self, v: T) -> None:
+        ...
+
+    def method3(self, v: T) -> None:
+        ...
+
+    def method4(self, v: S) -> S:
+        ...
+
+    def method5(self, v: S) -> S:
+        ...
+
+
+class Derived6(Base6[int], Generic["T"]):
+    # This should generate an error.
+    def method1(self, v: T):
+        ...
+
+    # This should generate an error.
+    def method2(self, v: T) -> None:
+        ...
+
+    def method3(self, v: int) -> None:
+        ...
+
+    # This should generate an error.
+    def method4(self, v: T) -> T:
+        ...
+
+    def method5(self, v: S) -> S:
+        ...

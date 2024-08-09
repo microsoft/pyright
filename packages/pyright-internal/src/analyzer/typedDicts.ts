@@ -48,7 +48,7 @@ import {
     isNever,
     maxTypeRecursionCount,
     NeverType,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
     TypedDictEntries,
     TypedDictEntry,
@@ -277,10 +277,17 @@ export function synthesizeTypedDictClassMethods(
             '__map'
         )
     );
-    FunctionType.addPositionOnlyParamSeparator(initOverride1);
 
-    // All subsequent parameters must be named, so insert an empty "*".
-    FunctionType.addKeywordOnlyParamSeparator(initOverride1);
+    const entries = getTypedDictMembersForClass(evaluator, classType);
+    const extraEntriesInfo = entries.extraItems ?? getEffectiveExtraItemsEntryType(evaluator, classType);
+    let allEntriesAreReadOnly = entries.knownItems.size > 0;
+
+    if (entries.knownItems.size > 0) {
+        FunctionType.addPositionOnlyParamSeparator(initOverride1);
+
+        // All subsequent parameters must be named, so insert an empty "*".
+        FunctionType.addKeywordOnlyParamSeparator(initOverride1);
+    }
 
     const initOverride2 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
     FunctionType.addParam(
@@ -295,12 +302,10 @@ export function synthesizeTypedDictClassMethods(
     initOverride2.shared.declaredReturnType = evaluator.getNoneType();
     initOverride2.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
-    // All parameters must be named, so insert an empty "*".
-    FunctionType.addKeywordOnlyParamSeparator(initOverride2);
-
-    const entries = getTypedDictMembersForClass(evaluator, classType);
-    const extraEntriesInfo = entries.extraItems ?? getEffectiveExtraItemsEntryType(evaluator, classType);
-    let allEntriesAreReadOnly = entries.knownItems.size > 0;
+    if (entries.knownItems.size > 0) {
+        // All parameters must be named, so insert an empty "*".
+        FunctionType.addKeywordOnlyParamSeparator(initOverride2);
+    }
 
     entries.knownItems.forEach((entry, name) => {
         FunctionType.addParam(
@@ -353,7 +358,7 @@ export function synthesizeTypedDictClassMethods(
     }
 
     const symbolTable = ClassType.getSymbolTable(classType);
-    const initType = OverloadedFunctionType.create([initOverride1, initOverride2]);
+    const initType = OverloadedType.create([initOverride1, initOverride2]);
     symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
     symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
 
@@ -528,8 +533,10 @@ export function synthesizeTypedDictClassMethods(
                 )
             );
 
-            FunctionType.addPositionOnlyParamSeparator(updateMethod1);
-            FunctionType.addKeywordOnlyParamSeparator(updateMethod3);
+            if (entries.knownItems.size > 0) {
+                FunctionType.addPositionOnlyParamSeparator(updateMethod1);
+                FunctionType.addKeywordOnlyParamSeparator(updateMethod3);
+            }
 
             updateMethod1.shared.declaredReturnType = evaluator.getNoneType();
             updateMethod2.shared.declaredReturnType = evaluator.getNoneType();
@@ -582,12 +589,14 @@ export function synthesizeTypedDictClassMethods(
                 );
             }
 
-            FunctionType.addPositionOnlyParamSeparator(updateMethod2);
+            if (entries.knownItems.size > 0) {
+                FunctionType.addPositionOnlyParamSeparator(updateMethod2);
+            }
 
             // Note that the order of method1 and method2 is swapped. This is done so
             // the method1 signature is used in the error message when neither method2
             // or method1 match.
-            return OverloadedFunctionType.create([updateMethod2, updateMethod1, updateMethod3]);
+            return OverloadedType.create([updateMethod2, updateMethod1, updateMethod3]);
         }
 
         const getOverloads: FunctionType[] = [];
@@ -643,22 +652,16 @@ export function synthesizeTypedDictClassMethods(
             getOverloads.push(createGetMethod(strType, AnyType.create(), /* includeDefault */ true));
         }
 
-        symbolTable.set(
-            'get',
-            Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(getOverloads))
-        );
+        symbolTable.set('get', Symbol.createWithType(SymbolFlags.ClassMember, OverloadedType.create(getOverloads)));
 
         if (popOverloads.length > 0) {
-            symbolTable.set(
-                'pop',
-                Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(popOverloads))
-            );
+            symbolTable.set('pop', Symbol.createWithType(SymbolFlags.ClassMember, OverloadedType.create(popOverloads)));
         }
 
         if (setDefaultOverloads.length > 0) {
             symbolTable.set(
                 'setdefault',
-                Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(setDefaultOverloads))
+                Symbol.createWithType(SymbolFlags.ClassMember, OverloadedType.create(setDefaultOverloads))
             );
         }
 
@@ -862,9 +865,8 @@ export function getTypedDictDictEquivalent(
                 dictValueType,
                 entry.valueType,
                 /* diag */ undefined,
-                /* destConstraints */ undefined,
-                /* srcConstraints */ undefined,
-                AssignTypeFlags.EnforceInvariance,
+                /* constraints */ undefined,
+                AssignTypeFlags.Invariant,
                 recursionCount + 1
             )
         ) {
@@ -1087,7 +1089,6 @@ export function assignTypedDictToTypedDict(
                             extraSrcEntries.valueType,
                             subDiag?.createAddendum(),
                             constraints,
-                            /* srcConstraints */ undefined,
                             flags,
                             recursionCount
                         )
@@ -1129,8 +1130,7 @@ export function assignTypedDictToTypedDict(
                     srcEntry.valueType,
                     subDiag?.createAddendum(),
                     constraints,
-                    /* srcConstraints */ undefined,
-                    destEntry.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
+                    destEntry.isReadOnly ? flags : flags | AssignTypeFlags.Invariant,
                     recursionCount
                 )
             ) {
@@ -1185,8 +1185,7 @@ export function assignTypedDictToTypedDict(
                         srcEntry.valueType,
                         subDiag?.createAddendum(),
                         constraints,
-                        /* srcConstraints */ undefined,
-                        destEntries.extraItems.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
+                        destEntries.extraItems.isReadOnly ? flags : flags | AssignTypeFlags.Invariant,
                         recursionCount
                     )
                 ) {
@@ -1216,8 +1215,7 @@ export function assignTypedDictToTypedDict(
                 extraSrcEntries.valueType,
                 subDiag?.createAddendum(),
                 constraints,
-                /* srcConstraints */ undefined,
-                extraDestEntries.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
+                extraDestEntries.isReadOnly ? flags : flags | AssignTypeFlags.Invariant,
                 recursionCount
             )
         ) {
@@ -1293,7 +1291,6 @@ export function assignToTypedDict(
                             valueTypes[index].type,
                             subDiag?.createAddendum(),
                             constraints,
-                            /* srcConstraints */ undefined,
                             AssignTypeFlags.RetainLiteralsForTypeVar
                         )
                     ) {
@@ -1333,7 +1330,6 @@ export function assignToTypedDict(
                         valueTypes[index].type,
                         subDiag?.createAddendum(),
                         constraints,
-                        /* srcConstraints */ undefined,
                         AssignTypeFlags.RetainLiteralsForTypeVar
                     )
                 ) {

@@ -38,7 +38,7 @@ import { isUserCode } from './sourceFileInfoUtils';
 import { buildImportTree } from './sourceMapperUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import { lookUpClassMember } from './typeUtils';
-import { ClassType, isFunction, isInstantiableClass, isOverloadedFunction, OverloadedFunctionType } from './types';
+import { ClassType, isFunction, isInstantiableClass, isOverloaded, OverloadedType } from './types';
 
 type ClassOrFunctionOrVariableDeclaration =
     | ClassDeclaration
@@ -520,8 +520,8 @@ export class SourceMapper {
 
             if (isFunction(type) && type.shared.declaration) {
                 this._addClassOrFunctionDeclarations(type.shared.declaration, result, recursiveDeclCache);
-            } else if (isOverloadedFunction(type)) {
-                const overloads = OverloadedFunctionType.getOverloads(type);
+            } else if (isOverloaded(type)) {
+                const overloads = OverloadedType.getOverloads(type);
                 for (const overloadDecl of overloads.map((o) => o.shared.declaration).filter(isDefined)) {
                     this._addClassOrFunctionDeclarations(overloadDecl, result, recursiveDeclCache);
                 }
