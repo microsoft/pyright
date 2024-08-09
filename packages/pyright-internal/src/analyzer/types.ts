@@ -12,43 +12,36 @@ import { Uri } from '../common/uri/uri';
 import { ArgumentNode, NameNode, ParamCategory } from '../parser/parseNodes';
 import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
-import { getTypeVarScopeId } from './typeUtils';
 
 export const enum TypeCategory {
-    // Name is not bound to a value of any type.
+    // Name is not bound to a value of any type
     Unbound,
 
-    // Type exists but is not currently known by the
-    // type analyzer (e.g. there is no available typings file).
-    // Unknown types are treated the same as "Any" at analysis time.
+    // Implicit Any type
     Unknown,
 
-    // Type can be anything.
+    // Type can be anything
     Any,
 
-    // Used in type narrowing to indicate that all possible
-    // subtypes in a union have been eliminated, and execution
-    // should never get to this point.
+    // The bottom type, equivalent to an empty union
     Never,
 
-    // Callable type with typed input parameters and return parameter.
+    // Callable type
     Function,
 
-    // Functions defined with @overload decorator in stub files that
-    // have multiple function declarations for a common implementation.
+    // Functions defined with @overload decorator
     Overloaded,
 
-    // Class definition, including associated instance methods,
-    // class methods, static methods, properties, and variables.
+    // Class definition
     Class,
 
-    // Module instance.
+    // Module instance
     Module,
 
-    // Composite type (e.g. Number OR String).
+    // Union of two or more other types
     Union,
 
-    // Type variable (defined with TypeVar)
+    // Type variable
     TypeVar,
 }
 
@@ -82,9 +75,13 @@ export type UnionableType =
 
 export type Type = UnionableType | NeverType | UnionType;
 
+// A string that uniquely identifies a TypeVar that is bound to a scope
+// (a generic class, function, or type alias).
 export type TypeVarScopeId = string;
-export const UnificationScopeId = '-';
+export const UnificationScopeId: TypeVarScopeId = '-';
 
+// Information about an enum member that can be used within a Literal
+// type annotation.
 export class EnumLiteral {
     constructor(
         public classFullName: string,
@@ -114,6 +111,7 @@ export const maxTypeRecursionCount = 20;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
+// Options used with the isTypeSame function
 export interface TypeSameOptions {
     ignorePseudoGeneric?: boolean;
     ignoreTypeFlags?: boolean;
@@ -1708,7 +1706,7 @@ export namespace FunctionType {
 
         if (boundToType) {
             if (type.shared.name === '__new__' || type.shared.name === '__init__') {
-                newFunction.priv.constructorTypeVarScopeId = getTypeVarScopeId(boundToType);
+                newFunction.priv.constructorTypeVarScopeId = boundToType.shared.typeVarScopeId;
             }
         }
 
