@@ -1,0 +1,31 @@
+{
+    "analyzeUnannotatedFunctions": false,
+    "defineConstant": {
+        "CONSTANT1": "string",
+    },
+    "executionEnvironments": [
+        {
+            "root": ".",
+            "python": "python3",
+            "extraPaths": ["extraPath"]
+        }
+    ],
+    "typeCheckingMode": "off",
+    "exclude": ["test"],
+    "include": ["test"],
+    "ignore": ["test"],
+    "extraPaths": ["test"],
+    "pythonVersion": "3.7",
+    "pythonPlatform": "All",
+    "strict": ["test"],
+    "deprecateTypingAliases": true,
+    "disableBytesTypePromotions": true,
+    "enableExperimentalFeatures": true,
+    "enableTypeIgnoreComments": false,
+    "stubPath": "test",
+    "typeshedPath": "test",
+    "venv": "test",
+    "venvPath": "test",
+    "useLibraryCodeForTypes": false,
+    "verboseOutput": true
+}
