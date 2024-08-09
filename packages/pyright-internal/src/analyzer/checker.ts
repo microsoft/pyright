@@ -185,6 +185,7 @@ import {
     getSpecializedTupleType,
     getTypeVarArgsRecursive,
     getTypeVarScopeIds,
+    isInstantiableMetaclass,
     isLiteralType,
     isLiteralTypeOrUnion,
     isNoneInstance,
@@ -7234,134 +7235,132 @@ export class Checker extends ParseTreeWalker {
     // and has been determined not to be a property accessor.
     private _validateMethod(node: FunctionNode, functionType: FunctionType, classNode: ClassNode) {
         const classTypeInfo = this._evaluator.getTypeOfClass(classNode);
-        const classType = classTypeInfo?.classType;
+        if (!classTypeInfo) {
+            return;
+        }
 
-        if (node.d.name && classType) {
-            const superCheckMethods = ['__init__', '__init_subclass__', '__enter__', '__exit__'];
-            if (superCheckMethods.some((name) => name === node.d.name.d.value)) {
-                if (
-                    !FunctionType.isAbstractMethod(functionType) &&
-                    !FunctionType.isOverloaded(functionType) &&
-                    !this._fileInfo.isStubFile
-                ) {
-                    this._validateSuperCallForMethod(node, functionType, classType);
-                }
+        const classType = classTypeInfo.classType;
+        const methodName = node.d.name.d.value;
+        const isMetaclass = isInstantiableMetaclass(classType);
+
+        const superCheckMethods = ['__init__', '__init_subclass__', '__enter__', '__exit__'];
+        if (superCheckMethods.includes(methodName)) {
+            if (
+                !FunctionType.isAbstractMethod(functionType) &&
+                !FunctionType.isOverloaded(functionType) &&
+                !this._fileInfo.isStubFile
+            ) {
+                this._validateSuperCallForMethod(node, functionType, classType);
             }
         }
 
-        if (node.d.name?.d.value === '__new__') {
+        const selfNames = ['self', '_self', '__self'];
+        const clsNames = ['cls', '_cls', '__cls'];
+        const clsNamesMetaclass = ['__mcls', 'mcls', 'mcs', 'metacls'];
+
+        if (methodName === '_generate_next_value_') {
+            // Skip this check for _generate_next_value_.
+            return;
+        }
+
+        if (methodName === '__new__') {
             // __new__ overrides should have a "cls" parameter.
-            if (
-                node.d.params.length === 0 ||
-                !node.d.params[0].d.name ||
-                !['cls', '_cls', '__cls', '__mcls', 'mcls', 'mcs', 'metacls'].some(
-                    (name) => node.d.params[0].d.name!.d.value === name
-                )
-            ) {
+            if (node.d.params.length === 0 || !node.d.params[0].d.name) {
                 this._evaluator.addDiagnostic(
                     DiagnosticRule.reportSelfClsParameterName,
                     LocMessage.newClsParam(),
-                    node.d.params.length > 0 ? node.d.params[0] : node.d.name
+                    node.d.name
                 );
-            }
-
-            if (classType) {
-                this._validateClsSelfParamType(node, functionType, classType, /* isCls */ true);
-            }
-        } else if (node.d.name?.d.value === '_generate_next_value_') {
-            // Skip this check for _generate_next_value_.
-        } else if (FunctionType.isStaticMethod(functionType)) {
-            // Static methods should not have "self" or "cls" parameters.
-            if (node.d.params.length > 0 && node.d.params[0].d.name) {
+            } else {
                 const paramName = node.d.params[0].d.name.d.value;
-                if (paramName === 'self' || paramName === 'cls') {
+                if (!clsNames.includes(paramName) && !(isMetaclass && clsNamesMetaclass.includes(paramName))) {
                     this._evaluator.addDiagnostic(
                         DiagnosticRule.reportSelfClsParameterName,
-                        LocMessage.staticClsSelfParam(),
-                        node.d.params[0].d.name
+                        LocMessage.newClsParam(),
+                        node.d.params[0]
                     );
                 }
             }
-        } else if (FunctionType.isClassMethod(functionType)) {
+
+            this._validateClsSelfParamType(node, functionType, classType, /* isCls */ true);
+            return;
+        }
+
+        if (FunctionType.isStaticMethod(functionType)) {
+            if (node.d.params.length === 0 || !node.d.params[0].d.name) {
+                return;
+            }
+
+            // Static methods should not have "self" or "cls" parameters.
+            const paramName = node.d.params[0].d.name.d.value;
+            if (paramName === 'self' || paramName === 'cls') {
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportSelfClsParameterName,
+                    LocMessage.staticClsSelfParam(),
+                    node.d.params[0].d.name
+                );
+            }
+            return;
+        }
+
+        if (FunctionType.isClassMethod(functionType)) {
             let paramName = '';
             if (node.d.params.length > 0 && node.d.params[0].d.name) {
                 paramName = node.d.params[0].d.name.d.value;
             }
-            // Class methods should have a "cls" parameter. We'll exempt parameter
-            // names that start with an underscore since those are used in a few
-            // cases in the stdlib pyi files.
-            if (paramName !== 'cls') {
-                if (!this._fileInfo.isStubFile || (!paramName.startsWith('_') && paramName !== 'metacls')) {
+
+            // Class methods should have a "cls" parameter.
+            if (!clsNames.includes(paramName) && !(isMetaclass && clsNamesMetaclass.includes(paramName))) {
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportSelfClsParameterName,
+                    LocMessage.classMethodClsParam(),
+                    node.d.params.length > 0 ? node.d.params[0] : node.d.name
+                );
+            }
+
+            this._validateClsSelfParamType(node, functionType, classType, /* isCls */ true);
+            return;
+        }
+
+        const decoratorIsPresent = node.d.decorators.length > 0;
+        const isOverloaded = FunctionType.isOverloaded(functionType);
+
+        // The presence of a decorator can change the behavior, so we need
+        // to back off from this check if a decorator is present. An overload
+        // is a decorator, but we'll ignore that here.
+        if (isOverloaded || !decoratorIsPresent) {
+            let paramName = '';
+            let firstParamIsSimple = true;
+
+            if (node.d.params.length > 0) {
+                if (node.d.params[0].d.name) {
+                    paramName = node.d.params[0].d.name.d.value;
+                }
+
+                if (node.d.params[0].d.category !== ParamCategory.Simple) {
+                    firstParamIsSimple = false;
+                }
+            }
+
+            // Instance methods should have a "self" parameter.
+            if (firstParamIsSimple && !selfNames.includes(paramName)) {
+                const isLegalMetaclassName = isMetaclass && clsNames.includes(paramName);
+
+                // Some typeshed stubs use a name that starts with an underscore to designate
+                // a parameter that cannot be positional.
+                const isPrivateName = SymbolNameUtils.isPrivateOrProtectedName(paramName);
+
+                if (!isLegalMetaclassName && !isPrivateName) {
                     this._evaluator.addDiagnostic(
                         DiagnosticRule.reportSelfClsParameterName,
-                        LocMessage.classMethodClsParam(),
+                        LocMessage.instanceMethodSelfParam(),
                         node.d.params.length > 0 ? node.d.params[0] : node.d.name
                     );
                 }
             }
-
-            if (classType) {
-                this._validateClsSelfParamType(node, functionType, classType, /* isCls */ true);
-            }
-        } else {
-            const decoratorIsPresent = node.d.decorators.length > 0;
-            const isOverloaded = FunctionType.isOverloaded(functionType);
-
-            // The presence of a decorator can change the behavior, so we need
-            // to back off from this check if a decorator is present. An overload
-            // is a decorator, but we'll ignore that here.
-            if (isOverloaded || !decoratorIsPresent) {
-                let paramName = '';
-                let firstParamIsSimple = true;
-                if (node.d.params.length > 0) {
-                    if (node.d.params[0].d.name) {
-                        paramName = node.d.params[0].d.name.d.value;
-                    }
-
-                    if (node.d.params[0].d.category !== ParamCategory.Simple) {
-                        firstParamIsSimple = false;
-                    }
-                }
-
-                // Instance methods should have a "self" parameter.
-                if (firstParamIsSimple && paramName !== 'self') {
-                    // Special-case metaclasses, which can use "cls" or several variants.
-                    let isLegalMetaclassName = false;
-                    if (['cls', 'mcls', 'mcs'].some((name) => name === paramName)) {
-                        const classTypeInfo = this._evaluator.getTypeOfClass(classNode);
-                        const typeType = this._evaluator.getBuiltInType(classNode, 'type');
-                        if (
-                            typeType &&
-                            isInstantiableClass(typeType) &&
-                            classTypeInfo &&
-                            isInstantiableClass(classTypeInfo.classType)
-                        ) {
-                            if (
-                                derivesFromClassRecursive(classTypeInfo.classType, typeType, /* ignoreUnknown */ true)
-                            ) {
-                                isLegalMetaclassName = true;
-                            }
-                        }
-                    }
-
-                    // Some typeshed stubs use a name that starts with an underscore to designate
-                    // a parameter that cannot be positional.
-                    const isPrivateName = SymbolNameUtils.isPrivateOrProtectedName(paramName);
-
-                    if (!isLegalMetaclassName && !isPrivateName) {
-                        this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportSelfClsParameterName,
-                            LocMessage.instanceMethodSelfParam(),
-                            node.d.params.length > 0 ? node.d.params[0] : node.d.name
-                        );
-                    }
-                }
-            }
-
-            if (classType) {
-                this._validateClsSelfParamType(node, functionType, classType, /* isCls */ false);
-            }
         }
+
+        this._validateClsSelfParamType(node, functionType, classType, /* isCls */ false);
     }
 
     // Determines whether the method properly calls through to the same method in all
