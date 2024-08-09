@@ -1507,7 +1507,7 @@ export class TestState {
             this.configOptions.projectRoot.getFilePath(),
             /* fromLanguageServer */ false
         );
-        commandLineOptions.verboseOutput = verboseOutput;
+        commandLineOptions.configSettings.verboseOutput = verboseOutput;
         const verifier = new PackageTypeVerifier(
             this.serviceProvider,
             testAccessHost,
