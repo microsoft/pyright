@@ -10699,7 +10699,8 @@ export function createTypeEvaluator(
         }
 
         if (!reportedArgError) {
-            let unpackedDictionaryArgType: Type | undefined;
+            let unpackedDictKeyNames: string[] | undefined;
+            let unpackedDictArgType: Type | undefined;
 
             // Now consume any keyword arguments.
             while (argIndex < argList.length) {
@@ -10716,7 +10717,7 @@ export function createTypeEvaluator(
                     }
 
                     if (isAnyOrUnknown(argType)) {
-                        unpackedDictionaryArgType = argType;
+                        unpackedDictArgType = argType;
                     } else if (isClassInstance(argType) && ClassType.isTypedDictClass(argType)) {
                         // Handle the special case where it is a TypedDict and we know which
                         // keys are present.
@@ -10791,7 +10792,7 @@ export function createTypeEvaluator(
                             reportedArgError = true;
                         }
                     } else if (paramSpec && isParamSpecKwargs(paramSpec, argType)) {
-                        unpackedDictionaryArgType = AnyType.create();
+                        unpackedDictArgType = AnyType.create();
 
                         if (!paramSpecArgList) {
                             validateArgTypeParams.push({
@@ -10836,20 +10837,30 @@ export function createTypeEvaluator(
                                     if (assignType(strObjType, typeArgs[0])) {
                                         isValidMappingType = true;
                                     }
-                                    unpackedDictionaryArgType = typeArgs[1];
+
+                                    unpackedDictKeyNames = [];
+                                    doForEachSubtype(typeArgs[0], (keyType) => {
+                                        if (isClassInstance(keyType) && typeof keyType.priv.literalValue === 'string') {
+                                            unpackedDictKeyNames?.push(keyType.priv.literalValue);
+                                        } else {
+                                            unpackedDictKeyNames = undefined;
+                                        }
+                                    });
+
+                                    unpackedDictArgType = typeArgs[1];
                                 } else {
                                     isValidMappingType = true;
-                                    unpackedDictionaryArgType = UnknownType.create();
+                                    unpackedDictArgType = UnknownType.create();
                                 }
                             }
 
-                            if (paramDetails.kwargsIndex !== undefined && unpackedDictionaryArgType) {
+                            if (paramDetails.kwargsIndex !== undefined && unpackedDictArgType) {
                                 const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
                                 validateArgTypeParams.push({
                                     paramCategory: ParamCategory.Simple,
                                     paramType,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
-                                    argType: unpackedDictionaryArgType,
+                                    argType: unpackedDictArgType,
                                     argument: argList[argIndex],
                                     errorNode: argList[argIndex].valueExpression || errorNode,
                                     paramName: paramDetails.params[paramDetails.kwargsIndex].param.name,
@@ -11001,7 +11012,7 @@ export function createTypeEvaluator(
 
             // If there are keyword-only parameters that haven't been matched but we
             // have an unpacked dictionary arg, assume that it applies to them.
-            if (unpackedDictionaryArgType && (!foundUnpackedListArg || paramDetails.argsIndex !== undefined)) {
+            if (unpackedDictArgType && (!foundUnpackedListArg || paramDetails.argsIndex !== undefined)) {
                 // Don't consider any position-only parameters, since they cannot be matched to
                 // **kwargs arguments. Consider parameters that are either positional or keyword
                 // if there is no *args argument.
@@ -11015,22 +11026,25 @@ export function createTypeEvaluator(
                         paramMap.get(param.name)!.argsReceived === 0
                     ) {
                         const paramType = paramDetails.params[paramIndex].type;
-                        validateArgTypeParams.push({
-                            paramCategory: ParamCategory.Simple,
-                            paramType,
-                            requiresTypeVarMatching: requiresSpecialization(paramType),
-                            argument: {
-                                argCategory: ArgCategory.Simple,
-                                typeResult: { type: unpackedDictionaryArgType! },
-                            },
-                            errorNode:
-                                argList.find((arg) => arg.argCategory === ArgCategory.UnpackedDictionary)
-                                    ?.valueExpression ?? errorNode,
-                            paramName: param.name,
-                            isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
-                        });
 
-                        paramMap.get(param.name)!.argsReceived = 1;
+                        if (!unpackedDictKeyNames || unpackedDictKeyNames.includes(param.name)) {
+                            validateArgTypeParams.push({
+                                paramCategory: ParamCategory.Simple,
+                                paramType,
+                                requiresTypeVarMatching: requiresSpecialization(paramType),
+                                argument: {
+                                    argCategory: ArgCategory.Simple,
+                                    typeResult: { type: unpackedDictArgType! },
+                                },
+                                errorNode:
+                                    argList.find((arg) => arg.argCategory === ArgCategory.UnpackedDictionary)
+                                        ?.valueExpression ?? errorNode,
+                                paramName: param.name,
+                                isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
+                            });
+
+                            paramMap.get(param.name)!.argsReceived = 1;
+                        }
                     }
                 });
             }
@@ -11039,7 +11053,7 @@ export function createTypeEvaluator(
             // but have not yet received them. If we received a dictionary argument
             // (i.e. an arg starting with a "**"), we will assume that all parameters
             // are matched.
-            if (!unpackedDictionaryArgType && !FunctionType.isDefaultParamCheckDisabled(overload)) {
+            if (!unpackedDictArgType && !FunctionType.isDefaultParamCheckDisabled(overload)) {
                 const unassignedParams = Array.from(paramMap.keys()).filter((name) => {
                     const entry = paramMap.get(name)!;
                     return !entry || entry.argsReceived < entry.argsNeeded;
