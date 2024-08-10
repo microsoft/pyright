@@ -11500,7 +11500,7 @@ export function createTypeEvaluator(
 
                         // If we skipped a bare type var during the first pass, add
                         // another pass to ensure that we handle all of the type variables.
-                        if (i === 0 && argResult.skippedBareTypeVarExpectedType) {
+                        if (i === 0 && passCount < 2 && argResult.skippedBareTypeVarExpectedType) {
                             passCount++;
                         }
                     });
