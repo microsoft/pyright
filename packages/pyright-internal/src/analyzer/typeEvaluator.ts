@@ -429,6 +429,12 @@ interface ValidateArgTypeOptions {
     skipReportError?: boolean;
 }
 
+interface EffectiveReturnTypeOptions {
+    callSiteInfo?: CallSiteEvaluationInfo;
+    skipInferReturnType?: boolean;
+    skipAdjustCallable?: boolean;
+}
+
 interface SignatureTrackerStackEntry {
     tracker: UniqueSignatureTracker;
     rootNode: ParseNode;
@@ -5551,7 +5557,7 @@ export function createTypeEvaluator(
                             if (isModuleGetAttrSupported) {
                                 const getAttrTypeResult = getEffectiveTypeOfSymbolForUsage(getAttrSymbol);
                                 if (isFunction(getAttrTypeResult.type)) {
-                                    type = getFunctionEffectiveReturnType(getAttrTypeResult.type);
+                                    type = getEffectiveReturnType(getAttrTypeResult.type);
                                     if (getAttrTypeResult.isIncomplete) {
                                         isIncomplete = true;
                                     }
@@ -11247,7 +11253,8 @@ export function createTypeEvaluator(
 
         // Can we safely ignore the inference context, either because it's not provided
         // or will have no effect? If so, avoid the extra work.
-        const returnType = inferenceContext?.returnTypeOverride ?? getFunctionEffectiveReturnType(type);
+        const returnType =
+            inferenceContext?.returnTypeOverride ?? getEffectiveReturnType(type, { skipAdjustCallable: true });
         if (!returnType || !requiresSpecialization(returnType)) {
             expectedType = undefined;
         }
@@ -11601,7 +11608,10 @@ export function createTypeEvaluator(
         }
 
         // Calculate the return type.
-        let returnType = getFunctionEffectiveReturnType(type, { args: matchResults.argParams, errorNode });
+        let returnType = getEffectiveReturnType(type, {
+            callSiteInfo: { args: matchResults.argParams, errorNode },
+            skipAdjustCallable: true,
+        });
 
         if (condition.length > 0) {
             returnType = TypeBase.cloneForCondition(returnType, condition);
@@ -11716,28 +11726,30 @@ export function createTypeEvaluator(
         returnType: Type,
         liveTypeVarScopes: TypeVarScopeId[]
     ): Type {
-        if (isFunction(returnType) && !returnType.shared.name && callableType.shared.typeVarScopeId) {
-            // What type variables are referenced in the callable return type? Do not include any live type variables.
-            const newTypeParams = getTypeVarArgsRecursive(returnType).filter(
-                (t) => !liveTypeVarScopes.some((scopeId) => t.priv.scopeId === scopeId)
-            );
-
-            // If there are no unsolved type variables, we're done. If there are
-            // unsolved type variables, treat them as though they are rescoped
-            // to the callable.
-            if (newTypeParams.length > 0) {
-                const newScopeId = newTypeParams[0].priv.freeTypeVar?.priv.scopeId ?? newTypeParams[0].priv.scopeId;
-
-                return FunctionType.cloneWithNewTypeVarScopeId(
-                    returnType,
-                    newScopeId,
-                    callableType.priv.constructorTypeVarScopeId,
-                    newTypeParams
-                );
-            }
+        if (!isFunction(returnType) || returnType.shared.name || !callableType.shared.typeVarScopeId) {
+            return returnType;
         }
 
-        return returnType;
+        // What type variables are referenced in the callable return type? Do not include any live type variables.
+        const newTypeParams = getTypeVarArgsRecursive(returnType).filter(
+            (t) => !liveTypeVarScopes.some((scopeId) => t.priv.scopeId === scopeId)
+        );
+
+        // If there are no unsolved type variables, we're done. If there are
+        // unsolved type variables, treat them as though they are rescoped
+        // to the callable.
+        if (newTypeParams.length === 0) {
+            return returnType;
+        }
+
+        const newScopeId = newTypeParams[0].priv.freeTypeVar?.priv.scopeId ?? newTypeParams[0].priv.scopeId;
+
+        return FunctionType.cloneWithNewTypeVarScopeId(
+            returnType,
+            newScopeId,
+            callableType.priv.constructorTypeVarScopeId,
+            newTypeParams
+        );
     }
 
     // Tries to assign the call arguments to the function parameter
@@ -14233,7 +14245,7 @@ export function createTypeEvaluator(
             expectedType = transformExpectedType(expectedType, liveTypeVarScopes, node.start) as FunctionType;
 
             expectedParamDetails = getParamListDetails(expectedType);
-            expectedReturnType = getFunctionEffectiveReturnType(expectedType);
+            expectedReturnType = getEffectiveReturnType(expectedType);
         }
 
         let functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.PartiallyEvaluated);
@@ -17057,7 +17069,9 @@ export function createTypeEvaluator(
             for (let i = node.d.decorators.length - 1; i >= 0; i--) {
                 const decorator = node.d.decorators[i];
 
-                const newDecoratedType = applyClassDecorator(evaluatorInterface, decoratedType, classType, decorator);
+                const newDecoratedType = useSignatureTracker(node.parent ?? node, () =>
+                    applyClassDecorator(evaluatorInterface, decoratedType, classType, decorator)
+                );
                 const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
 
                 if (unknownOrAny && isUnknown(unknownOrAny)) {
@@ -17750,13 +17764,10 @@ export function createTypeEvaluator(
         for (let i = node.d.decorators.length - 1; i >= 0; i--) {
             const decorator = node.d.decorators[i];
 
-            const newDecoratedType = applyFunctionDecorator(
-                evaluatorInterface,
-                decoratedType,
-                functionType,
-                decorator,
-                node
-            );
+            const newDecoratedType = useSignatureTracker(node.parent ?? node, () => {
+                assert(decoratedType !== undefined);
+                return applyFunctionDecorator(evaluatorInterface, decoratedType, functionType, decorator, node);
+            });
 
             const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
 
@@ -19075,7 +19086,7 @@ export function createTypeEvaluator(
                         if (getAttrSymbol) {
                             const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
                             if (isFunction(getAttrType)) {
-                                symbolType = getFunctionEffectiveReturnType(getAttrType);
+                                symbolType = getEffectiveReturnType(getAttrType);
                                 reportError = false;
                             }
                         }
@@ -19632,7 +19643,7 @@ export function createTypeEvaluator(
                 if (parent.d.expr) {
                     const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
                     let declaredReturnType = enclosingFunctionNode
-                        ? getFunctionDeclaredReturnType(enclosingFunctionNode)
+                        ? getDeclaredReturnType(enclosingFunctionNode)
                         : undefined;
                     if (declaredReturnType) {
                         const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
@@ -22136,15 +22147,15 @@ export function createTypeEvaluator(
 
     function inferReturnTypeIfNecessary(type: Type) {
         if (isFunction(type)) {
-            getFunctionEffectiveReturnType(type);
+            getEffectiveReturnType(type);
         } else if (isOverloaded(type)) {
             OverloadedType.getOverloads(type).forEach((overload) => {
-                getFunctionEffectiveReturnType(overload);
+                getEffectiveReturnType(overload);
             });
 
             const impl = OverloadedType.getImplementation(type);
             if (impl && isFunction(impl)) {
-                getFunctionEffectiveReturnType(impl);
+                getEffectiveReturnType(impl);
             }
         }
     }
@@ -22153,28 +22164,28 @@ export function createTypeEvaluator(
     // a type annotation, that type is returned. If not, an attempt is made to infer
     // the return type. If a list of args is provided, the inference logic may take
     // into account argument types to infer the return type.
-    function getFunctionEffectiveReturnType(
-        type: FunctionType,
-        callSiteInfo?: CallSiteEvaluationInfo,
-        inferTypeIfNeeded = true
-    ) {
+    function getEffectiveReturnType(type: FunctionType, options?: EffectiveReturnTypeOptions) {
         const specializedReturnType = FunctionType.getEffectiveReturnType(type, /* includeInferred */ false);
         if (specializedReturnType && !isUnknown(specializedReturnType)) {
-            const liveTypeVarScopes = callSiteInfo?.errorNode
-                ? ParseTreeUtils.getTypeVarScopesForNode(callSiteInfo?.errorNode)
+            if (options?.skipAdjustCallable) {
+                return specializedReturnType;
+            }
+
+            const liveTypeVarScopes = options?.callSiteInfo?.errorNode
+                ? ParseTreeUtils.getTypeVarScopesForNode(options.callSiteInfo.errorNode)
                 : [];
 
             return adjustCallableReturnType(type, specializedReturnType, liveTypeVarScopes);
         }
 
-        if (inferTypeIfNeeded) {
-            return getFunctionInferredReturnType(type, callSiteInfo);
+        if (!options?.skipInferReturnType) {
+            return getFunctionInferredReturnType(type, options?.callSiteInfo);
         }
 
         return UnknownType.create();
     }
 
-    function _getFunctionInferredReturnType(type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) {
+    function _getInferredReturnType(type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) {
         let returnType: Type | undefined;
         let isIncomplete = false;
         const analyzeUnannotatedFunctions = true;
@@ -22287,7 +22298,7 @@ export function createTypeEvaluator(
             // We can't use this technique if decorators or async are used because they
             // would need to be applied to the inferred return type.
             if (!hasDecorators && !isAsync) {
-                const contextualReturnType = getFunctionInferredReturnTypeUsingArgs(type, callSiteInfo);
+                const contextualReturnType = inferReturnTypeForCallSite(type, callSiteInfo);
                 if (contextualReturnType) {
                     returnType = contextualReturnType;
 
@@ -22303,10 +22314,7 @@ export function createTypeEvaluator(
         return returnType;
     }
 
-    function getFunctionInferredReturnTypeUsingArgs(
-        type: FunctionType,
-        callSiteInfo: CallSiteEvaluationInfo
-    ): Type | undefined {
+    function inferReturnTypeForCallSite(type: FunctionType, callSiteInfo: CallSiteEvaluationInfo): Type | undefined {
         const args = callSiteInfo.args;
         let contextualReturnType: Type | undefined;
 
@@ -22474,7 +22482,7 @@ export function createTypeEvaluator(
     // If the function has an explicitly-declared return type, it is returned
     // unaltered unless the function is a generator, in which case it is
     // modified to return only the return type for the generator.
-    function getFunctionDeclaredReturnType(node: FunctionNode): Type | undefined {
+    function getDeclaredReturnType(node: FunctionNode): Type | undefined {
         const functionTypeInfo = getTypeOfFunction(node);
         const returnType = functionTypeInfo?.functionType.shared.declaredReturnType;
 
@@ -23096,11 +23104,9 @@ export function createTypeEvaluator(
         }
 
         if (propertyClass.priv.fgetInfo) {
-            return getFunctionEffectiveReturnType(
-                propertyClass.priv.fgetInfo.methodType,
-                /* args */ undefined,
-                inferTypeIfNeeded
-            );
+            return getEffectiveReturnType(propertyClass.priv.fgetInfo.methodType, {
+                skipAdjustCallable: !inferTypeIfNeeded,
+            });
         }
 
         return undefined;
@@ -25533,9 +25539,9 @@ export function createTypeEvaluator(
 
         // Match the return parameter.
         if (checkReturnType) {
-            const destReturnType = getFunctionEffectiveReturnType(destType);
+            const destReturnType = getEffectiveReturnType(destType);
             if (!isAnyOrUnknown(destReturnType)) {
-                const srcReturnType = solveAndApplyConstraints(getFunctionEffectiveReturnType(srcType), constraints);
+                const srcReturnType = solveAndApplyConstraints(getEffectiveReturnType(srcType), constraints);
                 const returnDiag = diag?.createAddendum();
 
                 let isReturnTypeCompatible = false;
@@ -26334,8 +26340,8 @@ export function createTypeEvaluator(
         }
 
         // Now check the return type.
-        const baseReturnType = getFunctionEffectiveReturnType(baseMethod);
-        const overrideReturnType = getFunctionEffectiveReturnType(overrideMethod);
+        const baseReturnType = getEffectiveReturnType(baseMethod);
+        const overrideReturnType = getEffectiveReturnType(overrideMethod);
         if (
             !assignType(
                 baseReturnType,
@@ -26670,7 +26676,7 @@ export function createTypeEvaluator(
 
         // Get the effective return type, which will have the side effect of lazily
         // evaluating (and caching) the inferred return type if there is no defined return type.
-        getFunctionEffectiveReturnType(memberType);
+        getEffectiveReturnType(memberType);
 
         const specializedFunction = solveAndApplyConstraints(memberType, constraints) as FunctionType;
 
@@ -26821,16 +26827,12 @@ export function createTypeEvaluator(
     }
 
     function printObjectTypeForClass(type: ClassType): string {
-        return TypePrinter.printObjectTypeForClass(
-            type,
-            evaluatorOptions.printTypeFlags,
-            getFunctionEffectiveReturnType
-        );
+        return TypePrinter.printObjectTypeForClass(type, evaluatorOptions.printTypeFlags, getEffectiveReturnType);
     }
 
     function printFunctionParts(type: FunctionType, extraFlags?: TypePrinter.PrintTypeFlags): [string[], string] {
         const flags = extraFlags ? evaluatorOptions.printTypeFlags | extraFlags : evaluatorOptions.printTypeFlags;
-        return TypePrinter.printFunctionParts(type, flags, getFunctionEffectiveReturnType);
+        return TypePrinter.printFunctionParts(type, flags, getEffectiveReturnType);
     }
 
     // Prints two types and determines whether they need to be output in
@@ -26882,7 +26884,7 @@ export function createTypeEvaluator(
             flags |= TypePrinter.PrintTypeFlags.UseFullyQualifiedNames;
         }
 
-        return TypePrinter.printType(type, flags, getFunctionEffectiveReturnType);
+        return TypePrinter.printType(type, flags, getEffectiveReturnType);
     }
 
     // Calls back into the parser to parse the contents of a string literal.
@@ -26969,7 +26971,7 @@ export function createTypeEvaluator(
     }
 
     // Track these apis internal usages when logging is on. otherwise, it should be noop.
-    const getFunctionInferredReturnType = wrapWithLogger(_getFunctionInferredReturnType);
+    const getFunctionInferredReturnType = wrapWithLogger(_getInferredReturnType);
 
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,
@@ -27027,7 +27029,7 @@ export function createTypeEvaluator(
         getEffectiveTypeOfSymbolForUsage,
         getInferredTypeOfDeclaration,
         getDeclaredTypeForExpression,
-        getFunctionDeclaredReturnType,
+        getFunctionDeclaredReturnType: getDeclaredReturnType,
         getFunctionInferredReturnType,
         getBestOverloadForArgs,
         getBuiltInType,
