@@ -432,7 +432,6 @@ interface ValidateArgTypeOptions {
 interface EffectiveReturnTypeOptions {
     callSiteInfo?: CallSiteEvaluationInfo;
     skipInferReturnType?: boolean;
-    skipAdjustCallable?: boolean;
 }
 
 interface SignatureTrackerStackEntry {
@@ -11253,8 +11252,7 @@ export function createTypeEvaluator(
 
         // Can we safely ignore the inference context, either because it's not provided
         // or will have no effect? If so, avoid the extra work.
-        const returnType =
-            inferenceContext?.returnTypeOverride ?? getEffectiveReturnType(type, { skipAdjustCallable: true });
+        const returnType = inferenceContext?.returnTypeOverride ?? getEffectiveReturnType(type);
         if (!returnType || !requiresSpecialization(returnType)) {
             expectedType = undefined;
         }
@@ -11610,7 +11608,6 @@ export function createTypeEvaluator(
         // Calculate the return type.
         let returnType = getEffectiveReturnType(type, {
             callSiteInfo: { args: matchResults.argParams, errorNode },
-            skipAdjustCallable: true,
         });
 
         if (condition.length > 0) {
@@ -22167,15 +22164,7 @@ export function createTypeEvaluator(
     function getEffectiveReturnType(type: FunctionType, options?: EffectiveReturnTypeOptions) {
         const specializedReturnType = FunctionType.getEffectiveReturnType(type, /* includeInferred */ false);
         if (specializedReturnType && !isUnknown(specializedReturnType)) {
-            if (options?.skipAdjustCallable) {
-                return specializedReturnType;
-            }
-
-            const liveTypeVarScopes = options?.callSiteInfo?.errorNode
-                ? ParseTreeUtils.getTypeVarScopesForNode(options.callSiteInfo.errorNode)
-                : [];
-
-            return adjustCallableReturnType(type, specializedReturnType, liveTypeVarScopes);
+            return specializedReturnType;
         }
 
         if (!options?.skipInferReturnType) {
@@ -23104,9 +23093,7 @@ export function createTypeEvaluator(
         }
 
         if (propertyClass.priv.fgetInfo) {
-            return getEffectiveReturnType(propertyClass.priv.fgetInfo.methodType, {
-                skipAdjustCallable: !inferTypeIfNeeded,
-            });
+            return getEffectiveReturnType(propertyClass.priv.fgetInfo.methodType);
         }
 
         return undefined;
