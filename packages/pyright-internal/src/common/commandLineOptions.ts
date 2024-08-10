@@ -138,6 +138,10 @@ export class CommandLineLanguageServerOptions {
 
     // Disable reporting of hint diagnostics with tags?
     disableTaggedHints?: boolean;
+
+    // Path to python interpreter. This is used when the language server
+    // gets the python path from the client.
+    pythonPath?: string | undefined;
 }
 
 // Some options can be specified from a source other than the pyright config file.

@@ -528,6 +528,7 @@ test('Language server specific settings are set whether or not there is a pyproj
     commandLineOptions.languageServerSettings.typeStubTargetImportName = 'test';
     commandLineOptions.languageServerSettings.checkOnlyOpenFiles = true;
     commandLineOptions.languageServerSettings.disableTaggedHints = true;
+    commandLineOptions.languageServerSettings.pythonPath = 'test_python_path';
 
     service.setOptions(commandLineOptions);
     let options = service.test_getConfigOptions(commandLineOptions);
@@ -537,6 +538,7 @@ test('Language server specific settings are set whether or not there is a pyproj
     assert.strictEqual(options.logTypeEvaluationTime, true);
     assert.strictEqual(options.typeEvaluationTimeThreshold, 1);
     assert.strictEqual(options.disableTaggedHints, true);
+    assert.ok(options.pythonPath?.pathIncludes('test_python_path'));
 
     // Test with language server set to true to make sure they are still set.
     commandLineOptions.fromLanguageServer = true;
@@ -548,4 +550,5 @@ test('Language server specific settings are set whether or not there is a pyproj
     assert.strictEqual(options.logTypeEvaluationTime, true);
     assert.strictEqual(options.typeEvaluationTimeThreshold, 1);
     assert.strictEqual(options.disableTaggedHints, true);
+    assert.ok(options.pythonPath?.pathIncludes('test_python_path'));
 });

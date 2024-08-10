@@ -817,6 +817,16 @@ export class AnalyzerService {
             configOptions.logTypeEvaluationTime = languageServerOptions.logTypeEvaluationTime;
         }
         configOptions.typeEvaluationTimeThreshold = languageServerOptions.typeEvaluationTimeThreshold;
+
+        // Special case, the language service can also set a pythonPath. It should override any other setting.
+        if (languageServerOptions.pythonPath) {
+            this._console.info(
+                `Setting pythonPath for service "${this._instanceName}": ` + `"${languageServerOptions.pythonPath}"`
+            );
+            configOptions.pythonPath = this.fs.realCasePath(
+                Uri.file(languageServerOptions.pythonPath, this.serviceProvider, /* checkRelative */ true)
+            );
+        }
     }
 
     private _applyCommandLineOverrides(
