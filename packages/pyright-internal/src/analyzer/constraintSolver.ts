@@ -530,10 +530,6 @@ function getTypeVarType(
         }
     }
 
-    if (useLowerBoundOnly) {
-        return entry.lowerBound;
-    }
-
     let result: Type | undefined;
 
     let lowerBound = entry.lowerBound;
@@ -558,7 +554,7 @@ function getTypeVarType(
         }
 
         result = lowerBound;
-    } else {
+    } else if (!useLowerBoundOnly) {
         result = entry.upperBound;
     }
 
