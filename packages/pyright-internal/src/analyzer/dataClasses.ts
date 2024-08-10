@@ -624,9 +624,8 @@ export function synthesizeDataClassMethods(
     }
 
     if (ClassType.isDataClassGenerateOrder(classType)) {
-        const objType = ClassType.cloneAsInstance(classType);
         ['__lt__', '__le__', '__gt__', '__ge__'].forEach((operator) => {
-            synthesizeComparisonMethod(operator, objType);
+            synthesizeComparisonMethod(operator, selfType);
         });
     }
 
