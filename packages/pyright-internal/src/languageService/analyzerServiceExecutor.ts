@@ -127,7 +127,7 @@ function getEffectiveCommandLineOptions(
         // the local python interpreter should be used rather than interpreting the
         // setting value as a path to the interpreter. We'll simply ignore it in this case.
         if (!isPythonBinary(serverSettings.pythonPath.getFilePath())) {
-            commandLineOptions.configSettings.pythonPath = serverSettings.pythonPath.getFilePath();
+            commandLineOptions.languageServerSettings.pythonPath = serverSettings.pythonPath.getFilePath();
         }
     }
 
