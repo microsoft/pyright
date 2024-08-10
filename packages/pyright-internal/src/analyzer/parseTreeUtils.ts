@@ -2790,6 +2790,10 @@ export function getVariableDocStringNode(node: ExpressionNode): StringListNode |
             break;
         }
 
+        if (curNode.nodeType === ParseNodeType.Suite) {
+            break;
+        }
+
         if (curNode.nodeType === ParseNodeType.TypeAnnotation && !annotationNode) {
             annotationNode = curNode;
         }
