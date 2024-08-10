@@ -985,16 +985,19 @@ function narrowTypeForUserDefinedTypeGuard(
         return result;
     }
 
+    // Is this an isinstance or an issubclass check?
+    const isInstanceCheck = TypeBase.isInstance(typeGuardType);
+
     const filterTypes: Type[] = [];
     doForEachSubtype(typeGuardType, (typeGuardSubtype) => {
-        filterTypes.push(convertToInstantiable(typeGuardSubtype));
+        filterTypes.push(isInstanceCheck ? convertToInstantiable(typeGuardSubtype) : typeGuardSubtype);
     });
 
     return narrowTypeForIsInstance(
         evaluator,
         type,
         filterTypes,
-        /* isInstanceCheck */ true,
+        isInstanceCheck,
         /* isTypeIsCheck */ true,
         isPositiveTest,
         errorNode
@@ -1836,8 +1839,16 @@ function narrowTypeForIsInstanceInternal(
                     return combineTypes(filterFunctionType(subtype, convertToInstance(unexpandedSubtype)));
                 }
 
-                if (isInstantiableClass(subtype) || isSubtypeMetaclass) {
-                    // Handle the special case of isinstance(x, metaclass).
+                if (isInstantiableClass(subtype)) {
+                    return convertToInstantiable(
+                        combineTypes(
+                            filterClassType(unexpandedSubtype, subtype, getTypeCondition(subtype), negativeFallback)
+                        )
+                    );
+                }
+
+                // Handle the special case of isinstance(x, metaclass).
+                if (isSubtypeMetaclass) {
                     const includesMetaclassType = filterTypes.some((classType) => isInstantiableMetaclass(classType));
                     const includesObject = filterTypes.some(
                         (classType) => isInstantiableClass(classType) && ClassType.isBuiltIn(classType, 'object')
