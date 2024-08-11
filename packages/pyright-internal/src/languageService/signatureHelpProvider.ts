@@ -20,14 +20,15 @@ import {
     SignatureInformation,
 } from 'vscode-languageserver';
 
-import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
-import { extractParameterDocumentation } from '../analyzer/docStringUtils';
+import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
+import { getCallNodeAndActiveParamIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
+import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { PrintTypeFlags } from '../analyzer/typePrinter';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { DocStringService } from '../common/docStringService';
 import { ProgramView } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
@@ -48,6 +49,7 @@ export class SignatureHelpProvider {
         private _hasSignatureLabelOffsetCapability: boolean,
         private _hasActiveParameterCapability: boolean,
         private _context: SignatureHelpContext | undefined,
+        private _docStringService: DocStringService,
         private _token: CancellationToken
     ) {
         this._parseResults = this._program.getParseResults(this._fileUri);
@@ -105,7 +107,7 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        const callInfo = getCallNodeAndActiveParameterIndex(node, offset, this._parseResults.tokenizerOutput.tokens);
+        const callInfo = getCallNodeAndActiveParamIndex(node, offset, this._parseResults.tokenizerOutput.tokens);
         if (!callInfo) {
             return;
         }
@@ -123,7 +125,7 @@ export class SignatureHelpProvider {
             this._makeSignature(callSignatureInfo.callNode, sig)
         );
 
-        const callHasParameters = !!callSignatureInfo.callNode.arguments?.length;
+        const callHasParameters = !!callSignatureInfo.callNode.d.args?.length;
         return {
             signatures,
             callHasParameters,
@@ -138,12 +140,17 @@ export class SignatureHelpProvider {
         const signatures = signatureHelpResults.signatures.map((sig) => {
             let paramInfo: ParameterInformation[] = [];
             if (sig.parameters) {
-                paramInfo = sig.parameters.map((param) =>
-                    ParameterInformation.create(
-                        this._hasSignatureLabelOffsetCapability ? [param.startOffset, param.endOffset] : param.text,
-                        param.documentation
-                    )
-                );
+                paramInfo = sig.parameters.map((param) => {
+                    return {
+                        label: this._hasSignatureLabelOffsetCapability
+                            ? [param.startOffset, param.endOffset]
+                            : param.text,
+                        documentation: {
+                            kind: this._format,
+                            value: param.documentation ?? '',
+                        },
+                    };
+                });
             }
 
             const sigInfo = SignatureInformation.create(sig.label, /* documentation */ undefined, ...paramInfo);
@@ -224,10 +231,11 @@ export class SignatureHelpProvider {
         const functionDocString =
             getFunctionDocStringFromType(functionType, this._sourceMapper, this._evaluator) ??
             this._getDocStringFromCallNode(callNode);
+        const fileInfo = getFileInfo(callNode);
 
         let label = '(';
         let activeParameter: number | undefined;
-        const params = functionType.details.parameters;
+        const params = functionType.shared.parameters;
 
         stringParts[0].forEach((paramString: string, paramIndex) => {
             let paramName = '';
@@ -241,7 +249,6 @@ export class SignatureHelpProvider {
                 startOffset: label.length,
                 endOffset: label.length + paramString.length,
                 text: paramString,
-                documentation: extractParameterDocumentation(functionDocString || '', paramName),
             });
 
             // Name match for active parameter. The set of parameters from the function
@@ -265,6 +272,18 @@ export class SignatureHelpProvider {
             }
         }
 
+        // Extract the documentation only for the active parameter.
+        if (activeParameter !== undefined) {
+            const activeParam = parameters[activeParameter];
+            if (activeParam) {
+                activeParam.documentation = this._docStringService.extractParameterDocumentation(
+                    functionDocString || '',
+                    params[activeParameter].name || '',
+                    this._format
+                );
+            }
+        }
+
         const sigInfo: SignatureInfo = {
             label,
             parameters,
@@ -275,12 +294,15 @@ export class SignatureHelpProvider {
             if (this._format === MarkupKind.Markdown) {
                 sigInfo.documentation = {
                     kind: MarkupKind.Markdown,
-                    value: convertDocStringToMarkdown(functionDocString),
+                    value: this._docStringService.convertDocStringToMarkdown(
+                        functionDocString,
+                        isBuiltInModule(fileInfo?.fileUri)
+                    ),
                 };
             } else {
                 sigInfo.documentation = {
                     kind: MarkupKind.PlainText,
-                    value: convertDocStringToPlainText(functionDocString),
+                    value: this._docStringService.convertDocStringToPlainText(functionDocString),
                 };
             }
         }
@@ -293,11 +315,11 @@ export class SignatureHelpProvider {
         // from call node when all other methods failed.
         // It only works if call is off a name node.
         let name: NameNode | undefined;
-        const expr = callNode.leftExpression;
+        const expr = callNode.d.leftExpr;
         if (expr.nodeType === ParseNodeType.Name) {
             name = expr;
         } else if (expr.nodeType === ParseNodeType.MemberAccess) {
-            name = expr.memberName;
+            name = expr.d.member;
         }
 
         if (!name) {

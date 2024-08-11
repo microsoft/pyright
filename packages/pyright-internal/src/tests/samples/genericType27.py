@@ -14,7 +14,5 @@ T = TypeVar("T", bound=ClassA)
 def func1(cls: type[T]) -> list[type[T]]:
     result = [cls]
     for c in cls.__subclasses__():
-        result.extend(func1(c)) 
+        result.extend(func1(c))
     return result
-
-

@@ -1,5 +1,6 @@
 # This sample tests a loop that references instance variables.
 
+
 class Results:
     zzz: int
 

@@ -14,8 +14,8 @@ class Foo:
     pass
 
 
-# This should generate an error because Foo is not an
-# allowed literal value.
+# This should generate two errors because Foo() is not a valid
+# type expression, and Foo is not an allowed literal value.
 a: Literal["hi", Foo()]
 
 # This should generate an error because SomeEnum is not an

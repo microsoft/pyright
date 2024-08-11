@@ -1,9 +1,10 @@
 from _typeshed import ConvertibleToInt, Incomplete, Unused
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import ClassVar, Literal
 
 from openpyxl.descriptors.base import Bool, Integer, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.sequence import Sequence
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.styles.alignment import Alignment
 from openpyxl.styles.borders import Border
@@ -22,8 +23,6 @@ class NamedStyle(Serialisable):
     protection: Typed[Protection, Literal[False]]
     builtinId: Integer[Literal[True]]
     hidden: Bool[Literal[True]]
-    # Overwritten by property below
-    # xfId: Integer
     name: String[Literal[False]]
     def __init__(
         self,
@@ -36,18 +35,16 @@ class NamedStyle(Serialisable):
         protection: Protection | None = None,
         builtinId: ConvertibleToInt | None = None,
         hidden: _ConvertibleToBool | None = False,
-        xfId: Unused = None,
     ) -> None: ...
     def __setattr__(self, attr: str, value) -> None: ...
     def __iter__(self) -> Iterator[tuple[str, str]]: ...
-    @property
-    def xfId(self) -> int | None: ...
     def bind(self, wb: Workbook) -> None: ...
     def as_tuple(self) -> StyleArray: ...
     def as_xf(self) -> CellStyle: ...
     def as_name(self) -> _NamedCellStyle: ...
 
 class NamedStyleList(list[NamedStyle]):
+    def __init__(self, iterable: Iterable[NamedStyle] = ()) -> None: ...
     @property
     def names(self) -> list[str]: ...
     def __getitem__(self, key: int | str) -> NamedStyle: ...  # type: ignore[override]
@@ -77,11 +74,10 @@ class _NamedCellStyle(Serialisable):
 class _NamedCellStyleList(Serialisable):
     tagname: ClassVar[str]
     # Overwritten by property below
-    # count: Integer
-    cellStyle: Incomplete
+    # count: Integer[Literal[True]]
+    cellStyle: Sequence[list[_NamedCellStyle]]
     __attrs__: ClassVar[tuple[str, ...]]
-    def __init__(self, count: Unused = None, cellStyle=()) -> None: ...
+    def __init__(self, count: Unused = None, cellStyle: list[_NamedCellStyle] | tuple[_NamedCellStyle, ...] = ()) -> None: ...
     @property
     def count(self) -> int: ...
-    @property
-    def names(self) -> NamedStyleList: ...
+    def remove_duplicates(self) -> list[_NamedCellStyle]: ...

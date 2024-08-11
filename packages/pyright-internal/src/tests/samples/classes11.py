@@ -47,6 +47,7 @@ class G(Mapping[T, S], Collection[T]):
     def __iter__(self) -> Iterator[T]:
         ...
 
+
 # This should generate an error.
 class H(Mapping[T, S], Collection[S]):
     def __len__(self) -> int:

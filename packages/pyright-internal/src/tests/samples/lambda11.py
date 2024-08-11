@@ -12,7 +12,7 @@ class Callback(Generic[T]):
         self,
         func: Callable[Concatenate[T, P], object],
         *args: P.args,
-        **kwargs: P.kwargs
+        **kwargs: P.kwargs,
     ) -> None:
         ...
 

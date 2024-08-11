@@ -1,6 +1,6 @@
 # This sample tests the type checker's handling of generic protocol types.
 
-from typing import Generic, TypeVar, Protocol
+from typing import Generic, Protocol, TypeVar
 
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
@@ -141,3 +141,8 @@ def func1():
 # This should generate an error because Protocol isn't
 # allowed in a TypeVar bound.
 T = TypeVar("T", bound=Protocol | int)
+
+
+# This should generate an error because int is not a TypeVar
+class Proto6(Protocol[int]):
+    pass

@@ -84,7 +84,6 @@
         "containmentAlwaysTrue": "Expression will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",
         "continueInFinally": "\"continue\" cannot be used within a finally clause",
         "continueOutsideLoop": "\"continue\" can be used only within a loop",
-        "constructorNoArgs": "Expected no arguments to \"{type}\" constructor",
         "coroutineInConditionalExpression": "Conditional expression references coroutine which always evaluates to True",
         "dataClassBaseClassFrozen": "A non-frozen class cannot inherit from a class that is frozen",
         "dataClassBaseClassNotFrozen": "A frozen class cannot inherit from a class that is not frozen",
@@ -198,6 +197,7 @@
         "expectedYieldExpr": "Expected expression in yield statement",
         "finalClassIsAbstract": "Class \"{type}\" is marked final and must implement all abstract symbols",
         "finalContext": "\"Final\" is not allowed in this context",
+        "finalInLoop": "A \"Final\" variable cannot be assigned within a loop",
         "finalMethodOverride": "Method \"{name}\" cannot override final method defined in class \"{className}\"",
         "finalNonMethod": "Function \"{name}\" cannot be marked @final because it is not a method",
         "finalReassigned": "\"{name}\" is declared as Final and cannot be reassigned",
@@ -262,6 +262,7 @@
         "isSubclassInvalidType": "Second argument to \"issubclass\" must be a class or tuple of classes",
         "keyValueInSet": "Key/value pairs are not allowed within a set",
         "keywordArgInTypeArgument": "Keyword arguments cannot be used in type argument lists",
+        "keywordArgShortcutIllegal": "Keyword argument shortcut requires Python 3.14 or newer",
         "keywordOnlyAfterArgs": "Keyword-only argument separator not allowed after \"*\" parameter",
         "keywordParameterMissing": "One or more keyword parameters must follow \"*\" parameter",
         "keywordSubscriptIllegal": "Keyword arguments within subscripts are not supported",
@@ -341,7 +342,8 @@
         "orPatternMissingName": "All subpatterns within an \"or\" pattern must target the same names",
         "overlappingKeywordArgs": "Typed dictionary overlaps with keyword parameter: {names}",
         "overlappingOverload": "Overload {obscured} for \"{name}\" will never be used because its parameters overlap overload {obscuredBy}",
-        "overloadAbstractMismatch": "Overloaded methods must all be abstract or not",
+        "overloadAbstractMismatch": "Overloads must all be abstract or not",
+        "overloadAbstractImplMismatch": "Overloads must match abstract status of implementation",
         "overloadClassMethodInconsistent": "Overloads for \"{name}\" use @classmethod inconsistently",
         "overloadFinalInconsistencyImpl": "Overload for \"{name}\" is marked @final but implementation is not",
         "overloadFinalInconsistencyNoImpl": "Overload {index} for \"{name}\" is marked @final but overload 1 is not",
@@ -389,6 +391,7 @@
         "protocolBaseClassWithTypeArgs": "Type arguments are not allowed with Protocol class when using type parameter syntax",
         "protocolIllegal": "Use of \"Protocol\" requires Python 3.7 or newer",
         "protocolNotAllowed": "\"Protocol\" cannot be used in this context",
+        "protocolTypeArgMustBeTypeParam": "Type argument for \"Protocol\" must be a type parameter",
         "protocolUnsafeOverlap": "Class overlaps \"{name}\" unsafely and could produce a match at runtime",
         "protocolVarianceContravariant": "Type variable \"{variable}\" used in generic protocol \"{class}\" should be contravariant",
         "protocolVarianceCovariant": "Type variable \"{variable}\" used in generic protocol \"{class}\" should be covariant",
@@ -502,7 +505,7 @@
         "typedDictSecondArgDict": "Expected dict or keyword parameter as second parameter",
         "typedDictSecondArgDictEntry": "Expected simple dictionary entry",
         "typedDictSet": "Could not assign item in TypedDict",
-        "typeExpectedClass": "Expected type expression but received \"{type}\"",
+        "typeExpectedClass": "Expected class but received \"{type}\"",
         "typeGuardArgCount": "Expected a single type argument after \"TypeGuard\" or \"TypeIs\"",
         "typeGuardParamCount": "User-defined type guard functions and methods must have at least one input parameter",
         "typeIsReturnType": "Return type of TypeIs (\"{returnType}\") is not consistent with value parameter type (\"{type}\")",
@@ -533,6 +536,7 @@
         "typeVarDefaultIllegal": "Type variable default types require Python 3.13 or newer",
         "typeVarDefaultInvalidTypeVar": "Type parameter \"{name}\" has a default type that refers to one or more type variables that are out of scope",
         "typeVarFirstArg": "Expected name of TypeVar as first argument",
+        "typeVarInvalidForMemberVariable": "Attribute type cannot use type variable \"{name}\" scoped to local method",
         "typeVarNoMember": "TypeVar \"{type}\" has no attribute \"{name}\"",
         "typeVarNotSubscriptable": "TypeVar \"{type}\" is not subscriptable",
         "typeVarNotUsedByOuterScope": "Type variable \"{name}\" has no meaning in this context",
@@ -594,6 +598,7 @@
         "unpackOperatorNotAllowed": "Unpack operation is not allowed in this context",
         "unpackTuplesIllegal": "Unpack operation not allowed in tuples prior to Python 3.8",
         "unreachableCode": "Code is unreachable",
+        "unreachableCodeType": "Type analysis indicates code is unreachable",
         "unreachableExcept": "Except clause is unreachable because exception is already handled",
         "unsupportedDunderAllOperation": "Operation on \"__all__\" is not supported, so exported symbol list may be incorrect",
         "unusedCallResult": "Result of call expression is of type \"{type}\" and is not used; assign to variable \"_\" if this is intentional",
@@ -659,6 +664,7 @@
         "invariantSuggestionDict": "Consider switching from \"dict\" to \"Mapping\" which is covariant in the value type",
         "invariantSuggestionList": "Consider switching from \"list\" to \"Sequence\" which is covariant",
         "invariantSuggestionSet": "Consider switching from \"set\" to \"Container\" which is covariant",
+        "isinstanceClassNotSupported": "\"{type}\" is not supported for instance and class checks",
         "kwargsParamMissing": "Parameter \"**{paramName}\" has no corresponding parameter",
         "listAssignmentMismatch": "Type \"{type}\" is incompatible with target list",
         "literalAssignmentMismatch": "\"{sourceType}\" is incompatible with type \"{destType}\"",
@@ -803,5 +809,8 @@
     "Completion": {
         "autoImportDetail": "Auto-import",
         "indexValueDetail": "Index value"
+    },
+    "Service": {
+        "longOperation": "Enumeration of workspace source files is taking a long time. Consider opening a sub-folder instead. [Learn more](https://aka.ms/workspace-too-many-files)"
     }
 }

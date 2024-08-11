@@ -21,7 +21,7 @@ from types import (
     TracebackType,
     WrapperDescriptorType,
 )
-from typing_extensions import Never as _Never, ParamSpec as _ParamSpec
+from typing_extensions import Never as _Never, ParamSpec as _ParamSpec, deprecated
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
@@ -542,16 +542,18 @@ class AsyncIterator(AsyncIterable[_T_co], Protocol[_T_co]):
 class AsyncGenerator(AsyncIterator[_YieldT_co], Generic[_YieldT_co, _SendT_contra]):
     def __anext__(self) -> Awaitable[_YieldT_co]: ...
     @abstractmethod
-    def asend(self, value: _SendT_contra, /) -> Awaitable[_YieldT_co]: ...
+    def asend(self, value: _SendT_contra, /) -> Coroutine[Any, Any, _YieldT_co]: ...
     @overload
     @abstractmethod
     def athrow(
         self, typ: type[BaseException], val: BaseException | object = None, tb: TracebackType | None = None, /
-    ) -> Awaitable[_YieldT_co]: ...
+    ) -> Coroutine[Any, Any, _YieldT_co]: ...
     @overload
     @abstractmethod
-    def athrow(self, typ: BaseException, val: None = None, tb: TracebackType | None = None, /) -> Awaitable[_YieldT_co]: ...
-    def aclose(self) -> Awaitable[None]: ...
+    def athrow(
+        self, typ: BaseException, val: None = None, tb: TracebackType | None = None, /
+    ) -> Coroutine[Any, Any, _YieldT_co]: ...
+    def aclose(self) -> Coroutine[Any, Any, None]: ...
     @property
     def ag_await(self) -> Any: ...
     @property
@@ -991,11 +993,30 @@ class ForwardRef:
         def __init__(self, arg: str, is_argument: bool = True) -> None: ...
 
     if sys.version_info >= (3, 13):
+        @overload
+        @deprecated(
+            "Failing to pass a value to the 'type_params' parameter of ForwardRef._evaluate() is deprecated, "
+            "as it leads to incorrect behaviour when evaluating a stringified annotation "
+            "that references a PEP 695 type parameter. It will be disallowed in Python 3.15."
+        )
+        def _evaluate(
+            self, globalns: dict[str, Any] | None, localns: dict[str, Any] | None, *, recursive_guard: frozenset[str]
+        ) -> Any | None: ...
+        @overload
         def _evaluate(
             self,
             globalns: dict[str, Any] | None,
             localns: dict[str, Any] | None,
-            type_params: tuple[TypeVar | ParamSpec | TypeVarTuple, ...] = ...,
+            type_params: tuple[TypeVar | ParamSpec | TypeVarTuple, ...],
+            *,
+            recursive_guard: frozenset[str],
+        ) -> Any | None: ...
+    elif sys.version_info >= (3, 12):
+        def _evaluate(
+            self,
+            globalns: dict[str, Any] | None,
+            localns: dict[str, Any] | None,
+            type_params: tuple[TypeVar | ParamSpec | TypeVarTuple, ...] | None = None,
             *,
             recursive_guard: frozenset[str],
         ) -> Any | None: ...
@@ -1035,7 +1056,7 @@ if sys.version_info >= (3, 12):
         # It's writable on types, but not on instances of TypeAliasType.
         @property
         def __module__(self) -> str | None: ...  # type: ignore[override]
-        def __getitem__(self, parameters: Any) -> Any: ...
+        def __getitem__(self, parameters: Any) -> GenericAlias: ...
         def __or__(self, right: Any) -> _SpecialForm: ...
         def __ror__(self, left: Any) -> _SpecialForm: ...
 

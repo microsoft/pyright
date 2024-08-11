@@ -47,7 +47,7 @@ def func2(c: MyList[MyList[int] | int]):
 
 
 def is_async_callable(
-    obj: Callable[..., _T] | Callable[..., Awaitable[_T]]
+    obj: Callable[..., _T] | Callable[..., Awaitable[_T]],
 ) -> TypeGuard[Callable[..., Awaitable[_T]]]:
     ...
 

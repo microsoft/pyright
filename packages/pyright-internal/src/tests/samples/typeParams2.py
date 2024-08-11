@@ -6,7 +6,7 @@
 class ClassA[T, S]:
     ...
 
+
 # This should generate an error if <3.12
 def func1[T, S]():
     ...
-

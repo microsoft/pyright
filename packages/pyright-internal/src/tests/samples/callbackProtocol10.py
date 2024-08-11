@@ -9,23 +9,28 @@ T_contra = TypeVar("T_contra", contravariant=True)
 
 
 class Proto1(Protocol):
-    def __call__(self, *args, **kwargs) -> None: ...
+    def __call__(self, *args, **kwargs) -> None:
+        ...
 
 
 class Proto2(Protocol):
-    def __call__(self, a: int, /, *args, **kwargs) -> None: ...
+    def __call__(self, a: int, /, *args, **kwargs) -> None:
+        ...
 
 
 class Proto3(Protocol):
-    def __call__(self, a: int, *args: Any, **kwargs: Any) -> None: ...
+    def __call__(self, a: int, *args: Any, **kwargs: Any) -> None:
+        ...
 
 
 class Proto4(Protocol[P]):
-    def __call__(self, a: int, *args: P.args, **kwargs: P.kwargs) -> None: ...
+    def __call__(self, a: int, *args: P.args, **kwargs: P.kwargs) -> None:
+        ...
 
 
 class Proto5(Protocol[T_contra]):
-    def __call__(self, *args: T_contra, **kwargs: T_contra) -> None: ...
+    def __call__(self, *args: T_contra, **kwargs: T_contra) -> None:
+        ...
 
 
 class Proto6(Protocol):

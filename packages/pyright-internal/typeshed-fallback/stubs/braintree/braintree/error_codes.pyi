@@ -32,6 +32,9 @@ class ErrorCodes:
         StreetAddressIsTooLong: Final = "81812"
         TooManyAddressesPerCustomer: Final = "91818"
 
+    class AndroidPay:
+        AndroidPayCardsAreNotAccepted: Final = "83708"
+
     class ApplePay:
         ApplePayCardsAreNotAccepted: Final = "83501"
         CustomerIdIsRequiredForVaulting: Final = "83502"

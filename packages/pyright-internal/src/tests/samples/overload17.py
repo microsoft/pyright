@@ -1,45 +1,18 @@
-# This sample tests the reporting of inconsistent use of @classmethod
-# and @staticmethod in overloads.
+# This sample tests a complex overload case that was causing a hang
+# in pyright's logic.
 
-from typing import Any, overload
+from typing import Callable, overload
 
 
-class A:
-    @overload
-    # This should emit an error because @staticmethod is used inconsistently.
-    def method1(self, x: int) -> int:
-        ...
+@overload
+def func1[K, VI, VO](d: dict[K, VI], func: Callable[[VI], VO]) -> dict[K, VO]:
+    ...
 
-    @overload
-    @staticmethod
-    def method1(x: str) -> str:
-        ...
 
-    def method1(*args: Any, **kwargs: Any) -> Any:
-        return
+@overload
+def func1[K, VI, VO](d: VI, func: Callable[[VI], VO]) -> VO:
+    ...
 
-    @overload
-    @classmethod
-    # This should emit an error because @classmethod is used inconsistently.
-    def method2(cls, x: str) -> str:
-        ...
 
-    @overload
-    def method2(self, x: int) -> int:
-        ...
-
-    def method2(*args: Any, **kwargs: Any) -> Any:
-        return
-
-    @overload
-    # This should emit an error because @staticmethod is used inconsistently.
-    def method3(self, x: str) -> str:
-        ...
-
-    @overload
-    def method3(self, x: int) -> int:
-        ...
-
-    @staticmethod
-    def method3(*args: Any, **kwargs: Any) -> Any:
-        return
+def func1[K, VI, VO](d: dict[K, VI] | VI, func: Callable[[VI], VO]) -> dict[K, VO] | VO:
+    ...

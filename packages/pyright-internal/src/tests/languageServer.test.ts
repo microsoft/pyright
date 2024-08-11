@@ -183,11 +183,56 @@ describe(`Basic language server tests`, () => {
 
         // Wait for the diagnostics to publish
         const diagnostics = await waitForDiagnostics(info);
-        assert.equal(diagnostics[0]!.diagnostics.length, 6);
+        const diagnostic = diagnostics.find((d) => d.uri.includes('root/test.py'));
+        assert(diagnostic);
+        assert.equal(diagnostic.diagnostics.length, 6);
 
         // Make sure the error has a special rule
-        assert.equal(diagnostics[0].diagnostics[1].code, 'reportUnusedImport');
-        assert.equal(diagnostics[0].diagnostics[3].code, 'reportUnusedImport');
-        assert.equal(diagnostics[0].diagnostics[5].code, 'reportUnusedImport');
+        assert.equal(diagnostic.diagnostics[1].code, 'reportUnusedImport');
+        assert.equal(diagnostic.diagnostics[3].code, 'reportUnusedImport');
+        assert.equal(diagnostic.diagnostics[5].code, 'reportUnusedImport');
+    });
+
+    test('Diagnostic severity overrides test', async () => {
+        const code = `
+// @filename: test.py
+//// def test([|/*marker*/x|]): ...
+//// 
+// @filename: pyproject.toml
+//// 
+    `;
+        const settings = [
+            {
+                item: {
+                    scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
+                    section: 'python.analysis',
+                },
+                value: {
+                    diagnosticSeverityOverrides: {
+                        reportUnknownParameterType: 'warning',
+                    },
+                },
+            },
+        ];
+
+        const info = await runLanguageServer(
+            DEFAULT_WORKSPACE_ROOT,
+            code,
+            /* callInitialize */ true,
+            settings,
+            undefined,
+            /* supportsBackgroundThread */ true
+        );
+
+        // get the file containing the marker that also contains our task list comments
+        await openFile(info, 'marker');
+
+        // Wait for the diagnostics to publish
+        const diagnostics = await waitForDiagnostics(info);
+        const diagnostic = diagnostics.find((d) => d.uri.includes('test.py'));
+        assert(diagnostic);
+
+        // Make sure the error has a special rule
+        assert.equal(diagnostic.diagnostics[0].code, 'reportUnknownParameterType');
     });
 });

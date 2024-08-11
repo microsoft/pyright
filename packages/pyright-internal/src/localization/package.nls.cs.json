@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Metodu „{method}“ nelze volat, protože je abstraktní a neimplementovaná.",
+        "annotatedMetadataInconsistent": "Typ metadat s poznámkami „{metadataType}“ není kompatibilní s typem „{type}“.",
         "annotatedParamCountMismatch": "Počet poznámek parametrů se neshoduje: očekával(o/y) se {expected}, ale přijal(o/y) se {received}.",
         "annotatedTypeArgMissing": "Byl očekáván jeden argument typu a jedna nebo více poznámek pro Annotated",
         "annotationBytesString": "Poznámky typu nemůžou používat řetězcové literály bajtů.",
@@ -92,7 +93,6 @@
         "concatenateTypeArgsMissing": "Možnost „Concatenate“ vyžaduje alespoň dva argumenty typu",
         "conditionalOperandInvalid": "Neplatný podmíněný operand typu {type}",
         "constantRedefinition": "„{name}“ je konstanta (protože je velkými písmeny) a nedá se předefinovat",
-        "constructorNoArgs": "Pro konstruktor {type} nebyly očekávány žádné argumenty",
         "constructorParametersMismatch": "Neshoda mezi signaturou __new__ a __init__ ve třídě“ {classType}“",
         "containmentAlwaysFalse": "Výraz se vždy vyhodnotí jako False, protože typy „{leftType}“ a „{rightType}“ se nepřekrývají",
         "containmentAlwaysTrue": "Výraz se vždy vyhodnotí jako True, protože typy „{leftType}“ a „{rightType}“ se nepřekrývají.",
@@ -156,7 +156,9 @@
         "enumClassOverride": "Třída výčtu {name} je konečná a nemůže být podtřídou",
         "enumMemberDelete": "Člen výčtu {name} se nedá odstranit.",
         "enumMemberSet": "Člen výčtu {name} se nedá přiřadit.",
-        "exceptionGroupIncompatible": "Syntaxe skupiny výjimek (except*) vyžaduje Python 3.11 nebo novější",
+        "enumMemberTypeAnnotation": "Poznámky typu nejsou pro členy výčtu povolené",
+        "exceptionGroupIncompatible": "Syntaxe skupiny výjimek (\"except*\") vyžaduje Python 3.11 nebo novější",
+        "exceptionGroupTypeIncorrect": "Typ výjimky v except* se nedá odvodit z BaseGroupException.",
         "exceptionTypeIncorrect": "„{type}“ se neodvozuje od BaseException",
         "exceptionTypeNotClass": "{type} není platná třída výjimky",
         "exceptionTypeNotInstantiable": "Konstruktor pro výjimku typu {type} vyžaduje jeden nebo více argumentů",
@@ -400,6 +402,7 @@
         "protocolBaseClassWithTypeArgs": "Argumenty typu nejsou u třídy Protocol povoleny při použití syntaxe parametru typu",
         "protocolIllegal": "Použití protokolu vyžaduje Python 3.7 nebo novější",
         "protocolNotAllowed": "„Protocol“ nejde v tomto kontextu použít.",
+        "protocolTypeArgMustBeTypeParam": "Argument typu pro „protokol“ musí být parametr typu",
         "protocolUnsafeOverlap": "Třída se nebezpečně překrývá s názvem „{name}“ a může vytvořit shodu při spuštění.",
         "protocolVarianceContravariant": "Proměnná typu „{variable}“ použitá v obecném protokolu „{class}“ by měla být kontravariantní",
         "protocolVarianceCovariant": "Proměnná typu „{variable}“ použitá v obecném protokolu „{class}“ by měla být kovariantní",
@@ -492,7 +495,7 @@
         "typeCallNotAllowed": "Volání type() by se nemělo používat v poznámce typu",
         "typeCheckOnly": "Název {name} je označený jako @type_check_only a dá se použít jenom v poznámkách typu",
         "typeCommentDeprecated": "Použití komentářů typu je zastaralé místo toho použít anotaci typu",
-        "typeExpectedClass": "Očekával se výraz typu, ale přijal se {type}",
+        "typeExpectedClass": "Očekávala se třída, ale byl přijat typ {type}.",
         "typeGuardArgCount": "Za TypeGuard nebo TypeIs byl očekáván jeden argument typu.",
         "typeGuardParamCount": "Funkce a metody ochrany typů definované uživatelem musí mít alespoň jeden vstupní parametr",
         "typeIsReturnType": "Návratový typ TypeIs ({returnType}) není konzistentní s typem parametru hodnoty ({type}).",
@@ -624,7 +627,7 @@
         "yieldFromIllegal": "Použití příkazu yield from vyžaduje Python 3.3 nebo novější",
         "yieldFromOutsideAsync": "yield from není v asynchronní funkci povoleno",
         "yieldOutsideFunction": "„yield“ není povoleno mimo funkci nebo lambdu",
-        "yieldWithinComprehension": "yield není povolen uvnitř seznamu porozumění",
+        "yieldWithinComprehension": "„yield“ není povolené uvnitř porozumění",
         "zeroCaseStatementsFound": "Výraz shody obsahovat alespoň jeden výraz velikosti písmen",
         "zeroLengthTupleNotAllowed": "Řazená kolekce členů s nulovou délkou není v tomto kontextu povolená"
     },
@@ -666,6 +669,7 @@
         "invariantSuggestionDict": "Zvažte přepnutí z „diktování“ na „mapování“, které je v typu hodnoty kovariantní",
         "invariantSuggestionList": "Zvažte přepnutí ze „seznamu“ na „sekvenci“, která je kovavariantní",
         "invariantSuggestionSet": "Zvažte přepnutí ze „seznamu“ na „sekvenci“, která je kovavariantní",
+        "isinstanceClassNotSupported": "{type} se pro kontroly instancí a tříd nepodporuje.",
         "keyNotRequired": "„{name}! není v typu „{type}“ povinný klíč, takže přístup může vést k výjimce modulu runtime",
         "keyReadOnly": "{name} je klíč jen pro čtení v {type}",
         "keyRequiredDeleted": "{name} je povinný klíč a nedá se odstranit",
@@ -800,5 +804,8 @@
         "useTypeInstead": "Místo toho použít Type[T]",
         "varianceMismatchForClass": "Odchylka argumentu typu „{typeVarName}“ není kompatibilní se základní třídou „{className}“",
         "varianceMismatchForTypeAlias": "Rozptyl argumentu typu „{typeVarName}“ není kompatibilní s typem „{typeAliasParam}“"
+    },
+    "Service": {
+        "longOperation": "Výčet zdrojových souborů pracovního prostoru trvá dlouho. Zvažte raději otevření podsložky. [Další informace](https://aka.ms/workspace-too-many-files)"
     }
 }

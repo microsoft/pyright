@@ -35,13 +35,16 @@ class ClassB(Generic[T]):
         # This should generate an error.
         return ClassB(self.value)
 
+
 @dataclass
 class DC1(Generic[T]):
     value: T
 
+
 @dataclass
 class DC2(Generic[S]):
     value: S
+
 
 @dataclass
 class ClassC(Generic[T, S]):
@@ -56,6 +59,7 @@ class ClassC(Generic[T, S]):
 
 
 T_co = TypeVar("T_co", covariant=True)
+
 
 class ClassD(Generic[T_co]):
     @overload

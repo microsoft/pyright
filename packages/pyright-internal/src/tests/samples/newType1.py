@@ -1,6 +1,7 @@
 # This sample tests the type handler's handling of the
 # built-in NewType function.
 
+from abc import ABC, abstractmethod
 from typing import Any, NewType, TypeVar, TypedDict
 
 MyString = NewType("MyString", "str")
@@ -76,3 +77,18 @@ def func2(x: MyString):
     # with a NewType.
     if issubclass(type(x), (MyString, int)):
         pass
+
+
+class AbstractBase(ABC):
+    @abstractmethod
+    def method1(self, /) -> int:
+        ...
+
+
+class DerivedBase(AbstractBase):
+    def method1(self, /) -> int:
+        return 0
+
+
+NewDerived = NewType("NewDerived", AbstractBase)
+new_derived = NewDerived(DerivedBase())

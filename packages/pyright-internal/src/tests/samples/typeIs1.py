@@ -1,7 +1,20 @@
 # This sample tests the TypeIs form.
 
-from typing import Any, Callable, Literal, Mapping, Sequence, TypeVar, Union
-from typing_extensions import TypeIs  # pyright: ignore[reportMissingModuleSource]
+# pyright: reportMissingModuleSource=false
+
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Literal,
+    Mapping,
+    Sequence,
+    TypeVar,
+    Union,
+    overload,
+)
+
+from typing_extensions import TypeIs
 
 
 def is_str1(val: Union[str, int]) -> TypeIs[str]:
@@ -15,7 +28,8 @@ def func1(val: Union[str, int]):
         reveal_type(val, expected_text="int")
 
 
-def is_true(o: object) -> TypeIs[Literal[True]]: ...
+def is_true(o: object) -> TypeIs[Literal[True]]:
+    ...
 
 
 def func2(val: bool):
@@ -33,7 +47,7 @@ def is_list(val: object) -> TypeIs[list[Any]]:
 
 def func3(val: dict[str, str] | list[str] | list[int] | Sequence[int]):
     if is_list(val):
-        reveal_type(val, expected_text="list[str] | list[int]")
+        reveal_type(val, expected_text="list[str] | list[int] | list[Any]")
     else:
         reveal_type(val, expected_text="dict[str, str] | Sequence[int]")
 
@@ -71,13 +85,16 @@ def func6(direction: Literal["NW", "E"]):
         reveal_type(direction, expected_text="Literal['NW']")
 
 
-class Animal: ...
+class Animal:
+    ...
 
 
-class Kangaroo(Animal): ...
+class Kangaroo(Animal):
+    ...
 
 
-class Koala(Animal): ...
+class Koala(Animal):
+    ...
 
 
 T = TypeVar("T")
@@ -121,9 +138,37 @@ def func7(names: tuple[str, ...]):
         reveal_type(names, expected_text="tuple[str, ...]")
 
 
-def is_int(obj: type) -> TypeIs[type[int]]: ...
+def is_int(obj: type) -> TypeIs[type[int]]:
+    ...
 
 
 def func8(x: type) -> None:
     if is_int(x):
         reveal_type(x, expected_text="type[int]")
+
+
+def is_int_list(x: Collection[Any]) -> TypeIs[list[int]]:
+    raise NotImplementedError
+
+
+def func9(val: Collection[object]) -> None:
+    if is_int_list(val):
+        reveal_type(val, expected_text="list[int]")
+    else:
+        reveal_type(val, expected_text="Collection[object]")
+
+
+@overload
+def func10(v: tuple[int | str, ...], b: Literal[False]) -> TypeIs[tuple[str, ...]]:
+    ...
+
+
+@overload
+def func10(
+    v: tuple[int | str, ...], b: Literal[True] = True
+) -> TypeIs[tuple[int, ...]]:
+    ...
+
+
+def func10(v: tuple[int | str, ...], b: bool = True) -> bool:
+    ...

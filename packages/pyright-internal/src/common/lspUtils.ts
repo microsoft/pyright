@@ -42,14 +42,14 @@ export function getSymbolKind(declaration: Declaration, evaluator?: TypeEvaluato
         case DeclarationType.Alias:
             return SymbolKind.Module;
 
-        case DeclarationType.Parameter:
+        case DeclarationType.Param:
             if (name === 'self' || name === 'cls' || name === '_') {
                 return undefined;
             }
 
             return SymbolKind.Variable;
 
-        case DeclarationType.TypeParameter:
+        case DeclarationType.TypeParam:
             return SymbolKind.TypeParameter;
 
         case DeclarationType.Variable:

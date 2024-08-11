@@ -10,9 +10,11 @@
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocAddendum, LocMessage } from '../localization/localize';
-import { DecoratorNode, FunctionNode, ParameterCategory, ParseNode } from '../parser/parseNodes';
+import { DecoratorNode, FunctionNode, ParamCategory, ParseNode } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
-import { getClassFullName, getTypeAnnotationForParameter, getTypeSourceId } from './parseTreeUtils';
+import { ConstraintSolution } from './constraintSolution';
+import { ConstraintTracker } from './constraintTracker';
+import { getClassFullName, getTypeAnnotationForParam, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -20,6 +22,8 @@ import {
     ClassType,
     ClassTypeFlags,
     combineTypes,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
     isAnyOrUnknown,
@@ -29,8 +33,9 @@ import {
     isTypeSame,
     isTypeVar,
     ModuleType,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
+    TypeVarType,
     UnknownType,
 } from './types';
 import {
@@ -40,7 +45,6 @@ import {
     getTypeVarScopeId,
     isProperty,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 export function validatePropertyMethod(evaluator: TypeEvaluator, method: FunctionType, errorNode: ParseNode) {
     if (FunctionType.isStaticMethod(method)) {
@@ -58,23 +62,23 @@ export function createProperty(
     const typeMetaclass = evaluator.getBuiltInType(decoratorNode, 'type');
     const typeSourceId = ClassType.isBuiltIn(decoratorType, 'property')
         ? getTypeSourceId(decoratorNode)
-        : decoratorType.details.typeSourceId;
+        : decoratorType.shared.typeSourceId;
 
     const propertyClass = ClassType.createInstantiable(
-        decoratorType.details.name,
-        getClassFullName(decoratorNode, fileInfo.moduleName, `__property_${fget.details.name}`),
+        decoratorType.shared.name,
+        getClassFullName(decoratorNode, fileInfo.moduleName, `__property_${fget.shared.name}`),
         fileInfo.moduleName,
         fileInfo.fileUri,
-        ClassTypeFlags.PropertyClass | ClassTypeFlags.BuiltInClass,
+        ClassTypeFlags.PropertyClass | ClassTypeFlags.BuiltIn,
         typeSourceId,
         /* declaredMetaclass */ undefined,
         isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
     );
 
-    propertyClass.details.declaration = decoratorType.details.declaration;
-    propertyClass.details.typeVarScopeId = decoratorType.details.typeVarScopeId;
+    propertyClass.shared.declaration = decoratorType.shared.declaration;
+    propertyClass.shared.typeVarScopeId = decoratorType.shared.typeVarScopeId;
     const objectType = evaluator.getBuiltInType(decoratorNode, 'object');
-    propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
+    propertyClass.shared.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
     computeMroLinearization(propertyClass);
 
     // Clone the symbol table of the old class type.
@@ -90,19 +94,19 @@ export function createProperty(
     });
 
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
-    propertyClass.isAsymmetricDescriptor = false;
+    propertyClass.priv.isAsymmetricDescriptor = false;
 
     // Update the __set__ and __delete__ methods if present.
     updateGetSetDelMethodForClonedProperty(evaluator, propertyObject);
 
     // Fill in the fget method.
-    propertyObject.fgetInfo = {
-        methodType: FunctionType.cloneWithNewFlags(fget, fget.details.flags | FunctionTypeFlags.StaticMethod),
-        classType: fget.details.methodClass,
+    propertyObject.priv.fgetInfo = {
+        methodType: FunctionType.cloneWithNewFlags(fget, fget.shared.flags | FunctionTypeFlags.StaticMethod),
+        classType: fget.shared.methodClass,
     };
 
     if (FunctionType.isClassMethod(fget)) {
-        propertyClass.details.flags |= ClassTypeFlags.ClassProperty;
+        propertyClass.shared.flags |= ClassTypeFlags.ClassProperty;
     }
 
     // Fill in the __get__ method with an overload.
@@ -125,21 +129,21 @@ export function clonePropertyWithSetter(
     }
 
     const classType = prop as ClassType;
-    const flagsToClone = classType.details.flags;
-    let isAsymmetricDescriptor = !!classType.isAsymmetricDescriptor;
+    const flagsToClone = classType.shared.flags;
+    let isAsymmetricDescriptor = !!classType.priv.isAsymmetricDescriptor;
 
     // Verify parameters for fset.
     // We'll skip this test if the diagnostic rule is disabled because it
     // can be somewhat expensive, especially in code that is not annotated.
     const fileInfo = getFileInfo(errorNode);
-    if (errorNode.parameters.length >= 2) {
-        const typeAnnotation = getTypeAnnotationForParameter(errorNode, 1);
+    if (errorNode.d.params.length >= 2) {
+        const typeAnnotation = getTypeAnnotationForParam(errorNode, 1);
         if (typeAnnotation) {
             // Verify consistency of the type.
             const fgetType = evaluator.getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);
             if (fgetType && !isAnyOrUnknown(fgetType)) {
                 const fsetType = evaluator.getTypeOfAnnotation(typeAnnotation, {
-                    associateTypeVarsWithScope: true,
+                    typeVarGetsCurScope: true,
                 });
 
                 // The setter type should be assignable to the getter type.
@@ -162,25 +166,25 @@ export function clonePropertyWithSetter(
     }
 
     const propertyClass = ClassType.createInstantiable(
-        classType.details.name,
-        classType.details.fullName,
-        classType.details.moduleName,
+        classType.shared.name,
+        classType.shared.fullName,
+        classType.shared.moduleName,
         getFileInfo(errorNode).fileUri,
         flagsToClone,
-        classType.details.typeSourceId,
-        classType.details.declaredMetaclass,
-        classType.details.effectiveMetaclass
+        classType.shared.typeSourceId,
+        classType.shared.declaredMetaclass,
+        classType.shared.effectiveMetaclass
     );
 
-    propertyClass.details.declaration = classType.details.declaration;
-    propertyClass.details.typeVarScopeId = classType.details.typeVarScopeId;
+    propertyClass.shared.declaration = classType.shared.declaration;
+    propertyClass.shared.typeVarScopeId = classType.shared.typeVarScopeId;
     const objectType = evaluator.getBuiltInType(errorNode, 'object');
-    propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
+    propertyClass.shared.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
     computeMroLinearization(propertyClass);
 
-    propertyClass.fgetInfo = classType.fgetInfo;
-    propertyClass.fdelInfo = classType.fdelInfo;
-    propertyClass.isAsymmetricDescriptor = isAsymmetricDescriptor;
+    propertyClass.priv.fgetInfo = classType.priv.fgetInfo;
+    propertyClass.priv.fdelInfo = classType.priv.fdelInfo;
+    propertyClass.priv.isAsymmetricDescriptor = isAsymmetricDescriptor;
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
 
     // Clone the symbol table of the old class type.
@@ -195,9 +199,9 @@ export function clonePropertyWithSetter(
     updateGetSetDelMethodForClonedProperty(evaluator, propertyObject);
 
     // Fill in the new fset method.
-    propertyObject.fsetInfo = {
-        methodType: FunctionType.cloneWithNewFlags(fset, fset.details.flags | FunctionTypeFlags.StaticMethod),
-        classType: fset.details.methodClass,
+    propertyObject.priv.fsetInfo = {
+        methodType: FunctionType.cloneWithNewFlags(fset, fset.shared.flags | FunctionTypeFlags.StaticMethod),
+        classType: fset.shared.methodClass,
     };
 
     // Fill in the __set__ method.
@@ -221,26 +225,26 @@ export function clonePropertyWithDeleter(
 
     const classType = prop as ClassType;
     const propertyClass = ClassType.createInstantiable(
-        classType.details.name,
-        classType.details.fullName,
-        classType.details.moduleName,
+        classType.shared.name,
+        classType.shared.fullName,
+        classType.shared.moduleName,
         getFileInfo(errorNode).fileUri,
-        classType.details.flags,
-        classType.details.typeSourceId,
-        classType.details.declaredMetaclass,
-        classType.details.effectiveMetaclass
+        classType.shared.flags,
+        classType.shared.typeSourceId,
+        classType.shared.declaredMetaclass,
+        classType.shared.effectiveMetaclass
     );
 
-    propertyClass.details.declaration = classType.details.declaration;
-    propertyClass.details.typeVarScopeId = classType.details.typeVarScopeId;
+    propertyClass.shared.declaration = classType.shared.declaration;
+    propertyClass.shared.typeVarScopeId = classType.shared.typeVarScopeId;
     const objectType = evaluator.getBuiltInType(errorNode, 'object');
-    propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
+    propertyClass.shared.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
     computeMroLinearization(propertyClass);
 
-    propertyClass.fgetInfo = classType.fgetInfo;
-    propertyClass.fsetInfo = classType.fsetInfo;
+    propertyClass.priv.fgetInfo = classType.priv.fgetInfo;
+    propertyClass.priv.fsetInfo = classType.priv.fsetInfo;
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
-    propertyClass.isAsymmetricDescriptor = classType.isAsymmetricDescriptor ?? false;
+    propertyClass.priv.isAsymmetricDescriptor = classType.priv.isAsymmetricDescriptor ?? false;
 
     // Clone the symbol table of the old class type.
     const fields = ClassType.getSymbolTable(propertyClass);
@@ -254,9 +258,9 @@ export function clonePropertyWithDeleter(
     updateGetSetDelMethodForClonedProperty(evaluator, propertyObject);
 
     // Fill in the fdel method.
-    propertyObject.fdelInfo = {
-        methodType: FunctionType.cloneWithNewFlags(fdel, fdel.details.flags | FunctionTypeFlags.StaticMethod),
-        classType: fdel.details.methodClass,
+    propertyObject.priv.fdelInfo = {
+        methodType: FunctionType.cloneWithNewFlags(fdel, fdel.shared.flags | FunctionTypeFlags.StaticMethod),
+        classType: fdel.shared.methodClass,
     };
 
     // Fill in the __delete__ method.
@@ -274,76 +278,73 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     // The first overload is for accesses through a class object (where
     // the instance argument is None).
     const getFunction1 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
-    FunctionType.addParameter(getFunction1, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
-    FunctionType.addParameter(getFunction1, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: evaluator.getNoneType(),
-        hasDeclaredType: true,
-    });
-    FunctionType.addParameter(getFunction1, {
-        category: ParameterCategory.Simple,
-        name: 'objtype',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-        hasDefault: true,
-        defaultType: AnyType.create(),
-    });
-    getFunction1.details.declaredReturnType = FunctionType.isClassMethod(fget)
+    FunctionType.addParam(
+        getFunction1,
+        FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
+    );
+    FunctionType.addParam(
+        getFunction1,
+        FunctionParam.create(ParamCategory.Simple, evaluator.getNoneType(), FunctionParamFlags.TypeDeclared, 'obj')
+    );
+    FunctionType.addParam(
+        getFunction1,
+        FunctionParam.create(
+            ParamCategory.Simple,
+            AnyType.create(),
+            FunctionParamFlags.TypeDeclared,
+            'objtype',
+            AnyType.create(/* isEllipsis */ true)
+        )
+    );
+    getFunction1.shared.declaredReturnType = FunctionType.isClassMethod(fget)
         ? FunctionType.getEffectiveReturnType(fget)
         : propertyObject;
-    getFunction1.details.declaration = fget.details.declaration;
-    getFunction1.details.deprecatedMessage = fget.details.deprecatedMessage;
+    getFunction1.shared.declaration = fget.shared.declaration;
+    getFunction1.shared.deprecatedMessage = fget.shared.deprecatedMessage;
+    getFunction1.shared.methodClass = fget.shared.methodClass;
 
     // Override the scope ID since we're using parameter types from the
     // decorated function.
-    getFunction1.details.typeVarScopeId = getTypeVarScopeId(fget);
+    getFunction1.shared.typeVarScopeId = getTypeVarScopeId(fget);
 
     // The second overload is for accesses through a class instance.
     const getFunction2 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
-    FunctionType.addParameter(getFunction2, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParam(
+        getFunction2,
+        FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
+    );
 
-    const objType =
-        fget.details.parameters.length > 0 ? FunctionType.getEffectiveParameterType(fget, 0) : AnyType.create();
+    const objType = fget.shared.parameters.length > 0 ? FunctionType.getParamType(fget, 0) : AnyType.create();
 
-    FunctionType.addParameter(getFunction2, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: objType,
-        hasDeclaredType: true,
-    });
+    FunctionType.addParam(
+        getFunction2,
+        FunctionParam.create(ParamCategory.Simple, objType, FunctionParamFlags.TypeDeclared, 'obj')
+    );
 
-    FunctionType.addParameter(getFunction2, {
-        category: ParameterCategory.Simple,
-        name: 'objtype',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-        hasDefault: true,
-        defaultType: AnyType.create(),
-    });
-    getFunction2.details.declaredReturnType = FunctionType.getEffectiveReturnType(fget);
-    getFunction2.details.declaration = fget.details.declaration;
-    getFunction2.details.deprecatedMessage = fget.details.deprecatedMessage;
+    FunctionType.addParam(
+        getFunction2,
+        FunctionParam.create(
+            ParamCategory.Simple,
+            AnyType.create(),
+            FunctionParamFlags.TypeDeclared,
+            'objtype',
+            AnyType.create(/* isEllipsis */ true)
+        )
+    );
+    getFunction2.shared.declaredReturnType = FunctionType.getEffectiveReturnType(fget);
+    getFunction2.shared.declaration = fget.shared.declaration;
+    getFunction2.shared.deprecatedMessage = fget.shared.deprecatedMessage;
+    getFunction2.shared.methodClass = fget.shared.methodClass;
 
     // Override the scope ID since we're using parameter types from the
     // decorated function.
-    getFunction2.details.typeVarScopeId = getTypeVarScopeId(fget);
+    getFunction2.shared.typeVarScopeId = getTypeVarScopeId(fget);
 
     // We previously placed getFunction1 before getFunction2, but this creates
     // problems specifically for the `NoneType` class because None.__class__
     // is a property, and both overloads match in this case because None
     // is passed for the "obj" parameter.
-    const getFunctionOverload = OverloadedFunctionType.create([getFunction2, getFunction1]);
+    const getFunctionOverload = OverloadedType.create([getFunction2, getFunction1]);
     const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunctionOverload);
     fields.set('__get__', getSymbol);
 }
@@ -352,48 +353,47 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     const fields = ClassType.getSymbolTable(propertyObject);
 
     const setFunction = FunctionType.createSynthesizedInstance('__set__');
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParam(
+        setFunction,
+        FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
+    );
 
-    let objType =
-        fset.details.parameters.length > 0 ? FunctionType.getEffectiveParameterType(fset, 0) : AnyType.create();
-    if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
+    let objType = fset.shared.parameters.length > 0 ? FunctionType.getParamType(fset, 0) : AnyType.create();
+    if (isTypeVar(objType) && TypeVarType.isSelf(objType)) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
 
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: combineTypes([objType, evaluator.getNoneType()]),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParam(
+        setFunction,
+        FunctionParam.create(
+            ParamCategory.Simple,
+            combineTypes([objType, evaluator.getNoneType()]),
+            FunctionParamFlags.TypeDeclared,
+            'obj'
+        )
+    );
 
-    setFunction.details.declaredReturnType = evaluator.getNoneType();
+    setFunction.shared.declaredReturnType = evaluator.getNoneType();
 
     // Adopt the TypeVarScopeId of the fset function in case it has any
     // TypeVars that need to be solved.
-    setFunction.details.typeVarScopeId = getTypeVarScopeId(fset);
-    setFunction.details.deprecatedMessage = fset.details.deprecatedMessage;
+    setFunction.shared.typeVarScopeId = getTypeVarScopeId(fset);
+    setFunction.shared.deprecatedMessage = fset.shared.deprecatedMessage;
+    setFunction.shared.methodClass = fset.shared.methodClass;
 
     let setParamType: Type = UnknownType.create();
 
     if (
-        fset.details.parameters.length >= 2 &&
-        fset.details.parameters[1].category === ParameterCategory.Simple &&
-        fset.details.parameters[1].name
+        fset.shared.parameters.length >= 2 &&
+        fset.shared.parameters[1].category === ParamCategory.Simple &&
+        fset.shared.parameters[1].name
     ) {
-        setParamType = fset.details.parameters[1].type;
+        setParamType = FunctionType.getParamType(fset, 1);
     }
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'value',
-        type: setParamType,
-        hasDeclaredType: true,
-    });
+    FunctionType.addParam(
+        setFunction,
+        FunctionParam.create(ParamCategory.Simple, setParamType, FunctionParamFlags.TypeDeclared, 'value')
+    );
     const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
     fields.set('__set__', setSymbol);
 }
@@ -402,48 +402,49 @@ function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     const fields = ClassType.getSymbolTable(propertyObject);
 
     const delFunction = FunctionType.createSynthesizedInstance('__delete__');
-    FunctionType.addParameter(delFunction, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParam(
+        delFunction,
+        FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
+    );
 
     // Adopt the TypeVarScopeId of the fdel function in case it has any
     // TypeVars that need to be solved.
-    delFunction.details.typeVarScopeId = getTypeVarScopeId(fdel);
-    delFunction.details.deprecatedMessage = fdel.details.deprecatedMessage;
+    delFunction.shared.typeVarScopeId = getTypeVarScopeId(fdel);
+    delFunction.shared.deprecatedMessage = fdel.shared.deprecatedMessage;
+    delFunction.shared.methodClass = fdel.shared.methodClass;
 
-    let objType =
-        fdel.details.parameters.length > 0 ? FunctionType.getEffectiveParameterType(fdel, 0) : AnyType.create();
+    let objType = fdel.shared.parameters.length > 0 ? FunctionType.getParamType(fdel, 0) : AnyType.create();
 
-    if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
+    if (isTypeVar(objType) && TypeVarType.isSelf(objType)) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
 
-    FunctionType.addParameter(delFunction, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: combineTypes([objType, evaluator.getNoneType()]),
-        hasDeclaredType: true,
-    });
-    delFunction.details.declaredReturnType = evaluator.getNoneType();
+    FunctionType.addParam(
+        delFunction,
+        FunctionParam.create(
+            ParamCategory.Simple,
+            combineTypes([objType, evaluator.getNoneType()]),
+            FunctionParamFlags.TypeDeclared,
+            'obj'
+        )
+    );
+    delFunction.shared.declaredReturnType = evaluator.getNoneType();
     const delSymbol = Symbol.createWithType(SymbolFlags.ClassMember, delFunction);
     fields.set('__delete__', delSymbol);
 }
 
 function updateGetSetDelMethodForClonedProperty(evaluator: TypeEvaluator, propertyObject: ClassType) {
-    const fgetInfo = propertyObject.fgetInfo;
+    const fgetInfo = propertyObject.priv.fgetInfo;
     if (fgetInfo && isFunction(fgetInfo.methodType)) {
         addGetMethodToPropertySymbolTable(evaluator, propertyObject, fgetInfo.methodType);
     }
 
-    const fsetInfo = propertyObject.fsetInfo;
+    const fsetInfo = propertyObject.priv.fsetInfo;
     if (fsetInfo && isFunction(fsetInfo.methodType)) {
         addSetMethodToPropertySymbolTable(evaluator, propertyObject, fsetInfo.methodType);
     }
 
-    const fdelInfo = propertyObject.fdelInfo;
+    const fdelInfo = propertyObject.priv.fdelInfo;
     if (fdelInfo && isFunction(fdelInfo.methodType)) {
         addDelMethodToPropertySymbolTable(evaluator, propertyObject, fdelInfo.methodType);
     }
@@ -455,19 +456,15 @@ function addDecoratorMethodsToPropertySymbolTable(propertyObject: ClassType) {
     // Fill in the getter, setter and deleter methods.
     ['getter', 'setter', 'deleter'].forEach((accessorName) => {
         const accessorFunction = FunctionType.createSynthesizedInstance(accessorName);
-        FunctionType.addParameter(accessorFunction, {
-            category: ParameterCategory.Simple,
-            name: 'self',
-            type: AnyType.create(),
-            hasDeclaredType: true,
-        });
-        FunctionType.addParameter(accessorFunction, {
-            category: ParameterCategory.Simple,
-            name: 'accessor',
-            type: AnyType.create(),
-            hasDeclaredType: true,
-        });
-        accessorFunction.details.declaredReturnType = propertyObject;
+        FunctionType.addParam(
+            accessorFunction,
+            FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
+        );
+        FunctionType.addParam(
+            accessorFunction,
+            FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'accessor')
+        );
+        accessorFunction.shared.declaredReturnType = propertyObject;
         const accessorSymbol = Symbol.createWithType(SymbolFlags.ClassMember, accessorFunction);
         fields.set(accessorName, accessorSymbol);
     });
@@ -480,8 +477,8 @@ export function assignProperty(
     destClass: ClassType,
     srcClass: ClassType | ModuleType,
     diag: DiagnosticAddendum | undefined,
-    typeVarContext?: TypeVarContext,
-    selfTypeVarContext?: TypeVarContext,
+    constraints?: ConstraintTracker,
+    selfSolution?: ConstraintSolution,
     recursionCount = 0
 ): boolean {
     const srcObjectToBind = isClass(srcClass) ? ClassType.cloneAsInstance(srcClass) : undefined;
@@ -493,17 +490,17 @@ export function assignProperty(
         incompatibleDiagMsg: () => string;
     }[] = [
         {
-            getFunction: (c: ClassType) => c.fgetInfo?.methodType,
+            getFunction: (c: ClassType) => c.priv.fgetInfo?.methodType,
             missingDiagMsg: LocAddendum.missingGetter,
             incompatibleDiagMsg: LocAddendum.incompatibleGetter,
         },
         {
-            getFunction: (c: ClassType) => c.fsetInfo?.methodType,
+            getFunction: (c: ClassType) => c.priv.fsetInfo?.methodType,
             missingDiagMsg: LocAddendum.missingSetter,
             incompatibleDiagMsg: LocAddendum.incompatibleSetter,
         },
         {
-            getFunction: (c: ClassType) => c.fdelInfo?.methodType,
+            getFunction: (c: ClassType) => c.priv.fdelInfo?.methodType,
             missingDiagMsg: LocAddendum.missingDeleter,
             incompatibleDiagMsg: LocAddendum.incompatibleDeleter,
         },
@@ -526,8 +523,8 @@ export function assignProperty(
 
             // If the caller provided a "self" TypeVar context, replace any Self types.
             // This is needed during protocol matching.
-            if (selfTypeVarContext) {
-                destAccessType = applySolvedTypeVars(destAccessType, selfTypeVarContext) as FunctionType;
+            if (selfSolution) {
+                destAccessType = applySolvedTypeVars(destAccessType, selfSolution) as FunctionType;
             }
 
             // The access methods of fget, fset and fdel are modeled as static
@@ -536,12 +533,12 @@ export function assignProperty(
             // here and bind them to the associated objects.
             destAccessType = FunctionType.cloneWithNewFlags(
                 destAccessType,
-                destAccessType.details.flags & ~FunctionTypeFlags.StaticMethod
+                destAccessType.shared.flags & ~FunctionTypeFlags.StaticMethod
             );
 
             srcAccessType = FunctionType.cloneWithNewFlags(
                 srcAccessType,
-                srcAccessType.details.flags & ~FunctionTypeFlags.StaticMethod
+                srcAccessType.shared.flags & ~FunctionTypeFlags.StaticMethod
             );
 
             const boundDestAccessType = evaluator.bindFunctionToClassOrObject(
@@ -571,8 +568,7 @@ export function assignProperty(
                     boundDestAccessType,
                     boundSrcAccessType,
                     diag,
-                    typeVarContext,
-                    /* srcTypeVarContext */ undefined,
+                    constraints,
                     AssignTypeFlags.Default,
                     recursionCount
                 )

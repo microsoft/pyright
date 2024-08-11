@@ -1,5 +1,5 @@
 import datetime
-from _typeshed import Incomplete, Unused
+from _typeshed import Incomplete, MaybeNone, Unused
 from collections.abc import Callable, Iterator
 from json import JSONDecoder
 from typing import Any
@@ -8,6 +8,7 @@ from typing_extensions import Self
 from urllib3 import exceptions as urllib3_exceptions, fields, filepost, util
 
 from . import auth, cookies, exceptions, hooks, status_codes, utils
+from .adapters import HTTPAdapter
 from .cookies import RequestsCookieJar
 from .structures import CaseInsensitiveDict as CaseInsensitiveDict
 
@@ -123,6 +124,7 @@ class Response:
     cookies: RequestsCookieJar
     elapsed: datetime.timedelta
     request: PreparedRequest
+    connection: HTTPAdapter
     def __init__(self) -> None: ...
     def __bool__(self) -> bool: ...
     def __nonzero__(self) -> bool: ...
@@ -144,7 +146,7 @@ class Response:
         self, chunk_size: int | None = 512, decode_unicode: bool = False, delimiter: str | bytes | None = None
     ) -> Iterator[Incomplete]: ...
     @property
-    def content(self) -> bytes: ...
+    def content(self) -> bytes | MaybeNone: ...
     @property
     def text(self) -> str: ...
     def json(

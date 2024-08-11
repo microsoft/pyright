@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Désolé, nous n’avons pas pu appeler la méthode « {method} », car elle est abstraite et non implémentée",
+        "annotatedMetadataInconsistent": "Le type de métadonnées annoté « {metadataType} » n’est pas compatible avec le type « {type} »",
         "annotatedParamCountMismatch": "Non-concordance du nombre d'annotations de paramètre : attendu {expected} mais reçu {received}",
         "annotatedTypeArgMissing": "Un argument de type et une ou plusieurs annotations sont attendus pour « Annotation »",
         "annotationBytesString": "Les annotations de type ne peuvent pas utiliser de littéraux de chaîne d’octets",
@@ -92,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Concaténation\" nécessite au moins deux arguments de type",
         "conditionalOperandInvalid": "Opérande conditionnel non valide de type \"{type}\"",
         "constantRedefinition": "\"{name}\" est constant (car il est en majuscule) et ne peut pas être redéfini",
-        "constructorNoArgs": "Aucun argument attendu pour le constructeur « {type} »",
         "constructorParametersMismatch": "Non-concordance entre la signature de __new__ et __init__ dans la classe \"{classType}\"",
         "containmentAlwaysFalse": "L'expression sera toujours évaluée à False car les types \"{leftType}\" et \"{rightType}\" ne se chevauchent pas",
         "containmentAlwaysTrue": "L'expression sera toujours évaluée à True puisque les types \"{leftType}\" et \"{rightType}\" ne se chevauchent pas",
@@ -156,7 +156,9 @@
         "enumClassOverride": "La classe Enum « {name} » est finale et ne peut pas être sous-classée",
         "enumMemberDelete": "Le membre enum « {name} » ne peut pas être supprimé",
         "enumMemberSet": "Le membre enum « {name} » ne peut pas être affecté",
+        "enumMemberTypeAnnotation": "Les annotations de type ne sont pas autorisées pour les membres enum",
         "exceptionGroupIncompatible": "La syntaxe du groupe d’exceptions (« except* ») nécessite Python 3.11 ou version ultérieure",
+        "exceptionGroupTypeIncorrect": "Le type d’exception dans except* ne peut pas dériver de BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\" ne dérive pas de BaseException",
         "exceptionTypeNotClass": "« {type} » n’est pas une classe d’exception valide",
         "exceptionTypeNotInstantiable": "Le constructeur pour le type d’exception « {type} » requiert un ou plusieurs arguments",
@@ -400,6 +402,7 @@
         "protocolBaseClassWithTypeArgs": "Les arguments de type ne sont pas autorisés avec la classe Protocol lors de l'utilisation de la syntaxe des paramètres de type",
         "protocolIllegal": "L’utilisation de « Protocole » nécessite Python 3.7 ou une version plus récente",
         "protocolNotAllowed": "\"Protocole\" ne peut pas être utilisé dans ce contexte",
+        "protocolTypeArgMustBeTypeParam": "L’argument de type pour « Protocol » doit être un paramètre de type",
         "protocolUnsafeOverlap": "La classe chevauche « {name} » de manière non sécurisée et peut produire une correspondance au moment de l’exécution",
         "protocolVarianceContravariant": "La variable de type \"{variable}\" utilisée dans le protocole générique \"{class}\" doit être contravariante",
         "protocolVarianceCovariant": "La variable de type \"{variable}\" utilisée dans le protocole générique \"{class}\" doit être covariante",
@@ -492,7 +495,7 @@
         "typeCallNotAllowed": "l’appel type() ne doit pas être utilisé dans l’annotation de type",
         "typeCheckOnly": "\"{name}\" est marqué comme @type_check_only et ne peut être utilisé que dans les annotations de type",
         "typeCommentDeprecated": "L’utilisation de commentaires de type est déconseillée ; utiliser l’annotation de type à la place",
-        "typeExpectedClass": "Expression de type attendue mais « {type} » reçue",
+        "typeExpectedClass": "Classe attendue mais « {type} » reçu",
         "typeGuardArgCount": "Argument de type unique attendu après « TypeGuard » ou « Typels »",
         "typeGuardParamCount": "Les méthodes et fonctions de protection de type définies par l’utilisateur doivent avoir au moins un paramètre d’entrée",
         "typeIsReturnType": "Le type de retour des TypesIs (« {returnType} ») n’est pas cohérent avec le type de paramètre de valeur (« {type} »)",
@@ -624,7 +627,7 @@
         "yieldFromIllegal": "L’utilisation de « yield from » nécessite Python 3.3 ou version ultérieure",
         "yieldFromOutsideAsync": "« yield from » non autorisé dans une fonction asynchrone",
         "yieldOutsideFunction": "\"rendement\" non autorisé en dehors d'une fonction ou d'un lambda",
-        "yieldWithinComprehension": "« yield » non autorisé dans une compréhension de liste",
+        "yieldWithinComprehension": "« yield » n’est pas autorisé dans une compréhension de liste",
         "zeroCaseStatementsFound": "L'instruction de correspondance doit inclure au moins une instruction case",
         "zeroLengthTupleNotAllowed": "Le tuple de longueur nulle n’est pas autorisé dans ce contexte"
     },
@@ -666,6 +669,7 @@
         "invariantSuggestionDict": "Envisagez de passer de « dict » à « Mapping », qui est covariant dans le type valeur",
         "invariantSuggestionList": "Envisagez de passer de « list » à « Sequence » qui est covariant",
         "invariantSuggestionSet": "Pensez à passer de \"set\" à \"Container\" qui est covariant",
+        "isinstanceClassNotSupported": "« {type} » n’est pas pris en charge pour les vérifications d’instance et de classe",
         "keyNotRequired": "\"{name}\" n'est pas une clé requise dans \"{type}\", donc l'accès peut entraîner une exception d'exécution",
         "keyReadOnly": "« {name} » est une clé en lecture seule dans « {type} »",
         "keyRequiredDeleted": "« {name} » est une clé obligatoire et ne peut pas être supprimée",
@@ -800,5 +804,8 @@
         "useTypeInstead": "Utiliser le type[T] à la place",
         "varianceMismatchForClass": "La variance de l'argument de type \"{typeVarName}\" est incompatible avec la classe de base \"{className}\"",
         "varianceMismatchForTypeAlias": "La variance de l'argument de type \"{typeVarName}\" est incompatible avec \"{typeAliasParam}\""
+    },
+    "Service": {
+        "longOperation": "L’énumération des fichiers sources de l’espace de travail prend beaucoup de temps. Envisagez plutôt d’ouvrir un sous-dossier. [En savoir plus](https://aka.ms/workspace-too-many-files)"
     }
 }

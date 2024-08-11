@@ -10,7 +10,7 @@
 
 import { ExecutionEnvironment, PythonPlatform } from '../common/configOptions';
 import { PythonReleaseLevel, PythonVersion } from '../common/pythonVersion';
-import { ArgumentCategory, ExpressionNode, NameNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
+import { ArgCategory, ExpressionNode, NameNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
 // Returns undefined if the expression cannot be evaluated
@@ -24,7 +24,7 @@ export function evaluateStaticBoolExpression(
 ): boolean | undefined {
     if (node.nodeType === ParseNodeType.AssignmentExpression) {
         return evaluateStaticBoolExpression(
-            node.rightExpression,
+            node.d.rightExpr,
             execEnv,
             definedConstants,
             typingImportAliases,
@@ -33,9 +33,9 @@ export function evaluateStaticBoolExpression(
     }
 
     if (node.nodeType === ParseNodeType.UnaryOperation) {
-        if (node.operator === OperatorType.Not) {
+        if (node.d.operator === OperatorType.Not) {
             const value = evaluateStaticBoolLikeExpression(
-                node.expression,
+                node.d.expr,
                 execEnv,
                 definedConstants,
                 typingImportAliases,
@@ -47,16 +47,16 @@ export function evaluateStaticBoolExpression(
         }
     } else if (node.nodeType === ParseNodeType.BinaryOperation) {
         // Is it an OR or AND expression?
-        if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
+        if (node.d.operator === OperatorType.Or || node.d.operator === OperatorType.And) {
             const leftValue = evaluateStaticBoolExpression(
-                node.leftExpression,
+                node.d.leftExpr,
                 execEnv,
                 definedConstants,
                 typingImportAliases,
                 sysImportAliases
             );
             const rightValue = evaluateStaticBoolExpression(
-                node.rightExpression,
+                node.d.rightExpr,
                 execEnv,
                 definedConstants,
                 typingImportAliases,
@@ -67,7 +67,7 @@ export function evaluateStaticBoolExpression(
                 return undefined;
             }
 
-            if (node.operator === OperatorType.Or) {
+            if (node.d.operator === OperatorType.Or) {
                 return leftValue || rightValue;
             } else {
                 return leftValue && rightValue;
@@ -75,99 +75,96 @@ export function evaluateStaticBoolExpression(
         }
 
         if (
-            _isSysVersionInfoExpression(node.leftExpression, sysImportAliases) &&
-            node.rightExpression.nodeType === ParseNodeType.Tuple
+            _isSysVersionInfoExpression(node.d.leftExpr, sysImportAliases) &&
+            node.d.rightExpr.nodeType === ParseNodeType.Tuple
         ) {
             // Handle the special case of "sys.version_info >= (3, x)"
-            const comparisonVersion = _convertTupleToVersion(node.rightExpression);
-            return _evaluateVersionBinaryOperation(node.operator, execEnv.pythonVersion, comparisonVersion);
+            const comparisonVersion = _convertTupleToVersion(node.d.rightExpr);
+            return _evaluateVersionBinaryOperation(node.d.operator, execEnv.pythonVersion, comparisonVersion);
         }
 
         if (
-            node.leftExpression.nodeType === ParseNodeType.Index &&
-            _isSysVersionInfoExpression(node.leftExpression.baseExpression, sysImportAliases) &&
-            node.leftExpression.items.length === 1 &&
-            !node.leftExpression.trailingComma &&
-            !node.leftExpression.items[0].name &&
-            node.leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
-            node.leftExpression.items[0].valueExpression.nodeType === ParseNodeType.Number &&
-            !node.leftExpression.items[0].valueExpression.isImaginary &&
-            node.leftExpression.items[0].valueExpression.value === 0 &&
-            node.rightExpression.nodeType === ParseNodeType.Number &&
-            node.rightExpression.isInteger &&
-            typeof node.rightExpression.value === 'number'
+            node.d.leftExpr.nodeType === ParseNodeType.Index &&
+            _isSysVersionInfoExpression(node.d.leftExpr.d.leftExpr, sysImportAliases) &&
+            node.d.leftExpr.d.items.length === 1 &&
+            !node.d.leftExpr.d.trailingComma &&
+            !node.d.leftExpr.d.items[0].d.name &&
+            node.d.leftExpr.d.items[0].d.argCategory === ArgCategory.Simple &&
+            node.d.leftExpr.d.items[0].d.valueExpr.nodeType === ParseNodeType.Number &&
+            !node.d.leftExpr.d.items[0].d.valueExpr.d.isImaginary &&
+            node.d.leftExpr.d.items[0].d.valueExpr.d.value === 0 &&
+            node.d.rightExpr.nodeType === ParseNodeType.Number &&
+            node.d.rightExpr.d.isInteger &&
+            typeof node.d.rightExpr.d.value === 'number'
         ) {
             // Handle the special case of "sys.version_info[0] >= X"
             return _evaluateVersionBinaryOperation(
-                node.operator,
+                node.d.operator,
                 new PythonVersion(execEnv.pythonVersion.major, 0),
-                new PythonVersion(node.rightExpression.value, 0)
+                new PythonVersion(node.d.rightExpr.d.value, 0)
             );
         }
 
         if (
-            _isSysPlatformInfoExpression(node.leftExpression, sysImportAliases) &&
-            node.rightExpression.nodeType === ParseNodeType.StringList
+            _isSysPlatformInfoExpression(node.d.leftExpr, sysImportAliases) &&
+            node.d.rightExpr.nodeType === ParseNodeType.StringList
         ) {
             // Handle the special case of "sys.platform != 'X'"
-            const comparisonPlatform = node.rightExpression.strings.map((s) => s.value).join('');
+            const comparisonPlatform = node.d.rightExpr.d.strings.map((s) => s.d.value).join('');
             const expectedPlatformName = _getExpectedPlatformNameFromPlatform(execEnv);
-            return _evaluateStringBinaryOperation(node.operator, expectedPlatformName, comparisonPlatform);
+            return _evaluateStringBinaryOperation(node.d.operator, expectedPlatformName, comparisonPlatform);
         }
 
-        if (
-            _isOsNameInfoExpression(node.leftExpression) &&
-            node.rightExpression.nodeType === ParseNodeType.StringList
-        ) {
+        if (_isOsNameInfoExpression(node.d.leftExpr) && node.d.rightExpr.nodeType === ParseNodeType.StringList) {
             // Handle the special case of "os.name == 'X'"
-            const comparisonOsName = node.rightExpression.strings.map((s) => s.value).join('');
+            const comparisonOsName = node.d.rightExpr.d.strings.map((s) => s.d.value).join('');
             const expectedOsName = _getExpectedOsNameFromPlatform(execEnv);
             if (expectedOsName !== undefined) {
-                return _evaluateStringBinaryOperation(node.operator, expectedOsName, comparisonOsName);
+                return _evaluateStringBinaryOperation(node.d.operator, expectedOsName, comparisonOsName);
             }
         } else {
             // Handle the special case of <definedConstant> == 'X' or <definedConstant> != 'X'.
-            if (node.rightExpression.nodeType === ParseNodeType.StringList) {
+            if (node.d.rightExpr.nodeType === ParseNodeType.StringList) {
                 let constantValue: string | number | boolean | undefined;
 
-                if (node.leftExpression.nodeType === ParseNodeType.Name) {
-                    constantValue = definedConstants.get(node.leftExpression.value);
-                } else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
-                    constantValue = definedConstants.get(node.leftExpression.memberName.value);
+                if (node.d.leftExpr.nodeType === ParseNodeType.Name) {
+                    constantValue = definedConstants.get(node.d.leftExpr.d.value);
+                } else if (node.d.leftExpr.nodeType === ParseNodeType.MemberAccess) {
+                    constantValue = definedConstants.get(node.d.leftExpr.d.member.d.value);
                 }
 
                 if (constantValue !== undefined && typeof constantValue === 'string') {
-                    const comparisonStringName = node.rightExpression.strings.map((s) => s.value).join('');
-                    return _evaluateStringBinaryOperation(node.operator, constantValue, comparisonStringName);
+                    const comparisonStringName = node.d.rightExpr.d.strings.map((s) => s.d.value).join('');
+                    return _evaluateStringBinaryOperation(node.d.operator, constantValue, comparisonStringName);
                 }
             }
         }
     } else if (node.nodeType === ParseNodeType.Constant) {
-        if (node.constType === KeywordType.True) {
+        if (node.d.constType === KeywordType.True) {
             return true;
-        } else if (node.constType === KeywordType.False) {
+        } else if (node.d.constType === KeywordType.False) {
             return false;
         }
     } else if (node.nodeType === ParseNodeType.Name) {
-        if (node.value === 'TYPE_CHECKING') {
+        if (node.d.value === 'TYPE_CHECKING') {
             return true;
         }
 
-        const constant = definedConstants.get(node.value);
+        const constant = definedConstants.get(node.d.value);
         if (constant !== undefined) {
             return !!constant;
         }
     } else if (node.nodeType === ParseNodeType.MemberAccess) {
         if (
             typingImportAliases &&
-            node.memberName.value === 'TYPE_CHECKING' &&
-            node.leftExpression.nodeType === ParseNodeType.Name &&
-            typingImportAliases.some((alias) => alias === (node.leftExpression as NameNode).value)
+            node.d.member.d.value === 'TYPE_CHECKING' &&
+            node.d.leftExpr.nodeType === ParseNodeType.Name &&
+            typingImportAliases.some((alias) => alias === (node.d.leftExpr as NameNode).d.value)
         ) {
             return true;
         }
 
-        const constant = definedConstants.get(node.memberName.value);
+        const constant = definedConstants.get(node.d.member.d.value);
         if (constant !== undefined) {
             return !!constant;
         }
@@ -187,7 +184,7 @@ export function evaluateStaticBoolLikeExpression(
     sysImportAliases?: string[]
 ): boolean | undefined {
     if (node.nodeType === ParseNodeType.Constant) {
-        if (node.constType === KeywordType.None) {
+        if (node.d.constType === KeywordType.None) {
             return false;
         }
     }
@@ -196,57 +193,57 @@ export function evaluateStaticBoolLikeExpression(
 }
 
 function _convertTupleToVersion(node: TupleNode): PythonVersion | undefined {
-    if (node.expressions.length >= 2) {
+    if (node.d.items.length >= 2) {
         if (
-            node.expressions[0].nodeType === ParseNodeType.Number &&
-            !node.expressions[0].isImaginary &&
-            node.expressions[1].nodeType === ParseNodeType.Number &&
-            !node.expressions[1].isImaginary
+            node.d.items[0].nodeType === ParseNodeType.Number &&
+            !node.d.items[0].d.isImaginary &&
+            node.d.items[1].nodeType === ParseNodeType.Number &&
+            !node.d.items[1].d.isImaginary
         ) {
-            const majorNode = node.expressions[0];
-            const minorNode = node.expressions[1];
-            if (typeof majorNode.value !== 'number' || typeof minorNode.value !== 'number') {
+            const majorNode = node.d.items[0];
+            const minorNode = node.d.items[1];
+            if (typeof majorNode.d.value !== 'number' || typeof minorNode.d.value !== 'number') {
                 return undefined;
             }
 
-            const major = majorNode.value;
-            const minor = minorNode.value;
+            const major = majorNode.d.value;
+            const minor = minorNode.d.value;
             let micro: number | undefined;
             if (
-                node.expressions.length >= 3 &&
-                node.expressions[2].nodeType === ParseNodeType.Number &&
-                !node.expressions[2].isImaginary &&
-                typeof node.expressions[2].value === 'number'
+                node.d.items.length >= 3 &&
+                node.d.items[2].nodeType === ParseNodeType.Number &&
+                !node.d.items[2].d.isImaginary &&
+                typeof node.d.items[2].d.value === 'number'
             ) {
-                micro = node.expressions[2].value;
+                micro = node.d.items[2].d.value;
             }
 
             let releaseLevel: PythonReleaseLevel | undefined;
             if (
-                node.expressions.length >= 4 &&
-                node.expressions[3].nodeType === ParseNodeType.StringList &&
-                node.expressions[3].strings.length === 1 &&
-                node.expressions[3].strings[0].nodeType === ParseNodeType.String
+                node.d.items.length >= 4 &&
+                node.d.items[3].nodeType === ParseNodeType.StringList &&
+                node.d.items[3].d.strings.length === 1 &&
+                node.d.items[3].d.strings[0].nodeType === ParseNodeType.String
             ) {
-                releaseLevel = node.expressions[3].strings[0].value as PythonReleaseLevel;
+                releaseLevel = node.d.items[3].d.strings[0].d.value as PythonReleaseLevel;
             }
 
             let serial: number | undefined;
             if (
-                node.expressions.length >= 5 &&
-                node.expressions[4].nodeType === ParseNodeType.Number &&
-                !node.expressions[4].isImaginary &&
-                typeof node.expressions[4].value === 'number'
+                node.d.items.length >= 5 &&
+                node.d.items[4].nodeType === ParseNodeType.Number &&
+                !node.d.items[4].d.isImaginary &&
+                typeof node.d.items[4].d.value === 'number'
             ) {
-                serial = node.expressions[4].value;
+                serial = node.d.items[4].d.value;
             }
 
             return new PythonVersion(major, minor, micro, releaseLevel, serial);
         }
-    } else if (node.expressions.length === 1) {
-        const major = node.expressions[0] as NumberNode;
-        if (typeof major.value === 'number') {
-            return new PythonVersion(major.value, 0);
+    } else if (node.d.items.length === 1) {
+        const major = node.d.items[0] as NumberNode;
+        if (typeof major.d.value === 'number') {
+            return new PythonVersion(major.d.value, 0);
         }
     }
 
@@ -305,8 +302,8 @@ function _evaluateStringBinaryOperation(
 
 function _isSysVersionInfoExpression(node: ExpressionNode, sysImportAliases: string[] = ['sys']): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
-        if (node.leftExpression.nodeType === ParseNodeType.Name && node.memberName.value === 'version_info') {
-            if (sysImportAliases.some((alias) => alias === (node.leftExpression as NameNode).value)) {
+        if (node.d.leftExpr.nodeType === ParseNodeType.Name && node.d.member.d.value === 'version_info') {
+            if (sysImportAliases.some((alias) => alias === (node.d.leftExpr as NameNode).d.value)) {
                 return true;
             }
         }
@@ -317,8 +314,8 @@ function _isSysVersionInfoExpression(node: ExpressionNode, sysImportAliases: str
 
 function _isSysPlatformInfoExpression(node: ExpressionNode, sysImportAliases: string[] = ['sys']): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
-        if (node.leftExpression.nodeType === ParseNodeType.Name && node.memberName.value === 'platform') {
-            if (sysImportAliases.some((alias) => alias === (node.leftExpression as NameNode).value)) {
+        if (node.d.leftExpr.nodeType === ParseNodeType.Name && node.d.member.d.value === 'platform') {
+            if (sysImportAliases.some((alias) => alias === (node.d.leftExpr as NameNode).d.value)) {
                 return true;
             }
         }
@@ -330,9 +327,9 @@ function _isSysPlatformInfoExpression(node: ExpressionNode, sysImportAliases: st
 function _isOsNameInfoExpression(node: ExpressionNode): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
         if (
-            node.leftExpression.nodeType === ParseNodeType.Name &&
-            node.leftExpression.value === 'os' &&
-            node.memberName.value === 'name'
+            node.d.leftExpr.nodeType === ParseNodeType.Name &&
+            node.d.leftExpr.d.value === 'os' &&
+            node.d.member.d.value === 'name'
         ) {
             return true;
         }

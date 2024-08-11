@@ -1,13 +1,14 @@
 # This sample tests the handling of bound and constrained type parameters
 # as specified in PEP 695 type parameter statements.
 
+
 class ClassA[**P, R: str]:
     ...
 
 
 A1 = ClassA[..., str]
 
-# This should generate an error because str isn't a valid 
+# This should generate an error because str isn't a valid
 # specialization for a ParamSpec.
 A2 = ClassA[str, str]
 
@@ -17,12 +18,17 @@ A3 = ClassA[[str], str]
 # to the bound.
 A4 = ClassA[..., int]
 
-class StrSubclass(str): ...
+
+class StrSubclass(str):
+    ...
+
 
 A5 = ClassA[..., StrSubclass]
 
 
-class ClassB[X: (int, str), Y](dict[Y, X]): ...
+class ClassB[X: (int, str), Y](dict[Y, X]):
+    ...
+
 
 B1 = ClassB[int, int]
 
@@ -33,6 +39,7 @@ B2 = ClassB[float, float]
 
 class ClassC[*Ts]:
     ...
+
 
 C1 = ClassC[str, str]
 

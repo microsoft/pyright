@@ -440,7 +440,7 @@ test('Optional2', () => {
 test('Tuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple1.py']);
 
-    TestUtils.validateResults(analysisResults, 24);
+    TestUtils.validateResults(analysisResults, 26);
 });
 
 test('Tuple2', () => {
@@ -747,6 +747,12 @@ test('Partial5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial5.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+});
+
+test('Partial6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial6.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('TotalOrdering1', () => {

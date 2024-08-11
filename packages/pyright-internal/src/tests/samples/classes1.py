@@ -6,6 +6,7 @@ from typing import Any, TypeVar
 
 
 T = TypeVar("T")
+T2 = TypeVar("T2", bound=type[Any])
 
 
 class A:
@@ -38,7 +39,7 @@ class F(E):
 
 class G(E, metaclass=type):
     def my_method(self):
-        print(__class__)
+        reveal_type(__class__, expected_text="type[Self@G]")
 
 
 # This should generate an error because only one metaclass is supported.
@@ -77,3 +78,10 @@ class L(type[T]):
 def func2(cls: type[T]):
     class M(cls):
         pass
+
+
+def func3(cls: T2) -> T2:
+    class M(cls):
+        pass
+    
+    return M

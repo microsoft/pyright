@@ -34,4 +34,5 @@ TA4 = dict | OrderedDict
 
 # This should generate two errors because the two types in TA4
 # are already specialized.
-TA4[int, int]
+
+x: TA4[int, int]

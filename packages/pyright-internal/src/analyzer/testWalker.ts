@@ -57,7 +57,7 @@ export class TestWalker extends ParseTreeWalker {
                         case ParseNodeType.Assignment:
                             // There are a few exceptions we need to deal with here. Comment
                             // annotations can occur outside of an assignment node's range.
-                            if (child === node.typeAnnotationComment) {
+                            if (child === node.d.annotationComment) {
                                 skipCheck = true;
                             }
 
@@ -69,10 +69,17 @@ export class TestWalker extends ParseTreeWalker {
                             break;
 
                         case ParseNodeType.StringList:
-                            if (child === node.typeAnnotation) {
+                            if (child === node.d.annotation) {
                                 skipCheck = true;
                             }
                             break;
+
+                        case ParseNodeType.Argument: {
+                            if (node.d.isNameSameAsValue) {
+                                skipCheck = true;
+                            }
+                            break;
+                        }
 
                         default:
                             fail(`node ${node.nodeType} is not marked as not following range rules.`);
@@ -84,11 +91,20 @@ export class TestWalker extends ParseTreeWalker {
                     if (child.start < node.start || TextRange.getEnd(child) > TextRange.getEnd(node)) {
                         fail(`Child node ${child.nodeType} is not contained within its parent ${node.nodeType}`);
                     }
+
                     if (prevNode) {
                         // Make sure the child is after the previous child.
                         if (child.start < TextRange.getEnd(prevNode)) {
                             // Special-case the function annotation which can "bleed" into the suite.
-                            if (prevNode.nodeType !== ParseNodeType.FunctionAnnotation) {
+                            let exempted = prevNode.nodeType === ParseNodeType.FunctionAnnotation;
+
+                            // Special-case name nodes that are part of an argument node that's
+                            // using a keyword argument shortcut.
+                            if (node.nodeType === ParseNodeType.Argument && node.d.isNameSameAsValue) {
+                                exempted = true;
+                            }
+
+                            if (!exempted) {
                                 fail(`Child node is not after previous child node`);
                             }
                         }

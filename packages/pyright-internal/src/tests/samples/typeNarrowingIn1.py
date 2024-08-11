@@ -4,13 +4,16 @@ from typing import Callable, Generic, Literal, ParamSpec, TypeVar, TypedDict
 import random
 
 
-def verify_str(p: str) -> None: ...
+def verify_str(p: str) -> None:
+    ...
 
 
-def verify_int(p: int) -> None: ...
+def verify_int(p: int) -> None:
+    ...
 
 
-def verify_none(p: None) -> None: ...
+def verify_none(p: None) -> None:
+    ...
 
 
 x: str | None

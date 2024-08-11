@@ -12,17 +12,18 @@ import { isMainThread } from 'worker_threads';
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
-import { ConsoleInterface, LogLevel, StandardConsole } from '../common/console';
+import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory, TaskListToken, convertLevelToCategory } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { ServiceProvider } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker, getPathForLogging } from '../common/logTracker';
 import { stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceKeys';
+import { ServiceProvider } from '../common/serviceProvider';
+import '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { Range, TextRange, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -53,7 +54,7 @@ const _maxImportCyclesPerFile = 4;
 
 // Allow files up to 50MB in length, same as VS Code.
 // https://github.com/microsoft/vscode/blob/1e750a7514f365585d8dab1a7a82e0938481ea2f/src/vs/editor/common/model/textModel.ts#L194
-const _maxSourceFileSize = 50 * 1024 * 1024;
+export const maxSourceFileSize = 50 * 1024 * 1024;
 
 interface ResolveImportResult {
     imports: ImportResult[];
@@ -141,28 +142,10 @@ class WriteableData {
     // True if the file appears to have been deleted.
     isFileDeleted = false;
 
-    private _lastCallStack: string | undefined;
-    private _parserOutput: ParserOutput | undefined;
+    parserOutput: ParserOutput | undefined;
 
-    private readonly _consoleWithLevel?: ConsoleInterface & { level: LogLevel };
-
-    constructor(console: ConsoleInterface) {
-        if (ConsoleInterface.hasLevel(console)) {
-            this._consoleWithLevel = console;
-        }
-    }
-
-    get parserOutput() {
-        return this._parserOutput;
-    }
-
-    set parserOutput(value: ParserOutput | undefined) {
-        this._lastCallStack =
-            this._consoleWithLevel?.level === LogLevel.Log && value === undefined && this._parserOutput !== undefined
-                ? new Error().stack
-                : undefined;
-
-        this._parserOutput = value;
+    constructor() {
+        // Empty
     }
 
     debugPrint() {
@@ -194,8 +177,7 @@ class WriteableData {
  pyrightIgnoreLines=${this.pyrightIgnoreLines?.size},
  checkTime=${this.checkTime},
  clientDocumentContents=${this.clientDocumentContents?.length},
- parseResults=${this.parserOutput?.parseTree.length},
- parseResultsDropCallStack=${this._lastCallStack}`;
+ parseResults=${this.parserOutput?.parseTree.length}`;
     }
 }
 
@@ -272,7 +254,7 @@ export class SourceFile {
     ) {
         this.fileSystem = serviceProvider.get(ServiceKeys.fs);
         this._console = console || new StandardConsole();
-        this._writableData = new WriteableData(this._console);
+        this._writableData = new WriteableData();
 
         this._editMode = editMode;
         this._uri = uri;
@@ -298,7 +280,8 @@ export class SourceFile {
                 this._uri.pathEndsWith('stdlib/abc.pyi') ||
                 this._uri.pathEndsWith('stdlib/enum.pyi') ||
                 this._uri.pathEndsWith('stdlib/queue.pyi') ||
-                this._uri.pathEndsWith('stdlib/types.pyi')
+                this._uri.pathEndsWith('stdlib/types.pyi') ||
+                this._uri.pathEndsWith('stdlib/warnings.pyi')
             ) {
                 this._isBuiltInStubFile = true;
             }
@@ -496,10 +479,10 @@ export class SourceFile {
         try {
             // Check the file's length before attempting to read its full contents.
             const fileStat = this.fileSystem.statSync(this._uri);
-            if (fileStat.size > _maxSourceFileSize) {
+            if (fileStat.size > maxSourceFileSize) {
                 this._console.error(
                     `File length of "${this._uri}" is ${fileStat.size} ` +
-                        `which exceeds the maximum supported file size of ${_maxSourceFileSize}`
+                        `which exceeds the maximum supported file size of ${maxSourceFileSize}`
                 );
                 throw new Error('File larger than max');
             }
@@ -832,7 +815,11 @@ export class SourceFile {
                     );
                     AnalyzerNodeInfo.setFileInfo(this._writableData.parserOutput!.parseTree, fileInfo);
 
-                    const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
+                    const binder = new Binder(
+                        fileInfo,
+                        this.serviceProvider.docStringService(),
+                        configOptions.indexGenerationMode
+                    );
                     this._writableData.isBindingInProgress = true;
                     binder.bindModule(this._writableData.parserOutput!.parseTree);
 
@@ -1236,7 +1223,7 @@ export class SourceFile {
         this._preEditData = this._writableData;
 
         // Recreate all the writable data from scratch.
-        this._writableData = new WriteableData(this._console);
+        this._writableData = new WriteableData();
     }
 
     // Get all task list diagnostics for the current file and add them
@@ -1391,7 +1378,7 @@ export class SourceFile {
             // Associate the import results with the module import
             // name node in the parse tree so we can access it later
             // (for hover and definition support).
-            if (moduleImport.nameParts.length === moduleImport.nameNode.nameParts.length) {
+            if (moduleImport.nameParts.length === moduleImport.nameNode.d.nameParts.length) {
                 AnalyzerNodeInfo.setImportInfo(moduleImport.nameNode, importResult);
             } else {
                 // For implicit imports of higher-level modules within a multi-part
@@ -1399,9 +1386,9 @@ export class SourceFile {
                 // of the multi-part name rather than the full multi-part name. In this
                 // case, store the import info on the name part node.
                 assert(moduleImport.nameParts.length > 0);
-                assert(moduleImport.nameParts.length - 1 < moduleImport.nameNode.nameParts.length);
+                assert(moduleImport.nameParts.length - 1 < moduleImport.nameNode.d.nameParts.length);
                 AnalyzerNodeInfo.setImportInfo(
-                    moduleImport.nameNode.nameParts[moduleImport.nameParts.length - 1],
+                    moduleImport.nameNode.d.nameParts[moduleImport.nameParts.length - 1],
                     importResult
                 );
             }

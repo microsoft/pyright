@@ -15,7 +15,6 @@ import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { SignatureDisplayType } from './configOptions';
 import { ConsoleInterface, LogLevel } from './console';
 import { TaskListToken } from './diagnostic';
-import * as ext from './extensibility';
 import { FileSystem } from './fileSystem';
 import { FileWatcherHandler } from './fileWatcher';
 import { ServiceProvider } from './serviceProvider';
@@ -124,7 +123,7 @@ export interface LanguageServerBaseInterface {
     readonly console: ConsoleInterface;
     readonly window: WindowInterface;
     readonly supportAdvancedEdits: boolean;
-    readonly serviceProvider: ext.ServiceProvider;
+    readonly serviceProvider: ServiceProvider;
 
     createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined;
     reanalyze(): void;
@@ -136,4 +135,25 @@ export interface LanguageServerBaseInterface {
 
 export interface LanguageServerInterface extends LanguageServerBaseInterface {
     getWorkspaceForFile(fileUri: Uri): Promise<Workspace>;
+}
+
+export interface WindowService extends WindowInterface {
+    createGoToOutputAction(): MessageAction;
+    createOpenUriAction(title: string, uri: string): MessageAction;
+}
+
+export namespace WindowService {
+    export function is(obj: any): obj is WindowService {
+        return obj.createGoToOutputAction !== undefined && WindowInterface.is(obj);
+    }
+}
+
+export interface CommandService {
+    sendCommand(id: string, ...args: string[]): void;
+}
+
+export namespace CommandService {
+    export function is(obj: any): obj is CommandService {
+        return !!obj && obj.sendCommand !== undefined;
+    }
 }

@@ -12,11 +12,12 @@ import { SupportPartialStubs } from '../pyrightFileSystem';
 import { ServiceKeys } from './serviceKeys';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface } from './console';
-import { ServiceProvider as ReadOnlyServiceProvider } from './extensibility';
 import { FileSystem, TempFile } from './fileSystem';
 import { LogTracker } from './logTracker';
 import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
+import { DocStringService, PyrightDocStringService } from './docStringService';
+import { CommandService, WindowService } from './languageServerInterface';
 
 declare module './serviceProvider' {
     interface ServiceProvider {
@@ -26,6 +27,7 @@ declare module './serviceProvider' {
         sourceFileFactory(): ISourceFileFactory;
         partialStubs(): SupportPartialStubs;
         cacheManager(): CacheManager | undefined;
+        docStringService(): DocStringService;
     }
 }
 
@@ -55,6 +57,15 @@ export function createServiceProvider(...services: any): ServiceProvider {
         if (CacheManager.is(service)) {
             sp.add(ServiceKeys.cacheManager, service);
         }
+        if (DocStringService.is(service)) {
+            sp.add(ServiceKeys.docStringService, service);
+        }
+        if (WindowService.is(service)) {
+            sp.add(ServiceKeys.windowService, service);
+        }
+        if (CommandService.is(service)) {
+            sp.add(ServiceKeys.commandService, service);
+        }
     });
     return sp;
 }
@@ -76,6 +87,11 @@ ServiceProvider.prototype.sourceFileFactory = function () {
     return result || DefaultSourceFileFactory;
 };
 
+ServiceProvider.prototype.docStringService = function () {
+    const result = this.tryGet(ServiceKeys.docStringService);
+    return result || new PyrightDocStringService();
+};
+
 ServiceProvider.prototype.cacheManager = function () {
     const result = this.tryGet(ServiceKeys.cacheManager);
     return result;
@@ -83,7 +99,7 @@ ServiceProvider.prototype.cacheManager = function () {
 
 const DefaultSourceFileFactory: ISourceFileFactory = {
     createSourceFile(
-        serviceProvider: ReadOnlyServiceProvider,
+        serviceProvider: ServiceProvider,
         fileUri: Uri,
         moduleName: string,
         isThirdPartyImport: boolean,

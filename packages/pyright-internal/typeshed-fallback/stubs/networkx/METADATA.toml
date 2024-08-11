@@ -1,6 +1,8 @@
 version = "3.2.1"
 upstream_repository = "https://github.com/networkx/networkx"
-requires = ["numpy"]
+# requires a version of numpy with a `py.typed` file
+# TODO: Lots of stubtest errors when using numpy 2
+requires = ["numpy>=1.20,<2"]
 partial_stub = true
 
 [tool.stubtest]

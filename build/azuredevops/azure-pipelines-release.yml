@@ -1,0 +1,150 @@
+trigger:
+  branches:
+    include:
+      - refs/tags/*
+resources:
+  repositories:
+    - repository: MicroBuildTemplate
+      type: git
+      name: 1ESPipelineTemplates/MicroBuildTemplate
+      ref: refs/tags/release
+variables:
+  - name: TeamName
+    value: Pyright
+  - name: VSIX_NAME
+    value: vscode-pyright.vsix
+  - name: ARTIFACT_NAME_VSIX
+    value: vsix
+
+extends:
+  template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
+  parameters:
+    sdl:
+      codeql:
+        compiled:
+          enabled: false
+          justificationForDisabling: 'Running a scan on the Pyright-Build'
+      sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
+    pool:
+      pool:
+      name: VSEngSS-MicroBuild2022-1ES
+      os: windows
+    customBuildTags:
+      - ES365AIMigrationTooling
+    stages:
+      - stage: BuildVsix
+        jobs:
+          - job: build
+            displayName: Build VSIX
+            timeoutInMinutes: 60
+            templateContext:
+              mb:
+                signing:
+                  enabled: true
+                  signType: 'real'
+              outputs:
+                - output: pipelineArtifact
+                  displayName: 'publish vsix artifact'
+                  targetPath: build_output
+                  artifactName: $(ARTIFACT_NAME_VSIX)
+            steps:
+              - checkout: self
+                fetchDepth: 1
+                clean: true
+                submodules: true
+                fetchTags: false
+                persistCredentials: True
+              - task: NodeTool@0
+                displayName: Use Node 18.x
+                inputs:
+                  versionSpec: 18.x
+              - task: CmdLine@2
+                displayName: npm install
+                inputs:
+                  script: npm run install:all
+              - task: CmdLine@2
+                displayName: Package VSIX
+                inputs:
+                  script: |
+                    npm run package
+                    move pyright-*.vsix %VSIX_NAME%
+                  workingDirectory: packages/vscode-pyright
+              - task: CopyFiles@2
+                displayName: 'Copy vsix to: build_output'
+                inputs:
+                  SourceFolder: packages/vscode-pyright
+                  Contents: '*.vsix'
+                  TargetFolder: build_output
+      - stage: CreateRelease
+        dependsOn:
+          - BuildVsix
+        jobs:
+          - job: create_release
+            displayName: Create GitHub Release
+            steps:
+              - checkout: none
+              - download: current
+              - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
+                displayName: 'Create GitHub Release'
+                inputs:
+                  gitHubConnection: 'Github-Pylance' # The name of the GitHub service connection
+                  repositoryName: 'microsoft/pyright' # The name of your GitHub repository
+                  action: 'create'
+                  isDraft: true
+                  isPreRelease: false
+                  addChangeLog: true
+                  title: 'Published $(Build.SourceBranchName)'
+                  assets: |
+                    $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)/$(VSIX_NAME)
+      - stage: WaitForValidation
+        dependsOn:
+          - CreateRelease
+        jobs:
+          - job: wait_for_validation
+            displayName: Wait for manual validation
+            pool: server
+            steps:
+              - task: ManualValidation@0
+                timeoutInMinutes: 120 # task times out in 2 hours
+                inputs:
+                  notifyUsers: 'plseng@microsoft.com,eric@traut.com'
+                  instructions: 'In the next 2 hours please test the latest draft release of Pyright, then Publish the release in GitHub.'
+                  onTimeout: 'resume'
+
+      - stage: PublishExtension
+        dependsOn:
+          - WaitForValidation
+        jobs:
+          - job: publish_extension
+            displayName: Publish extension to marketplace
+            steps:
+              - checkout: none
+              - task: NodeTool@0
+                inputs:
+                  versionSpec: 18.x
+              - task: DownloadGitHubRelease@0
+                displayName: 'Download VSIX'
+                inputs:
+                  connection: 'Github-Pylance'
+                  userRepository: 'microsoft/pyright'
+                  defaultVersionType: 'specificTag'
+                  version: $(Build.SourceBranchName)
+                  downloadPath: '$(System.ArtifactsDirectory)'
+              # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
+              # Install dependencies and VS Code Extension Manager (vsce >= v2.26.1 needed)
+              - script: |
+                  npm install -g @vscode/vsce
+                displayName: 'Install vsce and dependencies'
+              # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
+              # Publish to Marketplace
+              # see. stackoverflow.com/collectives/ci-cd/articles/76873787/publish-azure-devops-extensions-using-azure-workload-identity
+              - task: AzureCLI@2
+                displayName: 'Publishing with Managed Identity'
+                inputs:
+                  azureSubscription: PyrightPublishPipelineSecureConnectionWithManagedIdentity
+                  scriptType: 'pscore'
+                  scriptLocation: 'inlineScript'
+                  inlineScript: |
+                    az rest -u https://app.vssps.visualstudio.com/_apis/profile/profiles/me --resource 499b84ac-1321-427f-aa17-267ca6975798
+                    $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
+                    vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify

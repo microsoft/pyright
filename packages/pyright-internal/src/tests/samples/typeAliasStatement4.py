@@ -35,5 +35,3 @@ type TA6 = "TA7"
 type TA7 = TA6
 
 type JSONNode = list[JSONNode] | dict[str, JSONNode] | str | float
-
-

@@ -19,7 +19,7 @@ def decorator(*args: Any, **kwargs: Any) -> Callable[[_T], _T]:
     ],
 )
 def decorated(
-    x: list[str] = [x for x in ["a", "b"] if x in (walrus_target_2 := ["a", "b"])]
+    x: list[str] = [x for x in ["a", "b"] if x in (walrus_target_2 := ["a", "b"])],
 ):
     pass
 

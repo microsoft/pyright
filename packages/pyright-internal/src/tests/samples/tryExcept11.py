@@ -2,6 +2,7 @@
 # a try/except and is referenced within the finally clause. This ensures
 # that the "finally gate" logic is reentrant.
 
+
 def func1():
     func2()
 

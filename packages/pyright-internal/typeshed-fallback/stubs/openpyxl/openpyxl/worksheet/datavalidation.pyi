@@ -72,7 +72,7 @@ class DataValidation(Serialisable):
         showErrorMessage: _ConvertibleToBool | None = False,
         showInputMessage: _ConvertibleToBool | None = False,
         showDropDown: _ConvertibleToBool | None = False,
-        allowBlank: _ConvertibleToBool | None = False,
+        allowBlank: _ConvertibleToBool = False,
         sqref: _ConvertibleToMultiCellRange = (),
         promptTitle: str | None = None,
         errorStyle: _DataValidationErrorStyle | Literal["none"] | None = None,
@@ -81,7 +81,7 @@ class DataValidation(Serialisable):
         errorTitle: str | None = None,
         imeMode: _DataValidationImeMode | Literal["none"] | None = None,
         operator: _DataValidationOperator | Literal["none"] | None = None,
-        allow_blank: Incomplete | None = False,
+        allow_blank: _ConvertibleToBool | None = None,
     ) -> None: ...
     def add(self, cell) -> None: ...
     def __contains__(self, cell: _HasCoordinate | str | CellRange) -> bool: ...

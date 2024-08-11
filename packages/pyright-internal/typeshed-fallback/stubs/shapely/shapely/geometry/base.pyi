@@ -1,7 +1,7 @@
 from array import array
 from collections.abc import Iterator
 from typing import Any, Generic, Literal, NoReturn, overload
-from typing_extensions import Self, TypeVar, deprecated  # noqa: Y023
+from typing_extensions import Self, TypeVar, deprecated
 
 import numpy as np
 from numpy.typing import NDArray
@@ -33,7 +33,7 @@ class JOIN_STYLE:
 class BaseGeometry(Geometry):
     @deprecated(
         "Directly calling 'BaseGeometry()' is deprecated. To create an empty geometry, "
-        "use one of the subclasses instead, for example 'GeometryCollection()'."  # pyright: ignore[reportImplicitStringConcatenation]
+        "use one of the subclasses instead, for example 'GeometryCollection()'."
     )
     def __new__(self) -> GeometryCollection: ...
     def __bool__(self) -> bool: ...
@@ -280,6 +280,6 @@ class GeometrySequence(Generic[_P_co]):
 class EmptyGeometry(BaseGeometry):
     @deprecated(
         "The 'EmptyGeometry()' constructor is deprecated. Use one of the "
-        "geometry subclasses instead, for example 'GeometryCollection()'."  # pyright: ignore[reportImplicitStringConcatenation]
+        "geometry subclasses instead, for example 'GeometryCollection()'."
     )
     def __new__(self) -> GeometryCollection: ...  # type: ignore[misc]

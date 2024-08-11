@@ -40,6 +40,7 @@ import { ConsoleInterface, ConsoleWithLogLevel, NullConsole } from '../../../com
 import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
 import * as debug from '../../../common/debug';
 import { DiagnosticCategory } from '../../../common/diagnostic';
+import { PyrightDocStringService } from '../../../common/docStringService';
 import { FileEditAction } from '../../../common/editAction';
 import { ReadOnlyFileSystem } from '../../../common/fileSystem';
 import { LanguageServerInterface } from '../../../common/languageServerInterface';
@@ -1126,6 +1127,7 @@ export class TestState {
                 /* hasSignatureLabelOffsetCapability */ true,
                 /* hasActiveParameterCapability */ true,
                 /* context */ undefined,
+                new PyrightDocStringService(),
                 CancellationToken.None
             ).getSignatureHelp();
 
@@ -1503,9 +1505,9 @@ export class TestState {
     ) {
         const commandLineOptions = new CommandLineOptions(
             this.configOptions.projectRoot.getFilePath(),
-            /* fromVsCodeExtension */ false
+            /* fromLanguageServer */ false
         );
-        commandLineOptions.verboseOutput = verboseOutput;
+        commandLineOptions.configSettings.verboseOutput = verboseOutput;
         const verifier = new PackageTypeVerifier(
             this.serviceProvider,
             testAccessHost,

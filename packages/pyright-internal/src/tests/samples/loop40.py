@@ -3,6 +3,7 @@
 
 # pyright: strict
 
+
 def func1(a: int, b: str, c: str):
     v1: list[tuple[str, str, str]] = []
     for _ in range(0):

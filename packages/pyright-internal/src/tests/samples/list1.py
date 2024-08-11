@@ -27,12 +27,15 @@ _T = TypeVar("_T")
 
 
 class Baz(Generic[_T]):
-    def __get__(self, instance: Any, owner: Any) -> _T: ...
+    def __get__(self, instance: Any, owner: Any) -> _T:
+        ...
 
-    def __set__(self, instance: Any, value: _T) -> None: ...
+    def __set__(self, instance: Any, value: _T) -> None:
+        ...
 
 
-class Foo: ...
+class Foo:
+    ...
 
 
 class Bar:
@@ -65,7 +68,8 @@ v16: dict[str, list[str | None]] = {n: [None] * len(n) for n in ["a", "aa", "aaa
 ScalarKeysT = TypeVar("ScalarKeysT", bound=Literal["name", "country"])
 
 
-def func1(by: list[ScalarKeysT]) -> ScalarKeysT: ...
+def func1(by: list[ScalarKeysT]) -> ScalarKeysT:
+    ...
 
 
 reveal_type(func1(["country"]), expected_type="Literal['country']")
@@ -76,7 +80,8 @@ reveal_type(func1(["name", "country"]), expected_type="Literal['name', 'country'
 func1(["id"])
 
 
-def func2(thing: str | list[str | int] | list[list[str | int]]): ...
+def func2(thing: str | list[str | int] | list[list[str | int]]):
+    ...
 
 
 func2("")

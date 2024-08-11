@@ -88,9 +88,9 @@ class Stop(Serialisable):
     color: Incomplete
     def __init__(self, color, position: ConvertibleToFloat) -> None: ...
 
-class StopList(Sequence):
-    expected_type: type[Incomplete]
-    def __set__(self, obj: Serialisable | Strict, values) -> None: ...
+class StopList(Sequence[list[Stop]]):
+    expected_type: type[Stop]
+    def __set__(self, obj: Serialisable | Strict, values: list[Stop] | tuple[Stop, ...]) -> None: ...
 
 class GradientFill(Fill):
     tagname: ClassVar[str]

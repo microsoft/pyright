@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Невозможно вызвать метод \"{method}\", так как он является абстрактным и нереализованным",
+        "annotatedMetadataInconsistent": "Тип аннотированных метаданных \"{metadataType}\" несовместим с типом \"{type}\"",
         "annotatedParamCountMismatch": "Несоответствие числа аннотаций параметра: ожидается {expected}, но получено {received}",
         "annotatedTypeArgMissing": "Для \"Annotated\" ожидается один аргумент типа и одна или несколько заметок типа",
         "annotationBytesString": "Заметки с типом не могут использовать строковые литералы байтов",
@@ -92,7 +93,6 @@
         "concatenateTypeArgsMissing": "Для \"Concatenate\" требуется по крайней мере два аргумента типа",
         "conditionalOperandInvalid": "Недопустимый условный операнд типа \"{type}\"",
         "constantRedefinition": "\"{name}\" является константой (поскольку оно в верхнем регистре) и не может быть переопределено.",
-        "constructorNoArgs": "Для конструктора \"{type}\" не ожидается аргументов",
         "constructorParametersMismatch": "Несоответствие подписи __new__ и __init__ в классе \"{classType}\"",
         "containmentAlwaysFalse": "Выражение всегда будет оцениваться как ЛОЖЬ, так как типы \"{leftType}\" и \"{rightType}\" не перекрываются",
         "containmentAlwaysTrue": "Выражение всегда будет оцениваться как ИСТИНА, так как типы \"{leftType}\" и \"{rightType}\" не перекрываются",
@@ -156,7 +156,9 @@
         "enumClassOverride": "Перечислимый класс \"{name}\" является окончательным и не может иметь производных классов",
         "enumMemberDelete": "Не удается удалить элемент перечисления \"{name}\"",
         "enumMemberSet": "Не удается назначить элемент перечисления \"{name}\"",
+        "enumMemberTypeAnnotation": "Аннотации типов не разрешены для элементов перечисления",
         "exceptionGroupIncompatible": "Синтаксис группы исключений (\"except*\") можно использовать в Python версии не ранее 3.11",
+        "exceptionGroupTypeIncorrect": "Тип исключения в except* не может быть производным от BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\" не является производным от BaseException",
         "exceptionTypeNotClass": "\"{type}\" не является допустимым классом исключений",
         "exceptionTypeNotInstantiable": "Конструктору типа исключения \"{type}\" требуется один или несколько аргументов",
@@ -400,6 +402,7 @@
         "protocolBaseClassWithTypeArgs": "Аргументы типа не допускаются с классом протокола при использовании синтаксиса параметра типа",
         "protocolIllegal": "Ключевое слово \"Protocol\" можно использовать в Python версии не ниже 3.7",
         "protocolNotAllowed": "Невозможно использовать \"Protocol\" в этом контексте",
+        "protocolTypeArgMustBeTypeParam": "Аргумент типа для параметра \"Protocol\" должен быть параметром типа",
         "protocolUnsafeOverlap": "Класс небезопасно перекрывает \"{name}\" и может вызвать совпадение во время выполнения",
         "protocolVarianceContravariant": "Переменная типа \"{variable}\", используемая в универсальном протоколе \"{class}\", должна быть контравариантной.",
         "protocolVarianceCovariant": "Переменная типа \"{variable}\", используемая в универсальном протоколе \"{class}\", должна быть ковариантной",
@@ -492,7 +495,7 @@
         "typeCallNotAllowed": "Вызов type() не разрешен в заметках типа",
         "typeCheckOnly": "\"{name}\" помечено как @type_check_only и может использоваться только в заметках с типом",
         "typeCommentDeprecated": "Комментарии типа больше не рекомендуются к использованию; вместо них используйте заметки типа",
-        "typeExpectedClass": "Ожидалось выражение типа, но получено \"{type}\"",
+        "typeExpectedClass": "Ожидался класс, но получен \"{type}\"",
         "typeGuardArgCount": "После \"TypeGuard\" или \"TypeIs\" ожидается один аргумент типа",
         "typeGuardParamCount": "Определяемые пользователем функции и методы защиты типов должны иметь по крайней мере один входной параметр",
         "typeIsReturnType": "Тип возвращаемого значения TypeIs (\"{returnType}\") не соответствует типу параметра значения (\"{type}\")",
@@ -624,7 +627,7 @@
         "yieldFromIllegal": "\"Yield from\" можно использовать в Python версии не ниже 3.3",
         "yieldFromOutsideAsync": "\"yield from\" не допускается в асинхронной функции",
         "yieldOutsideFunction": "\"yield\" не допускается за пределами функции или лямбда-выражении",
-        "yieldWithinComprehension": "\"yield\" не допускается внутри понимания списка",
+        "yieldWithinComprehension": "\"yield\" не допускается внутри понимания",
         "zeroCaseStatementsFound": "Операторе match должен включать по крайней мере один оператор case",
         "zeroLengthTupleNotAllowed": "Кортеж нулевой длины не допускается в этом контексте"
     },
@@ -666,6 +669,7 @@
         "invariantSuggestionDict": "Рассмотрите возможность перехода с \"dict\" на \"Mapping\", являющийся ковариантным по типу значения.",
         "invariantSuggestionList": "Рассмотрите возможность перехода с \"list\" на \"Sequence\", являющийся ковариантным.",
         "invariantSuggestionSet": "Рассмотрите возможность переключения с \"set\" на \"Container\", который является ковариантным",
+        "isinstanceClassNotSupported": "\"{type}\" не поддерживается для проверок экземпляров и классов",
         "keyNotRequired": "\"{name}\" не является обязательным ключом в \"{type}\", поэтому доступ может вызвать исключение во время выполнения",
         "keyReadOnly": "\"{name}\" является ключом только для чтения в \"{type}\"",
         "keyRequiredDeleted": "\"{name}\" является обязательным ключом и не подлежит удалению",
@@ -800,5 +804,8 @@
         "useTypeInstead": "Используйте вместо этого Type[T]",
         "varianceMismatchForClass": "Вариант аргумента типа \"{typeVarName}\" несовместим с базовым классом \"{className}\"",
         "varianceMismatchForTypeAlias": "Отклонение аргумента типа \"{typeVarName}\" несовместимо с \"{typeAliasParam}\""
+    },
+    "Service": {
+        "longOperation": "Перечисление исходных файлов рабочей области занимает много времени. Вместо этого рассмотрите возможность открыть вложенную папку. [Подробнее](https://aka.ms/workspace-too-many-files)"
     }
 }

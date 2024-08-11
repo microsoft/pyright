@@ -30,5 +30,3 @@ class Wrapper(Generic[Input, Output]):
 y = Wrapper(Impl1())
 reveal_type(y, expected_text="Wrapper[T@__call__, T@__call__]")
 x: Proto1 = y
-
-

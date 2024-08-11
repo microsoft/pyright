@@ -1,7 +1,8 @@
 # This sample file tests various aspects of type analysis for tuples.
 
 import os
-from typing import Any, Callable
+from typing import Any, Callable, Never
+
 from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
     TypeVarTuple,
     Unpack,
@@ -200,7 +201,7 @@ def func13(
     reveal_type(v17, expected_text="int | Union[*Ts@func13] | float")
 
     v18 = f[-1]
-    reveal_type(v18, expected_text="int | Union[*Ts@func13] | float")
+    reveal_type(v18, expected_text="float")
 
 
 def func14():
@@ -270,3 +271,25 @@ def func19(a: tuple[int, ...], b: tuple[int, *tuple[int, ...]]):
 
     # This should generate an error.
     b5: tuple[int, int, *tuple[int, ...]] = b
+
+
+def func20(v: tuple[Never]):
+    # This should generate an error.
+    x1: tuple[Never] = (1,)
+
+    # This should generate an error.
+    x2: tuple[Never] = ()
+
+    x3: tuple[Never] = v
+
+
+def func21(x: tuple[Any, ...], *args: *Ts) -> tuple[*Ts]:
+    args = x
+    return args
+
+
+def func22(x: tuple[*tuple[int, ...], float, str]):
+    reveal_type(x[0], expected_text="int | float | str")
+    reveal_type(x[-1], expected_text="str")
+    reveal_type(x[-2], expected_text="float")
+    reveal_type(x[-3], expected_text="int")

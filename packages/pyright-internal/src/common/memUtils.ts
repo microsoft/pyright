@@ -5,7 +5,7 @@
  *
  * Platform-independent helper functions for memory.
  */
-
+import * as os from 'os';
 type HeapInfo = ReturnType<typeof import('v8').getHeapStatistics>;
 
 function getHeapStatisticsFunc(): () => HeapInfo {
@@ -34,3 +34,11 @@ function getHeapStatisticsFunc(): () => HeapInfo {
     });
 }
 export const getHeapStatistics = getHeapStatisticsFunc();
+
+export function getSystemMemoryInfo() {
+    if (!os.totalmem || !os.freemem) {
+        return { total: 0, free: 0 };
+    }
+
+    return { total: os.totalmem(), free: os.freemem() };
+}

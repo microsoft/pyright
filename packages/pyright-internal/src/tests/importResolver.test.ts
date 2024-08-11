@@ -8,6 +8,7 @@ import assert from 'assert';
 
 import { Dirent, ReadStream, WriteStream } from 'fs';
 import { ImportResolver } from '../analyzer/importResolver';
+import { ImportType } from '../analyzer/importResult';
 import { ConfigOptions } from '../common/configOptions';
 import { FileSystem, MkDirOptions, Stats } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventHandler } from '../common/fileWatcher';
@@ -15,15 +16,15 @@ import { FullAccessHost } from '../common/fullAccessHost';
 import { Host } from '../common/host';
 import { lib, sitePackages, typeshedFallback } from '../common/pathConsts';
 import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
-import { createFromRealFileSystem } from '../common/realFileSystem';
+import { createFromRealFileSystem, RealTempFile } from '../common/realFileSystem';
+import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
-import { ServiceKeys } from '../common/serviceKeys';
 import { Uri } from '../common/uri/uri';
+import { UriEx } from '../common/uri/uriUtils';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
-import { UriEx } from '../common/uri/uriUtils';
 
 const libraryRoot = combinePaths(normalizeSlashes('/'), lib, sitePackages);
 
@@ -271,7 +272,42 @@ if (!usingTrueVenv()) {
             assert(!importResult.isImportFound);
         });
     });
+
+    test('getModuleNameForImport library file', () => {
+        const files = [
+            {
+                path: combinePaths(libraryRoot, 'myLib', 'myModule', 'file1.py'),
+                content: '# empty',
+            },
+        ];
+
+        const moduleImportInfo = getModuleNameForImport(files);
+
+        assert.strictEqual(moduleImportInfo.importType, ImportType.ThirdParty);
+        assert(!moduleImportInfo.isThirdPartyPyTypedPresent);
+        assert(!moduleImportInfo.isLocalTypingsFile);
+    });
+
+    test('getModuleNameForImport py.typed library file', () => {
+        const files = [
+            {
+                path: combinePaths(libraryRoot, 'myLib', 'py.typed'),
+                content: '',
+            },
+            {
+                path: combinePaths(libraryRoot, 'myLib', 'myModule', 'file1.py'),
+                content: '# empty',
+            },
+        ];
+
+        const moduleImportInfo = getModuleNameForImport(files);
+
+        assert.strictEqual(moduleImportInfo.importType, ImportType.ThirdParty);
+        assert(moduleImportInfo.isThirdPartyPyTypedPresent);
+        assert(!moduleImportInfo.isLocalTypingsFile);
+    });
 }
+
 describe('Import tests that can run with or without a true venv', () => {
     test('side by side files', () => {
         const myFile = combinePaths('src', 'file.py');
@@ -707,6 +743,21 @@ describe('Import tests that can run with or without a true venv', () => {
         });
         assert(importResult.isImportFound);
     });
+
+    test('getModuleNameForImport user file', () => {
+        const files = [
+            {
+                path: combinePaths('/', 'src', 'file1.py'),
+                content: '# empty',
+            },
+        ];
+
+        const moduleImportInfo = getModuleNameForImport(files);
+
+        assert.strictEqual(moduleImportInfo.importType, ImportType.Local);
+        assert(!moduleImportInfo.isThirdPartyPyTypedPresent);
+        assert(!moduleImportInfo.isLocalTypingsFile);
+    });
 });
 
 if (usingTrueVenv()) {
@@ -730,6 +781,37 @@ function getImportResult(
     nameParts: string[],
     setup?: (c: ConfigOptions) => void
 ) {
+    const { importResolver, uri, configOptions } = setupImportResolver(files, setup);
+
+    const importResult = importResolver.resolveImport(uri, configOptions.findExecEnvironment(uri), {
+        leadingDots: 0,
+        nameParts: nameParts,
+        importedSymbols: new Set<string>(),
+    });
+
+    // Add the config venvpath to the import result so we can output it on failure.
+    if (!importResult.isImportFound) {
+        importResult.importFailureInfo = importResult.importFailureInfo ?? [];
+        importResult.importFailureInfo.push(`venvPath: ${configOptions.venvPath}`);
+    }
+
+    return importResult;
+}
+
+function getModuleNameForImport(files: { path: string; content: string }[], setup?: (c: ConfigOptions) => void) {
+    const { importResolver, uri, configOptions } = setupImportResolver(files, setup);
+
+    const moduleImportInfo = importResolver.getModuleNameForImport(
+        uri,
+        configOptions.findExecEnvironment(uri),
+        undefined,
+        /* detectPyTyped */ true
+    );
+
+    return moduleImportInfo;
+}
+
+function setupImportResolver(files: { path: string; content: string }[], setup?: (c: ConfigOptions) => void) {
     const defaultHostFactory = (sp: ServiceProvider) =>
         new TestAccessHost(sp.fs().getModulePath(), [UriEx.file(libraryRoot)]);
     const defaultSetup =
@@ -769,16 +851,6 @@ function getImportResult(
         spFactory = (files: { path: string; content: string }[]) => createServiceProviderWithCombinedFs(files);
     }
 
-    return getImportResultImpl(files, nameParts, spFactory, configModifier, hostFactory);
-}
-
-function getImportResultImpl(
-    files: { path: string; content: string }[],
-    nameParts: string[],
-    spFactory: (files: { path: string; content: string }[]) => ServiceProvider,
-    configModifier: (c: ConfigOptions) => void,
-    hostFactory: (sp: ServiceProvider) => Host
-) {
     const sp = spFactory(files);
     const configOptions = new ConfigOptions(UriEx.file('/'));
     configModifier(configOptions);
@@ -793,19 +865,8 @@ function getImportResultImpl(
 
     const uri = UriEx.file(file);
     const importResolver = new ImportResolver(sp, configOptions, hostFactory(sp));
-    const importResult = importResolver.resolveImport(uri, configOptions.findExecEnvironment(uri), {
-        leadingDots: 0,
-        nameParts: nameParts,
-        importedSymbols: new Set<string>(),
-    });
 
-    // Add the config venvpath to the import result so we can output it on failure.
-    if (!importResult.isImportFound) {
-        importResult.importFailureInfo = importResult.importFailureInfo ?? [];
-        importResult.importFailureInfo.push(`venvPath: ${configOptions.venvPath}`);
-    }
-
-    return importResult;
+    return { importResolver, uri, configOptions };
 }
 
 function createTestFileSystem(files: { path: string; content: string }[]): TestFileSystem {
@@ -836,9 +897,10 @@ function createServiceProviderWithCombinedFs(files: { path: string; content: str
 
 class TruePythonTestAccessHost extends FullAccessHost {
     constructor(sp: ServiceProvider) {
-        // Make sure the service provide in use is using a real file system
+        // Make sure the service provide in use is using a real file system and real temporary file provider.
         const clone = sp.clone();
         clone.add(ServiceKeys.fs, createFromRealFileSystem(sp.get(ServiceKeys.caseSensitivityDetector)));
+        clone.add(ServiceKeys.tempFile, new RealTempFile());
         super(clone);
     }
 }

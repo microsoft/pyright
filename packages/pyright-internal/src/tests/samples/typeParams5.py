@@ -47,3 +47,12 @@ t2 = (bytes, str)
 # must be used for constrained types.
 class ClassL[R: t2]: ...
 
+# This should generate an error because constraints must be legal
+# type expressions.
+class ClassM[R: (1, str)]: ...
+
+v: type[int] = int
+
+# This should generate an error because constraints must be legal
+# type expressions.
+class ClassN[R: (v, str)]: ...

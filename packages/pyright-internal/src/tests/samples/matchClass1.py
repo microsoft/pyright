@@ -32,10 +32,12 @@ class ClassB(Generic[T]):
     attr_b: str
 
 
-class ClassC: ...
+class ClassC:
+    ...
 
 
-class ClassD(ClassC): ...
+class ClassD(ClassC):
+    ...
 
 
 def test_unknown(value_to_match):
@@ -288,13 +290,16 @@ def func7(subj: object):
 T2 = TypeVar("T2")
 
 
-class Parent(Generic[T]): ...
+class Parent(Generic[T]):
+    ...
 
 
-class Child1(Parent[T]): ...
+class Child1(Parent[T]):
+    ...
 
 
-class Child2(Parent[T], Generic[T, T2]): ...
+class Child2(Parent[T], Generic[T, T2]):
+    ...
 
 
 def func8(subj: Parent[int]):

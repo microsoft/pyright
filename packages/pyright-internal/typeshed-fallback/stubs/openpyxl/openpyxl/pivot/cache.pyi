@@ -3,9 +3,10 @@ from datetime import datetime
 from typing import ClassVar, Literal, overload
 from typing_extensions import TypeAlias
 
-from openpyxl.descriptors.base import Bool, DateTime, Float, Integer, Set, String, Typed, _ConvertibleToBool
+from openpyxl.descriptors.base import Bool, DateTime, Float, Integer, NoneSet, Set, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.nested import NestedInteger
+from openpyxl.descriptors.sequence import NestedSequence
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.pivot.fields import Error, Missing, Number, Text, TupleList
 from openpyxl.pivot.table import PivotArea
@@ -43,10 +44,10 @@ class CalculatedMember(Serialisable):
     tagname: ClassVar[str]
     name: String[Literal[False]]
     mdx: String[Literal[False]]
-    memberName: String[Literal[False]]
-    hierarchy: String[Literal[False]]
-    parent: String[Literal[False]]
-    solveOrder: Integer[Literal[False]]
+    memberName: String[Literal[True]]
+    hierarchy: String[Literal[True]]
+    parent: String[Literal[True]]
+    solveOrder: Integer[Literal[True]]
     set: Bool[Literal[False]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
@@ -84,28 +85,12 @@ class ServerFormat(Serialisable):
     format: String[Literal[True]]
     def __init__(self, culture: str | None = None, format: str | None = None) -> None: ...
 
-class ServerFormatList(Serialisable):
-    tagname: ClassVar[str]
-    serverFormat: Incomplete
-    __elements__: ClassVar[tuple[str, ...]]
-    __attrs__: ClassVar[tuple[str, ...]]
-    def __init__(self, count: Incomplete | None = None, serverFormat: Incomplete | None = None) -> None: ...
-    @property
-    def count(self) -> int: ...
-
 class Query(Serialisable):
     tagname: ClassVar[str]
     mdx: String[Literal[False]]
     tpls: Typed[TupleList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, mdx: str, tpls: TupleList | None = None) -> None: ...
-
-class QueryCache(Serialisable):
-    tagname: ClassVar[str]
-    count: Integer[Literal[False]]
-    query: Typed[Query, Literal[False]]
-    __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, count: ConvertibleToInt, query: Query) -> None: ...
 
 class OLAPSet(Serialisable):
     tagname: ClassVar[str]
@@ -128,82 +113,59 @@ class OLAPSet(Serialisable):
         sortByTuple: TupleList | None = None,
     ) -> None: ...
 
-class OLAPSets(Serialisable):
-    count: Integer[Literal[False]]
-    set: Typed[OLAPSet, Literal[False]]
-    __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, count: ConvertibleToInt, set: OLAPSet) -> None: ...
-
 class PCDSDTCEntries(Serialisable):
     tagname: ClassVar[str]
-    count: Integer[Literal[False]]
-    m: Typed[Missing, Literal[False]]
-    n: Typed[Number, Literal[False]]
-    e: Typed[Error, Literal[False]]
-    s: Typed[Text, Literal[False]]
+    count: Integer[Literal[True]]
+    m: Typed[Missing, Literal[True]]
+    n: Typed[Number, Literal[True]]
+    e: Typed[Error, Literal[True]]
+    s: Typed[Text, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, count: ConvertibleToInt, m: Missing, n: Number, e: Error, s: Text) -> None: ...
 
 class TupleCache(Serialisable):
     tagname: ClassVar[str]
     entries: Typed[PCDSDTCEntries, Literal[True]]
-    sets: Typed[OLAPSets, Literal[True]]
-    queryCache: Typed[QueryCache, Literal[True]]
-    serverFormats: Typed[ServerFormatList, Literal[True]]
+    sets: NestedSequence[list[OLAPSet]]
+    queryCache: NestedSequence[list[Query]]
+    serverFormats: NestedSequence[list[ServerFormat]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
         self,
         entries: PCDSDTCEntries | None = None,
-        sets: OLAPSets | None = None,
-        queryCache: QueryCache | None = None,
-        serverFormats: ServerFormatList | None = None,
+        sets: list[OLAPSet] | tuple[OLAPSet, ...] = (),
+        queryCache: list[Query] | tuple[Query, ...] = (),
+        serverFormats: list[ServerFormat] | tuple[ServerFormat, ...] = (),
         extLst: ExtensionList | None = None,
     ) -> None: ...
 
-class PCDKPI(Serialisable):
+class OLAPKPI(Serialisable):
     tagname: ClassVar[str]
     uniqueName: String[Literal[False]]
     caption: String[Literal[True]]
-    displayFolder: String[Literal[False]]
-    measureGroup: String[Literal[False]]
-    parent: String[Literal[False]]
+    displayFolder: String[Literal[True]]
+    measureGroup: String[Literal[True]]
+    parent: String[Literal[True]]
     value: String[Literal[False]]
-    goal: String[Literal[False]]
-    status: String[Literal[False]]
-    trend: String[Literal[False]]
-    weight: String[Literal[False]]
-    time: String[Literal[False]]
-    @overload
+    goal: String[Literal[True]]
+    status: String[Literal[True]]
+    trend: String[Literal[True]]
+    weight: String[Literal[True]]
+    time: String[Literal[True]]
     def __init__(
         self,
-        uniqueName: str,
+        uniqueName: str | None = None,
         caption: str | None = None,
-        *,
-        displayFolder: str,
-        measureGroup: str,
-        parent: str,
-        value: str,
-        goal: str,
-        status: str,
-        trend: str,
-        weight: str,
-        time: str,
-    ) -> None: ...
-    @overload
-    def __init__(
-        self,
-        uniqueName: str,
-        caption: str | None,
-        displayFolder: str,
-        measureGroup: str,
-        parent: str,
-        value: str,
-        goal: str,
-        status: str,
-        trend: str,
-        weight: str,
-        time: str,
+        displayFolder: str | None = None,
+        measureGroup: str | None = None,
+        parent: str | None = None,
+        value: str | None = None,
+        goal: str | None = None,
+        status: str | None = None,
+        trend: str | None = None,
+        weight: str | None = None,
+        time: str | None = None,
     ) -> None: ...
 
 class GroupMember(Serialisable):
@@ -212,12 +174,6 @@ class GroupMember(Serialisable):
     group: Bool[Literal[False]]
     def __init__(self, uniqueName: str, group: _ConvertibleToBool = None) -> None: ...
 
-class GroupMembers(Serialisable):
-    count: Integer[Literal[False]]
-    groupMember: Typed[GroupMember, Literal[False]]
-    __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, count: ConvertibleToInt, groupMember: GroupMember) -> None: ...
-
 class LevelGroup(Serialisable):
     tagname: ClassVar[str]
     name: String[Literal[False]]
@@ -225,18 +181,17 @@ class LevelGroup(Serialisable):
     caption: String[Literal[False]]
     uniqueParent: String[Literal[False]]
     id: Integer[Literal[False]]
-    groupMembers: Typed[GroupMembers, Literal[False]]
+    groupMembers: NestedSequence[list[GroupMember]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
-        self, name: str, uniqueName: str, caption: str, uniqueParent: str, id: ConvertibleToInt, groupMembers: GroupMembers
+        self,
+        name: str,
+        uniqueName: str,
+        caption: str,
+        uniqueParent: str,
+        id: ConvertibleToInt,
+        groupMembers: list[GroupMember] | tuple[GroupMember, ...] = (),
     ) -> None: ...
-
-class Groups(Serialisable):
-    tagname: ClassVar[str]
-    count: Integer[Literal[False]]
-    group: Typed[LevelGroup, Literal[False]]
-    __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, count: ConvertibleToInt, group: LevelGroup) -> None: ...
 
 class GroupLevel(Serialisable):
     tagname: ClassVar[str]
@@ -244,7 +199,7 @@ class GroupLevel(Serialisable):
     caption: String[Literal[False]]
     user: Bool[Literal[False]]
     customRollUp: Bool[Literal[False]]
-    groups: Typed[Groups, Literal[True]]
+    groups: NestedSequence[list[LevelGroup]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
@@ -253,26 +208,14 @@ class GroupLevel(Serialisable):
         caption: str,
         user: _ConvertibleToBool = None,
         customRollUp: _ConvertibleToBool = None,
-        groups: Groups | None = None,
+        groups: list[LevelGroup] | tuple[LevelGroup, ...] = (),
         extLst: ExtensionList | None = None,
     ) -> None: ...
-
-class GroupLevels(Serialisable):
-    count: Integer[Literal[False]]
-    groupLevel: Typed[GroupLevel, Literal[False]]
-    __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, count: ConvertibleToInt, groupLevel: GroupLevel) -> None: ...
 
 class FieldUsage(Serialisable):
     tagname: ClassVar[str]
     x: Integer[Literal[False]]
     def __init__(self, x: ConvertibleToInt) -> None: ...
-
-class FieldsUsage(Serialisable):
-    count: Integer[Literal[False]]
-    fieldUsage: Typed[FieldUsage, Literal[True]]
-    __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, count: ConvertibleToInt, fieldUsage: FieldUsage | None = None) -> None: ...
 
 class CacheHierarchy(Serialisable):
     tagname: ClassVar[str]
@@ -298,8 +241,8 @@ class CacheHierarchy(Serialisable):
     unbalanced: Bool[Literal[True]]
     unbalancedGroup: Bool[Literal[True]]
     hidden: Bool[Literal[False]]
-    fieldsUsage: Typed[FieldsUsage, Literal[True]]
-    groupLevels: Typed[GroupLevels, Literal[True]]
+    fieldsUsage: NestedSequence[list[FieldUsage]]
+    groupLevels: NestedSequence[list[GroupLevel]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     @overload
@@ -328,8 +271,8 @@ class CacheHierarchy(Serialisable):
         unbalanced: _ConvertibleToBool | None = None,
         unbalancedGroup: _ConvertibleToBool | None = None,
         hidden: _ConvertibleToBool = None,
-        fieldsUsage: FieldsUsage | None = None,
-        groupLevels: GroupLevels | None = None,
+        fieldsUsage: list[FieldUsage] | tuple[FieldUsage, ...] = (),
+        groupLevels: list[FieldUsage] | tuple[FieldUsage, ...] = (),
         extLst: ExtensionList | None = None,
     ) -> None: ...
     @overload
@@ -357,8 +300,8 @@ class CacheHierarchy(Serialisable):
         unbalanced: _ConvertibleToBool | None = None,
         unbalancedGroup: _ConvertibleToBool | None = None,
         hidden: _ConvertibleToBool = None,
-        fieldsUsage: FieldsUsage | None = None,
-        groupLevels: GroupLevels | None = None,
+        fieldsUsage: list[FieldUsage] | tuple[FieldUsage, ...] = (),
+        groupLevels: list[FieldUsage] | tuple[FieldUsage, ...] = (),
         extLst: ExtensionList | None = None,
     ) -> None: ...
 
@@ -376,20 +319,11 @@ class GroupItems(Serialisable):
     @property
     def count(self) -> int: ...
 
-class DiscretePr(Serialisable):
-    tagname: ClassVar[str]
-    count: Integer[Literal[False]]
-    x: NestedInteger[Literal[True]]
-    __elements__: ClassVar[tuple[str, ...]]
-    def __init__(
-        self, count: ConvertibleToInt, x: _HasTagAndGet[ConvertibleToInt | None] | ConvertibleToInt | None = None
-    ) -> None: ...
-
 class RangePr(Serialisable):
     tagname: ClassVar[str]
     autoStart: Bool[Literal[True]]
     autoEnd: Bool[Literal[True]]
-    groupBy: Set[_RangePrGroupBy]
+    groupBy: NoneSet[_RangePrGroupBy]
     startNum: Float[Literal[True]]
     endNum: Float[Literal[True]]
     startDate: DateTime[Literal[True]]
@@ -412,7 +346,7 @@ class FieldGroup(Serialisable):
     par: Integer[Literal[True]]
     base: Integer[Literal[True]]
     rangePr: Typed[RangePr, Literal[True]]
-    discretePr: Typed[DiscretePr, Literal[True]]
+    discretePr: NestedSequence[list[NestedInteger[Literal[False]]]]
     groupItems: Typed[GroupItems, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
@@ -420,7 +354,7 @@ class FieldGroup(Serialisable):
         par: ConvertibleToInt | None = None,
         base: ConvertibleToInt | None = None,
         rangePr: RangePr | None = None,
-        discretePr: DiscretePr | None = None,
+        discretePr: list[NestedInteger[Literal[False]]] | tuple[NestedInteger[Literal[False]], ...] = (),
         groupItems: GroupItems | None = None,
     ) -> None: ...
 
@@ -569,21 +503,18 @@ class PageItem(Serialisable):
     name: String[Literal[False]]
     def __init__(self, name: str) -> None: ...
 
-class Page(Serialisable):
-    tagname: ClassVar[str]
-    pageItem: Incomplete
-    __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, count: Incomplete | None = None, pageItem: Incomplete | None = None) -> None: ...
-    @property
-    def count(self) -> int: ...
-
 class Consolidation(Serialisable):
     tagname: ClassVar[str]
     autoPage: Bool[Literal[True]]
-    pages: Incomplete
-    rangeSets: Incomplete
+    pages: NestedSequence[list[PageItem]]
+    rangeSets: NestedSequence[list[RangeSet]]
     __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, autoPage: _ConvertibleToBool | None = None, pages=(), rangeSets=()) -> None: ...
+    def __init__(
+        self,
+        autoPage: _ConvertibleToBool | None = None,
+        pages: list[PageItem] | tuple[PageItem, ...] = (),
+        rangeSets: list[RangeSet] | tuple[RangeSet, ...] = (),
+    ) -> None: ...
 
 class WorksheetSource(Serialisable):
     tagname: ClassVar[str]
@@ -629,13 +560,13 @@ class CacheDefinition(Serialisable):
     minRefreshableVersion: Integer[Literal[True]]
     recordCount: Integer[Literal[True]]
     upgradeOnRefresh: Bool[Literal[True]]
-    tupleCache: Typed[TupleCache, Literal[True]]
     supportSubquery: Bool[Literal[True]]
     supportAdvancedDrill: Bool[Literal[True]]
     cacheSource: Typed[CacheSource, Literal[True]]
     cacheFields: Incomplete
     cacheHierarchies: Incomplete
-    kpis: Incomplete
+    kpis: NestedSequence[list[OLAPKPI]]
+    tupleCache: Typed[TupleCache, Literal[True]]
     calculatedItems: Incomplete
     calculatedMembers: Incomplete
     dimensions: Incomplete
@@ -669,7 +600,7 @@ class CacheDefinition(Serialisable):
         cacheSource: CacheSource,
         cacheFields=(),
         cacheHierarchies=(),
-        kpis=(),
+        kpis: list[OLAPKPI] | tuple[OLAPKPI, ...] = (),
         calculatedItems=(),
         calculatedMembers=(),
         dimensions=(),

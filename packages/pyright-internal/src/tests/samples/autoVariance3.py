@@ -18,9 +18,11 @@ S2 = TypeVar("S2", contravariant=True, infer_variance=True)
 
 
 class ShouldBeCovariant1(Generic[T]):
-    def __getitem__(self, index: int) -> T: ...
+    def __getitem__(self, index: int) -> T:
+        ...
 
-    def __iter__(self) -> Iterator[T]: ...
+    def __iter__(self) -> Iterator[T]:
+        ...
 
 
 vco1_1: ShouldBeCovariant1[float] = ShouldBeCovariant1[int]()
@@ -39,7 +41,8 @@ vco2_2: ShouldBeCovariant2[int] = ShouldBeCovariant2[float]()
 
 
 class ShouldBeCovariant3(Generic[T]):
-    def method1(self) -> "ShouldBeCovariant2[T]": ...
+    def method1(self) -> "ShouldBeCovariant2[T]":
+        ...
 
 
 vco3_1: ShouldBeCovariant3[float] = ShouldBeCovariant3[int]()

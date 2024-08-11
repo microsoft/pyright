@@ -166,3 +166,7 @@ export function truncate(text: string, maxLength: number) {
     }
     return text;
 }
+
+export function escapeRegExp(text: string) {
+    return text.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+}

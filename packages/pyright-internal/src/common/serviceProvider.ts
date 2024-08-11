@@ -92,6 +92,8 @@ export class ServiceProvider {
         this._container.forEach((value, key) => {
             if (key.kind === 'group') {
                 serviceProvider._container.set(key, [...(value ?? [])]);
+            } else if (value.clone !== undefined) {
+                serviceProvider._container.set(key, value.clone());
             } else {
                 serviceProvider._container.set(key, value);
             }

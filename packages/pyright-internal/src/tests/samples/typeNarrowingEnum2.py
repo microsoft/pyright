@@ -11,7 +11,8 @@ class SomeEnum(Enum):
     VALUE2 = 2
 
 
-def assert_never(val: NoReturn): ...
+def assert_never(val: NoReturn):
+    ...
 
 
 def func1(a: SomeEnum):

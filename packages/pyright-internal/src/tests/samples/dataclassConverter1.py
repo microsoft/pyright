@@ -4,11 +4,13 @@
 from typing import Any, Callable, dataclass_transform, overload
 
 
-def model_field(*, converter: Callable[..., Any]) -> Any: ...
+def model_field(*, converter: Callable[..., Any]) -> Any:
+    ...
 
 
 @dataclass_transform(field_specifiers=(model_field,))
-class ModelBase: ...
+class ModelBase:
+    ...
 
 
 def converter_simple(s: str) -> int:
@@ -39,10 +41,12 @@ def converter_with_more_specialized_return_type(s: str) -> int:
 
 class ConverterClass:
     @overload
-    def __init__(self, val: str) -> None: ...
+    def __init__(self, val: str) -> None:
+        ...
 
     @overload
-    def __init__(self, val: bytes) -> None: ...
+    def __init__(self, val: bytes) -> None:
+        ...
 
     def __init__(self, val: str | bytes) -> None:
         pass
@@ -68,20 +72,24 @@ reveal_type(
 
 # This overload will be ignored because it has too many arguments.
 @overload
-def overloaded_converter(s: float, secondParam: str, /) -> int: ...
+def overloaded_converter(s: float, secondParam: str, /) -> int:
+    ...
 
 
 # This overload will be ignored because its return type doesn't match the field type.
 @overload
-def overloaded_converter(s: float) -> str: ...
+def overloaded_converter(s: float) -> str:
+    ...
 
 
 @overload
-def overloaded_converter(s: str) -> int: ...
+def overloaded_converter(s: str) -> int:
+    ...
 
 
 @overload
-def overloaded_converter(s: list[str]) -> int: ...
+def overloaded_converter(s: list[str]) -> int:
+    ...
 
 
 def overloaded_converter(s: float | str | list[str], *args: str) -> int | float | str:
@@ -100,10 +108,12 @@ reveal_type(
 
 class CallableObject:
     @overload
-    def __call__(self, arg1: int) -> str: ...
+    def __call__(self, arg1: int) -> str:
+        ...
 
     @overload
-    def __call__(self, arg1: str) -> int: ...
+    def __call__(self, arg1: str) -> int:
+        ...
 
     def __call__(self, arg1: str | int | list[str]) -> int | str:
         return 1
@@ -134,11 +144,13 @@ def wrong_number_of_params(x: str, x2: str, /) -> int:
 
 
 @overload
-def wrong_converter_overload(s: float) -> str: ...
+def wrong_converter_overload(s: float) -> str:
+    ...
 
 
 @overload
-def wrong_converter_overload(s: str) -> str: ...
+def wrong_converter_overload(s: str) -> str:
+    ...
 
 
 def wrong_converter_overload(s: float | str) -> int | str:

@@ -12,11 +12,11 @@ import {
     FileSystemWatcher,
     WatchKind,
 } from 'vscode-languageserver';
-import { configFileName } from '../analyzer/service';
 import { FileSystem } from '../common/fileSystem';
 import { deduplicateFolders, isFile } from '../common/uri/uriUtils';
 import { WorkspaceFactory } from '../workspaceFactory';
 import { DynamicFeature } from './dynamicFeature';
+import { configFileName } from '../analyzer/serviceUtils';
 
 export class FileWatcherDynamicFeature extends DynamicFeature {
     constructor(

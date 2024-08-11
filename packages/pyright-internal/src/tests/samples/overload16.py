@@ -14,7 +14,7 @@ class A(Generic[T]):
         ...
 
     @overload
-    def func1(self, x: "A[Any]") -> list[str]:
+    def func1(self, x: "A[str]") -> list[str]:
         ...
 
     def func1(self, x: "A[Any]") -> list[str] | list[LiteralString]:

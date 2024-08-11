@@ -11,8 +11,8 @@ class Index(Serialisable):
     def __init__(self, v: ConvertibleToInt | None = 0) -> None: ...
 
 class Tuple(Serialisable):
-    fld: Integer[Literal[False]]
-    hier: Integer[Literal[False]]
+    fld: Integer[Literal[True]]
+    hier: Integer[Literal[True]]
     item: Integer[Literal[False]]
     def __init__(self, fld: ConvertibleToInt, hier: ConvertibleToInt, item: ConvertibleToInt) -> None: ...
 

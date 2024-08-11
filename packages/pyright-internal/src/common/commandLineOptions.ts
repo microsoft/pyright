@@ -31,11 +31,9 @@ export function getDiagnosticSeverityOverrides() {
 
 export type DiagnosticSeverityOverridesMap = { [ruleName: string]: DiagnosticSeverityOverrides };
 
-// Some options can be specified from a source other than the pyright config file.
-// This can be from command-line parameters or some other settings mechanism, like
-// that provided through a language client like the VS Code editor. These options
-// are later combined with those from the config file to produce the final configuration.
-export class CommandLineOptions {
+// Options that can be specified in a JSON config file. This list should match what is
+// defined in the pyrightconfig.schema.json file.
+export class CommandLineConfigOptions {
     // A list of file specs to include in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories
     // are included.
@@ -55,19 +53,6 @@ export class CommandLineOptions {
     // A list of file specs whose errors and warnings should be ignored even
     // if they are included in the transitive closure of included files.
     ignoreFileSpecs: string[] = [];
-
-    // Watch for changes in workspace source files.
-    watchForSourceChanges?: boolean | undefined;
-
-    // Watch for changes in environment library/search paths.
-    watchForLibraryChanges?: boolean | undefined;
-
-    // Watch for changes in config files.
-    watchForConfigChanges?: boolean | undefined;
-
-    // Path of config file. This option cannot be combined with
-    // file specs.
-    configFilePath?: string | undefined;
 
     // Virtual environments directory.
     venvPath?: string | undefined;
@@ -89,22 +74,9 @@ export class CommandLineOptions {
 
     // Path of typing folder
     stubPath?: string | undefined;
-
-    // Absolute execution root (current working directory).
-    executionRoot: string | Uri | undefined;
-
-    // Type stub import target (for creation of type stubs).
-    typeStubTargetImportName?: string | undefined;
-
-    // Emit verbose information to console?
-    verboseOutput?: boolean | undefined;
-
     // In the absence of type stubs, use library implementations
     // to extract type information?
     useLibraryCodeForTypes?: boolean | undefined;
-
-    // Indicates that only open files should be checked.
-    checkOnlyOpenFiles?: boolean | undefined;
 
     // Look for a common root folders such as 'src' and automatically
     // add them as extra paths if the user has not explicitly defined
@@ -119,13 +91,32 @@ export class CommandLineOptions {
     // 'basic', 'standard', or 'strict'.
     typeCheckingMode?: string | undefined;
 
-    // Indicates that the settings came from VS Code rather than
-    // from the command-line. Useful for providing clearer error
-    // messages.
-    fromVsCodeExtension: boolean;
-
     // Indicates diagnostic severity overrides
     diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap | undefined;
+
+    // Analyze functions and methods that have no type annotations?
+    analyzeUnannotatedFunctions?: boolean;
+
+    // Emit verbose information to console?
+    verboseOutput?: boolean | undefined;
+}
+
+// Options that are not specified in a JSON config file but apply to a language server.
+export class CommandLineLanguageServerOptions {
+    // Watch for changes in workspace source files.
+    watchForSourceChanges?: boolean | undefined;
+
+    // Watch for changes in environment library/search paths.
+    watchForLibraryChanges?: boolean | undefined;
+
+    // Watch for changes in config files.
+    watchForConfigChanges?: boolean | undefined;
+
+    // Type stub import target (for creation of type stubs).
+    typeStubTargetImportName?: string | undefined;
+
+    // Indicates that only open files should be checked.
+    checkOnlyOpenFiles?: boolean | undefined;
 
     // Offer auto-import completions.
     autoImportCompletions?: boolean | undefined;
@@ -145,14 +136,39 @@ export class CommandLineOptions {
     // Run ambient analysis.
     enableAmbientAnalysis = true;
 
-    // Analyze functions and methods that have no type annotations?
-    analyzeUnannotatedFunctions?: boolean;
-
     // Disable reporting of hint diagnostics with tags?
     disableTaggedHints?: boolean;
 
-    constructor(executionRoot: string | Uri | undefined, fromVsCodeExtension: boolean) {
+    // Path to python interpreter. This is used when the language server
+    // gets the python path from the client.
+    pythonPath?: string | undefined;
+}
+
+// Some options can be specified from a source other than the pyright config file.
+// This can be from command-line parameters or some other settings mechanism, like
+// that provided through a language client like the VS Code editor. These options
+// are later combined with those from the config file to produce the final configuration.
+export class CommandLineOptions {
+    // Settings that are possible to set in a config.json file.
+    configSettings: CommandLineConfigOptions = new CommandLineConfigOptions();
+
+    // Settings that are not possible to set in a config.json file.
+    languageServerSettings: CommandLineLanguageServerOptions = new CommandLineLanguageServerOptions();
+
+    // Path of config file. This option cannot be combined with
+    // file specs.
+    configFilePath?: string | undefined;
+
+    // Absolute execution root (current working directory).
+    executionRoot: string | Uri | undefined;
+
+    // Indicates that the settings came from a language server rather than
+    // from the command-line. Useful for providing clearer error
+    // messages.
+    fromLanguageServer: boolean;
+
+    constructor(executionRoot: string | Uri | undefined, fromLanguageServer: boolean) {
         this.executionRoot = executionRoot;
-        this.fromVsCodeExtension = fromVsCodeExtension;
+        this.fromLanguageServer = fromLanguageServer;
     }
 }

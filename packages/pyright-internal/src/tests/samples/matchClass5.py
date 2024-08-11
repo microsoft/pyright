@@ -18,7 +18,10 @@ class B:
 class C(B):
     ...
 
-class D(int): ...
+
+class D(int):
+    ...
+
 
 def func1(subj: A | B):
     match subj:

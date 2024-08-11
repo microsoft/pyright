@@ -4,12 +4,12 @@
 from dataclasses import dataclass
 from typing import (
     Any,
+    Callable,
     Generic,
     Literal,
     ParamSpec,
     Protocol,
     TypeVar,
-    Callable,
     TypeVarTuple,
     overload,
 )
@@ -40,7 +40,7 @@ def triple_1(
 
 
 def triple_2(
-    f: tuple[Callable[[A], X], Callable[[B], Y], Callable[[C], Z]]
+    f: tuple[Callable[[A], X], Callable[[B], Y], Callable[[C], Z]],
 ) -> Callable[[A, B, C], tuple[X, Y, Z]]:
     def wrapped(a: A, b: B, c: C) -> tuple[X, Y, Z]:
         return f[0](a), f[1](b), f[2](c)
@@ -101,7 +101,8 @@ class Pair(Generic[A, B]):
     right: B
 
 
-def func1(f: Callable[[A], B]) -> Callable[[Pair[A, X]], Pair[B, X]]: ...
+def func1(f: Callable[[A], B]) -> Callable[[Pair[A, X]], Pair[B, X]]:
+    ...
 
 
 def test_3(pair: Pair[Pair[A, B], C]) -> Pair[Pair[A, B], C]:
@@ -126,20 +127,22 @@ def test_4(pair: Pair[Pair[Pair[A, B], C], D]) -> Pair[Pair[Pair[A, B], C], D]:
 
 
 @overload
-def test_5(
-    a: Callable[P, type[T]], *, b: Literal[False, None] = ...
-) -> type[list[type[T]]]: ...
+def test_5(a: Callable[P, type[T]], *, b: Literal[0] = ...) -> type[list[type[T]]]:
+    ...
 
 
 @overload
-def test_5(a: T, *args: int, b: Literal[False, None] = ...) -> type[list[T]]: ...
+def test_5(a: T, *args: int, b: Literal[False, None] = ...) -> type[list[T]]:
+    ...
 
 
 @overload
-def test_5(a: T, *args: int, b: Literal[True] = ...) -> type[list[T]]: ...
+def test_5(a: T, *args: int, b: Literal[True] = ...) -> type[list[T]]:
+    ...
 
 
-def test_5(a: Any, *args: int, b: Any = ...) -> Any: ...
+def test_5(a: Any, *args: int, b: Any = ...) -> Any:
+    ...
 
 
 val3 = test_5(test_5, **{})
@@ -151,11 +154,12 @@ reveal_type(
 val4 = test_5(test_5, b=True)
 reveal_type(
     val4,
-    expected_text="type[list[Overload[(a: (**P(1)@test_5) -> type[T(1)@test_5], *, b: Literal[False] | None = ...) -> type[list[type[T(1)@test_5]]], (a: T(1)@test_5, *args: int, b: Literal[False] | None = ...) -> type[list[T(1)@test_5]], (a: T(1)@test_5, *args: int, b: Literal[True] = ...) -> type[list[T(1)@test_5]]]]]",
+    expected_text="type[list[Overload[(a: (**P(1)@test_5) -> type[T(1)@test_5], *, b: Literal[0] = ...) -> type[list[type[T(1)@test_5]]], (a: T(1)@test_5, *args: int, b: Literal[False] | None = ...) -> type[list[T(1)@test_5]], (a: T(1)@test_5, *args: int, b: Literal[True] = ...) -> type[list[T(1)@test_5]]]]]",
 )
 
 
-def test_6(g: Callable[[B], C]) -> Callable[[Callable[[A], B]], Callable[[A], C]]: ...
+def test_6(g: Callable[[B], C]) -> Callable[[Callable[[A], B]], Callable[[A], C]]:
+    ...
 
 
 val5 = test_6(test_6)
@@ -166,7 +170,7 @@ reveal_type(
 
 
 def test_7(
-    g: Callable[[C], D]
+    g: Callable[[C], D],
 ) -> Callable[[Callable[[A], Callable[[B], C]]], Callable[[A], Callable[[B], D]]]:
     val6 = test_6(test_6)(test_6)(g)
     reveal_type(
@@ -176,17 +180,20 @@ def test_7(
     return val6
 
 
-def test_8(fn: Callable[[*Ts], Callable[[A], B]]) -> Callable[[A, *Ts], B]: ...
+def test_8(fn: Callable[[*Ts], Callable[[A], B]]) -> Callable[[A, *Ts], B]:
+    ...
 
 
 def test_9(x: Callable[[bool], Callable[[int], Callable[[str], None]]]):
     test_8(test_8(x))
 
 
-def test_10(func: Callable[[*Ts], Any], *args: *Ts) -> Any: ...
+def test_10(func: Callable[[*Ts], Any], *args: *Ts) -> Any:
+    ...
 
 
-def func2() -> None: ...
+def func2() -> None:
+    ...
 
 
 test_10(test_10, func2)
@@ -207,7 +214,8 @@ test_11(test_11, test_11, func3, 123)
 
 
 class Proto1(Protocol):
-    def __call__(self, a: T, b: T) -> T: ...
+    def __call__(self, a: T, b: T) -> T:
+        ...
 
 
 def func4(a: T, b: T) -> T:
@@ -216,3 +224,14 @@ def func4(a: T, b: T) -> T:
 
 def test_12(p: Proto1) -> Proto1:
     return p(func4, func4)
+
+
+reveal_type(
+    identity((identity, identity)),
+    expected_text="tuple[(x: T(1)@identity) -> T(1)@identity, (x: T(2)@identity) -> T(2)@identity]",
+)
+
+reveal_type(
+    identity([identity]),
+    expected_text="list[(x: T(1)@identity) -> T(1)@identity]",
+)

@@ -66,6 +66,7 @@ import {
     TextDocumentSyncKind,
     WorkDoneProgressReporter,
     WorkspaceEdit,
+    WorkspaceFoldersChangeEvent,
     WorkspaceSymbol,
     WorkspaceSymbolParams,
 } from 'vscode-languageserver';
@@ -242,7 +243,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     // The URIs for which diagnostics are reported
     protected readonly documentsWithDiagnostics = new Set<string>();
 
-    private readonly _dynamicFeatures = new DynamicFeatures();
+    protected readonly dynamicFeatures = new DynamicFeatures();
 
     constructor(protected serverOptions: ServerOptions, protected connection: Connection) {
         // Stash the base directory into a global variable.
@@ -307,7 +308,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     dispose() {
         this.workspaceFactory.clear();
         this.openFileMap.clear();
-        this._dynamicFeatures.unregister();
+        this.dynamicFeatures.unregister();
         this._workspaceFoldersChangedDisposable?.dispose();
     }
 
@@ -383,7 +384,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         });
 
         Promise.all(tasks).then(() => {
-            this._dynamicFeatures.register();
+            this.dynamicFeatures.register();
         });
     }
 
@@ -392,32 +393,34 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         status: InitStatus | undefined,
         serverSettings?: ServerSettings
     ): Promise<void> {
-        status?.markCalled();
+        try {
+            status?.markCalled();
 
-        serverSettings = serverSettings ?? (await this.getSettings(workspace));
+            serverSettings = serverSettings ?? (await this.getSettings(workspace));
 
-        // Set logging level first.
-        (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
+            // Set logging level first.
+            (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
 
-        // Apply the new path to the workspace (before restarting the service).
-        serverSettings.pythonPath = this.workspaceFactory.applyPythonPath(
-            workspace,
-            serverSettings.pythonPath ? serverSettings.pythonPath : undefined
-        );
+            // Apply the new path to the workspace (before restarting the service).
+            serverSettings.pythonPath = this.workspaceFactory.applyPythonPath(
+                workspace,
+                serverSettings.pythonPath ? serverSettings.pythonPath : undefined
+            );
 
-        this._dynamicFeatures.update(serverSettings);
+            this.dynamicFeatures.update(serverSettings);
 
-        // Then use the updated settings to restart the service.
-        this.updateOptionsAndRestartService(workspace, serverSettings);
+            // Then use the updated settings to restart the service.
+            this.updateOptionsAndRestartService(workspace, serverSettings);
 
-        workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
-        workspace.disableTaggedHints = !!serverSettings.disableTaggedHints;
-        workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
-
-        // Don't use workspace.isInitialized directly since it might have been
-        // reset due to pending config change event.
-        // The workspace is now open for business.
-        status?.resolve();
+            workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
+            workspace.disableTaggedHints = !!serverSettings.disableTaggedHints;
+            workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
+        } finally {
+            // Don't use workspace.isInitialized directly since it might have been
+            // reset due to pending config change event.
+            // The workspace is now open for business.
+            status?.resolve();
+        }
     }
 
     updateOptionsAndRestartService(
@@ -571,11 +574,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.connection.onShutdown(async (token) => this.onShutdown(token));
     }
 
-    protected initialize(
+    protected async initialize(
         params: InitializeParams,
         supportedCommands: string[],
         supportedCodeActions: string[]
-    ): InitializeResult {
+    ): Promise<InitializeResult> {
         if (params.locale) {
             setLocaleOverride(params.locale);
         }
@@ -697,6 +700,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected onInitialized() {
+        this.handleInitialized((event) => {
+            this.workspaceFactory.handleWorkspaceFoldersChanged(event, null);
+            this.dynamicFeatures.register();
+        });
+    }
+
+    protected handleInitialized(changeWorkspaceFolderHandler: (e: WorkspaceFoldersChangeEvent) => any) {
         // Mark as initialized. We need this to make sure to
         // not send config updates before this point.
         this._initialized = true;
@@ -707,12 +717,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             return;
         }
 
-        this._workspaceFoldersChangedDisposable = this.connection.workspace.onDidChangeWorkspaceFolders((event) => {
-            this.workspaceFactory.handleWorkspaceFoldersChanged(event);
-            this._dynamicFeatures.register();
-        });
+        this._workspaceFoldersChangedDisposable =
+            this.connection.workspace.onDidChangeWorkspaceFolders(changeWorkspaceFolderHandler);
 
-        this._dynamicFeatures.register();
+        this.dynamicFeatures.register();
     }
 
     protected onDidChangeConfiguration(params: DidChangeConfigurationParams) {
@@ -882,6 +890,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected async onHover(params: HoverParams, token: CancellationToken) {
         const uri = this.convertLspUriStringToUri(params.textDocument.uri);
         const workspace = await this.getWorkspaceForFile(uri);
+        if (workspace.disableLanguageServices) {
+            return undefined;
+        }
 
         return workspace.service.run((program) => {
             return new HoverProvider(program, uri, params.position, this.client.hoverContentFormat, token).getHover();
@@ -933,6 +944,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 this.client.hasSignatureLabelOffsetCapability,
                 this.client.hasActiveParameterCapability,
                 params.context,
+                program.serviceProvider.docStringService(),
                 token
             ).getSignatureHelp();
         }, token);
@@ -1297,6 +1309,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         // Otherwise the initialize completion should cause settings to be updated on all workspaces.
     }
+
     protected onWorkspaceRemoved(workspace: Workspace) {
         const documentsWithDiagnosticsList = [...this.documentsWithDiagnostics];
         const otherWorkspaces = this.workspaceFactory.items().filter((w) => w !== workspace);
@@ -1394,7 +1407,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected addDynamicFeature(feature: DynamicFeature) {
-        this._dynamicFeatures.add(feature);
+        this.dynamicFeatures.add(feature);
     }
 
     private _getCompatibleMarkupKind(clientSupportedFormats: MarkupKind[] | undefined) {

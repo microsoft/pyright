@@ -1,7 +1,8 @@
-# This sample tests errors related to the use of a Generic 
+# This sample tests errors related to the use of a Generic
 # or Protocol base class with PEP 695 type parameter syntax.
 
 from typing import Generic, Protocol
+
 
 # This should generate an error because Generic should not
 # be used with type parameter syntax.
@@ -17,5 +18,3 @@ class ClassB[T](Protocol):
 # with type parameters when used with type parameter syntax.
 class ClassC[T](Protocol[T]):
     ...
-
-  

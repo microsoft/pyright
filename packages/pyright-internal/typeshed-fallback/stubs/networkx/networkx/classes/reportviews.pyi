@@ -72,7 +72,7 @@ class OutEdgeView(AbstractSet[Incomplete], Mapping[Incomplete, Incomplete], Gene
     def __contains__(self, e: _Edge[_Node]) -> bool: ...  # type: ignore[override]
     def __getitem__(self, e: _Edge[_Node]) -> dict[str, Any]: ...
     @overload
-    def __call__(self, nbunch: None = None, data: Literal[False] = False, *, default: Unused = None) -> Self: ...
+    def __call__(self, nbunch: None = None, data: Literal[False] = False, *, default: Unused = None) -> Self: ...  # type: ignore[overload-overlap]
     @overload
     def __call__(
         self, nbunch: _Node | Iterable[_Node], data: Literal[False] = False, *, default: None = None

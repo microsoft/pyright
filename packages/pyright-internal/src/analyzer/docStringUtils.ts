@@ -9,11 +9,6 @@
  * (https://www.python.org/dev/peps/pep-0257/).
  */
 
-// Cleans the a docstring as inspect.cleandoc does.
-export function cleanDocString(rawString: string): string {
-    return cleanAndSplitDocString(rawString).join('\n');
-}
-
 export function cleanAndSplitDocString(rawString: string): string[] {
     // Remove carriage returns and replace tabs.
     const unescaped = rawString.replace(/\r/g, '').replace(/\t/g, '        ');

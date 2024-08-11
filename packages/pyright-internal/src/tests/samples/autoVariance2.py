@@ -27,7 +27,6 @@ class CallbackKeyed[*Ts](Protocol):
     def __call__(self, *args: *Ts, keyed: bool) -> tuple[*Ts]:
         ...
 
+
 def invoke_keyed[*Ts](fn: CallbackKeyed[*Ts], *args: *Ts) -> tuple[*Ts]:
     return fn(*args, keyed=True)
-
- 

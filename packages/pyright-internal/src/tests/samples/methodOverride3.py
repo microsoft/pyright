@@ -156,3 +156,48 @@ class G5(G1[[], str]):
 
     def g(self) -> str:
         ...
+
+
+class H1:
+    @property
+    def prop1(self) -> int:
+        return 3
+
+    @property
+    def prop2(self) -> int:
+        return 3
+
+    @prop2.setter
+    def prop2(self, val: int) -> None:
+        pass
+
+    @property
+    def prop3(self) -> int:
+        return 3
+
+    @prop3.setter
+    def prop3(self, val: int) -> None:
+        pass
+
+
+class H2:
+    @property
+    def prop1(self) -> str:
+        return ""
+
+    @property
+    def prop2(self) -> int:
+        return 3
+
+    @property
+    def prop3(self) -> int:
+        return 3
+
+    @prop3.setter
+    def prop3(self, val: str) -> None:
+        pass
+
+
+# This should generate three errors: prop1, prop2 and prop3.
+class H(H2, H1):
+    ...

@@ -10,7 +10,7 @@
 
 import { Uri } from '../common/uri/uri';
 import {
-    ArgumentCategory,
+    ArgCategory,
     AssignmentNode,
     AugmentedAssignmentNode,
     ClassNode,
@@ -24,7 +24,7 @@ import {
     MemberAccessNode,
     ModuleNameNode,
     NameNode,
-    ParameterCategory,
+    ParamCategory,
     ParameterNode,
     ParseNode,
     ParseNodeType,
@@ -33,7 +33,7 @@ import {
     TryNode,
     TypeAliasNode,
     TypeAnnotationNode,
-    TypeParameterCategory,
+    TypeParamKind,
     TypeParameterListNode,
     TypeParameterNode,
     WhileNode,
@@ -104,15 +104,15 @@ class ImportSymbolWalker extends ParseTreeWalker {
     }
 
     override visitName(node: NameNode) {
-        this._accessedImportedSymbols.add(node.value);
+        this._accessedImportedSymbols.add(node.d.value);
         return true;
     }
 
     override visitMemberAccess(node: MemberAccessNode): boolean {
-        const baseExpression = this._getRecursiveModuleAccessExpression(node.leftExpression);
+        const baseExpression = this._getRecursiveModuleAccessExpression(node.d.leftExpr);
 
         if (baseExpression) {
-            this._accessedImportedSymbols.add(`${baseExpression}.${node.memberName.value}`);
+            this._accessedImportedSymbols.add(`${baseExpression}.${node.d.member.d.value}`);
         }
 
         return true;
@@ -120,7 +120,7 @@ class ImportSymbolWalker extends ParseTreeWalker {
 
     override visitString(node: StringNode) {
         if (this._treatStringsAsSymbols) {
-            this._accessedImportedSymbols.add(node.value);
+            this._accessedImportedSymbols.add(node.d.value);
         }
 
         return true;
@@ -128,16 +128,16 @@ class ImportSymbolWalker extends ParseTreeWalker {
 
     private _getRecursiveModuleAccessExpression(node: ExpressionNode): string | undefined {
         if (node.nodeType === ParseNodeType.Name) {
-            return node.value;
+            return node.d.value;
         }
 
         if (node.nodeType === ParseNodeType.MemberAccess) {
-            const baseExpression = this._getRecursiveModuleAccessExpression(node.leftExpression);
+            const baseExpression = this._getRecursiveModuleAccessExpression(node.d.leftExpr);
             if (!baseExpression) {
                 return undefined;
             }
 
-            return `${baseExpression}.${node.memberName.value}`;
+            return `${baseExpression}.${node.d.member.d.value}`;
         }
 
         return undefined;
@@ -187,34 +187,34 @@ export class TypeStubWriter extends ParseTreeWalker {
     }
 
     override visitClass(node: ClassNode) {
-        const className = node.name.value;
+        const className = node.d.name.d.value;
 
         this._emittedSuite = true;
         this._emitDocString = true;
-        this._emitDecorators(node.decorators);
+        this._emitDecorators(node.d.decorators);
         let line = `class ${className}`;
 
-        if (node.typeParameters) {
-            line += this._printTypeParameters(node.typeParameters);
+        if (node.d.typeParams) {
+            line += this._printTypeParams(node.d.typeParams);
         }
 
         // Remove "object" from the list, since it's implied
-        const args = node.arguments.filter(
+        const args = node.d.arguments.filter(
             (arg) =>
-                arg.name !== undefined ||
-                arg.argumentCategory !== ArgumentCategory.Simple ||
-                arg.valueExpression.nodeType !== ParseNodeType.Name ||
-                arg.valueExpression.value !== 'object'
+                arg.d.name !== undefined ||
+                arg.d.argCategory !== ArgCategory.Simple ||
+                arg.d.valueExpr.nodeType !== ParseNodeType.Name ||
+                arg.d.valueExpr.d.value !== 'object'
         );
 
         if (args.length > 0) {
             line += `(${args
                 .map((arg) => {
                     let argString = '';
-                    if (arg.name) {
-                        argString = arg.name.value + '=';
+                    if (arg.d.name) {
+                        argString = arg.d.name.d.value + '=';
                     }
-                    argString += this._printExpression(arg.valueExpression);
+                    argString += this._printExpression(arg.d.valueExpr);
                     return argString;
                 })
                 .join(', ')})`;
@@ -224,7 +224,7 @@ export class TypeStubWriter extends ParseTreeWalker {
 
         this._emitSuite(() => {
             this._classNestCount++;
-            this.walk(node.suite);
+            this.walk(node.d.suite);
             this._classNestCount--;
         });
 
@@ -235,41 +235,41 @@ export class TypeStubWriter extends ParseTreeWalker {
     }
 
     override visitFunction(node: FunctionNode) {
-        const functionName = node.name.value;
+        const functionName = node.d.name.d.value;
 
         // Skip if we're already within a function or if the name is private/protected.
         if (this._functionNestCount === 0 && !SymbolNameUtils.isPrivateOrProtectedName(functionName)) {
             this._emittedSuite = true;
             this._emitDocString = true;
-            this._emitDecorators(node.decorators);
-            let line = node.isAsync ? 'async ' : '';
+            this._emitDecorators(node.d.decorators);
+            let line = node.d.isAsync ? 'async ' : '';
             line += `def ${functionName}`;
 
-            if (node.typeParameters) {
-                line += this._printTypeParameters(node.typeParameters);
+            if (node.d.typeParams) {
+                line += this._printTypeParams(node.d.typeParams);
             }
 
-            line += `(${node.parameters.map((param, index) => this._printParameter(param, node, index)).join(', ')})`;
+            line += `(${node.d.params.map((param, index) => this._printParam(param, node, index)).join(', ')})`;
 
             let returnAnnotation: string | undefined;
-            if (node.returnTypeAnnotation) {
-                returnAnnotation = this._printExpression(node.returnTypeAnnotation, /* treatStringsAsSymbols */ true);
-            } else if (node.functionAnnotationComment) {
+            if (node.d.returnAnnotation) {
+                returnAnnotation = this._printExpression(node.d.returnAnnotation, /* treatStringsAsSymbols */ true);
+            } else if (node.d.funcAnnotationComment) {
                 returnAnnotation = this._printExpression(
-                    node.functionAnnotationComment.returnTypeAnnotation,
+                    node.d.funcAnnotationComment.d.returnAnnotation,
                     /* treatStringsAsSymbols */ true
                 );
             } else {
                 // Handle a few common cases where we always know the answer.
-                if (node.name.value === '__init__') {
+                if (node.d.name.d.value === '__init__') {
                     returnAnnotation = 'None';
-                } else if (node.name.value === '__str__') {
+                } else if (node.d.name.d.value === '__str__') {
                     returnAnnotation = 'str';
-                } else if (['__int__', '__hash__'].some((name) => name === node.name.value)) {
+                } else if (['__int__', '__hash__'].some((name) => name === node.d.name.d.value)) {
                     returnAnnotation = 'int';
                 } else if (
                     ['__eq__', '__ne__', '__gt__', '__lt__', '__ge__', '__le__'].some(
-                        (name) => name === node.name.value
+                        (name) => name === node.d.name.d.value
                     )
                 ) {
                     returnAnnotation = 'bool';
@@ -300,7 +300,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             this._emitSuite(() => {
                 // Don't emit any nested functions.
                 this._functionNestCount++;
-                this.walk(node.suite);
+                this.walk(node.d.suite);
                 this._functionNestCount--;
             });
 
@@ -327,7 +327,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         this._emitDocString = false;
 
         // Only walk a single branch of the try/catch to for imports.
-        this.walk(node.trySuite);
+        this.walk(node.d.trySuite);
         return false;
     }
 
@@ -346,19 +346,19 @@ export class TypeStubWriter extends ParseTreeWalker {
         if (this._functionNestCount === 0 && this._ifNestCount === 0) {
             this._ifNestCount++;
             this._emittedSuite = true;
-            this._emitLine('if ' + this._printExpression(node.testExpression) + ':');
+            this._emitLine('if ' + this._printExpression(node.d.testExpr) + ':');
             this._emitSuite(() => {
-                this.walkMultiple(node.ifSuite.statements);
+                this.walkMultiple(node.d.ifSuite.d.statements);
             });
 
-            const elseSuite = node.elseSuite;
+            const elseSuite = node.d.elseSuite;
             if (elseSuite) {
                 this._emitLine('else:');
                 this._emitSuite(() => {
                     if (elseSuite.nodeType === ParseNodeType.If) {
-                        this.walkMultiple([elseSuite.testExpression, elseSuite.ifSuite, elseSuite.elseSuite]);
+                        this.walkMultiple([elseSuite.d.testExpr, elseSuite.d.ifSuite, elseSuite.d.elseSuite]);
                     } else {
-                        this.walkMultiple(elseSuite.statements);
+                        this.walkMultiple(elseSuite.d.statements);
                     }
                 });
             }
@@ -370,14 +370,14 @@ export class TypeStubWriter extends ParseTreeWalker {
 
     override visitTypeAlias(node: TypeAliasNode): boolean {
         let line = '';
-        line = this._printExpression(node.name);
+        line = this._printExpression(node.d.name);
 
-        if (node.typeParameters) {
-            line += this._printTypeParameters(node.typeParameters);
+        if (node.d.typeParams) {
+            line += this._printTypeParams(node.d.typeParams);
         }
 
         line += ' = ';
-        line += this._printExpression(node.expression);
+        line += this._printExpression(node.d.expr);
         this._emitLine(line);
 
         return false;
@@ -387,15 +387,15 @@ export class TypeStubWriter extends ParseTreeWalker {
         let isTypeAlias = false;
         let line = '';
 
-        if (node.leftExpression.nodeType === ParseNodeType.Name) {
+        if (node.d.leftExpr.nodeType === ParseNodeType.Name) {
             // Handle "__all__" as a special case.
-            if (node.leftExpression.value === '__all__') {
+            if (node.d.leftExpr.d.value === '__all__') {
                 if (this._functionNestCount === 0 && this._ifNestCount === 0) {
                     this._emittedSuite = true;
 
-                    line = this._printExpression(node.leftExpression);
+                    line = this._printExpression(node.d.leftExpr);
                     line += ' = ';
-                    line += this._printExpression(node.rightExpression);
+                    line += this._printExpression(node.d.rightExpr);
                     this._emitLine(line);
                 }
 
@@ -403,18 +403,18 @@ export class TypeStubWriter extends ParseTreeWalker {
             }
 
             if (this._functionNestCount === 0) {
-                line = this._printExpression(node.leftExpression);
-                if (node.typeAnnotationComment) {
-                    line += ': ' + this._printExpression(node.typeAnnotationComment, /* treatStringsAsSymbols */ true);
+                line = this._printExpression(node.d.leftExpr);
+                if (node.d.annotationComment) {
+                    line += ': ' + this._printExpression(node.d.annotationComment, /* treatStringsAsSymbols */ true);
                 }
 
-                const valueType = this._evaluator.getType(node.leftExpression);
-                if (valueType?.typeAliasInfo) {
+                const valueType = this._evaluator.getType(node.d.leftExpr);
+                if (valueType?.props?.typeAliasInfo) {
                     isTypeAlias = true;
-                } else if (node.rightExpression.nodeType === ParseNodeType.Call) {
+                } else if (node.d.rightExpr.nodeType === ParseNodeType.Call) {
                     // Special-case TypeVar, TypeVarTuple, ParamSpec and NewType calls. Treat
                     // them like type aliases.
-                    const callBaseType = this._evaluator.getType(node.rightExpression.leftExpression);
+                    const callBaseType = this._evaluator.getType(node.d.rightExpr.d.leftExpr);
                     if (
                         callBaseType &&
                         isInstantiableClass(callBaseType) &&
@@ -424,13 +424,13 @@ export class TypeStubWriter extends ParseTreeWalker {
                     }
                 }
             }
-        } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
-            const valueExpr = node.leftExpression.valueExpression;
+        } else if (node.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation) {
+            const valueExpr = node.d.leftExpr.d.valueExpr;
 
             if (valueExpr.nodeType === ParseNodeType.Name) {
                 if (this._functionNestCount === 0) {
                     line = `${this._printExpression(valueExpr)}: ${this._printExpression(
-                        node.leftExpression.typeAnnotation,
+                        node.d.leftExpr.d.annotation,
                         /* treatStringsAsSymbols */ true
                     )}`;
                 }
@@ -443,7 +443,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             line += ' = ';
 
             if (isTypeAlias) {
-                line += this._printExpression(node.rightExpression);
+                line += this._printExpression(node.d.rightExpr);
             } else {
                 line += '...';
             }
@@ -454,13 +454,13 @@ export class TypeStubWriter extends ParseTreeWalker {
     }
 
     override visitAugmentedAssignment(node: AugmentedAssignmentNode) {
-        if (node.leftExpression.nodeType === ParseNodeType.Name) {
+        if (node.d.leftExpr.nodeType === ParseNodeType.Name) {
             // Handle "__all__ +=" as a special case.
-            if (node.leftExpression.value === '__all__' && node.operator === OperatorType.AddEqual) {
+            if (node.d.leftExpr.d.value === '__all__' && node.d.operator === OperatorType.AddEqual) {
                 if (this._functionNestCount === 0 && this._ifNestCount === 0) {
-                    let line = this._printExpression(node.leftExpression);
+                    let line = this._printExpression(node.d.leftExpr);
                     line += ' += ';
-                    line += this._printExpression(node.rightExpression);
+                    line += this._printExpression(node.d.rightExpr);
                     this._emitLine(line);
                 }
             }
@@ -472,22 +472,22 @@ export class TypeStubWriter extends ParseTreeWalker {
     override visitTypeAnnotation(node: TypeAnnotationNode) {
         if (this._functionNestCount === 0) {
             let line = '';
-            if (node.valueExpression.nodeType === ParseNodeType.Name) {
-                line = this._printExpression(node.valueExpression);
-            } else if (node.valueExpression.nodeType === ParseNodeType.MemberAccess) {
-                const baseExpression = node.valueExpression.leftExpression;
+            if (node.d.valueExpr.nodeType === ParseNodeType.Name) {
+                line = this._printExpression(node.d.valueExpr);
+            } else if (node.d.valueExpr.nodeType === ParseNodeType.MemberAccess) {
+                const baseExpression = node.d.valueExpr.d.leftExpr;
                 if (baseExpression.nodeType === ParseNodeType.Name) {
-                    if (baseExpression.value === 'self') {
-                        const memberName = node.valueExpression.memberName.value;
+                    if (baseExpression.d.value === 'self') {
+                        const memberName = node.d.valueExpr.d.member.d.value;
                         if (!SymbolNameUtils.isPrivateOrProtectedName(memberName)) {
-                            line = this._printExpression(node.valueExpression);
+                            line = this._printExpression(node.d.valueExpr);
                         }
                     }
                 }
             }
 
             if (line) {
-                line += ': ' + this._printExpression(node.typeAnnotation, /* treatStringsAsSymbols */ true);
+                line += ': ' + this._printExpression(node.d.annotation, /* treatStringsAsSymbols */ true);
                 this._emitLine(line);
             }
         }
@@ -503,19 +503,19 @@ export class TypeStubWriter extends ParseTreeWalker {
         const currentScope = getScopeForNode(node);
         if (currentScope) {
             // Record the input for later.
-            node.list.forEach((imp) => {
-                const moduleName = this._printModuleName(imp.module);
+            node.d.list.forEach((imp) => {
+                const moduleName = this._printModuleName(imp.d.module);
                 if (!this._trackedImportAs.has(moduleName)) {
-                    const symbolName = imp.alias
-                        ? imp.alias.value
-                        : imp.module.nameParts.length > 0
-                        ? imp.module.nameParts[0].value
+                    const symbolName = imp.d.alias
+                        ? imp.d.alias.d.value
+                        : imp.d.module.d.nameParts.length > 0
+                        ? imp.d.module.d.nameParts[0].d.value
                         : '';
                     const symbolInfo = currentScope.lookUpSymbolRecursive(symbolName);
                     if (symbolInfo) {
                         const trackedImportAs = new TrackedImportAs(
                             moduleName,
-                            imp.alias ? imp.alias.value : undefined,
+                            imp.d.alias ? imp.d.alias.d.value : undefined,
                             symbolInfo.symbol
                         );
                         this._trackedImportAs.set(moduleName, trackedImportAs);
@@ -535,21 +535,21 @@ export class TypeStubWriter extends ParseTreeWalker {
         const currentScope = getScopeForNode(node);
         if (currentScope) {
             // Record the input for later.
-            const moduleName = this._printModuleName(node.module);
+            const moduleName = this._printModuleName(node.d.module);
             let trackedImportFrom = this._trackedImportFrom.get(moduleName);
             if (!trackedImportFrom) {
-                trackedImportFrom = new TrackedImportFrom(moduleName, node.isWildcardImport, node);
+                trackedImportFrom = new TrackedImportFrom(moduleName, node.d.isWildcardImport, node);
                 this._trackedImportFrom.set(moduleName, trackedImportFrom);
             }
 
-            node.imports.forEach((imp) => {
-                const symbolName = imp.alias ? imp.alias.value : imp.name.value;
+            node.d.imports.forEach((imp) => {
+                const symbolName = imp.d.alias ? imp.d.alias.d.value : imp.d.name.d.value;
                 const symbolInfo = currentScope.lookUpSymbolRecursive(symbolName);
                 if (symbolInfo) {
                     trackedImportFrom!.addSymbol(
                         symbolInfo.symbol,
-                        imp.name.value,
-                        imp.alias ? imp.alias.value : undefined,
+                        imp.d.name.d.value,
+                        imp.d.alias ? imp.d.alias.d.value : undefined,
                         false
                     );
                 }
@@ -560,18 +560,18 @@ export class TypeStubWriter extends ParseTreeWalker {
     }
 
     override visitStatementList(node: StatementListNode) {
-        if (node.statements.length > 0 && node.statements[0].nodeType === ParseNodeType.StringList) {
+        if (node.d.statements.length > 0 && node.d.statements[0].nodeType === ParseNodeType.StringList) {
             // Is this the first statement in a suite? If it's a string
             // literal, assume it's a doc string and emit it.
             if (!this._emittedSuite && this._emitDocString) {
-                this._emitLine(this._printExpression(node.statements[0]));
+                this._emitLine(this._printExpression(node.d.statements[0]));
             }
         }
 
         // Don't emit a doc string after the first statement.
         this._emitDocString = false;
 
-        this.walkMultiple(node.statements);
+        this.walkMultiple(node.d.statements);
         return false;
     }
 
@@ -598,7 +598,7 @@ export class TypeStubWriter extends ParseTreeWalker {
 
     private _emitDecorators(decorators: DecoratorNode[]) {
         decorators.forEach((decorator) => {
-            this._emitLine('@' + this._printExpression(decorator.expression));
+            this._emitLine('@' + this._printExpression(decorator.d.expr));
         });
     }
 
@@ -622,29 +622,29 @@ export class TypeStubWriter extends ParseTreeWalker {
         this._typeStubText += line + this._lineEnd;
     }
 
-    private _printTypeParameters(node: TypeParameterListNode): string {
-        return `[${node.parameters.map((typeParam) => this._printTypeParameter(typeParam)).join(',')}]`;
+    private _printTypeParams(node: TypeParameterListNode): string {
+        return `[${node.d.params.map((typeParam) => this._printTypeParam(typeParam)).join(',')}]`;
     }
 
-    private _printTypeParameter(node: TypeParameterNode): string {
+    private _printTypeParam(node: TypeParameterNode): string {
         let line = '';
 
-        if (node.typeParamCategory === TypeParameterCategory.TypeVarTuple) {
+        if (node.d.typeParamKind === TypeParamKind.TypeVarTuple) {
             line += '*';
-        } else if (node.typeParamCategory === TypeParameterCategory.ParamSpec) {
+        } else if (node.d.typeParamKind === TypeParamKind.ParamSpec) {
             line += '**';
         }
 
-        line += node.name.value;
+        line += node.d.name.d.value;
 
-        if (node.boundExpression) {
+        if (node.d.boundExpr) {
             line += ': ';
-            line += this._printExpression(node.boundExpression);
+            line += this._printExpression(node.d.boundExpr);
         }
 
-        if (node.defaultExpression) {
+        if (node.d.defaultExpr) {
             line += ' = ';
-            line += this._printExpression(node.defaultExpression);
+            line += this._printExpression(node.d.defaultExpr);
         }
 
         return line;
@@ -652,28 +652,28 @@ export class TypeStubWriter extends ParseTreeWalker {
 
     private _printModuleName(node: ModuleNameNode): string {
         let line = '';
-        for (let i = 0; i < node.leadingDots; i++) {
+        for (let i = 0; i < node.d.leadingDots; i++) {
             line += '.';
         }
-        line += node.nameParts.map((part) => part.value).join('.');
+        line += node.d.nameParts.map((part) => part.d.value).join('.');
         return line;
     }
 
-    private _printParameter(paramNode: ParameterNode, functionNode: FunctionNode, paramIndex: number): string {
+    private _printParam(paramNode: ParameterNode, functionNode: FunctionNode, paramIndex: number): string {
         let line = '';
-        if (paramNode.category === ParameterCategory.ArgsList) {
+        if (paramNode.d.category === ParamCategory.ArgsList) {
             line += '*';
-        } else if (paramNode.category === ParameterCategory.KwargsDict) {
+        } else if (paramNode.d.category === ParamCategory.KwargsDict) {
             line += '**';
         }
 
-        if (paramNode.name) {
-            line += paramNode.name.value;
-        } else if (paramNode.category === ParameterCategory.Simple) {
+        if (paramNode.d.name) {
+            line += paramNode.d.name.d.value;
+        } else if (paramNode.d.category === ParamCategory.Simple) {
             line += '/';
         }
 
-        const paramTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(functionNode, paramIndex);
+        const paramTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParam(functionNode, paramIndex);
         let paramType = '';
         if (paramTypeAnnotation) {
             paramType = this._printExpression(paramTypeAnnotation, /* treatStringsAsSymbols */ true);
@@ -683,7 +683,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             line += ': ' + paramType;
         }
 
-        if (paramNode.defaultValue) {
+        if (paramNode.d.defaultValue) {
             // Follow PEP8 spacing rules. Include spaces if type
             // annotation is present, no space otherwise.
             if (paramType) {

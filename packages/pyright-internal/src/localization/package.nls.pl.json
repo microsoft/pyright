@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Nie można wywołać metody „{method}”, ponieważ jest abstrakcyjna i niezaimplementowana",
+        "annotatedMetadataInconsistent": "Opisany typ metadanych „{metadataType}” nie jest zgodny z typem „{type}”",
         "annotatedParamCountMismatch": "Niezgodność liczby adnotacji parametru; oczekiwano {expected}, a uzyskano {received}",
         "annotatedTypeArgMissing": "Oczekiwano jednego argumentu typu i co najmniej jednej adnotacji dla wartości „Annotated”",
         "annotationBytesString": "Adnotacje typu nie mogą używać literałów ciągu bajtów",
@@ -92,7 +93,6 @@
         "concatenateTypeArgsMissing": "Element „Concatenate” wymaga co najmniej dwóch argumentów typu",
         "conditionalOperandInvalid": "Nieprawidłowy warunkowy argument operacji typu „{type}”",
         "constantRedefinition": "Nazwa „{name}” jest stałą (ponieważ jest pisana wielkimi literami) i nie można jej ponownie zdefiniować",
-        "constructorNoArgs": "Oczekiwano braku argumentów do konstruktora „{type}”.",
         "constructorParametersMismatch": "Niezgodność między sygnaturą „__new__” i „__init__” w klasie „{classType}”",
         "containmentAlwaysFalse": "Warunek zawsze będzie miał wartość „Fałsz”, ponieważ typy „{leftType}” i „{rightType}” nie nakładają się na siebie",
         "containmentAlwaysTrue": "Warunek zawsze będzie miał wartość „True”, ponieważ typy „{leftType}” i „{rightType}” nie nakładają się na siebie",
@@ -156,7 +156,9 @@
         "enumClassOverride": "Klasa wyliczenia „{name}” jest ostateczna i nie można jej podzielić na podklasy",
         "enumMemberDelete": "Nie można usunąć składowej wyliczenia \"{name}\"",
         "enumMemberSet": "Nie można przypisać składowej wyliczenia „{name}”",
+        "enumMemberTypeAnnotation": "Adnotacje typu nie są dozwolone dla elementów członkowskich wyliczenia",
         "exceptionGroupIncompatible": "Składnia grupy wyjątków („except*”) wymaga języka Python w wersji 3.11 lub nowszej",
+        "exceptionGroupTypeIncorrect": "Typ wyjątku w wyrażeniu except* nie może pochodzić z grupy BaseGroupException",
         "exceptionTypeIncorrect": "Typ „{type}” nie pochodzi od parametru BaseException",
         "exceptionTypeNotClass": "Typ „{type}” nie jest prawidłową klasą wyjątku",
         "exceptionTypeNotInstantiable": "Konstruktor typu wyjątku „{type}” wymaga co najmniej jednego argumentu",
@@ -400,6 +402,7 @@
         "protocolBaseClassWithTypeArgs": "Argumenty typu są niedozwolone w przypadku klasy protokołu, gdy jest używana składnia parametru typu",
         "protocolIllegal": "Użycie elementu „Protocol” wymaga języka Python w wersji 3.7 lub nowszej",
         "protocolNotAllowed": "„Protokół” nie może być używany w tym kontekście",
+        "protocolTypeArgMustBeTypeParam": "Argument typu dla elementy „Protocol” musi być parametrem typu",
         "protocolUnsafeOverlap": "Klasa nakłada się niebezpiecznie na element „{name}” i może utworzyć dopasowanie w czasie wykonywania",
         "protocolVarianceContravariant": "Zmienna typu „{variable}” używana w klasie protokołu ogólnego „{class}” powinna być kontrawariantna",
         "protocolVarianceCovariant": "Zmienna typu „{variable}” używana w klasie protokołu ogólnego „{class}” powinna być kowariantna",
@@ -492,7 +495,7 @@
         "typeCallNotAllowed": "Wywołanie type() nie powinno być używane w adnotacji typu",
         "typeCheckOnly": "Nazwa „{name}” jest oznaczona jako @type_check_only i może być używana tylko w adnotacjach typu",
         "typeCommentDeprecated": "Używanie komentarzy typu jest przestarzałe; zamiast tego użyj adnotacji typu",
-        "typeExpectedClass": "Oczekiwano wyrażenia typu, ale otrzymano „{type}”",
+        "typeExpectedClass": "Oczekiwano klasy, ale odebrano typ „{type}”",
         "typeGuardArgCount": "Oczekiwano pojedynczego argumentu typu po parametrze „TypeGuard” lub „TypeIs”",
         "typeGuardParamCount": "Funkcje i metody zabezpieczające typu zdefiniowane przez użytkownika muszą mieć co najmniej jeden parametr wejściowy",
         "typeIsReturnType": "Zwracany typ TypeIs („{returnType}”) jest niezgodny z typem parametru wartości („{type}”)",
@@ -624,7 +627,7 @@
         "yieldFromIllegal": "Użycie wartości „yield from” wymaga języka Python w wersji 3.3 lub nowszej",
         "yieldFromOutsideAsync": "Instrukcja „yield from” jest niedozwolona w funkcji asynchronicznej",
         "yieldOutsideFunction": "Instrukcja „yield” jest niedozwolona poza funkcją lub wyrażeniem lambda",
-        "yieldWithinComprehension": "Instrukcja „yield” nie jest dozwolona w rozumieniu listy",
+        "yieldWithinComprehension": "Instrukcja „yield” nie jest dozwolona w rozumieniu",
         "zeroCaseStatementsFound": "Instrukcja dopasowania musi zawierać co najmniej jedną instrukcję dotyczącą wielkości liter",
         "zeroLengthTupleNotAllowed": "Krotka o zerowej długości jest niedozwolona w tym kontekście"
     },
@@ -666,6 +669,7 @@
         "invariantSuggestionDict": "Rozważ przełączenie z wartości „dict” na „Mapping”, która jest kowariantna w typie wartości",
         "invariantSuggestionList": "Rozważ zmianę wartości „list” na „Sequence”, która jest kowariantna",
         "invariantSuggestionSet": "Rozważ przełączenie z wartości „set” na „Container”, która jest kowariantna",
+        "isinstanceClassNotSupported": "Typ „{type}” nie jest obsługiwany w przypadku kontroli wystąpień i klas",
         "keyNotRequired": "„{name}” nie jest wymaganym kluczem w typie „{type}”, więc dostęp może spowodować wyjątek środowiska uruchomieniowego",
         "keyReadOnly": "Nazwa „{name}” jest kluczem tylko do odczytu w typie „{type}”",
         "keyRequiredDeleted": "Nazwa „{name}” jest wymaganym kluczem i nie można go usunąć",
@@ -800,5 +804,8 @@
         "useTypeInstead": "Zamiast tego użyj typu Type[T].",
         "varianceMismatchForClass": "Wariancja argumentu typu „{typeVarName}” jest niezgodna z klasą bazową „{className}”",
         "varianceMismatchForTypeAlias": "Wariancja argumentu typu „{typeVarName}” jest niezgodna z parametrem „{typeAliasParam}”"
+    },
+    "Service": {
+        "longOperation": "Wyliczanie plików źródłowych obszaru roboczego zajmuje dużo czasu. Zamiast tego rozważ otwarcie podfolderu. [Dowiedz się więcej](https://aka.ms/workspace-too-many-files)"
     }
 }

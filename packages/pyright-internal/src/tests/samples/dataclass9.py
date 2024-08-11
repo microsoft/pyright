@@ -12,7 +12,9 @@ class IsDataclass(Protocol):
     __dataclass_fields__: ClassVar[dict[str, Any]]
 
 
-def dataclass_only(x: IsDataclass):
+def dataclass_only(
+    x: IsDataclass,
+):
     ...  # do something that only makes sense with a dataclass
 
 

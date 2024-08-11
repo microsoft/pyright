@@ -27,6 +27,20 @@ export function setCancellationFolderName(folderName?: string) {
     cancellationFolderName = folderName;
 }
 
+export function invalidateTypeCacheIfCanceled<T>(cb: () => T): T {
+    try {
+        return cb();
+    } catch (e: any) {
+        if (OperationCanceledException.is(e)) {
+            // If the work was canceled before the function type was updated, the
+            // function type in the type cache is in an invalid, partially-constructed state.
+            e.isTypeCacheInvalid = true;
+        }
+
+        throw e;
+    }
+}
+
 export class OperationCanceledException extends ResponseError<void> {
     // If true, indicates that the cancellation may have left the type cache
     // in an invalid state.

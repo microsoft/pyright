@@ -73,6 +73,12 @@ test('CallbackProtocol10', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('CallbackProtocol11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callbackProtocol11.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Assignment1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignment1.py']);
 
@@ -310,11 +316,11 @@ test('isInstance3', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_9;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 4);
+    TestUtils.validateResults(analysisResults1, 5);
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 4);
+    TestUtils.validateResults(analysisResults2, 5);
 });
 
 test('isInstance4', () => {
@@ -548,6 +554,12 @@ test('ConstrainedTypeVar19', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('ConstrainedTypeVar20', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constrainedTypeVar20.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MissingTypeArg1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -769,6 +781,36 @@ test('Solver35', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver35.py']);
 
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('Solver36', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver36.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Solver37', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver37.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Solver38', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver38.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Solver39', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver39.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Solver40', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver40.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('SolverScoring1', () => {

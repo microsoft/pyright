@@ -54,7 +54,7 @@ test('TypeParams5', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams5.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('TypeParams6', () => {
@@ -224,7 +224,7 @@ test('TypeVarDefaultClass2', () => {
     configOptions.defaultPythonVersion = pythonVersion3_13;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('TypeVarDefaultClass3', () => {
@@ -250,7 +250,7 @@ test('TypeVarDefaultTypeAlias1', () => {
 
 test('TypeVarDefaultTypeAlias2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultTypeAlias2.py']);
-    TestUtils.validateResults(analysisResults, 10);
+    TestUtils.validateResults(analysisResults, 11);
 });
 
 test('TypeVarDefaultTypeAlias3', () => {
@@ -390,6 +390,14 @@ test('TypedDictClosed7', () => {
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed7.py'], configOptions);
     TestUtils.validateResults(analysisResults, 6);
+});
+
+test('TypedDictClosed8', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed8.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('DataclassTransform1', () => {

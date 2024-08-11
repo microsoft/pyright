@@ -40,15 +40,8 @@ test('Overload4', () => {
 });
 
 test('Overload5', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-
-    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'none';
-    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0);
-
-    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
-    analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 12);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py']);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Overload6', () => {
@@ -58,7 +51,7 @@ test('Overload6', () => {
 
 test('Overload7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload7.py']);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Overload8', () => {
@@ -103,7 +96,24 @@ test('Overload16', () => {
 
 test('Overload17', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload17.py']);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('OverloadImpl1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadImpl1.py']);
+    TestUtils.validateResults(analysisResults, 7);
+});
+
+test('OverloadOverlap1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'none';
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 12);
 });
 
 test('TypeGuard1', () => {
@@ -126,6 +136,16 @@ test('TypeGuard3', () => {
 test('TypeIs1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs1.py']);
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('TypeIs2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs2.py']);
+    TestUtils.validateResults(analysisResults, 9);
+});
+
+test('TypeIs3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs3.py']);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Never1', () => {
@@ -164,235 +184,235 @@ test('ProtocolModule4', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('VariadicTypeVar1', () => {
+test('TypeVarTuple1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar1.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 18);
 });
 
-test('VariadicTypeVar2', () => {
+test('TypeVarTuple2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar2.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 15);
 });
 
-test('VariadicTypeVar3', () => {
+test('TypeVarTuple3', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar3.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple3.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
 });
 
-test('VariadicTypeVar4', () => {
+test('TypeVarTuple4', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar4.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple4.py'], configOptions);
     TestUtils.validateResults(analysisResults, 4);
 });
 
-test('VariadicTypeVar5', () => {
+test('TypeVarTuple5', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar5.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 9);
 });
 
-test('VariadicTypeVar6', () => {
+test('TypeVarTuple6', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar6.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple6.py'], configOptions);
     TestUtils.validateResults(analysisResults, 10);
 });
 
-test('VariadicTypeVar7', () => {
+test('TypeVarTuple7', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar7.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple7.py'], configOptions);
     TestUtils.validateResults(analysisResults, 6);
 });
 
-test('VariadicTypeVar8', () => {
+test('TypeVarTuple8', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar8.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple8.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
 });
 
-test('VariadicTypeVar9', () => {
+test('TypeVarTuple9', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar9.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple9.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar10', () => {
+test('TypeVarTuple10', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar10.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple10.py'], configOptions);
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('VariadicTypeVar11', () => {
+test('TypeVarTuple11', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar11.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple11.py'], configOptions);
     TestUtils.validateResults(analysisResults, 4);
 });
 
-test('VariadicTypeVar12', () => {
+test('TypeVarTuple12', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar12.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple12.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar13', () => {
+test('TypeVarTuple13', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar13.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple13.py'], configOptions);
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('VariadicTypeVar14', () => {
+test('TypeVarTuple14', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar14.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple14.py'], configOptions);
     TestUtils.validateResults(analysisResults, 6);
 });
 
-test('VariadicTypeVar15', () => {
+test('TypeVarTuple15', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar15.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple15.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar16', () => {
+test('TypeVarTuple16', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar16.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple16.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar17', () => {
+test('TypeVarTuple17', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar17.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple17.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar18', () => {
+test('TypeVarTuple18', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar18.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple18.py'], configOptions);
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('VariadicTypeVar19', () => {
+test('TypeVarTuple19', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar19.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple19.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar20', () => {
+test('TypeVarTuple20', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar20.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple20.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar21', () => {
+test('TypeVarTuple21', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar21.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple21.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar22', () => {
+test('TypeVarTuple22', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar22.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple22.py'], configOptions);
     TestUtils.validateResults(analysisResults, 3);
 });
 
-test('VariadicTypeVar23', () => {
+test('TypeVarTuple23', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar23.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple23.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar24', () => {
+test('TypeVarTuple24', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar24.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple24.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar25', () => {
+test('TypeVarTuple25', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar25.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple25.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar26', () => {
+test('TypeVarTuple26', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar26.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple26.py'], configOptions);
     TestUtils.validateResults(analysisResults, 3);
 });
 
-test('VariadicTypeVar27', () => {
+test('TypeVarTuple27', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar27.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple27.py'], configOptions);
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('VariadicTypeVar28', () => {
+test('TypeVarTuple28', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar28.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple28.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('VariadicTypeVar29', () => {
+test('TypeVarTuple29', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_12;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar29.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple29.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
@@ -587,6 +607,12 @@ test('InitSubclass2', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('InitSubclass3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initsubclass3.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('None1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['none1.py']);
 
@@ -773,6 +799,18 @@ test('Constructor29', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Constructor30', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor30.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Constructor31', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor31.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ConstructorCallable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable1.py']);
 
@@ -782,7 +820,7 @@ test('ConstructorCallable1', () => {
 test('ConstructorCallable2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable2.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('InconsistentConstructor1', () => {
@@ -795,7 +833,7 @@ test('InconsistentConstructor1', () => {
     // Enable it as an error.
     configOptions.diagnosticRuleSet.reportInconsistentConstructor = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['inconsistentConstructor1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('ClassGetItem1', () => {

@@ -16,10 +16,10 @@ import { assertNever } from './debug';
 import { HostKind, NoAccessHost, ScriptOutput } from './host';
 import { normalizePath } from './pathUtils';
 import { PythonVersion } from './pythonVersion';
+import { ServiceKeys } from './serviceKeys';
 import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 import { isDirectory } from './uri/uriUtils';
-import { ServiceKeys } from './serviceKeys';
 
 // preventLocalImports removes the working directory from sys.path.
 // The -c flag adds it automatically, which can allow some stdlib
@@ -109,7 +109,7 @@ export class FullAccessHost extends LimitedAccessHost {
         const importFailureInfo = logInfo ?? [];
 
         try {
-            const commandLineArgs: string[] = ['-c', extractVersion];
+            const commandLineArgs: string[] = ['-I', '-c', extractVersion];
             const execOutput = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
                 child_process.execFileSync(p, commandLineArgs, { encoding: 'utf8' })
             );
@@ -155,7 +155,7 @@ export class FullAccessHost extends LimitedAccessHost {
         return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
             let stdout = '';
             let stderr = '';
-            const commandLineArgs = [script.getFilePath(), ...args];
+            const commandLineArgs = ['-I', script.getFilePath(), ...args];
 
             const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
                 child_process.spawn(p, commandLineArgs, { cwd: cwd.getFilePath() })
@@ -235,7 +235,9 @@ export class FullAccessHost extends LimitedAccessHost {
         try {
             const commandLineArgs: string[] = ['-c', extractSys];
             importFailureInfo.push(`Executing interpreter: '${interpreterPath}'`);
-            const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
+            const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, {
+                encoding: 'utf8',
+            });
             const caseDetector = this.serviceProvider.get(ServiceKeys.caseSensitivityDetector);
 
             // Parse the execOutput. It should be a JSON-encoded array of paths.

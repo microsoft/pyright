@@ -107,3 +107,8 @@ TA1 = Annotated[int, ""]
 # in an isinstance call.
 if isinstance(1, TA1):
     pass
+
+# This should generate an error because Any can't be used
+# in an isinstance call.
+if isinstance(1, Any):
+    pass

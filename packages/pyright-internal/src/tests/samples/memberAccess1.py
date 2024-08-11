@@ -137,5 +137,3 @@ class ClassF:
             cls.method1,
             expected_text="Decorator[Self@ClassF, (a: int, *, b: str), str]",
         )
-
-

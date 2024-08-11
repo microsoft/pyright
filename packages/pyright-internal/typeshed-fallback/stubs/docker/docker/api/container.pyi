@@ -1,8 +1,9 @@
 import datetime
 from _typeshed import Incomplete
 from typing import Literal, TypedDict, overload, type_check_only
-from typing_extensions import NotRequired, TypeAlias
+from typing_extensions import TypeAlias
 
+from docker._types import WaitContainerResponse
 from docker.types.daemon import CancellableStream
 
 from ..types import ContainerConfig, EndpointConfig, HostConfig, NetworkingConfig
@@ -14,21 +15,6 @@ class _HasId(TypedDict):
 @type_check_only
 class _HasID(TypedDict):
     ID: str
-
-@type_check_only
-class _WaitErrorDetails(TypedDict):
-    Message: str
-
-@type_check_only
-class _WaitContainerExistsResponse(TypedDict):
-    StatusCode: int
-    Error: NotRequired[_WaitErrorDetails]
-
-@type_check_only
-class _WaitNoSuchContainerErrorResponse(TypedDict):
-    message: str
-
-_WaitContainerResponseType: TypeAlias = _WaitContainerExistsResponse | _WaitNoSuchContainerErrorResponse
 
 _Container: TypeAlias = _HasId | _HasID | str
 
@@ -119,7 +105,7 @@ class ContainerApiMixin:
         since: datetime.datetime | float | None = None,
         follow: bool | None = None,
         until: datetime.datetime | float | None = None,
-    ) -> CancellableStream: ...
+    ) -> CancellableStream[bytes]: ...
     @overload
     def logs(
         self,
@@ -132,7 +118,7 @@ class ContainerApiMixin:
         since: datetime.datetime | float | None = None,
         follow: bool | None = None,
         until: datetime.datetime | float | None = None,
-    ) -> CancellableStream: ...
+    ) -> CancellableStream[bytes]: ...
     @overload
     def logs(
         self,
@@ -154,10 +140,10 @@ class ContainerApiMixin:
     def rename(self, container: _Container, name: str) -> None: ...
     def resize(self, container: _Container, height: int, width: int) -> None: ...
     def restart(self, container: _Container, timeout: int = 10) -> None: ...
-    def start(self, container: _Container, *args, **kwargs) -> None: ...
+    def start(self, container: _Container) -> None: ...
     def stats(self, container: _Container, decode: bool | None = None, stream: bool = True, one_shot: bool | None = None): ...
     def stop(self, container: _Container, timeout: int | None = None) -> None: ...
-    def top(self, container: _Container, ps_args: str | None = None): ...
+    def top(self, container: _Container, ps_args: str | None = None) -> str: ...
     def unpause(self, container: _Container) -> None: ...
     def update_container(
         self,
@@ -179,4 +165,4 @@ class ContainerApiMixin:
         container: _Container,
         timeout: int | None = None,
         condition: Literal["not-running", "next-exit", "removed"] | None = None,
-    ) -> _WaitContainerResponseType: ...
+    ) -> WaitContainerResponse: ...

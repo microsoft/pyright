@@ -13,7 +13,7 @@ class Parent(Generic[*Ts]):
     def method_1(self, *args: *Ts) -> None:
         ...
 
-    def method_2(self, *args: * tuple[*Ts]) -> None:
+    def method_2(self, *args: *tuple[*Ts]) -> None:
         ...
 
 

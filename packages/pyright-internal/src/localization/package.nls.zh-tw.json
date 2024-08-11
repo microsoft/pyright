@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "無法呼叫方法 \"{method}\"，因為它是抽象且未執行",
+        "annotatedMetadataInconsistent": "標註的中繼資料類型 \"{metadataType}\" 與類型 \"{type}\" 不相容",
         "annotatedParamCountMismatch": "參數註釋計數不符: 應為 {expected}，但收到 {received}",
         "annotatedTypeArgMissing": "預期 \"Annotated\" 有一個類型引數和一或多個註釋",
         "annotationBytesString": "類型註釋無法使用位元組字串常值",
@@ -92,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Concatenate\" 至少需要兩個型別引數",
         "conditionalOperandInvalid": "型別 \"{type}\" 的條件運算元無效",
         "constantRedefinition": "\"{name}\" 是常數 (因為它是大寫) 且無法重新定義",
-        "constructorNoArgs": "預期 \"{type}\" 建構函式沒有引數",
         "constructorParametersMismatch": "類別 \"{classType}\" 中__new__與__init__的簽章不相符",
         "containmentAlwaysFalse": "運算式一律會評估為 False，因為型別 \"{leftType}\" 和 \"{rightType}\" 沒有重疊",
         "containmentAlwaysTrue": "運算式一律會評估為 True，因為型別 \"{leftType}\" 和 \"{rightType}\" 沒有重疊",
@@ -156,7 +156,9 @@
         "enumClassOverride": "列舉類別 \"{name}\" 為 Final，且不能設為子類別",
         "enumMemberDelete": "無法刪除列舉成員 \"{name}\"",
         "enumMemberSet": "無法指派列舉成員 \"{name}\"",
+        "enumMemberTypeAnnotation": "列舉成員不允許類型註釋",
         "exceptionGroupIncompatible": "例外群組語法 (\"except*\") 需要 Python 3.11 或更新版本",
+        "exceptionGroupTypeIncorrect": "except* 中的例外狀況類型不能衍生自 BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\" 不是衍生自 BaseException",
         "exceptionTypeNotClass": "\"{type}\" 不是有效的例外類別",
         "exceptionTypeNotInstantiable": "例外類型 \"{type}\" 的建構函式需要一或多個引數",
@@ -400,6 +402,7 @@
         "protocolBaseClassWithTypeArgs": "使用型別參數語法時，通訊協定類別不允許使用型別引數",
         "protocolIllegal": "使用 \"Protocol\" 需要 Python 3.7 或更新版本",
         "protocolNotAllowed": "\"Protocol\" 不能用在此內容中",
+        "protocolTypeArgMustBeTypeParam": "“Protocol” 的型別引數必須是型別參數",
         "protocolUnsafeOverlap": "類別以不安全方式重疊 \"{name}\"，且可能會在運行時間產生相符專案",
         "protocolVarianceContravariant": "一般通訊協定 \"{class}\" 中使用的型別變數 \"{variable}\" 必須為逆變數",
         "protocolVarianceCovariant": "一般通訊協定 \"{class}\" 中使用的型別變數 \"{variable}\" 必須為共變數",
@@ -492,7 +495,7 @@
         "typeCallNotAllowed": "不應在類型註釋中使用 type() 呼叫",
         "typeCheckOnly": "\"{name}\" 已標示為 @type_check_only，只能在型別註釋中使用",
         "typeCommentDeprecated": "使用類型註解已取代; 請改為使用類型註釋",
-        "typeExpectedClass": "預期為類型運算式，但收到 \"{type}\"",
+        "typeExpectedClass": "預期的類別，但已收到 \"{type}\"",
         "typeGuardArgCount": "預期 \"TypeGuard\" 或 \"TypeIs\" 之後為單一類型引數",
         "typeGuardParamCount": "使用者定義的類型防護函式和方法至少必須有一個輸入參數",
         "typeIsReturnType": "TypeIs 的傳回類型 (\"{returnType}\") 與值參數類型 (\"{type}\") 不一致",
@@ -624,7 +627,7 @@
         "yieldFromIllegal": "使用 \"yield from\" 需要 Python 3.3 或更新版本",
         "yieldFromOutsideAsync": "非同步函式中不允許 \"yield from\"",
         "yieldOutsideFunction": "在函式或 lambda 外部不允許 \"yield\"",
-        "yieldWithinComprehension": "清單理解內不允許 \"yield\"",
+        "yieldWithinComprehension": "理解內不允許 \"yield\"",
         "zeroCaseStatementsFound": "Match 陳述式必須至少包含一個 case 陳述式",
         "zeroLengthTupleNotAllowed": "此內容中不允許零長度 Tuple"
     },
@@ -666,6 +669,7 @@
         "invariantSuggestionDict": "請考慮從「dict」切換到實值型別中共變數的「Mapping」",
         "invariantSuggestionList": "請考慮從共變數的「list」切換到「Sequence」",
         "invariantSuggestionSet": "考慮從 “set”切換到共同變數 “Container”",
+        "isinstanceClassNotSupported": "執行個體和類別檢查不支援 \"{type}\"",
         "keyNotRequired": "\"{name}\" 在 \"{type}\" 中不是必要的索引鍵，因此存取可能會導致執行階段例外狀況",
         "keyReadOnly": "\"{name}\" 是 \"{type}\" 中的唯讀金鑰",
         "keyRequiredDeleted": "\"{name}\" 是必要的金鑰，因此不能刪除",
@@ -800,5 +804,8 @@
         "useTypeInstead": "改為使用 Type[T]",
         "varianceMismatchForClass": "型別引數 \"{typeVarName}\" 的變異數與基底類別 \"{className}\" 不相容",
         "varianceMismatchForTypeAlias": "型別引數 \"{typeVarName}\" 的變異數與 \"{typeAliasParam}\" 不相容"
+    },
+    "Service": {
+        "longOperation": "列舉工作區來源檔案需要很長的時間。請考慮改為開啟子資料夾。[深入了解](https://aka.ms/workspace-too-many-files)"
     }
 }

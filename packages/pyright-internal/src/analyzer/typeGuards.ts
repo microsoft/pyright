@@ -11,18 +11,19 @@
 
 import { assert } from '../common/debug';
 import {
-    ArgumentCategory,
+    ArgCategory,
     AssignmentExpressionNode,
     ExpressionNode,
     isExpressionNode,
     NameNode,
-    ParameterCategory,
+    ParamCategory,
     ParseNode,
     ParseNodeType,
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
-import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
+import { addConstraintsForExpectedType } from './constraintSolver';
+import { ConstraintTracker } from './constraintTracker';
 import { Declaration, DeclarationType } from './declaration';
 import { transformTypeForEnumMember } from './enums';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -30,13 +31,14 @@ import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { getTypedDictMembersForClass } from './typedDicts';
-import { EvaluatorFlags, TypeEvaluator } from './typeEvaluatorTypes';
+import { EvalFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
     ClassTypeFlags,
     combineTypes,
     EnumLiteral,
-    FunctionParameter,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     isAnyOrUnknown,
     isClass,
@@ -45,15 +47,15 @@ import {
     isInstantiableClass,
     isModule,
     isNever,
-    isOverloadedFunction,
+    isOverloaded,
     isParamSpec,
     isSameWithoutLiteralValue,
     isTypeSame,
     isTypeVar,
-    isUnpackedVariadicTypeVar,
+    isUnpackedTypeVarTuple,
     maxTypeRecursionCount,
-    OverloadedFunctionType,
-    TupleTypeArgument,
+    OverloadedType,
+    TupleTypeArg,
     Type,
     TypeBase,
     TypeCategory,
@@ -64,7 +66,6 @@ import {
 } from './types';
 import {
     addConditionToType,
-    applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
     computeMroLinearization,
@@ -73,7 +74,7 @@ import {
     doForEachSubtype,
     getSpecializedTupleType,
     getTypeCondition,
-    getTypeVarScopeId,
+    getTypeVarScopeIds,
     getUnknownTypeForCallable,
     isInstantiableMetaclass,
     isLiteralType,
@@ -84,16 +85,17 @@ import {
     isNoneTypeClass,
     isProperty,
     isTupleClass,
+    isTupleGradualForm,
     isUnboundedTupleClass,
     lookUpClassMember,
     lookUpObjectMember,
+    makeTypeVarsFree,
     mapSubtypes,
     MemberAccessFlags,
     specializeTupleClass,
     specializeWithUnknownTypeArgs,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 export interface TypeNarrowingResult {
     type: Type;
@@ -131,34 +133,34 @@ export function getTypeNarrowingCallback(
 
     if (testExpression.nodeType === ParseNodeType.BinaryOperation) {
         const isOrIsNotOperator =
-            testExpression.operator === OperatorType.Is || testExpression.operator === OperatorType.IsNot;
+            testExpression.d.operator === OperatorType.Is || testExpression.d.operator === OperatorType.IsNot;
         const equalsOrNotEqualsOperator =
-            testExpression.operator === OperatorType.Equals || testExpression.operator === OperatorType.NotEquals;
+            testExpression.d.operator === OperatorType.Equals || testExpression.d.operator === OperatorType.NotEquals;
         const comparisonOperator =
             equalsOrNotEqualsOperator ||
-            testExpression.operator === OperatorType.LessThan ||
-            testExpression.operator === OperatorType.LessThanOrEqual ||
-            testExpression.operator === OperatorType.GreaterThan ||
-            testExpression.operator === OperatorType.GreaterThanOrEqual;
+            testExpression.d.operator === OperatorType.LessThan ||
+            testExpression.d.operator === OperatorType.LessThanOrEqual ||
+            testExpression.d.operator === OperatorType.GreaterThan ||
+            testExpression.d.operator === OperatorType.GreaterThanOrEqual;
 
         if (isOrIsNotOperator || equalsOrNotEqualsOperator) {
             // Invert the "isPositiveTest" value if this is an "is not" operation.
             const adjIsPositiveTest =
-                testExpression.operator === OperatorType.Is || testExpression.operator === OperatorType.Equals
+                testExpression.d.operator === OperatorType.Is || testExpression.d.operator === OperatorType.Equals
                     ? isPositiveTest
                     : !isPositiveTest;
 
             // Look for "X is None", "X is not None", "X == None", and "X != None".
             // These are commonly-used patterns used in control flow.
             if (
-                testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
-                testExpression.rightExpression.constType === KeywordType.None
+                testExpression.d.rightExpr.nodeType === ParseNodeType.Constant &&
+                testExpression.d.rightExpr.d.constType === KeywordType.None
             ) {
                 // Allow the LHS to be either a simple expression or an assignment
                 // expression that assigns to a simple name.
-                let leftExpression = testExpression.leftExpression;
+                let leftExpression = testExpression.d.leftExpr;
                 if (leftExpression.nodeType === ParseNodeType.AssignmentExpression) {
-                    leftExpression = leftExpression.name;
+                    leftExpression = leftExpression.d.name;
                 }
 
                 if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
@@ -169,16 +171,16 @@ export function getTypeNarrowingCallback(
 
                 if (
                     leftExpression.nodeType === ParseNodeType.Index &&
-                    ParseTreeUtils.isMatchingExpression(reference, leftExpression.baseExpression) &&
-                    leftExpression.items.length === 1 &&
-                    !leftExpression.trailingComma &&
-                    leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
-                    !leftExpression.items[0].name &&
-                    leftExpression.items[0].valueExpression.nodeType === ParseNodeType.Number &&
-                    leftExpression.items[0].valueExpression.isInteger &&
-                    !leftExpression.items[0].valueExpression.isImaginary
+                    ParseTreeUtils.isMatchingExpression(reference, leftExpression.d.leftExpr) &&
+                    leftExpression.d.items.length === 1 &&
+                    !leftExpression.d.trailingComma &&
+                    leftExpression.d.items[0].d.argCategory === ArgCategory.Simple &&
+                    !leftExpression.d.items[0].d.name &&
+                    leftExpression.d.items[0].d.valueExpr.nodeType === ParseNodeType.Number &&
+                    leftExpression.d.items[0].d.valueExpr.d.isInteger &&
+                    !leftExpression.d.items[0].d.valueExpr.d.isImaginary
                 ) {
-                    const indexValue = leftExpression.items[0].valueExpression.value;
+                    const indexValue = leftExpression.d.items[0].d.valueExpr.d.value;
                     if (typeof indexValue === 'number') {
                         return (type: Type) => {
                             return {
@@ -191,12 +193,12 @@ export function getTypeNarrowingCallback(
             }
 
             // Look for "X is ...", "X is not ...", "X == ...", and "X != ...".
-            if (testExpression.rightExpression.nodeType === ParseNodeType.Ellipsis) {
+            if (testExpression.d.rightExpr.nodeType === ParseNodeType.Ellipsis) {
                 // Allow the LHS to be either a simple expression or an assignment
                 // expression that assigns to a simple name.
-                let leftExpression = testExpression.leftExpression;
+                let leftExpression = testExpression.d.leftExpr;
                 if (leftExpression.nodeType === ParseNodeType.AssignmentExpression) {
-                    leftExpression = leftExpression.name;
+                    leftExpression = leftExpression.d.name;
                 }
 
                 if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
@@ -210,20 +212,20 @@ export function getTypeNarrowingCallback(
             }
 
             // Look for "type(X) is Y", "type(X) is not Y", "type(X) == Y" or "type(X) != Y".
-            if (testExpression.leftExpression.nodeType === ParseNodeType.Call) {
+            if (testExpression.d.leftExpr.nodeType === ParseNodeType.Call) {
                 if (
-                    testExpression.leftExpression.arguments.length === 1 &&
-                    testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple
+                    testExpression.d.leftExpr.d.args.length === 1 &&
+                    testExpression.d.leftExpr.d.args[0].d.argCategory === ArgCategory.Simple
                 ) {
-                    const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
+                    const arg0Expr = testExpression.d.leftExpr.d.args[0].d.valueExpr;
                     if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                         const callType = evaluator.getTypeOfExpression(
-                            testExpression.leftExpression.leftExpression,
-                            EvaluatorFlags.CallBaseDefaults
+                            testExpression.d.leftExpr.d.leftExpr,
+                            EvalFlags.CallBaseDefaults
                         ).type;
 
                         if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type')) {
-                            const classTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                            const classTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                             const classType = evaluator.makeTopLevelTypeVarsConcrete(classTypeResult.type);
 
                             if (isInstantiableClass(classType)) {
@@ -240,15 +242,15 @@ export function getTypeNarrowingCallback(
             }
 
             if (isOrIsNotOperator) {
-                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
-                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr)) {
+                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                     const rightType = rightTypeResult.type;
 
                     // Look for "X is Y" or "X is not Y" where Y is a an enum or bool literal.
                     if (
                         isClassInstance(rightType) &&
                         (ClassType.isEnumClass(rightType) || ClassType.isBuiltIn(rightType, 'bool')) &&
-                        rightType.literalValue !== undefined
+                        rightType.priv.literalValue !== undefined
                     ) {
                         return (type: Type) => {
                             return {
@@ -277,21 +279,21 @@ export function getTypeNarrowingCallback(
 
                 // Look for X[<literal>] is <literal> or X[<literal>] is not <literal>.
                 if (
-                    testExpression.leftExpression.nodeType === ParseNodeType.Index &&
-                    testExpression.leftExpression.items.length === 1 &&
-                    !testExpression.leftExpression.trailingComma &&
-                    testExpression.leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
-                    ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.baseExpression)
+                    testExpression.d.leftExpr.nodeType === ParseNodeType.Index &&
+                    testExpression.d.leftExpr.d.items.length === 1 &&
+                    !testExpression.d.leftExpr.d.trailingComma &&
+                    testExpression.d.leftExpr.d.items[0].d.argCategory === ArgCategory.Simple &&
+                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr)
                 ) {
                     const indexTypeResult = evaluator.getTypeOfExpression(
-                        testExpression.leftExpression.items[0].valueExpression
+                        testExpression.d.leftExpr.d.items[0].d.valueExpr
                     );
                     const indexType = indexTypeResult.type;
 
                     if (isClassInstance(indexType) && isLiteralType(indexType)) {
                         if (ClassType.isBuiltIn(indexType, 'str')) {
-                            const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
-                            if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
+                            const rightType = evaluator.getTypeOfExpression(testExpression.d.rightExpr).type;
+                            if (isClassInstance(rightType) && rightType.priv.literalValue !== undefined) {
                                 return (type: Type) => {
                                     return {
                                         type: narrowTypeForDiscriminatedDictEntryComparison(
@@ -306,15 +308,15 @@ export function getTypeNarrowingCallback(
                                 };
                             }
                         } else if (ClassType.isBuiltIn(indexType, 'int')) {
-                            const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                            const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                             const rightType = rightTypeResult.type;
 
-                            if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
+                            if (isClassInstance(rightType) && rightType.priv.literalValue !== undefined) {
                                 let canNarrow = false;
                                 // Narrowing can be applied only for bool or enum literals.
                                 if (ClassType.isBuiltIn(rightType, 'bool')) {
                                     canNarrow = true;
-                                } else if (rightType.literalValue instanceof EnumLiteral) {
+                                } else if (rightType.priv.literalValue instanceof EnumLiteral) {
                                     canNarrow = true;
                                 }
 
@@ -341,19 +343,19 @@ export function getTypeNarrowingCallback(
             if (equalsOrNotEqualsOperator) {
                 // Look for X == <literal> or X != <literal>
                 const adjIsPositiveTest =
-                    testExpression.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
+                    testExpression.d.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
 
-                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
+                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr)) {
                     // Use speculative mode here to avoid polluting the type cache. This is
                     // important in cases where evaluation of the right expression creates
                     // a false dependency on another variable.
-                    const rightTypeResult = evaluator.useSpeculativeMode(testExpression.rightExpression, () => {
-                        return evaluator.getTypeOfExpression(testExpression.rightExpression);
+                    const rightTypeResult = evaluator.useSpeculativeMode(testExpression.d.rightExpr, () => {
+                        return evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                     });
 
                     const rightType = rightTypeResult.type;
 
-                    if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
+                    if (isClassInstance(rightType) && rightType.priv.literalValue !== undefined) {
                         return (type: Type) => {
                             return {
                                 type: narrowTypeForLiteralComparison(
@@ -371,20 +373,20 @@ export function getTypeNarrowingCallback(
 
                 // Look for X[<literal>] == <literal> or X[<literal>] != <literal>
                 if (
-                    testExpression.leftExpression.nodeType === ParseNodeType.Index &&
-                    testExpression.leftExpression.items.length === 1 &&
-                    !testExpression.leftExpression.trailingComma &&
-                    testExpression.leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
-                    ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.baseExpression)
+                    testExpression.d.leftExpr.nodeType === ParseNodeType.Index &&
+                    testExpression.d.leftExpr.d.items.length === 1 &&
+                    !testExpression.d.leftExpr.d.trailingComma &&
+                    testExpression.d.leftExpr.d.items[0].d.argCategory === ArgCategory.Simple &&
+                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr)
                 ) {
                     const indexTypeResult = evaluator.getTypeOfExpression(
-                        testExpression.leftExpression.items[0].valueExpression
+                        testExpression.d.leftExpr.d.items[0].d.valueExpr
                     );
                     const indexType = indexTypeResult.type;
 
                     if (isClassInstance(indexType) && isLiteralType(indexType)) {
                         if (ClassType.isBuiltIn(indexType, ['str', 'int'])) {
-                            const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                            const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                             const rightType = rightTypeResult.type;
 
                             if (isLiteralTypeOrUnion(rightType)) {
@@ -423,21 +425,21 @@ export function getTypeNarrowingCallback(
             // Look for X.Y == <literal> or X.Y != <literal>
             if (
                 equalsOrNotEqualsOperator &&
-                testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression)
+                testExpression.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr)
             ) {
-                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                 const rightType = rightTypeResult.type;
-                const memberName = testExpression.leftExpression.memberName;
+                const memberName = testExpression.d.leftExpr.d.member;
 
                 if (isClassInstance(rightType)) {
-                    if (rightType.literalValue !== undefined || isNoneInstance(rightType)) {
+                    if (rightType.priv.literalValue !== undefined || isNoneInstance(rightType)) {
                         return (type: Type) => {
                             return {
                                 type: narrowTypeForDiscriminatedLiteralFieldComparison(
                                     evaluator,
                                     type,
-                                    memberName.value,
+                                    memberName.d.value,
                                     rightType,
                                     adjIsPositiveTest
                                 ),
@@ -451,24 +453,24 @@ export function getTypeNarrowingCallback(
             // Look for X.Y is <literal> or X.Y is not <literal> where <literal> is
             // an enum or bool literal
             if (
-                testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression)
+                testExpression.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr)
             ) {
-                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                 const rightType = rightTypeResult.type;
-                const memberName = testExpression.leftExpression.memberName;
+                const memberName = testExpression.d.leftExpr.d.member;
 
                 if (
                     isClassInstance(rightType) &&
                     (ClassType.isEnumClass(rightType) || ClassType.isBuiltIn(rightType, 'bool')) &&
-                    rightType.literalValue !== undefined
+                    rightType.priv.literalValue !== undefined
                 ) {
                     return (type: Type) => {
                         return {
                             type: narrowTypeForDiscriminatedLiteralFieldComparison(
                                 evaluator,
                                 type,
-                                memberName.value,
+                                memberName.d.value,
                                 rightType,
                                 adjIsPositiveTest
                             ),
@@ -481,18 +483,18 @@ export function getTypeNarrowingCallback(
             // Look for X.Y is None or X.Y is not None
             // These are commonly-used patterns used in control flow.
             if (
-                testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression) &&
-                testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
-                testExpression.rightExpression.constType === KeywordType.None
+                testExpression.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr) &&
+                testExpression.d.rightExpr.nodeType === ParseNodeType.Constant &&
+                testExpression.d.rightExpr.d.constType === KeywordType.None
             ) {
-                const memberName = testExpression.leftExpression.memberName;
+                const memberName = testExpression.d.leftExpr.d.member;
                 return (type: Type) => {
                     return {
                         type: narrowTypeForDiscriminatedFieldNoneComparison(
                             evaluator,
                             type,
-                            memberName.value,
+                            memberName.d.value,
                             adjIsPositiveTest
                         ),
                         isIncomplete: false,
@@ -504,49 +506,49 @@ export function getTypeNarrowingCallback(
         // Look for len(x) == <literal>, len(x) != <literal>, len(x) < <literal>, etc.
         if (
             comparisonOperator &&
-            testExpression.leftExpression.nodeType === ParseNodeType.Call &&
-            testExpression.leftExpression.arguments.length === 1
+            testExpression.d.leftExpr.nodeType === ParseNodeType.Call &&
+            testExpression.d.leftExpr.d.args.length === 1
         ) {
-            const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
+            const arg0Expr = testExpression.d.leftExpr.d.args[0].d.valueExpr;
 
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.leftExpression.leftExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    testExpression.d.leftExpr.d.leftExpr,
+                    EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
-                if (isFunction(callType) && callType.details.fullName === 'builtins.len') {
-                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                if (isFunction(callType) && callType.shared.fullName === 'builtins.len') {
+                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                     const rightType = rightTypeResult.type;
 
                     if (
                         isClassInstance(rightType) &&
-                        typeof rightType.literalValue === 'number' &&
-                        rightType.literalValue >= 0
+                        typeof rightType.priv.literalValue === 'number' &&
+                        rightType.priv.literalValue >= 0
                     ) {
-                        let tupleLength = rightType.literalValue;
+                        let tupleLength = rightType.priv.literalValue;
 
                         // We'll treat <, <= and == as positive tests with >=, > and != as
                         // their negative counterparts.
                         const isLessOrEqual =
-                            testExpression.operator === OperatorType.Equals ||
-                            testExpression.operator === OperatorType.LessThan ||
-                            testExpression.operator === OperatorType.LessThanOrEqual;
+                            testExpression.d.operator === OperatorType.Equals ||
+                            testExpression.d.operator === OperatorType.LessThan ||
+                            testExpression.d.operator === OperatorType.LessThanOrEqual;
 
                         const adjIsPositiveTest = isLessOrEqual ? isPositiveTest : !isPositiveTest;
 
                         // For <= (or its negative counterpart >), adjust the tuple length by 1.
                         if (
-                            testExpression.operator === OperatorType.LessThanOrEqual ||
-                            testExpression.operator === OperatorType.GreaterThan
+                            testExpression.d.operator === OperatorType.LessThanOrEqual ||
+                            testExpression.d.operator === OperatorType.GreaterThan
                         ) {
                             tupleLength++;
                         }
 
                         const isEqualityCheck =
-                            testExpression.operator === OperatorType.Equals ||
-                            testExpression.operator === OperatorType.NotEquals;
+                            testExpression.d.operator === OperatorType.Equals ||
+                            testExpression.d.operator === OperatorType.NotEquals;
 
                         return (type: Type) => {
                             return {
@@ -565,13 +567,13 @@ export function getTypeNarrowingCallback(
             }
         }
 
-        if (testExpression.operator === OperatorType.In || testExpression.operator === OperatorType.NotIn) {
+        if (testExpression.d.operator === OperatorType.In || testExpression.d.operator === OperatorType.NotIn) {
             // Look for "x in y" or "x not in y" where y is one of several built-in types.
-            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
-                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr)) {
+                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                 const rightType = rightTypeResult.type;
                 const adjIsPositiveTest =
-                    testExpression.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
+                    testExpression.d.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
 
                 return (type: Type) => {
                     return {
@@ -581,15 +583,15 @@ export function getTypeNarrowingCallback(
                 };
             }
 
-            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
+            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.rightExpr)) {
                 // Look for <string literal> in y where y is a union that contains
                 // one or more TypedDicts.
-                const leftTypeResult = evaluator.getTypeOfExpression(testExpression.leftExpression);
+                const leftTypeResult = evaluator.getTypeOfExpression(testExpression.d.leftExpr);
                 const leftType = leftTypeResult.type;
 
                 if (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'str') && isLiteralType(leftType)) {
                     const adjIsPositiveTest =
-                        testExpression.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
+                        testExpression.d.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
                     return (type: Type) => {
                         return {
                             type: narrowTypeForTypedDictKey(
@@ -608,37 +610,26 @@ export function getTypeNarrowingCallback(
 
     if (testExpression.nodeType === ParseNodeType.Call) {
         // Look for "isinstance(X, Y)" or "issubclass(X, Y)".
-        if (testExpression.arguments.length === 2) {
+        if (testExpression.d.args.length === 2) {
             // Make sure the first parameter is a supported expression type
             // and the second parameter is a valid class type or a tuple
             // of valid class types.
-            const arg0Expr = testExpression.arguments[0].valueExpression;
-            const arg1Expr = testExpression.arguments[1].valueExpression;
+            const arg0Expr = testExpression.d.args[0].d.valueExpr;
+            const arg1Expr = testExpression.d.args[1].d.valueExpr;
 
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.leftExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    testExpression.d.leftExpr,
+                    EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
-                if (
-                    isFunction(callType) &&
-                    (callType.details.builtInName === 'isinstance' || callType.details.builtInName === 'issubclass')
-                ) {
-                    const isInstanceCheck = callType.details.builtInName === 'isinstance';
-                    const arg1TypeResult = evaluator.getTypeOfExpression(
-                        arg1Expr,
-                        EvaluatorFlags.AllowMissingTypeArgs |
-                            EvaluatorFlags.EvaluateStringLiteralAsType |
-                            EvaluatorFlags.DisallowParamSpec |
-                            EvaluatorFlags.DisallowTypeVarTuple |
-                            EvaluatorFlags.DisallowFinal |
-                            EvaluatorFlags.DoNotSpecialize
-                    );
+                if (isFunction(callType) && FunctionType.isBuiltIn(callType, ['isinstance', 'issubclass'])) {
+                    const isInstanceCheck = FunctionType.isBuiltIn(callType, 'isinstance');
+                    const arg1TypeResult = evaluator.getTypeOfExpression(arg1Expr, EvalFlags.IsInstanceArgDefaults);
                     const arg1Type = arg1TypeResult.type;
 
-                    const classTypeList = getIsInstanceClassTypes(arg1Type);
+                    const classTypeList = getIsInstanceClassTypes(evaluator, arg1Type);
                     const isIncomplete = !!callTypeResult.isIncomplete || !!arg1TypeResult.isIncomplete;
 
                     if (classTypeList) {
@@ -671,16 +662,16 @@ export function getTypeNarrowingCallback(
         }
 
         // Look for "callable(X)"
-        if (testExpression.arguments.length === 1) {
-            const arg0Expr = testExpression.arguments[0].valueExpression;
+        if (testExpression.d.args.length === 1) {
+            const arg0Expr = testExpression.d.args[0].d.valueExpr;
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.leftExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    testExpression.d.leftExpr,
+                    EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
-                if (isFunction(callType) && callType.details.builtInName === 'callable') {
+                if (isFunction(callType) && FunctionType.isBuiltIn(callType, 'callable')) {
                     return (type: Type) => {
                         let narrowedType = narrowTypeForCallable(
                             evaluator,
@@ -707,11 +698,11 @@ export function getTypeNarrowingCallback(
         }
 
         // Look for "bool(X)"
-        if (testExpression.arguments.length === 1 && !testExpression.arguments[0].name) {
-            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.arguments[0].valueExpression)) {
+        if (testExpression.d.args.length === 1 && !testExpression.d.args[0].d.name) {
+            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.args[0].d.valueExpr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.leftExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    testExpression.d.leftExpr,
+                    EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
@@ -727,31 +718,31 @@ export function getTypeNarrowingCallback(
         }
 
         // Look for a TypeGuard function.
-        if (testExpression.arguments.length >= 1) {
-            const arg0Expr = testExpression.arguments[0].valueExpression;
+        if (testExpression.d.args.length >= 1) {
+            const arg0Expr = testExpression.d.args[0].d.valueExpr;
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 // Does this look like it's a custom type guard function?
                 let isPossiblyTypeGuard = false;
 
                 const isFunctionReturnTypeGuard = (type: FunctionType) => {
                     return (
-                        type.details.declaredReturnType &&
-                        isClassInstance(type.details.declaredReturnType) &&
-                        ClassType.isBuiltIn(type.details.declaredReturnType, ['TypeGuard', 'TypeIs'])
+                        type.shared.declaredReturnType &&
+                        isClassInstance(type.shared.declaredReturnType) &&
+                        ClassType.isBuiltIn(type.shared.declaredReturnType, ['TypeGuard', 'TypeIs'])
                     );
                 };
 
                 const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.leftExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    testExpression.d.leftExpr,
+                    EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
                 if (isFunction(callType) && isFunctionReturnTypeGuard(callType)) {
                     isPossiblyTypeGuard = true;
                 } else if (
-                    isOverloadedFunction(callType) &&
-                    OverloadedFunctionType.getOverloads(callType).some((o) => isFunctionReturnTypeGuard(o))
+                    isOverloaded(callType) &&
+                    OverloadedType.getOverloads(callType).some((o) => isFunctionReturnTypeGuard(o))
                 ) {
                     isPossiblyTypeGuard = true;
                 } else if (isClassInstance(callType)) {
@@ -765,11 +756,12 @@ export function getTypeNarrowingCallback(
 
                     if (
                         isClassInstance(functionReturnType) &&
-                        ClassType.isBuiltIn(functionReturnType, 'bool') &&
-                        functionReturnType.typeGuardType
+                        ClassType.isBuiltIn(functionReturnType, ['TypeGuard', 'TypeIs']) &&
+                        functionReturnType.priv.typeArgs &&
+                        functionReturnType.priv.typeArgs.length > 0
                     ) {
-                        const isStrictTypeGuard = !!functionReturnType.isStrictTypeGuard;
-                        const typeGuardType = functionReturnType.typeGuardType;
+                        const isStrictTypeGuard = ClassType.isBuiltIn(functionReturnType, 'TypeIs');
+                        const typeGuardType = functionReturnType.priv.typeArgs[0];
                         const isIncomplete = !!callTypeResult.isIncomplete || !!functionReturnTypeResult.isIncomplete;
 
                         return (type: Type) => {
@@ -817,11 +809,14 @@ export function getTypeNarrowingCallback(
     // by the binder when it creates condition flow nodes, but we can find this
     // in the case of local variables type narrowing.
     if (reference.nodeType === ParseNodeType.Name) {
-        if (testExpression.nodeType === ParseNodeType.UnaryOperation && testExpression.operator === OperatorType.Not) {
+        if (
+            testExpression.nodeType === ParseNodeType.UnaryOperation &&
+            testExpression.d.operator === OperatorType.Not
+        ) {
             return getTypeNarrowingCallback(
                 evaluator,
                 reference,
-                testExpression.expression,
+                testExpression.d.expr,
                 !isPositiveTest,
                 recursionCount
             );
@@ -911,7 +906,7 @@ function getDeclsForLocalVar(
         return undefined;
     }
 
-    const symbol = scope.lookUpSymbol(name.value);
+    const symbol = scope.lookUpSymbol(name.d.value);
     if (!symbol) {
         return undefined;
     }
@@ -923,7 +918,7 @@ function getDeclsForLocalVar(
 
     if (
         decls.length === 0 ||
-        decls.some((decl) => decl.type !== DeclarationType.Variable && decl.type !== DeclarationType.Parameter)
+        decls.some((decl) => decl.type !== DeclarationType.Variable && decl.type !== DeclarationType.Param)
     ) {
         return undefined;
     }
@@ -933,7 +928,7 @@ function getDeclsForLocalVar(
     let prevDeclScope: ParseNode | undefined;
     if (
         decls.some((decl) => {
-            const nodeToConsider = decl.type === DeclarationType.Parameter ? decl.node.name! : decl.node;
+            const nodeToConsider = decl.type === DeclarationType.Param ? decl.node.d.name! : decl.node;
             const declScopeNode = ParseTreeUtils.getExecutionScopeNode(nodeToConsider);
             if (prevDeclScope && declScopeNode !== prevDeclScope) {
                 return true;
@@ -958,13 +953,8 @@ function getTypeNarrowingCallbackForAssignmentExpression(
     recursionCount: number
 ) {
     return (
-        getTypeNarrowingCallback(
-            evaluator,
-            reference,
-            testExpression.rightExpression,
-            isPositiveTest,
-            recursionCount
-        ) ?? getTypeNarrowingCallback(evaluator, reference, testExpression.name, isPositiveTest, recursionCount)
+        getTypeNarrowingCallback(evaluator, reference, testExpression.d.rightExpr, isPositiveTest, recursionCount) ??
+        getTypeNarrowingCallback(evaluator, reference, testExpression.d.name, isPositiveTest, recursionCount)
     );
 }
 
@@ -979,7 +969,20 @@ function narrowTypeForUserDefinedTypeGuard(
     // For non-strict type guards, always narrow to the typeGuardType
     // in the positive case and don't narrow in the negative case.
     if (!isStrictTypeGuard) {
-        return isPositiveTest ? typeGuardType : type;
+        let result = type;
+
+        if (isPositiveTest) {
+            result = typeGuardType;
+
+            // If the type guard is a non-constrained TypeVar, add a
+            // condition to the resulting type.
+            if (isTypeVar(type) && !isParamSpec(type) && !TypeVarType.hasConstraints(type)) {
+                result = addConditionToType(result, [{ typeVar: type, constraintIndex: 0 }]);
+            }
+            return result;
+        }
+
+        return result;
     }
 
     const filterTypes: Type[] = [];
@@ -1019,16 +1022,16 @@ function narrowTypeForTruthiness(evaluator: TypeEvaluator, type: Type, isPositiv
 function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean, indexValue: number) {
     return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (subtype) => {
         const tupleType = getSpecializedTupleType(subtype);
-        if (!tupleType || isUnboundedTupleClass(tupleType) || !tupleType.tupleTypeArguments) {
+        if (!tupleType || isUnboundedTupleClass(tupleType) || !tupleType.priv.tupleTypeArgs) {
             return subtype;
         }
 
-        const tupleLength = tupleType.tupleTypeArguments.length;
+        const tupleLength = tupleType.priv.tupleTypeArgs.length;
         if (indexValue < 0 || indexValue >= tupleLength) {
             return subtype;
         }
 
-        const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(tupleType.tupleTypeArguments[indexValue].type);
+        const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(tupleType.priv.tupleTypeArgs[indexValue].type);
 
         if (isPositiveTest) {
             if (!evaluator.assignType(typeOfEntry, evaluator.getNoneType())) {
@@ -1057,39 +1060,50 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
         /* options */ undefined,
         (subtype, unexpandedSubtype) => {
             if (isAnyOrUnknown(subtype)) {
-                // We need to assume that "Any" is always both None and not None,
-                // so it matches regardless of whether the test is positive or negative.
+                // Assume that "Any" is always both None and not None, so it matches
+                // regardless of whether the test is positive or negative.
                 return subtype;
             }
 
-            // If this is a TypeVar that isn't constrained, use the unexpanded
-            // TypeVar. For all other cases (including constrained TypeVars),
-            // use the expanded subtype.
-            const adjustedSubtype =
-                isTypeVar(unexpandedSubtype) && unexpandedSubtype.details.constraints.length === 0
-                    ? unexpandedSubtype
-                    : subtype;
+            let useExpandedSubtype = false;
+            if (isTypeVar(unexpandedSubtype) && !TypeVarType.isSelf(unexpandedSubtype)) {
+                // If the TypeVar has value constraints and one or more of them
+                // are possibly compatible with None, use the expanded subtypes.
+                if (
+                    unexpandedSubtype.shared.constraints.some((constraint) => {
+                        return evaluator.assignType(constraint, evaluator.getNoneType());
+                    })
+                ) {
+                    useExpandedSubtype = true;
+                }
 
-            // See if it's a match for object.
-            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
+                // If the TypeVar han an explicit bound that is possibly compatible
+                // with None (e.g. "T: int | None"), use the expanded subtypes.
+                if (
+                    unexpandedSubtype.shared.boundType &&
+                    evaluator.assignType(unexpandedSubtype.shared.boundType, evaluator.getNoneType())
+                ) {
+                    useExpandedSubtype = true;
+                }
+            }
+
+            const adjustedSubtype = useExpandedSubtype ? subtype : unexpandedSubtype;
+
+            // Is it an exact match for None?
+            if (isNoneInstance(subtype)) {
+                resultIncludesNoneSubtype = true;
+                return isPositiveTest ? adjustedSubtype : undefined;
+            }
+
+            // Is it potentially None?
+            if (evaluator.assignType(subtype, evaluator.getNoneType())) {
                 resultIncludesNoneSubtype = true;
                 return isPositiveTest
-                    ? addConditionToType(evaluator.getNoneType(), subtype.condition)
+                    ? addConditionToType(evaluator.getNoneType(), subtype.props?.condition)
                     : adjustedSubtype;
             }
 
-            // See if it's a match for None.
-            if (isNoneInstance(subtype) === isPositiveTest) {
-                resultIncludesNoneSubtype = true;
-
-                if (isTypeVar(adjustedSubtype) && adjustedSubtype.details.isSynthesizedSelf) {
-                    return adjustedSubtype;
-                }
-
-                return subtype;
-            }
-
-            return undefined;
+            return isPositiveTest ? undefined : adjustedSubtype;
         }
     );
 
@@ -1122,13 +1136,15 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
         // TypeVar. For all other cases (including constrained TypeVars),
         // use the expanded subtype.
         const adjustedSubtype =
-            isTypeVar(unexpandedSubtype) && unexpandedSubtype.details.constraints.length === 0
+            isTypeVar(unexpandedSubtype) && !TypeVarType.hasConstraints(unexpandedSubtype)
                 ? unexpandedSubtype
                 : subtype;
 
         // See if it's a match for object.
         if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
-            return isPositiveTest ? addConditionToType(evaluator.getNoneType(), subtype.condition) : adjustedSubtype;
+            return isPositiveTest
+                ? addConditionToType(evaluator.getNoneType(), subtype.props?.condition)
+                : adjustedSubtype;
         }
 
         const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['EllipsisType', 'ellipsis']);
@@ -1146,7 +1162,10 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
 // that accepts a single class, and a more complex form that accepts a tuple
 // of classes (including arbitrarily-nested tuples). This method determines
 // which form and returns a list of classes or undefined.
-function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | FunctionType)[] | undefined {
+function getIsInstanceClassTypes(
+    evaluator: TypeEvaluator,
+    argType: Type
+): (ClassType | TypeVarType | FunctionType)[] | undefined {
     let foundNonClassType = false;
     const classTypeList: (ClassType | TypeVarType | FunctionType)[] = [];
 
@@ -1155,7 +1174,7 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | Func
     const addClassTypesToList = (types: Type[]) => {
         types.forEach((subtype) => {
             if (isClass(subtype)) {
-                subtype = specializeWithUnknownTypeArgs(subtype);
+                subtype = specializeWithUnknownTypeArgs(subtype, evaluator.getTupleClassType());
 
                 if (isInstantiableClass(subtype) && ClassType.isBuiltIn(subtype, 'Callable')) {
                     subtype = convertToInstantiable(getUnknownTypeForCallable());
@@ -1169,9 +1188,9 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | Func
                 classTypeList.push(subtype);
             } else if (
                 isFunction(subtype) &&
-                subtype.details.parameters.length === 2 &&
-                subtype.details.parameters[0].category === ParameterCategory.ArgsList &&
-                subtype.details.parameters[1].category === ParameterCategory.KwargsDict
+                subtype.shared.parameters.length === 2 &&
+                subtype.shared.parameters[0].category === ParamCategory.ArgsList &&
+                subtype.shared.parameters[1].category === ParamCategory.KwargsDict
             ) {
                 classTypeList.push(subtype);
             } else {
@@ -1186,8 +1205,8 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | Func
         }
 
         if (isClass(type) && TypeBase.isInstance(type) && isTupleClass(type)) {
-            if (type.tupleTypeArguments) {
-                type.tupleTypeArguments.forEach((tupleEntry) => {
+            if (type.priv.tupleTypeArgs) {
+                type.priv.tupleTypeArgs.forEach((tupleEntry) => {
                     addClassTypesRecursive(tupleEntry.type, recursionCount + 1);
                 });
             }
@@ -1213,14 +1232,14 @@ export function isIsinstanceFilterSuperclass(
     concreteFilterType: ClassType,
     isInstanceCheck: boolean
 ) {
-    if (isTypeVar(filterType) || concreteFilterType.literalValue !== undefined) {
+    if (isTypeVar(filterType) || concreteFilterType.priv.literalValue !== undefined) {
         return isTypeSame(convertToInstance(filterType), varType);
     }
 
     // If the filter type represents all possible subclasses
     // of a type, we can't make any statements about its superclass
     // relationship with concreteVarType.
-    if (concreteFilterType.includeSubclasses) {
+    if (concreteFilterType.priv.includeSubclasses) {
         return false;
     }
 
@@ -1229,9 +1248,15 @@ export function isIsinstanceFilterSuperclass(
     }
 
     if (isInstanceCheck) {
+        // We convert both types to instances in case they are protocol
+        // classes. A protocol class isn't allowed to be assigned to
+        // type[T], so this would otherwise fail.
         if (
             ClassType.isProtocolClass(concreteFilterType) &&
-            evaluator.assignType(concreteFilterType, concreteVarType)
+            evaluator.assignType(
+                ClassType.cloneAsInstance(concreteFilterType),
+                ClassType.cloneAsInstance(concreteVarType)
+            )
         ) {
             return true;
         }
@@ -1258,7 +1283,13 @@ export function isIsinstanceFilterSubclass(
     }
 
     if (isInstanceCheck) {
-        if (ClassType.isProtocolClass(varType) && evaluator.assignType(varType, concreteFilterType)) {
+        // We convert both types to instances in case they are protocol
+        // classes. A protocol class isn't allowed to be assigned to
+        // type[T], so this would otherwise fail.
+        if (
+            ClassType.isProtocolClass(varType) &&
+            evaluator.assignType(ClassType.cloneAsInstance(varType), ClassType.cloneAsInstance(concreteFilterType))
+        ) {
             return true;
         }
     }
@@ -1325,6 +1356,17 @@ function narrowTypeForIsInstanceInternal(
 
     expandedTypes = evaluator.expandPromotionTypes(errorNode, expandedTypes);
 
+    const convertVarTypeToFree = (varType: Type): Type => {
+        // If this is a TypeIs check, type variables should remain bound.
+        if (isTypeIsCheck) {
+            return varType;
+        }
+
+        // If this is an isinstance or issubclass check, the type variables
+        // should be converted to "free" type variables.
+        return makeTypeVarsFree(varType, ParseTreeUtils.getTypeVarScopesForNode(errorNode));
+    };
+
     // Filters the varType by the parameters of the isinstance
     // and returns the list of types the varType could be after
     // applying the filter.
@@ -1353,13 +1395,10 @@ function narrowTypeForIsInstanceInternal(
                     // If the class was implicitly specialized (e.g. because its type
                     // parameters have default values), replace the default type arguments
                     // with Unknown.
-                    if (concreteFilterType.typeArguments && !concreteFilterType.isTypeArgumentExplicit) {
+                    if (concreteFilterType.priv.typeArgs && !concreteFilterType.priv.isTypeArgExplicit) {
                         concreteFilterType = specializeWithUnknownTypeArgs(
-                            ClassType.cloneForSpecialization(
-                                concreteFilterType,
-                                /* typeArguments */ undefined,
-                                /* isTypeArgumentExplicit */ false
-                            )
+                            ClassType.specialize(concreteFilterType, /* typeArgs */ undefined),
+                            evaluator.getTupleClassType()
                         );
                     }
 
@@ -1408,7 +1447,7 @@ function narrowTypeForIsInstanceInternal(
                         // we haven't learned anything new about the variable type.
 
                         // If the varType is a Self or type[Self], retain the unnarrowedType.
-                        if (isTypeVar(varType) && varType.details.isSynthesizedSelf) {
+                        if (isTypeVar(varType) && TypeVarType.isSelf(varType)) {
                             filteredTypes.push(addConditionToType(varType, conditions));
                         } else {
                             filteredTypes.push(addConditionToType(concreteVarType, conditions));
@@ -1416,14 +1455,11 @@ function narrowTypeForIsInstanceInternal(
                     } else if (filterIsSubclass) {
                         if (
                             evaluator.assignType(
-                                concreteVarType,
-                                concreteFilterType,
+                                convertToInstance(convertVarTypeToFree(concreteVarType)),
+                                convertToInstance(concreteFilterType),
                                 /* diag */ undefined,
-                                /* destTypeVarContext */ undefined,
-                                /* srcTypeVarContext */ undefined,
-                                AssignTypeFlags.IgnoreTypeVarScope |
-                                    AssignTypeFlags.IgnoreProtocolAssignmentCheck |
-                                    AssignTypeFlags.AllowIsinstanceSpecialForms
+                                /* constraints */ undefined,
+                                AssignTypeFlags.AllowIsinstanceSpecialForms
                             )
                         ) {
                             // If the variable type is a superclass of the isinstance
@@ -1434,36 +1470,37 @@ function narrowTypeForIsInstanceInternal(
                             // important because a specialized version of the filter cannot
                             // be passed to isinstance or issubclass.
                             if (isClass(filterType)) {
-                                if (
-                                    ClassType.isSpecialBuiltIn(filterType) ||
-                                    filterType.details.typeParameters.length > 0
-                                ) {
+                                if (ClassType.isSpecialBuiltIn(filterType) || filterType.shared.typeParams.length > 0) {
                                     if (
-                                        !filterType.typeArguments ||
-                                        !filterType.isTypeArgumentExplicit ||
+                                        !filterType.priv.isTypeArgExplicit &&
                                         !ClassType.isSameGenericClass(concreteVarType, filterType)
                                     ) {
-                                        const typeVarContext = new TypeVarContext(getTypeVarScopeId(filterType));
-                                        const unspecializedFilterType = ClassType.cloneForSpecialization(
+                                        const constraints = new ConstraintTracker();
+                                        const unspecializedFilterType = ClassType.specialize(
                                             filterType,
-                                            /* typeArguments */ undefined,
-                                            /* isTypeArgumentExplicit */ false
+                                            /* typeArg */ undefined
                                         );
 
                                         if (
-                                            populateTypeVarContextBasedOnExpectedType(
+                                            addConstraintsForExpectedType(
                                                 evaluator,
-                                                unspecializedFilterType,
-                                                concreteVarType,
-                                                typeVarContext,
+                                                convertToInstance(unspecializedFilterType),
+                                                convertToInstance(concreteVarType),
+                                                constraints,
                                                 /* liveTypeVarScopes */ undefined,
                                                 errorNode.start
                                             )
                                         ) {
-                                            specializedFilterType = applySolvedTypeVars(
+                                            specializedFilterType = evaluator.solveAndApplyConstraints(
                                                 unspecializedFilterType,
-                                                typeVarContext,
-                                                { unknownIfNotFound: true, useUnknownOverDefault: true }
+                                                constraints,
+                                                {
+                                                    replaceUnsolved: {
+                                                        scopeIds: getTypeVarScopeIds(filterType),
+                                                        useUnknown: true,
+                                                        tupleClassType: evaluator.getTupleClassType(),
+                                                    },
+                                                }
                                             ) as ClassType;
                                         }
                                     }
@@ -1471,6 +1508,18 @@ function narrowTypeForIsInstanceInternal(
                             }
 
                             filteredTypes.push(addConditionToType(specializedFilterType, conditions));
+                        }
+                    } else if (ClassType.isSameGenericClass(concreteVarType, concreteFilterType)) {
+                        // Don't attempt to narrow in this case.
+                        if (
+                            concreteVarType.priv?.literalValue === undefined &&
+                            concreteFilterType.priv?.literalValue === undefined
+                        ) {
+                            const intersection = intersectSameClassType(evaluator, concreteVarType, concreteFilterType);
+                            filteredTypes.push(intersection ?? varType);
+
+                            // Don't attempt to narrow in the negative direction.
+                            isClassRelationshipIndeterminate = true;
                         }
                     } else if (
                         allowIntersections &&
@@ -1482,63 +1531,19 @@ function narrowTypeForIsInstanceInternal(
                         // be a mix-in class used with the other. In this case, we'll
                         // synthesize a new class type that represents an intersection of
                         // the two types.
-                        const className = `<subclass of ${concreteVarType.details.name} and ${concreteFilterType.details.name}>`;
-                        const fileInfo = getFileInfo(errorNode);
-
-                        // The effective metaclass of the intersection is the narrower of the two metaclasses.
-                        let effectiveMetaclass = concreteVarType.details.effectiveMetaclass;
-                        if (concreteFilterType.details.effectiveMetaclass) {
-                            if (
-                                !effectiveMetaclass ||
-                                evaluator.assignType(effectiveMetaclass, concreteFilterType.details.effectiveMetaclass)
-                            ) {
-                                effectiveMetaclass = concreteFilterType.details.effectiveMetaclass;
-                            }
+                        let newClassType = evaluator.createSubclass(errorNode, concreteVarType, concreteFilterType);
+                        if (isTypeVar(varType) && !isParamSpec(varType) && !TypeVarType.hasConstraints(varType)) {
+                            newClassType = addConditionToType(newClassType, [{ typeVar: varType, constraintIndex: 0 }]);
                         }
 
-                        let newClassType = ClassType.createInstantiable(
-                            className,
-                            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
-                            fileInfo.moduleName,
-                            fileInfo.fileUri,
-                            ClassTypeFlags.None,
-                            ParseTreeUtils.getTypeSourceId(errorNode),
-                            /* declaredMetaclass */ undefined,
-                            effectiveMetaclass,
-                            concreteVarType.details.docString
-                        );
-                        newClassType.details.baseClasses = [
-                            ClassType.cloneAsInstantiable(concreteVarType),
-                            concreteFilterType,
-                        ];
-                        computeMroLinearization(newClassType);
-
-                        newClassType = addConditionToType(newClassType, concreteFilterType.condition) as ClassType;
-
-                        if (
-                            isTypeVar(varType) &&
-                            !varType.details.isParamSpec &&
-                            varType.details.constraints.length === 0
-                        ) {
-                            newClassType = addConditionToType(newClassType, [
-                                { typeVar: varType, constraintIndex: 0 },
-                            ]) as ClassType;
-                        }
-
-                        let newClassInstanceType = ClassType.cloneAsInstance(newClassType);
-
-                        if (concreteVarType.condition) {
-                            newClassInstanceType = addConditionToType(
-                                newClassInstanceType,
-                                concreteVarType.condition
-                            ) as ClassType;
-                        }
+                        let newClassObjType = ClassType.cloneAsInstance(newClassType);
+                        newClassObjType = addConditionToType(newClassObjType, concreteVarType.props?.condition);
 
                         // If this is a issubclass check, we do a double conversion from instantiable
                         // to instance back to instantiable to make sure that the includeSubclasses flag
                         // gets cleared.
                         filteredTypes.push(
-                            isInstanceCheck ? newClassInstanceType : ClassType.cloneAsInstantiable(newClassInstanceType)
+                            isInstanceCheck ? newClassObjType : ClassType.cloneAsInstantiable(newClassObjType)
                         );
                     }
                 }
@@ -1603,11 +1608,10 @@ function narrowTypeForIsInstanceInternal(
                         }
                     } else if (
                         evaluator.assignType(
-                            concreteVarType,
+                            convertVarTypeToFree(concreteVarType),
                             filterType,
                             /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
+                            /* constraints */ undefined,
                             AssignTypeFlags.AllowIsinstanceSpecialForms
                         )
                     ) {
@@ -1655,11 +1659,11 @@ function narrowTypeForIsInstanceInternal(
             const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
             if (isInstantiableClass(concreteFilterType)) {
-                const filterMetaclass = concreteFilterType.details.effectiveMetaclass;
+                const filterMetaclass = concreteFilterType.shared.effectiveMetaclass;
 
                 if (filterMetaclass && isInstantiableClass(filterMetaclass)) {
                     let isMetaclassOverlap = evaluator.assignType(
-                        metaclassType,
+                        convertVarTypeToFree(metaclassType),
                         ClassType.cloneAsInstance(filterMetaclass)
                     );
 
@@ -1667,7 +1671,7 @@ function narrowTypeForIsInstanceInternal(
                     // This will normally be treated as type[Any], which is compatible with
                     // any metaclass, but we specifically want to treat type as the class
                     // type[object] in this case.
-                    if (ClassType.isBuiltIn(filterMetaclass, 'type') && !filterMetaclass.isTypeArgumentExplicit) {
+                    if (ClassType.isBuiltIn(filterMetaclass, 'type') && !filterMetaclass.priv.isTypeArgExplicit) {
                         if (!ClassType.isBuiltIn(metaclassType, 'type')) {
                             isMetaclassOverlap = false;
                         }
@@ -1677,7 +1681,10 @@ function narrowTypeForIsInstanceInternal(
                         if (isPositiveTest) {
                             filteredTypes.push(filterType);
                             foundPositiveMatch = true;
-                        } else if (!isTypeSame(metaclassType, filterMetaclass) || filterMetaclass.includeSubclasses) {
+                        } else if (
+                            !isTypeSame(metaclassType, filterMetaclass) ||
+                            filterMetaclass.priv.includeSubclasses
+                        ) {
                             filteredTypes.push(metaclassType);
                             isMatchIndeterminate = true;
                         }
@@ -1707,23 +1714,14 @@ function narrowTypeForIsInstanceInternal(
         return filteredTypes.map((t) => (isInstantiableClass(t) ? convertToInstantiable(convertToInstance(t)) : t));
     };
 
-    const filterFunctionType = (varType: FunctionType | OverloadedFunctionType, unexpandedType: Type): Type[] => {
+    const filterFunctionType = (varType: FunctionType | OverloadedType, unexpandedType: Type): Type[] => {
         const filteredTypes: Type[] = [];
 
         if (isPositiveTest) {
             for (const filterType of filterTypes) {
                 const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
-                if (
-                    evaluator.assignType(
-                        varType,
-                        convertToInstance(concreteFilterType),
-                        /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.IgnoreTypeVarScope
-                    )
-                ) {
+                if (evaluator.assignType(convertVarTypeToFree(varType), convertToInstance(concreteFilterType))) {
                     // If the filter type is a Callable, use the original type. If the
                     // filter type is a callback protocol, use the filter type.
                     if (isFunction(filterType)) {
@@ -1742,7 +1740,7 @@ function narrowTypeForIsInstanceInternal(
                     return false;
                 }
 
-                return evaluator.assignType(varType, convertToInstance(concreteFilterType));
+                return evaluator.assignType(convertVarTypeToFree(varType), convertToInstance(concreteFilterType));
             })
         ) {
             filteredTypes.push(unexpandedType);
@@ -1764,7 +1762,11 @@ function narrowTypeForIsInstanceInternal(
 
     const filteredType = evaluator.mapSubtypesExpandTypeVars(
         expandedTypes,
-        /* options */ undefined,
+        {
+            expandCallback: (type) => {
+                return evaluator.expandPromotionTypes(errorNode, type);
+            },
+        },
         (subtype, unexpandedSubtype) => {
             // If we fail to filter anything in the negative case, we need to decide
             // whether to retain the original TypeVar or replace it with its specialized
@@ -1830,15 +1832,19 @@ function narrowTypeForIsInstanceInternal(
                     );
                 }
 
-                if ((isFunction(subtype) || isOverloadedFunction(subtype)) && isInstanceCheck) {
+                if ((isFunction(subtype) || isOverloaded(subtype)) && isInstanceCheck) {
                     return combineTypes(filterFunctionType(subtype, convertToInstance(unexpandedSubtype)));
                 }
 
                 if (isInstantiableClass(subtype) || isSubtypeMetaclass) {
                     // Handle the special case of isinstance(x, metaclass).
                     const includesMetaclassType = filterTypes.some((classType) => isInstantiableMetaclass(classType));
+                    const includesObject = filterTypes.some(
+                        (classType) => isInstantiableClass(classType) && ClassType.isBuiltIn(classType, 'object')
+                    );
+
                     if (isPositiveTest) {
-                        return includesMetaclassType ? negativeFallback : undefined;
+                        return includesMetaclassType || includesObject ? negativeFallback : undefined;
                     } else {
                         return includesMetaclassType ? undefined : negativeFallback;
                     }
@@ -1894,6 +1900,39 @@ function narrowTypeForIsInstanceInternal(
     return filteredType;
 }
 
+// This function assumes that the caller has already verified that the two
+// types are the same class and are not literals. It also assumes that the
+// caller has verified that type1 is not assignable to type2 or vice versa.
+// Returns undefined if there is no intersection between the two types.
+function intersectSameClassType(evaluator: TypeEvaluator, type1: ClassType, type2: ClassType): ClassType | undefined {
+    assert(isInstantiableClass(type1) && isInstantiableClass(type2));
+    assert(ClassType.isSameGenericClass(type1, type2));
+    assert(type1.priv?.literalValue === undefined);
+    assert(type2.priv?.literalValue === undefined);
+
+    // Handle tuples specially.
+    if (ClassType.isBuiltIn(type1, 'tuple')) {
+        return intersectTupleTypes(type1, type1);
+    }
+
+    // Indicate that there is no intersection.
+    return undefined;
+}
+
+function intersectTupleTypes(type1: ClassType, type2: ClassType) {
+    if (!type2.priv.tupleTypeArgs || isTupleGradualForm(type2)) {
+        return addConditionToType(type1, type2.props?.condition);
+    }
+
+    if (!type1.priv.tupleTypeArgs || isTupleGradualForm(type1)) {
+        return addConditionToType(type2, type1.props?.condition);
+    }
+
+    // For now, don't attempt to narrow in this case.
+    // TODO - add more sophisticated logic here.
+    return undefined;
+}
+
 // Attempts to narrow a union of tuples based on their known length.
 function narrowTypeForTupleLength(
     evaluator: TypeEvaluator,
@@ -1909,28 +1948,28 @@ function narrowTypeForTupleLength(
         if (
             !isClassInstance(concreteSubtype) ||
             !isTupleClass(concreteSubtype) ||
-            !concreteSubtype.tupleTypeArguments
+            !concreteSubtype.priv.tupleTypeArgs
         ) {
             return subtype;
         }
 
-        // If the tuple contains a variadic TypeVar, we can't narrow it.
-        if (concreteSubtype.tupleTypeArguments.some((typeArg) => isUnpackedVariadicTypeVar(typeArg.type))) {
+        // If the tuple contains a TypeVarTuple, we can't narrow it.
+        if (concreteSubtype.priv.tupleTypeArgs.some((typeArg) => isUnpackedTypeVarTuple(typeArg.type))) {
             return subtype;
         }
 
         // If the tuple contains no unbounded elements, then we know its length exactly.
-        if (!concreteSubtype.tupleTypeArguments.some((typeArg) => typeArg.isUnbounded)) {
+        if (!concreteSubtype.priv.tupleTypeArgs.some((typeArg) => typeArg.isUnbounded)) {
             const tupleLengthMatches = isLessThanCheck
-                ? concreteSubtype.tupleTypeArguments.length < lengthValue
-                : concreteSubtype.tupleTypeArguments.length === lengthValue;
+                ? concreteSubtype.priv.tupleTypeArgs.length < lengthValue
+                : concreteSubtype.priv.tupleTypeArgs.length === lengthValue;
 
             return tupleLengthMatches === isPositiveTest ? subtype : undefined;
         }
 
         // The tuple contains a "...". We'll expand this into as many elements as
         // necessary to match the lengthValue.
-        const elementsToAdd = lengthValue - concreteSubtype.tupleTypeArguments.length + 1;
+        const elementsToAdd = lengthValue - concreteSubtype.priv.tupleTypeArgs.length + 1;
 
         if (!isLessThanCheck) {
             // If the specified length is smaller than the minimum length of this tuple,
@@ -1947,7 +1986,7 @@ function narrowTypeForTupleLength(
         }
 
         // If this is a tuple related to an "*args: P.args" parameter, don't expand it.
-        if (isParamSpec(subtype) && subtype.paramSpecAccess) {
+        if (isParamSpec(subtype) && subtype.priv.paramSpecAccess) {
             return subtype;
         }
 
@@ -1980,9 +2019,9 @@ function narrowTypeForTupleLength(
 // multiple bounded elements of that same type in place of (or in addition
 // to) the unbounded element.
 function expandUnboundedTupleElement(tupleType: ClassType, elementsToAdd: number, keepUnbounded: boolean) {
-    const tupleTypeArgs: TupleTypeArgument[] = [];
+    const tupleTypeArgs: TupleTypeArg[] = [];
 
-    tupleType.tupleTypeArguments!.forEach((typeArg) => {
+    tupleType.priv.tupleTypeArgs!.forEach((typeArg) => {
         if (!typeArg.isUnbounded) {
             tupleTypeArgs.push(typeArg);
         } else {
@@ -2024,7 +2063,7 @@ function narrowTypeForContainerType(
     if (
         !isClassInstance(containerType) ||
         !ClassType.isBuiltIn(containerType, 'tuple') ||
-        !containerType.tupleTypeArguments
+        !containerType.priv.tupleTypeArgs
     ) {
         return referenceType;
     }
@@ -2032,7 +2071,7 @@ function narrowTypeForContainerType(
     // Determine which tuple types can be eliminated. Only "None" and
     // literal types can be handled here.
     const typesToEliminate: Type[] = [];
-    containerType.tupleTypeArguments.forEach((tupleEntry) => {
+    containerType.priv.tupleTypeArgs.forEach((tupleEntry) => {
         if (!tupleEntry.isUnbounded) {
             if (isNoneInstance(tupleEntry.type)) {
                 typesToEliminate.push(tupleEntry.type);
@@ -2048,7 +2087,7 @@ function narrowTypeForContainerType(
 
     return mapSubtypes(referenceType, (referenceSubtype) => {
         referenceSubtype = evaluator.makeTopLevelTypeVarsConcrete(referenceSubtype);
-        if (isClassInstance(referenceSubtype) && referenceSubtype.literalValue === undefined) {
+        if (isClassInstance(referenceSubtype) && referenceSubtype.priv.literalValue === undefined) {
             // If we're able to enumerate all possible literal values
             // (for bool or enum), we can eliminate all others in a negative test.
             const allLiteralTypes = enumerateLiteralsForType(evaluator, referenceSubtype);
@@ -2074,13 +2113,13 @@ export function getElementTypeForContainerNarrowing(containerType: Type) {
         return undefined;
     }
 
-    if (!containerType.typeArguments || containerType.typeArguments.length < 1) {
+    if (!containerType.priv.typeArgs || containerType.priv.typeArgs.length < 1) {
         return undefined;
     }
 
-    let elementType = containerType.typeArguments[0];
-    if (isTupleClass(containerType) && containerType.tupleTypeArguments) {
-        elementType = combineTypes(containerType.tupleTypeArguments.map((t) => t.type));
+    let elementType = containerType.priv.typeArgs[0];
+    if (isTupleClass(containerType) && containerType.priv.tupleTypeArgs) {
+        elementType = combineTypes(containerType.priv.tupleTypeArgs.map((t) => t.type));
     }
 
     return elementType;
@@ -2181,7 +2220,7 @@ function narrowTypeForTypedDictKey(
 
             if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
                 const entries = getTypedDictMembersForClass(evaluator, subtype, /* allowNarrowed */ true);
-                const tdEntry = entries.knownItems.get(literalKey.literalValue as string) ?? entries.extraItems;
+                const tdEntry = entries.knownItems.get(literalKey.priv.literalValue as string) ?? entries.extraItems;
 
                 if (isPositiveTest) {
                     if (!tdEntry) {
@@ -2195,11 +2234,11 @@ function narrowTypeForTypedDictKey(
                     }
 
                     const newNarrowedEntriesMap = new Map<string, TypedDictEntry>(
-                        subtype.typedDictNarrowedEntries ?? []
+                        subtype.priv.typedDictNarrowedEntries ?? []
                     );
 
                     // Add the new entry.
-                    newNarrowedEntriesMap.set(literalKey.literalValue as string, {
+                    newNarrowedEntriesMap.set(literalKey.priv.literalValue as string, {
                         valueType: tdEntry.valueType,
                         isReadOnly: tdEntry.isReadOnly,
                         isRequired: false,
@@ -2240,7 +2279,7 @@ export function narrowTypeForDiscriminatedDictEntryComparison(
     const narrowedType = mapSubtypes(referenceType, (subtype) => {
         if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
             const symbolMap = getTypedDictMembersForClass(evaluator, subtype);
-            const tdEntry = symbolMap.knownItems.get(indexLiteralType.literalValue as string);
+            const tdEntry = symbolMap.knownItems.get(indexLiteralType.priv.literalValue as string);
 
             if (tdEntry && isLiteralTypeOrUnion(tdEntry.valueType)) {
                 if (isPositiveTest) {
@@ -2288,12 +2327,12 @@ export function narrowTypeForDiscriminatedTupleComparison(
             isClassInstance(subtype) &&
             ClassType.isTupleClass(subtype) &&
             !isUnboundedTupleClass(subtype) &&
-            typeof indexLiteralType.literalValue === 'number' &&
+            typeof indexLiteralType.priv.literalValue === 'number' &&
             isClassInstance(literalType)
         ) {
-            const indexValue = indexLiteralType.literalValue;
-            if (subtype.tupleTypeArguments && indexValue >= 0 && indexValue < subtype.tupleTypeArguments.length) {
-                const tupleEntryType = subtype.tupleTypeArguments[indexValue]?.type;
+            const indexValue = indexLiteralType.priv.literalValue;
+            if (subtype.priv.tupleTypeArgs && indexValue >= 0 && indexValue < subtype.priv.tupleTypeArgs.length) {
+                const tupleEntryType = subtype.priv.tupleTypeArgs[indexValue]?.type;
                 if (tupleEntryType && isLiteralTypeOrUnion(tupleEntryType)) {
                     if (isPositiveTest) {
                         return evaluator.assignType(tupleEntryType, literalType) ? subtype : undefined;
@@ -2336,8 +2375,8 @@ export function narrowTypeForDiscriminatedLiteralFieldComparison(
             // Handle the case where the field is a property
             // that has a declared literal return type for its getter.
             if (isClassInstance(subtype) && isClassInstance(memberType) && isProperty(memberType)) {
-                const getterType = memberType.fgetInfo?.methodType;
-                if (getterType && getterType.details.declaredReturnType) {
+                const getterType = memberType.priv.fgetInfo?.methodType;
+                if (getterType && getterType.shared.declaredReturnType) {
                     const getterReturnType = FunctionType.getEffectiveReturnType(getterType);
                     if (getterReturnType) {
                         memberType = getterReturnType;
@@ -2421,13 +2460,13 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
                             return subtype;
                         }
 
-                        return addConditionToType(ClassType.cloneAsInstance(classType), subtype.condition);
+                        return addConditionToType(ClassType.cloneAsInstance(classType), subtype.props?.condition);
                     }
 
-                    if (!classType.includeSubclasses) {
+                    if (!classType.priv.includeSubclasses) {
                         return undefined;
                     }
-                } else if (!classType.includeSubclasses) {
+                } else if (!classType.priv.includeSubclasses) {
                     // If the class if marked final and it matches, then
                     // we can eliminate it in the negative case.
                     if (matches && ClassType.isFinal(subtype)) {
@@ -2439,8 +2478,6 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
                     // in which case `type(x) is y` would fail.
                     return subtype;
                 }
-            } else if (isNoneInstance(subtype)) {
-                return isPositiveTest ? undefined : subtype;
             } else if (isAnyOrUnknown(subtype)) {
                 return isPositiveTest ? ClassType.cloneAsInstance(classType) : subtype;
             }
@@ -2459,33 +2496,65 @@ function narrowTypeForClassComparison(
     isPositiveTest: boolean
 ): Type {
     return mapSubtypes(referenceType, (subtype) => {
-        const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+        let concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
         if (isPositiveTest) {
-            if (isNoneInstance(concreteSubtype)) {
-                return undefined;
+            if (
+                isClassInstance(concreteSubtype) &&
+                TypeBase.isInstance(subtype) &&
+                ClassType.isBuiltIn(concreteSubtype, 'type')
+            ) {
+                concreteSubtype =
+                    concreteSubtype.priv.typeArgs && concreteSubtype.priv.typeArgs.length > 0
+                        ? convertToInstantiable(concreteSubtype.priv.typeArgs[0])
+                        : UnknownType.create();
             }
 
-            if (isClassInstance(concreteSubtype) && TypeBase.isInstance(subtype)) {
-                if (ClassType.isBuiltIn(concreteSubtype, 'type')) {
-                    return classType;
+            if (isAnyOrUnknown(concreteSubtype)) {
+                return classType;
+            }
+
+            if (isClass(concreteSubtype)) {
+                if (TypeBase.isInstance(concreteSubtype)) {
+                    return ClassType.isBuiltIn(concreteSubtype, 'object') ? classType : undefined;
                 }
 
-                return undefined;
-            }
+                const isSuperType = isIsinstanceFilterSuperclass(
+                    evaluator,
+                    subtype,
+                    concreteSubtype,
+                    classType,
+                    classType,
+                    /* isInstanceCheck */ false
+                );
 
-            if (isInstantiableClass(concreteSubtype) && ClassType.isFinal(concreteSubtype)) {
-                if (
-                    !ClassType.isSameGenericClass(concreteSubtype, classType) &&
-                    !isIsinstanceFilterSuperclass(
+                if (!classType.priv.includeSubclasses) {
+                    // Handle the case where the LHS and RHS operands are specific
+                    // classes, as opposed to types that represent classes and their
+                    // subclasses.
+                    if (!concreteSubtype.priv.includeSubclasses) {
+                        return ClassType.isSameGenericClass(concreteSubtype, classType) ? classType : undefined;
+                    }
+
+                    const isSubType = isIsinstanceFilterSubclass(
                         evaluator,
-                        subtype,
                         concreteSubtype,
                         classType,
-                        classType,
                         /* isInstanceCheck */ false
-                    )
-                ) {
+                    );
+
+                    if (isSuperType) {
+                        return classType;
+                    }
+
+                    if (isSubType) {
+                        return addConditionToType(classType, getTypeCondition(concreteSubtype));
+                    }
+
+                    return undefined;
+                }
+
+                if (ClassType.isFinal(concreteSubtype) && !isSuperType) {
                     return undefined;
                 }
             }
@@ -2523,7 +2592,7 @@ function narrowTypeForLiteralComparison(
 
             return subtype;
         } else if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
-            if (subtype.literalValue !== undefined) {
+            if (subtype.priv.literalValue !== undefined) {
                 const literalValueMatches = ClassType.isLiteralValueSame(subtype, literalType);
                 if ((literalValueMatches && !isPositiveTest) || (!literalValueMatches && isPositiveTest)) {
                     return undefined;
@@ -2564,9 +2633,7 @@ export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassTy
     if (ClassType.isEnumClass(type)) {
         // Enum expansion doesn't apply to enum classes that derive
         // from enum.Flag.
-        if (
-            type.details.baseClasses.some((baseClass) => isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'Flag'))
-        ) {
+        if (type.shared.baseClasses.some((baseClass) => isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'Flag'))) {
             return undefined;
         }
 
@@ -2581,7 +2648,7 @@ export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassTy
                 if (
                     isClassInstance(symbolType) &&
                     ClassType.isSameGenericClass(type, symbolType) &&
-                    symbolType.literalValue !== undefined
+                    symbolType.priv.literalValue !== undefined
                 ) {
                     enumList.push(symbolType);
                 }
@@ -2608,7 +2675,7 @@ function narrowTypeForCallable(
     return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Function:
-            case TypeCategory.OverloadedFunction: {
+            case TypeCategory.Overloaded: {
                 return isPositiveTest ? subtype : undefined;
             }
 
@@ -2637,7 +2704,7 @@ function narrowTypeForCallable(
                         // The type appears to not be callable. It's possible that the
                         // two type is a subclass that is callable. We'll synthesize a
                         // new intersection type.
-                        const className = `<callable subtype of ${subtype.details.name}>`;
+                        const className = `<callable subtype of ${subtype.shared.name}>`;
                         const fileInfo = getFileInfo(errorNode);
                         let newClassType = ClassType.createInstantiable(
                             className,
@@ -2647,25 +2714,25 @@ function narrowTypeForCallable(
                             ClassTypeFlags.None,
                             ParseTreeUtils.getTypeSourceId(errorNode),
                             /* declaredMetaclass */ undefined,
-                            subtype.details.effectiveMetaclass,
-                            subtype.details.docString
+                            subtype.shared.effectiveMetaclass,
+                            subtype.shared.docString
                         );
-                        newClassType.details.baseClasses = [ClassType.cloneAsInstantiable(subtype)];
+                        newClassType.shared.baseClasses = [ClassType.cloneAsInstantiable(subtype)];
                         computeMroLinearization(newClassType);
 
-                        newClassType = addConditionToType(newClassType, subtype.condition) as ClassType;
+                        newClassType = addConditionToType(newClassType, subtype.props?.condition);
 
                         // Add a __call__ method to the new class.
                         const callMethod = FunctionType.createSynthesizedInstance('__call__');
-                        const selfParam: FunctionParameter = {
-                            category: ParameterCategory.Simple,
-                            name: 'self',
-                            type: ClassType.cloneAsInstance(newClassType),
-                            hasDeclaredType: true,
-                        };
-                        FunctionType.addParameter(callMethod, selfParam);
-                        FunctionType.addDefaultParameters(callMethod);
-                        callMethod.details.declaredReturnType = UnknownType.create();
+                        const selfParam = FunctionParam.create(
+                            ParamCategory.Simple,
+                            ClassType.cloneAsInstance(newClassType),
+                            FunctionParamFlags.TypeDeclared,
+                            'self'
+                        );
+                        FunctionType.addParam(callMethod, selfParam);
+                        FunctionType.addDefaultParams(callMethod);
+                        callMethod.shared.declaredReturnType = UnknownType.create();
                         ClassType.getSymbolTable(newClassType).set(
                             '__call__',
                             Symbol.createWithType(SymbolFlags.ClassMember, callMethod)

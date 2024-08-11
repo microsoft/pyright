@@ -10,6 +10,7 @@ from .drawing import DeviceGray, DeviceRGB
 from .enums import Align, TableBordersLayout, TableCellFillMode, TableHeadingsDisplay, TableSpan, VAlign, WrapMode
 from .fonts import FontFace
 from .fpdf import FPDF
+from .image_datastructures import _TextAlign
 from .util import Padding
 
 DEFAULT_HEADINGS_STYLE: FontFace
@@ -22,7 +23,8 @@ class Table:
         fpdf: FPDF,
         rows: Iterable[str] = (),
         *,
-        align: str | Align = "CENTER",
+        # Keep in sync with `fpdf.fpdf.FPDF.table`:
+        align: str | _TextAlign = "CENTER",
         v_align: str | VAlign = "MIDDLE",
         borders_layout: str | TableBordersLayout = ...,
         cell_fill_color: int | tuple[Incomplete, ...] | DeviceGray | DeviceRGB | None = None,
@@ -34,7 +36,7 @@ class Table:
         headings_style: FontFace = ...,
         line_height: int | None = None,
         markdown: bool = False,
-        text_align: str | Align = "JUSTIFY",
+        text_align: str | _TextAlign | tuple[str | _TextAlign, ...] = "JUSTIFY",
         width: int | None = None,
         wrapmode: WrapMode = ...,
         padding: float | Padding | None = None,

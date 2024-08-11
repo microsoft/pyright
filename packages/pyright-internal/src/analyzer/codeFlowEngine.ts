@@ -14,7 +14,7 @@
 import { ConsoleInterface } from '../common/console';
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { ArgumentCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ArgCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo, getImportInfo } from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
@@ -41,7 +41,7 @@ import { isMatchingExpression, isPartialMatchingExpression, printExpression } fr
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment } from './typedDicts';
-import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvalFlags, Reachability, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { getTypeNarrowingCallback } from './typeGuards';
 import {
     ClassType,
@@ -52,12 +52,14 @@ import {
     isFunction,
     isInstantiableClass,
     isNever,
-    isOverloadedFunction,
+    isOverloaded,
+    isParamSpec,
     isTypeSame,
     isTypeVar,
+    isTypeVarTuple,
     maxTypeRecursionCount,
     NeverType,
-    OverloadedFunctionType,
+    OverloadedType,
     Type,
     TypeVarType,
     UnboundType,
@@ -65,6 +67,7 @@ import {
 } from './types';
 import {
     cleanIncompleteUnknown,
+    convertNodeToArg,
     derivesFromStdlibClass,
     doForEachSubtype,
     isIncompleteUnknown,
@@ -75,9 +78,24 @@ import {
 export interface FlowNodeTypeResult {
     type: Type | undefined;
     isIncomplete: boolean;
-    generationCount?: number | undefined;
-    incompleteType?: Type | undefined;
-    incompleteSubtypes?: IncompleteSubtypeInfo[] | undefined;
+    generationCount: number | undefined;
+    incompleteSubtypes: IncompleteSubtypeInfo[] | undefined;
+}
+
+export namespace FlowNodeTypeResult {
+    export function create(
+        type: Type | undefined,
+        isIncomplete: boolean,
+        generationCount?: number,
+        incompleteSubtypes?: IncompleteSubtypeInfo[]
+    ): FlowNodeTypeResult {
+        return {
+            type,
+            isIncomplete,
+            generationCount,
+            incompleteSubtypes,
+        };
+    }
 }
 
 export interface FlowNodeTypeOptions {
@@ -95,8 +113,8 @@ export interface CodeFlowAnalyzer {
 }
 
 export interface CodeFlowEngine {
-    createCodeFlowAnalyzer: (typeAtStart: TypeResult | undefined) => CodeFlowAnalyzer;
-    isFlowNodeReachable: (flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn?: boolean) => boolean;
+    createCodeFlowAnalyzer: () => CodeFlowAnalyzer;
+    getFlowNodeReachability: (flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn?: boolean) => Reachability;
     narrowConstrainedTypeVar: (flowNode: FlowNode, typeVar: TypeVarType) => Type | undefined;
     printControlFlowGraph: (
         flowNode: FlowNode,
@@ -134,6 +152,11 @@ export interface IncompleteType {
     isRecursionSentinel?: boolean;
 }
 
+interface ReachabilityCacheEntry {
+    reachability: Reachability | undefined;
+    reachabilityFrom: Map<number, Reachability>;
+}
+
 // Define a user type guard function for IncompleteType.
 export function isIncompleteType(cachedType: CachedType): cachedType is IncompleteType {
     return !!(cachedType as IncompleteType).isIncompleteType;
@@ -159,25 +182,38 @@ const enablePrintCallNoReturn = false;
 // and complete results, but it can be very expensive.
 const inferNoReturnForUnannotatedFunctions = false;
 
+// In rare circumstances, it's possible for types in a loop not to converge. This
+// can happen, for example, if there are many symbols that depend on each other
+// and their types depend on complex overloads that can resolve to Any under
+// certain circumstances. This defines the max number of times we'll attempt to
+// evaluate an antecedent in a loop before we give up and "pin" the evaluated
+// type for that antecedent. The number is somewhat arbitrary. Too low and
+// it will cause incorrect types to be evaluated even when types could converge.
+// Too high, and it will cause long hangs before giving up.
+const maxConvergenceAttemptLimit = 256;
+
+// Should a message be logged when the convergence limit is hit? This is useful
+// for debugging but not something that is actionable for users, so disable by
+// default.
+const enablePrintConvergenceLimitHit = false;
+
 export function getCodeFlowEngine(
     evaluator: TypeEvaluator,
     speculativeTypeTracker: SpeculativeTypeTracker
 ): CodeFlowEngine {
     const isReachableRecursionSet = new Set<number>();
+    const reachabilityCache = new Map<number, ReachabilityCacheEntry>();
     const callIsNoReturnCache = new Map<number, boolean>();
     const isExceptionContextManagerCache = new Map<number, boolean>();
     let flowIncompleteGeneration = 1;
     let noReturnAnalysisDepth = 0;
     let contextManagerAnalysisDepth = 0;
+    let maxConvergenceLimitHit = false;
 
     // Creates a new code flow analyzer that can be used to narrow the types
     // of the expressions within an execution context. Each code flow analyzer
     // instance maintains a cache of types it has already determined.
-    // The caller should pass a typeAtStart value because the code flow
-    // analyzer may cache types based on this value, but the typeAtStart
-    // may vary depending on the context in which the code flow analysis
-    // is performed.
-    function createCodeFlowAnalyzer(typeAtStart: TypeResult | undefined): CodeFlowAnalyzer {
+    function createCodeFlowAnalyzer(): CodeFlowAnalyzer {
         const flowNodeTypeCacheSet = new Map<string, CodeFlowTypeCache>();
 
         function getFlowNodeTypeCacheForReference(referenceKey: string) {
@@ -273,12 +309,12 @@ export function getCodeFlowEngine(
                 flowNodeTypeCache.cache.set(flowNode.id, entry);
                 speculativeTypeTracker.trackEntry(flowNodeTypeCache.cache, flowNode.id);
 
-                return {
+                return FlowNodeTypeResult.create(
                     type,
                     isIncomplete,
-                    generationCount: flowIncompleteGeneration,
-                    incompleteSubtypes: isIncomplete ? [] : undefined,
-                };
+                    flowIncompleteGeneration,
+                    isIncomplete ? [] : undefined
+                );
             }
 
             function setIncompleteSubtype(
@@ -346,19 +382,19 @@ export function getCodeFlowEngine(
 
                 const cachedEntry = flowNodeTypeCache.cache.get(flowNode.id);
                 if (cachedEntry === undefined) {
-                    return { type: undefined, isIncomplete: false };
+                    return FlowNodeTypeResult.create(/* type */ undefined, /* isIncomplete */ false);
                 }
 
                 if (!isIncompleteType(cachedEntry)) {
-                    return { type: cachedEntry, isIncomplete: false };
+                    return FlowNodeTypeResult.create(cachedEntry, /* isIncomplete */ false);
                 }
 
-                return {
-                    type: cachedEntry.type,
-                    isIncomplete: true,
-                    incompleteSubtypes: cachedEntry.incompleteSubtypes,
-                    generationCount: cachedEntry.generationCount,
-                };
+                return FlowNodeTypeResult.create(
+                    cachedEntry.type,
+                    /* isIncomplete */ true,
+                    cachedEntry.generationCount,
+                    cachedEntry.incompleteSubtypes
+                );
             }
 
             function deleteCacheEntry(flowNode: FlowNode) {
@@ -419,19 +455,19 @@ export function getCodeFlowEngine(
                         // If the cached entry is incomplete, we can use it only if nothing
                         // has changed that may cause the previously-reported incomplete type to change.
                         if (cachedEntry.generationCount === flowIncompleteGeneration) {
-                            return {
-                                type: cachedEntry.type ? cleanIncompleteUnknown(cachedEntry.type) : undefined,
-                                isIncomplete: true,
-                            };
+                            return FlowNodeTypeResult.create(
+                                cachedEntry.type ? cleanIncompleteUnknown(cachedEntry.type) : undefined,
+                                /* isIncomplete */ true
+                            );
                         }
                     }
 
                     // Check for recursion.
                     if (flowNodeTypeCache.pendingNodes.has(curFlowNode.id)) {
-                        return {
-                            type: cachedEntry?.type ?? UnknownType.create(/* isIncomplete */ true),
-                            isIncomplete: true,
-                        };
+                        return FlowNodeTypeResult.create(
+                            cachedEntry?.type ?? UnknownType.create(/* isIncomplete */ true),
+                            /* isIncomplete */ true
+                        );
                     }
 
                     if (curFlowNode.flags & FlowFlags.Unreachable) {
@@ -501,20 +537,13 @@ export function getCodeFlowEngine(
                                 if (flowTypeResult) {
                                     if (isTypeAliasPlaceholder(flowTypeResult.type)) {
                                         // Don't cache a recursive type alias placeholder.
-                                        return {
-                                            type: flowTypeResult.type,
-                                            isIncomplete: true,
-                                        };
+                                        return FlowNodeTypeResult.create(flowTypeResult.type, /* isIncomplete */ true);
                                     } else if (
                                         reference.nodeType === ParseNodeType.MemberAccess &&
                                         evaluator.isAsymmetricAccessorAssignment(targetNode)
                                     ) {
                                         flowTypeResult = undefined;
                                     }
-                                }
-
-                                if (flowTypeResult && !isFlowNodeReachable(flowNode)) {
-                                    flowTypeResult = undefined;
                                 }
 
                                 return setCacheEntry(curFlowNode, flowTypeResult?.type, !!flowTypeResult?.isIncomplete);
@@ -525,19 +554,19 @@ export function getCodeFlowEngine(
                             // base type.
                             if (
                                 targetNode.nodeType === ParseNodeType.Index &&
-                                isMatchingExpression(reference, targetNode.baseExpression)
+                                isMatchingExpression(reference, targetNode.d.leftExpr)
                             ) {
                                 if (
                                     targetNode.parent?.nodeType === ParseNodeType.Assignment &&
-                                    targetNode.items.length === 1 &&
-                                    !targetNode.trailingComma &&
-                                    !targetNode.items[0].name &&
-                                    targetNode.items[0].argumentCategory === ArgumentCategory.Simple &&
-                                    targetNode.items[0].valueExpression.nodeType === ParseNodeType.StringList &&
-                                    targetNode.items[0].valueExpression.strings.length === 1 &&
-                                    targetNode.items[0].valueExpression.strings[0].nodeType === ParseNodeType.String
+                                    targetNode.d.items.length === 1 &&
+                                    !targetNode.d.trailingComma &&
+                                    !targetNode.d.items[0].d.name &&
+                                    targetNode.d.items[0].d.argCategory === ArgCategory.Simple &&
+                                    targetNode.d.items[0].d.valueExpr.nodeType === ParseNodeType.StringList &&
+                                    targetNode.d.items[0].d.valueExpr.d.strings.length === 1 &&
+                                    targetNode.d.items[0].d.valueExpr.d.strings[0].nodeType === ParseNodeType.String
                                 ) {
-                                    const keyValue = targetNode.items[0].valueExpression.strings[0].value;
+                                    const keyValue = targetNode.d.items[0].d.valueExpr.d.strings[0].d.value;
                                     const narrowedResult = preventRecursion(assignmentFlowNode, () => {
                                         const flowTypeResult = getTypeFromFlowNode(assignmentFlowNode.antecedent);
 
@@ -568,10 +597,10 @@ export function getCodeFlowEngine(
                                 //    a = Foo()
                                 //    x = a.b
                                 // The type of "a.b" can no longer be assumed to be Literal[3].
-                                return {
-                                    type: options?.typeAtStart?.type,
-                                    isIncomplete: !!options?.typeAtStart?.isIncomplete,
-                                };
+                                return FlowNodeTypeResult.create(
+                                    options?.typeAtStart?.type,
+                                    !!options?.typeAtStart?.isIncomplete
+                                );
                             }
                         }
 
@@ -607,7 +636,8 @@ export function getCodeFlowEngine(
                                 !subexpressionReferenceKeys.some((key) =>
                                     branchFlowNode.affectedExpressions!.has(key)
                                 ) &&
-                                isFlowNodeReachable(curFlowNode, branchFlowNode.preBranchAntecedent)
+                                getFlowNodeReachability(curFlowNode, branchFlowNode.preBranchAntecedent) ===
+                                    Reachability.Reachable
                             ) {
                                 curFlowNode = branchFlowNode.preBranchAntecedent;
                                 continue;
@@ -695,7 +725,7 @@ export function getCodeFlowEngine(
                                 // too expensive.
                                 const symbolWithScope = evaluator.lookUpSymbolRecursive(
                                     conditionalFlowNode.reference,
-                                    conditionalFlowNode.reference.value,
+                                    conditionalFlowNode.reference.d.value,
                                     /* honorCodeFlow */ false
                                 );
 
@@ -864,7 +894,7 @@ export function getCodeFlowEngine(
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
                         const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
                         if (reference && reference.nodeType === ParseNodeType.Name) {
-                            const nameValue = reference.value;
+                            const nameValue = reference.d.value;
                             if (wildcardImportFlowNode.names.some((name) => name === nameValue)) {
                                 return preventRecursion(curFlowNode, () => {
                                     const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
@@ -935,10 +965,10 @@ export function getCodeFlowEngine(
                     // If entries have been added for all antecedents and there are pending entries
                     // that have not been evaluated even once, treat it as incomplete. We clean
                     // any incomplete unknowns from the type here to assist with type convergence.
-                    return {
-                        type: cacheEntry.type ? cleanIncompleteUnknown(cacheEntry.type) : undefined,
-                        isIncomplete: true,
-                    };
+                    return FlowNodeTypeResult.create(
+                        cacheEntry.type ? cleanIncompleteUnknown(cacheEntry.type) : undefined,
+                        /* isIncomplete */ true
+                    );
                 }
 
                 let attemptCount = 0;
@@ -1001,6 +1031,17 @@ export function getCodeFlowEngine(
                         if (subtypeEntry === undefined || (!subtypeEntry?.isPending && subtypeEntry?.isIncomplete)) {
                             const entryEvaluationCount = subtypeEntry === undefined ? 0 : subtypeEntry.evaluationCount;
 
+                            // Does it look like this will never converge? If so, stick with the
+                            // previously-computed type for this entry.
+                            if (entryEvaluationCount >= maxConvergenceAttemptLimit) {
+                                // Log this only once.
+                                if (!maxConvergenceLimitHit && enablePrintConvergenceLimitHit) {
+                                    console.log('Types failed to converge during code flow analysis');
+                                }
+                                maxConvergenceLimitHit = true;
+                                return;
+                            }
+
                             // Set this entry to "pending" to prevent infinite recursion.
                             // We'll mark it "not pending" below.
                             cacheEntry = setIncompleteSubtype(
@@ -1057,7 +1098,7 @@ export function getCodeFlowEngine(
                         // entry because we'll overwrite a pending evaluation. The type that
                         // we return here doesn't matter as long as it's not undefined.
                         return sawPending
-                            ? { type: UnknownType.create(), isIncomplete: false }
+                            ? FlowNodeTypeResult.create(UnknownType.create(), /* isIncomplete */ false)
                             : setCacheEntry(loopNode, UnknownType.create(), /* isIncomplete */ false);
                     }
 
@@ -1100,13 +1141,13 @@ export function getCodeFlowEngine(
                                 flowIncompleteGeneration++;
                             }
 
-                            return { type: effectiveType, isIncomplete: reportIncomplete };
+                            return FlowNodeTypeResult.create(effectiveType, reportIncomplete);
                         }
 
                         // If the first antecedent was pending, we skipped all of the other
                         // antecedents, so the type is incomplete.
                         if (firstAntecedentTypeIsPending) {
-                            return { type: effectiveType, isIncomplete: true };
+                            return FlowNodeTypeResult.create(effectiveType, /* isIncomplete */ true);
                         }
 
                         return setCacheEntry(loopNode, effectiveType, /* isIncomplete */ false);
@@ -1119,7 +1160,7 @@ export function getCodeFlowEngine(
             function getTypeFromPreFinallyGateFlowNode(preFinallyFlowNode: FlowPreFinallyGate): FlowNodeTypeResult {
                 // Is the finally gate closed?
                 if (flowNodeTypeCache.closedFinallyGateNodes.has(preFinallyFlowNode.id)) {
-                    return { type: undefined, isIncomplete: false };
+                    return FlowNodeTypeResult.create(/* type */ undefined, /* isIncomplete */ false);
                 }
 
                 const flowTypeResult = getTypeFromFlowNode(preFinallyFlowNode.antecedent);
@@ -1127,10 +1168,7 @@ export function getCodeFlowEngine(
                 // We want to cache the type only if we're evaluating the "gate closed" path.
                 deleteCacheEntry(preFinallyFlowNode);
 
-                return {
-                    type: flowTypeResult.type,
-                    isIncomplete: flowTypeResult.isIncomplete,
-                };
+                return FlowNodeTypeResult.create(flowTypeResult.type, flowTypeResult.isIncomplete);
             }
 
             function getTypeFromPostFinallyFlowNode(postFinallyFlowNode: FlowPostFinally): FlowNodeTypeResult {
@@ -1164,10 +1202,7 @@ export function getCodeFlowEngine(
                 // parse nodes that are created after the initial parse
                 // (namely, string literals that are used for forward
                 // referenced types).
-                return {
-                    type: options?.typeAtStart?.type,
-                    isIncomplete: !!options?.typeAtStart?.isIncomplete,
-                };
+                return FlowNodeTypeResult.create(options?.typeAtStart?.type, !!options?.typeAtStart?.isIncomplete);
             }
 
             return getTypeFromFlowNode(flowNode);
@@ -1182,52 +1217,87 @@ export function getCodeFlowEngine(
     // control flow path within the execution context. If sourceFlowNode
     // is specified, it returns true only if at least one control flow
     // path passes through sourceFlowNode.
-    function isFlowNodeReachable(flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn = false): boolean {
+    function getFlowNodeReachability(
+        flowNode: FlowNode,
+        sourceFlowNode?: FlowNode,
+        ignoreNoReturn = false
+    ): Reachability {
         const visitedFlowNodeSet = new Set<number>();
         const closedFinallyGateSet = new Set<number>();
 
         if (enablePrintControlFlowGraph) {
-            printControlFlowGraph(flowNode, /* reference */ undefined, 'isFlowNodeReachable');
+            printControlFlowGraph(flowNode, /* reference */ undefined, 'getFlowNodeReachability');
         }
 
-        function isFlowNodeReachableRecursive(
-            flowNode: FlowNode,
-            sourceFlowNode: FlowNode | undefined,
-            recursionCount = 0
-        ): boolean {
+        function cacheReachabilityResult(reachability: Reachability): Reachability {
+            // If there is a finally gate set, we will not cache the results
+            // because this can affect the reachability.
+            if (closedFinallyGateSet.size > 0) {
+                return reachability;
+            }
+
+            let cacheEntry = reachabilityCache.get(flowNode.id);
+            if (!cacheEntry) {
+                cacheEntry = { reachability: undefined, reachabilityFrom: new Map<number, Reachability>() };
+                reachabilityCache.set(flowNode.id, cacheEntry);
+            }
+
+            if (!sourceFlowNode) {
+                cacheEntry.reachability = reachability;
+            } else {
+                cacheEntry.reachabilityFrom.set(sourceFlowNode.id, reachability);
+            }
+
+            return reachability;
+        }
+
+        function getFlowNodeReachabilityRecursive(flowNode: FlowNode, recursionCount = 0): Reachability {
             // Cut off the recursion at some point to prevent a stack overflow.
             const maxFlowNodeReachableRecursionCount = 64;
             if (recursionCount > maxFlowNodeReachableRecursionCount) {
-                return true;
+                return Reachability.Reachable;
             }
             recursionCount++;
 
             let curFlowNode = flowNode;
 
             while (true) {
+                // See if we've already cached this result.
+                const cacheEntry = reachabilityCache.get(flowNode.id);
+                if (cacheEntry !== undefined && closedFinallyGateSet.size === 0) {
+                    if (!sourceFlowNode) {
+                        if (cacheEntry.reachability !== undefined) {
+                            return cacheEntry.reachability;
+                        }
+                    } else {
+                        const reachabilityFrom = cacheEntry.reachabilityFrom.get(sourceFlowNode.id);
+                        if (reachabilityFrom !== undefined) {
+                            return reachabilityFrom;
+                        }
+                    }
+                }
+
                 // If we've already visited this node, we can assume
                 // it wasn't reachable.
                 if (visitedFlowNodeSet.has(curFlowNode.id)) {
-                    return false;
+                    return cacheReachabilityResult(Reachability.UnreachableAlways);
                 }
 
                 // Note that we've been here before.
                 visitedFlowNodeSet.add(curFlowNode.id);
 
                 if (curFlowNode.flags & FlowFlags.Unreachable) {
-                    return false;
+                    return cacheReachabilityResult(Reachability.UnreachableAlways);
                 }
 
                 if (curFlowNode === sourceFlowNode) {
-                    return true;
+                    return cacheReachabilityResult(Reachability.Reachable);
                 }
 
                 if (
                     curFlowNode.flags &
                     (FlowFlags.VariableAnnotation |
                         FlowFlags.Assignment |
-                        FlowFlags.TrueCondition |
-                        FlowFlags.FalseCondition |
                         FlowFlags.WildcardImport |
                         FlowFlags.NarrowForPattern |
                         FlowFlags.ExhaustedMatch)
@@ -1235,15 +1305,19 @@ export function getCodeFlowEngine(
                     const typedFlowNode = curFlowNode as
                         | FlowVariableAnnotation
                         | FlowAssignment
-                        | FlowCondition
                         | FlowWildcardImport
-                        | FlowCondition
                         | FlowExhaustedMatch;
                     curFlowNode = typedFlowNode.antecedent;
                     continue;
                 }
 
-                if (curFlowNode.flags & (FlowFlags.TrueNeverCondition | FlowFlags.FalseNeverCondition)) {
+                if (
+                    curFlowNode.flags &
+                    (FlowFlags.TrueCondition |
+                        FlowFlags.FalseCondition |
+                        FlowFlags.TrueNeverCondition |
+                        FlowFlags.FalseNeverCondition)
+                ) {
                     const conditionalFlowNode = curFlowNode as FlowCondition;
                     if (conditionalFlowNode.reference) {
                         // Make sure the reference type has a declared type. If not,
@@ -1251,7 +1325,7 @@ export function getCodeFlowEngine(
                         // too expensive.
                         const symbolWithScope = evaluator.lookUpSymbolRecursive(
                             conditionalFlowNode.reference,
-                            conditionalFlowNode.reference.value,
+                            conditionalFlowNode.reference.d.value,
                             /* honorCodeFlow */ false
                         );
 
@@ -1277,7 +1351,7 @@ export function getCodeFlowEngine(
                             }
 
                             if (isUnreachable) {
-                                return false;
+                                return cacheReachabilityResult(Reachability.UnreachableByAnalysis);
                             }
                         }
                     }
@@ -1293,7 +1367,7 @@ export function getCodeFlowEngine(
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
                     if (!ignoreNoReturn && isCallNoReturn(evaluator, callFlowNode)) {
-                        return false;
+                        return cacheReachabilityResult(Reachability.UnreachableByAnalysis);
                     }
 
                     curFlowNode = callFlowNode.antecedent;
@@ -1310,29 +1384,37 @@ export function getCodeFlowEngine(
                                 isExceptionContextManager(evaluator, expr, contextMgrNode.isAsync)
                             )
                         ) {
-                            return false;
+                            return cacheReachabilityResult(Reachability.UnreachableByAnalysis);
                         }
                     }
 
                     const labelNode = curFlowNode as FlowLabel;
+                    let unreachableByType = false;
                     for (const antecedent of labelNode.antecedents) {
-                        if (isFlowNodeReachableRecursive(antecedent, sourceFlowNode, recursionCount)) {
-                            return true;
+                        const reachability = getFlowNodeReachabilityRecursive(antecedent, recursionCount);
+                        if (reachability === Reachability.Reachable) {
+                            return cacheReachabilityResult(reachability);
+                        } else if (reachability === Reachability.UnreachableByAnalysis) {
+                            unreachableByType = true;
                         }
                     }
-                    return false;
+                    return cacheReachabilityResult(
+                        unreachableByType ? Reachability.UnreachableByAnalysis : Reachability.UnreachableAlways
+                    );
                 }
 
                 if (curFlowNode.flags & FlowFlags.Start) {
                     // If we hit the start but were looking for a particular source flow
                     // node, return false. Otherwise, the start is what we're looking for.
-                    return sourceFlowNode ? false : true;
+                    return cacheReachabilityResult(
+                        sourceFlowNode ? Reachability.UnreachableByAnalysis : Reachability.Reachable
+                    );
                 }
 
                 if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
                     const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
                     if (closedFinallyGateSet.has(preFinallyFlowNode.id)) {
-                        return false;
+                        return cacheReachabilityResult(Reachability.UnreachableByAnalysis);
                     }
 
                     curFlowNode = preFinallyFlowNode.antecedent;
@@ -1345,10 +1427,8 @@ export function getCodeFlowEngine(
 
                     try {
                         closedFinallyGateSet.add(postFinallyFlowNode.preFinallyGate.id);
-                        return isFlowNodeReachableRecursive(
-                            postFinallyFlowNode.antecedent,
-                            sourceFlowNode,
-                            recursionCount
+                        return cacheReachabilityResult(
+                            getFlowNodeReachabilityRecursive(postFinallyFlowNode.antecedent, recursionCount)
                         );
                     } finally {
                         if (!wasGateClosed) {
@@ -1359,18 +1439,18 @@ export function getCodeFlowEngine(
 
                 // We shouldn't get here.
                 fail('Unexpected flow node flags');
-                return false;
+                return cacheReachabilityResult(Reachability.Reachable);
             }
         }
 
         // Protect against infinite recursion.
         if (isReachableRecursionSet.has(flowNode.id)) {
-            return true;
+            return Reachability.UnreachableByAnalysis;
         }
         isReachableRecursionSet.add(flowNode.id);
 
         try {
-            return isFlowNodeReachableRecursive(flowNode, sourceFlowNode);
+            return getFlowNodeReachabilityRecursive(flowNode);
         } finally {
             isReachableRecursionSet.delete(flowNode.id);
         }
@@ -1380,15 +1460,15 @@ export function getCodeFlowEngine(
     // can be narrowed to one of its constrained types based on isinstance type
     // guard checks.
     function narrowConstrainedTypeVar(flowNode: FlowNode, typeVar: TypeVarType): ClassType | undefined {
-        assert(!typeVar.details.isParamSpec);
-        assert(!typeVar.details.isVariadic);
-        assert(!typeVar.details.boundType);
-        assert(typeVar.details.constraints.length > 0);
+        assert(!isParamSpec(typeVar));
+        assert(!isTypeVarTuple(typeVar));
+        assert(!TypeVarType.hasBound(typeVar));
+        assert(TypeVarType.hasConstraints(typeVar));
 
         const visitedFlowNodeMap = new Set<number>();
         const startingConstraints: ClassType[] = [];
 
-        for (const constraint of typeVar.details.constraints) {
+        for (const constraint of typeVar.shared.constraints) {
             if (isClassInstance(constraint)) {
                 startingConstraints.push(constraint);
             } else {
@@ -1443,18 +1523,18 @@ export function getCodeFlowEngine(
                         ).type;
 
                         if (isCompatibleWithConstrainedTypeVar(subjectType, typeVar)) {
-                            const patternNode = narrowForPatternFlowNode.statement.pattern;
+                            const patternNode = narrowForPatternFlowNode.statement.d.pattern;
 
                             if (
                                 patternNode.nodeType === ParseNodeType.PatternAs &&
-                                patternNode.orPatterns.length === 1 &&
-                                patternNode.orPatterns[0].nodeType === ParseNodeType.PatternClass
+                                patternNode.d.orPatterns.length === 1 &&
+                                patternNode.d.orPatterns[0].nodeType === ParseNodeType.PatternClass
                             ) {
-                                const classPatternNode = patternNode.orPatterns[0];
+                                const classPatternNode = patternNode.d.orPatterns[0];
 
                                 const classType = evaluator.getTypeOfExpression(
-                                    classPatternNode.className,
-                                    EvaluatorFlags.CallBaseDefaults
+                                    classPatternNode.d.className,
+                                    EvalFlags.CallBaseDefaults
                                 ).type;
 
                                 if (isInstantiableClass(classType)) {
@@ -1483,11 +1563,11 @@ export function getCodeFlowEngine(
 
                     if (
                         testExpression.nodeType === ParseNodeType.Call &&
-                        testExpression.leftExpression.nodeType === ParseNodeType.Name &&
-                        testExpression.leftExpression.value === 'isinstance' &&
-                        testExpression.arguments.length === 2
+                        testExpression.d.leftExpr.nodeType === ParseNodeType.Name &&
+                        testExpression.d.leftExpr.d.value === 'isinstance' &&
+                        testExpression.d.args.length === 2
                     ) {
-                        const arg0Expr = testExpression.arguments[0].valueExpression;
+                        const arg0Expr = testExpression.d.args[0].d.valueExpr;
 
                         const arg0Type = evaluator.getTypeOfExpression(arg0Expr).type;
 
@@ -1500,15 +1580,15 @@ export function getCodeFlowEngine(
                             );
                             visitedFlowNodeMap.delete(curFlowNode.id);
 
-                            const arg1Expr = testExpression.arguments[1].valueExpression;
+                            const arg1Expr = testExpression.d.args[1].d.valueExpr;
                             const arg1Type = evaluator.getTypeOfExpression(
                                 arg1Expr,
-                                EvaluatorFlags.AllowMissingTypeArgs |
-                                    EvaluatorFlags.EvaluateStringLiteralAsType |
-                                    EvaluatorFlags.DisallowParamSpec |
-                                    EvaluatorFlags.DisallowTypeVarTuple |
-                                    EvaluatorFlags.DisallowFinal |
-                                    EvaluatorFlags.DoNotSpecialize
+                                EvalFlags.AllowMissingTypeArgs |
+                                    EvalFlags.StrLiteralAsType |
+                                    EvalFlags.NoParamSpec |
+                                    EvalFlags.NoTypeVarTuple |
+                                    EvalFlags.NoFinal |
+                                    EvalFlags.NoSpecialize
                             ).type;
 
                             if (isInstantiableClass(arg1Type)) {
@@ -1569,12 +1649,12 @@ export function getCodeFlowEngine(
                 if (!isTypeSame(subtype, typeVar)) {
                     isCompatible = false;
                 }
-            } else if (subtype.condition) {
+            } else if (subtype.props?.condition) {
                 if (
-                    !subtype.condition.some(
+                    !subtype.props.condition.some(
                         (condition) =>
-                            condition.typeVar.details.constraints.length > 0 &&
-                            condition.typeVar.nameWithScope === typeVar.nameWithScope
+                            TypeVarType.hasConstraints(condition.typeVar) &&
+                            condition.typeVar.priv.nameWithScope === typeVar.priv.nameWithScope
                     )
                 ) {
                     isCompatible = false;
@@ -1614,7 +1694,7 @@ export function getCodeFlowEngine(
 
         // Don't attempt to evaluate a lambda call. We need to evaluate these in the
         // context of its arguments.
-        if (node.leftExpression.nodeType === ParseNodeType.Lambda) {
+        if (node.d.leftExpr.nodeType === ParseNodeType.Lambda) {
             return false;
         }
 
@@ -1628,7 +1708,7 @@ export function getCodeFlowEngine(
             let subtypeCount = 0;
 
             // Evaluate the call base type.
-            const callTypeResult = evaluator.getTypeOfExpression(node.leftExpression, EvaluatorFlags.CallBaseDefaults);
+            const callTypeResult = evaluator.getTypeOfExpression(node.d.leftExpr, EvalFlags.CallBaseDefaults);
             const callType = callTypeResult.type;
 
             doForEachSubtype(callType, (callSubtype) => {
@@ -1646,7 +1726,7 @@ export function getCodeFlowEngine(
 
                     const newMethodResult = getBoundNewMethod(evaluator, node, callSubtype);
                     if (newMethodResult) {
-                        if (isFunction(newMethodResult.type) || isOverloadedFunction(newMethodResult.type)) {
+                        if (isFunction(newMethodResult.type) || isOverloaded(newMethodResult.type)) {
                             callSubtype = newMethodResult.type;
                         }
                     }
@@ -1663,11 +1743,11 @@ export function getCodeFlowEngine(
                     if (isFunctionNoReturn(callSubtype, isCallAwaited)) {
                         noReturnTypeCount++;
                     }
-                } else if (isOverloadedFunction(callSubtype)) {
+                } else if (isOverloaded(callSubtype)) {
                     let overloadCount = 0;
                     let noReturnOverloadCount = 0;
 
-                    OverloadedFunctionType.getOverloads(callSubtype).forEach((overload) => {
+                    OverloadedType.getOverloads(callSubtype).forEach((overload) => {
                         overloadCount++;
 
                         if (isFunctionNoReturn(overload, isCallAwaited)) {
@@ -1683,14 +1763,13 @@ export function getCodeFlowEngine(
                         } else {
                             // Perform a more complete evaluation to determine whether
                             // the applicable overload returns a NoReturn.
-                            const callResult = evaluator.validateOverloadedFunctionArguments(
+                            const callResult = evaluator.validateOverloadedArgTypes(
                                 node,
-                                node.arguments,
+                                node.d.args.map((arg) => convertNodeToArg(arg)),
                                 { type: callSubtype, isIncomplete: callTypeResult.isIncomplete },
-                                /* typeVarContext */ undefined,
+                                /* constraints */ undefined,
                                 /* skipUnknownArgCheck */ false,
-                                /* inferenceContext */ undefined,
-                                /* signatureTracker */ undefined
+                                /* inferenceContext */ undefined
                             );
 
                             if (callResult.returnType && isNever(callResult.returnType)) {
@@ -1718,15 +1797,15 @@ export function getCodeFlowEngine(
     }
 
     function isFunctionNoReturn(functionType: FunctionType, isCallAwaited: boolean) {
-        const returnType = functionType.details.declaredReturnType;
+        const returnType = functionType.shared.declaredReturnType;
         if (returnType) {
             if (
                 isClassInstance(returnType) &&
                 ClassType.isBuiltIn(returnType, 'Coroutine') &&
-                returnType.typeArguments &&
-                returnType.typeArguments.length >= 3
+                returnType.priv.typeArgs &&
+                returnType.priv.typeArgs.length >= 3
             ) {
-                if (isNever(returnType.typeArguments[2]) && isCallAwaited) {
+                if (isNever(returnType.priv.typeArgs[2]) && isCallAwaited) {
                     return true;
                 }
             }
@@ -1734,34 +1813,34 @@ export function getCodeFlowEngine(
             return isNever(returnType);
         } else if (!inferNoReturnForUnannotatedFunctions) {
             return false;
-        } else if (functionType.details.declaration) {
+        } else if (functionType.shared.declaration) {
             // If the function is a generator (i.e. it has yield statements)
             // then it is not a "no return" call. Also, don't infer a "no
             // return" type for abstract methods.
             if (
-                !functionType.details.declaration.isGenerator &&
+                !functionType.shared.declaration.isGenerator &&
                 !FunctionType.isAbstractMethod(functionType) &&
                 !FunctionType.isStubDefinition(functionType) &&
                 !FunctionType.isPyTypedDefinition(functionType)
             ) {
                 // Check specifically for a common idiom where the only statement
                 // (other than a possible docstring) is a "raise NotImplementedError".
-                const functionStatements = functionType.details.declaration.node.suite.statements;
+                const functionStatements = functionType.shared.declaration.node.d.suite.d.statements;
 
                 let foundRaiseNotImplemented = false;
                 for (const statement of functionStatements) {
-                    if (statement.nodeType !== ParseNodeType.StatementList || statement.statements.length !== 1) {
+                    if (statement.nodeType !== ParseNodeType.StatementList || statement.d.statements.length !== 1) {
                         break;
                     }
 
-                    const simpleStatement = statement.statements[0];
+                    const simpleStatement = statement.d.statements[0];
                     if (simpleStatement.nodeType === ParseNodeType.StringList) {
                         continue;
                     }
 
-                    if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.typeExpression) {
+                    if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.d.typeExpression) {
                         // Check for a raising about 'NotImplementedError' or a subtype thereof.
-                        const exceptionType = evaluator.getType(simpleStatement.typeExpression);
+                        const exceptionType = evaluator.getType(simpleStatement.d.typeExpression);
 
                         if (
                             exceptionType &&
@@ -1785,11 +1864,11 @@ export function getCodeFlowEngine(
     }
 
     function isAfterNodeReachable(evaluator: TypeEvaluator, functionType: FunctionType) {
-        if (!functionType.details.declaration) {
+        if (!functionType.shared.declaration) {
             return true;
         }
 
-        return evaluator.isAfterNodeReachable(functionType.details.declaration.node);
+        return evaluator.isAfterNodeReachable(functionType.shared.declaration.node);
     }
 
     // Performs a cursory analysis to determine whether the expression
@@ -1822,8 +1901,8 @@ export function getCodeFlowEngine(
                 const exitMethodName = isAsync ? '__aexit__' : '__exit__';
                 const exitType = evaluator.getBoundMagicMethod(cmType, exitMethodName);
 
-                if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
-                    let returnType = exitType.details.declaredReturnType;
+                if (exitType && isFunction(exitType) && exitType.shared.declaredReturnType) {
+                    let returnType = exitType.shared.declaredReturnType;
 
                     // If it's an __aexit__ method, its return type will typically be wrapped
                     // in a Coroutine, so we need to extract the return type from the third
@@ -1832,16 +1911,16 @@ export function getCodeFlowEngine(
                         if (
                             isClassInstance(returnType) &&
                             ClassType.isBuiltIn(returnType, 'Coroutine') &&
-                            returnType.typeArguments &&
-                            returnType.typeArguments.length >= 3
+                            returnType.priv.typeArgs &&
+                            returnType.priv.typeArgs.length >= 3
                         ) {
-                            returnType = returnType.typeArguments[2];
+                            returnType = returnType.priv.typeArgs[2];
                         }
                     }
 
                     cmSwallowsExceptions = false;
                     if (isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool')) {
-                        if (returnType.literalValue === undefined || returnType.literalValue === true) {
+                        if (returnType.priv.literalValue === undefined || returnType.priv.literalValue === true) {
                             cmSwallowsExceptions = true;
                         }
                     }
@@ -1858,9 +1937,9 @@ export function getCodeFlowEngine(
     }
 
     function getTypeFromWildcardImport(flowNode: FlowWildcardImport, name: string): Type {
-        const importInfo = getImportInfo(flowNode.node.module);
+        const importInfo = getImportInfo(flowNode.node.d.module);
         assert(importInfo !== undefined && importInfo.isImportFound);
-        assert(flowNode.node.isWildcardImport);
+        assert(flowNode.node.d.isWildcardImport);
 
         const symbolWithScope = evaluator.lookUpSymbolRecursive(flowNode.node, name, /* honorCodeFlow */ false);
         assert(symbolWithScope !== undefined);
@@ -1893,7 +1972,7 @@ export function getCodeFlowEngine(
 
     return {
         createCodeFlowAnalyzer,
-        isFlowNodeReachable,
+        getFlowNodeReachability,
         narrowConstrainedTypeVar,
         printControlFlowGraph,
     };

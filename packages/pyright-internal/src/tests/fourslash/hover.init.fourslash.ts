@@ -15,7 +15,7 @@
 //// c1 = [|/*marker1*/C1|]()
 ////
 //// unionType = Union[C1, C2]
-//// c2 = [|/*marker2*/unionType|]()
+//// c2 = [|/*marker2*/unionType|]
 ////
 //// T = TypeVar("T")
 //// class G(Generic[T]):
@@ -32,7 +32,7 @@
 
 helper.verifyHover('markdown', {
     marker1: '```python\nclass C1(name: str = "hello")\n```\n---\n\\_\\_init\\_\\_ docs',
-    marker2: '```python\n(type alias) unionType: type[C1] | type[C2]\n```',
+    marker2: '```python\n(type) unionType = C1 | C2\n```',
     marker3: '```python\nclass G(value: int)\n```',
     marker4: '```python\nclass G(value: int)\n```',
     marker5: '```python\nclass C1(name: str = "hello")\n```\n---\n\\_\\_init\\_\\_ docs',

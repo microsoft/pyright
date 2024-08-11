@@ -162,9 +162,9 @@ def get_precision(geometry: Geometry | None, **kwargs) -> float: ...
 def get_precision(geometry: OptGeoArrayLikeSeq, **kwargs) -> NDArray[np.float64]: ...
 
 class SetPrecisionMode(ParamEnum):
-    valid_output = 0  # noqa: Y052
-    pointwise = 1  # noqa: Y052
-    keep_collapsed = 2  # noqa: Y052
+    valid_output = 0
+    pointwise = 1
+    keep_collapsed = 2
 
 @overload
 def set_precision(geometry: OptGeoT, grid_size: float, mode: _PrecisionMode = "valid_output", **kwargs) -> OptGeoT: ...

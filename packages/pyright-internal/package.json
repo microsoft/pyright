@@ -2,7 +2,7 @@
     "name": "pyright-internal",
     "displayName": "pyright",
     "description": "Type checker for the Python language",
-    "version": "1.1.366",
+    "version": "1.1.375",
     "license": "MIT",
     "private": true,
     "files": [
@@ -29,10 +29,10 @@
         "leven": "3.1.0",
         "source-map-support": "^0.5.21",
         "tmp": "^0.2.1",
-        "vscode-jsonrpc": "^9.0.0-next.2",
-        "vscode-languageserver": "^10.0.0-next.2",
+        "vscode-jsonrpc": "^9.0.0-next.4",
+        "vscode-languageserver": "^10.0.0-next.6",
         "vscode-languageserver-textdocument": "1.0.11",
-        "vscode-languageserver-types": "^3.17.6-next.3",
+        "vscode-languageserver-types": "^3.17.6-next.4",
         "vscode-uri": "^3.0.8"
     },
     "devDependencies": {
@@ -49,7 +49,7 @@
         "shx": "^0.3.4",
         "ts-jest": "^29.1.2",
         "ts-loader": "^9.5.1",
-        "typescript": "~5.2",
+        "typescript": "~5.5.4",
         "webpack": "^5.90.1",
         "webpack-cli": "^5.1.4",
         "word-wrap": "1.2.5"

@@ -6,7 +6,7 @@
  * Logic for performing auto-import completions.
  */
 
-import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-languageserver';
+import { CancellationToken, CompletionItem, CompletionItemKind, SymbolKind } from 'vscode-languageserver';
 
 import { DeclarationType } from '../analyzer/declaration';
 import { ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
@@ -30,15 +30,16 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
-import { SourceFileInfo } from '../common/extensibility';
+import { ProgramView, SourceFileInfo } from '../common/extensibility';
 import { stripFileExtension } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Position } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
-import { CompletionMap } from './completionProvider';
+import { CompletionItemData, CompletionMap } from './completionProvider';
 import { IndexAliasData } from './symbolIndexer';
+import { fromLSPAny } from '../common/lspUtils';
 
 export interface AutoImportSymbol {
     readonly importAlias?: IndexAliasData;
@@ -118,8 +119,8 @@ export function addModuleSymbolsMap(files: readonly SourceFileInfo[], moduleSymb
         const fileName = stripFileExtension(uri.fileName);
 
         // Don't offer imports from files that are named with private
-        // naming semantics like "_ast.py".
-        if (SymbolNameUtils.isPrivateOrProtectedName(fileName)) {
+        // naming semantics like "_ast.py" unless they're in the current userfile list.
+        if (SymbolNameUtils.isPrivateOrProtectedName(fileName) && !isUserCode(file)) {
             return;
         }
 
@@ -164,6 +165,7 @@ export class AutoImporter {
 
     constructor(
         protected readonly execEnvironment: ExecutionEnvironment,
+        protected readonly program: ProgramView,
         protected readonly importResolver: ImportResolver,
         protected readonly parseResults: ParseFileResults,
         private readonly _invocationPosition: Position,
@@ -188,6 +190,10 @@ export class AutoImporter {
 
         map.forEach((v) => appendArray(results, v));
         return results;
+    }
+
+    protected getCompletionItemData(item: CompletionItem): CompletionItemData | undefined {
+        return fromLSPAny<CompletionItemData>(item.data);
     }
 
     protected getCandidates(
@@ -215,13 +221,13 @@ export class AutoImporter {
     ) {
         this.moduleSymbolMap.forEach((topLevelSymbols, key) => {
             // See if this file should be offered as an implicit import.
-            const isStubFileOrHasInit = this.isStubFileOrHasInit(this.moduleSymbolMap!, topLevelSymbols.uri);
+            const uriProperties = this.getUriProperties(this.moduleSymbolMap!, topLevelSymbols.uri);
             this.processModuleSymbolTable(
                 topLevelSymbols,
                 topLevelSymbols.uri,
                 word,
                 similarityLimit,
-                isStubFileOrHasInit,
+                uriProperties,
                 abbrFromUsers,
                 aliasMap,
                 results,
@@ -265,7 +271,9 @@ export class AutoImporter {
                         if (
                             imported &&
                             imported.node.nodeType === ParseNodeType.ImportFrom &&
-                            imported.node.imports.some((i) => i.name.value === importAliasData.importParts.symbolName)
+                            imported.node.d.imports.some(
+                                (i) => i.d.name.d.value === importAliasData.importParts.symbolName
+                            )
                         ) {
                             return;
                         }
@@ -312,7 +320,7 @@ export class AutoImporter {
         moduleUri: Uri,
         word: string,
         similarityLimit: number,
-        isStubOrHasInit: { isStub: boolean; hasInit: boolean },
+        fileProperties: { isStub: boolean; hasInit: boolean; isUserCode: boolean },
         abbrFromUsers: string | undefined,
         importAliasMap: Map<string, Map<string, ImportAliasData>>,
         results: AutoImportResultMap,
@@ -326,8 +334,10 @@ export class AutoImporter {
         }
 
         const dotCount = StringUtils.getCharacterCount(importSource, '.');
-        topLevelSymbols.forEach((autoImportSymbol, name, library) => {
-            if (!this._shouldIncludeVariable(autoImportSymbol, name, isStubOrHasInit.isStub, library)) {
+        topLevelSymbols.forEach((autoImportSymbol, name) => {
+            if (
+                !this._shouldIncludeVariable(autoImportSymbol, name, fileProperties.isStub, !fileProperties.isUserCode)
+            ) {
                 return;
             }
 
@@ -368,7 +378,7 @@ export class AutoImporter {
                 return;
             }
 
-            const nameForImportFrom = this.getNameForImportFrom(library, moduleUri);
+            const nameForImportFrom = this.getNameForImportFrom(/* library */ !fileProperties.isUserCode, moduleUri);
             const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
                 { name, alias: abbrFromUsers },
                 { name: importSource, nameForImportFrom },
@@ -394,7 +404,8 @@ export class AutoImporter {
         // If the current file is in a directory that also contains an "__init__.py[i]"
         // file, we can use that directory name as an implicit import target.
         // Or if the file is a stub file, we can use it as import target.
-        if (!isStubOrHasInit.isStub && !isStubOrHasInit.hasInit) {
+        // Skip this check for user code.
+        if (!fileProperties.isStub && !fileProperties.hasInit && !fileProperties.isUserCode) {
             return;
         }
 
@@ -435,13 +446,14 @@ export class AutoImporter {
         return undefined;
     }
 
-    protected isStubFileOrHasInit<T>(map: Map<string, T>, uri: Uri) {
+    protected getUriProperties<T>(map: Map<string, T>, uri: Uri) {
         const fileDir = uri.getDirectory();
         const initPathPy = fileDir.initPyUri;
         const initPathPyi = fileDir.initPyiUri;
         const isStub = uri.hasExtension('.pyi');
         const hasInit = map.has(initPathPy.key) || map.has(initPathPyi.key);
-        return { isStub, hasInit };
+        const sourceFileInfo = this.program.getSourceFileInfo(uri);
+        return { isStub, hasInit, isUserCode: isUserCode(sourceFileInfo) };
     }
 
     private _shouldIncludeVariable(
@@ -591,7 +603,9 @@ export class AutoImporter {
     }
 
     private _shouldExclude(name: string) {
-        return this._excludes.has(name, CompletionMap.labelOnlyIgnoringAutoImports);
+        return this._excludes.has(name, (i) =>
+            CompletionMap.labelOnlyIgnoringAutoImports(i, this.getCompletionItemData.bind(this))
+        );
     }
 
     private _containsName(name: string, source: string | undefined, results: AutoImportResultMap) {
@@ -628,7 +642,7 @@ export class AutoImporter {
             if (importStatement.node.nodeType === ParseNodeType.Import) {
                 // For now, we don't check whether alias or moduleName got overwritten at
                 // given position
-                const importAlias = importStatement.subnode?.alias?.value;
+                const importAlias = importStatement.subnode?.d.alias?.d.value;
                 if (importNameInfo.name) {
                     // ex) import module
                     //     method | <= auto-import
@@ -650,14 +664,14 @@ export class AutoImporter {
             if (
                 importNameInfo.name &&
                 importStatement.node.nodeType === ParseNodeType.ImportFrom &&
-                !importStatement.node.isWildcardImport
+                !importStatement.node.d.isWildcardImport
             ) {
                 // If so, see whether what we want already exist.
-                const importNode = importStatement.node.imports.find((i) => i.name.value === importNameInfo.name);
+                const importNode = importStatement.node.d.imports.find((i) => i.d.name.d.value === importNameInfo.name);
                 if (importNode) {
                     // For now, we don't check whether alias or moduleName got overwritten at
                     // given position
-                    const importAlias = importNode.alias?.value;
+                    const importAlias = importNode.d.alias?.d.value;
                     return {
                         insertionText: `${importAlias ?? importNameInfo.name}`,
                         edits: [],
@@ -684,12 +698,12 @@ export class AutoImporter {
             // If it is the module itself that got imported, make sure we don't import it again.
             // ex) from module import submodule
             const imported = this._importStatements.orderedImports.find((i) => i.moduleName === moduleNameInfo.name);
-            if (imported && imported.node.nodeType === ParseNodeType.ImportFrom && !imported.node.isWildcardImport) {
-                const importFrom = imported.node.imports.find((i) => i.name.value === importNameInfo.name);
+            if (imported && imported.node.nodeType === ParseNodeType.ImportFrom && !imported.node.d.isWildcardImport) {
+                const importFrom = imported.node.d.imports.find((i) => i.d.name.d.value === importNameInfo.name);
                 if (importFrom) {
                     // For now, we don't check whether alias or moduleName got overwritten at
                     // given position. only move to alias, but not the other way around
-                    const importAlias = importFrom.alias?.value;
+                    const importAlias = importFrom.d.alias?.d.value;
                     if (importAlias) {
                         return {
                             insertionText: `${importAlias}`,
@@ -712,9 +726,9 @@ export class AutoImporter {
             if (importFrom) {
                 // For now, we don't check whether alias or moduleName got overwritten at
                 // given position
-                const importAlias = importFrom.alias?.value;
+                const importAlias = importFrom.d.alias?.d.value;
                 return {
-                    insertionText: `${importAlias ?? importFrom.name.value}.${importNameInfo.name}`,
+                    insertionText: `${importAlias ?? importFrom.d.name.d.value}.${importNameInfo.name}`,
                     edits: [],
                 };
             }

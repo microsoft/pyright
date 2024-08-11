@@ -25,7 +25,7 @@ TCall1 = TypeVar("TCall1", bound=Callable[..., int])
 
 
 def func1(
-    obj: Callable[[int, str], int] | list[int] | A | B | C | D | TCall1
+    obj: Callable[[int, str], int] | list[int] | A | B | C | D | TCall1,
 ) -> TCall1 | None:
     if isinstance(obj, (Callable, Sequence, C)):
         reveal_type(

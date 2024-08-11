@@ -234,3 +234,37 @@ v8: Annotated[Final, "meta"] = 1
 
 # This should generate an error
 v8 = 2
+
+v9: Final = 2 or "2"
+reveal_type(v9, expected_text="Literal[2]")
+
+v10: Final = 0 or "2"
+reveal_type(v10, expected_text="Literal['2']")
+
+v11: Final = b"" and True
+reveal_type(v11, expected_text='Literal[b""]')
+
+v12: Final = b"2" and True
+reveal_type(v12, expected_text="Literal[True]")
+
+
+def func4():
+    while 1 < 1:
+        # This should generate an error because it's in a loop.
+        x1: Final = 1
+
+    for i in range(10):
+        if i < 3:
+            # This should generate an error because it's in a loop.
+            x2: Final[int] = 1
+
+
+class ClassF:
+    while 1 < 2:
+        # This should generate an error because it's in a loop.
+        x1: Final = 1
+
+    for i in range(10):
+        if i < 3:
+            # This should generate an error because it's in a loop.
+            x2: Final[int] = 1

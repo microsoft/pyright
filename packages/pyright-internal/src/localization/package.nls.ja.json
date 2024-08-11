@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "メソッド \"{method}\" は抽象メソッドであり、実装されていないため、呼び出すことができません",
+        "annotatedMetadataInconsistent": "注釈付きのメタデータ型 \"{metadataType}\" は型 \"{type}\" と互換性がありません",
         "annotatedParamCountMismatch": "パラメーター注釈数の不一致: {expected} が必要ですが、{received} を受信しました",
         "annotatedTypeArgMissing": "\"Annotationed\" には 1 つの型引数と 1 つ以上の注釈が必要です",
         "annotationBytesString": "型注釈では、バイト文字列リテラルは使用できません",
@@ -92,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"連結\" には少なくとも 2 つの型引数が必要です",
         "conditionalOperandInvalid": "型 \"{type}\" の条件オペランドが無効です",
         "constantRedefinition": "\"{name}\" は定数であり (大文字であるため)、再定義できません",
-        "constructorNoArgs": "\"{type}\" コンストラクターに引数が必要ありません",
         "constructorParametersMismatch": "クラス \"{classType}\" の__new__と__init__のシグネチャの不一致",
         "containmentAlwaysFalse": "型 \"{leftType}\" と \"{rightType}\" に重複がないため、式は常に False に評価されます",
         "containmentAlwaysTrue": "型 \"{leftType}\" と \"{rightType}\" に重複がないため、式は常に True に評価されます",
@@ -156,7 +156,9 @@
         "enumClassOverride": "列挙型クラス \"{name}\" は最終的なクラスであり、サブクラス化できません",
         "enumMemberDelete": "列挙型メンバー \"{name}\" を削除できません",
         "enumMemberSet": "列挙型メンバー \"{name}\" を割り当てることはできません",
+        "enumMemberTypeAnnotation": "列挙型メンバーには型注釈を使用できません",
         "exceptionGroupIncompatible": "例外グループの構文 (\"except*\") には Python 3.11 以降が必要です",
+        "exceptionGroupTypeIncorrect": "except* の例外型は BaseGroupException から派生できません",
         "exceptionTypeIncorrect": "\"{type}\" は BaseException から派生していません",
         "exceptionTypeNotClass": "\"{type}\" は有効な例外クラスではありません",
         "exceptionTypeNotInstantiable": "例外の種類 \"{type}\" のコンストラクターには 1 つ以上の引数が必要です",
@@ -400,6 +402,7 @@
         "protocolBaseClassWithTypeArgs": "型パラメーター構文を使用する場合、Protocol クラスでは型引数を使用できません",
         "protocolIllegal": "\"Protocol\" を使用するには Python 3.7 以降が必要です",
         "protocolNotAllowed": "\"Protocol\" はこのコンテキストでは使用できません",
+        "protocolTypeArgMustBeTypeParam": "\"Protocol\" の型引数は型パラメーターである必要があります",
         "protocolUnsafeOverlap": "クラスが安全でない方法で \"{name}\" と重複しており、実行時に一致する可能性があります",
         "protocolVarianceContravariant": "ジェネリック プロトコル \"{class}\" で使用される型変数 \"{variable}\" は反変である必要があります",
         "protocolVarianceCovariant": "ジェネリック プロトコル \"{class}\" で使用される型変数 \"{variable}\" は共変である必要があります",
@@ -492,7 +495,7 @@
         "typeCallNotAllowed": "type() 呼び出しは型注釈で使用しないでください",
         "typeCheckOnly": "\"{name}\" は@type_check_onlyとしてマークされており、型注釈でのみ使用できます",
         "typeCommentDeprecated": "型コメントの使用は非推奨です。代わりに型注釈を使用してください",
-        "typeExpectedClass": "型式が必要ですが、\"{type}\" を受け取りました",
+        "typeExpectedClass": "クラスが必要ですが、\"{type}\" を受け取りました",
         "typeGuardArgCount": "\"TypeGuard\" または \"TypeIs\" の後に 1 つの型引数が必要です",
         "typeGuardParamCount": "ユーザー定義型ガード関数とメソッドには、少なくとも 1 つの入力パラメーターが必要です",
         "typeIsReturnType": "TypeIs の戻り値の型 (\"{returnType}\") と値パラメーターの型 (\"{type}\") が一致しません",
@@ -624,7 +627,7 @@
         "yieldFromIllegal": "\"yield from\" を使用するには Python 3.3 以降が必要です",
         "yieldFromOutsideAsync": "非同期関数では \"yield from\" は使用できません",
         "yieldOutsideFunction": "関数またはラムダの外部では \"yield\" は許可されません",
-        "yieldWithinComprehension": "\"yield\" はリスト理解内では使用できません",
+        "yieldWithinComprehension": "\"yield\" は内包表記内では使用できません",
         "zeroCaseStatementsFound": "Match ステートメントには、少なくとも 1 つの case ステートメントを含める必要があります",
         "zeroLengthTupleNotAllowed": "このコンテキストでは長さ 0 のタプルは使用できません"
     },
@@ -666,6 +669,7 @@
         "invariantSuggestionDict": "\"dict\" から値の型の共変である \"Mapping\" への切り替えを検討してください",
         "invariantSuggestionList": "\"list\" から共変である \"Sequence\" への切り替えを検討してください",
         "invariantSuggestionSet": "\"set\" から共変である \"Container\" への切り替えを検討してください",
+        "isinstanceClassNotSupported": "インスタンスとクラスのチェックでは、\"{type}\" はサポートされていません",
         "keyNotRequired": "\"{name}\" は \"{type}\" の必須キーではないため、アクセスすると実行時例外が発生する可能性があります",
         "keyReadOnly": "\"{name}\" は \"{type}\" の読み取り専用キーです",
         "keyRequiredDeleted": "\"{name}\" は必須キーであり、削除できません",
@@ -800,5 +804,8 @@
         "useTypeInstead": "代わりに Type[T] を使用する",
         "varianceMismatchForClass": "型引数 \"{typeVarName}\" の分散は、基底クラス \"{className}\" と互換性がありません",
         "varianceMismatchForTypeAlias": "型引数 \"{typeVarName}\" の分散は \"{typeAliasParam}\" と互換性がありません"
+    },
+    "Service": {
+        "longOperation": "ワークスペース ソース ファイルの列挙に時間がかかっています。代わりにサブフォルダーを開く方法を検討してください。[詳細情報](https://aka.ms/workspace-too-many-files)"
     }
 }

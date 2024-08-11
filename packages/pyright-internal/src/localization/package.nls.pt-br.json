@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "O método \"{method}\" não pode ser chamado porque é abstrato e não está implementado",
+        "annotatedMetadataInconsistent": "O tipo de metadados anotados \"{metadataType}\" não é compatível com o tipo \"{type}\"",
         "annotatedParamCountMismatch": "Incompatibilidade de contagem de anotações de parâmetro: esperado {expected}, mas recebido {received}",
         "annotatedTypeArgMissing": "Esperava-se um argumento de tipo e uma ou mais anotações para \"Annotated\"",
         "annotationBytesString": "Anotações de tipo não podem usar literais de cadeia de caracteres de bytes",
@@ -92,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Concatenate\" requer pelo menos dois argumentos de tipo",
         "conditionalOperandInvalid": "Operando condicional inválido do tipo \"{type}\"",
         "constantRedefinition": "\"{name}\" é constante (porque está em maiúsculas) e não pode ser redefinido",
-        "constructorNoArgs": "Nenhum argumento esperado para o construtor \"{type}\"",
         "constructorParametersMismatch": "Incompatibilidade entre a assinatura de __new__ e __init__ na classe \"{classType}\"",
         "containmentAlwaysFalse": "A expressão sempre será avaliada como False, pois os tipos \"{leftType}\" e \"{rightType}\" não têm sobreposição",
         "containmentAlwaysTrue": "A expressão sempre será avaliada como True, pois os tipos \"{leftType}\" e \"{rightType}\" não têm sobreposição",
@@ -156,7 +156,9 @@
         "enumClassOverride": "A classe Enum \"{name}\" é final e não pode ser subclasse",
         "enumMemberDelete": "O membro enumerado \"{name}\" não pode ser excluído",
         "enumMemberSet": "O membro enumerado \"{name}\" não pode ser atribuído",
-        "exceptionGroupIncompatible": "A sintaxe do grupo de exceção (\"exceto*\") requer o Python 3.11 ou mais recente",
+        "enumMemberTypeAnnotation": "Anotações de tipo não são permitidas para membros de enumeração",
+        "exceptionGroupIncompatible": "A sintaxe do grupo de exceção (\"except*\") requer o Python 3.11 ou mais recente",
+        "exceptionGroupTypeIncorrect": "O tipo de exceção em except* não pode derivar de BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\" não deriva de BaseException",
         "exceptionTypeNotClass": "\"{type}\" não é uma classe de exceção válida",
         "exceptionTypeNotInstantiable": "O construtor para o tipo de exceção \"{type}\" requer um ou mais argumentos",
@@ -400,6 +402,7 @@
         "protocolBaseClassWithTypeArgs": "Argumentos de tipo não são permitidos com a classe Protocol ao usar a sintaxe de parâmetro de tipo",
         "protocolIllegal": "O uso de \"Protocol\" requer o Python 3.7 ou mais recente",
         "protocolNotAllowed": "\"Protocol\" não pode ser usado nesse contexto",
+        "protocolTypeArgMustBeTypeParam": "O argumento de tipo para o \"Protocolo\" deve ser um parâmetro de tipo",
         "protocolUnsafeOverlap": "A classe se sobrepõe a \"{name}\" de forma não segura e pode produzir uma correspondência em runtime",
         "protocolVarianceContravariant": "A variável de tipo \"{variable}\" usada no protocolo genérico \"{class}\" deve ser contravariante",
         "protocolVarianceCovariant": "A variável de tipo \"{variable}\" usada no protocolo genérico \"{class}\" deve ser covariante",
@@ -492,7 +495,7 @@
         "typeCallNotAllowed": "A chamada type() não deve ser usada na anotação de tipo",
         "typeCheckOnly": "\"{name}\" está marcado como @type_check_only e pode ser usado apenas em anotações de tipo",
         "typeCommentDeprecated": "O uso de comentários de tipo foi preterido. Use anotação de tipo em vez disso",
-        "typeExpectedClass": "Expressão de tipo esperada, mas recebeu \"{type}\"",
+        "typeExpectedClass": "Classe esperada, mas a recebida foi \"{type}\"",
         "typeGuardArgCount": "Argumento de tipo único esperado após \"TypeGuard\" ou \"TypeIs\"",
         "typeGuardParamCount": "Funções e métodos de proteção de tipo definidos pelo usuário devem ter pelo menos um parâmetro de entrada",
         "typeIsReturnType": "O tipo de retorno de TypeIs (\"{returnType}\") não é consistente com o tipo de parâmetro de valor (\"{type}\")",
@@ -624,7 +627,7 @@
         "yieldFromIllegal": "O uso de \"yield from\" requer o Python 3.3 ou mais recente",
         "yieldFromOutsideAsync": "\"yield from\" não é permitido em uma função assíncrona",
         "yieldOutsideFunction": "\"yield\" não permitido fora de uma função ou lambda",
-        "yieldWithinComprehension": "\"yield\" não é permitido dentro de uma compreensão de lista",
+        "yieldWithinComprehension": "\"yield\" não é permitido dentro de uma compreensão",
         "zeroCaseStatementsFound": "A instrução Match deve incluir pelo menos uma instrução case",
         "zeroLengthTupleNotAllowed": "Tupla de comprimento zero não é permitida neste contexto"
     },
@@ -666,6 +669,7 @@
         "invariantSuggestionDict": "Considere alternar de \"dict\" para \"Mapping\", que é covariante no tipo de valor",
         "invariantSuggestionList": "Considere alternar de \"list\" para \"Sequence\", que é covariante",
         "invariantSuggestionSet": "Considere alternar de \"set\" para \"Container\", que é covariante",
+        "isinstanceClassNotSupported": "\"{type}\" não tem suporte para verificações de instância e classe",
         "keyNotRequired": "\"{name}\" não é uma chave necessária em \"{type}\", portanto, o acesso pode resultar em exceção de runtime",
         "keyReadOnly": "\"{name}\" é uma chave somente leitura em \"{type}\"",
         "keyRequiredDeleted": "\"{name}\" é uma chave obrigatória e não pode ser excluída",
@@ -800,5 +804,8 @@
         "useTypeInstead": "Use Type[T] em vez disso",
         "varianceMismatchForClass": "A variação do argumento de tipo \"{typeVarName}\" é incompatível com a classe base \"{className}\"",
         "varianceMismatchForTypeAlias": "A variação do argumento de tipo \"{typeVarName}\" é incompatível com \"{typeAliasParam}\""
+    },
+    "Service": {
+        "longOperation": "A enumeração de arquivos de origem do espaço de trabalho está demorando muito. Em vez disso, considere abrir uma subpasta. [Saiba mais](https://aka.ms/workspace-too-many-files)"
     }
 }

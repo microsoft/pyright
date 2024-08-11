@@ -3,8 +3,8 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Annotated, TypeVar
 from http import HTTPStatus
+from typing import Annotated, Literal, TypeVar
 
 # pyright: reportIncompatibleMethodOverride=false
 
@@ -19,7 +19,7 @@ def handle_reply(reply: tuple[HTTPStatus, str] | tuple[HTTPStatus]):
             reveal_type(d1, expected_text="Literal[HTTPStatus.NOT_FOUND]")
 
 
-class MyEnum(Enum):
+class MyEnum1(Enum):
     V1 = 0
     V2 = 1
 
@@ -33,19 +33,19 @@ class MyClass:
 
 def test_unknown(value_to_match):
     match value_to_match:
-        case MyEnum.V1 as a1:
+        case MyEnum1.V1 as a1:
             reveal_type(a1, expected_text="Unknown")
             reveal_type(value_to_match, expected_text="Unknown")
 
 
-def test_enum(value_to_match: MyEnum):
+def test_enum(value_to_match: MyEnum1):
     match value_to_match:
-        case MyEnum.V1 as a1:
-            reveal_type(a1, expected_text="Literal[MyEnum.V1]")
-            reveal_type(value_to_match, expected_text="Literal[MyEnum.V1]")
+        case MyEnum1.V1 as a1:
+            reveal_type(a1, expected_text="Literal[MyEnum1.V1]")
+            reveal_type(value_to_match, expected_text="Literal[MyEnum1.V1]")
         case y:
-            reveal_type(y, expected_text="Literal[MyEnum.V2]")
-            reveal_type(value_to_match, expected_text="Literal[MyEnum.V2]")
+            reveal_type(y, expected_text="Literal[MyEnum1.V2]")
+            reveal_type(value_to_match, expected_text="Literal[MyEnum1.V2]")
 
 
 def test_class_var(value_to_match: str):
@@ -55,16 +55,29 @@ def test_class_var(value_to_match: str):
             reveal_type(value_to_match, expected_text="Never")
 
 
-TInt = TypeVar("TInt", bound=MyEnum)
+TInt = TypeVar("TInt", bound=MyEnum1)
 
 
-def test_union(value_to_match: TInt | MyEnum) -> TInt | MyEnum:
+def test_union(value_to_match: TInt | MyEnum1) -> TInt | MyEnum1:
     match value_to_match:
-        case MyEnum.V1 as a1:
-            reveal_type(a1, expected_text="Literal[MyEnum.V1]")
-            reveal_type(value_to_match, expected_text="Literal[MyEnum.V1]")
+        case MyEnum1.V1 as a1:
+            reveal_type(a1, expected_text="Literal[MyEnum1.V1]")
+            reveal_type(value_to_match, expected_text="Literal[MyEnum1.V1]")
 
     return value_to_match
+
+
+class MyEnum2(Enum):
+    V1 = 0
+    V2 = 1
+
+
+def test_multiple_enums(x: MyEnum2 | MyEnum1):
+    match x:
+        case MyEnum1.V1 | MyEnum1.V2 | MyEnum2.V1:
+            return
+
+    reveal_type(x, expected_text="Literal[MyEnum2.V2]")
 
 
 class Medal(Enum):
@@ -141,3 +154,17 @@ def test_enum_narrowing_with_inf(subj: float):
             reveal_type(subj, expected_text="float")
         case f:
             reveal_type(subj, expected_text="float")
+
+
+@dataclass
+class DC2:
+    a: Literal[False]
+
+
+def test_bool_expansion(subj: bool):
+    match subj:
+        case DC2.a:
+            reveal_type(subj, expected_text="Literal[False]")
+
+        case x:
+            reveal_type(subj, expected_text="Literal[True]")

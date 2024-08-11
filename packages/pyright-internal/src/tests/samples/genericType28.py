@@ -8,6 +8,7 @@ T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
 T_contra = TypeVar("T_contra", contravariant=True)
 
+
 # This should generate an error because the type parameter for list
 # is invariant, so T_co here cannot be covariant.
 class Class1(list[T_co]):

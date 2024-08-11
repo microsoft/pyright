@@ -18,6 +18,6 @@ def func1() -> Callable[[Callable[P, R]], Callable[P, R]]:
 
 
 def func1(
-    f: Callable[P, R] | None = None
+    f: Callable[P, R] | None = None,
 ) -> Callable[P, R] | Callable[[Callable[P, R]], Callable[P, R]]:
     ...

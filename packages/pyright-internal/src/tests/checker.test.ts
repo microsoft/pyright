@@ -87,7 +87,7 @@ test('AbstractClass4', () => {
 test('AbstractClass5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['abstractClass5.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('AbstractClass6', () => {
@@ -165,7 +165,7 @@ test('With2', () => {
 test('With3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with3.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('With4', () => {
@@ -377,7 +377,7 @@ test('ParamNames1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramNames1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0, 7);
+    TestUtils.validateResults(analysisResults, 0, 11);
 
     configOptions.diagnosticRuleSet.reportSelfClsParameterName = 'none';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramNames1.py'], configOptions);
@@ -385,7 +385,7 @@ test('ParamNames1', () => {
 
     configOptions.diagnosticRuleSet.reportSelfClsParameterName = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramNames1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 7, 0);
+    TestUtils.validateResults(analysisResults, 11, 0);
 });
 
 test('ParamType1', () => {
@@ -493,7 +493,7 @@ test('UninitializedVariable2', () => {
     // Enable it as an error.
     configOptions.diagnosticRuleSet.reportUninitializedInstanceVariable = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['uninitializedVariable2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Deprecated1', () => {
@@ -546,11 +546,11 @@ test('Deprecated2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['deprecated2.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 13);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 14);
 
     configOptions.diagnosticRuleSet.reportDeprecated = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated2.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 13);
+    TestUtils.validateResults(analysisResults2, 14);
 });
 
 test('Deprecated3', () => {
@@ -568,11 +568,11 @@ test('Deprecated4', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['deprecated4.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 6);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 7);
 
     configOptions.diagnosticRuleSet.reportDeprecated = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated4.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 6);
+    TestUtils.validateResults(analysisResults2, 7);
 });
 
 test('Deprecated5', () => {
@@ -595,4 +595,26 @@ test('Deprecated6', () => {
     configOptions.diagnosticRuleSet.reportDeprecated = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated6.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 3);
+});
+
+test('Deprecated7', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['deprecated7.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 2);
+
+    configOptions.diagnosticRuleSet.reportDeprecated = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated7.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 2);
+});
+
+test('Deprecated8', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['deprecated8.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 4);
+
+    configOptions.diagnosticRuleSet.reportDeprecated = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated8.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 4);
 });

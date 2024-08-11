@@ -43,8 +43,11 @@ reveal_type(r2(), expected_text="Class2")
 
 
 class Class3:
-    def __new__(cls, *args, **kwargs) -> Self: ...
-    def __init__(self, x: int) -> None: ...
+    def __new__(cls, *args, **kwargs) -> Self:
+        ...
+
+    def __init__(self, x: int) -> None:
+        ...
 
 
 r3 = accepts_callable(Class3)
@@ -53,7 +56,8 @@ reveal_type(r3(3), expected_text="Class3")
 
 
 class Class4:
-    def __new__(cls, x: int) -> int: ...
+    def __new__(cls, x: int) -> int:
+        ...
 
 
 r4 = accepts_callable(Class4)
@@ -75,11 +79,13 @@ r5 = accepts_callable(Class5)
 reveal_type(r5, expected_text="(...) -> NoReturn")
 
 
-class Class6Proxy: ...
+class Class6Proxy:
+    ...
 
 
 class Class6:
     def __new__(cls) -> Class6Proxy:
+        # This should generate an error because "cls" isn't compatible.
         return Class6Proxy.__new__(cls)
 
     def __init__(self, x: int) -> None:
@@ -106,9 +112,13 @@ reveal_type(r6_2(), expected_text="Any")
 
 class Class7(Generic[T]):
     @overload
-    def __init__(self: "Class7[int]", x: int) -> None: ...
+    def __init__(self: "Class7[int]", x: int) -> None:
+        ...
+
     @overload
-    def __init__(self: "Class7[str]", x: str) -> None: ...
+    def __init__(self: "Class7[str]", x: str) -> None:
+        ...
+
     def __init__(self, x: int | str) -> None:
         pass
 

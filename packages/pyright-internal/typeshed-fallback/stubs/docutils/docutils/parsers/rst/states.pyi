@@ -1,15 +1,62 @@
 from _typeshed import Incomplete
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from re import Match, Pattern
 from types import ModuleType
 from typing import Any
 from typing_extensions import TypeAlias
 
 from docutils import nodes
+from docutils.statemachine import StateMachine, StateMachineWS, StateWS
 from docutils.utils import Reporter
 
 class Struct:
     def __init__(self, **keywordargs) -> None: ...
+
+class RSTState(StateWS[list[str]]):
+    nested_sm: type[StateMachineWS[list[str]]]
+    nested_sm_cache: Incomplete
+    nested_sm_kwargs: Incomplete
+    def __init__(self, state_machine, debug: bool = False) -> None: ...
+    memo: Incomplete
+    reporter: Reporter
+    inliner: Inliner
+    document: nodes.document
+    parent: Incomplete
+    def runtime_init(self) -> None: ...
+    def goto_line(self, abs_line_offset: int) -> None: ...
+    def no_match(self, context: list[str], transitions): ...
+    def bof(self, context: list[str]): ...
+    def nested_parse(
+        self,
+        block,
+        input_offset: int,
+        node,
+        match_titles: bool = False,
+        state_machine_class: type[StateMachine[list[str]]] | None = None,
+        state_machine_kwargs: Incomplete | None = None,
+    ): ...
+    def nested_list_parse(
+        self,
+        block,
+        input_offset: int,
+        node,
+        initial_state,
+        blank_finish,
+        blank_finish_state: Incomplete | None = None,
+        extra_settings={},
+        match_titles: bool = False,
+        state_machine_class: Incomplete | None = None,
+        state_machine_kwargs: Incomplete | None = None,
+    ): ...
+    def section(self, title: str, source, style, lineno: int, messages) -> None: ...
+    def check_subsection(self, source, style, lineno: int): ...
+    def title_inconsistent(self, sourcetext: str, lineno: int): ...
+    def new_subsection(self, title: str, lineno: int, messages) -> None: ...
+    def paragraph(self, lines: Iterable[str], lineno: int): ...
+    def inline_text(self, text: str, lineno: int): ...
+    def unindent_warning(self, node_name: str): ...
+
+def build_regexp(definition, compile: bool = True): ...
 
 _BasicDefinition: TypeAlias = tuple[str, str, str, list[Pattern[str]]]
 _DefinitionParts: TypeAlias = tuple[str, str, str, list[Pattern[str] | _BasicDefinition]]

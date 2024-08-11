@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "无法调用方法“{method}”，因为它是抽象的且未实施",
+        "annotatedMetadataInconsistent": "带批注的元数据类型“{metadataType}”与类型“{type}”不兼容",
         "annotatedParamCountMismatch": "参数批注计数不匹配: 应为 {expected}，但收到 {received}",
         "annotatedTypeArgMissing": "“Annotated”应为一个类型参数和一个或多个批注",
         "annotationBytesString": "类型批注不能使用字节字符串文本",
@@ -92,7 +93,6 @@
         "concatenateTypeArgsMissing": "“Concatenate” 至少需要两个类型参数",
         "conditionalOperandInvalid": "类型“{type}”的条件操作数无效",
         "constantRedefinition": "“{name}”是常量 (因为它是大写)且无法重新定义",
-        "constructorNoArgs": "\"{type}\"构造函数不应有参数",
         "constructorParametersMismatch": "类“{classType}”中__new__和__init__的签名不匹配",
         "containmentAlwaysFalse": "表达式的计算结果始终为 False，因为类型“{leftType}”和“{rightType}”没有重叠",
         "containmentAlwaysTrue": "表达式的计算结果始终为 True，因为类型“{leftType}”和“{rightType}”没有重叠",
@@ -156,7 +156,9 @@
         "enumClassOverride": "枚举类“{name}”是最终类，不能为子类",
         "enumMemberDelete": "无法删除枚举成员“{name}”",
         "enumMemberSet": "无法分配枚举成员“{name}”",
+        "enumMemberTypeAnnotation": "枚举成员不允许使用类型注释",
         "exceptionGroupIncompatible": "异常组语法 (\"except*\") 需要 Python 3.11 或更高版本",
+        "exceptionGroupTypeIncorrect": "except* 中的异常类型不能派生自 BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\" 不是派生自 BaseException",
         "exceptionTypeNotClass": "“{type}”不是有效的异常类",
         "exceptionTypeNotInstantiable": "异常类型\"{type}\"的构造函数需要一个或多个参数",
@@ -400,6 +402,7 @@
         "protocolBaseClassWithTypeArgs": "使用类型参数语法时，协议类不允许使用类型参数",
         "protocolIllegal": "使用 \"Protocol\" 需要 Python 3.7 或更高版本",
         "protocolNotAllowed": "\"Protocol\" 不能用于此上下文",
+        "protocolTypeArgMustBeTypeParam": "“协议”的类型参数必须是类型参数",
         "protocolUnsafeOverlap": "类与“{name}”不安全地重叠，并且可能在运行时生成匹配项",
         "protocolVarianceContravariant": "泛型协议“{class}”中使用的类型变量“{variable}”应为逆变",
         "protocolVarianceCovariant": "泛型协议“{class}”中使用的类型变量“{variable}”应为协变",
@@ -492,7 +495,7 @@
         "typeCallNotAllowed": "type() 调用不应用于类型批注",
         "typeCheckOnly": "“{name}”标记为 @type_check_only，并且只能在类型注释中使用",
         "typeCommentDeprecated": "已弃用类型注释；请改用类型批注",
-        "typeExpectedClass": "应为类型表达式，但收到“{type}”",
+        "typeExpectedClass": "应为类，但收到“{type}”",
         "typeGuardArgCount": "“TypeGuard”或“TypeIs”后应为单个类型参数",
         "typeGuardParamCount": "用户定义的类型防护函数和方法必须至少有一个输入参数",
         "typeIsReturnType": "TypeIs 的返回类型(“{returnType}”)与值参数类型(“{type}”)不一致",
@@ -624,7 +627,7 @@
         "yieldFromIllegal": "使用“yield from”需要 Python 3.3 或更高版本",
         "yieldFromOutsideAsync": "异步函数中不允许使用“yield from”",
         "yieldOutsideFunction": "不允许在函数或 lambda 之外使用“yield”",
-        "yieldWithinComprehension": "不允许在列表理解中使用“yield”",
+        "yieldWithinComprehension": "不允许在理解中使用 \"yield\"",
         "zeroCaseStatementsFound": "Match 语句必须至少包含一个 case 语句",
         "zeroLengthTupleNotAllowed": "此上下文中不允许使用零长度元组"
     },
@@ -666,6 +669,7 @@
         "invariantSuggestionDict": "请考虑从 “dict” 切换到 “Mapping”(在值类型中为协变)",
         "invariantSuggestionList": "考虑从“list”切换到“Sequence”(协变)",
         "invariantSuggestionSet": "请考虑从“set”切换到“Container”，后者是协变的",
+        "isinstanceClassNotSupported": "实例和类检查不支持“{type}”",
         "keyNotRequired": "“{type}”中“{name}”不是必需的密钥，因此访问可能会导致运行时异常",
         "keyReadOnly": "“{name}”是“{type}”中的只读密钥",
         "keyRequiredDeleted": "“{name}”是必需的密钥，无法删除",
@@ -800,5 +804,8 @@
         "useTypeInstead": "改用类型[T]",
         "varianceMismatchForClass": "类型参数\"{typeVarName}\"的差异与基类\"{className}\"不兼容",
         "varianceMismatchForTypeAlias": "类型参数\"{typeVarName}\"的差异与\"{typeAliasParam}\"不兼容"
+    },
+    "Service": {
+        "longOperation": "枚举工作区源文件需要很长时间。请考虑打开子文件夹。[了解详细信息](https://aka.ms/workspace-too-many-files)"
     }
 }

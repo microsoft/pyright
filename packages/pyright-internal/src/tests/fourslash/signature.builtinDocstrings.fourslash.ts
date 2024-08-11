@@ -18,45 +18,27 @@
 ////         """This is the __init__ doc for D."""
 ////         pass
 ////
-//// object([|/*object*/|])
 //// A([|/*a*/|])
 //// B([|/*b*/|])
 //// C([|/*c*/|])
 //// D([|/*d*/|])
 
-// @filename: typeshed-fallback/stdlib/builtins.py
-//// class object():
-////     """This is the class doc for object."""
-////     def __init__(self):
-////         """This is the __init__ doc for object."""
-////         pass
-////
-////     def __dir__(self):
-////         """This is the __dir__ doc for object."""
-////         pass
-
 {
     helper.verifySignature('plaintext', {
-        object: {
-            signatures: [
-                { label: '() -> None', parameters: [], documentation: 'This is the __init__ doc for object.' },
-            ],
-            activeParameters: [undefined],
-        },
         a: {
-            signatures: [{ label: '() -> None', parameters: [] }],
+            signatures: [{ label: '() -> A', parameters: [] }],
             activeParameters: [undefined],
         },
         b: {
-            signatures: [{ label: '() -> None', parameters: [], documentation: 'This is the __init__ doc for B.' }],
+            signatures: [{ label: '() -> B', parameters: [], documentation: 'This is the __init__ doc for B.' }],
             activeParameters: [undefined],
         },
         c: {
-            signatures: [{ label: '() -> None', parameters: [], documentation: 'This is the class doc for C.' }],
+            signatures: [{ label: '() -> C', parameters: [], documentation: 'This is the class doc for C.' }],
             activeParameters: [undefined],
         },
         d: {
-            signatures: [{ label: '() -> None', parameters: [], documentation: 'This is the __init__ doc for D.' }],
+            signatures: [{ label: '() -> D', parameters: [], documentation: 'This is the __init__ doc for D.' }],
             activeParameters: [undefined],
         },
     });

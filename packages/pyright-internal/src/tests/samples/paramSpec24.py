@@ -33,10 +33,12 @@ class _wrapped_cache(_callable_cache[P, T], Generic[O, P, T]):
     @overload
     def __get__(  # type: ignore
         self, instance: None, owner: type[O]
-    ) -> _callable_cache[Concatenate[O, P], T]: ...
+    ) -> _callable_cache[Concatenate[O, P], T]:
+        ...
 
     @overload
-    def __get__(self, instance: O, owner: type[O]) -> Self: ...
+    def __get__(self, instance: O, owner: type[O]) -> Self:
+        ...
 
 
 @overload
@@ -45,16 +47,19 @@ def cache(fn: Callable[Concatenate[Self_A, P], T]) -> _wrapped_cache[Self_A, P, 
 
 
 @overload
-def cache(fn: Callable[P, T]) -> _wrapped_cache[Any, P, T]: ...
+def cache(fn: Callable[P, T]) -> _wrapped_cache[Any, P, T]:
+    ...
 
 
 @cache
-def not_in_class(a: int, b: str) -> str: ...
+def not_in_class(a: int, b: str) -> str:
+    ...
 
 
 class A:
     @cache
-    def in_class(self, a: int, b: str) -> str: ...
+    def in_class(self, a: int, b: str) -> str:
+        ...
 
 
 reveal_type(not_in_class, expected_text="_wrapped_cache[Any, (a: int, b: str), str]")
