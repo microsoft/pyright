@@ -15,7 +15,7 @@ import {
     getTypeAliasInfo,
     isFunction,
     isModule,
-    isOverloadedFunction,
+    isOverloaded,
     isTypeVar,
 } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -126,7 +126,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
                 // declarations, but we want them to be presented in the same way as
                 // the top-level module, which does have a declaration.
                 tokenType = TokenType.namespace;
-            } else if (isFunction(type) || isOverloadedFunction(type)) {
+            } else if (isFunction(type) || isOverloaded(type)) {
                 const isProperty = isMaybeDescriptorInstance(type, /* requireSetter */ false);
                 tokenType = isProperty ? TokenType.property : TokenType.function;
             }
@@ -156,6 +156,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
         switch (resolvedDecl.type) {
             case DeclarationType.Intrinsic: {
                 switch (resolvedDecl.intrinsicType) {
+                    case 'Any':
                     case 'str':
                     case 'str | None':
                     case 'int':
@@ -164,8 +165,8 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
                         declarationType = TokenType.variable;
                         break;
                     }
-                    case 'class': {
-                        declarationType = TokenType.class;
+                    case 'type[self]': {
+                        declarationType = TokenType.type;
                         break;
                     }
                 }
