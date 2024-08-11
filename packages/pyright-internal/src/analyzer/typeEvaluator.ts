@@ -16404,7 +16404,9 @@ export function createTypeEvaluator(
     // Creates a new class type that is a subclass of two other specified classes.
     function createSubclass(errorNode: ExpressionNode, type1: ClassType, type2: ClassType): ClassType {
         assert(isInstantiableClass(type1) && isInstantiableClass(type2));
-        const className = `<subclass of ${type1.shared.name} and ${type2.shared.name}>`;
+        const className = `<subclass of ${printType(convertToInstance(type1), {
+            omitTypeArgsIfUnknown: true,
+        })} and ${printType(convertToInstance(type2), { omitTypeArgsIfUnknown: true })}>`;
         const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
 
         // The effective metaclass of the intersection is the narrower of the two metaclasses.
