@@ -15671,41 +15671,25 @@ export function createTypeEvaluator(
                 typeArgType = UnknownType.create();
             }
 
-            // If this is an unpacked tuple, explode out the individual items.
-            if (isUnpackedClass(typeArg.type) && typeArg.type.priv.tupleTypeArgs) {
+            if (isTypeVar(typeArgType) && isUnpackedTypeVarTuple(typeArgType)) {
                 // This is an experimental feature because Unions of unpacked TypeVarTuples are not officially supported.
                 if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
-                    typeArg.type.priv.tupleTypeArgs.forEach((tupleTypeArg) => {
-                        types.push(convertToInstantiable(tupleTypeArg.type));
-                    });
-
+                    // If this is an unpacked TypeVar, note that it is in a union so we can
+                    // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
+                    typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
                     allowSingleTypeArg = true;
                 } else {
-                    addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.unionUnpackedTuple(), errorNode);
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.unionUnpackedTypeVarTuple(),
+                        errorNode
+                    );
 
-                    types.push(UnknownType.create());
+                    typeArgType = UnknownType.create();
                 }
-            } else {
-                if (isTypeVar(typeArgType) && isUnpackedTypeVarTuple(typeArgType)) {
-                    // This is an experimental feature because Unions of unpacked TypeVarTuples are not officially supported.
-                    if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
-                        // If this is an unpacked TypeVar, note that it is in a union so we can
-                        // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
-                        typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
-                        allowSingleTypeArg = true;
-                    } else {
-                        addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.unionUnpackedTypeVarTuple(),
-                            errorNode
-                        );
-
-                        typeArgType = UnknownType.create();
-                    }
-                }
-
-                types.push(typeArgType);
             }
+
+            types.push(typeArgType);
         }
 
         // Validate that we received at least two type arguments. One type argument
