@@ -1821,23 +1821,12 @@ function narrowTypeForIsInstanceInternal(
                     }
                 }
 
-                if (isClassInstance(subtype)) {
-                    return combineTypes(
-                        filterClassType(
-                            unexpandedSubtype,
-                            ClassType.cloneAsInstantiable(subtype),
-                            getTypeCondition(subtype),
-                            negativeFallback
-                        )
-                    );
-                }
-
                 if ((isFunction(subtype) || isOverloaded(subtype)) && isInstanceCheck) {
                     return combineTypes(filterFunctionType(subtype, convertToInstance(unexpandedSubtype)));
                 }
 
-                if (isInstantiableClass(subtype) || isSubtypeMetaclass) {
-                    // Handle the special case of isinstance(x, metaclass).
+                // Handle the special case of isinstance(x, metaclass).
+                if (isSubtypeMetaclass) {
                     const includesMetaclassType = filterTypes.some((classType) => isInstantiableMetaclass(classType));
                     const includesObject = filterTypes.some(
                         (classType) => isInstantiableClass(classType) && ClassType.isBuiltIn(classType, 'object')
@@ -1848,6 +1837,17 @@ function narrowTypeForIsInstanceInternal(
                     } else {
                         return includesMetaclassType ? undefined : negativeFallback;
                     }
+                }
+
+                if (isClass(subtype)) {
+                    return combineTypes(
+                        filterClassType(
+                            convertToInstantiable(unexpandedSubtype),
+                            ClassType.cloneAsInstantiable(subtype),
+                            getTypeCondition(subtype),
+                            negativeFallback
+                        )
+                    );
                 }
             } else {
                 if (isNoneTypeClass(subtype)) {
