@@ -2478,8 +2478,6 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
                     // in which case `type(x) is y` would fail.
                     return subtype;
                 }
-            } else if (isNoneInstance(subtype)) {
-                return isPositiveTest ? undefined : subtype;
             } else if (isAnyOrUnknown(subtype)) {
                 return isPositiveTest ? ClassType.cloneAsInstance(classType) : subtype;
             }
@@ -2501,10 +2499,6 @@ function narrowTypeForClassComparison(
         let concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
         if (isPositiveTest) {
-            if (isNoneInstance(concreteSubtype)) {
-                return isNoneTypeClass(classType) ? classType : undefined;
-            }
-
             if (
                 isClassInstance(concreteSubtype) &&
                 TypeBase.isInstance(subtype) &&
