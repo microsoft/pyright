@@ -186,12 +186,12 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
                     declaration.node.nodeType === ParseNodeType.ImportAs ||
                     declaration.node.nodeType === ParseNodeType.ImportFromAs
                 ) {
-                    if (declaration.node.alias && node !== declaration.node.alias) {
+                    if (declaration.node.d.alias && node !== declaration.node.d.alias) {
                         if (resolvedDecl.node.nodeType === ParseNodeType.Name) {
                             typeNode = resolvedDecl.node;
                         }
                     }
-                } else if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.name === node) {
+                } else if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.d.name === node) {
                     // If this is a named argument, we would normally have received a Parameter declaration
                     // rather than a variable declaration, but we can get here in the case of a dataclass.
                     // Replace the typeNode with the node of the variable declaration.
@@ -209,9 +209,9 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
                 // the type alias when printing the type information.
                 const type = this._evaluator.getType(typeNode);
 
-                if (type?.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
+                if (type?.props?.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
                     const typeAliasInfo = getTypeAliasInfo(type);
-                    if (typeAliasInfo?.name === typeNode.value) {
+                    if (typeAliasInfo?.name === typeNode.d.value) {
                         if (isTypeVar(type)) {
                             declarationType = TokenType.typeParameter;
                         } else {
@@ -229,7 +229,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
                 }
 
                 // Handle the case where type is a function and was assigned to a variable.
-                if (type?.category === TypeCategory.Function || type?.category === TypeCategory.OverloadedFunction) {
+                if (type?.category === TypeCategory.Function || type?.category === TypeCategory.Overloaded) {
                     declarationType = TokenType.function;
                 }
 
@@ -237,12 +237,12 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
                 break;
             }
 
-            case DeclarationType.Parameter: {
+            case DeclarationType.Param: {
                 declarationType = TokenType.parameter;
                 break;
             }
 
-            case DeclarationType.TypeParameter: {
+            case DeclarationType.TypeParam: {
                 declarationType = TokenType.typeParameter;
                 break;
             }
