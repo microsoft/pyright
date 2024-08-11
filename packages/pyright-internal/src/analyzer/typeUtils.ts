@@ -1158,7 +1158,7 @@ export function getUnknownForTypeVarTuple(tupleClassType: ClassType): Type {
             tupleClassType,
             [{ type: UnknownType.create(), isUnbounded: true }],
             /* isTypeArgExplicit */ true,
-            /* isUnpackedTuple */ true
+            /* isUnpacked */ true
         )
     );
 }
@@ -2035,7 +2035,7 @@ export function buildSolutionFromSpecializedClass(classType: ClassType): Constra
                     classType,
                     classType.priv.tupleTypeArgs,
                     classType.priv.isTypeArgExplicit,
-                    /* isUnpackedTuple */ true
+                    /* isUnpacked */ true
                 )
             ),
         ];
@@ -2661,7 +2661,7 @@ export function specializeTupleClass(
     classType: ClassType,
     typeArgs: TupleTypeArg[],
     isTypeArgExplicit = true,
-    isUnpackedTuple = false
+    isUnpacked = false
 ): ClassType {
     const clonedClassType = ClassType.specialize(
         classType,
@@ -2671,7 +2671,7 @@ export function specializeTupleClass(
         typeArgs
     );
 
-    if (isUnpackedTuple) {
+    if (isUnpacked) {
         clonedClassType.priv.isUnpacked = true;
     }
 

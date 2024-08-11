@@ -5011,7 +5011,7 @@ export function createTypeEvaluator(
                 } else if (isTypeVarTuple(param) && tupleClass && isInstantiableClass(tupleClass)) {
                     defaultType = makeTupleObject(
                         [{ type: UnknownType.create(), isUnbounded: true }],
-                        /* isUnpackedTuple */ true
+                        /* isUnpacked */ true
                     );
                 } else {
                     defaultType = UnknownType.create();
@@ -6751,7 +6751,7 @@ export function createTypeEvaluator(
                         });
                     }
 
-                    const tupleObject = makeTupleObject(variadicTypes, /* isUnpackedTuple */ true);
+                    const tupleObject = makeTupleObject(variadicTypes, /* isUnpacked */ true);
 
                     typeArgs = [
                         ...typeArgs.slice(0, variadicIndex),
@@ -6763,7 +6763,7 @@ export function createTypeEvaluator(
                 // Add an empty tuple that maps to the TypeVarTuple type parameter.
                 typeArgs.push({
                     node: errorNode,
-                    type: makeTupleObject([], /* isUnpackedTuple */ true),
+                    type: makeTupleObject([], /* isUnpacked */ true),
                 });
             }
         }
@@ -7419,10 +7419,10 @@ export function createTypeEvaluator(
         });
     }
 
-    function makeTupleObject(typeArgs: TupleTypeArg[], isUnpackedTuple = false) {
+    function makeTupleObject(typeArgs: TupleTypeArg[], isUnpacked = false) {
         if (tupleClass && isInstantiableClass(tupleClass)) {
             return convertToInstance(
-                specializeTupleClass(tupleClass, typeArgs, /* isTypeArgExplicit */ true, isUnpackedTuple)
+                specializeTupleClass(tupleClass, typeArgs, /* isTypeArgExplicit */ true, isUnpacked)
             );
         }
 
@@ -11182,7 +11182,7 @@ export function createTypeEvaluator(
                         // simplify the type.
                         specializedTuple = tupleTypeArgs[0].type;
                     } else {
-                        specializedTuple = makeTupleObject(tupleTypeArgs, /* isUnpackedTuple */ true);
+                        specializedTuple = makeTupleObject(tupleTypeArgs, /* isUnpacked */ true);
                     }
 
                     const combinedArg: ValidateArgTypeParams = {
@@ -11653,7 +11653,7 @@ export function createTypeEvaluator(
 
         // If the final return type is an unpacked tuple, turn it into a normal (unpacked) tuple.
         if (isUnpackedClass(specializedReturnType)) {
-            specializedReturnType = ClassType.cloneForUnpacked(specializedReturnType, /* isUnpackedTuple */ false);
+            specializedReturnType = ClassType.cloneForUnpacked(specializedReturnType, /* isUnpacked */ false);
         }
 
         const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
@@ -18434,7 +18434,7 @@ export function createTypeEvaluator(
                 }
 
                 if (isUnpackedClass(type)) {
-                    return ClassType.cloneForUnpacked(type, /* isUnpackedTuple */ false);
+                    return ClassType.cloneForUnpacked(type, /* isUnpacked */ false);
                 }
 
                 return makeTupleObject([{ type, isUnbounded: !isTypeVarTuple(type) }]);
@@ -23055,7 +23055,7 @@ export function createTypeEvaluator(
 
                 if (curSrcType.priv.tupleTypeArgs) {
                     typeArgType = convertToInstance(
-                        makeTupleObject(curSrcType.priv.tupleTypeArgs, /* isUnpackedTuple */ true)
+                        makeTupleObject(curSrcType.priv.tupleTypeArgs, /* isUnpacked */ true)
                     );
                 } else {
                     typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
@@ -24812,7 +24812,7 @@ export function createTypeEvaluator(
         });
 
         if (srcTupleTypes.length !== 1 || !isTypeVarTuple(srcTupleTypes[0].type)) {
-            const srcPositionalsType = makeTupleObject(srcTupleTypes, /* isUnpackedTuple */ true);
+            const srcPositionalsType = makeTupleObject(srcTupleTypes, /* isUnpacked */ true);
 
             // Snip out the portion of the source positionals that map to the variadic
             // dest parameter and replace it with a single parameter that is typed as a
@@ -25179,11 +25179,11 @@ export function createTypeEvaluator(
             let srcArgsType = srcParamDetails.params[srcParamDetails.argsIndex].type;
 
             if (!isUnpacked(destArgsType)) {
-                destArgsType = makeTupleObject([{ type: destArgsType, isUnbounded: true }], /* isUnpackedTuple */ true);
+                destArgsType = makeTupleObject([{ type: destArgsType, isUnbounded: true }], /* isUnpacked */ true);
             }
 
             if (!isUnpacked(srcArgsType)) {
-                srcArgsType = makeTupleObject([{ type: srcArgsType, isUnbounded: true }], /* isUnpackedTuple */ true);
+                srcArgsType = makeTupleObject([{ type: srcArgsType, isUnbounded: true }], /* isUnpacked */ true);
             }
 
             if (

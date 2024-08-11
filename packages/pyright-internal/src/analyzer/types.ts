@@ -3250,6 +3250,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
+            if (!type1.priv.isUnpacked !== !classType2.priv.isUnpacked) {
+                return false;
+            }
+
             if (!type1.priv.isTypedDictPartial !== !classType2.priv.isTypedDictPartial) {
                 return false;
             }

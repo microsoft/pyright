@@ -204,7 +204,7 @@ export function adjustTupleTypeArgs(
                             };
                         }),
                         /* isTypeArgExplicit */ true,
-                        /* isUnpackedTuple */ true
+                        /* isUnpacked */ true
                     )
                 );
 
@@ -245,7 +245,7 @@ export function adjustTupleTypeArgs(
                                     };
                                 }),
                                 /* isTypeArgExplicit */ true,
-                                /* isUnpackedTuple */ true
+                                /* isUnpacked */ true
                             )
                         );
                     }
@@ -271,7 +271,7 @@ export function adjustTupleTypeArgs(
                 srcUnboundedIndex < destUnboundedOrVariadicIndex + srcArgsToCapture)
         ) {
             const removedArgTypes = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture).map((t) => {
-                if (isTypeVar(t.type) && isUnpackedTypeVarTuple(t.type) && !t.type.priv.isInUnion) {
+                if (isTypeVar(t.type) && isUnpackedTypeVarTuple(t.type)) {
                     return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
                 }
                 return t.type;
