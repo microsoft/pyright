@@ -391,6 +391,7 @@ function assignClassToProtocolInternal(
 
             let srcMemberType: Type;
             let isSrcReadOnly = false;
+            let isDestReadOnly = false;
 
             if (isClass(srcType)) {
                 // Look in the metaclass first if we're treating the source as an instantiable class.
@@ -511,6 +512,9 @@ function assignClassToProtocolInternal(
             if (isFunction(destMemberType) || isOverloaded(destMemberType)) {
                 let boundDeclaredType: FunctionType | OverloadedType | undefined;
 
+                // Functions are considered read-only.
+                isDestReadOnly = true;
+
                 if (isClass(srcType)) {
                     assert(srcMemberInfo);
 
@@ -546,6 +550,21 @@ function assignClassToProtocolInternal(
             }
 
             const subDiag = diag?.createAddendum();
+
+            const isDestFinal = destSymbol
+                .getTypedDeclarations()
+                .some((decl) => decl.type === DeclarationType.Variable && !!decl.isFinal);
+            const isSrcFinal = srcSymbol
+                .getTypedDeclarations()
+                .some((decl) => decl.type === DeclarationType.Variable && !!decl.isFinal);
+
+            if (isSrcFinal) {
+                isSrcReadOnly = true;
+            }
+
+            if (isDestFinal) {
+                isDestReadOnly = true;
+            }
 
             // Properties require special processing.
             if (isClassInstance(destMemberType) && ClassType.isPropertyClass(destMemberType)) {
@@ -597,10 +616,17 @@ function assignClassToProtocolInternal(
                         typesAreConsistent = false;
                     }
 
+                    if (
+                        !lookUpClassMember(destMemberType, '__set__', MemberAccessFlags.SkipInstanceMembers) &&
+                        !lookUpClassMember(destMemberType, '__delete__', MemberAccessFlags.SkipInstanceMembers)
+                    ) {
+                        isDestReadOnly = true;
+                    }
+
                     if (isSrcReadOnly) {
                         // The source attribute is read-only. Make sure the setter
                         // is not defined in the dest property.
-                        if (lookUpClassMember(destMemberType, '__set__', MemberAccessFlags.SkipInstanceMembers)) {
+                        if (!isDestReadOnly) {
                             if (subDiag) {
                                 subDiag.addMessage(LocAddendum.memberIsWritableInProtocol().format({ name }));
                             }
@@ -638,22 +664,9 @@ function assignClassToProtocolInternal(
                 }
             }
 
-            const isDestFinal = destSymbol
-                .getTypedDeclarations()
-                .some((decl) => decl.type === DeclarationType.Variable && !!decl.isFinal);
-            const isSrcFinal = srcSymbol
-                .getTypedDeclarations()
-                .some((decl) => decl.type === DeclarationType.Variable && !!decl.isFinal);
-
-            if (isDestFinal !== isSrcFinal) {
-                if (isDestFinal) {
-                    if (subDiag) {
-                        subDiag.addMessage(LocAddendum.memberIsFinalInProtocol().format({ name }));
-                    }
-                } else {
-                    if (subDiag) {
-                        subDiag.addMessage(LocAddendum.memberIsNotFinalInProtocol().format({ name }));
-                    }
+            if (!isDestReadOnly && isSrcReadOnly) {
+                if (subDiag) {
+                    subDiag.addMessage(LocAddendum.memberIsNotReadOnlyInProtocol().format({ name }));
                 }
                 typesAreConsistent = false;
             }
