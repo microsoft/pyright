@@ -1305,8 +1305,6 @@ export namespace Localizer {
             new ParameterizedString<{ count: number }>(getRawString('DiagnosticAddendum.memberIsAbstractMore'));
         export const memberIsClassVarInProtocol = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsClassVarInProtocol'));
-        export const memberIsFinalInProtocol = () =>
-            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsFinalInProtocol'));
         export const memberIsInitVar = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsInitVar'));
         export const memberIsInvariant = () =>
@@ -1315,8 +1313,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsNotClassVarInClass'));
         export const memberIsNotClassVarInProtocol = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsNotClassVarInProtocol'));
-        export const memberIsNotFinalInProtocol = () =>
-            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsNotFinalInProtocol'));
+        export const memberIsNotReadOnlyInProtocol = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsNotReadOnlyInProtocol'));
+        export const memberIsReadOnlyInProtocol = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsReadOnlyInProtocol'));
         export const memberIsWritableInProtocol = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsWritableInProtocol'));
         export const memberSetClassVar = () =>

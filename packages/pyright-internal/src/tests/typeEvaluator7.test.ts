@@ -310,7 +310,7 @@ test('Protocol2', () => {
 test('Protocol3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol3.py']);
 
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 13);
 });
 
 test('Protocol4', () => {
