@@ -43,6 +43,7 @@ import {
     ClassMember,
     containsLiteralType,
     lookUpClassMember,
+    makeFunctionTypeVarsBound,
     MemberAccessFlags,
     partiallySpecializeType,
     requiresSpecialization,
@@ -545,6 +546,7 @@ function assignClassToProtocolInternal(
                 }
 
                 if (boundDeclaredType) {
+                    boundDeclaredType = makeFunctionTypeVarsBound(boundDeclaredType);
                     destMemberType = boundDeclaredType;
                 } else {
                     typesAreConsistent = false;

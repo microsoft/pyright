@@ -329,6 +329,7 @@ import {
     isVarianceOfTypeArgCompatible,
     lookUpClassMember,
     lookUpObjectMember,
+    makeFunctionTypeVarsBound,
     makeInferenceContext,
     makeTypeVarsBound,
     makeTypeVarsFree,
@@ -24662,7 +24663,19 @@ export function createTypeEvaluator(
             }
         }
 
-        return getBoundMagicMethod(objType, '__call__', /* selfType */ undefined, /* diag */ undefined, recursionCount);
+        const callType = getBoundMagicMethod(
+            objType,
+            '__call__',
+            /* selfType */ undefined,
+            /* diag */ undefined,
+            recursionCount
+        );
+
+        if (!callType) {
+            return undefined;
+        }
+
+        return makeFunctionTypeVarsBound(callType);
     }
 
     function assignParam(
