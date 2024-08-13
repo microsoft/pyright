@@ -99,6 +99,7 @@ import {
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
+import { ConstraintSolution } from './constraintSolution';
 import {
     addConstraintsForExpectedType,
     applySourceSolutionToConstraints,
@@ -11658,7 +11659,7 @@ export function createTypeEvaluator(
         }
 
         const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
-        specializedReturnType = adjustCallableReturnType(type, specializedReturnType, liveTypeVarScopes);
+        specializedReturnType = adjustCallableReturnType(errorNode, specializedReturnType, liveTypeVarScopes);
 
         if (specializedInitSelfType) {
             specializedInitSelfType = solveAndApplyConstraints(specializedInitSelfType, constraints);
@@ -11720,33 +11721,50 @@ export function createTypeEvaluator(
     // or unions of callables. It's intended for a specific use case. We may
     // need to make this more sophisticated in the future.
     function adjustCallableReturnType(
-        callableType: FunctionType,
+        callNode: ExpressionNode,
         returnType: Type,
         liveTypeVarScopes: TypeVarScopeId[]
     ): Type {
-        if (!isFunction(returnType) || returnType.shared.name || !callableType.shared.typeVarScopeId) {
+        if (!isFunction(returnType)) {
             return returnType;
         }
 
         // What type variables are referenced in the callable return type? Do not include any live type variables.
-        const newTypeParams = getTypeVarArgsRecursive(returnType).filter(
+        const typeParams = getTypeVarArgsRecursive(returnType).filter(
             (t) => !liveTypeVarScopes.some((scopeId) => t.priv.scopeId === scopeId)
         );
 
         // If there are no unsolved type variables, we're done. If there are
-        // unsolved type variables, treat them as though they are rescoped
-        // to the callable.
-        if (newTypeParams.length === 0) {
+        // unsolved type variables, rescope them to the callable.
+        if (typeParams.length === 0) {
             return returnType;
         }
 
-        const newScopeId = newTypeParams[0].priv.freeTypeVar?.priv.scopeId ?? newTypeParams[0].priv.scopeId;
+        // Create a new scope ID based on the caller's position. This
+        // will guarantee uniqueness. If another caller uses the same
+        // call and arguments, the type vars will not conflict.
+        const newScopeId = ParseTreeUtils.getScopeIdForNode(callNode);
+        const solution = new ConstraintSolution();
 
-        return FunctionType.cloneWithNewTypeVarScopeId(
-            returnType,
-            newScopeId,
-            callableType.priv.constructorTypeVarScopeId,
-            newTypeParams
+        const newTypeParams = typeParams.map((typeVar) => {
+            const newTypeParam = TypeVarType.cloneForScopeId(
+                typeVar,
+                newScopeId,
+                typeVar.priv.scopeName,
+                TypeVarScopeType.Function
+            );
+            solution.setType(typeVar, newTypeParam);
+            return newTypeParam;
+        });
+
+        return applySolvedTypeVars(
+            FunctionType.cloneWithNewTypeVarScopeId(
+                returnType,
+                newScopeId,
+                /* constructorTypeVarScopeId */ undefined,
+                newTypeParams
+            ),
+            solution
         );
     }
 
