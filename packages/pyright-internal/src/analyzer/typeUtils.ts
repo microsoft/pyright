@@ -1505,6 +1505,18 @@ export function ensureSignaturesAreUnique<T extends Type>(
     return transformer.apply(type, 0) as T;
 }
 
+export function makeFunctionTypeVarsBound(type: FunctionType | OverloadedType): FunctionType | OverloadedType {
+    const scopeIds: TypeVarScopeId[] = [];
+    doForEachSignature(type, (signature) => {
+        const localScopeId = getTypeVarScopeId(signature);
+        if (localScopeId) {
+            scopeIds.push(localScopeId);
+        }
+    });
+
+    return makeTypeVarsBound(type, scopeIds);
+}
+
 export function makeTypeVarsBound<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[] | undefined): T;
 export function makeTypeVarsBound(type: Type, scopeIds: TypeVarScopeId[] | undefined): Type {
     const transformer = new BoundTypeVarTransform(scopeIds);
