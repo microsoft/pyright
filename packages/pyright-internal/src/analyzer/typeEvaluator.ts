@@ -99,6 +99,7 @@ import {
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
+import { ConstraintSolution } from './constraintSolution';
 import {
     addConstraintsForExpectedType,
     applySourceSolutionToConstraints,
@@ -329,6 +330,7 @@ import {
     isVarianceOfTypeArgCompatible,
     lookUpClassMember,
     lookUpObjectMember,
+    makeFunctionTypeVarsBound,
     makeInferenceContext,
     makeTypeVarsBound,
     makeTypeVarsFree,
@@ -5011,7 +5013,7 @@ export function createTypeEvaluator(
                 } else if (isTypeVarTuple(param) && tupleClass && isInstantiableClass(tupleClass)) {
                     defaultType = makeTupleObject(
                         [{ type: UnknownType.create(), isUnbounded: true }],
-                        /* isUnpackedTuple */ true
+                        /* isUnpacked */ true
                     );
                 } else {
                     defaultType = UnknownType.create();
@@ -6751,7 +6753,7 @@ export function createTypeEvaluator(
                         });
                     }
 
-                    const tupleObject = makeTupleObject(variadicTypes, /* isUnpackedTuple */ true);
+                    const tupleObject = makeTupleObject(variadicTypes, /* isUnpacked */ true);
 
                     typeArgs = [
                         ...typeArgs.slice(0, variadicIndex),
@@ -6763,7 +6765,7 @@ export function createTypeEvaluator(
                 // Add an empty tuple that maps to the TypeVarTuple type parameter.
                 typeArgs.push({
                     node: errorNode,
-                    type: makeTupleObject([], /* isUnpackedTuple */ true),
+                    type: makeTupleObject([], /* isUnpacked */ true),
                 });
             }
         }
@@ -7419,10 +7421,10 @@ export function createTypeEvaluator(
         });
     }
 
-    function makeTupleObject(typeArgs: TupleTypeArg[], isUnpackedTuple = false) {
+    function makeTupleObject(typeArgs: TupleTypeArg[], isUnpacked = false) {
         if (tupleClass && isInstantiableClass(tupleClass)) {
             return convertToInstance(
-                specializeTupleClass(tupleClass, typeArgs, /* isTypeArgExplicit */ true, isUnpackedTuple)
+                specializeTupleClass(tupleClass, typeArgs, /* isTypeArgExplicit */ true, isUnpacked)
             );
         }
 
@@ -11182,7 +11184,7 @@ export function createTypeEvaluator(
                         // simplify the type.
                         specializedTuple = tupleTypeArgs[0].type;
                     } else {
-                        specializedTuple = makeTupleObject(tupleTypeArgs, /* isUnpackedTuple */ true);
+                        specializedTuple = makeTupleObject(tupleTypeArgs, /* isUnpacked */ true);
                     }
 
                     const combinedArg: ValidateArgTypeParams = {
@@ -11653,11 +11655,11 @@ export function createTypeEvaluator(
 
         // If the final return type is an unpacked tuple, turn it into a normal (unpacked) tuple.
         if (isUnpackedClass(specializedReturnType)) {
-            specializedReturnType = ClassType.cloneForUnpacked(specializedReturnType, /* isUnpackedTuple */ false);
+            specializedReturnType = ClassType.cloneForUnpacked(specializedReturnType, /* isUnpacked */ false);
         }
 
         const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
-        specializedReturnType = adjustCallableReturnType(type, specializedReturnType, liveTypeVarScopes);
+        specializedReturnType = adjustCallableReturnType(errorNode, specializedReturnType, liveTypeVarScopes);
 
         if (specializedInitSelfType) {
             specializedInitSelfType = solveAndApplyConstraints(specializedInitSelfType, constraints);
@@ -11719,33 +11721,50 @@ export function createTypeEvaluator(
     // or unions of callables. It's intended for a specific use case. We may
     // need to make this more sophisticated in the future.
     function adjustCallableReturnType(
-        callableType: FunctionType,
+        callNode: ExpressionNode,
         returnType: Type,
         liveTypeVarScopes: TypeVarScopeId[]
     ): Type {
-        if (!isFunction(returnType) || returnType.shared.name || !callableType.shared.typeVarScopeId) {
+        if (!isFunction(returnType)) {
             return returnType;
         }
 
         // What type variables are referenced in the callable return type? Do not include any live type variables.
-        const newTypeParams = getTypeVarArgsRecursive(returnType).filter(
+        const typeParams = getTypeVarArgsRecursive(returnType).filter(
             (t) => !liveTypeVarScopes.some((scopeId) => t.priv.scopeId === scopeId)
         );
 
         // If there are no unsolved type variables, we're done. If there are
-        // unsolved type variables, treat them as though they are rescoped
-        // to the callable.
-        if (newTypeParams.length === 0) {
+        // unsolved type variables, rescope them to the callable.
+        if (typeParams.length === 0) {
             return returnType;
         }
 
-        const newScopeId = newTypeParams[0].priv.freeTypeVar?.priv.scopeId ?? newTypeParams[0].priv.scopeId;
+        // Create a new scope ID based on the caller's position. This
+        // will guarantee uniqueness. If another caller uses the same
+        // call and arguments, the type vars will not conflict.
+        const newScopeId = ParseTreeUtils.getScopeIdForNode(callNode);
+        const solution = new ConstraintSolution();
 
-        return FunctionType.cloneWithNewTypeVarScopeId(
-            returnType,
-            newScopeId,
-            callableType.priv.constructorTypeVarScopeId,
-            newTypeParams
+        const newTypeParams = typeParams.map((typeVar) => {
+            const newTypeParam = TypeVarType.cloneForScopeId(
+                typeVar,
+                newScopeId,
+                typeVar.priv.scopeName,
+                TypeVarScopeType.Function
+            );
+            solution.setType(typeVar, newTypeParam);
+            return newTypeParam;
+        });
+
+        return applySolvedTypeVars(
+            FunctionType.cloneWithNewTypeVarScopeId(
+                returnType,
+                newScopeId,
+                /* constructorTypeVarScopeId */ undefined,
+                newTypeParams
+            ),
+            solution
         );
     }
 
@@ -15671,41 +15690,25 @@ export function createTypeEvaluator(
                 typeArgType = UnknownType.create();
             }
 
-            // If this is an unpacked tuple, explode out the individual items.
-            if (isUnpackedClass(typeArg.type) && typeArg.type.priv.tupleTypeArgs) {
+            if (isTypeVar(typeArgType) && isUnpackedTypeVarTuple(typeArgType)) {
                 // This is an experimental feature because Unions of unpacked TypeVarTuples are not officially supported.
                 if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
-                    typeArg.type.priv.tupleTypeArgs.forEach((tupleTypeArg) => {
-                        types.push(convertToInstantiable(tupleTypeArg.type));
-                    });
-
+                    // If this is an unpacked TypeVar, note that it is in a union so we can
+                    // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
+                    typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
                     allowSingleTypeArg = true;
                 } else {
-                    addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.unionUnpackedTuple(), errorNode);
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.unionUnpackedTypeVarTuple(),
+                        errorNode
+                    );
 
-                    types.push(UnknownType.create());
+                    typeArgType = UnknownType.create();
                 }
-            } else {
-                if (isTypeVar(typeArgType) && isUnpackedTypeVarTuple(typeArgType)) {
-                    // This is an experimental feature because Unions of unpacked TypeVarTuples are not officially supported.
-                    if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
-                        // If this is an unpacked TypeVar, note that it is in a union so we can
-                        // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
-                        typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
-                        allowSingleTypeArg = true;
-                    } else {
-                        addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.unionUnpackedTypeVarTuple(),
-                            errorNode
-                        );
-
-                        typeArgType = UnknownType.create();
-                    }
-                }
-
-                types.push(typeArgType);
             }
+
+            types.push(typeArgType);
         }
 
         // Validate that we received at least two type arguments. One type argument
@@ -18450,7 +18453,7 @@ export function createTypeEvaluator(
                 }
 
                 if (isUnpackedClass(type)) {
-                    return ClassType.cloneForUnpacked(type, /* isUnpackedTuple */ false);
+                    return ClassType.cloneForUnpacked(type, /* isUnpacked */ false);
                 }
 
                 return makeTupleObject([{ type, isUnbounded: !isTypeVarTuple(type) }]);
@@ -23071,7 +23074,7 @@ export function createTypeEvaluator(
 
                 if (curSrcType.priv.tupleTypeArgs) {
                     typeArgType = convertToInstance(
-                        makeTupleObject(curSrcType.priv.tupleTypeArgs, /* isUnpackedTuple */ true)
+                        makeTupleObject(curSrcType.priv.tupleTypeArgs, /* isUnpacked */ true)
                     );
                 } else {
                     typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
@@ -24678,7 +24681,19 @@ export function createTypeEvaluator(
             }
         }
 
-        return getBoundMagicMethod(objType, '__call__', /* selfType */ undefined, /* diag */ undefined, recursionCount);
+        const callType = getBoundMagicMethod(
+            objType,
+            '__call__',
+            /* selfType */ undefined,
+            /* diag */ undefined,
+            recursionCount
+        );
+
+        if (!callType) {
+            return undefined;
+        }
+
+        return makeFunctionTypeVarsBound(callType);
     }
 
     function assignParam(
@@ -24828,7 +24843,7 @@ export function createTypeEvaluator(
         });
 
         if (srcTupleTypes.length !== 1 || !isTypeVarTuple(srcTupleTypes[0].type)) {
-            const srcPositionalsType = makeTupleObject(srcTupleTypes, /* isUnpackedTuple */ true);
+            const srcPositionalsType = makeTupleObject(srcTupleTypes, /* isUnpacked */ true);
 
             // Snip out the portion of the source positionals that map to the variadic
             // dest parameter and replace it with a single parameter that is typed as a
@@ -25195,11 +25210,11 @@ export function createTypeEvaluator(
             let srcArgsType = srcParamDetails.params[srcParamDetails.argsIndex].type;
 
             if (!isUnpacked(destArgsType)) {
-                destArgsType = makeTupleObject([{ type: destArgsType, isUnbounded: true }], /* isUnpackedTuple */ true);
+                destArgsType = makeTupleObject([{ type: destArgsType, isUnbounded: true }], /* isUnpacked */ true);
             }
 
             if (!isUnpacked(srcArgsType)) {
-                srcArgsType = makeTupleObject([{ type: srcArgsType, isUnbounded: true }], /* isUnpackedTuple */ true);
+                srcArgsType = makeTupleObject([{ type: srcArgsType, isUnbounded: true }], /* isUnpacked */ true);
             }
 
             if (

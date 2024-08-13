@@ -1158,7 +1158,7 @@ export function getUnknownForTypeVarTuple(tupleClassType: ClassType): Type {
             tupleClassType,
             [{ type: UnknownType.create(), isUnbounded: true }],
             /* isTypeArgExplicit */ true,
-            /* isUnpackedTuple */ true
+            /* isUnpacked */ true
         )
     );
 }
@@ -1503,6 +1503,18 @@ export function ensureSignaturesAreUnique<T extends Type>(
 ): T {
     const transformer = new UniqueFunctionSignatureTransformer(signatureTracker, expressionOffset);
     return transformer.apply(type, 0) as T;
+}
+
+export function makeFunctionTypeVarsBound(type: FunctionType | OverloadedType): FunctionType | OverloadedType {
+    const scopeIds: TypeVarScopeId[] = [];
+    doForEachSignature(type, (signature) => {
+        const localScopeId = getTypeVarScopeId(signature);
+        if (localScopeId) {
+            scopeIds.push(localScopeId);
+        }
+    });
+
+    return makeTypeVarsBound(type, scopeIds);
 }
 
 export function makeTypeVarsBound<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[] | undefined): T;
@@ -2035,7 +2047,7 @@ export function buildSolutionFromSpecializedClass(classType: ClassType): Constra
                     classType,
                     classType.priv.tupleTypeArgs,
                     classType.priv.isTypeArgExplicit,
-                    /* isUnpackedTuple */ true
+                    /* isUnpacked */ true
                 )
             ),
         ];
@@ -2661,7 +2673,7 @@ export function specializeTupleClass(
     classType: ClassType,
     typeArgs: TupleTypeArg[],
     isTypeArgExplicit = true,
-    isUnpackedTuple = false
+    isUnpacked = false
 ): ClassType {
     const clonedClassType = ClassType.specialize(
         classType,
@@ -2671,7 +2683,7 @@ export function specializeTupleClass(
         typeArgs
     );
 
-    if (isUnpackedTuple) {
+    if (isUnpacked) {
         clonedClassType.priv.isUnpacked = true;
     }
 

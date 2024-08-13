@@ -142,7 +142,7 @@ export function assignTypeVar(
                         tupleClassType,
                         [{ type: srcType, isUnbounded: false }],
                         /* isTypeArgExplicit */ true,
-                        /* isUnpackedTuple */ true
+                        /* isUnpacked */ true
                     )
                 );
             }
@@ -1351,7 +1351,7 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
         return type;
     }
 
-    return specializeTupleClass(type, tupleTypeArgs, /* isTypeArgExplicit */ true, /* isUnpackedTuple */ true);
+    return specializeTupleClass(type, tupleTypeArgs, /* isTypeArgExplicit */ true, /* isUnpacked */ true);
 }
 
 // This function is used for debugging only. It dumps the current contents of

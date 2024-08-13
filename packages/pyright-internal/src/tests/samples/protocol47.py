@@ -1,8 +1,7 @@
 # This sample tests protocol matching for a protocol and an implementation
 # that use a mixture of class-scoped and function-scoped TypeVars.
 
-from typing import TypeVar, Protocol, Generic
-
+from typing import Generic, Protocol, TypeVar
 
 T1 = TypeVar("T1", covariant=True)
 T2 = TypeVar("T2")
@@ -25,9 +24,20 @@ class A(Generic[T3]):
 a1: A[str] = A()
 
 
-def func1(storage: ProtoA[int]):
+def func1(storage: ProtoA[str]):
     ...
 
 
-v1: ProtoA[int] = a1
+v1: ProtoA[str] = a1
 func1(a1)
+
+
+def func2(storage: ProtoA[int]):
+    ...
+
+
+# This should generate an error.
+v2: ProtoA[int] = a1
+
+# This should generate an error.
+func2(a1)
