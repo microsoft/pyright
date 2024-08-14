@@ -9,7 +9,9 @@ Mypy is the “OG” in the world of Python type checkers. It was started by Juk
 
 Mypy served as a reference implementation of [PEP 484](https://www.python.org/dev/peps/pep-0484/), which defines standard behaviors for Python static typing. Although PEP 484 spells out many type checking behaviors, it intentionally leaves many other behaviors undefined. This approach has allowed different type checkers to innovate and differentiate.
 
-Pyright generally adheres to the type checking behaviors spelled out in PEP 484 and follow-on typing PEPs (526, 544, 586, 589, etc.). For behaviors that are not explicitly spelled out in these standards, pyright generally tries to adhere to mypy’s behavior unless there is a compelling justification for deviating. This document discusses these differences and provides the reasoning behind each design choice.
+Pyright generally adheres to the official [Python typing specification](https://typing.readthedocs.io/en/latest/spec/index.html), which incorporates and builds upon PEP 484 and other typing-related PEPs. The typing spec is accompanied by an ever-expanding suite of conformance tests. For the latest conformance test results for pyright, mypy and other type checkers, refer to [this page](https://htmlpreview.github.io/?https://github.com/python/typing/blob/main/conformance/results/results.html).
+
+For behaviors that are not explicitly spelled out in the typing spec, pyright generally tries to adhere to mypy’s behavior unless there is a compelling justification for deviating. This document discusses these differences and provides the reasoning behind each design choice.
 
 
 ### Design Goals
@@ -18,9 +20,9 @@ Pyright was designed with performance in mind. It is not unusual for pyright to 
 
 Pyright was also designed to be used as the foundation for a Python [language server](https://microsoft.github.io/language-server-protocol/). Language servers provide interactive programming features such as completion suggestions, function signature help, type information on hover, semantic-aware search, semantic-aware renaming, semantic token coloring, refactoring tools, etc. For a good user experience, these features require highly responsive type evaluation performance during interactive code modification. They also require type evaluation to work on code that is incomplete and contains syntax errors.
 
-To achieve these design goals, pyright is implemented as a “lazy” or “just-in-time” type evaluator. Rather than analyzing all code in a module from top to bottom, it is able to evaluate the type of an arbitrary identifier anywhere within a module. If the type of that identifier depends on the types of other expressions or symbols, pyright recursively evaluates those in turn until it has enough information to determine the type of the requested identifier. By comparison, mypy uses a more traditional multi-pass architecture where semantic analysis is performed multiple times on a module from the top to the bottom until all types converge.
+To achieve these design goals, pyright is implemented as a “lazy” or “just-in-time” type evaluator. Rather than analyzing all code in a module from top to bottom, it is able to evaluate the type of an arbitrary identifier anywhere within a module. If the type of that identifier depends on the types of other expressions or symbols, pyright recursively evaluates those in turn until it has enough information to determine the type of the target identifier. By comparison, mypy uses a more traditional multi-pass architecture where semantic analysis is performed multiple times on a module from the top to the bottom until all types converge.
 
-Pyright implements its own parser, which recovers gracefully from syntax errors and continues parsing the remainder of the source file. By comparison, mypy uses the parser built in to the Python interpreter, and it does not support recovery after a syntax error.
+Pyright implements its own parser, which recovers gracefully from syntax errors and continues parsing the remainder of the source file. By comparison, mypy uses the parser built in to the Python interpreter, and it does not support recovery after a syntax error. This also means that when you run mypy on an older version of Python, it cannot support newer language features that require grammar changes.
 
 
 ### Type Checking Unannotated Code
@@ -28,8 +30,6 @@ Pyright implements its own parser, which recovers gracefully from syntax errors 
 By default, pyright performs type checking for all code regardless of whether it contains type annotations. This is important for language server features. It is also important for catching bugs in code that is unannotated.
 
 By default, mypy skips all functions or methods that do not have type annotations. This is a common source of confusion for mypy users who are surprised when type violations in unannotated functions go unreported. If the option `--check-untyped-defs` is enabled, mypy performs type checking for all functions and methods.
-
-Mypy supports the `typing.no_type_check` decorator. This decorator does not make sense for language servers, so it is ignored by pyright.
 
 
 ### Inferred Return Types
@@ -220,7 +220,7 @@ x = 'a'
 reveal_type(x) # pyright: Literal['a'], mypy: str
 ```
 
-Pyright also supports “literal math” for simple operations between literals.
+Pyright also supports “literal math” for simple operations involving literals.
 
 ```python
 def func1(a: Literal[1, 2], b: Literal[2, 3]):
