@@ -400,6 +400,7 @@ interface ScopedTypeVarResult {
 interface AliasMapEntry {
     alias: string;
     module: 'builtins' | 'collections' | 'self';
+    implicitBaseClass?: string;
     isSpecialForm?: boolean;
     isIllegalInIsinstance?: boolean;
     typeParamVariance?: Variance;
@@ -15083,10 +15084,7 @@ export function createTypeEvaluator(
         return type;
     }
 
-    // Creates a "TypeGuard" and "TypeIs" type. This is an alias for 'bool', which
-    // isn't a generic type and therefore doesn't have a typeParam.
-    // We'll abuse our internal types a bit by specializing it with
-    // a type argument anyway.
+    // Creates a "TypeGuard" and "TypeIs" type.
     function createTypeGuardType(
         classType: ClassType,
         errorNode: ParseNode,
@@ -15948,7 +15946,7 @@ export function createTypeEvaluator(
             specialClassType.shared.flags |= ClassTypeFlags.TypingExtensionClass;
         }
 
-        const baseClassName = aliasMapEntry.alias || 'object';
+        const baseClassName = aliasMapEntry.implicitBaseClass || aliasMapEntry.alias || 'object';
 
         let baseClass: Type | undefined;
         if (aliasMapEntry.module === 'builtins') {
@@ -16021,7 +16019,13 @@ export function createTypeEvaluator(
             ['Concatenate', { alias: '', module: 'builtins', isSpecialForm: true }],
             [
                 'TypeGuard',
-                { alias: '', module: 'builtins', isSpecialForm: true, typeParamVariance: Variance.Covariant },
+                {
+                    alias: '',
+                    module: 'builtins',
+                    implicitBaseClass: 'bool',
+                    isSpecialForm: true,
+                    typeParamVariance: Variance.Covariant,
+                },
             ],
             ['Unpack', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Required', { alias: '', module: 'builtins', isSpecialForm: true }],
@@ -16031,7 +16035,16 @@ export function createTypeEvaluator(
             ['Never', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['LiteralString', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['ReadOnly', { alias: '', module: 'builtins', isSpecialForm: true }],
-            ['TypeIs', { alias: '', module: 'builtins', isSpecialForm: true, typeParamVariance: Variance.Invariant }],
+            [
+                'TypeIs',
+                {
+                    alias: '',
+                    module: 'builtins',
+                    implicitBaseClass: 'bool',
+                    isSpecialForm: true,
+                    typeParamVariance: Variance.Invariant,
+                },
+            ],
         ]);
 
         const aliasMapEntry = specialTypes.get(assignedName);
@@ -22717,14 +22730,6 @@ export function createTypeEvaluator(
             }
 
             return true;
-        }
-
-        // If the type is a bool created with a `TypeGuard` or `TypeIs`, it is
-        // considered a subtype of `bool`.
-        if (isInstantiableClass(srcType) && ClassType.isBuiltIn(srcType, ['TypeGuard', 'TypeIs'])) {
-            if (isInstantiableClass(destType) && ClassType.isBuiltIn(destType, 'bool')) {
-                return (flags & AssignTypeFlags.Invariant) === 0;
-            }
         }
 
         if ((flags & AssignTypeFlags.Invariant) === 0 || ClassType.isSameGenericClass(srcType, destType)) {
