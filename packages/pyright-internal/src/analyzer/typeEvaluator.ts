@@ -10287,7 +10287,7 @@ export function createTypeEvaluator(
                     paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParamType, /* access */ undefined);
                 } else {
                     positionalOnlyLimitIndex = varArgListParamIndex;
-                    positionalArgCount = varArgListParamIndex;
+                    positionalArgCount = Math.min(varArgListParamIndex, positionalArgCount);
                     positionParamLimitIndex = varArgListParamIndex;
                 }
             }
