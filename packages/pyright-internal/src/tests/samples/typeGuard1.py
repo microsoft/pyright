@@ -6,6 +6,7 @@
 
 import os
 from typing import Any, Callable, TypeVar
+
 from typing_extensions import TypeGuard  # pyright: ignore[reportMissingModuleSource]
 
 _T = TypeVar("_T")
@@ -124,3 +125,9 @@ takes_int_typeguard(bool_typeguard)
 
 # This should generate an error because TypeGuard is covariant.
 takes_int_typeguard(str_typeguard)
+
+
+v0 = is_int(int)
+v1: bool = v0
+v2: int = v0
+v3 = v0 & v0
