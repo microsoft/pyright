@@ -5553,8 +5553,10 @@ export function createTypeEvaluator(
                         const getAttrSymbol = ModuleType.getField(baseType, '__getattr__');
                         if (getAttrSymbol) {
                             const isModuleGetAttrSupported =
-                                fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_7) ||
-                                getAttrSymbol.getDeclarations().some((decl) => decl.uri.hasExtension('.pyi'));
+                                PythonVersion.isGreaterOrEqualTo(
+                                    fileInfo.executionEnvironment.pythonVersion,
+                                    pythonVersion3_7
+                                ) || getAttrSymbol.getDeclarations().some((decl) => decl.uri.hasExtension('.pyi'));
 
                             if (isModuleGetAttrSupported) {
                                 const getAttrTypeResult = getEffectiveTypeOfSymbolForUsage(getAttrSymbol);
@@ -6583,7 +6585,7 @@ export function createTypeEvaluator(
                     const minPythonVersion = nonSubscriptableBuiltinTypes.get(baseTypeResult.type.shared.fullName);
                     if (
                         minPythonVersion !== undefined &&
-                        fileInfo.executionEnvironment.pythonVersion.isLessThan(minPythonVersion) &&
+                        PythonVersion.isLessThan(fileInfo.executionEnvironment.pythonVersion, minPythonVersion) &&
                         !fileInfo.isStubFile
                     ) {
                         addDiagnostic(
@@ -12359,7 +12361,7 @@ export function createTypeEvaluator(
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                     if (
                         !fileInfo.isStubFile &&
-                        fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_13) &&
+                        PythonVersion.isLessThan(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_13) &&
                         classType.shared.moduleName !== 'typing_extensions'
                     ) {
                         addDiagnostic(
@@ -12518,7 +12520,7 @@ export function createTypeEvaluator(
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                     if (
                         !fileInfo.isStubFile &&
-                        fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_13) &&
+                        PythonVersion.isLessThan(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_13) &&
                         classType.shared.moduleName !== 'typing_extensions'
                     ) {
                         addDiagnostic(
@@ -12608,7 +12610,7 @@ export function createTypeEvaluator(
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                     if (
                         !fileInfo.isStubFile &&
-                        fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_13) &&
+                        PythonVersion.isLessThan(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_13) &&
                         classType.shared.moduleName !== 'typing_extensions'
                     ) {
                         addDiagnostic(
@@ -16635,7 +16637,10 @@ export function createTypeEvaluator(
                                 if (
                                     !fileInfo.isStubFile &&
                                     !ClassType.isTypingExtensionClass(argType) &&
-                                    fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_7)
+                                    PythonVersion.isLessThan(
+                                        fileInfo.executionEnvironment.pythonVersion,
+                                        pythonVersion3_7
+                                    )
                                 ) {
                                     addDiagnostic(
                                         DiagnosticRule.reportInvalidTypeForm,
@@ -16652,7 +16657,12 @@ export function createTypeEvaluator(
 
                             // If the class directly derives from NamedTuple (in Python 3.6 or
                             // newer), it's considered a (read-only) dataclass.
-                            if (fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_6)) {
+                            if (
+                                PythonVersion.isGreaterOrEqualTo(
+                                    fileInfo.executionEnvironment.pythonVersion,
+                                    pythonVersion3_6
+                                )
+                            ) {
                                 if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
                                     isNamedTupleSubclass = true;
                                     classType.shared.flags |= ClassTypeFlags.ReadOnlyInstanceVariables;
@@ -19094,7 +19104,10 @@ export function createTypeEvaluator(
                     // Handle PEP 562 support for module-level __getattr__ function,
                     // introduced in Python 3.7.
                     if (
-                        fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_7) ||
+                        PythonVersion.isGreaterOrEqualTo(
+                            fileInfo.executionEnvironment.pythonVersion,
+                            pythonVersion3_7
+                        ) ||
                         fileInfo.isStubFile
                     ) {
                         const getAttrSymbol = importLookupInfo.symbolTable.get('__getattr__');
@@ -20174,7 +20187,7 @@ export function createTypeEvaluator(
         const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
         if (
             fileInfo.isStubFile ||
-            fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_9) ||
+            PythonVersion.isGreaterOrEqualTo(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_9) ||
             isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(errorNode)) ||
             (flags & EvalFlags.ForwardRefs) !== 0
         ) {
