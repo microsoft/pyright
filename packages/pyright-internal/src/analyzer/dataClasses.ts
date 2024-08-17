@@ -11,7 +11,7 @@
 import { assert } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { pythonVersion3_13 } from '../common/pythonVersion';
+import { PythonVersion, pythonVersion3_13 } from '../common/pythonVersion';
 import { LocMessage } from '../localization/localize';
 import {
     ArgCategory,
@@ -122,7 +122,12 @@ export function synthesizeDataClassMethods(
 
     // For Python 3.13 and newer, synthesize a __replace__ method.
     let replaceType: FunctionType | undefined;
-    if (AnalyzerNodeInfo.getFileInfo(node).executionEnvironment.pythonVersion >= pythonVersion3_13) {
+    if (
+        PythonVersion.isGreaterOrEqualTo(
+            AnalyzerNodeInfo.getFileInfo(node).executionEnvironment.pythonVersion,
+            pythonVersion3_13
+        )
+    ) {
         replaceType = FunctionType.createSynthesizedInstance('__replace__');
         FunctionType.addParam(replaceType, selfParam);
         FunctionType.addKeywordOnlyParamSeparator(replaceType);

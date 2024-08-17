@@ -121,7 +121,7 @@ export class FullAccessHost extends LimitedAccessHost {
                 return undefined;
             }
 
-            const version = new PythonVersion(
+            const version = PythonVersion.create(
                 versionJson[0],
                 versionJson[1],
                 versionJson[2],

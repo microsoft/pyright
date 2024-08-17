@@ -9,77 +9,73 @@
 
 export type PythonReleaseLevel = 'alpha' | 'beta' | 'candidate' | 'final';
 
-export class PythonVersion {
-    constructor(
-        private _major: number,
-        private _minor: number,
-        private _micro?: number,
-        private _releaseLevel?: PythonReleaseLevel,
-        private _serial?: number
-    ) {}
+export interface PythonVersion {
+    major: number;
+    minor: number;
+    micro?: number;
+    releaseLevel?: PythonReleaseLevel;
+    serial?: number;
+}
 
-    get major() {
-        return this._major;
+export namespace PythonVersion {
+    export function create(
+        major: number,
+        minor: number,
+        micro?: number,
+        releaseLevel?: PythonReleaseLevel,
+        serial?: number
+    ): PythonVersion {
+        return {
+            major,
+            minor,
+            micro,
+            releaseLevel,
+            serial,
+        };
     }
 
-    get minor() {
-        return this._minor;
-    }
-
-    get micro() {
-        return this._micro;
-    }
-
-    get releaseLevel() {
-        return this._releaseLevel;
-    }
-
-    get serial() {
-        return this._serial;
-    }
-
-    isEqualTo(other: PythonVersion) {
-        if (this.major !== other.major || this.minor !== other.minor) {
+    export function isEqualTo(version: PythonVersion, other: PythonVersion) {
+        if (version.major !== other.major || version.minor !== other.minor) {
             return false;
         }
 
-        if (this._micro === undefined || other._micro === undefined) {
+        if (version.micro === undefined || other.micro === undefined) {
             return true;
-        } else if (this._micro !== other._micro) {
+        } else if (version.micro !== other.micro) {
             return false;
         }
 
-        if (this._releaseLevel === undefined || other._releaseLevel === undefined) {
+        if (version.releaseLevel === undefined || other.releaseLevel === undefined) {
             return true;
-        } else if (this._releaseLevel !== other._releaseLevel) {
+        } else if (version.releaseLevel !== other.releaseLevel) {
             return false;
         }
 
-        if (this._serial === undefined || other._serial === undefined) {
+        if (version.serial === undefined || other.serial === undefined) {
             return true;
-        } else if (this._serial !== other._serial) {
+        } else if (version.serial !== other.serial) {
             return false;
         }
 
         return true;
     }
 
-    isGreaterThan(other: PythonVersion) {
-        if (this.major > other.major) {
+    export function isGreaterThan(version: PythonVersion, other: PythonVersion) {
+        if (version.major > other.major) {
             return true;
-        } else if (this.major < other.major) {
+        } else if (version.major < other.major) {
             return false;
         }
 
-        if (this.minor > other.minor) {
+        if (version.minor > other.minor) {
             return true;
-        } else if (this.minor < other.minor) {
+        } else if (version.minor < other.minor) {
             return false;
         }
 
-        if (this._micro === undefined || other._micro === undefined || this._micro < other._micro) {
+        if (version.micro === undefined || other.micro === undefined || version.micro < other.micro) {
             return false;
-        } else if (this._micro > other._micro) {
+        } else if (version.micro > other.micro) {
             return true;
         }
 
@@ -87,18 +83,18 @@ export class PythonVersion {
         // of the release level designators are ordered by increasing
         // release level.
         if (
-            this._releaseLevel === undefined ||
-            other._releaseLevel === undefined ||
-            this._releaseLevel < other._releaseLevel
+            version.releaseLevel === undefined ||
+            other.releaseLevel === undefined ||
+            version.releaseLevel < other.releaseLevel
         ) {
             return false;
-        } else if (this._releaseLevel > other._releaseLevel) {
+        } else if (version.releaseLevel > other.releaseLevel) {
             return true;
         }
 
-        if (this._serial === undefined || other._serial === undefined || this._serial < other._serial) {
+        if (version.serial === undefined || other.serial === undefined || version.serial < other.serial) {
             return false;
-        } else if (this._serial > other._serial) {
+        } else if (version.serial > other.serial) {
             return true;
         }
 
@@ -106,46 +102,46 @@ export class PythonVersion {
         return false;
     }
 
-    isGreaterOrEqualTo(other: PythonVersion) {
-        return this.isEqualTo(other) || this.isGreaterThan(other);
+    export function isGreaterOrEqualTo(version: PythonVersion, other: PythonVersion) {
+        return isEqualTo(version, other) || isGreaterThan(version, other);
     }
 
-    isLessThan(other: PythonVersion) {
-        return !this.isGreaterOrEqualTo(other);
+    export function isLessThan(version: PythonVersion, other: PythonVersion) {
+        return !isGreaterOrEqualTo(version, other);
     }
 
-    isLessOrEqualTo(other: PythonVersion) {
-        return !this.isGreaterThan(other);
+    export function isLessOrEqualTo(version: PythonVersion, other: PythonVersion) {
+        return !isGreaterThan(version, other);
     }
 
-    toMajorMinorString(): string {
-        return `${this._major}.${this._minor}`;
+    export function toMajorMinorString(version: PythonVersion): string {
+        return `${version.major}.${version.minor}`;
     }
 
-    toString(): string {
-        let version = this.toMajorMinorString();
+    export function toString(version: PythonVersion): string {
+        let versString = toMajorMinorString(version);
 
-        if (this._micro === undefined) {
-            return version;
+        if (version.micro === undefined) {
+            return versString;
         }
 
-        version += `.${this._micro}`;
+        versString += `.${version.micro}`;
 
-        if (this._releaseLevel === undefined) {
-            return version;
+        if (version.releaseLevel === undefined) {
+            return versString;
         }
 
-        version += `.${this._releaseLevel}`;
+        versString += `.${version.releaseLevel}`;
 
-        if (this._serial === undefined) {
-            return version;
+        if (version.serial === undefined) {
+            return versString;
         }
 
-        version += `.${this._serial}`;
-        return version;
+        versString += `.${version.serial}`;
+        return versString;
     }
 
-    static fromString(val: string): PythonVersion | undefined {
+    export function fromString(val: string): PythonVersion | undefined {
         const split = val.split('.');
 
         if (split.length < 2) {
@@ -183,25 +179,25 @@ export class PythonVersion {
             }
         }
 
-        return new PythonVersion(major, minor, micro, releaseLevel, serial);
+        return create(major, minor, micro, releaseLevel, serial);
     }
 }
 
 // Predefine some versions.
-export const pythonVersion3_0 = new PythonVersion(3, 0);
-export const pythonVersion3_1 = new PythonVersion(3, 1);
-export const pythonVersion3_2 = new PythonVersion(3, 2);
-export const pythonVersion3_3 = new PythonVersion(3, 3);
-export const pythonVersion3_4 = new PythonVersion(3, 4);
-export const pythonVersion3_5 = new PythonVersion(3, 5);
-export const pythonVersion3_6 = new PythonVersion(3, 6);
-export const pythonVersion3_7 = new PythonVersion(3, 7);
-export const pythonVersion3_8 = new PythonVersion(3, 8);
-export const pythonVersion3_9 = new PythonVersion(3, 9);
-export const pythonVersion3_10 = new PythonVersion(3, 10);
-export const pythonVersion3_11 = new PythonVersion(3, 11);
-export const pythonVersion3_12 = new PythonVersion(3, 12);
-export const pythonVersion3_13 = new PythonVersion(3, 13);
-export const pythonVersion3_14 = new PythonVersion(3, 14);
+export const pythonVersion3_0 = PythonVersion.create(3, 0);
+export const pythonVersion3_1 = PythonVersion.create(3, 1);
+export const pythonVersion3_2 = PythonVersion.create(3, 2);
+export const pythonVersion3_3 = PythonVersion.create(3, 3);
+export const pythonVersion3_4 = PythonVersion.create(3, 4);
+export const pythonVersion3_5 = PythonVersion.create(3, 5);
+export const pythonVersion3_6 = PythonVersion.create(3, 6);
+export const pythonVersion3_7 = PythonVersion.create(3, 7);
+export const pythonVersion3_8 = PythonVersion.create(3, 8);
+export const pythonVersion3_9 = PythonVersion.create(3, 9);
+export const pythonVersion3_10 = PythonVersion.create(3, 10);
+export const pythonVersion3_11 = PythonVersion.create(3, 11);
+export const pythonVersion3_12 = PythonVersion.create(3, 12);
+export const pythonVersion3_13 = PythonVersion.create(3, 13);
+export const pythonVersion3_14 = PythonVersion.create(3, 14);
 
 export const latestStablePythonVersion = pythonVersion3_12;
