@@ -11743,6 +11743,8 @@ export function createTypeEvaluator(
             return returnType;
         }
 
+        inferReturnTypeIfNecessary(returnType);
+
         // Create a new scope ID based on the caller's position. This
         // will guarantee uniqueness. If another caller uses the same
         // call and arguments, the type vars will not conflict.
