@@ -14362,7 +14362,8 @@ export function createTypeEvaluator(
                     paramType ?? UnknownType.create(),
                     FunctionParamFlags.TypeDeclared,
                     param.d.name ? param.d.name.d.value : undefined,
-                    param.d.defaultValue ? AnyType.create(/* isEllipsis */ true) : undefined
+                    param.d.defaultValue ? AnyType.create(/* isEllipsis */ true) : undefined,
+                    param.d.defaultValue
                 );
 
                 FunctionType.addParam(functionType, functionParam);
@@ -18148,7 +18149,8 @@ export function createTypeEvaluator(
                     (isTypeInferred ? FunctionParamFlags.TypeInferred : FunctionParamFlags.None) |
                         (paramTypeNode ? FunctionParamFlags.TypeDeclared : FunctionParamFlags.None),
                     param.d.name ? param.d.name.d.value : undefined,
-                    defaultValueType
+                    defaultValueType,
+                    param.d.defaultValue
                 );
 
                 FunctionType.addParam(functionType, functionParam);
@@ -25506,7 +25508,8 @@ export function createTypeEvaluator(
                                 p.name,
                                 FunctionType.getParamDefaultType(effectiveSrcType, index)
                                     ? AnyType.create(/* isEllipsis */ true)
-                                    : undefined
+                                    : undefined,
+                                p.defaultExpr
                             )
                         );
                     }
