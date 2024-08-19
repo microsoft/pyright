@@ -213,6 +213,7 @@ export function synthesizeDataClassMethods(
             let variableTypeEvaluator: EntryTypeEvaluator | undefined;
             let hasDefaultValue = false;
             let isKeywordOnly = ClassType.isDataClassKeywordOnly(classType) || sawKeywordOnlySeparator;
+            let defaultExpr: ExpressionNode | undefined;
             let includeInInit = true;
             let converter: ArgumentNode | undefined;
 
@@ -235,6 +236,7 @@ export function synthesizeDataClassMethods(
                 }
 
                 hasDefaultValue = true;
+                defaultExpr = statement.d.rightExpr;
 
                 // If the RHS of the assignment is assigning a field instance where the
                 // "init" parameter is set to false, do not include it in the init method.
@@ -298,6 +300,9 @@ export function synthesizeDataClassMethods(
                         );
 
                         hasDefaultValue = !!defaultArg;
+                        if (defaultArg?.d.valueExpr) {
+                            defaultExpr = defaultArg.d.valueExpr;
+                        }
 
                         const aliasArg = statement.d.rightExpr.d.args.find((arg) => arg.d.name?.d.value === 'alias');
                         if (aliasArg) {
@@ -365,6 +370,7 @@ export function synthesizeDataClassMethods(
                         alias: aliasName,
                         isKeywordOnly: false,
                         hasDefault: hasDefaultValue,
+                        defaultExpr,
                         includeInInit,
                         nameNode: variableNameNode,
                         type: UnknownType.create(),
@@ -382,6 +388,7 @@ export function synthesizeDataClassMethods(
                         alias: aliasName,
                         isKeywordOnly,
                         hasDefault: hasDefaultValue,
+                        defaultExpr,
                         includeInInit,
                         nameNode: variableNameNode,
                         type: UnknownType.create(),
@@ -407,6 +414,7 @@ export function synthesizeDataClassMethods(
                         // causes overridden variables to "inherit" default values from parent classes.
                         if (!dataClassEntry.hasDefault && oldEntry.hasDefault && oldEntry.includeInInit) {
                             dataClassEntry.hasDefault = true;
+                            dataClassEntry.defaultExpr = oldEntry.defaultExpr;
                             hasDefaultValue = true;
 
                             // Warn the user of this case because it can result in type errors if the
@@ -546,7 +554,8 @@ export function synthesizeDataClassMethods(
                         effectiveType,
                         FunctionParamFlags.TypeDeclared,
                         effectiveName,
-                        entry.hasDefault ? entry.type : undefined
+                        entry.hasDefault ? entry.type : undefined,
+                        entry.defaultExpr
                     );
 
                     if (entry.isKeywordOnly) {

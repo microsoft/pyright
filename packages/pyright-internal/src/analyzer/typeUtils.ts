@@ -3205,7 +3205,8 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
                     FunctionType.getParamType(type, index),
                     param.flags,
                     param.name,
-                    FunctionType.getParamDefaultType(type, index)
+                    FunctionType.getParamDefaultType(type, index),
+                    param.defaultExpr
                 )
             );
         });
@@ -3766,7 +3767,8 @@ export class TypeVarTransformer {
                                 param.name && FunctionParam.isNameSynthesized(param)
                                     ? `__p${newFunctionType.shared.parameters.length}`
                                     : param.name,
-                                FunctionType.getParamDefaultType(functionType, index)
+                                FunctionType.getParamDefaultType(functionType, index),
+                                param.defaultExpr
                             )
                         );
                     }
