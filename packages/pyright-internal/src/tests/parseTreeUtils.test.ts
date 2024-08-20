@@ -417,6 +417,58 @@ test('findNodeByOffset with binary search choose earliest match', () => {
     assert.strictEqual((node as NameNode).d.value, 'r');
 });
 
+test('getFirstAncestorOrSelfOfKindOverloads', () => {
+    const code = `
+//// from typing import overload
+//// 
+//// class B:
+////     @overload
+////     def method(self) -> None:
+////         pass
+//// 
+////     @overload
+////     def method(self, a: str) -> None:
+////         pass
+//// 
+////     [|def [|/*super*/method|](self, a: str | None = None) -> None:
+////         pass|]
+//// 
+//// class C(B):
+////     @overload
+////     def method(self) -> None:
+////         pass
+//// 
+////     @overload
+////     def method(self, a: str) -> None:
+////         pass
+//// 
+////     [|def [|/*prepare*/method|](self, a: str | None = None) -> None:
+////         pass|]
+//// 
+//// class E(C):
+////     @overload
+////     def method(self) -> None:
+////         pass
+//// 
+////     @overload
+////     def method(self, a: str) -> None:
+////         pass
+//// 
+////     [|def [|/*sub*/method|](self, a: str | None = None) -> None:
+////         pass|]
+////
+//// c = C()
+//// c.[|/*marker*/method|]()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const functionNode = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, 'prepare'), ParseNodeType.Function);
+    assert(functionNode);
+
+    const functionResult = state.program.evaluator!.getTypeOfFunction(functionNode);
+    assert(functionResult?.functionType.priv.overloaded?.priv._overloads.length === 2);
+});
+
 function testNodeRange(state: TestState, markerName: string, type: ParseNodeType, includeTrailingBlankLines = false) {
     const range = state.getRangeByMarkerName(markerName)!;
     const sourceFile = state.program.getBoundSourceFile(range.marker!.fileUri)!;
