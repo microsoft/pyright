@@ -1,5 +1,6 @@
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from typing import Any
 from typing_extensions import TypeAlias
 
 from openpyxl.cell.rich_text import CellRichText
@@ -20,3 +21,4 @@ _CellValue: TypeAlias = (  # noqa: Y047 # Used in other modules
     | DataTableFormula
     | ArrayFormula
 )
+_AnyCellValue: TypeAlias = Any  # Any of _CellValue # noqa: Y047 # Used in other modules

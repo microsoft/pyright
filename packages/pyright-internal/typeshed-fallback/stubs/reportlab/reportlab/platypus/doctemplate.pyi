@@ -264,4 +264,10 @@ class BaseDocTemplate:
 
 class SimpleDocTemplate(BaseDocTemplate):
     def handle_pageBegin(self) -> None: ...
-    def build(self, flowables: list[Flowable], onFirstPage: _PageCallback = ..., onLaterPages: _PageCallback = ..., canvasmaker: _CanvasMaker = ...) -> None: ...  # type: ignore[override]
+    def build(  # type: ignore[override]
+        self,
+        flowables: list[Flowable],
+        onFirstPage: _PageCallback = ...,
+        onLaterPages: _PageCallback = ...,
+        canvasmaker: _CanvasMaker = ...,
+    ) -> None: ...
