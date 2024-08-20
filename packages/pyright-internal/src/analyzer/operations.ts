@@ -23,12 +23,15 @@ import {
 import { OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { getEnclosingLambda, isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
+import { isRefinementWildcard } from './refinementTypeUtils';
+import { TypeRefinement } from './refinementTypes';
 import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { EvalFlags, MagicMethodDeprecationInfo, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
     convertToInstantiable,
+    getIntValueRefinement,
     getLiteralTypeClassName,
     getTypeCondition,
     getUnionSubtypeCount,
@@ -335,6 +338,16 @@ export function getTypeOfBinaryOperation(
         }
     }
 
+    // Is this a "@" operator used in a context where it is supposed to be
+    // interpreted as a refinement type operator?
+    if (node.d.operator === OperatorType.MatrixMultiply && (flags & EvalFlags.TypeExpression) !== 0) {
+        if (getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
+            if (!customMetaclassSupportsMethod(leftType, '__matmul__')) {
+                return evaluator.getTypeMetadata(leftExpression, leftTypeResult, rightExpression);
+            }
+        }
+    }
+
     const rightTypeResult = evaluator.getTypeOfExpression(
         rightExpression,
         flags,
@@ -447,26 +460,24 @@ export function getTypeOfBinaryOperation(
                     node.d.leftExpr
                 );
             } else {
-                // If neither the LHS or RHS are unions, don't include a diagnostic addendum
+                let diagMessage = diag.getString();
+
+                // If neither the LHS or RHS are unions, don't add more diagnostic information
                 // because it will be redundant with the main diagnostic message. The addenda
                 // are useful only if union expansion was used for one or both operands.
-                let diagString = '';
                 if (
                     isUnion(evaluator.makeTopLevelTypeVarsConcrete(leftType)) ||
                     isUnion(evaluator.makeTopLevelTypeVarsConcrete(rightType))
                 ) {
-                    diagString = diag.getString();
+                    diagMessage =
+                        LocMessage.typeNotSupportBinaryOperator().format({
+                            operator: printOperator(node.d.operator),
+                            leftType: evaluator.printType(leftType),
+                            rightType: evaluator.printType(rightType),
+                        }) + diagMessage;
                 }
 
-                evaluator.addDiagnostic(
-                    DiagnosticRule.reportOperatorIssue,
-                    LocMessage.typeNotSupportBinaryOperator().format({
-                        operator: printOperator(node.d.operator),
-                        leftType: evaluator.printType(leftType),
-                        rightType: evaluator.printType(rightType),
-                    }) + diagString,
-                    node
-                );
+                evaluator.addDiagnostic(DiagnosticRule.reportOperatorIssue, diagMessage, node);
             }
         }
     }
@@ -1266,12 +1277,14 @@ function validateArithmeticOperation(
                     }
 
                     const magicMethodName = binaryOperatorMap[operator][0];
+                    const subDiag = new DiagnosticAddendum();
                     let resultTypeResult = evaluator.getTypeOfMagicMethodCall(
                         convertFunctionToObject(evaluator, leftSubtypeUnexpanded),
                         magicMethodName,
                         [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
                         errorNode,
-                        inferenceContext
+                        inferenceContext,
+                        subDiag
                     );
 
                     if (!resultTypeResult && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
@@ -1336,6 +1349,8 @@ function validateArithmeticOperation(
                     }
 
                     if (!resultTypeResult) {
+                        diag.addAddendum(subDiag);
+
                         if (inferenceContext) {
                             diag.addMessage(
                                 LocMessage.typeNotSupportBinaryOperatorBidirectional().format({
@@ -1360,6 +1375,15 @@ function validateArithmeticOperation(
                         deprecatedInfo = resultTypeResult.magicMethodDeprecationInfo;
                     }
 
+                    if (resultTypeResult && options.isLiteralMathAllowed) {
+                        resultTypeResult.type = applyRefinementsForBinaryOp(
+                            operator,
+                            leftSubtypeExpanded,
+                            rightSubtypeExpanded,
+                            resultTypeResult.type
+                        );
+                    }
+
                     return resultTypeResult?.type ?? UnknownType.create(isIncomplete);
                 }
             );
@@ -1367,4 +1391,45 @@ function validateArithmeticOperation(
     );
 
     return { type, magicMethodDeprecationInfo: deprecatedInfo };
+}
+
+function applyRefinementsForBinaryOp(operator: OperatorType, leftType: Type, rightType: Type, resultType: Type): Type {
+    if (
+        !isClassInstance(leftType) ||
+        !ClassType.isBuiltIn(leftType, 'int') ||
+        !isClassInstance(rightType) ||
+        !ClassType.isBuiltIn(rightType, 'int') ||
+        !isClassInstance(resultType) ||
+        !ClassType.isBuiltIn(resultType, 'int') ||
+        resultType.priv.literalValue !== undefined
+    ) {
+        return resultType;
+    }
+
+    const supportedOps: OperatorType[] = [
+        OperatorType.Add,
+        OperatorType.Subtract,
+        OperatorType.Multiply,
+        OperatorType.FloorDivide,
+        OperatorType.Mod,
+    ];
+
+    if (!supportedOps.includes(operator)) {
+        return resultType;
+    }
+
+    const leftIntValue = getIntValueRefinement(leftType);
+    const rightIntValue = getIntValueRefinement(rightType);
+
+    if (!leftIntValue || !rightIntValue) {
+        return resultType;
+    }
+
+    const refinement = TypeRefinement.fromBinaryOp(operator, leftIntValue, rightIntValue);
+
+    if (isRefinementWildcard(refinement.value)) {
+        return resultType;
+    }
+
+    return ClassType.cloneWithRefinements(resultType, [refinement]);
 }

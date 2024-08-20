@@ -670,7 +670,10 @@ export class Binder extends ParseTreeWalker {
             // Skip if we're in an 'Annotated' annotation because this creates
             // problems for "No Return" return type analysis when annotation
             // evaluation is deferred.
-            if (!this._isInAnnotatedAnnotation) {
+            if (
+                !this._isInAnnotatedAnnotation &&
+                !ParseTreeUtils.isNodeContainedWithinNodeType(node, ParseNodeType.StringList)
+            ) {
                 this._createCallFlowNode(node);
             }
         }

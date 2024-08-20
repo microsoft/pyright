@@ -35,6 +35,7 @@ import {
     ParameterNode,
     ParseNode,
     ParseNodeType,
+    RefinementNode,
     StatementListNode,
     StatementNode,
     StringListNode,
@@ -1079,6 +1080,39 @@ export function getTypeVarScopeNode(node: ParseNode): TypeParameterScopeNode | u
     }
 
     return undefined;
+}
+
+// Similar to getTypeVarScopeNode except for refinement variable scopes.
+export function getRefinementScopeNode(node: ParseNode): ParseNode | undefined {
+    let prevNode: ParseNode | undefined;
+    let curNode: ParseNode | undefined = node;
+    let exprNode: ExpressionNode | RefinementNode | undefined;
+    let sawNonExprNode = false;
+
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Function) {
+            if (prevNode === curNode.d.suite) {
+                return exprNode ?? curNode;
+            }
+
+            if (!curNode.d.decorators.some((decorator) => decorator === prevNode)) {
+                return curNode;
+            }
+        }
+
+        if (isExpressionNode(curNode) && curNode.nodeType !== ParseNodeType.TypeAnnotation) {
+            if (!sawNonExprNode) {
+                exprNode = curNode;
+            }
+        } else if (curNode.nodeType !== ParseNodeType.Argument && curNode.nodeType !== ParseNodeType.Refinement) {
+            sawNonExprNode = true;
+        }
+
+        prevNode = curNode;
+        curNode = curNode.parent;
+    }
+
+    return exprNode;
 }
 
 // Returns the parse node corresponding to the scope that is used
@@ -2217,6 +2251,9 @@ export function printParseNodeType(type: ParseNodeType) {
 
         case ParseNodeType.TypeAlias:
             return 'TypeAlias';
+
+        case ParseNodeType.Refinement:
+            return 'Refinement';
     }
 
     assertNever(type);

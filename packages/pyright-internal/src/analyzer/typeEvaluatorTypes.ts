@@ -34,6 +34,7 @@ import { CodeFlowReferenceExpressionNode, FlowNode } from './codeFlowTypes';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
+import { RefinementExpr, RefinementVarType, TypeRefinement } from './refinementTypes';
 import { SymbolWithScope } from './scope';
 import { Symbol } from './symbol';
 import { PrintTypeFlags } from './typePrinter';
@@ -178,6 +179,9 @@ export const enum EvalFlags {
     // with the enclosing class or an outer scope.
     EnforceClassTypeVarScope = 1 << 31,
 
+    // Expecting a possible refinement type expression.
+    Refinement = 1 << 32,
+
     // Defaults used for evaluating the LHS of a call expression.
     CallBaseDefaults = NoSpecialize,
 
@@ -254,6 +258,9 @@ export interface TypeResult<T extends Type = Type> {
 
     // Deprecation messages related to magic methods.
     magicMethodDeprecationInfo?: MagicMethodDeprecationInfo;
+
+    // Refinement definition.
+    refinement?: TypeRefinement;
 }
 
 export interface TypeResultWithNode extends TypeResult {
@@ -345,6 +352,7 @@ export interface EffectiveTypeResult {
 export interface ValidateArgTypeParams {
     paramCategory: ParamCategory;
     paramType: Type;
+    refinementConditions: RefinementExpr[] | undefined;
     requiresTypeVarMatching: boolean;
     argument: Arg;
     isDefaultArg?: boolean;
@@ -352,7 +360,7 @@ export interface ValidateArgTypeParams {
     errorNode: ExpressionNode;
     paramName?: string | undefined;
     isParamNameSynthesized?: boolean;
-    mapsToVarArgList?: boolean | undefined;
+    mapsToVarArgListType?: Type | undefined;
     isinstanceParam?: boolean;
 }
 
@@ -405,6 +413,9 @@ export interface CallResult {
 
     // Were any errors discovered when evaluating argument types?
     argumentErrors?: boolean;
+
+    // Were any refinement errors discovered when evaluating arg types?
+    refinementErrors?: boolean;
 
     // Did one or more arguments evaluated to Any or Unknown?
     anyOrUnknownArg?: UnknownType | AnyType;
@@ -517,6 +528,19 @@ export interface SynthesizedTypeInfo {
 export interface SymbolDeclInfo {
     decls: Declaration[];
     synthesizedTypes: SynthesizedTypeInfo[];
+    refinementInfo?: {
+        // Type of refinement variable, if applicable.
+        varType?: RefinementVarType;
+
+        // Indicates that the symbol is a refinement wildcard symbol ("_").
+        isWildcard?: boolean;
+
+        // Signature of refinement function call.
+        callSignature?: string;
+
+        // Docstring for refinement call.
+        callDocstring?: string;
+    };
 }
 
 export const enum AssignTypeFlags {
@@ -608,6 +632,7 @@ export interface TypeEvaluator {
     createSubclass: (errorNode: ExpressionNode, type1: ClassType, type2: ClassType) => ClassType;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     getTypeOfExpressionExpectingType: (node: ExpressionNode, options?: ExpectedTypeOptions) => TypeResult;
+    getTypeMetadata: (errorNode: ExpressionNode, typeResult: TypeResult, node: ExpressionNode) => TypeResult;
     evaluateTypeForSubnode: (subnode: ParseNode, callback: () => void) => TypeResult | undefined;
     evaluateTypesForStatement: (node: ParseNode) => void;
     evaluateTypesForMatchStatement: (node: MatchNode) => void;
@@ -652,6 +677,7 @@ export interface TypeEvaluator {
 
     getDeclInfoForStringNode: (node: StringNode) => SymbolDeclInfo | undefined;
     getDeclInfoForNameNode: (node: NameNode, skipUnreachableCode?: boolean) => SymbolDeclInfo | undefined;
+    getRefinementVarType: (node: NameNode) => RefinementVarType | undefined;
     getTypeForDeclaration: (declaration: Declaration) => DeclaredSymbolTypeInfo;
     resolveAliasDeclaration: (
         declaration: Declaration,
@@ -728,7 +754,8 @@ export interface TypeEvaluator {
         methodName: string,
         argList: TypeResult[],
         errorNode: ExpressionNode,
-        inferenceContext: InferenceContext | undefined
+        inferenceContext: InferenceContext | undefined,
+        diag?: DiagnosticAddendum
     ) => TypeResult | undefined;
     bindFunctionToClassOrObject: (
         baseType: ClassType | undefined,

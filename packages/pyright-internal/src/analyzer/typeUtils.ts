@@ -12,6 +12,16 @@ import { assert } from '../common/debug';
 import { ParamCategory } from '../parser/parseNodes';
 import { ConstraintSolution, ConstraintSolutionSet } from './constraintSolution';
 import { DeclarationType } from './declaration';
+import { RefinementClassDetails, RefinementDomain, TypeRefinement } from './refinementTypes';
+import {
+    applySolvedRefinementVars,
+    evaluateRefinementExpression,
+    isRefinementLiteral,
+    isRefinementWildcard,
+    makeRefinementVarsBound,
+    makeRefinementVarsFree,
+    RefinementTypeDiag,
+} from './refinementTypeUtils';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isEffectivelyClassVar, isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import {
@@ -214,6 +224,10 @@ export interface ApplyTypeVarOptions {
         useUnknown?: boolean;
         eliminateUnsolvedInUnions?: boolean;
     };
+    refinements?: {
+        errors?: RefinementTypeDiag[];
+        warnings?: RefinementTypeDiag[];
+    };
 }
 
 // Tracks whether a function signature has been seen before within
@@ -292,6 +306,41 @@ export function removeNoneFromUnion(type: Type): Type {
 
 export function isIncompleteUnknown(type: Type): boolean {
     return isUnknown(type) && type.priv.isIncomplete;
+}
+
+export function getRefinementDomain(type: ClassType): RefinementDomain | undefined {
+    for (const baseClass of type.shared.mro) {
+        if (isClass(baseClass) && ClassType.isBuiltIn(baseClass)) {
+            const className = baseClass.shared.name;
+            const domainNames = ['IntRefinement', 'StrRefinement', 'IntTupleRefinement', 'Refinement'];
+            if (domainNames.includes(className)) {
+                return className as RefinementDomain;
+            }
+        }
+    }
+
+    return undefined;
+}
+
+export function getRefinementClassId(type: ClassType): string {
+    if (ClassType.isBuiltIn(type)) {
+        return getBuiltInRefinementClassId(type.shared.name);
+    }
+
+    return `${type.shared.fileUri}:${type.shared.name}`;
+}
+
+export function getBuiltInRefinementClassId(className: string): string {
+    // Choose a unique ID that will never conflict with a user-defined class.
+    return `stdlib:${className}`;
+}
+
+export function hasTupleRefinement(type: ClassType): boolean {
+    if (!type.priv.refinements) {
+        return false;
+    }
+
+    return type.priv.refinements.some((refinement) => refinement.classDetails.domain === 'IntTupleRefinement');
 }
 
 // Similar to isTypeSame except that type1 is a TypeVar and type2
@@ -1200,7 +1249,76 @@ export function isLiteralLikeType(type: ClassType): boolean {
         return true;
     }
 
+    // If the class has a value refinement type, it's considered literal-like.
+    if (type.priv.refinements) {
+        const valueClasses = ['IntValue', 'StrValue', 'BytesValue'].map((name) => getBuiltInRefinementClassId(name));
+        return type.priv.refinements.some(
+            (refinement) => valueClasses.includes(refinement.classDetails.classId) && refinement.isEnforced
+        );
+    }
+
     return false;
+}
+
+// If possible, converts an int, str, or bytes value with a refinement type
+// into its corresponding Literal type.
+export function simplifyRefinementTypeToLiteral(type: ClassType): ClassType {
+    const refinementClassMap: { [key: string]: string } = {
+        int: 'IntValue',
+        str: 'StrValue',
+        bytes: 'BytesValue',
+        bool: 'BoolValue',
+    };
+
+    if (!type.priv.refinements || type.priv.literalValue !== undefined || !ClassType.isBuiltIn(type)) {
+        return type;
+    }
+
+    const refClassName = refinementClassMap[type.shared.name];
+    if (!refClassName) {
+        return type;
+    }
+    const refClassId = getBuiltInRefinementClassId(refClassName);
+
+    const refinements = type.priv.refinements.filter((refinement) => refinement.classDetails.classId === refClassId);
+    if (refinements.length !== 1) {
+        return type;
+    }
+    const refinementExpr = refinements[0].value;
+    if (!isRefinementLiteral(refinementExpr)) {
+        return type;
+    }
+
+    const remainingRefinements = type.priv.refinements.filter(
+        (refinement) => refinement.classDetails.classId !== refClassId
+    );
+
+    let resultType = ClassType.cloneWithLiteral(type, refinementExpr.value);
+    resultType = ClassType.cloneWithRefinements(resultType, remainingRefinements);
+    return resultType;
+}
+
+// If the value has an IntValue refinement type associated with it or is an
+// integer literal, this function returns the effective value.
+export function getIntValueRefinement(type: ClassType): TypeRefinement | undefined {
+    if (type.priv.literalValue !== undefined) {
+        if (!ClassType.isBuiltIn(type, 'int')) {
+            return undefined;
+        }
+
+        assert(typeof type.priv.literalValue === 'number' || typeof type.priv.literalValue === 'bigint');
+        const classDetails: RefinementClassDetails = {
+            domain: 'IntRefinement',
+            className: 'IntValue',
+            classId: getBuiltInRefinementClassId('IntValue'),
+            baseSupportsLiteral: true,
+            baseSupportsStringShortcut: true,
+        };
+        return TypeRefinement.fromLiteral(classDetails, type.priv.literalValue, /* isEnforced */ true);
+    }
+
+    const intValueClassId = getBuiltInRefinementClassId('IntValue');
+    return type.priv.refinements?.find((refinement) => refinement.classDetails.classId === intValueClassId);
 }
 
 export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
@@ -2025,6 +2143,65 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
     return [];
 }
 
+export function getRefinementsRecursive(type: Type, recursionCount = 0): TypeRefinement[] {
+    if (recursionCount > maxTypeRecursionCount) {
+        return [];
+    }
+    recursionCount++;
+
+    const aliasInfo = type.props?.typeAliasInfo;
+    if (aliasInfo?.typeArgs) {
+        const combinedList: TypeRefinement[] = [];
+
+        aliasInfo?.typeArgs.forEach((typeArg) => {
+            appendArray(combinedList, getRefinementsRecursive(typeArg, recursionCount));
+        });
+
+        return combinedList;
+    }
+
+    if (isClass(type)) {
+        const combinedList: TypeRefinement[] = [];
+        const typeArgs = type.priv.tupleTypeArgs ? type.priv.tupleTypeArgs.map((e) => e.type) : type.priv.typeArgs;
+        if (typeArgs) {
+            typeArgs.forEach((typeArg) => {
+                appendArray(combinedList, getRefinementsRecursive(typeArg, recursionCount));
+            });
+        }
+
+        if (type.priv.refinements) {
+            appendArray(combinedList, type.priv.refinements);
+        }
+
+        return combinedList;
+    }
+
+    if (isUnion(type)) {
+        const combinedList: TypeRefinement[] = [];
+        doForEachSubtype(type, (subtype) => {
+            appendArray(combinedList, getRefinementsRecursive(subtype, recursionCount));
+        });
+        return combinedList;
+    }
+
+    if (isFunction(type)) {
+        const combinedList: TypeRefinement[] = [];
+
+        for (let i = 0; i < type.shared.parameters.length; i++) {
+            appendArray(combinedList, getRefinementsRecursive(FunctionType.getParamType(type, i), recursionCount));
+        }
+
+        const returnType = FunctionType.getEffectiveReturnType(type);
+        if (returnType) {
+            appendArray(combinedList, getRefinementsRecursive(returnType, recursionCount));
+        }
+
+        return combinedList;
+    }
+
+    return [];
+}
+
 // Creates a specialized version of the class, filling in any unspecified
 // type arguments with Unknown or default value.
 export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
@@ -2805,6 +2982,11 @@ function _requiresSpecialization(type: Type, options?: RequiresSpecializationOpt
 
     switch (type.category) {
         case TypeCategory.Class: {
+            // If the type has a refinement type, it may need to be specialized.
+            if (type.priv.refinements) {
+                return true;
+            }
+
             if (ClassType.isPseudoGenericClass(type) && options?.ignorePseudoGeneric) {
                 return false;
             }
@@ -3514,7 +3696,8 @@ export class TypeVarTransformer {
         if (
             typeParams.length === 0 &&
             !ClassType.isSpecialBuiltIn(classType) &&
-            !ClassType.isBuiltIn(classType, 'type')
+            !ClassType.isBuiltIn(classType, 'type') &&
+            !classType.priv.refinements
         ) {
             return classType;
         }
@@ -3596,18 +3779,51 @@ export class TypeVarTransformer {
             });
         }
 
-        // If specialization wasn't needed, don't allocate a new class.
-        if (!specializationNeeded) {
-            return classType;
+        let newClassType = classType;
+
+        if (specializationNeeded) {
+            newClassType = ClassType.specialize(
+                classType,
+                newTypeArgs,
+                /* isTypeArgExplicit */ true,
+                /* includeSubclasses */ undefined,
+                newTupleTypeArgs
+            );
         }
 
-        return ClassType.specialize(
-            classType,
-            newTypeArgs,
-            /* isTypeArgExplicit */ true,
-            /* includeSubclasses */ undefined,
-            newTupleTypeArgs
-        );
+        // Apply transforms to the refinements.
+        if (newClassType.priv.refinements) {
+            const newRefinements: TypeRefinement[] = [];
+            let refinementsChanged = false;
+
+            newClassType.priv.refinements.forEach((refinement) => {
+                const newRefinement = this.transformRefinement(refinement);
+                if (newRefinement) {
+                    // Strip wildcard refinements that are not enforced.
+                    if (isRefinementWildcard(newRefinement.value) && !newRefinement.isEnforced) {
+                        refinementsChanged = true;
+                    } else {
+                        newRefinements.push(newRefinement);
+                        if (newRefinement !== refinement) {
+                            refinementsChanged = true;
+                        }
+                    }
+                } else {
+                    refinementsChanged = true;
+                }
+            });
+
+            if (refinementsChanged) {
+                newClassType = ClassType.cloneWithRefinements(
+                    newClassType,
+                    newRefinements.length > 0 ? newRefinements : undefined
+                );
+
+                newClassType = simplifyRefinementTypeToLiteral(newClassType);
+            }
+        }
+
+        return newClassType;
     }
 
     transformTypeVarsInFunctionType(sourceType: FunctionType, recursionCount: number): FunctionType | OverloadedType {
@@ -3798,6 +4014,10 @@ export class TypeVarTransformer {
         });
     }
 
+    transformRefinement(refinement: TypeRefinement): TypeRefinement | undefined {
+        return refinement;
+    }
+
     private _isTypeVarScopePending(typeVarScopeId: TypeVarScopeId | undefined) {
         return !!typeVarScopeId && this._pendingTypeVarTransformations.has(typeVarScopeId);
     }
@@ -3897,6 +4117,23 @@ class BoundTypeVarTransform extends TypeVarTransformer {
         return undefined;
     }
 
+    override transformRefinement(refinement: TypeRefinement): TypeRefinement | undefined {
+        if (!this._scopeIds) {
+            return refinement;
+        }
+
+        const newValue = makeRefinementVarsBound(refinement.value, this._scopeIds);
+        const newCondition = refinement.condition
+            ? makeRefinementVarsBound(refinement.condition, this._scopeIds)
+            : undefined;
+
+        if (newValue === refinement.value && newCondition === refinement.condition) {
+            return refinement;
+        }
+
+        return { ...refinement, value: newValue, condition: newCondition };
+    }
+
     private _isTypeVarInScope(typeVar: TypeVarType) {
         if (!typeVar.priv.scopeId) {
             return false;
@@ -3928,6 +4165,23 @@ class FreeTypeVarTransform extends TypeVarTransformer {
         }
 
         return undefined;
+    }
+
+    override transformRefinement(refinement: TypeRefinement): TypeRefinement | undefined {
+        if (!this._scopeIds) {
+            return refinement;
+        }
+
+        const newValue = makeRefinementVarsFree(refinement.value, this._scopeIds);
+        const newCondition = refinement.condition
+            ? makeRefinementVarsFree(refinement.condition, this._scopeIds)
+            : undefined;
+
+        if (newValue === refinement.value && newCondition === refinement.condition) {
+            return refinement;
+        }
+
+        return { ...refinement, value: newValue, condition: newCondition };
     }
 
     private _isTypeVarInScope(typeVar: TypeVarType) {
@@ -4139,6 +4393,25 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             }
         }
         return type;
+    }
+
+    override transformRefinement(refinement: TypeRefinement): TypeRefinement | undefined {
+        const solutionSet = this._solution.getSolutionSet(this._activeConstraintSetIndex ?? 0);
+        const newRefinementValue = applySolvedRefinementVars(refinement.value, solutionSet.getRefinementVarMap(), {
+            replaceUnsolved: !!this._options.replaceUnsolved,
+            refinements: this._options.refinements,
+        });
+
+        if (newRefinementValue === refinement.value) {
+            return refinement;
+        }
+
+        return {
+            ...refinement,
+            value: evaluateRefinementExpression(newRefinementValue, {
+                refinements: this._options.refinements,
+            }),
+        };
     }
 
     override doForEachConstraintSet(callback: () => FunctionType): FunctionType | OverloadedType {

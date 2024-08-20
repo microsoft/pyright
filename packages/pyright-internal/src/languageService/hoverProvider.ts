@@ -18,6 +18,7 @@ import {
     isUnresolvedAliasDeclaration,
 } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { RefinementExprType } from '../analyzer/refinementTypes';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 import { PrintTypeOptions, SynthesizedTypeInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
@@ -269,6 +270,44 @@ export class HoverProvider {
                     this._addResultsForSynthesizedType(results.parts, type, name);
                 });
                 this._addDocumentationPart(results.parts, node, /* resolvedDecl */ undefined);
+            } else if (declInfo?.refinementInfo) {
+                if (declInfo.refinementInfo.callSignature) {
+                    this._addResultsPart(
+                        results.parts,
+                        `(refinement operator) ${node.d.value}: ${declInfo.refinementInfo.callSignature}`,
+                        /* python */ true
+                    );
+                    if (declInfo.refinementInfo.callDocstring) {
+                        addDocumentationResultsPart(
+                            this._program.serviceProvider,
+                            declInfo.refinementInfo.callDocstring,
+                            this._format,
+                            results.parts,
+                            /* resolvedDecl */ undefined
+                        );
+                    }
+                } else {
+                    let varTypeText: string | undefined;
+
+                    if (declInfo.refinementInfo.isWildcard) {
+                        varTypeText = 'any';
+                    } else if (declInfo.refinementInfo.varType) {
+                        const varTypeMapping: { [key in RefinementExprType]: string } = {
+                            [RefinementExprType.Int]: 'Int',
+                            [RefinementExprType.Str]: 'str',
+                            [RefinementExprType.Bytes]: 'bytes',
+                            [RefinementExprType.Bool]: 'bool',
+                            [RefinementExprType.IntTuple]: 'tuple',
+                        };
+
+                        varTypeText = varTypeMapping[declInfo.refinementInfo.varType];
+                    }
+                    this._addResultsPart(
+                        results.parts,
+                        `(refinement var) ${node.d.value}: ${varTypeText ?? 'unknown'}`,
+                        /* python */ true
+                    );
+                }
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration

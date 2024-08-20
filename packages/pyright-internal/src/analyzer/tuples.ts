@@ -14,6 +14,7 @@ import { ExpressionNode, ParseNodeType, SliceNode, TupleNode } from '../parser/p
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { getTypeVarScopesForNode } from './parseTreeUtils';
+import { RefinementNodeType } from './refinementTypes';
 import { AssignTypeFlags, EvalFlags, maxInferredContainerDepth, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     AnyType,
@@ -35,6 +36,7 @@ import {
 import {
     convertToInstance,
     doForEachSubtype,
+    getBuiltInRefinementClassId,
     getContainerDepth,
     InferenceContext,
     isLiteralType,
@@ -581,4 +583,61 @@ function getTupleSliceParam(
     }
 
     return value;
+}
+
+// If this is a tuple[int, ...] with one or more refinements in the
+// IntTupleRefinement refinement domain, returns a refined version
+// of the TupleTypeArg entries.
+export function getRefinementShapeForTuple(type: Type, entries: TupleTypeArg[]): TupleTypeArg[] {
+    if (!isClassInstance(type)) {
+        return entries;
+    }
+
+    if (entries.length !== 1 || !entries[0].isUnbounded) {
+        return entries;
+    }
+
+    // Shapes apply only to types of type[int, ...].
+    const entryType = entries[0].type;
+    if (
+        !isClassInstance(entryType) ||
+        !ClassType.isBuiltIn(entryType, 'int') ||
+        entryType.priv.literalValue !== undefined
+    ) {
+        return entries;
+    }
+
+    const tupleRefinement = type.priv.refinements?.find((r) => r.classDetails.domain === 'IntTupleRefinement');
+
+    if (!tupleRefinement) {
+        return entries;
+    }
+
+    const refinementShape = tupleRefinement.value;
+    if (refinementShape.nodeType !== RefinementNodeType.Tuple) {
+        return entries;
+    }
+
+    return refinementShape.entries.map((entry) => {
+        const refinement = {
+            ...tupleRefinement,
+            value: entry.value,
+            condition: undefined,
+        };
+
+        if (!entry.isUnpacked) {
+            refinement.classDetails = {
+                domain: 'IntRefinement',
+                className: 'IntValue',
+                classId: getBuiltInRefinementClassId('IntValue'),
+                baseSupportsLiteral: true,
+                baseSupportsStringShortcut: true,
+            };
+        }
+
+        return {
+            type: ClassType.cloneAddRefinement(entryType, refinement),
+            isUnbounded: entry.isUnpacked,
+        };
+    });
 }

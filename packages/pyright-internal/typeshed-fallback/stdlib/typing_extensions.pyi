@@ -539,3 +539,73 @@ if sys.version_info >= (3, 14):
     from typing import TypeForm
 else:
     TypeForm: _SpecialForm
+
+
+# Refinement Types
+
+class TypeMetadata:
+    def __rmatmul__[T](self, typ: T) -> T:
+        return typ
+
+class Refinement(TypeMetadata, metaclass=abc.ABCMeta):
+    def __init__(self, predicate: str | None, /) -> None: ...
+    @abc.abstractmethod
+    def __str__(self) -> str: ...
+
+class IntRefinement(Refinement, metaclass=abc.ABCMeta):
+    predicate: str | None
+    @overload
+    def __init__(
+        self, predicate: None = None, /, *, value: int, enforce: bool = True
+    ) -> None: ...
+    @overload
+    def __init__(self, predicate: str, /, *, enforce: bool = True) -> None: ...
+
+class StrRefinement(Refinement, metaclass=abc.ABCMeta):
+    predicate: str | None
+    @overload
+    def __init__(
+        self, predicate: None = None, /, *, value: str, enforce: bool = True
+    ) -> None: ...
+    @overload
+    def __init__(self, predicate: str, /, *, enforce: bool = False) -> None: ...
+
+class BytesRefinement(Refinement, metaclass=abc.ABCMeta):
+    predicate: str | None
+    @overload
+    def __init__(
+        self, predicate: None = None, /, *, value: bytes, enforce: bool = True
+    ) -> None: ...
+    @overload
+    def __init__(self, predicate: str, /, *, enforce: bool = False) -> None: ...
+
+class BoolRefinement(Refinement, metaclass=abc.ABCMeta):
+    predicate: str | None
+    @overload
+    def __init__(
+        self, predicate: None = None, /, *, value: bool, enforce: bool = True
+    ) -> None: ...
+    @overload
+    def __init__(self, predicate: str, /, *, enforce: bool = False) -> None: ...
+
+class IntTupleRefinement(Refinement, metaclass=abc.ABCMeta):
+    predicate: str | None
+    def __init__(self, predicate: str, /, *, enforce: bool = False) -> None: ...
+
+class IntValue(IntRefinement):
+    def __str__(self) -> str: ...
+
+class StrValue(StrRefinement):
+    def __str__(self) -> str: ...
+
+class BytesValue(BytesRefinement):
+    def __str__(self) -> str: ...
+
+class BoolValue(BoolRefinement):
+    def __str__(self) -> str: ...
+
+class IntTupleValue(IntTupleRefinement):
+    def __str__(self) -> str: ...
+
+class Shape(IntTupleRefinement):
+    def __str__(self) -> str: ...

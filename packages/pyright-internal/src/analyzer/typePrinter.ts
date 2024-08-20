@@ -12,6 +12,7 @@ import { assert } from '../common/debug';
 import { ParamCategory } from '../parser/parseNodes';
 import { isTypedKwargs } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
+import { printRefinement } from './refinementPrinter';
 import { printBytesLiteral, printStringLiteral } from './typePrinterUtils';
 import {
     ClassType,
@@ -197,7 +198,6 @@ function printTypeInternal(
     recursionCount++;
 
     const originalPrintTypeFlags = printTypeFlags;
-    const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
     printTypeFlags &= ~(PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable);
 
     // If this is a type alias, see if we should use its name rather than
@@ -211,6 +211,11 @@ function printTypeInternal(
             if (recursionTypes.find((t) => t === type)) {
                 expandTypeAlias = false;
             }
+        }
+
+        // If there are refinements on the type, don't use the type alias.
+        if (type.category === TypeCategory.Class && type.priv.refinements) {
+            expandTypeAlias = true;
         }
 
         if (!expandTypeAlias) {
@@ -362,6 +367,36 @@ function printTypeInternal(
 
         return '...';
     }
+
+    const baseTypeStr = printTypeWithoutRefinement(
+        type,
+        originalPrintTypeFlags,
+        returnTypeCallback,
+        uniqueNameMap,
+        recursionTypes,
+        recursionCount
+    );
+
+    if (!isClass(type) || !type.priv?.refinements || type.priv.refinements.length === 0) {
+        return baseTypeStr;
+    }
+
+    const refinements = type.priv.refinements.map((refinement) => printRefinement(refinement));
+    return `${baseTypeStr} @ ${refinements.join(' @ ')}`;
+}
+
+function printTypeWithoutRefinement(
+    type: Type,
+    printTypeFlags: PrintTypeFlags,
+    returnTypeCallback: FunctionReturnTypeCallback,
+    uniqueNameMap: UniqueNameMap,
+    recursionTypes: Type[],
+    recursionCount: number
+): string {
+    const originalPrintTypeFlags = printTypeFlags;
+    const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
+
+    printTypeFlags &= ~(PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable);
 
     try {
         recursionTypes.push(type);
