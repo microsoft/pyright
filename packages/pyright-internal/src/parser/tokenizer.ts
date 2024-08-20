@@ -304,7 +304,9 @@ export class Tokenizer {
 
         // Insert an implied new line to make parsing easier.
         if (this._tokens.length === 0 || this._tokens[this._tokens.length - 1].type !== TokenType.NewLine) {
-            this._tokens.push(NewLineToken.create(this._cs.position, 0, NewLineType.Implied, this._getComments()));
+            if (this._parenDepth === 0) {
+                this._tokens.push(NewLineToken.create(this._cs.position, 0, NewLineType.Implied, this._getComments()));
+            }
         }
 
         // Insert any implied dedent tokens.

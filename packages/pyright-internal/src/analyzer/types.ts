@@ -171,7 +171,7 @@ export interface TypeBaseProps {
     // Used only for type aliases
     typeAliasInfo: TypeAliasInfo | undefined;
 
-    // Used only for conditional (constrained) types
+    // Used only for types that are conditioned on a TypeVar
     condition: TypeCondition[] | undefined;
 }
 

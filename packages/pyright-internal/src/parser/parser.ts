@@ -192,8 +192,8 @@ export interface ParseFileResults {
     tokenizerOutput: TokenizerOutput;
 }
 
-export interface ParseExpressionTextResults {
-    parseTree?: ExpressionNode | FunctionAnnotationNode | undefined;
+export interface ParseExpressionTextResults<T extends ParseNode> {
+    parseTree?: T | undefined;
     lines: TextRangeCollection<TextRange>;
     diagnostics: Diagnostic[];
 }
@@ -213,7 +213,7 @@ export interface ArgListResult {
     trailingComma: boolean;
 }
 
-const enum ParseTextMode {
+export const enum ParseTextMode {
     Expression,
     VariableAnnotation,
     FunctionAnnotation,
@@ -296,10 +296,37 @@ export class Parser {
         textOffset: number,
         textLength: number,
         parseOptions: ParseOptions,
+        parseTextMode: ParseTextMode.Expression,
+        initialParenDepth?: number,
+        typingSymbolAliases?: Map<string, string>
+    ): ParseExpressionTextResults<ExpressionNode>;
+    parseTextExpression(
+        fileContents: string,
+        textOffset: number,
+        textLength: number,
+        parseOptions: ParseOptions,
+        parseTextMode: ParseTextMode.VariableAnnotation,
+        initialParenDepth?: number,
+        typingSymbolAliases?: Map<string, string>
+    ): ParseExpressionTextResults<ExpressionNode>;
+    parseTextExpression(
+        fileContents: string,
+        textOffset: number,
+        textLength: number,
+        parseOptions: ParseOptions,
+        parseTextMode: ParseTextMode.FunctionAnnotation,
+        initialParenDepth?: number,
+        typingSymbolAliases?: Map<string, string>
+    ): ParseExpressionTextResults<FunctionAnnotationNode>;
+    parseTextExpression(
+        fileContents: string,
+        textOffset: number,
+        textLength: number,
+        parseOptions: ParseOptions,
         parseTextMode = ParseTextMode.Expression,
         initialParenDepth = 0,
         typingSymbolAliases?: Map<string, string>
-    ): ParseExpressionTextResults {
+    ): ParseExpressionTextResults<ExpressionNode | FunctionAnnotationNode> {
         const diagSink = new DiagnosticSink();
         this._startNewParse(fileContents, textOffset, textLength, parseOptions, diagSink, initialParenDepth);
 
@@ -4716,7 +4743,6 @@ export class Parser {
             return undefined;
         }
 
-        assert(parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation);
         return parseResults.parseTree;
     }
 
@@ -4738,7 +4764,7 @@ export class Parser {
             this._addSyntaxError(diag.message, stringListNode);
         });
 
-        if (!parseResults.parseTree || parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation) {
+        if (!parseResults.parseTree) {
             return;
         }
 
@@ -5017,7 +5043,6 @@ export class Parser {
                         });
 
                         if (parseResults.parseTree) {
-                            assert(parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation);
                             stringNode.d.annotation = parseResults.parseTree;
                             stringNode.d.annotation.parent = stringNode;
                         }
