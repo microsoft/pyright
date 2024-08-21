@@ -443,7 +443,7 @@ The following table lists the default severity levels for each diagnostic rule w
 
 ## Overriding settings (in VS Code)
 
-If a pyproject.toml (with a pyright section) or a pyrightconfig.json exists, any pyright settings in a VS Code setttings.json will be ignored. Pyrightconfig.json is prescribing the environment to be used for a particular project. Changing the environment per user is not supported.
+If a pyproject.toml (with a pyright section) or a pyrightconfig.json exists, any pyright settings in a VS Code setttings.json will be ignored. Pyrightconfig.json is prescribing the environment to be used for a particular project. Changing the environment configuration options per user is not supported.
 
 If a pyproject.toml (with a pyright section) or a pyrightconfig.json does not exist, then the VS Code settings.json settings apply.
 
