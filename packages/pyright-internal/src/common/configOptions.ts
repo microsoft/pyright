@@ -1297,8 +1297,6 @@ export class ConfigOptions {
             }
         }
 
-        this.ensureDefaultPythonVersion(host, console);
-
         // Read the default "pythonPlatform".
         let configPythonPlatform: string | undefined = undefined;
         if (configObj.pythonPlatform !== undefined) {
@@ -1309,8 +1307,6 @@ export class ConfigOptions {
                 configPythonPlatform = configObj.pythonPlatform;
             }
         }
-
-        this.ensureDefaultPythonPlatform(host, console);
 
         // Read the "typeshedPath" setting.
         if (configObj.typeshedPath !== undefined) {

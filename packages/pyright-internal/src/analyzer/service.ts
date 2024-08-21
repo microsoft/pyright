@@ -295,11 +295,8 @@ export class AnalyzerService {
         const host = this._hostFactory();
         const configOptions = this._getConfigOptions(host, commandLineOptions);
 
-        if (configOptions.pythonPath) {
-            // Make sure we have default python environment set.
-            configOptions.ensureDefaultPythonVersion(host, this._console);
-        }
-
+        // Make sure we have default python environment set.
+        configOptions.ensureDefaultPythonVersion(host, this._console);
         configOptions.ensureDefaultPythonPlatform(host, this._console);
 
         this._backgroundAnalysisProgram.setConfigOptions(configOptions);
