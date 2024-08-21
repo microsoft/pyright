@@ -800,7 +800,7 @@ export class AnalyzerService {
             configOptions.verboseOutput = commandLineOptions.configSettings.verboseOutput;
         }
 
-        // Ensure default python version and platform
+        // Ensure default python version and platform.
         configOptions.ensureDefaultPythonVersion(host, this._console);
         configOptions.ensureDefaultPythonPlatform(host, this._console);
     }
