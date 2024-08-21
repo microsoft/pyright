@@ -1496,7 +1496,7 @@ export class ConfigOptions {
         const importFailureInfo: string[] = [];
         this.defaultPythonVersion = host.getPythonVersion(this.pythonPath, importFailureInfo);
         if (this.defaultPythonVersion !== undefined) {
-            console.info(`Assuming Python version ${this.defaultPythonVersion.toString()}`);
+            console.info(`Assuming Python version ${PythonVersion.toString(this.defaultPythonVersion)}`);
         }
 
         for (const log of importFailureInfo) {
