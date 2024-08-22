@@ -305,7 +305,7 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.setConfigOptions(configOptions);
 
         this._executionRootUri = configOptions.projectRoot;
-        this._applyConfigOptions(host);
+        this.applyConfigOptions(host);
     }
 
     hasSourceFile(uri: Uri): boolean {
@@ -479,9 +479,39 @@ export class AnalyzerService {
     // Forces the service to stop all analysis, discard all its caches,
     // and research for files.
     restart() {
-        this._applyConfigOptions(this._hostFactory());
+        this.applyConfigOptions(this._hostFactory());
 
         this._backgroundAnalysisProgram.restart();
+    }
+
+    protected applyConfigOptions(host: Host) {
+        // Allocate a new import resolver because the old one has information
+        // cached based on the previous config options.
+        const importResolver = this._importResolverFactory(
+            this._serviceProvider,
+            this._backgroundAnalysisProgram.configOptions,
+            host
+        );
+
+        this._backgroundAnalysisProgram.setImportResolver(importResolver);
+
+        if (this._commandLineOptions?.fromLanguageServer || this._configOptions.verboseOutput) {
+            const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
+            for (const execEnv of this._configOptions.getExecutionEnvironments()) {
+                log(this._console, logLevel, `Search paths for ${execEnv.root || '<default>'}`);
+                const roots = importResolver.getImportRoots(execEnv, /* forLogging */ true);
+                roots.forEach((path) => {
+                    log(this._console, logLevel, `  ${path.toUserVisibleString()}`);
+                });
+            }
+        }
+
+        this._updateLibraryFileWatcher();
+        this._updateConfigFileWatcher();
+        this._updateSourceFileWatchers();
+        this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ true);
+
+        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     private get _console() {
@@ -626,6 +656,9 @@ export class AnalyzerService {
                     host
                 );
             }
+
+            // Set the configFileSource since we have a config file.
+            configOptions.configFileSource = configFilePath ?? pyprojectFilePath;
 
             // When not in language server mode, command line options override config file options.
             if (!commandLineOptions.fromLanguageServer) {
@@ -897,6 +930,7 @@ export class AnalyzerService {
         });
 
         configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
+        configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticBooleanOverrides);
 
         // Override the analyzeUnannotatedFunctions setting based on the command-line setting.
         if (commandLineOptions.analyzeUnannotatedFunctions !== undefined) {
@@ -1781,38 +1815,8 @@ export class AnalyzerService {
             const configOptions = this._getConfigOptions(host, this._commandLineOptions!);
             this._backgroundAnalysisProgram.setConfigOptions(configOptions);
 
-            this._applyConfigOptions(host);
+            this.applyConfigOptions(host);
         }
-    }
-
-    private _applyConfigOptions(host: Host) {
-        // Allocate a new import resolver because the old one has information
-        // cached based on the previous config options.
-        const importResolver = this._importResolverFactory(
-            this._serviceProvider,
-            this._backgroundAnalysisProgram.configOptions,
-            host
-        );
-
-        this._backgroundAnalysisProgram.setImportResolver(importResolver);
-
-        if (this._commandLineOptions?.fromLanguageServer || this._configOptions.verboseOutput) {
-            const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
-            for (const execEnv of this._configOptions.getExecutionEnvironments()) {
-                log(this._console, logLevel, `Search paths for ${execEnv.root || '<default>'}`);
-                const roots = importResolver.getImportRoots(execEnv, /* forLogging */ true);
-                roots.forEach((path) => {
-                    log(this._console, logLevel, `  ${path.toUserVisibleString()}`);
-                });
-            }
-        }
-
-        this._updateLibraryFileWatcher();
-        this._updateConfigFileWatcher();
-        this._updateSourceFileWatchers();
-        this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ true);
-
-        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     private _clearReanalysisTimer() {

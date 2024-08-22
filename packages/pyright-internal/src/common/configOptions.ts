@@ -12,8 +12,14 @@ import { isAbsolute } from 'path';
 import { getPathsFromPthFiles } from '../analyzer/pythonPathUtils';
 import * as pathConsts from '../common/pathConsts';
 import { appendArray } from './collectionUtils';
-import { DiagnosticSeverityOverrides, DiagnosticSeverityOverridesMap } from './commandLineOptions';
+import {
+    DiagnosticBooleanOverridesMap,
+    DiagnosticSeverityOverrides,
+    DiagnosticSeverityOverridesMap,
+    getDiagnosticSeverityOverrides,
+} from './commandLineOptions';
 import { ConsoleInterface, NullConsole } from './console';
+import { isBoolean } from './core';
 import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
@@ -404,7 +410,7 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
     ];
 
     if (includeNonOverridable) {
-        // Do not include this these because we don't
+        // Do not include these because we don't
         // want to override it in strict mode or support
         // it within pyright comments.
         boolRules.push(DiagnosticRule.enableTypeIgnoreComments);
@@ -1057,6 +1063,12 @@ export class ConfigOptions {
     // Controls how hover and completion function signatures are displayed.
     functionSignatureDisplay: SignatureDisplayType;
 
+    // Determines if has a config file (pyrightconfig.json or pyproject.toml) or not.
+    configFileSource?: Uri | undefined;
+
+    // Determines the effective default type checking mode.
+    effectiveTypeCheckingMode: 'strict' | 'basic' | 'off' | 'standard' = 'standard';
+
     constructor(projectRoot: Uri) {
         this.projectRoot = projectRoot;
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet();
@@ -1116,6 +1128,7 @@ export class ConfigOptions {
         severityOverrides?: DiagnosticSeverityOverridesMap
     ) {
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
+        this.effectiveTypeCheckingMode = typeCheckingMode as 'strict' | 'basic' | 'off' | 'standard';
 
         if (severityOverrides) {
             this.applyDiagnosticOverrides(severityOverrides);
@@ -1211,7 +1224,7 @@ export class ConfigOptions {
                 configObj.typeCheckingMode === 'standard' ||
                 configObj.typeCheckingMode === 'strict'
             ) {
-                this.diagnosticRuleSet = { ...ConfigOptions.getDiagnosticRuleSet(configObj.typeCheckingMode) };
+                this.initializeTypeCheckingMode(configObj.typeCheckingMode);
             } else {
                 console.error(`Config "typeCheckingMode" entry must contain "off", "basic", "standard", or "strict".`);
             }
@@ -1530,15 +1543,24 @@ export class ConfigOptions {
         }
     }
 
-    applyDiagnosticOverrides(diagnosticSeverityOverrides: DiagnosticSeverityOverridesMap | undefined) {
-        if (!diagnosticSeverityOverrides) {
+    applyDiagnosticOverrides(
+        diagnosticOverrides: DiagnosticSeverityOverridesMap | DiagnosticBooleanOverridesMap | undefined
+    ) {
+        if (!diagnosticOverrides) {
             return;
         }
 
         for (const ruleName of getDiagLevelDiagnosticRules()) {
-            const severity = diagnosticSeverityOverrides[ruleName];
-            if (severity !== undefined) {
+            const severity = diagnosticOverrides[ruleName];
+            if (severity !== undefined && !isBoolean(severity) && getDiagnosticSeverityOverrides().includes(severity)) {
                 (this.diagnosticRuleSet as any)[ruleName] = severity;
+            }
+        }
+
+        for (const ruleName of getBooleanDiagnosticRules(/* includeNonOverridable */ true)) {
+            const value = diagnosticOverrides[ruleName];
+            if (value !== undefined && isBoolean(value)) {
+                (this.diagnosticRuleSet as any)[ruleName] = value;
             }
         }
     }

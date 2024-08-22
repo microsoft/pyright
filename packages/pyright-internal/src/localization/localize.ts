@@ -42,8 +42,8 @@ export class ParameterizedString<T extends {}> {
 }
 
 const defaultLocale = 'en-us';
-const stringMapsByLocale: Map<string, any> = new Map([
-    ['cs', csStrings],
+const stringMapsByLocale: Map<string, StringLookupMap> = new Map([
+    ['cs', csStrings as StringLookupMap],
     ['de', deStrings],
     ['en-us', enUsStrings],
     ['en', enUsStrings],
@@ -61,7 +61,12 @@ const stringMapsByLocale: Map<string, any> = new Map([
     ['zh-tw', zhTwStrings],
 ]);
 
-type StringLookupMap = { [key: string]: string | StringLookupMap };
+type CommentedStringValue = {
+    message: string;
+    comment: string[];
+};
+
+export type StringLookupMap = { [key: string]: string | CommentedStringValue | StringLookupMap };
 let localizedStrings: StringLookupMap | undefined = undefined;
 let defaultStrings: StringLookupMap = {};
 
@@ -101,7 +106,7 @@ export function getRawStringFromMap(map: StringLookupMap, keyParts: string[]): s
         curObj = curObj[keyPart];
     }
 
-    return curObj as string;
+    return typeof curObj === 'string' ? curObj : curObj.message;
 }
 
 function initialize(): StringLookupMap {
@@ -162,7 +167,7 @@ function loadDefaultStrings(): StringLookupMap {
     return {};
 }
 
-export function loadStringsForLocale(locale: string, localeMap: Map<string, any>): StringLookupMap {
+export function loadStringsForLocale(locale: string, localeMap: Map<string, StringLookupMap>): StringLookupMap {
     if (locale === defaultLocale) {
         // No need to load override if we're using the default.
         return {};

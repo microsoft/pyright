@@ -6,6 +6,7 @@
  * TestState wraps currently test states and provides a way to query and manipulate
  * the test states.
  */
+
 import assert from 'assert';
 import * as path from 'path';
 import {

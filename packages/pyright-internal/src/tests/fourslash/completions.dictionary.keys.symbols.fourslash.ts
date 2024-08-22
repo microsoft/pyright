@@ -1,4 +1,4 @@
-/// <reference path="fourslash.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 
 // @filename: string_literals_with_symbols.py
 //// d = { "key-1" : 1 }

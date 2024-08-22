@@ -23,7 +23,7 @@ import { ConsoleInterface } from '../common/console';
 import { assert, assertNever, fail } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { convertOffsetToPosition, convertOffsetsToRange } from '../common/positionUtils';
+import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
 import {
     PythonVersion,
     pythonVersion3_13,
@@ -50,13 +50,14 @@ import {
     ErrorExpressionCategory,
     ExceptNode,
     ExpressionNode,
-    ForNode,
     FormatStringNode,
+    ForNode,
     FunctionNode,
     ImportAsNode,
     ImportFromAsNode,
     ImportFromNode,
     IndexNode,
+    isExpressionNode,
     LambdaNode,
     ListNode,
     MatchNode,
@@ -75,15 +76,14 @@ import {
     TupleNode,
     TypeAliasNode,
     TypeAnnotationNode,
-    TypeParamKind,
     TypeParameterListNode,
     TypeParameterNode,
     TypeParameterScopeNode,
+    TypeParamKind,
     UnpackNode,
     WithItemNode,
     YieldFromNode,
     YieldNode,
-    isExpressionNode,
 } from '../parser/parseNodes';
 import { ParseOptions, Parser } from '../parser/parser';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
@@ -92,10 +92,10 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CodeFlowAnalyzer, FlowNodeTypeOptions, FlowNodeTypeResult, getCodeFlowEngine } from './codeFlowEngine';
 import {
     CodeFlowReferenceExpressionNode,
+    createKeyForReference,
     FlowFlags,
     FlowNode,
     FlowWildcardImport,
-    createKeyForReference,
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
@@ -104,8 +104,8 @@ import {
     addConstraintsForExpectedType,
     applySourceSolutionToConstraints,
     assignTypeVar,
-    solveConstraintSet,
     solveConstraints,
+    solveConstraintSet,
 } from './constraintSolver';
 import { ConstraintSet, ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod, validateConstructorArgs } from './constructors';
@@ -120,17 +120,17 @@ import {
     VariableDeclaration,
 } from './declaration';
 import {
-    ResolvedAliasInfo,
     createSynthesizedAliasDeclaration,
     getDeclarationsWithUsesLocalNameRemoved,
     getNameNodeForDeclaration,
     resolveAliasDeclaration as resolveAliasDeclarationUtil,
+    ResolvedAliasInfo,
 } from './declarationUtils';
 import {
-    FunctionDecoratorInfo,
     addOverloadsToFunctionType,
     applyClassDecorator,
     applyFunctionDecorator,
+    FunctionDecoratorInfo,
     getDeprecatedMessageFromCall,
     getFunctionInfoFromDecorators,
 } from './decorators';
@@ -151,12 +151,12 @@ import {
     getTypeOfUnaryOperation,
 } from './operations';
 import {
-    ParamKind,
-    ParamListDetails,
-    VirtualParamDetails,
     getParamListDetails,
     isParamSpecArgs,
     isParamSpecKwargs,
+    ParamKind,
+    ParamListDetails,
+    VirtualParamDetails,
 } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { assignTypeToPatternTargets, checkForUnusedPattern, narrowTypeBasedOnPattern } from './patternMatching';
@@ -165,7 +165,7 @@ import { assignClassToProtocol, assignModuleToProtocol } from './protocols';
 import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
-import { Symbol, SymbolFlags, indeterminateSymbolId } from './symbol';
+import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
 import { assignTupleTypeArgs, getSlicedTupleType } from './tuples';
@@ -174,10 +174,10 @@ import {
     assignToTypedDict,
     assignTypedDictToTypedDict,
     createTypedDictType,
-    getTypeOfIndexedTypedDict,
     getTypedDictDictEquivalent,
     getTypedDictMappingEquivalent,
     getTypedDictMembersForClass,
+    getTypeOfIndexedTypedDict,
     synthesizeTypedDictClassMethods,
 } from './typedDicts';
 import {
@@ -200,6 +200,7 @@ import {
     FunctionTypeResult,
     MagicMethodDeprecationInfo,
     MapSubtypesOptions,
+    maxSubtypesForInferredType,
     MemberAccessDeprecationInfo,
     PrintTypeOptions,
     Reachability,
@@ -210,42 +211,21 @@ import {
     TypeResultWithNode,
     ValidateArgTypeParams,
     ValidateTypeArgsOptions,
-    maxSubtypesForInferredType,
 } from './typeEvaluatorTypes';
 import * as TypePrinter from './typePrinter';
 import {
     AnyType,
     ClassType,
     ClassTypeFlags,
+    combineTypes,
     DataClassBehaviors,
     EnumLiteral,
+    findSubtype,
     FunctionParam,
     FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
     InheritanceChain,
-    LiteralValue,
-    ModuleType,
-    NeverType,
-    OverloadedType,
-    ParamSpecType,
-    TupleTypeArg,
-    Type,
-    TypeBase,
-    TypeCategory,
-    TypeCondition,
-    TypeVarKind,
-    TypeVarScopeId,
-    TypeVarScopeType,
-    TypeVarTupleType,
-    TypeVarType,
-    TypedDictEntries,
-    UnboundType,
-    UnionType,
-    UnknownType,
-    Variance,
-    combineTypes,
-    findSubtype,
     isAny,
     isAnyOrUnknown,
     isClass,
@@ -266,21 +246,38 @@ import {
     isUnpacked,
     isUnpackedClass,
     isUnpackedTypeVarTuple,
+    LiteralValue,
     maxTypeRecursionCount,
+    ModuleType,
+    NeverType,
+    OverloadedType,
+    ParamSpecType,
     removeFromUnion,
     removeUnbound,
+    TupleTypeArg,
+    Type,
+    TypeBase,
+    TypeCategory,
+    TypeCondition,
+    TypedDictEntries,
+    TypeVarKind,
+    TypeVarScopeId,
+    TypeVarScopeType,
+    TypeVarTupleType,
+    TypeVarType,
+    UnboundType,
+    UnionType,
+    UnknownType,
+    Variance,
 } from './types';
 import {
-    AssignTypeFlags,
-    ClassMember,
-    InferenceContext,
-    MemberAccessFlags,
-    UniqueSignatureTracker,
     addConditionToType,
     addTypeVarsToListIfUnique,
     applySolvedTypeVars,
     areTypesSame,
+    AssignTypeFlags,
     buildSolutionFromSpecializedClass,
+    ClassMember,
     combineSameSizedTuples,
     combineVariances,
     computeMroLinearization,
@@ -308,6 +305,7 @@ import {
     getTypeVarScopeIds,
     getUnknownForTypeVar,
     getUnknownTypeForCallable,
+    InferenceContext,
     isDescriptorInstance,
     isEffectivelyInstantiable,
     isEllipsisType,
@@ -336,6 +334,7 @@ import {
     makeTypeVarsFree,
     mapSignatures,
     mapSubtypes,
+    MemberAccessFlags,
     partiallySpecializeType,
     preserveUnknown,
     removeNoneFromUnion,
@@ -351,6 +350,7 @@ import {
     synthesizeTypeVarForSelfCls,
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
+    UniqueSignatureTracker,
     validateTypeVarDefault,
 } from './typeUtils';
 
@@ -12105,6 +12105,10 @@ export function createTypeEvaluator(
 
         if (argParam.isinstanceParam) {
             assignTypeFlags |= AssignTypeFlags.AllowIsinstanceSpecialForms;
+        }
+
+        if (options?.isArgFirstPass) {
+            assignTypeFlags |= AssignTypeFlags.ArgAssignmentFirstPass;
         }
 
         if (options?.isArgFirstPass) {

@@ -448,7 +448,7 @@ export class ImportResolver {
     }
 
     getTypeshedStdlibExcludeList(
-        customTypeshedPath: Uri,
+        customTypeshedPath: Uri | undefined,
         pythonVersion: PythonVersion,
         pythonPlatform: string | undefined
     ): Uri[] {

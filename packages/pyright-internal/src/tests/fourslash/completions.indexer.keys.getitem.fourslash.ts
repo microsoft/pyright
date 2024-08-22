@@ -1,4 +1,4 @@
-/// <reference path="fourslash.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 
 // @filename: getitem.py
 //// from typing import Literal, Generic, TypeVar, overload

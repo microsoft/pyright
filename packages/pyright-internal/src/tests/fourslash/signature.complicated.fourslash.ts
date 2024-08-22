@@ -1,4 +1,4 @@
-/// <reference path="fourslash.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 
 // @filename: complicated.py
 //// from typing import Any, Optional, Type, Union, TypedDict, Unpack, NotRequired

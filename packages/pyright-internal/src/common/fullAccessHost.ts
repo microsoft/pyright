@@ -14,7 +14,7 @@ import { OperationCanceledException, onCancellationRequested, throwIfCancellatio
 import { PythonPlatform } from './configOptions';
 import { assertNever } from './debug';
 import { HostKind, NoAccessHost, ScriptOutput } from './host';
-import { normalizePath } from './pathUtils';
+import { getAnyExtensionFromPath, normalizePath } from './pathUtils';
 import { PythonVersion } from './pythonVersion';
 import { ServiceKeys } from './serviceKeys';
 import { ServiceProvider } from './serviceProvider';
@@ -109,9 +109,8 @@ export class FullAccessHost extends LimitedAccessHost {
         const importFailureInfo = logInfo ?? [];
 
         try {
-            const commandLineArgs: string[] = ['-I', '-c', extractVersion];
             const execOutput = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
-                child_process.execFileSync(p, commandLineArgs, { encoding: 'utf8' })
+                this._executeCodeInInterpreter(p, ['-I'], extractVersion)
             );
 
             const versionJson: any[] = JSON.parse(execOutput!);
@@ -158,7 +157,10 @@ export class FullAccessHost extends LimitedAccessHost {
             const commandLineArgs = ['-I', script.getFilePath(), ...args];
 
             const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
-                child_process.spawn(p, commandLineArgs, { cwd: cwd.getFilePath() })
+                child_process.spawn(p, commandLineArgs, {
+                    cwd: cwd.getFilePath(),
+                    shell: this.shouldUseShellToRunInterpreter(p),
+                })
             );
             const tokenWatch = onCancellationRequested(token, () => {
                 if (child) {
@@ -195,6 +197,15 @@ export class FullAccessHost extends LimitedAccessHost {
         });
     }
 
+    protected shouldUseShellToRunInterpreter(interpreterPath: string): boolean {
+        // Windows bat/cmd files must me executed with the shell due to the following breaking change:
+        // https://nodejs.org/en/blog/vulnerability/april-2024-security-releases-2#command-injection-via-args-parameter-of-child_processspawn-without-shell-option-enabled-on-windows-cve-2024-27980---high
+        return (
+            process.platform === 'win32' &&
+            !!getAnyExtensionFromPath(interpreterPath, ['.bat', '.cmd'], /* ignoreCase */ true)
+        );
+    }
+
     private _executePythonInterpreter<T>(
         pythonPath: string | undefined,
         execute: (path: string) => T | undefined
@@ -223,6 +234,28 @@ export class FullAccessHost extends LimitedAccessHost {
         }
     }
 
+    /**
+     * Excecutes a chunk of Python code via the provided interpreter and returns the output.
+     * @param interpreterPath Path to interpreter.
+     * @param commandLineArgs Command line args for interpreter other than the code to execute.
+     * @param code Code to execute.
+     */
+    private _executeCodeInInterpreter(interpreterPath: string, commandLineArgs: string[], code: string): string {
+        const useShell = this.shouldUseShellToRunInterpreter(interpreterPath);
+        if (useShell) {
+            code = '"' + code + '"';
+        }
+
+        commandLineArgs.push('-c', code);
+
+        const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, {
+            encoding: 'utf8',
+            shell: useShell,
+        });
+
+        return execOutput;
+    }
+
     private _getSearchPathResultFromInterpreter(
         interpreterPath: string,
         importFailureInfo: string[]
@@ -233,11 +266,8 @@ export class FullAccessHost extends LimitedAccessHost {
         };
 
         try {
-            const commandLineArgs: string[] = ['-c', extractSys];
             importFailureInfo.push(`Executing interpreter: '${interpreterPath}'`);
-            const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, {
-                encoding: 'utf8',
-            });
+            const execOutput = this._executeCodeInInterpreter(interpreterPath, [], extractSys);
             const caseDetector = this.serviceProvider.get(ServiceKeys.caseSensitivityDetector);
 
             // Parse the execOutput. It should be a JSON-encoded array of paths.

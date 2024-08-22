@@ -14,7 +14,7 @@ import {
 } from 'vscode-languageserver';
 import { FileSystem } from '../common/fileSystem';
 import { deduplicateFolders, isFile } from '../common/uri/uriUtils';
-import { WorkspaceFactory } from '../workspaceFactory';
+import { IWorkspaceFactory } from '../workspaceFactory';
 import { DynamicFeature } from './dynamicFeature';
 import { configFileName } from '../analyzer/serviceUtils';
 
@@ -23,7 +23,7 @@ export class FileWatcherDynamicFeature extends DynamicFeature {
         private readonly _connection: Connection,
         private readonly _hasWatchFileRelativePathCapability: boolean,
         private readonly _fs: FileSystem,
-        private readonly _workspaceFactory: WorkspaceFactory
+        private readonly _workspaceFactory: IWorkspaceFactory
     ) {
         super('file watcher');
     }
