@@ -196,17 +196,19 @@ export function validateConstructorArgs(
                 isTypeIncomplete: !!returnResult.isTypeIncomplete,
             });
 
-            returnResult.returnType = transformed.returnType;
+            if (transformed) {
+                returnResult.returnType = transformed.returnType;
 
-            if (transformed.isTypeIncomplete) {
-                returnResult.isTypeIncomplete = true;
+                if (transformed.isTypeIncomplete) {
+                    returnResult.isTypeIncomplete = true;
+                }
+
+                if (transformed.argumentErrors) {
+                    returnResult.argumentErrors = true;
+                }
+
+                validatedArgExpressions = true;
             }
-
-            if (transformed.argumentErrors) {
-                returnResult.argumentErrors = true;
-            }
-
-            validatedArgExpressions = true;
         }
     }
 
