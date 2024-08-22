@@ -469,10 +469,10 @@ export namespace Localizer {
         export const expectedExceptionClass = () => getRawString('Diagnostic.expectedExceptionClass');
         export const expectedExceptionObj = () => getRawString('Diagnostic.expectedExceptionObj');
         export const expectedExpr = () => getRawString('Diagnostic.expectedExpr');
+        export const expectedIdentifier = () => getRawString('Diagnostic.expectedIdentifier');
         export const expectedImport = () => getRawString('Diagnostic.expectedImport');
         export const expectedImportAlias = () => getRawString('Diagnostic.expectedImportAlias');
         export const expectedImportSymbols = () => getRawString('Diagnostic.expectedImportSymbols');
-        export const expectedIdentifier = () => getRawString('Diagnostic.expectedIdentifier');
         export const expectedIndentedBlock = () => getRawString('Diagnostic.expectedIndentedBlock');
         export const expectedIn = () => getRawString('Diagnostic.expectedIn');
         export const expectedInExpr = () => getRawString('Diagnostic.expectedInExpr');
@@ -1305,8 +1305,6 @@ export namespace Localizer {
             new ParameterizedString<{ count: number }>(getRawString('DiagnosticAddendum.memberIsAbstractMore'));
         export const memberIsClassVarInProtocol = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsClassVarInProtocol'));
-        export const memberIsFinalInProtocol = () =>
-            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsFinalInProtocol'));
         export const memberIsInitVar = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsInitVar'));
         export const memberIsInvariant = () =>
@@ -1315,8 +1313,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsNotClassVarInClass'));
         export const memberIsNotClassVarInProtocol = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsNotClassVarInProtocol'));
-        export const memberIsNotFinalInProtocol = () =>
-            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsNotFinalInProtocol'));
+        export const memberIsNotReadOnlyInProtocol = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsNotReadOnlyInProtocol'));
+        export const memberIsReadOnlyInProtocol = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsReadOnlyInProtocol'));
         export const memberIsWritableInProtocol = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsWritableInProtocol'));
         export const memberSetClassVar = () =>

@@ -475,7 +475,8 @@ class ChainMap(MutableMapping[_KT, _VT]):
     def pop(self, key: _KT, default: _T) -> _VT | _T: ...
     def copy(self) -> Self: ...
     __copy__ = copy
-    # All arguments to `fromkeys` are passed to `dict.fromkeys` at runtime, so the signature should be kept in line with `dict.fromkeys`.
+    # All arguments to `fromkeys` are passed to `dict.fromkeys` at runtime,
+    # so the signature should be kept in line with `dict.fromkeys`.
     @classmethod
     @overload
     def fromkeys(cls, iterable: Iterable[_T]) -> ChainMap[_T, Any | None]: ...

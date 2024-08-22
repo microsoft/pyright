@@ -9,7 +9,7 @@
 
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
-import { ArgumentNode, NameNode, ParamCategory } from '../parser/parseNodes';
+import { ArgumentNode, ExpressionNode, NameNode, ParamCategory } from '../parser/parseNodes';
 import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
@@ -171,7 +171,7 @@ export interface TypeBaseProps {
     // Used only for type aliases
     typeAliasInfo: TypeAliasInfo | undefined;
 
-    // Used only for conditional (constrained) types
+    // Used only for types that are conditioned on a TypeVar
     condition: TypeCondition[] | undefined;
 }
 
@@ -505,6 +505,7 @@ export interface DataClassEntry {
     alias?: string | undefined;
     hasDefault?: boolean | undefined;
     nameNode: NameNode | undefined;
+    defaultExpr?: ExpressionNode | undefined;
     includeInInit: boolean;
     type: Type;
     converter?: ArgumentNode | undefined;
@@ -1442,6 +1443,8 @@ export interface FunctionParam {
     // Use getEffectiveParamDefaultArgType to access this field.
     // eslint-disable-next-line @typescript-eslint/naming-convention
     _defaultType: Type | undefined;
+
+    defaultExpr: ExpressionNode | undefined;
 }
 
 export namespace FunctionParam {
@@ -1450,9 +1453,10 @@ export namespace FunctionParam {
         type: Type,
         flags = FunctionParamFlags.None,
         name?: string,
-        defaultType?: Type
+        defaultType?: Type,
+        defaultExpr?: ExpressionNode
     ): FunctionParam {
-        return { category, flags, name, _type: type, _defaultType: defaultType };
+        return { category, flags, name, _type: type, _defaultType: defaultType, defaultExpr };
     }
 
     export function isNameSynthesized(param: FunctionParam) {
@@ -1815,7 +1819,8 @@ export namespace FunctionType {
                     FunctionType.getParamType(paramSpecValue, index),
                     (param.flags & FunctionParamFlags.NameSynthesized) | FunctionParamFlags.TypeDeclared,
                     param.name,
-                    FunctionType.getParamDefaultType(paramSpecValue, index)
+                    FunctionType.getParamDefaultType(paramSpecValue, index),
+                    param.defaultExpr
                 );
             }),
         ];

@@ -8,7 +8,7 @@
  */
 
 import { assert } from '../common/debug';
-import { pythonVersion3_13 } from '../common/pythonVersion';
+import { PythonVersion, pythonVersion3_13 } from '../common/pythonVersion';
 import { ArgCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
@@ -413,7 +413,10 @@ export function transformTypeForEnumMember(
             // are treated as members.
             if (isInstantiableClass(assignedType)) {
                 const fileInfo = getFileInfo(primaryDecl.node);
-                isMemberOfEnumeration = fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_13);
+                isMemberOfEnumeration = PythonVersion.isLessThan(
+                    fileInfo.executionEnvironment.pythonVersion,
+                    pythonVersion3_13
+                );
             }
         }
     }

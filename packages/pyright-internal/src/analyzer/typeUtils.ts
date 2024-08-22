@@ -1026,9 +1026,16 @@ export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Ty
     );
 }
 
-export function transformPossibleRecursiveTypeAlias(type: Type): Type;
-export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Type | undefined;
-export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Type | undefined {
+// Recursively transforms all top-level TypeVars that represent recursive
+// type aliases into their actual types.
+export function transformPossibleRecursiveTypeAlias(type: Type, recursionCount?: number): Type;
+export function transformPossibleRecursiveTypeAlias(type: Type | undefined, recursionCount?: number): Type | undefined;
+export function transformPossibleRecursiveTypeAlias(type: Type | undefined, recursionCount = 0): Type | undefined {
+    if (recursionCount >= maxTypeRecursionCount) {
+        return type;
+    }
+    recursionCount++;
+
     if (type) {
         const aliasInfo = type.props?.typeAliasInfo;
 
@@ -1038,15 +1045,18 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                 : type.shared.boundType;
 
             if (!aliasInfo?.typeArgs || !type.shared.recursiveAlias.typeParams) {
-                return unspecializedType;
+                return transformPossibleRecursiveTypeAlias(unspecializedType, recursionCount);
             }
 
             const solution = buildSolution(type.shared.recursiveAlias.typeParams, aliasInfo.typeArgs);
-            return applySolvedTypeVars(unspecializedType, solution);
+            return transformPossibleRecursiveTypeAlias(
+                applySolvedTypeVars(unspecializedType, solution),
+                recursionCount
+            );
         }
 
         if (isUnion(type) && type.priv.includesRecursiveTypeAlias) {
-            let newType = mapSubtypes(type, (subtype) => transformPossibleRecursiveTypeAlias(subtype));
+            let newType = mapSubtypes(type, (subtype) => transformPossibleRecursiveTypeAlias(subtype, recursionCount));
 
             if (newType !== type && aliasInfo) {
                 // Copy the type alias information if present.
@@ -1503,6 +1513,18 @@ export function ensureSignaturesAreUnique<T extends Type>(
 ): T {
     const transformer = new UniqueFunctionSignatureTransformer(signatureTracker, expressionOffset);
     return transformer.apply(type, 0) as T;
+}
+
+export function makeFunctionTypeVarsBound(type: FunctionType | OverloadedType): FunctionType | OverloadedType {
+    const scopeIds: TypeVarScopeId[] = [];
+    doForEachSignature(type, (signature) => {
+        const localScopeId = getTypeVarScopeId(signature);
+        if (localScopeId) {
+            scopeIds.push(localScopeId);
+        }
+    });
+
+    return makeTypeVarsBound(type, scopeIds);
 }
 
 export function makeTypeVarsBound<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[] | undefined): T;
@@ -3193,7 +3215,8 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
                     FunctionType.getParamType(type, index),
                     param.flags,
                     param.name,
-                    FunctionType.getParamDefaultType(type, index)
+                    FunctionType.getParamDefaultType(type, index),
+                    param.defaultExpr
                 )
             );
         });
@@ -3754,7 +3777,8 @@ export class TypeVarTransformer {
                                 param.name && FunctionParam.isNameSynthesized(param)
                                     ? `__p${newFunctionType.shared.parameters.length}`
                                     : param.name,
-                                FunctionType.getParamDefaultType(functionType, index)
+                                FunctionType.getParamDefaultType(functionType, index),
+                                param.defaultExpr
                             )
                         );
                     }

@@ -485,7 +485,9 @@ class Pipeline(Redis[_StrType]):
     def slowlog_reset(self) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def time(self) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def append(self, key, value) -> Pipeline[_StrType]: ...
-    def bitcount(self, key: _Key, start: int | None = None, end: int | None = None, mode: str | None = None) -> Pipeline[_StrType]: ...  # type: ignore[override]
+    def bitcount(  # type: ignore[override]
+        self, key: _Key, start: int | None = None, end: int | None = None, mode: str | None = None
+    ) -> Pipeline[_StrType]: ...
     def bitop(self, operation, dest, *keys) -> Pipeline[_StrType]: ...
     def bitpos(self, key, bit, start=None, end=None, mode: str | None = None) -> Pipeline[_StrType]: ...
     def decr(self, name, amount=1) -> Pipeline[_StrType]: ...  # type: ignore[override]
@@ -494,7 +496,9 @@ class Pipeline(Redis[_StrType]):
     def dump(self, name) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def exists(self, *names: _Key) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def __contains__(self, *names: _Key) -> Pipeline[_StrType]: ...  # type: ignore[override]
-    def expire(self, name: _Key, time: int | timedelta, nx: bool = False, xx: bool = False, gt: bool = False, lt: bool = False) -> Pipeline[_StrType]: ...  # type: ignore[override]
+    def expire(  # type: ignore[override]
+        self, name: _Key, time: int | timedelta, nx: bool = False, xx: bool = False, gt: bool = False, lt: bool = False
+    ) -> Pipeline[_StrType]: ...
     def expireat(
         self, name, when, nx: bool = False, xx: bool = False, gt: bool = False, lt: bool = False
     ) -> Pipeline[_StrType]: ...
@@ -512,8 +516,12 @@ class Pipeline(Redis[_StrType]):
     def msetnx(self, mapping: Mapping[_Key, _Value]) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def move(self, name: _Key, db: int) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def persist(self, name: _Key) -> Pipeline[_StrType]: ...  # type: ignore[override]
-    def pexpire(self, name: _Key, time: int | timedelta, nx: bool = False, xx: bool = False, gt: bool = False, lt: bool = False) -> Pipeline[_StrType]: ...  # type: ignore[override]
-    def pexpireat(self, name: _Key, when: int | datetime, nx: bool = False, xx: bool = False, gt: bool = False, lt: bool = False) -> Pipeline[_StrType]: ...  # type: ignore[override]
+    def pexpire(  # type: ignore[override]
+        self, name: _Key, time: int | timedelta, nx: bool = False, xx: bool = False, gt: bool = False, lt: bool = False
+    ) -> Pipeline[_StrType]: ...
+    def pexpireat(  # type: ignore[override]
+        self, name: _Key, when: int | datetime, nx: bool = False, xx: bool = False, gt: bool = False, lt: bool = False
+    ) -> Pipeline[_StrType]: ...
     def psetex(self, name, time_ms, value) -> Pipeline[_StrType]: ...
     def pttl(self, name) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def randomkey(self) -> Pipeline[_StrType]: ...  # type: ignore[override]
@@ -598,7 +606,9 @@ class Pipeline(Redis[_StrType]):
         store: _Key | None = None,
         groups: bool = False,
     ) -> Pipeline[_StrType]: ...
-    def scan(self, cursor: int = 0, match: _Key | None = None, count: int | None = None, _type: str | None = None) -> Pipeline[_StrType]: ...  # type: ignore[override]
+    def scan(  # type: ignore[override]
+        self, cursor: int = 0, match: _Key | None = None, count: int | None = None, _type: str | None = None
+    ) -> Pipeline[_StrType]: ...
     def scan_iter(self, match: _Key | None = None, count: int | None = None, _type: str | None = None) -> Iterator[Any]: ...  # type: ignore[override]
     def sscan(self, name: _Key, cursor: int = 0, match: _Key | None = None, count: int | None = None) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def sscan_iter(self, name: _Key, match: _Key | None = None, count: int | None = None) -> Iterator[Any]: ...
@@ -680,7 +690,9 @@ class Pipeline(Redis[_StrType]):
     def zcard(self, name: _Key) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def zcount(self, name: _Key, min: _Value, max: _Value) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def zincrby(self, name: _Key, amount: float, value: _Value) -> Pipeline[_StrType]: ...  # type: ignore[override]
-    def zinterstore(self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] | None = None) -> Pipeline[_StrType]: ...  # type: ignore[override]
+    def zinterstore(  # type: ignore[override]
+        self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] | None = None
+    ) -> Pipeline[_StrType]: ...
     def zlexcount(self, name: _Key, min: _Value, max: _Value) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def zpopmax(self, name: _Key, count: int | None = None) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def zpopmin(self, name: _Key, count: int | None = None) -> Pipeline[_StrType]: ...  # type: ignore[override]
@@ -699,7 +711,9 @@ class Pipeline(Redis[_StrType]):
         offset: int | None = None,
         num: int | None = None,
     ) -> Pipeline[_StrType]: ...
-    def zrangebylex(self, name: _Key, min: _Value, max: _Value, start: int | None = None, num: int | None = None) -> Pipeline[_StrType]: ...  # type: ignore[override]
+    def zrangebylex(  # type: ignore[override]
+        self, name: _Key, min: _Value, max: _Value, start: int | None = None, num: int | None = None
+    ) -> Pipeline[_StrType]: ...
     def zrangebyscore(  # type: ignore[override]
         self,
         name: _Key,
@@ -733,7 +747,9 @@ class Pipeline(Redis[_StrType]):
     ) -> Pipeline[_StrType]: ...
     def zrevrank(self, name: _Key, value: _Value, withscore: bool = False) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def zscore(self, name: _Key, value: _Value) -> Pipeline[_StrType]: ...  # type: ignore[override]
-    def zunionstore(self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] | None = None) -> Pipeline[_StrType]: ...  # type: ignore[override]
+    def zunionstore(  # type: ignore[override]
+        self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] | None = None
+    ) -> Pipeline[_StrType]: ...
     def pfadd(self, name: _Key, *values: _Value) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def pfcount(self, name: _Key) -> Pipeline[_StrType]: ...  # type: ignore[override]
     def pfmerge(self, dest: _Key, *sources: _Key) -> Pipeline[_StrType]: ...  # type: ignore[override]

@@ -84,7 +84,9 @@ class HasManyIdents(GenericHandler):
     ident_aliases: ClassVar[dict[str, str] | None]
     ident: str  # type: ignore[misc]
     @classmethod
-    def using(cls, default_ident: Incomplete | None = None, ident: Incomplete | None = None, **kwds): ...  # type: ignore[override]
+    def using(  # type: ignore[override]
+        cls, default_ident: Incomplete | None = None, ident: Incomplete | None = None, **kwds
+    ): ...
     def __init__(self, ident: Incomplete | None = None, **kwds) -> None: ...
 
 class HasSalt(GenericHandler):
@@ -95,7 +97,9 @@ class HasSalt(GenericHandler):
     default_salt_chars: ClassVar[str | None]
     salt: str | bytes | None
     @classmethod
-    def using(cls, default_salt_size: int | None = None, salt_size: int | None = None, salt: str | bytes | None = None, **kwds): ...  # type: ignore[override]
+    def using(  # type: ignore[override]
+        cls, default_salt_size: int | None = None, salt_size: int | None = None, salt: str | bytes | None = None, **kwds
+    ): ...
     def __init__(self, salt: str | bytes | None = None, **kwds) -> None: ...
     @classmethod
     def bitsize(cls, salt_size: int | None = None, **kwds): ...

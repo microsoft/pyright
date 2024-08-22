@@ -172,3 +172,9 @@ def func10(
 
 def func10(v: tuple[int | str, ...], b: bool = True) -> bool:
     ...
+
+
+v0 = is_int(int)
+v1: bool = v0
+v2: int = v0
+v3 = v0 & v0

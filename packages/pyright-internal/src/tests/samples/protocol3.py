@@ -1,16 +1,18 @@
 # This sample tests the assignment of protocols that
 # include property declarations.
 
+from _typeshed import DataclassInstance
+from dataclasses import dataclass
 from typing import (
     ClassVar,
     ContextManager,
+    Final,
     Generic,
     NamedTuple,
     Protocol,
     Sequence,
     TypeVar,
 )
-from dataclasses import dataclass
 
 
 class Class1(Protocol):
@@ -273,3 +275,47 @@ def func14(val: Proto14[T13]):
 
 
 func14(Concrete14(1))
+
+
+class Proto15(Protocol):
+    @property
+    def prop1(self) -> int:
+        return 0
+
+
+class Concrete15_1:
+    prop1: Final[int] = 0
+
+
+class Concrete15_2:
+    prop1: int = 0
+
+
+class Concrete15_3:
+    prop1: int
+
+    def __init__(self):
+        self.prop1 = 0
+
+
+@dataclass
+class Concrete15_4:
+    prop1: Final[int] = 0
+
+
+@dataclass(frozen=True)
+class Concrete15_5:
+    prop1: int = 0
+
+
+# This should generate an error because it is not a ClassVar in the protocol.
+p15_1: Proto15 = Concrete15_1()
+
+p15_2: Proto15 = Concrete15_2()
+p15_3: Proto15 = Concrete15_3()
+
+p15_4_1: Proto15 = Concrete15_4()
+p15_4_2: DataclassInstance = Concrete15_4()
+
+p15_5_1: Proto15 = Concrete15_5()
+p15_5_2: DataclassInstance = Concrete15_5()

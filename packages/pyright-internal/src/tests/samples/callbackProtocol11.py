@@ -13,12 +13,12 @@ class A(Generic[T_co, U_co]):
 
 
 class BProto(Protocol):
-    def __call__(self) -> A[list[T], T]:
+    def __call__(self, x: T) -> A[list[T], T]:
         ...
 
 
 def func1() -> BProto:
-    def make_a() -> A[list[T], T]:
+    def make_a(x: T) -> A[list[T], T]:
         ...
 
     return make_a

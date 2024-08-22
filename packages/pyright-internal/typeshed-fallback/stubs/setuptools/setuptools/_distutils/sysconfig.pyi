@@ -1,10 +1,10 @@
-from typing import Literal, overload
+from typing import Final, Literal, overload
 from typing_extensions import deprecated
 
 from setuptools._distutils.ccompiler import CCompiler
 
-PREFIX: str
-EXEC_PREFIX: str
+PREFIX: Final[str]
+EXEC_PREFIX: Final[str]
 
 @overload
 @deprecated("SO is deprecated, use EXT_SUFFIX. Support will be removed when this module is synchronized with stdlib Python 3.11")

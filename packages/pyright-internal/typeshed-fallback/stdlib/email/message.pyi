@@ -50,7 +50,8 @@ class Message(Generic[_HeaderT, _HeaderParamT]):
     def get_payload(self, i: None = None, *, decode: Literal[True]) -> _EncodedPayloadType | Any: ...
     @overload  # not multipart, IDEM but w/o kwarg
     def get_payload(self, i: None, decode: Literal[True]) -> _EncodedPayloadType | Any: ...
-    # If `charset=None` and payload supports both `encode` AND `decode`, then an invalid payload could be passed, but this is unlikely
+    # If `charset=None` and payload supports both `encode` AND `decode`,
+    # then an invalid payload could be passed, but this is unlikely
     # Not[_SupportsEncodeToPayload]
     @overload
     def set_payload(

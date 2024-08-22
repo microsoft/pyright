@@ -113,7 +113,7 @@ def func8(cb1: Callback1, cb2: Callback2, cb3: Callback3):
     reveal_type(v1, expected_text="(x: int, /) -> None")
 
     v2 = func7(cb1, cb3)
-    reveal_type(v2, expected_text="(x: int | str, y: int = ...) -> None")
+    reveal_type(v2, expected_text="(x: int | str, y: int = 3) -> None")
 
 
 def func9(f: Callable[P, object], *args: P.args, **kwargs: P.kwargs) -> object:
