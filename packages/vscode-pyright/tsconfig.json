@@ -6,11 +6,13 @@
             "pyright-internal/*": [
                 "../pyright-internal/src/*"
             ]
-        }
+        },
+        "typeRoots": ["./node_modules/@types", "../pyright-internal/typings"]
     },
     "include": [
         "src/**/*",
-        "**/*.js"
+        "**/*.js",
+        "../pyright-internal/typings/**/*.d.ts"
     ],
     "exclude": [
         "node_modules",

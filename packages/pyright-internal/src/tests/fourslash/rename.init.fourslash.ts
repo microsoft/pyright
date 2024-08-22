@@ -1,4 +1,4 @@
-/// <reference path="fourslash.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 // Verify rename doesn't use the same logic as find all references (which would find the constructor calls)
 
 // @filename: test.py

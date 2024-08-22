@@ -1,4 +1,4 @@
-/// <reference path="fourslash.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 
 // @filename: test.py
 //// [|/*import*/|][|MY_CONSTANT_VAR/*marker1*/|]

@@ -1,4 +1,4 @@
-/// <reference path="fourslash.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 
 // @filename: typeshed-fallback/stdlib/builtins.pyi
 //// class baseClass:

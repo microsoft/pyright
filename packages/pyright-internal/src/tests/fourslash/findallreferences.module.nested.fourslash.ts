@@ -1,4 +1,4 @@
-/// <reference path="fourslash.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 
 // @filename: nested/__init__.py
 //// from .[|/*module1*/module1|] import module1Func as module1Func

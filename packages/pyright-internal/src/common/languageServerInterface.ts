@@ -11,7 +11,7 @@ import { MaxAnalysisTime } from '../analyzer/program';
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { Workspace } from '../workspaceFactory';
 import { CancellationProvider } from './cancellationUtils';
-import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
+import { DiagnosticBooleanOverridesMap, DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { SignatureDisplayType } from './configOptions';
 import { ConsoleInterface, LogLevel } from './console';
 import { TaskListToken } from './diagnostic';
@@ -37,6 +37,7 @@ export interface ServerSettings {
     watchForLibraryChanges?: boolean | undefined;
     watchForConfigChanges?: boolean | undefined;
     diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap | undefined;
+    diagnosticBooleanOverrides?: DiagnosticBooleanOverridesMap | undefined;
     logLevel?: LogLevel | undefined;
     autoImportCompletions?: boolean | undefined;
     indexing?: boolean | undefined;

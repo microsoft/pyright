@@ -1591,6 +1591,10 @@ export class CompletionProvider {
                 }
                 break;
             }
+
+            case ErrorExpressionCategory.MissingTupleCloseParen: {
+                return this._getExpressionCompletions(node, priorWord, priorText, postText);
+            }
         }
 
         return undefined;
