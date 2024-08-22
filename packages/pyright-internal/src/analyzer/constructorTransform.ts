@@ -51,7 +51,7 @@ export function applyConstructorTransform(
     argList: Arg[],
     classType: ClassType,
     result: FunctionResult
-): FunctionResult {
+): FunctionResult | undefined {
     if (classType.shared.fullName === 'functools.partial') {
         return applyPartialTransform(evaluator, errorNode, argList, result);
     }
@@ -66,24 +66,24 @@ function applyPartialTransform(
     errorNode: ExpressionNode,
     argList: Arg[],
     result: FunctionResult
-): FunctionResult {
+): FunctionResult | undefined {
     // We assume that the normal return result is a functools.partial class instance.
     if (!isClassInstance(result.returnType) || result.returnType.shared.fullName !== 'functools.partial') {
-        return result;
+        return undefined;
     }
 
     const callMemberResult = lookUpObjectMember(result.returnType, '__call__', MemberAccessFlags.SkipInstanceMembers);
     if (!callMemberResult || !isTypeSame(convertToInstance(callMemberResult.classType), result.returnType)) {
-        return result;
+        return undefined;
     }
 
     const callMemberType = evaluator.getTypeOfMember(callMemberResult);
     if (!isFunction(callMemberType) || callMemberType.shared.parameters.length < 1) {
-        return result;
+        return undefined;
     }
 
     if (argList.length < 1) {
-        return result;
+        return undefined;
     }
 
     const origFunctionTypeResult = evaluator.getTypeOfArg(argList[0], /* inferenceContext */ undefined);
@@ -107,7 +107,7 @@ function applyPartialTransform(
 
     // We don't currently handle unpacked arguments.
     if (argList.some((arg) => arg.argCategory !== ArgCategory.Simple)) {
-        return result;
+        return undefined;
     }
 
     // Make sure the first argument is a simple function.
@@ -120,7 +120,7 @@ function applyPartialTransform(
             origFunctionType
         );
         if (!transformResult) {
-            return result;
+            return undefined;
         }
 
         // Create a new copy of the functools.partial class that overrides the __call__ method.
@@ -173,7 +173,7 @@ function applyPartialTransform(
                 );
             }
 
-            return result;
+            return undefined;
         }
 
         // Create a new copy of the functools.partial class that overrides the __call__ method.
@@ -203,7 +203,7 @@ function applyPartialTransform(
         };
     }
 
-    return result;
+    return undefined;
 }
 
 function applyPartialTransformToFunction(

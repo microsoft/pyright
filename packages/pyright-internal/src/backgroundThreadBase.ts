@@ -14,7 +14,6 @@ import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel } from './common/console';
 import { Disposable, isThenable } from './common/core';
 import * as debug from './common/debug';
-import { PythonVersion } from './common/pythonVersion';
 import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem';
 import { ServiceKeys } from './common/serviceKeys';
 import { ServiceProvider } from './common/serviceProvider';
@@ -124,9 +123,6 @@ export function serializeReplacer(value: any) {
     if (Uri.is(value) && value.toJsonObj !== undefined) {
         return { __serialized_uri_val: value.toJsonObj() };
     }
-    if (value instanceof PythonVersion) {
-        return { __serialized_version_val: value.toString() };
-    }
     if (value instanceof Map) {
         return { __serialized_map_val: [...value] };
     }
@@ -153,9 +149,6 @@ export function deserializeReviver(value: any) {
     if (value && typeof value === 'object') {
         if (value.__serialized_uri_val !== undefined) {
             return Uri.fromJsonObj(value.__serialized_uri_val);
-        }
-        if (value.__serialized_version_val) {
-            return PythonVersion.fromString(value.__serialized_version_val);
         }
         if (value.__serialized_map_val) {
             return new Map(value.__serialized_map_val);

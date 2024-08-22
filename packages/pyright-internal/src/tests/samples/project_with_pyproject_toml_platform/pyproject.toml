@@ -1,0 +1,4 @@
+[tool.pyright]
+executionEnvironments = [
+    { python = "3.7", pythonPlatform = "platform" },
+]

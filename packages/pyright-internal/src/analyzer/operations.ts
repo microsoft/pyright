@@ -10,7 +10,7 @@
 
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { pythonVersion3_10 } from '../common/pythonVersion';
+import { PythonVersion, pythonVersion3_10 } from '../common/pythonVersion';
 import { LocMessage } from '../localization/localize';
 import {
     AugmentedAssignmentNode,
@@ -370,7 +370,7 @@ export function getTypeOfBinaryOperation(
             const unionNotationSupported =
                 fileInfo.isStubFile ||
                 (flags & EvalFlags.ForwardRefs) !== 0 ||
-                fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_10);
+                PythonVersion.isGreaterOrEqualTo(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_10);
 
             if (!unionNotationSupported) {
                 // If the left type is Any, we can't say for sure whether this

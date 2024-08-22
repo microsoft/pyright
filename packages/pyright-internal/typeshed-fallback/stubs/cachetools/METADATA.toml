@@ -1,2 +1,2 @@
-version = "5.4.*"
+version = "5.5.*"
 upstream_repository = "https://github.com/tkem/cachetools"

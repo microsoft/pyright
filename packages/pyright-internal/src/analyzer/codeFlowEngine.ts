@@ -1299,7 +1299,6 @@ export function getCodeFlowEngine(
                     (FlowFlags.VariableAnnotation |
                         FlowFlags.Assignment |
                         FlowFlags.WildcardImport |
-                        FlowFlags.NarrowForPattern |
                         FlowFlags.ExhaustedMatch)
                 ) {
                     const typedFlowNode = curFlowNode as
@@ -1308,6 +1307,25 @@ export function getCodeFlowEngine(
                         | FlowWildcardImport
                         | FlowExhaustedMatch;
                     curFlowNode = typedFlowNode.antecedent;
+                    continue;
+                }
+
+                if (curFlowNode.flags & FlowFlags.NarrowForPattern) {
+                    const patternFlowNode = curFlowNode as FlowNarrowForPattern;
+
+                    const typeResult = evaluator.evaluateTypeForSubnode(patternFlowNode.statement, () => {
+                        if (patternFlowNode.statement.nodeType === ParseNodeType.Case) {
+                            evaluator.evaluateTypesForCaseStatement(patternFlowNode.statement);
+                        } else {
+                            evaluator.evaluateTypesForMatchStatement(patternFlowNode.statement);
+                        }
+                    });
+
+                    if (typeResult && isNever(typeResult.type)) {
+                        return cacheReachabilityResult(Reachability.UnreachableByAnalysis);
+                    }
+
+                    curFlowNode = patternFlowNode.antecedent;
                     continue;
                 }
 

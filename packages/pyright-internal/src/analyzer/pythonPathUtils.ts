@@ -156,7 +156,7 @@ function findSitePackagesPath(
     // version), prefer that over other python directories.
     if (pythonVersion) {
         const preferredDir = candidateDirs.find(
-            (dirName) => dirName.fileName === `python${pythonVersion.toMajorMinorString()}`
+            (dirName) => dirName.fileName === `python${PythonVersion.toMajorMinorString(pythonVersion)}`
         );
         if (preferredDir) {
             const dirPath = preferredDir.combinePaths(pathConsts.sitePackages);

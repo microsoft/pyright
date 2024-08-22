@@ -472,7 +472,7 @@ export class ImportResolver {
         this._cachedTypeshedStdLibModuleVersionInfo.forEach((versionInfo, moduleName) => {
             let shouldExcludeModule = false;
 
-            if (versionInfo.max !== undefined && pythonVersion.isGreaterThan(versionInfo.max)) {
+            if (versionInfo.max !== undefined && PythonVersion.isGreaterThan(pythonVersion, versionInfo.max)) {
                 shouldExcludeModule = true;
             }
 
@@ -1999,11 +1999,11 @@ export class ImportResolver {
             const versionInfo = this._cachedTypeshedStdLibModuleVersionInfo.get(namePartsToConsider.join('.'));
 
             if (versionInfo) {
-                if (pythonVersion.isLessThan(versionInfo.min)) {
+                if (PythonVersion.isLessThan(pythonVersion, versionInfo.min)) {
                     return false;
                 }
 
-                if (versionInfo.max !== undefined && pythonVersion.isGreaterThan(versionInfo.max)) {
+                if (versionInfo.max !== undefined && PythonVersion.isGreaterThan(pythonVersion, versionInfo.max)) {
                     return false;
                 }
 

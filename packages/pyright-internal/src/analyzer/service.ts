@@ -295,13 +295,6 @@ export class AnalyzerService {
         const host = this._hostFactory();
         const configOptions = this._getConfigOptions(host, commandLineOptions);
 
-        if (configOptions.pythonPath) {
-            // Make sure we have default python environment set.
-            configOptions.ensureDefaultPythonVersion(host, this._console);
-        }
-
-        configOptions.ensureDefaultPythonPlatform(host, this._console);
-
         this._backgroundAnalysisProgram.setConfigOptions(configOptions);
 
         this._executionRootUri = configOptions.projectRoot;
@@ -685,6 +678,18 @@ export class AnalyzerService {
         // Ensure that if no command line or config options were applied, we have some defaults.
         this._ensureDefaultOptions(host, configOptions, projectRoot, executionRoot, commandLineOptions);
 
+        // Once we have defaults, we can then setup the execution environments. Execution enviroments
+        // inherit from the defaults.
+        if (configs) {
+            for (const config of configs) {
+                configOptions.setupExecutionEnvironments(
+                    config.configFileJsonObj,
+                    config.configFileDirUri,
+                    this.serviceProvider.console()
+                );
+            }
+        }
+
         return configOptions;
     }
 
@@ -827,6 +832,13 @@ export class AnalyzerService {
         if (commandLineOptions.configSettings.verboseOutput !== undefined) {
             configOptions.verboseOutput = commandLineOptions.configSettings.verboseOutput;
         }
+
+        // Ensure default python version and platform. A default should only be picked if
+        // there is a python path however.
+        if (configOptions.pythonPath) {
+            configOptions.ensureDefaultPythonVersion(host, this._console);
+        }
+        configOptions.ensureDefaultPythonPlatform(host, this._console);
     }
 
     private _applyLanguageServerOptions(
@@ -873,31 +885,17 @@ export class AnalyzerService {
         }
 
         if (commandLineOptions.extraPaths) {
-            const oldExtraPaths = configOptions.defaultExtraPaths ? [...configOptions.defaultExtraPaths] : [];
             configOptions.ensureDefaultExtraPaths(
                 this.fs,
                 commandLineOptions.autoSearchPaths ?? false,
                 commandLineOptions.extraPaths
             );
-
-            // Execution environments inherit the default extra paths, so we need to update them as well.
-            configOptions.executionEnvironments.forEach((env) => {
-                env.extraPaths = env.extraPaths.filter(
-                    (path) => !oldExtraPaths.some((oldPath) => oldPath.equals(path))
-                );
-                env.extraPaths.push(...configOptions.defaultExtraPaths!);
-            });
         }
 
         if (commandLineOptions.pythonVersion || commandLineOptions.pythonPlatform) {
             configOptions.defaultPythonVersion = commandLineOptions.pythonVersion ?? configOptions.defaultPythonVersion;
             configOptions.defaultPythonPlatform =
                 commandLineOptions.pythonPlatform ?? configOptions.defaultPythonPlatform;
-            // This should also override any of the execution environment settings.
-            configOptions.executionEnvironments.forEach((env) => {
-                env.pythonVersion = commandLineOptions.pythonVersion ?? env.pythonVersion;
-                env.pythonPlatform = commandLineOptions.pythonPlatform ?? env.pythonPlatform;
-            });
         }
 
         if (commandLineOptions.pythonPath) {

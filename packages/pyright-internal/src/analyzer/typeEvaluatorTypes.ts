@@ -117,7 +117,7 @@ export const enum EvalFlags {
     // a base class whose TypeVar variance is inconsistent.
     EnforceVarianceConsistency = 1 << 14,
 
-    // Used for PEP 526-style variable type annotations
+    // Used for PEP 526-style variable type annotations.
     VarTypeAnnotation = 1 << 15,
 
     // 'ClassVar' is not allowed in this context.

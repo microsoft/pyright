@@ -182,13 +182,10 @@ export class TestState {
         const configOptions = this._convertGlobalOptionsToConfigOptions(vfsInfo.projectRoot, mountPaths);
 
         if (this.rawConfigJson) {
+            const configDirUri = Uri.file(projectRoot, this.serviceProvider);
             configOptions.initializeTypeCheckingMode('standard');
-            configOptions.initializeFromJson(
-                this.rawConfigJson,
-                Uri.file(projectRoot, this.serviceProvider),
-                this.serviceProvider,
-                testAccessHost
-            );
+            configOptions.initializeFromJson(this.rawConfigJson, configDirUri, this.serviceProvider, testAccessHost);
+            configOptions.setupExecutionEnvironments(this.rawConfigJson, configDirUri, this.serviceProvider.console());
             this._applyTestConfigOptions(configOptions);
         }
 

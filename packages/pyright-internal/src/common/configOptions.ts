@@ -1295,12 +1295,10 @@ export class ConfigOptions {
         }
 
         // Read the default "pythonVersion".
-        let configPythonVersion: PythonVersion | undefined = undefined;
         if (configObj.pythonVersion !== undefined) {
             if (typeof configObj.pythonVersion === 'string') {
                 const version = PythonVersion.fromString(configObj.pythonVersion);
                 if (version) {
-                    configPythonVersion = version;
                     this.defaultPythonVersion = version;
                 } else {
                     console.error(`Config "pythonVersion" field contains unsupported version.`);
@@ -1310,20 +1308,14 @@ export class ConfigOptions {
             }
         }
 
-        this.ensureDefaultPythonVersion(host, console);
-
         // Read the default "pythonPlatform".
-        let configPythonPlatform: string | undefined = undefined;
         if (configObj.pythonPlatform !== undefined) {
             if (typeof configObj.pythonPlatform !== 'string') {
                 console.error(`Config "pythonPlatform" field must contain a string.`);
             } else {
                 this.defaultPythonPlatform = configObj.pythonPlatform;
-                configPythonPlatform = configObj.pythonPlatform;
             }
         }
-
-        this.ensureDefaultPythonPlatform(host, console);
 
         // Read the "typeshedPath" setting.
         if (configObj.typeshedPath !== undefined) {
@@ -1391,35 +1383,6 @@ export class ConfigOptions {
                 console.error(`Config "useLibraryCodeForTypes" field must be true or false.`);
             } else {
                 this.useLibraryCodeForTypes = configObj.useLibraryCodeForTypes;
-            }
-        }
-
-        // Read the "executionEnvironments" array. This should be done at the end
-        // after we've established default values.
-        if (configObj.executionEnvironments !== undefined) {
-            if (!Array.isArray(configObj.executionEnvironments)) {
-                console.error(`Config "executionEnvironments" field must contain an array.`);
-            } else {
-                this.executionEnvironments = [];
-
-                const execEnvironments = configObj.executionEnvironments as ExecutionEnvironment[];
-
-                execEnvironments.forEach((env, index) => {
-                    const execEnv = this._initExecutionEnvironmentFromJson(
-                        env,
-                        configDirUri,
-                        index,
-                        console,
-                        configRuleSet,
-                        configPythonVersion,
-                        configPythonPlatform,
-                        configExtraPaths
-                    );
-
-                    if (execEnv) {
-                        this.executionEnvironments.push(execEnv);
-                    }
-                });
             }
         }
 
@@ -1509,7 +1472,7 @@ export class ConfigOptions {
         const importFailureInfo: string[] = [];
         this.defaultPythonVersion = host.getPythonVersion(this.pythonPath, importFailureInfo);
         if (this.defaultPythonVersion !== undefined) {
-            console.info(`Assuming Python version ${this.defaultPythonVersion.toString()}`);
+            console.info(`Assuming Python version ${PythonVersion.toString(this.defaultPythonVersion)}`);
         }
 
         for (const log of importFailureInfo) {
@@ -1561,6 +1524,37 @@ export class ConfigOptions {
             const value = diagnosticOverrides[ruleName];
             if (value !== undefined && isBoolean(value)) {
                 (this.diagnosticRuleSet as any)[ruleName] = value;
+            }
+        }
+    }
+
+    setupExecutionEnvironments(configObj: any, configDirUri: Uri, console: ConsoleInterface) {
+        // Read the "executionEnvironments" array. This should be done at the end
+        // after we've established default values.
+        if (configObj.executionEnvironments !== undefined) {
+            if (!Array.isArray(configObj.executionEnvironments)) {
+                console.error(`Config "executionEnvironments" field must contain an array.`);
+            } else {
+                this.executionEnvironments = [];
+
+                const execEnvironments = configObj.executionEnvironments as ExecutionEnvironment[];
+
+                execEnvironments.forEach((env, index) => {
+                    const execEnv = this._initExecutionEnvironmentFromJson(
+                        env,
+                        configDirUri,
+                        index,
+                        console,
+                        this.diagnosticRuleSet,
+                        this.defaultPythonVersion,
+                        this.defaultPythonPlatform,
+                        this.defaultExtraPaths || []
+                    );
+
+                    if (execEnv) {
+                        this.executionEnvironments.push(execEnv);
+                    }
+                });
             }
         }
     }

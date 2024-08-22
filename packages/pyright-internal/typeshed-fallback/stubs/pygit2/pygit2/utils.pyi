@@ -1,7 +1,7 @@
 import contextlib
 import types
 from _typeshed import StrOrBytesPath, StrPath
-from collections.abc import Iterator
+from collections.abc import Generator
 from typing import Generic, TypeVar
 from typing_extensions import TypeAlias
 
@@ -12,7 +12,7 @@ def to_bytes(s: _CDataBase | StrOrBytesPath | None, encoding: str = "utf-8", err
 def to_str(s: StrOrBytesPath) -> str: ...
 def ptr_to_bytes(ptr_cdata: _CDataBase) -> bytes: ...
 @contextlib.contextmanager
-def new_git_strarray() -> Iterator[_GitStrArray]: ...
+def new_git_strarray() -> Generator[_GitStrArray]: ...
 def strarray_to_strings(arr: _GitStrArray) -> list[str]: ...
 
 # Actual type: _cffi_backend.__CDataOwn <cdata 'struct git_strarray *'>

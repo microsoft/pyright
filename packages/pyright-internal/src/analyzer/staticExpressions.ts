@@ -100,8 +100,8 @@ export function evaluateStaticBoolExpression(
             // Handle the special case of "sys.version_info[0] >= X"
             return _evaluateVersionBinaryOperation(
                 node.d.operator,
-                new PythonVersion(execEnv.pythonVersion.major, 0),
-                new PythonVersion(node.d.rightExpr.d.value, 0)
+                PythonVersion.create(execEnv.pythonVersion.major, 0),
+                PythonVersion.create(node.d.rightExpr.d.value, 0)
             );
         }
 
@@ -238,12 +238,12 @@ function _convertTupleToVersion(node: TupleNode): PythonVersion | undefined {
                 serial = node.d.items[4].d.value;
             }
 
-            return new PythonVersion(major, minor, micro, releaseLevel, serial);
+            return PythonVersion.create(major, minor, micro, releaseLevel, serial);
         }
     } else if (node.d.items.length === 1) {
         const major = node.d.items[0] as NumberNode;
         if (typeof major.d.value === 'number') {
-            return new PythonVersion(major.d.value, 0);
+            return PythonVersion.create(major.d.value, 0);
         }
     }
 
@@ -257,27 +257,27 @@ function _evaluateVersionBinaryOperation(
 ): any | undefined {
     if (leftValue !== undefined && rightValue !== undefined) {
         if (operatorType === OperatorType.LessThan) {
-            return leftValue.isLessThan(rightValue);
+            return PythonVersion.isLessThan(leftValue, rightValue);
         }
 
         if (operatorType === OperatorType.LessThanOrEqual) {
-            return leftValue.isLessOrEqualTo(rightValue);
+            return PythonVersion.isLessOrEqualTo(leftValue, rightValue);
         }
 
         if (operatorType === OperatorType.GreaterThan) {
-            return leftValue.isGreaterThan(rightValue);
+            return PythonVersion.isGreaterThan(leftValue, rightValue);
         }
 
         if (operatorType === OperatorType.GreaterThanOrEqual) {
-            return leftValue.isGreaterOrEqualTo(rightValue);
+            return PythonVersion.isGreaterOrEqualTo(leftValue, rightValue);
         }
 
         if (operatorType === OperatorType.Equals) {
-            return leftValue.isEqualTo(rightValue);
+            return PythonVersion.isEqualTo(leftValue, rightValue);
         }
 
         if (operatorType === OperatorType.NotEquals) {
-            return !leftValue.isEqualTo(rightValue);
+            return !PythonVersion.isEqualTo(leftValue, rightValue);
         }
     }
 

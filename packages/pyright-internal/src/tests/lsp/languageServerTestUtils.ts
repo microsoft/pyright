@@ -339,7 +339,7 @@ export async function runPyrightServer(
         testName: expect.getState().currentTestName ?? 'NoName',
         code,
         projectRoots: projectRootsArray.map((p) => (p.includes(':') ? UriEx.parse(p) : UriEx.file(p))),
-        pythonVersion: pythonVersion.toString(),
+        pythonVersion: PythonVersion.toString(pythonVersion),
         backgroundAnalysis,
         logFile: UriEx.file(path.join(__dirname, `log${process.pid}.txt`)),
         pid: process.pid.toString(),

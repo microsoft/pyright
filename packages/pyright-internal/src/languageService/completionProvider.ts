@@ -175,10 +175,10 @@ namespace Keywords {
     const python3_10: string[] = [...python3_5, 'case', 'match'];
 
     export function forVersion(version: PythonVersion): string[] {
-        if (version.isGreaterOrEqualTo(pythonVersion3_10)) {
+        if (PythonVersion.isGreaterOrEqualTo(version, pythonVersion3_10)) {
             return python3_10;
         }
-        if (version.isGreaterOrEqualTo(pythonVersion3_5)) {
+        if (PythonVersion.isGreaterOrEqualTo(version, pythonVersion3_5)) {
             return python3_5;
         }
         return base;

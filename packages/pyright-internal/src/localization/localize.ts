@@ -474,10 +474,10 @@ export namespace Localizer {
         export const expectedExceptionClass = () => getRawString('Diagnostic.expectedExceptionClass');
         export const expectedExceptionObj = () => getRawString('Diagnostic.expectedExceptionObj');
         export const expectedExpr = () => getRawString('Diagnostic.expectedExpr');
+        export const expectedIdentifier = () => getRawString('Diagnostic.expectedIdentifier');
         export const expectedImport = () => getRawString('Diagnostic.expectedImport');
         export const expectedImportAlias = () => getRawString('Diagnostic.expectedImportAlias');
         export const expectedImportSymbols = () => getRawString('Diagnostic.expectedImportSymbols');
-        export const expectedIdentifier = () => getRawString('Diagnostic.expectedIdentifier');
         export const expectedIndentedBlock = () => getRawString('Diagnostic.expectedIndentedBlock');
         export const expectedIn = () => getRawString('Diagnostic.expectedIn');
         export const expectedInExpr = () => getRawString('Diagnostic.expectedInExpr');

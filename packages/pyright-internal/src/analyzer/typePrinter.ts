@@ -1086,7 +1086,6 @@ function printFunctionPartsInternal(
 ): [string[], string] {
     const paramTypeStrings: string[] = [];
     let sawDefinedName = false;
-    const functionNode = type.shared.declaration?.node;
 
     // Remove the (*args: P.args, **kwargs: P.kwargs) from the end of the parameter list.
     const paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
@@ -1231,9 +1230,8 @@ function printFunctionPartsInternal(
         }
 
         if (defaultType) {
-            const paramNode = functionNode?.d.params.find((p) => p.d.name?.d.value === param.name);
-            if (paramNode?.d.defaultValue) {
-                paramString += defaultValueAssignment + ParseTreeUtils.printExpression(paramNode.d.defaultValue);
+            if (param.defaultExpr) {
+                paramString += defaultValueAssignment + ParseTreeUtils.printExpression(param.defaultExpr);
             } else {
                 // If the function doesn't originate from a function declaration (e.g. it is
                 // synthesized), we can't get to the default declaration, but we can still indicate
