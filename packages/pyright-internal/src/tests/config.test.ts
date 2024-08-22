@@ -15,7 +15,6 @@ import { CommandLineOptions, DiagnosticSeverityOverrides } from '../common/comma
 import { ConfigOptions, ExecutionEnvironment, getStandardDiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../common/console';
 import { TaskListPriority } from '../common/diagnostic';
-import { NoAccessHost } from '../common/host';
 import { combinePaths, normalizePath, normalizeSlashes } from '../common/pathUtils';
 import { pythonVersion3_9 } from '../common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
@@ -202,27 +201,18 @@ test('FindExecEnv1', () => {
 });
 
 test('PythonPlatform', () => {
-    const cwd = UriEx.file(normalizePath(process.cwd()));
-
-    const configOptions = new ConfigOptions(cwd);
-
-    const json = JSON.parse(`{
-        "executionEnvironments" : [
-        {
-            "root": ".",
-            "pythonVersion" : "3.7",
-            "pythonPlatform" : "platform",
-            "extraPaths" : []
-    }]}`);
-
-    const fs = new TestFileSystem(/* ignoreCase */ false);
     const nullConsole = new NullConsole();
+    const service = createAnalyzer(nullConsole);
+    const cwd = Uri.file(
+        normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_pyproject_toml_platform')),
+        service.serviceProvider
+    );
+    const commandLineOptions = new CommandLineOptions(cwd.getFilePath(), /* fromLanguageServer */ false);
+    service.setOptions(commandLineOptions);
 
-    const sp = createServiceProvider(fs, nullConsole);
-    configOptions.initializeFromJson(json, cwd, sp, new NoAccessHost());
-
-    const env = configOptions.executionEnvironments[0];
-    assert.strictEqual(env.pythonPlatform, 'platform');
+    const configOptions = service.test_getConfigOptions(commandLineOptions);
+    assert.ok(configOptions.executionEnvironments[0]);
+    assert.equal(configOptions.executionEnvironments[0].pythonPlatform, 'platform');
 });
 
 test('AutoSearchPathsOn', () => {
