@@ -12098,10 +12098,6 @@ export function createTypeEvaluator(
             assignTypeFlags |= AssignTypeFlags.ArgAssignmentFirstPass;
         }
 
-        if (options?.isArgFirstPass) {
-            assignTypeFlags |= AssignTypeFlags.ArgAssignmentFirstPass;
-        }
-
         if (!assignType(argParam.paramType, argType, diag?.createAddendum(), constraints, assignTypeFlags)) {
             if (!options?.skipReportError) {
                 // Mismatching parameter types are common in untyped code; don't bother spending time
