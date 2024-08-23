@@ -50,7 +50,12 @@ export namespace PythonVersion {
         };
     }
 
-    export function isEqualTo(version: PythonVersion, other: PythonVersion) {
+    export function isEqualTo(version: PythonVersion | undefined, other: PythonVersion | undefined) {
+        if (version === undefined && other === undefined) {
+            return true;
+        } else if (version === undefined || other === undefined) {
+            return false;
+        }
         if (version.major !== other.major || version.minor !== other.minor) {
             return false;
         }
@@ -76,7 +81,14 @@ export namespace PythonVersion {
         return true;
     }
 
-    export function isGreaterThan(version: PythonVersion, other: PythonVersion) {
+    export function isGreaterThan(version: PythonVersion | undefined, other: PythonVersion | undefined) {
+        if (version && !other) {
+            return true;
+        } else if (!version && other) {
+            return false;
+        } else if (!version || !other) {
+            return false;
+        }
         if (version.major > other.major) {
             return true;
         } else if (version.major < other.major) {
@@ -118,38 +130,38 @@ export namespace PythonVersion {
         return false;
     }
 
-    export function isGreaterOrEqualTo(version: PythonVersion, other: PythonVersion) {
+    export function isGreaterOrEqualTo(version: PythonVersion | undefined, other: PythonVersion | undefined) {
         return isEqualTo(version, other) || isGreaterThan(version, other);
     }
 
-    export function isLessThan(version: PythonVersion, other: PythonVersion) {
+    export function isLessThan(version: PythonVersion | undefined, other: PythonVersion | undefined) {
         return !isGreaterOrEqualTo(version, other);
     }
 
-    export function isLessOrEqualTo(version: PythonVersion, other: PythonVersion) {
+    export function isLessOrEqualTo(version: PythonVersion | undefined, other: PythonVersion | undefined) {
         return !isGreaterThan(version, other);
     }
 
-    export function toMajorMinorString(version: PythonVersion): string {
-        return `${version.major}.${version.minor}`;
+    export function toMajorMinorString(version: PythonVersion | undefined): string {
+        return `${version?.major}.${version?.minor}`;
     }
 
-    export function toString(version: PythonVersion): string {
+    export function toString(version: PythonVersion | undefined): string {
         let versString = toMajorMinorString(version);
 
-        if (version.micro === undefined) {
+        if (version?.micro === undefined) {
             return versString;
         }
 
         versString += `.${version.micro}`;
 
-        if (version.releaseLevel === undefined) {
+        if (version?.releaseLevel === undefined) {
             return versString;
         }
 
         versString += `.${version.releaseLevel}`;
 
-        if (version.serial === undefined) {
+        if (version?.serial === undefined) {
             return versString;
         }
 
