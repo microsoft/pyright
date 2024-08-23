@@ -84,8 +84,6 @@ export namespace PythonVersion {
     export function isGreaterThan(version: PythonVersion | undefined, other: PythonVersion | undefined) {
         if (version && !other) {
             return true;
-        } else if (!version && other) {
-            return false;
         } else if (!version || !other) {
             return false;
         }
@@ -143,7 +141,7 @@ export namespace PythonVersion {
     }
 
     export function toMajorMinorString(version: PythonVersion | undefined): string {
-        return `${version?.major}.${version?.minor}`;
+        return version ? `${version.major}.${version.minor}` : '';
     }
 
     export function toString(version: PythonVersion | undefined): string {
