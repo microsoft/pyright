@@ -67,7 +67,7 @@ extends:
                 inputs:
                   script: |
                     npm run package
-                    move pyright-*.vsix %VSIX_NAME%
+                    move pyright-*.vsix $(VSIX_NAME)
                   workingDirectory: packages/vscode-pyright
               - task: CopyFiles@2
                 displayName: 'Copy vsix to: build_output'
