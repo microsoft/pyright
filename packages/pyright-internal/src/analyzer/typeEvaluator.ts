@@ -26700,9 +26700,18 @@ export function createTypeEvaluator(
         // evaluating (and caching) the inferred return type if there is no defined return type.
         getEffectiveReturnType(memberType);
 
-        const specializedFunction = solveAndApplyConstraints(memberType, constraints) as FunctionType;
+        const specializedFunction = solveAndApplyConstraints(memberType, constraints);
+        if (isFunction(specializedFunction)) {
+            return FunctionType.clone(specializedFunction, stripFirstParam, baseType);
+        }
 
-        return FunctionType.clone(specializedFunction, stripFirstParam, baseType);
+        if (isOverloaded(specializedFunction)) {
+            // For overloaded functions, use the first overload. This isn't
+            // strictly correct, but this is an extreme edge case.
+            return FunctionType.clone(OverloadedType.getOverloads(specializedFunction)[0], stripFirstParam, baseType);
+        }
+
+        return undefined;
     }
 
     function isFinalVariable(symbol: Symbol): boolean {
