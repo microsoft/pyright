@@ -85,7 +85,7 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
-import { ParseOptions, ParseTextMode, Parser } from '../parser/parser';
+import { ParseOptions, Parser, ParseTextMode } from '../parser/parser';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, isAnnotationEvaluationPostponed } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -120,11 +120,11 @@ import {
     VariableDeclaration,
 } from './declaration';
 import {
-    createSynthesizedAliasDeclaration,
     getDeclarationsWithUsesLocalNameRemoved,
     getNameNodeForDeclaration,
     resolveAliasDeclaration as resolveAliasDeclarationUtil,
     ResolvedAliasInfo,
+    synthesizeAliasDeclaration,
 } from './declarationUtils';
 import {
     addOverloadsToFunctionType,
@@ -21070,7 +21070,7 @@ export function createTypeEvaluator(
                     // Synthesize an alias declaration for this name part. The only
                     // time this case is used is for IDE services such as
                     // the find all references, hover provider and etc.
-                    declarations.push(createSynthesizedAliasDeclaration(importInfo.resolvedUris[namePartIndex]));
+                    declarations.push(synthesizeAliasDeclaration(importInfo.resolvedUris[namePartIndex]));
                 }
             }
         } else if (node.parent && node.parent.nodeType === ParseNodeType.Argument && node === node.parent.d.name) {
@@ -23050,15 +23050,6 @@ export function createTypeEvaluator(
             }
 
             prevSrcType = curSrcType;
-        }
-
-        // If we're enforcing invariance, literal types must match as well.
-        if ((flags & AssignTypeFlags.Invariant) !== 0) {
-            const srcIsLiteral = srcType.priv.literalValue !== undefined;
-            const destIsLiteral = destType.priv.literalValue !== undefined;
-            if (srcIsLiteral !== destIsLiteral) {
-                return false;
-            }
         }
 
         // Handle tuple, which supports a variable number of type arguments.
@@ -26958,11 +26949,16 @@ export function createTypeEvaluator(
         );
 
         if (parseResults.parseTree) {
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             parseResults.diagnostics.forEach((diag) => {
-                addDiagnosticWithSuppressionCheck('error', diag.message, node);
+                fileInfo.diagnosticSink.addDiagnosticWithTextRange('error', diag.message, node);
             });
 
             parseResults.parseTree.parent = node;
+
+            // Add the new subtree to the parse tree so it can participate in
+            // language server operations like find and replace.
+            node.d.annotation = parseResults.parseTree;
             return parseResults.parseTree;
         }
 

@@ -12,6 +12,7 @@ import { assert } from '../common/debug';
 import { ParamCategory } from '../parser/parseNodes';
 import { isTypedKwargs } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
+import { printBytesLiteral, printStringLiteral } from './typePrinterUtils';
 import {
     ClassType,
     EnumLiteral,
@@ -38,9 +39,6 @@ import {
     Variance,
 } from './types';
 import { convertToInstance, doForEachSubtype, isNoneInstance, isTupleClass, removeNoneFromUnion } from './typeUtils';
-
-const singleTickRegEx = /'/g;
-const escapedDoubleQuoteRegEx = /\\"/g;
 
 export const enum PrintTypeFlags {
     None = 0,
@@ -161,37 +159,9 @@ export function printLiteralValue(type: ClassType, quotation = "'"): string {
         }
 
         if (type.shared.name === 'bytes') {
-            let bytesString = '';
-
-            // There's no good built-in conversion routine in javascript to convert
-            // bytes strings. Determine on a character-by-character basis whether
-            // it can be rendered into an ASCII character. If not, use an escape.
-            for (let i = 0; i < effectiveLiteralValue.length; i++) {
-                const char = effectiveLiteralValue.substring(i, i + 1);
-                const charCode = char.charCodeAt(0);
-
-                if (charCode >= 20 && charCode <= 126) {
-                    if (charCode === 34) {
-                        bytesString += '\\' + char;
-                    } else {
-                        bytesString += char;
-                    }
-                } else {
-                    bytesString += `\\x${((charCode >> 4) & 0xf).toString(16)}${(charCode & 0xf).toString(16)}`;
-                }
-            }
-
-            literalStr = `b"${bytesString}"`;
+            literalStr = printBytesLiteral(effectiveLiteralValue);
         } else {
-            // JSON.stringify will perform proper escaping for " case.
-            // So, we only need to do our own escaping for ' case.
-            literalStr = JSON.stringify(effectiveLiteralValue).toString();
-            if (quotation !== '"') {
-                literalStr = `'${literalStr
-                    .substring(1, literalStr.length - 1)
-                    .replace(escapedDoubleQuoteRegEx, '"')
-                    .replace(singleTickRegEx, "\\'")}'`; // CodeQL [SM02383] Code ql is just wrong here. We don't need to replace backslashes.
-            }
+            literalStr = printStringLiteral(effectiveLiteralValue, quotation);
         }
     } else if (typeof literalValue === 'boolean') {
         literalStr = literalValue ? 'True' : 'False';
@@ -523,7 +493,7 @@ function printTypeInternal(
             case TypeCategory.Union: {
                 // If this is a value expression that evaluates to a union type but is
                 // not a type alias, simply print the special form ("UnionType").
-                if (TypeBase.isInstantiable(type) && type.props?.specialForm && !aliasInfo) {
+                if (TypeBase.isInstantiable(type) && type.props?.specialForm && !type.props?.typeAliasInfo) {
                     return printTypeInternal(
                         type.props.specialForm,
                         printTypeFlags,
