@@ -14,8 +14,8 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType, isAliasDeclaration } from '../analyzer/declaration';
 import {
     areDeclarationsSame,
-    createSynthesizedAliasDeclaration,
     getDeclarationsWithUsesLocalNameRemoved,
+    synthesizeAliasDeclaration,
 } from '../analyzer/declarationUtils';
 import { getModuleNode, getStringNodeValueRange } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
@@ -450,7 +450,7 @@ function _getDeclarationsForNonModuleNameNode(
         const type = evaluator.getType(node);
         if (type?.category === TypeCategory.Module) {
             // Synthesize decl for the module.
-            return [createSynthesizedAliasDeclaration(type.priv.fileUri)];
+            return [synthesizeAliasDeclaration(type.priv.fileUri)];
         }
     }
 

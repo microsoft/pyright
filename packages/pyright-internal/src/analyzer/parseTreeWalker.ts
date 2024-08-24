@@ -795,7 +795,15 @@ export class ParseTreeVisitor<T> {
         return this._default;
     }
 
+    visitPatternMapping(node: PatternMappingNode) {
+        return this._default;
+    }
+
     visitPatternMappingExpandEntry(node: PatternMappingExpandEntryNode) {
+        return this._default;
+    }
+
+    visitPatternMappingKeyEntry(node: PatternMappingKeyEntryNode) {
         return this._default;
     }
 
@@ -804,14 +812,6 @@ export class ParseTreeVisitor<T> {
     }
 
     visitPatternValue(node: PatternValueNode) {
-        return this._default;
-    }
-
-    visitPatternMappingKeyEntry(node: PatternMappingKeyEntryNode) {
-        return this._default;
-    }
-
-    visitPatternMapping(node: PatternMappingNode) {
         return this._default;
     }
 

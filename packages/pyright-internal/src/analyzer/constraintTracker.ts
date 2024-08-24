@@ -38,6 +38,7 @@ export interface TypeVarConstraints {
 // Records the constraints information for a set of type variables
 // associated with a callee's signature.
 export class ConstraintSet {
+    // Maps type variable IDs to their current constraints.
     private _typeVarMap: Map<string, TypeVarConstraints>;
 
     // A set of one or more TypeVar scope IDs that identify this constraint set.
