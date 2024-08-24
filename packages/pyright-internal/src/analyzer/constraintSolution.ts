@@ -16,7 +16,6 @@ export class ConstraintSolutionSet {
     // Indexed by TypeVar ID.
     private _typeVarMap: Map<string, Type | undefined>;
 
-
     constructor() {
         this._typeVarMap = new Map<string, Type>();
     }
