@@ -17,7 +17,7 @@ export class ConstraintSolutionSet {
     private _typeVarMap: Map<string, Type | undefined>;
 
     constructor() {
-        this._typeVarMap = new Map<string, Type>();
+        this._typeVarMap = new Map();
     }
 
     isEmpty() {

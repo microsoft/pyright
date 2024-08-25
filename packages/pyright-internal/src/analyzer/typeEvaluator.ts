@@ -15441,8 +15441,7 @@ export function createTypeEvaluator(
         };
     }
 
-    // Enforces metadata consistency as specified in PEP 746 and associates
-    // refinement type predicates with the base type.
+    // Enforces metadata consistency as specified in PEP 746.
     function validateAnnotatedMetadata(
         errorNode: ExpressionNode,
         baseType: Type,
