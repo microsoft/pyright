@@ -1259,6 +1259,18 @@ export function isLiteralTypeOrUnion(type: Type, allowNone = false): boolean {
     return false;
 }
 
+export function isLiteralLikeType(type: ClassType): boolean {
+    if (type.priv.literalValue !== undefined) {
+        return true;
+    }
+
+    if (ClassType.isBuiltIn(type, 'LiteralString')) {
+        return true;
+    }
+
+    return false;
+}
+
 export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
     class ContainsLiteralTypeWalker extends TypeWalker {
         foundLiteral = false;
@@ -1269,7 +1281,7 @@ export function containsLiteralType(type: Type, includeTypeArgs = false): boolea
 
         override visitClass(classType: ClassType): void {
             if (isClassInstance(classType)) {
-                if (isLiteralType(classType) || ClassType.isBuiltIn(classType, 'LiteralString')) {
+                if (isLiteralLikeType(classType)) {
                     this.foundLiteral = true;
                     this.cancelWalk();
                 }

@@ -311,6 +311,7 @@ import {
     isEllipsisType,
     isIncompleteUnknown,
     isInstantiableMetaclass,
+    isLiteralLikeType,
     isLiteralType,
     isMaybeDescriptorInstance,
     isMetaclassInstance,
@@ -1717,7 +1718,7 @@ export function createTypeEvaluator(
         return mapSubtypes(type, (subtype) => {
             if (isClass(subtype)) {
                 if (subtype.priv.literalValue !== undefined) {
-                    return ClassType.cloneWithLiteral(subtype, /* value */ undefined);
+                    subtype = ClassType.cloneWithLiteral(subtype, /* value */ undefined);
                 }
 
                 if (ClassType.isBuiltIn(subtype, 'LiteralString')) {
@@ -22994,15 +22995,11 @@ export function createTypeEvaluator(
 
         // If we're enforcing invariance, literal types must match.
         if ((flags & AssignTypeFlags.Invariant) !== 0) {
-            const srcIsLiteral = srcType.priv.literalValue !== undefined;
-            const destIsLiteral = destType.priv.literalValue !== undefined;
+            const srcIsLiteral = isLiteralLikeType(srcType);
+            const destIsLiteral = isLiteralLikeType(destType);
+
             if (srcIsLiteral !== destIsLiteral) {
                 return false;
-            }
-        } else {
-            // If the dest is an 'object', it's assignable.
-            if (ClassType.isBuiltIn(destType, 'object')) {
-                return true;
             }
         }
 
@@ -23732,7 +23729,10 @@ export function createTypeEvaluator(
                     return true;
                 }
 
-                if (destType.priv.literalValue !== undefined) {
+                if (
+                    destType.priv.literalValue !== undefined &&
+                    ClassType.isSameGenericClass(destType, concreteSrcType)
+                ) {
                     const srcLiteral = concreteSrcType.priv.literalValue;
                     if (srcLiteral === undefined || !ClassType.isLiteralValueSame(concreteSrcType, destType)) {
                         diag?.addMessage(
