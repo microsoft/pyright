@@ -161,7 +161,10 @@ test('Never2', () => {
 });
 
 test('TypePromotions1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typePromotions1.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.disableBytesTypePromotions = false;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typePromotions1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 0);
 });

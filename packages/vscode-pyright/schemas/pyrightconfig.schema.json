@@ -52,7 +52,7 @@
     "disableBytesTypePromotions": {
       "type": "boolean",
       "title": "Do not treat `bytearray` and `memoryview` as implicit subtypes of `bytes`",
-      "default": false
+      "default": true
     },
     "strictListInference": {
       "type": "boolean",
