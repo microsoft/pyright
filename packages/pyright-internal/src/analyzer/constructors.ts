@@ -761,7 +761,7 @@ function createFunctionFromMetaclassCall(
         callType,
         callInfo && isInstantiableClass(callInfo.classType) ? callInfo.classType : undefined,
         /* treatConstructorAsClassMethod */ false,
-        ClassType.cloneAsInstantiable(classType),
+        classType,
         /* diag */ undefined,
         recursionCount
     );
