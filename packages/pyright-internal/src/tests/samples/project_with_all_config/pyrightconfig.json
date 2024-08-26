@@ -1,7 +1,7 @@
 {
     "analyzeUnannotatedFunctions": false,
     "defineConstant": {
-        "CONSTANT1": "string",
+        "CONSTANT1": "string"
     },
     "executionEnvironments": [
         {
