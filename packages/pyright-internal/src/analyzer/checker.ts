@@ -6865,10 +6865,7 @@ export class Checker extends ParseTreeWalker {
                             enforceParamNameMatch
                         )
                     ) {
-                        const decl =
-                            isFunction(overrideType) && overrideType.shared.declaration
-                                ? overrideType.shared.declaration
-                                : getLastTypedDeclarationForSymbol(overrideSymbol);
+                        const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
                         if (decl) {
                             const diag = this._evaluator.addDiagnostic(
                                 DiagnosticRule.reportIncompatibleMethodOverride,
