@@ -21,82 +21,77 @@ import * as TestUtils from './testUtils';
 
 test('Overload1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload1.py']);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Overload2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload2.py']);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Overload3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload3.py']);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Overload4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload4.py']);
-    TestUtils.validateResults(analysisResults, 3);
-});
-
-test('Overload5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py']);
-    TestUtils.validateResults(analysisResults, 3);
-});
-
-test('Overload6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload6.py']);
-    TestUtils.validateResults(analysisResults, 2);
-});
-
-test('Overload7', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload7.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Overload8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload8.py']);
+test('OverloadCall1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall1.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('OverloadCall2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall2.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('OverloadCall3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('OverloadCall4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall4.py']);
     TestUtils.validateResults(analysisResults, 4);
 });
 
-test('Overload10', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload10.py']);
+test('OverloadCall5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall5.py']);
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Overload11', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload11.py']);
-    TestUtils.validateResults(analysisResults, 1);
-});
-
-test('Overload12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload12.py']);
+test('OverloadCall6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall6.py']);
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('Overload13', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload13.py']);
+test('OverloadCall7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall7.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Overload14', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload14.py']);
+test('OverloadCall8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall8.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Overload15', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload15.py']);
+test('OverloadCall9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall9.py']);
     TestUtils.validateResults(analysisResults, 8);
 });
 
-test('Overload16', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload16.py']);
+test('OverloadCall10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall10.py']);
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('Overload17', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload17.py']);
-    TestUtils.validateResults(analysisResults, 0);
+test('OverloadOverride1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverride1.py']);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('OverloadImpl1', () => {
