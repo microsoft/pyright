@@ -24995,13 +24995,24 @@ export function createTypeEvaluator(
                 }
             }
 
-            if (destParam.defaultType && !srcParam.defaultType && paramIndex !== srcParamDetails.argsIndex) {
-                diag?.createAddendum().addMessage(
-                    LocAddendum.functionParamDefaultMissing().format({
-                        name: srcParamName,
-                    })
-                );
-                canAssign = false;
+            if (destParam.defaultType) {
+                if (!srcParam.defaultType && paramIndex !== srcParamDetails.argsIndex) {
+                    diag?.createAddendum().addMessage(
+                        LocAddendum.functionParamDefaultMissing().format({
+                            name: srcParamName,
+                        })
+                    );
+                    canAssign = false;
+                }
+
+                // If we're performing a partial overload match and both the source
+                // and dest parameters provide defaults, assume that there could
+                // be a match.
+                if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
+                    if (srcParam.defaultType) {
+                        continue;
+                    }
+                }
             }
 
             // Handle the special case of an overloaded __init__ method whose self
@@ -25122,7 +25133,9 @@ export function createTypeEvaluator(
                             recursionCount
                         )
                     ) {
-                        canAssign = false;
+                        if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
+                            canAssign = false;
+                        }
                     }
 
                     continue;
@@ -25201,6 +25214,17 @@ export function createTypeEvaluator(
                 let adjDestPositionalCount = destPositionalCount;
                 if (destParamDetails.argsIndex !== undefined && destParamDetails.argsIndex < destPositionalCount) {
                     adjDestPositionalCount--;
+                }
+
+                // If we're doing a partial overload overlap check, ignore dest positional
+                // params with default values.
+                if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
+                    while (
+                        adjDestPositionalCount > 0 &&
+                        destParamDetails.params[adjDestPositionalCount - 1].defaultType
+                    ) {
+                        adjDestPositionalCount--;
+                    }
                 }
 
                 if (srcPositionalCount < adjDestPositionalCount) {
@@ -25343,7 +25367,9 @@ export function createTypeEvaluator(
                                             recursionCount
                                         )
                                     ) {
-                                        canAssign = false;
+                                        if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
+                                            canAssign = false;
+                                        }
                                     }
                                 }
                             } else {
