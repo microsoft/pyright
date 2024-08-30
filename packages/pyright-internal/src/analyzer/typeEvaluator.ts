@@ -14720,7 +14720,7 @@ export function createTypeEvaluator(
         const functionType = FunctionType.createInstantiable(FunctionTypeFlags.None);
         let paramSpec: ParamSpecType | undefined;
 
-        TypeBase.setSpecialForm(functionType, classType);
+        TypeBase.setSpecialForm(functionType, ClassType.cloneAsInstance(classType));
         functionType.shared.declaredReturnType = UnknownType.create();
         functionType.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode);
 
