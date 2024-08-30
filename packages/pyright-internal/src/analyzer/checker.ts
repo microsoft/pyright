@@ -4840,7 +4840,8 @@ export class Checker extends ParseTreeWalker {
 
         if (isTypeIs) {
             const scopeIds = getTypeVarScopeIds(functionType);
-            const typeGuardType = makeTypeVarsBound(returnType.priv.typeArgs[0], scopeIds);
+            let typeGuardType = makeTypeVarsBound(returnType.priv.typeArgs[0], scopeIds);
+            typeGuardType = TypeBase.cloneWithTypeForm(typeGuardType, typeGuardType);
 
             // Determine the type of the first parameter.
             const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;

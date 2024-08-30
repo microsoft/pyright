@@ -614,7 +614,7 @@ test('TypeAlias4', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults3_10 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
-    TestUtils.validateResults(analysisResults3_10, 11);
+    TestUtils.validateResults(analysisResults3_10, 12);
 });
 
 test('TypeAlias5', () => {

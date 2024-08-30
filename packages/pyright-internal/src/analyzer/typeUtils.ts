@@ -869,6 +869,12 @@ export function preserveUnknown(type1: Type, type2: Type): AnyType | UnknownType
 // Determines whether the specified type is a type that can be
 // combined with other types for a union.
 export function isUnionableType(subtypes: Type[]): boolean {
+    // If all of the subtypes are TypeForm types, we know that they
+    // are unionable.
+    if (subtypes.every((t) => t.props?.typeForm !== undefined)) {
+        return true;
+    }
+
     let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
 
     for (const subtype of subtypes) {
@@ -1311,6 +1317,27 @@ export function getLiteralTypeClassName(type: Type): string | undefined {
     }
 
     return undefined;
+}
+
+export function stripTypeForm(type: Type): Type {
+    if (type.props?.typeForm) {
+        return TypeBase.cloneWithTypeForm(type, undefined);
+    }
+
+    return type;
+}
+
+export function stripTypeFormRecursive(type: Type, recursionCount = 0): Type {
+    if (recursionCount > maxTypeRecursionCount) {
+        return type;
+    }
+    recursionCount++;
+
+    if (type.props?.typeForm) {
+        type = TypeBase.cloneWithTypeForm(type, undefined);
+    }
+
+    return mapSubtypes(type, (subtype) => stripTypeFormRecursive(subtype, recursionCount));
 }
 
 export function getUnionSubtypeCount(type: Type): number {

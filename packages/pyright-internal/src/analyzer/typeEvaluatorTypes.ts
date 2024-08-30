@@ -163,9 +163,13 @@ export const enum EvalFlags {
     // with the second argument to isinstance and issubclass calls.
     IsinstanceArg = 1 << 29,
 
+    // Interpret the expression using the behaviors associated with the first
+    // argument to a TypeForm call.
+    TypeFormArg = 1 << 30,
+
     // Enforce that any type variables referenced in this type are associated
     // with the enclosing class or an outer scope.
-    EnforceClassTypeVarScope = 1 << 30,
+    EnforceClassTypeVarScope = 1 << 31,
 
     // Defaults used for evaluating the LHS of a call expression.
     CallBaseDefaults = NoSpecialize,
@@ -359,6 +363,7 @@ export interface ExpectedTypeOptions {
     parsesStringLiteral?: boolean;
     notParsed?: boolean;
     noNonTypeSpecialForms?: boolean;
+    typeFormArg?: boolean;
     forwardRefs?: boolean;
     typeExpression?: boolean;
     convertEllipsisToAny?: boolean;

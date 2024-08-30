@@ -892,6 +892,11 @@ function createUnionType(
         newUnion = TypeBase.cloneAsSpecialForm(newUnion, ClassType.cloneAsInstance(unionClass));
     }
 
+    if (leftTypeResult.type.props?.typeForm && rightTypeResult.type.props?.typeForm) {
+        const newTypeForm = combineTypes([leftTypeResult.type.props.typeForm, rightTypeResult.type.props.typeForm]);
+        newUnion = TypeBase.cloneWithTypeForm(newUnion, newTypeForm);
+    }
+
     // Check for "stringified" forward reference type expressions. The "|" operator
     // doesn't support these except in certain circumstances. Notably, it can't be used
     // with other strings or with types that are not specialized using an index form.

@@ -511,6 +511,7 @@
         "typeCheckOnly": "\"{name}\" is marked as @type_check_only and can be used only in type annotations",
         "typeCommentDeprecated": "Use of type comments is deprecated; use type annotation instead",
         "typeExpectedClass": "Expected class but received \"{type}\"",
+        "typeFormArgs": "\"TypeForm\" accepts a single positional argument",
         "typeGuardArgCount": "Expected a single type argument after \"TypeGuard\" or \"TypeIs\"",
         "typeGuardParamCount": "User-defined type guard functions and methods must have at least one input parameter",
         "typeIsReturnType": "Return type of TypeIs (\"{returnType}\") is not consistent with value parameter type (\"{type}\")",
