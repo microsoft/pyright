@@ -531,3 +531,11 @@ class Doc:
     def __init__(self, documentation: str, /) -> None: ...
     def __hash__(self) -> int: ...
     def __eq__(self, other: object) -> bool: ...
+
+
+# PEP 747 (Draft)
+
+if sys.version_info >= (3, 14):
+    from typing import TypeForm
+else:
+    TypeForm: _SpecialForm

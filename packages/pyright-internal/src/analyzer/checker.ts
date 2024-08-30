@@ -4840,7 +4840,9 @@ export class Checker extends ParseTreeWalker {
 
         if (isTypeIs) {
             const scopeIds = getTypeVarScopeIds(functionType);
-            const typeGuardType = makeTypeVarsBound(returnType.priv.typeArgs[0], scopeIds);
+            const narrowedType = returnType.priv.typeArgs[0];
+            let typeGuardType = makeTypeVarsBound(narrowedType, scopeIds);
+            typeGuardType = TypeBase.cloneWithTypeForm(typeGuardType, typeGuardType);
 
             // Determine the type of the first parameter.
             const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
@@ -4858,7 +4860,7 @@ export class Checker extends ParseTreeWalker {
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.typeIsReturnType().format({
                             type: this._evaluator.printType(paramType),
-                            returnType: this._evaluator.printType(typeGuardType),
+                            returnType: this._evaluator.printType(narrowedType),
                         }),
                         returnAnnotation
                     );
