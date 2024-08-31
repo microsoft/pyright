@@ -1105,22 +1105,6 @@ export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] {
     return scopeIds;
 }
 
-// If the class type is generic and does not already have type arguments
-// specified, specialize it with default type arguments (Unknown or the
-// default type if provided).
-export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
-    if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
-        return type;
-    }
-
-    return ClassType.specialize(
-        type,
-        type.shared.typeParams.map((param) => param.shared.defaultType),
-        /* isTypeArgExplicit */ false,
-        /* includeSubclasses */ type.priv.includeSubclasses
-    );
-}
-
 // Specializes the class with "Unknown" type args (or the equivalent for ParamSpecs
 // or TypeVarTuples).
 export function specializeWithUnknownTypeArgs(type: ClassType, tupleClassType?: ClassType): ClassType {
@@ -2042,8 +2026,12 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
 }
 
 // Creates a specialized version of the class, filling in any unspecified
-// type arguments with Unknown.
-export function specializeClassType(type: ClassType): ClassType {
+// type arguments with Unknown or default value.
+export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
+    if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
+        return type;
+    }
+
     const solution = new ConstraintSolution();
     const typeParams = ClassType.getTypeParams(type);
 

@@ -202,7 +202,7 @@ def func3(x: type[T]) -> T:
     return x()
 
 
-# This should generate two errors because Final isn't compatible with type.
+# This should generate an error because Final isn't compatible with type.
 func3(Final[int])
 
 

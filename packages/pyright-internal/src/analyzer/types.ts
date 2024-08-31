@@ -311,7 +311,7 @@ export namespace TypeBase {
         return newInstance;
     }
 
-    export function cloneForTypeAlias(type: Type, aliasInfo: TypeAliasInfo): Type {
+    export function cloneForTypeAlias<T extends Type>(type: T, aliasInfo: TypeAliasInfo): T {
         const typeClone = cloneType(type);
 
         TypeBase.setTypeAliasInfo(typeClone, aliasInfo);

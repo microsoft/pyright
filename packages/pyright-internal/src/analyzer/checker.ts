@@ -4212,7 +4212,7 @@ export class Checker extends ParseTreeWalker {
                         isSupported = false;
                     } else if (
                         subtype.props?.specialForm &&
-                        isInstantiableClass(subtype.props.specialForm) &&
+                        isClassInstance(subtype.props.specialForm) &&
                         ClassType.isBuiltIn(subtype.props.specialForm, 'Annotated')
                     ) {
                         diag.addMessage(LocAddendum.annotatedNotAllowed());
