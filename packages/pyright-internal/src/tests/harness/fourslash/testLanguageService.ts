@@ -31,12 +31,7 @@ import {
     WindowInterface,
 } from '../../../common/languageServerInterface';
 import { CodeActionProvider } from '../../../languageService/codeActionProvider';
-import {
-    WellKnownWorkspaceKinds,
-    Workspace,
-    WorkspacePythonPathKind,
-    createInitStatus,
-} from '../../../workspaceFactory';
+import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
 import { HostSpecificFeatures } from './testState';
 
@@ -98,8 +93,6 @@ export class TestLanguageService implements LanguageServerInterface {
         this._defaultWorkspace = {
             workspaceName: '',
             rootUri: undefined,
-            pythonPath: undefined,
-            pythonPathKind: WorkspacePythonPathKind.Mutable,
             kinds: [WellKnownWorkspaceKinds.Test],
             service: new AnalyzerService(
                 'test service',
@@ -118,7 +111,6 @@ export class TestLanguageService implements LanguageServerInterface {
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
-            pythonEnvironmentName: undefined,
         };
     }
 
