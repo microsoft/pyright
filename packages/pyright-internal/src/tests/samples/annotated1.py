@@ -95,7 +95,7 @@ def func4():
     return Annotated[int, 2 + 2]
 
 
-reveal_type(func4(), expected_text="type[Annotated]")
+reveal_type(func4(), expected_text="Annotated")
 
 x9 = list[Annotated[int, ""]]()
 reveal_type(x9, expected_text="list[int]")

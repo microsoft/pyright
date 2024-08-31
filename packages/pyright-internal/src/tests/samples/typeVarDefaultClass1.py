@@ -61,8 +61,7 @@ P2 = ParamSpec("P2", default=[int, str])
 P3 = ParamSpec("P3", default=...)
 
 
-class ClassB1(Generic[P2, P3]):
-    ...
+class ClassB1(Generic[P2, P3]): ...
 
 
 def func_b1(a: ClassB1, b: ClassB1[[float]], c: ClassB1[[float], [float]]):
@@ -77,16 +76,13 @@ Ts3 = TypeVarTuple("Ts3", default=Unpack[tuple[float, ...]])
 Ts4 = TypeVarTuple("Ts4", default=Unpack[tuple[()]])
 
 
-class ClassC1(Generic[*Ts2]):
-    ...
+class ClassC1(Generic[*Ts2]): ...
 
 
-class ClassC2(Generic[T3, *Ts3]):
-    ...
+class ClassC2(Generic[T3, *Ts3]): ...
 
 
-class ClassC3(Generic[T3, *Ts4]):
-    ...
+class ClassC3(Generic[T3, *Ts4]): ...
 
 
 def func_c1(a: ClassC1, b: ClassC1[*tuple[float]]):
@@ -111,8 +107,7 @@ P5 = ParamSpec("P5", default=[bool])
 Ts5 = TypeVarTuple("Ts5")
 
 
-class ClassD(Generic[*Ts5, P4, P5]):
-    ...  # OK
+class ClassD(Generic[*Ts5, P4, P5]): ...  # OK
 
 
 reveal_type(
@@ -127,8 +122,7 @@ reveal_type(
 P6 = ParamSpec("P6", default=[str, int])
 
 
-class ClassE(Generic[P6]):
-    ...
+class ClassE(Generic[P6]): ...
 
 
 assert_type(ClassE, type[ClassE[str, int]])

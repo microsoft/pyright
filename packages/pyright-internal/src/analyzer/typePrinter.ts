@@ -36,6 +36,7 @@ import {
     TypeBase,
     TypeCategory,
     TypeVarType,
+    UnionType,
     Variance,
 } from './types';
 import { convertToInstance, doForEachSubtype, isNoneInstance, isTupleClass, removeNoneFromUnion } from './typeUtils';
@@ -187,10 +188,6 @@ function printTypeInternal(
     recursionTypes: Type[],
     recursionCount: number
 ): string {
-    const originalPrintTypeFlags = printTypeFlags;
-    const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
-    printTypeFlags &= ~(PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable);
-
     if (recursionCount > maxTypeRecursionCount) {
         if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
             return 'Any';
@@ -198,6 +195,10 @@ function printTypeInternal(
         return '<Recursive>';
     }
     recursionCount++;
+
+    const originalPrintTypeFlags = printTypeFlags;
+    const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
+    printTypeFlags &= ~(PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable);
 
     // If this is a type alias, see if we should use its name rather than
     // the type it represents.
@@ -368,6 +369,9 @@ function printTypeInternal(
         const getConditionalIndicator = (subtype: Type) => {
             return !!subtype.props?.condition && includeConditionalIndicator ? '*' : '';
         };
+        const printWrappedType = (type: Type, typeToWrap: string) => {
+            return `${_printNestedInstantiable(type, typeToWrap)}${getConditionalIndicator(type)}`;
+        };
 
         switch (type.category) {
             case TypeCategory.Unbound: {
@@ -418,29 +422,33 @@ function printTypeInternal(
                         } else {
                             typeToWrap = `Literal[${printLiteralValue(type)}]`;
                         }
-                    } else {
-                        if (type.props?.specialForm) {
-                            return printTypeInternal(
-                                type.props.specialForm,
-                                printTypeFlags,
-                                returnTypeCallback,
-                                uniqueNameMap,
-                                recursionTypes,
-                                recursionCount
-                            );
-                        }
 
-                        typeToWrap = printObjectTypeForClassInternal(
-                            type,
+                        return printWrappedType(type, typeToWrap);
+                    }
+
+                    if (type.props?.specialForm) {
+                        const specialFormText = printTypeInternal(
+                            type.props.specialForm,
                             printTypeFlags,
                             returnTypeCallback,
                             uniqueNameMap,
                             recursionTypes,
                             recursionCount
                         );
+
+                        return specialFormText;
                     }
 
-                    return `${_printNestedInstantiable(type, typeToWrap)}${getConditionalIndicator(type)}`;
+                    typeToWrap = printObjectTypeForClassInternal(
+                        type,
+                        printTypeFlags,
+                        returnTypeCallback,
+                        uniqueNameMap,
+                        recursionTypes,
+                        recursionCount
+                    );
+
+                    return printWrappedType(type, typeToWrap);
                 }
             }
 
@@ -479,7 +487,7 @@ function printTypeInternal(
                     )
                 );
 
-                if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
+                if ((printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0) {
                     return 'Callable[..., Any]';
                 }
 
@@ -494,7 +502,7 @@ function printTypeInternal(
                 // If this is a value expression that evaluates to a union type but is
                 // not a type alias, simply print the special form ("UnionType").
                 if (TypeBase.isInstantiable(type) && type.props?.specialForm && !type.props?.typeAliasInfo) {
-                    return printTypeInternal(
+                    const specialFormText = printTypeInternal(
                         type.props.specialForm,
                         printTypeFlags,
                         returnTypeCallback,
@@ -502,16 +510,9 @@ function printTypeInternal(
                         recursionTypes,
                         recursionCount
                     );
+
+                    return specialFormText;
                 }
-
-                // Allocate a set that refers to subtypes in the union by
-                // their indices. If the index is within the set, it is already
-                // accounted for in the output.
-                const subtypeHandledSet = new Set<number>();
-
-                // Allocate another set that represents the textual representations
-                // of the subtypes in the union.
-                const subtypeStrings = new Set<string>();
 
                 // If we're using "|" notation, enclose callable subtypes in parens.
                 const updatedPrintTypeFlags =
@@ -519,145 +520,15 @@ function printTypeInternal(
                         ? printTypeFlags | PrintTypeFlags.ParenthesizeCallable
                         : printTypeFlags;
 
-                // Start by matching possible type aliases to the subtypes.
-                if ((printTypeFlags & PrintTypeFlags.ExpandTypeAlias) === 0 && type.priv.typeAliasSources) {
-                    for (const typeAliasSource of type.priv.typeAliasSources) {
-                        let matchedAllSubtypes = true;
-                        let allSubtypesPreviouslyHandled = true;
-                        const indicesCoveredByTypeAlias = new Set<number>();
-
-                        for (const sourceSubtype of typeAliasSource.priv.subtypes) {
-                            let unionSubtypeIndex = 0;
-                            let foundMatch = false;
-                            const sourceSubtypeInstance = convertToInstance(sourceSubtype);
-
-                            for (const unionSubtype of type.priv.subtypes) {
-                                if (isTypeSame(sourceSubtypeInstance, unionSubtype)) {
-                                    if (!subtypeHandledSet.has(unionSubtypeIndex)) {
-                                        allSubtypesPreviouslyHandled = false;
-                                    }
-                                    indicesCoveredByTypeAlias.add(unionSubtypeIndex);
-                                    foundMatch = true;
-                                    break;
-                                }
-
-                                unionSubtypeIndex++;
-                            }
-
-                            if (!foundMatch) {
-                                matchedAllSubtypes = false;
-                                break;
-                            }
-                        }
-
-                        if (matchedAllSubtypes && !allSubtypesPreviouslyHandled) {
-                            subtypeStrings.add(
-                                printTypeInternal(
-                                    typeAliasSource,
-                                    updatedPrintTypeFlags,
-                                    returnTypeCallback,
-                                    uniqueNameMap,
-                                    recursionTypes,
-                                    recursionCount
-                                )
-                            );
-                            indicesCoveredByTypeAlias.forEach((index) => subtypeHandledSet.add(index));
-                        }
-                    }
-                }
-
-                const noneIndex = type.priv.subtypes.findIndex((subtype) => isNoneInstance(subtype));
-                if (noneIndex >= 0 && !subtypeHandledSet.has(noneIndex)) {
-                    const typeWithoutNone = removeNoneFromUnion(type);
-                    if (isNever(typeWithoutNone)) {
-                        return 'None';
-                    }
-
-                    const optionalType = printTypeInternal(
-                        typeWithoutNone,
-                        updatedPrintTypeFlags,
-                        returnTypeCallback,
-                        uniqueNameMap,
-                        recursionTypes,
-                        recursionCount
-                    );
-
-                    if (printTypeFlags & PrintTypeFlags.PEP604) {
-                        const unionString = optionalType + ' | None';
-                        if (parenthesizeUnion) {
-                            return `(${unionString})`;
-                        }
-                        return unionString;
-                    }
-
-                    return 'Optional[' + optionalType + ']';
-                }
-
-                const literalObjectStrings = new Set<string>();
-                const literalClassStrings = new Set<string>();
-                doForEachSubtype(type, (subtype, index) => {
-                    if (!subtypeHandledSet.has(index)) {
-                        if (isClassInstance(subtype) && subtype.priv.literalValue !== undefined) {
-                            if (
-                                isLiteralValueTruncated(subtype) &&
-                                (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0
-                            ) {
-                                subtypeStrings.add(printLiteralValueTruncated(subtype));
-                            } else {
-                                literalObjectStrings.add(printLiteralValue(subtype));
-                            }
-                        } else if (isInstantiableClass(subtype) && subtype.priv.literalValue !== undefined) {
-                            if (
-                                isLiteralValueTruncated(subtype) &&
-                                (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0
-                            ) {
-                                subtypeStrings.add(`type[${printLiteralValueTruncated(subtype)}]`);
-                            } else {
-                                literalClassStrings.add(printLiteralValue(subtype));
-                            }
-                        } else {
-                            subtypeStrings.add(
-                                printTypeInternal(
-                                    subtype,
-                                    updatedPrintTypeFlags,
-                                    returnTypeCallback,
-                                    uniqueNameMap,
-                                    recursionTypes,
-                                    recursionCount
-                                )
-                            );
-                        }
-                    }
-                });
-
-                const dedupedSubtypeStrings: string[] = [];
-                subtypeStrings.forEach((s) => dedupedSubtypeStrings.push(s));
-
-                if (literalObjectStrings.size > 0) {
-                    const literalStrings: string[] = [];
-                    literalObjectStrings.forEach((s) => literalStrings.push(s));
-                    dedupedSubtypeStrings.push(`Literal[${literalStrings.join(', ')}]`);
-                }
-
-                if (literalClassStrings.size > 0) {
-                    const literalStrings: string[] = [];
-                    literalClassStrings.forEach((s) => literalStrings.push(s));
-                    dedupedSubtypeStrings.push(`type[Literal[${literalStrings.join(', ')}]]`);
-                }
-
-                if (dedupedSubtypeStrings.length === 1) {
-                    return dedupedSubtypeStrings[0];
-                }
-
-                if (printTypeFlags & PrintTypeFlags.PEP604) {
-                    const unionString = dedupedSubtypeStrings.join(' | ');
-                    if (parenthesizeUnion) {
-                        return `(${unionString})`;
-                    }
-                    return unionString;
-                }
-
-                return `Union[${dedupedSubtypeStrings.join(', ')}]`;
+                return printUnionType(
+                    type,
+                    updatedPrintTypeFlags,
+                    parenthesizeUnion,
+                    returnTypeCallback,
+                    uniqueNameMap,
+                    recursionTypes,
+                    recursionCount
+                );
             }
 
             case TypeCategory.TypeVar: {
@@ -769,6 +640,159 @@ function printTypeInternal(
     } finally {
         recursionTypes.pop();
     }
+}
+
+function printUnionType(
+    type: UnionType,
+    printTypeFlags: PrintTypeFlags,
+    parenthesizeUnion: boolean,
+    returnTypeCallback: FunctionReturnTypeCallback,
+    uniqueNameMap: UniqueNameMap,
+    recursionTypes: Type[],
+    recursionCount: number
+) {
+    // Allocate a set that refers to subtypes in the union by
+    // their indices. If the index is within the set, it is already
+    // accounted for in the output.
+    const subtypeHandledSet = new Set<number>();
+
+    // Allocate another set that represents the textual representations
+    // of the subtypes in the union.
+    const subtypeStrings = new Set<string>();
+
+    // Start by matching possible type aliases to the subtypes.
+    if ((printTypeFlags & PrintTypeFlags.ExpandTypeAlias) === 0 && type.priv.typeAliasSources) {
+        for (const typeAliasSource of type.priv.typeAliasSources) {
+            let matchedAllSubtypes = true;
+            let allSubtypesPreviouslyHandled = true;
+            const indicesCoveredByTypeAlias = new Set<number>();
+
+            for (const sourceSubtype of typeAliasSource.priv.subtypes) {
+                let unionSubtypeIndex = 0;
+                let foundMatch = false;
+                const sourceSubtypeInstance = convertToInstance(sourceSubtype);
+
+                for (const unionSubtype of type.priv.subtypes) {
+                    if (isTypeSame(sourceSubtypeInstance, unionSubtype)) {
+                        if (!subtypeHandledSet.has(unionSubtypeIndex)) {
+                            allSubtypesPreviouslyHandled = false;
+                        }
+                        indicesCoveredByTypeAlias.add(unionSubtypeIndex);
+                        foundMatch = true;
+                        break;
+                    }
+
+                    unionSubtypeIndex++;
+                }
+
+                if (!foundMatch) {
+                    matchedAllSubtypes = false;
+                    break;
+                }
+            }
+
+            if (matchedAllSubtypes && !allSubtypesPreviouslyHandled) {
+                subtypeStrings.add(
+                    printTypeInternal(
+                        typeAliasSource,
+                        printTypeFlags,
+                        returnTypeCallback,
+                        uniqueNameMap,
+                        recursionTypes,
+                        recursionCount
+                    )
+                );
+                indicesCoveredByTypeAlias.forEach((index) => subtypeHandledSet.add(index));
+            }
+        }
+    }
+
+    const noneIndex = type.priv.subtypes.findIndex((subtype) => isNoneInstance(subtype));
+    if (noneIndex >= 0 && !subtypeHandledSet.has(noneIndex)) {
+        const typeWithoutNone = removeNoneFromUnion(type);
+        if (isNever(typeWithoutNone)) {
+            return 'None';
+        }
+
+        const optionalType = printTypeInternal(
+            typeWithoutNone,
+            printTypeFlags,
+            returnTypeCallback,
+            uniqueNameMap,
+            recursionTypes,
+            recursionCount
+        );
+
+        if (printTypeFlags & PrintTypeFlags.PEP604) {
+            const unionString = optionalType + ' | None';
+            if (parenthesizeUnion) {
+                return `(${unionString})`;
+            }
+            return unionString;
+        }
+
+        return 'Optional[' + optionalType + ']';
+    }
+
+    const literalObjectStrings = new Set<string>();
+    const literalClassStrings = new Set<string>();
+    doForEachSubtype(type, (subtype, index) => {
+        if (!subtypeHandledSet.has(index)) {
+            if (isClassInstance(subtype) && subtype.priv.literalValue !== undefined) {
+                if (isLiteralValueTruncated(subtype) && (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0) {
+                    subtypeStrings.add(printLiteralValueTruncated(subtype));
+                } else {
+                    literalObjectStrings.add(printLiteralValue(subtype));
+                }
+            } else if (isInstantiableClass(subtype) && subtype.priv.literalValue !== undefined) {
+                if (isLiteralValueTruncated(subtype) && (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0) {
+                    subtypeStrings.add(`type[${printLiteralValueTruncated(subtype)}]`);
+                } else {
+                    literalClassStrings.add(printLiteralValue(subtype));
+                }
+            } else {
+                subtypeStrings.add(
+                    printTypeInternal(
+                        subtype,
+                        printTypeFlags,
+                        returnTypeCallback,
+                        uniqueNameMap,
+                        recursionTypes,
+                        recursionCount
+                    )
+                );
+            }
+        }
+    });
+
+    const dedupedSubtypeStrings: string[] = [];
+    subtypeStrings.forEach((s) => dedupedSubtypeStrings.push(s));
+
+    if (literalObjectStrings.size > 0) {
+        const literalStrings: string[] = [];
+        literalObjectStrings.forEach((s) => literalStrings.push(s));
+        dedupedSubtypeStrings.push(`Literal[${literalStrings.join(', ')}]`);
+    }
+
+    if (literalClassStrings.size > 0) {
+        const literalStrings: string[] = [];
+        literalClassStrings.forEach((s) => literalStrings.push(s));
+        dedupedSubtypeStrings.push(`type[Literal[${literalStrings.join(', ')}]]`);
+    }
+
+    if (dedupedSubtypeStrings.length === 1) {
+        return dedupedSubtypeStrings[0];
+    }
+
+    if (printTypeFlags & PrintTypeFlags.PEP604) {
+        const unionString = dedupedSubtypeStrings.join(' | ');
+        if (parenthesizeUnion) {
+            return `(${unionString})`;
+        }
+        return unionString;
+    }
+
+    return `Union[${dedupedSubtypeStrings.join(', ')}]`;
 }
 
 function printFunctionType(
