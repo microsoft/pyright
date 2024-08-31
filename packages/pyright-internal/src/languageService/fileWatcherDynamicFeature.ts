@@ -14,9 +14,9 @@ import {
 } from 'vscode-languageserver';
 import { FileSystem } from '../common/fileSystem';
 import { deduplicateFolders, isFile } from '../common/uri/uriUtils';
-import { IWorkspaceFactory } from '../workspaceFactory';
 import { DynamicFeature } from './dynamicFeature';
 import { configFileName } from '../analyzer/serviceUtils';
+import { Workspace } from '../workspaceFactory';
 
 export class FileWatcherDynamicFeature extends DynamicFeature {
     constructor(
@@ -59,4 +59,8 @@ export class FileWatcherDynamicFeature extends DynamicFeature {
 
         return this._connection.client.register(DidChangeWatchedFilesNotification.type, { watchers });
     }
+}
+
+interface IWorkspaceFactory {
+    getNonDefaultWorkspaces(kind?: string): Workspace[];
 }

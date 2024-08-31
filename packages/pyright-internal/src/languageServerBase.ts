@@ -122,13 +122,7 @@ import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { ParseFileResults } from './parser/parser';
-import {
-    InitStatus,
-    IWorkspaceFactory,
-    WellKnownWorkspaceKinds,
-    Workspace,
-    WorkspaceFactory,
-} from './workspaceFactory';
+import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
 
 export abstract class LanguageServerBase implements LanguageServerInterface, Disposable {
     // We support running only one "find all reference" at a time.
@@ -170,7 +164,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected defaultClientConfig: any;
 
-    protected readonly workspaceFactory: IWorkspaceFactory;
+    protected readonly workspaceFactory: WorkspaceFactory;
     protected readonly openFileMap = new Map<string, TextDocument>();
     protected readonly fs: FileSystem;
     protected readonly caseSensitiveDetector: CaseSensitivityDetector;
@@ -334,12 +328,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             // Set logging level first.
             (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
 
-            // Apply the new path to the workspace (before restarting the service).
-            serverSettings.pythonPath = this.workspaceFactory.applyPythonPath(
-                workspace,
-                serverSettings.pythonPath ? serverSettings.pythonPath : undefined
-            );
-
             this.dynamicFeatures.update(serverSettings);
 
             // Then use the updated settings to restart the service.
@@ -361,7 +349,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         serverSettings: ServerSettings,
         typeStubTargetImportName?: string
     ) {
-        AnalyzerServiceExecutor.runWithOptions(workspace, serverSettings, typeStubTargetImportName);
+        AnalyzerServiceExecutor.runWithOptions(workspace, serverSettings, { typeStubTargetImportName });
         workspace.searchPathsToWatch = workspace.service.librarySearchUrisToWatch ?? [];
     }
 

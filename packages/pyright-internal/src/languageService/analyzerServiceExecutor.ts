@@ -24,19 +24,20 @@ export interface CloneOptions {
     fileSystem?: FileSystem;
 }
 
+export interface RunOptions {
+    typeStubTargetImportName?: string;
+    trackFiles?: boolean;
+    pythonEnvironmentName?: string;
+}
+
 export class AnalyzerServiceExecutor {
-    static runWithOptions(
-        workspace: Workspace,
-        serverSettings: ServerSettings,
-        typeStubTargetImportName?: string,
-        trackFiles = true
-    ): void {
+    static runWithOptions(workspace: Workspace, serverSettings: ServerSettings, options?: RunOptions): void {
         const commandLineOptions = getEffectiveCommandLineOptions(
             workspace.rootUri,
             serverSettings,
-            trackFiles,
-            typeStubTargetImportName,
-            workspace.pythonEnvironmentName
+            options?.trackFiles ?? true,
+            options?.typeStubTargetImportName,
+            options?.pythonEnvironmentName
         );
 
         // Setting options causes the analyzer service to re-analyze everything.
@@ -58,8 +59,6 @@ export class AnalyzerServiceExecutor {
             ...workspace,
             workspaceName: `temp workspace for cloned service`,
             rootUri: workspace.rootUri,
-            pythonPath: workspace.pythonPath,
-            pythonPathKind: workspace.pythonPathKind,
             kinds: [...workspace.kinds, WellKnownWorkspaceKinds.Cloned],
             service: workspace.service.clone(
                 instanceName,
@@ -76,12 +75,10 @@ export class AnalyzerServiceExecutor {
         };
 
         const serverSettings = await ls.getSettings(workspace);
-        AnalyzerServiceExecutor.runWithOptions(
-            tempWorkspace,
-            serverSettings,
-            options.typeStubTargetImportName,
-            /* trackFiles */ false
-        );
+        AnalyzerServiceExecutor.runWithOptions(tempWorkspace, serverSettings, {
+            typeStubTargetImportName: options.typeStubTargetImportName,
+            trackFiles: false,
+        });
 
         return tempWorkspace.service;
     }
