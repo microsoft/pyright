@@ -926,6 +926,11 @@ export function createTypeEvaluator(
     // context. For example, if it's a subexpression of an argument expression,
     // the associated parameter type might inform the expected type.
     function getExpectedType(node: ExpressionNode): ExpectedTypeResult | undefined {
+        // This is a primary entry point called by language server providers,
+        // and it might be called before any other type evaluation has occurred.
+        // Use this opportunity to do some initialization.
+        initializePrefetchedTypes(node);
+
         // Scan up the parse tree to find the top-most expression node
         // so we can evaluate the entire expression.
         let topExpression = node;

@@ -1689,6 +1689,12 @@ export function getCodeFlowEngine(
     // type, thus preventing further traversal of the code flow graph.
     function isCallNoReturn(evaluator: TypeEvaluator, flowNode: FlowCall) {
         const node = flowNode.node;
+        const fileInfo = getFileInfo(node);
+
+        // Assume that calls within a pyi file are not "NoReturn" calls.
+        if (fileInfo.isStubFile) {
+            return false;
+        }
 
         if (enablePrintCallNoReturn) {
             console.log(`isCallNoReturn@${flowNode.id} Pre depth ${noReturnAnalysisDepth}`);
