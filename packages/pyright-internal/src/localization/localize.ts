@@ -1000,6 +1000,7 @@ export namespace Localizer {
         export const typedDictSet = () => getRawString('Diagnostic.typedDictSet');
         export const typeExpectedClass = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeExpectedClass'));
+        export const typeFormArgs = () => getRawString('Diagnostic.typeFormArgs');
         export const typeGuardArgCount = () => getRawString('Diagnostic.typeGuardArgCount');
         export const typeGuardParamCount = () => getRawString('Diagnostic.typeGuardParamCount');
         export const typeIsReturnType = () =>
