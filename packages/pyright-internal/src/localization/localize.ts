@@ -649,6 +649,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.methodReturnsNonObject'));
         export const missingSuperCall = () =>
             new ParameterizedString<{ methodName: string }>(getRawString('Diagnostic.missingSuperCall'));
+        export const mixingBytesAndStr = () => getRawString('Diagnostic.mixingBytesAndStr');
         export const moduleAsType = () => getRawString('Diagnostic.moduleAsType');
         export const moduleNotCallable = () => getRawString('Diagnostic.moduleNotCallable');
         export const moduleUnknownMember = () =>

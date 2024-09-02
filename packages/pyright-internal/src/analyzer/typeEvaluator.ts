@@ -1546,13 +1546,30 @@ export function createTypeEvaluator(
         return typeResult;
     }
 
-    function getTypeOfStringList(node: StringListNode, flags: EvalFlags) {
+    function getTypeOfStringList(node: StringListNode, flags: EvalFlags): TypeResult {
         let typeResult: TypeResult | undefined;
 
         if ((flags & EvalFlags.StrLiteralAsType) !== 0 && (flags & EvalFlags.TypeFormArg) === 0) {
             return getTypeOfStringListAsType(node, flags);
         }
 
+        const isBytesNode = (node: StringNode | FormatStringNode) =>
+            (node.d.token.flags & StringTokenFlags.Bytes) !== 0;
+
+        // Check for mixing of bytes and str, which is not allowed.
+        const firstStrIndex = node.d.strings.findIndex((str) => !isBytesNode(str));
+        const firstBytesIndex = node.d.strings.findIndex((str) => isBytesNode(str));
+        if (firstStrIndex >= 0 && firstBytesIndex >= 0) {
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.mixingBytesAndStr(),
+                node.d.strings[Math.max(firstBytesIndex, firstStrIndex)]
+            );
+
+            return { type: UnknownType.create() };
+        }
+
+        const isBytes = firstBytesIndex >= 0;
         let isLiteralString = true;
         let isIncomplete = false;
 
@@ -1576,8 +1593,6 @@ export function createTypeEvaluator(
                 isLiteralString = false;
             }
         });
-
-        const isBytes = (node.d.strings[0].d.token.flags & StringTokenFlags.Bytes) !== 0;
 
         // Don't create a literal type if it's an f-string.
         if (node.d.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {

@@ -316,6 +316,7 @@
         "methodOverridden": "\"{name}\" overrides method of same name in class \"{className}\" with incompatible type \"{type}\"",
         "methodReturnsNonObject": "\"{name}\" method does not return an object",
         "missingSuperCall": "Method \"{methodName}\" does not call the method of the same name in parent class",
+        "mixingBytesAndStr": "Bytes and str values cannot be concatenated",
         "moduleAsType": "Module cannot be used as a type",
         "moduleNotCallable": "Module is not callable",
         "moduleUnknownMember": "\"{memberName}\" is not a known attribute of module \"{moduleName}\"",
