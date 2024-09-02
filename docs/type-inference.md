@@ -71,7 +71,7 @@ var6 = [p for p in [1, 2, 3]]   # Inferred type is list[int]
 When a symbol is assigned values in multiple places within the code, those values may have different types. The inferred type of the variable is the union of all such types.
 
 ```python
-# In this example, symbol var1 has an inferred type of `str | int`]`.
+# In this example, symbol var1 has an inferred type of `str | int`.
 class Foo:
     def __init__(self):
         self.var1 = ""
