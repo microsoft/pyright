@@ -3896,6 +3896,8 @@ export function createTypeEvaluator(
         makeParamSpecsConcrete = false,
         conditionFilter?: TypeCondition[]
     ): Type {
+        type = transformPossibleRecursiveTypeAlias(type);
+
         return mapSubtypes(type, (subtype) => {
             if (isParamSpec(subtype)) {
                 if (subtype.priv.paramSpecAccess === 'args') {
