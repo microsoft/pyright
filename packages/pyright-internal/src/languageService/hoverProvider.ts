@@ -254,11 +254,18 @@ export class HoverProvider {
                 node = node.parent.d.valueExpr;
             }
 
-            const declarations = this._evaluator.getDeclarationsForNameNode(node);
+            const declInfo = this._evaluator.getDeclInfoForNameNode(node);
+            const declarations = declInfo?.decls;
 
             if (declarations && declarations.length > 0) {
                 const primaryDeclaration = HoverProvider.getPrimaryDeclaration(declarations);
                 this._addResultsForDeclaration(results.parts, primaryDeclaration, node);
+            } else if (declInfo && declInfo.synthesizedTypes.length > 0) {
+                const name = node.d.value;
+                declInfo?.synthesizedTypes.forEach((type) => {
+                    this._addResultsForSynthesizedType(results.parts, type, name);
+                });
+                this._addDocumentationPart(results.parts, node, /* resolvedDecl */ undefined);
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
@@ -306,8 +313,14 @@ export class HoverProvider {
     }
 
     private _addResultsForDeclaration(parts: HoverTextPart[], declaration: Declaration, node: NameNode): void {
-        const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
-        if (!resolvedDecl || isUnresolvedAliasDeclaration(resolvedDecl)) {
+        const resolvedDecl =
+            declaration.type === DeclarationType.Alias
+                ? this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true)
+                : declaration;
+        if (
+            !resolvedDecl ||
+            (resolvedDecl.type === DeclarationType.Alias && isUnresolvedAliasDeclaration(resolvedDecl))
+        ) {
             this._addResultsPart(parts, `(import) ` + node.d.value + this._getTypeText(node), /* python */ true);
             return;
         }
@@ -440,6 +453,32 @@ export class HoverProvider {
             default:
                 assertNever(resolvedDecl);
         }
+    }
+
+    private _addResultsForSynthesizedType(parts: HoverTextPart[], type: Type, name: string) {
+        let typeText: string;
+
+        if (isModule(type)) {
+            typeText = '(module) ' + name;
+        } else {
+            // Treat it as a function declaration if it's a function or overloaded type.
+            let label = 'variable';
+
+            if (isFunction(type) || isOverloaded(type)) {
+                label = 'function';
+            }
+
+            typeText = getToolTipForType(
+                type,
+                label,
+                name,
+                this._evaluator,
+                /* isProperty */ false,
+                this._functionSignatureDisplay
+            );
+        }
+
+        this._addResultsPart(parts, typeText, /* python */ true);
     }
 
     private _tryAddPartsForTypedDictKey(node: StringNode, type: Type, parts: HoverTextPart[]) {

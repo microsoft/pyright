@@ -438,7 +438,7 @@ function _getDeclarationsForNonModuleNameNode(
 ): Declaration[] {
     assert(node.parent?.nodeType !== ParseNodeType.ModuleName);
 
-    let decls = evaluator.getDeclarationsForNameNode(node, skipUnreachableCode) || [];
+    let decls = evaluator.getDeclInfoForNameNode(node, skipUnreachableCode)?.decls || [];
     if (node.parent?.nodeType === ParseNodeType.ImportFromAs) {
         // Make sure we get the decl for this specific "from import" statement
         decls = decls.filter((d) => d.node === node.parent);
@@ -467,7 +467,7 @@ function _getDeclarationsForNonModuleNameNode(
 
         appendArray(
             decls,
-            evaluator.getDeclarationsForNameNode(node.d.module.d.nameParts[0], skipUnreachableCode) || []
+            evaluator.getDeclInfoForNameNode(node.d.module.d.nameParts[0], skipUnreachableCode)?.decls || []
         );
     }
 
@@ -497,8 +497,9 @@ function _getDeclarationsForModuleNameNode(evaluator: TypeEvaluator, node: NameN
             // we can match both "import X" and "from X import ..."
             appendArray(
                 decls,
-                evaluator.getDeclarationsForNameNode(moduleName.d.nameParts[0])?.filter((d) => isAliasDeclaration(d)) ||
-                    []
+                evaluator
+                    .getDeclInfoForNameNode(moduleName.d.nameParts[0])
+                    ?.decls?.filter((d) => isAliasDeclaration(d)) || []
             );
 
             if (decls.length === 0 || moduleName.parent.nodeType !== ParseNodeType.ImportAs) {
@@ -567,7 +568,7 @@ function _getDeclarationsForModuleNameNode(evaluator: TypeEvaluator, node: NameN
             // "import X.Y" hold onto synthesized module type (without any decl).
             // And "from X.Y import ..." doesn't have any symbol associated module names.
             // they can't be referenced in the module.
-            return evaluator.getDeclarationsForNameNode(moduleName.d.nameParts[index]) || [];
+            return evaluator.getDeclInfoForNameNode(moduleName.d.nameParts[index])?.decls || [];
         }
 
         return [];

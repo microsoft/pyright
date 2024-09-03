@@ -512,6 +512,11 @@ export interface CallSiteEvaluationInfo {
     args: ValidateArgTypeParams[];
 }
 
+export interface SymbolDeclInfo {
+    decls: Declaration[];
+    synthesizedTypes: Type[];
+}
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
@@ -567,8 +572,8 @@ export interface TypeEvaluator {
     suppressDiagnostics: (node: ParseNode, callback: () => void) => void;
     isSpecialFormClass: (classType: ClassType, flags: AssignTypeFlags) => boolean;
 
-    getDeclarationsForStringNode: (node: StringNode) => Declaration[] | undefined;
-    getDeclarationsForNameNode: (node: NameNode, skipUnreachableCode?: boolean) => Declaration[] | undefined;
+    getDeclInfoForStringNode: (node: StringNode) => SymbolDeclInfo | undefined;
+    getDeclInfoForNameNode: (node: NameNode, skipUnreachableCode?: boolean) => SymbolDeclInfo | undefined;
     getTypeForDeclaration: (declaration: Declaration) => DeclaredSymbolTypeInfo;
     resolveAliasDeclaration: (
         declaration: Declaration,

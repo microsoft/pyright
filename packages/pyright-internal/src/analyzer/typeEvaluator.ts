@@ -206,6 +206,7 @@ import {
     Reachability,
     ResolveAliasOptions,
     SolveConstraintsOptions,
+    SymbolDeclInfo,
     TypeEvaluator,
     TypeResult,
     TypeResultWithNode,
@@ -21361,7 +21362,7 @@ export function createTypeEvaluator(
     // In general, string nodes don't have any declarations associated with them, but
     // we need to handle the special case of string literals used as keys within a
     // dictionary expression where those keys are associated with a known TypedDict.
-    function getDeclarationsForStringNode(node: StringNode): Declaration[] | undefined {
+    function getDeclInfoForStringNode(node: StringNode): SymbolDeclInfo | undefined {
         const declarations: Declaration[] = [];
         const expectedType = getExpectedType(node)?.type;
 
@@ -21384,7 +21385,7 @@ export function createTypeEvaluator(
             });
         }
 
-        return declarations.length === 0 ? undefined : declarations;
+        return declarations.length === 0 ? undefined : { decls: declarations, synthesizedTypes: [] };
     }
 
     function getAliasFromImport(node: NameNode): NameNode | undefined {
@@ -21399,12 +21400,13 @@ export function createTypeEvaluator(
         return undefined;
     }
 
-    function getDeclarationsForNameNode(node: NameNode, skipUnreachableCode = true): Declaration[] | undefined {
+    function getDeclInfoForNameNode(node: NameNode, skipUnreachableCode = true): SymbolDeclInfo | undefined {
         if (skipUnreachableCode && AnalyzerNodeInfo.isCodeUnreachable(node)) {
             return undefined;
         }
 
         const declarations: Declaration[] = [];
+        const synthesizedTypes: Type[] = [];
 
         // If the node is part of a "from X import Y as Z" statement and the node
         // is the "Y" (non-aliased) name, we need to look up the alias symbol
@@ -21479,7 +21481,12 @@ export function createTypeEvaluator(
                         if (typedDecls.length > 0) {
                             appendArray(declarations, typedDecls);
                         } else {
-                            appendArray(declarations, symbol.getDeclarations());
+                            const synthesizedType = symbol.getSynthesizedType();
+                            if (synthesizedType) {
+                                synthesizedTypes.push(synthesizedType);
+                            } else {
+                                appendArray(declarations, symbol.getDeclarations());
+                            }
                         }
                     }
                 });
@@ -21577,7 +21584,7 @@ export function createTypeEvaluator(
             }
         }
 
-        return declarations;
+        return { decls: declarations, synthesizedTypes };
     }
 
     function getTypeForDeclaration(declaration: Declaration): DeclaredSymbolTypeInfo {
@@ -27586,8 +27593,8 @@ export function createTypeEvaluator(
         isAsymmetricAccessorAssignment,
         suppressDiagnostics,
         isSpecialFormClass,
-        getDeclarationsForStringNode,
-        getDeclarationsForNameNode,
+        getDeclInfoForStringNode,
+        getDeclInfoForNameNode,
         getTypeForDeclaration,
         resolveAliasDeclaration,
         resolveAliasDeclarationWithInfo,

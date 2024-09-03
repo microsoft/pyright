@@ -1412,7 +1412,7 @@ export class CompletionProvider {
                 return false;
             }
 
-            const decls = this.evaluator.getDeclarationsForNameNode(curNode);
+            const decls = this.evaluator.getDeclInfoForNameNode(curNode)?.decls;
             if (decls?.length !== 1 || !isVariableDeclaration(decls[0]) || decls[0].node !== curNode) {
                 return false;
             }
@@ -2196,7 +2196,7 @@ export class CompletionProvider {
         }
 
         // Must be local variable/parameter
-        const declarations = this.evaluator.getDeclarationsForNameNode(indexNode.d.leftExpr) ?? [];
+        const declarations = this.evaluator.getDeclInfoForNameNode(indexNode.d.leftExpr)?.decls ?? [];
         const declaration = declarations.length > 0 ? declarations[0] : undefined;
         if (
             !declaration ||
