@@ -1,7 +1,4 @@
-trigger:
-  branches:
-    include:
-      - refs/tags/*
+
 resources:
   repositories:
     - repository: MicroBuildTemplate
@@ -67,8 +64,13 @@ extends:
                 inputs:
                   script: |
                     npm run package
-                    move pyright-*.vsix $(VSIX_NAME)
                   workingDirectory: packages/vscode-pyright
+
+              - task: PowerShell@2
+                inputs:
+                  targetType: 'inline'
+                  script: 'Move-Item -Path "pyright-*.vsix" -Destination "$(VSIX_NAME)"'
+                displayName: 'Move VSIX file'
               - task: CopyFiles@2
                 displayName: 'Copy vsix to: build_output'
                 inputs:
