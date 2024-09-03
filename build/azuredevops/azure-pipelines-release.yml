@@ -1,4 +1,7 @@
-
+trigger:
+  branches:
+    include:
+      - refs/tags/*
 resources:
   repositories:
     - repository: MicroBuildTemplate
