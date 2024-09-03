@@ -67,8 +67,15 @@ extends:
                 inputs:
                   script: |
                     npm run package
-                    move pyright-*.vsix $(VSIX_NAME)
                   workingDirectory: packages/vscode-pyright
+
+              - task: PowerShell@2
+                inputs:
+                  targetType: 'inline'
+                  script: 'Move-Item -Path "pyright-*.vsix" -Destination "$(VSIX_NAME)"'
+                  workingDirectory: packages/vscode-pyright
+                displayName: 'Move VSIX file'
+
               - task: CopyFiles@2
                 displayName: 'Copy vsix to: build_output'
                 inputs:
