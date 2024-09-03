@@ -319,7 +319,7 @@ export function getDocumentationPartsForTypeAndDecl(
         ) {
             const name = resolvedDecl.node.d.module.d.nameParts.find((n) => n.d.value === optional.name);
             if (name) {
-                const aliasDecls = evaluator.getDeclarationsForNameNode(name) ?? [resolvedDecl];
+                const aliasDecls = evaluator.getDeclInfoForNameNode(name)?.decls ?? [resolvedDecl];
                 resolvedDecl = aliasDecls.length > 0 ? aliasDecls[0] : resolvedDecl;
             }
         }

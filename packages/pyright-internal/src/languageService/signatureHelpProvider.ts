@@ -326,7 +326,7 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        for (const decl of this._evaluator.getDeclarationsForNameNode(name) ?? []) {
+        for (const decl of this._evaluator.getDeclInfoForNameNode(name)?.decls ?? []) {
             const resolveDecl = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
             if (!resolveDecl) {
                 continue;

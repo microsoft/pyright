@@ -169,10 +169,10 @@ class DefinitionProviderBase {
         // There should be only one 'definition', so only if extensions failed should we try again.
         if (definitions.length === 0) {
             if (node.nodeType === ParseNodeType.Name) {
-                const declarations = this.evaluator.getDeclarationsForNameNode(node);
+                const declarations = this.evaluator.getDeclInfoForNameNode(node)?.decls;
                 this.resolveDeclarations(declarations, definitions);
             } else if (node.nodeType === ParseNodeType.String) {
-                const declarations = this.evaluator.getDeclarationsForStringNode(node);
+                const declarations = this.evaluator.getDeclInfoForStringNode(node)?.decls;
                 this.resolveDeclarations(declarations, definitions);
             }
         }
@@ -270,13 +270,13 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
                 // Fall back to Go To Definition if the type can't be found (ex. Go To Type Definition
                 // was executed on a type name)
                 if (declarations.length === 0) {
-                    declarations = this.evaluator.getDeclarationsForNameNode(this.node) ?? [];
+                    declarations = this.evaluator.getDeclInfoForNameNode(this.node)?.decls ?? [];
                 }
 
                 this.resolveDeclarations(declarations, definitions);
             }
         } else if (this.node.nodeType === ParseNodeType.String) {
-            const declarations = this.evaluator.getDeclarationsForStringNode(this.node);
+            const declarations = this.evaluator.getDeclInfoForStringNode(this.node)?.decls;
             this.resolveDeclarations(declarations, definitions);
         }
 
