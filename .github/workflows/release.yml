@@ -35,7 +35,7 @@ jobs:
       # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
       - name: Install VSCE
         run: |
-          npm install -g npm install -g "@vscode/vsce@$(jq -r '.dependencies["@vscode/vsce"].version' < packages/vscode-pyright/package-lock.json)"
+          npm install -g "@vscode/vsce@$(jq -r '.dependencies["@vscode/vsce"].version' < packages/vscode-pyright/package-lock.json)"
           npx vsce --version
 
       # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
