@@ -265,6 +265,7 @@ export class HoverProvider {
                 declInfo?.synthesizedTypes.forEach((type) => {
                     this._addResultsForSynthesizedType(results.parts, type, name);
                 });
+                this._addDocumentationPart(results.parts, node, /* resolvedDecl */ undefined);
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
@@ -455,16 +456,27 @@ export class HoverProvider {
     }
 
     private _addResultsForSynthesizedType(parts: HoverTextPart[], type: Type, name: string) {
-        // Treat it as a function declaration if it's a function or overloaded type.
-        const label = isFunction(type) || isOverloaded(type) ? 'function' : 'variable';
-        const typeText = getToolTipForType(
-            type,
-            label,
-            name,
-            this._evaluator,
-            /* isProperty */ false,
-            this._functionSignatureDisplay
-        );
+        let typeText: string;
+
+        if (isModule(type)) {
+            typeText = '(module) ' + name;
+        } else {
+            // Treat it as a function declaration if it's a function or overloaded type.
+            let label = 'variable';
+
+            if (isFunction(type) || isOverloaded(type)) {
+                label = 'function';
+            }
+
+            typeText = getToolTipForType(
+                type,
+                label,
+                name,
+                this._evaluator,
+                /* isProperty */ false,
+                this._functionSignatureDisplay
+            );
+        }
 
         this._addResultsPart(parts, typeText, /* python */ true);
     }
