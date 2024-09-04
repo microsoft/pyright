@@ -5029,6 +5029,7 @@ export class Checker extends ParseTreeWalker {
     private _validateFinalMemberOverrides(classType: ClassType) {
         ClassType.getSymbolTable(classType).forEach((localSymbol, name) => {
             const parentSymbol = lookUpClassMember(classType, name, MemberAccessFlags.SkipOriginalClass);
+
             if (parentSymbol && isInstantiableClass(parentSymbol.classType) && !SymbolNameUtils.isPrivateName(name)) {
                 // Did the parent class explicitly declare the variable as final?
                 if (this._evaluator.isFinalVariable(parentSymbol.symbol)) {
@@ -5042,7 +5043,7 @@ export class Checker extends ParseTreeWalker {
                         decl.node
                     );
                 } else if (
-                    ClassType.isReadOnlyInstanceVariables(parentSymbol.classType) &&
+                    ClassType.hasNamedTupleEntry(parentSymbol.classType, name) &&
                     !SymbolNameUtils.isDunderName(name)
                 ) {
                     // If the parent class is a named tuple, all instance variables
@@ -5468,7 +5469,7 @@ export class Checker extends ParseTreeWalker {
                         // If this is part of a dataclass, a class handled by a dataclass_transform,
                         // or a NamedTuple, exempt it because the class variable will be transformed
                         // into an instance variable in this case.
-                        if (ClassType.isDataClass(classType) || ClassType.isReadOnlyInstanceVariables(classType)) {
+                        if (ClassType.isDataClass(classType) || ClassType.hasNamedTupleEntry(classType, name)) {
                             return true;
                         }
 
