@@ -2158,8 +2158,9 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
     const scopeId = getTypeVarScopeId(classType) ?? '';
     selfType.shared.isSynthesized = true;
     selfType.shared.isSynthesizedSelf = true;
-    selfType.priv.nameWithScope = TypeVarType.makeNameWithScope(selfType.shared.name, scopeId);
     selfType.priv.scopeId = scopeId;
+    selfType.priv.scopeName = '';
+    selfType.priv.nameWithScope = TypeVarType.makeNameWithScope(selfType.shared.name, scopeId, selfType.priv.scopeName);
 
     const boundType = ClassType.specialize(
         classType,
