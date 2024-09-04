@@ -36,6 +36,7 @@ import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import {
+    deduplicateFolders,
     FileSpec,
     getFileSpec,
     getFileSystemEntries,
@@ -1617,8 +1618,15 @@ export class AnalyzerService {
             this._executionRootUri
         );
 
-        const watchList = this._librarySearchUrisToWatch;
-        if (watchList && watchList.length > 0) {
+        // Make sure the watch list includes extra paths that are not part of user files.
+        // Sometimes, nested folders of the workspace are added as extra paths to import modules as top-level modules.
+        const extraPaths = this._configOptions
+            .getExecutionEnvironments()
+            .map((e) => e.extraPaths.filter((p) => !matchFileSpecs(this._configOptions, p, /* isFile */ false)))
+            .flat();
+
+        const watchList = deduplicateFolders([this._librarySearchUrisToWatch, extraPaths]);
+        if (watchList.length > 0) {
             try {
                 if (this._verboseOutput) {
                     this._console.info(`Adding fs watcher for library directories:\n ${watchList.join('\n')}`);
