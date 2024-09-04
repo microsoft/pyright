@@ -2224,7 +2224,18 @@ export class Binder extends ParseTreeWalker {
         this.walk(node.d.expr);
 
         const expressionList: CodeFlowReferenceExpressionNode[] = [];
-        const isSubjectNarrowable = this._isNarrowingExpression(node.d.expr, expressionList);
+        let isSubjectNarrowable = this._isNarrowingExpression(node.d.expr, expressionList);
+
+        // We also support narrowing of individual tuple entries found within a
+        // match subject expression, so add those here as well.
+        if (node.d.expr.nodeType === ParseNodeType.Tuple) {
+            node.d.expr.d.items.forEach((itemExpr) => {
+                if (this._isNarrowingExpression(itemExpr, expressionList)) {
+                    isSubjectNarrowable = true;
+                }
+            });
+        }
+
         if (isSubjectNarrowable) {
             expressionList.forEach((expr) => {
                 const referenceKey = createKeyForReference(expr);
