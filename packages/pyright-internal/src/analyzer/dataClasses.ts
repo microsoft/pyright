@@ -139,6 +139,7 @@ export function synthesizeDataClassMethods(
     // entries added by this class.
     const localDataClassEntries: DataClassEntry[] = [];
     const fullDataClassEntries: DataClassEntry[] = [];
+    const namedTupleEntries = new Set<string>();
     const allAncestorsKnown = addInheritedDataClassEntries(classType, fullDataClassEntries);
 
     if (!allAncestorsKnown) {
@@ -354,6 +355,7 @@ export function synthesizeDataClassMethods(
                 // Don't include class vars. PEP 557 indicates that they shouldn't
                 // be considered data class entries.
                 const variableSymbol = ClassType.getSymbolTable(classType).get(variableName);
+                namedTupleEntries.add(variableName);
 
                 if (variableSymbol?.isClassVar() && !variableSymbol?.isFinalVarInClassBody()) {
                     // If an ancestor class declared an instance variable but this dataclass
@@ -490,7 +492,9 @@ export function synthesizeDataClassMethods(
         }
     });
 
-    if (!isNamedTuple) {
+    if (isNamedTuple) {
+        classType.shared.namedTupleEntries = namedTupleEntries;
+    } else {
         classType.shared.dataClassEntries = localDataClassEntries;
     }
 

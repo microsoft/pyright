@@ -315,6 +315,7 @@ import {
     isLiteralLikeType,
     isLiteralType,
     isMaybeDescriptorInstance,
+    isMemberReadOnly,
     isMetaclassInstance,
     isNoneInstance,
     isNoneTypeClass,
@@ -6099,11 +6100,7 @@ export function createTypeEvaluator(
 
             // Check for an attempt to overwrite or delete an instance variable that is
             // read-only (e.g. in a named tuple).
-            if (
-                memberInfo?.isInstanceMember &&
-                isClass(memberInfo.classType) &&
-                ClassType.isReadOnlyInstanceVariables(memberInfo.classType)
-            ) {
+            if (memberInfo?.isInstanceMember && isClass(memberInfo.classType) && memberInfo.isReadOnly) {
                 diag?.addMessage(LocAddendum.readOnlyAttribute().format({ name: memberName }));
                 isDescriptorError = true;
             }
@@ -17057,7 +17054,6 @@ export function createTypeEvaluator(
                             ) {
                                 if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
                                     isNamedTupleSubclass = true;
-                                    classType.shared.flags |= ClassTypeFlags.ReadOnlyInstanceVariables;
                                 }
                             }
 
@@ -23337,8 +23333,7 @@ export function createTypeEvaluator(
                     if (
                         primaryDecl?.type === DeclarationType.Variable &&
                         !isFinalVariableDeclaration(primaryDecl) &&
-                        !ClassType.isReadOnlyInstanceVariables(destType) &&
-                        !ClassType.isDataClassFrozen(destType)
+                        !isMemberReadOnly(destType, name)
                     ) {
                         // Class and instance variables that are mutable need to
                         // enforce invariance. We will exempt variables that are

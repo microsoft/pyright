@@ -490,11 +490,7 @@ function assignClassToProtocolInternal(
                     }
                 }
 
-                // Frozen dataclasses and named tuples should be treated as read-only.
-                if (
-                    (ClassType.isDataClassFrozen(srcType) && srcMemberInfo.isInstanceMember) ||
-                    ClassType.isReadOnlyInstanceVariables(srcType)
-                ) {
+                if (srcMemberInfo.isReadOnly) {
                     isSrcReadOnly = true;
                 }
             } else {
@@ -718,10 +714,7 @@ function assignClassToProtocolInternal(
                 const isDestReadOnly = !!destPrimaryDecl.isConstant;
                 let isSrcReadOnly = !!srcPrimaryDecl.isConstant;
                 if (srcMemberInfo && isClass(srcMemberInfo.classType)) {
-                    if (
-                        ClassType.isReadOnlyInstanceVariables(srcMemberInfo.classType) ||
-                        (ClassType.isDataClassFrozen(srcMemberInfo.classType) && srcMemberInfo.isInstanceMember)
-                    ) {
+                    if (srcMemberInfo.isReadOnly) {
                         isSrcReadOnly = true;
                     }
                 }

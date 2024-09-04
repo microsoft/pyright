@@ -92,6 +92,10 @@ export interface ClassMember {
     // a type violation if it is overwritten by an instance variable
     isClassVar: boolean;
 
+    // True if the member is read-only, such as with named tuples
+    // or frozen dataclasses.
+    isReadOnly: boolean;
+
     // True if member has declared type, false if inferred
     isTypeDeclared: boolean;
 
@@ -1642,6 +1646,7 @@ export function getProtocolSymbolsRecursive(
                 isInstanceMember: symbol.isInstanceMember(),
                 isClassMember: symbol.isClassMember(),
                 isClassVar: isEffectivelyClassVar(symbol, /* isDataclass */ false),
+                isReadOnly: false,
                 isTypeDeclared: symbol.hasTypedDeclarations(),
                 skippedUndeclaredType: false,
             });
@@ -1782,6 +1787,7 @@ export function* getClassMemberIterator(
                         isClassVar: false,
                         classType,
                         unspecializedClassType: classType,
+                        isReadOnly: false,
                         isTypeDeclared: false,
                         skippedUndeclaredType: false,
                     };
@@ -1809,6 +1815,7 @@ export function* getClassMemberIterator(
                             isClassVar: isEffectivelyClassVar(symbol, ClassType.isDataClass(specializedMroClass)),
                             classType: specializedMroClass,
                             unspecializedClassType: mroClass,
+                            isReadOnly: isMemberReadOnly(specializedMroClass, memberName),
                             isTypeDeclared: hasDeclaredType,
                             skippedUndeclaredType,
                         };
@@ -1850,6 +1857,7 @@ export function* getClassMemberIterator(
                             isClassVar: isEffectivelyClassVar(symbol, isDataclass),
                             classType: specializedMroClass,
                             unspecializedClassType: mroClass,
+                            isReadOnly: false,
                             isTypeDeclared: hasDeclaredType,
                             skippedUndeclaredType,
                         };
@@ -1870,6 +1878,7 @@ export function* getClassMemberIterator(
             isClassVar: false,
             classType,
             unspecializedClassType: classType,
+            isReadOnly: false,
             isTypeDeclared: false,
             skippedUndeclaredType: false,
         };
@@ -1877,6 +1886,23 @@ export function* getClassMemberIterator(
     }
 
     return undefined;
+}
+
+// Checks for whether the member is effectively read only because it
+// belongs to a frozen dataclass or a named tuple.
+export function isMemberReadOnly(classType: ClassType, name: string): boolean {
+    if (ClassType.hasNamedTupleEntry(classType, name)) {
+        return true;
+    }
+
+    if (ClassType.isDataClassFrozen(classType)) {
+        const dcEntries = classType.shared?.dataClassEntries;
+        if (dcEntries?.some((entry) => entry.name === name)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.Default, skipMroClass?: ClassType) {
@@ -1946,6 +1972,7 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
                         isInstanceMember: symbol.isInstanceMember(),
                         isClassMember: symbol.isClassMember(),
                         isClassVar: isEffectivelyClassVar(symbol, ClassType.isDataClass(specializedMroClass)),
+                        isReadOnly: isMemberReadOnly(specializedMroClass, name),
                         isTypeDeclared: true,
                         skippedUndeclaredType: false,
                     });
