@@ -2854,7 +2854,11 @@ export namespace TypeVarType {
         newInstance.shared.name = name;
 
         if (newInstance.priv.scopeId) {
-            newInstance.priv.nameWithScope = makeNameWithScope(name, newInstance.priv.scopeId);
+            newInstance.priv.nameWithScope = makeNameWithScope(
+                name,
+                newInstance.priv.scopeId,
+                newInstance.priv.scopeName ?? ''
+            );
         }
 
         return newInstance;
@@ -2867,7 +2871,7 @@ export namespace TypeVarType {
         scopeType: TypeVarScopeType | undefined
     ): TypeVarType {
         const newInstance = TypeBase.cloneType(type);
-        newInstance.priv.nameWithScope = makeNameWithScope(type.shared.name, scopeId);
+        newInstance.priv.nameWithScope = makeNameWithScope(type.shared.name, scopeId, scopeName ?? '');
         newInstance.priv.scopeId = scopeId;
         newInstance.priv.scopeName = scopeName;
         newInstance.priv.scopeType = scopeType;
@@ -2957,8 +2961,12 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function makeNameWithScope(name: string, scopeId: string) {
-        return `${name}.${scopeId}`;
+    export function makeNameWithScope(name: string, scopeId: string, scopeName: string) {
+        // We include the scopeName here even though it's normally already part
+        // of the scopeId. There are cases where it can diverge, specifically
+        // in scenarios involving higher-order functions that return generic
+        // callable types. See adjustCallableReturnType for details.
+        return `${name}.${scopeId}.${scopeName}`;
     }
 
     // When solving the TypeVars for a callable, we need to distinguish between
