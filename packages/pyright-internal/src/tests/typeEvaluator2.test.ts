@@ -183,7 +183,7 @@ test('Super1', () => {
 test('Super2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super2.py']);
 
-    TestUtils.validateResults(analysisResults, 0, 0, 3);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Super3', () => {

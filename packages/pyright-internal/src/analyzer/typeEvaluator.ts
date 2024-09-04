@@ -8697,19 +8697,22 @@ export function createTypeEvaluator(
         const concreteTargetClassType = makeTopLevelTypeVarsConcrete(targetClassType);
 
         // Determine whether to further narrow the type.
+        let secondArgType: Type | undefined;
         let bindToType: ClassType | undefined;
+
         if (node.d.args.length > 1) {
-            const secondArgType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(node.d.args[1].d.valueExpr).type);
+            secondArgType = getTypeOfExpression(node.d.args[1].d.valueExpr).type;
+            const secondArgConcreteType = makeTopLevelTypeVarsConcrete(secondArgType);
 
             let reportError = false;
 
-            if (isAnyOrUnknown(secondArgType)) {
+            if (isAnyOrUnknown(secondArgConcreteType)) {
                 // Ignore unknown or any types.
-            } else if (isClassInstance(secondArgType)) {
+            } else if (isClassInstance(secondArgConcreteType)) {
                 if (isInstantiableClass(concreteTargetClassType)) {
                     if (
                         !derivesFromClassRecursive(
-                            ClassType.cloneAsInstantiable(secondArgType),
+                            ClassType.cloneAsInstantiable(secondArgConcreteType),
                             concreteTargetClassType,
                             /* ignoreUnknown */ true
                         )
@@ -8717,17 +8720,21 @@ export function createTypeEvaluator(
                         reportError = true;
                     }
                 }
-                bindToType = secondArgType;
-            } else if (isInstantiableClass(secondArgType)) {
+                bindToType = secondArgConcreteType;
+            } else if (isInstantiableClass(secondArgConcreteType)) {
                 if (isInstantiableClass(concreteTargetClassType)) {
                     if (
                         !ClassType.isBuiltIn(concreteTargetClassType, 'type') &&
-                        !derivesFromClassRecursive(secondArgType, concreteTargetClassType, /* ignoreUnknown */ true)
+                        !derivesFromClassRecursive(
+                            secondArgConcreteType,
+                            concreteTargetClassType,
+                            /* ignoreUnknown */ true
+                        )
                     ) {
                         reportError = true;
                     }
                 }
-                bindToType = secondArgType;
+                bindToType = secondArgConcreteType;
             } else {
                 reportError = true;
             }
@@ -8851,10 +8858,12 @@ export function createTypeEvaluator(
 
             let bindToSelfType: ClassType | TypeVarType | undefined;
             if (bindToType) {
-                if (node.d.args.length > 1) {
-                    // If this is a two-argument form of super(), use the
-                    // bindToType evaluated from the arguments.
-                    bindToSelfType = convertToInstance(bindToType);
+                if (secondArgType) {
+                    // If a TypeVar was passed as the second argument, use it
+                    // to derive the the self type.
+                    if (isTypeVar(secondArgType)) {
+                        bindToSelfType = convertToInstance(secondArgType);
+                    }
                 } else {
                     // If this is a zero-argument form of super(), synthesize
                     // a Self type to bind to.
