@@ -75,8 +75,7 @@ _T_co = TypeVar("_T_co", covariant=True)
 
 
 class SeqProto(Protocol[_T_co]):
-    def __reversed__(self) -> Iterator[_T_co]:
-        ...
+    def __reversed__(self) -> Iterator[_T_co]: ...
 
 
 def test_protocol(value_to_match: SeqProto[str]):
@@ -281,11 +280,9 @@ def test_union(
 
 
 class SupportsLessThan(Protocol):
-    def __lt__(self, __other: Any) -> bool:
-        ...
+    def __lt__(self, __other: Any) -> bool: ...
 
-    def __le__(self, __other: Any) -> bool:
-        ...
+    def __le__(self, __other: Any) -> bool: ...
 
 
 SupportsLessThanT = TypeVar("SupportsLessThanT", bound=SupportsLessThan)
@@ -404,12 +401,10 @@ class A(Generic[_T]):
     a: _T
 
 
-class B:
-    ...
+class B: ...
 
 
-class C:
-    ...
+class C: ...
 
 
 AAlias = A
@@ -618,3 +613,15 @@ def test_variadic_tuple(subj: tuple[int, Unpack[Ts]]) -> tuple[Unpack[Ts]]:
         case _, *rest:
             reveal_type(rest, expected_text="list[Unknown]")
             return (*rest,)
+
+
+class D:
+    x: float
+    y: float
+
+
+def test_tuple_subexpressions(d: D):
+    match (d.x, d.y):
+        case (int(), int()):
+            reveal_type(d.x, expected_text="int")
+            reveal_type(d.y, expected_text="int")
