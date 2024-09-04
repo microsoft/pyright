@@ -12,8 +12,14 @@ import { isAbsolute } from 'path';
 import { getPathsFromPthFiles } from '../analyzer/pythonPathUtils';
 import * as pathConsts from '../common/pathConsts';
 import { appendArray } from './collectionUtils';
-import { DiagnosticSeverityOverrides, DiagnosticSeverityOverridesMap } from './commandLineOptions';
+import {
+    DiagnosticBooleanOverridesMap,
+    DiagnosticSeverityOverrides,
+    DiagnosticSeverityOverridesMap,
+    getDiagnosticSeverityOverrides,
+} from './commandLineOptions';
 import { ConsoleInterface, NullConsole } from './console';
+import { isBoolean } from './core';
 import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
@@ -404,7 +410,7 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
     ];
 
     if (includeNonOverridable) {
-        // Do not include this these because we don't
+        // Do not include these because we don't
         // want to override it in strict mode or support
         // it within pyright comments.
         boolRules.push(DiagnosticRule.enableTypeIgnoreComments);
@@ -524,7 +530,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         enableTypeIgnoreComments: true,
         enableReachabilityAnalysis: false,
         deprecateTypingAliases: false,
-        disableBytesTypePromotions: false,
+        disableBytesTypePromotions: true,
         reportGeneralTypeIssues: 'none',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -627,7 +633,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         enableTypeIgnoreComments: true,
         enableReachabilityAnalysis: true,
         deprecateTypingAliases: false,
-        disableBytesTypePromotions: false,
+        disableBytesTypePromotions: true,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -730,7 +736,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         enableTypeIgnoreComments: true,
         enableReachabilityAnalysis: true,
         deprecateTypingAliases: false,
-        disableBytesTypePromotions: false,
+        disableBytesTypePromotions: true,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'error',
@@ -1057,6 +1063,12 @@ export class ConfigOptions {
     // Controls how hover and completion function signatures are displayed.
     functionSignatureDisplay: SignatureDisplayType;
 
+    // Determines if has a config file (pyrightconfig.json or pyproject.toml) or not.
+    configFileSource?: Uri | undefined;
+
+    // Determines the effective default type checking mode.
+    effectiveTypeCheckingMode: 'strict' | 'basic' | 'off' | 'standard' = 'standard';
+
     constructor(projectRoot: Uri) {
         this.projectRoot = projectRoot;
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet();
@@ -1116,6 +1128,7 @@ export class ConfigOptions {
         severityOverrides?: DiagnosticSeverityOverridesMap
     ) {
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
+        this.effectiveTypeCheckingMode = typeCheckingMode as 'strict' | 'basic' | 'off' | 'standard';
 
         if (severityOverrides) {
             this.applyDiagnosticOverrides(severityOverrides);
@@ -1211,7 +1224,7 @@ export class ConfigOptions {
                 configObj.typeCheckingMode === 'standard' ||
                 configObj.typeCheckingMode === 'strict'
             ) {
-                this.diagnosticRuleSet = { ...ConfigOptions.getDiagnosticRuleSet(configObj.typeCheckingMode) };
+                this.initializeTypeCheckingMode(configObj.typeCheckingMode);
             } else {
                 console.error(`Config "typeCheckingMode" entry must contain "off", "basic", "standard", or "strict".`);
             }
@@ -1282,12 +1295,10 @@ export class ConfigOptions {
         }
 
         // Read the default "pythonVersion".
-        let configPythonVersion: PythonVersion | undefined = undefined;
         if (configObj.pythonVersion !== undefined) {
             if (typeof configObj.pythonVersion === 'string') {
                 const version = PythonVersion.fromString(configObj.pythonVersion);
                 if (version) {
-                    configPythonVersion = version;
                     this.defaultPythonVersion = version;
                 } else {
                     console.error(`Config "pythonVersion" field contains unsupported version.`);
@@ -1297,20 +1308,14 @@ export class ConfigOptions {
             }
         }
 
-        this.ensureDefaultPythonVersion(host, console);
-
         // Read the default "pythonPlatform".
-        let configPythonPlatform: string | undefined = undefined;
         if (configObj.pythonPlatform !== undefined) {
             if (typeof configObj.pythonPlatform !== 'string') {
                 console.error(`Config "pythonPlatform" field must contain a string.`);
             } else {
                 this.defaultPythonPlatform = configObj.pythonPlatform;
-                configPythonPlatform = configObj.pythonPlatform;
             }
         }
-
-        this.ensureDefaultPythonPlatform(host, console);
 
         // Read the "typeshedPath" setting.
         if (configObj.typeshedPath !== undefined) {
@@ -1378,35 +1383,6 @@ export class ConfigOptions {
                 console.error(`Config "useLibraryCodeForTypes" field must be true or false.`);
             } else {
                 this.useLibraryCodeForTypes = configObj.useLibraryCodeForTypes;
-            }
-        }
-
-        // Read the "executionEnvironments" array. This should be done at the end
-        // after we've established default values.
-        if (configObj.executionEnvironments !== undefined) {
-            if (!Array.isArray(configObj.executionEnvironments)) {
-                console.error(`Config "executionEnvironments" field must contain an array.`);
-            } else {
-                this.executionEnvironments = [];
-
-                const execEnvironments = configObj.executionEnvironments as ExecutionEnvironment[];
-
-                execEnvironments.forEach((env, index) => {
-                    const execEnv = this._initExecutionEnvironmentFromJson(
-                        env,
-                        configDirUri,
-                        index,
-                        console,
-                        configRuleSet,
-                        configPythonVersion,
-                        configPythonPlatform,
-                        configExtraPaths
-                    );
-
-                    if (execEnv) {
-                        this.executionEnvironments.push(execEnv);
-                    }
-                });
             }
         }
 
@@ -1530,15 +1506,55 @@ export class ConfigOptions {
         }
     }
 
-    applyDiagnosticOverrides(diagnosticSeverityOverrides: DiagnosticSeverityOverridesMap | undefined) {
-        if (!diagnosticSeverityOverrides) {
+    applyDiagnosticOverrides(
+        diagnosticOverrides: DiagnosticSeverityOverridesMap | DiagnosticBooleanOverridesMap | undefined
+    ) {
+        if (!diagnosticOverrides) {
             return;
         }
 
         for (const ruleName of getDiagLevelDiagnosticRules()) {
-            const severity = diagnosticSeverityOverrides[ruleName];
-            if (severity !== undefined) {
+            const severity = diagnosticOverrides[ruleName];
+            if (severity !== undefined && !isBoolean(severity) && getDiagnosticSeverityOverrides().includes(severity)) {
                 (this.diagnosticRuleSet as any)[ruleName] = severity;
+            }
+        }
+
+        for (const ruleName of getBooleanDiagnosticRules(/* includeNonOverridable */ true)) {
+            const value = diagnosticOverrides[ruleName];
+            if (value !== undefined && isBoolean(value)) {
+                (this.diagnosticRuleSet as any)[ruleName] = value;
+            }
+        }
+    }
+
+    setupExecutionEnvironments(configObj: any, configDirUri: Uri, console: ConsoleInterface) {
+        // Read the "executionEnvironments" array. This should be done at the end
+        // after we've established default values.
+        if (configObj.executionEnvironments !== undefined) {
+            if (!Array.isArray(configObj.executionEnvironments)) {
+                console.error(`Config "executionEnvironments" field must contain an array.`);
+            } else {
+                this.executionEnvironments = [];
+
+                const execEnvironments = configObj.executionEnvironments as ExecutionEnvironment[];
+
+                execEnvironments.forEach((env, index) => {
+                    const execEnv = this._initExecutionEnvironmentFromJson(
+                        env,
+                        configDirUri,
+                        index,
+                        console,
+                        this.diagnosticRuleSet,
+                        this.defaultPythonVersion,
+                        this.defaultPythonPlatform,
+                        this.defaultExtraPaths || []
+                    );
+
+                    if (execEnv) {
+                        this.executionEnvironments.push(execEnv);
+                    }
+                });
             }
         }
     }

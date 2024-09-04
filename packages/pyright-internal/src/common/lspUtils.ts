@@ -5,7 +5,7 @@
  * Helper functions related to the Language Server Protocol (LSP).
  */
 
-import { LSPAny, SymbolKind } from 'vscode-languageserver';
+import { LSPAny, SymbolKind, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { isMaybeDescriptorInstance } from '../analyzer/typeUtils';
@@ -62,4 +62,12 @@ export function getSymbolKind(declaration: Declaration, evaluator?: TypeEvaluato
         default:
             return SymbolKind.Variable;
     }
+}
+
+export function isNullProgressReporter(reporter: WorkDoneProgressReporter) {
+    // We can't tell if this is a NullProgressReporter (well because this type isn't exposed from vscode-languageserver),
+    // but we're going to assume if the toString for the begin method is empty, then it's a NullProgressReporter.
+    const beginStr = reporter.begin.toString();
+    const contents = beginStr.substring(beginStr.indexOf('{') + 1, beginStr.lastIndexOf('}'));
+    return contents.trim() === '';
 }

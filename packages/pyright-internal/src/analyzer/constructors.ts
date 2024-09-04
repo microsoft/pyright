@@ -196,17 +196,19 @@ export function validateConstructorArgs(
                 isTypeIncomplete: !!returnResult.isTypeIncomplete,
             });
 
-            returnResult.returnType = transformed.returnType;
+            if (transformed) {
+                returnResult.returnType = transformed.returnType;
 
-            if (transformed.isTypeIncomplete) {
-                returnResult.isTypeIncomplete = true;
+                if (transformed.isTypeIncomplete) {
+                    returnResult.isTypeIncomplete = true;
+                }
+
+                if (transformed.argumentErrors) {
+                    returnResult.argumentErrors = true;
+                }
+
+                validatedArgExpressions = true;
             }
-
-            if (transformed.argumentErrors) {
-                returnResult.argumentErrors = true;
-            }
-
-            validatedArgExpressions = true;
         }
     }
 
@@ -695,7 +697,7 @@ export function createFunctionFromConstructor(
         return fromMetaclassCall;
     }
 
-    const fromNew = createFunctionFromNewMethod(evaluator, classType, selfType, recursionCount);
+    let fromNew = createFunctionFromNewMethod(evaluator, classType, selfType, recursionCount);
 
     if (fromNew) {
         let skipInitMethod = false;
@@ -713,6 +715,13 @@ export function createFunctionFromConstructor(
     }
 
     const fromInit = createFunctionFromInitMethod(evaluator, classType, selfType, recursionCount);
+
+    // If there is a valid __init__ method and the __new__ method
+    // is the default __new__ method provided by the object class,
+    // discard the __new__ method.
+    if (fromInit && fromNew && isDefaultNewMethod(fromNew)) {
+        fromNew = undefined;
+    }
 
     // If there is both a __new__ and __init__ method, return a union
     // comprised of both resulting function types.
@@ -759,7 +768,7 @@ function createFunctionFromMetaclassCall(
         callType,
         callInfo && isInstantiableClass(callInfo.classType) ? callInfo.classType : undefined,
         /* treatConstructorAsClassMethod */ false,
-        ClassType.cloneAsInstantiable(classType),
+        classType,
         /* diag */ undefined,
         recursionCount
     );

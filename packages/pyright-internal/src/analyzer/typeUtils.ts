@@ -869,6 +869,12 @@ export function preserveUnknown(type1: Type, type2: Type): AnyType | UnknownType
 // Determines whether the specified type is a type that can be
 // combined with other types for a union.
 export function isUnionableType(subtypes: Type[]): boolean {
+    // If all of the subtypes are TypeForm types, we know that they
+    // are unionable.
+    if (subtypes.every((t) => t.props?.typeForm !== undefined)) {
+        return true;
+    }
+
     let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
 
     for (const subtype of subtypes) {
@@ -1105,22 +1111,6 @@ export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] {
     return scopeIds;
 }
 
-// If the class type is generic and does not already have type arguments
-// specified, specialize it with default type arguments (Unknown or the
-// default type if provided).
-export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
-    if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
-        return type;
-    }
-
-    return ClassType.specialize(
-        type,
-        type.shared.typeParams.map((param) => param.shared.defaultType),
-        /* isTypeArgExplicit */ false,
-        /* includeSubclasses */ type.priv.includeSubclasses
-    );
-}
-
 // Specializes the class with "Unknown" type args (or the equivalent for ParamSpecs
 // or TypeVarTuples).
 export function specializeWithUnknownTypeArgs(type: ClassType, tupleClassType?: ClassType): ClassType {
@@ -1259,6 +1249,18 @@ export function isLiteralTypeOrUnion(type: Type, allowNone = false): boolean {
     return false;
 }
 
+export function isLiteralLikeType(type: ClassType): boolean {
+    if (type.priv.literalValue !== undefined) {
+        return true;
+    }
+
+    if (ClassType.isBuiltIn(type, 'LiteralString')) {
+        return true;
+    }
+
+    return false;
+}
+
 export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
     class ContainsLiteralTypeWalker extends TypeWalker {
         foundLiteral = false;
@@ -1269,7 +1271,7 @@ export function containsLiteralType(type: Type, includeTypeArgs = false): boolea
 
         override visitClass(classType: ClassType): void {
             if (isClassInstance(classType)) {
-                if (isLiteralType(classType) || ClassType.isBuiltIn(classType, 'LiteralString')) {
+                if (isLiteralLikeType(classType)) {
                     this.foundLiteral = true;
                     this.cancelWalk();
                 }
@@ -1315,6 +1317,27 @@ export function getLiteralTypeClassName(type: Type): string | undefined {
     }
 
     return undefined;
+}
+
+export function stripTypeForm(type: Type): Type {
+    if (type.props?.typeForm) {
+        return TypeBase.cloneWithTypeForm(type, undefined);
+    }
+
+    return type;
+}
+
+export function stripTypeFormRecursive(type: Type, recursionCount = 0): Type {
+    if (recursionCount > maxTypeRecursionCount) {
+        return type;
+    }
+    recursionCount++;
+
+    if (type.props?.typeForm) {
+        type = TypeBase.cloneWithTypeForm(type, undefined);
+    }
+
+    return mapSubtypes(type, (subtype) => stripTypeFormRecursive(subtype, recursionCount));
 }
 
 export function getUnionSubtypeCount(type: Type): number {
@@ -2030,8 +2053,12 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
 }
 
 // Creates a specialized version of the class, filling in any unspecified
-// type arguments with Unknown.
-export function specializeClassType(type: ClassType): ClassType {
+// type arguments with Unknown or default value.
+export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
+    if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
+        return type;
+    }
+
     const solution = new ConstraintSolution();
     const typeParams = ClassType.getTypeParams(type);
 
@@ -2131,8 +2158,9 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
     const scopeId = getTypeVarScopeId(classType) ?? '';
     selfType.shared.isSynthesized = true;
     selfType.shared.isSynthesizedSelf = true;
-    selfType.priv.nameWithScope = TypeVarType.makeNameWithScope(selfType.shared.name, scopeId);
     selfType.priv.scopeId = scopeId;
+    selfType.priv.scopeName = '';
+    selfType.priv.nameWithScope = TypeVarType.makeNameWithScope(selfType.shared.name, scopeId, selfType.priv.scopeName);
 
     const boundType = ClassType.specialize(
         classType,

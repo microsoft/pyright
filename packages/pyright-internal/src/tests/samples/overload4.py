@@ -1,97 +1,18 @@
-# This sample verifies that a lone overload is reported
-# as an error.
+# This sample tests a complex overload case that was causing a hang
+# in pyright's logic.
 
-from typing import Any, Callable, ParamSpec, Protocol, TypeVar, overload
-
-T = TypeVar("T")
-P = ParamSpec("P")
+from typing import Callable, overload
 
 
-# This should generate an error because there is only one overload.
 @overload
-def func1() -> None:
-    ...
-
-
-def func1() -> None:
-    ...
-
-
-# This should generate an error because there is only one overload.
-@overload
-def func2(a: int) -> None:
-    ...
-
-
-def func2(a: int) -> None:
-    pass
-
-
-class ClassA:
-    # This should generate an error because there is no implementation.
-    @overload
-    def func3(self) -> None:
-        ...
-
-    @overload
-    def func3(self, a: int) -> None:
-        ...
-
-
-class ClassB(Protocol):
-    # An implementation should not be required in a protocol class.
-    @overload
-    def func4(self) -> None:
-        ...
-
-    @overload
-    def func4(self, name: str) -> str:
-        ...
-
-
-def deco1(
-    _origin: Callable[P, T],
-) -> Callable[[Callable[..., Any]], Callable[P, T]]:
+def func1[K, VI, VO](d: dict[K, VI], func: Callable[[VI], VO]) -> dict[K, VO]:
     ...
 
 
 @overload
-def func5(v: int) -> int:
+def func1[K, VI, VO](d: VI, func: Callable[[VI], VO]) -> VO:
     ...
 
 
-@overload
-def func5(v: str) -> str:
+def func1[K, VI, VO](d: dict[K, VI] | VI, func: Callable[[VI], VO]) -> dict[K, VO] | VO:
     ...
-
-
-def func5(v: int | str) -> int | str:
-    ...
-
-
-@deco1(func5)
-def func6(*args: Any, **kwargs: Any) -> Any:
-    ...
-
-
-@overload
-def deco2() -> Callable[[Callable[P, T]], Callable[P, T | None]]:
-    ...
-
-
-@overload
-def deco2(
-    x: Callable[[], T],
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    ...
-
-
-def deco2(
-    x: Callable[[], T | None] = lambda: None,
-) -> Callable[[Callable[P, T]], Callable[P, T | None]]:
-    ...
-
-
-@deco2(x=dict)
-def func7() -> dict[str, str]:
-    return {}

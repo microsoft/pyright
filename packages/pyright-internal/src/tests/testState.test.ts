@@ -469,7 +469,7 @@ test('moveCaretRight', () => {
 
 test('runFourSlashTestContent', () => {
     const code = `
-/// <reference path="fourslash.d.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 
 // @filename: file1.py
 //// class A:
@@ -488,7 +488,7 @@ helper.getMarkerByName("position");
 
 test('VerifyDiagnosticsTest1', () => {
     const code = `
-/// <reference path="fourslash.d.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 
 // @filename: dataclass1.py
 //// # This sample validates the Python 3.7 data class feature.
@@ -528,7 +528,7 @@ helper.verifyDiagnostics();
 
 test('VerifyDiagnosticsTest2', () => {
     const code = `
-/// <reference path="fourslash.ts" />
+
 
 //// # This sample tests the handling of the @dataclass decorator.
 ////

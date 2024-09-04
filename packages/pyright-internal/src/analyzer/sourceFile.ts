@@ -71,6 +71,9 @@ export enum IPythonMode {
     CellDocs,
 }
 
+// A monotonically increasing number used to create unique file IDs.
+let nextUniqueFileId = 1;
+
 class WriteableData {
     // Number that is incremented every time the diagnostics
     // are updated.
@@ -193,6 +196,10 @@ export class SourceFile {
     // a real file on disk.
     private readonly _uri: Uri;
 
+    // A short string that is guaranteed to uniquely
+    // identify this file.
+    private readonly _fileId: string;
+
     // Period-delimited import path for the module.
     private _moduleName: string;
 
@@ -258,6 +265,7 @@ export class SourceFile {
 
         this._editMode = editMode;
         this._uri = uri;
+        this._fileId = this._makeFileId(uri);
         this._moduleName = moduleName;
         this._isStubFile = uri.hasExtension('.pyi');
         this._isThirdPartyImport = isThirdPartyImport;
@@ -954,6 +962,27 @@ export class SourceFile {
         return new TextRangeDiagnosticSink(lines);
     }
 
+    // Creates a short string that can be used to uniquely identify
+    // this file from all other files. It is used in the type evaluator
+    // to distinguish between types that are defined in different files
+    // or scopes.
+    private _makeFileId(uri: Uri) {
+        const maxNameLength = 8;
+
+        // Use a small portion of the file name to help with debugging.
+        let fileName = uri.fileNameWithoutExtensions;
+        if (fileName.length > maxNameLength) {
+            fileName = fileName.substring(fileName.length - maxNameLength);
+        }
+
+        // Append a number to guarantee uniqueness.
+        const uniqueNumber = nextUniqueFileId++;
+
+        // Use a "/" to separate the two components, since this
+        // character will never appear in a file name.
+        return `${fileName}/${uniqueNumber.toString()}`;
+    }
+
     // Computes an updated set of accumulated diagnostics for the file
     // based on the partial diagnostics from various analysis stages.
     private _recomputeDiagnostics(configOptions: ConfigOptions) {
@@ -1302,6 +1331,7 @@ export class SourceFile {
             lines: this._writableData.tokenizerLines!,
             typingSymbolAliases: this._writableData.parserOutput!.typingSymbolAliases,
             definedConstants: configOptions.defineConstant,
+            fileId: this._fileId,
             fileUri: this._uri,
             moduleName: this.getModuleName(),
             isStubFile: this._isStubFile,

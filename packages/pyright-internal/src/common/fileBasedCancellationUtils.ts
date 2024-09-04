@@ -25,7 +25,6 @@ import {
     setCancellationFolderName,
 } from './cancellationUtils';
 import { Uri } from './uri/uri';
-import { IdCancellationReceiverStrategy } from 'vscode-jsonrpc/lib/common/connection';
 import { UriEx } from './uri/uriUtils';
 
 class StatSyncFromFs {
@@ -125,7 +124,10 @@ function getCancellationFileUri(folderName: string, id: CancellationId): string 
     return UriEx.file(path.join(getCancellationFolderPath(folderName), `cancellation-${String(id)}.tmp`)).toString();
 }
 
-class FileCancellationReceiverStrategy implements IdCancellationReceiverStrategy {
+// See this issue for why the implements is commented out:
+// https://github.com/microsoft/vscode-languageserver-node/issues/1425
+class FileCancellationReceiverStrategy {
+    // implements IdCancellationReceiverStrategy {
     constructor(readonly folderName: string) {}
 
     createCancellationTokenSource(id: CancellationId): AbstractCancellationTokenSource {

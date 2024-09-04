@@ -212,7 +212,7 @@ export class SourceMapper {
             return result;
         }
 
-        const functionStubDecls = this._evaluator.getDeclarationsForNameNode(functionNode.d.name);
+        const functionStubDecls = this._evaluator.getDeclInfoForNameNode(functionNode.d.name)?.decls;
         if (!functionStubDecls) {
             return result;
         }

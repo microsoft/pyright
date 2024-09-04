@@ -1,4 +1,4 @@
-/// <reference path="fourslash.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 
 // @filename: test.py
 //// from testLib import [|/*marker1*/|]En[|/*marker2*/|]um[|/*marker3*/|]

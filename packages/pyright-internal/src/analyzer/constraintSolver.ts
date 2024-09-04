@@ -62,6 +62,7 @@ import {
     sortTypes,
     specializeTupleClass,
     specializeWithDefaultTypeArgs,
+    stripTypeForm,
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
@@ -236,8 +237,9 @@ export function solveConstraintSet(
     constraintSet: ConstraintSet,
     options?: SolveConstraintsOptions
 ): ConstraintSolutionSet {
-    const solutionSet = new ConstraintSolutionSet(constraintSet.getScopeIds());
+    const solutionSet = new ConstraintSolutionSet();
 
+    // Solve the type variables.
     constraintSet.doForEachTypeVar((entry) => {
         solveTypeVarRecursive(evaluator, constraintSet, options, solutionSet, entry);
     });
@@ -502,7 +504,7 @@ export function addConstraintsForExpectedType(
 function stripLiteralsForLowerBound(evaluator: TypeEvaluator, typeVar: TypeVarType, lowerBound: Type) {
     return isTypeVarTuple(typeVar)
         ? stripLiteralValueForUnpackedTuple(evaluator, lowerBound)
-        : evaluator.stripLiteralValue(lowerBound);
+        : stripTypeForm(evaluator.stripLiteralValue(lowerBound));
 }
 
 function getTypeVarType(
@@ -1334,7 +1336,7 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
 
     let strippedLiteral = false;
     const tupleTypeArgs: TupleTypeArg[] = type.priv.tupleTypeArgs.map((arg) => {
-        const strippedType = evaluator.stripLiteralValue(arg.type);
+        const strippedType = stripTypeForm(evaluator.stripLiteralValue(arg.type));
 
         if (strippedType !== arg.type) {
             strippedLiteral = true;

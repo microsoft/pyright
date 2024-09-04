@@ -16,16 +16,8 @@ export class ConstraintSolutionSet {
     // Indexed by TypeVar ID.
     private _typeVarMap: Map<string, Type | undefined>;
 
-    // See the comment in constraintTracker for details about identifying
-    // solution sets by scope ID.
-    private _scopeIds: Set<string> | undefined;
-
-    constructor(scopeIds?: Set<string>) {
-        this._typeVarMap = new Map<string, Type>();
-
-        if (scopeIds) {
-            this._scopeIds = new Set<string>(scopeIds);
-        }
+    constructor() {
+        this._typeVarMap = new Map();
     }
 
     isEmpty() {

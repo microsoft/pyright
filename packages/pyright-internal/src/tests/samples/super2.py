@@ -11,24 +11,42 @@ class A:
         pass
 
     @classmethod
-    def factory(cls: type[T]) -> T:
+    def factoryA(cls: type[T]) -> T:
+        return cls()
+
+    @classmethod
+    def get(cls: type[T], key: str) -> T:
         return cls()
 
 
 class B(A):
     @classmethod
     def factoryB(cls):
-        return super(B, cls).factory()
+        return super(B, cls).factoryA()
+
+    @classmethod
+    def get(cls, key: str = ""):
+        return super(B, cls).get(key)
 
 
-a1 = A.factory()
+class BChild(B):
+    pass
+
+
+a1 = A.factoryA()
 reveal_type(a1, expected_text="A")
 
-b1 = B.factory()
+b1 = B.factoryA()
 reveal_type(b1, expected_text="B")
 
 b2 = B.factoryB()
-reveal_type(b2, expected_text="B*")
+reveal_type(b2, expected_text="B")
+
+g1 = B.get()
+reveal_type(g1, expected_text="B")
+
+g2 = BChild.get()
+reveal_type(g2, expected_text="BChild")
 
 
 def test_a(cls: type[T]) -> T:
@@ -36,18 +54,15 @@ def test_a(cls: type[T]) -> T:
 
 
 class C:
-    def __init__(self) -> None:
-        ...
+    def __init__(self) -> None: ...
 
 
 class CChild(C):
-    def __init__(self, name: str) -> None:
-        ...
+    def __init__(self, name: str) -> None: ...
 
 
 class D:
-    def __init__(self, name: str, num: int):
-        ...
+    def __init__(self, name: str, num: int): ...
 
 
 class DChild1(CChild, D):
