@@ -8,9 +8,12 @@ import assert from 'assert';
 
 import { CancellationToken } from 'vscode-jsonrpc';
 import { IPythonMode } from '../analyzer/sourceFile';
-import { combinePaths, getDirectoryPath } from '../common/pathUtils';
-import { parseAndGetTestState } from './harness/fourslash/testState';
+import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
+import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 import { Uri } from '../common/uri/uri';
+import { CommandLineOptions } from '../common/commandLineOptions';
+import { parseTestData } from './harness/fourslash/fourSlashParser';
+import { UriEx } from '../common/uri/uriUtils';
 
 test('random library file changed', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
@@ -298,6 +301,27 @@ test('folder that contains no file but whose parent has __init__ has changed', (
     testSourceFileWatchChange(code, /* expected */ true, /* isFile */ false);
 });
 
+test('library file watching for extra path under workspace', () => {
+    const watchers = getRegisteredLibraryFileWatchers('/src', ['extraPath'], ['extraPath/**']);
+    assert(watchers.some((w) => w.paths.some((p) => p.equals(UriEx.file('/src/extraPath')))));
+});
+
+test('user file watching as extra path under workspace', () => {
+    // Sometimes, this trick is used to make sub-modules to top-level modules.
+    const watchers = getRegisteredLibraryFileWatchers('/src', ['extraPath']);
+
+    // This shouldn't be recognized as library file.
+    assert(!watchers.some((w) => w.paths.some((p) => p.equals(UriEx.file('/src/extraPath')))));
+});
+
+test('library file watching another workspace root using extra path', () => {
+    // The extra path for a different workspace root will be initially added as a relative path,
+    // but when it reaches the service layer, it will be normalized to an absolute path.
+    // That's why it is used as an absolute path here.
+    const watchers = getRegisteredLibraryFileWatchers('/root1', ['/root2']);
+    assert(watchers.some((w) => w.paths.some((p) => p.equals(UriEx.file('/root2')))));
+});
+
 test('program containsSourceFileIn', () => {
     const code = `
 // @ignoreCase: true
@@ -387,4 +411,20 @@ function testSourceFileWatchChange(code: string, expected = true, isFile = true)
         state.workspace.service.test_shouldHandleSourceFileWatchChanges(Uri.file(path, state.serviceProvider), isFile),
         expected
     );
+}
+
+function getRegisteredLibraryFileWatchers(root: string, extraPaths: string[], excludes: string[] = []) {
+    root = normalizeSlashes(root);
+
+    const data = parseTestData(root, '', '');
+    const state = new TestState(root, data);
+
+    const options = new CommandLineOptions(state.workspace.rootUri, false);
+    options.languageServerSettings.watchForLibraryChanges = true;
+    options.configSettings.extraPaths = extraPaths;
+    options.configSettings.excludeFileSpecs = excludes;
+
+    state.workspace.service.setOptions(options);
+
+    return state.testFS.fileWatchers;
 }

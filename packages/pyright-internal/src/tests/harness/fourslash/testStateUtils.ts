@@ -74,6 +74,11 @@ export function getMarkerNames(testData: FourSlashData): string[] {
     return [...testData.markerPositions.keys()];
 }
 
+export function getRangeByMarkerName(testData: FourSlashData, markerName: string) {
+    const marker = getMarkerByName(testData, markerName);
+    return testData.ranges.find((r) => r.marker === marker);
+}
+
 function isConfig(file: FourSlashFile, ignoreCase: boolean): boolean {
     const comparer = getStringComparer(ignoreCase);
     return comparer(getBaseFileName(file.fileName), configFileName) === Comparison.EqualTo;
