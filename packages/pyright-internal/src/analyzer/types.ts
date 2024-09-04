@@ -2312,6 +2312,10 @@ export namespace OverloadedType {
             OverloadedType.addOverload(newType, overload);
         });
 
+        if (implementation && isFunction(implementation)) {
+            implementation.priv.overloaded = newType;
+        }
+
         return newType;
     }
 

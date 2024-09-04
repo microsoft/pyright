@@ -707,7 +707,11 @@ export class Checker extends ParseTreeWalker {
 
         this._scopedNodes.push(node);
 
-        if (functionTypeResult && isOverloaded(functionTypeResult.decoratedType)) {
+        if (
+            functionTypeResult &&
+            isOverloaded(functionTypeResult.decoratedType) &&
+            functionTypeResult.functionType.priv.overloaded
+        ) {
             // If this is the implementation for the overloaded function, skip
             // overload consistency checks.
             if (
