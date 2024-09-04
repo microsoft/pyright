@@ -354,20 +354,20 @@ export class WorkspaceFactory implements IWorkspaceFactory {
         }
     }
 
-    private _getDefaultWorkspaceKey(pythonPath: Uri | undefined) {
-        return `${this._defaultWorkspacePath}:${!Uri.isEmpty(pythonPath) ? pythonPath : '$Empty$'}`;
+    private _getDefaultWorkspaceKey() {
+        return `${this._defaultWorkspacePath}`;
     }
 
     private _getWorkspaceKey(value: Workspace) {
         // Special the root path for the default workspace. It will be created
         // without a root path
-        const rootPath = value.kinds.includes(WellKnownWorkspaceKinds.Default)
-            ? this._defaultWorkspacePath
-            : value.rootUri;
+        if (value.kinds.includes(WellKnownWorkspaceKinds.Default)) {
+            return this._getDefaultWorkspaceKey();
+        }
 
         // Key is defined by the rootPath and the pythonPath. We might include platform in this, but for now
         // platform is only used by the import resolver.
-        return `${rootPath}`;
+        return `${value.rootUri}`;
     }
 
     private async _getOrCreateBestWorkspaceForFile(uri: Uri, pythonPath: Uri | undefined): Promise<Workspace> {
@@ -437,7 +437,7 @@ export class WorkspaceFactory implements IWorkspaceFactory {
 
     private _getOrCreateDefaultWorkspace(pythonPath: Uri | undefined): DefaultWorkspace {
         // Default key depends upon the pythonPath
-        let defaultWorkspace = this._map.get(this._getDefaultWorkspaceKey(pythonPath)) as DefaultWorkspace;
+        let defaultWorkspace = this._map.get(this._getDefaultWorkspaceKey()) as DefaultWorkspace;
         if (!defaultWorkspace) {
             // Create a default workspace for files that are outside
             // of all workspaces.
