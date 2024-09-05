@@ -24766,10 +24766,12 @@ export function createTypeEvaluator(
                     // TypeVars have gone unmatched, treat this as success.
                 } else {
                     // Try to assign a union of the remaining source types to
-                    // the first destination TypeVar.
+                    // the first destination TypeVar. If this is a contravariant
+                    // context, use the full dest type rather than the remaining
+                    // dest subtypes to keep the lower bound as wide as possible.
                     if (
                         !assignType(
-                            isContra ? combineTypes(remainingDestSubtypes) : remainingDestSubtypes[0],
+                            isContra ? destType : remainingDestSubtypes[0],
                             isContra ? remainingSrcSubtypes[0] : combineTypes(remainingSrcSubtypes),
                             diag?.createAddendum(),
                             constraints,
