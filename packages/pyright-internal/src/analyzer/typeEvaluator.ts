@@ -555,6 +555,12 @@ const maxInferFunctionReturnRecursionCount = 12;
 // This limits the depth.
 const maxInferredContainerDepth = 8;
 
+// If a tuple expression with no declared type contains a large number
+// of elements, it can cause performance issues. This value limits the
+// number of elements that will be included in the tuple type before
+// we default to tuple[Unknown, ...].
+const maxInferredTupleEntryCount = 256;
+
 // Maximum recursion amount when comparing two recursive type aliases.
 // Increasing this can greatly increase the time required to evaluate
 // two recursive type aliases that have the same definition. Decreasing
@@ -8134,7 +8140,6 @@ export function createTypeEvaluator(
             )
         );
         const isIncomplete = entryTypeResults.some((result) => result.isIncomplete);
-        const type = makeTupleObject(buildTupleTypesList(entryTypeResults, /* stripLiterals */ false));
 
         // Copy any expected type diag addenda for precision error reporting.
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
@@ -8147,6 +8152,16 @@ export function createTypeEvaluator(
             });
         }
 
+        // If the tuple contains a very large number of entries, it's probably
+        // generated code. If we encounter type errors, don't bother building
+        // the full tuple type.
+        let type: Type;
+        if (node.d.items.length > maxInferredTupleEntryCount && entryTypeResults.some((result) => result.typeErrors)) {
+            type = makeTupleObject([{ type: UnknownType.create(), isUnbounded: true }]);
+        } else {
+            type = makeTupleObject(buildTupleTypesList(entryTypeResults, /* stripLiterals */ false));
+        }
+
         return { type, expectedTypeDiagAddendum, isIncomplete };
     }
 
@@ -8155,6 +8170,13 @@ export function createTypeEvaluator(
             getTypeOfExpression(expr, flags | EvalFlags.StripTupleLiterals)
         );
         const isIncomplete = entryTypeResults.some((result) => result.isIncomplete);
+
+        // If the tuple contains a very large number of entries, it's probably
+        // generated code. Rather than taking the time to evaluate every entry,
+        // simply return an unknown type in this case.
+        if (node.d.items.length > maxInferredTupleEntryCount) {
+            return { type: makeTupleObject([{ type: UnknownType.create(), isUnbounded: true }]) };
+        }
 
         const type = makeTupleObject(
             buildTupleTypesList(entryTypeResults, (flags & EvalFlags.StripTupleLiterals) !== 0)
