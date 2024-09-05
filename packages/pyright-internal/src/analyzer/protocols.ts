@@ -124,15 +124,7 @@ export function assignClassToProtocol(
     const clonedConstraints = constraints?.clone();
 
     try {
-        isCompatible = assignClassToProtocolInternal(
-            evaluator,
-            destType,
-            srcType,
-            diag,
-            constraints,
-            flags,
-            recursionCount
-        );
+        isCompatible = assignToProtocolInternal(evaluator, destType, srcType, diag, constraints, flags, recursionCount);
     } catch (e) {
         // We'd normally use "finally" here, but the TS debugger does such
         // a poor job dealing with finally, we'll use a catch instead.
@@ -157,7 +149,7 @@ export function assignModuleToProtocol(
     flags: AssignTypeFlags,
     recursionCount: number
 ): boolean {
-    return assignClassToProtocolInternal(evaluator, destType, srcType, diag, constraints, flags, recursionCount);
+    return assignToProtocolInternal(evaluator, destType, srcType, diag, constraints, flags, recursionCount);
 }
 
 // Determines whether the specified class is a protocol class that has
@@ -285,7 +277,7 @@ function isConstraintTrackerSame(context1: ConstraintTracker | undefined, contex
     return context1.isSame(context2);
 }
 
-function assignClassToProtocolInternal(
+function assignToProtocolInternal(
     evaluator: TypeEvaluator,
     destType: ClassType,
     srcType: ClassType | ModuleType,
