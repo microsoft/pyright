@@ -4197,6 +4197,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return callback();
         }
 
+        // Handle the case where we're already processing one of the signature contexts
+        // and are called recursively. Don't loop over all the signature contexts again.
+        if (this._activeConstraintSetIndex !== undefined) {
+            return callback();
+        }
+
         // Loop through all of the signature contexts in the type var context
         // to create an overload type.
         const overloadTypes = solutionSets.map((_, index) => {
