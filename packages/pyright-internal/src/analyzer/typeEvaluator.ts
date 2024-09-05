@@ -10988,10 +10988,10 @@ export function createTypeEvaluator(
                     } else if (isClassInstance(argType) && ClassType.isTypedDictClass(argType)) {
                         // Handle the special case where it is a TypedDict and we know which
                         // keys are present.
-                        const typedDictEntries = getTypedDictMembersForClass(evaluatorInterface, argType);
+                        const tdEntries = getTypedDictMembersForClass(evaluatorInterface, argType);
                         const diag = new DiagnosticAddendum();
 
-                        typedDictEntries.knownItems.forEach((entry, name) => {
+                        tdEntries.knownItems.forEach((entry, name) => {
                             const paramEntry = paramMap.get(name);
                             if (paramEntry && !paramEntry.isPositionalOnly) {
                                 if (paramEntry.argsReceived > 0) {
@@ -11013,7 +11013,7 @@ export function createTypeEvaluator(
                                             argCategory: ArgCategory.Simple,
                                             typeResult: { type: entry.valueType },
                                         },
-                                        errorNode: argList[argIndex].valueExpression || errorNode,
+                                        errorNode: argList[argIndex].valueExpression ?? errorNode,
                                         paramName: name,
                                     });
                                 }
@@ -11027,7 +11027,7 @@ export function createTypeEvaluator(
                                         argCategory: ArgCategory.Simple,
                                         typeResult: { type: entry.valueType },
                                     },
-                                    errorNode: argList[argIndex].valueExpression || errorNode,
+                                    errorNode: argList[argIndex].valueExpression ?? errorNode,
                                     paramName: name,
                                 });
 
@@ -11047,6 +11047,25 @@ export function createTypeEvaluator(
                                 }
                             }
                         });
+
+                        const extraItemsType = tdEntries.extraItems?.valueType ?? getObjectType();
+                        if (!isNever(extraItemsType)) {
+                            if (paramDetails.kwargsIndex !== undefined) {
+                                const kwargsParam = paramDetails.params[paramDetails.kwargsIndex];
+
+                                validateArgTypeParams.push({
+                                    paramCategory: ParamCategory.KwargsDict,
+                                    paramType: kwargsParam.declaredType,
+                                    requiresTypeVarMatching: requiresSpecialization(kwargsParam.declaredType),
+                                    argument: {
+                                        argCategory: ArgCategory.UnpackedDictionary,
+                                        typeResult: { type: extraItemsType },
+                                    },
+                                    errorNode: argList[argIndex].valueExpression ?? errorNode,
+                                    paramName: kwargsParam.param.name,
+                                });
+                            }
+                        }
 
                         if (!diag.isEmpty()) {
                             if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
