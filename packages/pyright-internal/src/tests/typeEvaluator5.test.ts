@@ -400,6 +400,14 @@ test('TypedDictClosed8', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypedDictClosed9', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('DataclassTransform1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform1.py']);
 
