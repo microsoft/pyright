@@ -23,7 +23,7 @@ class A:
     Value2 = 1
 
 
-reveal_type(A.Value1, expected_text="type[Literal]")
+reveal_type(A.Value1, expected_text="type[Literal[1]]")
 reveal_type(A.Value2, expected_text="int")
 
 

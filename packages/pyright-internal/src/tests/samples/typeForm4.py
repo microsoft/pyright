@@ -48,7 +48,7 @@ def func1():
 
     t10: TypeForm = TA2[str]
     t11: TypeForm[TA2[str]] = TA2[str]
-    t12: TypeForm[list[Any]] = TA2[str]
+    t12: TypeForm[list[Any] | str] = TA2[str]
 
     t13: TypeForm = TA2
 

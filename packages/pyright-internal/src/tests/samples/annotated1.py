@@ -54,6 +54,7 @@ _T = TypeVar("_T")
 Param = Annotated[_T, "x"]
 
 x1: Param[int] = 3
+print(Param[int])
 
 
 class A:

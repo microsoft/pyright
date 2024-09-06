@@ -4776,6 +4776,14 @@ export function createTypeEvaluator(
             return type;
         }
 
+        // If this is a type alias and we are not supposed to specialize it, return it as is.
+        if ((flags & EvalFlags.NoSpecialize) !== 0 && type.props?.typeAliasInfo) {
+            // Special-case TypeAliasType which should be converted in this case.
+            if (!ClassType.isBuiltIn(type.props.specialForm, 'TypeAliasType')) {
+                return type;
+            }
+        }
+
         if (type.props?.typeForm) {
             return TypeBase.cloneWithTypeForm(type.props.specialForm, type.props.typeForm);
         }
