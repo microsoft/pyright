@@ -68,7 +68,6 @@ import {
     ParameterNode,
     ParseNode,
     ParseNodeType,
-    RaiseNode,
     SetNode,
     SliceNode,
     StringListNode,
@@ -4343,87 +4342,84 @@ export function createTypeEvaluator(
         }
     }
 
-    function verifyRaiseExceptionType(node: RaiseNode) {
+    function verifyRaiseExceptionType(node: ExpressionNode, allowNone: boolean) {
         const baseExceptionType = getBuiltInType(node, 'BaseException');
+        const exceptionType = getTypeOfExpression(node).type;
 
-        if (node.d.typeExpression) {
-            const exceptionType = getTypeOfExpression(node.d.typeExpression).type;
+        // Validate that the argument of "raise" is an exception object or class.
+        // If it is a class, validate that the class's constructor accepts zero
+        // arguments.
+        if (exceptionType && baseExceptionType && isInstantiableClass(baseExceptionType)) {
+            const diag = new DiagnosticAddendum();
 
-            // Validate that the argument of "raise" is an exception object or class.
-            // If it is a class, validate that the class's constructor accepts zero
-            // arguments.
-            if (exceptionType && baseExceptionType && isInstantiableClass(baseExceptionType)) {
-                const diagAddendum = new DiagnosticAddendum();
+            doForEachSubtype(exceptionType, (subtype) => {
+                const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
-                doForEachSubtype(exceptionType, (subtype) => {
-                    const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+                if (isAnyOrUnknown(concreteSubtype) || isNever(concreteSubtype)) {
+                    return;
+                }
 
-                    if (!isAnyOrUnknown(concreteSubtype)) {
-                        if (isInstantiableClass(concreteSubtype) && concreteSubtype.priv.literalValue === undefined) {
-                            if (
-                                !derivesFromClassRecursive(
-                                    concreteSubtype,
-                                    baseExceptionType,
-                                    /* ignoreUnknown */ false
-                                )
-                            ) {
-                                diagAddendum.addMessage(
-                                    LocMessage.exceptionTypeIncorrect().format({
-                                        type: printType(subtype),
-                                    })
-                                );
-                            } else {
-                                let callResult: CallResult | undefined;
-                                suppressDiagnostics(node.d.typeExpression!, () => {
-                                    callResult = validateConstructorArgs(
-                                        evaluatorInterface,
-                                        node.d.typeExpression!,
-                                        [],
-                                        concreteSubtype,
-                                        /* skipUnknownArgCheck */ false,
-                                        /* inferenceContext */ undefined
-                                    );
-                                });
+                if (allowNone && isNoneInstance(concreteSubtype)) {
+                    return;
+                }
 
-                                if (callResult && callResult.argumentErrors) {
-                                    diagAddendum.addMessage(
-                                        LocMessage.exceptionTypeNotInstantiable().format({
-                                            type: printType(subtype),
-                                        })
-                                    );
-                                }
-                            }
-                        } else if (isClassInstance(concreteSubtype)) {
-                            if (
-                                !derivesFromClassRecursive(
-                                    ClassType.cloneAsInstantiable(concreteSubtype),
-                                    baseExceptionType,
-                                    /* ignoreUnknown */ false
-                                )
-                            ) {
-                                diagAddendum.addMessage(
-                                    LocMessage.exceptionTypeIncorrect().format({
-                                        type: printType(subtype),
-                                    })
-                                );
-                            }
-                        } else {
-                            diagAddendum.addMessage(
-                                LocMessage.exceptionTypeIncorrect().format({
+                if (isInstantiableClass(concreteSubtype) && concreteSubtype.priv.literalValue === undefined) {
+                    if (!derivesFromClassRecursive(concreteSubtype, baseExceptionType, /* ignoreUnknown */ false)) {
+                        diag.addMessage(
+                            LocMessage.exceptionTypeIncorrect().format({
+                                type: printType(subtype),
+                            })
+                        );
+                    } else {
+                        let callResult: CallResult | undefined;
+                        suppressDiagnostics(node, () => {
+                            callResult = validateConstructorArgs(
+                                evaluatorInterface,
+                                node,
+                                [],
+                                concreteSubtype,
+                                /* skipUnknownArgCheck */ false,
+                                /* inferenceContext */ undefined
+                            );
+                        });
+
+                        if (callResult && callResult.argumentErrors) {
+                            diag.addMessage(
+                                LocMessage.exceptionTypeNotInstantiable().format({
                                     type: printType(subtype),
                                 })
                             );
                         }
                     }
-                });
-
-                if (!diagAddendum.isEmpty()) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.expectedExceptionClass() + diagAddendum.getString(),
-                        node.d.typeExpression
+                } else if (isClassInstance(concreteSubtype)) {
+                    if (
+                        !derivesFromClassRecursive(
+                            ClassType.cloneAsInstantiable(concreteSubtype),
+                            baseExceptionType,
+                            /* ignoreUnknown */ false
+                        )
+                    ) {
+                        diag.addMessage(
+                            LocMessage.exceptionTypeIncorrect().format({
+                                type: printType(subtype),
+                            })
+                        );
+                    }
+                } else {
+                    diag.addMessage(
+                        LocMessage.exceptionTypeIncorrect().format({
+                            type: printType(subtype),
+                        })
                     );
                 }
+            });
+
+            if (!diag.isEmpty()) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.expectedExceptionClass() + diag.getString(),
+                    node
+                );
             }
         }
     }
@@ -19242,10 +19238,10 @@ export function createTypeEvaluator(
         }
 
         for (const raiseStatement of functionDecl.raiseStatements) {
-            if (!raiseStatement.d.typeExpression || raiseStatement.d.valueExpression) {
+            if (!raiseStatement.d.expr || raiseStatement.d.fromExpr) {
                 return false;
             }
-            const raiseType = getTypeOfExpression(raiseStatement.d.typeExpression).type;
+            const raiseType = getTypeOfExpression(raiseStatement.d.expr).type;
             const classType = isInstantiableClass(raiseType)
                 ? raiseType
                 : isClassInstance(raiseType)

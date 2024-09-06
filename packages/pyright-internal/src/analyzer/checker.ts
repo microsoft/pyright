@@ -1093,46 +1093,12 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitRaise(node: RaiseNode): boolean {
-        this._evaluator.verifyRaiseExceptionType(node);
+        if (node.d.expr) {
+            this._evaluator.verifyRaiseExceptionType(node.d.expr, /* allowNone */ true);
+        }
 
-        if (node.d.valueExpression) {
-            const baseExceptionType = this._evaluator.getBuiltInType(node, 'BaseException') as ClassType;
-            const exceptionType = this._evaluator.getType(node.d.valueExpression);
-
-            // Validate that the argument of "raise" is an exception object or None.
-            if (exceptionType && baseExceptionType && isInstantiableClass(baseExceptionType)) {
-                const diagAddendum = new DiagnosticAddendum();
-
-                doForEachSubtype(exceptionType, (subtype) => {
-                    subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
-
-                    if (!isAnyOrUnknown(subtype) && !isNoneInstance(subtype)) {
-                        if (isClass(subtype)) {
-                            if (!derivesFromClassRecursive(subtype, baseExceptionType, /* ignoreUnknown */ false)) {
-                                diagAddendum.addMessage(
-                                    LocMessage.exceptionTypeIncorrect().format({
-                                        type: this._evaluator.printType(subtype),
-                                    })
-                                );
-                            }
-                        } else {
-                            diagAddendum.addMessage(
-                                LocMessage.exceptionTypeIncorrect().format({
-                                    type: this._evaluator.printType(subtype),
-                                })
-                            );
-                        }
-                    }
-                });
-
-                if (!diagAddendum.isEmpty()) {
-                    this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.expectedExceptionObj() + diagAddendum.getString(),
-                        node.d.valueExpression
-                    );
-                }
-            }
+        if (node.d.fromExpr) {
+            this._evaluator.verifyRaiseExceptionType(node.d.fromExpr, /* allowNone */ false);
         }
 
         return true;
