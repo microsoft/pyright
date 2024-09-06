@@ -2821,29 +2821,14 @@ export class Parser {
 
         const raiseNode = RaiseNode.create(raiseToken);
         if (!this._isNextTokenNeverExpression()) {
-            raiseNode.d.typeExpression = this._parseTestExpression(/* allowAssignmentExpression */ true);
-            raiseNode.d.typeExpression.parent = raiseNode;
-            extendRange(raiseNode, raiseNode.d.typeExpression);
+            raiseNode.d.expr = this._parseTestExpression(/* allowAssignmentExpression */ true);
+            raiseNode.d.expr.parent = raiseNode;
+            extendRange(raiseNode, raiseNode.d.expr);
 
             if (this._consumeTokenIfKeyword(KeywordType.From)) {
-                raiseNode.d.valueExpression = this._parseTestExpression(/* allowAssignmentExpression */ true);
-                raiseNode.d.valueExpression.parent = raiseNode;
-                extendRange(raiseNode, raiseNode.d.valueExpression);
-            } else {
-                if (this._consumeTokenIfType(TokenType.Comma)) {
-                    // Handle the Python 2.x variant
-                    raiseNode.d.valueExpression = this._parseTestExpression(/* allowAssignmentExpression */ true);
-                    raiseNode.d.valueExpression.parent = raiseNode;
-                    extendRange(raiseNode, raiseNode.d.valueExpression);
-
-                    if (this._consumeTokenIfType(TokenType.Comma)) {
-                        raiseNode.d.tracebackExpression = this._parseTestExpression(
-                            /* allowAssignmentExpression */ true
-                        );
-                        raiseNode.d.tracebackExpression.parent = raiseNode;
-                        extendRange(raiseNode, raiseNode.d.tracebackExpression);
-                    }
-                }
+                raiseNode.d.fromExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
+                raiseNode.d.fromExpr.parent = raiseNode;
+                extendRange(raiseNode, raiseNode.d.fromExpr);
             }
         }
 
