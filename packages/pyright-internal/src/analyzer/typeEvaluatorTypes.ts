@@ -27,7 +27,6 @@ import {
     ParamCategory,
     ParameterNode,
     ParseNode,
-    RaiseNode,
     StringNode,
 } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -551,7 +550,7 @@ export interface TypeEvaluator {
     ) => Type;
 
     getExpectedType: (node: ExpressionNode) => ExpectedTypeResult | undefined;
-    verifyRaiseExceptionType: (node: RaiseNode) => void;
+    verifyRaiseExceptionType: (node: ExpressionNode) => void;
     verifyDeleteExpression: (node: ExpressionNode) => void;
     validateOverloadedArgTypes: (
         errorNode: ExpressionNode,
