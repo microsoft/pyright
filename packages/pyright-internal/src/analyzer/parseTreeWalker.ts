@@ -272,7 +272,7 @@ export function getChildNodes(node: ParseNode): (ParseNode | undefined)[] {
             return [node.d.expr];
 
         case ParseNodeType.Raise:
-            return [node.d.typeExpression, node.d.valueExpression, node.d.tracebackExpression];
+            return [node.d.expr, node.d.fromExpr];
 
         case ParseNodeType.Return:
             return [node.d.expr];

@@ -1862,9 +1862,9 @@ export function getCodeFlowEngine(
                         continue;
                     }
 
-                    if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.d.typeExpression) {
+                    if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.d.expr) {
                         // Check for a raising about 'NotImplementedError' or a subtype thereof.
-                        const exceptionType = evaluator.getType(simpleStatement.d.typeExpression);
+                        const exceptionType = evaluator.getType(simpleStatement.d.expr);
 
                         if (
                             exceptionType &&
