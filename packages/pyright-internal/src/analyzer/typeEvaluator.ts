@@ -26073,9 +26073,7 @@ export function createTypeEvaluator(
                                 FunctionType.getParamType(effectiveSrcType, index),
                                 p.flags,
                                 p.name,
-                                FunctionType.getParamDefaultType(effectiveSrcType, index)
-                                    ? AnyType.create(/* isEllipsis */ true)
-                                    : undefined,
+                                FunctionType.getParamDefaultType(effectiveSrcType, index),
                                 p.defaultExpr
                             )
                         );
