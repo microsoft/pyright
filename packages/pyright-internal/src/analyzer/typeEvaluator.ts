@@ -17504,7 +17504,7 @@ export function createTypeEvaluator(
                             classType.shared.flags |= ClassTypeFlags.EnumClass;
                         }
 
-                        if (ClassType.isBuiltIn(metaclassType, 'ABCMeta')) {
+                        if (derivesFromStdlibClass(metaclassType, 'ABCMeta')) {
                             classType.shared.flags |= ClassTypeFlags.SupportsAbstractMethods;
                         }
                     }
