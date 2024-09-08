@@ -1181,7 +1181,15 @@ function getIsInstanceClassTypes(
                 }
             }
 
-            if (isInstantiableClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
+            if (isInstantiableClass(subtype)) {
+                // If this is a reference to a class that has type promotions (e.g.
+                // float or complex), remove the promotions for purposes of the
+                // isinstance check).
+                if (!subtype.priv.includeSubclasses && subtype.priv.includePromotions) {
+                    subtype = ClassType.cloneRemoveTypePromotions(subtype);
+                }
+                classTypeList.push(subtype);
+            } else if (isTypeVar(subtype) && TypeBase.isInstantiable(subtype)) {
                 classTypeList.push(subtype);
             } else if (isNoneTypeClass(subtype)) {
                 assert(isInstantiableClass(subtype));
@@ -1382,7 +1390,7 @@ function narrowTypeForIsInstanceInternal(
         let isClassRelationshipIndeterminate = false;
 
         for (const filterType of filterTypes) {
-            let concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
+            const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
             if (isInstantiableClass(concreteFilterType)) {
                 let filterIsSuperclass: boolean;
@@ -1392,16 +1400,6 @@ function narrowTypeForIsInstanceInternal(
                     filterIsSuperclass = evaluator.assignType(filterType, concreteVarType);
                     filterIsSubclass = evaluator.assignType(concreteVarType, filterType);
                 } else {
-                    // If the class was implicitly specialized (e.g. because its type
-                    // parameters have default values), replace the default type arguments
-                    // with Unknown.
-                    if (concreteFilterType.priv.typeArgs && !concreteFilterType.priv.isTypeArgExplicit) {
-                        concreteFilterType = specializeWithUnknownTypeArgs(
-                            ClassType.specialize(concreteFilterType, /* typeArgs */ undefined),
-                            evaluator.getTupleClassType()
-                        );
-                    }
-
                     filterIsSuperclass = isIsinstanceFilterSuperclass(
                         evaluator,
                         varType,
