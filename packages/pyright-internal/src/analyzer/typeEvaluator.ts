@@ -3058,6 +3058,14 @@ export function createTypeEvaluator(
         return tupleClass && isInstantiableClass(tupleClass) ? tupleClass : undefined;
     }
 
+    function getDictClassType(): ClassType | undefined {
+        return dictClass && isInstantiableClass(dictClass) ? dictClass : undefined;
+    }
+
+    function getStrClassType(): ClassType | undefined {
+        return strClass && isInstantiableClass(strClass) ? strClass : undefined;
+    }
+
     function getObjectType(): Type {
         return objectClass ? convertToInstance(objectClass) : UnknownType.create();
     }
@@ -24100,6 +24108,7 @@ export function createTypeEvaluator(
                 // the source must be a "concrete" (non-protocol) class.
                 if (ClassType.isProtocolClass(destType)) {
                     if (
+                        (flags & AssignTypeFlags.AllowProtocolClassSource) === 0 &&
                         ClassType.isProtocolClass(expandedSrcType) &&
                         isInstantiableClass(srcType) &&
                         !srcType.priv.includeSubclasses
@@ -27674,6 +27683,8 @@ export function createTypeEvaluator(
         assignClassToSelf,
         getTypedDictClassType,
         getTupleClassType,
+        getDictClassType,
+        getStrClassType,
         getObjectType,
         getNoneType,
         getUnionClassType,

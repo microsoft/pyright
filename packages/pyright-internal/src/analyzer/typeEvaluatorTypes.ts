@@ -767,6 +767,8 @@ export interface TypeEvaluator {
     getBuiltInObject: (node: ParseNode, name: string, typeArgs?: Type[]) => Type;
     getTypedDictClassType: () => ClassType | undefined;
     getTupleClassType: () => ClassType | undefined;
+    getDictClassType: () => ClassType | undefined;
+    getStrClassType: () => ClassType | undefined;
     getObjectType: () => Type;
     getNoneType: () => Type;
     getUnionClassType(): Type;

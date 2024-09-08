@@ -1232,79 +1232,6 @@ export function getIsInstanceClassTypes(
     return foundNonClassType ? undefined : classTypeList;
 }
 
-export function isIsinstanceFilterSuperclass(
-    evaluator: TypeEvaluator,
-    varType: Type,
-    concreteVarType: ClassType,
-    filterType: Type,
-    concreteFilterType: ClassType,
-    isInstanceCheck: boolean
-) {
-    if (isTypeVar(filterType) || concreteFilterType.priv.literalValue !== undefined) {
-        return isTypeSame(convertToInstance(filterType), varType);
-    }
-
-    // If the filter type represents all possible subclasses
-    // of a type, we can't make any statements about its superclass
-    // relationship with concreteVarType.
-    if (concreteFilterType.priv.includeSubclasses) {
-        return false;
-    }
-
-    if (ClassType.isDerivedFrom(concreteVarType, concreteFilterType)) {
-        return true;
-    }
-
-    if (isInstanceCheck) {
-        // We convert both types to instances in case they are protocol
-        // classes. A protocol class isn't allowed to be assigned to
-        // type[T], so this would otherwise fail.
-        if (
-            ClassType.isProtocolClass(concreteFilterType) &&
-            evaluator.assignType(
-                ClassType.cloneAsInstance(concreteFilterType),
-                ClassType.cloneAsInstance(concreteVarType)
-            )
-        ) {
-            return true;
-        }
-    }
-
-    // Handle the special case where the variable type is a TypedDict and
-    // we're filtering against 'dict'. TypedDict isn't derived from dict,
-    // but at runtime, isinstance returns True.
-    if (ClassType.isBuiltIn(concreteFilterType, 'dict') && ClassType.isTypedDictClass(concreteVarType)) {
-        return true;
-    }
-
-    return false;
-}
-
-export function isIsinstanceFilterSubclass(
-    evaluator: TypeEvaluator,
-    varType: ClassType,
-    concreteFilterType: ClassType,
-    isInstanceCheck: boolean
-) {
-    if (ClassType.isDerivedFrom(concreteFilterType, varType)) {
-        return true;
-    }
-
-    if (isInstanceCheck) {
-        // We convert both types to instances in case they are protocol
-        // classes. A protocol class isn't allowed to be assigned to
-        // type[T], so this would otherwise fail.
-        if (
-            ClassType.isProtocolClass(varType) &&
-            evaluator.assignType(ClassType.cloneAsInstance(varType), ClassType.cloneAsInstance(concreteFilterType))
-        ) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 export function narrowTypeForInstanceOrSubclass(
     evaluator: TypeEvaluator,
     type: Type,
@@ -1490,28 +1417,47 @@ function narrowTypeForInstance(
                     }
                 }
 
-                let filterIsSuperclass: boolean;
-                let filterIsSubclass: boolean;
+                let runtimeVarType = concreteVarType;
 
-                if (isTypeIsCheck) {
-                    filterIsSuperclass = evaluator.assignType(filterType, concreteVarType);
-                    filterIsSubclass = evaluator.assignType(concreteVarType, filterType);
-                } else {
-                    filterIsSuperclass = isIsinstanceFilterSuperclass(
-                        evaluator,
-                        varType,
-                        concreteVarType,
-                        filterType,
-                        concreteFilterType,
-                        /* isInstanceCheck */ true
-                    );
-                    filterIsSubclass = isIsinstanceFilterSubclass(
-                        evaluator,
-                        concreteVarType,
-                        concreteFilterType,
-                        /* isInstanceCheck */ true
+                // Type variables are erased for runtime types, so switch from
+                // bound to free type variables. We'll retain the bound type
+                // variables for TypeIs checks.
+                if (!isTypeIsCheck) {
+                    runtimeVarType = makeTypeVarsFree(
+                        runtimeVarType,
+                        ParseTreeUtils.getTypeVarScopesForNode(errorNode)
                     );
                 }
+
+                // If the value is a TypedDict, convert it into its runtime form,
+                // which is a dict[str, Any].
+                if (isInstantiableClass(runtimeVarType) && ClassType.isTypedDictClass(runtimeVarType)) {
+                    const dictClass = evaluator.getDictClassType();
+                    const strType = evaluator.getStrClassType();
+
+                    if (dictClass && strType) {
+                        runtimeVarType = ClassType.specialize(dictClass, [
+                            ClassType.cloneAsInstance(strType),
+                            UnknownType.create(),
+                        ]);
+                    }
+                }
+
+                const filterIsSuperclass = evaluator.assignType(
+                    filterType,
+                    runtimeVarType,
+                    /* diag */ undefined,
+                    /* constraints */ undefined,
+                    AssignTypeFlags.AllowIsinstanceSpecialForms | AssignTypeFlags.AllowProtocolClassSource
+                );
+
+                const filterIsSubclass = evaluator.assignType(
+                    runtimeVarType,
+                    filterType,
+                    /* diag */ undefined,
+                    /* constraints */ undefined,
+                    AssignTypeFlags.AllowIsinstanceSpecialForms | AssignTypeFlags.AllowProtocolClassSource
+                );
 
                 if (filterIsSuperclass) {
                     foundSuperclass = true;
@@ -1522,12 +1468,17 @@ function narrowTypeForInstance(
                 // class whose type is unknown (e.g. an import failed). We'll
                 // note this case specially so we don't do any narrowing, which
                 // will generate false positives.
-                if (
-                    filterIsSubclass &&
-                    filterIsSuperclass &&
-                    !ClassType.isSameGenericClass(concreteVarType, concreteFilterType)
-                ) {
-                    isClassRelationshipIndeterminate = true;
+                if (filterIsSubclass && filterIsSuperclass) {
+                    if (!isTypeIsCheck && concreteFilterType.priv.includeSubclasses) {
+                        // If the filter type includes subclasses, we can't eliminate
+                        // this type in the negative direction. We'll relax this for
+                        // TypeIs checks.
+                        isClassRelationshipIndeterminate = true;
+                    }
+
+                    if (!ClassType.isSameGenericClass(runtimeVarType, concreteFilterType)) {
+                        isClassRelationshipIndeterminate = true;
+                    }
                 }
 
                 // If both the variable type and the filter type ar generics, we can't
@@ -1548,62 +1499,52 @@ function narrowTypeForInstance(
                             filteredTypes.push(addConditionToType(concreteVarType, conditions));
                         }
                     } else if (filterIsSubclass) {
-                        if (
-                            evaluator.assignType(
-                                convertToInstance(convertVarTypeToFree(concreteVarType)),
-                                convertToInstance(concreteFilterType),
-                                /* diag */ undefined,
-                                /* constraints */ undefined,
-                                AssignTypeFlags.AllowIsinstanceSpecialForms
-                            )
-                        ) {
-                            // If the variable type is a superclass of the isinstance
-                            // filter, we can narrow the type to the subclass.
-                            let specializedFilterType = filterType;
+                        // If the variable type is a superclass of the isinstance
+                        // filter, we can narrow the type to the subclass.
+                        let specializedFilterType = filterType;
 
-                            // Try to retain the type arguments for the filter type. This is
-                            // important because a specialized version of the filter cannot
-                            // be passed to isinstance or issubclass.
-                            if (isClass(filterType)) {
-                                if (ClassType.isSpecialBuiltIn(filterType) || filterType.shared.typeParams.length > 0) {
+                        // Try to retain the type arguments for the filter type. This is
+                        // important because a specialized version of the filter cannot
+                        // be passed to isinstance or issubclass.
+                        if (isClass(filterType)) {
+                            if (ClassType.isSpecialBuiltIn(filterType) || filterType.shared.typeParams.length > 0) {
+                                if (
+                                    !filterType.priv.isTypeArgExplicit &&
+                                    !ClassType.isSameGenericClass(concreteVarType, filterType)
+                                ) {
+                                    const constraints = new ConstraintTracker();
+                                    const unspecializedFilterType = ClassType.specialize(
+                                        filterType,
+                                        /* typeArg */ undefined
+                                    );
+
                                     if (
-                                        !filterType.priv.isTypeArgExplicit &&
-                                        !ClassType.isSameGenericClass(concreteVarType, filterType)
+                                        addConstraintsForExpectedType(
+                                            evaluator,
+                                            convertToInstance(unspecializedFilterType),
+                                            convertToInstance(concreteVarType),
+                                            constraints,
+                                            /* liveTypeVarScopes */ undefined,
+                                            errorNode.start
+                                        )
                                     ) {
-                                        const constraints = new ConstraintTracker();
-                                        const unspecializedFilterType = ClassType.specialize(
-                                            filterType,
-                                            /* typeArg */ undefined
-                                        );
-
-                                        if (
-                                            addConstraintsForExpectedType(
-                                                evaluator,
-                                                convertToInstance(unspecializedFilterType),
-                                                convertToInstance(concreteVarType),
-                                                constraints,
-                                                /* liveTypeVarScopes */ undefined,
-                                                errorNode.start
-                                            )
-                                        ) {
-                                            specializedFilterType = evaluator.solveAndApplyConstraints(
-                                                unspecializedFilterType,
-                                                constraints,
-                                                {
-                                                    replaceUnsolved: {
-                                                        scopeIds: getTypeVarScopeIds(filterType),
-                                                        useUnknown: true,
-                                                        tupleClassType: evaluator.getTupleClassType(),
-                                                    },
-                                                }
-                                            ) as ClassType;
-                                        }
+                                        specializedFilterType = evaluator.solveAndApplyConstraints(
+                                            unspecializedFilterType,
+                                            constraints,
+                                            {
+                                                replaceUnsolved: {
+                                                    scopeIds: getTypeVarScopeIds(filterType),
+                                                    useUnknown: true,
+                                                    tupleClassType: evaluator.getTupleClassType(),
+                                                },
+                                            }
+                                        ) as ClassType;
                                     }
                                 }
                             }
-
-                            filteredTypes.push(addConditionToType(specializedFilterType, conditions));
                         }
+
+                        filteredTypes.push(addConditionToType(specializedFilterType, conditions));
                     } else if (ClassType.isSameGenericClass(concreteVarType, concreteFilterType)) {
                         // Don't attempt to narrow in this case.
                         if (
@@ -2479,14 +2420,7 @@ function narrowTypeForClassComparison(
                     return ClassType.isBuiltIn(concreteSubtype, 'object') ? classType : undefined;
                 }
 
-                const isSuperType = isIsinstanceFilterSuperclass(
-                    evaluator,
-                    subtype,
-                    concreteSubtype,
-                    classType,
-                    classType,
-                    /* isInstanceCheck */ false
-                );
+                const isSuperType = isFilterSuperclass(subtype, concreteSubtype, classType, classType);
 
                 if (!classType.priv.includeSubclasses) {
                     // Handle the case where the LHS and RHS operands are specific
@@ -2496,17 +2430,11 @@ function narrowTypeForClassComparison(
                         return ClassType.isSameGenericClass(concreteSubtype, classType) ? classType : undefined;
                     }
 
-                    const isSubType = isIsinstanceFilterSubclass(
-                        evaluator,
-                        concreteSubtype,
-                        classType,
-                        /* isInstanceCheck */ false
-                    );
-
                     if (isSuperType) {
                         return classType;
                     }
 
+                    const isSubType = ClassType.isDerivedFrom(classType, concreteSubtype);
                     if (isSubType) {
                         return addConditionToType(classType, getTypeCondition(concreteSubtype));
                     }
@@ -2530,6 +2458,37 @@ function narrowTypeForClassComparison(
 
         return subtype;
     });
+}
+
+function isFilterSuperclass(
+    varType: Type,
+    concreteVarType: ClassType,
+    filterType: Type,
+    concreteFilterType: ClassType
+) {
+    if (isTypeVar(filterType) || concreteFilterType.priv.literalValue !== undefined) {
+        return isTypeSame(convertToInstance(filterType), varType);
+    }
+
+    // If the filter type represents all possible subclasses
+    // of a type, we can't make any statements about its superclass
+    // relationship with concreteVarType.
+    if (concreteFilterType.priv.includeSubclasses) {
+        return false;
+    }
+
+    if (ClassType.isDerivedFrom(concreteVarType, concreteFilterType)) {
+        return true;
+    }
+
+    // Handle the special case where the variable type is a TypedDict and
+    // we're filtering against 'dict'. TypedDict isn't derived from dict,
+    // but at runtime, isinstance returns True.
+    if (ClassType.isBuiltIn(concreteFilterType, 'dict') && ClassType.isTypedDictClass(concreteVarType)) {
+        return true;
+    }
+
+    return false;
 }
 
 // Attempts to narrow a type (make it more constrained) based on a comparison
