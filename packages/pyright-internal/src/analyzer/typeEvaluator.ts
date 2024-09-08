@@ -10061,21 +10061,17 @@ export function createTypeEvaluator(
                 if (expandedCallType.shared.name === 'type' && argList.length === 1) {
                     const argType = getTypeOfArg(argList[0], /* inferenceContext */ undefined).type;
                     const returnType = mapSubtypes(argType, (subtype) => {
-                        if (isInstantiableClass(subtype) && subtype.shared.effectiveMetaclass) {
-                            return subtype.shared.effectiveMetaclass;
-                        }
-
                         if (isNever(subtype)) {
                             return subtype;
                         }
 
-                        if (TypeBase.isInstance(subtype)) {
-                            if (isClass(subtype) || isTypeVar(subtype)) {
-                                return convertToInstantiable(stripLiteralValue(subtype));
-                            }
+                        if (isClass(subtype)) {
+                            return convertToInstantiable(stripLiteralValue(subtype));
+                        }
 
-                            if (isFunction(subtype)) {
-                                return FunctionType.cloneAsInstantiable(subtype);
+                        if (TypeBase.isInstance(subtype)) {
+                            if (isFunction(subtype) || isTypeVar(subtype)) {
+                                return convertToInstantiable(subtype);
                             }
                         }
 
