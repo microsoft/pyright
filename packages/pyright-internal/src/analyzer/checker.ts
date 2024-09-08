@@ -129,9 +129,9 @@ import {
 } from './typeEvaluatorTypes';
 import {
     getElementTypeForContainerNarrowing,
-    isIsinstanceFilterSubclass,
-    isIsinstanceFilterSuperclass,
+    getIsInstanceClassTypes,
     narrowTypeForContainerElementType,
+    narrowTypeForIsInstance,
 } from './typeGuards';
 import {
     AnyType,
@@ -175,7 +175,6 @@ import {
     applySolvedTypeVars,
     buildSolutionFromSpecializedClass,
     convertToInstance,
-    derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
     doForEachSubtype,
     getClassFieldsRecursive,
@@ -3891,203 +3890,51 @@ export class Checker extends ParseTreeWalker {
             curNode = curNode.parent;
         }
 
-        // Several built-in classes don't follow the normal class hierarchy
-        // rules, so we'll avoid emitting false-positive diagnostics if these
-        // are used.
-        const nonstandardClassTypes = [
-            'FunctionType',
-            'LambdaType',
-            'BuiltinFunctionType',
-            'BuiltinMethodType',
-            'type',
-            'Type',
-        ];
+        const classTypeList = getIsInstanceClassTypes(this._evaluator, arg1Type);
+        if (!classTypeList) {
+            return;
+        }
 
-        const classTypeList: ClassType[] = [];
-        let arg1IncludesSubclasses = false;
-
-        doForEachSubtype(arg1Type, (arg1Subtype) => {
-            if (isClass(arg1Subtype)) {
-                if (TypeBase.isInstantiable(arg1Subtype)) {
-                    if (arg1Subtype.priv.literalValue === undefined) {
-                        classTypeList.push(arg1Subtype);
-                        if (
-                            ClassType.isBuiltIn(arg1Subtype) &&
-                            nonstandardClassTypes.some((name) => name === arg1Subtype.shared.name)
-                        ) {
-                            isValidType = false;
-                        }
-
-                        if (arg1Subtype.priv.includeSubclasses) {
-                            arg1IncludesSubclasses = true;
-                        }
-                    }
-
-                    if (arg0Type) {
-                        this._validateUnsafeProtocolOverlap(
-                            node.d.args[0].d.valueExpr,
-                            convertToInstance(arg1Subtype),
-                            isInstanceCheck ? arg0Type : convertToInstance(arg0Type)
-                        );
-                    }
-                } else {
-                    // The isinstance and issubclass call supports a variation where the second
-                    // parameter is a tuple of classes.
-                    if (isTupleClass(arg1Subtype)) {
-                        if (arg1Subtype.priv.tupleTypeArgs) {
-                            arg1Subtype.priv.tupleTypeArgs.forEach((typeArg) => {
-                                if (isInstantiableClass(typeArg.type)) {
-                                    classTypeList.push(typeArg.type);
-
-                                    if (typeArg.type.priv.includeSubclasses) {
-                                        arg1IncludesSubclasses = true;
-                                    }
-
-                                    if (arg0Type) {
-                                        this._validateUnsafeProtocolOverlap(
-                                            node.d.args[0].d.valueExpr,
-                                            convertToInstance(typeArg.type),
-                                            isInstanceCheck ? arg0Type : convertToInstance(arg0Type)
-                                        );
-                                    }
-                                } else {
-                                    isValidType = false;
-                                }
-                            });
-                        }
-                    } else {
-                        if (arg1Subtype.priv.includeSubclasses) {
-                            arg1IncludesSubclasses = true;
-                        }
-                    }
-
-                    if (
-                        ClassType.isBuiltIn(arg1Subtype) &&
-                        nonstandardClassTypes.some((name) => name === arg1Subtype.shared.name)
-                    ) {
-                        isValidType = false;
-                    }
-                }
-            } else {
-                isValidType = false;
+        // Check for unsafe protocol overlaps.
+        classTypeList.forEach((filterType) => {
+            if (isInstantiableClass(filterType)) {
+                this._validateUnsafeProtocolOverlap(
+                    node.d.args[0].d.valueExpr,
+                    convertToInstance(filterType),
+                    isInstanceCheck ? arg0Type : convertToInstance(arg0Type)
+                );
             }
         });
 
-        if (!isValidType) {
-            return;
-        }
-
-        if (derivesFromAnyOrUnknown(arg0Type)) {
-            return;
-        }
-
-        const finalizeFilteredTypeList = (types: Type[]): Type => {
-            return combineTypes(types);
-        };
-
-        const filterType = (varType: ClassType): Type[] => {
-            const filteredTypes: Type[] = [];
-
-            for (const filterType of classTypeList) {
-                const filterIsSuperclass = isIsinstanceFilterSuperclass(
-                    this._evaluator,
-                    varType,
-                    varType,
-                    filterType,
-                    filterType,
-                    isInstanceCheck
-                );
-                const filterIsSubclass = isIsinstanceFilterSubclass(
-                    this._evaluator,
-                    varType,
-                    filterType,
-                    isInstanceCheck
-                );
-
-                // Normally, a class should never be both a subclass and a
-                // superclass. However, this can happen if one of the classes
-                // derives from an unknown type. In this case, we'll add an
-                // unknown type into the filtered type list to avoid any
-                // false positives.
-                const isClassRelationshipIndeterminate =
-                    filterIsSuperclass && filterIsSubclass && !ClassType.isSameGenericClass(varType, filterType);
-
-                if (isClassRelationshipIndeterminate) {
-                    filteredTypes.push(UnknownType.create());
-                } else if (filterIsSuperclass) {
-                    // If the variable type is a subclass of the isinstance
-                    // filter, we haven't learned anything new about the
-                    // variable type.
-                    filteredTypes.push(varType);
-                } else if (filterIsSubclass) {
-                    // If the variable type is a superclass of the isinstance
-                    // filter, we can narrow the type to the subclass.
-                    filteredTypes.push(filterType);
-                }
-            }
-
-            if (!isInstanceCheck) {
-                return filteredTypes;
-            }
-
-            // Make all instantiable classes into instances before returning them.
-            return filteredTypes.map((t) => (isInstantiableClass(t) ? ClassType.cloneAsInstance(t) : t));
-        };
-
-        let filteredType: Type;
-        if (isInstanceCheck && isClassInstance(arg0Type)) {
-            const remainingTypes = filterType(ClassType.cloneAsInstantiable(arg0Type));
-            filteredType = finalizeFilteredTypeList(remainingTypes);
-        } else if (!isInstanceCheck && isInstantiableClass(arg0Type)) {
-            const remainingTypes = filterType(arg0Type);
-            filteredType = finalizeFilteredTypeList(remainingTypes);
-        } else if (isUnion(arg0Type)) {
-            let remainingTypes: Type[] = [];
-            let foundAnyType = false;
-
-            doForEachSubtype(arg0Type, (subtype) => {
-                if (isAnyOrUnknown(subtype)) {
-                    foundAnyType = true;
-                }
-
-                if (isInstanceCheck && isClassInstance(subtype)) {
-                    remainingTypes = remainingTypes.concat(filterType(ClassType.cloneAsInstantiable(subtype)));
-                } else if (!isInstanceCheck && isInstantiableClass(subtype)) {
-                    remainingTypes = remainingTypes.concat(filterType(subtype));
-                }
-            });
-
-            filteredType = finalizeFilteredTypeList(remainingTypes);
-
-            // If we found an any or unknown type, all bets are off.
-            if (foundAnyType) {
-                return;
-            }
-        } else {
-            return;
-        }
-
-        const getTestType = () => {
-            const objTypeList = classTypeList.map((t) => ClassType.cloneAsInstance(t));
-            return combineTypes(objTypeList);
-        };
-
-        // If arg1IncludesSubclasses is true, it contains a Type[X] class rather than X. A Type[X]
-        // could be a subclass of X, so the "unnecessary isinstance check" may be legit.
-        if (!arg1IncludesSubclasses && isTypeSame(filteredType, arg0Type, { ignorePseudoGeneric: true })) {
-            this._evaluator.addDiagnostic(
-                DiagnosticRule.reportUnnecessaryIsInstance,
-                isInstanceCheck
-                    ? LocMessage.unnecessaryIsInstanceAlways().format({
-                          testType: this._evaluator.printType(arg0Type),
-                          classType: this._evaluator.printType(getTestType()),
-                      })
-                    : LocMessage.unnecessaryIsSubclassAlways().format({
-                          testType: this._evaluator.printType(arg0Type),
-                          classType: this._evaluator.printType(getTestType()),
-                      }),
+        // Check for unnecessary isinstance or issubclass calls.
+        if (this._fileInfo.diagnosticRuleSet.reportUnnecessaryIsInstance !== 'none') {
+            const narrowedTypeNegative = narrowTypeForIsInstance(
+                this._evaluator,
+                arg0Type,
+                classTypeList,
+                isInstanceCheck,
+                /* isTypeIsCheck */ false,
+                /* isPositiveTest */ false,
                 node
             );
+
+            if (isNever(narrowedTypeNegative)) {
+                const classType = combineTypes(classTypeList.map((t) => convertToInstance(t)));
+
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportUnnecessaryIsInstance,
+                    isInstanceCheck
+                        ? LocMessage.unnecessaryIsInstanceAlways().format({
+                              testType: this._evaluator.printType(arg0Type),
+                              classType: this._evaluator.printType(classType),
+                          })
+                        : LocMessage.unnecessaryIsSubclassAlways().format({
+                              testType: this._evaluator.printType(arg0Type),
+                              classType: this._evaluator.printType(classType),
+                          }),
+                    node
+                );
+            }
         }
     }
 

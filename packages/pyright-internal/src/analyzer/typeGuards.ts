@@ -71,6 +71,7 @@ import {
     computeMroLinearization,
     convertToInstance,
     convertToInstantiable,
+    derivesFromAnyOrUnknown,
     doForEachSubtype,
     getSpecializedTupleType,
     getTypeCondition,
@@ -1162,7 +1163,7 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
 // that accepts a single class, and a more complex form that accepts a tuple
 // of classes (including arbitrarily-nested tuples). This method determines
 // which form and returns a list of classes or undefined.
-function getIsInstanceClassTypes(
+export function getIsInstanceClassTypes(
     evaluator: TypeEvaluator,
     argType: Type
 ): (ClassType | TypeVarType | FunctionType)[] | undefined {
@@ -1305,7 +1306,7 @@ export function isIsinstanceFilterSubclass(
     return false;
 }
 
-function narrowTypeForIsInstance(
+export function narrowTypeForIsInstance(
     evaluator: TypeEvaluator,
     type: Type,
     filterTypes: Type[],
@@ -1544,6 +1545,8 @@ function narrowTypeForIsInstanceInternal(
                             isInstanceCheck ? newClassObjType : ClassType.cloneAsInstantiable(newClassObjType)
                         );
                     }
+                } else if (derivesFromAnyOrUnknown(varType)) {
+                    filteredTypes.push(addConditionToType(varType, conditions));
                 }
             } else if (isTypeVar(filterType) && TypeBase.isInstantiable(filterType)) {
                 // Handle the case where the filter type is Type[T] and the unexpanded
