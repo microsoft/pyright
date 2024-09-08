@@ -1484,12 +1484,20 @@ export function makeFunctionTypeVarsBound(type: FunctionType | OverloadedType): 
 
 export function makeTypeVarsBound<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[] | undefined): T;
 export function makeTypeVarsBound(type: Type, scopeIds: TypeVarScopeId[] | undefined): Type {
+    if (scopeIds && scopeIds.length === 0) {
+        return type;
+    }
+
     const transformer = new BoundTypeVarTransform(scopeIds);
     return transformer.apply(type, 0);
 }
 
 export function makeTypeVarsFree<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[]): T;
 export function makeTypeVarsFree(type: Type, scopeIds: TypeVarScopeId[]): Type {
+    if (scopeIds.length === 0) {
+        return type;
+    }
+
     const transformer = new FreeTypeVarTransform(scopeIds);
     return transformer.apply(type, 0);
 }
