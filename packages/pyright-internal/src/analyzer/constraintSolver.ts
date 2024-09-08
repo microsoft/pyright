@@ -13,7 +13,12 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
 import { ConstraintSolution, ConstraintSolutionSet } from './constraintSolution';
 import { ConstraintSet, ConstraintTracker, TypeVarConstraints } from './constraintTracker';
-import { maxSubtypesForInferredType, SolveConstraintsOptions, TypeEvaluator } from './typeEvaluatorTypes';
+import {
+    AssignTypeFlags,
+    maxSubtypesForInferredType,
+    SolveConstraintsOptions,
+    TypeEvaluator,
+} from './typeEvaluatorTypes';
 import {
     ClassType,
     combineTypes,
@@ -46,7 +51,6 @@ import {
 import {
     addConditionToType,
     applySolvedTypeVars,
-    AssignTypeFlags,
     buildSolutionFromSpecializedClass,
     convertToInstance,
     convertToInstantiable,

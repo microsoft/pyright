@@ -31,7 +31,14 @@ import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { getLastTypedDeclarationForSymbol } from './symbolUtils';
-import { Arg, EvaluatorUsage, TypeEvaluator, TypeResult, TypeResultWithNode } from './typeEvaluatorTypes';
+import {
+    Arg,
+    AssignTypeFlags,
+    EvaluatorUsage,
+    TypeEvaluator,
+    TypeResult,
+    TypeResultWithNode,
+} from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -58,7 +65,6 @@ import {
 } from './types';
 import {
     applySolvedTypeVars,
-    AssignTypeFlags,
     buildSolutionFromSpecializedClass,
     computeMroLinearization,
     getTypeVarScopeId,

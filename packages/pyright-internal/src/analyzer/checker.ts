@@ -121,6 +121,7 @@ import { getEffectiveExtraItemsEntryType, getTypedDictMembersForClass } from './
 import { maxCodeComplexity } from './typeEvaluator';
 import {
     Arg,
+    AssignTypeFlags,
     FunctionTypeResult,
     MemberAccessDeprecationInfo,
     Reachability,
@@ -169,7 +170,6 @@ import {
     isUnknown,
 } from './types';
 import {
-    AssignTypeFlags,
     ClassMember,
     MemberAccessFlags,
     applySolvedTypeVars,

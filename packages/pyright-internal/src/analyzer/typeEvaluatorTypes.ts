@@ -50,7 +50,7 @@ import {
     UnknownType,
     Variance,
 } from './types';
-import { AssignTypeFlags, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
+import { ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
 
 // Maximum number of unioned subtypes for an inferred type (e.g.
 // a list) before the type is considered an "Any".
@@ -514,6 +514,82 @@ export interface CallSiteEvaluationInfo {
 export interface SymbolDeclInfo {
     decls: Declaration[];
     synthesizedTypes: Type[];
+}
+
+export const enum AssignTypeFlags {
+    Default = 0,
+
+    // Require invariance with respect to class matching? Normally
+    // subclasses are allowed.
+    Invariant = 1 << 0,
+
+    // The caller has swapped the source and dest types because
+    // the types are contravariant. Perform type var matching
+    // on dest type vars rather than source type var.
+    Contravariant = 1 << 1,
+
+    // We're comparing type compatibility of two distinct recursive types.
+    // This has the potential of recursing infinitely. This flag allows us
+    // to detect the recursion after the first level of checking.
+    SkipRecursiveTypeCheck = 1 << 2,
+
+    // During TypeVar solving for a function call, this flag is set if
+    // this is the first of multiple passes. It adjusts certain heuristics
+    // for constraint solving.
+    ArgAssignmentFirstPass = 1 << 3,
+
+    // If the dest is not Any but the src is Any, treat it
+    // as incompatible. Also, treat all source TypeVars as their
+    // concrete counterparts. This option is used for validating
+    // whether overload signatures overlap.
+    OverloadOverlap = 1 << 4,
+
+    // When used in conjunction with OverloadOverlapCheck, look
+    // for partial overlaps. For example, `int | list` overlaps
+    // partially with `int | str`.
+    PartialOverloadOverlap = 1 << 5,
+
+    // For function types, skip the return type check.
+    SkipReturnTypeCheck = 1 << 6,
+
+    // In most cases, literals are stripped when assigning to a
+    // type variable. This overrides the standard behavior.
+    RetainLiteralsForTypeVar = 1 << 8,
+
+    // When validating the type of a self or cls parameter, allow
+    // a type mismatch. This is used in overload consistency validation
+    // because overloads can provide explicit type annotations for self
+    // or cls.
+    SkipSelfClsTypeCheck = 1 << 9,
+
+    // We're initially populating the constraints with an expected type,
+    // so TypeVars should match the specified type exactly rather than
+    // employing narrowing or widening. The variance context determines
+    // whether the upper bound, lower bound, or both are established.
+    PopulateExpectedType = 1 << 11,
+
+    // Used with PopulatingExpectedType, this flag indicates that a TypeVar
+    // constraint that is Unknown should be ignored.
+    SkipPopulateUnknownExpectedType = 1 << 12,
+
+    // Normally, when a class type is assigned to a TypeVar and that class
+    // hasn't previously been specialized, it will be specialized with
+    // default type arguments (typically "Unknown"). This flag skips
+    // this step.
+    AllowUnspecifiedTypeArgs = 1 << 13,
+
+    // Normally all special form classes are incompatible with type[T],
+    // but a few of them are allowed in the context of an isinstance
+    // or issubclass call.
+    AllowIsinstanceSpecialForms = 1 << 14,
+
+    // When comparing two methods, skip the type check for the "self" or "cls"
+    // parameters. This is used for variance inference and validation.
+    SkipSelfClsParamCheck = 1 << 15,
+
+    // Normally a protocol class object cannot be used as a source type. This
+    // option overrides this behavior.
+    AllowProtocolClassSource = 1 << 16,
 }
 
 export interface TypeEvaluator {

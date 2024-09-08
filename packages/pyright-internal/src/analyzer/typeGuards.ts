@@ -31,7 +31,7 @@ import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { getTypedDictMembersForClass } from './typedDicts';
-import { EvalFlags, TypeEvaluator } from './typeEvaluatorTypes';
+import { AssignTypeFlags, EvalFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
     ClassTypeFlags,
@@ -66,7 +66,6 @@ import {
 } from './types';
 import {
     addConditionToType,
-    AssignTypeFlags,
     ClassMember,
     computeMroLinearization,
     convertToInstance,

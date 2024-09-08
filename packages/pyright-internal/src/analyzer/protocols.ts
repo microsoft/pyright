@@ -18,7 +18,7 @@ import { DeclarationType } from './declaration';
 import { assignProperty } from './properties';
 import { Symbol } from './symbol';
 import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
-import { TypeEvaluator } from './typeEvaluatorTypes';
+import { AssignTypeFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
     FunctionType,
@@ -39,7 +39,6 @@ import {
 import {
     addSolutionForSelfType,
     applySolvedTypeVars,
-    AssignTypeFlags,
     ClassMember,
     containsLiteralType,
     lookUpClassMember,
