@@ -131,7 +131,7 @@ import {
     getElementTypeForContainerNarrowing,
     getIsInstanceClassTypes,
     narrowTypeForContainerElementType,
-    narrowTypeForIsInstance,
+    narrowTypeForInstanceOrSubclass,
 } from './typeGuards';
 import {
     AnyType,
@@ -3908,7 +3908,7 @@ export class Checker extends ParseTreeWalker {
 
         // Check for unnecessary isinstance or issubclass calls.
         if (this._fileInfo.diagnosticRuleSet.reportUnnecessaryIsInstance !== 'none') {
-            const narrowedTypeNegative = narrowTypeForIsInstance(
+            const narrowedTypeNegative = narrowTypeForInstanceOrSubclass(
                 this._evaluator,
                 arg0Type,
                 classTypeList,

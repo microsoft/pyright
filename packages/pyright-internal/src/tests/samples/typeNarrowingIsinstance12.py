@@ -41,6 +41,6 @@ def func5(val: str | int | Any):
 
 def func6(val: list[str] | Any):
     if isinstance(val, list):
-        reveal_type(val, expected_text="list[str]")
+        reveal_type(val, expected_text="list[str] | list[Unknown]")
     else:
         reveal_type(val, expected_text="Any")

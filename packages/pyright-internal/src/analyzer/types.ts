@@ -227,6 +227,10 @@ export namespace TypeBase {
         return type.props;
     }
 
+    export function getInstantiableDepth(type: TypeBase<any>) {
+        return type.props?.instantiableDepth ?? 0;
+    }
+
     export function setSpecialForm(type: TypeBase<any>, specialForm: ClassType | undefined) {
         TypeBase.addProps(type).specialForm = specialForm;
     }
