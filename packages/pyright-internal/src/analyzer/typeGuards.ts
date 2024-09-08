@@ -1290,17 +1290,7 @@ function narrowTypeForInstanceOrSubclassInternal(
 
             if (isMetaclassInstance(subtype) && !isTypeInstance) {
                 // Handle metaclass instances specially.
-                adjFilterTypes = filterTypes.map((filterType) => {
-                    // if (
-                    //     isInstantiableClass(filterType) &&
-                    //     filterType.props?.instantiableDepth === undefined &&
-                    //     filterType.shared.effectiveMetaclass
-                    // ) {
-                    //     return filterType.shared.effectiveMetaclass;
-                    // }
-
-                    return convertToInstantiable(filterType);
-                });
+                adjFilterTypes = filterTypes.map((filterType) => convertToInstantiable(filterType));
             } else {
                 const convSubtype = convertToInstance(subtype);
 
@@ -1718,7 +1708,6 @@ function narrowTypeForInstance(
             // on a constrained TypeVar that they want to filter based on its constrained
             // parts.
             const negativeFallback = getTypeCondition(subtype) ? subtype : unexpandedSubtype;
-            const isSubtypeMetaclass = isMetaclassInstance(subtype);
 
             if (isPositiveTest && isAnyOrUnknown(subtype)) {
                 // If this is a positive test and the effective type is Any or
@@ -1751,7 +1740,7 @@ function narrowTypeForInstance(
                 }
             }
 
-            if (isClassInstance(subtype)) {
+            if (isClass(subtype)) {
                 return combineTypes(
                     filterClassType(
                         unexpandedSubtype,
@@ -1764,20 +1753,6 @@ function narrowTypeForInstance(
 
             if (isFunction(subtype) || isOverloaded(subtype)) {
                 return combineTypes(filterFunctionType(subtype, convertToInstance(unexpandedSubtype)));
-            }
-
-            if (isInstantiableClass(subtype) || isSubtypeMetaclass) {
-                // Handle the special case of isinstance(x, metaclass).
-                const includesMetaclassType = filterTypes.some((classType) => isInstantiableMetaclass(classType));
-                const includesObject = filterTypes.some(
-                    (classType) => isInstantiableClass(classType) && ClassType.isBuiltIn(classType, 'object')
-                );
-
-                if (isPositiveTest) {
-                    return includesMetaclassType || includesObject ? negativeFallback : undefined;
-                } else {
-                    return includesMetaclassType ? undefined : negativeFallback;
-                }
             }
 
             return isPositiveTest ? undefined : negativeFallback;

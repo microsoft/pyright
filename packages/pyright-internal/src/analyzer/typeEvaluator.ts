@@ -23816,6 +23816,21 @@ export function createTypeEvaluator(
             }
         }
 
+        // If one or both of the types has an instantiable depth greater than
+        // zero, convert both to instances first.
+        if (TypeBase.isInstantiable(destType) && TypeBase.isInstantiable(srcType)) {
+            if (TypeBase.getInstantiableDepth(destType) > 0 || TypeBase.getInstantiableDepth(srcType) > 0) {
+                return assignType(
+                    convertToInstance(destType),
+                    convertToInstance(srcType),
+                    diag,
+                    constraints,
+                    flags,
+                    recursionCount
+                );
+            }
+        }
+
         // Transform recursive type aliases if necessary.
         const transformedDestType = transformPossibleRecursiveTypeAlias(destType);
         const transformedSrcType = transformPossibleRecursiveTypeAlias(srcType);
