@@ -49,7 +49,6 @@ import {
     isNever,
     isOverloaded,
     isParamSpec,
-    isSameWithoutLiteralValue,
     isTypeSame,
     isTypeVar,
     isUnpackedTypeVarTuple,
@@ -94,6 +93,7 @@ import {
     MemberAccessFlags,
     specializeTupleClass,
     specializeWithUnknownTypeArgs,
+    stripTypeForm,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 
@@ -2002,80 +2002,23 @@ export function getElementTypeForContainerNarrowing(containerType: Type) {
 }
 
 export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, referenceType: Type, elementType: Type) {
-    let canNarrow = true;
-    const elementTypeWithoutLiteral = evaluator.stripLiteralValue(elementType);
-
-    // Look for cases where one or more of the reference subtypes are
-    // supertypes of the element types. For example, if the element type
-    // is "int | str" and the reference type is "float | bytes", we can
-    // narrow the reference type to "float" because it is a supertype of "int".
-    const narrowedSupertypes = evaluator.mapSubtypesExpandTypeVars(
-        referenceType,
-        /* options */ undefined,
-        (referenceSubtype) => {
+    return evaluator.mapSubtypesExpandTypeVars(referenceType, /* options */ undefined, (referenceSubtype) => {
+        return mapSubtypes(elementType, (elementSubtype) => {
             if (isAnyOrUnknown(referenceSubtype)) {
-                canNarrow = false;
                 return referenceSubtype;
             }
 
-            // Handle "type" specially.
-            if (isClassInstance(referenceSubtype) && ClassType.isBuiltIn(referenceSubtype, 'type')) {
-                canNarrow = false;
-                return referenceSubtype;
+            if (evaluator.assignType(referenceSubtype, elementSubtype)) {
+                return stripTypeForm(addConditionToType(elementSubtype, referenceSubtype.props?.condition));
             }
 
-            if (evaluator.assignType(elementType, referenceSubtype)) {
-                return referenceSubtype;
-            }
-
-            if (evaluator.assignType(elementTypeWithoutLiteral, referenceSubtype)) {
-                return mapSubtypes(elementType, (elementSubtype) => {
-                    if (
-                        isClassInstance(elementSubtype) &&
-                        isSameWithoutLiteralValue(referenceSubtype, elementSubtype)
-                    ) {
-                        return elementSubtype;
-                    }
-                    return undefined;
-                });
+            if (evaluator.assignType(elementSubtype, referenceSubtype)) {
+                return stripTypeForm(addConditionToType(referenceSubtype, elementSubtype.props?.condition));
             }
 
             return undefined;
-        }
-    );
-
-    // Look for cases where one or more of the reference subtypes are
-    // subtypes of the element types. For example, if the element type
-    // is "int | str" and the reference type is "object", we can
-    // narrow the reference type to "int | str" because they are both
-    // subtypes of "object".
-    const narrowedSubtypes = evaluator.mapSubtypesExpandTypeVars(
-        elementType,
-        /* options */ undefined,
-        (elementSubtype) => {
-            if (isAnyOrUnknown(elementSubtype)) {
-                canNarrow = false;
-                return referenceType;
-            }
-
-            // Handle the special case where the reference type is a dict or Mapping and
-            // the element type is a TypedDict. In this case, we can't say whether there
-            // is a type overlap, so don't apply narrowing.
-            if (isClassInstance(referenceType) && ClassType.isBuiltIn(referenceType, ['dict', 'Mapping'])) {
-                if (isClassInstance(elementSubtype) && ClassType.isTypedDictClass(elementSubtype)) {
-                    return elementSubtype;
-                }
-            }
-
-            if (evaluator.assignType(referenceType, elementSubtype)) {
-                return elementSubtype;
-            }
-
-            return undefined;
-        }
-    );
-
-    return canNarrow ? combineTypes([narrowedSupertypes, narrowedSubtypes]) : referenceType;
+        });
+    });
 }
 
 // Attempts to narrow a type based on whether it is a TypedDict with
