@@ -34,3 +34,10 @@ def func4(val: int | ellipsis):
         reveal_type(val, expected_text="int")
     else:
         reveal_type(val, expected_text="EllipsisType")
+
+
+def func5(val: object):
+    if val is ...:
+        reveal_type(val, expected_text="EllipsisType")
+    else:
+        reveal_type(val, expected_text="object")
