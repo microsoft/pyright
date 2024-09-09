@@ -33,6 +33,7 @@ import { Symbol, SymbolFlags } from './symbol';
 import { getTypedDictMembersForClass } from './typedDicts';
 import { AssignTypeFlags, EvalFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
+    AnyType,
     ClassType,
     ClassTypeFlags,
     combineTypes,
@@ -204,7 +205,7 @@ export function getTypeNarrowingCallback(
                 if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
                     return (type: Type) => {
                         return {
-                            type: narrowTypeForIsEllipsis(evaluator, type, adjIsPositiveTest),
+                            type: narrowTypeForIsEllipsis(evaluator, testExpression, type, adjIsPositiveTest),
                             isIncomplete: false,
                         };
                     };
@@ -1120,10 +1121,15 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
 }
 
 // Handle type narrowing for expressions of the form "x is ..." and "x is not ...".
-function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean) {
+function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, node: ExpressionNode, type: Type, isPositiveTest: boolean) {
     const expandedType = mapSubtypes(type, (subtype) => {
         return transformPossibleRecursiveTypeAlias(subtype);
     });
+
+    const ellipsisType =
+        evaluator.getBuiltInObject(node, 'EllipsisType') ??
+        evaluator.getBuiltInObject(node, 'ellipsis') ??
+        AnyType.create();
 
     return evaluator.mapSubtypesExpandTypeVars(expandedType, /* options */ undefined, (subtype, unexpandedSubtype) => {
         if (isAnyOrUnknown(subtype)) {
@@ -1142,9 +1148,7 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
 
         // See if it's a match for object.
         if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
-            return isPositiveTest
-                ? addConditionToType(evaluator.getNoneType(), subtype.props?.condition)
-                : adjustedSubtype;
+            return isPositiveTest ? addConditionToType(ellipsisType, subtype.props?.condition) : adjustedSubtype;
         }
 
         const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['EllipsisType', 'ellipsis']);
