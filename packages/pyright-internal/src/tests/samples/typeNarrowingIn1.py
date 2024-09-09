@@ -4,16 +4,13 @@ from typing import Callable, Generic, Literal, ParamSpec, TypeVar, TypedDict
 import random
 
 
-def verify_str(p: str) -> None:
-    ...
+def verify_str(p: str) -> None: ...
 
 
-def verify_int(p: int) -> None:
-    ...
+def verify_int(p: int) -> None: ...
 
 
-def verify_none(p: None) -> None:
-    ...
+def verify_none(p: None) -> None: ...
 
 
 x: str | None
@@ -99,7 +96,7 @@ def func5(x: str | None, y: int | None, z: dict[str, str]):
 
 def func6(x: type):
     if x in (str, int, float, bool):
-        reveal_type(x, expected_text="type")
+        reveal_type(x, expected_text="type[str] | type[int] | type[float] | type[bool]")
     else:
         reveal_type(x, expected_text="type")
 
@@ -177,3 +174,13 @@ class Container(Generic[P]):
             raise ValueError("data is not allowed in kwargs")
 
         return self.func(*args, **kwargs)
+
+
+T13 = TypeVar("T13")
+
+
+def func13(x: type[T13]) -> type[T13]:
+    if x in (str, int, float):
+        reveal_type(x, expected_text="type[str]* | type[int]* | type[float]*")
+
+    return x
