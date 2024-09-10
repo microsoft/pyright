@@ -240,7 +240,7 @@ The following settings allow more fine grained control over the **typeCheckingMo
 ## Execution Environment Options
 Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with different import search paths or a different version of the python interpreter than the rest of the source base.
 
-The following settings can be specified for each execution environment.
+The following settings can be specified for each execution environment. Each source file within a project is associated with at most one execution environment -- the first one whose root directory contains that file.
 
 - **root** [string, required]: Root path for the code that will execute within this execution environment.
 
