@@ -48,7 +48,15 @@ import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import { ClassType, isFunction, isInstantiableClass, isNever, isUnknown, removeUnknownFromUnion } from './types';
+import {
+    ClassType,
+    isClassInstance,
+    isFunction,
+    isInstantiableClass,
+    isNever,
+    isUnknown,
+    removeUnknownFromUnion,
+} from './types';
 
 class TrackedImport {
     isAccessed = false;
@@ -426,6 +434,16 @@ export class TypeStubWriter extends ParseTreeWalker {
             }
         } else if (node.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation) {
             const valueExpr = node.d.leftExpr.d.valueExpr;
+
+            const declaredType = this._evaluator.getTypeOfAnnotation(node.d.leftExpr.d.annotation, {
+                varTypeAnnotation: true,
+                allowClassVar: true,
+            });
+
+            // Is this an explicit TypeAlias declaration?
+            if (isClassInstance(declaredType) && ClassType.isBuiltIn(declaredType, 'TypeAlias')) {
+                isTypeAlias = true;
+            }
 
             if (valueExpr.nodeType === ParseNodeType.Name) {
                 if (this._functionNestCount === 0) {
