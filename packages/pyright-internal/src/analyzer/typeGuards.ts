@@ -1634,6 +1634,45 @@ function narrowTypeForInstance(
                     if (isPositiveTest) {
                         filteredTypes.push(addConditionToType(filterType, concreteVarType.props?.condition));
                     }
+                } else if (allowIntersections && isPositiveTest) {
+                    // The type appears to not be callable. It's possible that the
+                    // two type is a subclass that is callable. We'll synthesize a
+                    // new intersection type.
+                    const className = `<callable subtype of ${concreteVarType.shared.name}>`;
+                    const fileInfo = getFileInfo(errorNode);
+                    let newClassType = ClassType.createInstantiable(
+                        className,
+                        ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
+                        fileInfo.moduleName,
+                        fileInfo.fileUri,
+                        ClassTypeFlags.None,
+                        ParseTreeUtils.getTypeSourceId(errorNode),
+                        /* declaredMetaclass */ undefined,
+                        concreteVarType.shared.effectiveMetaclass,
+                        concreteVarType.shared.docString
+                    );
+                    newClassType.shared.baseClasses = [concreteVarType];
+                    computeMroLinearization(newClassType);
+
+                    newClassType = addConditionToType(newClassType, concreteVarType.props?.condition);
+
+                    // Add a __call__ method to the new class.
+                    const callMethod = FunctionType.createSynthesizedInstance('__call__');
+                    const selfParam = FunctionParam.create(
+                        ParamCategory.Simple,
+                        ClassType.cloneAsInstance(newClassType),
+                        FunctionParamFlags.TypeDeclared,
+                        'self'
+                    );
+                    FunctionType.addParam(callMethod, selfParam);
+                    FunctionType.addDefaultParams(callMethod);
+                    callMethod.shared.declaredReturnType = UnknownType.create();
+                    ClassType.getSymbolTable(newClassType).set(
+                        '__call__',
+                        Symbol.createWithType(SymbolFlags.ClassMember, callMethod)
+                    );
+
+                    filteredTypes.push(ClassType.cloneAsInstance(newClassType));
                 }
             }
         }
@@ -1652,6 +1691,13 @@ function narrowTypeForInstance(
         return filteredTypes.map((t) => convertToInstance(t));
     };
 
+    const isFilterTypeCallbackProtocol = (filterType: Type) => {
+        return (
+            isInstantiableClass(filterType) &&
+            evaluator.getCallbackProtocolType(convertToInstance(filterType)) !== undefined
+        );
+    };
+
     const filterFunctionType = (varType: FunctionType | OverloadedType, unexpandedType: Type): Type[] => {
         const filteredTypes: Type[] = [];
 
@@ -1659,29 +1705,52 @@ function narrowTypeForInstance(
             for (const filterType of filterTypes) {
                 const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
-                if (evaluator.assignType(convertVarTypeToFree(varType), convertToInstance(concreteFilterType))) {
+                if (!isTypeIsCheck && isFilterTypeCallbackProtocol(concreteFilterType)) {
+                    filteredTypes.push(convertToInstance(varType));
+                } else if (evaluator.assignType(convertVarTypeToFree(varType), convertToInstance(concreteFilterType))) {
                     // If the filter type is a Callable, use the original type. If the
                     // filter type is a callback protocol, use the filter type.
                     if (isFunction(filterType)) {
-                        filteredTypes.push(unexpandedType);
+                        filteredTypes.push(convertToInstance(unexpandedType));
                     } else {
                         filteredTypes.push(convertToInstance(filterType));
                     }
+                } else if (evaluator.assignType(convertToInstance(convertVarTypeToFree(concreteFilterType)), varType)) {
+                    filteredTypes.push(convertToInstance(varType));
                 }
             }
-        } else if (
-            !filterTypes.some((filterType) => {
-                // If the filter type is a runtime checkable protocol class, it can
-                // be used in an instance check.
-                const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
-                if (isClass(concreteFilterType) && !ClassType.isProtocolClass(concreteFilterType)) {
-                    return false;
-                }
+        } else {
+            // If one or more filters does not always filter the type,
+            // we can't eliminate the type in the negative case.
+            if (
+                filterTypes.every((filterType) => {
+                    const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
-                return evaluator.assignType(convertVarTypeToFree(varType), convertToInstance(concreteFilterType));
-            })
-        ) {
-            filteredTypes.push(unexpandedType);
+                    // If the filter type is a callback protocol, the runtime
+                    // isinstance check will filter all objects that have a __call__
+                    // method regardless of their signature types.
+                    if (!isTypeIsCheck && isFilterTypeCallbackProtocol(concreteFilterType)) {
+                        return false;
+                    }
+
+                    if (isFunction(concreteFilterType) && FunctionType.isGradualCallableForm(concreteFilterType)) {
+                        return false;
+                    }
+
+                    const isSubtype = evaluator.assignType(
+                        convertToInstance(convertVarTypeToFree(concreteFilterType)),
+                        varType
+                    );
+                    const isSupertype = evaluator.assignType(
+                        convertVarTypeToFree(varType),
+                        convertToInstance(concreteFilterType)
+                    );
+
+                    return !isSubtype || isSupertype;
+                })
+            ) {
+                filteredTypes.push(convertToInstance(varType));
+            }
         }
 
         return filteredTypes;
@@ -1756,7 +1825,7 @@ function narrowTypeForInstance(
             }
 
             if (isFunction(subtype) || isOverloaded(subtype)) {
-                return combineTypes(filterFunctionType(subtype, convertToInstance(unexpandedSubtype)));
+                return combineTypes(filterFunctionType(subtype, unexpandedSubtype));
             }
 
             return isPositiveTest ? undefined : negativeFallback;
