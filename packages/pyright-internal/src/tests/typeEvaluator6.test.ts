@@ -143,6 +143,11 @@ test('TypeIs3', () => {
     TestUtils.validateResults(analysisResults, 5);
 });
 
+test('TypeIs4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Never1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['never1.py']);
 
