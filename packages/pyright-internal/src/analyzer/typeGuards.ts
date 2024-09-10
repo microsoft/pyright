@@ -2596,17 +2596,3 @@ function narrowTypeForCallable(
         }
     });
 }
-
-export class Animal {}
-export class Dog extends Animal {}
-
-export class Plant {}
-export class Tree extends Plant {}
-
-export function func1(val: Animal) {
-    if (val instanceof Tree) {
-        console.log(val);
-    } else {
-        console.log(val);
-    }
-}
