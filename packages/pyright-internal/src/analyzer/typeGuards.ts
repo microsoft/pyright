@@ -2533,6 +2533,12 @@ function narrowTypeForCallable(
                     return isPositiveTest ? subtype : undefined;
                 }
 
+                if (ClassType.isBuiltIn(subtype, 'object')) {
+                    return isPositiveTest
+                        ? addConditionToType(getUnknownTypeForCallable(), getTypeCondition(subtype))
+                        : subtype;
+                }
+
                 // See if the object is callable.
                 const callMemberType = lookUpClassMember(subtype, '__call__', MemberAccessFlags.SkipInstanceMembers);
 
