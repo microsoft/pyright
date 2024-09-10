@@ -1,4 +1,5 @@
 import sys
+from _typeshed import Unused
 from types import TracebackType
 from typing import ClassVar, Literal
 from typing_extensions import Self
@@ -22,9 +23,7 @@ def run_setup(setup_script, args): ...
 
 class AbstractSandbox:
     def __enter__(self) -> None: ...
-    def __exit__(
-        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None
-    ) -> None: ...
+    def __exit__(self, exc_type: Unused, exc_value: Unused, traceback: Unused) -> None: ...
     def run(self, func): ...
     # Dynamically created
     if sys.platform == "win32":

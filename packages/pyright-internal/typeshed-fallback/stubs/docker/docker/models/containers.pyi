@@ -203,7 +203,7 @@ class ContainerCollection(Collection[Container]):
         uts_mode: str | None = None,
         version: str | None = None,
         volume_driver: str | None = None,
-        volumes: dict[str, str] | list[str] | None = None,
+        volumes: dict[str, dict[str, str]] | list[str] | None = None,
         volumes_from: list[str] | None = None,
         working_dir: str | None = None,
     ) -> bytes: ...  # TODO: This should return a stream, if `stream` is True
@@ -298,7 +298,7 @@ class ContainerCollection(Collection[Container]):
         uts_mode: str | None = None,
         version: str | None = None,
         volume_driver: str | None = None,
-        volumes: dict[str, str] | list[str] | None = None,
+        volumes: dict[str, dict[str, str]] | list[str] | None = None,
         volumes_from: list[str] | None = None,
         working_dir: str | None = None,
     ) -> Container: ...
@@ -389,7 +389,7 @@ class ContainerCollection(Collection[Container]):
         uts_mode: str | None = None,
         version: str | None = None,
         volume_driver: str | None = None,
-        volumes: dict[str, str] | list[str] | None = None,
+        volumes: dict[str, dict[str, str]] | list[str] | None = None,
         volumes_from: list[str] | None = None,
         working_dir: str | None = None,
     ) -> Container: ...

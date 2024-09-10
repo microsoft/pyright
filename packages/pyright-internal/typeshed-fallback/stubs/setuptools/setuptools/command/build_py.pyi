@@ -1,12 +1,15 @@
 from _typeshed import Incomplete, StrPath
 from typing import ClassVar
 
+from setuptools.dist import Distribution
+
 from .._distutils.cmd import _StrPathT
 from .._distutils.command import build_py as orig
 
 def make_writable(target) -> None: ...
 
 class build_py(orig.build_py):
+    distribution: Distribution  # override distutils.dist.Distribution with setuptools.dist.Distribution
     editable_mode: ClassVar[bool]
     package_data: dict[str, list[str]]
     exclude_package_data: dict[Incomplete, Incomplete]

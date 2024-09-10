@@ -1,12 +1,14 @@
 from _typeshed import Incomplete
-from collections.abc import Iterable, Iterator
-from typing import Any, ClassVar, Literal, TypedDict, type_check_only
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any, ClassVar, Literal, TypedDict, TypeVar, type_check_only
 from typing_extensions import Self
 
 from pkg_resources import Environment
 from setuptools.package_index import PackageIndex
 
 from .. import Command, SetuptoolsDeprecationWarning
+
+_T = TypeVar("_T")
 
 __all__ = ["easy_install", "PthDistributions", "extract_wininst_cfg", "get_exe_prefixes"]
 
@@ -112,6 +114,8 @@ class RewritePthDistributions(PthDistributions):
     prelude: str
     postlude: str
 
+# Must match shutil._OnExcCallback
+def auto_chmod(func: Callable[..., _T], arg: str, exc: BaseException) -> _T: ...
 @type_check_only
 class _SplitArgs(TypedDict, total=False):
     comments: bool
@@ -123,7 +127,7 @@ class CommandSpec(list[str]):
     @classmethod
     def best(cls) -> type[CommandSpec]: ...
     @classmethod
-    def from_param(cls, param: str | Self | Iterable[str] | None) -> Self: ...
+    def from_param(cls, param: Self | str | Iterable[str] | None) -> Self: ...
     @classmethod
     def from_environment(cls) -> CommandSpec: ...
     @classmethod

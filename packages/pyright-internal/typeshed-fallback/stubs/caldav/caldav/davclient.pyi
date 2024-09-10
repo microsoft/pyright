@@ -58,9 +58,10 @@ class DAVClient:
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None
     ) -> None: ...
-    def principal(self, *, url: str | ParseResult | SplitResult | URL | None = ...) -> Principal: ...
+    def principal(self, *, url: str | ParseResult | SplitResult | URL | None = None) -> Principal: ...
     def calendar(
         self,
+        *,
         url: str | ParseResult | SplitResult | URL | None = ...,
         parent: DAVObject | None = ...,
         name: str | None = ...,

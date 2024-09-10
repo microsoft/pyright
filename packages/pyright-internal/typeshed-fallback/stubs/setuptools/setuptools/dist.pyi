@@ -34,6 +34,8 @@ _CommandT = TypeVar("_CommandT", bound=Command)
 __all__ = ["Distribution"]
 
 class Distribution(_Distribution):
+    include_package_data: bool | None
+    exclude_package_data: dict[str, list[str]] | None
     src_root: str | None
     dependency_links: list[str]
     setup_requires: list[str]

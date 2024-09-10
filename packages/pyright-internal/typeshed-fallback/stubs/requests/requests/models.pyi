@@ -6,6 +6,7 @@ from typing import Any
 from typing_extensions import Self
 
 from urllib3 import exceptions as urllib3_exceptions, fields, filepost, util
+from urllib3.response import HTTPResponse
 
 from . import auth, cookies, exceptions, hooks, status_codes, utils
 from .adapters import HTTPAdapter
@@ -116,7 +117,7 @@ class Response:
     _content: bytes | None  # undocumented
     status_code: int
     headers: CaseInsensitiveDict[str]
-    raw: Incomplete
+    raw: HTTPResponse | MaybeNone
     url: str
     encoding: str | None
     history: list[Response]
