@@ -1618,7 +1618,7 @@ function narrowTypeForInstance(
 
                 if (isCallable) {
                     if (isPositiveTest) {
-                        filteredTypes.push(varType);
+                        filteredTypes.push(convertToInstantiable(varType));
                     } else {
                         foundSuperclass = true;
                     }
@@ -1632,7 +1632,7 @@ function narrowTypeForInstance(
                     )
                 ) {
                     if (isPositiveTest) {
-                        filteredTypes.push(filterType);
+                        filteredTypes.push(addConditionToType(filterType, concreteVarType.props?.condition));
                     }
                 }
             }
