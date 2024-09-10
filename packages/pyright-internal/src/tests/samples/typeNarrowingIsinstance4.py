@@ -27,22 +27,22 @@ def check_callable1(val: Union[Callable[[int, str], None], Callable[[int], None]
     if isinstance(val, ClassA):
         reveal_type(val, expected_text="ClassA")
     else:
-        # This doesn't get narrowed because `Foo` is not a runtime checkable protocol.
+        # This doesn't get narrowed because `ClassA` is not a runtime checkable protocol.
         reveal_type(val, expected_text="((int, str) -> None) | ((int) -> None)")
 
 
 def check_callable2(val: Union[Callable[[int, str], None], Callable[[int], None]]):
     if isinstance(val, ClassB):
-        reveal_type(val, expected_text="ClassB")
+        reveal_type(val, expected_text="((int, str) -> None) | ((int) -> None)")
     else:
-        reveal_type(val, expected_text="(int, str) -> None")
+        reveal_type(val, expected_text="Never")
 
 
 def check_callable3(val: Union[Callable[[int, str], None], Callable[[int], None]]):
     if isinstance(val, ClassC):
-        reveal_type(val, expected_text="Never")
-    else:
         reveal_type(val, expected_text="((int, str) -> None) | ((int) -> None)")
+    else:
+        reveal_type(val, expected_text="Never")
 
 
 def check_callable4(val: Union[type, Callable[[int], None]]):

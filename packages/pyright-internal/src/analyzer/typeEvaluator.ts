@@ -27687,6 +27687,7 @@ export function createTypeEvaluator(
         getBoundMagicMethod,
         getTypeOfMagicMethodCall,
         bindFunctionToClassOrObject,
+        getCallbackProtocolType,
         getCallSignatureInfo,
         getAbstractSymbols,
         narrowConstrainedTypeVar,

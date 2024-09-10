@@ -734,6 +734,7 @@ export interface TypeEvaluator {
         diag?: DiagnosticAddendum,
         recursionCount?: number
     ) => FunctionType | OverloadedType | undefined;
+    getCallbackProtocolType: (objType: ClassType, recursionCount?: number) => FunctionType | OverloadedType | undefined;
     getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
     getAbstractSymbols: (classType: ClassType) => AbstractSymbol[];
     narrowConstrainedTypeVar: (node: ParseNode, typeVar: TypeVarType) => Type | undefined;
