@@ -770,7 +770,10 @@ export class TypeStubWriter extends ParseTreeWalker {
                     return 0;
                 });
 
-            if (sortedSymbols.length > 0) {
+            // Don't emit a "from __future__" import. Just ignore these
+            // because they have no meaning in stubs, and they must appear
+            // at the top of a file.
+            if (sortedSymbols.length > 0 && imp.importName !== '__future__') {
                 importStr += `from ${imp.importName} import `;
 
                 importStr += sortedSymbols
