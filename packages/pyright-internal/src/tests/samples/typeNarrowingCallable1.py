@@ -76,3 +76,10 @@ def test3(v: _T2) -> Union[_T2, int, str]:
     else:
         reveal_type(v, expected_text="int* | str*")
         return v
+
+
+def test4(v: type[int] | object):
+    if callable(v):
+        reveal_type(v, expected_text="type[int] | ((...) -> object)")
+    else:
+        reveal_type(v, expected_text="object")

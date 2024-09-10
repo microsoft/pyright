@@ -58,7 +58,6 @@ import {
     TupleTypeArg,
     Type,
     TypeBase,
-    TypeCategory,
     TypeCondition,
     TypedDictEntry,
     TypeVarType,
@@ -658,42 +657,6 @@ export function getTypeNarrowingCallback(
                             };
                         };
                     }
-                }
-            }
-        }
-
-        // Look for "callable(X)"
-        if (testExpression.d.args.length === 1) {
-            const arg0Expr = testExpression.d.args[0].d.valueExpr;
-            if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.d.leftExpr,
-                    EvalFlags.CallBaseDefaults
-                );
-                const callType = callTypeResult.type;
-
-                if (isFunction(callType) && FunctionType.isBuiltIn(callType, 'callable')) {
-                    return (type: Type) => {
-                        let narrowedType = narrowTypeForCallable(
-                            evaluator,
-                            type,
-                            isPositiveTest,
-                            testExpression,
-                            /* allowIntersections */ false
-                        );
-                        if (isPositiveTest && isNever(narrowedType)) {
-                            // Try again with intersections allowed.
-                            narrowedType = narrowTypeForCallable(
-                                evaluator,
-                                type,
-                                isPositiveTest,
-                                testExpression,
-                                /* allowIntersections */ true
-                            );
-                        }
-
-                        return { type: narrowedType, isIncomplete: !!callTypeResult.isIncomplete };
-                    };
                 }
             }
         }
@@ -2569,99 +2532,4 @@ export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassTy
     }
 
     return undefined;
-}
-
-// Attempts to narrow a type (make it more constrained) based on a
-// call to "callable". For example, if the original type of expression "x" is
-// Union[Callable[..., Any], Type[int], int], it would remove the "int" because
-// it's not callable.
-function narrowTypeForCallable(
-    evaluator: TypeEvaluator,
-    type: Type,
-    isPositiveTest: boolean,
-    errorNode: ExpressionNode,
-    allowIntersections: boolean
-): Type {
-    return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (subtype) => {
-        switch (subtype.category) {
-            case TypeCategory.Function:
-            case TypeCategory.Overloaded: {
-                return isPositiveTest ? subtype : undefined;
-            }
-
-            case TypeCategory.Module: {
-                return isPositiveTest ? undefined : subtype;
-            }
-
-            case TypeCategory.Class: {
-                if (isNoneInstance(subtype)) {
-                    return isPositiveTest ? undefined : subtype;
-                }
-
-                if (TypeBase.isInstantiable(subtype)) {
-                    return isPositiveTest ? subtype : undefined;
-                }
-
-                // See if the object is callable.
-                const callMemberType = lookUpClassMember(subtype, '__call__', MemberAccessFlags.SkipInstanceMembers);
-
-                if (!callMemberType) {
-                    if (!isPositiveTest) {
-                        return subtype;
-                    }
-
-                    if (allowIntersections) {
-                        // The type appears to not be callable. It's possible that the
-                        // two type is a subclass that is callable. We'll synthesize a
-                        // new intersection type.
-                        const className = `<callable subtype of ${subtype.shared.name}>`;
-                        const fileInfo = getFileInfo(errorNode);
-                        let newClassType = ClassType.createInstantiable(
-                            className,
-                            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
-                            fileInfo.moduleName,
-                            fileInfo.fileUri,
-                            ClassTypeFlags.None,
-                            ParseTreeUtils.getTypeSourceId(errorNode),
-                            /* declaredMetaclass */ undefined,
-                            subtype.shared.effectiveMetaclass,
-                            subtype.shared.docString
-                        );
-                        newClassType.shared.baseClasses = [ClassType.cloneAsInstantiable(subtype)];
-                        computeMroLinearization(newClassType);
-
-                        newClassType = addConditionToType(newClassType, subtype.props?.condition);
-
-                        // Add a __call__ method to the new class.
-                        const callMethod = FunctionType.createSynthesizedInstance('__call__');
-                        const selfParam = FunctionParam.create(
-                            ParamCategory.Simple,
-                            ClassType.cloneAsInstance(newClassType),
-                            FunctionParamFlags.TypeDeclared,
-                            'self'
-                        );
-                        FunctionType.addParam(callMethod, selfParam);
-                        FunctionType.addDefaultParams(callMethod);
-                        callMethod.shared.declaredReturnType = UnknownType.create();
-                        ClassType.getSymbolTable(newClassType).set(
-                            '__call__',
-                            Symbol.createWithType(SymbolFlags.ClassMember, callMethod)
-                        );
-
-                        return ClassType.cloneAsInstance(newClassType);
-                    }
-
-                    return undefined;
-                } else {
-                    return isPositiveTest ? subtype : undefined;
-                }
-            }
-
-            default: {
-                // For all other types, we can't determine whether it's
-                // callable or not, so we can't eliminate them.
-                return subtype;
-            }
-        }
-    });
 }
