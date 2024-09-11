@@ -109,6 +109,7 @@ interface SequencePatternInfo {
     entryTypes: Type[];
     isIndeterminateLength?: boolean;
     isTuple?: boolean;
+    isUnboundedTuple?: boolean;
 }
 
 interface MappingPatternInfo {
@@ -225,7 +226,7 @@ function narrowTypeBasedOnSequencePattern(
         // contains indeterminate-length entries or the tuple is of indeterminate
         // length.
         if (!isPositiveTest) {
-            if (entry.isIndeterminateLength) {
+            if (entry.isIndeterminateLength || entry.isUnboundedTuple) {
                 canNarrowTuple = false;
             }
 
@@ -1436,6 +1437,7 @@ function getSequencePatternInfo(
                             entryTypes: isDefiniteNoMatch ? [] : typeArgs.map((t) => t.type),
                             isIndeterminateLength: false,
                             isTuple: true,
+                            isUnboundedTuple: tupleIndeterminateIndex >= 0,
                             isDefiniteNoMatch,
                             isPotentialNoMatch,
                         });
@@ -1488,6 +1490,7 @@ function getSequencePatternInfo(
                                 entryTypes: isDefiniteNoMatch ? [] : typeArgs.map((t) => t.type),
                                 isIndeterminateLength: false,
                                 isTuple: true,
+                                isUnboundedTuple: tupleIndeterminateIndex >= 0,
                                 isDefiniteNoMatch,
                             });
                             return;
