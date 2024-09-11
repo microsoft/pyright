@@ -73,13 +73,7 @@ import { ParseNode } from '../../../parser/parseNodes';
 import { ParseFileResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
 import { PyrightFileSystem } from '../../../pyrightFileSystem';
-import {
-    NormalWorkspace,
-    WellKnownWorkspaceKinds,
-    Workspace,
-    WorkspacePythonPathKind,
-    createInitStatus,
-} from '../../../workspaceFactory';
+import { NormalWorkspace, WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
 import * as host from '../testHost';
 import { stringify } from '../utils';
@@ -97,7 +91,13 @@ import {
     TestCancellationToken,
 } from './fourSlashTypes';
 import { TestFeatures, TestLanguageService } from './testLanguageService';
-import { createVfsInfoFromFourSlashData, getMarkerByName, getMarkerName, getMarkerNames } from './testStateUtils';
+import {
+    createVfsInfoFromFourSlashData,
+    getMarkerByName,
+    getMarkerName,
+    getMarkerNames,
+    getRangeByMarkerName,
+} from './testStateUtils';
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
 
 export interface TextChange {
@@ -199,8 +199,6 @@ export class TestState {
         this.workspace = {
             workspaceName: 'test workspace',
             rootUri: Uri.file(vfsInfo.projectRoot, this.serviceProvider),
-            pythonPath: undefined,
-            pythonPathKind: WorkspacePythonPathKind.Mutable,
             kinds: [WellKnownWorkspaceKinds.Test],
             service: service,
             disableLanguageServices: false,
@@ -209,7 +207,6 @@ export class TestState {
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
-            pythonEnvironmentName: undefined,
         };
 
         const indexer = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexer]);
@@ -433,8 +430,7 @@ export class TestState {
     }
 
     getRangeByMarkerName(markerName: string): Range | undefined {
-        const marker = this.getMarkerByName(markerName);
-        return this.getRanges().find((r) => r.marker === marker);
+        return getRangeByMarkerName(this.testData, markerName);
     }
 
     goToBOF() {
@@ -1958,6 +1954,7 @@ export class TestState {
             backgroundAnalysisProgramFactory,
             configOptions,
             fileSystem: this.fs,
+            libraryReanalysisTimeProvider: () => 0,
         });
 
         // directly set files to track rather than using fileSpec from config

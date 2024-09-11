@@ -51,6 +51,7 @@ export class BackgroundAnalysisProgram {
             this._disableChecker,
             serviceId
         );
+        this._backgroundAnalysis?.setProgramView(this._program);
     }
 
     get configOptions() {
@@ -150,7 +151,7 @@ export class BackgroundAnalysisProgram {
 
     startAnalysis(token: CancellationToken): boolean {
         if (this._backgroundAnalysis) {
-            this._backgroundAnalysis.startAnalysis(this, token);
+            this._backgroundAnalysis.startAnalysis(token);
             return false;
         }
 
@@ -228,6 +229,7 @@ export class BackgroundAnalysisProgram {
         this._disposed = true;
         this._program.dispose();
         this._backgroundAnalysis?.shutdown();
+        this._backgroundAnalysis?.dispose();
     }
 
     enterEditMode() {
@@ -267,6 +269,7 @@ export class BackgroundAnalysisProgram {
                 fatalErrorOccurred: false,
                 configParseErrorOccurred: false,
                 elapsedTime: 0,
+                reason: 'tracking',
             });
         }
     }

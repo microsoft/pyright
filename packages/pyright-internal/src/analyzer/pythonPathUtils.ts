@@ -56,7 +56,7 @@ export function findPythonSearchPaths(
     importFailureInfo: string[],
     includeWatchPathsOnly?: boolean | undefined,
     workspaceRoot?: Uri | undefined
-): Uri[] | undefined {
+): Uri[] {
     importFailureInfo.push('Finding python search paths');
 
     if (configOptions.venvPath !== undefined && configOptions.venv) {

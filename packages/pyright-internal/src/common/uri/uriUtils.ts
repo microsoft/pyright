@@ -335,7 +335,7 @@ export function getDirectoryChangeKind(
     return 'Moved';
 }
 
-export function deduplicateFolders(listOfFolders: Uri[][]): Uri[] {
+export function deduplicateFolders(listOfFolders: Uri[][], excludes: Uri[] = []): Uri[] {
     const foldersToWatch = new Map<string, Uri>();
 
     listOfFolders.forEach((folders) => {
@@ -343,6 +343,12 @@ export function deduplicateFolders(listOfFolders: Uri[][]): Uri[] {
             if (foldersToWatch.has(p.key)) {
                 // Bail out on exact match.
                 return;
+            }
+
+            for (const exclude of excludes) {
+                if (p.startsWith(exclude)) {
+                    return;
+                }
             }
 
             for (const existing of foldersToWatch) {

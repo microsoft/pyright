@@ -29,6 +29,7 @@ export interface AnalysisResults {
     configParseErrorOccurred: boolean;
     elapsedTime: number;
     error?: Error | undefined;
+    reason: 'analysis' | 'tracking';
 }
 
 export interface RequiringAnalysisCount {
@@ -76,6 +77,7 @@ export function analyzeProgram(
                 fatalErrorOccurred: false,
                 configParseErrorOccurred: false,
                 elapsedTime,
+                reason: 'analysis',
             });
         }
     } catch (e: any) {
@@ -95,6 +97,7 @@ export function analyzeProgram(
             configParseErrorOccurred: false,
             elapsedTime: 0,
             error: debug.getSerializableError(e),
+            reason: 'analysis',
         });
     }
 
