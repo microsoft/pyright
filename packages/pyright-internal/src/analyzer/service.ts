@@ -36,6 +36,7 @@ import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import {
+    deduplicateFolders,
     FileSpec,
     getFileSpec,
     getFileSystemEntries,
@@ -105,7 +106,7 @@ export function getNextServiceId(name: string) {
 }
 
 export class AnalyzerService {
-    private readonly _options: AnalyzerServiceOptions;
+    protected readonly options: AnalyzerServiceOptions;
     private readonly _backgroundAnalysisProgram: BackgroundAnalysisProgram;
     private readonly _serviceProvider: ServiceProvider;
 
@@ -135,51 +136,51 @@ export class AnalyzerService {
         this._instanceName = instanceName;
 
         this._executionRootUri = Uri.empty();
-        this._options = options;
+        this.options = options;
 
-        this._options.serviceId = this._options.serviceId ?? getNextServiceId(instanceName);
-        this._options.console = options.console || new StandardConsole();
+        this.options.serviceId = this.options.serviceId ?? getNextServiceId(instanceName);
+        this.options.console = options.console || new StandardConsole();
 
         // Create local copy of the given service provider.
         this._serviceProvider = serviceProvider.clone();
 
         // Override the console and the file system if they were explicitly provided.
-        if (this._options.console) {
-            this._serviceProvider.add(ServiceKeys.console, this._options.console);
+        if (this.options.console) {
+            this._serviceProvider.add(ServiceKeys.console, this.options.console);
         }
-        if (this._options.fileSystem) {
-            this._serviceProvider.add(ServiceKeys.fs, this._options.fileSystem);
+        if (this.options.fileSystem) {
+            this._serviceProvider.add(ServiceKeys.fs, this.options.fileSystem);
         }
 
-        this._options.importResolverFactory = options.importResolverFactory ?? AnalyzerService.createImportResolver;
-        this._options.cancellationProvider = options.cancellationProvider ?? new DefaultCancellationProvider();
-        this._options.hostFactory = options.hostFactory ?? (() => new NoAccessHost());
+        this.options.importResolverFactory = options.importResolverFactory ?? AnalyzerService.createImportResolver;
+        this.options.cancellationProvider = options.cancellationProvider ?? new DefaultCancellationProvider();
+        this.options.hostFactory = options.hostFactory ?? (() => new NoAccessHost());
 
-        this._options.configOptions =
+        this.options.configOptions =
             options.configOptions ?? new ConfigOptions(Uri.file(process.cwd(), this._serviceProvider));
-        const importResolver = this._options.importResolverFactory(
+        const importResolver = this.options.importResolverFactory(
             this._serviceProvider,
-            this._options.configOptions,
-            this._options.hostFactory()
+            this.options.configOptions,
+            this.options.hostFactory()
         );
 
         this._backgroundAnalysisProgram =
-            this._options.backgroundAnalysisProgramFactory !== undefined
-                ? this._options.backgroundAnalysisProgramFactory(
-                      this._options.serviceId,
+            this.options.backgroundAnalysisProgramFactory !== undefined
+                ? this.options.backgroundAnalysisProgramFactory(
+                      this.options.serviceId,
                       this._serviceProvider,
-                      this._options.configOptions,
+                      this.options.configOptions,
                       importResolver,
-                      this._options.backgroundAnalysis,
-                      this._options.maxAnalysisTime
+                      this.options.backgroundAnalysis,
+                      this.options.maxAnalysisTime
                   )
                 : new BackgroundAnalysisProgram(
-                      this._options.serviceId,
+                      this.options.serviceId,
                       this._serviceProvider,
-                      this._options.configOptions,
+                      this.options.configOptions,
                       importResolver,
-                      this._options.backgroundAnalysis,
-                      this._options.maxAnalysisTime,
+                      this.options.backgroundAnalysis,
+                      this.options.maxAnalysisTime,
                       /* disableChecker */ undefined
                   );
     }
@@ -193,7 +194,7 @@ export class AnalyzerService {
     }
 
     get cancellationProvider() {
-        return this._options.cancellationProvider!;
+        return this.options.cancellationProvider!;
     }
 
     get librarySearchUrisToWatch() {
@@ -209,7 +210,7 @@ export class AnalyzerService {
     }
 
     get id() {
-        return this._options.serviceId!;
+        return this.options.serviceId!;
     }
 
     setServiceName(instanceName: string) {
@@ -223,7 +224,7 @@ export class AnalyzerService {
         fileSystem?: FileSystem
     ): AnalyzerService {
         const service = new AnalyzerService(instanceName, this._serviceProvider, {
-            ...this._options,
+            ...this.options,
             serviceId,
             backgroundAnalysis,
             skipScanningUserFiles: true,
@@ -477,6 +478,21 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.restart();
     }
 
+    protected getCancellationToken() {
+        if (!this._backgroundAnalysisCancellationSource) {
+            this._backgroundAnalysisCancellationSource = this.cancellationProvider.createCancellationTokenSource();
+        }
+        return this._backgroundAnalysisCancellationSource.token;
+    }
+
+    protected runAnalysis() {
+        // This creates a cancellation source only if it actually gets used.
+        const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(this.getCancellationToken());
+        if (moreToAnalyze) {
+            this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+        }
+    }
+
     protected applyConfigOptions(host: Host) {
         // Allocate a new import resolver because the old one has information
         // cached based on the previous config options.
@@ -508,15 +524,15 @@ export class AnalyzerService {
     }
 
     private get _console() {
-        return this._options.console!;
+        return this.options.console!;
     }
 
     private get _hostFactory() {
-        return this._options.hostFactory!;
+        return this.options.hostFactory!;
     }
 
     private get _importResolverFactory() {
-        return this._options.importResolverFactory!;
+        return this.options.importResolverFactory!;
     }
 
     private get _program() {
@@ -534,7 +550,7 @@ export class AnalyzerService {
     private get _watchForLibraryChanges() {
         return (
             !!this._commandLineOptions?.languageServerSettings.watchForLibraryChanges &&
-            !!this._options.libraryReanalysisTimeProvider
+            !!this.options.libraryReanalysisTimeProvider
         );
     }
 
@@ -1264,7 +1280,7 @@ export class AnalyzerService {
             } else {
                 this._console.error(`Import '${this._typeStubTargetImportName}' not found`);
             }
-        } else if (!this._options.skipScanningUserFiles) {
+        } else if (!this.options.skipScanningUserFiles) {
             let fileList: Uri[] = [];
             this._console.log(`Searching for source files`);
             fileList = this._getFileNamesFromFileSpecs();
@@ -1617,8 +1633,15 @@ export class AnalyzerService {
             this._executionRootUri
         );
 
-        const watchList = this._librarySearchUrisToWatch;
-        if (watchList && watchList.length > 0) {
+        // Make sure the watch list includes extra paths that are not part of user files.
+        // Sometimes, nested folders of the workspace are added as extra paths to import modules as top-level modules.
+        const extraPaths = this._configOptions
+            .getExecutionEnvironments()
+            .map((e) => e.extraPaths.filter((p) => !matchFileSpecs(this._configOptions, p, /* isFile */ false)))
+            .flat();
+
+        const watchList = deduplicateFolders([this._librarySearchUrisToWatch, extraPaths]);
+        if (watchList.length > 0) {
             try {
                 if (this._verboseOutput) {
                     this._console.info(`Adding fs watcher for library directories:\n ${watchList.join('\n')}`);
@@ -1695,7 +1718,7 @@ export class AnalyzerService {
             this._libraryReanalysisTimer = undefined;
 
             const handled = this._backgroundAnalysisProgram?.libraryUpdated();
-            this._options.libraryReanalysisTimeProvider?.libraryUpdated?.(handled);
+            this.options.libraryReanalysisTimeProvider?.libraryUpdated?.(handled);
         }
     }
 
@@ -1707,7 +1730,7 @@ export class AnalyzerService {
 
         this._clearLibraryReanalysisTimer();
 
-        const reanalysisTimeProvider = this._options.libraryReanalysisTimeProvider;
+        const reanalysisTimeProvider = this.options.libraryReanalysisTimeProvider;
         const backOffTimeInMS = reanalysisTimeProvider?.();
         if (!backOffTimeInMS) {
             // We don't support library reanalysis.
@@ -1863,14 +1886,9 @@ export class AnalyzerService {
                 this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
             }
 
-            // This creates a cancellation source only if it actually gets used.
-            this._backgroundAnalysisCancellationSource = this.cancellationProvider.createCancellationTokenSource();
-            const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(
-                this._backgroundAnalysisCancellationSource.token
-            );
-            if (moreToAnalyze) {
-                this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
-            }
+            // Now that the timer has fired, actually send the message to the BG thread to
+            // start the analysis.
+            this.runAnalysis();
         }, timeUntilNextAnalysisInMs);
     }
 
@@ -1884,6 +1902,7 @@ export class AnalyzerService {
                 fatalErrorOccurred: false,
                 configParseErrorOccurred: true,
                 elapsedTime: 0,
+                reason: 'analysis',
             });
         }
     }

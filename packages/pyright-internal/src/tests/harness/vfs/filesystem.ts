@@ -30,13 +30,13 @@ export interface DiffOptions {
 }
 
 export class TestFileSystemWatcher implements FileWatcher {
-    constructor(private _paths: Uri[], private _listener: FileWatcherEventHandler) {}
+    constructor(readonly paths: Uri[], private _listener: FileWatcherEventHandler) {}
     close() {
         // Do nothing.
     }
 
     fireFileChange(path: Uri, eventType: FileWatcherEventType): boolean {
-        if (this._paths.some((p) => path.startsWith(p))) {
+        if (this.paths.some((p) => path.startsWith(p))) {
             this._listener(eventType, path.getFilePath());
             return true;
         }
@@ -131,6 +131,10 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
      */
     get shadowRoot() {
         return this._shadowRoot;
+    }
+
+    get fileWatchers() {
+        return this._watchers;
     }
 
     /**

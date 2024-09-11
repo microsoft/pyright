@@ -135,7 +135,7 @@ export interface LanguageServerBaseInterface {
 }
 
 export interface LanguageServerInterface extends LanguageServerBaseInterface {
-    getWorkspaceForFile(fileUri: Uri): Promise<Workspace>;
+    getWorkspaceForFile(fileUri: Uri, pythonPath?: Uri): Promise<Workspace>;
 }
 
 export interface WindowService extends WindowInterface {
