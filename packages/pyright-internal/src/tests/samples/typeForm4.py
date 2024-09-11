@@ -2,12 +2,29 @@
 
 # pyright: reportMissingModuleSource=false
 
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    Concatenate,
+    Final,
+    Generic,
+    Literal,
+    LiteralString,
+    Never,
+    NewType,
+    NoReturn,
+    NotRequired,
+    Optional,
+    Required,
+    Type,
+    TypeAlias,
+    TypeGuard,
+    TypeVar,
+    Union,
+    Unpack,
+)
 import typing
-from typing import (Annotated, Any, Callable, Concatenate, Final, Generic,
-                    Literal, LiteralString, Never, NewType, NoReturn,
-                    NotRequired, Optional, Required, Type, TypeAlias,
-                    TypeGuard, TypeVar, Union, Unpack)
-
 from typing_extensions import ReadOnly, TypeForm, TypeIs
 
 type TA1 = int | str
