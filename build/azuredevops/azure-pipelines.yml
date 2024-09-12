@@ -63,6 +63,3 @@ extends:
               - script: |
                   npm install -g @vscode/vsce
                 displayName: 'Install vsce and dependencies'
-              - script: npx vsce generate-manifest -i $(System.ArtifactsDirectory)/$(VSIX_NAME) -o extension.manifest
-                displayName: 'Generate extension manifest'
-                workingDirectory: build_output
