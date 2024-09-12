@@ -60,6 +60,3 @@ extends:
                   SourceFolder: packages/vscode-pyright
                   Contents: '*.vsix'
                   TargetFolder: build_output
-              - script: |
-                  npm install -g @vscode/vsce
-                displayName: 'Install vsce and dependencies'
