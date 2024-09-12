@@ -108,7 +108,6 @@ extends:
 
               - task: PowerShell@2
                 displayName: 'Compare extension.manifest and extension.signature.p7s'
-                condition: eq('${{ parameters.signType }}', 'real')
                 inputs:
                   targetType: 'inline'
                   script: |
