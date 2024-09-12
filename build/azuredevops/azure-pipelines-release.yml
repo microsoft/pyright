@@ -186,7 +186,7 @@ extends:
                 displayName: 'Download Artifacts from Validation Job'
                 inputs:
                   buildType: 'current'
-                  artifactName: 'artifactName' # Replace with the name of your artifact
+                  artifactName: '$(ARTIFACT_NAME_VSIX)'
                   targetPath: '$(System.ArtifactsDirectory)'
               # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
               # Install dependencies and VS Code Extension Manager (vsce >= v2.26.1 needed)
