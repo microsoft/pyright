@@ -24193,7 +24193,11 @@ export function createTypeEvaluator(
 
         if (isClassInstance(destType)) {
             if (ClassType.isBuiltIn(destType, 'type')) {
-                if (isInstantiableClass(srcType) && isSpecialFormClass(srcType, flags)) {
+                if (
+                    isInstantiableClass(srcType) &&
+                    isSpecialFormClass(srcType, flags) &&
+                    TypeBase.getInstantiableDepth(srcType) === 0
+                ) {
                     return false;
                 }
 
