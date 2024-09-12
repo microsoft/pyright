@@ -22,8 +22,7 @@ extends:
     sdl:
       codeql:
         compiled:
-          enabled: false
-          justificationForDisabling: 'Running a scan on the Pyright-Build'
+          enabled: true
       sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
     pool:
       pool:
