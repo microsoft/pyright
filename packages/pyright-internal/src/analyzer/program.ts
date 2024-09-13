@@ -1492,7 +1492,7 @@ export class Program {
         // Only mutate if absolutely necessary otherwise we
         // can end up rebinding a lot of files we don't need to.
         if (
-            newImports.length > sourceFileInfo.imports.length ||
+            newImports.length !== sourceFileInfo.imports.length ||
             !newImports.every((i) => sourceFileInfo.imports.includes(i))
         ) {
             sourceFileInfo.mutate((s) => (s.imports = newImports));
