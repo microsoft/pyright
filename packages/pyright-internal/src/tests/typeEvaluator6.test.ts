@@ -140,7 +140,7 @@ test('TypeIs2', () => {
 
 test('TypeIs3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs3.py']);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeIs4', () => {
