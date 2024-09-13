@@ -195,13 +195,13 @@ extends:
               # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
               # Publish to Marketplace
               # see. stackoverflow.com/collectives/ci-cd/articles/76873787/publish-azure-devops-extensions-using-azure-workload-identity
-              # - task: AzureCLI@2
-              #   displayName: 'Publishing with Managed Identity'
-              #   inputs:
-              #     azureSubscription: PyrightPublishPipelineSecureConnectionWithManagedIdentity
-              #     scriptType: 'pscore'
-              #     scriptLocation: 'inlineScript'
-              #     inlineScript: |
-              #       az rest -u https://app.vssps.visualstudio.com/_apis/profile/profiles/me --resource 499b84ac-1321-427f-aa17-267ca6975798
-              #       $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
-              #       vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
+              # az rest -u https://app.vssps.visualstudio.com/_apis/profile/profiles/me --resource 499b84ac-1321-427f-aa17-267ca6975798
+              - task: AzureCLI@2
+                displayName: 'Publishing with Managed Identity'
+                inputs:
+                  azureSubscription: PyrightPublishPipelineSecureConnectionWithManagedIdentity
+                  scriptType: 'pscore'
+                  scriptLocation: 'inlineScript'
+                  inlineScript: |
+                    $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
+                    vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
