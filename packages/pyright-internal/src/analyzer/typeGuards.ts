@@ -1497,16 +1497,22 @@ function narrowTypeForInstance(
 
                         filteredTypes.push(addConditionToType(specializedFilterType, conditions));
                     } else if (ClassType.isSameGenericClass(concreteVarType, concreteFilterType)) {
-                        // Don't attempt to narrow in this case.
-                        if (
-                            concreteVarType.priv?.literalValue === undefined &&
-                            concreteFilterType.priv?.literalValue === undefined
-                        ) {
-                            const intersection = intersectSameClassType(evaluator, concreteVarType, concreteFilterType);
-                            filteredTypes.push(intersection ?? varType);
+                        if (!isTypeIsCheck) {
+                            // Don't attempt to narrow in this case.
+                            if (
+                                concreteVarType.priv?.literalValue === undefined &&
+                                concreteFilterType.priv?.literalValue === undefined
+                            ) {
+                                const intersection = intersectSameClassType(
+                                    evaluator,
+                                    concreteVarType,
+                                    concreteFilterType
+                                );
+                                filteredTypes.push(intersection ?? varType);
 
-                            // Don't attempt to narrow in the negative direction.
-                            isClassRelationshipIndeterminate = true;
+                                // Don't attempt to narrow in the negative direction.
+                                isClassRelationshipIndeterminate = true;
+                            }
                         }
                     } else if (
                         allowIntersections &&
