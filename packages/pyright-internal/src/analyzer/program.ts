@@ -1489,8 +1489,8 @@ export class Program {
                 newImports.push(newImport);
             }
         });
-        // Only mutate if absolutely necessary otherwise we
-        // can end up rebinding a lot of files we don't need to.
+
+        // Mutate only when necessary to avoid extra binding operations.
         if (
             newImports.length !== sourceFileInfo.imports.length ||
             !newImports.every((i) => sourceFileInfo.imports.includes(i))
