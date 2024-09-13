@@ -1496,7 +1496,12 @@ function narrowTypeForInstance(
                         }
 
                         filteredTypes.push(addConditionToType(specializedFilterType, conditions));
-                    } else if (ClassType.isSameGenericClass(concreteVarType, concreteFilterType)) {
+                    } else if (
+                        ClassType.isSameGenericClass(
+                            ClassType.cloneAsInstance(concreteVarType),
+                            ClassType.cloneAsInstance(concreteFilterType)
+                        )
+                    ) {
                         if (!isTypeIsCheck) {
                             // Don't attempt to narrow in this case.
                             if (
