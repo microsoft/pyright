@@ -32,177 +32,182 @@ TA4 = int | str
 type TA5[T] = int
 
 
+def tf[T](x: TypeForm[T]) -> TypeForm[T]: ...
+
+
 def func1():
-    t1 = int
-    reveal_type(t1, expected_text="type[int]")
+    t1 = tf(int)
+    reveal_type(t1, expected_text="TypeForm[int]")
 
-    t2 = int | str
-    reveal_type(t2, expected_text="UnionType & TypeForm[int | str]")
+    t2 = tf(int | str)
+    reveal_type(t2, expected_text="TypeForm[int | str]")
 
-    t3 = "int | str"
-    reveal_type(t3, expected_text="Literal['int | str'] & TypeForm[int | str]")
+    t3 = tf("int | str")
+    reveal_type(t3, expected_text="TypeForm[int | str]")
 
-    t4 = "int | 1"
-    reveal_type(t4, expected_text="Literal['int | 1']")
+    t5 = tf(Annotated[int, "meta"])
+    reveal_type(t5, expected_text="TypeForm[int]")
 
-    t5 = Annotated[int, "meta"]
-    reveal_type(t5, expected_text="Annotated & TypeForm[int]")
+    t5_alt1 = tf(tp.Annotated[int, "meta"])
+    reveal_type(t5_alt1, expected_text="TypeForm[int]")
 
-    t5_alt1 = tp.Annotated[int, "meta"]
-    reveal_type(t5_alt1, expected_text="Annotated & TypeForm[int]")
+    t6 = tf(Any)
+    reveal_type(t6, expected_text="TypeForm[Any]")
 
-    t6 = Any
-    reveal_type(t6, expected_text="type[Any]")
+    t6_alt1 = tf(tp.Any)
+    reveal_type(t6_alt1, expected_text="TypeForm[Any]")
 
-    t6_alt1 = tp.Any
-    reveal_type(t6_alt1, expected_text="type[Any]")
+    t7 = tf(type[int])
+    reveal_type(t7, expected_text="TypeForm[type[int]]")
 
-    t7 = type[int]
-    reveal_type(t7, expected_text="type[type[int]]")
+    t7_alt = tf(type)
+    reveal_type(t7_alt, expected_text="TypeForm[type]")
 
-    t7_alt = type
-    reveal_type(t7_alt, expected_text="type[type]")
+    t8 = tf(TA1)
+    reveal_type(t8, expected_text="TypeForm[int | str]")
 
-    t8 = TA1
-    reveal_type(t8, expected_text="TypeAliasType & TypeForm[TA1]")
+    t9 = tf(TA2[str])
+    reveal_type(t9, expected_text="TypeForm[list[str] | str]")
 
-    t9 = TA2[str]
-    reveal_type(t9, expected_text="TypeAliasType & TypeForm[TA2[str]]")
+    t9_alt = tf(TA2)
+    reveal_type(t9_alt, expected_text="TypeForm[list[T@TA2] | T@TA2]")
 
-    t9_alt = TA2
-    reveal_type(t9_alt, expected_text="TypeAliasType & TypeForm[TA2[Unknown]]")
+    t10 = tf(TA3)
+    reveal_type(t10, expected_text="TypeForm[int]")
 
-    t10 = TA3
-    reveal_type(t10, expected_text="Annotated & TypeForm[TA3]")
+    t11 = tf(TA4)
+    reveal_type(t11, expected_text="TypeForm[int | str]")
 
-    t11 = TA4
-    reveal_type(t11, expected_text="UnionType & TypeForm[TA4]")
+    t12 = tf(Literal[1, 2, 3])
+    reveal_type(t12, expected_text="TypeForm[Literal[1, 2, 3]]")
 
-    t12 = Literal[1, 2, 3]
-    reveal_type(t12, expected_text="UnionType & TypeForm[Literal[1, 2, 3]]")
+    t12_alt1 = tf(tp.Literal[1, 2, 3])
+    reveal_type(t12_alt1, expected_text="TypeForm[Literal[1, 2, 3]]")
 
-    t12_alt1 = tp.Literal[1, 2, 3]
-    reveal_type(t12_alt1, expected_text="UnionType & TypeForm[Literal[1, 2, 3]]")
+    t13 = tf(Optional[str])
+    reveal_type(t13, expected_text="TypeForm[str | None]")
 
-    t13 = Optional[str]
-    reveal_type(t13, expected_text="UnionType & TypeForm[str | None]")
+    t13_alt1 = tf(tp.Optional[str])
+    reveal_type(t13_alt1, expected_text="TypeForm[str | None]")
 
-    t13_alt1 = tp.Optional[str]
-    reveal_type(t13_alt1, expected_text="UnionType & TypeForm[str | None]")
+    t14 = tf(Union[list[int], str])
+    reveal_type(t14, expected_text="TypeForm[list[int] | str]")
 
-    t14 = Union[list[int], str]
-    reveal_type(t14, expected_text="UnionType & TypeForm[list[int] | str]")
+    t14_alt1 = tf(tp.Union[list[int], str])
+    reveal_type(t14_alt1, expected_text="TypeForm[list[int] | str]")
 
-    t14_alt1 = tp.Union[list[int], str]
-    reveal_type(t14_alt1, expected_text="UnionType & TypeForm[list[int] | str]")
+    t15 = tf(TypeGuard[int])
+    reveal_type(t15, expected_text="TypeForm[TypeGuard[int]]")
 
-    t15 = TypeGuard[int]
-    reveal_type(t15, expected_text="type[TypeGuard[int]]")
+    t15_alt1 = tf(tp.TypeGuard[int])
+    reveal_type(t15_alt1, expected_text="TypeForm[TypeGuard[int]]")
 
-    t15_alt1 = tp.TypeGuard[int]
-    reveal_type(t15_alt1, expected_text="type[TypeGuard[int]]")
+    t16 = tf(TypeIs[str])
+    reveal_type(t16, expected_text="TypeForm[TypeIs[str]]")
 
-    t16 = TypeIs[str]
-    reveal_type(t16, expected_text="type[TypeIs[str]]")
+    t17 = tf(Callable[[int], None])
+    reveal_type(t17, expected_text="TypeForm[(int) -> None]")
 
-    t17 = Callable[[int], None]
-    reveal_type(t17, expected_text="Callable & TypeForm[(int) -> None]")
-
-    t17_alt1 = tp.Callable[[int], None]
-    reveal_type(t17_alt1, expected_text="Callable & TypeForm[(int) -> None]")
+    t17_alt1 = tf(tp.Callable[[int], None])
+    reveal_type(t17_alt1, expected_text="TypeForm[(int) -> None]")
 
     t18 = list
-    reveal_type(t18, expected_text="type[list[Unknown]]")
-    reveal_type(t18[int], expected_text="type[list[int]]")
+    reveal_type(tf(t18), expected_text="TypeForm[list[Unknown]]")
+    reveal_type(tf(t18[int]), expected_text="TypeForm[list[int]]")
 
-    t19 = list | dict
+    t19 = tf(list | dict)
     reveal_type(
         t19,
-        expected_text="UnionType & TypeForm[list[Unknown] | dict[Unknown, Unknown]]",
+        expected_text="TypeForm[list[Unknown] | dict[Unknown, Unknown]]",
     )
 
     t20 = tuple
-    reveal_type(t20, expected_text="type[tuple[Unknown, ...]]")
-    reveal_type(t20[()], expected_text="type[tuple[()]]")
-    reveal_type(t20[int, ...], expected_text="type[tuple[int, ...]]")
+    reveal_type(tf(t20), expected_text="TypeForm[tuple[Unknown, ...]]")
+    reveal_type(tf(t20[()]), expected_text="TypeForm[tuple[()]]")
+    reveal_type(tf(t20[int, ...]), expected_text="TypeForm[tuple[int, ...]]")
 
-    t21 = tuple[()]
-    reveal_type(t21, expected_text="type[tuple[()]]")
+    t21 = tf(tuple[()])
+    reveal_type(t21, expected_text="TypeForm[tuple[()]]")
 
-    t22 = tuple[int, *tuple[str, ...], int]
-    reveal_type(t22, expected_text="type[tuple[int, *tuple[str, ...], int]]")
+    t22 = tf(tuple[int, *tuple[str, ...], int])
+    reveal_type(t22, expected_text="TypeForm[tuple[int, *tuple[str, ...], int]]")
 
-    t23 = TA5
-    reveal_type(t23, expected_text="TypeAliasType & TypeForm[TA5[Unknown]]")
+    t23 = tf(TA5)
+    reveal_type(t23, expected_text="TypeForm[int]")
 
-    t24 = str | None
-    reveal_type(t24, expected_text="UnionType & TypeForm[str | None]")
+    t24 = tf(str | None)
+    reveal_type(t24, expected_text="TypeForm[str | None]")
 
-    t25 = None
-    reveal_type(t25, expected_text="None")
+    t25 = tf(None)
+    reveal_type(t25, expected_text="TypeForm[None]")
+
+    t26 = tf(LiteralString)
+    reveal_type(t26, expected_text="TypeForm[LiteralString]")
 
 
 def func2[T](x: T) -> T:
-    t1 = str | T
-    reveal_type(t1, expected_text="UnionType & TypeForm[str | T@func2]")
+    t1 = tf(str | T)
+    reveal_type(t1, expected_text="TypeForm[str | T@func2]")
 
-    t2 = type[T]
-    reveal_type(t2, expected_text="type[type[T@func2]]")
+    t2 = tf(type[T])
+    reveal_type(t2, expected_text="TypeForm[type[T@func2]]")
 
     return x
 
 
 def func3[**P, R](x: Callable[P, R]) -> Callable[P, R]:
-    t1 = Callable[Concatenate[int, P], R]
-    reveal_type(t1, expected_text="Callable & TypeForm[(int, **P@func3) -> R@func3]")
+    t1 = tf(Callable[Concatenate[int, P], R])
+    reveal_type(t1, expected_text="TypeForm[(int, **P@func3) -> R@func3]")
 
     return x
 
 
 def func4():
-    t1 = Never
-    reveal_type(t1, expected_text="type[Never]")
+    t1 = tf(Never)
+    reveal_type(t1, expected_text="TypeForm[Never]")
 
-    t1_alt1 = tp.Never
-    reveal_type(t1_alt1, expected_text="type[Never]")
+    t1_alt1 = tf(tp.Never)
+    reveal_type(t1_alt1, expected_text="TypeForm[Never]")
 
-    t2 = NoReturn
-    reveal_type(t2, expected_text="type[NoReturn]")
+    t2 = tf(NoReturn)
+    reveal_type(t2, expected_text="TypeForm[NoReturn]")
 
-    t3 = Type[int]
-    reveal_type(t3, expected_text="type[Type[int]] & TypeForm[type[int]]")
+    t3 = tf(Type[int])
+    reveal_type(t3, expected_text="TypeForm[type[int]]")
 
-    t3_alt1 = tp.Type[int]
-    reveal_type(t3_alt1, expected_text="type[Type[int]] & TypeForm[type[int]]")
+    t3_alt1 = tf(tp.Type[int])
+    reveal_type(t3_alt1, expected_text="TypeForm[type[int]]")
 
 
 def func5():
-    t1 = Generic
-    reveal_type(t1, expected_text="type[Generic]")
+    t1 = tf(TypeForm[int | str])
+    reveal_type(t1, expected_text="TypeForm[TypeForm[int | str]]")
 
-    t2 = Final
-    reveal_type(t2, expected_text="type[Final]")
+    t2 = tf(TypeForm[TypeForm[int | str]])
+    reveal_type(t2, expected_text="TypeForm[TypeForm[TypeForm[int | str]]]")
 
-    t3 = Final[int]
-    reveal_type(t3, expected_text="type[Final]")
 
-    t4 = Concatenate[int]
-    reveal_type(t4, expected_text="type[Concatenate]")
+def func6():
+    # This should generate an error.
+    t1 = tf(Generic)
 
-    t5 = Unpack[int]
-    reveal_type(t5, expected_text="type[Unpack]")
+    # This should generate an error.
+    t2 = tf(Final)
 
-    t6 = Required[int]
-    reveal_type(t6, expected_text="type[Required]")
+    # This should generate an error.
+    t3 = tf(Final[int])
 
-    t7 = NotRequired[int]
-    reveal_type(t7, expected_text="type[NotRequired]")
+    # This should generate an error.
+    t4 = tf(Concatenate[int])
 
-    t8 = ReadOnly[int]
-    reveal_type(t8, expected_text="type[ReadOnly]")
+    # This should generate an error.
+    t5 = tf(Unpack[int])
 
-    t9 = LiteralString
-    reveal_type(t9, expected_text="type[LiteralString]")
+    # This should generate an error.
+    t6 = tf(Required[int])
 
-    t10 = TypeForm[int | str]
-    reveal_type(t10, expected_text="type[TypeForm[int | str]]")
+    # This should generate an error.
+    t7 = tf(NotRequired[int])
+
+    # This should generate an error.
+    t8 = tf(ReadOnly[int])

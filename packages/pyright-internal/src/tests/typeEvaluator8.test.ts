@@ -930,7 +930,7 @@ test('TypeForm2', () => {
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm2.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypeForm3', () => {
@@ -962,5 +962,5 @@ test('TypeForm6', () => {
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm6.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 8);
 });
