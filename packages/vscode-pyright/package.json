@@ -1156,7 +1156,7 @@
                                 "string",
                                 "boolean"
                             ],
-                            "description": "Diagnostics for 'isinstance' or 'issubclass' calls where the result is statically determined to be always true. Such calls are often indicative of a programming error.",
+                            "description": "Diagnostics for 'isinstance' or 'issubclass' calls where the result is statically determined to be always (or never) true. Such calls are often indicative of a programming error.",
                             "default": "none",
                             "enum": [
                                 "none",
