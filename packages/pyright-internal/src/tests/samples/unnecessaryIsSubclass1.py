@@ -1,4 +1,4 @@
-# This sample tests unnecessary issubclass error reporting.
+# This sample tests issubclass calls that always evaluate to true.
 
 
 def func1(p1: type[int], p2: type[int] | type[str]):
