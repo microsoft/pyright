@@ -3918,20 +3918,35 @@ export class Checker extends ParseTreeWalker {
                 node
             );
 
-            if (isNever(narrowedTypeNegative)) {
+            const narrowedTypePositive = narrowTypeForInstanceOrSubclass(
+                this._evaluator,
+                arg0Type,
+                classTypeList,
+                isInstanceCheck,
+                /* isTypeIsCheck */ false,
+                /* isPositiveTest */ true,
+                node
+            );
+
+            const isAlwaysTrue = isNever(narrowedTypeNegative);
+            const isNeverTrue = isNever(narrowedTypePositive);
+
+            if (isAlwaysTrue || isNeverTrue) {
                 const classType = combineTypes(classTypeList.map((t) => convertToInstance(t)));
+                const messageTemplate = isAlwaysTrue
+                    ? isInstanceCheck
+                        ? LocMessage.unnecessaryIsInstanceAlways()
+                        : LocMessage.unnecessaryIsSubclassAlways()
+                    : isInstanceCheck
+                    ? LocMessage.unnecessaryIsInstanceNever()
+                    : LocMessage.unnecessaryIsSubclassNever();
 
                 this._evaluator.addDiagnostic(
                     DiagnosticRule.reportUnnecessaryIsInstance,
-                    isInstanceCheck
-                        ? LocMessage.unnecessaryIsInstanceAlways().format({
-                              testType: this._evaluator.printType(arg0Type),
-                              classType: this._evaluator.printType(classType),
-                          })
-                        : LocMessage.unnecessaryIsSubclassAlways().format({
-                              testType: this._evaluator.printType(arg0Type),
-                              classType: this._evaluator.printType(classType),
-                          }),
+                    messageTemplate.format({
+                        testType: this._evaluator.printType(arg0Type),
+                        classType: this._evaluator.printType(classType),
+                    }),
                     node
                 );
             }

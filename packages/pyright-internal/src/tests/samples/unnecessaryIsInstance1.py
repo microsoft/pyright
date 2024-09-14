@@ -1,4 +1,4 @@
-# This sample tests unnecessary isinstance error reporting.
+# This sample tests for isinstance calls that always evaluate to true.
 
 from typing import ClassVar, Protocol, TypedDict, runtime_checkable
 from unknown_import import CustomClass1
