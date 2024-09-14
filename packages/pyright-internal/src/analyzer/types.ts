@@ -1301,6 +1301,15 @@ export namespace ClassType {
             return false;
         }
 
+        // Handle type[] specially.
+        if (TypeBase.getInstantiableDepth(classType) > 0) {
+            return TypeBase.isInstantiable(type2) || ClassType.isBuiltIn(type2, 'type');
+        }
+
+        if (TypeBase.getInstantiableDepth(type2) > 0) {
+            return TypeBase.isInstantiable(classType) || ClassType.isBuiltIn(classType, 'type');
+        }
+
         const class1Details = classType.shared;
         const class2Details = type2.shared;
 
