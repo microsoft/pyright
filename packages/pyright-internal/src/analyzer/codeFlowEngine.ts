@@ -1821,7 +1821,7 @@ export function getCodeFlowEngine(
     }
 
     function isFunctionNoReturn(functionType: FunctionType, isCallAwaited: boolean) {
-        const returnType = functionType.shared.declaredReturnType;
+        const returnType = FunctionType.getEffectiveReturnType(functionType, /* includeInferred */ false);
         if (returnType) {
             if (
                 isClassInstance(returnType) &&
