@@ -5421,6 +5421,10 @@ export function createTypeEvaluator(
         const isNotRequired = false;
         let memberAccessDeprecationInfo: MemberAccessDeprecationInfo | undefined;
 
+        if (usage?.setType?.isIncomplete) {
+            isIncomplete = true;
+        }
+
         // If the base type was incomplete and unbound, don't proceed
         // because false positive errors will be generated.
         if (baseTypeResult.isIncomplete && isUnbound(baseType)) {
@@ -24074,7 +24078,7 @@ export function createTypeEvaluator(
             // If both the source and dest are unions, use assignFromUnionType which has
             // special-case logic to handle this case.
             if (isUnion(srcType)) {
-                return assignFromUnionType(destType, srcType, /* diag */ undefined, constraints, flags, recursionCount);
+                return assignFromUnionType(destType, srcType, diag, constraints, flags, recursionCount);
             }
 
             const clonedConstraints = constraints?.clone();
