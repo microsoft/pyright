@@ -22311,7 +22311,7 @@ export function createTypeEvaluator(
                     includesVariableDecl: includesVariableTypeDecl(typedDecls),
                     includesIllegalTypeAliasDecl: !typedDecls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
                     includesSpeculativeResult: false,
-                    isRecursiveDefinition: !declaredType,
+                    isRecursiveDefinition: !declaredType && !speculativeTypeTracker.isSpeculative(/* node */ undefined),
                 };
 
                 return result;
