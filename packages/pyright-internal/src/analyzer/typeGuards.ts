@@ -1534,9 +1534,7 @@ function narrowTypeForInstance(
                             newClassType = addConditionToType(newClassType, [{ typeVar: varType, constraintIndex: 0 }]);
                         }
 
-                        let newClassObjType = ClassType.cloneAsInstance(newClassType);
-                        newClassObjType = addConditionToType(newClassObjType, concreteVarType.props?.condition);
-                        filteredTypes.push(newClassObjType);
+                        filteredTypes.push(addConditionToType(newClassType, concreteVarType.props?.condition));
                     }
                 } else {
                     if (isAnyOrUnknown(varType)) {
