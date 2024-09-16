@@ -2641,6 +2641,7 @@ export function createTypeEvaluator(
     // Determines whether the specified expression is a symbol with a declared type.
     function getDeclaredTypeForExpression(expression: ExpressionNode, usage?: EvaluatorUsage): Type | undefined {
         let symbol: Symbol | undefined;
+        let selfType: ClassType | TypeVarType | undefined;
         let classOrObjectBase: ClassType | undefined;
         let memberAccessClass: Type | undefined;
         let bindFunction = true;
@@ -2683,18 +2684,17 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.MemberAccess: {
-                const baseType = makeTopLevelTypeVarsConcrete(
-                    getTypeOfExpression(expression.d.leftExpr, EvalFlags.MemberAccessBaseDefaults).type
-                );
+                const baseType = getTypeOfExpression(expression.d.leftExpr, EvalFlags.MemberAccessBaseDefaults).type;
+                const baseTypeConcrete = makeTopLevelTypeVarsConcrete(baseType);
                 let classMemberInfo: ClassMember | undefined;
 
-                if (isClassInstance(baseType)) {
+                if (isClassInstance(baseTypeConcrete)) {
                     classMemberInfo = lookUpObjectMember(
-                        baseType,
+                        baseTypeConcrete,
                         expression.d.member.d.value,
                         MemberAccessFlags.DeclaredTypesOnly
                     );
-                    classOrObjectBase = baseType;
+                    classOrObjectBase = baseTypeConcrete;
                     memberAccessClass = classMemberInfo?.classType;
 
                     // If this is an instance member (e.g. a dataclass field), don't
@@ -2704,14 +2704,18 @@ export function createTypeEvaluator(
                     }
 
                     useDescriptorSetterType = true;
-                } else if (isInstantiableClass(baseType)) {
+                } else if (isInstantiableClass(baseTypeConcrete)) {
                     classMemberInfo = lookUpClassMember(
-                        baseType,
+                        baseTypeConcrete,
                         expression.d.member.d.value,
                         MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
                     );
-                    classOrObjectBase = baseType;
+                    classOrObjectBase = baseTypeConcrete;
                     memberAccessClass = classMemberInfo?.classType;
+                }
+
+                if (isTypeVar(baseType)) {
+                    selfType = baseType;
                 }
 
                 if (classMemberInfo) {
@@ -2765,12 +2769,23 @@ export function createTypeEvaluator(
 
                 if (classOrObjectBase) {
                     if (memberAccessClass && isInstantiableClass(memberAccessClass)) {
-                        declaredType = partiallySpecializeType(declaredType, memberAccessClass, getTypeClassType());
+                        declaredType = partiallySpecializeType(
+                            declaredType,
+                            memberAccessClass,
+                            getTypeClassType(),
+                            selfType
+                        );
                     }
 
                     if (isFunction(declaredType) || isOverloaded(declaredType)) {
                         if (bindFunction) {
-                            declaredType = bindFunctionToClassOrObject(classOrObjectBase, declaredType);
+                            declaredType = bindFunctionToClassOrObject(
+                                classOrObjectBase,
+                                declaredType,
+                                /* memberClass */ undefined,
+                                /* treatConstructorAsClassMethod */ undefined,
+                                selfType
+                            );
                         }
                     }
                 }
