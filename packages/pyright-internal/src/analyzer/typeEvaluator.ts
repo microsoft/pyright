@@ -20181,10 +20181,10 @@ export function createTypeEvaluator(
 
         if (typeAnnotation) {
             const param = functionNode.d.params[paramIndex];
-            const annotatedType = getTypeOfParamAnnotation(
-                typeAnnotation,
-                functionNode.d.params[paramIndex].d.category
-            );
+            let annotatedType = getTypeOfParamAnnotation(typeAnnotation, functionNode.d.params[paramIndex].d.category);
+
+            const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(param);
+            annotatedType = makeTypeVarsBound(annotatedType, liveTypeVarScopes);
 
             const adjType = transformVariadicParamType(
                 node,
@@ -21728,7 +21728,7 @@ export function createTypeEvaluator(
             }
 
             case DeclarationType.Param: {
-                let typeAnnotationNode = declaration.node.d.annotation || declaration.node.d.annotationComment;
+                let typeAnnotationNode = declaration.node.d.annotation ?? declaration.node.d.annotationComment;
 
                 // If there wasn't an annotation, see if the parent function
                 // has a function-level annotation comment that provides
@@ -21750,7 +21750,6 @@ export function createTypeEvaluator(
                     let declaredType = getTypeOfParamAnnotation(typeAnnotationNode, declaration.node.d.category);
 
                     const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(declaration.node);
-
                     declaredType = makeTypeVarsBound(declaredType, liveTypeVarScopes);
 
                     return {
