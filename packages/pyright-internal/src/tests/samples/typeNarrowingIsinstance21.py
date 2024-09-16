@@ -2,6 +2,7 @@
 
 # pyright: reportMissingModuleSource=false
 
+from typing import Any
 from typing_extensions import TypeIs
 
 
@@ -33,3 +34,33 @@ def func1(v: Sentinel | type[Sentinel]):
         reveal_type(v, expected_text="Sentinel")
     else:
         reveal_type(v, expected_text="type[Sentinel]")
+
+
+class A:
+    pass
+
+
+class B:
+    pass
+
+
+def guard3(t: type[Any]) -> TypeIs[type[A]]:
+    return True
+
+
+def func3(t: type[B]):
+    if guard3(t):
+        reveal_type(t, expected_text="type[<subclass of B and A>]")
+    else:
+        reveal_type(t, expected_text="type[B]")
+
+
+def guard4(t: Any) -> TypeIs[type[A]]:
+    return True
+
+
+def func4(t: B):
+    if guard4(t):
+        reveal_type(t, expected_text="<subclass of B and type[A]>")
+    else:
+        reveal_type(t, expected_text="B")
