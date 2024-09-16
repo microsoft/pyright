@@ -6217,12 +6217,14 @@ export function createTypeEvaluator(
             accessMethodName = '__delete__';
         }
 
+        const subDiag = diag ? new DiagnosticAddendum() : undefined;
+
         const methodTypeResult = getTypeOfBoundMember(
             errorNode,
             concreteMemberType,
             accessMethodName,
             /* usage */ undefined,
-            diag?.createAddendum(),
+            subDiag,
             MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
         );
 
@@ -6246,6 +6248,9 @@ export function createTypeEvaluator(
         let methodType = methodTypeResult.type;
 
         if (methodTypeResult.typeErrors || !methodClassType) {
+            if (diag && subDiag) {
+                diag.addAddendum(subDiag);
+            }
             return { type: UnknownType.create(), typeErrors: true };
         }
 
