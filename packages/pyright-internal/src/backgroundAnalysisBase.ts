@@ -285,7 +285,7 @@ export class BackgroundAnalysisBase {
                 // analyze, so queue another message to resume later.
                 this.enqueueRequest({
                     requestType: 'resumeAnalysis',
-                    data: serialize(this._analysisCancellationToken),
+                    data: serialize(this._analysisCancellationToken || CancellationToken.None),
                 });
                 break;
             }

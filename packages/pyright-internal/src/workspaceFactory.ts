@@ -305,7 +305,7 @@ export class WorkspaceFactory {
     }
 
     private _getDefaultWorkspaceKey() {
-        return `${this._defaultWorkspacePath}`;
+        return this._defaultWorkspacePath;
     }
 
     private _getWorkspaceKey(value: Workspace) {
