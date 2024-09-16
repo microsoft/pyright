@@ -489,8 +489,8 @@ test('Command line options can override config but only when not using extension
         defaultOptions.executionEnvironments[0].extraPaths,
         overriddenOptions.executionEnvironments[0].extraPaths
     );
-    // Venv, typeshed and stub path are an exception, it should just be reported as a dupe.
-    assert.deepStrictEqual(defaultOptions.venvPath, overriddenOptions.venvPath);
+    assert.notDeepStrictEqual(defaultOptions.venvPath, overriddenOptions.venvPath);
+    // Typeshed and stub path are an exception, it should just be reported as a dupe.
     assert.deepStrictEqual(defaultOptions.typeshedPath, overriddenOptions.typeshedPath);
     assert.deepStrictEqual(defaultOptions.stubPath, overriddenOptions.stubPath);
 
@@ -499,6 +499,43 @@ test('Command line options can override config but only when not using extension
     service.setOptions(commandLineOptions2);
     const overriddenOptions2 = service.test_getConfigOptions(commandLineOptions2);
     assert.deepStrictEqual(defaultOptions, overriddenOptions2);
+});
+
+test('Config venvPath take precedences over language server settings', () => {
+    const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_all_config'));
+    const service = createAnalyzer();
+    const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ true);
+    commandLineOptions.languageServerSettings.venvPath = 'test_from_language_server';
+    service.setOptions(commandLineOptions);
+
+    // Verify language server options don't override
+    const options = service.test_getConfigOptions(commandLineOptions);
+    assert.equal(options.venvPath?.pathIncludes('from_language_server'), false);
+});
+
+test('Command line venvPath take precedences over everything else', () => {
+    const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_all_config'));
+    const service = createAnalyzer();
+    const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+    commandLineOptions.configSettings.venvPath = 'test_from_command_line';
+    commandLineOptions.languageServerSettings.venvPath = 'test_from_language_server';
+    service.setOptions(commandLineOptions);
+
+    // Verify command line overrides everything
+    const options = service.test_getConfigOptions(commandLineOptions);
+    assert.ok(options.venvPath?.pathIncludes('test_from_command_line'));
+});
+
+test('Config empty venvPath does not take precedences over language server settings', () => {
+    const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_with_config_extra_paths'));
+    const service = createAnalyzer();
+    const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ true);
+    commandLineOptions.languageServerSettings.venvPath = 'test_from_language_server';
+    service.setOptions(commandLineOptions);
+
+    // Verify language server options don't override
+    const options = service.test_getConfigOptions(commandLineOptions);
+    assert.ok(options.venvPath?.pathIncludes('from_language_server'));
 });
 
 test('Language server specific settings are set whether or not there is a pyproject.toml', () => {
@@ -532,6 +569,7 @@ test('Language server specific settings are set whether or not there is a pyproj
 
     // Test with language server set to true to make sure they are still set.
     commandLineOptions.fromLanguageServer = true;
+    commandLineOptions.languageServerSettings.venvPath = 'test_venv_path';
     service.setOptions(commandLineOptions);
     options = service.test_getConfigOptions(commandLineOptions);
     assert.strictEqual(options.autoImportCompletions, true);
@@ -541,4 +579,7 @@ test('Language server specific settings are set whether or not there is a pyproj
     assert.strictEqual(options.typeEvaluationTimeThreshold, 1);
     assert.strictEqual(options.disableTaggedHints, true);
     assert.ok(options.pythonPath?.pathIncludes('test_python_path'));
+
+    // Verify language server options don't override the config setting. Only command line should
+    assert.equal(options.venvPath?.pathIncludes('test_venv_path'), false);
 });
