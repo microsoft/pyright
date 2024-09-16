@@ -146,6 +146,9 @@ export class CommandLineLanguageServerOptions {
     // Path to python interpreter. This is used when the language server
     // gets the python path from the client.
     pythonPath?: string | undefined;
+
+    // Virtual environments directory.
+    venvPath?: string | undefined;
 }
 
 // Some options can be specified from a source other than the pyright config file.

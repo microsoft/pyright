@@ -116,7 +116,7 @@ function getEffectiveCommandLineOptions(
     }
 
     if (serverSettings.venvPath) {
-        commandLineOptions.configSettings.venvPath = serverSettings.venvPath.getFilePath();
+        commandLineOptions.languageServerSettings.venvPath = serverSettings.venvPath.getFilePath();
     }
 
     if (serverSettings.pythonPath) {
