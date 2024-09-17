@@ -115,6 +115,7 @@ def getSurrogateRanges(chars: list[Character]) -> list[CharacterRange]:
 def writeRangeTable(writer: TextIOWrapper, category: str, chars: list[Character]):
     chars = [ch for ch in chars if ch.category == category]
 
+    writer.write("\n")
     writer.write(f"export const unicode{category}: UnicodeRangeTable = [\n")
 
     consecutiveRangeStartChar: Character | None = None
@@ -132,7 +133,7 @@ def writeRangeTable(writer: TextIOWrapper, category: str, chars: list[Character]
 
             consecutiveRangeStartChar = None
 
-    writer.write("];\n\n")
+    writer.write("];\n")
 
 
 # Write out a table of all characters within the specified category using their UTF-16
@@ -146,6 +147,7 @@ def writeSurrogateRangeTable(
     if len(surrogateRanges) == 0:
         return
 
+    writer.write("\n")
     writer.write(
         f"export const unicode{category}Surrogate: UnicodeSurrogateRangeTable = {{\n"
     )
@@ -171,7 +173,7 @@ def writeSurrogateRangeTable(
             )
 
     writer.write("    ],\n")
-    writer.write("};\n\n")
+    writer.write("};\n")
 
 
 unicodeVersion = "16.0" if len(sys.argv) <= 1 else sys.argv[1]
@@ -196,7 +198,6 @@ with open("packages/pyright-internal/src/parser/unicode.ts", "w") as writer:
 export type UnicodeRange = [number, number] | number;
 export type UnicodeRangeTable = UnicodeRange[];
 export type UnicodeSurrogateRangeTable = {{ [surrogate: number]: UnicodeRange[] }};
-
 """
     )
 

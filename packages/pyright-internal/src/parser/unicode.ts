@@ -3646,4 +3646,3 @@ export const unicodePc: UnicodeRangeTable = [
     [0xfe4d, 0xfe4f],
     0xff3f,
 ];
-
