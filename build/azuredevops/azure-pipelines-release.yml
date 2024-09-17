@@ -23,7 +23,7 @@ extends:
       codeql:
         compiled:
           enabled: false
-          justificationForDisabling: 'Running a scan on the Pyright-Build'
+          justificationForDisabling: 'Running a scan on the Pyright-Build azure-pipelines.yml'
       sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
     pool:
       pool:
@@ -82,6 +82,59 @@ extends:
                   SourceFolder: packages/vscode-pyright
                   Contents: '*.vsix'
                   TargetFolder: build_output
+
+              - script: |
+                  npm install -g @vscode/vsce
+                displayName: 'Install vsce and dependencies'
+
+              - script: npx vsce generate-manifest -i $(VSIX_NAME) -o extension.manifest
+                displayName: 'Generate extension manifest'
+                workingDirectory: packages/vscode-pyright
+
+              - task: NuGetToolInstaller@1
+                displayName: 'Install NuGet'
+
+              - task: NuGetCommand@2
+                inputs:
+                  command: 'restore'
+                  restoreSolution: '$(Build.SourcesDirectory)/packages/vscode-pyright/packages.config'
+                  restoreDirectory: '$(Build.SourcesDirectory)/packages/vscode-pyright/packages'
+
+              - task: MSBuild@1
+                displayName: 'Sign binaries'
+                inputs:
+                  solution: 'packages/vscode-pyright/sign.proj'
+                  msbuildArguments: '/verbosity:diagnostic /p:SignType=real'
+
+              - task: PowerShell@2
+                displayName: 'Compare extension.manifest and extension.signature.p7s'
+                inputs:
+                  targetType: 'inline'
+                  script: |
+                    $manifestPath = "$(Build.SourcesDirectory)\packages\vscode-pyright\extension.manifest"
+                    $signaturePath = "$(Build.SourcesDirectory)\packages\vscode-pyright\extension.signature.p7s"
+                    $compareResult = Compare-Object (Get-Content $manifestPath) (Get-Content $signaturePath)
+                    if ($compareResult -eq $null) {
+                      Write-Error "Files are identical. Failing the build."
+                      exit 1
+                    } else {
+                      Write-Output "Files are different."
+                    }
+
+              - task: CopyFiles@2
+                displayName: 'Copy extension.manifest'
+                inputs:
+                  SourceFolder: 'packages/vscode-pyright'
+                  Contents: 'extension.manifest'
+                  TargetFolder: build_output
+
+              - task: CopyFiles@2
+                displayName: 'Copy extension.signature.p7s'
+                inputs:
+                  SourceFolder: 'packages/vscode-pyright'
+                  Contents: 'extension.signature.p7s'
+                  TargetFolder: build_output
+
       - stage: CreateRelease
         dependsOn:
           - BuildVsix
@@ -129,14 +182,12 @@ extends:
               - task: NodeTool@0
                 inputs:
                   versionSpec: 18.x
-              - task: DownloadGitHubRelease@0
-                displayName: 'Download VSIX'
+              - task: DownloadPipelineArtifact@2
+                displayName: 'Download Artifacts from Validation Job'
                 inputs:
-                  connection: 'Github-Pylance'
-                  userRepository: 'microsoft/pyright'
-                  defaultVersionType: 'specificTag'
-                  version: $(Build.SourceBranchName)
-                  downloadPath: '$(System.ArtifactsDirectory)'
+                  buildType: 'current'
+                  artifactName: '$(ARTIFACT_NAME_VSIX)'
+                  targetPath: '$(System.ArtifactsDirectory)'
               # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
               # Install dependencies and VS Code Extension Manager (vsce >= v2.26.1 needed)
               - script: |
@@ -145,6 +196,7 @@ extends:
               # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
               # Publish to Marketplace
               # see. stackoverflow.com/collectives/ci-cd/articles/76873787/publish-azure-devops-extensions-using-azure-workload-identity
+              # az rest -u https://app.vssps.visualstudio.com/_apis/profile/profiles/me --resource 499b84ac-1321-427f-aa17-267ca6975798
               - task: AzureCLI@2
                 displayName: 'Publishing with Managed Identity'
                 inputs:
@@ -152,6 +204,5 @@ extends:
                   scriptType: 'pscore'
                   scriptLocation: 'inlineScript'
                   inlineScript: |
-                    az rest -u https://app.vssps.visualstudio.com/_apis/profile/profiles/me --resource 499b84ac-1321-427f-aa17-267ca6975798
                     $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
-                    vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify
+                    vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
