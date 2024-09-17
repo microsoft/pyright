@@ -22,7 +22,8 @@ extends:
     sdl:
       codeql:
         compiled:
-          enabled: true
+          enabled: false
+          justificationForDisabling: 'Running a scan on the Pyright-Build azure-pipelines.yml'
       sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
     pool:
       pool:
