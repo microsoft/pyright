@@ -486,8 +486,13 @@ export class AnalyzerService {
     }
 
     protected runAnalysis() {
+        // Recreate the cancellation token every time we start analysis.
+        this._backgroundAnalysisCancellationSource = this.cancellationProvider.createCancellationTokenSource();
+
         // This creates a cancellation source only if it actually gets used.
-        const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(this.getCancellationToken());
+        const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(
+            this._backgroundAnalysisCancellationSource.token
+        );
         if (moreToAnalyze) {
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
         }
