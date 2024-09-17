@@ -478,16 +478,9 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.restart();
     }
 
-    protected getCancellationToken() {
-        if (!this._backgroundAnalysisCancellationSource) {
-            this._backgroundAnalysisCancellationSource = this.cancellationProvider.createCancellationTokenSource();
-        }
-        return this._backgroundAnalysisCancellationSource.token;
-    }
-
-    protected runAnalysis() {
+    protected runAnalysis(token: CancellationToken) {
         // This creates a cancellation source only if it actually gets used.
-        const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(this.getCancellationToken());
+        const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(token);
         if (moreToAnalyze) {
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
         }
@@ -1890,9 +1883,12 @@ export class AnalyzerService {
                 this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
             }
 
+            // Recreate the cancellation token every time we start analysis.
+            this._backgroundAnalysisCancellationSource = this.cancellationProvider.createCancellationTokenSource();
+
             // Now that the timer has fired, actually send the message to the BG thread to
             // start the analysis.
-            this.runAnalysis();
+            this.runAnalysis(this._backgroundAnalysisCancellationSource.token);
         }, timeUntilNextAnalysisInMs);
     }
 
