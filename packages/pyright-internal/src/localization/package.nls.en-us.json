@@ -1544,6 +1544,14 @@
             "message": "Unnecessary issubclass call; \"{testType}\" is always a subclass of \"{classType}\"",
             "comment": "{Locked='issubclass'}"
         },
+        "unnecessaryIsInstanceNever": {
+            "message": "Unnecessary isinstance call; \"{testType}\" is never an instance of \"{classType}\"",
+            "comment": "{Locked='isinstance'}"
+        },
+        "unnecessaryIsSubclassNever": {
+            "message": "Unnecessary issubclass call; \"{testType}\" is never a subclass of \"{classType}\"",
+            "comment": "{Locked='issubclass'}"
+        },
         "unnecessaryPyrightIgnore": {
             "message": "Unnecessary \"# pyright: ignore\" comment",
             "comment": "{Locked='# pyright: ignore'}"

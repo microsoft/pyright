@@ -28,8 +28,7 @@ def func1(val: Union[str, int]):
         reveal_type(val, expected_text="int")
 
 
-def is_true(o: object) -> TypeIs[Literal[True]]:
-    ...
+def is_true(o: object) -> TypeIs[Literal[True]]: ...
 
 
 def func2(val: bool):
@@ -85,16 +84,13 @@ def func6(direction: Literal["NW", "E"]):
         reveal_type(direction, expected_text="Literal['NW']")
 
 
-class Animal:
-    ...
+class Animal: ...
 
 
-class Kangaroo(Animal):
-    ...
+class Kangaroo(Animal): ...
 
 
-class Koala(Animal):
-    ...
+class Koala(Animal): ...
 
 
 T = TypeVar("T")
@@ -138,8 +134,7 @@ def func7(names: tuple[str, ...]):
         reveal_type(names, expected_text="tuple[str, ...]")
 
 
-def is_int(obj: type) -> TypeIs[type[int]]:
-    ...
+def is_int(obj: type) -> TypeIs[type[int]]: ...
 
 
 def func8(x: type) -> None:
@@ -159,22 +154,37 @@ def func9(val: Collection[object]) -> None:
 
 
 @overload
-def func10(v: tuple[int | str, ...], b: Literal[False]) -> TypeIs[tuple[str, ...]]:
-    ...
+def func10(v: tuple[int | str, ...], b: Literal[False]) -> TypeIs[tuple[str, ...]]: ...
 
 
 @overload
 def func10(
     v: tuple[int | str, ...], b: Literal[True] = True
-) -> TypeIs[tuple[int, ...]]:
-    ...
+) -> TypeIs[tuple[int, ...]]: ...
 
 
-def func10(v: tuple[int | str, ...], b: bool = True) -> bool:
-    ...
+def func10(v: tuple[int | str, ...], b: bool = True) -> bool: ...
 
 
 v0 = is_int(int)
 v1: bool = v0
 v2: int = v0
 v3 = v0 & v0
+
+
+def is_sequence_of_int(sequence: Sequence) -> TypeIs[Sequence[int]]:
+    return all(isinstance(x, int) for x in sequence)
+
+
+def func11(v: Sequence[int] | Sequence[str]):
+    if is_sequence_of_int(v):
+        reveal_type(v, expected_text="Sequence[int]")
+    else:
+        reveal_type(v, expected_text="Sequence[str]")
+
+
+def func12(v: Sequence[int | str] | Sequence[list[Any]]):
+    if is_sequence_of_int(v):
+        reveal_type(v, expected_text="Sequence[int]")
+    else:
+        reveal_type(v, expected_text="Sequence[int | str] | Sequence[list[Any]]")

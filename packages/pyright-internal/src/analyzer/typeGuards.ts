@@ -346,13 +346,7 @@ export function getTypeNarrowingCallback(
                     testExpression.d.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
 
                 if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr)) {
-                    // Use speculative mode here to avoid polluting the type cache. This is
-                    // important in cases where evaluation of the right expression creates
-                    // a false dependency on another variable.
-                    const rightTypeResult = evaluator.useSpeculativeMode(testExpression.d.rightExpr, () => {
-                        return evaluator.getTypeOfExpression(testExpression.d.rightExpr);
-                    });
-
+                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                     const rightType = rightTypeResult.type;
 
                     if (isClassInstance(rightType) && rightType.priv.literalValue !== undefined) {
@@ -1502,17 +1496,28 @@ function narrowTypeForInstance(
                         }
 
                         filteredTypes.push(addConditionToType(specializedFilterType, conditions));
-                    } else if (ClassType.isSameGenericClass(concreteVarType, concreteFilterType)) {
-                        // Don't attempt to narrow in this case.
-                        if (
-                            concreteVarType.priv?.literalValue === undefined &&
-                            concreteFilterType.priv?.literalValue === undefined
-                        ) {
-                            const intersection = intersectSameClassType(evaluator, concreteVarType, concreteFilterType);
-                            filteredTypes.push(intersection ?? varType);
+                    } else if (
+                        ClassType.isSameGenericClass(
+                            ClassType.cloneAsInstance(concreteVarType),
+                            ClassType.cloneAsInstance(concreteFilterType)
+                        )
+                    ) {
+                        if (!isTypeIsCheck) {
+                            // Don't attempt to narrow in this case.
+                            if (
+                                concreteVarType.priv?.literalValue === undefined &&
+                                concreteFilterType.priv?.literalValue === undefined
+                            ) {
+                                const intersection = intersectSameClassType(
+                                    evaluator,
+                                    concreteVarType,
+                                    concreteFilterType
+                                );
+                                filteredTypes.push(intersection ?? varType);
 
-                            // Don't attempt to narrow in the negative direction.
-                            isClassRelationshipIndeterminate = true;
+                                // Don't attempt to narrow in the negative direction.
+                                isClassRelationshipIndeterminate = true;
+                            }
                         }
                     } else if (
                         allowIntersections &&
@@ -1529,9 +1534,7 @@ function narrowTypeForInstance(
                             newClassType = addConditionToType(newClassType, [{ typeVar: varType, constraintIndex: 0 }]);
                         }
 
-                        let newClassObjType = ClassType.cloneAsInstance(newClassType);
-                        newClassObjType = addConditionToType(newClassObjType, concreteVarType.props?.condition);
-                        filteredTypes.push(newClassObjType);
+                        filteredTypes.push(addConditionToType(newClassType, concreteVarType.props?.condition));
                     }
                 } else {
                     if (isAnyOrUnknown(varType)) {

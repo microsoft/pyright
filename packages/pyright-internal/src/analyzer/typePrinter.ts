@@ -86,9 +86,6 @@ export const enum PrintTypeFlags {
     // Use the fully-qualified name of classes, type aliases, modules,
     // and functions rather than short names.
     UseFullyQualifiedNames = 1 << 12,
-
-    // Omit the "& TypeForm[T]" on the end of the type.
-    OmitTypeForm = 1 << 13,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -198,45 +195,6 @@ function printTypeInternal(
         return '<Recursive>';
     }
     recursionCount++;
-
-    // Does this type have a typeForm associated with it?
-    if (
-        type.props?.typeForm &&
-        (printTypeFlags & PrintTypeFlags.OmitTypeForm) === 0 &&
-        (printTypeFlags & PrintTypeFlags.PythonSyntax) === 0
-    ) {
-        const actualTypeText = printTypeInternal(
-            type,
-            printTypeFlags | PrintTypeFlags.OmitTypeForm | PrintTypeFlags.ParenthesizeUnion,
-            returnTypeCallback,
-            uniqueNameMap,
-            recursionTypes,
-            recursionCount
-        );
-
-        const typeFormText = printTypeInternal(
-            type.props.typeForm,
-            (printTypeFlags | PrintTypeFlags.OmitTypeForm) & ~PrintTypeFlags.ExpandTypeAlias,
-            returnTypeCallback,
-            uniqueNameMap,
-            recursionTypes,
-            recursionCount
-        );
-
-        // Don't include the TypeForm portion if this is a simple type[T]
-        // type because this information is redundant.
-        if (actualTypeText === `type[${typeFormText}]`) {
-            return actualTypeText;
-        }
-
-        // Don't include the TypeForm portion if this is a None type because
-        // this is redundant.
-        if (isNoneInstance(type)) {
-            return actualTypeText;
-        }
-
-        return `${actualTypeText} & TypeForm[${typeFormText}]`;
-    }
 
     const originalPrintTypeFlags = printTypeFlags;
     const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;

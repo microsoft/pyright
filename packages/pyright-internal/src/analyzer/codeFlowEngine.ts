@@ -401,6 +401,28 @@ export function getCodeFlowEngine(
                 flowNodeTypeCache.cache.delete(flowNode.id);
             }
 
+            // Cleans any "incomplete unknowns" from the specified set of entries
+            // to compute the final type.
+            function cleanIncompleteUnknownForCacheEntry(cacheEntry: FlowNodeTypeResult): Type | undefined {
+                if (!cacheEntry.type) {
+                    return undefined;
+                }
+
+                if (!cacheEntry.incompleteSubtypes || cacheEntry.incompleteSubtypes.length === 0) {
+                    return cleanIncompleteUnknown(cacheEntry.type);
+                }
+
+                const typesToCombine: Type[] = [];
+
+                cacheEntry.incompleteSubtypes?.forEach((entry) => {
+                    if (entry.type && !isIncompleteUnknown(entry.type)) {
+                        typesToCombine.push(cleanIncompleteUnknown(entry.type));
+                    }
+                });
+
+                return combineTypes(typesToCombine);
+            }
+
             function evaluateAssignmentFlowNode(flowNode: FlowAssignment): TypeResult | undefined {
                 // For function and class nodes, the reference node is the name
                 // node, but we need to use the parent node (the FunctionNode or ClassNode)
@@ -456,7 +478,7 @@ export function getCodeFlowEngine(
                         // has changed that may cause the previously-reported incomplete type to change.
                         if (cachedEntry.generationCount === flowIncompleteGeneration) {
                             return FlowNodeTypeResult.create(
-                                cachedEntry.type ? cleanIncompleteUnknown(cachedEntry.type) : undefined,
+                                cleanIncompleteUnknownForCacheEntry(cachedEntry),
                                 /* isIncomplete */ true
                             );
                         }
@@ -966,7 +988,7 @@ export function getCodeFlowEngine(
                     // that have not been evaluated even once, treat it as incomplete. We clean
                     // any incomplete unknowns from the type here to assist with type convergence.
                     return FlowNodeTypeResult.create(
-                        cacheEntry.type ? cleanIncompleteUnknown(cacheEntry.type) : undefined,
+                        cleanIncompleteUnknownForCacheEntry(cacheEntry),
                         /* isIncomplete */ true
                     );
                 }
@@ -1821,7 +1843,7 @@ export function getCodeFlowEngine(
     }
 
     function isFunctionNoReturn(functionType: FunctionType, isCallAwaited: boolean) {
-        const returnType = functionType.shared.declaredReturnType;
+        const returnType = FunctionType.getEffectiveReturnType(functionType, /* includeInferred */ false);
         if (returnType) {
             if (
                 isClassInstance(returnType) &&

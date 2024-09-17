@@ -68,13 +68,10 @@ def func1():
     t21: TypeForm[Callable] = Callable[[int], None]
 
     t22: TypeForm[list[Any]] = list
-    t23: TypeForm[list[int]] = t22[int]
 
     t24: TypeForm = list | dict
 
     t25: TypeForm = tuple
-    t26: TypeForm = t25[()]
-    t27: TypeForm = t25[int, ...]
 
     t28: TypeForm = tuple[()]
 
@@ -84,7 +81,7 @@ def func1():
     t31: TypeForm = None
     t32: TypeForm = None | str
 
-    def get_type() -> type[int]:
+    def get_type() -> TypeForm[int]:
         return int
 
     t33: TypeForm = get_type()
@@ -204,7 +201,7 @@ def func7():
     t4: TypeForm[int] = type[int]
 
 
-def func8[S, T: type](p1: type[Any], p2: type[int | str], p3: type[S]):
+def func8[S, T: type](p1: TypeForm[Any], p2: TypeForm[int | str], p3: TypeForm[S]):
     t1: TypeForm = p1
     t2: TypeForm = p2
     t3: TypeForm = p3

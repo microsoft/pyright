@@ -401,7 +401,7 @@
     },
     "reportUnnecessaryIsInstance": {
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting calls to 'isinstance' or 'issubclass' where the result is statically determined to be always true",
+      "title": "Controls reporting calls to 'isinstance' or 'issubclass' where the result is statically determined to be always (or never) true",
       "default": "none"
     },
     "reportUnnecessaryCast": {

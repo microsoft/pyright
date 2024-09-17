@@ -36,8 +36,8 @@ import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import {
-    deduplicateFolders,
     FileSpec,
+    deduplicateFolders,
     getFileSpec,
     getFileSystemEntries,
     hasPythonExtension,
@@ -478,16 +478,9 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.restart();
     }
 
-    protected getCancellationToken() {
-        if (!this._backgroundAnalysisCancellationSource) {
-            this._backgroundAnalysisCancellationSource = this.cancellationProvider.createCancellationTokenSource();
-        }
-        return this._backgroundAnalysisCancellationSource.token;
-    }
-
-    protected runAnalysis() {
+    protected runAnalysis(token: CancellationToken) {
         // This creates a cancellation source only if it actually gets used.
-        const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(this.getCancellationToken());
+        const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(token);
         if (moreToAnalyze) {
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
         }
@@ -689,7 +682,7 @@ export class AnalyzerService {
 
         // Apply the command line options that are not in the config file. These settings
         // only apply to the language server.
-        this._applyLanguageServerOptions(configOptions, commandLineOptions.languageServerSettings);
+        this._applyLanguageServerOptions(configOptions, projectRoot, commandLineOptions.languageServerSettings);
 
         // Ensure that if no command line or config options were applied, we have some defaults.
         this._ensureDefaultOptions(host, configOptions, projectRoot, executionRoot, commandLineOptions);
@@ -859,6 +852,7 @@ export class AnalyzerService {
 
     private _applyLanguageServerOptions(
         configOptions: ConfigOptions,
+        projectRoot: Uri,
         languageServerOptions: CommandLineLanguageServerOptions
     ) {
         configOptions.disableTaggedHints = !!languageServerOptions.disableTaggedHints;
@@ -887,6 +881,11 @@ export class AnalyzerService {
             configOptions.pythonPath = this.fs.realCasePath(
                 Uri.file(languageServerOptions.pythonPath, this.serviceProvider, /* checkRelative */ true)
             );
+        }
+        if (languageServerOptions.venvPath) {
+            if (!configOptions.venvPath) {
+                configOptions.venvPath = projectRoot.resolvePaths(languageServerOptions.venvPath);
+            }
         }
     }
 
@@ -962,6 +961,11 @@ export class AnalyzerService {
             });
         }
 
+        // Override the venvPath based on the command-line setting.
+        if (commandLineOptions.venvPath) {
+            configOptions.venvPath = projectRoot.resolvePaths(commandLineOptions.venvPath);
+        }
+
         const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
             const settingSource = fromLanguageServer ? 'the client settings' : 'a command-line option';
             this._console.warn(
@@ -974,13 +978,6 @@ export class AnalyzerService {
         // Apply the command-line options if the corresponding
         // item wasn't already set in the config file. Report any
         // duplicates.
-        if (commandLineOptions.venvPath) {
-            if (!configOptions.venvPath) {
-                configOptions.venvPath = projectRoot.resolvePaths(commandLineOptions.venvPath);
-            } else {
-                reportDuplicateSetting('venvPath', configOptions.venvPath.toUserVisibleString());
-            }
-        }
 
         if (commandLineOptions.typeshedPath) {
             if (!configOptions.typeshedPath) {
@@ -1886,9 +1883,12 @@ export class AnalyzerService {
                 this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
             }
 
+            // Recreate the cancellation token every time we start analysis.
+            this._backgroundAnalysisCancellationSource = this.cancellationProvider.createCancellationTokenSource();
+
             // Now that the timer has fired, actually send the message to the BG thread to
             // start the analysis.
-            this.runAnalysis();
+            this.runAnalysis(this._backgroundAnalysisCancellationSource.token);
         }, timeUntilNextAnalysisInMs);
     }
 

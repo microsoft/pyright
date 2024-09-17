@@ -247,6 +247,18 @@ test('UnnecessaryIsInstance1', () => {
     TestUtils.validateResults(analysisResults, 5);
 });
 
+test('UnnecessaryIsInstance2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('UnnecessaryIsSubclass1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
