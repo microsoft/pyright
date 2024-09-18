@@ -10103,7 +10103,8 @@ export function createTypeEvaluator(
                 // The one-parameter form of "type" returns the class
                 // for the specified object.
                 if (expandedCallType.shared.name === 'type' && argList.length === 1) {
-                    const argType = getTypeOfArg(argList[0], /* inferenceContext */ undefined).type;
+                    const argTypeResult = getTypeOfArg(argList[0], /* inferenceContext */ undefined);
+                    const argType = argTypeResult.type;
                     const returnType = mapSubtypes(argType, (subtype) => {
                         if (isNever(subtype)) {
                             return subtype;
@@ -10124,7 +10125,7 @@ export function createTypeEvaluator(
                         ]);
                     });
 
-                    return { returnType };
+                    return { returnType, isTypeIncomplete: argTypeResult.isIncomplete };
                 }
 
                 if (argList.length >= 2) {
