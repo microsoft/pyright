@@ -1894,6 +1894,12 @@ function narrowTypeForTupleLength(
             }
 
             if (!isPositiveTest) {
+                // If this is an equality check for the minimum length (e.g.
+                // "len(x) == 0"), we can expand the minimum length by one).
+                const minLen = concreteSubtype.priv.tupleTypeArgs.length - 1;
+                if (lengthValue === minLen) {
+                    return expandUnboundedTupleElement(concreteSubtype, 1, /* keepUnbounded */ true);
+                }
                 return subtype;
             }
 

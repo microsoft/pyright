@@ -67,7 +67,7 @@ def func5(
     else:
         reveal_type(
             val,
-            expected_text="tuple[int, ...] | tuple[str] | tuple[str, str, str] | tuple[int, *tuple[str, ...], str] | tuple[int, *tuple[float, ...]]",
+            expected_text="tuple[int, ...] | tuple[str] | tuple[str, str, str] | tuple[int, str, *tuple[str, ...], str] | tuple[int, *tuple[float, ...]]",
         )
 
 
@@ -143,3 +143,19 @@ def func26(fn: Callable[P, None]):
         return fn(*args, **kwargs)
 
     return inner
+
+
+def func27(t: tuple[int, ...]):
+    if len(t) == 0 or len(t) >= 2:
+        reveal_type(t, expected_text="tuple[()] | tuple[int, int, *tuple[int, ...]]")
+    else:
+        reveal_type(t, expected_text="tuple[int]")
+
+
+def func28(t: tuple[int, *tuple[int, ...]]):
+    if len(t) == 1 or len(t) >= 3:
+        reveal_type(
+            t, expected_text="tuple[int] | tuple[int, int, int, *tuple[int, ...]]"
+        )
+    else:
+        reveal_type(t, expected_text="tuple[int, int]")
