@@ -653,6 +653,7 @@ export function createTypeEvaluator(
     let intClass: Type | undefined;
     let strClass: Type | undefined;
     let dictClass: Type | undefined;
+    let moduleTypeClass: Type | undefined;
     let typedDictPrivateClass: Type | undefined;
     let supportsKeysAndGetItemClass: Type | undefined;
     let mappingClass: Type | undefined;
@@ -1002,6 +1003,7 @@ export function createTypeEvaluator(
             intClass = getBuiltInType(node, 'int');
             strClass = getBuiltInType(node, 'str');
             dictClass = getBuiltInType(node, 'dict');
+            moduleTypeClass = getTypingType(node, 'ModuleType');
             typedDictPrivateClass = getTypingType(node, '_TypedDict');
             awaitableClass = getTypingType(node, 'Awaitable');
             mappingClass = getTypingType(node, 'Mapping');
@@ -4786,12 +4788,17 @@ export function createTypeEvaluator(
 
     // If the value is a special form (like a TypeVar or `Any`) and is being
     // evaluated in a value expression context, convert it from its special
-    // meaning to its runtime value.
-    function convertSpecialFormToRuntimeValue(type: Type, flags: EvalFlags) {
+    // meaning to its runtime value. If convertModule is true, a module is
+    // converted to an instance of types.ModuleType.
+    function convertSpecialFormToRuntimeValue(type: Type, flags: EvalFlags, convertModule = false) {
         const exemptFlags = EvalFlags.TypeExpression | EvalFlags.InstantiableType | EvalFlags.NoConvertSpecialForm;
 
         if ((flags & exemptFlags) !== 0) {
             return type;
+        }
+
+        if (convertModule && isModule(type) && moduleTypeClass && isInstantiableClass(moduleTypeClass)) {
+            return ClassType.cloneAsInstance(moduleTypeClass);
         }
 
         // Isinstance treats traditional (non-PEP 695) type aliases that are unions
@@ -8274,7 +8281,11 @@ export function createTypeEvaluator(
             } else if (isNever(typeResult.type) && typeResult.isIncomplete && !typeResult.unpackedType) {
                 entryTypes.push({ type: UnknownType.create(/* isIncomplete */ true), isUnbounded: false });
             } else {
-                let entryType = convertSpecialFormToRuntimeValue(typeResult.type, EvalFlags.None);
+                let entryType = convertSpecialFormToRuntimeValue(
+                    typeResult.type,
+                    EvalFlags.None,
+                    /* convertModule */ true
+                );
                 entryType = stripLiterals ? stripTypeForm(stripLiteralValue(entryType)) : entryType;
                 entryTypes.push({ type: entryType, isUnbounded: !!typeResult.unpackedType });
             }
@@ -13782,10 +13793,10 @@ export function createTypeEvaluator(
 
         // Strip any literal values and TypeForm types.
         const keyTypes = keyTypeResults.map((t) =>
-            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags))
+            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags, /* convertModule */ true))
         );
         const valueTypes = valueTypeResults.map((t) =>
-            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags))
+            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags, /* convertModule */ true))
         );
 
         keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : fallbackType;
@@ -14326,7 +14337,9 @@ export function createTypeEvaluator(
                 entryTypeResult = getTypeOfExpression(entry, flags | EvalFlags.StripTupleLiterals);
             }
 
-            entryTypeResult.type = stripTypeForm(convertSpecialFormToRuntimeValue(entryTypeResult.type, flags));
+            entryTypeResult.type = stripTypeForm(
+                convertSpecialFormToRuntimeValue(entryTypeResult.type, flags, /* convertModule */ true)
+            );
 
             if (entryTypeResult.isIncomplete) {
                 isIncomplete = true;
@@ -18933,7 +18946,11 @@ export function createTypeEvaluator(
             }
 
             if (!skipInference) {
-                inferredParamType = convertSpecialFormToRuntimeValue(defaultValueType, EvalFlags.None);
+                inferredParamType = convertSpecialFormToRuntimeValue(
+                    defaultValueType,
+                    EvalFlags.None,
+                    /* convertModule */ true
+                );
                 inferredParamType = stripTypeForm(inferredParamType);
                 inferredParamType = stripLiteralValue(inferredParamType);
             }
@@ -22987,7 +23004,11 @@ export function createTypeEvaluator(
 
                         if (stripLiteralArgTypes) {
                             paramType = stripTypeForm(
-                                convertSpecialFormToRuntimeValue(stripLiteralValue(paramType), EvalFlags.None)
+                                convertSpecialFormToRuntimeValue(
+                                    stripLiteralValue(paramType),
+                                    EvalFlags.None,
+                                    /* convertModule */ true
+                                )
                             );
                         }
 
