@@ -207,6 +207,7 @@ import {
     ResolveAliasOptions,
     SolveConstraintsOptions,
     SymbolDeclInfo,
+    SynthesizedTypeInfo,
     TypeEvaluator,
     TypeResult,
     TypeResultWithNode,
@@ -21525,7 +21526,7 @@ export function createTypeEvaluator(
         }
 
         const declarations: Declaration[] = [];
-        const synthesizedTypes: Type[] = [];
+        const synthesizedTypes: SynthesizedTypeInfo[] = [];
 
         // If the node is part of a "from X import Y as Z" statement and the node
         // is the "Y" (non-aliased) name, we need to look up the alias symbol
@@ -21602,7 +21603,7 @@ export function createTypeEvaluator(
                         } else {
                             const synthesizedType = symbol.getSynthesizedType();
                             if (synthesizedType) {
-                                synthesizedTypes.push(synthesizedType);
+                                synthesizedTypes.push({ type: synthesizedType, node });
                             } else {
                                 appendArray(declarations, symbol.getDeclarations());
                             }

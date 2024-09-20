@@ -20,7 +20,7 @@ import {
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
-import { PrintTypeOptions, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { PrintTypeOptions, SynthesizedTypeInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { convertToInstance, doForEachSubtype, isMaybeDescriptorInstance } from '../analyzer/typeUtils';
 import {
     ClassType,
@@ -127,13 +127,16 @@ export function addDocumentationResultsPart(
 
 export function getVariableTypeText(
     evaluator: TypeEvaluator,
-    declaration: VariableDeclaration,
+    declaration: VariableDeclaration | undefined,
     name: string,
     type: Type,
     typeNode: ExpressionNode,
     functionSignatureDisplay: SignatureDisplayType
 ) {
-    let label = declaration.isConstant || evaluator.isFinalVariableDeclaration(declaration) ? 'constant' : 'variable';
+    let label = 'variable';
+    if (declaration) {
+        label = declaration.isConstant || evaluator.isFinalVariableDeclaration(declaration) ? 'constant' : 'variable';
+    }
 
     const expandTypeAlias = false;
     let typeVarName: string | undefined;
@@ -455,25 +458,19 @@ export class HoverProvider {
         }
     }
 
-    private _addResultsForSynthesizedType(parts: HoverTextPart[], type: Type, name: string) {
+    private _addResultsForSynthesizedType(parts: HoverTextPart[], typeInfo: SynthesizedTypeInfo, name: string) {
         let typeText: string;
 
-        if (isModule(type)) {
+        if (isModule(typeInfo.type)) {
             typeText = '(module) ' + name;
         } else {
-            // Treat it as a function declaration if it's a function or overloaded type.
-            let label = 'variable';
-
-            if (isFunction(type) || isOverloaded(type)) {
-                label = 'function';
-            }
-
-            typeText = getToolTipForType(
-                type,
-                label,
-                name,
+            const type = this._getType(typeInfo.node);
+            typeText = getVariableTypeText(
                 this._evaluator,
-                /* isProperty */ false,
+                /* declaration */ undefined,
+                typeInfo.node.d.value,
+                type,
+                typeInfo.node,
                 this._functionSignatureDisplay
             );
         }
