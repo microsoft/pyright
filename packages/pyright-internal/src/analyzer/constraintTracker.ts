@@ -183,7 +183,6 @@ export class ConstraintSet {
 }
 
 export class ConstraintTracker {
-    private _isLocked = false;
     private _constraintSets: ConstraintSet[];
 
     constructor() {
@@ -194,7 +193,6 @@ export class ConstraintTracker {
         const newTypeVarMap = new ConstraintTracker();
 
         newTypeVarMap._constraintSets = this._constraintSets.map((set) => set.clone());
-        newTypeVarMap._isLocked = this._isLocked;
 
         return newTypeVarMap;
     }
@@ -220,7 +218,6 @@ export class ConstraintTracker {
     // Copies a cloned type var context back into this object.
     copyFromClone(clone: ConstraintTracker) {
         this._constraintSets = clone._constraintSets.map((context) => context.clone());
-        this._isLocked = clone._isLocked;
     }
 
     copyBounds(entry: TypeVarConstraints) {
@@ -248,28 +245,11 @@ export class ConstraintTracker {
         return this._constraintSets.every((set, index) => set.isSame(other._constraintSets[index]));
     }
 
-    lock() {
-        // Locks the type var map, preventing any further changes.
-        assert(!this._isLocked);
-        this._isLocked = true;
-    }
-
-    unlock() {
-        // Unlocks the type var map, allowing further changes.
-        this._isLocked = false;
-    }
-
-    isLocked(): boolean {
-        return this._isLocked;
-    }
-
     isEmpty() {
         return this._constraintSets.every((set) => set.isEmpty());
     }
 
     setBounds(typeVar: TypeVarType, lowerBound: Type | undefined, upperBound?: Type, retainLiterals?: boolean) {
-        assert(!this._isLocked);
-
         return this._constraintSets.forEach((set) => {
             set.setBounds(typeVar, lowerBound, upperBound, retainLiterals);
         });
@@ -295,16 +275,9 @@ export class ConstraintTracker {
     }
 
     doForEachConstraintSet(callback: (constraintSet: ConstraintSet, index: number) => void) {
-        const wasLocked = this.isLocked();
-        this.unlock();
-
         this.getConstraintSets().forEach((set, index) => {
             callback(set, index);
         });
-
-        if (wasLocked) {
-            this.lock();
-        }
     }
 
     getConstraintSet(index: number) {

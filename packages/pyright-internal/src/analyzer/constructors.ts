@@ -428,7 +428,6 @@ function validateNewMethod(
         argumentErrors = true;
 
         // Evaluate the arguments in a non-speculative manner to generate any diagnostics.
-        constraints.unlock();
         evaluator.validateCallArgs(
             errorNode,
             argList,

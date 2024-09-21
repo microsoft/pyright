@@ -807,16 +807,6 @@ function assignUnconstrainedTypeVar(
                 // source type.
                 newLowerBound = adjSrcType;
             } else {
-                // We need to widen the type.
-                if (constraints?.isLocked()) {
-                    diag?.addMessage(
-                        LocAddendum.typeAssignmentMismatch().format(
-                            evaluator.printSrcDestTypes(adjSrcType, curLowerBound)
-                        )
-                    );
-                    return false;
-                }
-
                 if (
                     evaluator.assignType(
                         adjSrcType,
@@ -974,14 +964,12 @@ function assignUnconstrainedTypeVar(
         }
     }
 
-    if (constraints && !constraints.isLocked()) {
-        constraints.setBounds(
-            destType,
-            newLowerBound,
-            newUpperBound,
-            (flags & (AssignTypeFlags.PopulateExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) !== 0
-        );
-    }
+    constraints?.setBounds(
+        destType,
+        newLowerBound,
+        newUpperBound,
+        (flags & (AssignTypeFlags.PopulateExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) !== 0
+    );
 
     return true;
 }
@@ -1160,9 +1148,7 @@ function assignConstrainedTypeVar(
                     recursionCount
                 )
             ) {
-                if (constraints && !constraints.isLocked()) {
-                    constraints.setBounds(destType, constrainedType, curUpperBound);
-                }
+                constraints?.setBounds(destType, constrainedType, curUpperBound);
             } else {
                 diag?.addMessage(
                     LocAddendum.typeConstrainedTypeVar().format({
@@ -1175,9 +1161,7 @@ function assignConstrainedTypeVar(
         }
     } else {
         // Assign the type to the type var.
-        if (constraints && !constraints.isLocked()) {
-            constraints.setBounds(destType, constrainedType, curUpperBound, retainLiterals);
-        }
+        constraints?.setBounds(destType, constrainedType, curUpperBound, retainLiterals);
     }
 
     return true;
@@ -1219,9 +1203,7 @@ function assignParamSpec(
                     }
                 }
             } else {
-                if (!constraints.isLocked()) {
-                    constraintSet.setBounds(destType, adjSrcType);
-                }
+                constraintSet.setBounds(destType, adjSrcType);
                 return;
             }
         } else if (isFunction(adjSrcType)) {
@@ -1276,9 +1258,7 @@ function assignParamSpec(
             }
 
             if (updateContextWithNewFunction) {
-                if (!constraints.isLocked()) {
-                    constraintSet.setBounds(destType, newFunction);
-                }
+                constraintSet.setBounds(destType, newFunction);
                 return;
             }
         } else if (isAnyOrUnknown(adjSrcType)) {

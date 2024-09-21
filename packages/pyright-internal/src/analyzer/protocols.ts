@@ -736,7 +736,7 @@ function assignToProtocolInternal(
             ) {
                 typesAreConsistent = false;
             }
-        } else if (constraints && !constraints.isLocked()) {
+        } else if (constraints) {
             for (const typeParam of destType.shared.typeParams) {
                 const typeArgEntry = protocolConstraints.getMainConstraintSet().getTypeVar(typeParam);
 
