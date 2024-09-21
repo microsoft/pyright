@@ -3882,12 +3882,8 @@ export class Checker extends ParseTreeWalker {
 
         // If this call is within an assert statement, we won't check whether
         // it's unnecessary.
-        let curNode: ParseNode | undefined = node;
-        while (curNode) {
-            if (curNode.nodeType === ParseNodeType.Assert) {
-                return;
-            }
-            curNode = curNode.parent;
+        if (ParseTreeUtils.isWithinAssertExpression(node)) {
+            return;
         }
 
         const classTypeList = getIsInstanceClassTypes(this._evaluator, arg1Type);
