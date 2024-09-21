@@ -9094,7 +9094,6 @@ export function createTypeEvaluator(
 
                 // Clone the constraints so we don't modify the original.
                 const effectiveConstraints = constraints?.clone() ?? new ConstraintTracker();
-                effectiveConstraints.unlock();
 
                 // Use speculative mode so we don't output any diagnostics or
                 // record any final types in the type cache.
@@ -9226,7 +9225,6 @@ export function createTypeEvaluator(
         // And run through the first expanded argument list one more time to
         // populate the type cache.
         const finalConstraints = constraints ?? matchedOverloads[0].constraints;
-        finalConstraints.unlock();
         const finalCallResult = validateArgTypesWithContext(
             errorNode,
             matchedOverloads[0].matchResults,
@@ -9487,7 +9485,6 @@ export function createTypeEvaluator(
             }
 
             const effectiveConstraints = constraints ?? new ConstraintTracker();
-            effectiveConstraints.unlock();
 
             return validateArgTypesWithContext(
                 errorNode,
@@ -11845,10 +11842,6 @@ export function createTypeEvaluator(
                     });
                 });
             }
-
-            // Lock the type var map so it cannot be modified when revalidating
-            // the arguments in a second pass.
-            constraints.lock();
         }
 
         let sawParamSpecArgs = false;
@@ -23642,7 +23635,7 @@ export function createTypeEvaluator(
             );
         }
 
-        if (constraints && curSrcType.priv.typeArgs && !constraints.isLocked()) {
+        if (constraints && curSrcType.priv.typeArgs) {
             // Populate the typeVar map with type arguments of the source.
             const srcTypeArgs = curSrcType.priv.typeArgs;
             for (let i = 0; i < destType.shared.typeParams.length; i++) {
@@ -24976,10 +24969,6 @@ export function createTypeEvaluator(
         srcType: UnknownType | AnyType,
         constraints: ConstraintTracker
     ) {
-        if (constraints.isLocked()) {
-            return;
-        }
-
         const typeVars = getTypeVarArgsRecursive(destType);
         typeVars.forEach((typeVar) => {
             if (!TypeVarType.isBound(typeVar) && !constraints.getMainConstraintSet().getTypeVar(typeVar)) {
@@ -27329,14 +27318,12 @@ export function createTypeEvaluator(
                 // contain references to themselves or their subclasses, so if
                 // we attempt to call assignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
-                if (!constraints.isLocked()) {
-                    constraints.setBounds(
-                        memberTypeFirstParamType,
-                        TypeBase.isInstantiable(memberTypeFirstParamType)
-                            ? convertToInstance(firstParamType)
-                            : firstParamType
-                    );
-                }
+                constraints.setBounds(
+                    memberTypeFirstParamType,
+                    TypeBase.isInstantiable(memberTypeFirstParamType)
+                        ? convertToInstance(firstParamType)
+                        : firstParamType
+                );
             } else {
                 const subDiag = diag?.createAddendum();
 
