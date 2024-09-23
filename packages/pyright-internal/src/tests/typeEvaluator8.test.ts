@@ -964,3 +964,11 @@ test('TypeForm6', () => {
 
     TestUtils.validateResults(analysisResults, 8);
 });
+
+test('TypeForm7', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm7.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 1);
+});

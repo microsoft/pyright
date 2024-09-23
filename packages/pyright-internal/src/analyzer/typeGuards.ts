@@ -1402,7 +1402,7 @@ function narrowTypeForInstance(
                     AssignTypeFlags.AllowIsinstanceSpecialForms | AssignTypeFlags.AllowProtocolClassSource
                 );
 
-                const filterIsSubclass = evaluator.assignType(
+                let filterIsSubclass = evaluator.assignType(
                     runtimeVarType,
                     filterType,
                     /* diag */ undefined,
@@ -1412,6 +1412,13 @@ function narrowTypeForInstance(
 
                 if (filterIsSuperclass) {
                     foundSuperclass = true;
+                }
+
+                // Special-case the TypeForm special form. This represents a variety
+                // of runtime classes that will not appear to overlap with TypeForm.
+                if (ClassType.isBuiltIn(runtimeVarType, 'TypeForm')) {
+                    isClassRelationshipIndeterminate = true;
+                    filterIsSubclass = true;
                 }
 
                 // Normally, a type should never be both a subclass and a superclass.
