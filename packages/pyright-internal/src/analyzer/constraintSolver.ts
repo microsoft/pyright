@@ -587,9 +587,9 @@ function assignBoundTypeVar(
         return true;
     }
 
-    // Never is always assignable in a covariant context.
-    const isCovariant = (flags & (AssignTypeFlags.Invariant | AssignTypeFlags.Contravariant)) === 0;
-    if (isNever(srcType) && isCovariant) {
+    // Never is always assignable except in an invariant context.
+    const isInvariant = (flags & AssignTypeFlags.Invariant) !== 0;
+    if (isNever(srcType) && !isInvariant) {
         return true;
     }
 
