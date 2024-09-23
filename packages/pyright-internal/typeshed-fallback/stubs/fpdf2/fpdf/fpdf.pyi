@@ -67,7 +67,7 @@ __all__ = [
 
 _Orientation: TypeAlias = Literal["", "portrait", "p", "P", "landscape", "l", "L"]
 _Format: TypeAlias = Literal["", "a3", "A3", "a4", "A4", "a5", "A5", "letter", "Letter", "legal", "Legal"]
-_FontStyle: TypeAlias = Literal["", "B", "I"]
+_FontStyle: TypeAlias = Literal["", "B", "I", "BI"]
 _FontStyles: TypeAlias = Literal["", "B", "I", "U", "BU", "UB", "BI", "IB", "IU", "UI", "BIU", "BUI", "IBU", "IUB", "UBI", "UIB"]
 
 FPDF_VERSION: Final[str]
