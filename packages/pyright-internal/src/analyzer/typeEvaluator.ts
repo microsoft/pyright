@@ -16507,7 +16507,16 @@ export function createTypeEvaluator(
                     typeParamVariance: Variance.Invariant,
                 },
             ],
-            ['TypeForm', { alias: '', module: 'builtins', isSpecialForm: true, typeParamVariance: Variance.Covariant }],
+            [
+                'TypeForm',
+                {
+                    alias: '',
+                    module: 'builtins',
+                    isSpecialForm: true,
+                    typeParamVariance: Variance.Covariant,
+                    isIllegalInIsinstance: true,
+                },
+            ],
         ]);
 
         const aliasMapEntry = specialTypes.get(assignedName);
