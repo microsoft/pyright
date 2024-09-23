@@ -418,7 +418,6 @@ interface AssignClassToSelfInfo {
 interface ParamAssignmentInfo {
     argsNeeded: number;
     argsReceived: number;
-    isPositionalOnly: boolean;
 }
 
 interface MatchedOverloadInfo {
@@ -10541,11 +10540,11 @@ export function createTypeEvaluator(
         paramDetails.params.forEach((paramInfo) => {
             assert(paramInfo !== undefined, 'paramInfo is undefined for param name map');
             const param = paramInfo.param;
-            if (param.name && param.category === ParamCategory.Simple) {
+
+            if (param.name && param.category === ParamCategory.Simple && paramInfo.kind !== ParamKind.Positional) {
                 paramMap.set(param.name, {
                     argsNeeded: param.category === ParamCategory.Simple && !paramInfo.defaultType ? 1 : 0,
                     argsReceived: 0,
-                    isPositionalOnly: paramInfo.kind === ParamKind.Positional,
                 });
             }
         });
@@ -10929,20 +10928,22 @@ export function createTypeEvaluator(
                     }
                 }
             } else {
-                const paramName = paramDetails.params[paramIndex].param.name;
+                const paramInfo = paramDetails.params[paramIndex];
+                const paramName = paramInfo.param.name;
+
                 validateArgTypeParams.push({
-                    paramCategory: paramDetails.params[paramIndex].param.category,
+                    paramCategory: paramInfo.param.category,
                     paramType,
                     requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: argList[argIndex],
                     errorNode: argList[argIndex].valueExpression || errorNode,
                     paramName,
-                    isParamNameSynthesized: FunctionParam.isNameSynthesized(paramDetails.params[paramIndex].param),
+                    isParamNameSynthesized: FunctionParam.isNameSynthesized(paramInfo.param),
                 });
-                trySetActive(argList[argIndex], paramDetails.params[paramIndex].param);
+                trySetActive(argList[argIndex], paramInfo.param);
 
                 // Note that the parameter has received an argument.
-                if (paramName && paramMap.has(paramName)) {
+                if (paramName && paramMap.has(paramName) && paramInfo.kind !== ParamKind.Positional) {
                     paramMap.get(paramName)!.argsReceived++;
                 }
 
@@ -11043,7 +11044,7 @@ export function createTypeEvaluator(
 
                         tdEntries.knownItems.forEach((entry, name) => {
                             const paramEntry = paramMap.get(name);
-                            if (paramEntry && !paramEntry.isPositionalOnly) {
+                            if (paramEntry) {
                                 if (paramEntry.argsReceived > 0) {
                                     diag.addMessage(LocMessage.paramAlreadyAssigned().format({ name }));
                                 } else {
@@ -11085,7 +11086,6 @@ export function createTypeEvaluator(
                                 paramMap.set(name, {
                                     argsNeeded: 1,
                                     argsReceived: 1,
-                                    isPositionalOnly: false,
                                 });
                             } else {
                                 // If the function doesn't have a **kwargs parameter, we need to emit an error.
@@ -11227,7 +11227,8 @@ export function createTypeEvaluator(
                     if (paramName) {
                         const paramNameValue = paramName.d.value;
                         const paramEntry = paramMap.get(paramNameValue);
-                        if (paramEntry && !paramEntry.isPositionalOnly) {
+
+                        if (paramEntry) {
                             if (paramEntry.argsReceived > 0) {
                                 if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                                     addDiagnostic(
@@ -11241,7 +11242,7 @@ export function createTypeEvaluator(
                                 paramEntry.argsReceived++;
 
                                 const paramInfoIndex = paramDetails.params.findIndex(
-                                    (paramInfo) => paramInfo.param.name === paramNameValue
+                                    (paramInfo) => paramInfo.param.name === paramNameValue && paramInfo.kind !== ParamKind.Positional
                                 );
                                 assert(paramInfoIndex >= 0);
                                 const paramType = paramDetails.params[paramInfoIndex].type;
@@ -11283,7 +11284,6 @@ export function createTypeEvaluator(
                                 paramMap.set(paramNameValue, {
                                     argsNeeded: 1,
                                     argsReceived: 1,
-                                    isPositionalOnly: false,
                                 });
                                 assert(
                                     paramDetails.params[paramDetails.kwargsIndex],
@@ -11419,8 +11419,9 @@ export function createTypeEvaluator(
                 paramDetails.params.forEach((paramInfo) => {
                     const param = paramInfo.param;
                     if (param.category === ParamCategory.Simple && param.name) {
-                        const entry = paramMap.get(param.name)!;
-                        if (entry.argsNeeded === 0 && entry.argsReceived === 0) {
+                        const entry = paramMap.get(param.name);
+
+                        if (entry && entry.argsNeeded === 0 && entry.argsReceived === 0) {
                             const defaultArgType = paramInfo.defaultType;
 
                             if (
@@ -18128,7 +18129,11 @@ export function createTypeEvaluator(
                     const paramMap = new Map<string, number>();
                     for (let i = paramListDetails.firstKeywordOnlyIndex; i < paramListDetails.params.length; i++) {
                         const paramInfo = paramListDetails.params[i];
-                        if (paramInfo.param.category === ParamCategory.Simple && paramInfo.param.name) {
+                        if (
+                            paramInfo.param.category === ParamCategory.Simple &&
+                            paramInfo.param.name &&
+                            paramInfo.kind !== ParamKind.Positional
+                        ) {
                             paramMap.set(paramInfo.param.name, i);
                         }
                     }
@@ -25946,7 +25951,11 @@ export function createTypeEvaluator(
             if (destParamDetails.firstKeywordOnlyIndex !== undefined) {
                 destParamDetails.params.forEach((param, index) => {
                     if (index >= destParamDetails.firstKeywordOnlyIndex!) {
-                        if (param.param.name && param.param.category === ParamCategory.Simple) {
+                        if (
+                            param.param.name &&
+                            param.param.category === ParamCategory.Simple &&
+                            param.kind !== ParamKind.Positional
+                        ) {
                             destParamMap.set(param.param.name, param);
                         }
                     }
