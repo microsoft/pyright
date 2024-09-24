@@ -1277,7 +1277,7 @@ export class Checker extends ParseTreeWalker {
         } else if (node.d.operator === OperatorType.Is || node.d.operator === OperatorType.IsNot) {
             // Don't apply this rule if it's within an assert.
             if (!ParseTreeUtils.isWithinAssertExpression(node)) {
-                this._validateComparisonTypesForIsOperator(node);
+                this._validateComparisonTypes(node);
             }
         } else if (node.d.operator === OperatorType.In || node.d.operator === OperatorType.NotIn) {
             // Don't apply this rule if it's within an assert.
@@ -2028,47 +2028,6 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    // Determines whether the types of the two operands for an "is" or "is not"
-    // operation have overlapping types.
-    private _validateComparisonTypesForIsOperator(node: BinaryOperationNode) {
-        const rightType = this._evaluator.getType(node.d.rightExpr);
-
-        if (!rightType || !isNoneInstance(rightType)) {
-            return;
-        }
-
-        const leftType = this._evaluator.getType(node.d.leftExpr);
-        if (!leftType) {
-            return;
-        }
-
-        let foundMatchForNone = false;
-        doForEachSubtype(leftType, (subtype) => {
-            subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
-
-            if (this._evaluator.assignType(subtype, this._evaluator.getNoneType())) {
-                foundMatchForNone = true;
-            }
-        });
-
-        const getMessage = () => {
-            return node.d.operator === OperatorType.Is
-                ? LocMessage.comparisonAlwaysFalse()
-                : LocMessage.comparisonAlwaysTrue();
-        };
-
-        if (!foundMatchForNone) {
-            this._evaluator.addDiagnostic(
-                DiagnosticRule.reportUnnecessaryComparison,
-                getMessage().format({
-                    leftType: this._evaluator.printType(leftType, { expandTypeAlias: true }),
-                    rightType: this._evaluator.printType(rightType),
-                }),
-                node
-            );
-        }
-    }
-
     // Determines whether the types of the two operands for an == or != operation
     // have overlapping types.
     private _validateComparisonTypes(node: BinaryOperationNode) {
@@ -2096,7 +2055,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         const getMessage = () => {
-            return node.d.operator === OperatorType.Equals
+            return node.d.operator === OperatorType.Equals || node.d.operator === OperatorType.Is
                 ? LocMessage.comparisonAlwaysFalse()
                 : LocMessage.comparisonAlwaysTrue();
         };
@@ -2138,23 +2097,24 @@ export class Checker extends ParseTreeWalker {
         } else {
             let isComparable = false;
 
-            doForEachSubtype(leftType, (leftSubtype) => {
+            this._evaluator.mapSubtypesExpandTypeVars(leftType, {}, (leftSubtype) => {
                 if (isComparable) {
                     return;
                 }
 
-                leftSubtype = this._evaluator.makeTopLevelTypeVarsConcrete(leftSubtype);
-                doForEachSubtype(rightType, (rightSubtype) => {
+                this._evaluator.mapSubtypesExpandTypeVars(rightType, {}, (rightSubtype) => {
                     if (isComparable) {
                         return;
                     }
 
-                    rightSubtype = this._evaluator.makeTopLevelTypeVarsConcrete(rightSubtype);
-
                     if (this._isTypeComparable(leftSubtype, rightSubtype)) {
                         isComparable = true;
                     }
+
+                    return rightSubtype;
                 });
+
+                return leftSubtype;
             });
 
             if (!isComparable) {
@@ -2186,11 +2146,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (isModule(leftType) || isModule(rightType)) {
-            return isTypeSame(leftType, rightType);
-        }
-
-        if (isNoneInstance(leftType) || isNoneInstance(rightType)) {
-            return isTypeSame(leftType, rightType);
+            return isTypeSame(leftType, rightType, { ignoreConditions: true });
         }
 
         const isLeftCallable = isFunction(leftType) || isOverloaded(leftType);
