@@ -132,7 +132,8 @@ export function validateConstructorArgs(
         argList,
         type,
         skipUnknownArgCheck,
-        inferenceContext
+        inferenceContext,
+        /* useSpeculativeModeForArgs */ true
     );
 
     if (metaclassResult) {
@@ -143,6 +144,16 @@ export function validateConstructorArgs(
         // overrides the normal `type.__call__` logic and don't perform the usual
         // __new__ and __init__ validation.
         if (metaclassResult.argumentErrors || shouldSkipNewAndInitEvaluation(evaluator, type, metaclassReturnType)) {
+            validateMetaclassCall(
+                evaluator,
+                errorNode,
+                argList,
+                type,
+                skipUnknownArgCheck,
+                inferenceContext,
+                /* useSpeculativeModeForArgs */ false
+            );
+
             return metaclassResult;
         }
     }
@@ -561,7 +572,8 @@ function validateMetaclassCall(
     argList: Arg[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
-    inferenceContext: InferenceContext | undefined
+    inferenceContext: InferenceContext | undefined,
+    useSpeculativeModeForArgs: boolean
 ): CallResult | undefined {
     const metaclassCallMethodInfo = getBoundCallMethod(evaluator, errorNode, type);
 
@@ -569,14 +581,16 @@ function validateMetaclassCall(
         return undefined;
     }
 
-    const callResult = evaluator.validateCallArgs(
-        errorNode,
-        argList,
-        metaclassCallMethodInfo,
-        /* constraints */ undefined,
-        skipUnknownArgCheck,
-        inferenceContext
-    );
+    const callResult = evaluator.useSpeculativeMode(useSpeculativeModeForArgs ? errorNode : undefined, () => {
+        return evaluator.validateCallArgs(
+            errorNode,
+            argList,
+            metaclassCallMethodInfo,
+            /* constraints */ undefined,
+            skipUnknownArgCheck,
+            inferenceContext
+        );
+    });
 
     // If the return type is unannotated, don't use the inferred return type.
     const callType = metaclassCallMethodInfo.type;
