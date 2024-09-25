@@ -38,7 +38,7 @@ import { Char } from '../../../common/charCodes';
 import { CommandLineOptions } from '../../../common/commandLineOptions';
 import { ConfigOptions, SignatureDisplayType } from '../../../common/configOptions';
 import { ConsoleInterface, ConsoleWithLogLevel, NullConsole } from '../../../common/console';
-import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
+import { Comparison, isNumber, isString } from '../../../common/core';
 import * as debug from '../../../common/debug';
 import { DiagnosticCategory } from '../../../common/diagnostic';
 import { PyrightDocStringService } from '../../../common/docStringService';
@@ -83,7 +83,6 @@ import { parseTestData } from './fourSlashParser';
 import {
     FourSlashData,
     FourSlashFile,
-    GlobalMetadataOptionNames,
     Marker,
     MetadataOptionNames,
     MultiMap,
@@ -109,7 +108,6 @@ export interface HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory;
     backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory;
 
-    runIndexer(workspace: Workspace, noStdLib: boolean, options?: string): void;
     getCodeActionsForPosition(
         workspace: Workspace,
         fileUri: Uri,
@@ -208,14 +206,6 @@ export class TestState {
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
         };
-
-        const indexer = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexer]);
-        const indexerWithoutStdLib = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexerWithoutStdLib]);
-        if (indexer || indexerWithoutStdLib) {
-            const indexerOptions = testData.globalOptions[GlobalMetadataOptionNames.indexerOptions];
-            configOptions.indexing = true;
-            this._hostSpecificFeatures.runIndexer(this.workspace, indexerWithoutStdLib, indexerOptions);
-        }
 
         if (!delayFileInitialization) {
             this.initializeFiles();

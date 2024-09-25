@@ -64,8 +64,8 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         if (!movedEntries) {
             return entries;
         }
-
-        return entries.concat(movedEntries.map((e) => new VirtualDirent(e.name, e.isFile)));
+        const dirPath = uri.getFilePath();
+        return entries.concat(movedEntries.map((e) => new VirtualDirent(e.name, e.isFile, dirPath)));
     }
 
     readdirSync(uri: Uri): string[] {
