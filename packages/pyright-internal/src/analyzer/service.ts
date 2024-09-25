@@ -30,6 +30,7 @@ import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '..
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import { defaultStubsDirectory } from '../common/pathConsts';
 import { getFileName, isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
+import { PythonVersion } from '../common/pythonVersion';
 import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
 import { Range } from '../common/textRange';
@@ -499,12 +500,16 @@ export class AnalyzerService {
 
         if (this._commandLineOptions?.fromLanguageServer || this._configOptions.verboseOutput) {
             const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
+
             for (const execEnv of this._configOptions.getExecutionEnvironments()) {
-                log(this._console, logLevel, `Search paths for ${execEnv.root || '<default>'}`);
+                log(this._console, logLevel, `Execution environment: ${execEnv.root || '<default>'}`);
+                log(this._console, logLevel, `  Search paths:`);
                 const roots = importResolver.getImportRoots(execEnv, /* forLogging */ true);
                 roots.forEach((path) => {
-                    log(this._console, logLevel, `  ${path.toUserVisibleString()}`);
+                    log(this._console, logLevel, `    ${path.toUserVisibleString()}`);
                 });
+                log(this._console, logLevel, `  Python version: ${PythonVersion.toString(execEnv.pythonVersion)}`);
+                log(this._console, logLevel, `  Python platform: ${execEnv.pythonPlatform ?? 'All'}`);
             }
         }
 
