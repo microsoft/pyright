@@ -126,7 +126,7 @@ export class AnalyzerService {
     private _commandLineOptions: CommandLineOptions | undefined;
     private _analyzeTimer: any;
     private _requireTrackedFileUpdate = true;
-    private _lastUserInteractionTime = Date.now();
+    private _lastUserInteractionTime = 0;
     private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
 
     private _disposed = false;
