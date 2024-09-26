@@ -683,37 +683,7 @@ export function getTypeOfUnaryOperation(
     // is incomplete because we may be evaluating an expression within
     // a loop, so the literal value may change each time.
     if (!exprTypeResult.isIncomplete) {
-        const operator = node.d.operator;
-        const literalClassName = getLiteralTypeClassName(exprType);
-
-        if (literalClassName === 'int') {
-            if (operator === OperatorType.Add) {
-                type = exprType;
-            } else if (operator === OperatorType.Subtract) {
-                type = mapSubtypes(exprType, (subtype) => {
-                    const classSubtype = subtype as ClassType;
-                    return ClassType.cloneWithLiteral(
-                        classSubtype,
-                        -(classSubtype.priv.literalValue as number | bigint)
-                    );
-                });
-            } else if (operator === OperatorType.BitwiseInvert) {
-                type = mapSubtypes(exprType, (subtype) => {
-                    const classSubtype = subtype as ClassType;
-                    return ClassType.cloneWithLiteral(
-                        classSubtype,
-                        ~(classSubtype.priv.literalValue as number | bigint)
-                    );
-                });
-            }
-        } else if (literalClassName === 'bool') {
-            if (operator === OperatorType.Not) {
-                type = mapSubtypes(exprType, (subtype) => {
-                    const classSubtype = subtype as ClassType;
-                    return ClassType.cloneWithLiteral(classSubtype, !(classSubtype.priv.literalValue as boolean));
-                });
-            }
-        }
+        type = calcLiteralForUnaryOp(node.d.operator, exprType);
     }
 
     if (!type) {
@@ -936,10 +906,54 @@ function createUnionType(
     return { type: newUnion };
 }
 
+// Attempts to apply "literal math" for a literal operands.
+function calcLiteralForUnaryOp(operator: OperatorType, operandType: Type): Type | undefined {
+    let type: Type | undefined;
+
+    if (getUnionSubtypeCount(operandType) >= maxLiteralMathSubtypeCount) {
+        return undefined;
+    }
+
+    if (!!getTypeCondition(operandType) || someSubtypes(operandType, (subtype) => !!getTypeCondition(subtype))) {
+        return undefined;
+    }
+
+    const literalClassName = getLiteralTypeClassName(operandType);
+
+    if (literalClassName === 'int') {
+        if (operator === OperatorType.Add) {
+            type = operandType;
+        } else if (operator === OperatorType.Subtract) {
+            type = mapSubtypes(operandType, (subtype) => {
+                const classSubtype = subtype as ClassType;
+                return ClassType.cloneWithLiteral(classSubtype, -(classSubtype.priv.literalValue as number | bigint));
+            });
+        } else if (operator === OperatorType.BitwiseInvert) {
+            type = mapSubtypes(operandType, (subtype) => {
+                const classSubtype = subtype as ClassType;
+                return ClassType.cloneWithLiteral(classSubtype, ~(classSubtype.priv.literalValue as number | bigint));
+            });
+        }
+    } else if (literalClassName === 'bool') {
+        if (operator === OperatorType.Not) {
+            type = mapSubtypes(operandType, (subtype) => {
+                const classSubtype = subtype as ClassType;
+                return ClassType.cloneWithLiteral(classSubtype, !(classSubtype.priv.literalValue as boolean));
+            });
+        }
+    }
+
+    return type;
+}
+
 // Attempts to apply "literal math" for two literal operands.
 function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightType: Type): Type | undefined {
     const leftLiteralClassName = getLiteralTypeClassName(leftType);
-    if (!leftLiteralClassName || getTypeCondition(leftType)) {
+    if (
+        !leftLiteralClassName ||
+        getTypeCondition(leftType) ||
+        someSubtypes(leftType, (subtype) => !!getTypeCondition(subtype))
+    ) {
         return undefined;
     }
 
@@ -947,6 +961,7 @@ function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightTyp
     if (
         leftLiteralClassName !== rightLiteralClassName ||
         getTypeCondition(rightType) ||
+        someSubtypes(rightType, (subtype) => !!getTypeCondition(subtype)) ||
         getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) >= maxLiteralMathSubtypeCount
     ) {
         return undefined;
