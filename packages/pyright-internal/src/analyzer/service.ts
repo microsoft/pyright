@@ -1324,7 +1324,7 @@ export class AnalyzerService {
         const startTime = Date.now();
         const longOperationLimitInSec = 10;
         const nFilesToSuggestSubfolder = 50;
-        
+
         let loggedLongOperationError = false;
         let nFilesVisited = 0;
 
