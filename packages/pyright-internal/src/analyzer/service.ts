@@ -1323,7 +1323,10 @@ export class AnalyzerService {
         const results: Uri[] = [];
         const startTime = Date.now();
         const longOperationLimitInSec = 10;
+        const nFilesToSuggestSubfolder = 50;
+        
         let loggedLongOperationError = false;
+        let nFilesVisited = 0;
 
         const visitDirectoryUnchecked = (absolutePath: Uri, includeRegExp: RegExp, hasDirectoryWildcard: boolean) => {
             if (!loggedLongOperationError) {
@@ -1331,7 +1334,7 @@ export class AnalyzerService {
 
                 // If this is taking a long time, log an error to help the user
                 // diagnose and mitigate the problem.
-                if (secondsSinceStart >= longOperationLimitInSec) {
+                if (secondsSinceStart >= longOperationLimitInSec && nFilesVisited >= nFilesToSuggestSubfolder) {
                     this._console.error(
                         `Enumeration of workspace source files is taking longer than ${longOperationLimitInSec} seconds.\n` +
                             'This may be because:\n' +
@@ -1368,6 +1371,7 @@ export class AnalyzerService {
 
             for (const filePath of files) {
                 if (FileSpec.matchIncludeFileSpec(includeRegExp, exclude, filePath)) {
+                    nFilesVisited++;
                     results.push(filePath);
                 }
             }
