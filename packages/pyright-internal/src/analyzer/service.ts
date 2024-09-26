@@ -1514,9 +1514,6 @@ export class AnalyzerService {
                     // this can affect how we resolve imports. This requires us to reset caches and reanalyze everything.
                     //
                     // However, we don't need to rebuild any indexes in this situation. Changes to workspace files don't affect library indices.
-                    // As for user files, their indices don't contain import alias symbols, so adding or removing user files won't affect the existing indices.
-                    // We only rebuild the indices for a user file when the symbols within the file are changed, like when a user edits the file.
-                    // The index scanner will index any new files during its next background run.
                     this.invalidateAndForceReanalysis(InvalidatedReason.SourceWatcherChanged);
                     this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
                 });

@@ -803,9 +803,8 @@ export class CompletionProvider {
         );
 
         return new AutoImporter(
-            this.execEnv,
             this.program,
-            this.importResolver,
+            this.execEnv,
             this.parseResults,
             this.position,
             completionMap,

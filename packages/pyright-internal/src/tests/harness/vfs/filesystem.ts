@@ -590,7 +590,8 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     readdirEntriesSync(path: Uri): Dirent[] {
-        const { node } = this._walk(this._resolve(path.getFilePath()));
+        const pathStr = this._resolve(path.getFilePath());
+        const { node } = this._walk(this._resolve(pathStr));
         if (!node) {
             throw createIOError('ENOENT');
         }
@@ -598,7 +599,7 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
             throw createIOError('ENOTDIR');
         }
         const entries = Array.from(this._getLinks(node).entries());
-        return entries.map(([k, v]) => makeDirEnt(k, v));
+        return entries.map(([k, v]) => makeDirEnt(k, v, pathStr));
     }
 
     /**
@@ -1866,7 +1867,7 @@ function formatPatchWorker(dirname: string, container: FileSet): string {
     return text;
 }
 
-function makeDirEnt(name: string, node: Inode): Dirent {
+function makeDirEnt(name: string, node: Inode, parentDir: string): Dirent {
     const de: Dirent = {
         isFile: () => isFile(node),
         isDirectory: () => isDirectory(node),
@@ -1876,6 +1877,10 @@ function makeDirEnt(name: string, node: Inode): Dirent {
         isSocket: () => false,
         isSymbolicLink: () => isSymlink(node),
         name,
+        parentPath: parentDir,
+        get path() {
+            return this.parentPath;
+        },
     };
     return de;
 }

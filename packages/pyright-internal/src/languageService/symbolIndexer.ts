@@ -32,9 +32,27 @@ export interface IndexAliasData {
     readonly itemKind?: CompletionItemKind | undefined;
 }
 
+export const enum IndexSymbolVisibilityFlags {
+    None = 0,
+
+    // Indicates that the symbol is visible externally
+    ExternallyVisible = 1 << 0,
+
+    // Indicates that the symbol is included in `__all__`
+    InDunderAll = 1 << 1,
+
+    // Indicates that the symbol is redundantly aliased, such as
+    // in 'from module import xx as xx' or 'import yy as yy'
+    RedundantAlias = 1 << 2,
+}
+
+export function isIndexSymbolVisibleFlagSet(data: IndexSymbolData, flag: IndexSymbolVisibilityFlags) {
+    return !!(data.visibilityFlags & flag);
+}
+
 export interface IndexSymbolData {
     readonly name: string;
-    readonly externallyVisible: boolean;
+    readonly visibilityFlags: IndexSymbolVisibilityFlags;
     readonly kind: SymbolKind;
     readonly itemKind?: CompletionItemKind | undefined;
     readonly alias?: IndexAliasData | undefined;
@@ -169,7 +187,7 @@ function collectSymbolIndexDataForName(
 
     const data: IndexSymbolData = {
         name,
-        externallyVisible,
+        visibilityFlags: IndexSymbolVisibilityFlags.ExternallyVisible,
         kind: symbolKind,
         itemKind: convertSymbolKindToCompletionItemKind(symbolKind),
         alias: undefined,
