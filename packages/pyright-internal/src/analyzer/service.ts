@@ -501,15 +501,28 @@ export class AnalyzerService {
         if (this._commandLineOptions?.fromLanguageServer || this._configOptions.verboseOutput) {
             const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
 
-            for (const execEnv of this._configOptions.getExecutionEnvironments()) {
-                log(this._console, logLevel, `Execution environment: ${execEnv.root || '<default>'}`);
+            const execEnvs = [
+                this._configOptions.getDefaultExecEnvironment(),
+                ...this._configOptions.getExecutionEnvironments(),
+            ];
+
+            for (const execEnv of execEnvs) {
+                log(this._console, logLevel, `Execution environment: ${execEnv.name}`);
+                log(this._console, logLevel, `  Extra paths:`);
+                if (execEnv.extraPaths.length > 0) {
+                    execEnv.extraPaths.forEach((path) => {
+                        log(this._console, logLevel, `    ${path.toUserVisibleString()}`);
+                    });
+                } else {
+                    log(this._console, logLevel, `    (none)`);
+                }
+                log(this._console, logLevel, `  Python version: ${PythonVersion.toString(execEnv.pythonVersion)}`);
+                log(this._console, logLevel, `  Python platform: ${execEnv.pythonPlatform ?? 'All'}`);
                 log(this._console, logLevel, `  Search paths:`);
                 const roots = importResolver.getImportRoots(execEnv, /* forLogging */ true);
                 roots.forEach((path) => {
                     log(this._console, logLevel, `    ${path.toUserVisibleString()}`);
                 });
-                log(this._console, logLevel, `  Python version: ${PythonVersion.toString(execEnv.pythonVersion)}`);
-                log(this._console, logLevel, `  Python platform: ${execEnv.pythonPlatform ?? 'All'}`);
             }
         }
 
