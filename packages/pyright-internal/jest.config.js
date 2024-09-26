@@ -21,7 +21,6 @@ module.exports = {
             },
         ],
     },
-    testTimeout: 6000,
     testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
 };
