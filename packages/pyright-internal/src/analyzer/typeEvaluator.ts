@@ -1679,7 +1679,7 @@ export function createTypeEvaluator(
 
         updatedFlags &= ~EvalFlags.TypeFormArg;
 
-        if (node.d.annotation) {
+        if (node.d.annotation && (flags & EvalFlags.TypeExpression) !== 0) {
             return getTypeOfExpression(node.d.annotation, updatedFlags);
         }
 
