@@ -45,18 +45,7 @@ extends:
               outputs:
                 - output: pipelineArtifact
                   displayName: 'publish vsix artifact'
-                  targetPath: 'build_output/vscode-pyright.vsix'
-                  sbomBuildDropPath: 'build_output'
-                  artifactName: $(ARTIFACT_NAME_VSIX)
-                - output: pipelineArtifact
-                  displayName: 'publish vsix artifact'
-                  targetPath: 'build_output/extension.manifest'
-                  sbomBuildDropPath: 'build_output'
-                  artifactName: $(ARTIFACT_NAME_VSIX)
-                - output: pipelineArtifact
-                  displayName: 'publish vsix artifact'
-                  targetPath: 'build_output/extension.signature.p7s'
-                  sbomBuildDropPath: 'build_output'
+                  targetPath: 'build_output'
                   artifactName: $(ARTIFACT_NAME_VSIX)
             steps:
               - checkout: self
@@ -91,7 +80,7 @@ extends:
                 displayName: 'Copy vsix to: build_output'
                 inputs:
                   SourceFolder: packages/vscode-pyright
-                  Contents: '*.vsix'
+                  Contents: '$(VSIX_NAME)'
                   TargetFolder: build_output
 
               - script: |
