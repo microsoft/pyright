@@ -202,9 +202,9 @@ function _parsePyrightOperand(
         length: operandSplit[0].length,
     });
 
-    // Handle basic directives "basic" and "strict".
+    // Handle basic directives "basic", "standard" and "strict".
     if (operandSplit.length === 1) {
-        if (trimmedRule && [strictSetting, basicSetting].some((setting) => trimmedRule === setting)) {
+        if (trimmedRule && [strictSetting, standardSetting, basicSetting].some((setting) => trimmedRule === setting)) {
             return ruleSet;
         }
     }
