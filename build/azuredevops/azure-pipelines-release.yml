@@ -45,7 +45,18 @@ extends:
               outputs:
                 - output: pipelineArtifact
                   displayName: 'publish vsix artifact'
-                  targetPath: build_output
+                  targetPath: 'build_output/vscode-pyright.vsix'
+                  sbomBuildDropPath: 'build_output'
+                  artifactName: $(ARTIFACT_NAME_VSIX)
+                - output: pipelineArtifact
+                  displayName: 'publish vsix artifact'
+                  targetPath: 'build_output/extension.manifest'
+                  sbomBuildDropPath: 'build_output'
+                  artifactName: $(ARTIFACT_NAME_VSIX)
+                - output: pipelineArtifact
+                  displayName: 'publish vsix artifact'
+                  targetPath: 'build_output/extension.signature.p7s'
+                  sbomBuildDropPath: 'build_output'
                   artifactName: $(ARTIFACT_NAME_VSIX)
             steps:
               - checkout: self
@@ -169,7 +180,7 @@ extends:
                 inputs:
                   notifyUsers: 'plseng@microsoft.com,eric@traut.com'
                   instructions: 'In the next 2 hours please test the latest draft release of Pyright, then Publish the release in GitHub.'
-                  onTimeout: 'resume'
+                  onTimeout: 'reject' # require sign-off
 
       - stage: PublishExtension
         dependsOn:
