@@ -501,10 +501,7 @@ export class AnalyzerService {
         if (this._commandLineOptions?.fromLanguageServer || this._configOptions.verboseOutput) {
             const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
 
-            const execEnvs = [
-                this._configOptions.getDefaultExecEnvironment(),
-                ...this._configOptions.getExecutionEnvironments(),
-            ];
+            const execEnvs = this._configOptions.getExecutionEnvironments();
 
             for (const execEnv of execEnvs) {
                 log(this._console, logLevel, `Execution environment: ${execEnv.name}`);
