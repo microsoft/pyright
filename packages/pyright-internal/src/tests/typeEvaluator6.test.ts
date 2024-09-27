@@ -456,7 +456,7 @@ test('MatchClass1', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('MatchClass2', () => {
