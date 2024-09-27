@@ -20,6 +20,9 @@ extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
   parameters:
     sdl:
+      codeSignValidation:
+        enabled: true
+        additionalTargetsGlobPattern: -|**/gdn-vscode-pyright.vsix/**
       codeql:
         compiled:
           enabled: false
