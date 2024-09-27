@@ -266,6 +266,8 @@ export class Binder extends ParseTreeWalker {
         // binding the builtins module itself.
         const isBuiltInModule = this._fileInfo.builtinsScope === undefined;
 
+        this._addTypingImportAliasesFromBuiltinsScope();
+
         this._createNewScope(
             isBuiltInModule ? ScopeType.Builtin : ScopeType.Module,
             this._fileInfo.builtinsScope,
@@ -1863,6 +1865,10 @@ export class Binder extends ParseTreeWalker {
                                     }
                                 }
                             }
+
+                            if (isTypingImport) {
+                                localSymbol.setTypingSymbolAlias(name);
+                            }
                         }
                     });
                 }
@@ -1971,6 +1977,10 @@ export class Binder extends ParseTreeWalker {
                     if (isTypingImport) {
                         if (typingSymbolsOfInterest.some((s) => s === importSymbolNode.d.name.d.value)) {
                             this._typingSymbolAliases.set(nameNode.d.value, importSymbolNode.d.name.d.value);
+
+                            if (isTypingImport) {
+                                symbol.setTypingSymbolAlias(nameNode.d.value);
+                            }
                         }
                     }
 
@@ -2350,6 +2360,20 @@ export class Binder extends ParseTreeWalker {
         }
 
         return true;
+    }
+
+    private _addTypingImportAliasesFromBuiltinsScope() {
+        if (!this._fileInfo.builtinsScope) {
+            return;
+        }
+
+        const symbolTable = this._fileInfo.builtinsScope.symbolTable;
+        symbolTable.forEach((symbol, name) => {
+            const typingImportAlias = symbol.getTypingSymbolAlias();
+            if (typingImportAlias && !symbol.isExternallyHidden()) {
+                this._typingSymbolAliases.set(name, typingImportAlias);
+            }
+        });
     }
 
     private _formatModuleName(node: ModuleNameNode): string {

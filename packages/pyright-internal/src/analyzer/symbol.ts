@@ -93,6 +93,10 @@ export class Symbol {
     // a specified type.
     private _synthesizedType?: Type;
 
+    // Is this symbol an alias for a symbol originally imported from
+    // the typing or typing_extensions module (e.g. "Final")?
+    private _typingSymbolAlias?: string;
+
     constructor(flags: SymbolFlags) {
         this.id = getUniqueSymbolId();
         this._flags = flags;
@@ -194,6 +198,14 @@ export class Symbol {
 
     isIgnoredForOverrideChecks() {
         return !!(this._flags & SymbolFlags.IgnoredForOverrideChecks);
+    }
+
+    setTypingSymbolAlias(aliasedName: string) {
+        this._typingSymbolAlias = aliasedName;
+    }
+
+    getTypingSymbolAlias(): string | undefined {
+        return this._typingSymbolAlias;
     }
 
     addDeclaration(declaration: Declaration) {
