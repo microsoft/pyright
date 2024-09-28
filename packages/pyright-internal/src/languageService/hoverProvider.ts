@@ -389,7 +389,8 @@ export class HoverProvider {
                 // If the user is hovering over a type parameter name in a class type parameter
                 // list, display the computed variance of the type param.
                 const typeParamListNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeParameterList);
-                const printTypeVarVariance = typeParamListNode?.parent?.nodeType === ParseNodeType.Class;
+                const nodeType = typeParamListNode?.parent?.nodeType;
+                const printTypeVarVariance = nodeType === ParseNodeType.Class || nodeType === ParseNodeType.TypeAlias;
 
                 this._addResultsPart(
                     parts,

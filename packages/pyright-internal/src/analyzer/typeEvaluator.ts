@@ -307,6 +307,7 @@ import {
     getUnknownForTypeVar,
     getUnknownTypeForCallable,
     InferenceContext,
+    invertVariance,
     isDescriptorInstance,
     isEffectivelyInstantiable,
     isEllipsisType,
@@ -890,19 +891,37 @@ export function createTypeEvaluator(
         // can swap it out for a version that has a computed variance.
         if (type && isTypeVar(type) && type.shared.declaredVariance === Variance.Auto) {
             const typeVarType = type;
-            const typeParamListNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeParameterList);
+            const typeParamListNode = ParseTreeUtils.getParentNodeOfType<TypeParameterListNode>(
+                node,
+                ParseNodeType.TypeParameterList
+            );
 
             if (typeParamListNode?.parent?.nodeType === ParseNodeType.Class) {
                 const classTypeResult = getTypeOfClass(typeParamListNode.parent);
 
                 if (classTypeResult) {
                     inferVarianceForClass(classTypeResult.classType);
+
                     const typeParam = classTypeResult.classType.shared.typeParams.find((param) =>
                         isTypeSame(param, typeVarType, { ignoreTypeFlags: true })
                     );
 
-                    if (typeParam) {
-                        type = TypeBase.isInstance(type) ? TypeVarType.cloneAsInstance(typeParam) : typeParam;
+                    if (typeParam?.priv.computedVariance !== undefined) {
+                        type = TypeVarType.cloneWithComputedVariance(type, typeParam.priv.computedVariance);
+                    }
+                }
+            } else if (typeParamListNode?.parent?.nodeType === ParseNodeType.TypeAlias) {
+                const typeAliasType = getTypeOfTypeAlias(typeParamListNode.parent);
+                const typeParamIndex = typeParamListNode.d.params.findIndex((param) => param.d.name === node);
+
+                if (typeParamIndex >= 0) {
+                    inferVarianceForTypeAlias(typeAliasType);
+
+                    const typeAliasInfo = typeAliasType.props?.typeAliasInfo;
+                    if (typeAliasInfo?.usageVariance) {
+                        const usageVariance = typeAliasInfo.usageVariance[typeParamIndex];
+
+                        type = TypeVarType.cloneWithComputedVariance(type, usageVariance);
                     }
                 }
             }
@@ -7021,6 +7040,8 @@ export function createTypeEvaluator(
             return undefined;
         }
 
+        inferVarianceForTypeAlias(baseType);
+
         const typeParams = aliasInfo.typeParams;
         let typeArgs = adjustTypeArgsForTypeVarTuple(getTypeArgs(node, flags), typeParams, node);
         let reportedError = false;
@@ -7598,7 +7619,7 @@ export function createTypeEvaluator(
 
         // Traverse the type alias type definition and adjust the usage
         // variances accordingly.
-        updateUsageVariancesRecursive(type, typeParams, usageVariances);
+        updateUsageVariancesRecursive(type, typeParams, usageVariances, Variance.Covariant);
 
         return usageVariances;
     }
@@ -7610,10 +7631,20 @@ export function createTypeEvaluator(
         type: Type,
         typeAliasTypeParams: TypeVarType[],
         usageVariances: Variance[],
+        varianceContext: Variance,
         recursionCount = 0
     ) {
         if (recursionCount > maxTypeRecursionCount) {
             return;
+        }
+
+        const transformedType = transformPossibleRecursiveTypeAlias(type);
+
+        // If this is a recursive type alias, use a lower recursion limit.
+        if (transformedType !== type) {
+            if (recursionCount > maxRecursiveTypeAliasRecursionCount) {
+                return;
+            }
         }
 
         recursionCount++;
@@ -7625,22 +7656,27 @@ export function createTypeEvaluator(
                 if (typeParamIndex >= 0) {
                     usageVariances[typeParamIndex] = combineVariances(usageVariances[typeParamIndex], variance);
                 } else {
-                    updateUsageVariancesRecursive(subtype, typeAliasTypeParams, usageVariances, recursionCount);
+                    updateUsageVariancesRecursive(
+                        subtype,
+                        typeAliasTypeParams,
+                        usageVariances,
+                        variance,
+                        recursionCount
+                    );
                 }
             });
         }
 
-        doForEachSubtype(type, (subtype) => {
+        doForEachSubtype(transformedType, (subtype) => {
             if (subtype.category === TypeCategory.Function) {
-                if (subtype.priv.specializedTypes) {
-                    subtype.priv.specializedTypes.parameterTypes.forEach((paramType) => {
-                        updateUsageVarianceForType(paramType, Variance.Contravariant);
-                    });
+                subtype.shared.parameters.forEach((param, index) => {
+                    const paramType = FunctionType.getParamType(subtype, index);
+                    updateUsageVarianceForType(paramType, invertVariance(varianceContext));
+                });
 
-                    const returnType = subtype.priv.specializedTypes.returnType;
-                    if (returnType) {
-                        updateUsageVarianceForType(returnType, Variance.Covariant);
-                    }
+                const returnType = FunctionType.getEffectiveReturnType(subtype);
+                if (returnType) {
+                    updateUsageVarianceForType(returnType, varianceContext);
                 }
             } else if (subtype.category === TypeCategory.Class) {
                 if (subtype.priv.typeArgs) {
@@ -7652,7 +7688,7 @@ export function createTypeEvaluator(
                     // the type alias' type parameters?
                     subtype.priv.typeArgs.forEach((typeArg, classParamIndex) => {
                         if (isTupleClass(subtype)) {
-                            updateUsageVarianceForType(typeArg, Variance.Covariant);
+                            updateUsageVarianceForType(typeArg, varianceContext);
                         } else if (classParamIndex < subtype.shared.typeParams.length) {
                             const classTypeParam = subtype.shared.typeParams[classParamIndex];
                             if (isUnpackedClass(typeArg) && typeArg.priv.tupleTypeArgs) {
@@ -7660,9 +7696,13 @@ export function createTypeEvaluator(
                                     updateUsageVarianceForType(tupleTypeArg.type, Variance.Invariant);
                                 });
                             } else {
+                                const effectiveVariance =
+                                    classTypeParam.priv.computedVariance ?? classTypeParam.shared.declaredVariance;
                                 updateUsageVarianceForType(
                                     typeArg,
-                                    classTypeParam.priv.computedVariance ?? classTypeParam.shared.declaredVariance
+                                    varianceContext === Variance.Contravariant
+                                        ? invertVariance(effectiveVariance)
+                                        : effectiveVariance
                                 );
                             }
                         }
@@ -22035,6 +22075,7 @@ export function createTypeEvaluator(
             } else {
                 assert(scopeNode.nodeType === ParseNodeType.TypeAlias);
                 scopeType = TypeVarScopeType.TypeAlias;
+                typeVar.shared.declaredVariance = Variance.Auto;
             }
 
             typeVar = TypeVarType.cloneForScopeId(
