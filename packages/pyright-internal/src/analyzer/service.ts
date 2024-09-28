@@ -1884,7 +1884,7 @@ export class AnalyzerService {
         // is too small (like zero), the VS Code extension becomes
         // unresponsive during heavy analysis. If this number is too
         // large, analysis takes longer.
-        const minTimeBetweenAnalysisPassesInMs = 20;
+        const minTimeBetweenAnalysisPassesInMs = 5;
 
         const timeUntilNextAnalysisInMs = Math.max(
             minBackoffTimeInMs - timeSinceLastUserInteractionInMs,
