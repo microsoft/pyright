@@ -765,7 +765,7 @@ export class PackageTypeVerifier {
                 if (isUnknown(typeArg)) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has unknown type`,
+                        `Type argument ${index + 1} for type alias "${aliasInfo!.shared.name}" has unknown type`,
                         declRange,
                         declFileUri
                     );
@@ -773,7 +773,9 @@ export class PackageTypeVerifier {
                 } else if (isPartlyUnknown(typeArg)) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has partially unknown type`,
+                        `Type argument ${index + 1} for type alias "${
+                            aliasInfo!.shared.name
+                        }" has partially unknown type`,
                         declRange,
                         declFileUri
                     );
@@ -1308,11 +1310,15 @@ export class PackageTypeVerifier {
         if (aliasInfo?.typeArgs) {
             aliasInfo.typeArgs.forEach((typeArg, index) => {
                 if (isUnknown(typeArg)) {
-                    diag.addMessage(`Type argument ${index + 1} for type alias "${aliasInfo!.name}" has unknown type`);
+                    diag.addMessage(
+                        `Type argument ${index + 1} for type alias "${aliasInfo!.shared.name}" has unknown type`
+                    );
                     knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                 } else if (isPartlyUnknown(typeArg)) {
                     diag.addMessage(
-                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has partially unknown type`
+                        `Type argument ${index + 1} for type alias "${
+                            aliasInfo!.shared.name
+                        }" has partially unknown type`
                     );
                     knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.PartiallyUnknown);
                 }

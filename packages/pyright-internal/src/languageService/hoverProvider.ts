@@ -143,7 +143,7 @@ export function getVariableTypeText(
 
     if (type.props?.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
         const typeAliasInfo = getTypeAliasInfo(type);
-        if (typeAliasInfo?.name === typeNode.d.value) {
+        if (typeAliasInfo?.shared.name === typeNode.d.value) {
             if (isTypeVar(type)) {
                 label = isParamSpec(type) ? 'param spec' : 'type variable';
                 typeVarName = type.shared.name;

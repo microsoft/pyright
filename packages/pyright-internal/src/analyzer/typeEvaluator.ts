@@ -258,6 +258,7 @@ import {
     removeUnbound,
     TupleTypeArg,
     Type,
+    TypeAliasInfo,
     TypeBase,
     TypeCategory,
     TypeCondition,
@@ -918,10 +919,10 @@ export function createTypeEvaluator(
                     inferVarianceForTypeAlias(typeAliasType);
 
                     const typeAliasInfo = typeAliasType.props?.typeAliasInfo;
-                    if (typeAliasInfo?.usageVariance) {
-                        const usageVariance = typeAliasInfo.usageVariance[typeParamIndex];
+                    if (typeAliasInfo?.shared.computedVariance) {
+                        const computedVariance = typeAliasInfo.shared.computedVariance[typeParamIndex];
 
-                        type = TypeVarType.cloneWithComputedVariance(type, usageVariance);
+                        type = TypeVarType.cloneWithComputedVariance(type, computedVariance);
                     }
                 }
             }
@@ -4823,7 +4824,7 @@ export function createTypeEvaluator(
         // Isinstance treats traditional (non-PEP 695) type aliases that are unions
         // as tuples of classes rather than unions.
         if ((flags & EvalFlags.IsinstanceArg) !== 0) {
-            if (isUnion(type) && type.props?.typeAliasInfo && !type.props.typeAliasInfo.isPep695Syntax) {
+            if (isUnion(type) && type.props?.typeAliasInfo && !type.props.typeAliasInfo.shared.isPep695Syntax) {
                 return type;
             }
         }
@@ -5297,7 +5298,7 @@ export function createTypeEvaluator(
                     return {
                         type: TypeVarType.cloneForScopeId(
                             type,
-                            leftType.shared.recursiveAlias.scopeId,
+                            leftType.shared.recursiveAlias.typeVarScopeId,
                             leftType.shared.recursiveAlias.name,
                             TypeVarScopeType.TypeAlias
                         ),
@@ -6954,7 +6955,7 @@ export function createTypeEvaluator(
         }
 
         // Is this a generic type alias that needs specializing?
-        if (!aliasInfo.typeParams || aliasInfo.typeParams.length === 0 || aliasInfo.typeArgs) {
+        if (!aliasInfo.shared.typeParams || aliasInfo.shared.typeParams.length === 0 || aliasInfo.typeArgs) {
             return type;
         }
 
@@ -6962,7 +6963,7 @@ export function createTypeEvaluator(
         const defaultTypeArgs: Type[] = [];
         const constraints = new ConstraintTracker();
 
-        aliasInfo.typeParams.forEach((param) => {
+        aliasInfo.shared.typeParams.forEach((param) => {
             if (!param.shared.isDefaultExplicit) {
                 reportDiag = true;
             }
@@ -6971,7 +6972,7 @@ export function createTypeEvaluator(
             if (param.shared.isDefaultExplicit || isParamSpec(param)) {
                 defaultType = solveAndApplyConstraints(param, constraints, {
                     replaceUnsolved: {
-                        scopeIds: [aliasInfo.typeVarScopeId],
+                        scopeIds: [aliasInfo.shared.typeVarScopeId],
                         tupleClassType: getTupleClassType(),
                     },
                 });
@@ -6992,7 +6993,7 @@ export function createTypeEvaluator(
             addDiagnostic(
                 DiagnosticRule.reportMissingTypeArgument,
                 LocMessage.typeArgsMissingForAlias().format({
-                    name: aliasInfo.name,
+                    name: aliasInfo.shared.name,
                 }),
                 errorNode
             );
@@ -7001,7 +7002,7 @@ export function createTypeEvaluator(
         type = TypeBase.cloneForTypeAlias(
             solveAndApplyConstraints(type, constraints, {
                 replaceUnsolved: {
-                    scopeIds: [aliasInfo.typeVarScopeId],
+                    scopeIds: [aliasInfo.shared.typeVarScopeId],
                     tupleClassType: getTupleClassType(),
                 },
             }),
@@ -7026,7 +7027,7 @@ export function createTypeEvaluator(
             aliasBaseType = convertToInstantiable(baseType.props.typeForm);
         }
 
-        if (!aliasInfo?.typeParams || (aliasInfo.typeParams.length === 0 && aliasInfo.typeArgs)) {
+        if (!aliasInfo?.shared.typeParams || (aliasInfo.shared.typeParams.length === 0 && aliasInfo.typeArgs)) {
             return undefined;
         }
 
@@ -7042,7 +7043,7 @@ export function createTypeEvaluator(
 
         inferVarianceForTypeAlias(baseType);
 
-        const typeParams = aliasInfo.typeParams;
+        const typeParams = aliasInfo.shared.typeParams;
         let typeArgs = adjustTypeArgsForTypeVarTuple(getTypeArgs(node, flags), typeParams, node);
         let reportedError = false;
 
@@ -7216,7 +7217,7 @@ export function createTypeEvaluator(
                 } else if (param.shared.isDefaultExplicit) {
                     typeArgType = solveAndApplyConstraints(param, constraints, {
                         replaceUnsolved: {
-                            scopeIds: [aliasInfo.typeVarScopeId],
+                            scopeIds: [aliasInfo.shared.typeVarScopeId],
                             tupleClassType: getTupleClassType(),
                         },
                     });
@@ -7273,7 +7274,7 @@ export function createTypeEvaluator(
         const solutionSet = solveConstraints(evaluatorInterface, constraints).getMainSolutionSet();
         const aliasTypeArgs: Type[] = [];
 
-        aliasInfo.typeParams?.forEach((typeParam) => {
+        aliasInfo.shared.typeParams?.forEach((typeParam) => {
             let typeVarType = solutionSet.getType(typeParam);
 
             // Fill in any unsolved type arguments with unknown.
@@ -7327,7 +7328,7 @@ export function createTypeEvaluator(
             baseTypeResult.type.props?.typeForm
         ) {
             const typeAliasInfo = baseTypeResult.type.props.typeForm.props?.typeAliasInfo;
-            if (typeAliasInfo && typeAliasInfo.typeParams) {
+            if (typeAliasInfo && typeAliasInfo.shared.typeParams) {
                 const origTypeAlias = TypeBase.cloneForTypeAlias(
                     convertToInstantiable(baseTypeResult.type.props.typeForm),
                     { ...typeAliasInfo, typeArgs: undefined }
@@ -7344,14 +7345,7 @@ export function createTypeEvaluator(
         if (isTypeVar(baseTypeResult.type) && isTypeAliasPlaceholder(baseTypeResult.type)) {
             const typeArgTypes = getTypeArgs(node, flags).map((t) => convertToInstance(t.type));
             const type = TypeBase.cloneForTypeAlias(baseTypeResult.type, {
-                name: baseTypeResult.type.shared.recursiveAlias!.name,
-                fullName: '',
-                moduleName: '',
-                fileUri: Uri.empty(),
-                typeVarScopeId: baseTypeResult.type.shared.recursiveAlias!.scopeId,
-                isPep695Syntax: !!baseTypeResult.type.shared.recursiveAlias!.isPep695Syntax,
-                typeParams: baseTypeResult.type.shared.recursiveAlias!.typeParams,
-                usageVariance: undefined,
+                shared: baseTypeResult.type.shared.recursiveAlias!,
                 typeArgs: typeArgTypes,
             });
             return { type };
@@ -7599,23 +7593,23 @@ export function createTypeEvaluator(
         const aliasInfo = type.props?.typeAliasInfo;
 
         // If this isn't a generic type alias, there's nothing to do.
-        if (!aliasInfo || !aliasInfo.typeParams) {
+        if (!aliasInfo || !aliasInfo.shared.typeParams) {
             return undefined;
         }
 
-        // Is the usage variance info already cached?
-        if (aliasInfo.usageVariance) {
-            return aliasInfo.usageVariance;
+        // Is the computed variance info already cached?
+        if (aliasInfo.shared.computedVariance) {
+            return aliasInfo.shared.computedVariance;
         }
 
-        const typeParams = aliasInfo.typeParams;
+        const typeParams = aliasInfo.shared.typeParams;
 
         // Start with all of the usage variances unknown.
         const usageVariances: Variance[] = typeParams.map(() => Variance.Unknown);
 
         // Prepopulate the cached value for the type alias to handle
         // recursive type aliases.
-        aliasInfo.usageVariance = usageVariances;
+        aliasInfo.shared.computedVariance = usageVariances;
 
         // Traverse the type alias type definition and adjust the usage
         // variances accordingly.
@@ -16277,11 +16271,9 @@ export function createTypeEvaluator(
 
     function transformTypeForTypeAlias(
         type: Type,
-        name: NameNode,
         errorNode: ExpressionNode,
-        isPep695Syntax: boolean,
+        typeAliasPlaceholder: TypeVarType,
         isPep695TypeVarType: boolean,
-        typeParams?: TypeVarType[],
         typeParamNodes?: TypeParameterNode[]
     ): Type {
         if (!TypeBase.isInstantiable(type)) {
@@ -16294,6 +16286,10 @@ export function createTypeEvaluator(
             return type;
         }
 
+        const sharedInfo = typeAliasPlaceholder.shared.recursiveAlias;
+        assert(sharedInfo !== undefined);
+
+        let typeParams: TypeVarType[] | undefined = sharedInfo.typeParams;
         if (!typeParams) {
             // Determine if there are any generic type parameters associated
             // with this type alias.
@@ -16329,12 +16325,10 @@ export function createTypeEvaluator(
                         typeVarName: typeParams[typeVarWithDefaultIndex].shared.name,
                         variadicName: typeParams[firstTypeVarTupleIndex].shared.name,
                     }),
-                    typeParamNodes ? typeParamNodes[typeVarWithDefaultIndex].d.name : name
+                    typeParamNodes ? typeParamNodes[typeVarWithDefaultIndex].d.name : errorNode
                 );
             }
         }
-
-        const typeAliasScopeId = ParseTreeUtils.getScopeIdForNode(name);
 
         // Validate the default types for all type parameters.
         typeParams.forEach((typeParam, index) => {
@@ -16343,7 +16337,7 @@ export function createTypeEvaluator(
             if (typeParamNodes && index < typeParamNodes.length) {
                 bestErrorNode = typeParamNodes[index].d.defaultExpr ?? typeParamNodes[index].d.name;
             }
-            validateTypeParamDefault(bestErrorNode, typeParam, typeParams.slice(0, index), typeAliasScopeId);
+            validateTypeParamDefault(bestErrorNode, typeParam, typeParams.slice(0, index), sharedInfo.typeVarScopeId);
         });
 
         // Verify that we have at most one TypeVarTuple.
@@ -16358,10 +16352,11 @@ export function createTypeEvaluator(
             );
         }
 
-        if (!isPep695Syntax && !isPep695TypeVarType) {
+        if (!sharedInfo.isPep695Syntax && !isPep695TypeVarType) {
             const boundTypeVars = typeParams.filter(
                 (typeVar) =>
-                    typeVar.priv.scopeId !== typeAliasScopeId && typeVar.priv.scopeType === TypeVarScopeType.Class
+                    typeVar.priv.scopeId !== sharedInfo.typeVarScopeId &&
+                    typeVar.priv.scopeType === TypeVarScopeType.Class
             );
 
             if (boundTypeVars.length > 0) {
@@ -16375,22 +16370,16 @@ export function createTypeEvaluator(
             }
         }
 
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(name);
+        sharedInfo.typeParams = typeParams.length > 0 ? typeParams : undefined;
+
         let typeAlias = TypeBase.cloneForTypeAlias(type, {
-            name: name.d.value,
-            fullName: ParseTreeUtils.getClassFullName(name, fileInfo.moduleName, name.d.value),
-            moduleName: fileInfo.moduleName,
-            fileUri: fileInfo.fileUri,
-            typeVarScopeId: typeAliasScopeId,
-            isPep695Syntax,
-            typeParams: typeParams.length > 0 ? typeParams : undefined,
-            usageVariance: undefined,
+            shared: sharedInfo,
             typeArgs: undefined,
         });
 
         // All PEP 695 type aliases are special forms because they are
         // TypeAliasType objects at runtime.
-        if (isPep695Syntax || isPep695TypeVarType) {
+        if (sharedInfo.isPep695Syntax || isPep695TypeVarType) {
             const typeAliasTypeClass = getTypingType(errorNode, 'TypeAliasType');
             if (typeAliasTypeClass && isInstantiableClass(typeAliasTypeClass)) {
                 typeAlias = TypeBase.cloneAsSpecialForm(typeAlias, ClassType.cloneAsInstance(typeAliasTypeClass));
@@ -16736,7 +16725,7 @@ export function createTypeEvaluator(
             }
 
             if (typeAliasNameNode) {
-                typeAliasPlaceholder = synthesizeTypeAliasPlaceholder(typeAliasNameNode);
+                typeAliasPlaceholder = synthesizeTypeAliasPlaceholder(typeAliasNameNode, /* isPep695Syntax */ false);
 
                 writeTypeCache(node, { type: typeAliasPlaceholder }, /* flags */ undefined);
                 writeTypeCache(node.d.leftExpr, { type: typeAliasPlaceholder }, /* flags */ undefined);
@@ -16767,8 +16756,7 @@ export function createTypeEvaluator(
                 rightHandType = transformTypeForTypeAlias(
                     rightHandType,
                     typeAliasNameNode,
-                    typeAliasNameNode,
-                    /* isPep695Syntax */ false,
+                    typeAliasPlaceholder,
                     /* isPep695TypeVarType */ false
                 );
 
@@ -16790,7 +16778,8 @@ export function createTypeEvaluator(
 
                 // Record the type parameters within the recursive type alias so it
                 // can be specialized.
-                typeAliasPlaceholder.shared.recursiveAlias!.typeParams = rightHandType.props?.typeAliasInfo?.typeParams;
+                typeAliasPlaceholder.shared.recursiveAlias!.typeParams =
+                    rightHandType.props?.typeAliasInfo?.shared.typeParams;
             } else {
                 // If the RHS is a constant boolean expression, assign it a literal type.
                 const constExprValue = evaluateStaticBoolExpression(
@@ -16822,17 +16811,23 @@ export function createTypeEvaluator(
 
     // Synthesize a TypeVar that acts as a placeholder for a type alias. This allows
     // the type alias definition to refer to itself.
-    function synthesizeTypeAliasPlaceholder(nameNode: NameNode): TypeVarType {
+    function synthesizeTypeAliasPlaceholder(nameNode: NameNode, isPep695Syntax: boolean): TypeVarType {
         const placeholder = TypeVarType.createInstantiable(`__type_alias_${nameNode.d.value}`);
         placeholder.shared.isSynthesized = true;
-        const scopeId = ParseTreeUtils.getScopeIdForNode(nameNode);
+        const typeVarScopeId = ParseTreeUtils.getScopeIdForNode(nameNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(nameNode);
+
         placeholder.shared.recursiveAlias = {
             name: nameNode.d.value,
-            scopeId,
-            isPep695Syntax: false,
+            fullName: ParseTreeUtils.getClassFullName(nameNode, fileInfo.moduleName, nameNode.d.value),
+            moduleName: fileInfo.moduleName,
+            fileUri: fileInfo.fileUri,
+            typeVarScopeId,
+            isPep695Syntax,
             typeParams: undefined,
+            computedVariance: undefined,
         };
-        placeholder.priv.scopeId = scopeId;
+        placeholder.priv.scopeId = typeVarScopeId;
 
         return placeholder;
     }
@@ -16873,7 +16868,7 @@ export function createTypeEvaluator(
 
         // Synthesize a type variable that represents the type alias while we're
         // evaluating it. This allows us to handle recursive definitions.
-        const typeAliasTypeVar = synthesizeTypeAliasPlaceholder(nameNode);
+        const typeAliasTypeVar = synthesizeTypeAliasPlaceholder(nameNode, isPep695Syntax);
 
         // Write the type to the type cache to support recursive type alias definitions.
         writeTypeCache(nameNode, { type: typeAliasTypeVar }, /* flags */ undefined);
@@ -16904,10 +16899,8 @@ export function createTypeEvaluator(
         aliasType = transformTypeForTypeAlias(
             aliasType,
             nameNode,
-            nameNode,
-            isPep695Syntax,
+            typeAliasTypeVar,
             /* isPep695TypeVarType */ true,
-            typeParams,
             typeParamNodes
         );
 
@@ -22247,11 +22240,15 @@ export function createTypeEvaluator(
                 // in the event that its inferred type is instantiable or explicitly Any
                 // (but not an ellipsis).
                 if (isLegalImplicitTypeAliasType(inferredType)) {
+                    const typeAliasTypeVar = synthesizeTypeAliasPlaceholder(
+                        resolvedDecl.typeAliasName,
+                        /* isPep695Syntax */ false
+                    );
+
                     inferredType = transformTypeForTypeAlias(
                         inferredType,
-                        resolvedDecl.typeAliasName,
                         resolvedDecl.node,
-                        /* isPep695Syntax */ false,
+                        typeAliasTypeVar,
                         /* isPep695TypeVarType */ false
                     );
 
@@ -23920,18 +23917,16 @@ export function createTypeEvaluator(
             if (
                 destAliasInfo?.typeArgs &&
                 srcAliasInfo?.typeArgs &&
-                destType.shared.recursiveAlias.scopeId === srcType.shared.recursiveAlias.scopeId
+                destType.shared.recursiveAlias.typeVarScopeId === srcType.shared.recursiveAlias.typeVarScopeId
             ) {
-                let isAssignable = true;
-                const srcTypeArgs = srcAliasInfo.typeArgs;
-                destAliasInfo.typeArgs.forEach((destTypeArg, index) => {
-                    const srcTypeArg = index < srcTypeArgs.length ? srcTypeArgs[index] : UnknownType.create();
-                    if (!assignType(destTypeArg, srcTypeArg, diag, constraints, flags, recursionCount)) {
-                        isAssignable = false;
-                    }
-                });
-
-                return isAssignable;
+                return assignRecursiveTypeAliasToSelf(
+                    destAliasInfo,
+                    srcAliasInfo,
+                    diag,
+                    constraints,
+                    flags,
+                    recursionCount
+                );
             } else {
                 // Have we already recursed once?
                 if ((flags & AssignTypeFlags.SkipRecursiveTypeCheck) !== 0) {
@@ -24686,6 +24681,44 @@ export function createTypeEvaluator(
         diag?.addMessage(LocAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType)));
 
         return false;
+    }
+
+    // Determines whether a recursive type alias can be assigned to itself
+    // given the source and dest type args and computed variance for its
+    // type params.
+    function assignRecursiveTypeAliasToSelf(
+        destAliasInfo: TypeAliasInfo,
+        srcAliasInfo: TypeAliasInfo,
+        diag?: DiagnosticAddendum,
+        constraints?: ConstraintTracker,
+        flags = AssignTypeFlags.Default,
+        recursionCount = 0
+    ) {
+        assert(destAliasInfo.typeArgs !== undefined);
+        assert(srcAliasInfo.typeArgs !== undefined);
+
+        let isAssignable = true;
+        const srcTypeArgs = srcAliasInfo.typeArgs;
+        const variances = destAliasInfo.shared.computedVariance;
+
+        destAliasInfo.typeArgs.forEach((destTypeArg, index) => {
+            const srcTypeArg = index < srcTypeArgs.length ? srcTypeArgs[index] : UnknownType.create();
+
+            let adjFlags = flags;
+            const variance = variances && index < variances.length ? variances[index] : Variance.Covariant;
+
+            if (variance === Variance.Invariant) {
+                adjFlags |= AssignTypeFlags.Invariant;
+            } else if (variance === Variance.Contravariant) {
+                adjFlags ^= AssignTypeFlags.Contravariant;
+            }
+
+            if (!assignType(destTypeArg, srcTypeArg, diag, constraints, adjFlags, recursionCount)) {
+                isAssignable = false;
+            }
+        });
+
+        return isAssignable;
     }
 
     // If the expected type is an explicit TypeForm type, see if the source

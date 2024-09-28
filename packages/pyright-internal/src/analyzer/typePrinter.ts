@@ -218,15 +218,15 @@ function printTypeInternal(
                 recursionTypes.push(type);
                 let aliasName =
                     (printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0
-                        ? aliasInfo.fullName
-                        : aliasInfo.name;
+                        ? aliasInfo.shared.fullName
+                        : aliasInfo.shared.name;
 
                 // Use the fully-qualified name if the name isn't unique.
                 if (!uniqueNameMap.isUnique(aliasName)) {
-                    aliasName = aliasInfo.fullName;
+                    aliasName = aliasInfo.shared.fullName;
                 }
 
-                const typeParams = aliasInfo.typeParams;
+                const typeParams = aliasInfo.shared.typeParams;
 
                 if (typeParams && typeParams.length > 0) {
                     let argumentStrings: string[] | undefined;
@@ -320,7 +320,9 @@ function printTypeInternal(
 
     if (
         recursionTypes.find(
-            (t) => t === type || (!!t.props?.typeAliasInfo && t.props.typeAliasInfo.fullName === aliasInfo?.fullName)
+            (t) =>
+                t === type ||
+                (!!t.props?.typeAliasInfo && t.props.typeAliasInfo.shared.fullName === aliasInfo?.shared.fullName)
         ) ||
         recursionTypes.length > maxTypeRecursionCount
     ) {
@@ -331,13 +333,13 @@ function printTypeInternal(
         }
 
         if (aliasInfo) {
-            if (!aliasInfo.typeParams) {
+            if (!aliasInfo.shared.typeParams) {
                 let name =
                     (printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0
-                        ? aliasInfo.fullName
-                        : aliasInfo.name;
+                        ? aliasInfo.shared.fullName
+                        : aliasInfo.shared.name;
                 if (!uniqueNameMap.isUnique(name)) {
-                    name = aliasInfo.fullName;
+                    name = aliasInfo.shared.fullName;
                 }
                 return name;
             }
@@ -1349,8 +1351,8 @@ class UniqueNameMap {
             if (!expandTypeAlias) {
                 const typeAliasName =
                     (this._printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0
-                        ? aliasInfo.fullName
-                        : aliasInfo.name;
+                        ? aliasInfo.shared.fullName
+                        : aliasInfo.shared.name;
                 this._addIfUnique(typeAliasName, type, /* useTypeAliasName */ true);
 
                 // Recursively add the type arguments if present.
@@ -1455,7 +1457,7 @@ class UniqueNameMap {
 
     private _isSameTypeName(type1: Type, type2: Type, useTypeAliasName: boolean): boolean {
         if (useTypeAliasName) {
-            return type1.props?.typeAliasInfo?.fullName === type2.props?.typeAliasInfo?.fullName;
+            return type1.props?.typeAliasInfo?.shared.fullName === type2.props?.typeAliasInfo?.shared.fullName;
         }
 
         if (isClass(type1) && isClass(type2)) {

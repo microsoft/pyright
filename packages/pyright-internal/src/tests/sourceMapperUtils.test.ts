@@ -217,8 +217,8 @@ function assertTypeAlias(code: string) {
     assert(type?.category === TypeCategory.Class);
 
     assert.strictEqual(type.shared.name, 'Mapping');
-    assert.strictEqual(type.props?.typeAliasInfo?.name, 'M');
-    assert.strictEqual(type.props?.typeAliasInfo.moduleName, 'test');
+    assert.strictEqual(type.props?.typeAliasInfo?.shared.name, 'M');
+    assert.strictEqual(type.props?.typeAliasInfo.shared.moduleName, 'test');
 
     const marker = state.getMarkerByName('marker');
     const markerUri = marker.fileUri;

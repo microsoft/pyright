@@ -121,7 +121,7 @@ export interface TypeSameOptions {
     treatAnySameAsUnknown?: boolean;
 }
 
-export interface TypeAliasInfo {
+export interface TypeAliasSharedInfo {
     name: string;
     fullName: string;
     moduleName: string;
@@ -139,7 +139,11 @@ export interface TypeAliasInfo {
 
     // Lazily-evaluated variance of type parameters based on how
     // they are used in the type alias
-    usageVariance: Variance[] | undefined;
+    computedVariance: Variance[] | undefined;
+}
+
+export interface TypeAliasInfo {
+    shared: TypeAliasSharedInfo;
 
     // Type argument, if type alias is specialized
     typeArgs: Type[] | undefined;
@@ -2732,7 +2736,7 @@ export interface TypeVarDetailsShared {
     isTypeParamSyntax: boolean;
 
     // Information about recursive type aliases.
-    recursiveAlias: RecursiveAliasInfo | undefined;
+    recursiveAlias: TypeAliasSharedInfo | undefined;
 }
 
 export type ParamSpecAccess = 'args' | 'kwargs';
