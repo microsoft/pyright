@@ -1660,12 +1660,12 @@ export class ConfigOptions {
                 }
             }
 
-            // Validate the name
+            // Validate the name.
             if (envObj.name) {
                 if (typeof envObj.name === 'string') {
                     newExecEnv.name = envObj.name;
                 } else {
-                    console.error(`Config executionEnvironments index ${index} pythonPlatform must be a string.`);
+                    console.error(`Config executionEnvironments index ${index} name must be a string.`);
                 }
             }
 
