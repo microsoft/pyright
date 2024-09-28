@@ -138,13 +138,15 @@
                         "type": "string"
                     },
                     "description": "Additional import search resolution paths",
-                    "scope": "resource"
+                    "scope": "resource",
+                    "ignoreSync": true
                 },
                 "python.analysis.stubPath": {
                     "type": "string",
                     "default": "typings",
                     "description": "Path to directory containing custom type stub files.",
-                    "scope": "resource"
+                    "scope": "resource",
+                    "ignoreSync": true
                 },
                 "python.analysis.diagnosticMode": {
                     "type": "string",
@@ -166,7 +168,8 @@
                         "type": "string"
                     },
                     "description": "Paths of directories or files that should be included. If no paths are specified, pyright defaults to the workspace root directory. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).",
-                    "scope": "resource"
+                    "scope": "resource",
+                    "ignoreSync": true
                 },
                 "python.analysis.exclude": {
                     "type": "array",
@@ -175,7 +178,8 @@
                         "type": "string"
                     },
                     "description": "Paths of directories or files that should not be included. These override the include directories, allowing specific subdirectories to be excluded. Note that files in the exclude paths may still be included in the analysis if they are referenced (imported) by source files that are not excluded. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character). If no exclude paths are specified, pyright automatically excludes the following: `**/node_modules`, `**/__pycache__`, `.git` and any virtual environment directories.",
-                    "scope": "resource"
+                    "scope": "resource",
+                    "ignoreSync": true
                 },
                 "python.analysis.ignore": {
                     "type": "array",
@@ -184,7 +188,8 @@
                         "type": "string"
                     },
                     "description": "Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed even if they are an included file or within the transitive closure of an included file. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character). If no value is provided, the value of python.linting.ignorePatterns (if set) will be used.",
-                    "scope": "resource"
+                    "scope": "resource",
+                    "ignoreSync": true
                 },
                 "python.analysis.diagnosticSeverityOverrides": {
                     "type": "object",
@@ -1519,7 +1524,8 @@
                         "type": "string"
                     },
                     "description": "Paths to look for typeshed modules.",
-                    "scope": "resource"
+                    "scope": "resource",
+                    "ignoreSync": true
                 },
                 "python.analysis.useLibraryCodeForTypes": {
                     "type": "boolean",
@@ -1549,13 +1555,15 @@
                     "type": "string",
                     "default": "python",
                     "description": "Path to Python, you can use a custom version of Python.",
-                    "scope": "resource"
+                    "scope": "resource",
+                    "ignoreSync": true
                 },
                 "python.venvPath": {
                     "type": "string",
                     "default": "",
                     "description": "Path to folder with a list of Virtual Environments.",
-                    "scope": "resource"
+                    "scope": "resource",
+                    "ignoreSync": true
                 }
             }
         },
