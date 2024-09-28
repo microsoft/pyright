@@ -120,9 +120,12 @@ export function validateConstructorArgs(
     // If this is an unspecialized generic type alias, specialize it now
     // using default type argument values.
     const aliasInfo = type.props?.typeAliasInfo;
-    if (aliasInfo?.typeParams && !aliasInfo.typeArgs) {
+    if (aliasInfo?.shared.typeParams && !aliasInfo.typeArgs) {
         type = applySolvedTypeVars(type, new ConstraintSolution(), {
-            replaceUnsolved: { scopeIds: [aliasInfo.typeVarScopeId], tupleClassType: evaluator.getTupleClassType() },
+            replaceUnsolved: {
+                scopeIds: [aliasInfo.shared.typeVarScopeId],
+                tupleClassType: evaluator.getTupleClassType(),
+            },
         }) as ClassType;
     }
 

@@ -2333,7 +2333,7 @@ export class Checker extends ParseTreeWalker {
                         // the TypeVar multiple times.
                         const baseType = this._evaluator.getType(baseExpression);
                         const aliasInfo = baseType?.props?.typeAliasInfo;
-                        if (aliasInfo?.typeParams && subscriptIndex < aliasInfo.typeParams.length) {
+                        if (aliasInfo?.shared.typeParams && subscriptIndex < aliasInfo.shared.typeParams.length) {
                             isExempt = true;
                         }
                     }
@@ -4238,7 +4238,7 @@ export class Checker extends ParseTreeWalker {
             if (deprecatedForm) {
                 if (
                     (isInstantiableClass(type) && type.shared.fullName === deprecatedForm.fullName) ||
-                    type.props?.typeAliasInfo?.fullName === deprecatedForm.fullName
+                    type.props?.typeAliasInfo?.shared.fullName === deprecatedForm.fullName
                 ) {
                     if (
                         PythonVersion.isGreaterOrEqualTo(

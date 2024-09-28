@@ -841,8 +841,8 @@ export function derivesFromAnyOrUnknown(type: Type): boolean {
 }
 
 export function getFullNameOfType(type: Type): string | undefined {
-    if (type.props?.typeAliasInfo?.fullName) {
-        return type.props.typeAliasInfo.fullName;
+    if (type.props?.typeAliasInfo?.shared.fullName) {
+        return type.props.typeAliasInfo.shared.fullName;
     }
 
     switch (type.category) {
@@ -954,7 +954,7 @@ export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Ty
         return (
             isUnbound(type) &&
             type.props?.typeAliasInfo &&
-            type.props.typeAliasInfo.name === typeAliasPlaceholder.shared.recursiveAlias?.name
+            type.props.typeAliasInfo.shared.name === typeAliasPlaceholder.shared.recursiveAlias?.name
         );
     }
 
@@ -3484,7 +3484,7 @@ export class TypeVarTransformer {
 
     transformGenericTypeAlias(type: Type, recursionCount: number) {
         const aliasInfo = type.props?.typeAliasInfo;
-        if (!aliasInfo || !aliasInfo.typeParams || !aliasInfo.typeArgs) {
+        if (!aliasInfo || !aliasInfo.shared.typeParams || !aliasInfo.typeArgs) {
             return type;
         }
 

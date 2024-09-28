@@ -605,13 +605,15 @@ export class SourceMapper {
         useTypeAlias = false
     ) {
         const fileUri =
-            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.fileUri : type.shared.fileUri;
+            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.shared.fileUri : type.shared.fileUri;
         const sourceFiles = this._getSourceFiles(fileUri, /* stubToShadow */ undefined, originated);
 
         const fullName =
-            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.fullName : type.shared.fullName;
+            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.shared.fullName : type.shared.fullName;
         const moduleName =
-            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.moduleName : type.shared.moduleName;
+            useTypeAlias && type.props?.typeAliasInfo
+                ? type.props.typeAliasInfo.shared.moduleName
+                : type.shared.moduleName;
         const fullClassName = fullName.substring(moduleName.length + 1 /* +1 for trailing dot */);
 
         for (const sourceFile of sourceFiles) {
