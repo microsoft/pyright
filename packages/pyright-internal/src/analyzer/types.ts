@@ -2975,6 +2975,12 @@ export namespace TypeVarType {
         return newInstance;
     }
 
+    export function cloneWithComputedVariance(type: TypeVarType, computedVariance: Variance): TypeVarType {
+        const newInstance = TypeBase.cloneType(type);
+        newInstance.priv.computedVariance = computedVariance;
+        return newInstance;
+    }
+
     export function makeNameWithScope(name: string, scopeId: string, scopeName: string) {
         // We include the scopeName here even though it's normally already part
         // of the scopeId. There are cases where it can diverge, specifically

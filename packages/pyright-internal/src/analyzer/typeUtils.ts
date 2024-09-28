@@ -2874,6 +2874,20 @@ function _requiresSpecialization(type: Type, options?: RequiresSpecializationOpt
     return false;
 }
 
+// Converts contravariant to a covariant or vice versa. Leaves
+// other variances unchanged.
+export function invertVariance(variance: Variance) {
+    if (variance === Variance.Contravariant) {
+        return Variance.Covariant;
+    }
+
+    if (variance === Variance.Covariant) {
+        return Variance.Contravariant;
+    }
+
+    return variance;
+}
+
 // Combines two variances to produce a resulting variance.
 export function combineVariances(variance1: Variance, variance2: Variance) {
     if (variance1 === Variance.Unknown) {
