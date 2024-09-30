@@ -1542,14 +1542,14 @@ export function validateTypeVarDefault(
 // During bidirectional type inference for constructors, an "expected type"
 // is used to prepopulate the type var map. This is problematic when the
 // expected type uses TypeVars that are not part of the context of the
-// class we are constructing. We'll replace these type variables with dummy
-// type variables.
+// class we are constructing. We'll replace these type variables with
+// so-called "unification" type variables.
 export function transformExpectedType(
     expectedType: Type,
     liveTypeVarScopes: TypeVarScopeId[],
     usageOffset: number | undefined
 ): Type {
-    const transformer = new ExpectedTypeTransformer(liveTypeVarScopes, usageOffset);
+    const transformer = new UnificationTypeTransformer(liveTypeVarScopes, usageOffset);
     return transformer.apply(expectedType, 0);
 }
 
@@ -4244,7 +4244,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 }
 
-class ExpectedTypeTransformer extends TypeVarTransformer {
+class UnificationTypeTransformer extends TypeVarTransformer {
     constructor(private _liveTypeVarScopes: TypeVarScopeId[], private _usageOffset: number | undefined) {
         super();
     }
