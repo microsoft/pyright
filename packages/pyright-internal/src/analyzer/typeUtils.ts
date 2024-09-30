@@ -9,12 +9,11 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { ArgumentNode, ParamCategory } from '../parser/parseNodes';
+import { ParamCategory } from '../parser/parseNodes';
 import { ConstraintSolution, ConstraintSolutionSet } from './constraintSolution';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isEffectivelyClassVar, isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
-import { ApplyTypeVarOptions, ArgWithExpression } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -204,6 +203,17 @@ export interface SelfSpecializeOptions {
 
     // Specialize with "bound" versions of the type parameters?
     useBoundTypeVars?: boolean;
+}
+
+export interface ApplyTypeVarOptions {
+    typeClassType?: ClassType;
+    replaceUnsolved?: {
+        scopeIds: TypeVarScopeId[];
+        tupleClassType: ClassType | undefined;
+        unsolvedExemptTypeVars?: TypeVarType[];
+        useUnknown?: boolean;
+        eliminateUnsolvedInUnions?: boolean;
+    };
 }
 
 // Tracks whether a function signature has been seen before within
@@ -3126,14 +3136,6 @@ export function getDeclaringModulesForType(type: Type): string[] {
     const moduleList: string[] = [];
     addDeclaringModuleNamesForType(type, moduleList);
     return moduleList;
-}
-
-export function convertNodeToArg(node: ArgumentNode): ArgWithExpression {
-    return {
-        argCategory: node.d.argCategory,
-        name: node.d.name,
-        valueExpression: node.d.valueExpr,
-    };
 }
 
 function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recursionCount = 0) {

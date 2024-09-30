@@ -67,7 +67,6 @@ import {
 } from './types';
 import {
     cleanIncompleteUnknown,
-    convertNodeToArg,
     derivesFromStdlibClass,
     doForEachSubtype,
     isIncompleteUnknown,
@@ -1811,7 +1810,7 @@ export function getCodeFlowEngine(
                             // the applicable overload returns a NoReturn.
                             const callResult = evaluator.validateOverloadedArgTypes(
                                 node,
-                                node.d.args.map((arg) => convertNodeToArg(arg)),
+                                node.d.args.map((arg) => evaluator.convertNodeToArg(arg)),
                                 { type: callSubtype, isIncomplete: callTypeResult.isIncomplete },
                                 /* constraints */ undefined,
                                 /* skipUnknownArgCheck */ false,

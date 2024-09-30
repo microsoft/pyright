@@ -36,6 +36,7 @@ import { Uri } from '../common/uri/uri';
 import { LocAddendum, LocMessage, ParameterizedString } from '../localization/localize';
 import {
     ArgCategory,
+    ArgumentNode,
     AssignmentNode,
     AugmentedAssignmentNode,
     AwaitNode,
@@ -167,7 +168,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
-import { assignTupleTypeArgs, getSlicedTupleType } from './tuples';
+import { assignTupleTypeArgs, getSlicedTupleType, getTypeOfTuple, makeTupleObject } from './tuples';
 import { SpeculativeModeOptions, SpeculativeTypeTracker } from './typeCacheUtils';
 import {
     assignToTypedDict,
@@ -181,9 +182,9 @@ import {
 } from './typedDicts';
 import {
     AbstractSymbol,
-    ApplyTypeVarOptions,
     Arg,
     ArgResult,
+    ArgWithExpression,
     AssignTypeFlags,
     CallResult,
     CallSignature,
@@ -200,6 +201,7 @@ import {
     FunctionTypeResult,
     MagicMethodDeprecationInfo,
     MapSubtypesOptions,
+    maxInferredContainerDepth,
     maxSubtypesForInferredType,
     MemberAccessDeprecationInfo,
     PrintTypeOptions,
@@ -277,6 +279,7 @@ import {
     addConditionToType,
     addTypeVarsToListIfUnique,
     applySolvedTypeVars,
+    ApplyTypeVarOptions,
     areTypesSame,
     buildSolutionFromSpecializedClass,
     ClassMember,
@@ -286,7 +289,6 @@ import {
     containsAnyOrUnknown,
     containsAnyRecursive,
     containsLiteralType,
-    convertNodeToArg,
     convertToInstance,
     convertToInstantiable,
     convertTypeToParamSpecValue,
@@ -550,17 +552,6 @@ const maxOverloadUnionExpansionCount = 64;
 // Maximum number of recursive function return type inference attempts
 // that can be concurrently pending before we give up.
 const maxInferFunctionReturnRecursionCount = 12;
-
-// In certain loops, it's possible to construct arbitrarily-deep containers
-// (tuples, lists, sets, or dicts) which can lead to infinite type analysis.
-// This limits the depth.
-const maxInferredContainerDepth = 8;
-
-// If a tuple expression with no declared type contains a large number
-// of elements, it can cause performance issues. This value limits the
-// number of elements that will be included in the tuple type before
-// we default to tuple[Unknown, ...].
-const maxInferredTupleEntryCount = 256;
 
 // Maximum recursion amount when comparing two recursive type aliases.
 // Increasing this can greatly increase the time required to evaluate
@@ -1228,7 +1219,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Tuple: {
-                typeResult = getTypeOfTuple(node, flags, inferenceContext);
+                typeResult = getTypeOfTuple(evaluatorInterface, node, flags, inferenceContext);
                 break;
             }
 
@@ -3958,7 +3949,7 @@ export function createTypeEvaluator(
         return mapSubtypes(type, (subtype) => {
             if (isParamSpec(subtype)) {
                 if (subtype.priv.paramSpecAccess === 'args') {
-                    return makeTupleObject([{ type: getObjectType(), isUnbounded: true }]);
+                    return makeTupleObject(evaluatorInterface, [{ type: getObjectType(), isUnbounded: true }]);
                 } else if (subtype.priv.paramSpecAccess === 'kwargs') {
                     if (dictClass && isInstantiableClass(dictClass) && strClass && isInstantiableClass(strClass)) {
                         return ClassType.cloneAsInstance(
@@ -3994,7 +3985,11 @@ export function createTypeEvaluator(
                 }
 
                 // Fall back to "*tuple[object, ...]".
-                return makeTupleObject([{ type: getObjectType(), isUnbounded: true }], /* isUnpacked */ true);
+                return makeTupleObject(
+                    evaluatorInterface,
+                    [{ type: getObjectType(), isUnbounded: true }],
+                    /* isUnpacked */ true
+                );
             }
 
             if (isTypeVar(subtype)) {
@@ -6907,7 +6902,7 @@ export function createTypeEvaluator(
                         });
                     }
 
-                    const tupleObject = makeTupleObject(variadicTypes, /* isUnpacked */ true);
+                    const tupleObject = makeTupleObject(evaluatorInterface, variadicTypes, /* isUnpacked */ true);
 
                     typeArgs = [
                         ...typeArgs.slice(0, variadicIndex),
@@ -6919,7 +6914,7 @@ export function createTypeEvaluator(
                 // Add an empty tuple that maps to the TypeVarTuple type parameter.
                 typeArgs.push({
                     node: errorNode,
-                    type: makeTupleObject([], /* isUnpacked */ true),
+                    type: makeTupleObject(evaluatorInterface, [], /* isUnpacked */ true),
                 });
             }
         }
@@ -6978,6 +6973,7 @@ export function createTypeEvaluator(
                 });
             } else if (isTypeVarTuple(param) && tupleClass && isInstantiableClass(tupleClass)) {
                 defaultType = makeTupleObject(
+                    evaluatorInterface,
                     [{ type: UnknownType.create(), isUnbounded: true }],
                     /* isUnpacked */ true
                 );
@@ -7706,16 +7702,6 @@ export function createTypeEvaluator(
         });
     }
 
-    function makeTupleObject(typeArgs: TupleTypeArg[], isUnpacked = false) {
-        if (tupleClass && isInstantiableClass(tupleClass)) {
-            return convertToInstance(
-                specializeTupleClass(tupleClass, typeArgs, /* isTypeArgExplicit */ true, isUnpacked)
-            );
-        }
-
-        return UnknownType.create();
-    }
-
     function getIndexAccessMagicMethodName(usage: EvaluatorUsage): string {
         if (usage.method === 'get') {
             return '__getitem__';
@@ -7822,7 +7808,7 @@ export function createTypeEvaluator(
             }
         } else if (positionalArgs.length === 0 && unpackedListArgs.length === 0) {
             // Handle the case where there are no positionals provided but there are keywords.
-            positionalIndexType = makeTupleObject([]);
+            positionalIndexType = makeTupleObject(evaluatorInterface, []);
         } else {
             // Package up all of the positionals into a tuple.
             const tupleTypeArgs: TupleTypeArg[] = [];
@@ -7844,7 +7830,7 @@ export function createTypeEvaluator(
                 tupleTypeArgs.push({ type: iterableType, isUnbounded: true });
             });
 
-            positionalIndexType = makeTupleObject(tupleTypeArgs);
+            positionalIndexType = makeTupleObject(evaluatorInterface, tupleTypeArgs);
         }
 
         const argList: Arg[] = [
@@ -8001,48 +7987,50 @@ export function createTypeEvaluator(
 
             // Set the node's type so it isn't reevaluated later.
             setTypeResultForNode(node.d.items[0].d.valueExpr, { type: UnknownType.create() });
-        } else {
-            node.d.items.forEach((arg, index) => {
-                const typeResult = getTypeArgTypeResult(arg.d.valueExpr, index);
 
-                if (arg.d.argCategory !== ArgCategory.Simple) {
-                    if (arg.d.argCategory === ArgCategory.UnpackedList) {
-                        if (!options?.isAnnotatedClass || index === 0) {
-                            if (isTypeVarTuple(typeResult.type) && !typeResult.type.priv.isUnpacked) {
-                                typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
-                            } else if (
-                                isInstantiableClass(typeResult.type) &&
-                                !typeResult.type.priv.includeSubclasses &&
-                                isTupleClass(typeResult.type)
-                            ) {
-                                typeResult.type = ClassType.cloneForUnpacked(typeResult.type);
-                            } else {
-                                addDiagnostic(
-                                    DiagnosticRule.reportInvalidTypeForm,
-                                    LocMessage.unpackNotAllowed(),
-                                    arg.d.valueExpr
-                                );
-                            }
+            return typeArgs;
+        }
+
+        node.d.items.forEach((arg, index) => {
+            const typeResult = getTypeArgTypeResult(arg.d.valueExpr, index);
+
+            if (arg.d.argCategory !== ArgCategory.Simple) {
+                if (arg.d.argCategory === ArgCategory.UnpackedList) {
+                    if (!options?.isAnnotatedClass || index === 0) {
+                        if (isTypeVarTuple(typeResult.type) && !typeResult.type.priv.isUnpacked) {
+                            typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
+                        } else if (
+                            isInstantiableClass(typeResult.type) &&
+                            !typeResult.type.priv.includeSubclasses &&
+                            isTupleClass(typeResult.type)
+                        ) {
+                            typeResult.type = ClassType.cloneForUnpacked(typeResult.type);
+                        } else {
+                            addDiagnostic(
+                                DiagnosticRule.reportInvalidTypeForm,
+                                LocMessage.unpackNotAllowed(),
+                                arg.d.valueExpr
+                            );
                         }
                     }
                 }
+            }
 
-                if (arg.d.name) {
-                    addDiagnostic(
-                        DiagnosticRule.reportInvalidTypeForm,
-                        LocMessage.keywordArgInTypeArgument(),
-                        arg.d.valueExpr
-                    );
-                }
+            if (arg.d.name) {
+                addDiagnostic(
+                    DiagnosticRule.reportInvalidTypeForm,
+                    LocMessage.keywordArgInTypeArgument(),
+                    arg.d.valueExpr
+                );
+            }
 
-                if (
-                    arg.d.valueExpr.nodeType !== ParseNodeType.Error ||
-                    arg.d.valueExpr.d.category !== ErrorExpressionCategory.MissingIndexOrSlice
-                ) {
-                    typeArgs.push(typeResult);
-                }
-            });
-        }
+            if (
+                arg.d.valueExpr.nodeType !== ParseNodeType.Error ||
+                arg.d.valueExpr.d.category !== ErrorExpressionCategory.MissingIndexOrSlice
+            ) {
+                typeArgs.push(typeResult);
+            }
+        });
 
         return typeArgs;
     }
@@ -8085,204 +8073,6 @@ export function createTypeEvaluator(
         }
 
         return typeResult;
-    }
-
-    function getTypeOfTuple(
-        node: TupleNode,
-        flags: EvalFlags,
-        inferenceContext: InferenceContext | undefined
-    ): TypeResult {
-        if ((flags & EvalFlags.TypeExpression) !== 0 && node.parent?.nodeType !== ParseNodeType.Argument) {
-            // This is allowed inside of an index trailer, specifically
-            // to support Tuple[()], which is the documented way to annotate
-            // a zero-length tuple.
-            const diag = new DiagnosticAddendum();
-            diag.addMessage(LocAddendum.useTupleInstead());
-            addDiagnostic(
-                DiagnosticRule.reportInvalidTypeForm,
-                LocMessage.tupleInAnnotation() + diag.getString(),
-                node
-            );
-
-            return { type: UnknownType.create() };
-        }
-
-        if ((flags & EvalFlags.InstantiableType) !== 0 && node.d.items.length === 0 && !inferenceContext) {
-            return { type: makeTupleObject([]), isEmptyTupleShorthand: true };
-        }
-
-        flags &= ~(EvalFlags.TypeExpression | EvalFlags.StrLiteralAsType | EvalFlags.InstantiableType);
-
-        // If the expected type is a union, recursively call for each of the subtypes
-        // to find one that matches.
-        let expectedType = inferenceContext?.expectedType;
-        let expectedTypeContainsAny = inferenceContext && isAny(inferenceContext.expectedType);
-
-        if (inferenceContext && isUnion(inferenceContext.expectedType)) {
-            let matchingSubtype: Type | undefined;
-
-            doForEachSubtype(
-                inferenceContext.expectedType,
-                (subtype) => {
-                    if (isAny(subtype)) {
-                        expectedTypeContainsAny = true;
-                    }
-
-                    if (!matchingSubtype) {
-                        const subtypeResult = useSpeculativeMode(node, () => {
-                            return getTypeOfTupleWithContext(node, flags, makeInferenceContext(subtype));
-                        });
-
-                        if (subtypeResult && assignType(subtype, subtypeResult.type)) {
-                            matchingSubtype = subtype;
-                        }
-                    }
-                },
-                /* sortSubtypes */ true
-            );
-
-            expectedType = matchingSubtype;
-        }
-
-        let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
-        if (expectedType) {
-            const result = getTypeOfTupleWithContext(node, flags, makeInferenceContext(expectedType));
-
-            if (result && !result.typeErrors) {
-                return result;
-            }
-
-            expectedTypeDiagAddendum = result?.expectedTypeDiagAddendum;
-        }
-
-        const typeResult = getTypeOfTupleInferred(node, flags);
-
-        // If there was an expected type of Any, replace the resulting type
-        // with Any rather than return a type with unknowns.
-        if (expectedTypeContainsAny) {
-            typeResult.type = AnyType.create();
-        }
-
-        return { ...typeResult, expectedTypeDiagAddendum };
-    }
-
-    function getTypeOfTupleWithContext(
-        node: TupleNode,
-        flags: EvalFlags,
-        inferenceContext: InferenceContext
-    ): TypeResult | undefined {
-        inferenceContext.expectedType = transformPossibleRecursiveTypeAlias(inferenceContext.expectedType);
-        if (!isClassInstance(inferenceContext.expectedType)) {
-            return undefined;
-        }
-
-        if (!tupleClass || !isInstantiableClass(tupleClass)) {
-            return undefined;
-        }
-
-        // Build an array of expected types.
-        let expectedTypes: Type[] = [];
-
-        if (isTupleClass(inferenceContext.expectedType) && inferenceContext.expectedType.priv.tupleTypeArgs) {
-            expectedTypes = inferenceContext.expectedType.priv.tupleTypeArgs.map((t) =>
-                transformPossibleRecursiveTypeAlias(t.type)
-            );
-            const unboundedIndex = inferenceContext.expectedType.priv.tupleTypeArgs.findIndex((t) => t.isUnbounded);
-            if (unboundedIndex >= 0) {
-                if (expectedTypes.length > node.d.items.length) {
-                    expectedTypes.splice(unboundedIndex, 1);
-                } else {
-                    while (expectedTypes.length < node.d.items.length) {
-                        expectedTypes.splice(unboundedIndex, 0, expectedTypes[unboundedIndex]);
-                    }
-                }
-            }
-        } else {
-            const tupleConstraints = new ConstraintTracker();
-            if (
-                !addConstraintsForExpectedType(
-                    evaluatorInterface,
-                    ClassType.cloneAsInstance(tupleClass),
-                    inferenceContext.expectedType,
-                    tupleConstraints,
-                    ParseTreeUtils.getTypeVarScopesForNode(node),
-                    node.start
-                )
-            ) {
-                return undefined;
-            }
-
-            const specializedTuple = solveAndApplyConstraints(tupleClass, tupleConstraints) as ClassType;
-            if (!specializedTuple.priv.typeArgs || specializedTuple.priv.typeArgs.length !== 1) {
-                return undefined;
-            }
-
-            const homogenousType = transformPossibleRecursiveTypeAlias(specializedTuple.priv.typeArgs[0]);
-            for (let i = 0; i < node.d.items.length; i++) {
-                expectedTypes.push(homogenousType);
-            }
-        }
-
-        const entryTypeResults = node.d.items.map((expr, index) =>
-            getTypeOfExpression(
-                expr,
-                flags | EvalFlags.StripTupleLiterals,
-                makeInferenceContext(
-                    index < expectedTypes.length ? expectedTypes[index] : undefined,
-                    inferenceContext.isTypeIncomplete
-                )
-            )
-        );
-        const isIncomplete = entryTypeResults.some((result) => result.isIncomplete);
-
-        // Copy any expected type diag addenda for precision error reporting.
-        let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
-        if (entryTypeResults.some((result) => result.expectedTypeDiagAddendum)) {
-            expectedTypeDiagAddendum = new DiagnosticAddendum();
-            entryTypeResults.forEach((result) => {
-                if (result.expectedTypeDiagAddendum) {
-                    expectedTypeDiagAddendum!.addAddendum(result.expectedTypeDiagAddendum);
-                }
-            });
-        }
-
-        // If the tuple contains a very large number of entries, it's probably
-        // generated code. If we encounter type errors, don't bother building
-        // the full tuple type.
-        let type: Type;
-        if (node.d.items.length > maxInferredTupleEntryCount && entryTypeResults.some((result) => result.typeErrors)) {
-            type = makeTupleObject([{ type: UnknownType.create(), isUnbounded: true }]);
-        } else {
-            type = makeTupleObject(buildTupleTypesList(entryTypeResults, /* stripLiterals */ false));
-        }
-
-        return { type, expectedTypeDiagAddendum, isIncomplete };
-    }
-
-    function getTypeOfTupleInferred(node: TupleNode, flags: EvalFlags): TypeResult {
-        const entryTypeResults = node.d.items.map((expr) =>
-            getTypeOfExpression(expr, flags | EvalFlags.StripTupleLiterals)
-        );
-        const isIncomplete = entryTypeResults.some((result) => result.isIncomplete);
-
-        // If the tuple contains a very large number of entries, it's probably
-        // generated code. Rather than taking the time to evaluate every entry,
-        // simply return an unknown type in this case.
-        if (node.d.items.length > maxInferredTupleEntryCount) {
-            return { type: makeTupleObject([{ type: UnknownType.create(), isUnbounded: true }]) };
-        }
-
-        const type = makeTupleObject(
-            buildTupleTypesList(entryTypeResults, (flags & EvalFlags.StripTupleLiterals) !== 0)
-        );
-
-        if (isIncomplete) {
-            if (getContainerDepth(type) > maxInferredContainerDepth) {
-                return { type: UnknownType.create() };
-            }
-        }
-
-        return { type, isIncomplete };
     }
 
     function buildTupleTypesList(entryTypeResults: TypeResult[], stripLiterals: boolean): TupleTypeArg[] {
@@ -8614,6 +8404,14 @@ export function createTypeEvaluator(
         }
 
         return { type: arg0TypeResult.type };
+    }
+
+    function convertNodeToArg(node: ArgumentNode): ArgWithExpression {
+        return {
+            argCategory: node.d.argCategory,
+            name: node.d.name,
+            valueExpression: node.d.valueExpr,
+        };
     }
 
     function getTypeOfRevealType(node: CallNode, inferenceContext: InferenceContext | undefined): TypeResult {
@@ -10521,7 +10319,7 @@ export function createTypeEvaluator(
                                     argCategory: ArgCategory.UnpackedList,
                                     valueExpression: undefined,
                                     typeResult: {
-                                        type: makeTupleObject([tupleTypeArg]),
+                                        type: makeTupleObject(evaluatorInterface, [tupleTypeArg]),
                                     },
                                 });
                             } else {
@@ -11550,7 +11348,7 @@ export function createTypeEvaluator(
                         // simplify the type.
                         specializedTuple = tupleTypeArgs[0].type;
                     } else {
-                        specializedTuple = makeTupleObject(tupleTypeArgs, /* isUnpacked */ true);
+                        specializedTuple = makeTupleObject(evaluatorInterface, tupleTypeArgs, /* isUnpacked */ true);
                     }
 
                     const combinedArg: ValidateArgTypeParams = {
@@ -12860,7 +12658,9 @@ export function createTypeEvaluator(
             TypeVarType.createInstantiable(typeVarName, TypeVarKind.TypeVarTuple),
             ClassType.cloneAsInstance(classType)
         );
-        typeVar.shared.defaultType = makeTupleObject([{ type: UnknownType.create(), isUnbounded: true }]);
+        typeVar.shared.defaultType = makeTupleObject(evaluatorInterface, [
+            { type: UnknownType.create(), isUnbounded: true },
+        ]);
 
         // Parse the remaining parameters.
         for (let i = 1; i < argList.length; i++) {
@@ -14991,7 +14791,7 @@ export function createTypeEvaluator(
                 valueType = stripLiteralValue(valueType);
             }
 
-            type = makeTupleObject([
+            type = makeTupleObject(evaluatorInterface, [
                 { type: keyType, isUnbounded: false },
                 { type: valueType, isUnbounded: false },
             ]);
@@ -19027,7 +18827,7 @@ export function createTypeEvaluator(
                     return ClassType.cloneForUnpacked(type, /* isUnpacked */ false);
                 }
 
-                return makeTupleObject([{ type, isUnbounded: !isTypeVarTuple(type) }]);
+                return makeTupleObject(evaluatorInterface, [{ type, isUnbounded: !isTypeVarTuple(type) }]);
             }
 
             case ParamCategory.KwargsDict: {
@@ -19073,7 +18873,7 @@ export function createTypeEvaluator(
         } else {
             awaitableFunctionType.priv.inferredReturnType = createAwaitableReturnType(
                 node,
-                getFunctionInferredReturnType(functionType),
+                getInferredReturnType(functionType),
                 FunctionType.isGenerator(functionType)
             );
         }
@@ -22028,7 +21828,9 @@ export function createTypeEvaluator(
                 typeVar.shared.defaultType = defaultType;
                 typeVar.shared.isDefaultExplicit = true;
             } else {
-                typeVar.shared.defaultType = makeTupleObject([{ type: UnknownType.create(), isUnbounded: true }]);
+                typeVar.shared.defaultType = makeTupleObject(evaluatorInterface, [
+                    { type: UnknownType.create(), isUnbounded: true },
+                ]);
             }
         } else {
             const defaultType = node.d.defaultExpr
@@ -22814,7 +22616,7 @@ export function createTypeEvaluator(
         }
 
         if (!options?.skipInferReturnType) {
-            return getFunctionInferredReturnType(type, options?.callSiteInfo);
+            return getInferredReturnType(type, options?.callSiteInfo);
         }
 
         return UnknownType.create();
@@ -23699,7 +23501,7 @@ export function createTypeEvaluator(
 
                 if (curSrcType.priv.tupleTypeArgs) {
                     typeArgType = convertToInstance(
-                        makeTupleObject(curSrcType.priv.tupleTypeArgs, /* isUnpacked */ true)
+                        makeTupleObject(evaluatorInterface, curSrcType.priv.tupleTypeArgs, /* isUnpacked */ true)
                     );
                 } else {
                     typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
@@ -25589,7 +25391,7 @@ export function createTypeEvaluator(
         });
 
         if (srcTupleTypes.length !== 1 || !isTypeVarTuple(srcTupleTypes[0].type)) {
-            const srcPositionalsType = makeTupleObject(srcTupleTypes, /* isUnpacked */ true);
+            const srcPositionalsType = makeTupleObject(evaluatorInterface, srcTupleTypes, /* isUnpacked */ true);
 
             // Snip out the portion of the source positionals that map to the variadic
             // dest parameter and replace it with a single parameter that is typed as a
@@ -25980,11 +25782,19 @@ export function createTypeEvaluator(
             let srcArgsType = srcParamDetails.params[srcParamDetails.argsIndex].type;
 
             if (!isUnpacked(destArgsType)) {
-                destArgsType = makeTupleObject([{ type: destArgsType, isUnbounded: true }], /* isUnpacked */ true);
+                destArgsType = makeTupleObject(
+                    evaluatorInterface,
+                    [{ type: destArgsType, isUnbounded: true }],
+                    /* isUnpacked */ true
+                );
             }
 
             if (!isUnpacked(srcArgsType)) {
-                srcArgsType = makeTupleObject([{ type: srcArgsType, isUnbounded: true }], /* isUnpacked */ true);
+                srcArgsType = makeTupleObject(
+                    evaluatorInterface,
+                    [{ type: srcArgsType, isUnbounded: true }],
+                    /* isUnpacked */ true
+                );
             }
 
             if (
@@ -27785,7 +27595,7 @@ export function createTypeEvaluator(
     }
 
     // Track these apis internal usages when logging is on. otherwise, it should be noop.
-    const getFunctionInferredReturnType = wrapWithLogger(_getInferredReturnType);
+    const getInferredReturnType = wrapWithLogger(_getInferredReturnType);
 
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,
@@ -27804,7 +27614,7 @@ export function createTypeEvaluator(
         evaluateTypesForStatement,
         evaluateTypesForMatchStatement,
         evaluateTypesForCaseStatement,
-        evaluateTypeOfParam: evaluateTypeOfParam,
+        evaluateTypeOfParam,
         canBeTruthy,
         canBeFalsy,
         stripLiteralValue,
@@ -27831,7 +27641,9 @@ export function createTypeEvaluator(
         getTypeOfIterable,
         getTypeOfIterator,
         getGetterTypeFromProperty,
-        getTypeOfArg: getTypeOfArg,
+        getTypeOfArg,
+        convertNodeToArg,
+        buildTupleTypesList,
         markNamesAccessed,
         expandPromotionTypes,
         makeTopLevelTypeVarsConcrete,
@@ -27843,8 +27655,8 @@ export function createTypeEvaluator(
         getEffectiveTypeOfSymbolForUsage,
         getInferredTypeOfDeclaration,
         getDeclaredTypeForExpression,
-        getFunctionDeclaredReturnType: getDeclaredReturnType,
-        getFunctionInferredReturnType,
+        getDeclaredReturnType,
+        getInferredReturnType,
         getBestOverloadForArgs,
         getBuiltInType,
         getTypeOfMember,
