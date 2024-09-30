@@ -58,7 +58,6 @@ interface ProtocolCompatibility {
     srcType: Type;
     destType: Type;
     flags: AssignTypeFlags;
-    constraints: ConstraintTracker | undefined;
     isCompatible: boolean;
 }
 
@@ -79,6 +78,12 @@ export function assignClassToProtocol(
     // We assume that destType is an instantiable class that is a protocol. The
     // srcType can be an instantiable class or a class instance.
     assert(isInstantiableClass(destType) && ClassType.isProtocolClass(destType));
+
+    // A literal source type should never affect protocol matching, so strip
+    // the literal type if it's present. This helps conserve on cache entries.
+    if (srcType.priv.literalValue !== undefined) {
+        srcType = evaluator.stripLiteralValue(srcType) as ClassType;
+    }
 
     const enforceInvariance = (flags & AssignTypeFlags.Invariant) !== 0;
 
@@ -120,7 +125,6 @@ export function assignClassToProtocol(
 
     protocolAssignmentStack.push({ srcType, destType });
     let isCompatible = true;
-    const clonedConstraints = constraints?.clone();
 
     try {
         isCompatible = assignToProtocolInternal(evaluator, destType, srcType, diag, constraints, flags, recursionCount);
@@ -134,7 +138,7 @@ export function assignClassToProtocol(
     protocolAssignmentStack.pop();
 
     // Cache the results for next time.
-    setProtocolCompatibility(destType, srcType, flags, clonedConstraints, isCompatible);
+    setProtocolCompatibility(destType, srcType, flags, isCompatible);
 
     return isCompatible;
 }
@@ -225,12 +229,7 @@ function getProtocolCompatibility(
     }
 
     const entry = entries.find((entry) => {
-        return (
-            isTypeSame(entry.destType, destType) &&
-            isTypeSame(entry.srcType, srcType) &&
-            entry.flags === flags &&
-            isConstraintTrackerSame(constraints, entry.constraints)
-        );
+        return isTypeSame(entry.destType, destType) && isTypeSame(entry.srcType, srcType) && entry.flags === flags;
     });
 
     return entry?.isCompatible;
@@ -240,7 +239,6 @@ function setProtocolCompatibility(
     destType: ClassType,
     srcType: ClassType,
     flags: AssignTypeFlags,
-    constraints: ConstraintTracker | undefined,
     isCompatible: boolean
 ) {
     let map = srcType.shared.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
@@ -255,25 +253,11 @@ function setProtocolCompatibility(
         map.set(destType.shared.fullName, entries);
     }
 
-    entries.push({
-        destType,
-        srcType,
-        flags,
-        constraints: constraints,
-        isCompatible,
-    });
+    entries.push({ destType, srcType, flags, isCompatible });
 
     if (entries.length > maxProtocolCompatibilityCacheEntries) {
         entries.shift();
     }
-}
-
-function isConstraintTrackerSame(context1: ConstraintTracker | undefined, context2: ConstraintTracker | undefined) {
-    if (!context1 || !context2) {
-        return context1 === context2;
-    }
-
-    return context1.isSame(context2);
 }
 
 function assignToProtocolInternal(
