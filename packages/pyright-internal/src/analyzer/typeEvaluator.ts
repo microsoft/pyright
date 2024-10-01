@@ -7040,27 +7040,14 @@ export function createTypeEvaluator(
         inferVarianceForTypeAlias(baseType);
 
         const typeParams = aliasInfo.shared.typeParams;
-        let typeArgs = adjustTypeArgsForTypeVarTuple(getTypeArgs(node, flags), typeParams, node);
+        let typeArgs: TypeResultWithNode[] | undefined;
+        typeArgs = adjustTypeArgsForTypeVarTuple(getTypeArgs(node, flags), typeParams, node);
         let reportedError = false;
 
-        // PEP 612 says that if the class has only one type parameter consisting
-        // of a ParamSpec, the list of arguments does not need to be enclosed in
-        // a list. We'll handle that case specially here. Presumably this applies to
-        // type aliases as well.
-        if (typeParams.length === 1 && isParamSpec(typeParams[0]) && typeArgs) {
-            if (
-                typeArgs.every(
-                    (typeArg) => !isEllipsisType(typeArg.type) && !typeArg.typeList && !isParamSpec(typeArg.type)
-                )
-            ) {
-                typeArgs = [
-                    {
-                        type: UnknownType.create(),
-                        node: typeArgs.length > 0 ? typeArgs[0].node : node,
-                        typeList: typeArgs,
-                    },
-                ];
-            }
+        typeArgs = transformTypeArgsForParamSpec(typeParams, typeArgs, node);
+        if (!typeArgs) {
+            typeArgs = [];
+            reportedError = true;
         }
 
         let minTypeArgCount = typeParams.length;
@@ -7112,12 +7099,18 @@ export function createTypeEvaluator(
 
                 if (typeList) {
                     const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
-                    typeList.forEach((paramType, paramIndex) => {
+                    typeList.forEach((paramTypeResult, paramIndex) => {
+                        let paramType = paramTypeResult.type;
+
+                        if (!validateTypeArg(paramTypeResult)) {
+                            paramType = UnknownType.create();
+                        }
+
                         FunctionType.addParam(
                             functionType,
                             FunctionParam.create(
                                 ParamCategory.Simple,
-                                convertToInstance(paramType.type),
+                                convertToInstance(paramType),
                                 FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
                                 `__p${paramIndex}`
                             )
@@ -20711,53 +20704,9 @@ export function createTypeEvaluator(
         let typeArgTypes: Type[] = [];
         const fullTypeParams = ClassType.getTypeParams(classType);
 
-        // PEP 612 says that if the class has only one type parameter consisting
-        // of a ParamSpec, the list of arguments does not need to be enclosed in
-        // a list. We'll handle that case specially here.
-        if (fullTypeParams.length === 1 && isParamSpec(fullTypeParams[0]) && typeArgs) {
-            if (
-                typeArgs.every(
-                    (typeArg) => !isEllipsisType(typeArg.type) && !typeArg.typeList && !isParamSpec(typeArg.type)
-                )
-            ) {
-                if (
-                    typeArgs.length !== 1 ||
-                    !isInstantiableClass(typeArgs[0].type) ||
-                    !ClassType.isBuiltIn(typeArgs[0].type, 'Concatenate')
-                ) {
-                    // Package up the type arguments into a typeList.
-                    typeArgs =
-                        typeArgs.length > 0
-                            ? [
-                                  {
-                                      type: UnknownType.create(),
-                                      node: typeArgs[0].node,
-                                      typeList: typeArgs,
-                                  },
-                              ]
-                            : [];
-                }
-            } else if (typeArgs.length > 1) {
-                const paramSpecTypeArg = typeArgs.find((typeArg) => isParamSpec(typeArg.type));
-                if (paramSpecTypeArg) {
-                    isValidTypeForm = false;
-                    addDiagnostic(
-                        DiagnosticRule.reportInvalidTypeForm,
-                        LocMessage.paramSpecContext(),
-                        paramSpecTypeArg.node
-                    );
-                }
-
-                const listTypeArg = typeArgs.find((typeArg) => !!typeArg.typeList);
-                if (listTypeArg) {
-                    isValidTypeForm = false;
-                    addDiagnostic(
-                        DiagnosticRule.reportInvalidTypeForm,
-                        LocMessage.typeArgListNotAllowed(),
-                        listTypeArg.node
-                    );
-                }
-            }
+        typeArgs = transformTypeArgsForParamSpec(fullTypeParams, typeArgs, errorNode);
+        if (!typeArgs) {
+            isValidTypeForm = false;
         }
 
         const constraints = new ConstraintTracker();
@@ -20904,6 +20853,75 @@ export function createTypeEvaluator(
         }
 
         return { type: specializedClass };
+    }
+
+    // PEP 612 says that if the class has only one type parameter consisting
+    // of a ParamSpec, the list of arguments does not need to be enclosed in
+    // a list. We'll handle that case specially here.
+    function transformTypeArgsForParamSpec(
+        typeParams: TypeVarType[],
+        typeArgs: TypeResultWithNode[] | undefined,
+        errorNode: ExpressionNode
+    ): TypeResultWithNode[] | undefined {
+        if (typeParams.length !== 1 || !isParamSpec(typeParams[0]) || !typeArgs) {
+            return typeArgs;
+        }
+
+        if (typeArgs.length > 1) {
+            for (const typeArg of typeArgs) {
+                if (isParamSpec(typeArg.type)) {
+                    addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.paramSpecContext(), typeArg.node);
+                    return undefined;
+                }
+
+                if (isEllipsisType(typeArg.type)) {
+                    addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.ellipsisContext(), typeArg.node);
+                    return undefined;
+                }
+
+                if (isInstantiableClass(typeArg.type) && ClassType.isBuiltIn(typeArg.type, 'Concatenate')) {
+                    addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.concatenateContext(), typeArg.node);
+                    return undefined;
+                }
+
+                if (typeArg.typeList) {
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.typeArgListNotAllowed(),
+                        typeArg.node
+                    );
+                    return undefined;
+                }
+            }
+        }
+
+        if (typeArgs.length === 1) {
+            // Don't transform a type list.
+            if (typeArgs[0].typeList) {
+                return typeArgs;
+            }
+
+            const typeArgType = typeArgs[0].type;
+
+            // Don't transform a single ParamSpec or ellipsis.
+            if (isParamSpec(typeArgType) || isEllipsisType(typeArgType)) {
+                return typeArgs;
+            }
+
+            // Don't transform a Concatenate.
+            if (isInstantiableClass(typeArgType) && ClassType.isBuiltIn(typeArgType, 'Concatenate')) {
+                return typeArgs;
+            }
+        }
+
+        // Package up the type arguments into a type list.
+        return [
+            {
+                type: UnknownType.create(),
+                node: typeArgs.length > 0 ? typeArgs[0].node : errorNode,
+                typeList: typeArgs,
+            },
+        ];
     }
 
     function getTypeOfArg(arg: Arg, inferenceContext: InferenceContext | undefined): TypeResult {
