@@ -1506,9 +1506,14 @@ export function createTypeEvaluator(
         if ((flags & EvalFlags.ConvertEllipsisToAny) !== 0) {
             typeResult = { type: AnyType.create(/* isEllipsis */ true) };
         } else {
-            const ellipsisType =
-                getBuiltInObject(node, 'EllipsisType') ?? getBuiltInObject(node, 'ellipsis') ?? AnyType.create();
-            typeResult = { type: ellipsisType };
+            if ((flags & EvalFlags.TypeExpression) !== 0 && (flags & EvalFlags.AllowEllipsis) === 0) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.ellipsisContext(), node);
+                typeResult = { type: UnknownType.create() };
+            } else {
+                const ellipsisType =
+                    getBuiltInObject(node, 'EllipsisType') ?? getBuiltInObject(node, 'ellipsis') ?? AnyType.create();
+                typeResult = { type: ellipsisType };
+            }
         }
         return typeResult;
     }
@@ -12842,6 +12847,7 @@ export function createTypeEvaluator(
             const typeResult = getTypeOfExpressionExpectingType(node, {
                 allowParamSpec: true,
                 allowTypeVarsWithoutScopeId: true,
+                allowEllipsis: true,
                 typeExpression: true,
             });
 
@@ -16078,10 +16084,6 @@ export function createTypeEvaluator(
         isPep695TypeVarType: boolean,
         typeParamNodes?: TypeParameterNode[]
     ): Type {
-        if (!TypeBase.isInstantiable(type)) {
-            return type;
-        }
-
         // If this is a recursive type alias that hasn't yet been fully resolved
         // (i.e. there is no boundType associated with it), don't apply the transform.
         if (isTypeAliasPlaceholder(type)) {
@@ -16170,6 +16172,10 @@ export function createTypeEvaluator(
                     errorNode
                 );
             }
+        }
+
+        if (!TypeBase.isInstantiable(type)) {
+            return type;
         }
 
         sharedInfo.typeParams = typeParams.length > 0 ? typeParams : undefined;
@@ -21014,6 +21020,10 @@ export function createTypeEvaluator(
 
         if (options?.convertEllipsisToAny) {
             flags |= EvalFlags.ConvertEllipsisToAny;
+        }
+
+        if (options?.allowEllipsis) {
+            flags |= EvalFlags.AllowEllipsis;
         }
 
         if (options?.noNonTypeSpecialForms) {
