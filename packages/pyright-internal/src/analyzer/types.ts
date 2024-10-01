@@ -7,6 +7,7 @@
  * Representation of types used during type analysis within Python.
  */
 
+import { partition } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
 import { ArgumentNode, ExpressionNode, NameNode, ParamCategory } from '../parser/parseNodes';
@@ -3650,19 +3651,19 @@ export interface CombineTypesOptions {
 // are combined into a UnionType. NeverTypes are filtered out.
 // If no types remain in the end, a NeverType is returned.
 export function combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
-    // Filter out any "Never" and "NoReturn" types.
-    let sawNoReturn = false;
+    let neverTypes: NeverType[];
 
-    if (subtypes.some((subtype) => subtype.category === TypeCategory.Never))
-        subtypes = subtypes.filter((subtype) => {
-            if (subtype.category === TypeCategory.Never && subtype.priv.isNoReturn) {
-                sawNoReturn = true;
-            }
-            return subtype.category !== TypeCategory.Never;
-        });
+    // Filter out any Never or NoReturn types.
+    [neverTypes, subtypes] = partition<Type, NeverType>(subtypes, isNever);
 
     if (subtypes.length === 0) {
-        return sawNoReturn ? NeverType.createNoReturn() : NeverType.createNever();
+        if (neverTypes.length > 0) {
+            // Prefer NoReturn over Never. This approach preserves type alias
+            // information if present.
+            return neverTypes.find((t) => t.priv.isNoReturn) ?? neverTypes[0];
+        }
+
+        return NeverType.createNever();
     }
 
     // Handle the common case where there is only one type.
