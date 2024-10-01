@@ -124,6 +124,9 @@ export const enum EvalFlags {
     // Used for PEP 526-style variable type annotations.
     VarTypeAnnotation = 1 << 15,
 
+    // An ellipsis is allowed even if TypeExpression is set.
+    AllowEllipsis = 1 << 16,
+
     // 'ClassVar' is not allowed in this context.
     NoClassVar = 1 << 17,
 
@@ -371,6 +374,7 @@ export interface ExpectedTypeOptions {
     forwardRefs?: boolean;
     typeExpression?: boolean;
     convertEllipsisToAny?: boolean;
+    allowEllipsis?: boolean;
 }
 
 export interface ExpectedTypeResult {
