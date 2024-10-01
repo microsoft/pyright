@@ -7615,6 +7615,7 @@ export function createTypeEvaluator(
         typeAliasTypeParams: TypeVarType[],
         usageVariances: Variance[],
         varianceContext: Variance,
+        pendingTypes: Type[] = [],
         recursionCount = 0
     ) {
         if (recursionCount > maxTypeRecursionCount) {
@@ -7623,9 +7624,12 @@ export function createTypeEvaluator(
 
         const transformedType = transformPossibleRecursiveTypeAlias(type);
 
-        // If this is a recursive type alias, use a lower recursion limit.
+        // If this is a recursive type alias, see if we've already recursed
+        // seen it once before in the recursion stack. If so, don't recurse
+        // further.
         if (transformedType !== type) {
-            if (recursionCount > maxRecursiveTypeAliasRecursionCount) {
+            const pendingOverlaps = pendingTypes.filter((pendingType) => isTypeSame(pendingType, type));
+            if (pendingOverlaps.length > 1) {
                 return;
             }
         }
@@ -7639,13 +7643,18 @@ export function createTypeEvaluator(
                 if (typeParamIndex >= 0) {
                     usageVariances[typeParamIndex] = combineVariances(usageVariances[typeParamIndex], variance);
                 } else {
+                    pendingTypes.push(type);
+
                     updateUsageVariancesRecursive(
                         subtype,
                         typeAliasTypeParams,
                         usageVariances,
                         variance,
+                        pendingTypes,
                         recursionCount
                     );
+
+                    pendingTypes.pop();
                 }
             });
         }
