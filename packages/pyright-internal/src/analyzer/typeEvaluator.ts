@@ -16078,10 +16078,6 @@ export function createTypeEvaluator(
         isPep695TypeVarType: boolean,
         typeParamNodes?: TypeParameterNode[]
     ): Type {
-        if (!TypeBase.isInstantiable(type)) {
-            return type;
-        }
-
         // If this is a recursive type alias that hasn't yet been fully resolved
         // (i.e. there is no boundType associated with it), don't apply the transform.
         if (isTypeAliasPlaceholder(type)) {
