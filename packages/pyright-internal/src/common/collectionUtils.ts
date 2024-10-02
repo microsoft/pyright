@@ -73,6 +73,22 @@ export function appendArray<T>(to: T[], elementsToPush: T[]) {
     }
 }
 
+/** Works like Array.filter except that it returns a second array with the filtered elements. **/
+export function partition<T, S extends T>(array: readonly T[], cb: (value: T) => boolean): [S[], T[]] {
+    const trueItems: S[] = [];
+    const falseItems: T[] = [];
+
+    for (const item of array) {
+        if (cb(item)) {
+            trueItems.push(item as S);
+        } else {
+            falseItems.push(item);
+        }
+    }
+
+    return [trueItems, falseItems];
+}
+
 /** Works like Array.prototype.find, returning `undefined` if no element satisfying the predicate is found. */
 export function find<T, U extends T>(
     array: readonly T[],

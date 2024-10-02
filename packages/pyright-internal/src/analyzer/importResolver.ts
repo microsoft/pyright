@@ -2660,7 +2660,7 @@ export class ImportResolver {
     ): boolean {
         let isNativeLib = false;
 
-        if (this.dirExistsCached(fileDirectory)) {
+        if (!execEnv.skipNativeLibraries && this.dirExistsCached(fileDirectory)) {
             const filesInDir = this._getFilesInDirectory(fileDirectory);
             const dirName = dirPath.fileName;
             const nativeLibPath = filesInDir.find((f) => this._isNativeModuleFileName(dirName, f));

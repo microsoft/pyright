@@ -91,7 +91,7 @@ export function getTypeDetail(
             if (type && TypeBase.isInstantiable(type)) {
                 const typeAliasInfo = getTypeAliasInfo(type);
                 if (typeAliasInfo) {
-                    if (typeAliasInfo.name === name) {
+                    if (typeAliasInfo.shared.name === name) {
                         expandTypeAlias = true;
                     }
                 }

@@ -1468,6 +1468,10 @@
             "message": "Expected TypedDict class name as first argument",
             "comment": "{Locked='TypedDict'}"
         },
+        "typedDictInClassPattern": {
+            "message": "TypedDict class not allowed in class pattern",
+            "comment": "{Locked='TypedDict'}"
+        },
         "typedDictInitsubclassParameter": {
             "message": "TypedDict does not support __init_subclass__ parameter \"{name}\"",
             "comment": "{Locked='TypedDict','__init_subclass__'}"

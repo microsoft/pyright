@@ -43,18 +43,23 @@ import {
     FunctionParam,
     FunctionType,
     OverloadedType,
+    TupleTypeArg,
     Type,
     TypeCondition,
-    TypeVarScopeId,
     TypeVarType,
     UnknownType,
     Variance,
 } from './types';
-import { ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
+import { ApplyTypeVarOptions, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
 
 // Maximum number of unioned subtypes for an inferred type (e.g.
 // a list) before the type is considered an "Any".
 export const maxSubtypesForInferredType = 64;
+
+// In certain loops, it's possible to construct arbitrarily-deep containers
+// (tuples, lists, sets, or dicts) which can lead to infinite type analysis.
+// This limits the depth.
+export const maxInferredContainerDepth = 8;
 
 export const enum EvalFlags {
     None = 0,
@@ -118,6 +123,9 @@ export const enum EvalFlags {
 
     // Used for PEP 526-style variable type annotations.
     VarTypeAnnotation = 1 << 15,
+
+    // An ellipsis is allowed even if TypeExpression is set.
+    AllowEllipsis = 1 << 16,
 
     // 'ClassVar' is not allowed in this context.
     NoClassVar = 1 << 17,
@@ -366,6 +374,7 @@ export interface ExpectedTypeOptions {
     forwardRefs?: boolean;
     typeExpression?: boolean;
     convertEllipsisToAny?: boolean;
+    allowEllipsis?: boolean;
 }
 
 export interface ExpectedTypeResult {
@@ -453,17 +462,6 @@ export interface ClassMemberLookup {
 
 export interface SolveConstraintsOptions {
     useLowerBoundOnly?: boolean;
-}
-
-export interface ApplyTypeVarOptions {
-    typeClassType?: ClassType;
-    replaceUnsolved?: {
-        scopeIds: TypeVarScopeId[];
-        tupleClassType: ClassType | undefined;
-        unsolvedExemptTypeVars?: TypeVarType[];
-        useUnknown?: boolean;
-        eliminateUnsolvedInUnions?: boolean;
-    };
 }
 
 export enum Reachability {
@@ -679,6 +677,8 @@ export interface TypeEvaluator {
     ) => TypeResult | undefined;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
     getTypeOfArg: (arg: Arg, inferenceContext: InferenceContext | undefined) => TypeResult;
+    convertNodeToArg: (node: ArgumentNode) => ArgWithExpression;
+    buildTupleTypesList: (entryTypeResults: TypeResult[], stripLiterals: boolean) => TupleTypeArg[];
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     expandPromotionTypes: (node: ParseNode, type: Type) => Type;
     makeTopLevelTypeVarsConcrete: (type: Type, makeParamSpecsConcrete?: boolean) => Type;
@@ -698,8 +698,8 @@ export interface TypeEvaluator {
     ) => EffectiveTypeResult;
     getInferredTypeOfDeclaration: (symbol: Symbol, decl: Declaration) => Type | undefined;
     getDeclaredTypeForExpression: (expression: ExpressionNode, usage?: EvaluatorUsage) => Type | undefined;
-    getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
-    getFunctionInferredReturnType: (type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) => Type;
+    getDeclaredReturnType: (node: FunctionNode) => Type | undefined;
+    getInferredReturnType: (type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) => Type;
     getBestOverloadForArgs: (
         errorNode: ExpressionNode,
         typeResult: TypeResult<OverloadedType>,

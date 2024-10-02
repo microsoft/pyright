@@ -237,14 +237,6 @@ export class ConstraintTracker {
         }
     }
 
-    isSame(other: ConstraintTracker) {
-        if (other._constraintSets.length !== this._constraintSets.length) {
-            return false;
-        }
-
-        return this._constraintSets.every((set, index) => set.isSame(other._constraintSets[index]));
-    }
-
     isEmpty() {
         return this._constraintSets.every((set) => set.isEmpty());
     }

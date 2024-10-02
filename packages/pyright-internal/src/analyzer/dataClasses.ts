@@ -65,7 +65,6 @@ import {
     applySolvedTypeVars,
     buildSolutionFromSpecializedClass,
     computeMroLinearization,
-    convertNodeToArg,
     convertToInstance,
     doForEachSignature,
     getTypeVarScopeId,
@@ -746,7 +745,7 @@ function getDefaultArgValueForFieldSpecifier(
         callTarget = evaluator.getBestOverloadForArgs(
             callNode,
             { type: callType, isIncomplete: callTypeResult.isIncomplete },
-            callNode.d.args.map((arg) => convertNodeToArg(arg))
+            callNode.d.args.map((arg) => evaluator.convertNodeToArg(arg))
         );
     } else if (isInstantiableClass(callType)) {
         const initMethodResult = getBoundInitMethod(evaluator, callNode, callType);
@@ -757,7 +756,7 @@ function getDefaultArgValueForFieldSpecifier(
                 callTarget = evaluator.getBestOverloadForArgs(
                     callNode,
                     { type: initMethodResult.type },
-                    callNode.d.args.map((arg) => convertNodeToArg(arg))
+                    callNode.d.args.map((arg) => evaluator.convertNodeToArg(arg))
                 );
             }
         }
@@ -1464,7 +1463,7 @@ export function applyDataClassDecorator(
         evaluator,
         errorNode,
         classType,
-        (callNode?.d.args ?? []).map((arg) => convertNodeToArg(arg)),
+        (callNode?.d.args ?? []).map((arg) => evaluator.convertNodeToArg(arg)),
         defaultBehaviors
     );
 }

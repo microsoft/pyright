@@ -57,6 +57,11 @@ export class ExecutionEnvironment {
     // Diagnostic rules with overrides.
     diagnosticRuleSet: DiagnosticRuleSet;
 
+    // Skip import resolution attempts for native libraries. These can
+    // be expensive and are not needed for some use cases (e.g. web-based
+    // tools or playgrounds).
+    skipNativeLibraries: boolean;
+
     // Default to "." which indicates every file in the project.
     constructor(
         name: string,
@@ -64,7 +69,8 @@ export class ExecutionEnvironment {
         defaultDiagRuleSet: DiagnosticRuleSet,
         defaultPythonVersion: PythonVersion | undefined,
         defaultPythonPlatform: string | undefined,
-        defaultExtraPaths: Uri[] | undefined
+        defaultExtraPaths: Uri[] | undefined,
+        skipNativeLibraries = false
     ) {
         this.name = name;
         this.root = root;
@@ -72,6 +78,7 @@ export class ExecutionEnvironment {
         this.pythonPlatform = defaultPythonPlatform;
         this.extraPaths = Array.from(defaultExtraPaths ?? []);
         this.diagnosticRuleSet = { ...defaultDiagRuleSet };
+        this.skipNativeLibraries = skipNativeLibraries;
     }
 }
 
@@ -1047,6 +1054,9 @@ export class ConfigOptions {
     // Default extraPaths. Can be overridden by executionEnvironment.
     defaultExtraPaths?: Uri[] | undefined;
 
+    // Should native library import resolutions be skipped?
+    skipNativeLibraries?: boolean;
+
     //---------------------------------------------------------------
     // Internal-only switches
 
@@ -1098,7 +1108,8 @@ export class ConfigOptions {
             this.diagnosticRuleSet,
             this.defaultPythonVersion,
             this.defaultPythonPlatform,
-            this.defaultExtraPaths
+            this.defaultExtraPaths,
+            this.skipNativeLibraries
         );
     }
 
@@ -1314,6 +1325,18 @@ export class ConfigOptions {
                 console.error(`Config "pythonPlatform" field must contain a string.`);
             } else {
                 this.defaultPythonPlatform = configObj.pythonPlatform;
+            }
+        }
+
+        // Read the skipNativeLibraries flag. This isn't officially documented
+        // or supported. It was added specifically to improve initialization
+        // performance for playgrounds or web-based environments where native
+        // libraries will not be present.
+        if (configObj.skipNativeLibraries) {
+            if (typeof configObj.skipNativeLibraries === 'boolean') {
+                this.skipNativeLibraries = configObj.skipNativeLibraries;
+            } else {
+                console.error(`Config "skipNativeLibraries" field must contain a boolean.`);
             }
         }
 
@@ -1660,12 +1683,12 @@ export class ConfigOptions {
                 }
             }
 
-            // Validate the name
+            // Validate the name.
             if (envObj.name) {
                 if (typeof envObj.name === 'string') {
                     newExecEnv.name = envObj.name;
                 } else {
-                    console.error(`Config executionEnvironments index ${index} pythonPlatform must be a string.`);
+                    console.error(`Config executionEnvironments index ${index} name must be a string.`);
                 }
             }
 

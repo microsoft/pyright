@@ -843,16 +843,20 @@ function narrowTypeBasedOnClassPattern(
             pattern.d.className
         );
         return NeverType.createNever();
-    } else if (
-        isInstantiableClass(exprType) &&
-        ClassType.isProtocolClass(exprType) &&
-        !ClassType.isRuntimeCheckable(exprType)
-    ) {
-        evaluator.addDiagnostic(
-            DiagnosticRule.reportGeneralTypeIssues,
-            LocAddendum.protocolRequiresRuntimeCheckable(),
-            pattern.d.className
-        );
+    } else if (isInstantiableClass(exprType)) {
+        if (ClassType.isProtocolClass(exprType) && !ClassType.isRuntimeCheckable(exprType)) {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocAddendum.protocolRequiresRuntimeCheckable(),
+                pattern.d.className
+            );
+        } else if (ClassType.isTypedDictClass(exprType)) {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typedDictInClassPattern(),
+                pattern.d.className
+            );
+        }
     }
 
     return evaluator.mapSubtypesExpandTypeVars(

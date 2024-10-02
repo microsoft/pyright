@@ -501,10 +501,7 @@ export class AnalyzerService {
         if (this._commandLineOptions?.fromLanguageServer || this._configOptions.verboseOutput) {
             const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
 
-            const execEnvs = [
-                this._configOptions.getDefaultExecEnvironment(),
-                ...this._configOptions.getExecutionEnvironments(),
-            ];
+            const execEnvs = this._configOptions.getExecutionEnvironments();
 
             for (const execEnv of execEnvs) {
                 log(this._console, logLevel, `Execution environment: ${execEnv.name}`);
@@ -1887,7 +1884,7 @@ export class AnalyzerService {
         // is too small (like zero), the VS Code extension becomes
         // unresponsive during heavy analysis. If this number is too
         // large, analysis takes longer.
-        const minTimeBetweenAnalysisPassesInMs = 20;
+        const minTimeBetweenAnalysisPassesInMs = 5;
 
         const timeUntilNextAnalysisInMs = Math.max(
             minBackoffTimeInMs - timeSinceLastUserInteractionInMs,

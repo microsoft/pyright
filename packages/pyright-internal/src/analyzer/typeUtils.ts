@@ -9,12 +9,11 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { ArgumentNode, ParamCategory } from '../parser/parseNodes';
+import { ParamCategory } from '../parser/parseNodes';
 import { ConstraintSolution, ConstraintSolutionSet } from './constraintSolution';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isEffectivelyClassVar, isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
-import { ApplyTypeVarOptions, ArgWithExpression } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -204,6 +203,17 @@ export interface SelfSpecializeOptions {
 
     // Specialize with "bound" versions of the type parameters?
     useBoundTypeVars?: boolean;
+}
+
+export interface ApplyTypeVarOptions {
+    typeClassType?: ClassType;
+    replaceUnsolved?: {
+        scopeIds: TypeVarScopeId[];
+        tupleClassType: ClassType | undefined;
+        unsolvedExemptTypeVars?: TypeVarType[];
+        useUnknown?: boolean;
+        eliminateUnsolvedInUnions?: boolean;
+    };
 }
 
 // Tracks whether a function signature has been seen before within
@@ -841,8 +851,8 @@ export function derivesFromAnyOrUnknown(type: Type): boolean {
 }
 
 export function getFullNameOfType(type: Type): string | undefined {
-    if (type.props?.typeAliasInfo?.fullName) {
-        return type.props.typeAliasInfo.fullName;
+    if (type.props?.typeAliasInfo?.shared.fullName) {
+        return type.props.typeAliasInfo.shared.fullName;
     }
 
     switch (type.category) {
@@ -954,7 +964,7 @@ export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Ty
         return (
             isUnbound(type) &&
             type.props?.typeAliasInfo &&
-            type.props.typeAliasInfo.name === typeAliasPlaceholder.shared.recursiveAlias?.name
+            type.props.typeAliasInfo.shared.name === typeAliasPlaceholder.shared.recursiveAlias?.name
         );
     }
 
@@ -1532,14 +1542,14 @@ export function validateTypeVarDefault(
 // During bidirectional type inference for constructors, an "expected type"
 // is used to prepopulate the type var map. This is problematic when the
 // expected type uses TypeVars that are not part of the context of the
-// class we are constructing. We'll replace these type variables with dummy
-// type variables.
+// class we are constructing. We'll replace these type variables with
+// so-called "unification" type variables.
 export function transformExpectedType(
     expectedType: Type,
     liveTypeVarScopes: TypeVarScopeId[],
     usageOffset: number | undefined
 ): Type {
-    const transformer = new ExpectedTypeTransformer(liveTypeVarScopes, usageOffset);
+    const transformer = new UnificationTypeTransformer(liveTypeVarScopes, usageOffset);
     return transformer.apply(expectedType, 0);
 }
 
@@ -2874,6 +2884,20 @@ function _requiresSpecialization(type: Type, options?: RequiresSpecializationOpt
     return false;
 }
 
+// Converts contravariant to a covariant or vice versa. Leaves
+// other variances unchanged.
+export function invertVariance(variance: Variance) {
+    if (variance === Variance.Contravariant) {
+        return Variance.Covariant;
+    }
+
+    if (variance === Variance.Covariant) {
+        return Variance.Contravariant;
+    }
+
+    return variance;
+}
+
 // Combines two variances to produce a resulting variance.
 export function combineVariances(variance1: Variance, variance2: Variance) {
     if (variance1 === Variance.Unknown) {
@@ -3112,14 +3136,6 @@ export function getDeclaringModulesForType(type: Type): string[] {
     const moduleList: string[] = [];
     addDeclaringModuleNamesForType(type, moduleList);
     return moduleList;
-}
-
-export function convertNodeToArg(node: ArgumentNode): ArgWithExpression {
-    return {
-        argCategory: node.d.argCategory,
-        name: node.d.name,
-        valueExpression: node.d.valueExpr,
-    };
 }
 
 function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recursionCount = 0) {
@@ -3470,7 +3486,7 @@ export class TypeVarTransformer {
 
     transformGenericTypeAlias(type: Type, recursionCount: number) {
         const aliasInfo = type.props?.typeAliasInfo;
-        if (!aliasInfo || !aliasInfo.typeParams || !aliasInfo.typeArgs) {
+        if (!aliasInfo || !aliasInfo.shared.typeParams || !aliasInfo.typeArgs) {
             return type;
         }
 
@@ -4228,7 +4244,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 }
 
-class ExpectedTypeTransformer extends TypeVarTransformer {
+class UnificationTypeTransformer extends TypeVarTransformer {
     constructor(private _liveTypeVarScopes: TypeVarScopeId[], private _usageOffset: number | undefined) {
         super();
     }

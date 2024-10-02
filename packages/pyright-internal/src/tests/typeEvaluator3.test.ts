@@ -9,7 +9,13 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
-import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_13, pythonVersion3_9 } from '../common/pythonVersion';
+import {
+    pythonVersion3_10,
+    pythonVersion3_11,
+    pythonVersion3_12,
+    pythonVersion3_13,
+    pythonVersion3_9,
+} from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -590,7 +596,7 @@ test('Literals5', () => {
 test('Literals6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals6.py']);
 
-    TestUtils.validateResults(analysisResults, 25);
+    TestUtils.validateResults(analysisResults, 26);
 });
 
 test('Literals7', () => {
@@ -821,6 +827,15 @@ test('RecursiveTypeAlias14', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias14.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('RecursiveTypeAlias15', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias15.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Classes1', () => {

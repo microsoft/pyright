@@ -20,6 +20,9 @@ extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
   parameters:
     sdl:
+      codeSignValidation:
+        enabled: true
+        additionalTargetsGlobPattern: -|**/gdn-vscode-pyright.vsix/**
       codeql:
         compiled:
           enabled: false
@@ -45,7 +48,7 @@ extends:
               outputs:
                 - output: pipelineArtifact
                   displayName: 'publish vsix artifact'
-                  targetPath: build_output
+                  targetPath: 'build_output'
                   artifactName: $(ARTIFACT_NAME_VSIX)
             steps:
               - checkout: self
@@ -80,7 +83,7 @@ extends:
                 displayName: 'Copy vsix to: build_output'
                 inputs:
                   SourceFolder: packages/vscode-pyright
-                  Contents: '*.vsix'
+                  Contents: '$(VSIX_NAME)'
                   TargetFolder: build_output
 
               - script: |
@@ -169,7 +172,7 @@ extends:
                 inputs:
                   notifyUsers: 'plseng@microsoft.com,eric@traut.com'
                   instructions: 'In the next 2 hours please test the latest draft release of Pyright, then Publish the release in GitHub.'
-                  onTimeout: 'resume'
+                  onTimeout: 'reject' # require sign-off
 
       - stage: PublishExtension
         dependsOn:

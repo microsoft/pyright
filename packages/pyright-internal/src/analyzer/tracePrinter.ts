@@ -59,7 +59,7 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
         if (type) {
             switch (type.category) {
                 case TypeCategory.Any:
-                    return `Any ${wrap(type.props?.typeAliasInfo?.fullName)}`;
+                    return `Any ${wrap(type.props?.typeAliasInfo?.shared.fullName)}`;
 
                 case TypeCategory.Class:
                     if (TypeBase.isInstantiable(type)) {
@@ -75,7 +75,7 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
                     return `Module '${type.priv.moduleName}' (${type.priv.moduleName})`;
 
                 case TypeCategory.Never:
-                    return `Never ${wrap(type.props?.typeAliasInfo?.fullName)}`;
+                    return `Never ${wrap(type.props?.typeAliasInfo?.shared.fullName)}`;
 
                 case TypeCategory.Overloaded:
                     return `Overloaded [${OverloadedType.getOverloads(type)
@@ -83,16 +83,16 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
                         .join(',')}]`;
 
                 case TypeCategory.TypeVar:
-                    return `TypeVar '${type.shared.name}' ${wrap(type.props?.typeAliasInfo?.fullName)}`;
+                    return `TypeVar '${type.shared.name}' ${wrap(type.props?.typeAliasInfo?.shared.fullName)}`;
 
                 case TypeCategory.Unbound:
-                    return `Unbound ${wrap(type.props?.typeAliasInfo?.fullName)}`;
+                    return `Unbound ${wrap(type.props?.typeAliasInfo?.shared.fullName)}`;
 
                 case TypeCategory.Union:
                     return `Union [${type.priv.subtypes.map((o) => wrap(printType(o), '"')).join(',')}]`;
 
                 case TypeCategory.Unknown:
-                    return `Unknown ${wrap(type.props?.typeAliasInfo?.fullName)}`;
+                    return `Unknown ${wrap(type.props?.typeAliasInfo?.shared.fullName)}`;
 
                 default:
                     assertNever(type);
