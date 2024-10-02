@@ -8004,14 +8004,10 @@ export function createTypeEvaluator(
             if (arg.d.argCategory !== ArgCategory.Simple) {
                 if (arg.d.argCategory === ArgCategory.UnpackedList) {
                     if (!options?.isAnnotatedClass || index === 0) {
-                        if (isTypeVarTuple(typeResult.type) && !typeResult.type.priv.isUnpacked) {
-                            typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
-                        } else if (
-                            isInstantiableClass(typeResult.type) &&
-                            !typeResult.type.priv.includeSubclasses &&
-                            isTupleClass(typeResult.type)
-                        ) {
-                            typeResult.type = ClassType.cloneForUnpacked(typeResult.type);
+                        const unpackedType = applyUnpackToTupleLike(typeResult.type);
+
+                        if (unpackedType) {
+                            typeResult.type = unpackedType;
                         } else {
                             addDiagnostic(
                                 DiagnosticRule.reportInvalidTypeForm,
@@ -8040,6 +8036,43 @@ export function createTypeEvaluator(
         });
 
         return typeArgs;
+    }
+
+    function applyUnpackToTupleLike(type: Type): Type | undefined {
+        if (isTypeVarTuple(type)) {
+            if (!type.priv.isUnpacked) {
+                return TypeVarType.cloneForUnpacked(type);
+            }
+
+            return undefined;
+        }
+
+        if (isParamSpec(type)) {
+            return undefined;
+        }
+
+        // Is this a TypeVar that has a tuple upper bound?
+        if (isTypeVar(type)) {
+            const upperBound = type.shared.boundType;
+
+            if (upperBound && isClassInstance(upperBound) && isTupleClass(upperBound)) {
+                const concrete = makeTopLevelTypeVarsConcrete(type);
+
+                if (isInstantiableClass(concrete)) {
+                    return ClassType.cloneForUnpacked(concrete);
+                }
+            }
+
+            return undefined;
+        }
+
+        if (isInstantiableClass(type) && !type.priv.includeSubclasses) {
+            if (isTupleClass(type)) {
+                return ClassType.cloneForUnpacked(type);
+            }
+        }
+
+        return undefined;
     }
 
     function getTypeArg(node: ExpressionNode, flags: EvalFlags): TypeResultWithNode {
@@ -15561,18 +15594,12 @@ export function createTypeEvaluator(
             return classType;
         }
 
-        let typeArgType = typeArgs[0].type;
-        if (isUnion(typeArgType) && typeArgType.priv.subtypes.length === 1) {
-            typeArgType = typeArgType.priv.subtypes[0];
-        }
+        const typeArgType = typeArgs[0].type;
 
         if ((flags & EvalFlags.AllowUnpackedTuple) !== 0) {
-            if (isInstantiableClass(typeArgType) && !typeArgType.priv.includeSubclasses && isTupleClass(typeArgType)) {
-                return ClassType.cloneForUnpacked(typeArgType);
-            }
-
-            if (isTypeVarTuple(typeArgType) && !typeArgType.priv.isUnpacked) {
-                return TypeVarType.cloneForUnpacked(typeArgType);
+            const unpackedType = applyUnpackToTupleLike(typeArgType);
+            if (unpackedType) {
+                return unpackedType;
             }
 
             if ((flags & EvalFlags.TypeExpression) === 0) {
