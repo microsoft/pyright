@@ -4,16 +4,16 @@ from typing import Union
 
 x = Union[int, str]
 
-
-# This should generate an error.
 y = Union[int]
 
 z = Union
 
+# This should generate an error.
+v1: Union[int]
+
 
 # This should generate an error.
-def func1() -> Union:
-    ...
+def func1() -> Union: ...
 
 
 # This should generate an error.
