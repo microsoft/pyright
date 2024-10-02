@@ -3075,8 +3075,8 @@ export namespace TypeVarType {
         return typeVarType.priv.nameWithScope || typeVarType.shared.name;
     }
 
-    export function getReadableName(type: TypeVarType) {
-        if (type.priv.scopeName) {
+    export function getReadableName(type: TypeVarType, includeScope = true) {
+        if (type.priv.scopeName && includeScope) {
             return `${type.shared.name}@${type.priv.scopeName}`;
         }
 
