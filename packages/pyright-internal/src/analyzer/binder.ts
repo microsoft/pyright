@@ -4172,6 +4172,7 @@ export class Binder extends ParseTreeWalker {
             'NoReturn',
             'Never',
             'LiteralString',
+            'LiteralInt',
             'OrderedDict',
             'TypeIs',
         ]);

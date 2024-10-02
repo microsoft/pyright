@@ -21,6 +21,7 @@ export enum DiagnosticRule {
     enableReachabilityAnalysis = 'enableReachabilityAnalysis',
     deprecateTypingAliases = 'deprecateTypingAliases',
     disableBytesTypePromotions = 'disableBytesTypePromotions',
+    omitTypeVarScope = 'omitTypeVarScope',
 
     reportGeneralTypeIssues = 'reportGeneralTypeIssues',
     reportPropertyTypeMismatch = 'reportPropertyTypeMismatch',

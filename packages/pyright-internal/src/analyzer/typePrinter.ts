@@ -38,6 +38,7 @@ import {
     TypeVarType,
     UnionType,
     Variance,
+    WhereConstraint,
 } from './types';
 import { convertToInstance, doForEachSubtype, isNoneInstance, isTupleClass, removeNoneFromUnion } from './typeUtils';
 
@@ -200,7 +201,6 @@ function printTypeInternal(
     recursionCount++;
 
     const originalPrintTypeFlags = printTypeFlags;
-    const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
     printTypeFlags &= ~(PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable);
 
     // If this is a type alias, see if we should use its name rather than
@@ -365,6 +365,47 @@ function printTypeInternal(
 
         return '...';
     }
+
+    const baseTypeStr = printTypeWithoutAnnotations(
+        type,
+        originalPrintTypeFlags,
+        returnTypeCallback,
+        uniqueNameMap,
+        recursionTypes,
+        recursionCount
+    );
+
+    if (!type.props?.whereConstraints || type.props.whereConstraints.length === 0) {
+        return baseTypeStr;
+    }
+
+    if ((originalPrintTypeFlags & PrintTypeFlags.PythonSyntax) !== 0) {
+        const annotations = type.props.whereConstraints.map(
+            (constraint) => `Where[${printObjectTypeForClass(constraint, originalPrintTypeFlags, returnTypeCallback)}]`
+        );
+
+        return `Annotated[${baseTypeStr}, ${annotations.join(', ')}]`;
+    }
+
+    const whereConstraints = type.props.whereConstraints.map((constraint) =>
+        printWhereConstraint(constraint, originalPrintTypeFlags, returnTypeCallback)
+    );
+
+    return `${baseTypeStr} where ${whereConstraints.join(', ')}`;
+}
+
+function printTypeWithoutAnnotations(
+    type: Type,
+    printTypeFlags: PrintTypeFlags,
+    returnTypeCallback: FunctionReturnTypeCallback,
+    uniqueNameMap: UniqueNameMap,
+    recursionTypes: Type[],
+    recursionCount: number
+): string {
+    const originalPrintTypeFlags = printTypeFlags;
+    const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
+
+    printTypeFlags &= ~(PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable);
 
     try {
         recursionTypes.push(type);
@@ -1289,6 +1330,91 @@ function printFunctionPartsInternal(
             : '';
 
     return [paramTypeStrings, returnTypeString];
+}
+
+function printWhereConstraint(
+    constraint: WhereConstraint,
+    flags: PrintTypeFlags,
+    returnTypeCallback: FunctionReturnTypeCallback,
+    parentPrecedence = 0
+): string {
+    const comparisons: { [key: string]: string } = {
+        IntEq: '==',
+        IntNe: '!=',
+        IntLt: '<',
+        IntLe: '<=',
+        IntGt: '>',
+        IntGe: '>=',
+    };
+
+    const binaryOps: { [key: string]: [string, number] } = {
+        IntAdd: ['+', 2],
+        IntSub: ['-', 2],
+        IntMul: ['*', 1],
+        IntDiv: ['/', 1],
+        IntMod: ['%', 1],
+    };
+
+    const otherOps: { [key: string]: string } = {
+        TupleBroadcast: 'broadcast',
+        TupleConcat: 'concat',
+        TupleIndex: 'index',
+        TupleLen: 'len',
+        TupleMultiIndex: 'multiindex',
+        TuplePermute: 'permute',
+        TupleReshape: 'reshape',
+        TupleSplice: 'splice',
+        TupleSwap: 'swap',
+    };
+
+    if (ClassType.isBuiltIn(constraint) && constraint.priv.typeArgs) {
+        const className = constraint.shared.name;
+
+        if (comparisons[className]) {
+            if (constraint.priv.typeArgs.length >= 2) {
+                const operator = comparisons[className];
+                const leftStr = printWhereOperand(constraint.priv.typeArgs[0], 0, flags, returnTypeCallback);
+                const rightStr = printWhereOperand(constraint.priv.typeArgs[1], 0, flags, returnTypeCallback);
+                return `${leftStr} ${operator} ${rightStr}`;
+            }
+        } else if (binaryOps[className]) {
+            if (constraint.priv.typeArgs.length >= 2) {
+                const operator = binaryOps[className][0];
+                const opPrecedence = binaryOps[className][1];
+                const leftStr = printWhereOperand(constraint.priv.typeArgs[0], opPrecedence, flags, returnTypeCallback);
+                const rightStr = printWhereOperand(
+                    constraint.priv.typeArgs[1],
+                    opPrecedence,
+                    flags,
+                    returnTypeCallback
+                );
+                const result = `${leftStr} ${operator} ${rightStr}`;
+                return parentPrecedence > opPrecedence ? `(${result})` : result;
+            }
+        } else if (otherOps[className]) {
+            const args = constraint.priv.typeArgs.map((arg) => printWhereOperand(arg, 0, flags, returnTypeCallback));
+            return `${binaryOps[className]}(${args.join(', ')})`;
+        }
+    }
+
+    return printObjectTypeForClass(constraint, flags, returnTypeCallback);
+}
+
+function printWhereOperand(
+    operand: Type,
+    precedence: number,
+    flags: PrintTypeFlags,
+    returnTypeCallback: FunctionReturnTypeCallback
+): string {
+    if (isClassInstance(operand)) {
+        if (ClassType.isBuiltIn(operand, 'int') && operand.priv.literalValue !== undefined) {
+            return operand.priv.literalValue.toString();
+        }
+
+        return printWhereConstraint(operand, flags, returnTypeCallback, precedence);
+    }
+
+    return printType(operand, flags, returnTypeCallback);
 }
 
 function printUnpack(textToWrap: string, flags: PrintTypeFlags) {

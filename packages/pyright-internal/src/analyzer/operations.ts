@@ -32,6 +32,8 @@ import {
     getLiteralTypeClassName,
     getTypeCondition,
     getUnionSubtypeCount,
+    isLiteralIntType,
+    isLiteralType,
     isNoneInstance,
     isOptionalType,
     isTupleClass,
@@ -1360,6 +1362,17 @@ function validateArithmeticOperation(
                         deprecatedInfo = resultTypeResult.magicMethodDeprecationInfo;
                     }
 
+                    if (resultTypeResult && options.isLiteralMathAllowed) {
+                        resultTypeResult.type = applyLiteralConstraintForBinaryOp(
+                            evaluator,
+                            errorNode,
+                            operator,
+                            leftSubtypeUnexpanded,
+                            rightSubtypeUnexpanded,
+                            resultTypeResult.type
+                        );
+                    }
+
                     return resultTypeResult?.type ?? UnknownType.create(isIncomplete);
                 }
             );
@@ -1367,4 +1380,55 @@ function validateArithmeticOperation(
     );
 
     return { type, magicMethodDeprecationInfo: deprecatedInfo };
+}
+
+function applyLiteralConstraintForBinaryOp(
+    evaluator: TypeEvaluator,
+    errorNode: ExpressionNode,
+    operator: OperatorType,
+    leftType: Type,
+    rightType: Type,
+    resultType: Type
+): Type {
+    if (!isClassInstance(resultType) || !ClassType.isBuiltIn(resultType, 'int')) {
+        return resultType;
+    }
+
+    const leftTypeExpanded = evaluator.makeTopLevelTypeVarsConcrete(leftType);
+    const rightTypeExpanded = evaluator.makeTopLevelTypeVarsConcrete(rightType);
+
+    if (
+        !isClassInstance(leftTypeExpanded) ||
+        !isLiteralIntType(leftTypeExpanded) ||
+        !isClassInstance(rightTypeExpanded) ||
+        !isLiteralIntType(rightTypeExpanded)
+    ) {
+        return resultType;
+    }
+
+    // If both of the types are literals, the caller should have already
+    // combined them using literal math if possible.
+    if (isLiteralType(leftTypeExpanded) && isLiteralType(rightTypeExpanded)) {
+        return resultType;
+    }
+
+    const supportedOps: Map<OperatorType, string> = new Map([
+        [OperatorType.Add, 'IntAdd'],
+        [OperatorType.Subtract, 'IntSub'],
+        [OperatorType.Multiply, 'IntMul'],
+        [OperatorType.FloorDivide, 'IntDiv'],
+        [OperatorType.Mod, 'IntMod'],
+    ]);
+
+    const className = supportedOps.get(operator);
+    if (!className) {
+        return resultType;
+    }
+
+    const classType = evaluator.getTypingType(errorNode, className);
+    if (!classType || !isInstantiableClass(classType)) {
+        return resultType;
+    }
+
+    return ClassType.specialize(ClassType.cloneAsInstance(classType), [leftType, rightType]);
 }

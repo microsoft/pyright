@@ -138,6 +138,12 @@ export interface DiagnosticRuleSet {
     // No longer treat bytearray and memoryview as subclasses of bytes?
     disableBytesTypePromotions: boolean;
 
+    // Omit type variable scopes when printing types?
+    // This is a temporary undocumented option that will be removed
+    // in the future.
+    // TODO - delete this option
+    omitTypeVarScope: boolean;
+
     // Report general type issues?
     reportGeneralTypeIssues: DiagnosticLevel;
 
@@ -414,6 +420,7 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
         DiagnosticRule.enableExperimentalFeatures,
         DiagnosticRule.deprecateTypingAliases,
         DiagnosticRule.disableBytesTypePromotions,
+        DiagnosticRule.omitTypeVarScope,
     ];
 
     if (includeNonOverridable) {
@@ -538,6 +545,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: false,
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
+        omitTypeVarScope: false,
         reportGeneralTypeIssues: 'none',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -641,6 +649,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: true,
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
+        omitTypeVarScope: false,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -744,6 +753,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: true,
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
+        omitTypeVarScope: false,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'error',
@@ -847,6 +857,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: true, // Not overridden by strict mode
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
+        omitTypeVarScope: false,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'error',

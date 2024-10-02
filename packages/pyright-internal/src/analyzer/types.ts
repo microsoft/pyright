@@ -7,7 +7,7 @@
  * Representation of types used during type analysis within Python.
  */
 
-import { partition } from '../common/collectionUtils';
+import { appendArray, partition } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
 import { ArgumentNode, ExpressionNode, NameNode, ParamCategory, TypeAnnotationNode } from '../parser/parseNodes';
@@ -165,6 +165,8 @@ interface CachedTypeInfo {
     requiresSpecialization?: boolean;
 }
 
+export type WhereConstraint = ClassType;
+
 export interface TypeBaseProps {
     // Used to handle nested references to instantiable classes
     // (e.g. type[type[type[T]]]). If the field isn't present,
@@ -184,6 +186,9 @@ export interface TypeBaseProps {
 
     // Used only for types that are conditioned on a TypeVar
     condition: TypeCondition[] | undefined;
+
+    // Type variable constraints expressed with "where" metadata
+    whereConstraints: WhereConstraint[] | undefined;
 }
 
 export interface TypeBase<T extends TypeCategory> {
@@ -228,6 +233,7 @@ export namespace TypeBase {
                 typeForm: undefined,
                 typeAliasInfo: undefined,
                 condition: undefined,
+                whereConstraints: undefined,
             };
         }
         return type.props;
@@ -376,6 +382,28 @@ export namespace TypeBase {
 
         const typeClone = cloneType(type);
         typeClone.flags |= TypeFlags.Ambiguous;
+        return typeClone;
+    }
+
+    export function cloneWithWhereConstraints(type: Type, whereConstraints: WhereConstraint[]): Type {
+        const typeClone = cloneType(type);
+        const props = TypeBase.addProps(typeClone);
+
+        if (!props.whereConstraints) {
+            props.whereConstraints = [];
+        }
+        appendArray(props.whereConstraints, whereConstraints);
+
+        return typeClone;
+    }
+
+    export function cloneWithoutWhereConstraints(type: Type): Type {
+        if (type.props?.whereConstraints === undefined) {
+            return type;
+        }
+
+        const typeClone = cloneType(type);
+        type.props.whereConstraints = undefined;
         return typeClone;
     }
 }
@@ -1509,6 +1537,10 @@ export interface FunctionParam {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     _defaultType: Type | undefined;
 
+    // Use getParamWhereConstraints to access this field.
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    _whereConstraints: WhereConstraint[] | undefined;
+
     defaultExpr: ExpressionNode | undefined;
 }
 
@@ -1519,9 +1551,18 @@ export namespace FunctionParam {
         flags = FunctionParamFlags.None,
         name?: string,
         defaultType?: Type,
-        defaultExpr?: ExpressionNode
+        defaultExpr?: ExpressionNode,
+        whereConstraints?: WhereConstraint[]
     ): FunctionParam {
-        return { category, flags, name, _type: type, _defaultType: defaultType, defaultExpr };
+        return {
+            category,
+            flags,
+            name,
+            _type: type,
+            _defaultType: defaultType,
+            defaultExpr,
+            _whereConstraints: whereConstraints,
+        };
     }
 
     export function isNameSynthesized(param: FunctionParam) {
@@ -1653,6 +1694,9 @@ export interface SpecializedFunctionTypes {
     // is missing, there is no specialized type, and the original "defaultType"
     // should be used.
     parameterDefaultTypes: (Type | undefined)[] | undefined;
+
+    // Specialized type of where constraints associated with each parameter.
+    whereConstraints: WhereConstraint[][];
 
     // Specialized type of the declared return type. Undefined if there is
     // no declared return type.
@@ -1811,6 +1855,9 @@ export namespace FunctionType {
                 parameterDefaultTypes: stripFirstParam
                     ? type.priv.specializedTypes.parameterDefaultTypes?.slice(1)
                     : type.priv.specializedTypes.parameterDefaultTypes,
+                whereConstraints: stripFirstParam
+                    ? type.priv.specializedTypes.whereConstraints.slice(1)
+                    : type.priv.specializedTypes.whereConstraints,
                 returnType: type.priv.specializedTypes.returnType,
             };
         }
@@ -2284,6 +2331,16 @@ export namespace FunctionType {
         }
 
         return type.shared.parameters[index]._defaultType;
+    }
+
+    export function getParamWhereConstraints(type: FunctionType, index: number): WhereConstraint[] | undefined {
+        assert(index < type.shared.parameters.length, 'Parameter types array overflow');
+
+        if (type.priv.specializedTypes && index < type.priv.specializedTypes.whereConstraints.length) {
+            return type.priv.specializedTypes.whereConstraints[index];
+        }
+
+        return type.shared.parameters[index]._whereConstraints;
     }
 
     export function addParam(type: FunctionType, param: FunctionParam) {

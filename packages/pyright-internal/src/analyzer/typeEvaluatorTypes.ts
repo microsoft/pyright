@@ -49,6 +49,7 @@ import {
     TypeVarType,
     UnknownType,
     Variance,
+    WhereConstraint,
 } from './types';
 import { ApplyTypeVarOptions, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
 
@@ -348,6 +349,7 @@ export interface EffectiveTypeResult {
 export interface ValidateArgTypeParams {
     paramCategory: ParamCategory;
     paramType: Type;
+    whereConstraints: WhereConstraint[] | undefined;
     requiresTypeVarMatching: boolean;
     argument: Arg;
     isDefaultArg?: boolean;
@@ -774,6 +776,11 @@ export interface TypeEvaluator {
     getTupleClassType: () => ClassType | undefined;
     getDictClassType: () => ClassType | undefined;
     getStrClassType: () => ClassType | undefined;
+    getIntClassType: () => ClassType | undefined;
+    getBoolClassType: () => ClassType | undefined;
+    getIntAddClassType: () => ClassType | undefined;
+    getIntSubClassType: () => ClassType | undefined;
+    getIntMulClassType: () => ClassType | undefined;
     getObjectType: () => Type;
     getNoneType: () => Type;
     getUnionClassType(): Type;

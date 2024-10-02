@@ -69,6 +69,7 @@ import {
     UnionType,
     UnknownType,
     Variance,
+    WhereConstraint,
 } from './types';
 import { TypeWalker } from './typeWalker';
 
@@ -208,6 +209,7 @@ export interface SelfSpecializeOptions {
 
 export interface ApplyTypeVarOptions {
     typeClassType?: ClassType;
+
     replaceUnsolved?: {
         scopeIds: TypeVarScopeId[];
         tupleClassType: ClassType | undefined;
@@ -215,6 +217,8 @@ export interface ApplyTypeVarOptions {
         useUnknown?: boolean;
         eliminateUnsolvedInUnions?: boolean;
     };
+
+    simplifyClassCallback?: (classType: ClassType) => Type;
 }
 
 export interface AddConditionOptions {
@@ -1230,7 +1234,19 @@ export function isLiteralLikeType(type: ClassType): boolean {
         return true;
     }
 
+    if (isLiteralIntType(type)) {
+        return true;
+    }
+
     return false;
+}
+
+export function isLiteralIntType(type: ClassType): boolean {
+    if (ClassType.isBuiltIn(type, 'int') && type.priv.literalValue !== undefined) {
+        return true;
+    }
+
+    return type.shared.mro.some((mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'LiteralInt'));
 }
 
 export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
@@ -1550,7 +1566,7 @@ export function makeTypeVarsFree(type: Type, scopeIds: TypeVarScopeId[]): Type {
 // type variables from a type var map.
 export function applySolvedTypeVars(type: Type, solution: ConstraintSolution, options: ApplyTypeVarOptions = {}): Type {
     // Use a shortcut if constraints is empty and no transform is necessary.
-    if (solution.isEmpty() && !options.replaceUnsolved) {
+    if (solution.isEmpty() && !options.replaceUnsolved && !options.simplifyClassCallback) {
         return type;
     }
 
@@ -2067,6 +2083,43 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
     }
 
     return [];
+}
+
+export function getWhereConstraintsRecursive(type: Type, recursionCount = 0): WhereConstraint[] {
+    if (recursionCount > maxTypeRecursionCount) {
+        return [];
+    }
+    recursionCount++;
+
+    const combinedList: WhereConstraint[] = [];
+
+    if (type.props?.whereConstraints) {
+        appendArray(combinedList, type.props.whereConstraints);
+    }
+
+    if (isClass(type)) {
+        const typeArgs = type.priv.tupleTypeArgs ? type.priv.tupleTypeArgs.map((e) => e.type) : type.priv.typeArgs;
+        if (typeArgs) {
+            typeArgs.forEach((typeArg) => {
+                appendArray(combinedList, getWhereConstraintsRecursive(typeArg, recursionCount));
+            });
+        }
+    } else if (isUnion(type)) {
+        doForEachSubtype(type, (subtype) => {
+            appendArray(combinedList, getWhereConstraintsRecursive(subtype, recursionCount));
+        });
+    } else if (isFunction(type)) {
+        for (let i = 0; i < type.shared.parameters.length; i++) {
+            appendArray(combinedList, getWhereConstraintsRecursive(FunctionType.getParamType(type, i), recursionCount));
+        }
+
+        const returnType = FunctionType.getEffectiveReturnType(type);
+        if (returnType) {
+            appendArray(combinedList, getWhereConstraintsRecursive(returnType, recursionCount));
+        }
+    }
+
+    return combinedList;
 }
 
 // Creates a specialized version of the class, filling in any unspecified
@@ -3734,6 +3787,7 @@ export class TypeVarTransformer {
             const specializedParams: SpecializedFunctionTypes = {
                 parameterTypes: [],
                 parameterDefaultTypes: undefined,
+                whereConstraints: [],
                 returnType: specializedReturnType,
             };
 
@@ -3763,6 +3817,18 @@ export class TypeVarTransformer {
                 const paramType = FunctionType.getParamType(functionType, i);
                 const specializedType = this.apply(paramType, recursionCount);
                 specializedParams.parameterTypes.push(specializedType);
+
+                // Transform the where constraints associated with this parameter.
+                const whereConstraints = FunctionType.getParamWhereConstraints(functionType, i);
+                specializedParams.whereConstraints.push(
+                    whereConstraints?.map((constraint) => {
+                        const transformed = this.apply(constraint, recursionCount);
+                        if (transformed && isClass(transformed)) {
+                            return transformed;
+                        }
+                        return constraint;
+                    }) ?? []
+                );
 
                 // Do we need to specialize the default argument type for this parameter?
                 let defaultArgType = FunctionType.getParamDefaultType(functionType, i);
@@ -4000,6 +4066,14 @@ class BoundTypeVarTransform extends TypeVarTransformer {
         super();
     }
 
+    override apply(type: Type, recursionCount: number): Type {
+        const result = super.apply(type, recursionCount);
+
+        // If the type has any "where" constraints associated with it, strip
+        // those now.
+        return TypeBase.cloneWithoutWhereConstraints(result);
+    }
+
     override transformTypeVar(typeVar: TypeVarType): Type | undefined {
         if (this._isTypeVarInScope(typeVar)) {
             return this._replaceTypeVar(typeVar);
@@ -4058,6 +4132,14 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
     constructor(private _solution: ConstraintSolution, private _options: ApplyTypeVarOptions) {
         super();
+    }
+
+    override canSkipTransform(type: Type): boolean {
+        if (!super.canSkipTransform(type)) {
+            return false;
+        }
+
+        return !this._options.simplifyClassCallback;
     }
 
     override transformTypeVar(typeVar: TypeVarType, recursionCount: number) {
@@ -4299,6 +4381,17 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         }
 
         return OverloadedType.create(filteredOverloads);
+    }
+
+    override transformTypeVarsInClassType(classType: ClassType, recursionCount: number): Type {
+        let result = super.transformTypeVarsInClassType(classType, recursionCount);
+
+        // Allow the caller to simplify the type if desired.
+        if (this._options.simplifyClassCallback && isClass(result)) {
+            result = this._options.simplifyClassCallback(result);
+        }
+
+        return result;
     }
 
     // Handle the case where we need the default replacement value for a typeVar

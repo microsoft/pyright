@@ -845,6 +845,52 @@ test('LiteralString3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('LiteralInt1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literalInt1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('TensorShape1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.omitTypeVarScope = true;
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tensorShape1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('TensorShape2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.omitTypeVarScope = true;
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tensorShape2.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 10);
+});
+
+test('TensorShape3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.omitTypeVarScope = true;
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tensorShape3.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 9);
+});
+
+test('TensorShape4', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.omitTypeVarScope = true;
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tensorShape4.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('ParamInference1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramInference1.py']);
 

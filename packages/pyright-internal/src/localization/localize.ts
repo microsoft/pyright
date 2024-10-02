@@ -1610,6 +1610,29 @@ export namespace Localizer {
             new ParameterizedString<{ typeVarName: string; typeAliasParam: string }>(
                 getRawString('DiagnosticAddendum.varianceMismatchForTypeAlias')
             );
+        export const whereConstraintBroadcast = () => getRawString('DiagnosticAddendum.whereConstraintBroadcast');
+        export const whereConstraintConcatMismatch = () =>
+            getRawString('DiagnosticAddendum.whereConstraintConcatMismatch');
+        export const whereConstraintIndexOutOfRange = () =>
+            new ParameterizedString<{ value: number }>(
+                getRawString('DiagnosticAddendum.whereConstraintIndexOutOfRange')
+            );
+        export const whereConstraintInvalidType = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.whereConstraintInvalidType'));
+        export const whereConstraintNotSatisfied = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.whereConstraintNotSatisfied'));
+        export const whereConstraintPermuteDuplicate = () =>
+            getRawString('DiagnosticAddendum.whereConstraintPermuteDuplicate');
+        export const whereConstraintPermuteMismatch = () =>
+            new ParameterizedString<{ expected: string; received: string }>(
+                getRawString('DiagnosticAddendum.whereConstraintPermuteMismatch')
+            );
+        export const whenConstraintReshapeInferred = () =>
+            getRawString('DiagnosticAddendum.whenConstraintReshapeInferred');
+        export const whenConstraintReshapeMismatch = () =>
+            getRawString('DiagnosticAddendum.whenConstraintReshapeMismatch');
+        export const whereConstraintSpliceNegativeDrop = () =>
+            getRawString('DiagnosticAddendum.whereConstraintSpliceNegativeDrop');
     }
 
     export namespace CodeAction {

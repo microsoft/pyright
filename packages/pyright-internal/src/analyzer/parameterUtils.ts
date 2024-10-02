@@ -22,6 +22,7 @@ import {
     isUnpackedClass,
     Type,
     TypeVarType,
+    WhereConstraint,
 } from './types';
 import { doForEachSubtype, partiallySpecializeType } from './typeUtils';
 
@@ -47,6 +48,7 @@ export interface VirtualParamDetails {
     type: Type;
     declaredType: Type;
     defaultType?: Type | undefined;
+    whereConstraints: WhereConstraint[] | undefined;
     index: number;
     kind: ParamKind;
 }
@@ -149,6 +151,7 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
                 index,
                 type: typeOverride ?? FunctionType.getParamType(type, index),
                 declaredType: FunctionType.getDeclaredParamType(type, index),
+                whereConstraints: FunctionType.getParamWhereConstraints(type, index),
                 defaultType: defaultTypeOverride ?? FunctionType.getParamDefaultType(type, index),
                 kind,
             });

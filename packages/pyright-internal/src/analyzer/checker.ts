@@ -7318,6 +7318,14 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        if (
+            isClassInstance(paramType) &&
+            ClassType.isBuiltIn(paramType, 'LiteralInt') &&
+            ClassType.isBuiltIn(classType, 'int')
+        ) {
+            return;
+        }
+
         if (!this._evaluator.assignType(paramType, expectedType)) {
             // We exempt Never from this check because it has a legitimate use in this case.
             if (!isNever(paramType)) {

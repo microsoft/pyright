@@ -2057,7 +2057,17 @@
             "comment": "{Locked='Type[T]'}"
         },
         "varianceMismatchForClass": "Variance of type argument \"{typeVarName}\" is incompatible with base class \"{className}\"",
-        "varianceMismatchForTypeAlias": "Variance of type argument \"{typeVarName}\" is incompatible with \"{typeAliasParam}\""
+        "varianceMismatchForTypeAlias": "Variance of type argument \"{typeVarName}\" is incompatible with \"{typeAliasParam}\"",
+        "whereConstraintBroadcast": "Shapes differ and do not allow for broadcasting",
+        "whereConstraintConcatMismatch": "Size must match for all dimensions other than the concatenation dimension",
+        "whereConstraintIndexOutOfRange": "Index {value} is out of range",
+        "whereConstraintInvalidType": "\"{type}\" is not a valid constraint",
+        "whereConstraintNotSatisfied": "Constraint \"{type}\" is not satisfied",
+        "whereConstraintPermuteDuplicate": "Permute does not allow duplicate dimensions",
+        "whereConstraintPermuteMismatch": "Permute dimension count mismatch (expected {expected} but received {received})",
+        "whenConstraintReshapeInferred": "Only one inferred dimension is allowed",
+        "whenConstraintReshapeMismatch": "New shape does not match existing shape",
+        "whereConstraintSpliceNegativeDrop": "Negative drop value is not allowed for splice"
     },
     "Service": {
         "longOperation": "Enumeration of workspace source files is taking a long time. Consider opening a sub-folder instead. [Learn more](https://aka.ms/workspace-too-many-files)"

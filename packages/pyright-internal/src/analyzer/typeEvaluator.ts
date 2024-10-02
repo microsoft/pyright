@@ -273,6 +273,7 @@ import {
     UnionType,
     UnknownType,
     Variance,
+    WhereConstraint,
 } from './types';
 import {
     addConditionToType,
@@ -309,6 +310,7 @@ import {
     getTypeVarScopeIds,
     getUnknownForTypeVar,
     getUnknownTypeForCallable,
+    getWhereConstraintsRecursive,
     InferenceContext,
     invertVariance,
     isDescriptorInstance,
@@ -362,6 +364,7 @@ import {
     UniqueSignatureTracker,
     validateTypeVarDefault,
 } from './typeUtils';
+import { evalWhereConstraintType, validateWhereConstraints } from './whereConstraints';
 
 interface GetTypeArgsOptions {
     isAnnotatedClass?: boolean;
@@ -650,6 +653,9 @@ export function createTypeEvaluator(
     let functionClass: Type | undefined;
     let tupleClass: Type | undefined;
     let boolClass: Type | undefined;
+    let intAddClass: Type | undefined;
+    let intSubClass: Type | undefined;
+    let intMulClass: Type | undefined;
     let intClass: Type | undefined;
     let strClass: Type | undefined;
     let dictClass: Type | undefined;
@@ -657,6 +663,7 @@ export function createTypeEvaluator(
     let typedDictPrivateClass: Type | undefined;
     let supportsKeysAndGetItemClass: Type | undefined;
     let mappingClass: Type | undefined;
+    let omitTypeVarScope = false;
 
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T {
         try {
@@ -1025,6 +1032,13 @@ export function createTypeEvaluator(
             typedDictPrivateClass = getTypingType(node, '_TypedDict');
             awaitableClass = getTypingType(node, 'Awaitable');
             mappingClass = getTypingType(node, 'Mapping');
+            intAddClass = getTypingType(node, 'IntAdd');
+            intSubClass = getTypingType(node, 'IntSub');
+            intMulClass = getTypingType(node, 'IntMul');
+
+            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.omitTypeVarScope) {
+                omitTypeVarScope = true;
+            }
 
             supportsKeysAndGetItemClass = getTypeshedType(node, 'SupportsKeysAndGetItem');
             if (!supportsKeysAndGetItemClass) {
@@ -1840,6 +1854,15 @@ export function createTypeEvaluator(
                         let strInstance = ClassType.cloneAsInstance(strClass);
                         strInstance = TypeBase.cloneForCondition(strInstance, getTypeCondition(subtype));
                         return strInstance;
+                    }
+                }
+
+                if (ClassType.isBuiltIn(subtype, 'LiteralInt')) {
+                    // Handle "LiteralInt" specially.
+                    if (intClass && isInstantiableClass(intClass)) {
+                        let intInstance = ClassType.cloneAsInstance(intClass);
+                        intInstance = TypeBase.cloneForCondition(intInstance, getTypeCondition(subtype));
+                        return intInstance;
                     }
                 }
             }
@@ -3107,6 +3130,26 @@ export function createTypeEvaluator(
         return strClass && isInstantiableClass(strClass) ? strClass : undefined;
     }
 
+    function getIntClassType(): ClassType | undefined {
+        return intClass && isInstantiableClass(intClass) ? intClass : undefined;
+    }
+
+    function getBoolClassType(): ClassType | undefined {
+        return boolClass && isInstantiableClass(boolClass) ? boolClass : undefined;
+    }
+
+    function getIntAddClassType(): ClassType | undefined {
+        return intAddClass && isInstantiableClass(intAddClass) ? intAddClass : undefined;
+    }
+
+    function getIntSubClassType(): ClassType | undefined {
+        return intSubClass && isInstantiableClass(intSubClass) ? intSubClass : undefined;
+    }
+
+    function getIntMulClassType(): ClassType | undefined {
+        return intMulClass && isInstantiableClass(intMulClass) ? intMulClass : undefined;
+    }
+
     function getObjectType(): Type {
         return objectClass ? convertToInstance(objectClass) : UnknownType.create();
     }
@@ -4268,7 +4311,7 @@ export function createTypeEvaluator(
                         typeVarTarget.nodeType !== ParseNodeType.Name ||
                         typeVarTarget.d.value !== typeResult.type.shared.name
                     ) {
-                        const name = TypeVarType.getReadableName(typeResult.type);
+                        const name = TypeVarType.getReadableName(typeResult.type, !omitTypeVarScope);
                         addDiagnostic(
                             DiagnosticRule.reportGeneralTypeIssues,
                             isParamSpec(typeResult.type)
@@ -5155,7 +5198,7 @@ export function createTypeEvaluator(
                 addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
                     LocMessage.typeVarInvalidForMemberVariable().format({
-                        name: TypeVarType.getReadableName(type),
+                        name: TypeVarType.getReadableName(type, !omitTypeVarScope),
                     }),
                     node
                 );
@@ -8093,6 +8136,19 @@ export function createTypeEvaluator(
             if (isTupleClass(type)) {
                 return ClassType.cloneForUnpacked(type);
             }
+
+            const tupleMetaOps = [
+                'TupleBroadcast',
+                'TupleConcat',
+                'TupleMultiIndex',
+                'TuplePermute',
+                'TupleReshape',
+                'TupleSplice',
+                'TupleSwap',
+            ];
+            if (ClassType.isBuiltIn(type, tupleMetaOps)) {
+                return ClassType.cloneForUnpacked(type);
+            }
         }
 
         return undefined;
@@ -10740,6 +10796,7 @@ export function createTypeEvaluator(
                         validateArgTypeParams.push({
                             paramCategory: paramInfo.param.category,
                             paramType,
+                            whereConstraints: paramInfo.whereConstraints,
                             requiresTypeVarMatching: requiresSpecialization(paramType),
                             argument: funcArg,
                             errorNode: argList[argIndex].valueExpression ?? errorNode,
@@ -10814,6 +10871,7 @@ export function createTypeEvaluator(
                         validateArgTypeParams.push({
                             paramCategory,
                             paramType: effectiveParamType,
+                            whereConstraints: paramDetails.params[paramIndex].whereConstraints,
                             requiresTypeVarMatching: requiresSpecialization(paramType),
                             argument: argList[argIndex],
                             errorNode: argList[argIndex].valueExpression || errorNode,
@@ -10834,6 +10892,7 @@ export function createTypeEvaluator(
                 validateArgTypeParams.push({
                     paramCategory: paramInfo.param.category,
                     paramType,
+                    whereConstraints: paramDetails.params[paramIndex].whereConstraints,
                     requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: argList[argIndex],
                     errorNode: argList[argIndex].valueExpression || errorNode,
@@ -10959,6 +11018,7 @@ export function createTypeEvaluator(
                                     validateArgTypeParams.push({
                                         paramCategory: ParamCategory.Simple,
                                         paramType,
+                                        whereConstraints: undefined,
                                         requiresTypeVarMatching: requiresSpecialization(paramType),
                                         argument: {
                                             argCategory: ArgCategory.Simple,
@@ -10973,6 +11033,7 @@ export function createTypeEvaluator(
                                 validateArgTypeParams.push({
                                     paramCategory: ParamCategory.KwargsDict,
                                     paramType,
+                                    whereConstraints: undefined,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: {
                                         argCategory: ArgCategory.Simple,
@@ -11006,6 +11067,7 @@ export function createTypeEvaluator(
                                 validateArgTypeParams.push({
                                     paramCategory: ParamCategory.KwargsDict,
                                     paramType: kwargsParam.declaredType,
+                                    whereConstraints: undefined,
                                     requiresTypeVarMatching: requiresSpecialization(kwargsParam.declaredType),
                                     argument: {
                                         argCategory: ArgCategory.UnpackedDictionary,
@@ -11034,6 +11096,7 @@ export function createTypeEvaluator(
                             validateArgTypeParams.push({
                                 paramCategory: ParamCategory.KwargsDict,
                                 paramType: paramSpec,
+                                whereConstraints: undefined,
                                 requiresTypeVarMatching: false,
                                 argument: argList[argIndex],
                                 argType: isParamSpec(argType) ? undefined : AnyType.create(),
@@ -11095,6 +11158,7 @@ export function createTypeEvaluator(
                                 validateArgTypeParams.push({
                                     paramCategory: ParamCategory.Simple,
                                     paramType,
+                                    whereConstraints: undefined,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argType: unpackedDictArgType,
                                     argument: argList[argIndex],
@@ -11152,6 +11216,7 @@ export function createTypeEvaluator(
                                 validateArgTypeParams.push({
                                     paramCategory: ParamCategory.Simple,
                                     paramType,
+                                    whereConstraints: paramDetails.params[paramInfoIndex].whereConstraints,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: argList[argIndex],
                                     errorNode: argList[argIndex].valueExpression ?? errorNode,
@@ -11176,6 +11241,7 @@ export function createTypeEvaluator(
                                 validateArgTypeParams.push({
                                     paramCategory: ParamCategory.KwargsDict,
                                     paramType,
+                                    whereConstraints: paramDetails.params[paramDetails.kwargsIndex].whereConstraints,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: argList[argIndex],
                                     errorNode: argList[argIndex].valueExpression ?? errorNode,
@@ -11235,6 +11301,7 @@ export function createTypeEvaluator(
                                 validateArgTypeParams.push({
                                     paramCategory: ParamCategory.ArgsList,
                                     paramType: paramSpec,
+                                    whereConstraints: undefined,
                                     requiresTypeVarMatching: false,
                                     argument: argList[argIndex],
                                     argType: isParamSpec(argType) ? undefined : AnyType.create(),
@@ -11269,6 +11336,7 @@ export function createTypeEvaluator(
                             validateArgTypeParams.push({
                                 paramCategory: ParamCategory.Simple,
                                 paramType,
+                                whereConstraints: undefined,
                                 requiresTypeVarMatching: requiresSpecialization(paramType),
                                 argument: {
                                     argCategory: ArgCategory.Simple,
@@ -11334,6 +11402,7 @@ export function createTypeEvaluator(
                                 validateArgTypeParams.push({
                                     paramCategory: param.category,
                                     paramType: paramInfo.type,
+                                    whereConstraints: paramInfo.whereConstraints,
                                     requiresTypeVarMatching: true,
                                     argument: {
                                         argCategory: ArgCategory.Simple,
@@ -11421,6 +11490,7 @@ export function createTypeEvaluator(
                     const combinedArg: ValidateArgTypeParams = {
                         paramCategory: ParamCategory.Simple,
                         paramType: makePacked(paramType),
+                        whereConstraints: undefined,
                         requiresTypeVarMatching: true,
                         argument: {
                             argCategory: ArgCategory.Simple,
@@ -11858,6 +11928,10 @@ export function createTypeEvaluator(
                 unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
                 tupleClassType: getTupleClassType(),
                 eliminateUnsolvedInUnions,
+            },
+            simplifyClassCallback: (classType: ClassType) => {
+                const replacement = evalWhereConstraintType(evaluatorInterface, classType, /* diag */ undefined);
+                return replacement ?? classType;
             },
         });
         specializedReturnType = addConditionToType(specializedReturnType, typeCondition, { skipBoundTypeVars: true });
@@ -12340,7 +12414,35 @@ export function createTypeEvaluator(
             assignTypeFlags |= AssignTypeFlags.ArgAssignmentFirstPass;
         }
 
-        if (!assignType(argParam.paramType, argType, diag?.createAddendum(), constraints, assignTypeFlags)) {
+        // Make a temporary clone of the constraints tracker if we need to
+        // validate where constraints. This allows us to undo the side effects
+        // of the assignment if it later fails.
+        const constraintsClone = argParam.whereConstraints ? constraints?.clone() : constraints;
+
+        let isTypeAssignable = assignType(
+            argParam.paramType,
+            argType,
+            diag?.createAddendum(),
+            constraintsClone,
+            assignTypeFlags
+        );
+
+        if (isTypeAssignable && argParam.whereConstraints) {
+            if (
+                !validateWhereConstraints(
+                    evaluatorInterface,
+                    argParam.whereConstraints,
+                    diag?.createAddendum(),
+                    constraints
+                )
+            ) {
+                isTypeAssignable = false;
+            } else {
+                constraints.copyFromClone(constraintsClone!);
+            }
+        }
+
+        if (!isTypeAssignable) {
             if (!options?.skipReportError) {
                 // Mismatching parameter types are common in untyped code; don't bother spending time
                 // printing types if the diagnostic is disabled.
@@ -15806,8 +15908,24 @@ export function createTypeEvaluator(
         baseType: Type,
         metaArgs: TypeResultWithNode[]
     ): Type {
+        const whereConstraints: ClassType[] = [];
+
         for (const metaArg of metaArgs) {
             validateTypeMetadata(errorNode, baseType, metaArg);
+
+            // Collect any "Where" constraints specified in the metadata.
+            if (isClassInstance(metaArg.type) && ClassType.isBuiltIn(metaArg.type, 'Where')) {
+                if (metaArg.type.priv.typeArgs && metaArg.type.priv.typeArgs.length >= 1) {
+                    const whereConstraint = metaArg.type.priv.typeArgs[0];
+                    if (isClassInstance(whereConstraint)) {
+                        whereConstraints.push(whereConstraint);
+                    }
+                }
+            }
+        }
+
+        if (whereConstraints.length > 0) {
+            baseType = TypeBase.cloneWithWhereConstraints(baseType, whereConstraints);
         }
 
         return baseType;
@@ -16360,6 +16478,7 @@ export function createTypeEvaluator(
             ['NoReturn', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Never', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['LiteralString', { alias: '', module: 'builtins', isSpecialForm: true }],
+            ['LiteralInt', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['ReadOnly', { alias: '', module: 'builtins', isSpecialForm: true }],
             [
                 'TypeIs',
@@ -16393,10 +16512,11 @@ export function createTypeEvaluator(
 
             let specialType: Type = createSpecialBuiltInClass(node, assignedName, aliasMapEntry);
 
-            // Handle 'LiteralString' specially because we want it to act as
-            // though it derives from 'str'.
-            if (assignedName === 'LiteralString') {
-                specialType.shared.baseClasses.push(strClass ?? AnyType.create());
+            // Handle 'LiteralString' and 'LiteralInt' specially because we want
+            // them to act as though they derive from 'str' or 'int'.
+            if (assignedName === 'LiteralString' || assignedName === 'LiteralInt') {
+                const aliasClass = assignedName === 'LiteralString' ? strClass : intClass;
+                specialType.shared.baseClasses.push(aliasClass ?? AnyType.create());
                 computeMroLinearization(specialType);
 
                 if (isTypeFormSupported(node)) {
@@ -18042,6 +18162,7 @@ export function createTypeEvaluator(
                                 const argParam: ValidateArgTypeParams = {
                                     paramCategory: paramInfo.param.category,
                                     paramType: paramInfo.type,
+                                    whereConstraints: paramInfo.whereConstraints,
                                     requiresTypeVarMatching: false,
                                     argument: arg,
                                     errorNode: arg.valueExpression ?? node.d.name,
@@ -18371,6 +18492,7 @@ export function createTypeEvaluator(
                 let paramType: Type | undefined;
                 let annotatedType: Type | undefined;
                 let paramTypeNode: ExpressionNode | undefined;
+                const whereConstraints: WhereConstraint[] = [];
 
                 if (param.d.name) {
                     if (index === 0 && isFirstParamClsOrSelf) {
@@ -18410,6 +18532,8 @@ export function createTypeEvaluator(
                             functionType.shared.typeVarScopeId
                         );
                     }
+
+                    appendArray(whereConstraints, getWhereConstraintsRecursive(annotatedType));
 
                     if (isTypeVarTuple(annotatedType) && !annotatedType.priv.isUnpacked) {
                         addDiagnostic(
@@ -18548,7 +18672,8 @@ export function createTypeEvaluator(
                         (paramTypeNode ? FunctionParamFlags.TypeDeclared : FunctionParamFlags.None),
                     param.d.name ? param.d.name.d.value : undefined,
                     defaultValueType,
-                    param.d.defaultValue
+                    param.d.defaultValue,
+                    whereConstraints.length > 0 ? whereConstraints : undefined
                 );
 
                 FunctionType.addParam(functionType, functionParam);
@@ -20596,7 +20721,8 @@ export function createTypeEvaluator(
                     return { type: createSelfType(classType, errorNode, typeArgs, flags) };
                 }
 
-                case 'LiteralString': {
+                case 'LiteralString':
+                case 'LiteralInt': {
                     return { type: createSpecialType(classType, typeArgs, 0) };
                 }
 
@@ -20892,7 +21018,7 @@ export function createTypeEvaluator(
                             DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.typeVarAssignmentMismatch().format({
                                 type: printType(typeArgType),
-                                name: TypeVarType.getReadableName(typeParams[index]),
+                                name: TypeVarType.getReadableName(typeParams[index], !omitTypeVarScope),
                             }) + diag.getString(),
                             typeArgs[index].node
                         );
@@ -23762,7 +23888,7 @@ export function createTypeEvaluator(
 
                             childDiag.addMessage(
                                 errorSource().format({
-                                    name: TypeVarType.getReadableName(destTypeParam),
+                                    name: TypeVarType.getReadableName(destTypeParam, !omitTypeVarScope),
                                     ...printSrcDestTypes(srcTypeArg, destTypeArg),
                                 })
                             );
@@ -24352,6 +24478,25 @@ export function createTypeEvaluator(
                     (flags & AssignTypeFlags.Invariant) === 0
                 ) {
                     concreteSrcType = ClassType.cloneAsInstance(strClass);
+                }
+
+                // Handle LiteralInt special form.
+                if (ClassType.isBuiltIn(destType, 'LiteralInt')) {
+                    if (
+                        ClassType.isBuiltIn(concreteSrcType, 'int') &&
+                        concreteSrcType.priv.literalValue !== undefined
+                    ) {
+                        return (flags & AssignTypeFlags.Invariant) === 0;
+                    } else if (ClassType.isBuiltIn(concreteSrcType, 'LiteralInt')) {
+                        return true;
+                    }
+                } else if (
+                    ClassType.isBuiltIn(concreteSrcType, 'LiteralInt') &&
+                    intClass &&
+                    isInstantiableClass(intClass) &&
+                    (flags & AssignTypeFlags.Invariant) === 0
+                ) {
+                    concreteSrcType = ClassType.cloneAsInstance(intClass);
                 }
 
                 if (
@@ -25561,6 +25706,7 @@ export function createTypeEvaluator(
                     ),
                     type: srcPositionalsType,
                     declaredType: srcPositionalsType,
+                    whereConstraints: undefined,
                     index: -1,
                     kind: ParamKind.Positional,
                 },
@@ -27159,7 +27305,7 @@ export function createTypeEvaluator(
                         LocAddendum.typeBound().format({
                             sourceType: printType(effectiveSrcType),
                             destType: printType(destType.shared.boundType),
-                            name: TypeVarType.getReadableName(destType),
+                            name: TypeVarType.getReadableName(destType, !omitTypeVarScope),
                         })
                     );
                 }
@@ -27183,7 +27329,7 @@ export function createTypeEvaluator(
             diag.addMessage(
                 LocAddendum.typeParamSpec().format({
                     type: printType(srcType),
-                    name: TypeVarType.getReadableName(destType),
+                    name: TypeVarType.getReadableName(destType, !omitTypeVarScope),
                 })
             );
 
@@ -27237,7 +27383,7 @@ export function createTypeEvaluator(
         diag.addMessage(
             LocAddendum.typeConstrainedTypeVar().format({
                 type: printType(srcType),
-                name: TypeVarType.getReadableName(destType),
+                name: TypeVarType.getReadableName(destType, !omitTypeVarScope),
             })
         );
 
@@ -27598,7 +27744,12 @@ export function createTypeEvaluator(
     }
 
     function printFunctionParts(type: FunctionType, extraFlags?: TypePrinter.PrintTypeFlags): [string[], string] {
-        const flags = extraFlags ? evaluatorOptions.printTypeFlags | extraFlags : evaluatorOptions.printTypeFlags;
+        let flags = extraFlags ? evaluatorOptions.printTypeFlags | extraFlags : evaluatorOptions.printTypeFlags;
+
+        if (omitTypeVarScope) {
+            flags |= TypePrinter.PrintTypeFlags.OmitTypeVarScope;
+        }
+
         return TypePrinter.printFunctionParts(type, flags, getEffectiveReturnType);
     }
 
@@ -27656,6 +27807,10 @@ export function createTypeEvaluator(
         }
         if (options?.useFullyQualifiedNames) {
             flags |= TypePrinter.PrintTypeFlags.UseFullyQualifiedNames;
+        }
+
+        if (omitTypeVarScope) {
+            flags |= TypePrinter.PrintTypeFlags.OmitTypeVarScope;
         }
 
         return TypePrinter.printType(type, flags, getEffectiveReturnType);
@@ -27842,6 +27997,11 @@ export function createTypeEvaluator(
         getTupleClassType,
         getDictClassType,
         getStrClassType,
+        getIntClassType,
+        getBoolClassType,
+        getIntAddClassType,
+        getIntSubClassType,
+        getIntMulClassType,
         getObjectType,
         getNoneType,
         getUnionClassType,
