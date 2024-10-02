@@ -8009,22 +8009,32 @@ export function createTypeEvaluator(
                         if (unpackedType) {
                             typeResult.type = unpackedType;
                         } else {
-                            addDiagnostic(
-                                DiagnosticRule.reportInvalidTypeForm,
-                                LocMessage.unpackNotAllowed(),
-                                arg.d.valueExpr
-                            );
+                            if ((flags & EvalFlags.TypeExpression) !== 0) {
+                                addDiagnostic(
+                                    DiagnosticRule.reportInvalidTypeForm,
+                                    LocMessage.unpackNotAllowed(),
+                                    arg.d.valueExpr
+                                );
+                                typeResult.typeErrors = true;
+                            } else {
+                                typeResult.type = UnknownType.create();
+                            }
                         }
                     }
                 }
             }
 
             if (arg.d.name) {
-                addDiagnostic(
-                    DiagnosticRule.reportInvalidTypeForm,
-                    LocMessage.keywordArgInTypeArgument(),
-                    arg.d.valueExpr
-                );
+                if ((flags & EvalFlags.TypeExpression) !== 0) {
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.keywordArgInTypeArgument(),
+                        arg.d.valueExpr
+                    );
+                    typeResult.typeErrors = true;
+                } else {
+                    typeResult.type = UnknownType.create();
+                }
             }
 
             if (
@@ -16032,7 +16042,9 @@ export function createTypeEvaluator(
         // is allowed if it's an unpacked TypeVarTuple or tuple. None is also allowed
         // since it is used to define NoReturn in typeshed stubs).
         if (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0])) {
-            addDiagnostic(DiagnosticRule.reportInvalidTypeArguments, LocMessage.unionTypeArgCount(), errorNode);
+            if ((flags & EvalFlags.TypeExpression) !== 0) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeArguments, LocMessage.unionTypeArgCount(), errorNode);
+            }
             isValidTypeForm = false;
         }
 
