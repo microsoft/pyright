@@ -21940,13 +21940,15 @@ export function createTypeEvaluator(
                 scopeType = TypeVarScopeType.Class;
 
                 // Set the variance to "auto" for class-scoped TypeVars.
-                typeVar.shared.declaredVariance = Variance.Auto;
+                typeVar.shared.declaredVariance =
+                    isParamSpec(typeVar) || isTypeVarTuple(typeVar) ? Variance.Invariant : Variance.Auto;
             } else if (scopeNode.nodeType === ParseNodeType.Function) {
                 scopeType = TypeVarScopeType.Function;
             } else {
                 assert(scopeNode.nodeType === ParseNodeType.TypeAlias);
                 scopeType = TypeVarScopeType.TypeAlias;
-                typeVar.shared.declaredVariance = Variance.Auto;
+                typeVar.shared.declaredVariance =
+                    isParamSpec(typeVar) || isTypeVarTuple(typeVar) ? Variance.Invariant : Variance.Auto;
             }
 
             typeVar = TypeVarType.cloneForScopeId(
