@@ -208,7 +208,7 @@ class Sub2(Base2[T, T]):
 
 def func10(val: Sub2[str] | Base2[str, float]):
     if isinstance(val, Sub2):
-        reveal_type(val, expected_text="Sub2[str] | Sub2[Unknown]")
+        reveal_type(val, expected_text="Sub2[str] | Sub2[str | float]")
 
 
 @runtime_checkable
