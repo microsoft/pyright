@@ -45,7 +45,6 @@ import {
     TypeVarKind,
     TypeVarScopeId,
     TypeVarType,
-    UnknownType,
     Variance,
 } from './types';
 import {
@@ -476,23 +475,17 @@ export function addConstraintsForExpectedType(
                         typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes, usageOffset);
                     }
 
-                    if (typeArgValue) {
-                        const variance = TypeVarType.getVariance(typeVar);
-
-                        // If this type variable already has a type, don't overwrite it. This can
-                        // happen if a single type variable in the derived class is used multiple times
-                        // in the specialized base class type (e.g. Mapping[T, T]).
-                        if (constraints.getMainConstraintSet().getTypeVar(targetTypeVar)) {
-                            isResultValid = false;
-                            typeArgValue = UnknownType.create();
-                        }
-
-                        constraints.setBounds(
+                    if (
+                        !typeArgValue ||
+                        !assignTypeVar(
+                            evaluator,
                             targetTypeVar,
-                            variance === Variance.Covariant ? undefined : typeArgValue,
-                            variance === Variance.Contravariant ? undefined : typeArgValue
-                        );
-                    } else {
+                            typeArgValue,
+                            /* diag */ undefined,
+                            constraints,
+                            AssignTypeFlags.RetainLiteralsForTypeVar
+                        )
+                    ) {
                         isResultValid = false;
                     }
                 }
