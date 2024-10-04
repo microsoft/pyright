@@ -226,8 +226,8 @@ export function synthesizeDataClassMethods(
                     statement.d.leftExpr.d.valueExpr.nodeType === ParseNodeType.Name
                 ) {
                     variableNameNode = statement.d.leftExpr.d.valueExpr;
+                    typeAnnotationNode = statement.d.leftExpr;
                     const assignmentStatement = statement;
-                    typeAnnotationNode = assignmentStatement.d.leftExpr as TypeAnnotationNode;
                     variableTypeEvaluator = () =>
                         evaluator.getTypeOfAnnotation(
                             (assignmentStatement.d.leftExpr as TypeAnnotationNode).d.annotation,
