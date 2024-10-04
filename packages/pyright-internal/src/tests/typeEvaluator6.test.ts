@@ -451,6 +451,14 @@ test('MatchSequence1', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('MatchSequence2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MatchClass1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

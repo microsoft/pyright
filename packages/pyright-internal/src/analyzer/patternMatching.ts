@@ -102,6 +102,14 @@ const classPatternSpecialCases = [
     'builtins.tuple',
 ];
 
+// There are cases where sequence pattern matching of tuples with
+// large unions can blow up and cause hangs. This constant limits
+// the total number of subtypes that can be generated during type
+// narrowing for sequence patterns before the narrowed type is
+// converted to Any. This is tuned empirically to provide a reasonable
+// performance cutoff.
+const maxSequencePatternTupleExpansionSubtypes = 128;
+
 interface SequencePatternInfo {
     subtype: Type;
     isDefiniteNoMatch: boolean;
@@ -203,6 +211,7 @@ function narrowTypeBasedOnSequencePattern(
     pattern: PatternSequenceNode,
     isPositiveTest: boolean
 ): Type {
+    let usingTupleExpansion = false;
     type = transformPossibleRecursiveTypeAlias(type);
     let sequenceInfo = getSequencePatternInfo(evaluator, pattern, type);
 
@@ -359,6 +368,10 @@ function narrowTypeBasedOnSequencePattern(
                             );
                         })
                     );
+
+                    // Note that we're using tuple expansion in case we
+                    // need to limit the number of subtypes generated.
+                    usingTupleExpansion = true;
                 }
             }
 
@@ -401,7 +414,10 @@ function narrowTypeBasedOnSequencePattern(
         return isPlausibleMatch;
     });
 
-    return combineTypes(sequenceInfo.map((entry) => entry.subtype));
+    return combineTypes(
+        sequenceInfo.map((entry) => entry.subtype),
+        { maxSubtypeCount: usingTupleExpansion ? maxSequencePatternTupleExpansionSubtypes : undefined }
+    );
 }
 
 function narrowTypeBasedOnAsPattern(
