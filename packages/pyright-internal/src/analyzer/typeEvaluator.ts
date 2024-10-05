@@ -15775,64 +15775,9 @@ export function createTypeEvaluator(
 
     // Determines whether the metadata object is compatible with the base type.
     function validateTypeMetadata(errorNode: ExpressionNode, baseType: Type, metaArg: TypeResultWithNode): boolean {
-        // This is an experimental feature because PEP 746 hasn't been accepted.
-        if (!AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
-            return true;
-        }
-
-        if (!isClass(metaArg.type)) {
-            return true;
-        }
-
-        const supportsTypeMethod = getTypeOfBoundMember(
-            /* errorNode */ undefined,
-            metaArg.type,
-            '__supports_type__'
-        )?.type;
-
-        if (!supportsTypeMethod) {
-            return true;
-        }
-
-        // "Call" the __supports_type__ method to determine if the type is supported.
-        const callResult = useSpeculativeMode(errorNode, () =>
-            validateCallArgs(
-                errorNode,
-                [
-                    {
-                        argCategory: ArgCategory.Simple,
-                        typeResult: { type: convertToInstance(baseType) },
-                    },
-                ],
-                { type: supportsTypeMethod },
-                /* constraints */ undefined,
-                /* skipUnknownArgCheck */ true,
-                /* inferenceContext */ undefined
-            )
-        );
-
-        if (!callResult.returnType) {
-            return true;
-        }
-
-        // If there are no errors and the return type is potentially truthy,
-        // we know that the type is supported by this metadata object.
-        if (!callResult.argumentErrors && canBeTruthy(callResult.returnType)) {
-            return true;
-        }
-
-        if (!callResult.isTypeIncomplete) {
-            addDiagnostic(
-                DiagnosticRule.reportInvalidTypeArguments,
-                LocMessage.annotatedMetadataInconsistent().format({
-                    metadataType: printType(metaArg.type),
-                    type: printType(convertToInstance(baseType)),
-                }),
-                metaArg.node
-            );
-        }
-
-        return false;
+        // This function was added for draft PEP 746, but the functionality
+        // has been removed for now while the PEP is being revised.
+        return true;
     }
 
     // Creates one of several "special" types that are defined in typing.pyi
