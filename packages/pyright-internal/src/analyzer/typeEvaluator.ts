@@ -26365,7 +26365,11 @@ export function createTypeEvaluator(
                         return assignedSubtype;
                     }
 
-                    if (!isTypeVar(declaredSubtype) && isTypeVar(assignedSubtype)) {
+                    if (
+                        !isTypeVar(declaredSubtype) &&
+                        isTypeVar(assignedSubtype) &&
+                        !TypeVarType.isBound(assignedSubtype)
+                    ) {
                         // If the source is an unsolved TypeVar but the declared type is concrete,
                         // use the concrete type.
                         return declaredSubtype;
