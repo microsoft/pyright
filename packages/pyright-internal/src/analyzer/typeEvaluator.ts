@@ -3461,6 +3461,11 @@ export function createTypeEvaluator(
             }
         }
 
+        if (declaredType) {
+            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(nameNode);
+            declaredType = makeTypeVarsBound(declaredType, liveScopeIds);
+        }
+
         // We found an existing declared type. Make sure the type is assignable.
         let destType = typeResult.type;
         const isTypeAlias =
@@ -4321,11 +4326,16 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.TypeAnnotation: {
-                const annotationType: Type | undefined = getTypeOfAnnotation(target.d.annotation, {
+                let annotationType: Type | undefined = getTypeOfAnnotation(target.d.annotation, {
                     varTypeAnnotation: true,
                     allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.d.valueExpr),
                     allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(target.d.valueExpr),
                 });
+
+                if (annotationType) {
+                    const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(target);
+                    annotationType = makeTypeVarsBound(annotationType, liveScopeIds);
+                }
 
                 // Handle a bare "Final" or "ClassVar" in a special manner.
                 const isBareFinalOrClassVar =
@@ -10319,7 +10329,11 @@ export function createTypeEvaluator(
     // Evaluates the type of the "cast" call.
     function evaluateCastCall(argList: Arg[], errorNode: ExpressionNode) {
         // Verify that the cast is necessary.
-        const castToType = getTypeOfArgExpectingType(argList[0], { typeExpression: true }).type;
+        let castToType = getTypeOfArgExpectingType(argList[0], { typeExpression: true }).type;
+
+        const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
+        castToType = makeTypeVarsBound(castToType, liveScopeIds);
+
         let castFromType = getTypeOfArg(argList[1], /* inferenceContext */ undefined).type;
 
         if (castFromType.props?.specialForm) {
@@ -15775,64 +15789,9 @@ export function createTypeEvaluator(
 
     // Determines whether the metadata object is compatible with the base type.
     function validateTypeMetadata(errorNode: ExpressionNode, baseType: Type, metaArg: TypeResultWithNode): boolean {
-        // This is an experimental feature because PEP 746 hasn't been accepted.
-        if (!AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
-            return true;
-        }
-
-        if (!isClass(metaArg.type)) {
-            return true;
-        }
-
-        const supportsTypeMethod = getTypeOfBoundMember(
-            /* errorNode */ undefined,
-            metaArg.type,
-            '__supports_type__'
-        )?.type;
-
-        if (!supportsTypeMethod) {
-            return true;
-        }
-
-        // "Call" the __supports_type__ method to determine if the type is supported.
-        const callResult = useSpeculativeMode(errorNode, () =>
-            validateCallArgs(
-                errorNode,
-                [
-                    {
-                        argCategory: ArgCategory.Simple,
-                        typeResult: { type: convertToInstance(baseType) },
-                    },
-                ],
-                { type: supportsTypeMethod },
-                /* constraints */ undefined,
-                /* skipUnknownArgCheck */ true,
-                /* inferenceContext */ undefined
-            )
-        );
-
-        if (!callResult.returnType) {
-            return true;
-        }
-
-        // If there are no errors and the return type is potentially truthy,
-        // we know that the type is supported by this metadata object.
-        if (!callResult.argumentErrors && canBeTruthy(callResult.returnType)) {
-            return true;
-        }
-
-        if (!callResult.isTypeIncomplete) {
-            addDiagnostic(
-                DiagnosticRule.reportInvalidTypeArguments,
-                LocMessage.annotatedMetadataInconsistent().format({
-                    metadataType: printType(metaArg.type),
-                    type: printType(convertToInstance(baseType)),
-                }),
-                metaArg.node
-            );
-        }
-
-        return false;
+        // This function was added for draft PEP 746, but the functionality
+        // has been removed for now while the PEP is being revised.
+        return true;
     }
 
     // Creates one of several "special" types that are defined in typing.pyi
@@ -16522,9 +16481,6 @@ export function createTypeEvaluator(
         }
 
         if (!rightHandType) {
-            // Determine whether there is a declared type.
-            const declaredType = getDeclaredTypeForExpression(node.d.leftExpr, { method: 'set' });
-
             let typeAliasNameNode: NameNode | undefined;
             let typeAliasPlaceholder: TypeVarType | undefined;
             let isSpeculativeTypeAlias = false;
@@ -16580,6 +16536,13 @@ export function createTypeEvaluator(
                 if (node.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation) {
                     writeTypeCache(node.d.leftExpr.d.valueExpr, { type: typeAliasPlaceholder }, /* flags */ undefined);
                 }
+            }
+
+            let declaredType = getDeclaredTypeForExpression(node.d.leftExpr, { method: 'set' });
+
+            if (declaredType) {
+                const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                declaredType = makeTypeVarsBound(declaredType, liveTypeVarScopes);
             }
 
             const srcTypeResult = getTypeOfExpression(node.d.rightExpr, flags, makeInferenceContext(declaredType));
@@ -26420,7 +26383,11 @@ export function createTypeEvaluator(
                         return assignedSubtype;
                     }
 
-                    if (!isTypeVar(declaredSubtype) && isTypeVar(assignedSubtype)) {
+                    if (
+                        !isTypeVar(declaredSubtype) &&
+                        isTypeVar(assignedSubtype) &&
+                        !TypeVarType.isBound(assignedSubtype)
+                    ) {
                         // If the source is an unsolved TypeVar but the declared type is concrete,
                         // use the concrete type.
                         return declaredSubtype;

@@ -662,6 +662,21 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
             if (isLiteralType(a)) {
                 if (!isLiteralType(bClass)) {
                     return -1;
+                } else if (ClassType.isSameGenericClass(a, bClass)) {
+                    // Sort by literal value.
+                    const aLiteralValue = a.priv.literalValue;
+                    const bLiteralValue = bClass.priv.literalValue;
+
+                    if (
+                        (typeof aLiteralValue === 'string' && typeof bLiteralValue === 'string') ||
+                        (typeof aLiteralValue === 'number' && typeof bLiteralValue === 'number')
+                    ) {
+                        if (aLiteralValue < bLiteralValue) {
+                            return -1;
+                        } else if (aLiteralValue > bLiteralValue) {
+                            return 1;
+                        }
+                    }
                 }
             } else if (isLiteralType(bClass)) {
                 return 1;

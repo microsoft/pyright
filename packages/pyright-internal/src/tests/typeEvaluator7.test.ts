@@ -863,14 +863,6 @@ test('Annotated2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('AnnotatedMetadata1', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedMetadata1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 6);
-});
-
 test('Circular1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circular1.py']);
 
