@@ -4684,6 +4684,10 @@ export function createTypeEvaluator(
                 type = validateSymbolIsTypeExpression(node, type, !!effectiveTypeInfo.includesVariableDecl);
             }
 
+            if (isTypeVar(type) && !type.shared.isSynthesized) {
+                type = validateTypeVarUsage(node, type, flags);
+            }
+
             // Add TypeForm details if appropriate.
             type = addTypeFormForSymbol(node, type, flags, !!effectiveTypeInfo.includesVariableDecl);
         } else {
@@ -4701,7 +4705,7 @@ export function createTypeEvaluator(
             }
         }
 
-        if (isParamSpec(type)) {
+        if (isParamSpec(type) && type.priv.scopeId) {
             if (flags & EvalFlags.NoParamSpec) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.paramSpecContext(), node);
                 type = UnknownType.create();
@@ -4720,10 +4724,6 @@ export function createTypeEvaluator(
                     addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.genericNotAllowed(), node);
                 }
             }
-        }
-
-        if (isTypeVar(type) && !type.shared.isSynthesized) {
-            type = validateTypeVarUsage(node, type, flags);
         }
 
         return { type, isIncomplete };
@@ -4788,7 +4788,7 @@ export function createTypeEvaluator(
             return true;
         }
 
-        if (isTypeVar(type) && !type.priv.scopeId) {
+        if (isTypeVar(type)) {
             return true;
         }
 
@@ -5123,7 +5123,7 @@ export function createTypeEvaluator(
                 return type;
             }
 
-            if (!type.shared.isSynthesized) {
+            if (!type.shared.isSynthesized && (flags & EvalFlags.InstantiableType) !== 0) {
                 const message = isParamSpec(type)
                     ? LocMessage.paramSpecNotUsedByOuterScope()
                     : LocMessage.typeVarNotUsedByOuterScope();
