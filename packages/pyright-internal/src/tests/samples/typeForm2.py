@@ -19,11 +19,14 @@ from typing import (
     Type,
     TypeAlias,
     TypeGuard,
+    TypeVar,
     Union,
     Unpack,
 )
 import typing as tp
 from typing_extensions import TypeForm, TypeIs, ReadOnly
+
+T = TypeVar("T")
 
 type TA1 = int | str
 type TA2[T] = list[T] | T
@@ -187,7 +190,26 @@ def func5():
     reveal_type(t2, expected_text="TypeForm[TypeForm[TypeForm[int | str]]]")
 
 
-def func6():
+def func6(x: T) -> T:
+    v1: TypeForm[T] = T
+    v2 = tf(T)
+    reveal_type(v2, expected_text="TypeForm[T@func6]")
+
+    v3: TypeForm[T | int] = T
+    v3 = T | int
+
+    v4 = tf(T | int)
+    reveal_type(v4, expected_text="TypeForm[T@func6 | int]")
+
+    v5: TypeForm[list[T]] = list[T]
+
+    v6 = tf(list[T])
+    reveal_type(v6, expected_text="TypeForm[list[T@func6]]")
+
+    return x
+
+
+def func7():
     # This should generate an error.
     t1 = tf(Generic)
 
