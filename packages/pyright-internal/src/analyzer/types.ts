@@ -10,7 +10,7 @@
 import { partition } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
-import { ArgumentNode, ExpressionNode, NameNode, ParamCategory } from '../parser/parseNodes';
+import { ArgumentNode, ExpressionNode, NameNode, ParamCategory, TypeAnnotationNode } from '../parser/parseNodes';
 import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
@@ -542,6 +542,7 @@ export interface DataClassEntry {
     alias?: string | undefined;
     hasDefault?: boolean | undefined;
     nameNode: NameNode | undefined;
+    typeAnnotationNode: TypeAnnotationNode | undefined;
     defaultExpr?: ExpressionNode | undefined;
     includeInInit: boolean;
     type: Type;
