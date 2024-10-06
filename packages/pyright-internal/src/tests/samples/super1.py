@@ -1,7 +1,7 @@
 # This sample tests the type analyzer's handling of the super() call.
 
 
-from typing import Generic, TypeVar
+from typing import Generic, NamedTuple, TypeVar
 
 T = TypeVar("T")
 
@@ -88,3 +88,10 @@ class ClassF(Generic[T]):
 class ClassG(ClassF[T]):
     def __init__(self, val: T) -> None:
         super().__init__(val)
+
+
+class ClassH(NamedTuple("NT1", [("y", int), ("x", int)])):
+    def method(self, v: tuple[int, int]):
+        cls = type(self)
+        v = super().__new__(cls, *v)
+        return type(self)(self.y + v.y, self.x + v.x)
