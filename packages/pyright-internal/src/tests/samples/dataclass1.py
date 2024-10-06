@@ -1,6 +1,7 @@
 # This sample tests the handling of the @dataclass decorator.
 
-from dataclasses import dataclass, InitVar
+from dataclasses import dataclass, InitVar, field
+from typing import Generic, TypeVar
 
 
 @dataclass
@@ -81,3 +82,18 @@ DC6(int)
 
 # This should generate an error.
 DC6(1)
+
+
+T1 = TypeVar("T1", int, str)
+
+
+@dataclass
+class DC7(Generic[T1]):
+    # This should generate an error.
+    x: T1 = 1
+
+
+@dataclass
+class DC8(Generic[T1]):
+    # This should generate an error.
+    x: T1 = field(default=1)

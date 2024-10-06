@@ -3461,6 +3461,11 @@ export function createTypeEvaluator(
             }
         }
 
+        if (declaredType) {
+            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(nameNode);
+            declaredType = makeTypeVarsBound(declaredType, liveScopeIds);
+        }
+
         // We found an existing declared type. Make sure the type is assignable.
         let destType = typeResult.type;
         const isTypeAlias =
@@ -4321,11 +4326,16 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.TypeAnnotation: {
-                const annotationType: Type | undefined = getTypeOfAnnotation(target.d.annotation, {
+                let annotationType: Type | undefined = getTypeOfAnnotation(target.d.annotation, {
                     varTypeAnnotation: true,
                     allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.d.valueExpr),
                     allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(target.d.valueExpr),
                 });
+
+                if (annotationType) {
+                    const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(target);
+                    annotationType = makeTypeVarsBound(annotationType, liveScopeIds);
+                }
 
                 // Handle a bare "Final" or "ClassVar" in a special manner.
                 const isBareFinalOrClassVar =
@@ -10319,7 +10329,11 @@ export function createTypeEvaluator(
     // Evaluates the type of the "cast" call.
     function evaluateCastCall(argList: Arg[], errorNode: ExpressionNode) {
         // Verify that the cast is necessary.
-        const castToType = getTypeOfArgExpectingType(argList[0], { typeExpression: true }).type;
+        let castToType = getTypeOfArgExpectingType(argList[0], { typeExpression: true }).type;
+
+        const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
+        castToType = makeTypeVarsBound(castToType, liveScopeIds);
+
         let castFromType = getTypeOfArg(argList[1], /* inferenceContext */ undefined).type;
 
         if (castFromType.props?.specialForm) {
@@ -16467,9 +16481,6 @@ export function createTypeEvaluator(
         }
 
         if (!rightHandType) {
-            // Determine whether there is a declared type.
-            const declaredType = getDeclaredTypeForExpression(node.d.leftExpr, { method: 'set' });
-
             let typeAliasNameNode: NameNode | undefined;
             let typeAliasPlaceholder: TypeVarType | undefined;
             let isSpeculativeTypeAlias = false;
@@ -16525,6 +16536,13 @@ export function createTypeEvaluator(
                 if (node.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation) {
                     writeTypeCache(node.d.leftExpr.d.valueExpr, { type: typeAliasPlaceholder }, /* flags */ undefined);
                 }
+            }
+
+            let declaredType = getDeclaredTypeForExpression(node.d.leftExpr, { method: 'set' });
+
+            if (declaredType) {
+                const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                declaredType = makeTypeVarsBound(declaredType, liveTypeVarScopes);
             }
 
             const srcTypeResult = getTypeOfExpression(node.d.rightExpr, flags, makeInferenceContext(declaredType));
