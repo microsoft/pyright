@@ -2407,11 +2407,6 @@ export function createTypeEvaluator(
         diag?: DiagnosticAddendum,
         recursionCount = 0
     ): FunctionType | OverloadedType | undefined {
-        if (recursionCount > maxTypeRecursionCount) {
-            return undefined;
-        }
-        recursionCount++;
-
         const boundMethodResult = getTypeOfBoundMember(
             /* errorNode */ undefined,
             classType,
@@ -2432,6 +2427,11 @@ export function createTypeEvaluator(
         }
 
         if (isClassInstance(boundMethodResult.type)) {
+            if (recursionCount > maxTypeRecursionCount) {
+                return undefined;
+            }
+            recursionCount++;
+
             return getBoundMagicMethod(
                 boundMethodResult.type,
                 '__call__',

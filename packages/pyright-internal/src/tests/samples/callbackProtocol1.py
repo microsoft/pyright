@@ -1,6 +1,6 @@
 # This sample tests support for callback protocols (defined in PEP 544).
 
-from typing import Protocol
+from typing import Callable, Protocol
 
 
 class TestClass1(Protocol):
@@ -114,8 +114,7 @@ var4: TestClass4 = test_func4
 
 
 class TestClass5(Protocol):
-    def __call__(self, *, a: int, b: str) -> int:
-        ...
+    def __call__(self, *, a: int, b: str) -> int: ...
 
 
 def test_func5(a: int, b: str) -> int:
@@ -126,8 +125,7 @@ f5: TestClass5 = test_func5
 
 
 class TestClass6(Protocol):
-    def __call__(self, a: int, /, *, b: str) -> int:
-        ...
+    def __call__(self, a: int, /, *, b: str) -> int: ...
 
 
 def test_func6(a: int, b: str) -> int:
@@ -148,3 +146,14 @@ def test_func7(*args: *tuple[int, *tuple[int, ...]]) -> int:
 
 # This should generate an error.
 f7: TestClass7 = test_func7
+
+
+class TestClass8:
+    def __call__(self: Callable[[int], int], v: int) -> int:
+        return v
+
+
+def func8(f: Callable[[int], int]): ...
+
+
+func8(TestClass8())
