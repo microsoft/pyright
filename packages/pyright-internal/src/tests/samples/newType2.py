@@ -7,12 +7,10 @@ X1 = type("X1", (object,), {})
 X2 = type("X2", (object,), {})
 
 
-class A(X1):
-    ...
+class A(X1): ...
 
 
-class B(X2, A):
-    ...
+class B(X2, A): ...
 
 
 # This should generate two errors (one for `__new__` and one for `__init__`)
@@ -32,10 +30,9 @@ X6 = type("", tuple({str}), {})
 X7 = type("", (float, str), {})
 
 
-class Meta1(type):
-    ...
+class Meta1(type): ...
 
 
 X8 = Meta1("X8", (list,), {})
 reveal_type(X8, expected_text="type[X8]")
-reveal_type(type(X8), expected_text="type[Meta1]")
+reveal_type(type(X8), expected_text="type[type[X8]]")

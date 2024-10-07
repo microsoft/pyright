@@ -30,6 +30,7 @@ export function getDiagnosticSeverityOverrides() {
 }
 
 export type DiagnosticSeverityOverridesMap = { [ruleName: string]: DiagnosticSeverityOverrides };
+export type DiagnosticBooleanOverridesMap = { [ruleName: string]: boolean };
 
 // Options that can be specified in a JSON config file. This list should match what is
 // defined in the pyrightconfig.schema.json file.
@@ -94,6 +95,9 @@ export class CommandLineConfigOptions {
     // Indicates diagnostic severity overrides
     diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap | undefined;
 
+    // Indicates diagnostic boolean overrides
+    diagnosticBooleanOverrides?: DiagnosticBooleanOverridesMap | undefined;
+
     // Analyze functions and methods that have no type annotations?
     analyzeUnannotatedFunctions?: boolean;
 
@@ -142,6 +146,9 @@ export class CommandLineLanguageServerOptions {
     // Path to python interpreter. This is used when the language server
     // gets the python path from the client.
     pythonPath?: string | undefined;
+
+    // Virtual environments directory.
+    venvPath?: string | undefined;
 }
 
 // Some options can be specified from a source other than the pyright config file.

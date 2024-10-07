@@ -9,7 +9,11 @@
 import { MessagePort, parentPort, TransferListItem } from 'worker_threads';
 
 import { CacheManager } from './analyzer/cacheManager';
-import { OperationCanceledException, setCancellationFolderName } from './common/cancellationUtils';
+import {
+    getCancellationTokenId,
+    OperationCanceledException,
+    setCancellationFolderName,
+} from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel } from './common/console';
 import { Disposable, isThenable } from './common/core';
@@ -19,6 +23,8 @@ import { ServiceKeys } from './common/serviceKeys';
 import { ServiceProvider } from './common/serviceProvider';
 import './common/serviceProviderExtensions';
 import { Uri } from './common/uri/uri';
+import { CancellationToken } from 'vscode-jsonrpc';
+import { getCancellationTokenFromId } from './common/fileBasedCancellationUtils';
 
 export class BackgroundConsole implements ConsoleInterface {
     private _level = LogLevel.Log;
@@ -136,6 +142,9 @@ export function serializeReplacer(value: any) {
         const entries = Object.entries(value);
         return { __serialized_config_options: entries.reduce((obj, e, i) => ({ ...obj, [e[0]]: e[1] }), {}) };
     }
+    if (CancellationToken.is(value)) {
+        return { cancellation_token_val: getCancellationTokenId(value) ?? null };
+    }
 
     return value;
 }
@@ -163,6 +172,9 @@ export function deserializeReviver(value: any) {
             const configOptions = new ConfigOptions(value.__serialized_config_options.projectRoot);
             Object.assign(configOptions, value.__serialized_config_options);
             return configOptions;
+        }
+        if (Object.keys(value).includes('cancellation_token_val')) {
+            return getCancellationTokenFromId(value.cancellation_token_val);
         }
     }
     return value;

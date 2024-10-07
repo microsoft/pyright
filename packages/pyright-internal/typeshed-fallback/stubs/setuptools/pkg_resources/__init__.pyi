@@ -20,7 +20,7 @@ from ._vendored_packaging import requirements as _packaging_requirements, versio
 _T = TypeVar("_T")
 _DistributionT = TypeVar("_DistributionT", bound=Distribution)
 _NestedStr: TypeAlias = str | Iterable[_NestedStr]
-_InstallerTypeT: TypeAlias = Callable[[Requirement], _DistributionT]  # noqa: Y043
+_StrictInstallerType: TypeAlias = Callable[[Requirement], _DistributionT]
 _InstallerType: TypeAlias = Callable[[Requirement], Distribution | None]
 _PkgReqType: TypeAlias = str | Requirement
 _EPDistType: TypeAlias = Distribution | _PkgReqType
@@ -115,6 +115,10 @@ def fixup_namespace_packages(path_item: str, parent: str | None = None) -> None:
 
 class WorkingSet:
     entries: list[str]
+    entry_keys: dict[str | None, list[str]]
+    by_key: dict[str, Distribution]
+    normalized_to_canonical_keys: dict[str, str]
+    callbacks: list[Callable[[Distribution], object]]
     def __init__(self, entries: Iterable[str] | None = None) -> None: ...
     def add_entry(self, entry: str) -> None: ...
     def __contains__(self, dist: Distribution) -> bool: ...
@@ -128,7 +132,7 @@ class WorkingSet:
         self,
         requirements: Iterable[Requirement],
         env: Environment | None,
-        installer: _InstallerTypeT[_DistributionT],
+        installer: _StrictInstallerType[_DistributionT],
         replace_conflicting: bool = False,
         extras: tuple[str, ...] | None = None,
     ) -> list[_DistributionT]: ...
@@ -138,7 +142,7 @@ class WorkingSet:
         requirements: Iterable[Requirement],
         env: Environment | None = None,
         *,
-        installer: _InstallerTypeT[_DistributionT],
+        installer: _StrictInstallerType[_DistributionT],
         replace_conflicting: bool = False,
         extras: tuple[str, ...] | None = None,
     ) -> list[_DistributionT]: ...
@@ -156,7 +160,7 @@ class WorkingSet:
         self,
         plugin_env: Environment,
         full_env: Environment | None,
-        installer: _InstallerTypeT[_DistributionT],
+        installer: _StrictInstallerType[_DistributionT],
         fallback: bool = True,
     ) -> tuple[list[_DistributionT], dict[Distribution, Exception]]: ...
     @overload
@@ -165,7 +169,7 @@ class WorkingSet:
         plugin_env: Environment,
         full_env: Environment | None = None,
         *,
-        installer: _InstallerTypeT[_DistributionT],
+        installer: _StrictInstallerType[_DistributionT],
         fallback: bool = True,
     ) -> tuple[list[_DistributionT], dict[Distribution, Exception]]: ...
     @overload
@@ -193,7 +197,7 @@ class Environment:
         self,
         req: Requirement,
         working_set: WorkingSet,
-        installer: _InstallerTypeT[_DistributionT],
+        installer: _StrictInstallerType[_DistributionT],
         replace_conflicting: bool = False,
     ) -> _DistributionT: ...
     @overload
@@ -205,7 +209,7 @@ class Environment:
         replace_conflicting: bool = False,
     ) -> Distribution | None: ...
     @overload
-    def obtain(self, requirement: Requirement, installer: _InstallerTypeT[_DistributionT]) -> _DistributionT: ...
+    def obtain(self, requirement: Requirement, installer: _StrictInstallerType[_DistributionT]) -> _DistributionT: ...
     @overload
     def obtain(self, requirement: Requirement, installer: Callable[[Requirement], None] | None = None) -> None: ...
     @overload
@@ -428,6 +432,7 @@ class Distribution(NullProvider):
     def requires(self, extras: Iterable[str] = ()) -> list[Requirement]: ...
     def activate(self, path: list[str] | None = None, replace: bool = False) -> None: ...
     def egg_name(self) -> str: ...  # type: ignore[override]  # supertype's egg_name is a variable, not a method
+    def __getattr__(self, attr: str) -> Any: ...  # Delegate all unrecognized public attributes to .metadata provider
     @classmethod
     def from_filename(cls, filename: StrPath, metadata: _MetadataType = None, *, precedence: int = 3) -> Distribution: ...
     def as_requirement(self) -> Requirement: ...

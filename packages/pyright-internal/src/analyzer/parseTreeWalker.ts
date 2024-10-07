@@ -272,7 +272,7 @@ export function getChildNodes(node: ParseNode): (ParseNode | undefined)[] {
             return [node.d.expr];
 
         case ParseNodeType.Raise:
-            return [node.d.typeExpression, node.d.valueExpression, node.d.tracebackExpression];
+            return [node.d.expr, node.d.fromExpr];
 
         case ParseNodeType.Return:
             return [node.d.expr];
@@ -795,7 +795,15 @@ export class ParseTreeVisitor<T> {
         return this._default;
     }
 
+    visitPatternMapping(node: PatternMappingNode) {
+        return this._default;
+    }
+
     visitPatternMappingExpandEntry(node: PatternMappingExpandEntryNode) {
+        return this._default;
+    }
+
+    visitPatternMappingKeyEntry(node: PatternMappingKeyEntryNode) {
         return this._default;
     }
 
@@ -804,14 +812,6 @@ export class ParseTreeVisitor<T> {
     }
 
     visitPatternValue(node: PatternValueNode) {
-        return this._default;
-    }
-
-    visitPatternMappingKeyEntry(node: PatternMappingKeyEntryNode) {
-        return this._default;
-    }
-
-    visitPatternMapping(node: PatternMappingNode) {
         return this._default;
     }
 

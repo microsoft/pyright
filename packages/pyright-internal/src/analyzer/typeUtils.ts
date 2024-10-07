@@ -9,12 +9,11 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { ArgumentNode, ParamCategory } from '../parser/parseNodes';
+import { ParamCategory } from '../parser/parseNodes';
 import { ConstraintSolution, ConstraintSolutionSet } from './constraintSolution';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isEffectivelyClassVar, isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
-import { ApplyTypeVarOptions, ArgWithExpression } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -91,6 +90,10 @@ export interface ClassMember {
     // True if explicitly declared as "ClassVar" and therefore is
     // a type violation if it is overwritten by an instance variable
     isClassVar: boolean;
+
+    // True if the member is read-only, such as with named tuples
+    // or frozen dataclasses.
+    isReadOnly: boolean;
 
     // True if member has declared type, false if inferred
     isTypeDeclared: boolean;
@@ -171,78 +174,6 @@ export const enum ClassIteratorFlags {
     SkipTypeBaseClass = 1 << 2,
 }
 
-export const enum AssignTypeFlags {
-    Default = 0,
-
-    // Require invariance with respect to class matching? Normally
-    // subclasses are allowed.
-    Invariant = 1 << 0,
-
-    // The caller has swapped the source and dest types because
-    // the types are contravariant. Perform type var matching
-    // on dest type vars rather than source type var.
-    Contravariant = 1 << 1,
-
-    // We're comparing type compatibility of two distinct recursive types.
-    // This has the potential of recursing infinitely. This flag allows us
-    // to detect the recursion after the first level of checking.
-    SkipRecursiveTypeCheck = 1 << 2,
-
-    // During TypeVar solving for a function call, this flag is set if
-    // this is the first of multiple passes. It adjusts certain heuristics
-    // for constraint solving.
-    ArgAssignmentFirstPass = 1 << 3,
-
-    // If the dest is not Any but the src is Any, treat it
-    // as incompatible. Also, treat all source TypeVars as their
-    // concrete counterparts. This option is used for validating
-    // whether overload signatures overlap.
-    OverloadOverlap = 1 << 4,
-
-    // When used in conjunction with OverloadOverlapCheck, look
-    // for partial overlaps. For example, `int | list` overlaps
-    // partially with `int | str`.
-    PartialOverloadOverlap = 1 << 5,
-
-    // For function types, skip the return type check.
-    SkipReturnTypeCheck = 1 << 6,
-
-    // In most cases, literals are stripped when assigning to a
-    // type variable. This overrides the standard behavior.
-    RetainLiteralsForTypeVar = 1 << 8,
-
-    // When validating the type of a self or cls parameter, allow
-    // a type mismatch. This is used in overload consistency validation
-    // because overloads can provide explicit type annotations for self
-    // or cls.
-    SkipSelfClsTypeCheck = 1 << 9,
-
-    // We're initially populating the constraints with an expected type,
-    // so TypeVars should match the specified type exactly rather than
-    // employing narrowing or widening. The variance context determines
-    // whether the upper bound, lower bound, or both are established.
-    PopulateExpectedType = 1 << 11,
-
-    // Used with PopulatingExpectedType, this flag indicates that a TypeVar
-    // constraint that is Unknown should be ignored.
-    SkipPopulateUnknownExpectedType = 1 << 12,
-
-    // Normally, when a class type is assigned to a TypeVar and that class
-    // hasn't previously been specialized, it will be specialized with
-    // default type arguments (typically "Unknown"). This flag skips
-    // this step.
-    AllowUnspecifiedTypeArgs = 1 << 13,
-
-    // Normally all special form classes are incompatible with type[T],
-    // but a few of them are allowed in the context of an isinstance
-    // or issubclass call.
-    AllowIsinstanceSpecialForms = 1 << 14,
-
-    // When comparing two methods, skip the type check for the "self" or "cls"
-    // parameters. This is used for variance inference and validation.
-    SkipSelfClsParamCheck = 1 << 15,
-}
-
 export interface InferenceContext {
     expectedType: Type;
     isTypeIncomplete?: boolean;
@@ -272,6 +203,17 @@ export interface SelfSpecializeOptions {
 
     // Specialize with "bound" versions of the type parameters?
     useBoundTypeVars?: boolean;
+}
+
+export interface ApplyTypeVarOptions {
+    typeClassType?: ClassType;
+    replaceUnsolved?: {
+        scopeIds: TypeVarScopeId[];
+        tupleClassType: ClassType | undefined;
+        unsolvedExemptTypeVars?: TypeVarType[];
+        useUnknown?: boolean;
+        eliminateUnsolvedInUnions?: boolean;
+    };
 }
 
 // Tracks whether a function signature has been seen before within
@@ -720,6 +662,21 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
             if (isLiteralType(a)) {
                 if (!isLiteralType(bClass)) {
                     return -1;
+                } else if (ClassType.isSameGenericClass(a, bClass)) {
+                    // Sort by literal value.
+                    const aLiteralValue = a.priv.literalValue;
+                    const bLiteralValue = bClass.priv.literalValue;
+
+                    if (
+                        (typeof aLiteralValue === 'string' && typeof bLiteralValue === 'string') ||
+                        (typeof aLiteralValue === 'number' && typeof bLiteralValue === 'number')
+                    ) {
+                        if (aLiteralValue < bLiteralValue) {
+                            return -1;
+                        } else if (aLiteralValue > bLiteralValue) {
+                            return 1;
+                        }
+                    }
                 }
             } else if (isLiteralType(bClass)) {
                 return 1;
@@ -869,6 +826,12 @@ export function preserveUnknown(type1: Type, type2: Type): AnyType | UnknownType
 // Determines whether the specified type is a type that can be
 // combined with other types for a union.
 export function isUnionableType(subtypes: Type[]): boolean {
+    // If all of the subtypes are TypeForm types, we know that they
+    // are unionable.
+    if (subtypes.every((t) => t.props?.typeForm !== undefined)) {
+        return true;
+    }
+
     let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
 
     for (const subtype of subtypes) {
@@ -903,8 +866,8 @@ export function derivesFromAnyOrUnknown(type: Type): boolean {
 }
 
 export function getFullNameOfType(type: Type): string | undefined {
-    if (type.props?.typeAliasInfo?.fullName) {
-        return type.props.typeAliasInfo.fullName;
+    if (type.props?.typeAliasInfo?.shared.fullName) {
+        return type.props.typeAliasInfo.shared.fullName;
     }
 
     switch (type.category) {
@@ -1016,7 +979,7 @@ export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Ty
         return (
             isUnbound(type) &&
             type.props?.typeAliasInfo &&
-            type.props.typeAliasInfo.name === typeAliasPlaceholder.shared.recursiveAlias?.name
+            type.props.typeAliasInfo.shared.name === typeAliasPlaceholder.shared.recursiveAlias?.name
         );
     }
 
@@ -1103,22 +1066,6 @@ export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] {
     }
 
     return scopeIds;
-}
-
-// If the class type is generic and does not already have type arguments
-// specified, specialize it with default type arguments (Unknown or the
-// default type if provided).
-export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
-    if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
-        return type;
-    }
-
-    return ClassType.specialize(
-        type,
-        type.shared.typeParams.map((param) => param.shared.defaultType),
-        /* isTypeArgExplicit */ false,
-        /* includeSubclasses */ type.priv.includeSubclasses
-    );
 }
 
 // Specializes the class with "Unknown" type args (or the equivalent for ParamSpecs
@@ -1259,6 +1206,18 @@ export function isLiteralTypeOrUnion(type: Type, allowNone = false): boolean {
     return false;
 }
 
+export function isLiteralLikeType(type: ClassType): boolean {
+    if (type.priv.literalValue !== undefined) {
+        return true;
+    }
+
+    if (ClassType.isBuiltIn(type, 'LiteralString')) {
+        return true;
+    }
+
+    return false;
+}
+
 export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
     class ContainsLiteralTypeWalker extends TypeWalker {
         foundLiteral = false;
@@ -1269,7 +1228,7 @@ export function containsLiteralType(type: Type, includeTypeArgs = false): boolea
 
         override visitClass(classType: ClassType): void {
             if (isClassInstance(classType)) {
-                if (isLiteralType(classType) || ClassType.isBuiltIn(classType, 'LiteralString')) {
+                if (isLiteralLikeType(classType)) {
                     this.foundLiteral = true;
                     this.cancelWalk();
                 }
@@ -1315,6 +1274,27 @@ export function getLiteralTypeClassName(type: Type): string | undefined {
     }
 
     return undefined;
+}
+
+export function stripTypeForm(type: Type): Type {
+    if (type.props?.typeForm) {
+        return TypeBase.cloneWithTypeForm(type, undefined);
+    }
+
+    return type;
+}
+
+export function stripTypeFormRecursive(type: Type, recursionCount = 0): Type {
+    if (recursionCount > maxTypeRecursionCount) {
+        return type;
+    }
+    recursionCount++;
+
+    if (type.props?.typeForm) {
+        type = TypeBase.cloneWithTypeForm(type, undefined);
+    }
+
+    return mapSubtypes(type, (subtype) => stripTypeFormRecursive(subtype, recursionCount));
 }
 
 export function getUnionSubtypeCount(type: Type): number {
@@ -1529,12 +1509,20 @@ export function makeFunctionTypeVarsBound(type: FunctionType | OverloadedType): 
 
 export function makeTypeVarsBound<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[] | undefined): T;
 export function makeTypeVarsBound(type: Type, scopeIds: TypeVarScopeId[] | undefined): Type {
+    if (scopeIds && scopeIds.length === 0) {
+        return type;
+    }
+
     const transformer = new BoundTypeVarTransform(scopeIds);
     return transformer.apply(type, 0);
 }
 
 export function makeTypeVarsFree<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[]): T;
 export function makeTypeVarsFree(type: Type, scopeIds: TypeVarScopeId[]): Type {
+    if (scopeIds.length === 0) {
+        return type;
+    }
+
     const transformer = new FreeTypeVarTransform(scopeIds);
     return transformer.apply(type, 0);
 }
@@ -1569,14 +1557,14 @@ export function validateTypeVarDefault(
 // During bidirectional type inference for constructors, an "expected type"
 // is used to prepopulate the type var map. This is problematic when the
 // expected type uses TypeVars that are not part of the context of the
-// class we are constructing. We'll replace these type variables with dummy
-// type variables.
+// class we are constructing. We'll replace these type variables with
+// so-called "unification" type variables.
 export function transformExpectedType(
     expectedType: Type,
     liveTypeVarScopes: TypeVarScopeId[],
     usageOffset: number | undefined
 ): Type {
-    const transformer = new ExpectedTypeTransformer(liveTypeVarScopes, usageOffset);
+    const transformer = new UnificationTypeTransformer(liveTypeVarScopes, usageOffset);
     return transformer.apply(expectedType, 0);
 }
 
@@ -1619,6 +1607,7 @@ export function getProtocolSymbolsRecursive(
                 isInstanceMember: symbol.isInstanceMember(),
                 isClassMember: symbol.isClassMember(),
                 isClassVar: isEffectivelyClassVar(symbol, /* isDataclass */ false),
+                isReadOnly: false,
                 isTypeDeclared: symbol.hasTypedDeclarations(),
                 skippedUndeclaredType: false,
             });
@@ -1759,6 +1748,7 @@ export function* getClassMemberIterator(
                         isClassVar: false,
                         classType,
                         unspecializedClassType: classType,
+                        isReadOnly: false,
                         isTypeDeclared: false,
                         skippedUndeclaredType: false,
                     };
@@ -1786,6 +1776,7 @@ export function* getClassMemberIterator(
                             isClassVar: isEffectivelyClassVar(symbol, ClassType.isDataClass(specializedMroClass)),
                             classType: specializedMroClass,
                             unspecializedClassType: mroClass,
+                            isReadOnly: isMemberReadOnly(specializedMroClass, memberName),
                             isTypeDeclared: hasDeclaredType,
                             skippedUndeclaredType,
                         };
@@ -1827,6 +1818,7 @@ export function* getClassMemberIterator(
                             isClassVar: isEffectivelyClassVar(symbol, isDataclass),
                             classType: specializedMroClass,
                             unspecializedClassType: mroClass,
+                            isReadOnly: false,
                             isTypeDeclared: hasDeclaredType,
                             skippedUndeclaredType,
                         };
@@ -1847,6 +1839,7 @@ export function* getClassMemberIterator(
             isClassVar: false,
             classType,
             unspecializedClassType: classType,
+            isReadOnly: false,
             isTypeDeclared: false,
             skippedUndeclaredType: false,
         };
@@ -1854,6 +1847,23 @@ export function* getClassMemberIterator(
     }
 
     return undefined;
+}
+
+// Checks for whether the member is effectively read only because it
+// belongs to a frozen dataclass or a named tuple.
+export function isMemberReadOnly(classType: ClassType, name: string): boolean {
+    if (ClassType.hasNamedTupleEntry(classType, name)) {
+        return true;
+    }
+
+    if (ClassType.isDataClassFrozen(classType)) {
+        const dcEntries = classType.shared?.dataClassEntries;
+        if (dcEntries?.some((entry) => entry.name === name)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.Default, skipMroClass?: ClassType) {
@@ -1923,6 +1933,7 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
                         isInstanceMember: symbol.isInstanceMember(),
                         isClassMember: symbol.isClassMember(),
                         isClassVar: isEffectivelyClassVar(symbol, ClassType.isDataClass(specializedMroClass)),
+                        isReadOnly: isMemberReadOnly(specializedMroClass, name),
                         isTypeDeclared: true,
                         skippedUndeclaredType: false,
                     });
@@ -2030,8 +2041,12 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
 }
 
 // Creates a specialized version of the class, filling in any unspecified
-// type arguments with Unknown.
-export function specializeClassType(type: ClassType): ClassType {
+// type arguments with Unknown or default value.
+export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
+    if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
+        return type;
+    }
+
     const solution = new ConstraintSolution();
     const typeParams = ClassType.getTypeParams(type);
 
@@ -2131,8 +2146,9 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
     const scopeId = getTypeVarScopeId(classType) ?? '';
     selfType.shared.isSynthesized = true;
     selfType.shared.isSynthesizedSelf = true;
-    selfType.priv.nameWithScope = TypeVarType.makeNameWithScope(selfType.shared.name, scopeId);
     selfType.priv.scopeId = scopeId;
+    selfType.priv.scopeName = '';
+    selfType.priv.nameWithScope = TypeVarType.makeNameWithScope(selfType.shared.name, scopeId, selfType.priv.scopeName);
 
     const boundType = ClassType.specialize(
         classType,
@@ -2883,6 +2899,20 @@ function _requiresSpecialization(type: Type, options?: RequiresSpecializationOpt
     return false;
 }
 
+// Converts contravariant to a covariant or vice versa. Leaves
+// other variances unchanged.
+export function invertVariance(variance: Variance) {
+    if (variance === Variance.Contravariant) {
+        return Variance.Covariant;
+    }
+
+    if (variance === Variance.Covariant) {
+        return Variance.Contravariant;
+    }
+
+    return variance;
+}
+
 // Combines two variances to produce a resulting variance.
 export function combineVariances(variance1: Variance, variance2: Variance) {
     if (variance1 === Variance.Unknown) {
@@ -3121,14 +3151,6 @@ export function getDeclaringModulesForType(type: Type): string[] {
     const moduleList: string[] = [];
     addDeclaringModuleNamesForType(type, moduleList);
     return moduleList;
-}
-
-export function convertNodeToArg(node: ArgumentNode): ArgWithExpression {
-    return {
-        argCategory: node.d.argCategory,
-        name: node.d.name,
-        valueExpression: node.d.valueExpr,
-    };
 }
 
 function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recursionCount = 0) {
@@ -3479,7 +3501,7 @@ export class TypeVarTransformer {
 
     transformGenericTypeAlias(type: Type, recursionCount: number) {
         const aliasInfo = type.props?.typeAliasInfo;
-        if (!aliasInfo || !aliasInfo.typeParams || !aliasInfo.typeArgs) {
+        if (!aliasInfo || !aliasInfo.shared.typeParams || !aliasInfo.typeArgs) {
             return type;
         }
 
@@ -4142,6 +4164,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return callback();
         }
 
+        // Handle the case where we're already processing one of the signature contexts
+        // and are called recursively. Don't loop over all the signature contexts again.
+        if (this._activeConstraintSetIndex !== undefined) {
+            return callback();
+        }
+
         // Loop through all of the signature contexts in the type var context
         // to create an overload type.
         const overloadTypes = solutionSets.map((_, index) => {
@@ -4231,7 +4259,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 }
 
-class ExpectedTypeTransformer extends TypeVarTransformer {
+class UnificationTypeTransformer extends TypeVarTransformer {
     constructor(private _liveTypeVarScopes: TypeVarScopeId[], private _usageOffset: number | undefined) {
         super();
     }

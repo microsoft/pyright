@@ -13,12 +13,10 @@ v1 = cast(Any, 0)
 v2 = cast(typing.Any, 0)
 
 
-class A(Any):
-    ...
+class A(Any): ...
 
 
-class B(typing.Any):
-    ...
+class B(typing.Any): ...
 
 
 # This should generate an error because Any is not callable.
@@ -36,3 +34,12 @@ def func1() -> int:
 def func2() -> int:
     # This should generate an error because Any cannot be used as a value.
     return typing.Any
+
+
+v3: type[Any] = type(Any)
+
+# This should generate an error.
+v4: type[type] = type(Any)
+
+# This should generate an error.
+v5: type = Any

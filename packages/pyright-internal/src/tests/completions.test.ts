@@ -1361,6 +1361,27 @@ test('members off enum member', async () => {
     });
 });
 
+test('handle missing close paren case', async () => {
+    const code = `
+// @filename: test.py
+//// count=100
+//// while count <= (c[|/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'count',
+                    kind: CompletionItemKind.Variable,
+                },
+            ],
+        },
+    });
+});
+
 test('enum with regular base type', async () => {
     const code = `
 // @filename: test.py

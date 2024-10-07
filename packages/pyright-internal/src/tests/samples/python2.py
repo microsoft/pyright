@@ -26,6 +26,6 @@ a = `b`
 def foo(a, (b, c), d):
     pass
 
-# This should generate an error.
+# This should generate two errors.
 raise NameError, a > 4, a < 4
 

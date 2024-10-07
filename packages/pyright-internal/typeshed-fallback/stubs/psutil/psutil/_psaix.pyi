@@ -37,10 +37,10 @@ class pmem(NamedTuple):
 pfullmem = pmem
 
 class scputimes(NamedTuple):
-    user: Incomplete
-    system: Incomplete
-    idle: Incomplete
-    iowait: Incomplete
+    user: float
+    system: float
+    idle: float
+    iowait: float
 
 class svmem(NamedTuple):
     total: Incomplete

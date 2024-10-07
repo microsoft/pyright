@@ -100,7 +100,20 @@ export namespace TempFile {
 }
 
 export class VirtualDirent implements fs.Dirent {
-    constructor(public name: string, private _file: boolean) {}
+    parentPath: string;
+
+    constructor(public name: string, private _file: boolean, parentPath: string) {
+        this.parentPath = parentPath;
+    }
+
+    /**
+     * Alias for `dirent.parentPath`.
+     * @since v20.1.0
+     * @deprecated Since v20.12.0
+     */
+    get path(): string {
+        return this.parentPath;
+    }
 
     isFile(): boolean {
         return this._file;

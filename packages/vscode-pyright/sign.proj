@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project InitialTargets="SetSigningProperties" DefaultTargets="SignFiles" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="packages\Microsoft.VisualStudioEng.MicroBuild.Core.1.0.0\build\Microsoft.VisualStudioEng.MicroBuild.Core.props" Condition="Exists('packages\Microsoft.VisualStudioEng.MicroBuild.Core.1.0.0\build\Microsoft.VisualStudioEng.MicroBuild.Core.props')" />
+
+
+  <Target Name="SetSigningProperties">
+    <PropertyGroup>
+      <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+      <BaseOutputDirectory>dist\</BaseOutputDirectory>
+      <!-- These properties are required by MicroBuild, which only signs files that are under these paths -->
+      <IntermediateOutputPath Condition="'$(IntermediateOutputPath)' == ''">$(BaseOutputDirectory)/intermediate</IntermediateOutputPath>
+      <OutDir Condition="'$(OutDir)' == ''">$(BaseOutputDirectory)</OutDir>
+    </PropertyGroup>
+  </Target>
+
+   <Target Name="CopySignatureFile" BeforeTargets="GetFilesToSign">
+    <Copy SourceFiles="$(ProjectDir)extension.manifest" DestinationFiles="$(OutDir)\extension.signature.p7s" />
+  </Target>
+
+  <Target Name="CopyBackSignatureFile" AfterTargets="SignFiles">
+    <Copy SourceFiles="$(OutDir)extension.signature.p7s" DestinationFiles="$(ProjectDir)extension.signature.p7s" />
+  </Target>
+
+
+  <!-- This will be overridden if we're building with MicroBuild -->
+  <Target Name="SignFiles">
+    <Message Text="Fake sign target" Importance="high" />
+  </Target>
+
+
+  <Target Name="GetFilesToSign" BeforeTargets="SignFiles">
+    <ItemGroup>
+     <FilesToSign Include="$(OutDir)extension.signature.p7s"> 
+        <!-- Add the certificate friendly name below -->
+        <Authenticode>VSCodePublisher</Authenticode> 
+     </FilesToSign> 
+    </ItemGroup>
+  </Target>
+
+  <Target Name="Build" BeforeTargets="CopySignatureFile">
+    <MakeDir Directories="$(OutDir)"/>
+  </Target>
+
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="Build">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\Microsoft.VisualStudioEng.MicroBuild.Core.1.0.0\build\Microsoft.VisualStudioEng.MicroBuild.Core.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.VisualStudioEng.MicroBuild.Core.1.0.0\build\Microsoft.VisualStudioEng.MicroBuild.Core.props'))" />
+    <Error Condition="!Exists('packages\Microsoft.VisualStudioEng.MicroBuild.Core.1.0.0\build\Microsoft.VisualStudioEng.MicroBuild.Core.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.VisualStudioEng.MicroBuild.Core.1.0.0\build\Microsoft.VisualStudioEng.MicroBuild.Core.targets'))" />
+  </Target>
+
+  <Import Project="packages\Microsoft.VisualStudioEng.MicroBuild.Core.1.0.0\build\Microsoft.VisualStudioEng.MicroBuild.Core.targets" Condition="Exists('packages\Microsoft.VisualStudioEng.MicroBuild.Core.1.0.0\build\Microsoft.VisualStudioEng.MicroBuild.Core.targets')" />
+</Project>

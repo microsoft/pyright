@@ -4,6 +4,7 @@ from _typeshed import Incomplete
 from hashlib import _Hash
 from re import Pattern
 from typing import ClassVar
+from typing_extensions import NamedTuple
 
 from pkg_resources import Environment
 
@@ -83,11 +84,9 @@ class PackageIndex(Environment):
     def info(self, msg, *args) -> None: ...
     def warn(self, msg, *args) -> None: ...
 
-class Credential:
-    username: Incomplete
-    password: Incomplete
-    def __init__(self, username, password) -> None: ...
-    def __iter__(self): ...
+class Credential(NamedTuple):
+    username: str
+    password: str
 
 class PyPIConfig(configparser.RawConfigParser):
     def __init__(self) -> None: ...

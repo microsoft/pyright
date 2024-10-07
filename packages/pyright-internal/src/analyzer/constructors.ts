@@ -120,9 +120,12 @@ export function validateConstructorArgs(
     // If this is an unspecialized generic type alias, specialize it now
     // using default type argument values.
     const aliasInfo = type.props?.typeAliasInfo;
-    if (aliasInfo?.typeParams && !aliasInfo.typeArgs) {
+    if (aliasInfo?.shared.typeParams && !aliasInfo.typeArgs) {
         type = applySolvedTypeVars(type, new ConstraintSolution(), {
-            replaceUnsolved: { scopeIds: [aliasInfo.typeVarScopeId], tupleClassType: evaluator.getTupleClassType() },
+            replaceUnsolved: {
+                scopeIds: [aliasInfo.shared.typeVarScopeId],
+                tupleClassType: evaluator.getTupleClassType(),
+            },
         }) as ClassType;
     }
 
@@ -132,7 +135,8 @@ export function validateConstructorArgs(
         argList,
         type,
         skipUnknownArgCheck,
-        inferenceContext
+        inferenceContext,
+        /* useSpeculativeModeForArgs */ true
     );
 
     if (metaclassResult) {
@@ -143,6 +147,16 @@ export function validateConstructorArgs(
         // overrides the normal `type.__call__` logic and don't perform the usual
         // __new__ and __init__ validation.
         if (metaclassResult.argumentErrors || shouldSkipNewAndInitEvaluation(evaluator, type, metaclassReturnType)) {
+            validateMetaclassCall(
+                evaluator,
+                errorNode,
+                argList,
+                type,
+                skipUnknownArgCheck,
+                inferenceContext,
+                /* useSpeculativeModeForArgs */ false
+            );
+
             return metaclassResult;
         }
     }
@@ -428,7 +442,6 @@ function validateNewMethod(
         argumentErrors = true;
 
         // Evaluate the arguments in a non-speculative manner to generate any diagnostics.
-        constraints.unlock();
         evaluator.validateCallArgs(
             errorNode,
             argList,
@@ -562,7 +575,8 @@ function validateMetaclassCall(
     argList: Arg[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
-    inferenceContext: InferenceContext | undefined
+    inferenceContext: InferenceContext | undefined,
+    useSpeculativeModeForArgs: boolean
 ): CallResult | undefined {
     const metaclassCallMethodInfo = getBoundCallMethod(evaluator, errorNode, type);
 
@@ -570,14 +584,16 @@ function validateMetaclassCall(
         return undefined;
     }
 
-    const callResult = evaluator.validateCallArgs(
-        errorNode,
-        argList,
-        metaclassCallMethodInfo,
-        /* constraints */ undefined,
-        skipUnknownArgCheck,
-        inferenceContext
-    );
+    const callResult = evaluator.useSpeculativeMode(useSpeculativeModeForArgs ? errorNode : undefined, () => {
+        return evaluator.validateCallArgs(
+            errorNode,
+            argList,
+            metaclassCallMethodInfo,
+            /* constraints */ undefined,
+            skipUnknownArgCheck,
+            inferenceContext
+        );
+    });
 
     // If the return type is unannotated, don't use the inferred return type.
     const callType = metaclassCallMethodInfo.type;
@@ -697,7 +713,7 @@ export function createFunctionFromConstructor(
         return fromMetaclassCall;
     }
 
-    const fromNew = createFunctionFromNewMethod(evaluator, classType, selfType, recursionCount);
+    let fromNew = createFunctionFromNewMethod(evaluator, classType, selfType, recursionCount);
 
     if (fromNew) {
         let skipInitMethod = false;
@@ -715,6 +731,13 @@ export function createFunctionFromConstructor(
     }
 
     const fromInit = createFunctionFromInitMethod(evaluator, classType, selfType, recursionCount);
+
+    // If there is a valid __init__ method and the __new__ method
+    // is the default __new__ method provided by the object class,
+    // discard the __new__ method.
+    if (fromInit && fromNew && isDefaultNewMethod(fromNew)) {
+        fromNew = undefined;
+    }
 
     // If there is both a __new__ and __init__ method, return a union
     // comprised of both resulting function types.
@@ -761,7 +784,7 @@ function createFunctionFromMetaclassCall(
         callType,
         callInfo && isInstantiableClass(callInfo.classType) ? callInfo.classType : undefined,
         /* treatConstructorAsClassMethod */ false,
-        ClassType.cloneAsInstantiable(classType),
+        classType,
         /* diag */ undefined,
         recursionCount
     );

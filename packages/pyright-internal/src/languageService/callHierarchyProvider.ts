@@ -315,7 +315,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         }
 
         if (nameNode) {
-            const declarations = this._evaluator.getDeclarationsForNameNode(nameNode);
+            const declarations = this._evaluator.getDeclInfoForNameNode(nameNode)?.decls;
 
             if (declarations) {
                 // TODO - it would be better if we could match the call to the

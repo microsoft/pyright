@@ -131,7 +131,7 @@ class Session(SessionRedirectMixin):
     max_redirects: int
     trust_env: bool
     cookies: RequestsCookieJar
-    adapters: MutableMapping[Any, Any]
+    adapters: MutableMapping[str, adapters.BaseAdapter]
     redirect_cache: RecentlyUsedContainer[Any, Any]
     def __init__(self) -> None: ...
     def __enter__(self) -> Self: ...

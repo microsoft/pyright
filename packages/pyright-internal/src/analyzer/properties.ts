@@ -16,7 +16,7 @@ import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { getClassFullName, getTypeAnnotationForParam, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
-import { TypeEvaluator } from './typeEvaluatorTypes';
+import { AssignTypeFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -38,13 +38,7 @@ import {
     TypeVarType,
     UnknownType,
 } from './types';
-import {
-    applySolvedTypeVars,
-    AssignTypeFlags,
-    computeMroLinearization,
-    getTypeVarScopeId,
-    isProperty,
-} from './typeUtils';
+import { applySolvedTypeVars, computeMroLinearization, getTypeVarScopeId, isProperty } from './typeUtils';
 
 export function validatePropertyMethod(evaluator: TypeEvaluator, method: FunctionType, errorNode: ParseNode) {
     if (FunctionType.isStaticMethod(method)) {

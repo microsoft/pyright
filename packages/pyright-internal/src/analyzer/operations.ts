@@ -366,87 +366,15 @@ export function getTypeOfBinaryOperation(
         }
 
         if (isUnionableType([adjustedLeftType, adjustedRightType])) {
-            const fileInfo = getFileInfo(node);
-            const unionNotationSupported =
-                fileInfo.isStubFile ||
-                (flags & EvalFlags.ForwardRefs) !== 0 ||
-                PythonVersion.isGreaterOrEqualTo(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_10);
-
-            if (!unionNotationSupported) {
-                // If the left type is Any, we can't say for sure whether this
-                // is an illegal syntax or a valid application of the "|" operator.
-                if (!isAnyOrUnknown(adjustedLeftType)) {
-                    evaluator.addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.unionSyntaxIllegal(),
-                        node,
-                        node.d.operatorToken
-                    );
-                }
-            }
-
-            const isLeftTypeArgValid = evaluator.validateTypeArg({ ...leftTypeResult, node: leftExpression });
-            const isRightTypeArgValid = evaluator.validateTypeArg({ ...rightTypeResult, node: rightExpression });
-
-            if (!isLeftTypeArgValid || !isRightTypeArgValid) {
-                return { type: UnknownType.create() };
-            }
-
-            adjustedLeftType = evaluator.reportMissingTypeArgs(
-                node.d.leftExpr,
-                adjustedLeftType,
-                flags | EvalFlags.InstantiableType
-            );
-            adjustedRightType = evaluator.reportMissingTypeArgs(
-                node.d.rightExpr,
+            return createUnionType(
+                evaluator,
+                node,
+                flags,
+                leftTypeResult,
+                rightTypeResult,
                 adjustedRightType,
-                flags | EvalFlags.InstantiableType
+                adjustedLeftType
             );
-
-            let newUnion = combineTypes([adjustedLeftType, adjustedRightType], { skipElideRedundantLiterals: true });
-
-            const unionClass = evaluator.getUnionClassType();
-            if (unionClass && isInstantiableClass(unionClass)) {
-                newUnion = TypeBase.cloneAsSpecialForm(newUnion, ClassType.cloneAsInstance(unionClass));
-            }
-
-            // Check for "stringified" forward reference type expressions. The "|" operator
-            // doesn't support these except in certain circumstances. Notably, it can't be used
-            // with other strings or with types that are not specialized using an index form.
-            if (!fileInfo.isStubFile) {
-                let stringNode: ExpressionNode | undefined;
-                let otherNode: ExpressionNode | undefined;
-                let otherType: Type | undefined;
-
-                if (leftExpression.nodeType === ParseNodeType.StringList) {
-                    stringNode = leftExpression;
-                    otherNode = rightExpression;
-                    otherType = rightType;
-                } else if (rightExpression.nodeType === ParseNodeType.StringList) {
-                    stringNode = rightExpression;
-                    otherNode = leftExpression;
-                    otherType = leftType;
-                }
-
-                if (stringNode && otherNode && otherType) {
-                    let isAllowed = true;
-                    if (isClass(otherType)) {
-                        if (!otherType.priv.isTypeArgExplicit || isClassInstance(otherType)) {
-                            isAllowed = false;
-                        }
-                    }
-
-                    if (!isAllowed) {
-                        evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.unionForwardReferenceNotAllowed(),
-                            stringNode
-                        );
-                    }
-                }
-            }
-
-            return { type: newUnion };
         }
     }
 
@@ -755,37 +683,7 @@ export function getTypeOfUnaryOperation(
     // is incomplete because we may be evaluating an expression within
     // a loop, so the literal value may change each time.
     if (!exprTypeResult.isIncomplete) {
-        const operator = node.d.operator;
-        const literalClassName = getLiteralTypeClassName(exprType);
-
-        if (literalClassName === 'int') {
-            if (operator === OperatorType.Add) {
-                type = exprType;
-            } else if (operator === OperatorType.Subtract) {
-                type = mapSubtypes(exprType, (subtype) => {
-                    const classSubtype = subtype as ClassType;
-                    return ClassType.cloneWithLiteral(
-                        classSubtype,
-                        -(classSubtype.priv.literalValue as number | bigint)
-                    );
-                });
-            } else if (operator === OperatorType.BitwiseInvert) {
-                type = mapSubtypes(exprType, (subtype) => {
-                    const classSubtype = subtype as ClassType;
-                    return ClassType.cloneWithLiteral(
-                        classSubtype,
-                        ~(classSubtype.priv.literalValue as number | bigint)
-                    );
-                });
-            }
-        } else if (literalClassName === 'bool') {
-            if (operator === OperatorType.Not) {
-                type = mapSubtypes(exprType, (subtype) => {
-                    const classSubtype = subtype as ClassType;
-                    return ClassType.cloneWithLiteral(classSubtype, !(classSubtype.priv.literalValue as boolean));
-                });
-            }
-        }
+        type = calcLiteralForUnaryOp(node.d.operator, exprType);
     }
 
     if (!type) {
@@ -909,10 +807,153 @@ export function getTypeOfTernaryOperation(
     return { type: combineTypes(typesToCombine), isIncomplete, typeErrors };
 }
 
+function createUnionType(
+    evaluator: TypeEvaluator,
+    node: BinaryOperationNode,
+    flags: EvalFlags,
+    leftTypeResult: TypeResult,
+    rightTypeResult: TypeResult,
+    adjustedRightType: Type,
+    adjustedLeftType: Type
+): TypeResult {
+    const leftExpression = node.d.leftExpr;
+    const rightExpression = node.d.rightExpr;
+    const fileInfo = getFileInfo(node);
+    const unionNotationSupported =
+        fileInfo.isStubFile ||
+        (flags & EvalFlags.ForwardRefs) !== 0 ||
+        PythonVersion.isGreaterOrEqualTo(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_10);
+
+    if (!unionNotationSupported) {
+        // If the left type is Any, we can't say for sure whether this
+        // is an illegal syntax or a valid application of the "|" operator.
+        if (!isAnyOrUnknown(adjustedLeftType)) {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.unionSyntaxIllegal(),
+                node,
+                node.d.operatorToken
+            );
+        }
+    }
+
+    const isLeftTypeArgValid = evaluator.validateTypeArg({ ...leftTypeResult, node: leftExpression });
+    const isRightTypeArgValid = evaluator.validateTypeArg({ ...rightTypeResult, node: rightExpression });
+
+    if (!isLeftTypeArgValid || !isRightTypeArgValid) {
+        return { type: UnknownType.create() };
+    }
+
+    adjustedLeftType = evaluator.reportMissingTypeArgs(
+        node.d.leftExpr,
+        adjustedLeftType,
+        flags | EvalFlags.InstantiableType
+    );
+    adjustedRightType = evaluator.reportMissingTypeArgs(
+        node.d.rightExpr,
+        adjustedRightType,
+        flags | EvalFlags.InstantiableType
+    );
+
+    let newUnion = combineTypes([adjustedLeftType, adjustedRightType], { skipElideRedundantLiterals: true });
+
+    const unionClass = evaluator.getUnionClassType();
+    if (unionClass && isInstantiableClass(unionClass)) {
+        newUnion = TypeBase.cloneAsSpecialForm(newUnion, ClassType.cloneAsInstance(unionClass));
+    }
+
+    if (leftTypeResult.type.props?.typeForm && rightTypeResult.type.props?.typeForm) {
+        const newTypeForm = combineTypes([leftTypeResult.type.props.typeForm, rightTypeResult.type.props.typeForm]);
+        newUnion = TypeBase.cloneWithTypeForm(newUnion, newTypeForm);
+    }
+
+    // Check for "stringified" forward reference type expressions. The "|" operator
+    // doesn't support these except in certain circumstances. Notably, it can't be used
+    // with other strings or with types that are not specialized using an index form.
+    if (!fileInfo.isStubFile) {
+        let stringNode: ExpressionNode | undefined;
+        let otherNode: ExpressionNode | undefined;
+        let otherType: Type | undefined;
+
+        if (leftExpression.nodeType === ParseNodeType.StringList) {
+            stringNode = leftExpression;
+            otherNode = rightExpression;
+            otherType = rightTypeResult.type;
+        } else if (rightExpression.nodeType === ParseNodeType.StringList) {
+            stringNode = rightExpression;
+            otherNode = leftExpression;
+            otherType = leftTypeResult.type;
+        }
+
+        if (stringNode && otherNode && otherType) {
+            let isAllowed = true;
+            if (isClass(otherType)) {
+                if (!otherType.priv.isTypeArgExplicit || isClassInstance(otherType)) {
+                    isAllowed = false;
+                }
+            }
+
+            if (!isAllowed) {
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.unionForwardReferenceNotAllowed(),
+                    stringNode
+                );
+            }
+        }
+    }
+
+    return { type: newUnion };
+}
+
+// Attempts to apply "literal math" for a literal operands.
+function calcLiteralForUnaryOp(operator: OperatorType, operandType: Type): Type | undefined {
+    let type: Type | undefined;
+
+    if (getUnionSubtypeCount(operandType) >= maxLiteralMathSubtypeCount) {
+        return undefined;
+    }
+
+    if (!!getTypeCondition(operandType) || someSubtypes(operandType, (subtype) => !!getTypeCondition(subtype))) {
+        return undefined;
+    }
+
+    const literalClassName = getLiteralTypeClassName(operandType);
+
+    if (literalClassName === 'int') {
+        if (operator === OperatorType.Add) {
+            type = operandType;
+        } else if (operator === OperatorType.Subtract) {
+            type = mapSubtypes(operandType, (subtype) => {
+                const classSubtype = subtype as ClassType;
+                return ClassType.cloneWithLiteral(classSubtype, -(classSubtype.priv.literalValue as number | bigint));
+            });
+        } else if (operator === OperatorType.BitwiseInvert) {
+            type = mapSubtypes(operandType, (subtype) => {
+                const classSubtype = subtype as ClassType;
+                return ClassType.cloneWithLiteral(classSubtype, ~(classSubtype.priv.literalValue as number | bigint));
+            });
+        }
+    } else if (literalClassName === 'bool') {
+        if (operator === OperatorType.Not) {
+            type = mapSubtypes(operandType, (subtype) => {
+                const classSubtype = subtype as ClassType;
+                return ClassType.cloneWithLiteral(classSubtype, !(classSubtype.priv.literalValue as boolean));
+            });
+        }
+    }
+
+    return type;
+}
+
 // Attempts to apply "literal math" for two literal operands.
 function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightType: Type): Type | undefined {
     const leftLiteralClassName = getLiteralTypeClassName(leftType);
-    if (!leftLiteralClassName || getTypeCondition(leftType)) {
+    if (
+        !leftLiteralClassName ||
+        getTypeCondition(leftType) ||
+        someSubtypes(leftType, (subtype) => !!getTypeCondition(subtype))
+    ) {
         return undefined;
     }
 
@@ -920,6 +961,7 @@ function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightTyp
     if (
         leftLiteralClassName !== rightLiteralClassName ||
         getTypeCondition(rightType) ||
+        someSubtypes(rightType, (subtype) => !!getTypeCondition(subtype)) ||
         getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) >= maxLiteralMathSubtypeCount
     ) {
         return undefined;

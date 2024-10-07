@@ -18,7 +18,7 @@ def strarray_to_strings(arr: _GitStrArray) -> list[str]: ...
 # Actual type: _cffi_backend.__CDataOwn <cdata 'struct git_strarray *'>
 # This is not a real subclassing. Just ensuring type-checkers sees this type as compatible with _CDataBase
 # pyright has no error code for subclassing final
-class _GitStrArray(_CDataBase):  # type: ignore[misc]  # pyright: ignore
+class _GitStrArray(_CDataBase):  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
     count: int
     strings: _CDataBase  # <cdata 'char * *'>
 

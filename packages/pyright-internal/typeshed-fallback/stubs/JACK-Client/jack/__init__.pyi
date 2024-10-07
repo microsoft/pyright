@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 # Actual type: _cffi_backend.__CDataOwn <cdata 'struct _jack_position *'>
 # This is not a real subclassing. Just ensuring type-checkers sees this type as compatible with _CDataBase
 # pyright has no error code for subclassing final
-class _JackPositionT(_CDataBase):  # type: ignore[misc]  # pyright: ignore
+class _JackPositionT(_CDataBase):  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
     audio_frames_per_video_frame: float
     bar: int
     bar_start_tick: float

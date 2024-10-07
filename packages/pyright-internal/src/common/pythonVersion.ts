@@ -18,6 +18,22 @@ export interface PythonVersion {
 }
 
 export namespace PythonVersion {
+    export function is(value: any): value is PythonVersion {
+        if (value && typeof value.major === 'number' && typeof value.minor === 'number') {
+            if (value.micro !== undefined && typeof value.micro !== 'number') {
+                return false;
+            }
+            if (value.releaseLevel !== undefined && typeof value.releaseLevel !== 'string') {
+                return false;
+            }
+            if (value.serial !== undefined && typeof value.serial !== 'number') {
+                return false;
+            }
+            return true;
+        }
+
+        return false;
+    }
     export function create(
         major: number,
         minor: number,

@@ -10,7 +10,7 @@
 
 import type { HeapInfo } from 'v8';
 import { Worker } from 'worker_threads';
-import { AnalysisRequest } from '../backgroundAnalysisBase';
+import { BackgroundRequest } from '../backgroundAnalysisBase';
 import { ConsoleInterface } from '../common/console';
 import { fail } from '../common/debug';
 import { getHeapStatistics, getSystemMemoryInfo } from '../common/memUtils';
@@ -51,7 +51,7 @@ export class CacheManager {
         }
     }
 
-    handleCachedUsageBufferMessage(msg: AnalysisRequest) {
+    handleCachedUsageBufferMessage(msg: BackgroundRequest) {
         if (msg.requestType === 'cacheUsageBuffer') {
             const index = parseInt(msg.data || '0');
             const buffer = msg.sharedUsageBuffer;

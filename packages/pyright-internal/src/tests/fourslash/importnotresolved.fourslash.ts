@@ -1,4 +1,4 @@
-/// <reference path="fourslash.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 
 // @filename: importnotresolved.py
 //// # these will not be resolve, no typestubs for django in typeshed

@@ -480,6 +480,12 @@ test('TypeNarrowingIsinstance20', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeNarrowingIsinstance21', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance21.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeNarrowingTupleLength1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTupleLength1.py']);
 
@@ -815,7 +821,7 @@ test('Call6', () => {
 test('Call7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call7.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Call8', () => {

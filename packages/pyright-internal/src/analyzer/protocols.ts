@@ -18,7 +18,7 @@ import { DeclarationType } from './declaration';
 import { assignProperty } from './properties';
 import { Symbol } from './symbol';
 import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
-import { TypeEvaluator } from './typeEvaluatorTypes';
+import { AssignTypeFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
     FunctionType,
@@ -39,7 +39,6 @@ import {
 import {
     addSolutionForSelfType,
     applySolvedTypeVars,
-    AssignTypeFlags,
     ClassMember,
     containsLiteralType,
     lookUpClassMember,
@@ -59,7 +58,6 @@ interface ProtocolCompatibility {
     srcType: Type;
     destType: Type;
     flags: AssignTypeFlags;
-    constraints: ConstraintTracker | undefined;
     isCompatible: boolean;
 }
 
@@ -80,6 +78,12 @@ export function assignClassToProtocol(
     // We assume that destType is an instantiable class that is a protocol. The
     // srcType can be an instantiable class or a class instance.
     assert(isInstantiableClass(destType) && ClassType.isProtocolClass(destType));
+
+    // A literal source type should never affect protocol matching, so strip
+    // the literal type if it's present. This helps conserve on cache entries.
+    if (srcType.priv.literalValue !== undefined) {
+        srcType = evaluator.stripLiteralValue(srcType) as ClassType;
+    }
 
     const enforceInvariance = (flags & AssignTypeFlags.Invariant) !== 0;
 
@@ -121,18 +125,9 @@ export function assignClassToProtocol(
 
     protocolAssignmentStack.push({ srcType, destType });
     let isCompatible = true;
-    const clonedConstraints = constraints?.clone();
 
     try {
-        isCompatible = assignClassToProtocolInternal(
-            evaluator,
-            destType,
-            srcType,
-            diag,
-            constraints,
-            flags,
-            recursionCount
-        );
+        isCompatible = assignToProtocolInternal(evaluator, destType, srcType, diag, constraints, flags, recursionCount);
     } catch (e) {
         // We'd normally use "finally" here, but the TS debugger does such
         // a poor job dealing with finally, we'll use a catch instead.
@@ -143,7 +138,7 @@ export function assignClassToProtocol(
     protocolAssignmentStack.pop();
 
     // Cache the results for next time.
-    setProtocolCompatibility(destType, srcType, flags, clonedConstraints, isCompatible);
+    setProtocolCompatibility(destType, srcType, flags, isCompatible);
 
     return isCompatible;
 }
@@ -157,7 +152,7 @@ export function assignModuleToProtocol(
     flags: AssignTypeFlags,
     recursionCount: number
 ): boolean {
-    return assignClassToProtocolInternal(evaluator, destType, srcType, diag, constraints, flags, recursionCount);
+    return assignToProtocolInternal(evaluator, destType, srcType, diag, constraints, flags, recursionCount);
 }
 
 // Determines whether the specified class is a protocol class that has
@@ -234,12 +229,7 @@ function getProtocolCompatibility(
     }
 
     const entry = entries.find((entry) => {
-        return (
-            isTypeSame(entry.destType, destType) &&
-            isTypeSame(entry.srcType, srcType) &&
-            entry.flags === flags &&
-            isConstraintTrackerSame(constraints, entry.constraints)
-        );
+        return isTypeSame(entry.destType, destType) && isTypeSame(entry.srcType, srcType) && entry.flags === flags;
     });
 
     return entry?.isCompatible;
@@ -249,7 +239,6 @@ function setProtocolCompatibility(
     destType: ClassType,
     srcType: ClassType,
     flags: AssignTypeFlags,
-    constraints: ConstraintTracker | undefined,
     isCompatible: boolean
 ) {
     let map = srcType.shared.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
@@ -264,28 +253,14 @@ function setProtocolCompatibility(
         map.set(destType.shared.fullName, entries);
     }
 
-    entries.push({
-        destType,
-        srcType,
-        flags,
-        constraints: constraints,
-        isCompatible,
-    });
+    entries.push({ destType, srcType, flags, isCompatible });
 
     if (entries.length > maxProtocolCompatibilityCacheEntries) {
         entries.shift();
     }
 }
 
-function isConstraintTrackerSame(context1: ConstraintTracker | undefined, context2: ConstraintTracker | undefined) {
-    if (!context1 || !context2) {
-        return context1 === context2;
-    }
-
-    return context1.isSame(context2);
-}
-
-function assignClassToProtocolInternal(
+function assignToProtocolInternal(
     evaluator: TypeEvaluator,
     destType: ClassType,
     srcType: ClassType | ModuleType,
@@ -490,11 +465,7 @@ function assignClassToProtocolInternal(
                     }
                 }
 
-                // Frozen dataclasses and named tuples should be treated as read-only.
-                if (
-                    (ClassType.isDataClassFrozen(srcType) && srcMemberInfo.isInstanceMember) ||
-                    ClassType.isReadOnlyInstanceVariables(srcType)
-                ) {
+                if (srcMemberInfo.isReadOnly) {
                     isSrcReadOnly = true;
                 }
             } else {
@@ -715,13 +686,10 @@ function assignClassToProtocolInternal(
                 destPrimaryDecl?.type === DeclarationType.Variable &&
                 srcPrimaryDecl?.type === DeclarationType.Variable
             ) {
-                const isDestReadOnly = !!destPrimaryDecl.isConstant;
+                const isDestReadOnly = !!destPrimaryDecl.isConstant || !!destPrimaryDecl.isFinal;
                 let isSrcReadOnly = !!srcPrimaryDecl.isConstant;
                 if (srcMemberInfo && isClass(srcMemberInfo.classType)) {
-                    if (
-                        ClassType.isReadOnlyInstanceVariables(srcMemberInfo.classType) ||
-                        (ClassType.isDataClassFrozen(srcMemberInfo.classType) && srcMemberInfo.isInstanceMember)
-                    ) {
+                    if (srcMemberInfo.isReadOnly) {
                         isSrcReadOnly = true;
                     }
                 }
@@ -752,7 +720,7 @@ function assignClassToProtocolInternal(
             ) {
                 typesAreConsistent = false;
             }
-        } else if (constraints && !constraints.isLocked()) {
+        } else if (constraints) {
             for (const typeParam of destType.shared.typeParams) {
                 const typeArgEntry = protocolConstraints.getMainConstraintSet().getTypeVar(typeParam);
 

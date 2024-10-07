@@ -6,6 +6,7 @@
  * TestState wraps currently test states and provides a way to query and manipulate
  * the test states.
  */
+
 import assert from 'assert';
 import * as path from 'path';
 import {
@@ -37,7 +38,7 @@ import { Char } from '../../../common/charCodes';
 import { CommandLineOptions } from '../../../common/commandLineOptions';
 import { ConfigOptions, SignatureDisplayType } from '../../../common/configOptions';
 import { ConsoleInterface, ConsoleWithLogLevel, NullConsole } from '../../../common/console';
-import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
+import { Comparison, isNumber, isString } from '../../../common/core';
 import * as debug from '../../../common/debug';
 import { DiagnosticCategory } from '../../../common/diagnostic';
 import { PyrightDocStringService } from '../../../common/docStringService';
@@ -72,13 +73,7 @@ import { ParseNode } from '../../../parser/parseNodes';
 import { ParseFileResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
 import { PyrightFileSystem } from '../../../pyrightFileSystem';
-import {
-    NormalWorkspace,
-    WellKnownWorkspaceKinds,
-    Workspace,
-    WorkspacePythonPathKind,
-    createInitStatus,
-} from '../../../workspaceFactory';
+import { NormalWorkspace, WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
 import * as host from '../testHost';
 import { stringify } from '../utils';
@@ -88,7 +83,6 @@ import { parseTestData } from './fourSlashParser';
 import {
     FourSlashData,
     FourSlashFile,
-    GlobalMetadataOptionNames,
     Marker,
     MetadataOptionNames,
     MultiMap,
@@ -96,7 +90,13 @@ import {
     TestCancellationToken,
 } from './fourSlashTypes';
 import { TestFeatures, TestLanguageService } from './testLanguageService';
-import { createVfsInfoFromFourSlashData, getMarkerByName, getMarkerName, getMarkerNames } from './testStateUtils';
+import {
+    createVfsInfoFromFourSlashData,
+    getMarkerByName,
+    getMarkerName,
+    getMarkerNames,
+    getRangeByMarkerName,
+} from './testStateUtils';
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
 
 export interface TextChange {
@@ -108,7 +108,6 @@ export interface HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory;
     backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory;
 
-    runIndexer(workspace: Workspace, noStdLib: boolean, options?: string): void;
     getCodeActionsForPosition(
         workspace: Workspace,
         fileUri: Uri,
@@ -198,8 +197,6 @@ export class TestState {
         this.workspace = {
             workspaceName: 'test workspace',
             rootUri: Uri.file(vfsInfo.projectRoot, this.serviceProvider),
-            pythonPath: undefined,
-            pythonPathKind: WorkspacePythonPathKind.Mutable,
             kinds: [WellKnownWorkspaceKinds.Test],
             service: service,
             disableLanguageServices: false,
@@ -208,16 +205,7 @@ export class TestState {
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
-            pythonEnvironmentName: undefined,
         };
-
-        const indexer = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexer]);
-        const indexerWithoutStdLib = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexerWithoutStdLib]);
-        if (indexer || indexerWithoutStdLib) {
-            const indexerOptions = testData.globalOptions[GlobalMetadataOptionNames.indexerOptions];
-            configOptions.indexing = true;
-            this._hostSpecificFeatures.runIndexer(this.workspace, indexerWithoutStdLib, indexerOptions);
-        }
 
         if (!delayFileInitialization) {
             this.initializeFiles();
@@ -432,8 +420,7 @@ export class TestState {
     }
 
     getRangeByMarkerName(markerName: string): Range | undefined {
-        const marker = this.getMarkerByName(markerName);
-        return this.getRanges().find((r) => r.marker === marker);
+        return getRangeByMarkerName(this.testData, markerName);
     }
 
     goToBOF() {
@@ -1957,6 +1944,7 @@ export class TestState {
             backgroundAnalysisProgramFactory,
             configOptions,
             fileSystem: this.fs,
+            libraryReanalysisTimeProvider: () => 0,
         });
 
         // directly set files to track rather than using fileSpec from config

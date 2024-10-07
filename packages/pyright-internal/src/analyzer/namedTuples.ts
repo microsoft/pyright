@@ -57,6 +57,7 @@ export function createNamedTupleType(
 ): ClassType {
     const fileInfo = getFileInfo(errorNode);
     let className = 'namedtuple';
+    const namedTupleEntries = new Set<string>();
 
     // The "rename" parameter is supported only in the untyped version.
     let allowRename = false;
@@ -117,7 +118,7 @@ export function createNamedTupleType(
         ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
         fileInfo.moduleName,
         fileInfo.fileUri,
-        ClassTypeFlags.ReadOnlyInstanceVariables | ClassTypeFlags.ValidTypeAliasClass,
+        ClassTypeFlags.ValidTypeAliasClass,
         ParseTreeUtils.getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
         isInstantiableClass(namedTupleType) ? namedTupleType.shared.effectiveMetaclass : UnknownType.create()
@@ -339,6 +340,7 @@ export function createNamedTupleType(
                         newSymbol.addDeclaration(declaration);
                     }
                     classFields.set(entryName, newSymbol);
+                    namedTupleEntries.add(entryName);
                 });
 
                 // Set the type in the type cache for the dict node so it
@@ -358,6 +360,8 @@ export function createNamedTupleType(
             }
         }
     }
+
+    classType.shared.namedTupleEntries = namedTupleEntries;
 
     if (addGenericGetAttribute) {
         constructorType.shared.parameters = [];

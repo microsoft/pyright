@@ -495,7 +495,7 @@ test('resolve alias of not needed file', () => {
     const markerUri = marker.fileUri;
     const parseResults = state.workspace.service.getParseResults(markerUri)!;
     const nameNode = findNodeByOffset(parseResults.parserOutput.parseTree, marker.position) as NameNode;
-    const aliasDecls = evaluator.getDeclarationsForNameNode(nameNode)!;
+    const aliasDecls = evaluator.getDeclInfoForNameNode(nameNode)!.decls;
 
     // Unroot the file. we can't explicitly close the file since it will unload the file from test program.
     state.workspace.service.test_program.getSourceFileInfo(markerUri)!.isOpenByClient = false;

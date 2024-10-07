@@ -59,11 +59,11 @@ class IOPriority(enum.IntEnum):
 pinfo_map: Any
 
 class scputimes(NamedTuple):
-    user: Any
-    system: Any
-    idle: Any
-    interrupt: Any
-    dpc: Any
+    user: float
+    system: float
+    idle: float
+    interrupt: float
+    dpc: float
 
 class svmem(NamedTuple):
     total: int

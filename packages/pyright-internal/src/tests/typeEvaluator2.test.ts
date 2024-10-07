@@ -183,7 +183,7 @@ test('Super1', () => {
 test('Super2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super2.py']);
 
-    TestUtils.validateResults(analysisResults, 0, 0, 3);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Super3', () => {
@@ -316,11 +316,11 @@ test('isInstance3', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_9;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 5);
+    TestUtils.validateResults(analysisResults1, 6);
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 5);
+    TestUtils.validateResults(analysisResults2, 6);
 });
 
 test('isInstance4', () => {
@@ -813,6 +813,18 @@ test('Solver40', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Solver41', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver41.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Solver42', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver42.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('SolverScoring1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverScoring1.py']);
 
@@ -905,6 +917,18 @@ test('SolverHigherOrder11', () => {
 
 test('SolverHigherOrder12', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverHigherOrder12.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('SolverHigherOrder13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverHigherOrder13.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('SolverHigherOrder14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverHigherOrder14.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

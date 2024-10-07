@@ -11,7 +11,7 @@ import * as os from 'os';
 import assert from 'assert';
 
 import { expandPathVariables, resolvePathWithEnvVariables } from '../common/envVarUtils';
-import { WellKnownWorkspaceKinds, Workspace, WorkspacePythonPathKind, createInitStatus } from '../workspaceFactory';
+import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../workspaceFactory';
 import { UriEx } from '../common/uri/uriUtils';
 import { Uri } from '../common/uri/uri';
 import { AnalyzerService } from '../analyzer/service';
@@ -210,8 +210,6 @@ function createWorkspace(rootUri: Uri | undefined) {
     return {
         workspaceName: '',
         rootUri,
-        pythonPath: undefined,
-        pythonPathKind: WorkspacePythonPathKind.Mutable,
         kinds: [WellKnownWorkspaceKinds.Test],
         service: new AnalyzerService('test service', createServiceProvider(fs), {
             console: new NullConsole(),
@@ -225,6 +223,5 @@ function createWorkspace(rootUri: Uri | undefined) {
         disableWorkspaceSymbol: false,
         isInitialized: createInitStatus(),
         searchPathsToWatch: [],
-        pythonEnvironmentName: undefined,
     };
 }

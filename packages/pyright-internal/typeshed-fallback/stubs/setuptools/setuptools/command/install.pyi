@@ -2,9 +2,12 @@ from _typeshed import Incomplete
 from collections.abc import Callable
 from typing import Any, ClassVar
 
+from setuptools.dist import Distribution
+
 from .._distutils.command import install as orig
 
 class install(orig.install):
+    distribution: Distribution  # override distutils.dist.Distribution with setuptools.dist.Distribution
     user_options: ClassVar[list[tuple[str, str | None, str]]]
     boolean_options: ClassVar[list[str]]
     # Any to work around variance issues

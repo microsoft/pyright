@@ -7,6 +7,7 @@
  * Collection of static methods that operate on declarations.
  */
 
+import { assertNever } from '../common/debug';
 import { getEmptyRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { NameNode, ParseNodeType } from '../parser/parseNodes';
@@ -138,6 +139,10 @@ export function getNameFromDeclaration(declaration: Declaration) {
                 declaration.node.d.valueExpr.nodeType === ParseNodeType.Name
                 ? declaration.node.d.valueExpr.d.value
                 : undefined;
+
+        default: {
+            assertNever(declaration);
+        }
     }
 
     throw new Error(`Shouldn't reach here`);
@@ -167,6 +172,10 @@ export function getNameNodeForDeclaration(declaration: Declaration): NameNode | 
         case DeclarationType.Intrinsic:
         case DeclarationType.SpecialBuiltInClass:
             return undefined;
+
+        default: {
+            assertNever(declaration);
+        }
     }
 
     throw new Error(`Shouldn't reach here`);
@@ -197,7 +206,7 @@ export function getDeclarationsWithUsesLocalNameRemoved(decls: Declaration[]) {
     });
 }
 
-export function createSynthesizedAliasDeclaration(uri: Uri): AliasDeclaration {
+export function synthesizeAliasDeclaration(uri: Uri): AliasDeclaration {
     // The only time this decl is used is for IDE services such as
     // the find all references, hover provider and etc.
     return {

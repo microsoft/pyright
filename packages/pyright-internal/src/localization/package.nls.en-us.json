@@ -1,15 +1,41 @@
 {
+    "CodeAction": {
+        "createTypeStub": {
+            "message": "Create Type Stub",
+            "comment": "{Locked='Stub'}"
+        },
+        "createTypeStubFor": {
+            "message": "Create Type Stub For \"{moduleName}\"",
+            "comment": "{Locked='Stub'}"
+        },
+        "executingCommand": "Executing command",
+        "filesToAnalyzeCount": "{count} files to analyze",
+        "filesToAnalyzeOne": "1 file to analyze",
+        "findingReferences": "Finding references",
+        "organizeImports": "Organize Imports",
+        "renameShadowedFile": "Rename \"{oldFile}\" to \"{newFile}\""
+    },
+    "Completion": {
+        "autoImportDetail": "Auto-import",
+        "indexValueDetail": "Index value"
+    },
     "Diagnostic": {
-        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "abstractMethodInvocation": "Method \"{method}\" cannot be called because it is abstract and unimplemented",
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "annotatedParamCountMismatch": "Parameter annotation count mismatch: expected {expected} but received {received}",
-        "annotatedTypeArgMissing": "Expected one type argument and one or more annotations for \"Annotated\"",
-        "annotationBytesString": "Type annotations cannot use bytes string literals",
-        "annotationFormatString": "Type annotations cannot use format string literals (f-strings)",
+        "annotatedTypeArgMissing": {
+            "message": "Expected one type argument and one or more annotations for \"Annotated\"",
+            "comment": "{Locked='Annotated'}"
+        },
+        "annotationBytesString": "Type expressions cannot use bytes string literals",
+        "annotationFormatString": {
+            "message": "Type expressions cannot use format string literals (f-strings)",
+            "comment": "'f-string' is the common English slang for a Python format string"
+        },
         "annotationNotSupported": "Type annotation not supported for this statement",
-        "annotationRawString": "Type annotations cannot use raw string literals",
-        "annotationSpansStrings": "Type annotations cannot span multiple string literals",
-        "annotationStringEscape": "Type annotations cannot contain escape characters",
+        "annotationRawString": "Type expressions cannot use raw string literals",
+        "annotationSpansStrings": "Type expressions cannot span multiple string literals",
+        "annotationStringEscape": "Type expressions cannot contain escape characters",
         "argAssignment": "Argument of type \"{argType}\" cannot be assigned to parameter of type \"{paramType}\"",
         "argAssignmentFunction": "Argument of type \"{argType}\" cannot be assigned to parameter of type \"{paramType}\" in function \"{functionName}\"",
         "argAssignmentParam": "Argument of type \"{argType}\" cannot be assigned to parameter \"{paramName}\" of type \"{paramType}\"",
@@ -23,88 +49,215 @@
         "argPositionalExpectedOne": "Expected 1 positional argument",
         "argTypePartiallyUnknown": "Argument type is partially unknown",
         "argTypeUnknown": "Argument type is unknown",
-        "assertAlwaysTrue": "Assert expression always evaluates to true",
-        "assertTypeArgs": "\"assert_type\" expects two positional arguments",
-        "assertTypeTypeMismatch": "\"assert_type\" mismatch: expected \"{expected}\" but received \"{received}\"",
+        "assertAlwaysTrue": {
+            "message": "Assert expression always evaluates to true",
+            "comment": "{Locked='true'}"
+        },
+        "assertTypeArgs": {
+            "message": "\"assert_type\" expects two positional arguments",
+            "comment": "{Locked='assert_type'}"
+        },
+        "assertTypeTypeMismatch": {
+            "message": "\"assert_type\" mismatch: expected \"{expected}\" but received \"{received}\"",
+            "comment": "{Locked='assert_type'}"
+        },
+        "assignmentExprComprehension": {
+            "message": "Assignment expression target \"{name}\" cannot use same name as comprehension for target",
+            "comment": "A comprehension is a 'set of looping and filtering instructions' applied to a collection to generate a new collection; the word may not be translatable"
+        },
         "assignmentExprContext": "Assignment expression must be within module, function or lambda",
-        "assignmentExprComprehension": "Assignment expression target \"{name}\" cannot use same name as comprehension for target",
-        "assignmentInProtocol": "Instance or class variables within a Protocol class must be explicitly declared within the class body",
         "assignmentExprInSubscript": "Assignment expressions within a subscript are supported only in Python 3.10 and newer",
+        "assignmentInProtocol": {
+            "message": "Instance or class variables within a Protocol class must be explicitly declared within the class body",
+            "comment": "{Locked='Protocol'}"
+        },
         "assignmentTargetExpr": "Expression cannot be assignment target",
-        "asyncNotInAsyncFunction": "Use of \"async\" not allowed outside of async function",
-        "awaitIllegal": "Use of \"await\" requires Python 3.5 or newer",
-        "awaitNotAllowed": "Type annotations cannot use \"await\"",
-        "awaitNotInAsync": "\"await\" allowed only within async function",
-        "backticksIllegal": "Expressions surrounded by backticks are not supported in Python 3.x; use repr instead",
+        "asyncNotInAsyncFunction": {
+            "message": "Use of \"async\" not allowed outside of async function",
+            "comment": "{Locked='async'}"
+        },
+        "awaitIllegal": {
+            "message": "Use of \"await\" requires Python 3.5 or newer",
+            "comment": "{Locked='await'}"
+        },
+        "awaitNotAllowed": {
+            "message": "Type expressions cannot use \"await\"",
+            "comment": "{Locked='await'}"
+        },
+        "awaitNotInAsync": {
+            "message": "\"await\" allowed only within async function",
+            "comment": "{Locked='await','async'}"
+        },
+        "backticksIllegal": {
+            "message": "Expressions surrounded by backticks are not supported in Python 3.x; use repr instead",
+            "comment": "{Locked='repr'}"
+        },
         "baseClassCircular": "Class cannot derive from itself",
+        "baseClassFinal": {
+            "message": "Base class \"{type}\" is marked final and cannot be subclassed",
+            "comment": "{Locked='final'}"
+        },
         "baseClassIncompatible": "Base classes of {type} are mutually incompatible",
-        "baseClassFinal": "Base class \"{type}\" is marked final and cannot be subclassed",
         "baseClassInvalid": "Argument to class must be a base class",
         "baseClassMethodTypeIncompatible": "Base classes for class \"{classType}\" define method \"{name}\" in incompatible way",
-        "baseClassVariableTypeIncompatible": "Base classes for class \"{classType}\" define variable \"{name}\" in incompatible way",
         "baseClassUnknown": "Base class type is unknown, obscuring type of derived class",
-        "binaryOperationNotAllowed": "Binary operator not allowed in type annotation",
-        "bindTypeMismatch": "Could not bind method \"{methodName}\" because \"{type}\" is not assignable to parameter \"{paramName}\"",
-        "breakOutsideLoop": "\"break\" can be used only within a loop",
-        "callableExtraArgs": "Expected only two type arguments to \"Callable\"",
+        "baseClassVariableTypeIncompatible": "Base classes for class \"{classType}\" define variable \"{name}\" in incompatible way",
+        "binaryOperationNotAllowed": "Binary operator not allowed in type expression",
+        "bindTypeMismatch": {
+            "message": "Could not bind method \"{methodName}\" because \"{type}\" is not assignable to parameter \"{paramName}\"",
+            "comment": "Binding is the process through which Pyright determines what object a name refers to"
+        },
+        "breakOutsideLoop": {
+            "message": "\"break\" can be used only within a loop",
+            "comment": "{Locked='break'}"
+        },
+        "callableExtraArgs": {
+            "message": "Expected only two type arguments to \"Callable\"",
+            "comment": "{Locked='Callable'}"
+        },
         "callableFirstArg": "Expected parameter type list or \"...\"",
         "callableNotInstantiable": "Cannot instantiate type \"{type}\"",
-        "callableSecondArg": "Expected return type as second type argument for \"Callable\"",
+        "callableSecondArg": {
+            "message": "Expected return type as second type argument for \"Callable\"",
+            "comment": "{Locked='Callable'}"
+        },
         "casePatternIsIrrefutable": "Irrefutable pattern is allowed only for the last case statement",
         "classAlreadySpecialized": "Type \"{type}\" is already specialized",
         "classDecoratorTypeUnknown": "Untyped class decorator obscures type of class; ignoring decorator",
         "classDefinitionCycle": "Class definition for \"{name}\" depends on itself",
-        "classGetItemClsParam": "__class_getitem__ override should take a \"cls\" parameter",
-        "classMethodClsParam": "Class methods should take a \"cls\" parameter",
-        "classNotRuntimeSubscriptable": "Subscript for class \"{name}\" will generate runtime exception; enclose type annotation in quotes",
+        "classGetItemClsParam": {
+            "message": "__class_getitem__ override should take a \"cls\" parameter",
+            "comment": "{Locked='__class_getitem__','cls'}"
+        },
+        "classMethodClsParam": {
+            "message": "Class methods should take a \"cls\" parameter",
+            "comment": "{Locked='cls'}"
+        },
+        "classNotRuntimeSubscriptable": "Subscript for class \"{name}\" will generate runtime exception; enclose type expression in quotes",
         "classPatternBuiltInArgPositional": "Class pattern accepts only positional sub-pattern",
         "classPatternPositionalArgCount": "Too many positional patterns for class \"{type}\"; expected {expected} but received {received}",
         "classPatternTypeAlias": "\"{type}\" cannot be used in a class pattern because it is a specialized type alias",
         "classPropertyDeprecated": "Class properties are deprecated in Python 3.11 and will not be supported in Python 3.13",
         "classTypeParametersIllegal": "Class type parameter syntax requires Python 3.12 or newer",
-        "classVarNotAllowed": "\"ClassVar\" is not allowed in this context",
-        "classVarFirstArgMissing": "Expected a type argument after \"ClassVar\"",
+        "classVarFirstArgMissing": {
+            "message": "Expected a type argument after \"ClassVar\"",
+            "comment": "{Locked='ClassVar'}"
+        },
+        "classVarNotAllowed": {
+            "message": "\"ClassVar\" is not allowed in this context",
+            "comment": "{Locked='ClassVar'}"
+        },
         "classVarOverridesInstanceVar": "Class variable \"{name}\" overrides instance variable of same name in class \"{className}\"",
-        "classVarTooManyArgs": "Expected only one type argument after \"ClassVar\"",
-        "classVarWithTypeVar": "\"ClassVar\" type cannot include type variables",
+        "classVarTooManyArgs": {
+            "message": "Expected only one type argument after \"ClassVar\"",
+            "comment": "{Locked='ClassVar'}"
+        },
+        "classVarWithTypeVar": {
+            "message": "\"ClassVar\" type cannot include type variables",
+            "comment": "{Locked='ClassVar'}"
+        },
         "clsSelfParamTypeMismatch": "Type of parameter \"{name}\" must be a supertype of its class \"{classType}\"",
         "codeTooComplexToAnalyze": "Code is too complex to analyze; reduce complexity by refactoring into subroutines or reducing conditional code paths",
         "collectionAliasInstantiation": "Type \"{type}\" cannot be instantiated, use \"{alias}\" instead",
-        "comparisonAlwaysFalse": "Condition will always evaluate to False since the types \"{leftType}\" and \"{rightType}\" have no overlap",
-        "comparisonAlwaysTrue": "Condition will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",
-        "comprehensionInDict": "Comprehension cannot be used with other dictionary entries",
-        "comprehensionInSet": "Comprehension cannot be used with other set entries",
-        "concatenateContext": "\"Concatenate\" is not allowed in this context",
-        "concatenateParamSpecMissing": "Last type argument for \"Concatenate\" must be a ParamSpec or \"...\"",
-        "concatenateTypeArgsMissing": "\"Concatenate\" requires at least two type arguments",
+        "comparisonAlwaysFalse": {
+            "message": "Condition will always evaluate to False since the types \"{leftType}\" and \"{rightType}\" have no overlap",
+            "comment": "{Locked='False'}"
+        },
+        "comparisonAlwaysTrue": {
+            "message": "Condition will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",
+            "comment": "{Locked='True'}"
+        },
+        "comprehensionInDict": {
+            "message": "Comprehension cannot be used with other dictionary entries",
+            "comment": "A comprehension is a 'set of looping and filtering instructions' applied to a collection to generate a new collection; the word may not be translatable"
+        },
+        "comprehensionInSet": {
+            "message": "Comprehension cannot be used with other set entries",
+            "comment": ["{Locked='set'}", "A comprehension is a 'set of looping and filtering instructions' applied to a collection to generate a new collection; the word may not be translatable"]
+        },
+        "concatenateContext": {
+            "message": "\"Concatenate\" is not allowed in this context",
+            "comment": "{Locked='Concatenate'}"
+        },
+        "concatenateParamSpecMissing": {
+            "message": "Last type argument for \"Concatenate\" must be a ParamSpec or \"...\"",
+            "comment": "{Locked='Concatenate','ParamSpec','...'}"
+        },
+        "concatenateTypeArgsMissing": {
+            "message": "\"Concatenate\" requires at least two type arguments",
+            "comment": "{Locked='Concatenate'}"
+        },
         "conditionalOperandInvalid": "Invalid conditional operand of type \"{type}\"",
         "constantRedefinition": "\"{name}\" is constant (because it is uppercase) and cannot be redefined",
-        "constructorParametersMismatch": "Mismatch between signature of __new__ and __init__ in class \"{classType}\"",
-        "containmentAlwaysFalse": "Expression will always evaluate to False since the types \"{leftType}\" and \"{rightType}\" have no overlap",
-        "containmentAlwaysTrue": "Expression will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",
-        "continueInFinally": "\"continue\" cannot be used within a finally clause",
-        "continueOutsideLoop": "\"continue\" can be used only within a loop",
-        "coroutineInConditionalExpression": "Conditional expression references coroutine which always evaluates to True",
+        "constructorParametersMismatch": {
+            "message": "Mismatch between signature of __new__ and __init__ in class \"{classType}\"",
+            "comment": "{Locked='__new__','__init__'}"
+        },
+        "containmentAlwaysFalse": {
+            "message": "Expression will always evaluate to False since the types \"{leftType}\" and \"{rightType}\" have no overlap",
+            "comment": "{Locked='False'}"
+        },
+        "containmentAlwaysTrue": {
+            "message": "Expression will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",
+            "comment": "{Locked='True'}"
+        },
+        "continueInFinally": {
+            "message": "\"continue\" cannot be used within a finally clause",
+            "comment": "{Locked='continue','finally'}"
+        },
+        "continueOutsideLoop": {
+            "message": "\"continue\" can be used only within a loop",
+            "comment": "{Locked='continue'}"
+        },
+        "coroutineInConditionalExpression": {
+            "message": "Conditional expression references coroutine which always evaluates to True",
+            "comment": "{Locked='True'}"
+        },
         "dataClassBaseClassFrozen": "A non-frozen class cannot inherit from a class that is frozen",
         "dataClassBaseClassNotFrozen": "A frozen class cannot inherit from a class that is not frozen",
         "dataClassConverterFunction": "Argument of type \"{argType}\" is not a valid converter for field \"{fieldName}\" of type \"{fieldType}\"",
         "dataClassConverterOverloads": "No overloads of \"{funcName}\" are valid converters for field \"{fieldName}\" of type \"{fieldType}\"",
         "dataClassFieldInheritedDefault": "\"{fieldName}\" overrides a field of the same name but is missing a default value",
         "dataClassFieldWithDefault": "Fields without default values cannot appear after fields with default values",
-        "dataClassFieldWithoutAnnotation": "Dataclass field without type annotation will cause runtime exception",
         "dataClassFieldWithPrivateName": "Dataclass field cannot use private name",
-        "dataClassPostInitParamCount": "Dataclass __post_init__ incorrect parameter count; number of InitVar fields is {expected}",
-        "dataClassPostInitType": "Dataclass __post_init__ method parameter type mismatch for field \"{fieldName}\"",
-        "dataClassSlotsOverwrite": "__slots__ is already defined in class",
-        "dataClassTransformExpectedBoolLiteral": "Expected expression that statically evaluates to True or False",
-        "dataClassTransformFieldSpecifier": "Expected tuple of classes or functions but received type \"{type}\"",
-        "dataClassTransformPositionalParam": "All arguments to \"dataclass_transform\" must be keyword arguments",
-        "dataClassTransformUnknownArgument": "Argument \"{name}\" is not supported by dataclass_transform",
-        "dataProtocolInSubclassCheck": "Data protocols (which include non-method attributes) are not allowed in issubclass calls",
+        "dataClassFieldWithoutAnnotation": "Dataclass field without type annotation will cause runtime exception",
+        "dataClassPostInitParamCount": {
+            "message": "Dataclass __post_init__ incorrect parameter count; number of InitVar fields is {expected}",
+            "comment": "{Locked='__post_init__','InitVar'}"
+        },
+        "dataClassPostInitType": {
+            "message": "Dataclass __post_init__ method parameter type mismatch for field \"{fieldName}\"",
+            "comment": "{Locked='__post_init__'}"
+        },
+        "dataClassSlotsOverwrite": {
+            "message": "__slots__ is already defined in class",
+            "comment": "{Locked='__slots__'}"
+        },
+        "dataClassTransformExpectedBoolLiteral": {
+            "message": "Expected expression that statically evaluates to True or False",
+            "comment": "{Locked='True','False'}"
+        },
+        "dataClassTransformFieldSpecifier": {
+            "message": "Expected tuple of classes or functions but received type \"{type}\"",
+            "comment": "{Locked='tuple'}"
+        },
+        "dataClassTransformPositionalParam": {
+            "message": "All arguments to \"dataclass_transform\" must be keyword arguments",
+            "comment": "{Locked='dataclass_transform'}"
+        },
+        "dataClassTransformUnknownArgument": {
+            "message": "Argument \"{name}\" is not supported by dataclass_transform",
+            "comment": "{Locked='dataclass_transform'}"
+        },
+        "dataProtocolInSubclassCheck": {
+            "message": "Data protocols (which include non-method attributes) are not allowed in issubclass calls",
+            "comment": "{Locked='issubclass'}"
+        },
         "declaredReturnTypePartiallyUnknown": "Declared return type, \"{returnType}\", is partially unknown",
         "declaredReturnTypeUnknown": "Declared return type is unknown",
         "defaultValueContainsCall": "Function calls and mutable objects not allowed within parameter default value expression",
         "defaultValueNotAllowed": "Parameter with \"*\" or \"**\" cannot have default value",
+        "delTargetExpr": "Expression cannot be deleted",
         "deprecatedClass": "The class \"{name}\" is deprecated",
         "deprecatedConstructor": "The constructor for class \"{name}\" is deprecated",
         "deprecatedDescriptorDeleter": "The \"__delete__\" method for descriptor \"{name}\" is deprecated",
@@ -112,76 +265,171 @@
         "deprecatedDescriptorSetter": "The \"__set__\" method  for descriptor \"{name}\" is deprecated",
         "deprecatedFunction": "The function \"{name}\" is deprecated",
         "deprecatedMethod": "The method \"{name}\" in class \"{className}\" is deprecated",
-        "deprecatedPropertyDeleter": "The deleter for property \"{name}\" is deprecated",
-        "deprecatedPropertyGetter": "The getter for property \"{name}\" is deprecated",
-        "deprecatedPropertySetter": "The setter for property \"{name}\" is deprecated",
+        "deprecatedPropertyDeleter": {
+            "message": "The deleter for property \"{name}\" is deprecated",
+            "comment": "{Locked='deleter','property'}"
+        },
+        "deprecatedPropertyGetter": {
+            "message": "The getter for property \"{name}\" is deprecated",
+            "comment": "{Locked='getter','property'}"
+        },
+        "deprecatedPropertySetter": {
+            "message": "The setter for property \"{name}\" is deprecated",
+            "comment": "{Locked='setter','property'}"
+        },
         "deprecatedType": "This type is deprecated as of Python {version}; use \"{replacement}\" instead",
-        "delTargetExpr": "Expression cannot be deleted",
-        "dictExpandIllegalInComprehension": "Dictionary expansion not allowed in comprehension",
-        "dictInAnnotation": "Dictionary expression not allowed in type annotation",
+        "dictExpandIllegalInComprehension": {
+            "message": "Dictionary expansion not allowed in comprehension",
+            "comment": "A comprehension is a 'set of looping and filtering instructions' applied to a collection to generate a new collection; the word may not be translatable"
+        },
+        "dictInAnnotation": "Dictionary expression not allowed in type expression",
         "dictKeyValuePairs": "Dictionary entries must contain key/value pairs",
         "dictUnpackIsNotMapping": "Expected mapping for dictionary unpack operator",
-        "dunderAllSymbolNotPresent": "\"{name}\" is specified in __all__ but is not present in module",
+        "dunderAllSymbolNotPresent": {
+            "message": "\"{name}\" is specified in __all__ but is not present in module",
+            "comment": "{Locked='__all__'}"
+        },
         "duplicateArgsParam": "Only one \"*\" parameter allowed",
         "duplicateBaseClass": "Duplicate base class not allowed",
-        "duplicateCatchAll": "Only one catch-all except clause allowed",
-        "duplicateEnumMember": "Enum member \"{name}\" is already declared",
-        "duplicateGenericAndProtocolBase": "Only one Generic[...] or Protocol[...] base class allowed",
-        "duplicateImport": "\"{importName}\" is imported more than once",
-        "duplicateKwargsParam": "Only one \"**\" parameter allowed",
-        "duplicateKeywordOnly": "Only one \"*\" separator allowed",
-        "duplicateParam": "Duplicate parameter \"{name}\"",
         "duplicateCapturePatternTarget": "Capture target \"{name}\" cannot appear more than once within the same pattern",
+        "duplicateCatchAll": {
+            "message": "Only one catch-all except clause allowed",
+            "comment": "{Locked='except'}"
+        },
+        "duplicateEnumMember": {
+            "message": "Enum member \"{name}\" is already declared",
+            "comment": "{Locked='Enum'}"
+        },
+        "duplicateGenericAndProtocolBase": {
+            "message": "Only one Generic[...] or Protocol[...] base class allowed",
+            "comment": "{Locked='Generic[...]','Protocol[...]'}"
+        },
+        "duplicateImport": "\"{importName}\" is imported more than once",
+        "duplicateKeywordOnly": "Only one \"*\" separator allowed",
+        "duplicateKwargsParam": "Only one \"**\" parameter allowed",
+        "duplicateParam": "Duplicate parameter \"{name}\"",
+        "duplicatePositionOnly": "Only one \"/\" parameter allowed",
         "duplicateStarPattern": "Only one \"*\" pattern allowed in a pattern sequence",
         "duplicateStarStarPattern": "Only one \"**\" entry allowed",
-        "duplicatePositionOnly": "Only one \"/\" parameter allowed",
-        "duplicateUnpack": "Only one unpack operation allowed in list",
-        "ellipsisAfterUnpacked": "\"...\" cannot be used with an unpacked TypeVarTuple or tuple",
+        "duplicateUnpack": {
+            "message": "Only one unpack operation allowed in list",
+            "comment": "{Locked='list'}"
+        },
+        "ellipsisAfterUnpacked": {
+            "message": "\"...\" cannot be used with an unpacked TypeVarTuple or tuple",
+            "comment": "{Locked='TypeVarTuple','tuple'}"
+        },
         "ellipsisContext": "\"...\" is not allowed in this context",
         "ellipsisSecondArg": "\"...\" is allowed only as the second of two arguments",
-        "enumClassOverride": "Enum class \"{name}\" is final and cannot be subclassed",
-        "enumMemberDelete": "Enum member \"{name}\" cannot be deleted",
-        "enumMemberSet": "Enum member \"{name}\" cannot be assigned",
-        "enumMemberTypeAnnotation": "Type annotations are not allowed for enum members",
-        "exceptionGroupIncompatible": "Exception group syntax (\"except*\") requires Python 3.11 or newer",
-        "exceptionGroupTypeIncorrect": "Exception type in except* cannot derive from BaseGroupException",
-        "exceptionTypeIncorrect": "\"{type}\" does not derive from BaseException",
+        "enumClassOverride": {
+            "message": "Enum class \"{name}\" is final and cannot be subclassed",
+            "comment": "{Locked='Enum','final'}"
+        },
+        "enumMemberDelete": {
+            "message": "Enum member \"{name}\" cannot be deleted",
+            "comment": "{Locked='Enum'}"
+        },
+        "enumMemberSet": {
+            "message": "Enum member \"{name}\" cannot be assigned",
+            "comment": "{Locked='Enum'}"
+        },
+        "enumMemberTypeAnnotation": {
+            "message": "Type annotations are not allowed for enum members",
+            "comment": "{Locked='enum'}"
+        },
+        "exceptionGroupIncompatible": {
+            "message": "Exception group syntax (\"except*\") requires Python 3.11 or newer",
+            "comment": "{Locked='except*'}"
+        },
+        "exceptionGroupTypeIncorrect": {
+            "message": "Exception type in except* cannot derive from BaseGroupException",
+            "comment": "{Locked='except*','BaseGroupException'}"
+        },
+        "exceptionTypeIncorrect": {
+            "message": "\"{type}\" does not derive from BaseException",
+            "comment": "{Locked='BaseException'}"
+        },
         "exceptionTypeNotClass": "\"{type}\" is not a valid exception class",
         "exceptionTypeNotInstantiable": "Constructor for exception type \"{type}\" requires one or more arguments",
         "expectedAfterDecorator": "Expected function or class declaration after decorator",
         "expectedArrow": "Expected \"->\" followed by return type annotation",
-        "expectedAsAfterException": "Expected \"as\" after exception type",
+        "expectedAsAfterException": {
+            "message": "Expected \"as\" after exception type",
+            "comment": "{Locked='as'}"
+        },
         "expectedAssignRightHandExpr": "Expected expression to the right of \"=\"",
         "expectedBinaryRightHandExpr": "Expected expression to the right of operator",
-        "expectedBoolLiteral": "Expected True or False",
-        "expectedCase": "Expected \"case\" statement",
+        "expectedBoolLiteral": {
+            "message": "Expected True or False",
+            "comment": "{Locked='True','False'}"
+        },
+        "expectedCase": {
+            "message": "Expected \"case\" statement",
+            "comment": "{Locked='case'}"
+        },
         "expectedClassName": "Expected class name",
         "expectedCloseBrace": "\"{\" was not closed",
         "expectedCloseBracket": "\"[\" was not closed",
         "expectedCloseParen": "\"(\" was not closed",
         "expectedColon": "Expected \":\"",
-        "expectedComplexNumberLiteral": "Expected complex number literal for pattern matching",
+        "expectedComplexNumberLiteral": {
+            "message": "Expected complex number literal for pattern matching",
+            "comment": "Complex numbers are a mathematical concept consisting of a real number and an imaginary number"
+        },
         "expectedDecoratorExpr": "Expression form not supported for decorator prior to Python 3.9",
         "expectedDecoratorName": "Expected decorator name",
         "expectedDecoratorNewline": "Expected new line at end of decorator",
-        "expectedDelExpr": "Expected expression after \"del\"",
-        "expectedElse": "Expected \"else\"",
+        "expectedDelExpr": {
+            "message": "Expected expression after \"del\"",
+            "comment": "{Locked='del'}"
+        },
+        "expectedElse": {
+            "message": "Expected \"else\"",
+            "comment": "{Locked='else'}"
+        },
         "expectedEquals": "Expected \"=\"",
         "expectedExceptionClass": "Invalid exception class or object",
-        "expectedExceptionObj": "Expected exception object, exception class or None",
+        "expectedExceptionObj": {
+            "message": "Expected exception object, exception class or None",
+            "comment": "{Locked='None'}"
+        },
         "expectedExpr": "Expected expression",
+        "expectedFunctionAfterAsync": {
+            "message": "Expected function definition after \"async\"",
+            "comment": "{Locked='async'}"
+        },
+        "expectedFunctionName": {
+            "message": "Expected function name after \"def\"",
+            "comment": "{Locked='def'}"
+        },
         "expectedIdentifier": "Expected identifier",
-        "expectedImport": "Expected \"import\"",
-        "expectedImportAlias": "Expected symbol after \"as\"",
-        "expectedImportSymbols": "Expected one or more symbol names after import",
+        "expectedImport": {
+            "message": "Expected \"import\"",
+            "comment": "{Locked='import'}"
+        },
+        "expectedImportAlias": {
+            "message": "Expected symbol after \"as\"",
+            "comment": "{Locked='as'}"
+        },
+        "expectedImportSymbols": {
+            "message": "Expected one or more symbol names after \"import\"",
+            "comment": "{Locked='import'}"
+        },
+        "expectedIn": {
+            "message": "Expected \"in\"",
+            "comment": "{Locked='in'}"
+        },
+        "expectedInExpr": {
+            "message": "Expected expression after \"in\"",
+            "comment": "{Locked='in'}"
+        },
         "expectedIndentedBlock": "Expected indented block",
-        "expectedInExpr": "Expected expression after \"in\"",
-        "expectedIn": "Expected \"in\"",
-        "expectedFunctionAfterAsync": "Expected function definition after \"async\"",
-        "expectedFunctionName": "Expected function name after \"def\"",
         "expectedMemberName": "Expected attribute name after \".\"",
         "expectedModuleName": "Expected module name",
-        "expectedNameAfterAs": "Expected symbol name after \"as\"",
+        "expectedNameAfterAs": {
+            "message": "Expected symbol name after \"as\"",
+            "comment": "{Locked='as'}"
+        },
         "expectedNamedParameter": "Keyword parameter must follow \"*\"",
         "expectedNewline": "Expected newline",
         "expectedNewlineOrSemicolon": "Statements must be separated by newlines or semicolons",
@@ -189,51 +437,162 @@
         "expectedParamName": "Expected parameter name",
         "expectedPatternExpr": "Expected pattern expression",
         "expectedPatternSubjectExpr": "Expected pattern subject expression",
-        "expectedPatternValue": "Expected pattern value expression of the form \"a.b\"",
-        "expectedReturnExpr": "Expected expression after \"return\"",
+        "expectedPatternValue": {
+            "message": "Expected pattern value expression of the form \"a.b\"",
+            "comment": "{Locked='a.b'}"
+        },
+        "expectedReturnExpr": {
+            "message": "Expected expression after \"return\"",
+            "comment": "{Locked='return'}"
+        },
         "expectedSliceIndex": "Expected index or slice expression",
         "expectedTypeNotString": "Expected type but received a string literal",
         "expectedTypeParameterName": "Expected type parameter name",
-        "expectedYieldExpr": "Expected expression in yield statement",
-        "finalClassIsAbstract": "Class \"{type}\" is marked final and must implement all abstract symbols",
-        "finalContext": "\"Final\" is not allowed in this context",
-        "finalInLoop": "A \"Final\" variable cannot be assigned within a loop",
-        "finalMethodOverride": "Method \"{name}\" cannot override final method defined in class \"{className}\"",
-        "finalNonMethod": "Function \"{name}\" cannot be marked @final because it is not a method",
-        "finalReassigned": "\"{name}\" is declared as Final and cannot be reassigned",
-        "finalRedeclaration": "\"{name}\" was previously declared as Final",
-        "finalRedeclarationBySubclass": "\"{name}\" cannot be redeclared because parent class \"{className}\" declares it as Final",
-        "finalTooManyArgs": "Expected a single type argument after \"Final\"",
-        "finalUnassigned": "\"{name}\" is declared Final, but value is not assigned",
-        "formatStringBrace": "Single close brace not allowed within f-string literal; use double close brace",
-        "formatStringBytes": "Format string literals (f-strings) cannot be binary",
-        "formatStringDebuggingIllegal": "F-string debugging specifier \"=\" requires Python 3.8 or newer",
-        "formatStringEscape": "Escape sequence (backslash) not allowed in expression portion of f-string prior to Python 3.12",
-        "formatStringExpectedConversion": "Expected a conversion specifier after \"!\" in f-string",
+        "expectedYieldExpr": {
+            "message": "Expected expression in yield statement",
+            "comment": "{Locked='yield'}"
+        },
+        "finalClassIsAbstract": {
+            "message": "Class \"{type}\" is marked final and must implement all abstract symbols",
+            "comment": "{Locked='final'}"
+        },
+        "finalContext": {
+            "message": "\"Final\" is not allowed in this context",
+            "comment": "{Locked='Final'}"
+        },
+        "finalInLoop": {
+            "message": "A \"Final\" variable cannot be assigned within a loop",
+            "comment": "{Locked='Final'}"
+        },
+        "finalMethodOverride": {
+            "message": "Method \"{name}\" cannot override final method defined in class \"{className}\"",
+            "comment": "{Locked='final'}"
+        },
+        "finalNonMethod": {
+            "message": "Function \"{name}\" cannot be marked @final because it is not a method",
+            "comment": "{Locked='@final'}"
+        },
+        "finalReassigned": {
+            "message": "\"{name}\" is declared as Final and cannot be reassigned",
+            "comment": "{Locked='Final'}"
+        },
+        "finalRedeclaration": {
+            "message": "\"{name}\" was previously declared as Final",
+            "comment": "{Locked='Final'}"
+        },
+        "finalRedeclarationBySubclass": {
+            "message": "\"{name}\" cannot be redeclared because parent class \"{className}\" declares it as Final",
+            "comment": "{Locked='Final'}"
+        },
+        "finalTooManyArgs": {
+            "message": "Expected a single type argument after \"Final\"",
+            "comment": "{Locked='Final'}"
+        },
+        "finalUnassigned": {
+            "message": "\"{name}\" is declared Final, but value is not assigned",
+            "comment": "{Locked='Final'}"
+        },
+        "formatStringBrace": {
+            "message": "Single close brace not allowed within f-string literal; use double close brace",
+            "comment": "'f-string' is the common English slang for a Python format string"
+        },
+        "formatStringBytes": {
+            "message": "Format string literals (f-strings) cannot be binary",
+            "comment": "'f-string' is the common English slang for a Python format string"
+        },
+        "formatStringDebuggingIllegal": {
+            "message": "F-string debugging specifier \"=\" requires Python 3.8 or newer",
+            "comment": "'f-string' is the common English slang for a Python format string"
+        },
+        "formatStringEscape": {
+            "message": "Escape sequence (backslash) not allowed in expression portion of f-string prior to Python 3.12",
+            "comment": "'f-string' is the common English slang for a Python format string"
+        },
+        "formatStringExpectedConversion": {
+            "message": "Expected a conversion specifier after \"!\" in f-string",
+            "comment": "'f-string' is the common English slang for a Python format string"
+        },
+        "formatStringIllegal": {
+            "message": "Format string literals (f-strings) require Python 3.6 or newer",
+            "comment": "'f-string' is the common English slang for a Python format string"
+        },
         "formatStringInPattern": "Format string not allowed in pattern",
         "formatStringNestedFormatSpecifier": "Expressions nested too deeply within format string specifier",
-        "formatStringNestedQuote": "Strings nested within an f-string cannot use the same quote character as the f-string prior to Python 3.12",
-        "formatStringUnicode": "Format string literals (f-strings) cannot be unicode",
-        "formatStringIllegal": "Format string literals (f-strings) require Python 3.6 or newer",
-        "formatStringUnterminated": "Unterminated expression in f-string; expecting \"}\"",
+        "formatStringNestedQuote": {
+            "message": "Strings nested within an f-string cannot use the same quote character as the f-string prior to Python 3.12",
+            "comment": "'f-string' is the common English slang for a Python format string"
+        },
+        "formatStringUnicode": {
+            "message": "Format string literals (f-strings) cannot be unicode",
+            "comment": "'f-string' is the common English slang for a Python format string"
+        },
+        "formatStringUnterminated": {
+            "message": "Unterminated expression in f-string; expecting \"}\"",
+            "comment": "'f-string' is the common English slang for a Python format string"
+        },
         "functionDecoratorTypeUnknown": "Untyped function decorator obscures type of function; ignoring decorator",
-        "functionInConditionalExpression": "Conditional expression references function which always evaluates to True",
+        "functionInConditionalExpression": {
+            "message": "Conditional expression references function which always evaluates to True",
+            "comment": "{Locked='True'}"
+        },
         "functionTypeParametersIllegal": "Function type parameter syntax requires Python 3.12 or newer",
-        "futureImportLocationNotAllowed": "Imports from __future__ must be at the beginning of the file",
-        "generatorAsyncReturnType": "Return type of async generator function must be compatible with \"AsyncGenerator[{yieldType}, Any]\"",
+        "futureImportLocationNotAllowed": {
+            "message": "Imports from __future__ must be at the beginning of the file",
+            "comment": "{Locked='__future__'}"
+        },
+        "generatorAsyncReturnType": {
+            "message": "Return type of async generator function must be compatible with \"AsyncGenerator[{yieldType}, Any]\"",
+            "comment": "{Locked='async','AsyncGenerator[{yieldType}, Any]'}"
+        },
         "generatorNotParenthesized": "Generator expressions must be parenthesized if not sole argument",
-        "generatorSyncReturnType": "Return type of generator function must be compatible with \"Generator[{yieldType}, Any, Any]\"",
-        "genericBaseClassNotAllowed": "\"Generic\" base class cannot be used with type parameter syntax",
-        "genericClassAssigned": "Generic class type cannot be assigned",
-        "genericClassDeleted": "Generic class type cannot be deleted",
-        "genericInstanceVariableAccess": "Access to generic instance variable through class is ambiguous",
-        "genericNotAllowed": "\"Generic\" is not valid in this context",
-        "genericTypeAliasBoundTypeVar": "Generic type alias within class cannot use bound type variables {names}",
-        "genericTypeArgMissing": "\"Generic\" requires at least one type argument",
-        "genericTypeArgTypeVar": "Type argument for \"Generic\" must be a type variable",
-        "genericTypeArgUnique": "Type arguments for \"Generic\" must be unique",
-        "globalReassignment": "\"{name}\" is assigned before global declaration",
-        "globalRedefinition": "\"{name}\" was already declared global",
+        "generatorSyncReturnType": {
+            "message": "Return type of generator function must be compatible with \"Generator[{yieldType}, Any, Any]\"",
+            "comment": "{Locked='Generator[{yieldType}, Any, Any]'}"
+        },
+        "genericBaseClassNotAllowed": {
+            "message": "\"Generic\" base class cannot be used with type parameter syntax",
+            "comment": "{Locked='Generic'}"
+        },
+        "genericClassAssigned": {
+            "message": "Generic class type cannot be assigned",
+            "comment": "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"
+        },
+        "genericClassDeleted": {
+            "message": "Generic class type cannot be deleted",
+            "comment": "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"
+        },
+        "genericInstanceVariableAccess": {
+            "message": "Access to generic instance variable through class is ambiguous",
+            "comment": "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"
+        },
+        "genericNotAllowed": {
+            "message": "\"Generic\" is not valid in this context",
+            "comment": "{Locked='Generic'}"
+        },
+        "genericTypeAliasBoundTypeVar": {
+            "message": "Generic type alias within class cannot use bound type variables {names}",
+            "comment": "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"
+        },
+        "genericTypeArgMissing": {
+            "message": "\"Generic\" requires at least one type argument",
+            "comment": "{Locked='Generic'}"
+        },
+        "genericTypeArgTypeVar": {
+            "message": "Type argument for \"Generic\" must be a type variable",
+            "comment": "{Locked='Generic'}"
+        },
+        "genericTypeArgUnique": {
+            "message": "Type arguments for \"Generic\" must be unique",
+            "comment": "{Locked='Generic'}"
+        },
+        "globalReassignment": {
+            "message": "\"{name}\" is assigned before global declaration",
+            "comment": "{Locked='global'}"
+        },
+        "globalRedefinition": {
+            "message": "\"{name}\" was already declared global",
+            "comment": "{Locked='global'}"
+        },
         "implicitStringConcat": "Implicit string concatenation not allowed",
         "importCycleDetected": "Cycle detected in import chain",
         "importDepthExceeded": "Import chain depth exceeded {depth}",
@@ -242,93 +601,265 @@
         "importSymbolUnknown": "\"{name}\" is unknown import symbol",
         "incompatibleMethodOverride": "Method \"{name}\" overrides class \"{className}\" in an incompatible manner",
         "inconsistentIndent": "Unindent amount does not match previous indent",
-        "initMustReturnNone": "Return type of \"__init__\" must be None",
         "inconsistentTabs": "Inconsistent use of tabs and spaces in indentation",
-        "initMethodSelfParamTypeVar": "Type annotation for \"self\" parameter of \"__init__\" method cannot contain class-scoped type variables",
-        "initSubclassClsParam": "__init_subclass__ override should take a \"cls\" parameter",
-        "initSubclassCallFailed": "Incorrect keyword arguments for __init_subclass__ method",
-        "initVarNotAllowed": "\"InitVar\" is not allowed in this context",
-        "instanceMethodSelfParam": "Instance methods should take a \"self\" parameter",
+        "initMethodSelfParamTypeVar": {
+            "message": "Type annotation for \"self\" parameter of \"__init__\" method cannot contain class-scoped type variables",
+            "comment": "{Locked='self','__init__'}"
+        },
+        "initMustReturnNone": {
+            "message": "Return type of \"__init__\" must be None",
+            "comment": "{Locked='__init__','None'}"
+        },
+        "initSubclassCallFailed": {
+            "message": "Incorrect keyword arguments for __init_subclass__ method",
+            "comment": "{Locked='__init_subclass__'}"
+        },
+        "initSubclassClsParam": {
+            "message": "__init_subclass__ override should take a \"cls\" parameter",
+            "comment": "{Locked='__init_subclass__','cls'}"
+        },
+        "initVarNotAllowed": {
+            "message": "\"InitVar\" is not allowed in this context",
+            "comment": "{Locked='InitVar'}"
+        },
+        "instanceMethodSelfParam": {
+            "message": "Instance methods should take a \"self\" parameter",
+            "comment": "{Locked='self'}"
+        },
         "instanceVarOverridesClassVar": "Instance variable \"{name}\" overrides class variable of same name in class \"{className}\"",
         "instantiateAbstract": "Cannot instantiate abstract class \"{type}\"",
-        "instantiateProtocol": "Cannot instantiate protocol class \"{type}\"",
-        "internalBindError": "An internal error occurred while binding file \"{file}\": {message}",
+        "instantiateProtocol": {
+            "message": "Cannot instantiate Protocol class \"{type}\"",
+            "comment": "{Locked='Protocol'}"
+        },
+        "internalBindError": {
+            "message": "An internal error occurred while binding file \"{file}\": {message}",
+            "comment": "Binding is the process through which Pyright determines what object a name refers to"
+        },
         "internalParseError": "An internal error occurred while parsing file \"{file}\": {message}",
         "internalTypeCheckingError": "An internal error occurred while type checking file \"{file}\": {message}",
         "invalidIdentifierChar": "Invalid character in identifier",
-        "invalidStubStatement": "Statement is meaningless within a type stub file",
+        "invalidStubStatement": {
+            "message": "Statement is meaningless within a type stub file",
+            "comment": "{StrContains=i'stub'}"
+        },
         "invalidTokenChars": "Invalid character \"{text}\" in token",
-        "isInstanceInvalidType": "Second argument to \"isinstance\" must be a class or tuple of classes",
-        "isSubclassInvalidType": "Second argument to \"issubclass\" must be a class or tuple of classes",
-        "keyValueInSet": "Key/value pairs are not allowed within a set",
+        "isInstanceInvalidType": {
+            "message": "Second argument to \"isinstance\" must be a class or tuple of classes",
+            "comment": "{Locked='isinstance','tuple'}"
+        },
+        "isSubclassInvalidType": {
+            "message": "Second argument to \"issubclass\" must be a class or tuple of classes",
+            "comment": "{Locked='issubclass','tuple'}"
+        },
+        "keyValueInSet": {
+            "message": "Key/value pairs are not allowed within a set",
+            "comment": "{Locked='set'}"
+        },
         "keywordArgInTypeArgument": "Keyword arguments cannot be used in type argument lists",
         "keywordArgShortcutIllegal": "Keyword argument shortcut requires Python 3.14 or newer",
         "keywordOnlyAfterArgs": "Keyword-only argument separator not allowed after \"*\" parameter",
         "keywordParameterMissing": "One or more keyword parameters must follow \"*\" parameter",
         "keywordSubscriptIllegal": "Keyword arguments within subscripts are not supported",
-        "lambdaReturnTypeUnknown": "Return type of lambda is unknown",
         "lambdaReturnTypePartiallyUnknown": "Return type of lambda, \"{returnType}\", is partially unknown",
+        "lambdaReturnTypeUnknown": "Return type of lambda is unknown",
         "listAssignmentMismatch": "Expression with type \"{type}\" cannot be assigned to target list",
-        "listInAnnotation": "List expression not allowed in type annotation",
-        "literalUnsupportedType": "Type arguments for \"Literal\" must be None, a literal value (int, bool, str, or bytes), or an enum value",
-        "literalNamedUnicodeEscape": "Named unicode escape sequences are not supported in \"Literal\" string annotations",
-        "literalEmptyArgs": "Expected one or more type arguments after \"Literal\"",
-        "literalNotAllowed": "\"Literal\" cannot be used in this context without a type argument",
-        "literalNotCallable": "Literal type cannot be instantiated",
-        "matchIncompatible": "Match statements require Python 3.10 or newer",
-        "matchIsNotExhaustive": "Cases within match statement do not exhaustively handle all values",
+        "listInAnnotation": {
+            "message": "List expression not allowed in type expression",
+            "comment": "{Locked='List'}"
+        },
+        "literalEmptyArgs": {
+            "message": "Expected one or more type arguments after \"Literal\"",
+            "comment": "{Locked='Literal'}"
+        },
+        "literalNamedUnicodeEscape": {
+            "message": "Named unicode escape sequences are not supported in \"Literal\" string annotations",
+            "comment": "{Locked='Literal'}"
+        },
+        "literalNotAllowed": {
+            "message": "\"Literal\" cannot be used in this context without a type argument",
+            "comment": "{Locked='Literal'}"
+        },
+        "literalNotCallable": {
+            "message": "Literal type cannot be instantiated",
+            "comment": "{Locked='Literal'}"
+        },
+        "literalUnsupportedType": {
+            "message": "Type arguments for \"Literal\" must be None, a literal value (int, bool, str, or bytes), or an enum value",
+            "comment": "{Locked='Literal','None','int','bool','str','bytes','enum'}"
+        },
+        "matchIncompatible": {
+            "message": "Match statements require Python 3.10 or newer",
+            "comment": ["{StrContains=i'match'}", "'match' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "matchIsNotExhaustive": {
+            "message": "Cases within match statement do not exhaustively handle all values",
+            "comment": ["{Locked='match'}", "Case statements are children of match statements where 'case' is a keyword. It may be best to keep 'case' in English"]
+        },
         "maxParseDepthExceeded": "Maximum parse depth exceeded; break expression into smaller sub-expressions",
         "memberAccess": "Cannot access attribute \"{name}\" for class \"{type}\"",
         "memberDelete": "Cannot delete attribute \"{name}\" for class \"{type}\"",
         "memberSet": "Cannot assign to attribute \"{name}\" for class \"{type}\"",
-        "metaclassConflict": "The metaclass of a derived class must be a subclass of the metaclasses of all its base classes",
-        "metaclassDuplicate": "Only one metaclass can be provided",
-        "metaclassIsGeneric": "Metaclass cannot be generic",
+        "metaclassConflict": {
+            "message": "The metaclass of a derived class must be a subclass of the metaclasses of all its base classes",
+            "comment": "Metaclasses are a complex concept and it may be best to not localize the term"
+        },
+        "metaclassDuplicate": {
+            "message": "Only one metaclass can be provided",
+            "comment": "Metaclasses are a complex concept and it may be best to not localize the term"
+        },
+        "metaclassIsGeneric": {
+            "message": "Metaclass cannot be generic",
+            "comment": ["Metaclasses are a complex concept and it may be best to not localize the term", "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"]
+        },
         "methodNotDefined": "\"{name}\" method not defined",
         "methodNotDefinedOnType": "\"{name}\" method not defined on type \"{type}\"",
         "methodOrdering": "Cannot create consistent method ordering",
         "methodOverridden": "\"{name}\" overrides method of same name in class \"{className}\" with incompatible type \"{type}\"",
         "methodReturnsNonObject": "\"{name}\" method does not return an object",
         "missingSuperCall": "Method \"{methodName}\" does not call the method of the same name in parent class",
+        "mixingBytesAndStr": {
+            "message": "Bytes and str values cannot be concatenated",
+            "comment": ["{Locked='str'}", "{StrContains=i'bytes'}", "'bytes' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
         "moduleAsType": "Module cannot be used as a type",
         "moduleNotCallable": "Module is not callable",
         "moduleUnknownMember": "\"{memberName}\" is not a known attribute of module \"{moduleName}\"",
-        "namedExceptAfterCatchAll": "A named except clause cannot appear after catch-all except clause",
-        "namedParamAfterParamSpecArgs": "Keyword parameter \"{name}\" cannot appear in signature after ParamSpec args parameter",
-        "namedTupleEmptyName": "Names within a named tuple cannot be empty",
-        "namedTupleMultipleInheritance": "Multiple inheritance with NamedTuple is not supported",
-        "namedTupleEntryRedeclared": "Cannot override \"{name}\" because parent class \"{className}\" is a named tuple",
-        "namedTupleFirstArg": "Expected named tuple class name as first argument",
+        "namedExceptAfterCatchAll": {
+            "message": "A named except clause cannot appear after catch-all except clause",
+            "comment": "{Locked='except'}"
+        },
+        "namedParamAfterParamSpecArgs": {
+            "message": "Keyword parameter \"{name}\" cannot appear in signature after ParamSpec args parameter",
+            "comment": "{Locked='ParamSpec','args'}"
+        },
+        "namedTupleEmptyName": {
+            "message": "Names within a named tuple cannot be empty",
+            "comment": "{Locked='tuple'}"
+        },
+        "namedTupleEntryRedeclared": {
+            "message": "Cannot override \"{name}\" because parent class \"{className}\" is a named tuple",
+            "comment": "{Locked='tuple'}"
+        },
+        "namedTupleFirstArg": {
+            "message": "Expected named tuple class name as first argument",
+            "comment": "{Locked='tuple'}"
+        },
+        "namedTupleMultipleInheritance": {
+            "message": "Multiple inheritance with NamedTuple is not supported",
+            "comment": "{Locked='NamedTuple'}"
+        },
         "namedTupleNameKeyword": "Field names cannot be a keyword",
-        "namedTupleNameType": "Expected two-entry tuple specifying entry name and type",
-        "namedTupleNameUnique": "Names within a named tuple must be unique",
-        "namedTupleNoTypes": "\"namedtuple\" provides no types for tuple entries; use \"NamedTuple\" instead",
-        "namedTupleSecondArg": "Expected named tuple entry list as second argument",
-        "newClsParam": "__new__ override should take a \"cls\" parameter",
-        "newTypeAnyOrUnknown": "The second argument to NewType must be a known class, not Any or Unknown",
-        "newTypeBadName": "The first argument to NewType must be a string literal",
-        "newTypeLiteral": "NewType cannot be used with Literal type",
-        "newTypeNameMismatch": "NewType must be assigned to a variable with the same name",
-        "newTypeNotAClass": "Expected class as second argument to NewType",
-        "newTypeParamCount": "NewType requires two positional arguments",
-        "newTypeProtocolClass": "NewType cannot be used with structural type (a protocol or TypedDict class)",
-        "nonDefaultAfterDefault": "Non-default argument follows default argument",
-        "noneNotCallable": "Object of type \"None\" cannot be called",
-        "noneNotIterable": "Object of type \"None\" cannot be used as iterable value",
-        "noneOperator": "Operator \"{operator}\" not supported for \"None\"",
-        "noneNotSubscriptable": "Object of type \"None\" is not subscriptable",
-        "noneNotUsableWith": "Object of type \"None\" cannot be used with \"with\"",
-        "noneUnknownMember": "\"{name}\" is not a known attribute of \"None\"",
-        "nonLocalNoBinding": "No binding for nonlocal \"{name}\" found",
-        "nonLocalReassignment": "\"{name}\" is assigned before nonlocal declaration",
-        "nonLocalRedefinition": "\"{name}\" was already declared nonlocal",
-        "nonLocalInModule": "Nonlocal declaration not allowed at module level",
+        "namedTupleNameType": {
+            "message": "Expected two-entry tuple specifying entry name and type",
+            "comment": "{Locked='tuple'}"
+        },
+        "namedTupleNameUnique": {
+            "message": "Names within a named tuple must be unique",
+            "comment": "{Locked='tuple'}"
+        },
+        "namedTupleNoTypes": {
+            "message": "\"namedtuple\" provides no types for tuple entries; use \"NamedTuple\" instead",
+            "comment": "{Locked='namedtuple\";'tuple','NamedTuple'}"
+        },
+        "namedTupleSecondArg": {
+            "message": "Expected named tuple entry list as second argument",
+            "comment": "{Locked='tuple','list'}"
+        },
+        "newClsParam": {
+            "message": "__new__ override should take a \"cls\" parameter",
+            "comment": "{Locked='__new__','cls'}"
+        },
+        "newTypeAnyOrUnknown": {
+            "message": "The second argument to NewType must be a known class, not Any or Unknown",
+            "comment": "{Locked='NewType','Any','Unknown'}"
+        },
+        "newTypeBadName": {
+            "message": "The first argument to NewType must be a string literal",
+            "comment": "{Locked='NewType'}"
+        },
+        "newTypeLiteral": {
+            "message": "NewType cannot be used with Literal type",
+            "comment": "{Locked='NewType','Literal'}"
+        },
+        "newTypeNameMismatch": {
+            "message": "NewType must be assigned to a variable with the same name",
+            "comment": "{Locked='NewType'}"
+        },
+        "newTypeNotAClass": {
+            "message": "Expected class as second argument to NewType",
+            "comment": "{Locked='NewType'}"
+        },
+        "newTypeParamCount": {
+            "message": "NewType requires two positional arguments",
+            "comment": "{Locked='NewType'}"
+        },
+        "newTypeProtocolClass": {
+            "message": "NewType cannot be used with structural type (a Protocol or TypedDict class)",
+            "comment": "{Locked='NewType','Protocol','TypedDict'}"
+        },
         "noOverload": "No overloads for \"{name}\" match the provided arguments",
-        "noReturnContainsReturn": "Function with declared return type \"NoReturn\" cannot include a return statement",
-        "noReturnContainsYield": "Function with declared return type \"NoReturn\" cannot include a yield statement",
-        "noReturnReturnsNone": "Function with declared return type \"NoReturn\" cannot return \"None\"",
-        "notRequiredArgCount": "Expected a single type argument after \"NotRequired\"",
-        "notRequiredNotInTypedDict": "\"NotRequired\" is not allowed in this context",
+        "noReturnContainsReturn": {
+            "message": "Function with declared return type \"NoReturn\" cannot include a return statement",
+            "comment": "{Locked='NoReturn','return'}"
+        },
+        "noReturnContainsYield": {
+            "message": "Function with declared return type \"NoReturn\" cannot include a yield statement",
+            "comment": "{Locked='NoReturn','yield'}"
+        },
+        "noReturnReturnsNone": {
+            "message": "Function with declared return type \"NoReturn\" cannot return \"None\"",
+            "comment": "{Locked='NoReturn','None'}"
+        },
+        "nonDefaultAfterDefault": "Non-default argument follows default argument",
+        "nonLocalInModule": {
+            "message": "Nonlocal declaration not allowed at module level",
+            "comment": ["{StrContains=i'nonlocal'}", "'nonlocal' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "nonLocalNoBinding": {
+            "message": "No binding for nonlocal \"{name}\" found",
+            "comment": ["{Locked='nonlocal'}", "'No binding found' means that Pyright couldn't resolve the variable name to an object"]
+        },
+        "nonLocalReassignment": {
+            "message": "\"{name}\" is assigned before nonlocal declaration",
+            "comment": "{Locked='nonlocal'}"
+        },
+        "nonLocalRedefinition": {
+            "message": "\"{name}\" was already declared nonlocal",
+            "comment": "{Locked='nonlocal'}"
+        },
+        "noneNotCallable": {
+            "message": "Object of type \"None\" cannot be called",
+            "comment": "{Locked='None'}"
+        },
+        "noneNotIterable": {
+            "message": "Object of type \"None\" cannot be used as iterable value",
+            "comment": "{Locked='None'}"
+        },
+        "noneNotSubscriptable": {
+            "message": "Object of type \"None\" is not subscriptable",
+            "comment": "{Locked='None'}"
+        },
+        "noneNotUsableWith": {
+            "message": "Object of type \"None\" cannot be used with \"with\"",
+            "comment": "{Locked='None','with'}"
+        },
+        "noneOperator": {
+            "message": "Operator \"{operator}\" not supported for \"None\"",
+            "comment": "{Locked='None'}"
+        },
+        "noneUnknownMember": {
+            "message": "\"{name}\" is not a known attribute of \"None\"",
+            "comment": "{Locked='None'}"
+        },
+        "notRequiredArgCount": {
+            "message": "Expected a single type argument after \"NotRequired\"",
+            "comment": "{Locked='NotRequired'}"
+        },
+        "notRequiredNotInTypedDict": {
+            "message": "\"NotRequired\" is not allowed in this context",
+            "comment": "{Locked='NotRequired'}"
+        },
         "objectNotCallable": "Object of type \"{type}\" is not callable",
         "obscuredClassDeclaration": "Class declaration \"{name}\" is obscured by a declaration of the same name",
         "obscuredFunctionDeclaration": "Function declaration \"{name}\" is obscured by a declaration of the same name",
@@ -337,378 +868,1021 @@
         "obscuredTypeAliasDeclaration": "Type alias declaration \"{name}\" is obscured by a declaration of the same name",
         "obscuredVariableDeclaration": "Declaration \"{name}\" is obscured by a declaration of the same name",
         "operatorLessOrGreaterDeprecated": "Operator \"<>\" is not supported in Python 3; use \"!=\" instead",
-        "optionalExtraArgs": "Expected one type argument after \"Optional\"",
-        "orPatternIrrefutable": "Irrefutable pattern allowed only as the last subpattern in an \"or\" pattern",
-        "orPatternMissingName": "All subpatterns within an \"or\" pattern must target the same names",
+        "optionalExtraArgs": {
+            "message": "Expected one type argument after \"Optional\"",
+            "comment": "{Locked='Optional'}"
+        },
+        "orPatternIrrefutable": {
+            "message": "Irrefutable pattern allowed only as the last subpattern in an \"or\" pattern",
+            "comment": "{Locked='or'}"
+        },
+        "orPatternMissingName": {
+            "message": "All subpatterns within an \"or\" pattern must target the same names",
+            "comment": "{Locked='or'}"
+        },
         "overlappingKeywordArgs": "Typed dictionary overlaps with keyword parameter: {names}",
         "overlappingOverload": "Overload {obscured} for \"{name}\" will never be used because its parameters overlap overload {obscuredBy}",
-        "overloadAbstractMismatch": "Overloads must all be abstract or not",
         "overloadAbstractImplMismatch": "Overloads must match abstract status of implementation",
-        "overloadClassMethodInconsistent": "Overloads for \"{name}\" use @classmethod inconsistently",
-        "overloadFinalInconsistencyImpl": "Overload for \"{name}\" is marked @final but implementation is not",
-        "overloadFinalInconsistencyNoImpl": "Overload {index} for \"{name}\" is marked @final but overload 1 is not",
+        "overloadAbstractMismatch": "Overloads must all be abstract or not",
+        "overloadClassMethodInconsistent": {
+            "message": "Overloads for \"{name}\" use @classmethod inconsistently",
+            "comment": "{Locked='@classmethod'}"
+        },
+        "overloadFinalInconsistencyImpl": {
+            "message": "Overload for \"{name}\" is marked @final but implementation is not",
+            "comment": "{Locked='@final'}"
+        },
+        "overloadFinalInconsistencyNoImpl": {
+            "message": "Overload {index} for \"{name}\" is marked @final but overload 1 is not",
+            "comment": "{Locked='@final'}"
+        },
         "overloadImplementationMismatch": "Overloaded implementation is not consistent with signature of overload {index}",
         "overloadReturnTypeMismatch": "Overload {prevIndex} for \"{name}\" overlaps overload {newIndex} and returns an incompatible type",
-        "overloadStaticMethodInconsistent": "Overloads for \"{name}\" use @staticmethod inconsistently",
-        "overloadWithoutImplementation": "\"{name}\" is marked as overload, but no implementation is provided",
-        "overriddenMethodNotFound": "Method \"{name}\" is marked as override, but no base method of same name is present",
-        "overrideDecoratorMissing": "Method \"{name}\" is not marked as override but is overriding a method in class \"{className}\"",
+        "overloadStaticMethodInconsistent": {
+            "message": "Overloads for \"{name}\" use @staticmethod inconsistently",
+            "comment": "{Locked='@staticmethod'}"
+        },
+        "overloadWithoutImplementation": {
+            "message": "\"{name}\" is marked as overload, but no implementation is provided",
+            "comment": "{Locked='overload'}"
+        },
+        "overriddenMethodNotFound": {
+            "message": "Method \"{name}\" is marked as override, but no base method of same name is present",
+            "comment": "{Locked='override'}"
+        },
+        "overrideDecoratorMissing": {
+            "message": "Method \"{name}\" is not marked as override but is overriding a method in class \"{className}\"",
+            "comment": "{Locked='override'}"
+        },
         "paramAfterKwargsParam": "Parameter cannot follow \"**\" parameter",
         "paramAlreadyAssigned": "Parameter \"{name}\" is already assigned",
         "paramAnnotationMissing": "Type annotation is missing for parameter \"{name}\"",
-        "paramNameMissing": "No parameter named \"{name}\"",
-        "paramSpecArgsKwargsUsage": "\"args\" and \"kwargs\" attributes of ParamSpec must both appear within a function signature",
-        "paramSpecArgsMissing": "Arguments for ParamSpec \"{type}\" are missing",
-        "paramSpecArgsUsage": "\"args\" attribute of ParamSpec is valid only when used with *args parameter",
-        "paramSpecAssignedName": "ParamSpec must be assigned to a variable named \"{name}\"",
-        "paramSpecContext": "ParamSpec is not allowed in this context",
-        "paramSpecDefaultNotTuple": "Expected ellipsis, a tuple expression, or ParamSpec for default value of ParamSpec",
-        "paramSpecFirstArg": "Expected name of ParamSpec as first argument",
-        "paramSpecKwargsUsage": "\"kwargs\" attribute of ParamSpec is valid only when used with **kwargs parameter",
-        "paramSpecNotUsedByOuterScope": "ParamSpec \"{name}\" has no meaning in this context",
-        "paramSpecUnknownArg": "ParamSpec does not support more than one argument",
-        "paramSpecUnknownMember": "\"{name}\" is not a known attribute of ParamSpec",
-        "paramSpecUnknownParam": "\"{name}\" is unknown parameter to ParamSpec",
         "paramAssignmentMismatch": "Expression of type \"{sourceType}\" cannot be assigned to parameter of type \"{paramType}\"",
+        "paramNameMissing": "No parameter named \"{name}\"",
+        "paramSpecArgsKwargsUsage": {
+            "message": "\"args\" and \"kwargs\" attributes of ParamSpec must both appear within a function signature",
+            "comment": "{Locked='args','kwargs','ParamSpec'}"
+        },
+        "paramSpecArgsMissing": {
+            "message": "Arguments for ParamSpec \"{type}\" are missing",
+            "comment": "{Locked='ParamSpec'}"
+        },
+        "paramSpecArgsUsage": {
+            "message": "\"args\" attribute of ParamSpec is valid only when used with *args parameter",
+            "comment": "{Locked='args','ParamSpec','*args'}"
+        },
+        "paramSpecAssignedName": {
+            "message": "ParamSpec must be assigned to a variable named \"{name}\"",
+            "comment": "{Locked='ParamSpec'}"
+        },
+        "paramSpecContext": {
+            "message": "ParamSpec is not allowed in this context",
+            "comment": "{Locked='ParamSpec'}"
+        },
+        "paramSpecDefaultNotTuple": {
+            "message": "Expected ellipsis, a tuple expression, or ParamSpec for default value of ParamSpec",
+            "comment": "{Locked='tuple','ParamSpec'}"
+        },
+        "paramSpecFirstArg": {
+            "message": "Expected name of ParamSpec as first argument",
+            "comment": "{Locked='ParamSpec'}"
+        },
+        "paramSpecKwargsUsage": {
+            "message": "\"kwargs\" attribute of ParamSpec is valid only when used with **kwargs parameter",
+            "comment": "{Locked='kwargs','ParamSpec','**kwargs'}"
+        },
+        "paramSpecNotUsedByOuterScope": {
+            "message": "ParamSpec \"{name}\" has no meaning in this context",
+            "comment": "{Locked='ParamSpec'}"
+        },
+        "paramSpecUnknownArg": {
+            "message": "ParamSpec does not support more than one argument",
+            "comment": "{Locked='ParamSpec'}"
+        },
+        "paramSpecUnknownMember": {
+            "message": "\"{name}\" is not a known attribute of ParamSpec",
+            "comment": "{Locked='ParamSpec'}"
+        },
+        "paramSpecUnknownParam": {
+            "message": "\"{name}\" is unknown parameter to ParamSpec",
+            "comment": "{Locked='ParamSpec'}"
+        },
         "paramTypeCovariant": "Covariant type variable cannot be used in parameter type",
-        "paramTypeUnknown": "Type of parameter \"{paramName}\" is unknown",
         "paramTypePartiallyUnknown": "Type of parameter \"{paramName}\" is partially unknown",
-        "parenthesizedContextManagerIllegal": "Parentheses within \"with\" statement requires Python 3.9 or newer",
+        "paramTypeUnknown": "Type of parameter \"{paramName}\" is unknown",
+        "parenthesizedContextManagerIllegal": {
+            "message": "Parentheses within \"with\" statement requires Python 3.9 or newer",
+            "comment": "{Locked='with'}"
+        },
         "patternNeverMatches": "Pattern will never be matched for subject type \"{type}\"",
         "positionArgAfterNamedArg": "Positional argument cannot appear after keyword arguments",
-        "privateImportFromPyTypedModule": "\"{name}\" is not exported from module \"{module}\"",
         "positionOnlyAfterArgs": "Position-only parameter separator not allowed after \"*\" parameter",
         "positionOnlyAfterKeywordOnly": "\"/\" parameter must appear before \"*\" parameter",
         "positionOnlyAfterNon": "Position-only parameter not allowed after parameter that is not position-only",
-        "positionOnlyIncompatible": "Position-only parameter separator requires Python 3.8 or newer",
         "positionOnlyFirstParam": "Position-only parameter separator not allowed as first parameter",
+        "positionOnlyIncompatible": "Position-only parameter separator requires Python 3.8 or newer",
+        "privateImportFromPyTypedModule": "\"{name}\" is not exported from module \"{module}\"",
         "privateUsedOutsideOfClass": "\"{name}\" is private and used outside of the class in which it is declared",
         "privateUsedOutsideOfModule": "\"{name}\" is private and used outside of the module in which it is declared",
-        "propertyOverridden": "\"{name}\" incorrectly overrides property of same name in class \"{className}\"",
-        "propertyStaticMethod": "Static methods not allowed for property getter, setter or deleter",
+        "propertyOverridden": {
+            "message": "\"{name}\" incorrectly overrides property of same name in class \"{className}\"",
+            "comment": "{Locked='property'}"
+        },
+        "propertyStaticMethod": {
+            "message": "Static methods not allowed for property getter, setter or deleter",
+            "comment": "{Locked='property','getter','setter','deleter'}"
+        },
         "protectedUsedOutsideOfClass": "\"{name}\" is protected and used outside of the class in which it is declared",
-        "protocolBaseClass": "Protocol class \"{classType}\" cannot derive from non-protocol class \"{baseType}\"",
-        "protocolBaseClassWithTypeArgs": "Type arguments are not allowed with Protocol class when using type parameter syntax",
-        "protocolIllegal": "Use of \"Protocol\" requires Python 3.7 or newer",
-        "protocolNotAllowed": "\"Protocol\" cannot be used in this context",
-        "protocolTypeArgMustBeTypeParam": "Type argument for \"Protocol\" must be a type parameter",
+        "protocolBaseClass": {
+            "message": "Protocol class \"{classType}\" cannot derive from non-Protocol class \"{baseType}\"",
+            "comment": "{Locked='Protocol'}"
+        },
+        "protocolBaseClassWithTypeArgs": {
+            "message": "Type arguments are not allowed with Protocol class when using type parameter syntax",
+            "comment": "{Locked='Protocol'}"
+        },
+        "protocolIllegal": {
+            "message": "Use of \"Protocol\" requires Python 3.7 or newer",
+            "comment": "{Locked='Protocol'}"
+        },
+        "protocolNotAllowed": {
+            "message": "\"Protocol\" cannot be used in this context",
+            "comment": "{Locked='Protocol'}"
+        },
+        "protocolTypeArgMustBeTypeParam": {
+            "message": "Type argument for \"Protocol\" must be a type parameter",
+            "comment": "{Locked='Protocol'}"
+        },
         "protocolUnsafeOverlap": "Class overlaps \"{name}\" unsafely and could produce a match at runtime",
-        "protocolVarianceContravariant": "Type variable \"{variable}\" used in generic protocol \"{class}\" should be contravariant",
-        "protocolVarianceCovariant": "Type variable \"{variable}\" used in generic protocol \"{class}\" should be covariant",
-        "protocolVarianceInvariant": "Type variable \"{variable}\" used in generic protocol \"{class}\" should be invariant",
-        "pyrightCommentInvalidDiagnosticBoolValue": "Pyright comment directive must be followed by \"=\" and a value of true or false",
-        "pyrightCommentInvalidDiagnosticSeverityValue": "Pyright comment directive must be followed by \"=\" and a value of true, false, error, warning, information, or none",
-        "pyrightCommentMissingDirective": "Pyright comment must be followed by a directive (basic or strict) or a diagnostic rule",
-        "pyrightCommentNotOnOwnLine": "Pyright comments used to control file-level settings must appear on their own line",
-        "pyrightCommentUnknownDirective": "\"{directive}\" is an unknown directive for pyright comment; expected \"strict\" or \"basic\"",
-        "pyrightCommentUnknownDiagnosticRule": "\"{rule}\" is an unknown diagnostic rule for pyright comment",
-        "pyrightCommentUnknownDiagnosticSeverityValue": "\"{value}\" is invalid value for pyright comment; expected true, false, error, warning, information, or none",
-        "readOnlyArgCount": "Expected a single type argument after \"ReadOnly\"",
-        "readOnlyNotInTypedDict": "\"ReadOnly\" is not allowed in this context",
-        "relativeImportNotAllowed": "Relative imports cannot be used with \"import .a\" form; use \"from . import a\" instead",
+        "protocolVarianceContravariant": {
+            "message": "Type variable \"{variable}\" used in generic Protocol \"{class}\" should be contravariant",
+            "comment": ["{Locked='Protocol'}", "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"]
+        },
+        "protocolVarianceCovariant": {
+            "message": "Type variable \"{variable}\" used in generic Protocol \"{class}\" should be covariant",
+            "comment": ["{Locked='Protocol'}", "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"]
+        },
+        "protocolVarianceInvariant": {
+            "message": "Type variable \"{variable}\" used in generic Protocol \"{class}\" should be invariant",
+            "comment": ["{Locked='Protocol'}", "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"]
+        },
+        "pyrightCommentInvalidDiagnosticBoolValue": {
+            "message": "Pyright comment directive must be followed by \"=\" and a value of true or false",
+            "comment": "{Locked='Pyright','true','false'}"
+        },
+        "pyrightCommentInvalidDiagnosticSeverityValue": {
+            "message": "Pyright comment directive must be followed by \"=\" and a value of true, false, error, warning, information, or none",
+            "comment": "{Locked='Pyright','true','false','error','warning','information','none'}"
+        },
+        "pyrightCommentMissingDirective": {
+            "message": "Pyright comment must be followed by a directive (basic or strict) or a diagnostic rule",
+            "comment": "{Locked='Pyright','basic','strict'}"
+        },
+        "pyrightCommentNotOnOwnLine": {
+            "message": "Pyright comments used to control file-level settings must appear on their own line",
+            "comment": "{Locked='Pyright'}"
+        },
+        "pyrightCommentUnknownDiagnosticRule": {
+            "message": "\"{rule}\" is an unknown diagnostic rule for pyright comment",
+            "comment": "{Locked='pyright'}"
+        },
+        "pyrightCommentUnknownDiagnosticSeverityValue": {
+            "message": "\"{value}\" is invalid value for pyright comment; expected true, false, error, warning, information, or none",
+            "comment": "{Locked='pyright','true','false','error','warning','information','none'}"
+        },
+        "pyrightCommentUnknownDirective": {
+            "message": "\"{directive}\" is an unknown directive for pyright comment; expected \"strict\" or \"basic\"",
+            "comment": "{Locked='pyright','strict','basic'}"
+        },
+        "readOnlyArgCount": {
+            "message": "Expected a single type argument after \"ReadOnly\"",
+            "comment": "{Locked='ReadOnly'}"
+        },
+        "readOnlyNotInTypedDict": {
+            "message": "\"ReadOnly\" is not allowed in this context",
+            "comment": "{Locked='ReadOnly'}"
+        },
         "recursiveDefinition": "Type of \"{name}\" could not be determined because it refers to itself",
-        "requiredArgCount": "Expected a single type argument after \"Required\"",
-        "requiredNotInTypedDict": "\"Required\" is not allowed in this context",
-        "returnInAsyncGenerator": "Return statement with value is not allowed in async generator",
-        "returnOutsideFunction": "\"return\" can be used only within a function",
+        "relativeImportNotAllowed": {
+            "message": "Relative imports cannot be used with \"import .a\" form; use \"from . import a\" instead",
+            "comment": "{Locked='import .a','from . import a'}"
+        },
+        "requiredArgCount": {
+            "message": "Expected a single type argument after \"Required\"",
+            "comment": "{Locked='Required'}"
+        },
+        "requiredNotInTypedDict": {
+            "message": "\"Required\" is not allowed in this context",
+            "comment": "{Locked='Required'}"
+        },
+        "returnInAsyncGenerator": {
+            "message": "Return statement with value is not allowed in async generator",
+            "comment": "{Locked='async'}"
+        },
         "returnMissing": "Function with declared return type \"{returnType}\" must return value on all code paths",
+        "returnOutsideFunction": {
+            "message": "\"return\" can be used only within a function",
+            "comment": "{Locked='return'}"
+        },
         "returnTypeContravariant": "Contravariant type variable cannot be used in return type",
-        "returnTypeMismatch": "Expression of type \"{exprType}\" is incompatible with return type \"{returnType}\"",
-        "returnTypeUnknown": "Return type is unknown",
+        "returnTypeMismatch": "Type \"{exprType}\" is not assignable to return type \"{returnType}\"",
         "returnTypePartiallyUnknown": "Return type, \"{returnType}\", is partially unknown",
-        "revealLocalsArgs": "Expected no arguments for \"reveal_locals\" call",
-        "revealLocalsNone": "No locals in this scope",
-        "revealTypeArgs": "Expected a single positional argument for \"reveal_type\" call",
-        "revealTypeExpectedTextArg": "The \"expected_text\" argument for function \"reveal_type\" must be a str literal value",
+        "returnTypeUnknown": "Return type is unknown",
+        "revealLocalsArgs": {
+            "message": "Expected no arguments for \"reveal_locals\" call",
+            "comment": "{Locked='reveal_locals'}"
+        },
+        "revealLocalsNone": {
+            "message": "No locals in this scope",
+            "comment": "{Locked='locals'}"
+        },
+        "revealTypeArgs": {
+            "message": "Expected a single positional argument for \"reveal_type\" call",
+            "comment": "{Locked='reveal_type'}"
+        },
+        "revealTypeExpectedTextArg": {
+            "message": "The \"expected_text\" argument for function \"reveal_type\" must be a str literal value",
+            "comment": "{Locked='expected_text','reveal_type','str'}"
+        },
         "revealTypeExpectedTextMismatch": "Type text mismatch; expected \"{expected}\" but received \"{received}\"",
         "revealTypeExpectedTypeMismatch": "Type mismatch; expected \"{expected}\" but received \"{received}\"",
-        "selfTypeContext": "\"Self\" is not valid in this context",
-        "selfTypeMetaclass": "\"Self\" cannot be used within a metaclass (a subclass of \"type\")",
-        "selfTypeWithTypedSelfOrCls": "\"Self\" cannot be used in a function with a `self` or `cls` parameter that has a type annotation other than \"Self\"",
-        "setterGetterTypeMismatch": "Property setter value type is not assignable to the getter return type",
+        "selfTypeContext": {
+            "message": "\"Self\" is not valid in this context",
+            "comment": "{Locked='Self'}"
+        },
+        "selfTypeMetaclass": {
+            "message": "\"Self\" cannot be used within a metaclass (a subclass of \"type\")",
+            "comment": ["{Locked='Self'}", "Metaclasses are a complex concept and it may be best to not localize the term"]
+        },
+        "selfTypeWithTypedSelfOrCls": {
+            "message": "\"Self\" cannot be used in a function with a `self` or `cls` parameter that has a type annotation other than \"Self\"",
+            "comment": "{Locked='Self','self','cls'}"
+        },
+        "setterGetterTypeMismatch": {
+            "message": "Property setter value type is not assignable to the getter return type",
+            "comment": ["{Locked='setter','getter'}", "{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
         "singleOverload": "\"{name}\" is marked as overload, but additional overloads are missing",
-        "slotsAttributeError": "\"{name}\" is not specified in __slots__",
-        "slotsClassVarConflict": "\"{name}\" conflicts with instance variable declared in __slots__",
-        "starPatternInAsPattern": "Star pattern cannot be used with \"as\" target",
-        "starPatternInOrPattern": "Star pattern cannot be ORed within other patterns",
+        "slotsAttributeError": {
+            "message": "\"{name}\" is not specified in __slots__",
+            "comment": "{Locked='__slots__'}"
+        },
+        "slotsClassVarConflict": {
+            "message": "\"{name}\" conflicts with instance variable declared in __slots__",
+            "comment": "{Locked='__slots__'}"
+        },
+        "starPatternInAsPattern": {
+            "message": "Star pattern cannot be used with \"as\" target",
+            "comment": ["{Locked='as'}", "Star pattern refers to the use of the * (star) character to represent a variable length pattern match"]
+        },
+        "starPatternInOrPattern": {
+            "message": "Star pattern cannot be ORed within other patterns",
+            "comment": ["Star pattern refers to the use of the * (star) character to represent a variable length pattern match", "'ORed' means joined together with a binary 'or' operation"]
+        },
         "starStarWildcardNotAllowed": "** cannot be used with wildcard \"_\"",
-        "staticClsSelfParam": "Static methods should not take a \"self\" or \"cls\" parameter",
-        "stdlibModuleOverridden": "\"{path}\" is overriding the stdlib module \"{name}\"",
-        "stringNonAsciiBytes": "Non-ASCII character not allowed in bytes string literal",
-        "stringNotSubscriptable": "String expression cannot be subscripted in type annotation; enclose entire annotation in quotes",
+        "staticClsSelfParam": {
+            "message": "Static methods should not take a \"self\" or \"cls\" parameter",
+            "comment": "{Locked='self','cls'}"
+        },
+        "stdlibModuleOverridden": {
+            "message": "\"{path}\" is overriding the stdlib module \"{name}\"",
+            "comment": "{Locked='stdlib'}"
+        },
+        "stringNonAsciiBytes": {
+            "message": "Non-ASCII character not allowed in bytes string literal",
+            "comment": "{Locked='ASCII'}"
+        },
+        "stringNotSubscriptable": "String expression cannot be subscripted in type expression; enclose entire expression in quotes",
         "stringUnsupportedEscape": "Unsupported escape sequence in string literal",
         "stringUnterminated": "String literal is unterminated",
-        "stubFileMissing": "Stub file not found for \"{importName}\"",
-        "stubUsesGetAttr": "Type stub file is incomplete; \"__getattr__\" obscures type errors for module",
-        "sublistParamsIncompatible": "Sublist parameters are not supported in Python 3.x",
-        "superCallArgCount": "Expected no more than two arguments to \"super\" call",
-        "superCallFirstArg": "Expected class type as first argument to \"super\" call but received \"{type}\"",
-        "superCallSecondArg": "Second argument to \"super\" call must be object or class that derives from \"{type}\"",
-        "superCallZeroArgForm": "Zero-argument form of \"super\" call is valid only within a method",
-        "superCallZeroArgFormStaticMethod": "Zero-argument form of \"super\" call is not valid within a static method",
+        "stubFileMissing": {
+            "message": "Stub file not found for \"{importName}\"",
+            "comment": "{StrContains=i'stub'}"
+        },
+        "stubUsesGetAttr": {
+            "message": "Type stub file is incomplete; \"__getattr__\" obscures type errors for module",
+            "comment": ["{Locked='__getattr__'}", "{StrContains=i'stub'}"]
+        },
+        "sublistParamsIncompatible": {
+            "message": "Sublist parameters are not supported in Python 3.x",
+            "comment": "{StrContains=i'sublist'}"
+        },
+        "superCallArgCount": {
+            "message": "Expected no more than two arguments to \"super\" call",
+            "comment": "{Locked='super'}"
+        },
+        "superCallFirstArg": {
+            "message": "Expected class type as first argument to \"super\" call but received \"{type}\"",
+            "comment": "{Locked='super'}"
+        },
+        "superCallSecondArg": {
+            "message": "Second argument to \"super\" call must be object or class that derives from \"{type}\"",
+            "comment": "{Locked='super'}"
+        },
+        "superCallZeroArgForm": {
+            "message": "Zero-argument form of \"super\" call is valid only within a method",
+            "comment": "{Locked='super'}"
+        },
+        "superCallZeroArgFormStaticMethod": {
+            "message": "Zero-argument form of \"super\" call is not valid within a static method",
+            "comment": "{Locked='super'}"
+        },
+        "symbolIsPossiblyUnbound": "\"{name}\" is possibly unbound",
         "symbolIsUnbound": "\"{name}\" is unbound",
         "symbolIsUndefined": "\"{name}\" is not defined",
-        "symbolIsPossiblyUnbound": "\"{name}\" is possibly unbound",
         "symbolOverridden": "\"{name}\" overrides symbol of same name in class \"{className}\"",
-        "ternaryNotAllowed": "Ternary expression not allowed in type annotation",
-        "totalOrderingMissingMethod": "Class must define one of \"__lt__\", \"__le__\", \"__gt__\", or \"__ge__\" to use total_ordering",
+        "ternaryNotAllowed": "Ternary expression not allowed in type expression",
+        "totalOrderingMissingMethod": {
+            "message": "Class must define one of \"__lt__\", \"__le__\", \"__gt__\", or \"__ge__\" to use total_ordering",
+            "comment": "{Locked='__lt__','__le__','__gt__','__ge__','total_ordering'}"
+        },
         "trailingCommaInFromImport": "Trailing comma not allowed without surrounding parentheses",
-        "tryWithoutExcept": "Try statement must have at least one except or finally clause",
-        "tupleAssignmentMismatch": "Expression with type \"{type}\" cannot be assigned to target tuple",
-        "tupleInAnnotation": "Tuple expression not allowed in type annotation",
+        "tryWithoutExcept": {
+            "message": "Try statement must have at least one except or finally clause",
+            "comment": ["{Locked='except','finally'}", "{StrContains=i'try'}", "'try' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "tupleAssignmentMismatch": {
+            "message": "Expression with type \"{type}\" cannot be assigned to target tuple",
+            "comment": "{Locked='tuple'}"
+        },
+        "tupleInAnnotation": {
+            "message": "Tuple expression not allowed in type expression",
+            "comment": ["{StrContains=i'tuple'}", "'tuple' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
         "tupleIndexOutOfRange": "Index {index} is out of range for type {type}",
         "typeAliasIllegalExpressionForm": "Invalid expression form for type alias definition",
         "typeAliasIsRecursiveDirect": "Type alias \"{name}\" cannot use itself in its definition",
-        "typeAliasNotInModuleOrClass": "A TypeAlias can be defined only within a module or class scope",
-        "typeAliasRedeclared": "\"{name}\" is declared as a TypeAlias and can be assigned only once",
+        "typeAliasNotInModuleOrClass": {
+            "message": "A TypeAlias can be defined only within a module or class scope",
+            "comment": "{Locked='TypeAlias'}"
+        },
+        "typeAliasRedeclared": {
+            "message": "\"{name}\" is declared as a TypeAlias and can be assigned only once",
+            "comment": "{Locked='TypeAlias'}"
+        },
+        "typeAliasStatementBadScope": {
+            "message": "A type statement can be used only within a module or class scope",
+            "comment": "{Locked='type'}"
+        },
         "typeAliasStatementIllegal": "Type alias statement requires Python 3.12 or newer",
-        "typeAliasStatementBadScope": "A type statement can be used only within a module or class scope",
-        "typeAliasTypeBaseClass": "A type alias defined in a \"type\" statement cannot be used as a base class",
-        "typeAliasTypeMustBeAssigned": "TypeAliasType must be assigned to a variable with the same name as the type alias",
-        "typeAliasTypeNameArg": "First argument to TypeAliasType must be a string literal representing the name of the type alias",
+        "typeAliasTypeBaseClass": {
+            "message": "A type alias defined in a \"type\" statement cannot be used as a base class",
+            "comment": "{Locked='\"type\"'}"
+        },
+        "typeAliasTypeMustBeAssigned": {
+            "message": "TypeAliasType must be assigned to a variable with the same name as the type alias",
+            "comment": "{Locked='TypeAliasType'}"
+        },
+        "typeAliasTypeNameArg": {
+            "message": "First argument to TypeAliasType must be a string literal representing the name of the type alias",
+            "comment": "{Locked='TypeAliasType'}"
+        },
         "typeAliasTypeNameMismatch": "Name of type alias must match the name of the variable to which it is assigned",
-        "typeAliasTypeParamInvalid": "Type parameter list must be a tuple containing only TypeVar, TypeVarTuple, or ParamSpec",
-        "typeArgListExpected": "Expected ParamSpec, ellipsis, or list of types",
+        "typeAliasTypeParamInvalid": {
+            "message": "Type parameter list must be a tuple containing only TypeVar, TypeVarTuple, or ParamSpec",
+            "comment": "{Locked='tuple','TypeVar','TypeVarTuple','ParamSpec'}"
+        },
         "typeAnnotationCall": "Call expression not allowed in type expression",
         "typeAnnotationVariable": "Variable not allowed in type expression",
-        "typeAnnotationWithCallable": "Type argument for \"type\" must be a class; callables are not supported",
-        "typeArgListNotAllowed": "List expression not allowed for this type argument",
+        "typeAnnotationWithCallable": {
+            "message": "Type argument for \"type\" must be a class; callables are not supported",
+            "comment": ["{Locked='type'}", "'callables' are objects that can be called like a function"]
+        },
+        "typeArgListExpected": {
+            "message": "Expected ParamSpec, ellipsis, or list of types",
+            "comment": "{Locked='ParamSpec','list'}"
+        },
+        "typeArgListNotAllowed": {
+            "message": "List expression not allowed for this type argument",
+            "comment": ["{StrContains=i'list'}", "'list' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
         "typeArgsExpectingNone": "Expected no type arguments for class \"{name}\"",
         "typeArgsMismatchOne": "Expected one type argument but received {received}",
-        "typeArgsMissingForAlias": "Expected type arguments for generic type alias \"{name}\"",
-        "typeArgsMissingForClass": "Expected type arguments for generic class \"{name}\"",
+        "typeArgsMissingForAlias": {
+            "message": "Expected type arguments for generic type alias \"{name}\"",
+            "comment": "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"
+        },
+        "typeArgsMissingForClass": {
+            "message": "Expected type arguments for generic class \"{name}\"",
+            "comment": "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"
+        },
         "typeArgsTooFew": "Too few type arguments provided for \"{name}\"; expected {expected} but received {received}",
         "typeArgsTooMany": "Too many type arguments provided for \"{name}\"; expected {expected} but received {received}",
-        "typeAssignmentMismatch": "Expression of type \"{sourceType}\" is incompatible with declared type \"{destType}\"",
-        "typeAssignmentMismatchWildcard": "Import symbol \"{name}\" has type \"{sourceType}\", which is incompatible with declared type \"{destType}\"",
-        "typeCallNotAllowed": "type() call should not be used in type annotation",
-        "typeCheckOnly": "\"{name}\" is marked as @type_check_only and can be used only in type annotations",
-        "typeCommentDeprecated": "Use of type comments is deprecated; use type annotation instead",
-        "typedDictAccess": "Could not access item in TypedDict",
-        "typedDictAssignedName": "TypedDict must be assigned to a variable named \"{name}\"",
-        "typedDictBadVar": "TypedDict classes can contain only type annotations",
-        "typedDictBaseClass": "All base classes for TypedDict classes must also be TypedDict classes",
-        "typedDictBoolParam": "Expected \"{name}\" parameter to have a value of True or False",
-        "typedDictClosedExtras": "Base class \"{name}\" is a closed TypedDict; extra items must be type \"{type}\"",
-        "typedDictClosedNoExtras": "Base class \"{name}\" is a closed TypedDict; extra items are not allowed",
-        "typedDictDelete": "Could not delete item in TypedDict",
-        "typedDictEmptyName": "Names within a TypedDict cannot be empty",
-        "typedDictEntryName": "Expected string literal for dictionary entry name",
-        "typedDictEntryUnique": "Names within a dictionary must be unique",
-        "typedDictExtraArgs": "Extra TypedDict arguments not supported",
-        "typedDictFieldNotRequiredRedefinition": "TypedDict item \"{name}\" cannot be redefined as NotRequired",
-        "typedDictFieldReadOnlyRedefinition": "TypedDict item \"{name}\" cannot be redefined as ReadOnly",
-        "typedDictFieldRequiredRedefinition": "TypedDict item \"{name}\" cannot be redefined as Required",
-        "typedDictFirstArg": "Expected TypedDict class name as first argument",
-        "typedDictInitsubclassParameter": "TypedDict does not support __init_subclass__ parameter \"{name}\"",
-        "typedDictNotAllowed": "\"TypedDict\" cannot be used in this context",
-        "typedDictSecondArgDict": "Expected dict or keyword parameter as second parameter",
-        "typedDictSecondArgDictEntry": "Expected simple dictionary entry",
-        "typedDictSet": "Could not assign item in TypedDict",
+        "typeAssignmentMismatch": "Type \"{sourceType}\" is not assignable to declared type \"{destType}\"",
+        "typeAssignmentMismatchWildcard": "Import symbol \"{name}\" has type \"{sourceType}\", which is not assignable to declared type \"{destType}\"",
+        "typeCallNotAllowed": {
+            "message": "type() call should not be used in type expression",
+            "comment": "{Locked='type()'}"
+        },
+        "typeCheckOnly": {
+            "message": "\"{name}\" is marked as @type_check_only and can be used only in type annotations",
+            "comment": "{Locked='@type_check_only'}"
+        },
+        "typeCommentDeprecated": {
+            "message": "Use of type comments is deprecated; use type annotation instead",
+            "comment": "{Locked='type'}"
+        },
         "typeExpectedClass": "Expected class but received \"{type}\"",
-        "typeGuardArgCount": "Expected a single type argument after \"TypeGuard\" or \"TypeIs\"",
+        "typeFormArgs": {
+            "message": "\"TypeForm\" accepts a single positional argument",
+            "comment": "{Locked='TypeForm'}"
+        },
+        "typeGuardArgCount": {
+            "message": "Expected a single type argument after \"TypeGuard\" or \"TypeIs\"",
+            "comment": "{Locked='TypeGuard','TypeIs'}"
+        },
         "typeGuardParamCount": "User-defined type guard functions and methods must have at least one input parameter",
-        "typeIsReturnType": "Return type of TypeIs (\"{returnType}\") is not consistent with value parameter type (\"{type}\")",
-        "typeNotAwaitable": "\"{type}\" is not awaitable",
+        "typeIsReturnType": {
+            "message": "Return type of TypeIs (\"{returnType}\") is not consistent with value parameter type (\"{type}\")",
+            "comment": "{Locked='TypeIs'}"
+        },
+        "typeNotAwaitable": {
+            "message": "\"{type}\" is not awaitable",
+            "comment": "{Locked='awaitable'}"
+        },
         "typeNotIntantiable": "\"{type}\" cannot be instantiated",
         "typeNotIterable": "\"{type}\" is not iterable",
         "typeNotSpecializable": "Could not specialize type \"{type}\"",
         "typeNotSubscriptable": "Object of type \"{type}\" is not subscriptable",
-        "typeNotUsableWith": "Object of type \"{type}\" cannot be used with \"with\" because it does not implement {method}",
         "typeNotSupportBinaryOperator": "Operator \"{operator}\" not supported for types \"{leftType}\" and \"{rightType}\"",
         "typeNotSupportBinaryOperatorBidirectional": "Operator \"{operator}\" not supported for types \"{leftType}\" and \"{rightType}\" when expected type is \"{expectedType}\"",
         "typeNotSupportUnaryOperator": "Operator \"{operator}\" not supported for type \"{type}\"",
         "typeNotSupportUnaryOperatorBidirectional": "Operator \"{operator}\" not supported for type \"{type}\" when expected type is \"{expectedType}\"",
-        "typeParameterBoundNotAllowed": "Bound or constraint cannot be used with a variadic type parameter or ParamSpec",
+        "typeNotUsableWith": "Object of type \"{type}\" cannot be used with \"with\" because it does not implement {method}",
+        "typeParameterBoundNotAllowed": {
+            "message": "Bound or constraint cannot be used with a variadic type parameter or ParamSpec",
+            "comment": ["{Locked='ParamSpec'}", "'variadic' means that it accepts a variable number of arguments"]
+        },
         "typeParameterConstraintTuple": "Type parameter constraint must be a tuple of two or more types",
         "typeParameterExistingTypeParameter": "Type parameter \"{name}\" is already in use",
-        "typeParametersMissing": "At least one type parameter must be specified",
         "typeParameterNotDeclared": "Type parameter \"{name}\" is not included in the type parameter list for \"{container}\"",
+        "typeParametersMissing": "At least one type parameter must be specified",
         "typePartiallyUnknown": "Type of \"{name}\" is partially unknown",
         "typeUnknown": "Type of \"{name}\" is unknown",
-        "typeVarAssignedName": "TypeVar must be assigned to a variable named \"{name}\"",
+        "typeVarAssignedName": {
+            "message": "TypeVar must be assigned to a variable named \"{name}\"",
+            "comment": "{Locked='TypeVar'}"
+        },
         "typeVarAssignmentMismatch": "Type \"{type}\" cannot be assigned to type variable \"{name}\"",
-        "typeVarBoundAndConstrained": "TypeVar cannot be both bound and constrained",
-        "typeVarBoundGeneric": "TypeVar bound type cannot be generic",
-        "typeVarConstraintGeneric": "TypeVar constraint type cannot be generic",
-        "typeVarDefaultBoundMismatch": "TypeVar default type must be a subtype of the bound type",
-        "typeVarDefaultConstraintMismatch": "TypeVar default type must be one of the constrained types",
+        "typeVarBoundAndConstrained": {
+            "message": "TypeVar cannot be both bound and constrained",
+            "comment": "{Locked='TypeVar'}"
+        },
+        "typeVarBoundGeneric": {
+            "message": "TypeVar bound type cannot be generic",
+            "comment": ["{Locked='TypeVar'}", "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"]
+        },
+        "typeVarConstraintGeneric": {
+            "message": "TypeVar constraint type cannot be generic",
+            "comment": ["{Locked='TypeVar'}", "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"]
+        },
+        "typeVarDefaultBoundMismatch": {
+            "message": "TypeVar default type must be a subtype of the bound type",
+            "comment": "{Locked='TypeVar'}"
+        },
+        "typeVarDefaultConstraintMismatch": {
+            "message": "TypeVar default type must be one of the constrained types",
+            "comment": "{Locked='TypeVar'}"
+        },
         "typeVarDefaultIllegal": "Type variable default types require Python 3.13 or newer",
         "typeVarDefaultInvalidTypeVar": "Type parameter \"{name}\" has a default type that refers to one or more type variables that are out of scope",
-        "typeVarFirstArg": "Expected name of TypeVar as first argument",
+        "typeVarFirstArg": {
+            "message": "Expected name of TypeVar as first argument",
+            "comment": "{Locked='TypeVar'}"
+        },
         "typeVarInvalidForMemberVariable": "Attribute type cannot use type variable \"{name}\" scoped to local method",
-        "typeVarNoMember": "TypeVar \"{type}\" has no attribute \"{name}\"",
-        "typeVarNotSubscriptable": "TypeVar \"{type}\" is not subscriptable",
+        "typeVarNoMember": {
+            "message": "TypeVar \"{type}\" has no attribute \"{name}\"",
+            "comment": "{Locked='TypeVar'}"
+        },
+        "typeVarNotSubscriptable": {
+            "message": "TypeVar \"{type}\" is not subscriptable",
+            "comment": "{Locked='TypeVar'}"
+        },
         "typeVarNotUsedByOuterScope": "Type variable \"{name}\" has no meaning in this context",
         "typeVarPossiblyUnsolvable": "Type variable \"{name}\" may go unsolved if caller supplies no argument for parameter \"{param}\"",
-        "typeVarSingleConstraint": "TypeVar must have at least two constrained types",
-        "typeVarsNotInGenericOrProtocol": "Generic[] or Protocol[] must include all type variables",
-        "typeVarTupleContext": "TypeVarTuple is not allowed in this context",
-        "typeVarTupleDefaultNotUnpacked": "TypeVarTuple default type must be an unpacked tuple or TypeVarTuple",
-        "typeVarTupleMustBeUnpacked": "Unpack operator is required for TypeVarTuple value",
-        "typeVarTupleConstraints": "TypeVarTuple cannot have value constraints",
-        "typeVarTupleUnknownParam": "\"{name}\" is unknown parameter to TypeVarTuple",
-        "typeVarUnknownParam": "\"{name}\" is unknown parameter to TypeVar",
-        "typeVarUsedByOuterScope": "TypeVar \"{name}\" is already in use by an outer scope",
-        "typeVarUsedOnlyOnce": "TypeVar \"{name}\" appears only once in generic function signature",
-        "typeVarVariance": "TypeVar cannot be both covariant and contravariant",
-        "typeVarWithDefaultFollowsVariadic": "TypeVar \"{typeVarName}\" has a default value and cannot follow TypeVarTuple \"{variadicName}\"",
+        "typeVarSingleConstraint": {
+            "message": "TypeVar must have at least two constrained types",
+            "comment": "{Locked='TypeVar'}"
+        },
+        "typeVarTupleConstraints": {
+            "message": "TypeVarTuple cannot have value constraints",
+            "comment": "{Locked='TypeVarTuple'}"
+        },
+        "typeVarTupleContext": {
+            "message": "TypeVarTuple is not allowed in this context",
+            "comment": "{Locked='TypeVarTuple'}"
+        },
+        "typeVarTupleDefaultNotUnpacked": {
+            "message": "TypeVarTuple default type must be an unpacked tuple or TypeVarTuple",
+            "comment": "{Locked='TypeVarTuple','tuple'}"
+        },
+        "typeVarTupleMustBeUnpacked": {
+            "message": "Unpack operator is required for TypeVarTuple value",
+            "comment": "{Locked='TypeVarTuple'}"
+        },
+        "typeVarTupleUnknownParam": {
+            "message": "\"{name}\" is unknown parameter to TypeVarTuple",
+            "comment": "{Locked='TypeVarTuple'}"
+        },
+        "typeVarUnknownParam": {
+            "message": "\"{name}\" is unknown parameter to TypeVar",
+            "comment": "{Locked='TypeVar'}"
+        },
+        "typeVarUsedByOuterScope": {
+            "message": "TypeVar \"{name}\" is already in use by an outer scope",
+            "comment": "{Locked='TypeVar'}"
+        },
+        "typeVarUsedOnlyOnce": {
+            "message": "TypeVar \"{name}\" appears only once in generic function signature",
+            "comment": ["{Locked='TypeVar'}", "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"]
+        },
+        "typeVarVariance": {
+            "message": "TypeVar cannot be both covariant and contravariant",
+            "comment": "{Locked='TypeVar'}"
+        },
+        "typeVarWithDefaultFollowsVariadic": {
+            "message": "TypeVar \"{typeVarName}\" has a default value and cannot follow TypeVarTuple \"{variadicName}\"",
+            "comment": "{Locked='TypeVar','TypeVarTuple'}"
+        },
         "typeVarWithoutDefault": "\"{name}\" cannot appear after \"{other}\" in type parameter list because it has no default type",
+        "typeVarsNotInGenericOrProtocol": {
+            "message": "Generic[] or Protocol[] must include all type variables",
+            "comment": "{Locked='Generic[]','Protocol[]'}"
+        },
+        "typedDictAccess": {
+            "message": "Could not access item in TypedDict",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictAssignedName": {
+            "message": "TypedDict must be assigned to a variable named \"{name}\"",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictBadVar": {
+            "message": "TypedDict classes can contain only type annotations",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictBaseClass": {
+            "message": "All base classes for TypedDict classes must also be TypedDict classes",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictBoolParam": {
+            "message": "Expected \"{name}\" parameter to have a value of True or False",
+            "comment": "{Locked='True','False'}"
+        },
+        "typedDictClosedExtras": {
+            "message": "Base class \"{name}\" is a closed TypedDict; extra items must be type \"{type}\"",
+            "comment": "{Locked='closed','TypedDict'}"
+        },
+        "typedDictClosedNoExtras": {
+            "message": "Base class \"{name}\" is a closed TypedDict; extra items are not allowed",
+            "comment": "{Locked='closed','TypedDict'}"
+        },
+        "typedDictDelete": {
+            "message": "Could not delete item in TypedDict",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictEmptyName": {
+            "message": "Names within a TypedDict cannot be empty",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictEntryName": "Expected string literal for dictionary entry name",
+        "typedDictEntryUnique": "Names within a dictionary must be unique",
+        "typedDictExtraArgs": {
+            "message": "Extra TypedDict arguments not supported",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictFieldNotRequiredRedefinition": {
+            "message": "TypedDict item \"{name}\" cannot be redefined as NotRequired",
+            "comment": "{Locked='TypedDict','NotRequired'}"
+        },
+        "typedDictFieldReadOnlyRedefinition": {
+            "message": "TypedDict item \"{name}\" cannot be redefined as ReadOnly",
+            "comment": "{Locked='TypedDict','ReadOnly'}"
+        },
+        "typedDictFieldRequiredRedefinition": {
+            "message": "TypedDict item \"{name}\" cannot be redefined as Required",
+            "comment": "{Locked='TypedDict','Required'}"
+        },
+        "typedDictFirstArg": {
+            "message": "Expected TypedDict class name as first argument",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictInClassPattern": {
+            "message": "TypedDict class not allowed in class pattern",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictInitsubclassParameter": {
+            "message": "TypedDict does not support __init_subclass__ parameter \"{name}\"",
+            "comment": "{Locked='TypedDict','__init_subclass__'}"
+        },
+        "typedDictNotAllowed": {
+            "message": "\"TypedDict\" cannot be used in this context",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictSecondArgDict": {
+            "message": "Expected dict or keyword parameter as second parameter",
+            "comment": "{Locked='dict'}"
+        },
+        "typedDictSecondArgDictEntry": "Expected simple dictionary entry",
+        "typedDictSet": {
+            "message": "Could not assign item in TypedDict",
+            "comment": "{Locked='TypedDict'}"
+        },
         "unaccessedClass": "Class \"{name}\" is not accessed",
         "unaccessedFunction": "Function \"{name}\" is not accessed",
         "unaccessedImport": "Import \"{name}\" is not accessed",
         "unaccessedSymbol": "\"{name}\" is not accessed",
         "unaccessedVariable": "Variable \"{name}\" is not accessed",
         "unannotatedFunctionSkipped": "Analysis of function \"{name}\" is skipped because it is unannotated",
-        "unaryOperationNotAllowed": "Unary operator not allowed in type annotation",
-        "unexpectedAsyncToken": "Expected \"def\", \"with\" or \"for\" to follow \"async\"",
+        "unaryOperationNotAllowed": "Unary operator not allowed in type expression",
+        "unexpectedAsyncToken": {
+            "message": "Expected \"def\", \"with\" or \"for\" to follow \"async\"",
+            "comment": "{Locked='def','with','for','async'}"
+        },
         "unexpectedExprToken": "Unexpected token at end of expression",
         "unexpectedIndent": "Unexpected indentation",
         "unexpectedUnindent": "Unindent not expected",
         "unhashableDictKey": "Dictionary key must be hashable",
-        "unhashableSetEntry": "Set entry must be hashable",
-        "unionForwardReferenceNotAllowed": "Union syntax cannot be used with string operand; use quotes around entire expression",
-        "unionSyntaxIllegal": "Alternative syntax for unions requires Python 3.10 or newer",
-        "unionTypeArgCount": "Union requires two or more type arguments",
-        "uninitializedAbstractVariables": "Variables defined in abstract base class are not initialized in final class \"{classType}\"",
-        "uninitializedInstanceVariable": "Instance variable \"{name}\" is not initialized in the class body or __init__ method",
-        "unionUnpackedTuple": "Union cannot include an unpacked tuple",
-        "unionUnpackedTypeVarTuple": "Union cannot include an unpacked TypeVarTuple",
-        "unnecessaryCast": "Unnecessary \"cast\" call; type is already \"{type}\"",
-        "unnecessaryIsInstanceAlways": "Unnecessary isinstance call; \"{testType}\" is always an instance of \"{classType}\"",
-        "unnecessaryIsSubclassAlways": "Unnecessary issubclass call; \"{testType}\" is always a subclass of \"{classType}\"",
-        "unnecessaryPyrightIgnore": "Unnecessary \"# pyright: ignore\" comment",
-        "unnecessaryPyrightIgnoreRule": "Unnecessary \"# pyright: ignore\" rule: \"{name}\"",
-        "unnecessaryTypeIgnore": "Unnecessary \"# type: ignore\" comment",
-        "unpackArgCount": "Expected a single type argument after \"Unpack\"",
+        "unhashableSetEntry": {
+            "message": "Set entry must be hashable",
+            "comment": ["{StrContains=i'set'}", "'set' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "uninitializedAbstractVariables": {
+            "message": "Variables defined in abstract base class are not initialized in final class \"{classType}\"",
+            "comment": "{Locked='final'}"
+        },
+        "uninitializedInstanceVariable": {
+            "message": "Instance variable \"{name}\" is not initialized in the class body or __init__ method",
+            "comment": "{Locked='__init__'}"
+        },
+        "unionForwardReferenceNotAllowed": {
+            "message": "Union syntax cannot be used with string operand; use quotes around entire expression",
+            "comment": "{Locked='Union'}"
+        },
+        "unionSyntaxIllegal": {
+            "message": "Alternative syntax for unions requires Python 3.10 or newer",
+            "comment": "'unions' as in the mathematical set theory term"
+        },
+        "unionTypeArgCount": {
+            "message": "Union requires two or more type arguments",
+            "comment": "{Locked='Union'}"
+        },
+        "unionUnpackedTuple": {
+            "message": "Union cannot include an unpacked tuple",
+            "comment": "{Locked='Union','tuple'}"
+        },
+        "unionUnpackedTypeVarTuple": {
+            "message": "Union cannot include an unpacked TypeVarTuple",
+            "comment": "{Locked='Union','TypeVarTuple'}"
+        },
+        "unnecessaryCast": {
+            "message": "Unnecessary \"cast\" call; type is already \"{type}\"",
+            "comment": "{Locked='cast'}"
+        },
+        "unnecessaryIsInstanceAlways": {
+            "message": "Unnecessary isinstance call; \"{testType}\" is always an instance of \"{classType}\"",
+            "comment": "{Locked='isinstance'}"
+        },
+        "unnecessaryIsSubclassAlways": {
+            "message": "Unnecessary issubclass call; \"{testType}\" is always a subclass of \"{classType}\"",
+            "comment": "{Locked='issubclass'}"
+        },
+        "unnecessaryIsInstanceNever": {
+            "message": "Unnecessary isinstance call; \"{testType}\" is never an instance of \"{classType}\"",
+            "comment": "{Locked='isinstance'}"
+        },
+        "unnecessaryIsSubclassNever": {
+            "message": "Unnecessary issubclass call; \"{testType}\" is never a subclass of \"{classType}\"",
+            "comment": "{Locked='issubclass'}"
+        },
+        "unnecessaryPyrightIgnore": {
+            "message": "Unnecessary \"# pyright: ignore\" comment",
+            "comment": "{Locked='# pyright: ignore'}"
+        },
+        "unnecessaryPyrightIgnoreRule": {
+            "message": "Unnecessary \"# pyright: ignore\" rule: \"{name}\"",
+            "comment": "{Locked='# pyright: ignore'}"
+        },
+        "unnecessaryTypeIgnore": {
+            "message": "Unnecessary \"# type: ignore\" comment",
+            "comment": "{Locked='# type: ignore'}"
+        },
+        "unpackArgCount": {
+            "message": "Expected a single type argument after \"Unpack\"",
+            "comment": "{Locked='Unpack'}"
+        },
+        "unpackExpectedTypeVarTuple": {
+            "message": "Expected TypeVarTuple or tuple as type argument for Unpack",
+            "comment": "{Locked='TypeVarTuple','tuple','Unpack'}"
+        },
+        "unpackExpectedTypedDict": {
+            "message": "Expected TypedDict type argument for Unpack",
+            "comment": "{Locked='TypedDict','Unpack'}"
+        },
+        "unpackIllegalInComprehension": {
+            "message": "Unpack operation not allowed in comprehension",
+            "comment": "A comprehension is a 'set of looping and filtering instructions' applied to a collection to generate a new collection; the word may not be translatable"
+        },
+        "unpackInAnnotation": "Unpack operator not allowed in type expression",
+        "unpackInDict": "Unpack operation not allowed in dictionaries",
+        "unpackInSet": {
+            "message": "Unpack operator not allowed within a set",
+            "comment": "{Locked='set'}"
+        },
+        "unpackNotAllowed": {
+            "message": "Unpack is not allowed in this context",
+            "comment": "{Locked='Unpack'}"
+        },
+        "unpackOperatorNotAllowed": "Unpack operation is not allowed in this context",
+        "unpackTuplesIllegal": {
+            "message": "Unpack operation not allowed in tuples prior to Python 3.8",
+            "comment": "'tuple' is a keyword and should not be localized, but here it is pluralized"
+        },
         "unpackedArgInTypeArgument": "Unpacked arguments cannot be used in this context",
-        "unpackedArgWithVariadicParam": "Unpacked argument cannot be used for TypeVarTuple parameter",
-        "unpackedDictArgumentNotMapping": "Argument expression after ** must be a mapping with a \"str\" key type",
+        "unpackedArgWithVariadicParam": {
+            "message": "Unpacked argument cannot be used for TypeVarTuple parameter",
+            "comment": "{Locked='TypeVarTuple'}"
+        },
+        "unpackedDictArgumentNotMapping": {
+            "message": "Argument expression after ** must be a mapping with a \"str\" key type",
+            "comment": "{Locked='str'}"
+        },
         "unpackedDictSubscriptIllegal": "Dictionary unpack operator in subscript is not allowed",
         "unpackedSubscriptIllegal": "Unpack operator in subscript requires Python 3.11 or newer",
-        "unpackedTypedDictArgument": "Unable to match unpacked TypedDict argument to parameters",
-        "unpackedTypeVarTupleExpected": "Expected unpacked TypeVarTuple; use Unpack[{name1}] or *{name2}",
-        "unpackExpectedTypedDict": "Expected TypedDict type argument for Unpack",
-        "unpackExpectedTypeVarTuple": "Expected TypeVarTuple or tuple as type argument for Unpack",
-        "unpackIllegalInComprehension": "Unpack operation not allowed in comprehension",
-        "unpackInAnnotation": "Unpack operator not allowed in type annotation",
-        "unpackInDict": "Unpack operation not allowed in dictionaries",
-        "unpackInSet": "Unpack operator not allowed within a set",
-        "unpackNotAllowed": "Unpack is not allowed in this context",
-        "unpackOperatorNotAllowed": "Unpack operation is not allowed in this context",
-        "unpackTuplesIllegal": "Unpack operation not allowed in tuples prior to Python 3.8",
+        "unpackedTypeVarTupleExpected": {
+            "message": "Expected unpacked TypeVarTuple; use Unpack[{name1}] or *{name2}",
+            "comment": "{Locked='TypeVarTuple','Unpack[{name1}]','*{name2}'}"
+        },
+        "unpackedTypedDictArgument": {
+            "message": "Unable to match unpacked TypedDict argument to parameters",
+            "comment": "{Locked='TypedDict'}"
+        },
         "unreachableCode": "Code is unreachable",
         "unreachableCodeType": "Type analysis indicates code is unreachable",
-        "unreachableExcept": "Except clause is unreachable because exception is already handled",
-        "unsupportedDunderAllOperation": "Operation on \"__all__\" is not supported, so exported symbol list may be incorrect",
+        "unreachableExcept": {
+            "message": "Except clause is unreachable because exception is already handled",
+            "comment": ["{StrContains=i'except'}", "'except' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "unsupportedDunderAllOperation": {
+            "message": "Operation on \"__all__\" is not supported, so exported symbol list may be incorrect",
+            "comment": "{Locked='__all__'}"
+        },
         "unusedCallResult": "Result of call expression is of type \"{type}\" and is not used; assign to variable \"_\" if this is intentional",
-        "unusedCoroutine": "Result of async function call is not used; use \"await\" or assign result to variable",
+        "unusedCoroutine": {
+            "message": "Result of async function call is not used; use \"await\" or assign result to variable",
+            "comment": "{Locked='async'}"
+        },
         "unusedExpression": "Expression value is unused",
-        "varAnnotationIllegal": "Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with previous versions",
-        "variableFinalOverride": "Variable \"{name}\" is marked Final and overrides non-Final variable of same name in class \"{className}\"",
-        "variadicTypeArgsTooMany": "Type argument list can have at most one unpacked TypeVarTuple or tuple",
-        "variadicTypeParamTooManyAlias": "Type alias can have at most one TypeVarTuple type parameter but received multiple ({names})",
-        "variadicTypeParamTooManyClass": "Generic class can have at most one TypeVarTuple type parameter but received multiple ({names})",
+        "varAnnotationIllegal": {
+            "message": "Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with previous versions",
+            "comment": "{Locked='type'}"
+        },
+        "variableFinalOverride": {
+            "message": "Variable \"{name}\" is marked Final and overrides non-Final variable of same name in class \"{className}\"",
+            "comment": "{Locked='Final'}"
+        },
+        "variadicTypeArgsTooMany": {
+            "message": "Type argument list can have at most one unpacked TypeVarTuple or tuple",
+            "comment": "{Locked='TypeVarTuple','tuple'}"
+        },
+        "variadicTypeParamTooManyAlias": {
+            "message": "Type alias can have at most one TypeVarTuple type parameter but received multiple ({names})",
+            "comment": "{Locked='TypeVarTuple'}"
+        },
+        "variadicTypeParamTooManyClass": {
+            "message": "Generic class can have at most one TypeVarTuple type parameter but received multiple ({names})",
+            "comment": ["{Locked='TypeVarTuple'}", "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"]
+        },
         "walrusIllegal": "Operator \":=\" requires Python 3.8 or newer",
         "walrusNotAllowed": "Operator \":=\" is not allowed in this context without surrounding parentheses",
-        "wildcardInFunction": "Wildcard import not allowed within a class or function",
-        "wildcardPatternTypeUnknown": "Type captured by wildcard pattern is unknown",
+        "wildcardInFunction": {
+            "message": "Wildcard import not allowed within a class or function",
+            "comment": "{Locked='import'}"
+        },
+        "wildcardLibraryImport": {
+            "message": "Wildcard import from a library not allowed",
+            "comment": "{Locked='import'}"
+        },
         "wildcardPatternTypePartiallyUnknown": "Type captured by wildcard pattern is partially unknown",
-        "wildcardLibraryImport": "Wildcard import from a library not allowed",
-        "yieldFromIllegal": "Use of \"yield from\" requires Python 3.3 or newer",
-        "yieldFromOutsideAsync": "\"yield from\" not allowed in an async function",
-        "yieldOutsideFunction": "\"yield\" not allowed outside of a function or lambda",
-        "yieldWithinComprehension": "\"yield\" not allowed inside a comprehension",
-        "zeroCaseStatementsFound": "Match statement must include at least one case statement",
-        "zeroLengthTupleNotAllowed": "Zero-length tuple is not allowed in this context"
+        "wildcardPatternTypeUnknown": "Type captured by wildcard pattern is unknown",
+        "yieldFromIllegal": {
+            "message": "Use of \"yield from\" requires Python 3.3 or newer",
+            "comment": "{Locked='yield from'}"
+        },
+        "yieldFromOutsideAsync": {
+            "message": "\"yield from\" not allowed in an async function",
+            "comment": "{Locked='yield from','async'}"
+        },
+        "yieldOutsideFunction": {
+            "message": "\"yield\" not allowed outside of a function or lambda",
+            "comment": "{Locked='yield'}"
+        },
+        "yieldWithinComprehension": {
+            "message": "\"yield\" not allowed inside a comprehension",
+            "comment": ["{Locked='yield'}", "A comprehension is a 'set of looping and filtering instructions' applied to a collection to generate a new collection; the word may not be translatable"]
+        },
+        "zeroCaseStatementsFound": {
+            "message": "Match statement must include at least one case statement",
+            "comment": ["{Locked='case'}", "{StrContains=i'match'}", "'match' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "zeroLengthTupleNotAllowed": {
+            "message": "Zero-length tuple is not allowed in this context",
+            "comment": "{Locked='tuple'}"
+        }
     },
     "DiagnosticAddendum": {
-        "annotatedNotAllowed": "\"Annotated\" special form cannot be used with instance and class checks",
+        "annotatedNotAllowed": {
+            "message": "\"Annotated\" special form cannot be used with instance and class checks",
+            "comment": "{Locked='Annotated'}"
+        },
         "argParam": "Argument corresponds to parameter \"{paramName}\"",
         "argParamFunction": "Argument corresponds to parameter \"{paramName}\" in function \"{functionName}\"",
         "argsParamMissing": "Parameter \"*{paramName}\" has no corresponding parameter",
         "argsPositionOnly": "Position-only parameter mismatch; expected {expected} but received {received}",
         "argumentType": "Argument type is \"{type}\"",
         "argumentTypes": "Argument types: ({types})",
-        "assignToNone": "Type is incompatible with \"None\"",
-        "asyncHelp": "Did you mean \"async with\"?",
+        "assignToNone": {
+            "message": "Type is not assignable to \"None\"",
+            "comment": "{Locked='None'}"
+        },
+        "asyncHelp": {
+            "message": "Did you mean \"async with\"?",
+            "comment": "{Locked='async with'}"
+        },
         "baseClassIncompatible": "Base class \"{baseClass}\" is incompatible with type \"{type}\"",
         "baseClassIncompatibleSubclass": "Base class \"{baseClass}\" derives from \"{subclass}\" which is incompatible with type \"{type}\"",
         "baseClassOverriddenType": "Base class \"{baseClass}\" provides type \"{type}\", which is overridden",
         "baseClassOverridesType": "Base class \"{baseClass}\" overrides with type \"{type}\"",
-        "bytesTypePromotions": "Set disableBytesTypePromotions to false to enable type promotion behavior for \"bytearray\" and \"memoryview\"",
-        "conditionalRequiresBool": "Method __bool__ for type \"{operandType}\" returns type \"{boolReturnType}\" rather than \"bool\"",
+        "bytesTypePromotions": {
+            "message": "Set disableBytesTypePromotions to false to enable type promotion behavior for \"bytearray\" and \"memoryview\"",
+            "comment": "{Locked='disableBytesTypePromotions','false','bytearray','memoryview'}"
+        },
+        "conditionalRequiresBool": {
+            "message": "Method __bool__ for type \"{operandType}\" returns type \"{boolReturnType}\" rather than \"bool\"",
+            "comment": "{Locked='__bool__'}"
+        },
         "dataClassFieldLocation": "Field declaration",
-        "dataProtocolUnsupported": "\"{name}\" is a data protocol",
-        "descriptorAccessBindingFailed": "Failed to bind method \"{name}\" for descriptor class \"{className}\"",
-        "descriptorAccessCallFailed": "Failed to call method \"{name}\" for descriptor class \"{className}\"",
         "dataClassFrozen": "\"{name}\" is frozen",
-        "finalMethod": "Final method",
+        "dataProtocolUnsupported": "\"{name}\" is a data protocol",
+        "descriptorAccessBindingFailed": {
+            "message": "Failed to bind method \"{name}\" for descriptor class \"{className}\"",
+            "comment": "Binding is the process through which Pyright determines what object a name refers to"
+        },
+        "descriptorAccessCallFailed": "Failed to call method \"{name}\" for descriptor class \"{className}\"",
+        "finalMethod": {
+            "message": "Final method",
+            "comment": "{Locked='Final'}"
+        },
         "functionParamDefaultMissing": "Parameter \"{name}\" is missing default argument",
         "functionParamName": "Parameter name mismatch: \"{destName}\" versus \"{srcName}\"",
         "functionParamPositionOnly": "Position-only parameter mismatch; parameter \"{name}\" is not position-only",
         "functionReturnTypeMismatch": "Function return type \"{sourceType}\" is incompatible with type \"{destType}\"",
         "functionTooFewParams": "Function accepts too few positional parameters; expected {expected} but received {received}",
         "functionTooManyParams": "Function accepts too many positional parameters; expected {expected} but received {received}",
-        "genericClassNotAllowed": "Generic type with type arguments not allowed for instance or class checks",
+        "genericClassNotAllowed": {
+            "message": "Generic type with type arguments not allowed for instance or class checks",
+            "comment": "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"
+        },
+        "incompatibleDeleter": {
+            "message": "Property deleter method is incompatible",
+            "comment": ["{Locked='deleter'}", "{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "incompatibleGetter": {
+            "message": "Property getter method is incompatible",
+            "comment": ["{Locked='getter'}", "{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "incompatibleSetter": {
+            "message": "Property setter method is incompatible",
+            "comment": ["{Locked='setter'}", "{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "initMethodLocation": {
+            "message": "The __init__ method is defined in class \"{type}\"",
+            "comment": "{Locked='__init__'}"
+        },
+        "initMethodSignature": {
+            "message": "Signature of __init__ is \"{type}\"",
+            "comment": "{Locked='__init__'}"
+        },
+        "initSubclassLocation": {
+            "message": "The __init_subclass__ method is defined in class \"{name}\"",
+            "comment": "{Locked='__init_subclass__'}"
+        },
+        "invariantSuggestionDict": {
+            "message": "Consider switching from \"dict\" to \"Mapping\" which is covariant in the value type",
+            "comment": "{Locked='dict','Mapping'}"
+        },
+        "invariantSuggestionList": {
+            "message": "Consider switching from \"list\" to \"Sequence\" which is covariant",
+            "comment": "{Locked='list','Sequence'}"
+        },
+        "invariantSuggestionSet": {
+            "message": "Consider switching from \"set\" to \"Container\" which is covariant",
+            "comment": "{Locked='set','Container'}"
+        },
+        "isinstanceClassNotSupported": "\"{type}\" is not supported for instance and class checks",
         "keyNotRequired": "\"{name}\" is not a required key in \"{type}\", so access may result in runtime exception",
         "keyReadOnly": "\"{name}\" is a read-only key in \"{type}\"",
         "keyRequiredDeleted": "\"{name}\" is a required key and cannot be deleted",
         "keyUndefined": "\"{name}\" is not a defined key in \"{type}\"",
-        "incompatibleGetter": "Property getter method is incompatible",
-        "incompatibleSetter": "Property setter method is incompatible",
-        "initMethodLocation": "The __init__ method is defined in class \"{type}\"",
-        "incompatibleDeleter": "Property deleter method is incompatible",
-        "initMethodSignature": "Signature of __init__ is \"{type}\"",
-        "initSubclassLocation": "The __init_subclass__ method is defined in class \"{name}\"",
-        "invariantSuggestionDict": "Consider switching from \"dict\" to \"Mapping\" which is covariant in the value type",
-        "invariantSuggestionList": "Consider switching from \"list\" to \"Sequence\" which is covariant",
-        "invariantSuggestionSet": "Consider switching from \"set\" to \"Container\" which is covariant",
-        "isinstanceClassNotSupported": "\"{type}\" is not supported for instance and class checks",
         "kwargsParamMissing": "Parameter \"**{paramName}\" has no corresponding parameter",
         "listAssignmentMismatch": "Type \"{type}\" is incompatible with target list",
-        "literalAssignmentMismatch": "\"{sourceType}\" is incompatible with type \"{destType}\"",
+        "literalAssignmentMismatch": "\"{sourceType}\" is not assignable to type \"{destType}\"",
+        "matchIsNotExhaustiveHint": {
+            "message": "If exhaustive handling is not intended, add \"case _: pass\"",
+            "comment": "{Locked='case _: pass'}"
+        },
         "matchIsNotExhaustiveType": "Unhandled type: \"{type}\"",
-        "matchIsNotExhaustiveHint": "If exhaustive handling is not intended, add \"case _: pass\"",
-        "memberSetClassVar": "Attribute \"{name}\" cannot be assigned through a class instance because it is a ClassVar",
         "memberAssignment": "Expression of type \"{type}\" cannot be assigned to attribute \"{name}\" of class \"{classType}\"",
         "memberIsAbstract": "\"{type}.{name}\" is not implemented",
-        "memberIsAbstractMore": "and {count} more...",
-        "memberIsClassVarInProtocol": "\"{name}\" is defined as a ClassVar in protocol",
-        "memberIsInitVar": "\"{name}\" is an init-only field",
+        "memberIsAbstractMore": {
+            "message": "and {count} more...",
+            "comment": "{StrEnds='...'}"
+        },
+        "memberIsClassVarInProtocol": {
+            "message": "\"{name}\" is defined as a ClassVar in protocol",
+            "comment": "{Locked='ClassVar'}"
+        },
+        "memberIsInitVar": {
+            "message": "\"{name}\" is an init-only field",
+            "comment": "{Locked='init-only'}"
+        },
         "memberIsInvariant": "\"{name}\" is invariant because it is mutable",
-        "memberIsNotClassVarInClass": "\"{name}\" must be defined as a ClassVar to be compatible with protocol",
-        "memberIsNotClassVarInProtocol": "\"{name}\" is not defined as a ClassVar in protocol",
+        "memberIsNotClassVarInClass": {
+            "message": "\"{name}\" must be defined as a ClassVar to be compatible with protocol",
+            "comment": "{Locked='ClassVar'}"
+        },
+        "memberIsNotClassVarInProtocol": {
+            "message": "\"{name}\" is not defined as a ClassVar in protocol",
+            "comment": "{Locked='ClassVar'}"
+        },
         "memberIsNotReadOnlyInProtocol": "\"{name}\" is not read-only in protocol",
         "memberIsReadOnlyInProtocol": "\"{name}\" is read-only in protocol",
         "memberIsWritableInProtocol": "\"{name}\" is writable in protocol",
+        "memberSetClassVar": {
+            "message": "Attribute \"{name}\" cannot be assigned through a class instance because it is a ClassVar",
+            "comment": "{Locked='ClassVar'}"
+        },
         "memberTypeMismatch": "\"{name}\" is an incompatible type",
         "memberUnknown": "Attribute \"{name}\" is unknown",
-        "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
-        "missingGetter": "Property getter method is missing",
-        "missingSetter": "Property setter method is missing",
-        "missingDeleter": "Property deleter method is missing",
+        "metaclassConflict": {
+            "message": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
+            "comment": "Metaclasses are a complex concept and it may be best to not localize the term"
+        },
+        "missingDeleter": {
+            "message": "Property deleter method is missing",
+            "comment": ["{Locked='deleter'}", "{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "missingGetter": {
+            "message": "Property getter method is missing",
+            "comment": ["{Locked='getter'}", "{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "missingSetter": {
+            "message": "Property setter method is missing",
+            "comment": ["{Locked='setter'}", "{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
         "namedParamMissingInDest": "Extra parameter \"{name}\"",
         "namedParamMissingInSource": "Missing keyword parameter \"{name}\"",
         "namedParamTypeMismatch": "Keyword parameter \"{name}\" of type \"{sourceType}\" is incompatible with type \"{destType}\"",
-        "namedTupleNotAllowed": "NamedTuple cannot be used for instance or class checks",
-        "newMethodLocation": "The __new__ method is defined in class \"{type}\"",
-        "newMethodSignature": "Signature of __new__ is \"{type}\"",
-        "newTypeClassNotAllowed": "Class created with NewType cannot be used with instance and class checks",
-        "noneNotAllowed": "None cannot be used for instance or class checks",
+        "namedTupleNotAllowed": {
+            "message": "NamedTuple cannot be used for instance or class checks",
+            "comment": "{Locked='NamedTuple'}"
+        },
+        "newMethodLocation": {
+            "message": "The __new__ method is defined in class \"{type}\"",
+            "comment": "{Locked='__new__'}"
+        },
+        "newMethodSignature": {
+            "message": "Signature of __new__ is \"{type}\"",
+            "comment": "{Locked='__new__'}"
+        },
+        "newTypeClassNotAllowed": {
+            "message": "Class created with NewType cannot be used with instance and class checks",
+            "comment": "{Locked='NewType'}"
+        },
         "noOverloadAssignable": "No overloaded function matches type \"{type}\"",
+        "noneNotAllowed": {
+            "message": "None cannot be used for instance or class checks",
+            "comment": "{Locked='None'}"
+        },
         "orPatternMissingName": "Missing names: {name}",
         "overloadIndex": "Overload {index} is the closest match",
-        "overloadSignature": "Overload signature is defined here",
         "overloadNotAssignable": "One or more overloads of \"{name}\" is not assignable",
+        "overloadSignature": "Overload signature is defined here",
         "overriddenMethod": "Overridden method",
         "overriddenSymbol": "Overridden symbol",
-        "overrideIsInvariant": "Variable is mutable so its type is invariant",
         "overrideInvariantMismatch": "Override type \"{overrideType}\" is not the same as base type \"{baseType}\"",
+        "overrideIsInvariant": "Variable is mutable so its type is invariant",
         "overrideNoOverloadMatches": "No overload signature in override is compatible with base method",
-        "overrideNotClassMethod": "Base method is declared as a classmethod but override is not",
+        "overrideNotClassMethod": {
+            "message": "Base method is declared as a classmethod but override is not",
+            "comment": "{Locked='classmethod'}"
+        },
         "overrideNotInstanceMethod": "Base method is declared as an instance method but override is not",
-        "overrideNotStaticMethod": "Base method is declared as a staticmethod but override is not",
+        "overrideNotStaticMethod": {
+            "message": "Base method is declared as a staticmethod but override is not",
+            "comment": "{Locked='staticmethod'}"
+        },
         "overrideOverloadNoMatch": "Override does not handle all overloads of base method",
         "overrideOverloadOrder": "Overloads for override method must be in the same order as the base method",
         "overrideParamKeywordNoDefault": "Keyword parameter \"{name}\" mismatch: base parameter has default argument value, override parameter does not",
@@ -723,92 +1897,162 @@
         "overrideReturnType": "Return type mismatch: base method returns type \"{baseType}\", override returns type \"{overrideType}\"",
         "overrideType": "Base class defines type as \"{type}\"",
         "paramAssignment": "Parameter {index}: type \"{sourceType}\" is incompatible with type \"{destType}\"",
-        "paramSpecMissingInOverride": "ParamSpec parameters are missing in override method",
+        "paramSpecMissingInOverride": {
+            "message": "ParamSpec parameters are missing in override method",
+            "comment": "{Locked='ParamSpec'}"
+        },
         "paramType": "Parameter type is \"{paramType}\"",
         "privateImportFromPyTypedSource": "Import from \"{module}\" instead",
         "propertyAccessFromProtocolClass": "A property defined within a protocol class cannot be accessed as a class variable",
-        "propertyMethodIncompatible": "Property method \"{name}\" is incompatible",
-        "propertyMethodMissing": "Property method \"{name}\" is missing in override",
-        "propertyMissingDeleter": "Property \"{name}\" has no defined deleter",
-        "propertyMissingSetter": "Property \"{name}\" has no defined setter",
+        "propertyMethodIncompatible": {
+            "message": "Property method \"{name}\" is incompatible",
+            "comment": ["{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "propertyMethodMissing": {
+            "message": "Property method \"{name}\" is missing in override",
+            "comment": ["{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "propertyMissingDeleter": {
+            "message": "Property \"{name}\" has no defined deleter",
+            "comment": ["{Locked='deleter'}", "{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "propertyMissingSetter": {
+            "message": "Property \"{name}\" has no defined setter",
+            "comment": ["{Locked='setter'}", "{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
         "protocolIncompatible": "\"{sourceType}\" is incompatible with protocol \"{destType}\"",
         "protocolMemberMissing": "\"{name}\" is not present",
-        "protocolRequiresRuntimeCheckable": "Protocol class must be @runtime_checkable to be used with instance and class checks",
+        "protocolRequiresRuntimeCheckable": {
+            "message": "Protocol class must be @runtime_checkable to be used with instance and class checks",
+            "comment": "{Locked='Protocol','@runtime_checkable'}"
+        },
         "protocolSourceIsNotConcrete": "\"{sourceType}\" is not a concrete class type and cannot be assigned to type \"{destType}\"",
         "protocolUnsafeOverlap": "Attributes of \"{name}\" have the same names as the protocol",
-        "pyrightCommentIgnoreTip": "Use \"# pyright: ignore[<diagnostic rules>] to suppress diagnostics for a single line",
+        "pyrightCommentIgnoreTip": {
+            "message": "Use \"# pyright: ignore[<diagnostic rules>]\" to suppress diagnostics for a single line",
+            "comment": "{Locked='# pyright: ignore[<diagnostic rules>]'}"
+        },
         "readOnlyAttribute": "Attribute \"{name}\" is read-only",
-        "seeDeclaration": "See declaration",
         "seeClassDeclaration": "See class declaration",
+        "seeDeclaration": "See declaration",
         "seeFunctionDeclaration": "See function declaration",
         "seeMethodDeclaration": "See method declaration",
         "seeParameterDeclaration": "See parameter declaration",
         "seeTypeAliasDeclaration": "See type alias declaration",
         "seeVariableDeclaration": "See variable declaration",
-        "tupleEntryTypeMismatch": "Tuple entry {entry} is incorrect type",
-        "tupleAssignmentMismatch": "Type \"{type}\" is incompatible with target tuple",
-        "tupleSizeIndeterminateSrc": "Tuple size mismatch; expected {expected} but received indeterminate",
-        "tupleSizeIndeterminateSrcDest": "Tuple size mismatch; expected {expected} or more but received indeterminate",
-        "tupleSizeMismatch": "Tuple size mismatch; expected {expected} but received {received}",
-        "tupleSizeMismatchIndeterminateDest": "Tuple size mismatch; expected {expected} or more but received {received}",
-        "typeAliasInstanceCheck": "Type alias created with \"type\" statement cannot be used with instance and class checks",
-        "typeAssignmentMismatch": "Type \"{sourceType}\" is incompatible with type \"{destType}\"",
-        "typeBound": "Type \"{sourceType}\" is incompatible with bound type \"{destType}\" for type variable \"{name}\"",
-        "typeConstrainedTypeVar": "Type \"{type}\" is incompatible with constrained type variable \"{name}\"",
-        "typedDictBaseClass": "Class \"{type}\" is not a TypedDict",
-        "typedDictClassNotAllowed": "TypedDict class not allowed for instance or class checks",
-        "typedDictExtraFieldNotAllowed": "\"{name}\" is not present in \"{type}\"",
-        "typedDictExtraFieldTypeMismatch": "Type of \"{name}\" is incompatible with type of \"__extra_items__\" in \"{type}\"",
-        "typedDictFieldMissing": "\"{name}\" is missing from \"{type}\"",
-        "typedDictClosedExtraNotAllowed": "Cannot add item \"{name}\"",
-        "typedDictClosedExtraTypeMismatch": "Cannot add item \"{name}\" with type \"{type}\"",
-        "typedDictClosedFieldNotRequired": "Cannot add item \"{name}\" because it must be NotRequired",
-        "typedDictFieldNotReadOnly": "\"{name}\" is not read-only in \"{type}\"",
-        "typedDictFieldNotRequired": "\"{name}\" is not required in \"{type}\"",
-        "typedDictFieldRequired": "\"{name}\" is required in \"{type}\"",
-        "typedDictFieldTypeMismatch": "Type \"{type}\" is not assignable to item \"{name}\"",
-        "typedDictFieldUndefined": "\"{name}\" is an undefined item in type \"{type}\"",
-        "typedDictFinalMismatch": "\"{sourceType}\" is incompatible with \"{destType}\" because of a @final mismatch",
-        "typedDictKeyAccess": "Use [\"{name}\"] to reference item in TypedDict",
-        "typedDictNotAllowed": "TypedDict cannot be used for instance or class checks",
-        "typeIncompatible": "\"{sourceType}\" is incompatible with \"{destType}\"",
+        "tupleAssignmentMismatch": {
+            "message": "Type \"{type}\" is incompatible with target tuple",
+            "comment": "{Locked='tuple'}"
+        },
+        "tupleEntryTypeMismatch": {
+            "message": "Tuple entry {entry} is incorrect type",
+            "comment": ["{StrContains=i'tuple'}", "'tuple' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "tupleSizeIndeterminateSrc": {
+            "message": "Tuple size mismatch; expected {expected} but received indeterminate",
+            "comment": ["{StrContains=i'tuple'}", "'tuple' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "tupleSizeIndeterminateSrcDest": {
+            "message": "Tuple size mismatch; expected {expected} or more but received indeterminate",
+            "comment": ["{StrContains=i'tuple'}", "'tuple' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "tupleSizeMismatch": {
+            "message": "Tuple size mismatch; expected {expected} but received {received}",
+            "comment": ["{StrContains=i'tuple'}", "'tuple' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "tupleSizeMismatchIndeterminateDest": {
+            "message": "Tuple size mismatch; expected {expected} or more but received {received}",
+            "comment": ["{StrContains=i'tuple'}", "'tuple' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
+        "typeAliasInstanceCheck": {
+            "message": "Type alias created with \"type\" statement cannot be used with instance and class checks",
+            "comment": "{Locked='type'}"
+        },
+        "typeAssignmentMismatch": "Type \"{sourceType}\" is not assignable to type \"{destType}\"",
+        "typeBound": "Type \"{sourceType}\" is not assignable to upper bound \"{destType}\" for type variable \"{name}\"",
+        "typeConstrainedTypeVar": "Type \"{type}\" is not assignable to constrained type variable \"{name}\"",
+        "typeIncompatible": "\"{sourceType}\" is not assignable to \"{destType}\"",
         "typeNotClass": "\"{type}\" is not a class",
-        "typeParamSpec": "Type \"{type}\" is incompatible with ParamSpec \"{name}\"",
         "typeNotStringLiteral": "\"{type}\" is not a string literal",
         "typeOfSymbol": "Type of \"{name}\" is \"{type}\"",
+        "typeParamSpec": {
+            "message": "Type \"{type}\" is incompatible with ParamSpec \"{name}\"",
+            "comment": "{Locked='ParamSpec'}"
+        },
         "typeUnsupported": "Type \"{type}\" is unsupported",
         "typeVarDefaultOutOfScope": "Type variable \"{name}\" is not in scope",
         "typeVarIsContravariant": "Type parameter \"{name}\" is contravariant, but \"{sourceType}\" is not a supertype of \"{destType}\"",
         "typeVarIsCovariant": "Type parameter \"{name}\" is covariant, but \"{sourceType}\" is not a subtype of \"{destType}\"",
         "typeVarIsInvariant": "Type parameter \"{name}\" is invariant, but \"{sourceType}\" is not the same as \"{destType}\"",
-        "typeVarNotAllowed": "TypeVar not allowed for instance or class checks",
+        "typeVarNotAllowed": {
+            "message": "TypeVar not allowed for instance or class checks",
+            "comment": "{Locked='TypeVar'}"
+        },
+        "typeVarTupleRequiresKnownLength": {
+            "message": "TypeVarTuple cannot be bound to a tuple of unknown length",
+            "comment": "{Locked='TypeVarTuple','tuple'}"
+        },
         "typeVarUnnecessarySuggestion": "Use {type} instead",
         "typeVarUnsolvableRemedy": "Provide an overload that specifies the return type when the argument is not supplied",
         "typeVarsMissing": "Missing type variables: {names}",
-        "typeVarTupleRequiresKnownLength": "TypeVarTuple cannot be bound to a tuple of unknown length",
+        "typedDictBaseClass": {
+            "message": "Class \"{type}\" is not a TypedDict",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictClassNotAllowed": {
+            "message": "TypedDict class not allowed for instance or class checks",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictClosedExtraNotAllowed": "Cannot add item \"{name}\"",
+        "typedDictClosedExtraTypeMismatch": "Cannot add item \"{name}\" with type \"{type}\"",
+        "typedDictClosedFieldNotRequired": {
+            "message": "Cannot add item \"{name}\" because it must be NotRequired",
+            "comment": "{Locked='NotRequired'}"
+        },
+        "typedDictExtraFieldNotAllowed": "\"{name}\" is not present in \"{type}\"",
+        "typedDictExtraFieldTypeMismatch": {
+            "message": "Type of \"{name}\" is incompatible with type of \"__extra_items__\" in \"{type}\"",
+            "comment": "{Locked='__extra_items__'}"
+        },
+        "typedDictFieldMissing": "\"{name}\" is missing from \"{type}\"",
+        "typedDictFieldNotReadOnly": "\"{name}\" is not read-only in \"{type}\"",
+        "typedDictFieldNotRequired": "\"{name}\" is not required in \"{type}\"",
+        "typedDictFieldRequired": "\"{name}\" is required in \"{type}\"",
+        "typedDictFieldTypeMismatch": "Type \"{type}\" is not assignable to item \"{name}\"",
+        "typedDictFieldUndefined": "\"{name}\" is an undefined item in type \"{type}\"",
+        "typedDictFinalMismatch": {
+            "message": "\"{sourceType}\" is incompatible with \"{destType}\" because of a @final mismatch",
+            "comment": "{Locked='@final'}"
+        },
+        "typedDictKeyAccess": {
+            "message": "Use [\"{name}\"] to reference item in TypedDict",
+            "comment": "{Locked='TypedDict'}"
+        },
+        "typedDictNotAllowed": {
+            "message": "TypedDict cannot be used for instance or class checks",
+            "comment": "{Locked='TypedDict'}"
+        },
         "unhashableType": "Type \"{type}\" is not hashable",
         "uninitializedAbstractVariable": "Instance variable \"{name}\" is defined in abstract base class \"{classType}\" but not initialized",
         "unreachableExcept": "\"{exceptionType}\" is a subclass of \"{parentType}\"",
-        "useDictInstead": "Use Dict[T1, T2] to indicate a dictionary type",
-        "useListInstead": "Use List[T] to indicate a list type or Union[T1, T2] to indicate a union type",
-        "useTupleInstead": "Use tuple[T1, ..., Tn] to indicate a tuple type or Union[T1, T2] to indicate a union type",
-        "useTypeInstead": "Use Type[T] instead",
+        "useDictInstead": {
+            "message": "Use Dict[T1, T2] to indicate a dictionary type",
+            "comment": "{Locked='Dict[T1, T2]'}"
+        },
+        "useListInstead": {
+            "message": "Use List[T] to indicate a list type or Union[T1, T2] to indicate a union type",
+            "comment": "{Locked='List[T]','list','Union[T1, T2]','union'}"
+        },
+        "useTupleInstead": {
+            "message": "Use tuple[T1, ..., Tn] to indicate a tuple type or Union[T1, T2] to indicate a union type",
+            "comment": "{Locked='tuple[T1, ..., Tn]','tuple','Union[T1, T2]','union'}"
+        },
+        "useTypeInstead": {
+            "message": "Use Type[T] instead",
+            "comment": "{Locked='Type[T]'}"
+        },
         "varianceMismatchForClass": "Variance of type argument \"{typeVarName}\" is incompatible with base class \"{className}\"",
         "varianceMismatchForTypeAlias": "Variance of type argument \"{typeVarName}\" is incompatible with \"{typeAliasParam}\""
-    },
-    "CodeAction": {
-        "createTypeStub": "Create Type Stub",
-        "createTypeStubFor": "Create Type Stub For \"{moduleName}\"",
-        "executingCommand": "Executing command",
-        "filesToAnalyzeOne": "1 file to analyze",
-        "filesToAnalyzeCount": "{count} files to analyze",
-        "findingReferences": "Finding references",
-        "organizeImports": "Organize Imports",
-        "renameShadowedFile": "Rename \"{oldFile}\" to \"{newFile}\""
-    },
-    "Completion": {
-        "autoImportDetail": "Auto-import",
-        "indexValueDetail": "Index value"
     },
     "Service": {
         "longOperation": "Enumeration of workspace source files is taking a long time. Consider opening a sub-folder instead. [Learn more](https://aka.ms/workspace-too-many-files)"

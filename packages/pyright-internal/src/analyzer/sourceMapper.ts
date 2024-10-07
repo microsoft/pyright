@@ -13,9 +13,9 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { appendArray } from '../common/collectionUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import { isDefined } from '../common/core';
-import { assertNever } from '../common/debug';
+import { assert, assertNever } from '../common/debug';
 import { Uri } from '../common/uri/uri';
-import { ClassNode, ImportFromNode, ModuleNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ClassNode, ModuleNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import {
     AliasDeclaration,
     ClassDeclaration,
@@ -102,13 +102,13 @@ export class SourceMapper {
 
     findClassDeclarationsByType(originatedPath: Uri, type: ClassType): ClassDeclaration[] {
         const result = this.findDeclarationsByType(originatedPath, type);
-        return result.filter((r) => isClassDeclaration(r)).map((r) => r as ClassDeclaration);
+        return result.filter((r) => isClassDeclaration(r)).map((r) => r);
     }
 
     findFunctionDeclarations(stubDecl: FunctionDeclaration): FunctionDeclaration[] {
         return this._findFunctionOrTypeAliasDeclarations(stubDecl)
             .filter((d) => isFunctionDeclaration(d))
-            .map((d) => d as FunctionDeclaration);
+            .map((d) => d);
     }
 
     isUserCode(uri: Uri): boolean {
@@ -212,23 +212,25 @@ export class SourceMapper {
             return result;
         }
 
-        const functionStubDecls = this._evaluator.getDeclarationsForNameNode(functionNode.d.name);
+        const functionStubDecls = this._evaluator.getDeclInfoForNameNode(functionNode.d.name)?.decls;
         if (!functionStubDecls) {
             return result;
         }
 
         const recursiveDeclCache = new Set<string>();
         for (const functionStubDecl of functionStubDecls) {
-            for (const functionDecl of this._findFunctionOrTypeAliasDeclarations(
-                functionStubDecl as FunctionDeclaration,
-                recursiveDeclCache
-            )) {
-                appendArray(
-                    result,
-                    this._lookUpSymbolDeclarations(functionDecl.node, stubDecl.node.d.name.d.value)
-                        .filter((d) => isParamDeclaration(d))
-                        .map((d) => d as ParamDeclaration)
-                );
+            if (isFunctionDeclaration(functionStubDecl)) {
+                for (const functionDecl of this._findFunctionOrTypeAliasDeclarations(
+                    functionStubDecl,
+                    recursiveDeclCache
+                )) {
+                    appendArray(
+                        result,
+                        this._lookUpSymbolDeclarations(functionDecl.node, stubDecl.node.d.name.d.value)
+                            .filter((d) => isParamDeclaration(d))
+                            .map((d) => d)
+                    );
+                }
             }
         }
 
@@ -245,7 +247,7 @@ export class SourceMapper {
         const result: T[] = [];
         const classDecls = this._findClassDeclarationsByName(sourceFile, className, recursiveDeclCache);
 
-        for (const classDecl of classDecls.filter((d) => isClassDeclaration(d)).map((d) => d as ClassDeclaration)) {
+        for (const classDecl of classDecls.filter((d) => isClassDeclaration(d)).map((d) => d)) {
             const classResults = this._evaluator.getTypeOfClass(classDecl.node);
             if (!classResults) {
                 continue;
@@ -585,7 +587,8 @@ export class SourceMapper {
                 case ParseNodeType.ImportAs:
                     return decl.node.d.module;
                 case ParseNodeType.ImportFromAs:
-                    return (decl.node.parent as ImportFromNode).d.module;
+                    assert(decl.node.parent?.nodeType === ParseNodeType.ImportFrom);
+                    return decl.node.parent.d.module;
                 case ParseNodeType.ImportFrom:
                     return decl.node.d.module;
                 default:
@@ -602,13 +605,15 @@ export class SourceMapper {
         useTypeAlias = false
     ) {
         const fileUri =
-            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.fileUri : type.shared.fileUri;
+            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.shared.fileUri : type.shared.fileUri;
         const sourceFiles = this._getSourceFiles(fileUri, /* stubToShadow */ undefined, originated);
 
         const fullName =
-            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.fullName : type.shared.fullName;
+            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.shared.fullName : type.shared.fullName;
         const moduleName =
-            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.moduleName : type.shared.moduleName;
+            useTypeAlias && type.props?.typeAliasInfo
+                ? type.props.typeAliasInfo.shared.moduleName
+                : type.shared.moduleName;
         const fullClassName = fullName.substring(moduleName.length + 1 /* +1 for trailing dot */);
 
         for (const sourceFile of sourceFiles) {

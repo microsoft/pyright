@@ -2,7 +2,7 @@
 //@ts-check
 
 const { promises: fsAsync } = require('fs');
-const chalk = require('chalk');
+const chalk = require('chalk').default;
 
 async function main() {
     const packageJson = await fsAsync.readFile('package.json', 'utf-8');

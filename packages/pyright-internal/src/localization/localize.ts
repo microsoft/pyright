@@ -42,8 +42,8 @@ export class ParameterizedString<T extends {}> {
 }
 
 const defaultLocale = 'en-us';
-const stringMapsByLocale: Map<string, any> = new Map([
-    ['cs', csStrings],
+const stringMapsByLocale: Map<string, StringLookupMap> = new Map([
+    ['cs', csStrings as StringLookupMap],
     ['de', deStrings],
     ['en-us', enUsStrings],
     ['en', enUsStrings],
@@ -61,7 +61,12 @@ const stringMapsByLocale: Map<string, any> = new Map([
     ['zh-tw', zhTwStrings],
 ]);
 
-type StringLookupMap = { [key: string]: string | StringLookupMap };
+type CommentedStringValue = {
+    message: string;
+    comment: string[];
+};
+
+export type StringLookupMap = { [key: string]: string | CommentedStringValue | StringLookupMap };
 let localizedStrings: StringLookupMap | undefined = undefined;
 let defaultStrings: StringLookupMap = {};
 
@@ -101,7 +106,7 @@ export function getRawStringFromMap(map: StringLookupMap, keyParts: string[]): s
         curObj = curObj[keyPart];
     }
 
-    return curObj as string;
+    return typeof curObj === 'string' ? curObj : curObj.message;
 }
 
 function initialize(): StringLookupMap {
@@ -162,7 +167,7 @@ function loadDefaultStrings(): StringLookupMap {
     return {};
 }
 
-export function loadStringsForLocale(locale: string, localeMap: Map<string, any>): StringLookupMap {
+export function loadStringsForLocale(locale: string, localeMap: Map<string, StringLookupMap>): StringLookupMap {
     if (locale === defaultLocale) {
         // No need to load override if we're using the default.
         return {};
@@ -644,6 +649,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.methodReturnsNonObject'));
         export const missingSuperCall = () =>
             new ParameterizedString<{ methodName: string }>(getRawString('Diagnostic.missingSuperCall'));
+        export const mixingBytesAndStr = () => getRawString('Diagnostic.mixingBytesAndStr');
         export const moduleAsType = () => getRawString('Diagnostic.moduleAsType');
         export const moduleNotCallable = () => getRawString('Diagnostic.moduleNotCallable');
         export const moduleUnknownMember = () =>
@@ -987,6 +993,7 @@ export namespace Localizer {
         export const typedDictFieldRequiredRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldRequiredRedefinition'));
         export const typedDictFirstArg = () => getRawString('Diagnostic.typedDictFirstArg');
+        export const typedDictInClassPattern = () => getRawString('Diagnostic.typedDictInClassPattern');
         export const typedDictInitsubclassParameter = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictInitsubclassParameter'));
         export const typedDictNotAllowed = () => getRawString('Diagnostic.typedDictNotAllowed');
@@ -995,6 +1002,7 @@ export namespace Localizer {
         export const typedDictSet = () => getRawString('Diagnostic.typedDictSet');
         export const typeExpectedClass = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeExpectedClass'));
+        export const typeFormArgs = () => getRawString('Diagnostic.typeFormArgs');
         export const typeGuardArgCount = () => getRawString('Diagnostic.typeGuardArgCount');
         export const typeGuardParamCount = () => getRawString('Diagnostic.typeGuardParamCount');
         export const typeIsReturnType = () =>
@@ -1126,6 +1134,14 @@ export namespace Localizer {
         export const unnecessaryIsSubclassAlways = () =>
             new ParameterizedString<{ testType: string; classType: string }>(
                 getRawString('Diagnostic.unnecessaryIsSubclassAlways')
+            );
+        export const unnecessaryIsInstanceNever = () =>
+            new ParameterizedString<{ testType: string; classType: string }>(
+                getRawString('Diagnostic.unnecessaryIsInstanceNever')
+            );
+        export const unnecessaryIsSubclassNever = () =>
+            new ParameterizedString<{ testType: string; classType: string }>(
+                getRawString('Diagnostic.unnecessaryIsSubclassNever')
             );
         export const unnecessaryPyrightIgnore = () => getRawString('Diagnostic.unnecessaryPyrightIgnore');
         export const unnecessaryPyrightIgnoreRule = () =>

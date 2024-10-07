@@ -128,6 +128,13 @@ def func6(ty: type[T]) -> type[T]:
     return ty
 
 
+def func6_2(ty: type[int] | int):
+    if isinstance(ty, type):
+        reveal_type(ty, expected_text="type[int]")
+    else:
+        reveal_type(ty, expected_text="int")
+
+
 # Test the handling of protocol classes that support runtime checking.
 def func7(a: Union[list[int], int]):
     if isinstance(a, Sized):
@@ -140,8 +147,7 @@ def func7(a: Union[list[int], int]):
 # on isinstance checks.
 
 
-class Base1:
-    ...
+class Base1: ...
 
 
 class Sub1_1(Base1):
@@ -202,19 +208,17 @@ class Sub2(Base2[T, T]):
 
 def func10(val: Sub2[str] | Base2[str, float]):
     if isinstance(val, Sub2):
-        reveal_type(val, expected_text="Sub2[str] | Sub2[Unknown]")
+        reveal_type(val, expected_text="Sub2[str] | Sub2[str | float]")
 
 
 @runtime_checkable
 class Proto1(Protocol):
-    def f0(self, /) -> None:
-        ...
+    def f0(self, /) -> None: ...
 
 
 @runtime_checkable
 class Proto2(Proto1, Protocol):
-    def f1(self, /) -> None:
-        ...
+    def f1(self, /) -> None: ...
 
 
 def func11(x: Proto1):

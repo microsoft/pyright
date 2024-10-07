@@ -33,7 +33,7 @@ test('Final2', () => {
 
 test('Final3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final3.py']);
-    TestUtils.validateResults(analysisResults, 42);
+    TestUtils.validateResults(analysisResults, 41);
 });
 
 test('Final4', () => {
@@ -267,7 +267,7 @@ test('DataClassNamedTuple2', () => {
 test('DataClass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass1.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('DataClass2', () => {
@@ -621,12 +621,12 @@ test('ParamSpec11', () => {
 
 test('ParamSpec12', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec12.py']);
-    TestUtils.validateResults(results, 15);
+    TestUtils.validateResults(results, 14);
 });
 
 test('ParamSpec13', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec13.py']);
-    TestUtils.validateResults(results, 7);
+    TestUtils.validateResults(results, 11);
 });
 
 test('ParamSpec14', () => {
@@ -822,4 +822,9 @@ test('ParamSpec51', () => {
 test('ParamSpec52', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec52.py']);
     TestUtils.validateResults(results, 2);
+});
+
+test('ParamSpec53', () => {
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec53.py']);
+    TestUtils.validateResults(results, 0);
 });

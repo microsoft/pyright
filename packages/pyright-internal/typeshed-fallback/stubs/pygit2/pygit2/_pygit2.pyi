@@ -351,7 +351,7 @@ class Blob(Object):
 # This is not a real subclassing. Just ensuring type-checkers sees this type as compatible with _CDataBase
 # pyright has no error code for subclassing final
 @final
-class Branch(Reference):  # type: ignore[misc]  # pyright: ignore
+class Branch(Reference):  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
     branch_name: str
     raw_branch_name: bytes
     remote_name: str

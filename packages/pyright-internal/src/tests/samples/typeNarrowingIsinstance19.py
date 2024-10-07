@@ -41,7 +41,7 @@ def func3(m: ABCMeta) -> None:
 
 def func4(m: ABCMeta) -> None:
     if issubclass(m, (Parent1, Child1, int)):
-        reveal_type(m, expected_text="type[Parent1] | type[Child1]")
+        reveal_type(m, expected_text="type[Parent1] | type[Child1] | ABCMeta")
     else:
         reveal_type(m, expected_text="ABCMeta")
 

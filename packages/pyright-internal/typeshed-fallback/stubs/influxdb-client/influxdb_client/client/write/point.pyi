@@ -1,4 +1,4 @@
-from _typeshed import Incomplete, SupportsGetItem, SupportsItems
+from _typeshed import Incomplete, SupportsContainsAndGetItem, SupportsItems
 from collections.abc import Iterable
 from datetime import datetime, timedelta
 from numbers import Integral
@@ -18,7 +18,7 @@ class Point:
     def measurement(measurement: str) -> Point: ...
     @staticmethod
     def from_dict(
-        dictionary: SupportsGetItem[str, Any],  # TODO: Use SupportsContainsAndGetItem
+        dictionary: SupportsContainsAndGetItem[str, Any],
         write_precision: _WritePrecision = "ns",
         *,
         record_measurement_name: str | None = ...,

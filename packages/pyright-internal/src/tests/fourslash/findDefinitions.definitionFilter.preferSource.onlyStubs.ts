@@ -1,4 +1,4 @@
-/// <reference path="fourslash.ts" />
+/// <reference path="typings/fourslash.d.ts" />
 
 // @filename: typings/testLib1/__init__.pyi
 //// def [|func1|](a: str): ...

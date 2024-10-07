@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from datetime import timedelta
 from logging import Logger
 from re import Pattern
-from typing import Any, Literal, TypedDict, TypeVar, overload
+from typing import Any, Final, Literal, TypedDict, TypeVar, overload
 from typing_extensions import TypeAlias
 
 import flask
@@ -26,19 +26,22 @@ class _Options(TypedDict, total=False):
     always_send: bool | None
 
 LOG: Logger
-ACL_ORIGIN: str
-ACL_METHODS: str
-ACL_ALLOW_HEADERS: str
-ACL_EXPOSE_HEADERS: str
-ACL_CREDENTIALS: str
-ACL_MAX_AGE: str
-ACL_REQUEST_METHOD: str
-ACL_REQUEST_HEADERS: str
-ALL_METHODS: list[str]
-CONFIG_OPTIONS: list[str]
-FLASK_CORS_EVALUATED: str
-RegexObject: type[Pattern[str]]
-DEFAULT_OPTIONS: _Options
+
+ACL_ORIGIN: Final = "Access-Control-Allow-Origin"
+ACL_METHODS: Final = "Access-Control-Allow-Methods"
+ACL_ALLOW_HEADERS: Final = "Access-Control-Allow-Headers"
+ACL_EXPOSE_HEADERS: Final = "Access-Control-Expose-Headers"
+ACL_CREDENTIALS: Final = "Access-Control-Allow-Credentials"
+ACL_MAX_AGE: Final = "Access-Control-Max-Age"
+ACL_RESPONSE_PRIVATE_NETWORK: Final = "Access-Control-Allow-Private-Network"
+ACL_REQUEST_METHOD: Final = "Access-Control-Request-Method"
+ACL_REQUEST_HEADERS: Final = "Access-Control-Request-Headers"
+ACL_REQUEST_HEADER_PRIVATE_NETWORK: Final = "Access-Control-Request-Private-Network"
+ALL_METHODS: Final[list[str]]
+CONFIG_OPTIONS: Final[list[str]]
+FLASK_CORS_EVALUATED: Final = "_FLASK_CORS_EVALUATED"
+RegexObject: Final[type[Pattern[str]]]
+DEFAULT_OPTIONS: Final[_Options]
 
 def parse_resources(resources: dict[str, _Options] | Iterable[str] | str | Pattern[str]) -> list[tuple[str, _Options]]: ...
 def get_regexp_pattern(regexp: str | Pattern[str]) -> str: ...

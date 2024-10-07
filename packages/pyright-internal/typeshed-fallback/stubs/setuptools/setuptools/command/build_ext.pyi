@@ -1,6 +1,8 @@
 from _typeshed import Incomplete
 from typing import ClassVar
 
+from setuptools.dist import Distribution
+
 from .._distutils.command.build_ext import build_ext as _build_ext
 
 have_rtld: bool
@@ -11,6 +13,7 @@ def if_dl(s): ...
 def get_abi3_suffix(): ...
 
 class build_ext(_build_ext):
+    distribution: Distribution  # override distutils.dist.Distribution with setuptools.dist.Distribution
     editable_mode: ClassVar[bool]
     inplace: bool
     def run(self) -> None: ...

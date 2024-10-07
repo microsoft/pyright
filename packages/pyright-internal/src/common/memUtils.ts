@@ -31,6 +31,9 @@ function getHeapStatisticsFunc(): () => HeapInfo {
         does_zap_garbage: 0,
         number_of_native_contexts: 0,
         number_of_detached_contexts: 0,
+        total_global_handles_size: 0,
+        used_global_handles_size: 0,
+        external_memory: 0,
     });
 }
 export const getHeapStatistics = getHeapStatisticsFunc();

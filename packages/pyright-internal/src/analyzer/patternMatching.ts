@@ -102,6 +102,14 @@ const classPatternSpecialCases = [
     'builtins.tuple',
 ];
 
+// There are cases where sequence pattern matching of tuples with
+// large unions can blow up and cause hangs. This constant limits
+// the total number of subtypes that can be generated during type
+// narrowing for sequence patterns before the narrowed type is
+// converted to Any. This is tuned empirically to provide a reasonable
+// performance cutoff.
+const maxSequencePatternTupleExpansionSubtypes = 128;
+
 interface SequencePatternInfo {
     subtype: Type;
     isDefiniteNoMatch: boolean;
@@ -109,6 +117,7 @@ interface SequencePatternInfo {
     entryTypes: Type[];
     isIndeterminateLength?: boolean;
     isTuple?: boolean;
+    isUnboundedTuple?: boolean;
 }
 
 interface MappingPatternInfo {
@@ -202,6 +211,7 @@ function narrowTypeBasedOnSequencePattern(
     pattern: PatternSequenceNode,
     isPositiveTest: boolean
 ): Type {
+    let usingTupleExpansion = false;
     type = transformPossibleRecursiveTypeAlias(type);
     let sequenceInfo = getSequencePatternInfo(evaluator, pattern, type);
 
@@ -225,7 +235,7 @@ function narrowTypeBasedOnSequencePattern(
         // contains indeterminate-length entries or the tuple is of indeterminate
         // length.
         if (!isPositiveTest) {
-            if (entry.isIndeterminateLength) {
+            if (entry.isIndeterminateLength || entry.isUnboundedTuple) {
                 canNarrowTuple = false;
             }
 
@@ -358,6 +368,10 @@ function narrowTypeBasedOnSequencePattern(
                             );
                         })
                     );
+
+                    // Note that we're using tuple expansion in case we
+                    // need to limit the number of subtypes generated.
+                    usingTupleExpansion = true;
                 }
             }
 
@@ -400,7 +414,10 @@ function narrowTypeBasedOnSequencePattern(
         return isPlausibleMatch;
     });
 
-    return combineTypes(sequenceInfo.map((entry) => entry.subtype));
+    return combineTypes(
+        sequenceInfo.map((entry) => entry.subtype),
+        { maxSubtypeCount: usingTupleExpansion ? maxSequencePatternTupleExpansionSubtypes : undefined }
+    );
 }
 
 function narrowTypeBasedOnAsPattern(
@@ -842,16 +859,20 @@ function narrowTypeBasedOnClassPattern(
             pattern.d.className
         );
         return NeverType.createNever();
-    } else if (
-        isInstantiableClass(exprType) &&
-        ClassType.isProtocolClass(exprType) &&
-        !ClassType.isRuntimeCheckable(exprType)
-    ) {
-        evaluator.addDiagnostic(
-            DiagnosticRule.reportGeneralTypeIssues,
-            LocAddendum.protocolRequiresRuntimeCheckable(),
-            pattern.d.className
-        );
+    } else if (isInstantiableClass(exprType)) {
+        if (ClassType.isProtocolClass(exprType) && !ClassType.isRuntimeCheckable(exprType)) {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocAddendum.protocolRequiresRuntimeCheckable(),
+                pattern.d.className
+            );
+        } else if (ClassType.isTypedDictClass(exprType)) {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typedDictInClassPattern(),
+                pattern.d.className
+            );
+        }
     }
 
     return evaluator.mapSubtypesExpandTypeVars(
@@ -1436,6 +1457,7 @@ function getSequencePatternInfo(
                             entryTypes: isDefiniteNoMatch ? [] : typeArgs.map((t) => t.type),
                             isIndeterminateLength: false,
                             isTuple: true,
+                            isUnboundedTuple: tupleIndeterminateIndex >= 0,
                             isDefiniteNoMatch,
                             isPotentialNoMatch,
                         });
@@ -1488,6 +1510,7 @@ function getSequencePatternInfo(
                                 entryTypes: isDefiniteNoMatch ? [] : typeArgs.map((t) => t.type),
                                 isIndeterminateLength: false,
                                 isTuple: true,
+                                isUnboundedTuple: tupleIndeterminateIndex >= 0,
                                 isDefiniteNoMatch,
                             });
                             return;

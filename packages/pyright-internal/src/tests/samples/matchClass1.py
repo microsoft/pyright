@@ -8,6 +8,7 @@ from typing import (
     NamedTuple,
     Protocol,
     TypeVar,
+    TypedDict,
     runtime_checkable,
 )
 from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
@@ -32,12 +33,10 @@ class ClassB(Generic[T]):
     attr_b: str
 
 
-class ClassC:
-    ...
+class ClassC: ...
 
 
-class ClassD(ClassC):
-    ...
+class ClassD(ClassC): ...
 
 
 def test_unknown(value_to_match):
@@ -290,16 +289,13 @@ def func7(subj: object):
 T2 = TypeVar("T2")
 
 
-class Parent(Generic[T]):
-    ...
+class Parent(Generic[T]): ...
 
 
-class Child1(Parent[T]):
-    ...
+class Child1(Parent[T]): ...
 
 
-class Child2(Parent[T], Generic[T, T2]):
-    ...
+class Child2(Parent[T], Generic[T, T2]): ...
 
 
 def func8(subj: Parent[int]):
@@ -358,6 +354,10 @@ def func11(subj: Any):
             reveal_type(subj, expected_text="Child2[Unknown, Unknown]")
 
 
+class TD1(TypedDict):
+    x: int
+
+
 def func12(subj: int, flt_cls: type[float], union_val: float | int):
     match subj:
         # This should generate an error because int doesn't accept two arguments.
@@ -375,6 +375,10 @@ def func12(subj: int, flt_cls: type[float], union_val: float | int):
 
         # This should generate an error because it is a union.
         case union_val():
+            pass
+
+        # This should generate an error because it is a TypedDict.
+        case TD1():
             pass
 
 

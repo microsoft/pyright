@@ -491,7 +491,6 @@ const ClassTypeFlagsToString: [ClassTypeFlags, string][] = [
     [ClassTypeFlags.PropertyClass, 'PropertyClass'],
     [ClassTypeFlags.ProtocolClass, 'ProtocolClass'],
     [ClassTypeFlags.PseudoGenericClass, 'PseudoGenericClass'],
-    [ClassTypeFlags.ReadOnlyInstanceVariables, 'ReadOnlyInstanceVariables'],
     [ClassTypeFlags.RuntimeCheckable, 'RuntimeCheckable'],
     [ClassTypeFlags.SpecialBuiltIn, 'SpecialBuiltIn'],
     [ClassTypeFlags.SupportsAbstractMethods, 'SupportsAbstractMethods'],

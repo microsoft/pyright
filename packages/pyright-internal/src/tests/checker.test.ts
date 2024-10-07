@@ -120,6 +120,12 @@ test('AbstractClass10', () => {
     TestUtils.validateResults(analysisResults, 6);
 });
 
+test('AbstractClass11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['abstractClass11.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Constants1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constants1.py']);
 
@@ -239,6 +245,18 @@ test('UnnecessaryIsInstance1', () => {
     configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
+});
+
+test('UnnecessaryIsInstance2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('UnnecessaryIsSubclass1', () => {
@@ -396,7 +414,7 @@ test('ParamType1', () => {
 test('Python2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['python2.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('InconsistentSpaceTab1', () => {

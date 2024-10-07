@@ -2314,9 +2314,8 @@ export namespace ReturnNode {
 
 export interface RaiseNode extends ParseNodeBase<ParseNodeType.Raise> {
     d: {
-        typeExpression?: ExpressionNode | undefined;
-        valueExpression?: ExpressionNode | undefined;
-        tracebackExpression?: ExpressionNode | undefined;
+        expr?: ExpressionNode | undefined;
+        fromExpr?: ExpressionNode | undefined;
     };
 }
 
