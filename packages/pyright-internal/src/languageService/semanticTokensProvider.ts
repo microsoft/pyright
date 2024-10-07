@@ -95,7 +95,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
     override visitName(node: NameNode): boolean {
         throwIfCancellationRequested(this._cancellationToken);
 
-        const declarations = this._evaluator.getDeclarationsForNameNode(node);
+        const declarations = this._evaluator.getDeclInfoForNameNode(node)?.decls;
         if (declarations && declarations.length > 0) {
             // In most cases, it's best to treat the first declaration as the
             // "primary". This works well for properties that have setters
@@ -211,7 +211,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
 
                 if (type?.props?.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
                     const typeAliasInfo = getTypeAliasInfo(type);
-                    if (typeAliasInfo?.name === typeNode.d.value) {
+                    if (typeAliasInfo?.shared.name === typeNode.d.value) {
                         if (isTypeVar(type)) {
                             declarationType = TokenType.typeParameter;
                         } else {
