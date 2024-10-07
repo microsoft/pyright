@@ -58,6 +58,7 @@ interface ProtocolCompatibility {
     srcType: Type;
     destType: Type;
     flags: AssignTypeFlags;
+    constraints: ConstraintTracker | undefined;
     isCompatible: boolean;
 }
 
@@ -125,6 +126,7 @@ export function assignClassToProtocol(
 
     protocolAssignmentStack.push({ srcType, destType });
     let isCompatible = true;
+    const clonedConstraints = constraints?.clone();
 
     try {
         isCompatible = assignToProtocolInternal(evaluator, destType, srcType, diag, constraints, flags, recursionCount);
@@ -138,7 +140,7 @@ export function assignClassToProtocol(
     protocolAssignmentStack.pop();
 
     // Cache the results for next time.
-    setProtocolCompatibility(destType, srcType, flags, isCompatible);
+    setProtocolCompatibility(destType, srcType, flags, clonedConstraints, isCompatible);
 
     return isCompatible;
 }
@@ -229,7 +231,12 @@ function getProtocolCompatibility(
     }
 
     const entry = entries.find((entry) => {
-        return isTypeSame(entry.destType, destType) && isTypeSame(entry.srcType, srcType) && entry.flags === flags;
+        return (
+            isTypeSame(entry.destType, destType) &&
+            isTypeSame(entry.srcType, srcType) &&
+            entry.flags === flags &&
+            isConstraintTrackerSame(constraints, entry.constraints)
+        );
     });
 
     return entry?.isCompatible;
@@ -239,6 +246,7 @@ function setProtocolCompatibility(
     destType: ClassType,
     srcType: ClassType,
     flags: AssignTypeFlags,
+    constraints: ConstraintTracker | undefined,
     isCompatible: boolean
 ) {
     let map = srcType.shared.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
@@ -253,11 +261,25 @@ function setProtocolCompatibility(
         map.set(destType.shared.fullName, entries);
     }
 
-    entries.push({ destType, srcType, flags, isCompatible });
+    entries.push({
+        destType,
+        srcType,
+        flags,
+        constraints: constraints,
+        isCompatible,
+    });
 
     if (entries.length > maxProtocolCompatibilityCacheEntries) {
         entries.shift();
     }
+}
+
+function isConstraintTrackerSame(context1: ConstraintTracker | undefined, context2: ConstraintTracker | undefined) {
+    if (!context1 || !context2) {
+        return context1 === context2;
+    }
+
+    return context1.isSame(context2);
 }
 
 function assignToProtocolInternal(
