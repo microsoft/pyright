@@ -6,7 +6,7 @@ import { isDeclInEnumClass } from '../analyzer/enums';
 import { getEnclosingClass } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { isMaybeDescriptorInstance } from '../analyzer/typeUtils';
+import { isCallableType, isMaybeDescriptorInstance } from '../analyzer/typeUtils';
 import {
     ClassType,
     FunctionType,
@@ -24,8 +24,9 @@ import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
-import { FunctionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ExpressionNode, FunctionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
+import { limitOverloadBasedOnCall } from './tooltipUtils';
 
 enum TokenType {
     namespace,
@@ -92,34 +93,52 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
         this.walk(this._parseResults.parserOutput.parseTree);
     }
 
+    static getPrimaryDeclaration(declarations: Declaration[]) {
+        // In most cases, it's best to treat the first declaration as the
+        // "primary". This works well for properties that have setters
+        // which often have doc strings on the getter but not the setter.
+        // The one case where using the first declaration doesn't work as
+        // well is the case where an import statement within an __init__.py
+        // file uses the form "from .A import A". In this case, if we use
+        // the first declaration, it will show up as a module rather than
+        // the imported symbol type.
+        const primaryDeclaration = declarations[0];
+        if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
+            return declarations[1];
+        } else if (
+            primaryDeclaration.type === DeclarationType.Variable &&
+            declarations.length > 1 &&
+            primaryDeclaration.isDefinedBySlots
+        ) {
+            // Slots cannot have docstrings, so pick the secondary.
+            return declarations[1];
+        }
+
+        return primaryDeclaration;
+    }
+
     override visitName(node: NameNode): boolean {
         throwIfCancellationRequested(this._cancellationToken);
 
-        const declarations = this._evaluator.getDeclInfoForNameNode(node)?.decls;
-        if (declarations && declarations.length > 0) {
-            // In most cases, it's best to treat the first declaration as the
-            // "primary". This works well for properties that have setters
-            // which often have doc strings on the getter but not the setter.
-            // The one case where using the first declaration doesn't work as
-            // well is the case where an import statement within an __init__.py
-            // file uses the form "from .A import A". In this case, if we use
-            // the first declaration, it will show up as a module rather than
-            // the imported symbol type.
-            const primaryDeclaration = declarations[0];
-            if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
-                return this._addResultsForDeclaration(declarations[1], node);
-            } else if (
-                primaryDeclaration.type === DeclarationType.Variable &&
-                declarations.length > 1 &&
-                primaryDeclaration.isDefinedBySlots
-            ) {
-                // Slots cannot have docstrings, so pick the secondary.
-                return this._addResultsForDeclaration(declarations[1], node);
-            }
+        // Handle the case where we're pointing to a "fused" keyword argument.
+        // We want to display the hover information for the value expression.
+        if (
+            node.parent?.nodeType === ParseNodeType.Argument &&
+            node.parent.d.isNameSameAsValue &&
+            node.parent.d.name === node &&
+            node.parent.d.valueExpr.nodeType === ParseNodeType.Name
+        ) {
+            node = node.parent.d.valueExpr;
+        }
 
+        const declInfo = this._evaluator.getDeclInfoForNameNode(node);
+        const declarations = declInfo?.decls;
+
+        if (declarations && declarations.length > 0) {
+            const primaryDeclaration = SemanticTokensTreeWalker.getPrimaryDeclaration(declarations);
             return this._addResultsForDeclaration(primaryDeclaration, node);
         } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
-            const type = this._evaluator.getType(node) ?? UnknownType.create();
+            const type = this._getType(node);
             let tokenType: TokenType | null = null;
             if (isModule(type)) {
                 // Handle modules specially because submodules aren't associated with
@@ -129,6 +148,8 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
             } else if (isFunction(type) || isOverloaded(type)) {
                 const isProperty = isMaybeDescriptorInstance(type, /* requireSetter */ false);
                 tokenType = isProperty ? TokenType.property : TokenType.function;
+            } else if (node.parent && node.parent.nodeType === ParseNodeType.MemberAccess) {
+                tokenType = isCallableType(type) ? TokenType.method : TokenType.property;
             }
 
             if (tokenType) {
@@ -139,6 +160,13 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
         }
 
         return false;
+    }
+
+    private _getType(node: ExpressionNode) {
+        // It does common work necessary for hover for a type we got
+        // from raw type evaluator.
+        const type = this._evaluator.getType(node) ?? UnknownType.create();
+        return limitOverloadBasedOnCall(this._evaluator, type, node);
     }
 
     private _addResultsForDeclaration(declaration: Declaration, node: NameNode): boolean {
