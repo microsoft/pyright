@@ -541,6 +541,7 @@ export interface DataClassEntry {
     isKeywordOnly: boolean;
     alias?: string | undefined;
     hasDefault?: boolean | undefined;
+    isDefaultFactory?: boolean | undefined;
     nameNode: NameNode | undefined;
     typeAnnotationNode: TypeAnnotationNode | undefined;
     defaultExpr?: ExpressionNode | undefined;
