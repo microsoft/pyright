@@ -103,6 +103,7 @@ class ErrorCodes:
         ExpirationYearIsInvalid: Final = "81713"
         InvalidParamsForCreditCardUpdate: Final = "91745"
         InvalidVenmoSDKPaymentMethodCode: Final = "91727"
+        NetworkTokenizationAttributeCryptogramIsRequired: Final = "81762"
         NumberHasInvalidLength: Final = "81716"
         NumberLengthIsInvalid: Final = "81716"
         NumberIsInvalid: Final = "81715"

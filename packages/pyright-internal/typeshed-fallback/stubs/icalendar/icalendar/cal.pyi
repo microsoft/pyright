@@ -1,11 +1,30 @@
+import datetime
 from _typeshed import Incomplete, SupportsItems
+from collections.abc import Callable
 from typing import Any, ClassVar, Final, Literal, overload
-
-from pytz.tzinfo import DstTzInfo
 
 from .caselessdict import CaselessDict
 from .parser import Contentline, Contentlines
 from .prop import TypesFactory
+
+__all__ = [
+    "Alarm",
+    "Calendar",
+    "Component",
+    "ComponentFactory",
+    "Event",
+    "FreeBusy",
+    "INLINE",
+    "Journal",
+    "Timezone",
+    "TimezoneDaylight",
+    "TimezoneStandard",
+    "Todo",
+    "component_factory",
+    "get_example",
+]
+
+def get_example(component_directory: str, example_name: str) -> bytes: ...
 
 class ComponentFactory(CaselessDict[Incomplete]):
     def __init__(self, *args, **kwargs) -> None: ...
@@ -27,8 +46,6 @@ class Component(CaselessDict[Incomplete]):
     def __bool__(self) -> bool: ...
     __nonzero__ = __bool__
     def is_empty(self) -> bool: ...
-    @property
-    def is_broken(self) -> bool: ...
     @overload
     def add(self, name: str, value: Any, *, encode: Literal[False]) -> None: ...
     @overload
@@ -41,7 +58,7 @@ class Component(CaselessDict[Incomplete]):
     def get_inline(self, name, decode: bool = True): ...
     def set_inline(self, name, values, encode: bool = True) -> None: ...
     def add_component(self, component: Component) -> None: ...
-    def walk(self, name: Incomplete | None = None): ...
+    def walk(self, name: str | None = None, select: Callable[[Component], bool] = ...): ...
     def property_items(self, recursive: bool = True, sorted: bool = True): ...
     @overload
     @classmethod
@@ -56,6 +73,8 @@ class Component(CaselessDict[Incomplete]):
 
 class Event(Component):
     name: ClassVar[Literal["VEVENT"]]
+    @classmethod
+    def example(cls, name: str) -> Event: ...
 
 class Todo(Component):
     name: ClassVar[Literal["VTODO"]]
@@ -68,7 +87,12 @@ class FreeBusy(Component):
 
 class Timezone(Component):
     name: ClassVar[Literal["VTIMEZONE"]]
-    def to_tz(self) -> DstTzInfo: ...
+    @classmethod
+    def example(cls, name: str) -> Calendar: ...
+    def to_tz(self, tzp=...): ...  # FIXME -> DstTzInfo: ...
+    @property
+    def tz_name(self) -> str: ...
+    def get_transitions(self) -> tuple[list[datetime.datetime], list[tuple[datetime.timedelta, datetime.timedelta, str]]]: ...
 
 class TimezoneStandard(Component):
     name: ClassVar[Literal["STANDARD"]]
@@ -81,6 +105,8 @@ class Alarm(Component):
 
 class Calendar(Component):
     name: ClassVar[Literal["VCALENDAR"]]
+    @classmethod
+    def example(cls, name: str) -> Calendar: ...
 
 types_factory: Final[TypesFactory]
 component_factory: Final[ComponentFactory]

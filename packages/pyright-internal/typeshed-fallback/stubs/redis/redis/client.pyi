@@ -105,13 +105,22 @@ class Redis(AbstractRedis, RedisModuleCommands, CoreCommands[_StrType], Sentinel
         ssl_certfile: str | None = ...,
         ssl_cert_reqs: str | int | None = ...,
         ssl_ca_certs: str | None = ...,
+        ssl_ca_path: Incomplete | None = None,
+        ssl_ca_data: Incomplete | None = None,
         ssl_check_hostname: bool = ...,
+        ssl_password: Incomplete | None = None,
+        ssl_validate_ocsp: bool = False,
+        ssl_validate_ocsp_stapled: bool = False,  # added in 4.1.1
+        ssl_ocsp_context: Incomplete | None = None,  # added in 4.1.1
+        ssl_ocsp_expected_cert: Incomplete | None = None,  # added in 4.1.1
         max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
         client_name: str | None = ...,
         username: str | None = ...,
         retry: Retry | None = ...,
+        redis_connect_func: _ConnectFunc | None = None,
+        credential_provider: CredentialProvider | None = None,
     ) -> Redis[str]: ...
     @overload
     @classmethod
@@ -141,13 +150,22 @@ class Redis(AbstractRedis, RedisModuleCommands, CoreCommands[_StrType], Sentinel
         ssl_certfile: str | None = ...,
         ssl_cert_reqs: str | int | None = ...,
         ssl_ca_certs: str | None = ...,
+        ssl_ca_path: Incomplete | None = None,
+        ssl_ca_data: Incomplete | None = None,
         ssl_check_hostname: bool = ...,
+        ssl_password: Incomplete | None = None,
+        ssl_validate_ocsp: bool = False,
+        ssl_validate_ocsp_stapled: bool = False,  # added in 4.1.1
+        ssl_ocsp_context: Incomplete | None = None,  # added in 4.1.1
+        ssl_ocsp_expected_cert: Incomplete | None = None,  # added in 4.1.1
         max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
         client_name: str | None = ...,
         username: str | None = ...,
         retry: Retry | None = ...,
+        redis_connect_func: _ConnectFunc | None = None,
+        credential_provider: CredentialProvider | None = None,
     ) -> Redis[bytes]: ...
     connection_pool: Any
     response_callbacks: Any

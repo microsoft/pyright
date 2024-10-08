@@ -1,3 +1,6 @@
-version = "5.0.*"
+version = "6.0.*"
 upstream_repository = "https://github.com/collective/icalendar"
-requires = ["types-pytz"]
+requires = ["types-python-dateutil", "backports.zoneinfo; python_version<'3.9'"]
+
+[tool.stubtest]
+stubtest_requirements = ["pytz"]
