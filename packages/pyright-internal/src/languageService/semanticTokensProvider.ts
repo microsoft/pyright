@@ -2,6 +2,7 @@ import { Position, SemanticTokensBuilder } from 'vscode-languageserver';
 import { CancellationToken, SemanticTokens } from 'vscode-languageserver-protocol';
 
 import { Declaration, DeclarationType, isUnresolvedAliasDeclaration } from '../analyzer/declaration';
+import { isMagicAttributeAccess } from '../analyzer/declarationUtils';
 import { isDeclInEnumClass } from '../analyzer/enums';
 import { getEnclosingClass } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
@@ -307,7 +308,8 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
                     const declaredType = this._evaluator.getTypeForDeclaration(resolvedDecl)?.type;
                     const isProperty =
                         !!declaredType && isMaybeDescriptorInstance(declaredType, /* requireSetter */ false);
-                    declarationType = isProperty ? TokenType.property : TokenType.method;
+                    const isMagic = isMagicAttributeAccess(resolvedDecl);
+                    declarationType = isProperty || isMagic ? TokenType.property : TokenType.method;
                     break;
                 }
 

@@ -17,6 +17,7 @@ import {
     VariableDeclaration,
     isUnresolvedAliasDeclaration,
 } from '../analyzer/declaration';
+import { isMagicAttributeAccess } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
@@ -426,7 +427,8 @@ export class HoverProvider {
                 if (resolvedDecl.isMethod) {
                     const declaredType = this._evaluator.getTypeForDeclaration(resolvedDecl)?.type;
                     isProperty = !!declaredType && isMaybeDescriptorInstance(declaredType, /* requireSetter */ false);
-                    label = isProperty ? 'property' : 'method';
+                    const isMagic = isMagicAttributeAccess(resolvedDecl);
+                    label = isProperty ? 'property' : isMagic ? 'attribute' : 'method';
                 }
 
                 let type = this._getType(node);

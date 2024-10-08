@@ -418,3 +418,9 @@ export function resolveAliasDeclaration(
         alreadyVisited.push(curDeclaration);
     }
 }
+
+export function isMagicAttributeAccess(declaration: Declaration): boolean {
+    const isMethod = declaration.type === DeclarationType.Function && declaration.isMethod;
+    const name = getNameFromDeclaration(declaration);
+    return isMethod && name ? ['__getattribute__', '__getattr__', '__setattr__', '__delattr__'].includes(name) : false;
+}

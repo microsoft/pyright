@@ -5921,7 +5921,7 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfClassMemberName(
-        errorNode: ExpressionNode | undefined,
+        exprNode: ExpressionNode | undefined,
         classType: ClassType,
         memberName: string,
         usage: EvaluatorUsage,
@@ -5930,6 +5930,38 @@ export function createTypeEvaluator(
         selfType?: ClassType | TypeVarType,
         recursionCount = 0
     ): ClassMemberLookup | undefined {
+        const getMagicAttributeLookup = (
+            exprNode: ExpressionNode,
+            getAttribute: boolean
+        ): ClassMemberLookup | undefined => {
+            const generalAttrType = applyAttributeAccessOverride(
+                exprNode,
+                classType,
+                usage,
+                memberName,
+                getAttribute,
+                selfType
+            );
+            return generalAttrType
+                ? {
+                      symbol: undefined,
+                      type: generalAttrType.type,
+                      isTypeIncomplete: false,
+                      isDescriptorError: false,
+                      isClassMember: false,
+                      isClassVar: false,
+                      isAsymmetricAccessor: !!generalAttrType.isAsymmetricAccessor,
+                  }
+                : undefined;
+        };
+
+        if ((flags & MemberAccessFlags.SkipAttributeAccessOverride) === 0 && exprNode) {
+            const generalAttrLookup = getMagicAttributeLookup(exprNode, true);
+            if (generalAttrLookup) {
+                return generalAttrLookup;
+            }
+        }
+
         const isAccessedThroughObject = TypeBase.isInstance(classType);
 
         // Always look for a member with a declared type first.
@@ -5945,18 +5977,10 @@ export function createTypeEvaluator(
             // No attribute of that name was found. If this is a member access
             // through an object, see if there's an attribute access override
             // method ("__getattr__", etc.).
-            if ((flags & MemberAccessFlags.SkipAttributeAccessOverride) === 0 && errorNode) {
-                const generalAttrType = applyAttributeAccessOverride(errorNode, classType, usage, memberName, selfType);
-                if (generalAttrType) {
-                    return {
-                        symbol: undefined,
-                        type: generalAttrType.type,
-                        isTypeIncomplete: false,
-                        isDescriptorError: false,
-                        isClassMember: false,
-                        isClassVar: false,
-                        isAsymmetricAccessor: !!generalAttrType.isAsymmetricAccessor,
-                    };
+            if ((flags & MemberAccessFlags.SkipAttributeAccessOverride) === 0 && exprNode) {
+                const generalAttrLookup = getMagicAttributeLookup(exprNode, false);
+                if (generalAttrLookup) {
+                    return generalAttrLookup;
                 }
             }
 
@@ -5974,11 +5998,11 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        if (usage.method !== 'get' && errorNode) {
+        if (usage.method !== 'get' && exprNode) {
             // If the usage indicates a 'set' or 'delete' and the access is within the
             // class definition itself, use only the declared type to avoid circular
             // type evaluation.
-            const containingClass = ParseTreeUtils.getEnclosingClass(errorNode);
+            const containingClass = ParseTreeUtils.getEnclosingClass(exprNode);
             if (containingClass) {
                 const containingClassType = getTypeOfClass(containingClass)?.classType;
                 if (
@@ -6006,7 +6030,7 @@ export function createTypeEvaluator(
                         isAccessedThroughObject
                     ) {
                         const selfClass = selfType ?? memberName === '__new__' ? undefined : classType;
-                        const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, selfClass, flags);
+                        const typeResult = getTypeOfMemberInternal(exprNode, memberInfo, selfClass, flags);
 
                         if (typeResult) {
                             if (isDescriptorInstance(typeResult.type, /* requireSetter */ true)) {
@@ -6036,7 +6060,7 @@ export function createTypeEvaluator(
                 }
             }
 
-            const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, selfClass, flags);
+            const typeResult = getTypeOfMemberInternal(exprNode, memberInfo, selfClass, flags);
 
             type = typeResult?.type ?? UnknownType.create();
             if (typeResult?.isIncomplete) {
@@ -6056,11 +6080,11 @@ export function createTypeEvaluator(
         if (usage.method === 'get') {
             // Mark the member accessed if it's not coming from a parent class.
             if (
-                errorNode &&
+                exprNode &&
                 isInstantiableClass(memberInfo.classType) &&
                 ClassType.isSameGenericClass(memberInfo.classType, classType)
             ) {
-                setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(errorNode), memberInfo.symbol, errorNode);
+                setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(exprNode), memberInfo.symbol, exprNode);
             }
 
             // Special-case `__init_subclass` and `__class_getitem__` because
@@ -6085,7 +6109,7 @@ export function createTypeEvaluator(
             const isClassMember = !memberInfo || memberInfo.isClassMember;
             let resultType: Type;
 
-            if (isClass(concreteSubtype) && isClassMember && errorNode) {
+            if (isClass(concreteSubtype) && isClassMember && exprNode) {
                 const descResult = applyDescriptorAccessMethod(
                     subtype,
                     concreteSubtype,
@@ -6093,7 +6117,7 @@ export function createTypeEvaluator(
                     classType,
                     selfType,
                     flags,
-                    errorNode,
+                    exprNode,
                     memberName,
                     usage,
                     diag
@@ -6161,12 +6185,12 @@ export function createTypeEvaluator(
 
             if (
                 finalVarTypeDecl &&
-                errorNode &&
-                !ParseTreeUtils.isNodeContainedWithin(errorNode, finalVarTypeDecl.node)
+                exprNode &&
+                !ParseTreeUtils.isNodeContainedWithin(exprNode, finalVarTypeDecl.node)
             ) {
                 // If a Final instance variable is declared in the class body but is
                 // being assigned within an __init__ method, it's allowed.
-                const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
+                const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(exprNode);
                 if (
                     !enclosingFunctionNode ||
                     enclosingFunctionNode.d.name.d.value !== '__init__' ||
@@ -6189,13 +6213,13 @@ export function createTypeEvaluator(
         });
 
         if (!isDescriptorError && usage.method === 'set' && usage.setType) {
-            if (errorNode && memberInfo.symbol.hasTypedDeclarations()) {
+            if (exprNode && memberInfo.symbol.hasTypedDeclarations()) {
                 // This is an assignment to a member with a declared type. Apply
                 // narrowing logic based on the assigned type. Skip this for
                 // descriptor-based accesses.
                 narrowedTypeForSet = isDescriptorApplied
                     ? usage.setType.type
-                    : narrowTypeBasedOnAssignment(errorNode, type, usage.setType).type;
+                    : narrowTypeBasedOnAssignment(exprNode, type, usage.setType).type;
             }
 
             // Verify that the assigned type is compatible.
@@ -6622,15 +6646,16 @@ export function createTypeEvaluator(
     // Applies the __getattr__, __setattr__ or __delattr__ method if present.
     // If it's not applicable, returns undefined.
     function applyAttributeAccessOverride(
-        errorNode: ExpressionNode,
+        exprNode: ExpressionNode,
         classType: ClassType,
         usage: EvaluatorUsage,
         memberName: string,
+        getAttribute: boolean,
         selfType?: ClassType | TypeVarType
     ): MemberAccessTypeResult | undefined {
         const getAttributeAccessMember = (name: string) => {
             return getTypeOfBoundMember(
-                errorNode,
+                exprNode,
                 classType,
                 name,
                 /* usage */ undefined,
@@ -6645,12 +6670,14 @@ export function createTypeEvaluator(
 
         let accessMemberType: Type | undefined;
         if (usage.method === 'get') {
-            accessMemberType = getAttributeAccessMember('__getattribute__') ?? getAttributeAccessMember('__getattr__');
+            accessMemberType = getAttribute
+                ? getAttributeAccessMember('__getattribute__')
+                : getAttributeAccessMember('__getattr__');
         } else if (usage.method === 'set') {
-            accessMemberType = getAttributeAccessMember('__setattr__');
+            if (!getAttribute) accessMemberType = getAttributeAccessMember('__setattr__');
         } else {
             assert(usage.method === 'del');
-            accessMemberType = getAttributeAccessMember('__delattr__');
+            if (!getAttribute) accessMemberType = getAttributeAccessMember('__delattr__');
         }
 
         if (!accessMemberType) {
@@ -6691,7 +6718,7 @@ export function createTypeEvaluator(
         }
 
         const callResult = validateCallArgs(
-            errorNode,
+            exprNode,
             argList,
             { type: accessMemberType },
             /* constraints */ undefined,
@@ -21433,16 +21460,20 @@ export function createTypeEvaluator(
             node.parent.nodeType === ParseNodeType.MemberAccess &&
             node === node.parent.d.member
         ) {
-            let baseType = getType(node.parent.d.leftExpr);
+            const memberAccess = node.parent;
+            let baseType = getType(memberAccess.d.leftExpr);
             if (baseType) {
                 baseType = makeTopLevelTypeVarsConcrete(baseType);
-                const memberName = node.parent.d.member.d.value;
+                const memberName = memberAccess.d.member.d.value;
                 doForEachSubtype(baseType, (subtype) => {
                     let symbol: Symbol | undefined;
 
+                    const getAttributeSymbol = getMagicAttributeAccessSymbol(memberAccess, true);
                     subtype = makeTopLevelTypeVarsConcrete(subtype);
 
-                    if (isInstantiableClass(subtype)) {
+                    if (getAttributeSymbol) {
+                        symbol = getAttributeSymbol;
+                    } else if (isInstantiableClass(subtype)) {
                         // Try to find a member that has a declared type. If so, that
                         // overrides any inferred types.
                         let member = lookUpClassMember(subtype, memberName, MemberAccessFlags.DeclaredTypesOnly);
@@ -21472,6 +21503,11 @@ export function createTypeEvaluator(
                         }
                     } else if (isModule(subtype)) {
                         symbol = ModuleType.getField(subtype, memberName);
+                    }
+
+                    if (!symbol) {
+                        // If nothing else has been found, check the non-__getattribute__ magic attribute access methods
+                        symbol = getMagicAttributeAccessSymbol(memberAccess, false);
                     }
 
                     if (symbol) {
@@ -21586,6 +21622,30 @@ export function createTypeEvaluator(
         }
 
         return { decls: declarations, synthesizedTypes };
+    }
+
+    function getMagicAttributeAccessSymbol(node: MemberAccessNode, getAttribute: boolean): Symbol | undefined {
+        const baseType = getType(node.d.leftExpr);
+        if (baseType && baseType.category === TypeCategory.Class) {
+            let symbolResult: ClassMember | undefined;
+            if (node.parent && node.parent.nodeType === ParseNodeType.Del) {
+                if (!getAttribute)
+                    symbolResult = lookUpClassMember(baseType, '__delattr__', MemberAccessFlags.SkipBaseClasses);
+            } else if (
+                node.parent &&
+                node.parent.nodeType === ParseNodeType.Assignment &&
+                node === node.parent.d.leftExpr
+            ) {
+                if (!getAttribute)
+                    symbolResult = lookUpClassMember(baseType, '__setattr__', MemberAccessFlags.SkipBaseClasses);
+            } else {
+                symbolResult = getAttribute
+                    ? lookUpClassMember(baseType, '__getattribute__', MemberAccessFlags.SkipBaseClasses)
+                    : lookUpClassMember(baseType, '__getattr__', MemberAccessFlags.SkipBaseClasses);
+            }
+            return symbolResult?.symbol;
+        }
+        return undefined;
     }
 
     function getTypeForDeclaration(declaration: Declaration): DeclaredSymbolTypeInfo {
