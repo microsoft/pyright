@@ -112,6 +112,23 @@ export function assignClassToProtocol(
     if (compat !== undefined) {
         if (compat.isCompatible) {
             if (compat.postConstraints) {
+                if (constraints) {
+                    const testClonedConstraints = constraints?.clone();
+                    protocolAssignmentStack.push({ srcType, destType });
+                    const testIsCompatible = assignToProtocolInternal(
+                        evaluator,
+                        destType,
+                        srcType,
+                        /* diag */ undefined,
+                        testClonedConstraints,
+                        flags,
+                        recursionCount
+                    );
+                    protocolAssignmentStack.pop();
+                    assert(testIsCompatible);
+                    assert(testClonedConstraints.isSame(compat.postConstraints));
+                }
+
                 constraints?.copyFromClone(compat.postConstraints);
             }
             return true;
