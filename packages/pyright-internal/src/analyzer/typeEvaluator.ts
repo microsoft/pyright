@@ -21542,7 +21542,11 @@ export function createTypeEvaluator(
                             const paramDecl = getDeclarationFromKeywordParam(initMethodType, paramName);
                             if (paramDecl) {
                                 declarations.push(paramDecl);
-                            } else if (ClassType.isDataClass(baseType) || ClassType.isTypedDictClass(baseType)) {
+                            } else if (
+                                ClassType.isDataClass(baseType) ||
+                                ClassType.isTypedDictClass(baseType) ||
+                                ClassType.hasNamedTupleEntry(baseType, paramName)
+                            ) {
                                 const lookupResults = lookUpClassMember(baseType, paramName);
                                 if (lookupResults) {
                                     appendArray(declarations, lookupResults.symbol.getDeclarations());
