@@ -369,6 +369,7 @@ test('DataClass17', () => {
 test('DataClassReplace1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
+    configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 10);
 
