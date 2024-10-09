@@ -127,8 +127,8 @@ export function assignClassToProtocol(
                     protocolAssignmentStack.pop();
                     assert(testIsCompatible);
                     if (!testClonedConstraints.isSame(compat.postConstraints)) {
-                        console.log('here!');
-                        testClonedConstraints.isSame(compat.postConstraints);
+                        fail('Protocol cache miss');
+                        // testClonedConstraints.isSame(compat.postConstraints);
                     }
                 }
 

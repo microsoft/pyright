@@ -3340,6 +3340,12 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
+            // This test is required for the "partial" class, which clones
+            // the symbol table to add a custom __call__ method.
+            if (type1.shared.fields !== classType2.shared.fields) {
+                return false;
+            }
+
             if (!type1.priv.isUnpacked !== !classType2.priv.isUnpacked) {
                 return false;
             }
