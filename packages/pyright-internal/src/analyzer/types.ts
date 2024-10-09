@@ -1010,9 +1010,23 @@ export namespace ClassType {
         return newClassType;
     }
 
-    export function cloneForUnpacked(classType: ClassType, isUnpacked = true): ClassType {
+    export function cloneForUnpacked(classType: ClassType): ClassType {
+        if (classType.priv.isUnpacked) {
+            return classType;
+        }
+
         const newClassType = TypeBase.cloneType(classType);
-        newClassType.priv.isUnpacked = isUnpacked;
+        newClassType.priv.isUnpacked = true;
+        return newClassType;
+    }
+
+    export function cloneForPacked(classType: ClassType): ClassType {
+        if (!classType.priv.isUnpacked) {
+            return classType;
+        }
+
+        const newClassType = TypeBase.cloneType(classType);
+        newClassType.priv.isUnpacked = false;
         return newClassType;
     }
 
@@ -2778,6 +2792,9 @@ export interface TypeVarDetailsPriv {
     // If the TypeVar is bound form of a TypeVar, this refers to
     // the corresponding free TypeVar.
     freeTypeVar?: TypeVarType | undefined;
+
+    // Is this TypeVar or TypeVarTuple unpacked (i.e. Unpack or * operator applied)?
+    isUnpacked?: boolean | undefined;
 }
 
 export interface TypeVarType extends TypeBase<TypeCategory.TypeVar> {
@@ -2812,9 +2829,6 @@ export namespace ParamSpecType {
 }
 
 export interface TypeVarTupleDetailsPriv extends TypeVarDetailsPriv {
-    // Is this TypeVarTuple unpacked (i.e. Unpack or * operator applied)?
-    isUnpacked?: boolean | undefined;
-
     // Is this TypeVarTuple included in a Union[]? This allows us to
     // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
     isInUnion?: boolean | undefined;
@@ -2899,10 +2913,13 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneForUnpacked(type: TypeVarTupleType, isInUnion = false) {
+    export function cloneForUnpacked(type: TypeVarType, isInUnion = false) {
         const newInstance = TypeBase.cloneType(type);
         newInstance.priv.isUnpacked = true;
-        newInstance.priv.isInUnion = isInUnion;
+
+        if (isTypeVarTuple(newInstance) && isInUnion) {
+            newInstance.priv.isInUnion = isInUnion;
+        }
 
         if (newInstance.priv.freeTypeVar) {
             newInstance.priv.freeTypeVar = TypeVarType.cloneForUnpacked(newInstance.priv.freeTypeVar, isInUnion);
@@ -3195,6 +3212,10 @@ export function isUnpackedTypeVarTuple(type: Type): type is TypeVarTupleType {
     return isTypeVarTuple(type) && !!type.priv.isUnpacked && !type.priv.isInUnion;
 }
 
+export function isUnpackedTypeVar(type: Type): type is TypeVarTupleType {
+    return isTypeVar(type) && !isTypeVarTuple(type) && !!type.priv.isUnpacked;
+}
+
 export function isUnpackedClass(type: Type): type is ClassType {
     if (!isClass(type) || !type.priv.isUnpacked) {
         return false;
@@ -3204,7 +3225,7 @@ export function isUnpackedClass(type: Type): type is ClassType {
 }
 
 export function isUnpacked(type: Type): boolean {
-    return isUnpackedTypeVarTuple(type) || isUnpackedClass(type);
+    return isUnpackedTypeVarTuple(type) || isUnpackedTypeVar(type) || isUnpackedClass(type);
 }
 
 export function isFunction(type: Type): type is FunctionType {
