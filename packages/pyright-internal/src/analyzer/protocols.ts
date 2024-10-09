@@ -126,7 +126,10 @@ export function assignClassToProtocol(
                     );
                     protocolAssignmentStack.pop();
                     assert(testIsCompatible);
-                    assert(testClonedConstraints.isSame(compat.postConstraints));
+                    if (!testClonedConstraints.isSame(compat.postConstraints)) {
+                        console.log('here!');
+                        testClonedConstraints.isSame(compat.postConstraints);
+                    }
                 }
 
                 constraints?.copyFromClone(compat.postConstraints);

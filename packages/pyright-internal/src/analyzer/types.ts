@@ -3481,6 +3481,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
+            if (type1.priv.nameWithScope !== type2TypeVar.priv.nameWithScope) {
+                return false;
+            }
+
             // Handle the case where this is a generic recursive type alias. Make
             // sure that the type argument types match.
             if (type1.shared.recursiveAlias && type2TypeVar.shared.recursiveAlias) {
