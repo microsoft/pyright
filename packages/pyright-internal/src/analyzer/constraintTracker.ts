@@ -78,7 +78,7 @@ export class ConstraintSet {
                 return type1 === type2;
             }
 
-            return isTypeSame(type1, type2);
+            return isTypeSame(type1, type2, { honorIsTypeArgExplicit: true, honorTypeForm: true });
         }
 
         let isSame = true;

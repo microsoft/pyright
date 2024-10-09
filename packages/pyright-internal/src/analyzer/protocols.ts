@@ -277,8 +277,8 @@ function getProtocolCompatibility(
         }
 
         if (
-            isTypeSame(entry.destType, destType) &&
-            isTypeSame(entry.srcType, srcType) &&
+            isTypeSame(entry.destType, destType, { honorIsTypeArgExplicit: true, honorTypeForm: true }) &&
+            isTypeSame(entry.srcType, srcType, { honorIsTypeArgExplicit: true, honorTypeForm: true }) &&
             isConstraintTrackerSame(constraints, entry.preConstraints)
         ) {
             return entry;

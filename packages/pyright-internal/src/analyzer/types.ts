@@ -119,6 +119,7 @@ export interface TypeSameOptions {
     ignoreConditions?: boolean;
     ignoreTypedDictNarrowEntries?: boolean;
     honorTypeForm?: boolean;
+    honorIsTypeArgExplicit?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
 
@@ -3352,6 +3353,12 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
 
             if (!type1.priv.isTypedDictPartial !== !classType2.priv.isTypedDictPartial) {
                 return false;
+            }
+
+            if (options.honorIsTypeArgExplicit) {
+                if (!!type1.priv.isTypeArgExplicit !== !!classType2.priv.isTypeArgExplicit) {
+                    return false;
+                }
             }
 
             if (!options.ignoreTypedDictNarrowEntries && !ClassType.isTypedDictNarrowedEntriesSame(type1, classType2)) {
