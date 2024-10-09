@@ -119,6 +119,7 @@ export interface TypeSameOptions {
     ignoreConditions?: boolean;
     ignoreTypedDictNarrowEntries?: boolean;
     honorTypeForm?: boolean;
+    honorIsTypeArgExplicit?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
 
@@ -3361,12 +3362,24 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
+            // This test is required for the "partial" class, which clones
+            // the symbol table to add a custom __call__ method.
+            if (type1.shared.fields !== classType2.shared.fields) {
+                return false;
+            }
+
             if (!type1.priv.isUnpacked !== !classType2.priv.isUnpacked) {
                 return false;
             }
 
             if (!type1.priv.isTypedDictPartial !== !classType2.priv.isTypedDictPartial) {
                 return false;
+            }
+
+            if (options.honorIsTypeArgExplicit) {
+                if (!!type1.priv.isTypeArgExplicit !== !!classType2.priv.isTypeArgExplicit) {
+                    return false;
+                }
             }
 
             if (!options.ignoreTypedDictNarrowEntries && !ClassType.isTypedDictNarrowedEntriesSame(type1, classType2)) {
@@ -3499,6 +3512,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             const type2TypeVar = type2 as TypeVarType;
 
             if (type1.priv.scopeId !== type2TypeVar.priv.scopeId) {
+                return false;
+            }
+
+            if (type1.priv.nameWithScope !== type2TypeVar.priv.nameWithScope) {
                 return false;
             }
 
