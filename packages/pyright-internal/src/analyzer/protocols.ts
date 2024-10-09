@@ -8,7 +8,7 @@
  * (structural subtyping) classes.
  */
 
-import { assert } from '../common/debug';
+import { assert, fail } from '../common/debug';
 import { defaultMaxDiagnosticDepth, DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
 import { ConstraintSolution } from './constraintSolution';
