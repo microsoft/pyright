@@ -565,6 +565,7 @@
         "typedDictFieldReadOnlyRedefinition": "无法将 TypedDict 项“{name}”重新定义为 ReadOnly",
         "typedDictFieldRequiredRedefinition": "无法将 TypedDict 项“{name}”重新定义为 Required",
         "typedDictFirstArg": "应将 TypedDict 类名作为第一个参数",
+        "typedDictInClassPattern": "类模式中不允许使用 TypedDict 类",
         "typedDictInitsubclassParameter": "TypedDict 不支持 __init_subclass__ parameter“{name}”",
         "typedDictNotAllowed": "\"TypedDict\" 不能用于此上下文",
         "typedDictSecondArgDict": "预期的 dict 或关键字参数作为第二个参数",
