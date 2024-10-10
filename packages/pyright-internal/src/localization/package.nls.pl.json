@@ -565,6 +565,7 @@
         "typedDictFieldReadOnlyRedefinition": "Element TypedDict „{name}” nie może być przedefiniowany jako ReadOnly.",
         "typedDictFieldRequiredRedefinition": "Element TypedDict „{name}” nie może zostać przedefiniowany jako Required",
         "typedDictFirstArg": "Oczekiwano nazwy klasy TypedDict jako pierwszego argumentu",
+        "typedDictInClassPattern": "klasa TypedDict nie jest dozwolona we wzorcu klasy",
         "typedDictInitsubclassParameter": "Element TypedDict nie obsługuje parametru __init_subclass__ „{name}”",
         "typedDictNotAllowed": "Nie można użyć elementu „TypedDict” w tym kontekście",
         "typedDictSecondArgDict": "Oczekiwano parametru dict lub słowa kluczowego jako drugiego parametru",

@@ -565,6 +565,7 @@
         "typedDictFieldReadOnlyRedefinition": "TypedDict 항목 \"{name}\"은(는) ReadOnly로 재정의될 수 없습니다.",
         "typedDictFieldRequiredRedefinition": "TypedDict 항목 \"{name}\"은(는) Required로 재정의될 수 없습니다.",
         "typedDictFirstArg": "TypedDict 클래스 이름이 첫 번째 인수로 필요합니다.",
+        "typedDictInClassPattern": "TypedDict 클래스는 클래스 패턴에서 사용할 수 없습니다.",
         "typedDictInitsubclassParameter": "TypedDict는 __init_subclass__ 매개 변수 \"{name}\"을(를) 지원하지 않습니다.",
         "typedDictNotAllowed": "이 컨텍스트에서는 \"TypedDict\"를 사용할 수 없습니다.",
         "typedDictSecondArgDict": "두 번째 매개 변수로 dict 또는 키워드 매개 변수가 필요합니다.",
