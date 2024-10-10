@@ -565,6 +565,7 @@
         "typedDictFieldReadOnlyRedefinition": "Položka TypedDict {name} nejde předefinovat jako ReadOnly.",
         "typedDictFieldRequiredRedefinition": "Položka TypedDict {name} nejde předefinovat jako Required.",
         "typedDictFirstArg": "Jako první argument byl očekáván název třídy TypedDict",
+        "typedDictInClassPattern": "Třída TypedDict není ve vzoru třídy povolena.",
         "typedDictInitsubclassParameter": "TypedDict nepodporuje parametr __init_subclass__ „{name}“.",
         "typedDictNotAllowed": "„TypedDict“ se v tomto kontextu nedá použít.",
         "typedDictSecondArgDict": "Jako druhý parametr se očekával parametr dict nebo keyword.",
