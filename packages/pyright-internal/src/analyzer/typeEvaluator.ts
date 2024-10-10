@@ -15196,17 +15196,32 @@ export function createTypeEvaluator(
         // As per the specification, we support None, int, bool, str, bytes literals
         // plus enum values.
         const literalTypes: Type[] = [];
+        let isValidTypeForm = true;
 
         for (const item of node.d.items) {
             let type: Type | undefined;
             const itemExpr = item.d.valueExpr;
 
             if (item.d.argCategory !== ArgCategory.Simple) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unpackedArgInTypeArgument(), itemExpr);
-                type = UnknownType.create();
+                if ((flags & EvalFlags.TypeExpression) !== 0) {
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.unpackedArgInTypeArgument(),
+                        itemExpr
+                    );
+                    type = UnknownType.create();
+                    isValidTypeForm = false;
+                }
             } else if (item.d.name) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.keywordArgInTypeArgument(), itemExpr);
-                type = UnknownType.create();
+                if ((flags & EvalFlags.TypeExpression) !== 0) {
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.keywordArgInTypeArgument(),
+                        itemExpr
+                    );
+                    type = UnknownType.create();
+                    isValidTypeForm = false;
+                }
             } else if (itemExpr.nodeType === ParseNodeType.StringList) {
                 const isBytes = (itemExpr.d.strings[0].d.token.flags & StringTokenFlags.Bytes) !== 0;
                 const value = itemExpr.d.strings.map((s) => s.d.value).join('');
@@ -15216,15 +15231,18 @@ export function createTypeEvaluator(
                     type = cloneBuiltinClassWithLiteral(node, classType, 'str', value);
                 }
 
-                itemExpr.d.strings.forEach((stringNode) => {
-                    if ((stringNode.d.token.flags & StringTokenFlags.NamedUnicodeEscape) !== 0) {
-                        addDiagnostic(
-                            DiagnosticRule.reportInvalidTypeForm,
-                            LocMessage.literalNamedUnicodeEscape(),
-                            stringNode
-                        );
-                    }
-                });
+                if ((flags & EvalFlags.TypeExpression) !== 0) {
+                    itemExpr.d.strings.forEach((stringNode) => {
+                        if ((stringNode.d.token.flags & StringTokenFlags.NamedUnicodeEscape) !== 0) {
+                            addDiagnostic(
+                                DiagnosticRule.reportInvalidTypeForm,
+                                LocMessage.literalNamedUnicodeEscape(),
+                                stringNode
+                            );
+                            isValidTypeForm = false;
+                        }
+                    });
+                }
             } else if (itemExpr.nodeType === ParseNodeType.Number) {
                 if (!itemExpr.d.isImaginary && itemExpr.d.isInteger) {
                     type = cloneBuiltinClassWithLiteral(node, classType, 'int', itemExpr.d.value);
@@ -15289,6 +15307,7 @@ export function createTypeEvaluator(
                 if ((flags & EvalFlags.TypeExpression) !== 0) {
                     addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalUnsupportedType(), item);
                     type = UnknownType.create();
+                    isValidTypeForm = false;
                 } else {
                     return ClassType.cloneAsInstance(classType);
                 }
@@ -15303,7 +15322,7 @@ export function createTypeEvaluator(
             result = TypeBase.cloneAsSpecialForm(result, ClassType.cloneAsInstance(unionTypeClass));
         }
 
-        if (isTypeFormSupported(node)) {
+        if (isTypeFormSupported(node) && isValidTypeForm) {
             result = TypeBase.cloneWithTypeForm(result, convertToInstance(result));
         }
 
