@@ -267,7 +267,7 @@ test('DataClassNamedTuple2', () => {
 test('DataClass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass1.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 11);
 });
 
 test('DataClass2', () => {
@@ -369,6 +369,7 @@ test('DataClass17', () => {
 test('DataClassReplace1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
+    configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 10);
 
@@ -621,7 +622,7 @@ test('ParamSpec11', () => {
 
 test('ParamSpec12', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec12.py']);
-    TestUtils.validateResults(results, 15);
+    TestUtils.validateResults(results, 14);
 });
 
 test('ParamSpec13', () => {

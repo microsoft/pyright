@@ -284,6 +284,7 @@ import {
     buildSolutionFromSpecializedClass,
     ClassMember,
     combineSameSizedTuples,
+    combineTupleTypeArgs,
     combineVariances,
     computeMroLinearization,
     containsAnyOrUnknown,
@@ -337,6 +338,7 @@ import {
     lookUpObjectMember,
     makeFunctionTypeVarsBound,
     makeInferenceContext,
+    makePacked,
     makeTypeVarsBound,
     makeTypeVarsFree,
     mapSignatures,
@@ -1831,11 +1833,7 @@ export function createTypeEvaluator(
                     // Handle "LiteralString" specially.
                     if (strClass && isInstantiableClass(strClass)) {
                         let strInstance = ClassType.cloneAsInstance(strClass);
-
-                        if (subtype.props?.condition) {
-                            strInstance = TypeBase.cloneForCondition(strInstance, getTypeCondition(subtype));
-                        }
-
+                        strInstance = TypeBase.cloneForCondition(strInstance, getTypeCondition(subtype));
                         return strInstance;
                     }
                 }
@@ -2407,11 +2405,6 @@ export function createTypeEvaluator(
         diag?: DiagnosticAddendum,
         recursionCount = 0
     ): FunctionType | OverloadedType | undefined {
-        if (recursionCount > maxTypeRecursionCount) {
-            return undefined;
-        }
-        recursionCount++;
-
         const boundMethodResult = getTypeOfBoundMember(
             /* errorNode */ undefined,
             classType,
@@ -2432,6 +2425,11 @@ export function createTypeEvaluator(
         }
 
         if (isClassInstance(boundMethodResult.type)) {
+            if (recursionCount > maxTypeRecursionCount) {
+                return undefined;
+            }
+            recursionCount++;
+
             return getBoundMagicMethod(
                 boundMethodResult.type,
                 '__call__',
@@ -3461,6 +3459,11 @@ export function createTypeEvaluator(
             }
         }
 
+        if (declaredType) {
+            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(nameNode);
+            declaredType = makeTypeVarsBound(declaredType, liveScopeIds);
+        }
+
         // We found an existing declared type. Make sure the type is assignable.
         let destType = typeResult.type;
         const isTypeAlias =
@@ -4049,6 +4052,10 @@ export function createTypeEvaluator(
                     });
                 }
 
+                if (subtype.priv.isUnpacked && isClass(boundType)) {
+                    boundType = ClassType.cloneForUnpacked(boundType);
+                }
+
                 boundType = TypeBase.isInstantiable(subtype) ? convertToInstantiable(boundType) : boundType;
 
                 return addConditionToType(boundType, [{ typeVar: subtype, constraintIndex: 0 }]);
@@ -4321,11 +4328,16 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.TypeAnnotation: {
-                const annotationType: Type | undefined = getTypeOfAnnotation(target.d.annotation, {
+                let annotationType: Type | undefined = getTypeOfAnnotation(target.d.annotation, {
                     varTypeAnnotation: true,
                     allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.d.valueExpr),
                     allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(target.d.valueExpr),
                 });
+
+                if (annotationType) {
+                    const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(target);
+                    annotationType = makeTypeVarsBound(annotationType, liveScopeIds);
+                }
 
                 // Handle a bare "Final" or "ClassVar" in a special manner.
                 const isBareFinalOrClassVar =
@@ -4674,6 +4686,10 @@ export function createTypeEvaluator(
                 type = validateSymbolIsTypeExpression(node, type, !!effectiveTypeInfo.includesVariableDecl);
             }
 
+            if (isTypeVar(type) && !type.shared.isSynthesized) {
+                type = validateTypeVarUsage(node, type, flags);
+            }
+
             // Add TypeForm details if appropriate.
             type = addTypeFormForSymbol(node, type, flags, !!effectiveTypeInfo.includesVariableDecl);
         } else {
@@ -4691,7 +4707,7 @@ export function createTypeEvaluator(
             }
         }
 
-        if (isParamSpec(type)) {
+        if (isParamSpec(type) && type.priv.scopeId) {
             if (flags & EvalFlags.NoParamSpec) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.paramSpecContext(), node);
                 type = UnknownType.create();
@@ -4710,10 +4726,6 @@ export function createTypeEvaluator(
                     addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.genericNotAllowed(), node);
                 }
             }
-        }
-
-        if (isTypeVar(type) && !type.shared.isSynthesized) {
-            type = validateTypeVarUsage(node, type, flags);
         }
 
         return { type, isIncomplete };
@@ -4778,7 +4790,7 @@ export function createTypeEvaluator(
             return true;
         }
 
-        if (isTypeVar(type) && !type.priv.scopeId) {
+        if (isTypeVar(type)) {
             return true;
         }
 
@@ -5113,7 +5125,7 @@ export function createTypeEvaluator(
                 return type;
             }
 
-            if (!type.shared.isSynthesized) {
+            if (!type.shared.isSynthesized && (flags & EvalFlags.InstantiableType) !== 0) {
                 const message = isParamSpec(type)
                     ? LocMessage.paramSpecNotUsedByOuterScope()
                     : LocMessage.typeVarNotUsedByOuterScope();
@@ -7963,7 +7975,7 @@ export function createTypeEvaluator(
                 };
             } else if (options?.isAnnotatedClass && argIndex > 0) {
                 // If it's an Annotated[a, b, c], only the first index should be
-                // treated as a type.The others can be regular(non - type) objects.
+                // treated as a type. The others can be regular (non-type) objects.
                 adjFlags =
                     EvalFlags.NoParamSpec | EvalFlags.NoTypeVarTuple | EvalFlags.NoSpecialize | EvalFlags.NoClassVar;
                 if (isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(node))) {
@@ -8004,31 +8016,37 @@ export function createTypeEvaluator(
             if (arg.d.argCategory !== ArgCategory.Simple) {
                 if (arg.d.argCategory === ArgCategory.UnpackedList) {
                     if (!options?.isAnnotatedClass || index === 0) {
-                        if (isTypeVarTuple(typeResult.type) && !typeResult.type.priv.isUnpacked) {
-                            typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
-                        } else if (
-                            isInstantiableClass(typeResult.type) &&
-                            !typeResult.type.priv.includeSubclasses &&
-                            isTupleClass(typeResult.type)
-                        ) {
-                            typeResult.type = ClassType.cloneForUnpacked(typeResult.type);
+                        const unpackedType = applyUnpackToTupleLike(typeResult.type);
+
+                        if (unpackedType) {
+                            typeResult.type = unpackedType;
                         } else {
-                            addDiagnostic(
-                                DiagnosticRule.reportInvalidTypeForm,
-                                LocMessage.unpackNotAllowed(),
-                                arg.d.valueExpr
-                            );
+                            if ((flags & EvalFlags.TypeExpression) !== 0) {
+                                addDiagnostic(
+                                    DiagnosticRule.reportInvalidTypeForm,
+                                    LocMessage.unpackNotAllowed(),
+                                    arg.d.valueExpr
+                                );
+                                typeResult.typeErrors = true;
+                            } else {
+                                typeResult.type = UnknownType.create();
+                            }
                         }
                     }
                 }
             }
 
             if (arg.d.name) {
-                addDiagnostic(
-                    DiagnosticRule.reportInvalidTypeForm,
-                    LocMessage.keywordArgInTypeArgument(),
-                    arg.d.valueExpr
-                );
+                if ((flags & EvalFlags.TypeExpression) !== 0) {
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.keywordArgInTypeArgument(),
+                        arg.d.valueExpr
+                    );
+                    typeResult.typeErrors = true;
+                } else {
+                    typeResult.type = UnknownType.create();
+                }
             }
 
             if (
@@ -8040,6 +8058,39 @@ export function createTypeEvaluator(
         });
 
         return typeArgs;
+    }
+
+    function applyUnpackToTupleLike(type: Type): Type | undefined {
+        if (isTypeVarTuple(type)) {
+            if (!type.priv.isUnpacked) {
+                return TypeVarType.cloneForUnpacked(type);
+            }
+
+            return undefined;
+        }
+
+        if (isParamSpec(type)) {
+            return undefined;
+        }
+
+        // Is this a TypeVar that has a tuple upper bound?
+        if (isTypeVar(type)) {
+            const upperBound = type.shared.boundType;
+
+            if (upperBound && isClassInstance(upperBound) && isTupleClass(upperBound)) {
+                return TypeVarType.cloneForUnpacked(type);
+            }
+
+            return undefined;
+        }
+
+        if (isInstantiableClass(type) && !type.priv.includeSubclasses) {
+            if (isTupleClass(type)) {
+                return ClassType.cloneForUnpacked(type);
+            }
+        }
+
+        return undefined;
     }
 
     function getTypeArg(node: ExpressionNode, flags: EvalFlags): TypeResultWithNode {
@@ -10276,7 +10327,11 @@ export function createTypeEvaluator(
     // Evaluates the type of the "cast" call.
     function evaluateCastCall(argList: Arg[], errorNode: ExpressionNode) {
         // Verify that the cast is necessary.
-        const castToType = getTypeOfArgExpectingType(argList[0], { typeExpression: true }).type;
+        let castToType = getTypeOfArgExpectingType(argList[0], { typeExpression: true }).type;
+
+        const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
+        castToType = makeTypeVarsBound(castToType, liveScopeIds);
+
         let castFromType = getTypeOfArg(argList[1], /* inferenceContext */ undefined).type;
 
         if (castFromType.props?.specialForm) {
@@ -10563,7 +10618,7 @@ export function createTypeEvaluator(
             const paramType = paramInfo.type;
             const paramName = paramInfo.param.name;
 
-            const isParamVariadic = paramInfo.param.category === ParamCategory.ArgsList && isTypeVarTuple(paramType);
+            const isParamVariadic = paramInfo.param.category === ParamCategory.ArgsList && isUnpacked(paramType);
 
             if (argList[argIndex].argCategory === ArgCategory.UnpackedList) {
                 let isArgCompatibleWithVariadic = false;
@@ -10729,7 +10784,7 @@ export function createTypeEvaluator(
                         effectiveParamType = paramType.priv.tupleTypeArgs[0].type;
                     }
 
-                    paramCategory = isTypeVarTuple(effectiveParamType) ? ParamCategory.ArgsList : ParamCategory.Simple;
+                    paramCategory = isUnpacked(effectiveParamType) ? ParamCategory.ArgsList : ParamCategory.Simple;
 
                     if (remainingArgCount <= remainingParamCount) {
                         if (remainingArgCount < remainingParamCount) {
@@ -11311,7 +11366,7 @@ export function createTypeEvaluator(
                 const paramType = paramDetails.params[paramDetails.argsIndex].type;
                 const variadicArgs = validateArgTypeParams.filter((argParam) => argParam.mapsToVarArgList);
 
-                if (isTypeVarTuple(paramType) && !paramType.priv.isInUnion) {
+                if (isUnpacked(paramType) && (!isTypeVarTuple(paramType) || !paramType.priv.isInUnion)) {
                     const tupleTypeArgs: TupleTypeArg[] = variadicArgs.map((argParam) => {
                         const argType = getTypeOfArg(argParam.argument, /* inferenceContext */ undefined).type;
 
@@ -11344,23 +11399,22 @@ export function createTypeEvaluator(
                         };
                     });
 
-                    let specializedTuple: Type;
-                    if (
-                        tupleTypeArgs.length === 1 &&
-                        !tupleTypeArgs[0].isUnbounded &&
-                        (isUnpackedClass(tupleTypeArgs[0].type) || isTypeVarTuple(tupleTypeArgs[0].type))
-                    ) {
-                        // If there is a single unpacked tuple or unpacked variadic type variable
-                        // (including an unpacked TypeVarTuple union) within this tuple,
-                        // simplify the type.
-                        specializedTuple = tupleTypeArgs[0].type;
-                    } else {
-                        specializedTuple = makeTupleObject(evaluatorInterface, tupleTypeArgs, /* isUnpacked */ true);
+                    let specializedTuple: Type | undefined;
+                    if (tupleTypeArgs.length === 1 && !tupleTypeArgs[0].isUnbounded) {
+                        const entryType = tupleTypeArgs[0].type;
+
+                        if (isUnpacked(entryType)) {
+                            specializedTuple = makePacked(entryType);
+                        }
+                    }
+
+                    if (!specializedTuple) {
+                        specializedTuple = makeTupleObject(evaluatorInterface, tupleTypeArgs, /* isUnpacked */ false);
                     }
 
                     const combinedArg: ValidateArgTypeParams = {
-                        paramCategory: ParamCategory.ArgsList,
-                        paramType,
+                        paramCategory: ParamCategory.Simple,
+                        paramType: makePacked(paramType),
                         requiresTypeVarMatching: true,
                         argument: {
                             argCategory: ArgCategory.Simple,
@@ -11822,7 +11876,7 @@ export function createTypeEvaluator(
 
         // If the final return type is an unpacked tuple, turn it into a normal (unpacked) tuple.
         if (isUnpackedClass(specializedReturnType)) {
-            specializedReturnType = ClassType.cloneForUnpacked(specializedReturnType, /* isUnpacked */ false);
+            specializedReturnType = ClassType.cloneForPacked(specializedReturnType);
         }
 
         const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
@@ -15561,18 +15615,12 @@ export function createTypeEvaluator(
             return classType;
         }
 
-        let typeArgType = typeArgs[0].type;
-        if (isUnion(typeArgType) && typeArgType.priv.subtypes.length === 1) {
-            typeArgType = typeArgType.priv.subtypes[0];
-        }
+        const typeArgType = typeArgs[0].type;
 
         if ((flags & EvalFlags.AllowUnpackedTuple) !== 0) {
-            if (isInstantiableClass(typeArgType) && !typeArgType.priv.includeSubclasses && isTupleClass(typeArgType)) {
-                return ClassType.cloneForUnpacked(typeArgType);
-            }
-
-            if (isTypeVarTuple(typeArgType) && !typeArgType.priv.isUnpacked) {
-                return TypeVarType.cloneForUnpacked(typeArgType);
+            const unpackedType = applyUnpackToTupleLike(typeArgType);
+            if (unpackedType) {
+                return unpackedType;
             }
 
             if ((flags & EvalFlags.TypeExpression) === 0) {
@@ -15738,64 +15786,9 @@ export function createTypeEvaluator(
 
     // Determines whether the metadata object is compatible with the base type.
     function validateTypeMetadata(errorNode: ExpressionNode, baseType: Type, metaArg: TypeResultWithNode): boolean {
-        // This is an experimental feature because PEP 746 hasn't been accepted.
-        if (!AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
-            return true;
-        }
-
-        if (!isClass(metaArg.type)) {
-            return true;
-        }
-
-        const supportsTypeMethod = getTypeOfBoundMember(
-            /* errorNode */ undefined,
-            metaArg.type,
-            '__supports_type__'
-        )?.type;
-
-        if (!supportsTypeMethod) {
-            return true;
-        }
-
-        // "Call" the __supports_type__ method to determine if the type is supported.
-        const callResult = useSpeculativeMode(errorNode, () =>
-            validateCallArgs(
-                errorNode,
-                [
-                    {
-                        argCategory: ArgCategory.Simple,
-                        typeResult: { type: convertToInstance(baseType) },
-                    },
-                ],
-                { type: supportsTypeMethod },
-                /* constraints */ undefined,
-                /* skipUnknownArgCheck */ true,
-                /* inferenceContext */ undefined
-            )
-        );
-
-        if (!callResult.returnType) {
-            return true;
-        }
-
-        // If there are no errors and the return type is potentially truthy,
-        // we know that the type is supported by this metadata object.
-        if (!callResult.argumentErrors && canBeTruthy(callResult.returnType)) {
-            return true;
-        }
-
-        if (!callResult.isTypeIncomplete) {
-            addDiagnostic(
-                DiagnosticRule.reportInvalidTypeArguments,
-                LocMessage.annotatedMetadataInconsistent().format({
-                    metadataType: printType(metaArg.type),
-                    type: printType(convertToInstance(baseType)),
-                }),
-                metaArg.node
-            );
-        }
-
-        return false;
+        // This function was added for draft PEP 746, but the functionality
+        // has been removed for now while the PEP is being revised.
+        return true;
     }
 
     // Creates one of several "special" types that are defined in typing.pyi
@@ -16005,7 +15998,9 @@ export function createTypeEvaluator(
         // is allowed if it's an unpacked TypeVarTuple or tuple. None is also allowed
         // since it is used to define NoReturn in typeshed stubs).
         if (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0])) {
-            addDiagnostic(DiagnosticRule.reportInvalidTypeArguments, LocMessage.unionTypeArgCount(), errorNode);
+            if ((flags & EvalFlags.TypeExpression) !== 0) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeArguments, LocMessage.unionTypeArgCount(), errorNode);
+            }
             isValidTypeForm = false;
         }
 
@@ -16483,9 +16478,6 @@ export function createTypeEvaluator(
         }
 
         if (!rightHandType) {
-            // Determine whether there is a declared type.
-            const declaredType = getDeclaredTypeForExpression(node.d.leftExpr, { method: 'set' });
-
             let typeAliasNameNode: NameNode | undefined;
             let typeAliasPlaceholder: TypeVarType | undefined;
             let isSpeculativeTypeAlias = false;
@@ -16541,6 +16533,13 @@ export function createTypeEvaluator(
                 if (node.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation) {
                     writeTypeCache(node.d.leftExpr.d.valueExpr, { type: typeAliasPlaceholder }, /* flags */ undefined);
                 }
+            }
+
+            let declaredType = getDeclaredTypeForExpression(node.d.leftExpr, { method: 'set' });
+
+            if (declaredType) {
+                const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                declaredType = makeTypeVarsBound(declaredType, liveTypeVarScopes);
             }
 
             const srcTypeResult = getTypeOfExpression(node.d.rightExpr, flags, makeInferenceContext(declaredType));
@@ -18832,7 +18831,7 @@ export function createTypeEvaluator(
                 }
 
                 if (isUnpackedClass(type)) {
-                    return ClassType.cloneForUnpacked(type, /* isUnpacked */ false);
+                    return ClassType.cloneForPacked(type);
                 }
 
                 return makeTupleObject(evaluatorInterface, [{ type, isUnbounded: !isTypeVarTuple(type) }]);
@@ -21540,7 +21539,11 @@ export function createTypeEvaluator(
                             const paramDecl = getDeclarationFromKeywordParam(initMethodType, paramName);
                             if (paramDecl) {
                                 declarations.push(paramDecl);
-                            } else if (ClassType.isDataClass(baseType) || ClassType.isTypedDictClass(baseType)) {
+                            } else if (
+                                ClassType.isDataClass(baseType) ||
+                                ClassType.isTypedDictClass(baseType) ||
+                                ClassType.hasNamedTupleEntry(baseType, paramName)
+                            ) {
                                 const lookupResults = lookUpClassMember(baseType, paramName);
                                 if (lookupResults) {
                                     appendArray(declarations, lookupResults.symbol.getDeclarations());
@@ -21901,13 +21904,15 @@ export function createTypeEvaluator(
                 scopeType = TypeVarScopeType.Class;
 
                 // Set the variance to "auto" for class-scoped TypeVars.
-                typeVar.shared.declaredVariance = Variance.Auto;
+                typeVar.shared.declaredVariance =
+                    isParamSpec(typeVar) || isTypeVarTuple(typeVar) ? Variance.Invariant : Variance.Auto;
             } else if (scopeNode.nodeType === ParseNodeType.Function) {
                 scopeType = TypeVarScopeType.Function;
             } else {
                 assert(scopeNode.nodeType === ParseNodeType.TypeAlias);
                 scopeType = TypeVarScopeType.TypeAlias;
-                typeVar.shared.declaredVariance = Variance.Auto;
+                typeVar.shared.declaredVariance =
+                    isParamSpec(typeVar) || isTypeVarTuple(typeVar) ? Variance.Invariant : Variance.Auto;
             }
 
             typeVar = TypeVarType.cloneForScopeId(
@@ -24186,6 +24191,22 @@ export function createTypeEvaluator(
 
             let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
             if (isClass(concreteSrcType) && TypeBase.isInstance(concreteSrcType)) {
+                // Handle the case where the source is an unpacked tuple.
+                if (
+                    !destType.priv.isUnpacked &&
+                    concreteSrcType.priv.isUnpacked &&
+                    concreteSrcType.priv.tupleTypeArgs
+                ) {
+                    return assignType(
+                        destType,
+                        combineTupleTypeArgs(concreteSrcType.priv.tupleTypeArgs),
+                        diag,
+                        constraints,
+                        flags,
+                        recursionCount
+                    );
+                }
+
                 // Handle enum literals that are assignable to another (non-Enum) literal.
                 // This can happen for IntEnum and StrEnum members.
                 if (
@@ -26379,7 +26400,11 @@ export function createTypeEvaluator(
                         return assignedSubtype;
                     }
 
-                    if (!isTypeVar(declaredSubtype) && isTypeVar(assignedSubtype)) {
+                    if (
+                        !isTypeVar(declaredSubtype) &&
+                        isTypeVar(assignedSubtype) &&
+                        !TypeVarType.isBound(assignedSubtype)
+                    ) {
                         // If the source is an unsolved TypeVar but the declared type is concrete,
                         // use the concrete type.
                         return declaredSubtype;

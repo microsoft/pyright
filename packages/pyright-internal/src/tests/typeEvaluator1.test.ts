@@ -92,6 +92,7 @@ test('Builtins1', () => {
         'PendingDeprecationWarning',
         'PermissionError',
         'ProcessLookupError',
+        'PythonFinalizationError',
         'RecursionError',
         'ReferenceError',
         'ResourceWarning',

@@ -78,7 +78,7 @@ export class ConstraintSet {
                 return type1 === type2;
             }
 
-            return isTypeSame(type1, type2);
+            return isTypeSame(type1, type2, { honorIsTypeArgExplicit: true, honorTypeForm: true });
         }
 
         let isSame = true;
@@ -235,6 +235,14 @@ export class ConstraintTracker {
         if (contexts.length < maxConstraintSetCount) {
             this._constraintSets = Array.from(contexts);
         }
+    }
+
+    isSame(other: ConstraintTracker) {
+        if (other._constraintSets.length !== this._constraintSets.length) {
+            return false;
+        }
+
+        return this._constraintSets.every((set, index) => set.isSame(other._constraintSets[index]));
     }
 
     isEmpty() {

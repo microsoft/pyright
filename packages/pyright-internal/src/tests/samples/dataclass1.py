@@ -1,6 +1,7 @@
 # This sample tests the handling of the @dataclass decorator.
 
-from dataclasses import dataclass, InitVar
+from dataclasses import dataclass, InitVar, field
+from typing import Generic, TypeVar
 
 
 @dataclass
@@ -81,3 +82,33 @@ DC6(int)
 
 # This should generate an error.
 DC6(1)
+
+
+T1 = TypeVar("T1", int, str)
+
+
+@dataclass
+class DC7(Generic[T1]):
+    # This should generate an error.
+    x: T1 = 1
+
+
+v7_1 = DC7()
+reveal_type(v7_1, expected_text="DC7[int]")
+
+# This should generate an error.
+v7_2: DC7[str] = DC7()
+
+
+@dataclass
+class DC8(Generic[T1]):
+    # This should generate an error.
+    x: T1 = field(default=1)
+
+
+# This should generate an error.
+v8_1 = DC8()
+reveal_type(v8_1, expected_text="DC8[int]")
+
+# This should generate an error.
+v8_2 = DC8[str]()

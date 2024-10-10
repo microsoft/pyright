@@ -1,6 +1,8 @@
 from typing import Any, ClassVar, NamedTuple
 from typing_extensions import Self
 
+from docutils.transforms import Transform
+
 __docformat__: str
 __version__: str
 
@@ -32,7 +34,7 @@ class SettingsSpec:
     config_section_dependencies: ClassVar[tuple[str, ...] | None]
 
 class TransformSpec:
-    def get_transforms(self) -> list[Any]: ...
+    def get_transforms(self) -> list[type[Transform]]: ...
     default_transforms: ClassVar[tuple[Any, ...]]
     unknown_reference_resolvers: ClassVar[list[Any]]
 

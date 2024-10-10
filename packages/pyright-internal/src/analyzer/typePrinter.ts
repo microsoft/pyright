@@ -86,6 +86,9 @@ export const enum PrintTypeFlags {
     // Use the fully-qualified name of classes, type aliases, modules,
     // and functions rather than short names.
     UseFullyQualifiedNames = 1 << 12,
+
+    // Omit TypeVar scopes.
+    OmitTypeVarScopes = 1 << 13,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -571,10 +574,13 @@ function printTypeInternal(
                         );
 
                         if (!isAnyOrUnknown(type.shared.boundType)) {
-                            if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
-                                boundTypeString = `Self`;
-                            } else {
+                            if (
+                                (printTypeFlags & PrintTypeFlags.PythonSyntax) === 0 &&
+                                (printTypeFlags & PrintTypeFlags.OmitTypeVarScopes) === 0
+                            ) {
                                 boundTypeString = `Self@${boundTypeString}`;
+                            } else {
+                                boundTypeString = `Self`;
                             }
                         }
 
@@ -593,7 +599,8 @@ function printTypeInternal(
                 if (isParamSpec(type)) {
                     const paramSpecText = _getReadableTypeVarName(
                         type,
-                        (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0
+                        (printTypeFlags & PrintTypeFlags.PythonSyntax) === 0 &&
+                            (printTypeFlags & PrintTypeFlags.OmitTypeVarScopes) === 0
                     );
 
                     if (type.priv.paramSpecAccess) {
@@ -602,16 +609,18 @@ function printTypeInternal(
                     return paramSpecText;
                 }
 
-                let typeVarName = _getReadableTypeVarName(type, (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0);
+                let typeVarName = _getReadableTypeVarName(
+                    type,
+                    (printTypeFlags & PrintTypeFlags.PythonSyntax) === 0 &&
+                        (printTypeFlags & PrintTypeFlags.OmitTypeVarScopes) === 0
+                );
 
-                if (isTypeVarTuple(type)) {
-                    if (type.priv.isUnpacked) {
-                        typeVarName = _printUnpack(typeVarName, printTypeFlags);
-                    }
+                if (type.priv.isUnpacked) {
+                    typeVarName = _printUnpack(typeVarName, printTypeFlags);
+                }
 
-                    if (type.priv.isInUnion) {
-                        typeVarName = `Union[${typeVarName}]`;
-                    }
+                if (isTypeVarTuple(type) && type.priv.isInUnion) {
+                    typeVarName = `Union[${typeVarName}]`;
                 }
 
                 if (TypeBase.isInstantiable(type)) {
@@ -1298,12 +1307,8 @@ function _printNestedInstantiable(type: Type, textToWrap: string) {
     return textToWrap;
 }
 
-function _getReadableTypeVarName(type: TypeVarType, usePythonSyntax: boolean) {
-    if (usePythonSyntax) {
-        return type.shared.name;
-    }
-
-    return TypeVarType.getReadableName(type);
+function _getReadableTypeVarName(type: TypeVarType, includeScope: boolean) {
+    return TypeVarType.getReadableName(type, includeScope);
 }
 
 function _getTypeVarVarianceText(type: TypeVarType) {

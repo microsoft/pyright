@@ -248,7 +248,7 @@ test('TypeVarTuple8', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple8.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('TypeVarTuple9', () => {
@@ -449,6 +449,14 @@ test('MatchSequence1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('MatchSequence2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('MatchClass1', () => {

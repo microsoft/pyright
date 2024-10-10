@@ -28,8 +28,7 @@ Wrong10 = Literal[Any]
 Wrong11 = Literal[...]
 
 
-def func():
-    ...
+def func(): ...
 
 
 Wrong12 = Literal[func]
@@ -59,7 +58,7 @@ var6: Literal[{"a": "b", "c": "d"}]
 # This should generate two errors.
 var7: Literal[Path("abcd")]
 
-# This should generate two errors.
+# This should generate an error.
 var8: Literal[T]
 
 # This should generate an error.

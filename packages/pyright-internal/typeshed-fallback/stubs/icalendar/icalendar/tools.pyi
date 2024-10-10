@@ -2,6 +2,8 @@ from typing import Final
 
 from .prop import vText
 
+__all__ = ["UIDGenerator"]
+
 class UIDGenerator:
     chars: Final[list[str]]
     @staticmethod

@@ -11,7 +11,9 @@
 import { assert } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion, pythonVersion3_13 } from '../common/pythonVersion';
+import { TextRange } from '../common/textRange';
 import { LocMessage } from '../localization/localize';
 import {
     ArgCategory,
@@ -30,7 +32,7 @@ import { getFileInfo } from './analyzerNodeInfo';
 import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
-import { DeclarationType } from './declaration';
+import { DeclarationType, VariableDeclaration } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
 import { getClassFullName, getEnclosingClassOrFunction, getScopeIdForNode, getTypeSourceId } from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
@@ -209,9 +211,11 @@ export function synthesizeDataClassMethods(
             }
 
             let variableNameNode: NameNode | undefined;
+            let typeAnnotationNode: TypeAnnotationNode | undefined;
             let aliasName: string | undefined;
             let variableTypeEvaluator: EntryTypeEvaluator | undefined;
-            let hasDefaultValue = false;
+            let hasDefault = false;
+            let isDefaultFactory = false;
             let isKeywordOnly = ClassType.isDataClassKeywordOnly(classType) || sawKeywordOnlySeparator;
             let defaultExpr: ExpressionNode | undefined;
             let includeInInit = true;
@@ -223,6 +227,7 @@ export function synthesizeDataClassMethods(
                     statement.d.leftExpr.d.valueExpr.nodeType === ParseNodeType.Name
                 ) {
                     variableNameNode = statement.d.leftExpr.d.valueExpr;
+                    typeAnnotationNode = statement.d.leftExpr;
                     const assignmentStatement = statement;
                     variableTypeEvaluator = () =>
                         evaluator.getTypeOfAnnotation(
@@ -235,7 +240,7 @@ export function synthesizeDataClassMethods(
                         );
                 }
 
-                hasDefaultValue = true;
+                hasDefault = true;
                 defaultExpr = statement.d.rightExpr;
 
                 // If the RHS of the assignment is assigning a field instance where the
@@ -292,16 +297,23 @@ export function synthesizeDataClassMethods(
                                 ) ?? isKeywordOnly;
                         }
 
-                        const defaultArg = statement.d.rightExpr.d.args.find(
-                            (arg) =>
-                                arg.d.name?.d.value === 'default' ||
-                                arg.d.name?.d.value === 'default_factory' ||
-                                arg.d.name?.d.value === 'factory'
+                        const defaultValueArg = statement.d.rightExpr.d.args.find(
+                            (arg) => arg.d.name?.d.value === 'default'
                         );
+                        hasDefault = !!defaultValueArg;
+                        if (defaultValueArg?.d.valueExpr) {
+                            defaultExpr = defaultValueArg.d.valueExpr;
+                        }
 
-                        hasDefaultValue = !!defaultArg;
-                        if (defaultArg?.d.valueExpr) {
-                            defaultExpr = defaultArg.d.valueExpr;
+                        const defaultFactoryArg = statement.d.rightExpr.d.args.find(
+                            (arg) => arg.d.name?.d.value === 'default_factory' || arg.d.name?.d.value === 'factory'
+                        );
+                        if (defaultFactoryArg) {
+                            hasDefault = true;
+                            isDefaultFactory = true;
+                        }
+                        if (defaultFactoryArg?.d.valueExpr) {
+                            defaultExpr = defaultFactoryArg.d.valueExpr;
                         }
 
                         const aliasArg = statement.d.rightExpr.d.args.find((arg) => arg.d.name?.d.value === 'alias');
@@ -327,6 +339,7 @@ export function synthesizeDataClassMethods(
             } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
                 if (statement.d.valueExpr.nodeType === ParseNodeType.Name) {
                     variableNameNode = statement.d.valueExpr;
+                    typeAnnotationNode = statement;
                     const annotationStatement = statement;
                     variableTypeEvaluator = () =>
                         evaluator.getTypeOfAnnotation(annotationStatement.d.annotation, {
@@ -342,6 +355,7 @@ export function synthesizeDataClassMethods(
                         if (isClassInstance(annotatedType) && ClassType.isBuiltIn(annotatedType, 'KW_ONLY')) {
                             sawKeywordOnlySeparator = true;
                             variableNameNode = undefined;
+                            typeAnnotationNode = undefined;
                             variableTypeEvaluator = undefined;
                         }
                     }
@@ -370,10 +384,12 @@ export function synthesizeDataClassMethods(
                         classType,
                         alias: aliasName,
                         isKeywordOnly: false,
-                        hasDefault: hasDefaultValue,
+                        hasDefault,
+                        isDefaultFactory,
                         defaultExpr,
                         includeInInit,
                         nameNode: variableNameNode,
+                        typeAnnotationNode: typeAnnotationNode,
                         type: UnknownType.create(),
                         isClassVar: true,
                         converter,
@@ -388,10 +404,12 @@ export function synthesizeDataClassMethods(
                         classType,
                         alias: aliasName,
                         isKeywordOnly,
-                        hasDefault: hasDefaultValue,
+                        hasDefault,
+                        isDefaultFactory,
                         defaultExpr,
                         includeInInit,
                         nameNode: variableNameNode,
+                        typeAnnotationNode: typeAnnotationNode,
                         type: UnknownType.create(),
                         isClassVar: false,
                         converter,
@@ -416,7 +434,7 @@ export function synthesizeDataClassMethods(
                         if (!dataClassEntry.hasDefault && oldEntry.hasDefault && oldEntry.includeInInit) {
                             dataClassEntry.hasDefault = true;
                             dataClassEntry.defaultExpr = oldEntry.defaultExpr;
-                            hasDefaultValue = true;
+                            hasDefault = true;
 
                             // Warn the user of this case because it can result in type errors if the
                             // default value is incompatible with the new type.
@@ -435,7 +453,7 @@ export function synthesizeDataClassMethods(
 
                     // If we've already seen a entry with a default value defined,
                     // all subsequent entries must also have default values.
-                    if (!isKeywordOnly && includeInInit && !skipSynthesizeInit && !hasDefaultValue) {
+                    if (!isKeywordOnly && includeInInit && !skipSynthesizeInit && !hasDefault) {
                         const firstDefaultValueIndex = fullDataClassEntries.findIndex(
                             (p) => p.hasDefault && p.includeInInit && !p.isKeywordOnly
                         );
@@ -513,6 +531,8 @@ export function synthesizeDataClassMethods(
         if (allAncestorsKnown) {
             fullDataClassEntries.forEach((entry) => {
                 if (entry.includeInInit) {
+                    let defaultType: Type | undefined;
+
                     // If the type refers to Self of the parent class, we need to
                     // transform it to refer to the Self of this subclass.
                     let effectiveType = entry.type;
@@ -534,12 +554,26 @@ export function synthesizeDataClassMethods(
                             getDescriptorForConverterField(
                                 evaluator,
                                 node,
+                                entry.nameNode,
+                                entry.typeAnnotationNode,
                                 entry.converter,
                                 entry.name,
                                 fieldType,
                                 effectiveType
                             )
                         );
+
+                        if (entry.hasDefault) {
+                            defaultType = entry.type;
+                        }
+                    } else {
+                        if (entry.hasDefault) {
+                            if (entry.isDefaultFactory || !entry.defaultExpr) {
+                                defaultType = entry.type;
+                            } else {
+                                defaultType = evaluator.getTypeOfExpression(entry.defaultExpr).type;
+                            }
+                        }
                     }
 
                     const effectiveName = entry.alias || entry.name;
@@ -557,7 +591,7 @@ export function synthesizeDataClassMethods(
                         effectiveType,
                         FunctionParamFlags.TypeDeclared,
                         effectiveName,
-                        entry.hasDefault ? entry.type : undefined,
+                        defaultType,
                         entry.defaultExpr
                     );
 
@@ -932,6 +966,8 @@ function getConverterAsFunction(
 function getDescriptorForConverterField(
     evaluator: TypeEvaluator,
     dataclassNode: ParseNode,
+    fieldNameNode: NameNode | undefined,
+    fieldAnnotationNode: TypeAnnotationNode | undefined,
     converterNode: ParseNode,
     fieldName: string,
     getType: Type,
@@ -991,7 +1027,23 @@ function getDescriptorForConverterField(
     const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
     fields.set('__get__', getSymbol);
 
-    return Symbol.createWithType(SymbolFlags.ClassMember, ClassType.cloneAsInstance(descriptorClass));
+    const symbol = Symbol.createWithType(SymbolFlags.ClassMember, ClassType.cloneAsInstance(descriptorClass));
+
+    if (fieldNameNode && fieldAnnotationNode) {
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(dataclassNode);
+        const declaration: VariableDeclaration = {
+            type: DeclarationType.Variable,
+            node: fieldNameNode,
+            uri: fileInfo.fileUri,
+            typeAnnotationNode: fieldAnnotationNode,
+            range: convertOffsetsToRange(fieldNameNode.start, TextRange.getEnd(fieldNameNode), fileInfo.lines),
+            moduleName: fileInfo.moduleName,
+            isInExceptSuite: false,
+        };
+        symbol.addDeclaration(declaration);
+    }
+
+    return symbol;
 }
 
 // If the specified type is a descriptor — in particular, if it implements a

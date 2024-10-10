@@ -1304,12 +1304,13 @@ class FieldOptions(google.protobuf.message.Message):
     FEATURE_SUPPORT_FIELD_NUMBER: builtins.int
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
     ctype: global___FieldOptions.CType.ValueType
-    """The ctype option instructs the C++ code generator to use a different
+    """NOTE: ctype is deprecated. Use `features.(pb.cpp).string_type` instead.
+    The ctype option instructs the C++ code generator to use a different
     representation of the field than it normally would.  See the specific
     options below.  This option is only implemented to support use of
     [ctype=CORD] and [ctype=STRING] (the default) on non-repeated fields of
-    type "bytes" in the open source release -- sorry, we'll try to include
-    other types in a future version!
+    type "bytes" in the open source release.
+    TODO: make ctype actually deprecated.
     """
     packed: builtins.bool
     """The packed option can be enabled for repeated primitive fields to enable
