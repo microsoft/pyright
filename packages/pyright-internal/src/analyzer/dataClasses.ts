@@ -572,11 +572,20 @@ export function synthesizeDataClassMethods(
                             if (entry.isDefaultFactory || !entry.defaultExpr) {
                                 defaultType = entry.type;
                             } else {
-                                defaultType = evaluator.getTypeOfExpression(
-                                    entry.defaultExpr,
-                                    /* flags */ undefined,
-                                    makeInferenceContext(entry.type)
-                                ).type;
+                                const defaultExpr = entry.defaultExpr;
+                                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                                const flags = fileInfo.isStubFile ? EvalFlags.ConvertEllipsisToAny : EvalFlags.None;
+
+                                // Use speculative mode here so we don't cache the results.
+                                // We'll want to re-evaluate this expression later, potentially
+                                // with different evaluation flags.
+                                defaultType = evaluator.useSpeculativeMode(defaultExpr, () => {
+                                    return evaluator.getTypeOfExpression(
+                                        defaultExpr,
+                                        flags,
+                                        makeInferenceContext(entry.type)
+                                    ).type;
+                                });
                             }
                         }
                     }
