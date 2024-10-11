@@ -73,6 +73,7 @@ import {
     getTypeVarScopeIds,
     isLiteralType,
     isMetaclassInstance,
+    makeInferenceContext,
     requiresSpecialization,
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
@@ -571,7 +572,11 @@ export function synthesizeDataClassMethods(
                             if (entry.isDefaultFactory || !entry.defaultExpr) {
                                 defaultType = entry.type;
                             } else {
-                                defaultType = evaluator.getTypeOfExpression(entry.defaultExpr).type;
+                                defaultType = evaluator.getTypeOfExpression(
+                                    entry.defaultExpr,
+                                    /* flags */ undefined,
+                                    makeInferenceContext(entry.type)
+                                ).type;
                             }
                         }
                     }
