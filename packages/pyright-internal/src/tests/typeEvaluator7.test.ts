@@ -9,7 +9,13 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
-import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8 } from '../common/pythonVersion';
+import {
+    pythonVersion3_10,
+    pythonVersion3_11,
+    pythonVersion3_12,
+    pythonVersion3_13,
+    pythonVersion3_8,
+} from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -593,6 +599,12 @@ test('Protocol50', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Protocol51', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol51.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ProtocolExplicit1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit1.py']);
 
@@ -822,9 +834,15 @@ test('TypeVar7', () => {
 });
 
 test('TypeVar8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar8.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
 
-    TestUtils.validateResults(analysisResults, 4);
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['typeVar8.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 4);
+
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['typeVar8.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 2);
 });
 
 test('TypeVar9', () => {

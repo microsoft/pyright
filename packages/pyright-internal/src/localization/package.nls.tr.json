@@ -565,6 +565,7 @@
         "typedDictFieldReadOnlyRedefinition": "\"{name}\" TypedDict öğesi ReadOnly olarak yeniden tanımlanamaz",
         "typedDictFieldRequiredRedefinition": "\"{name}\" TypedDict öğesi Required olarak yeniden tanımlanamaz",
         "typedDictFirstArg": "Birinci bağımsız değişken olarak TypedDict sınıf adı bekleniyordu",
+        "typedDictInClassPattern": "TypedDict sınıfına sınıf deseninde izin verilmez",
         "typedDictInitsubclassParameter": "TypedDict, \"{name}\" __init_subclass__ parametresini desteklemez",
         "typedDictNotAllowed": "\"TypedDict\" bu bağlamda kullanılamaz",
         "typedDictSecondArgDict": "Expected dict or keyword parameter as second parameter",

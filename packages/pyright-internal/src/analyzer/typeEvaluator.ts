@@ -284,6 +284,7 @@ import {
     buildSolutionFromSpecializedClass,
     ClassMember,
     combineSameSizedTuples,
+    combineTupleTypeArgs,
     combineVariances,
     computeMroLinearization,
     containsAnyOrUnknown,
@@ -337,6 +338,7 @@ import {
     lookUpObjectMember,
     makeFunctionTypeVarsBound,
     makeInferenceContext,
+    makePacked,
     makeTypeVarsBound,
     makeTypeVarsFree,
     mapSignatures,
@@ -1831,11 +1833,7 @@ export function createTypeEvaluator(
                     // Handle "LiteralString" specially.
                     if (strClass && isInstantiableClass(strClass)) {
                         let strInstance = ClassType.cloneAsInstance(strClass);
-
-                        if (subtype.props?.condition) {
-                            strInstance = TypeBase.cloneForCondition(strInstance, getTypeCondition(subtype));
-                        }
-
+                        strInstance = TypeBase.cloneForCondition(strInstance, getTypeCondition(subtype));
                         return strInstance;
                     }
                 }
@@ -2407,11 +2405,6 @@ export function createTypeEvaluator(
         diag?: DiagnosticAddendum,
         recursionCount = 0
     ): FunctionType | OverloadedType | undefined {
-        if (recursionCount > maxTypeRecursionCount) {
-            return undefined;
-        }
-        recursionCount++;
-
         const boundMethodResult = getTypeOfBoundMember(
             /* errorNode */ undefined,
             classType,
@@ -2432,6 +2425,11 @@ export function createTypeEvaluator(
         }
 
         if (isClassInstance(boundMethodResult.type)) {
+            if (recursionCount > maxTypeRecursionCount) {
+                return undefined;
+            }
+            recursionCount++;
+
             return getBoundMagicMethod(
                 boundMethodResult.type,
                 '__call__',
@@ -4052,6 +4050,10 @@ export function createTypeEvaluator(
                     boundType = selfSpecializeClass(boundType, {
                         useBoundTypeVars: TypeVarType.isBound(subtype),
                     });
+                }
+
+                if (subtype.priv.isUnpacked && isClass(boundType)) {
+                    boundType = ClassType.cloneForUnpacked(boundType);
                 }
 
                 boundType = TypeBase.isInstantiable(subtype) ? convertToInstantiable(boundType) : boundType;
@@ -8000,7 +8002,7 @@ export function createTypeEvaluator(
                 };
             } else if (options?.isAnnotatedClass && argIndex > 0) {
                 // If it's an Annotated[a, b, c], only the first index should be
-                // treated as a type.The others can be regular(non - type) objects.
+                // treated as a type. The others can be regular (non-type) objects.
                 adjFlags =
                     EvalFlags.NoParamSpec | EvalFlags.NoTypeVarTuple | EvalFlags.NoSpecialize | EvalFlags.NoClassVar;
                 if (isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(node))) {
@@ -8103,11 +8105,7 @@ export function createTypeEvaluator(
             const upperBound = type.shared.boundType;
 
             if (upperBound && isClassInstance(upperBound) && isTupleClass(upperBound)) {
-                const concrete = makeTopLevelTypeVarsConcrete(type);
-
-                if (isInstantiableClass(concrete)) {
-                    return ClassType.cloneForUnpacked(concrete);
-                }
+                return TypeVarType.cloneForUnpacked(type);
             }
 
             return undefined;
@@ -10647,7 +10645,7 @@ export function createTypeEvaluator(
             const paramType = paramInfo.type;
             const paramName = paramInfo.param.name;
 
-            const isParamVariadic = paramInfo.param.category === ParamCategory.ArgsList && isTypeVarTuple(paramType);
+            const isParamVariadic = paramInfo.param.category === ParamCategory.ArgsList && isUnpacked(paramType);
 
             if (argList[argIndex].argCategory === ArgCategory.UnpackedList) {
                 let isArgCompatibleWithVariadic = false;
@@ -10813,7 +10811,7 @@ export function createTypeEvaluator(
                         effectiveParamType = paramType.priv.tupleTypeArgs[0].type;
                     }
 
-                    paramCategory = isTypeVarTuple(effectiveParamType) ? ParamCategory.ArgsList : ParamCategory.Simple;
+                    paramCategory = isUnpacked(effectiveParamType) ? ParamCategory.ArgsList : ParamCategory.Simple;
 
                     if (remainingArgCount <= remainingParamCount) {
                         if (remainingArgCount < remainingParamCount) {
@@ -11395,7 +11393,7 @@ export function createTypeEvaluator(
                 const paramType = paramDetails.params[paramDetails.argsIndex].type;
                 const variadicArgs = validateArgTypeParams.filter((argParam) => argParam.mapsToVarArgList);
 
-                if (isTypeVarTuple(paramType) && !paramType.priv.isInUnion) {
+                if (isUnpacked(paramType) && (!isTypeVarTuple(paramType) || !paramType.priv.isInUnion)) {
                     const tupleTypeArgs: TupleTypeArg[] = variadicArgs.map((argParam) => {
                         const argType = getTypeOfArg(argParam.argument, /* inferenceContext */ undefined).type;
 
@@ -11428,23 +11426,22 @@ export function createTypeEvaluator(
                         };
                     });
 
-                    let specializedTuple: Type;
-                    if (
-                        tupleTypeArgs.length === 1 &&
-                        !tupleTypeArgs[0].isUnbounded &&
-                        (isUnpackedClass(tupleTypeArgs[0].type) || isTypeVarTuple(tupleTypeArgs[0].type))
-                    ) {
-                        // If there is a single unpacked tuple or unpacked variadic type variable
-                        // (including an unpacked TypeVarTuple union) within this tuple,
-                        // simplify the type.
-                        specializedTuple = tupleTypeArgs[0].type;
-                    } else {
-                        specializedTuple = makeTupleObject(evaluatorInterface, tupleTypeArgs, /* isUnpacked */ true);
+                    let specializedTuple: Type | undefined;
+                    if (tupleTypeArgs.length === 1 && !tupleTypeArgs[0].isUnbounded) {
+                        const entryType = tupleTypeArgs[0].type;
+
+                        if (isUnpacked(entryType)) {
+                            specializedTuple = makePacked(entryType);
+                        }
+                    }
+
+                    if (!specializedTuple) {
+                        specializedTuple = makeTupleObject(evaluatorInterface, tupleTypeArgs, /* isUnpacked */ false);
                     }
 
                     const combinedArg: ValidateArgTypeParams = {
-                        paramCategory: ParamCategory.ArgsList,
-                        paramType,
+                        paramCategory: ParamCategory.Simple,
+                        paramType: makePacked(paramType),
                         requiresTypeVarMatching: true,
                         argument: {
                             argCategory: ArgCategory.Simple,
@@ -11906,7 +11903,7 @@ export function createTypeEvaluator(
 
         // If the final return type is an unpacked tuple, turn it into a normal (unpacked) tuple.
         if (isUnpackedClass(specializedReturnType)) {
-            specializedReturnType = ClassType.cloneForUnpacked(specializedReturnType, /* isUnpacked */ false);
+            specializedReturnType = ClassType.cloneForPacked(specializedReturnType);
         }
 
         const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
@@ -15226,17 +15223,32 @@ export function createTypeEvaluator(
         // As per the specification, we support None, int, bool, str, bytes literals
         // plus enum values.
         const literalTypes: Type[] = [];
+        let isValidTypeForm = true;
 
         for (const item of node.d.items) {
             let type: Type | undefined;
             const itemExpr = item.d.valueExpr;
 
             if (item.d.argCategory !== ArgCategory.Simple) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unpackedArgInTypeArgument(), itemExpr);
-                type = UnknownType.create();
+                if ((flags & EvalFlags.TypeExpression) !== 0) {
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.unpackedArgInTypeArgument(),
+                        itemExpr
+                    );
+                    type = UnknownType.create();
+                    isValidTypeForm = false;
+                }
             } else if (item.d.name) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.keywordArgInTypeArgument(), itemExpr);
-                type = UnknownType.create();
+                if ((flags & EvalFlags.TypeExpression) !== 0) {
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.keywordArgInTypeArgument(),
+                        itemExpr
+                    );
+                    type = UnknownType.create();
+                    isValidTypeForm = false;
+                }
             } else if (itemExpr.nodeType === ParseNodeType.StringList) {
                 const isBytes = (itemExpr.d.strings[0].d.token.flags & StringTokenFlags.Bytes) !== 0;
                 const value = itemExpr.d.strings.map((s) => s.d.value).join('');
@@ -15246,15 +15258,18 @@ export function createTypeEvaluator(
                     type = cloneBuiltinClassWithLiteral(node, classType, 'str', value);
                 }
 
-                itemExpr.d.strings.forEach((stringNode) => {
-                    if ((stringNode.d.token.flags & StringTokenFlags.NamedUnicodeEscape) !== 0) {
-                        addDiagnostic(
-                            DiagnosticRule.reportInvalidTypeForm,
-                            LocMessage.literalNamedUnicodeEscape(),
-                            stringNode
-                        );
-                    }
-                });
+                if ((flags & EvalFlags.TypeExpression) !== 0) {
+                    itemExpr.d.strings.forEach((stringNode) => {
+                        if ((stringNode.d.token.flags & StringTokenFlags.NamedUnicodeEscape) !== 0) {
+                            addDiagnostic(
+                                DiagnosticRule.reportInvalidTypeForm,
+                                LocMessage.literalNamedUnicodeEscape(),
+                                stringNode
+                            );
+                            isValidTypeForm = false;
+                        }
+                    });
+                }
             } else if (itemExpr.nodeType === ParseNodeType.Number) {
                 if (!itemExpr.d.isImaginary && itemExpr.d.isInteger) {
                     type = cloneBuiltinClassWithLiteral(node, classType, 'int', itemExpr.d.value);
@@ -15319,6 +15334,7 @@ export function createTypeEvaluator(
                 if ((flags & EvalFlags.TypeExpression) !== 0) {
                     addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalUnsupportedType(), item);
                     type = UnknownType.create();
+                    isValidTypeForm = false;
                 } else {
                     return ClassType.cloneAsInstance(classType);
                 }
@@ -15333,7 +15349,7 @@ export function createTypeEvaluator(
             result = TypeBase.cloneAsSpecialForm(result, ClassType.cloneAsInstance(unionTypeClass));
         }
 
-        if (isTypeFormSupported(node)) {
+        if (isTypeFormSupported(node) && isValidTypeForm) {
             result = TypeBase.cloneWithTypeForm(result, convertToInstance(result));
         }
 
@@ -18861,7 +18877,7 @@ export function createTypeEvaluator(
                 }
 
                 if (isUnpackedClass(type)) {
-                    return ClassType.cloneForUnpacked(type, /* isUnpacked */ false);
+                    return ClassType.cloneForPacked(type);
                 }
 
                 return makeTupleObject(evaluatorInterface, [{ type, isUnbounded: !isTypeVarTuple(type) }]);
@@ -21578,7 +21594,11 @@ export function createTypeEvaluator(
                             const paramDecl = getDeclarationFromKeywordParam(initMethodType, paramName);
                             if (paramDecl) {
                                 declarations.push(paramDecl);
-                            } else if (ClassType.isDataClass(baseType) || ClassType.isTypedDictClass(baseType)) {
+                            } else if (
+                                ClassType.isDataClass(baseType) ||
+                                ClassType.isTypedDictClass(baseType) ||
+                                ClassType.hasNamedTupleEntry(baseType, paramName)
+                            ) {
                                 const lookupResults = lookUpClassMember(baseType, paramName);
                                 if (lookupResults) {
                                     appendArray(declarations, lookupResults.symbol.getDeclarations());
@@ -24250,6 +24270,22 @@ export function createTypeEvaluator(
 
             let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
             if (isClass(concreteSrcType) && TypeBase.isInstance(concreteSrcType)) {
+                // Handle the case where the source is an unpacked tuple.
+                if (
+                    !destType.priv.isUnpacked &&
+                    concreteSrcType.priv.isUnpacked &&
+                    concreteSrcType.priv.tupleTypeArgs
+                ) {
+                    return assignType(
+                        destType,
+                        combineTupleTypeArgs(concreteSrcType.priv.tupleTypeArgs),
+                        diag,
+                        constraints,
+                        flags,
+                        recursionCount
+                    );
+                }
+
                 // Handle enum literals that are assignable to another (non-Enum) literal.
                 // This can happen for IntEnum and StrEnum members.
                 if (

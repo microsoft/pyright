@@ -60,6 +60,7 @@ import {
     isEffectivelyInstantiable,
     isLiteralTypeOrUnion,
     isPartlyUnknown,
+    makeUnpacked,
     mapSubtypes,
     simplifyFunctionToParamSpec,
     sortTypes,
@@ -138,17 +139,22 @@ export function assignTypeVar(
         isAssignable = assignParamSpec(evaluator, destType, srcType, diag, constraints, recursionCount);
     } else {
         if (isTypeVarTuple(destType) && !destType.priv.isInUnion) {
-            const tupleClassType = evaluator.getTupleClassType();
-            if (!isUnpacked(srcType) && tupleClassType) {
-                // Package up the type into a tuple.
-                srcType = convertToInstance(
-                    specializeTupleClass(
-                        tupleClassType,
-                        [{ type: srcType, isUnbounded: false }],
-                        /* isTypeArgExplicit */ true,
-                        /* isUnpacked */ true
-                    )
-                );
+            if (destType.priv.isUnpacked) {
+                const tupleClassType = evaluator.getTupleClassType();
+
+                if (!isUnpacked(srcType) && tupleClassType) {
+                    // Package up the type into a tuple.
+                    srcType = convertToInstance(
+                        specializeTupleClass(
+                            tupleClassType,
+                            [{ type: srcType, isUnbounded: false }],
+                            /* isTypeArgExplicit */ true,
+                            /* isUnpacked */ true
+                        )
+                    );
+                }
+            } else {
+                srcType = makeUnpacked(srcType);
             }
         }
 

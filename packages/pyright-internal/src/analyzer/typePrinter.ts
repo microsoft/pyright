@@ -615,14 +615,12 @@ function printTypeInternal(
                         (printTypeFlags & PrintTypeFlags.OmitTypeVarScopes) === 0
                 );
 
-                if (isTypeVarTuple(type)) {
-                    if (type.priv.isUnpacked) {
-                        typeVarName = _printUnpack(typeVarName, printTypeFlags);
-                    }
+                if (type.priv.isUnpacked) {
+                    typeVarName = _printUnpack(typeVarName, printTypeFlags);
+                }
 
-                    if (type.priv.isInUnion) {
-                        typeVarName = `Union[${typeVarName}]`;
-                    }
+                if (isTypeVarTuple(type) && type.priv.isInUnion) {
+                    typeVarName = `Union[${typeVarName}]`;
                 }
 
                 if (TypeBase.isInstantiable(type)) {

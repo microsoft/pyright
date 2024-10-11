@@ -565,6 +565,7 @@
         "typedDictFieldReadOnlyRedefinition": "[8IFAz][นั้TypedDict ïtëm \"{ñæmë}\" çæññøt þë rëðëfïñëð æs ReadOnlyẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "typedDictFieldRequiredRedefinition": "[lpw97][นั้TypedDict ïtëm \"{ñæmë}\" çæññøt þë rëðëfïñëð æs RequiredẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "typedDictFirstArg": "[OPlNk][นั้Ëxpëçtëð TypedDict çlæss ñæmë æs fïrst ærgµmëñtẤğ倪İЂҰक्र्तिृまẤğ倪İЂนั้ढूँ]",
+        "typedDictInClassPattern": "[IqJCA][นั้TypedDict çlæss ñøt ælløwëð ïñ çlæss pættërñẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "typedDictInitsubclassParameter": "[HMpfK][นั้TypedDict ðøës ñøt sµppørt __init_subclass__ pæræmëtër \"{ñæmë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "typedDictNotAllowed": "[UWg4F][นั้\"TypedDict\" çæññøt þë µsëð ïñ thïs çøñtëxtẤğ倪İЂҰक्र्तिृまẤğ倪นั้ढूँ]",
         "typedDictSecondArgDict": "[mwrv7][นั้Ëxpëçtëð dict ør këÿwørð pæræmëtër æs sëçøñð pæræmëtërẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",

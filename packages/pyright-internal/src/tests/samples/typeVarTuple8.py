@@ -15,32 +15,25 @@ _Xs = TypeVarTuple("_Xs")
 _Ys = TypeVarTuple("_Ys")
 
 
-def func1(x: Union[Unpack[_Xs]]) -> Union[Unpack[_Xs]]:
-    ...
+def func1(x: Union[Unpack[_Xs]]) -> Union[Unpack[_Xs]]: ...
 
 
-def func2(x: Union[Unpack[_Xs], Unpack[_Ys]]) -> Union[Unpack[_Xs], Unpack[_Ys]]:
-    ...
+def func2(x: Union[Unpack[_Xs], Unpack[_Ys]]) -> Union[Unpack[_Xs], Unpack[_Ys]]: ...
 
 
-def func3(x: Union[int, Unpack[_Xs]]) -> Union[Unpack[_Xs]]:
-    ...
+def func3(x: Union[int, Unpack[_Xs]]) -> Union[Unpack[_Xs]]: ...
 
 
-def func4(x: Union[_T, Unpack[_Xs]]) -> Union[_T, Unpack[_Xs]]:
-    ...
+def func4(x: Union[_T, Unpack[_Xs]]) -> Union[_T, Unpack[_Xs]]: ...
 
 
-def func5(x: Union[Unpack[_Xs]], *args: Unpack[_Xs]) -> Union[Unpack[_Xs]]:
-    ...
+def func5(x: Union[Unpack[_Xs]], *args: Unpack[_Xs]) -> Union[Unpack[_Xs]]: ...
 
 
-def func6(*args: Unpack[_Xs]) -> Union[Unpack[_Xs]]:
-    ...
+def func6(*args: Unpack[_Xs]) -> Union[Unpack[_Xs]]: ...
 
 
-def func7(a: list[Union[Unpack[_Xs]]]) -> Union[Unpack[_Xs]]:
-    ...
+def func7(a: list[Union[Unpack[_Xs]]]) -> Union[Unpack[_Xs]]: ...
 
 
 def test1(a: int, b: str, c: list[int], d: Union[complex, str]):
@@ -84,11 +77,11 @@ def test1(a: int, b: str, c: list[int], d: Union[complex, str]):
 
     # ---------
 
-    # This should generate an error
     v5_1 = func5(a)
+    reveal_type(v5_1, expected_text="int")
 
-    # This should generate an error
     v5_2 = func5(a, a)
+    reveal_type(v5_2, expected_text="int")
 
     # This should generate an error
     v5_3 = func5(a, b)

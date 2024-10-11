@@ -450,7 +450,7 @@ class FPDF(GraphicsStateMixin):
         ln: int | Literal["DEPRECATED"] = "DEPRECATED",
         align: str | Align = ...,
         fill: bool = False,
-        link: str = "",
+        link: str | int = "",
         center: bool = False,
         markdown: bool = False,
         new_x: XPos | str = ...,
@@ -467,7 +467,7 @@ class FPDF(GraphicsStateMixin):
         align: str | Align = ...,
         fill: bool = False,
         split_only: bool = False,
-        link: str = "",
+        link: str | int = "",
         ln: int | Literal["DEPRECATED"] = "DEPRECATED",
         max_line_height: float | None = None,
         markdown: bool = False,
@@ -481,7 +481,7 @@ class FPDF(GraphicsStateMixin):
         padding: int = 0,
     ): ...
     def write(
-        self, h: float | None = None, text: str = "", link: str = "", print_sh: bool = False, wrapmode: WrapMode = ...
+        self, h: float | None = None, text: str = "", link: str | int = "", print_sh: bool = False, wrapmode: WrapMode = ...
     ) -> bool: ...
     def text_columns(
         self,
@@ -507,7 +507,7 @@ class FPDF(GraphicsStateMixin):
         w: float = 0,
         h: float = 0,
         type: str = "",
-        link: str = "",
+        link: str | int = "",
         title: str | None = None,
         alt_text: str | None = None,
         dims: tuple[float, float] | None = None,
