@@ -1,7 +1,7 @@
 # This sample tests the handling of the @dataclass decorator.
 
 from dataclasses import dataclass, InitVar, field
-from typing import Generic, TypeVar
+from typing import Generic, Literal, Sequence, TypeVar
 
 
 @dataclass
@@ -112,3 +112,8 @@ reveal_type(v8_1, expected_text="DC8[int]")
 
 # This should generate an error.
 v8_2 = DC8[str]()
+
+
+@dataclass
+class DC9(Generic[T1]):
+    x: Sequence[Literal["a", "b"]] = ["a"]
