@@ -595,15 +595,17 @@ function validateMetaclassCall(
         );
     });
 
-    // If the return type is unannotated, don't use the inferred return type.
-    const callType = metaclassCallMethodInfo.type;
-    if (isFunction(callType) && !callType.shared.declaredReturnType) {
-        return undefined;
-    }
+    if (!callResult.argumentErrors) {
+        // If the return type is unannotated, don't use the inferred return type.
+        const callType = metaclassCallMethodInfo.type;
+        if (isFunction(callType) && !callType.shared.declaredReturnType) {
+            return undefined;
+        }
 
-    // If the return type is unknown, ignore it.
-    if (callResult.returnType && isUnknown(callResult.returnType)) {
-        return undefined;
+        // If the return type is unknown, ignore it.
+        if (callResult.returnType && isUnknown(callResult.returnType)) {
+            return undefined;
+        }
     }
 
     return callResult;
