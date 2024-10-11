@@ -1,4 +1,4 @@
-## Pyright Configuration
+- ## Pyright Configuration
 
 Pyright offers flexible configuration options specified in a JSON-formatted text configuration. By default, the file is called “pyrightconfig.json” and is located within the root directory of your project. Multi-root workspaces (“Add Folder to Workspace…”) are supported, and each workspace root can have its own “pyrightconfig.json” file. For a sample pyrightconfig.json file, see [below](configuration.md#sample-config-file).
 
