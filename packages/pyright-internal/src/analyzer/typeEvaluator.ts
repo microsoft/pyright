@@ -25578,13 +25578,14 @@ export function createTypeEvaluator(
             const destParamName = destParam.param.name ?? '';
             const srcParamName = srcParam.param.name ?? '';
             if (destParamName) {
-                const isDestPositionalOnly = destParam.kind === ParamKind.Positional;
+                const isDestPositionalOnly =
+                    destParam.kind === ParamKind.Positional || destParam.kind === ParamKind.ExpandedArgs;
                 if (
                     !isDestPositionalOnly &&
                     destParam.param.category !== ParamCategory.ArgsList &&
                     srcParam.param.category !== ParamCategory.ArgsList
                 ) {
-                    if (srcParam.kind === ParamKind.Positional) {
+                    if (srcParam.kind === ParamKind.Positional || srcParam.kind === ParamKind.ExpandedArgs) {
                         diag?.createAddendum().addMessage(
                             LocAddendum.functionParamPositionOnly().format({
                                 name: destParamName,
