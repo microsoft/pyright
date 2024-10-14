@@ -27,6 +27,7 @@ import {
     ParseNodeType,
     TypeAnnotationNode,
 } from '../parser/parseNodes';
+import { Tokenizer } from '../parser/tokenizer';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { getFileInfo } from './analyzerNodeInfo';
 import { ConstraintSolution } from './constraintSolution';
@@ -326,6 +327,14 @@ export function synthesizeDataClassMethods(
                                 isLiteralType(valueType)
                             ) {
                                 aliasName = valueType.priv.literalValue as string;
+
+                                if (!Tokenizer.isPythonIdentifier(aliasName)) {
+                                    evaluator.addDiagnostic(
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        LocMessage.dataClassFieldInvalidAlias().format({ aliasName }),
+                                        aliasArg.d.valueExpr
+                                    );
+                                }
                             }
                         }
 
