@@ -2,7 +2,7 @@
 # handle various class definition cases.
 
 
-from typing import Any, TypeVar
+from typing import Any, Protocol, TypeVar
 
 
 T = TypeVar("T")
@@ -85,3 +85,7 @@ def func3(cls: T2) -> T2:
         pass
     
     return M
+
+
+class N(type(Protocol)):
+    pass

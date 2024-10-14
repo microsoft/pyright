@@ -2128,7 +2128,9 @@ export function derivesFromStdlibClass(classType: ClassType, className: string) 
 // checking for derivation. If ignoreUnknown is false, a return value
 // of true is assumed.
 export function derivesFromClassRecursive(classType: ClassType, baseClassToFind: ClassType, ignoreUnknown: boolean) {
-    if (ClassType.isSameGenericClass(classType, baseClassToFind)) {
+    if (
+        ClassType.isSameGenericClass(ClassType.cloneAsInstance(classType), ClassType.cloneAsInstance(baseClassToFind))
+    ) {
         return true;
     }
 
