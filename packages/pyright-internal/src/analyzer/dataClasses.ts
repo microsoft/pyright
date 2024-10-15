@@ -35,7 +35,13 @@ import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
-import { getClassFullName, getEnclosingClassOrFunction, getScopeIdForNode, getTypeSourceId } from './parseTreeUtils';
+import {
+    getClassFullName,
+    getEnclosingClassOrFunction,
+    getScopeIdForNode,
+    getTypeSourceId,
+    getTypeVarScopesForNode,
+} from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
@@ -75,6 +81,8 @@ import {
     isLiteralType,
     isMetaclassInstance,
     makeInferenceContext,
+    makeTypeVarsBound,
+    makeTypeVarsFree,
     requiresSpecialization,
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
@@ -584,6 +592,8 @@ export function synthesizeDataClassMethods(
                                 const defaultExpr = entry.defaultExpr;
                                 const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                                 const flags = fileInfo.isStubFile ? EvalFlags.ConvertEllipsisToAny : EvalFlags.None;
+                                const liveTypeVars = getTypeVarScopesForNode(entry.defaultExpr);
+                                const boundEffectiveType = makeTypeVarsBound(effectiveType, liveTypeVars);
 
                                 // Use speculative mode here so we don't cache the results.
                                 // We'll want to re-evaluate this expression later, potentially
@@ -592,9 +602,11 @@ export function synthesizeDataClassMethods(
                                     return evaluator.getTypeOfExpression(
                                         defaultExpr,
                                         flags,
-                                        makeInferenceContext(entry.type)
+                                        makeInferenceContext(boundEffectiveType)
                                     ).type;
                                 });
+
+                                defaultType = makeTypeVarsFree(defaultType, liveTypeVars);
                             }
                         }
                     }
