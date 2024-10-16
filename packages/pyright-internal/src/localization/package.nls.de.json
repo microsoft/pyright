@@ -565,6 +565,7 @@
         "typedDictFieldReadOnlyRedefinition": "Das TypedDict-Element „{name}“ kann nicht als „ReadOnly“ neu definiert werden.",
         "typedDictFieldRequiredRedefinition": "Das TypedDict-Element „{name}“ kann nicht als „Required“ neu definiert werden.",
         "typedDictFirstArg": "Der Klassenname \"TypedDict\" wird als erstes Argument erwartet.",
+        "typedDictInClassPattern": "Die TypedDict-Klasse ist im Klassenmuster nicht zulässig.",
         "typedDictInitsubclassParameter": "TypedDict unterstützt __init_subclass__ Parameter „{name}“ nicht.",
         "typedDictNotAllowed": "\"TypedDict\" kann in diesem Kontext nicht verwendet werden.",
         "typedDictSecondArgDict": "Es wird ein dict- oder Schlüsselwortparameter als zweiter Parameter erwartet.",

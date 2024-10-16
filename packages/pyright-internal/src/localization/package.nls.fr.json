@@ -565,6 +565,7 @@
         "typedDictFieldReadOnlyRedefinition": "L’élément TypedDict « {name} » ne peut pas être redéfini comme état En ReadOnly",
         "typedDictFieldRequiredRedefinition": "L’élément TypedDict « {name} » ne peut pas être redéfini comme étant Required",
         "typedDictFirstArg": "Nom de classe TypedDict attendu comme premier argument",
+        "typedDictInClassPattern": "La classe TypedDict n'est pas autorisée dans le modèle de classe",
         "typedDictInitsubclassParameter": "TypedDict ne prend pas en charge __init_subclass__ paramètre « {name} »",
         "typedDictNotAllowed": "\"TypedDict\" ne peut pas être utilisé dans ce contexte",
         "typedDictSecondArgDict": "Paramètre de mot clé ou de dict attendu en tant que deuxième paramètre",

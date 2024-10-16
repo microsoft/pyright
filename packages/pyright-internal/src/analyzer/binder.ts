@@ -119,7 +119,6 @@ import {
     UnresolvedModuleMarker,
     VariableDeclaration,
 } from './declaration';
-import { extractParameterDocumentation } from './docStringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -540,7 +539,10 @@ export class Binder extends ParseTreeWalker {
                             // Extract the parameter docString from the function docString
                             let docString = ParseTreeUtils.getDocString(node?.d.suite?.d.statements ?? []);
                             if (docString !== undefined) {
-                                docString = extractParameterDocumentation(docString, paramNode.d.name.d.value);
+                                docString = this._docStringService.extractParameterDocumentation(
+                                    docString,
+                                    paramNode.d.name.d.value
+                                );
                             }
 
                             if (symbol) {

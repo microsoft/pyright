@@ -360,6 +360,8 @@ export namespace Localizer {
             );
         export const dataClassFieldInheritedDefault = () =>
             new ParameterizedString<{ fieldName: string }>(getRawString('Diagnostic.dataClassFieldInheritedDefault'));
+        export const dataClassFieldInvalidAlias = () =>
+            new ParameterizedString<{ aliasName: string }>(getRawString('Diagnostic.dataClassFieldInvalidAlias'));
         export const dataClassFieldWithDefault = () => getRawString('Diagnostic.dataClassFieldWithDefault');
         export const dataClassFieldWithoutAnnotation = () => getRawString('Diagnostic.dataClassFieldWithoutAnnotation');
         export const dataClassFieldWithPrivateName = () => getRawString('Diagnostic.dataClassFieldWithPrivateName');

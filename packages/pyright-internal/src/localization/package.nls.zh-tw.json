@@ -565,6 +565,7 @@
         "typedDictFieldReadOnlyRedefinition": "TypedDict 項目 \"{name}\" 不能重新定義為 ReadOnly",
         "typedDictFieldRequiredRedefinition": "TypedDict 項目 \"{name}\" 不能重新定義為 Required",
         "typedDictFirstArg": "預期 TypedDict 類別名稱作為第一個引數",
+        "typedDictInClassPattern": "類別模式中不允許 TypedDict 類別",
         "typedDictInitsubclassParameter": "TypedDict 不支援__init_subclass__參數 \"{name}\"",
         "typedDictNotAllowed": "\"TypedDict\" 不能用在此內容中",
         "typedDictSecondArgDict": "預期為 dict 或關鍵字參數作為第二個參數",

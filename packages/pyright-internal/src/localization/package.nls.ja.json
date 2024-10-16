@@ -565,6 +565,7 @@
         "typedDictFieldReadOnlyRedefinition": "TypedDict アイテム \"{name}\" を ReadOnly として再定義することはできません",
         "typedDictFieldRequiredRedefinition": "TypedDict アイテム \"{name}\" を Required として再定義することはできません",
         "typedDictFirstArg": "最初の引数として TypedDict クラス名が必要です",
+        "typedDictInClassPattern": "TypedDict クラスはクラス パターンでは使用できません",
         "typedDictInitsubclassParameter": "TypedDict は __init_subclass__パラメーター \"{name}\" をサポートしていません",
         "typedDictNotAllowed": "\"TypedDict\" はこのコンテキストでは使用できません",
         "typedDictSecondArgDict": "2 番目のパラメーターとして dict パラメーターまたはキーワード パラメーターが必要です",

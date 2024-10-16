@@ -1,6 +1,9 @@
 # This sample tests the handling of the `__call__` attribute.
 
 
+from typing import Iterable, Iterator
+
+
 class A:
     def __init__(self):
         self.__call__ = self.method1
@@ -22,3 +25,9 @@ class B:
 
 
 B()(0)
+
+
+class C[K](Iterable[K]):
+    def keys(self) -> Iterator[K]: ...
+
+    __iter__ = keys

@@ -1264,11 +1264,6 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitBinaryOperation(node: BinaryOperationNode): boolean {
-        if (node.d.operator === OperatorType.And || node.d.operator === OperatorType.Or) {
-            this._validateConditionalIsBool(node.d.leftExpr);
-            this._validateConditionalIsBool(node.d.rightExpr);
-        }
-
         if (node.d.operator === OperatorType.Equals || node.d.operator === OperatorType.NotEquals) {
             // Don't apply this rule if it's within an assert.
             if (!ParseTreeUtils.isWithinAssertExpression(node)) {

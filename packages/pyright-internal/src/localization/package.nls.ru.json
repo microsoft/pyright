@@ -565,6 +565,7 @@
         "typedDictFieldReadOnlyRedefinition": "Элемент TypedDict \"{name}\" нельзя переопределить как доступный ReadOnly",
         "typedDictFieldRequiredRedefinition": "Элемент TypedDict \"{name}\" нельзя переопределить как Required",
         "typedDictFirstArg": "В качестве первого аргумента ожидается имя класса TypedDict",
+        "typedDictInClassPattern": "Класс TypedDict не разрешен в шаблоне класса",
         "typedDictInitsubclassParameter": "TypedDict не поддерживает параметр __init_subclass__ \"{name}\"",
         "typedDictNotAllowed": "Невозможно использовать \"TypedDict\" в этом контексте",
         "typedDictSecondArgDict": "В качестве второго параметра ожидается dict или ключевое слово",

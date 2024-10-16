@@ -1,7 +1,6 @@
 # This sample tests that types defined by type variables can be
 # awaited.
 
-import asyncio
 from typing import Generator, Any, NoReturn
 
 
