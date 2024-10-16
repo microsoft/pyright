@@ -296,7 +296,7 @@ test('TypeVarTuple14', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple14.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 14);
 });
 
 test('TypeVarTuple15', () => {
@@ -825,7 +825,7 @@ test('Constructor31', () => {
 test('Constructor32', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor32.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('ConstructorCallable1', () => {

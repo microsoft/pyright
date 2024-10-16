@@ -35,7 +35,7 @@ def g(a: Optional[Callable[[int], int]]):
         a(3)
 
 
-_T1 = TypeVar("_T1")
+_T1 = TypeVar("_T1", bound=int)
 
 
 def test1(arg: Union[_T1, Callable[[], _T1]]) -> _T1:

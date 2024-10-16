@@ -387,6 +387,16 @@ export class Tokenizer {
         return !_softKeywords.has(name);
     }
 
+    static isPythonIdentifier(value: string) {
+        for (let i = 0; i < value.length; i++) {
+            if (i === 0 ? !isIdentifierStartChar(value.charCodeAt(i)) : !isIdentifierChar(value.charCodeAt(i))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     static isOperatorAssignment(operatorType?: OperatorType): boolean {
         if (operatorType === undefined || _operatorInfo[operatorType] === undefined) {
             return false;

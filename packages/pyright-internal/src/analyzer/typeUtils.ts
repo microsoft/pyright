@@ -217,6 +217,11 @@ export interface ApplyTypeVarOptions {
     };
 }
 
+export interface AddConditionOptions {
+    skipSelfCondition?: boolean;
+    skipBoundTypeVars?: boolean;
+}
+
 // Tracks whether a function signature has been seen before within
 // an expression. For example, in the expression "foo(foo, foo)", the
 // signature for "foo" will be seen three times at three different
@@ -904,14 +909,21 @@ export function getFullNameOfType(type: Type): string | undefined {
 export function addConditionToType<T extends Type>(
     type: T,
     condition: TypeCondition[] | undefined,
-    skipSelfCondition = false
+    options?: AddConditionOptions
 ): T {
     if (!condition) {
         return type;
     }
 
-    if (skipSelfCondition) {
+    if (options?.skipSelfCondition) {
         condition = condition.filter((c) => !TypeVarType.isSelf(c.typeVar));
+        if (condition.length === 0) {
+            return type;
+        }
+    }
+
+    if (options?.skipBoundTypeVars) {
+        condition = condition.filter((c) => c.typeVar.shared.constraints.length > 0);
         if (condition.length === 0) {
             return type;
         }
