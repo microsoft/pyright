@@ -3798,7 +3798,7 @@ export function createTypeEvaluator(
             const tupleType = getSpecializedTupleType(subtype);
             if (tupleType && tupleType.priv.tupleTypeArgs) {
                 const sourceEntryTypes = tupleType.priv.tupleTypeArgs.map((t) =>
-                    addConditionToType(t.type, getTypeCondition(subtype), /* skipSelfCondition */ true)
+                    addConditionToType(t.type, getTypeCondition(subtype), { skipSelfCondition: true })
                 );
 
                 const unboundedIndex = tupleType.priv.tupleTypeArgs.findIndex((t) => t.isUnbounded);
@@ -5623,11 +5623,10 @@ export function createTypeEvaluator(
 
                 if (typeResult) {
                     if (!typeResult.typeErrors) {
-                        type = addConditionToType(
-                            typeResult.type,
-                            getTypeCondition(baseType),
-                            /* skipSelfCondition */ true
-                        );
+                        type = addConditionToType(typeResult.type, getTypeCondition(baseType), {
+                            skipSelfCondition: true,
+                            skipBoundTypeVars: true,
+                        });
                     } else {
                         typeErrors = true;
                     }
@@ -5644,7 +5643,7 @@ export function createTypeEvaluator(
                         narrowedTypeForSet = addConditionToType(
                             typeResult.narrowedTypeForSet,
                             getTypeCondition(baseType),
-                            /* skipSelfCondition */ true
+                            { skipSelfCondition: true, skipBoundTypeVars: true }
                         );
                     }
 
@@ -5767,7 +5766,9 @@ export function createTypeEvaluator(
                         const typeResult = getTypeOfBoundMember(node.d.member, subtype, memberName, usage, diag);
 
                         if (typeResult && !typeResult.typeErrors) {
-                            type = addConditionToType(typeResult.type, getTypeCondition(baseType));
+                            type = addConditionToType(typeResult.type, getTypeCondition(baseType), {
+                                skipBoundTypeVars: true,
+                            });
                             if (typeResult.isIncomplete) {
                                 isIncomplete = true;
                             }
@@ -11853,7 +11854,7 @@ export function createTypeEvaluator(
                 eliminateUnsolvedInUnions,
             },
         });
-        specializedReturnType = addConditionToType(specializedReturnType, typeCondition);
+        specializedReturnType = addConditionToType(specializedReturnType, typeCondition, { skipBoundTypeVars: true });
 
         // If the function includes a ParamSpec and the captured signature(s) includes
         // generic types, we may need to apply those solved TypeVars.
