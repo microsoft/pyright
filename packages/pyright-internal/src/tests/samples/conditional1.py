@@ -23,11 +23,15 @@ def func1(val: ReturnsNonBool):
     # This should generate an error.
     a = not val
 
-    # This should generate an error.
     b = val or 1
-
     # This should generate an error.
+    if b:
+        pass
+
     c = 1 and val
+    # This should generate an error.
+    if c:
+        pass
 
     # This should generate an error.
     y = 1 if val else 2
@@ -51,11 +55,15 @@ def func2(val: TVal | ReturnsBool) -> TVal | ReturnsBool:
     # This should generate an error.
     a = not val
 
-    # This should generate an error.
     b = val or 1
-
     # This should generate an error.
+    if b:
+        pass
+
     c = 1 and val
+    # This should generate an error.
+    if c:
+        pass
 
     # This should generate an error.
     y = 1 if val else 2
