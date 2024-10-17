@@ -562,6 +562,12 @@ const maxInferFunctionReturnRecursionCount = 12;
 // type aliases.
 const maxRecursiveTypeAliasRecursionCount = 10;
 
+// Normally a symbol can have only one type declaration, but there are
+// cases where multiple are possible (e.g. a property with a setter
+// and a deleter). In extreme cases, we need to limit the number of
+// type declarations we consider to avoid excessive computation.
+const maxTypedDeclsPerSymbol = 16;
+
 // This switch enables a special debug mode that attempts to catch
 // bugs due to inconsistent evaluation flags used when reading types
 // from the type cache.
@@ -22585,26 +22591,33 @@ export function createTypeEvaluator(
         // cases where a property symbol is redefined to add a setter, deleter,
         // etc.
         if (usageNode && typedDecls.length > 1) {
-            const filteredTypedDecls = typedDecls.filter((decl) => {
-                if (decl.type !== DeclarationType.Alias) {
-                    // Is the declaration in the same execution scope as the "usageNode" node?
-                    const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode);
-                    const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
+            if (typedDecls.length > maxTypedDeclsPerSymbol) {
+                // If there are too many typed decls, don't bother filtering them
+                // because this can be very expensive. Simply use the last one
+                // in this case.
+                typedDecls = [typedDecls[typedDecls.length - 1]];
+            } else {
+                const filteredTypedDecls = typedDecls.filter((decl) => {
+                    if (decl.type !== DeclarationType.Alias) {
+                        // Is the declaration in the same execution scope as the "usageNode" node?
+                        const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode);
+                        const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
 
-                    if (usageScope === declScope) {
-                        if (!isFlowPathBetweenNodes(decl.node, usageNode, /* allowSelf */ false)) {
-                            return false;
+                        if (usageScope === declScope) {
+                            if (!isFlowPathBetweenNodes(decl.node, usageNode, /* allowSelf */ false)) {
+                                return false;
+                            }
                         }
                     }
+                    return true;
+                });
+
+                if (filteredTypedDecls.length === 0) {
+                    return { type: UnboundType.create() };
                 }
-                return true;
-            });
 
-            if (filteredTypedDecls.length === 0) {
-                return { type: UnboundType.create() };
+                typedDecls = filteredTypedDecls;
             }
-
-            typedDecls = filteredTypedDecls;
         }
 
         // Start with the last decl. If that's already being resolved,
