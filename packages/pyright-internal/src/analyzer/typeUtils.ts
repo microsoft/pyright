@@ -1806,7 +1806,8 @@ export function* getClassMemberIterator(
 
             // Next look at class members.
             if ((flags & MemberAccessFlags.SkipClassMembers) === 0) {
-                const symbol = memberFields.get(memberName);
+                let symbol = memberFields.get(memberName);
+
                 if (symbol && symbol.isClassMember()) {
                     const hasDeclaredType = symbol.hasTypedDeclarations();
                     if (!declaredTypesOnly || hasDeclaredType) {
@@ -1826,6 +1827,15 @@ export function* getClassMemberIterator(
                                 isInstanceMember = true;
                                 isClassMember = isDataclass;
                             }
+                        }
+
+                        // Handle the special case of a __call__ class member in a partial class.
+                        if (
+                            memberName === '__call__' &&
+                            classType.priv.partialCallType &&
+                            ClassType.isSameGenericClass(classType, specializedMroClass)
+                        ) {
+                            symbol = Symbol.createWithType(SymbolFlags.ClassMember, classType.priv.partialCallType);
                         }
 
                         const cm: ClassMember = {
