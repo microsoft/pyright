@@ -2328,7 +2328,7 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
                 if (isPositiveTest) {
                     if (matches) {
                         if (ClassType.isSameGenericClass(subtype, classType)) {
-                            return subtype;
+                            return addConditionToType(subtype, classType.props?.condition);
                         }
 
                         return addConditionToType(ClassType.cloneAsInstance(classType), subtype.props?.condition);
