@@ -1,8 +1,8 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def is_regular(G): ...
-@_dispatch
+@_dispatchable
 def is_k_regular(G, k): ...
-@_dispatch
+@_dispatchable
 def k_factor(G, k, matching_weight: str = "weight"): ...

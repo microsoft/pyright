@@ -1,7 +1,8 @@
 from _typeshed import Incomplete, StrPath
 from abc import abstractmethod
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Literal, TypeVar, overload
+from typing import Any, Literal, TypedDict, TypeVar, overload, type_check_only
+from typing_extensions import NotRequired
 
 from ._distutils.cmd import Command as _Command
 from .command.alias import alias
@@ -45,6 +46,14 @@ __all__ = [
 
 __version__: str
 
+@type_check_only
+class _BuildInfo(TypedDict):
+    sources: list[str] | tuple[str, ...]
+    obj_deps: NotRequired[dict[str, list[str] | tuple[str, ...]]]
+    macros: NotRequired[list[tuple[str] | tuple[str, str | None]]]
+    include_dirs: NotRequired[list[str]]
+    cflags: NotRequired[list[str]]
+
 # Pytype fails with the following:
 # find_packages = PackageFinder.find
 # find_namespace_packages = PEP420PackageFinder.find
@@ -85,13 +94,15 @@ def setup(
     command_options: Mapping[str, Mapping[str, tuple[Incomplete, Incomplete]]] = ...,
     package_data: Mapping[str, list[str]] = ...,
     include_package_data: bool = ...,
-    libraries: list[str] = ...,
+    # libraries for `Distribution` or `build_clib`, not `Extension`, `build_ext` or `CCompiler`
+    libraries: list[tuple[str, _BuildInfo]] = ...,
     headers: list[str] = ...,
     ext_package: str = ...,
     include_dirs: list[str] = ...,
     password: str = ...,
     fullname: str = ...,
-    **attrs,
+    # Custom Distributions could accept more params
+    **attrs: Any,
 ) -> Distribution: ...
 
 class Command(_Command):

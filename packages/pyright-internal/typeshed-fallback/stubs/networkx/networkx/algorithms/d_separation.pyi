@@ -1,8 +1,8 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def d_separated(G, x, y, z): ...
-@_dispatch
+@_dispatchable
 def minimal_d_separator(G, u, v): ...
-@_dispatch
+@_dispatchable
 def is_minimal_d_separator(G, u, v, z): ...

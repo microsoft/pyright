@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 from collections.abc import Generator
 from typing import Final
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 __all__ = [
     "write_graphml",
@@ -40,9 +40,9 @@ def generate_graphml(
     named_key_ids: bool = False,
     edge_id_from_attribute: Incomplete | None = None,
 ) -> Generator[Incomplete, Incomplete, None]: ...
-@_dispatch
+@_dispatchable
 def read_graphml(path, node_type=..., edge_key_type=..., force_multigraph: bool = False): ...
-@_dispatch
+@_dispatchable
 def parse_graphml(graphml_string, node_type=..., edge_key_type=..., force_multigraph: bool = False): ...
 
 class GraphML:
@@ -113,7 +113,7 @@ class GraphMLWriterLxml(GraphMLWriter):
     ) -> None: ...
     def add_graph_element(self, G) -> None: ...
     def add_attributes(self, scope, xml_obj, data, default) -> None: ...
-    def dump(self) -> None: ...  # type: ignore[override]  # This incompatible signature is an actual issue in networkx
+    def dump(self, stream: Incomplete | None = None) -> None: ...
 
 write_graphml = write_graphml_lxml
 

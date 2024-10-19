@@ -1,12 +1,12 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 __all__ = ["treewidth_min_degree", "treewidth_min_fill_in"]
 
-@_dispatch
+@_dispatchable
 def treewidth_min_degree(G): ...
-@_dispatch
+@_dispatchable
 def treewidth_min_fill_in(G): ...
 
 class MinDegreeHeuristic:

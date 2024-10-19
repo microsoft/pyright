@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 __all__ = ["write_gexf", "read_gexf", "relabel_gexf_graph", "generate_gexf"]
 
@@ -9,7 +9,7 @@ def write_gexf(G, path, encoding: str = "utf-8", prettyprint: bool = True, versi
 def generate_gexf(
     G, encoding: str = "utf-8", prettyprint: bool = True, version: str = "1.2draft"
 ) -> Generator[Incomplete, Incomplete, None]: ...
-@_dispatch
+@_dispatchable
 def read_gexf(path, node_type: Incomplete | None = None, relabel: bool = False, version: str = "1.2draft"): ...
 
 class GEXF:

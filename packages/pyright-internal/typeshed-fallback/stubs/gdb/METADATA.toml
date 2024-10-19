@@ -1,4 +1,4 @@
-version = "12.1.*"
+version = "15.0.*"
 # This is the official web portal for GDB,
 # see https://sourceware.org/gdb/current/ for other ways of obtaining the source code.
 upstream_repository = "https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=tree"

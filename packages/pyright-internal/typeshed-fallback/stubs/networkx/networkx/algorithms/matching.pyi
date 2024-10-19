@@ -1,14 +1,14 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def maximal_matching(G): ...
-@_dispatch
+@_dispatchable
 def is_matching(G, matching): ...
-@_dispatch
+@_dispatchable
 def is_maximal_matching(G, matching): ...
-@_dispatch
+@_dispatchable
 def is_perfect_matching(G, matching): ...
-@_dispatch
+@_dispatchable
 def min_weight_matching(G, weight: str = "weight"): ...
-@_dispatch
+@_dispatchable
 def max_weight_matching(G, maxcardinality: bool = False, weight: str = "weight"): ...

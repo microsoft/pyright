@@ -912,7 +912,7 @@ test('Subscript1', () => {
     // Analyze with Python 3.8 settings.
     configOptions.defaultPythonVersion = pythonVersion3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['subscript1.py'], configOptions);
-    TestUtils.validateResults(analysisResults38, 18);
+    TestUtils.validateResults(analysisResults38, 14);
 
     // Analyze with Python 3.8 settings.
     configOptions.defaultPythonVersion = pythonVersion3_10;

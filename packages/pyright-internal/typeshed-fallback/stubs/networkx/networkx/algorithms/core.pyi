@@ -1,18 +1,18 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def core_number(G): ...
-@_dispatch
+@_dispatchable
 def k_core(G, k: Incomplete | None = None, core_number: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def k_shell(G, k: Incomplete | None = None, core_number: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def k_crust(G, k: Incomplete | None = None, core_number: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def k_corona(G, k, core_number: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def k_truss(G, k): ...
-@_dispatch
+@_dispatchable
 def onion_layers(G): ...

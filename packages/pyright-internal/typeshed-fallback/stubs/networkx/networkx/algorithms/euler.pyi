@@ -1,17 +1,17 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def is_eulerian(G): ...
-@_dispatch
+@_dispatchable
 def is_semieulerian(G): ...
-@_dispatch
+@_dispatchable
 def eulerian_circuit(G, source: Incomplete | None = None, keys: bool = False) -> Generator[Incomplete, Incomplete, None]: ...
-@_dispatch
+@_dispatchable
 def has_eulerian_path(G, source: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def eulerian_path(G, source: Incomplete | None = None, keys: bool = False) -> Generator[Incomplete, Incomplete, None]: ...
-@_dispatch
+@_dispatchable
 def eulerize(G): ...

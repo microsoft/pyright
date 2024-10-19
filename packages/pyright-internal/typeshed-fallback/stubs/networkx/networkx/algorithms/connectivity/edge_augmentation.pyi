@@ -1,13 +1,13 @@
 from collections.abc import Generator, Hashable
 
 from networkx.classes.graph import Graph, _Node
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def is_k_edge_connected(G: Graph[Hashable], k: int): ...
-@_dispatch
+@_dispatchable
 def is_locally_k_edge_connected(G, s, t, k): ...
-@_dispatch
+@_dispatchable
 def k_edge_augmentation(
     G: Graph[_Node],
     k: int,

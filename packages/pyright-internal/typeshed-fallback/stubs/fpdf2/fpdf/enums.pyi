@@ -1,6 +1,6 @@
 from enum import Enum, Flag, IntEnum, IntFlag
 from typing import Literal
-from typing_extensions import Self
+from typing_extensions import Self, TypeAlias
 
 from .syntax import Name
 
@@ -38,6 +38,8 @@ class Align(CoerciveEnum):
     R = "RIGHT"
     J = "JUSTIFY"
 
+_Align: TypeAlias = Align | Literal["CENTER", "X_CENTER", "LEFT", "RIGHT", "JUSTIFY"]  # noqa: Y047
+
 class VAlign(CoerciveEnum):
     M = "MIDDLE"
     T = "TOP"
@@ -51,6 +53,8 @@ class TextEmphasis(CoerciveIntFlag):
 
     @property
     def style(self) -> str: ...
+    def add(self, value: TextEmphasis) -> TextEmphasis: ...
+    def remove(self, value: TextEmphasis) -> TextEmphasis: ...
 
 class MethodReturnValue(CoerciveIntFlag):
     PAGE_BREAK = 1

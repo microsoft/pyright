@@ -1,10 +1,10 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def is_arborescence(G): ...
-@_dispatch
+@_dispatchable
 def is_branching(G): ...
-@_dispatch
+@_dispatchable
 def is_forest(G): ...
-@_dispatch
+@_dispatchable
 def is_tree(G): ...

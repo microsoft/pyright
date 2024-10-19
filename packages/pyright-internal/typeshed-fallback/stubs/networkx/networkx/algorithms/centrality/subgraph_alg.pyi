@@ -1,10 +1,10 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def subgraph_centrality_exp(G): ...
-@_dispatch
+@_dispatchable
 def subgraph_centrality(G): ...
-@_dispatch
+@_dispatchable
 def communicability_betweenness_centrality(G): ...
-@_dispatch
+@_dispatchable
 def estrada_index(G): ...

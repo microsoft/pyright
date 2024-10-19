@@ -1,4 +1,4 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def min_maximal_matching(G): ...

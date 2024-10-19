@@ -1,10 +1,10 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def margulis_gabber_galil_graph(n, create_using: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def chordal_cycle_graph(p, create_using: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def paley_graph(p, create_using: Incomplete | None = None): ...

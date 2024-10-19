@@ -1,8 +1,8 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def katz_centrality(
     G,
     alpha: float = 0.1,
@@ -13,7 +13,7 @@ def katz_centrality(
     normalized: bool = True,
     weight: Incomplete | None = None,
 ): ...
-@_dispatch
+@_dispatchable
 def katz_centrality_numpy(
     G, alpha: float = 0.1, beta: float = 1.0, normalized: bool = True, weight: Incomplete | None = None
 ): ...

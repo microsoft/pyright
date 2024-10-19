@@ -1,14 +1,14 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def is_graphical(sequence, method: str = "eg"): ...
-@_dispatch
+@_dispatchable
 def is_valid_degree_sequence_havel_hakimi(deg_sequence): ...
-@_dispatch
+@_dispatchable
 def is_valid_degree_sequence_erdos_gallai(deg_sequence): ...
-@_dispatch
+@_dispatchable
 def is_multigraphical(sequence): ...
-@_dispatch
+@_dispatchable
 def is_pseudographical(sequence): ...
-@_dispatch
+@_dispatchable
 def is_digraphical(in_sequence, out_sequence): ...

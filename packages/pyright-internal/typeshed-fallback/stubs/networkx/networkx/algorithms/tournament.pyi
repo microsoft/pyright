@@ -1,16 +1,16 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def is_tournament(G): ...
-@_dispatch
+@_dispatchable
 def hamiltonian_path(G): ...
-@_dispatch
+@_dispatchable
 def random_tournament(n, seed: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def score_sequence(G): ...
-@_dispatch
+@_dispatchable
 def is_reachable(G, s, t): ...
-@_dispatch
+@_dispatchable
 def is_strongly_connected(G): ...

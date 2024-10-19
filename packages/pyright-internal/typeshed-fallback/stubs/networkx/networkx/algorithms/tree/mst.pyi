@@ -3,30 +3,30 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 class EdgePartition(Enum):
     OPEN = 0
     INCLUDED = 1
     EXCLUDED = 2
 
-@_dispatch
+@_dispatchable
 def minimum_spanning_edges(
     G, algorithm: str = "kruskal", weight: str = "weight", keys: bool = True, data: bool = True, ignore_nan: bool = False
 ): ...
-@_dispatch
+@_dispatchable
 def maximum_spanning_edges(
     G, algorithm: str = "kruskal", weight: str = "weight", keys: bool = True, data: bool = True, ignore_nan: bool = False
 ): ...
-@_dispatch
+@_dispatchable
 def minimum_spanning_tree(G, weight: str = "weight", algorithm: str = "kruskal", ignore_nan: bool = False): ...
-@_dispatch
+@_dispatchable
 def partition_spanning_tree(
     G, minimum: bool = True, weight: str = "weight", partition: str = "partition", ignore_nan: bool = False
 ): ...
-@_dispatch
+@_dispatchable
 def maximum_spanning_tree(G, weight: str = "weight", algorithm: str = "kruskal", ignore_nan: bool = False): ...
-@_dispatch
+@_dispatchable
 def random_spanning_tree(G, weight: Incomplete | None = None, *, multiplicative: bool = True, seed: Incomplete | None = None): ...
 
 class SpanningTreeIterator:

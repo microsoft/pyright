@@ -1,10 +1,10 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def min_cost_flow_cost(G, demand: str = "demand", capacity: str = "capacity", weight: str = "weight"): ...
-@_dispatch
+@_dispatchable
 def min_cost_flow(G, demand: str = "demand", capacity: str = "capacity", weight: str = "weight"): ...
-@_dispatch
+@_dispatchable
 def cost_of_flow(G, flowDict, weight: str = "weight"): ...
-@_dispatch
+@_dispatchable
 def max_flow_min_cost(G, s, t, capacity: str = "capacity", weight: str = "weight"): ...

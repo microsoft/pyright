@@ -14,28 +14,33 @@ from PIL import Image
 from .annotations import AnnotationDict, PDFEmbeddedFile
 from .drawing import DeviceGray, DeviceRGB, DrawingContext, PaintedPath
 from .enums import (
+    AccessPermission,
     Align,
     AnnotationFlag,
     AnnotationName,
     Corner,
+    EncryptionMethod,
     FileAttachmentAnnotationName,
     MethodReturnValue,
     PageLayout,
+    PageMode,
     PathPaintRule,
     RenderStyle,
     TableBordersLayout,
     TableCellFillMode,
     TableHeadingsDisplay,
     TextDirection,
+    TextEmphasis,
     TextMarkupType,
     TextMode as TextMode,
     VAlign,
     WrapMode as WrapMode,
     XPos as XPos,
     YPos as YPos,
+    _Align,
 )
 from .errors import FPDFException as FPDFException
-from .fonts import FontFace
+from .fonts import FontFace, TextStyle, TitleStyle as TitleStyle
 from .graphics_state import GraphicsStateMixin
 from .html import HTML2FPDF
 from .image_datastructures import (
@@ -73,28 +78,11 @@ _FontStyles: TypeAlias = Literal["", "B", "I", "U", "BU", "UB", "BI", "IB", "IU"
 FPDF_VERSION: Final[str]
 PAGE_FORMATS: dict[_Format, tuple[float, float]]
 
-class TitleStyle(FontFace):
-    t_margin: int | None
-    l_margin: int | None
-    b_margin: int | None
-
-    def __init__(
-        self,
-        font_family: str | None = None,
-        font_style: str | None = None,
-        font_size_pt: int | None = None,
-        color: int | tuple[int, int, int] | None = None,
-        underline: bool = False,
-        t_margin: int | None = None,
-        l_margin: int | None = None,
-        b_margin: int | None = None,
-    ) -> None: ...
-
 class ToCPlaceholder(NamedTuple):
     render_function: Callable[[FPDF, Any], object]
     start_page: int
     y: int
-    pages: int = ...
+    pages: int = 1
 
 def get_page_format(format: _Format | tuple[float, float], k: float | None = None) -> tuple[float, float]: ...
 
@@ -105,6 +93,7 @@ class FPDF(GraphicsStateMixin):
     MARKDOWN_BOLD_MARKER: ClassVar[str]
     MARKDOWN_ITALICS_MARKER: ClassVar[str]
     MARKDOWN_UNDERLINE_MARKER: ClassVar[str]
+    MARKDOWN_ESCAPE_CHARACTER: ClassVar[str]
     MARKDOWN_LINK_REGEX: ClassVar[Pattern[str]]
     MARKDOWN_LINK_COLOR: ClassVar[Incomplete | None]
     MARKDOWN_LINK_UNDERLINE: ClassVar[bool]
@@ -114,9 +103,11 @@ class FPDF(GraphicsStateMixin):
     page: int
     pages: dict[int, PDFPage]
     fonts: dict[str, _Font]
+    fonts_used_per_page_number: dict[int, set[int]]
     links: dict[int, DestinationXYZ]
     embedded_files: list[PDFEmbeddedFile]
     image_cache: ImageCache
+    images_used_per_page_number: dict[int, set[int]]
 
     in_footer: bool
     str_alias_nb_pages: str
@@ -128,7 +119,7 @@ class FPDF(GraphicsStateMixin):
     oversized_images: Incomplete | None
     oversized_images_ratio: float
     struct_builder: StructureTreeBuilder
-    section_title_styles: dict[int, Incomplete]
+    section_title_styles: dict[int, TextStyle]
 
     core_fonts: dict[str, str]
     core_fonts_encoding: str
@@ -149,6 +140,7 @@ class FPDF(GraphicsStateMixin):
     compress: bool
     pdf_version: str
     creation_date: datetime.datetime
+    graphics_style_names_per_page_number: dict[int, set[str]]
 
     buffer: bytearray | None
 
@@ -166,21 +158,22 @@ class FPDF(GraphicsStateMixin):
         format: _Format | tuple[float, float] = "A4",
         font_cache_dir: Literal["DEPRECATED"] = "DEPRECATED",
     ) -> None: ...
-    # The following definition crashes stubtest 1.1.1.
-    # def set_encryption(
-    #     self,
-    #     owner_password: str,
-    #     user_password: str | None = None,
-    #     encryption_method: EncryptionMethod | str = ...,
-    #     permissions: AccessPermission = ...,
-    #     encrypt_metadata: bool = False,
-    # ) -> None: ...
+    def set_encryption(
+        self,
+        owner_password: str,
+        user_password: str | None = None,
+        encryption_method: EncryptionMethod | str = ...,
+        permissions: AccessPermission = ...,
+        encrypt_metadata: bool = False,
+    ) -> None: ...
     # args and kwargs are passed to HTML2FPDF_CLASS constructor.
     def write_html(self, text: str, *args: Any, **kwargs: Any) -> None: ...
     @property
+    def emphasis(self) -> TextEmphasis: ...
+    @property
     def is_ttf_font(self) -> bool: ...
     @property
-    def page_mode(self): ...
+    def page_mode(self) -> PageMode: ...
     @property
     def epw(self) -> float: ...
     @property
@@ -280,7 +273,7 @@ class FPDF(GraphicsStateMixin):
         corner_radius: float = 0,
     ) -> None: ...
     def ellipse(self, x: float, y: float, w: float, h: float, style: RenderStyle | str | None = None) -> None: ...
-    def circle(self, x: float, y: float, r, style: RenderStyle | str | None = None) -> None: ...
+    def circle(self, x: float, y: float, radius: float, style: RenderStyle | str | None = None) -> None: ...
     def regular_polygon(
         self,
         x: float,
@@ -325,6 +318,12 @@ class FPDF(GraphicsStateMixin):
         inclination: float = 0,
         clockwise: bool = False,
         style: RenderStyle | str | None = None,
+    ) -> None: ...
+    def bezier(
+        self,
+        point_list: Sequence[tuple[int, int]],
+        closed: bool = False,
+        style: RenderStyle | Literal["D", "F", "DF", "FD"] | None = None,
     ) -> None: ...
     def add_font(
         self,
@@ -429,15 +428,45 @@ class FPDF(GraphicsStateMixin):
     def mirror(self, origin, angle) -> Generator[None]: ...
     def local_context(
         self,
+        *,
         font_family: Incomplete | None = None,
         font_style: Incomplete | None = None,
-        font_size: Incomplete | None = None,
+        font_size_pt: Incomplete | None = None,
         line_width: Incomplete | None = None,
         draw_color: Incomplete | None = None,
         fill_color: Incomplete | None = None,
         text_color: Incomplete | None = None,
         dash_pattern: Incomplete | None = None,
-        **kwargs,
+        font_size=...,  # semi-deprecated, prefer font_size_pt
+        char_vpos=...,
+        char_spacing=...,
+        current_font=...,
+        denom_lift=...,
+        denom_scale=...,
+        font_stretching=...,
+        nom_lift=...,
+        nom_scale=...,
+        sub_lift=...,
+        sub_scale=...,
+        sup_lift=...,
+        sup_scale=...,
+        text_mode=...,
+        text_shaping=...,
+        underline=...,
+        paint_rule=...,
+        allow_transparency=...,
+        auto_close=...,
+        intersection_rule=...,
+        fill_opacity=...,
+        stroke_color=...,
+        stroke_opacity=...,
+        blend_mode=...,
+        stroke_width=...,
+        stroke_cap_style=...,
+        stroke_join_style=...,
+        stroke_miter_limit=...,
+        stroke_dash_pattern=...,
+        stroke_dash_phase=...,
     ) -> _GeneratorContextManager[None]: ...
     @property
     def accept_page_break(self) -> bool: ...
@@ -513,6 +542,7 @@ class FPDF(GraphicsStateMixin):
         dims: tuple[float, float] | None = None,
         keep_aspect_ratio: bool = False,
     ) -> RasterImageInfo | VectorImageInfo: ...
+    def x_by_align(self, x: _Align, w: int, h: int, img_info: ImageInfo, keep_aspect_ratio: bool) -> int: ...
     @deprecated("Deprecated since 2.7.7; use fpdf.image_parsing.preload_image() instead")
     def preload_image(
         self, name: str | Image.Image | BytesIO, dims: tuple[float, float] | None = None
@@ -558,13 +588,13 @@ class FPDF(GraphicsStateMixin):
     def insert_toc_placeholder(self, render_toc_function, pages: int = 1) -> None: ...
     def set_section_title_styles(
         self,
-        level0: TitleStyle,
-        level1: TitleStyle | None = None,
-        level2: TitleStyle | None = None,
-        level3: TitleStyle | None = None,
-        level4: TitleStyle | None = None,
-        level5: TitleStyle | None = None,
-        level6: TitleStyle | None = None,
+        level0: TextStyle,
+        level1: TextStyle | None = None,
+        level2: TextStyle | None = None,
+        level3: TextStyle | None = None,
+        level4: TextStyle | None = None,
+        level5: TextStyle | None = None,
+        level6: TextStyle | None = None,
     ) -> None: ...
     def start_section(self, name: str, level: int = 0, strict: bool = True) -> None: ...
     def use_font_face(self, font_face: FontFace) -> _GeneratorContextManager[None]: ...

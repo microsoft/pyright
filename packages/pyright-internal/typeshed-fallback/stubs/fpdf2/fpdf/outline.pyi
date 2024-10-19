@@ -10,7 +10,7 @@ class OutlineSection(NamedTuple):
     level: int
     page_number: int
     dest: Destination
-    struct_elem: StructElem | None = ...
+    struct_elem: StructElem | None = None
 
 class OutlineItemDictionary(PDFObject):
     title: PDFString

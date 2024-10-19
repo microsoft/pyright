@@ -1,16 +1,16 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def color(G): ...
-@_dispatch
+@_dispatchable
 def is_bipartite(G): ...
-@_dispatch
+@_dispatchable
 def is_bipartite_node_set(G, nodes): ...
-@_dispatch
+@_dispatchable
 def sets(G, top_nodes: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def density(B, nodes): ...
-@_dispatch
+@_dispatchable
 def degrees(B, nodes, weight: Incomplete | None = None): ...

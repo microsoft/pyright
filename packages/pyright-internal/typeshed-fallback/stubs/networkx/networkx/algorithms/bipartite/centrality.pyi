@@ -1,8 +1,8 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def degree_centrality(G, nodes): ...
-@_dispatch
+@_dispatchable
 def betweenness_centrality(G, nodes): ...
-@_dispatch
+@_dispatchable
 def closeness_centrality(G, nodes, normalized: bool = True): ...

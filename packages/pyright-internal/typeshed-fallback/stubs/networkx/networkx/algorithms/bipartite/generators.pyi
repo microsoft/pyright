@@ -1,20 +1,20 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def complete_bipartite_graph(n1, n2, create_using: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def configuration_model(aseq, bseq, create_using: Incomplete | None = None, seed: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def havel_hakimi_graph(aseq, bseq, create_using: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def reverse_havel_hakimi_graph(aseq, bseq, create_using: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def alternating_havel_hakimi_graph(aseq, bseq, create_using: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def preferential_attachment_graph(aseq, p, create_using: Incomplete | None = None, seed: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def random_graph(n, m, p, seed: Incomplete | None = None, directed: bool = False): ...
-@_dispatch
+@_dispatchable
 def gnmk_random_graph(n, m, k, seed: Incomplete | None = None, directed: bool = False): ...

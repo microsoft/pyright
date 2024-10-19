@@ -1,8 +1,8 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def trophic_levels(G, weight: str = "weight"): ...
-@_dispatch
+@_dispatchable
 def trophic_differences(G, weight: str = "weight"): ...
-@_dispatch
+@_dispatchable
 def trophic_incoherence_parameter(G, weight: str = "weight", cannibalism: bool = False): ...

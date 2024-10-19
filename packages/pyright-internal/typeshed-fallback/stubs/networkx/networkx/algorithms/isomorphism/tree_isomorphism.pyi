@@ -1,6 +1,6 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def rooted_tree_isomorphism(t1, root1, t2, root2): ...
-@_dispatch
+@_dispatchable
 def tree_isomorphism(t1, t2): ...

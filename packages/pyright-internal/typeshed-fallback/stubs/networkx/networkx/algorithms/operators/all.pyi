@@ -1,10 +1,10 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def union_all(graphs, rename=()): ...
-@_dispatch
+@_dispatchable
 def disjoint_union_all(graphs): ...
-@_dispatch
+@_dispatchable
 def compose_all(graphs): ...
-@_dispatch
+@_dispatchable
 def intersection_all(graphs): ...

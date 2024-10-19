@@ -2,8 +2,8 @@ import dataclasses
 from _typeshed import Incomplete
 from collections.abc import Generator
 from dataclasses import dataclass
-from typing import overload
-from typing_extensions import Self
+from typing import Final, overload
+from typing_extensions import Self, deprecated
 
 from .drawing import DeviceGray, DeviceRGB, Number
 from .enums import TextEmphasis
@@ -38,6 +38,40 @@ class FontFace:
     @overload
     @staticmethod
     def combine(default_style: FontFace | None, override_style: FontFace | None) -> FontFace: ...
+
+class TextStyle(FontFace):
+    t_margin: int
+    l_margin: int
+    b_margin: int
+    def __init__(
+        self,
+        font_family: str | None = None,
+        font_style: str | None = None,
+        font_size_pt: int | None = None,
+        color: int | tuple[int, int, int] | None = None,
+        fill_color: int | tuple[int, int, int] | None = None,
+        underline: bool = False,
+        t_margin: int | None = None,
+        l_margin: int | None = None,
+        b_margin: int | None = None,
+    ): ...
+    def replace(  # type: ignore[override]
+        self,
+        /,
+        font_family: str | None = None,
+        emphasis: TextEmphasis | None = None,
+        font_size_pt: int | None = None,
+        color: int | tuple[int, int, int] | None = None,
+        fill_color: int | tuple[int, int, int] | None = None,
+        t_margin: int | None = None,
+        l_margin: int | None = None,
+        b_margin: int | None = None,
+    ) -> TextStyle: ...
+
+@deprecated("fpdf.TitleStyle is deprecated since 2.7.10. It has been replaced by fpdf.TextStyle.")
+class TitleStyle(TextStyle): ...
+
+__pdoc__: Final[dict[str, bool]]
 
 class _FontMixin:
     i: int

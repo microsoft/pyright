@@ -1,13 +1,13 @@
 from _typeshed import SupportsKeysAndGetItem
 
 from networkx.classes.graph import Graph, _Edge, _Node
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def closeness_centrality(
     G: Graph[_Node], u: _Node | None = None, distance: str | None = None, wf_improved: bool = True
 ) -> dict[_Node, float]: ...
-@_dispatch
+@_dispatchable
 def incremental_closeness_centrality(
     G: Graph[_Node],
     edge: _Edge[_Node],

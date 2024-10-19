@@ -105,7 +105,7 @@ class Cell:
 class RowLayoutInfo:
     height: int
     pagebreak_height: float
-    rendered_height: dict[Incomplete, Incomplete]
+    rendered_heights: dict[Incomplete, Incomplete]
     merged_heights: list[Incomplete]
 
 @dataclass(frozen=True)

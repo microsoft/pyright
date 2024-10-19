@@ -1,10 +1,10 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def group_betweenness_centrality(G, C, normalized: bool = True, weight: Incomplete | None = None, endpoints: bool = False): ...
-@_dispatch
+@_dispatchable
 def prominent_group(
     G,
     k,
@@ -14,11 +14,11 @@ def prominent_group(
     normalized: bool = True,
     greedy: bool = False,
 ): ...
-@_dispatch
+@_dispatchable
 def group_closeness_centrality(G, S, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def group_degree_centrality(G, S): ...
-@_dispatch
+@_dispatchable
 def group_in_degree_centrality(G, S): ...
-@_dispatch
+@_dispatchable
 def group_out_degree_centrality(G, S): ...

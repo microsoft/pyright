@@ -1,8 +1,8 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def is_isolate(G, n): ...
-@_dispatch
+@_dispatchable
 def isolates(G): ...
-@_dispatch
+@_dispatchable
 def number_of_isolates(G): ...

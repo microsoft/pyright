@@ -2,8 +2,6 @@ import threading
 from _typeshed import Incomplete
 
 import isapi.simple
-from isapi import ExtensionError as ExtensionError, isapicon as isapicon
-from win32event import INFINITE as INFINITE
 
 ISAPI_REQUEST: int
 ISAPI_SHUTDOWN: int
