@@ -5290,7 +5290,7 @@ export function createTypeEvaluator(
                 // purposes of resolving type aliases?
                 if (leftType && isTypeVar(leftType) && leftType.shared.recursiveAlias) {
                     // Type alias statements cannot be used with old-style type variables.
-                    if (typeAliasNode && !type.shared.isTypeParamSyntax) {
+                    if (typeAliasNode && !type.shared.isTypeParamSyntax && !type.props?.typeAliasInfo) {
                         addDiagnostic(
                             DiagnosticRule.reportGeneralTypeIssues,
                             LocMessage.typeParameterNotDeclared().format({

@@ -146,6 +146,14 @@ test('TypeAliasStatement4', () => {
     TestUtils.validateResults(analysisResults, 5);
 });
 
+test('TypeAliasStatement5', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasStatement5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Hashability1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['hashability1.py']);
     TestUtils.validateResults(analysisResults, 10);
