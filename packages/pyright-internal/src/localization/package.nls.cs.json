@@ -795,7 +795,7 @@
         "typedDictClosedExtraTypeMismatch": "Nelze přidat položku {name} s typem {type}.",
         "typedDictClosedFieldNotRequired": "Nelze přidat položku {name}, protože musí být NotRequired.",
         "typedDictExtraFieldNotAllowed": "{name} není k dispozici v {type}",
-        "typedDictExtraFieldTypeMismatch": "Typ {name} není kompatibilní s typem __extra_items__ v typu {type}.",
+        "typedDictExtraFieldTypeMismatch": "Typ {name} není kompatibilní s typem extra_items v typu {type}.",
         "typedDictFieldMissing": "V {type} chybí {name}",
         "typedDictFieldNotReadOnly": "{name} není v {type} jen pro čtení",
         "typedDictFieldNotRequired": "{name} se v typu {type} nevyžaduje",

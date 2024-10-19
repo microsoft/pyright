@@ -8,9 +8,8 @@ class ClosedTD1(TypedDict, closed=True):
     arg1: str
 
 
-class IntDict1(TypedDict, closed=True):
+class IntDict1(TypedDict, extra_items=int):
     arg1: str
-    __extra_items__: int
 
 
 td1 = ClosedTD1(arg1="hello")

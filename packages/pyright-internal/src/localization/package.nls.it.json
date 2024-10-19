@@ -795,7 +795,7 @@
         "typedDictClosedExtraTypeMismatch": "Non è possibile aggiungere l'elemento \"{name}\" con tipo \"{type}\"",
         "typedDictClosedFieldNotRequired": "Non è possibile aggiungere l'elemento \"{name}\" perché deve essere NotRequired",
         "typedDictExtraFieldNotAllowed": "\"{name}\" non è presente in \"{type}\"",
-        "typedDictExtraFieldTypeMismatch": "Il tipo di \"{name}\" non è compatibile con il tipo \"__extra_items__\" in \"{type}\"",
+        "typedDictExtraFieldTypeMismatch": "Il tipo di \"{name}\" non è compatibile con il tipo \"extra_items\" in \"{type}\"",
         "typedDictFieldMissing": "\"{name}\" mancante nel \"{type}\"",
         "typedDictFieldNotReadOnly": "\"{name}\" non è di sola lettura in \"{type}\"",
         "typedDictFieldNotRequired": "\"{name}\" non è obbligatorio in \"{type}\"",

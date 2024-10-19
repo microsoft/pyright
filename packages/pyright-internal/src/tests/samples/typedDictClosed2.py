@@ -4,9 +4,8 @@
 from typing import TypedDict, Unpack
 
 
-class Movie1(TypedDict, closed=True):
+class Movie1(TypedDict, extra_items=int):
     name: str
-    __extra_items__: int
 
 
 def func1(movie: Movie1) -> None:
@@ -16,9 +15,8 @@ def func1(movie: Movie1) -> None:
     del movie["name"]
 
 
-class Movie2(TypedDict, closed=True):
+class Movie2(TypedDict, extra_items=int):
     name: str
-    __extra_items__: int
 
 
 def func2(**kwargs: Unpack[Movie2]) -> None:

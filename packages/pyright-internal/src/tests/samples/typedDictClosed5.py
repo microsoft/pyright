@@ -4,14 +4,12 @@
 from typing import Mapping, TypedDict
 
 
-class MovieExtraStr(TypedDict, closed=True):
+class MovieExtraStr(TypedDict, extra_items=str):
     name: str
-    __extra_items__: str
 
 
-class MovieExtraInt(TypedDict, closed=True):
+class MovieExtraInt(TypedDict, extra_items=int):
     name: str
-    __extra_items__: int
 
 
 extra_str: MovieExtraStr = {"name": "Blade Runner", "summary": ""}
@@ -33,7 +31,6 @@ def func1(movie: MovieExtraStr) -> None:
 
 class MovieNotClosed(TypedDict):
     name: str
-    __extra_items__: int
 
 
 def func2(movie: MovieNotClosed) -> None:

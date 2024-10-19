@@ -15583,15 +15583,15 @@ export function createTypeEvaluator(
             }
         }
 
-        if ((flags & EvalFlags.AllowRequired) !== 0) {
-            isUsageLegal = true;
-        }
-
         let isReadOnly = typeArgs[0].isReadOnly;
         let isRequired = typeArgs[0].isRequired;
         let isNotRequired = typeArgs[0].isNotRequired;
 
         if (classType.shared.name === 'ReadOnly') {
+            if ((flags & EvalFlags.AllowReadOnly) !== 0) {
+                isUsageLegal = true;
+            }
+
             // Nested ReadOnly are not allowed.
             if (typeArgs[0].isReadOnly) {
                 isUsageLegal = false;
@@ -15599,6 +15599,10 @@ export function createTypeEvaluator(
 
             isReadOnly = true;
         } else {
+            if ((flags & EvalFlags.AllowRequired) !== 0) {
+                isUsageLegal = true;
+            }
+
             // Nested Required/NotRequired are not allowed.
             if (typeArgs[0].isRequired || typeArgs[0].isNotRequired) {
                 isUsageLegal = false;
@@ -17202,6 +17206,30 @@ export function createTypeEvaluator(
                             if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
                                 classType.shared.flags |=
                                     ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
+
+                                if (classType.shared.typedDictExtraItemsExpr) {
+                                    addDiagnostic(
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        LocMessage.typedDictExtraItemsClosed(),
+                                        classType.shared.typedDictExtraItemsExpr
+                                    );
+                                }
+                            }
+                        }
+                    } else if (arg.d.name.d.value === 'extra_items') {
+                        // This is an experimental feature because PEP 728 hasn't been accepted yet.
+                        if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
+                            // Record a reference to the expression but don't evaluate it yet.
+                            // It may refer to the class itself.
+                            classType.shared.typedDictExtraItemsExpr = arg.d.valueExpr;
+                            classType.shared.flags |= ClassTypeFlags.TypedDictEffectivelyClosed;
+
+                            if (ClassType.isTypedDictMarkedClosed(classType)) {
+                                addDiagnostic(
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    LocMessage.typedDictExtraItemsClosed(),
+                                    classType.shared.typedDictExtraItemsExpr
+                                );
                             }
                         }
                     } else {
@@ -21024,6 +21052,10 @@ export function createTypeEvaluator(
             flags |= EvalFlags.AllowRequired | EvalFlags.TypeExpression;
         }
 
+        if (options?.allowReadOnly) {
+            flags |= EvalFlags.AllowReadOnly | EvalFlags.TypeExpression;
+        }
+
         if (options?.allowUnpackedTuple) {
             flags |= EvalFlags.AllowUnpackedTuple;
         } else {
@@ -21740,6 +21772,7 @@ export function createTypeEvaluator(
                             getTypeOfExpressionExpectingType(typeAnnotationNode, {
                                 allowFinal: true,
                                 allowRequired: true,
+                                allowReadOnly: true,
                             }).type
                         );
                     } else {
@@ -21753,6 +21786,7 @@ export function createTypeEvaluator(
                             allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(declNode),
                             allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(declNode),
                             allowRequired: ParseTreeUtils.isRequiredAllowedForAssignmentTarget(declNode),
+                            allowReadOnly: ParseTreeUtils.isRequiredAllowedForAssignmentTarget(declNode),
                             enforceClassTypeVarScope: declaration.isDefinedByMemberAccess,
                         });
                     }

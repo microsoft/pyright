@@ -697,6 +697,7 @@ interface ClassDetailsShared {
     dataClassBehaviors?: DataClassBehaviors | undefined;
     namedTupleEntries?: Set<string> | undefined;
     typedDictEntries?: TypedDictEntries | undefined;
+    typedDictExtraItemsExpr?: ExpressionNode | undefined;
     localSlotsNames?: string[];
 
     // If the class is decorated with a @deprecated decorator, this

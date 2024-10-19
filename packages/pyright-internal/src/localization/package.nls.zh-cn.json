@@ -795,7 +795,7 @@
         "typedDictClosedExtraTypeMismatch": "无法添加类型为“{type}”的项“{name}”",
         "typedDictClosedFieldNotRequired": "无法添加项“{name}”，因为它必须是 NotRequired",
         "typedDictExtraFieldNotAllowed": "“{type}”中不存在“{name}”",
-        "typedDictExtraFieldTypeMismatch": "“{name}”的类型与“{type}”中的 “__extra_items__” 类型不兼容",
+        "typedDictExtraFieldTypeMismatch": "“{name}”的类型与“{type}”中的 “extra_items” 类型不兼容",
         "typedDictFieldMissing": "\"{type}\"中缺少\"{name}\"",
         "typedDictFieldNotReadOnly": "\"{name}\"在\"{type}\"中不是只读的",
         "typedDictFieldNotRequired": "“{type}”中不需要“{name}”",

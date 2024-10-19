@@ -795,7 +795,7 @@
         "typedDictClosedExtraTypeMismatch": "Impossible d’ajouter l’élément « {name} » avec le type « {type} »",
         "typedDictClosedFieldNotRequired": "Impossible d’ajouter l’élément « {name} », car il doit être NotRequired",
         "typedDictExtraFieldNotAllowed": "« {name} » n’est pas présent dans « {type} »",
-        "typedDictExtraFieldTypeMismatch": "Le type de « {name} » est incompatible avec le type « __extra_items__ » dans « {type} »",
+        "typedDictExtraFieldTypeMismatch": "Le type de « {name} » est incompatible avec le type « extra_items » dans « {type} »",
         "typedDictFieldMissing": "« {name} » est manquant dans « {type} »",
         "typedDictFieldNotReadOnly": "« {name} » n’est pas en lecture seule dans « {type} »",
         "typedDictFieldNotRequired": "« {name} » n’est pas obligatoire dans « {type} »",

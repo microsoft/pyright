@@ -140,16 +140,19 @@ export const enum EvalFlags {
     // Required and NotRequired are allowed in this context.
     AllowRequired = 1 << 20,
 
+    // ReadOnly is allowed in this context.
+    AllowReadOnly = 1 << 21,
+
     // Allow Unpack annotation for a tuple or TypeVarTuple.
-    AllowUnpackedTuple = 1 << 21,
+    AllowUnpackedTuple = 1 << 22,
 
     // Allow Unpack annotation for TypedDict.
-    AllowUnpackedTypedDict = 1 << 22,
+    AllowUnpackedTypedDict = 1 << 23,
 
     // Even though an expression is enclosed in a string literal,
     // the interpreter (within a source file, not a stub) still
     // parses the expression and generates parse errors.
-    ParsesStringLiteral = 1 << 23,
+    ParsesStringLiteral = 1 << 24,
 
     // Do not convert special forms to their corresponding runtime
     // objects even when expecting a type expression.
@@ -359,6 +362,7 @@ export interface ValidateArgTypeParams {
 export interface ExpectedTypeOptions {
     allowFinal?: boolean;
     allowRequired?: boolean;
+    allowReadOnly?: boolean;
     allowUnpackedTuple?: boolean;
     allowUnpackedTypedDict?: boolean;
     allowParamSpec?: boolean;

@@ -795,7 +795,7 @@
         "typedDictClosedExtraTypeMismatch": "\"{type}\" türündeki \"{name}\" öğesi eklenemiyor",
         "typedDictClosedFieldNotRequired": "NotRequired olması gerektiğinden \"{name}\" öğesi eklenemiyor",
         "typedDictExtraFieldNotAllowed": "\"{name}\" öğesi \"{type}\" türünde mevcut değil",
-        "typedDictExtraFieldTypeMismatch": "\"{name}\" türü, \"{type}\" altındaki \"__extra_items__\" türüyle uyumlu değil",
+        "typedDictExtraFieldTypeMismatch": "\"{name}\" türü, \"{type}\" altındaki \"extra_items\" türüyle uyumlu değil",
         "typedDictFieldMissing": "\"{type}\" için \"{name}\" eksik",
         "typedDictFieldNotReadOnly": "\"{name}\", \"{type}\" içinde salt okunur değil",
         "typedDictFieldNotRequired": "\"{type}\" içinde \"{name}\" gerekli değil",
