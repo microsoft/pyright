@@ -1145,7 +1145,9 @@ export function getUnknownTypeForCallable(): FunctionType {
 // "self specializes" the class, filling in its own type parameters
 // as type arguments.
 export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOptions): ClassType {
-    if (!requiresTypeArgs(type)) {
+    // We can't use requiresTypeArgs(type) here because it returns false
+    // if the type parameters have default values.
+    if (type.shared.typeParams.length === 0) {
         return type;
     }
 
