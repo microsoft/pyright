@@ -2888,7 +2888,11 @@ export class CompletionProvider {
         const paramDetails = getParamListDetails(type);
 
         paramDetails.params.forEach((paramInfo) => {
-            if (paramInfo.param.name && paramInfo.kind !== ParamKind.Positional) {
+            if (
+                paramInfo.param.name &&
+                paramInfo.kind !== ParamKind.Positional &&
+                paramInfo.kind !== ParamKind.ExpandedArgs
+            ) {
                 if (!SymbolNameUtils.isPrivateOrProtectedName(paramInfo.param.name)) {
                     names.add(paramInfo.param.name);
                 }
