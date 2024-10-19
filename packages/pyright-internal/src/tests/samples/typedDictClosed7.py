@@ -5,9 +5,8 @@ from typing import NotRequired, Required, TypedDict
 from typing_extensions import ReadOnly  # pyright: ignore[reportMissingModuleSource]
 
 
-class TD1(TypedDict, total=False, closed=True):
+class TD1(TypedDict, total=False, extra_items=int):
     a: int
-    __extra_items__: int
 
 
 td1: TD1 = {"a": 1}
@@ -30,17 +29,16 @@ td2.clear()
 td2.popitem()
 
 
-class TD3(TypedDict, total=False, closed=True):
+class TD3(TypedDict, total=False, extra_items=ReadOnly[int]):
     a: int
-    __extra_items__: ReadOnly[int]
 
 
 td3: TD3 = {"a": 1}
 
-# This should generate an error because __extra_items__ is ReadOnly.
+# This should generate an error because extra_items is ReadOnly.
 td3.clear()
 
-# This should generate an error because __extra_items__ is ReadOnly.
+# This should generate an error because extra_items is ReadOnly.
 td3.popitem()
 
 

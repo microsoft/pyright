@@ -795,7 +795,7 @@
         "typedDictClosedExtraTypeMismatch": "無法新增型別為 \"{type}\" 的項目 \"{name}\"",
         "typedDictClosedFieldNotRequired": "無法新增項目 \"{name}\"，因為它必須是 NotRequired",
         "typedDictExtraFieldNotAllowed": "\"{name}\" 不存在於 \"{type}\"",
-        "typedDictExtraFieldTypeMismatch": "\"{name}\" 型別與 \"{type}\" 中的 \"__extra_items__\" 型別不相容",
+        "typedDictExtraFieldTypeMismatch": "\"{name}\" 型別與 \"{type}\" 中的 \"extra_items\" 型別不相容",
         "typedDictFieldMissing": "\"{type}\" 遺失 \"{name}\"",
         "typedDictFieldNotReadOnly": "\"{name}\" 在 \"{type}\" 中不是唯讀",
         "typedDictFieldNotRequired": "\"{type}\" 中不需要 \"{name}\"",

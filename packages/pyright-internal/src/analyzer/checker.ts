@@ -6329,7 +6329,7 @@ export class Checker extends ParseTreeWalker {
                 ) {
                     diag.addMessage(
                         LocAddendum.typedDictClosedExtraTypeMismatch().format({
-                            name: '__extra_items__',
+                            name: 'extra_items',
                             type: this._evaluator.printType(typedDictEntries.extraItems.valueType),
                         })
                     );
@@ -6755,18 +6755,10 @@ export class Checker extends ParseTreeWalker {
                         }
 
                         if (childClassType.shared.typedDictEntries) {
-                            // Exempt __extra_items__ here. We'll check this separately
-                            // in _validateTypedDictOverrides. If we don't skip it here,
-                            // redundant errors will be produced.
-                            if (ClassType.isTypedDictMarkedClosed(childClassType) && memberName === '__extra_items__') {
-                                overrideTDEntry = overriddenTDEntry;
-                                overrideType = baseType;
-                            } else {
-                                overrideTDEntry =
-                                    childClassType.shared.typedDictEntries.knownItems.get(memberName) ??
-                                    childClassType.shared.typedDictEntries.extraItems ??
-                                    getEffectiveExtraItemsEntryType(this._evaluator, childClassType);
-                            }
+                            overrideTDEntry =
+                                childClassType.shared.typedDictEntries.knownItems.get(memberName) ??
+                                childClassType.shared.typedDictEntries.extraItems ??
+                                getEffectiveExtraItemsEntryType(this._evaluator, childClassType);
                         }
                     }
 

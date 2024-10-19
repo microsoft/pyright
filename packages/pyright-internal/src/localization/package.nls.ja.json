@@ -795,7 +795,7 @@
         "typedDictClosedExtraTypeMismatch": "型 \"{type}\" のアイテム \"{name}\" を追加できません",
         "typedDictClosedFieldNotRequired": "アイテム \"{name}\" を追加できません。これは NotRequired である必要があるためです。",
         "typedDictExtraFieldNotAllowed": "\"{name}\" は \"{type}\" に存在しません",
-        "typedDictExtraFieldTypeMismatch": "\"{name}\" の型は、\"{type}\" の \"__extra_items__\" 型と互換性がありません",
+        "typedDictExtraFieldTypeMismatch": "\"{name}\" の型は、\"{type}\" の \"extra_items\" 型と互換性がありません",
         "typedDictFieldMissing": "\"{name}\" が \"{type}\" に見つかりません",
         "typedDictFieldNotReadOnly": "\"{name}\" は \"{type}\" では読み取り専用ではありません",
         "typedDictFieldNotRequired": "\"{name}\" は \"{type}\" には必要ありません",

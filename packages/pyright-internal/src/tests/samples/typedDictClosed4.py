@@ -4,15 +4,13 @@ from typing import NotRequired, TypedDict
 from typing_extensions import ReadOnly  # pyright: ignore[reportMissingModuleSource]
 
 
-class Movie1(TypedDict, closed=True):
+class Movie1(TypedDict, extra_items=int | None):
     name: str
-    __extra_items__: int | None
 
 
-class MovieDetails1(TypedDict, closed=True):
+class MovieDetails1(TypedDict, extra_items=int | None):
     name: str
     year: NotRequired[int]
-    __extra_items__: int | None
 
 
 details1: MovieDetails1 = {"name": "Kill Bill Vol. 1", "year": 2003}
@@ -21,10 +19,9 @@ details1: MovieDetails1 = {"name": "Kill Bill Vol. 1", "year": 2003}
 movie1: Movie1 = details1
 
 
-class MovieDetails2(TypedDict, closed=True):
+class MovieDetails2(TypedDict, extra_items=int | None):
     name: str
     year: int | None
-    __extra_items__: int | None
 
 
 details2: MovieDetails2 = {"name": "Kill Bill Vol. 1", "year": 2003}
@@ -33,29 +30,25 @@ details2: MovieDetails2 = {"name": "Kill Bill Vol. 1", "year": 2003}
 movie2: Movie1 = details2
 
 
-class Movie3(TypedDict, closed=True):
+class Movie3(TypedDict, extra_items=ReadOnly[str | int]):
     name: str
-    __extra_items__: ReadOnly[str | int]
 
 
-class MovieDetails3(TypedDict, closed=True):
+class MovieDetails3(TypedDict, extra_items=int):
     name: str
     year: NotRequired[int]
-    __extra_items__: int
 
 
 details3: MovieDetails3 = {"name": "Kill Bill Vol. 2", "year": 2004}
 movie3: Movie3 = details3
 
 
-class MovieExtraInt(TypedDict, closed=True):
+class MovieExtraInt(TypedDict, extra_items=int):
     name: str
-    __extra_items__: int
 
 
-class MovieExtraStr(TypedDict, closed=True):
+class MovieExtraStr(TypedDict, extra_items=str):
     name: str
-    __extra_items__: str
 
 
 def func1(p1: MovieExtraInt, p2: MovieExtraStr):

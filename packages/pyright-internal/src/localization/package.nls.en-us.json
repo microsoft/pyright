@@ -1453,6 +1453,10 @@
             "message": "Extra TypedDict arguments not supported",
             "comment": "{Locked='TypedDict'}"
         },
+        "typedDictExtraItemsClosed": {
+            "message": "A TypedDict cannot be closed if it supports extra items",
+            "comment": "{Locked='TypedDict','closed'}"
+        },
         "typedDictFieldNotRequiredRedefinition": {
             "message": "TypedDict item \"{name}\" cannot be redefined as NotRequired",
             "comment": "{Locked='TypedDict','NotRequired'}"
@@ -2012,8 +2016,8 @@
         },
         "typedDictExtraFieldNotAllowed": "\"{name}\" is not present in \"{type}\"",
         "typedDictExtraFieldTypeMismatch": {
-            "message": "Type of \"{name}\" is incompatible with type of \"__extra_items__\" in \"{type}\"",
-            "comment": "{Locked='__extra_items__'}"
+            "message": "Type of \"{name}\" is incompatible with type of \"extra_items\" in \"{type}\"",
+            "comment": "{Locked='extra_items'}"
         },
         "typedDictFieldMissing": "\"{name}\" is missing from \"{type}\"",
         "typedDictFieldNotReadOnly": "\"{name}\" is not read-only in \"{type}\"",

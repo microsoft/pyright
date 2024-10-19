@@ -5,8 +5,8 @@ from typing import MutableMapping, NotRequired, TypedDict
 from typing_extensions import ReadOnly  # pyright: ignore[reportMissingModuleSource]
 
 
-class IntDict1(TypedDict, closed=True):
-    __extra_items__: int
+class IntDict1(TypedDict, extra_items=int):
+    pass
 
 
 class IntDictWithNum(IntDict1):
@@ -32,9 +32,8 @@ def func3(p1: IntDictWithNum, p2: dict[str, int]):
     d2: IntDictWithNum = p2
 
 
-class IntDict2(TypedDict, closed=True):
+class IntDict2(TypedDict, extra_items=int):
     num: int
-    __extra_items__: int
 
 
 def func4(p1: IntDict2):
@@ -48,9 +47,8 @@ def func4(p1: IntDict2):
     func1(p1)
 
 
-class IntDict3(TypedDict, closed=True):
+class IntDict3(TypedDict, extra_items=int):
     num: NotRequired[ReadOnly[int]]
-    __extra_items__: int
 
 
 def func5(p1: IntDict3):

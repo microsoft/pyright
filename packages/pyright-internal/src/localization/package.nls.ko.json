@@ -795,7 +795,7 @@
         "typedDictClosedExtraTypeMismatch": "형식이 \"{type}\"인 항목 \"{name}\"을(를) 추가할 수 없음",
         "typedDictClosedFieldNotRequired": "\"{name}\" 항목은 NotRequired여야 하므로 추가할 수 없습니다.",
         "typedDictExtraFieldNotAllowed": "\"{name}\"이(가) \"{type}\"에 없음",
-        "typedDictExtraFieldTypeMismatch": "\"{name}\" 형식은 \"{type}\"의 \"__extra_items__\" 형식과 호환되지 않습니다.",
+        "typedDictExtraFieldTypeMismatch": "\"{name}\" 형식은 \"{type}\"의 \"extra_items\" 형식과 호환되지 않습니다.",
         "typedDictFieldMissing": "\"{name}\"이(가) \"{type}\"에 없습니다.",
         "typedDictFieldNotReadOnly": "\"{name}\"은(는) \"{type}\"에서 읽기 전용이 아닙니다.",
         "typedDictFieldNotRequired": "\"{name}\"은(는) \"{type}\"에 필요하지 않습니다.",

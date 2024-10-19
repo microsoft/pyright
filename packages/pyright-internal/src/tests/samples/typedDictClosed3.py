@@ -4,25 +4,25 @@ from typing import Any, Never, NotRequired, Required, TypedDict
 from typing_extensions import ReadOnly  # pyright: ignore[reportMissingModuleSource]
 
 
-class Parent1(TypedDict, closed=True):
-    __extra_items__: int | None
+class Parent1(TypedDict, extra_items=int | None):
+    pass
 
 
-class Child1_1(Parent1, closed=True):
-    __extra_items__: int | None
+class Child1_1(Parent1, extra_items=int | None):
+    pass
 
 
-class Child1_2(Parent1, closed=True):
-    # This should generate an error because of a type mismatch.
-    __extra_items__: int
+# This should generate an error because of a type mismatch.
+class Child1_2(Parent1, extra_items=int):
+    pass
 
 
 class ParentClosed1(TypedDict, closed=True):
     a: int
 
 
-class ChildClosed1_1(ParentClosed1, closed=True):
-    __extra_items__: Never
+class ChildClosed1_1(ParentClosed1, extra_items=Never):
+    pass
 
 
 # This should generate an error.
@@ -30,14 +30,13 @@ class ChildClosed1_2(ParentClosed1):
     b: str
 
 
-# This should generate an error because __extra_items__ is incompatible type.
-class ChildClosed1_3(ParentClosed1, closed=True):
-    __extra_items__: int
+# This should generate an error because extra_items is incompatible type.
+class ChildClosed1_3(ParentClosed1, extra_items=int):
+    pass
 
 
-class ParentClosed2(TypedDict, closed=True):
+class ParentClosed2(TypedDict, extra_items=Never):
     a: int
-    __extra_items__: Never
 
 
 # This should generate an error.
@@ -45,9 +44,8 @@ class ChildClosed2(ParentClosed2):
     b: str
 
 
-class ParentClosed3(TypedDict, closed=True):
+class ParentClosed3(TypedDict, extra_items=int | str):
     a: int
-    __extra_items__: int | str
 
 
 class ChildClosed3_1(ParentClosed3):
@@ -68,9 +66,8 @@ class ChildClosed3_4(ParentClosed3):
     b: int | str
 
 
-class ParentClosed4(TypedDict, closed=True):
+class ParentClosed4(TypedDict, extra_items=ReadOnly[int | str]):
     a: int
-    __extra_items__: ReadOnly[int | str]
 
 
 class ChildClosed4_1(ParentClosed4):
@@ -93,8 +90,8 @@ class ChildClosed4_5(ParentClosed4):
     b: ReadOnly[int | str]
 
 
-class ChildClosed4_6(ParentClosed4, closed=True):
-    __extra_items__: int | str
+class ChildClosed4_6(ParentClosed4, extra_items=int | str):
+    pass
 
 
 # This should generate an error.
@@ -102,9 +99,8 @@ class ChildClosed4_7(ParentClosed4):
     b: list[str]
 
 
-class MovieBase(TypedDict, closed=True):
+class MovieBase(TypedDict, extra_items=int | None):
     name: str
-    __extra_items__: int | None
 
 
 # This should generate an error.
