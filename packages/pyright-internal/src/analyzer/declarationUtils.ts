@@ -401,11 +401,7 @@ export function resolveAliasDeclaration(
             // imports a submodule using itself as the import target. For example, if
             // the module is foo, and the foo.__init__.py file contains the statement
             // "from foo import bar", we want to import the foo/bar.py submodule.
-            if (
-                curDeclaration.uri.equals(declaration.uri) &&
-                curDeclaration.type === DeclarationType.Alias &&
-                curDeclaration.submoduleFallback
-            ) {
+            if (curDeclaration.type === DeclarationType.Alias && curDeclaration.submoduleFallback) {
                 return resolveAliasDeclaration(importLookup, curDeclaration.submoduleFallback, options);
             }
             return {
