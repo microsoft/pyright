@@ -2004,14 +2004,24 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
     recursionCount++;
 
     const aliasInfo = type.props?.typeAliasInfo;
-    if (aliasInfo?.typeArgs) {
+    if (aliasInfo) {
         const combinedList: TypeVarType[] = [];
 
-        aliasInfo?.typeArgs.forEach((typeArg) => {
-            addTypeVarsToListIfUnique(combinedList, getTypeVarArgsRecursive(typeArg, recursionCount));
-        });
+        if (aliasInfo.typeArgs) {
+            aliasInfo?.typeArgs.forEach((typeArg) => {
+                addTypeVarsToListIfUnique(combinedList, getTypeVarArgsRecursive(typeArg, recursionCount));
+            });
 
-        return combinedList;
+            return combinedList;
+        }
+
+        if (aliasInfo.shared.typeParams) {
+            aliasInfo.shared.typeParams.forEach((typeParam) => {
+                addTypeVarsToListIfUnique(combinedList, [typeParam]);
+            });
+
+            return combinedList;
+        }
     }
 
     if (isTypeVar(type)) {
