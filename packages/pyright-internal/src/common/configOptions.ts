@@ -138,7 +138,6 @@ export interface DiagnosticRuleSet {
     // No longer treat bytearray and memoryview as subclasses of bytes?
     disableBytesTypePromotions: boolean;
 
-
     // Report general type issues?
     reportGeneralTypeIssues: DiagnosticLevel;
 
