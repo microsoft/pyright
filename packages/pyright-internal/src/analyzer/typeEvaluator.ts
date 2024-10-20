@@ -23458,55 +23458,68 @@ export function createTypeEvaluator(
             // Now handle generic base classes.
             destType.shared.baseClasses.forEach((baseClass) => {
                 if (
-                    isInstantiableClass(baseClass) &&
-                    !ClassType.isBuiltIn(baseClass, 'object') &&
-                    !ClassType.isBuiltIn(baseClass, 'Protocol') &&
-                    !ClassType.isBuiltIn(baseClass, 'Generic') &&
-                    baseClass.shared.typeParams.length > 0
+                    !isAssignable ||
+                    !isInstantiableClass(baseClass) ||
+                    ClassType.isBuiltIn(baseClass, ['object', 'Protocol', 'Generic']) ||
+                    baseClass.shared.typeParams.length === 0
                 ) {
-                    const specializedDestBaseClass = specializeForBaseClass(destType, baseClass);
-                    const specializedSrcBaseClass = specializeForBaseClass(srcType, baseClass);
+                    return;
+                }
 
-                    if (!ignoreBaseClassVariance) {
-                        specializedDestBaseClass.shared.typeParams.forEach((param, index) => {
-                            if (
-                                !isParamSpec(param) &&
-                                !isTypeVarTuple(param) &&
-                                !param.shared.isSynthesized &&
-                                specializedSrcBaseClass.priv.typeArgs &&
-                                index < specializedSrcBaseClass.priv.typeArgs.length &&
-                                specializedDestBaseClass.priv.typeArgs &&
-                                index < specializedDestBaseClass.priv.typeArgs.length
-                            ) {
-                                const paramVariance = param.shared.declaredVariance;
-                                if (isTypeVar(specializedSrcBaseClass.priv.typeArgs[index])) {
-                                    if (
-                                        paramVariance === Variance.Invariant ||
-                                        paramVariance === Variance.Contravariant
-                                    ) {
-                                        isAssignable = false;
-                                    }
-                                } else if (isTypeVar(specializedDestBaseClass.priv.typeArgs[index])) {
-                                    if (paramVariance === Variance.Invariant || paramVariance === Variance.Covariant) {
-                                        isAssignable = false;
-                                    }
-                                }
+                const specializedDestBaseClass = specializeForBaseClass(destType, baseClass);
+                const specializedSrcBaseClass = specializeForBaseClass(srcType, baseClass);
+
+                if (!ignoreBaseClassVariance) {
+                    specializedDestBaseClass.shared.typeParams.forEach((param, index) => {
+                        if (isParamSpec(param) || isTypeVarTuple(param) || param.shared.isSynthesized) {
+                            return;
+                        }
+
+                        if (
+                            !specializedSrcBaseClass.priv.typeArgs ||
+                            index >= specializedSrcBaseClass.priv.typeArgs.length ||
+                            !specializedDestBaseClass.priv.typeArgs ||
+                            index >= specializedDestBaseClass.priv.typeArgs.length
+                        ) {
+                            return;
+                        }
+
+                        const paramVariance = param.shared.declaredVariance;
+                        if (isTypeVar(specializedSrcBaseClass.priv.typeArgs[index])) {
+                            if (paramVariance === Variance.Invariant || paramVariance === Variance.Contravariant) {
+                                isAssignable = false;
+                                return;
                             }
-                        });
-                    }
+                        }
 
-                    if (
-                        isAssignable &&
-                        !assignClassToSelf(
-                            specializedDestBaseClass,
-                            specializedSrcBaseClass,
-                            assumedVariance,
-                            ignoreBaseClassVariance,
-                            recursionCount
-                        )
-                    ) {
-                        isAssignable = false;
-                    }
+                        if (isTypeVar(specializedDestBaseClass.priv.typeArgs[index])) {
+                            if (paramVariance === Variance.Invariant || paramVariance === Variance.Covariant) {
+                                isAssignable = false;
+                                return;
+                            }
+                        }
+                    });
+                }
+
+                if (!isAssignable) {
+                    return;
+                }
+
+                // Handle tuples specially since their type arguments are variadic.
+                if (ClassType.isTupleClass(specializedDestBaseClass)) {
+                    return;
+                }
+
+                if (
+                    !assignClassToSelf(
+                        specializedDestBaseClass,
+                        specializedSrcBaseClass,
+                        assumedVariance,
+                        ignoreBaseClassVariance,
+                        recursionCount
+                    )
+                ) {
+                    isAssignable = false;
                 }
             });
 

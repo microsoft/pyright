@@ -139,7 +139,6 @@ export function getVariableTypeText(
         label = declaration.isConstant || evaluator.isFinalVariableDeclaration(declaration) ? 'constant' : 'variable';
     }
 
-    const expandTypeAlias = false;
     let typeVarName: string | undefined;
 
     if (type.props?.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
@@ -164,8 +163,7 @@ export function getVariableTypeText(
         return getToolTipForType(type, label, name, evaluator, /* isProperty */ false, functionSignatureDisplay);
     }
 
-    const typeText =
-        typeVarName ?? name + ': ' + evaluator.printType(getTypeForToolTip(evaluator, typeNode), { expandTypeAlias });
+    const typeText = typeVarName ?? name + ': ' + evaluator.printType(getTypeForToolTip(evaluator, typeNode));
 
     return `(${label}) ` + typeText;
 }
