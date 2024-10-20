@@ -11,9 +11,7 @@
 import { assert } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion, pythonVersion3_13 } from '../common/pythonVersion';
-import { TextRange } from '../common/textRange';
 import { LocMessage } from '../localization/localize';
 import {
     ArgCategory,
@@ -33,7 +31,7 @@ import { getFileInfo } from './analyzerNodeInfo';
 import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
-import { DeclarationType, VariableDeclaration } from './declaration';
+import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
 import {
     getClassFullName,
@@ -1062,23 +1060,7 @@ function getDescriptorForConverterField(
     const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
     fields.set('__get__', getSymbol);
 
-    const symbol = Symbol.createWithType(SymbolFlags.ClassMember, ClassType.cloneAsInstance(descriptorClass));
-
-    if (fieldNameNode && fieldAnnotationNode) {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(dataclassNode);
-        const declaration: VariableDeclaration = {
-            type: DeclarationType.Variable,
-            node: fieldNameNode,
-            uri: fileInfo.fileUri,
-            typeAnnotationNode: fieldAnnotationNode,
-            range: convertOffsetsToRange(fieldNameNode.start, TextRange.getEnd(fieldNameNode), fileInfo.lines),
-            moduleName: fileInfo.moduleName,
-            isInExceptSuite: false,
-        };
-        symbol.addDeclaration(declaration);
-    }
-
-    return symbol;
+    return Symbol.createWithType(SymbolFlags.ClassMember, ClassType.cloneAsInstance(descriptorClass), fieldNameNode);
 }
 
 // If the specified type is a descriptor — in particular, if it implements a

@@ -165,7 +165,7 @@ import { assignClassToProtocol, assignModuleToProtocol } from './protocols';
 import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
-import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
+import { indeterminateSymbolId, Symbol, SymbolFlags, SynthesizedTypeInfo } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
 import { assignTupleTypeArgs, getSlicedTupleType, getTypeOfTuple, makeTupleObject } from './tuples';
@@ -209,7 +209,6 @@ import {
     ResolveAliasOptions,
     SolveConstraintsOptions,
     SymbolDeclInfo,
-    SynthesizedTypeInfo,
     TypeEvaluator,
     TypeResult,
     TypeResultWithNode,
@@ -3067,7 +3066,7 @@ export function createTypeEvaluator(
                         // Handle the case where the type is synthesized (used for
                         // dataclasses).
                         if (synthesizedType) {
-                            isObjectHashable = !isNoneInstance(synthesizedType);
+                            isObjectHashable = !isNoneInstance(synthesizedType.type);
                         } else {
                             // Assume that if '__hash__' is declared as a variable, it is
                             // not hashable. If it's declared as a function, it is. We'll
@@ -21419,7 +21418,8 @@ export function createTypeEvaluator(
     // we need to handle the special case of string literals used as keys within a
     // dictionary expression where those keys are associated with a known TypedDict.
     function getDeclInfoForStringNode(node: StringNode): SymbolDeclInfo | undefined {
-        const declarations: Declaration[] = [];
+        const decls: Declaration[] = [];
+        const synthesizedTypes: SynthesizedTypeInfo[] = [];
         const expectedType = getExpectedType(node)?.type;
 
         if (expectedType) {
@@ -21434,14 +21434,19 @@ export function createTypeEvaluator(
                         const symbol = lookUpObjectMember(subtype, node.d.value)?.symbol;
 
                         if (symbol) {
-                            appendArray(declarations, symbol.getDeclarations());
+                            appendArray(decls, symbol.getDeclarations());
+
+                            const synthTypeInfo = symbol.getSynthesizedType();
+                            if (synthTypeInfo) {
+                                synthesizedTypes.push(synthTypeInfo);
+                            }
                         }
                     }
                 }
             });
         }
 
-        return declarations.length === 0 ? undefined : { decls: declarations, synthesizedTypes: [] };
+        return decls.length === 0 ? undefined : { decls, synthesizedTypes };
     }
 
     function getAliasFromImport(node: NameNode): NameNode | undefined {
@@ -21461,7 +21466,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        const declarations: Declaration[] = [];
+        const decls: Declaration[] = [];
         const synthesizedTypes: SynthesizedTypeInfo[] = [];
 
         // If the node is part of a "from X import Y as Z" statement and the node
@@ -21480,7 +21485,7 @@ export function createTypeEvaluator(
                         return decl.type === DeclarationType.Alias && decl.node === node.parent;
                     });
 
-                    appendArray(declarations, getDeclarationsWithUsesLocalNameRemoved(declsForThisImport));
+                    appendArray(decls, getDeclarationsWithUsesLocalNameRemoved(declsForThisImport));
                 }
             }
         } else if (
@@ -21535,14 +21540,14 @@ export function createTypeEvaluator(
                         // which includes every assignment of that symbol.
                         const typedDecls = symbol.getTypedDeclarations();
                         if (typedDecls.length > 0) {
-                            appendArray(declarations, typedDecls);
+                            appendArray(decls, typedDecls);
                         } else {
-                            const synthesizedType = symbol.getSynthesizedType();
-                            if (synthesizedType) {
-                                synthesizedTypes.push({ type: synthesizedType, node });
-                            } else {
-                                appendArray(declarations, symbol.getDeclarations());
-                            }
+                            appendArray(decls, symbol.getDeclarations());
+                        }
+
+                        const synthTypeInfo = symbol.getSynthesizedType();
+                        if (synthTypeInfo) {
+                            synthesizedTypes.push(synthTypeInfo);
                         }
                     }
                 });
@@ -21562,7 +21567,7 @@ export function createTypeEvaluator(
                     // Synthesize an alias declaration for this name part. The only
                     // time this case is used is for IDE services such as
                     // the find all references, hover provider and etc.
-                    declarations.push(synthesizeAliasDeclaration(importInfo.resolvedUris[namePartIndex]));
+                    decls.push(synthesizeAliasDeclaration(importInfo.resolvedUris[namePartIndex]));
                 }
             }
         } else if (node.parent && node.parent.nodeType === ParseNodeType.Argument && node === node.parent.d.name) {
@@ -21577,13 +21582,13 @@ export function createTypeEvaluator(
                     if (isFunction(baseType) && baseType.shared.declaration) {
                         const paramDecl = getDeclarationFromKeywordParam(baseType, paramName);
                         if (paramDecl) {
-                            declarations.push(paramDecl);
+                            decls.push(paramDecl);
                         }
                     } else if (isOverloaded(baseType)) {
                         OverloadedType.getOverloads(baseType).forEach((f) => {
                             const paramDecl = getDeclarationFromKeywordParam(f, paramName);
                             if (paramDecl) {
-                                declarations.push(paramDecl);
+                                decls.push(paramDecl);
                             }
                         });
                     } else if (isInstantiableClass(baseType)) {
@@ -21596,15 +21601,21 @@ export function createTypeEvaluator(
                         if (initMethodType && isFunction(initMethodType)) {
                             const paramDecl = getDeclarationFromKeywordParam(initMethodType, paramName);
                             if (paramDecl) {
-                                declarations.push(paramDecl);
+                                decls.push(paramDecl);
                             } else if (
                                 ClassType.isDataClass(baseType) ||
                                 ClassType.isTypedDictClass(baseType) ||
                                 ClassType.hasNamedTupleEntry(baseType, paramName)
                             ) {
                                 const lookupResults = lookUpClassMember(baseType, paramName);
+
                                 if (lookupResults) {
-                                    appendArray(declarations, lookupResults.symbol.getDeclarations());
+                                    appendArray(decls, lookupResults.symbol.getDeclarations());
+
+                                    const synthTypeInfo = lookupResults.symbol.getSynthesizedType();
+                                    if (synthTypeInfo) {
+                                        synthesizedTypes.push(synthTypeInfo);
+                                    }
                                 }
                             }
                         }
@@ -21640,11 +21651,16 @@ export function createTypeEvaluator(
             );
 
             if (symbolWithScope) {
-                appendArray(declarations, symbolWithScope.symbol.getDeclarations());
+                appendArray(decls, symbolWithScope.symbol.getDeclarations());
+
+                const synthTypeInfo = symbolWithScope.symbol.getSynthesizedType();
+                if (synthTypeInfo) {
+                    synthesizedTypes.push(synthTypeInfo);
+                }
             }
         }
 
-        return { decls: declarations, synthesizedTypes };
+        return { decls, synthesizedTypes };
     }
 
     function getTypeForDeclaration(declaration: Declaration): DeclaredSymbolTypeInfo {
@@ -22600,7 +22616,7 @@ export function createTypeEvaluator(
     // provided, but type inference is still required. In such cases, the attributes
     // are returned as flags.
     function getDeclaredTypeOfSymbol(symbol: Symbol, usageNode?: NameNode): DeclaredSymbolTypeInfo {
-        const synthesizedType = symbol.getSynthesizedType();
+        const synthesizedType = symbol.getSynthesizedType()?.type;
         if (synthesizedType) {
             return { type: synthesizedType };
         }

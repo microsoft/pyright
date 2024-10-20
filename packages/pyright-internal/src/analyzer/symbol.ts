@@ -9,6 +9,7 @@
  * in the program.
  */
 
+import { NameNode } from '../parser/parseNodes';
 import { Declaration, DeclarationType } from './declaration';
 import { areDeclarationsSame, hasTypeForDeclaration } from './declarationUtils';
 import { Type } from './types';
@@ -75,6 +76,15 @@ function getUniqueSymbolId() {
 // Symbol ID that indicates that there is no specific symbol.
 export const indeterminateSymbolId = 0;
 
+export interface SynthesizedTypeInfo {
+    type: Type;
+
+    // An optional node that is not used by the type evaluator
+    // but can be used by language services to provide additional
+    // functionality (such as go-to-definition).
+    node?: NameNode;
+}
+
 export class Symbol {
     // Information about the node that declared the value -
     // i.e. where the editor will take the user if "show definition"
@@ -91,7 +101,7 @@ export class Symbol {
     // Symbols that are completely synthesized (i.e. have no
     // corresponding declarations in the program) can have
     // a specified type.
-    private _synthesizedType?: Type;
+    private _synthesizedTypeInfo?: SynthesizedTypeInfo;
 
     // Is this symbol an alias for a symbol originally imported from
     // the typing or typing_extensions module (e.g. "Final")?
@@ -102,9 +112,9 @@ export class Symbol {
         this._flags = flags;
     }
 
-    static createWithType(flags: SymbolFlags, type: Type) {
+    static createWithType(flags: SymbolFlags, type: Type, node?: NameNode): Symbol {
         const newSymbol = new Symbol(flags);
-        newSymbol._synthesizedType = type;
+        newSymbol._synthesizedTypeInfo = { type, node };
         return newSymbol;
     }
 
@@ -267,7 +277,7 @@ export class Symbol {
 
     hasTypedDeclarations() {
         // We'll treat an synthesized type as an implicit declaration.
-        if (this._synthesizedType) {
+        if (this._synthesizedTypeInfo) {
             return true;
         }
 
@@ -279,7 +289,7 @@ export class Symbol {
     }
 
     getSynthesizedType() {
-        return this._synthesizedType;
+        return this._synthesizedTypeInfo;
     }
 }
 

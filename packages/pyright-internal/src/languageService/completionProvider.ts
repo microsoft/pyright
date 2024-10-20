@@ -723,7 +723,7 @@ export class CompletionProvider {
             });
         } else {
             // Does the symbol have no declaration but instead has a synthesized type?
-            const synthesizedType = symbol.getSynthesizedType();
+            const synthesizedType = symbol.getSynthesizedType()?.type;
             if (synthesizedType) {
                 const itemKind: CompletionItemKind = this._convertTypeToItemKind(synthesizedType);
                 this.addNameToCompletions(name, itemKind, priorWord, completionMap, {
