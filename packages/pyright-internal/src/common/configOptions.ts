@@ -132,11 +132,11 @@ export interface DiagnosticRuleSet {
     // Use tagged hints to identify unreachable code via type analysis?
     enableReachabilityAnalysis: boolean;
 
-    // No longer treat bytearray and memoryview as subclasses of bytes?
-    disableBytesTypePromotions: boolean;
-
     // Treat old typing aliases as deprecated if pythonVersion >= 3.9?
     deprecateTypingAliases: boolean;
+
+    // No longer treat bytearray and memoryview as subclasses of bytes?
+    disableBytesTypePromotions: boolean;
 
     // Report general type issues?
     reportGeneralTypeIssues: DiagnosticLevel;

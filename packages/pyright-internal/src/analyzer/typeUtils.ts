@@ -3391,7 +3391,7 @@ export class TypeVarTransformer {
         }
 
         // Shortcut the operation if possible.
-        if (!requiresSpecialization(type)) {
+        if (this.canSkipTransform(type)) {
             return type;
         }
 
@@ -3570,6 +3570,10 @@ export class TypeVarTransformer {
         return type;
     }
 
+    canSkipTransform(type: Type): boolean {
+        return !requiresSpecialization(type);
+    }
+
     transformTypeVar(typeVar: TypeVarType, recursionCount: number): Type | undefined {
         return undefined;
     }
@@ -3611,7 +3615,7 @@ export class TypeVarTransformer {
         return type;
     }
 
-    transformTypeVarsInClassType(classType: ClassType, recursionCount: number): ClassType {
+    transformTypeVarsInClassType(classType: ClassType, recursionCount: number): Type {
         const typeParams = ClassType.getTypeParams(classType);
 
         // Handle the common case where the class has no type parameters.
@@ -3937,7 +3941,7 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
         return type;
     }
 
-    override transformTypeVarsInClassType(classType: ClassType, recursionCount: number): ClassType {
+    override transformTypeVarsInClassType(classType: ClassType, recursionCount: number): Type {
         // Don't transform classes.
         return classType;
     }

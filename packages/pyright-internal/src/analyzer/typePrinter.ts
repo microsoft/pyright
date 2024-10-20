@@ -88,7 +88,7 @@ export const enum PrintTypeFlags {
     UseFullyQualifiedNames = 1 << 12,
 
     // Omit TypeVar scopes.
-    OmitTypeVarScopes = 1 << 13,
+    OmitTypeVarScope = 1 << 13,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -576,7 +576,7 @@ function printTypeInternal(
                         if (!isAnyOrUnknown(type.shared.boundType)) {
                             if (
                                 (printTypeFlags & PrintTypeFlags.PythonSyntax) === 0 &&
-                                (printTypeFlags & PrintTypeFlags.OmitTypeVarScopes) === 0
+                                (printTypeFlags & PrintTypeFlags.OmitTypeVarScope) === 0
                             ) {
                                 boundTypeString = `Self@${boundTypeString}`;
                             } else {
@@ -597,10 +597,10 @@ function printTypeInternal(
                 }
 
                 if (isParamSpec(type)) {
-                    const paramSpecText = _getReadableTypeVarName(
+                    const paramSpecText = getReadableTypeVarName(
                         type,
                         (printTypeFlags & PrintTypeFlags.PythonSyntax) === 0 &&
-                            (printTypeFlags & PrintTypeFlags.OmitTypeVarScopes) === 0
+                            (printTypeFlags & PrintTypeFlags.OmitTypeVarScope) === 0
                     );
 
                     if (type.priv.paramSpecAccess) {
@@ -609,14 +609,14 @@ function printTypeInternal(
                     return paramSpecText;
                 }
 
-                let typeVarName = _getReadableTypeVarName(
+                let typeVarName = getReadableTypeVarName(
                     type,
                     (printTypeFlags & PrintTypeFlags.PythonSyntax) === 0 &&
-                        (printTypeFlags & PrintTypeFlags.OmitTypeVarScopes) === 0
+                        (printTypeFlags & PrintTypeFlags.OmitTypeVarScope) === 0
                 );
 
                 if (type.priv.isUnpacked) {
-                    typeVarName = _printUnpack(typeVarName, printTypeFlags);
+                    typeVarName = printUnpack(typeVarName, printTypeFlags);
                 }
 
                 if (isTypeVarTuple(type) && type.priv.isInUnion) {
@@ -628,7 +628,7 @@ function printTypeInternal(
                 }
 
                 if (!isTypeVarTuple(type) && (printTypeFlags & PrintTypeFlags.PrintTypeVarVariance) !== 0) {
-                    const varianceText = _getTypeVarVarianceText(type);
+                    const varianceText = getTypeVarVarianceText(type);
                     if (varianceText) {
                         typeVarName = `${typeVarName} (${varianceText})`;
                     }
@@ -972,7 +972,7 @@ function printObjectTypeForClassInternal(
                             }
 
                             if (index === 0) {
-                                typeArgStrings.push(_printUnpack('tuple[()]', printTypeFlags));
+                                typeArgStrings.push(printUnpack('tuple[()]', printTypeFlags));
                             }
                         } else {
                             appendArray(
@@ -992,7 +992,7 @@ function printObjectTypeForClassInternal(
                                     );
 
                                     if (typeArg.isUnbounded) {
-                                        return _printUnpack(`tuple[${typeArgText}, ...]`, printTypeFlags);
+                                        return printUnpack(`tuple[${typeArgText}, ...]`, printTypeFlags);
                                     }
 
                                     return typeArgText;
@@ -1017,7 +1017,7 @@ function printObjectTypeForClassInternal(
                             if (typeArgs.length === 1) {
                                 typeArgStrings.push(typeArgTypeText, '...');
                             } else {
-                                typeArgStrings.push(_printUnpack(`tuple[${typeArgTypeText}, ...]`, printTypeFlags));
+                                typeArgStrings.push(printUnpack(`tuple[${typeArgTypeText}, ...]`, printTypeFlags));
                             }
                         } else {
                             typeArgStrings.push(typeArgTypeText);
@@ -1026,7 +1026,7 @@ function printObjectTypeForClassInternal(
                 });
 
                 if (type.priv.isUnpacked) {
-                    objName = _printUnpack(objName, printTypeFlags);
+                    objName = printUnpack(objName, printTypeFlags);
                 }
 
                 if ((printTypeFlags & PrintTypeFlags.OmitTypeArgsIfUnknown) === 0 || !isAllUnknown) {
@@ -1034,7 +1034,7 @@ function printObjectTypeForClassInternal(
                 }
             } else {
                 if (type.priv.isUnpacked) {
-                    objName = _printUnpack(objName, printTypeFlags);
+                    objName = printUnpack(objName, printTypeFlags);
                 }
 
                 if (ClassType.isTupleClass(type) || isVariadic) {
@@ -1043,7 +1043,7 @@ function printObjectTypeForClassInternal(
             }
         } else {
             if (type.priv.isUnpacked) {
-                objName = _printUnpack(objName, printTypeFlags);
+                objName = printUnpack(objName, printTypeFlags);
             }
 
             if (typeParams.length > 0) {
@@ -1291,7 +1291,7 @@ function printFunctionPartsInternal(
     return [paramTypeStrings, returnTypeString];
 }
 
-function _printUnpack(textToWrap: string, flags: PrintTypeFlags) {
+function printUnpack(textToWrap: string, flags: PrintTypeFlags) {
     return flags & PrintTypeFlags.UseTypingUnpack ? `Unpack[${textToWrap}]` : `*${textToWrap}`;
 }
 
@@ -1307,11 +1307,11 @@ function _printNestedInstantiable(type: Type, textToWrap: string) {
     return textToWrap;
 }
 
-function _getReadableTypeVarName(type: TypeVarType, includeScope: boolean) {
+function getReadableTypeVarName(type: TypeVarType, includeScope: boolean) {
     return TypeVarType.getReadableName(type, includeScope);
 }
 
-function _getTypeVarVarianceText(type: TypeVarType) {
+function getTypeVarVarianceText(type: TypeVarType) {
     const computedVariance = type.priv.computedVariance ?? type.shared.declaredVariance;
     if (computedVariance === Variance.Invariant) {
         return 'invariant';
