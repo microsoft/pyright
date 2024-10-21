@@ -1426,7 +1426,7 @@ function narrowTypeForInstance(
                 // class whose type is unknown (e.g. an import failed). We'll
                 // note this case specially so we don't do any narrowing, which
                 // will generate false positives.
-                if (filterIsSubclass && filterIsSuperclass) {
+                if (filterIsSuperclass) {
                     if (!isTypeIsCheck && concreteFilterType.priv.includeSubclasses) {
                         // If the filter type includes subclasses, we can't eliminate
                         // this type in the negative direction. We'll relax this for
@@ -1434,7 +1434,7 @@ function narrowTypeForInstance(
                         isClassRelationshipIndeterminate = true;
                     }
 
-                    if (!ClassType.isSameGenericClass(runtimeVarType, concreteFilterType)) {
+                    if (filterIsSubclass && !ClassType.isSameGenericClass(runtimeVarType, concreteFilterType)) {
                         isClassRelationshipIndeterminate = true;
                     }
                 }
@@ -1521,9 +1521,6 @@ function narrowTypeForInstance(
                                     concreteFilterType
                                 );
                                 filteredTypes.push(intersection ?? varType);
-
-                                // Don't attempt to narrow in the negative direction.
-                                isClassRelationshipIndeterminate = true;
                             }
                         }
                     } else if (
