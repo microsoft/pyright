@@ -21160,7 +21160,7 @@ export function createTypeEvaluator(
             // Filter the declarations based on flow reachability.
             const reachableDecl = symbolWithScope.symbol.getDeclarations().find((decl) => {
                 if (decl.type !== DeclarationType.Alias && decl.type !== DeclarationType.Intrinsic) {
-                    // Determine if the declaration in the same execution scope as the "usageNode" node.
+                    // Determine if the declaration is in the same execution scope as the "usageNode" node.
                     let usageScopeNode = ParseTreeUtils.getExecutionScopeNode(node);
                     const declNode: ParseNode =
                         decl.type === DeclarationType.Class ||
