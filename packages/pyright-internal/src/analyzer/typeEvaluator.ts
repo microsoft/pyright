@@ -10442,10 +10442,11 @@ export function createTypeEvaluator(
             const param = paramInfo.param;
 
             if (param.name && param.category === ParamCategory.Simple && paramInfo.kind !== ParamKind.Positional) {
-                paramMap.set(param.name, {
-                    argsNeeded: param.category === ParamCategory.Simple && !paramInfo.defaultType ? 1 : 0,
-                    argsReceived: 0,
-                });
+                let argsNeeded = paramMap.get(param.name)?.argsNeeded ?? 0;
+                if (param.category === ParamCategory.Simple && !paramInfo.defaultType) {
+                    argsNeeded += 1;
+                }
+                paramMap.set(param.name, { argsNeeded, argsReceived: 0 });
             }
         });
 

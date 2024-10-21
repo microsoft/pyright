@@ -35,13 +35,11 @@ async def func2():
 
 
 @overload
-def func3(x: int) -> None:
-    ...
+def func3(x: int) -> None: ...
 
 
 @overload
-def func3(x: str) -> str:
-    ...
+def func3(x: str) -> str: ...
 
 
 def func3(x: int | str) -> str | None:
@@ -75,8 +73,7 @@ def decorator2(f: Callable[P, R]) -> Callable[P, R]:
 
 
 def func5(f: Callable[[], list[T1]]) -> Callable[[list[T2]], list[T1 | T2]]:
-    def inner(res: list[T2], /) -> list[T1 | T2]:
-        ...
+    def inner(res: list[T2], /) -> list[T1 | T2]: ...
 
     return decorator2(inner)
 
@@ -90,22 +87,18 @@ def func6(x: Iterable[Callable[P, None]]) -> Callable[P, None]:
 
 
 class Callback1:
-    def __call__(self, x: int | str, y: int = 3) -> None:
-        ...
+    def __call__(self, x: int | str, y: int = 3) -> None: ...
 
 
 class Callback2:
-    def __call__(self, x: int, /) -> None:
-        ...
+    def __call__(self, x: int, /) -> None: ...
 
 
 class Callback3:
-    def __call__(self, *args, **kwargs) -> None:
-        ...
+    def __call__(self, *args, **kwargs) -> None: ...
 
 
-def func7(f1: Callable[P, R], f2: Callable[P, R]) -> Callable[P, R]:
-    ...
+def func7(f1: Callable[P, R], f2: Callable[P, R]) -> Callable[P, R]: ...
 
 
 def func8(cb1: Callback1, cb2: Callback2, cb3: Callback3):
@@ -119,3 +112,20 @@ def func8(cb1: Callback1, cb2: Callback2, cb3: Callback3):
 def func9(f: Callable[P, object], *args: P.args, **kwargs: P.kwargs) -> object:
     # This should generate an error because "name" doesn't exist.
     return f(*args, **kwargs, name="")
+
+
+def func10(data: int = 1) -> None:
+    pass
+
+
+def func11[**P](
+    cls: Callable[P, None], data: str, *args: P.args, **kwargs: P.kwargs
+) -> None: ...
+
+
+func11(func10, "")
+func11(func10, "", 0)
+
+# This should generate an error because one of the two "data" parameters
+# does not have a default value.
+func11(func10)
