@@ -21160,16 +21160,27 @@ export function createTypeEvaluator(
             // Filter the declarations based on flow reachability.
             const reachableDecl = symbolWithScope.symbol.getDeclarations().find((decl) => {
                 if (decl.type !== DeclarationType.Alias && decl.type !== DeclarationType.Intrinsic) {
-                    // Is the declaration in the same execution scope as the "usageNode" node?
-                    const usageScope = ParseTreeUtils.getExecutionScopeNode(node);
-                    const declNode =
+                    // Determine if the declaration in the same execution scope as the "usageNode" node.
+                    let usageScopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+                    const declNode: ParseNode =
                         decl.type === DeclarationType.Class ||
                         decl.type === DeclarationType.Function ||
                         decl.type === DeclarationType.TypeAlias
                             ? decl.node.d.name
                             : decl.node;
-                    const declScope = ParseTreeUtils.getExecutionScopeNode(declNode);
-                    if (usageScope === declScope) {
+                    const declScopeNode = ParseTreeUtils.getExecutionScopeNode(declNode);
+
+                    // If this is a type parameter scope, it will be a proxy for its
+                    // containing scope, so we need to use that instead.
+                    const usageScope = AnalyzerNodeInfo.getScope(usageScopeNode);
+                    if (usageScope?.proxy) {
+                        const typeParamScope = AnalyzerNodeInfo.getScope(usageScopeNode);
+                        if (!typeParamScope?.symbolTable.has(name) && usageScopeNode.parent) {
+                            usageScopeNode = ParseTreeUtils.getExecutionScopeNode(usageScopeNode.parent);
+                        }
+                    }
+
+                    if (usageScopeNode === declScopeNode) {
                         if (!isFlowPathBetweenNodes(declNode, node)) {
                             // If there was no control flow path from the usage back
                             // to the source, see if the usage node is reachable by
