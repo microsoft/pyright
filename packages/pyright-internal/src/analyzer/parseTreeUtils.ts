@@ -930,6 +930,11 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
                     break;
                 }
 
+                // The name of the function is evaluated within the containing scope.
+                if (prevNode === curNode.d.name) {
+                    break;
+                }
+
                 if (curNode.d.params.some((param) => param === prevNode)) {
                     // Default argument expressions are evaluated outside of the function scope.
                     if (isParamDefaultNode) {
