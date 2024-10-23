@@ -702,7 +702,7 @@ export class AnalyzerService {
         // Ensure that if no command line or config options were applied, we have some defaults.
         this._ensureDefaultOptions(host, configOptions, projectRoot, executionRoot, commandLineOptions);
 
-        // Once we have defaults, we can then setup the execution environments. Execution enviroments
+        // Once we have defaults, we can then setup the execution environments. Execution environments
         // inherit from the defaults.
         if (configs) {
             for (const config of configs) {
@@ -1358,7 +1358,7 @@ export class AnalyzerService {
                             'https://github.com/microsoft/pyright/blob/main/docs/configuration.md.'
                     );
 
-                    // Show it in messagebox if it is supported.
+                    // Show it in message box if it is supported.
                     this._tryShowLongOperationMessageBox();
 
                     loggedLongOperationError = true;
