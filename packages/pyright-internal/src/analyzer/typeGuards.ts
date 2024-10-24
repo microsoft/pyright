@@ -2468,7 +2468,7 @@ function narrowTypeForLiteralComparison(
     isPositiveTest: boolean,
     isIsOperator: boolean
 ): Type {
-    return mapSubtypes(referenceType, (subtype) => {
+    return evaluator.mapSubtypesExpandTypeVars(referenceType, /* options */ undefined, (subtype) => {
         subtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
         if (isAnyOrUnknown(subtype)) {

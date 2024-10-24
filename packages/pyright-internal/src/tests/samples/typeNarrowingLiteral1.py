@@ -1,7 +1,7 @@
 # This sample tests the type analyzer's type narrowing
 # logic for literals.
 
-from typing import Literal, Union
+from typing import Literal, TypeVar, Union
 
 
 def func1(p1: Literal["a", "b", "c"]):
@@ -28,3 +28,27 @@ def func2(p1: Literal[1, 4, 7]):
 def func3(a: Union[int, None]):
     if a == 1 or a == 2:
         reveal_type(a, expected_text="Literal[1, 2]")
+
+
+T = TypeVar("T", bound=Literal["a", "b"])
+
+
+def func4(x: T) -> T:
+    if x == "a":
+        reveal_type(x, expected_text="Literal['a']")
+        return x
+    else:
+        reveal_type(x, expected_text="Literal['b']")
+        return x
+
+
+S = TypeVar("S", Literal["a"], Literal["b"])
+
+
+def func5(x: S) -> S:
+    if x == "a":
+        reveal_type(x, expected_text="Literal['a']")
+        return x
+    else:
+        reveal_type(x, expected_text="Literal['b']")
+        return x
