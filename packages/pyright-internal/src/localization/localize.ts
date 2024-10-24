@@ -775,6 +775,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramAnnotationMissing'));
         export const paramNameMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramNameMissing'));
+        export const paramSpecArgsKwargsDuplicate = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.paramSpecArgsKwargsDuplicate'));
         export const paramSpecArgsKwargsUsage = () => getRawString('Diagnostic.paramSpecArgsKwargsUsage');
         export const paramSpecArgsMissing = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.paramSpecArgsMissing'));

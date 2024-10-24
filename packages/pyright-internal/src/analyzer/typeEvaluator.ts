@@ -11791,12 +11791,30 @@ export function createTypeEvaluator(
 
             if (paramSpec) {
                 if (argParam.argument.argCategory === ArgCategory.UnpackedList) {
+                    if (sawParamSpecArgs) {
+                        addDiagnostic(
+                            DiagnosticRule.reportCallIssue,
+                            LocMessage.paramSpecArgsKwargsDuplicate().format({ type: printType(paramSpec) }),
+                            argParam.errorNode
+                        );
+                        argumentErrors = true;
+                    }
+
                     if (isParamSpecArgs(paramSpec, argResult.argType)) {
                         sawParamSpecArgs = true;
                     }
                 }
 
                 if (argParam.argument.argCategory === ArgCategory.UnpackedDictionary) {
+                    if (sawParamSpecKwargs) {
+                        addDiagnostic(
+                            DiagnosticRule.reportCallIssue,
+                            LocMessage.paramSpecArgsKwargsDuplicate().format({ type: printType(paramSpec) }),
+                            argParam.errorNode
+                        );
+                        argumentErrors = true;
+                    }
+
                     if (isParamSpecKwargs(paramSpec, argResult.argType)) {
                         sawParamSpecKwargs = true;
                     }

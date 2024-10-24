@@ -57,3 +57,6 @@ class Queue:
             # extra *args argument.
             self.dispatcher.dispatch(stub, 1, *args, *args, **kwargs)
 
+            # This should generate an error because it has an
+            # extra **kwargs argument.
+            self.dispatcher.dispatch(stub, 1, *args, **kwargs, **kwargs)
