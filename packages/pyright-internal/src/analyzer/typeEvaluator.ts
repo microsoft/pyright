@@ -11792,12 +11792,28 @@ export function createTypeEvaluator(
             if (paramSpec) {
                 if (argParam.argument.argCategory === ArgCategory.UnpackedList) {
                     if (isParamSpecArgs(paramSpec, argResult.argType)) {
+                        if (sawParamSpecArgs) {
+                            addDiagnostic(
+                                DiagnosticRule.reportCallIssue,
+                                LocMessage.paramSpecArgsKwargsDuplicate().format({ type: printType(paramSpec) }),
+                                argParam.errorNode
+                            );
+                        }
+
                         sawParamSpecArgs = true;
                     }
                 }
 
                 if (argParam.argument.argCategory === ArgCategory.UnpackedDictionary) {
                     if (isParamSpecKwargs(paramSpec, argResult.argType)) {
+                        if (sawParamSpecKwargs) {
+                            addDiagnostic(
+                                DiagnosticRule.reportCallIssue,
+                                LocMessage.paramSpecArgsKwargsDuplicate().format({ type: printType(paramSpec) }),
+                                argParam.errorNode
+                            );
+                        }
+
                         sawParamSpecKwargs = true;
                     }
                 }

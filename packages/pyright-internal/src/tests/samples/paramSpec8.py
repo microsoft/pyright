@@ -17,7 +17,7 @@ def add(f: Callable[P, int]) -> Callable[Concatenate[str, P], None]:
 
 
 def remove(f: Callable[Concatenate[int, P], int]) -> Callable[P, None]:
-    def foo(*args: P.args, **kwargs: P.kwargs) -> None:
+    def func1(*args: P.args, **kwargs: P.kwargs) -> None:
         f(1, *args, **kwargs)  # Accepted
 
         # Should generate an error because positional parameter
@@ -28,18 +28,24 @@ def remove(f: Callable[Concatenate[int, P], int]) -> Callable[P, None]:
         # is missing.
         f(*args, **kwargs)  # Rejected
 
-    return foo
+    return func1
 
 
 def outer(f: Callable[P, None]) -> Callable[P, None]:
-    def foo(x: int, *args: P.args, **kwargs: P.kwargs) -> None:
+    def func1(x: int, *args: P.args, **kwargs: P.kwargs) -> None:
         f(*args, **kwargs)
 
-    def bar(*args: P.args, **kwargs: P.kwargs) -> None:
-        foo(1, *args, **kwargs)  # Accepted
+    def func2(*args: P.args, **kwargs: P.kwargs) -> None:
+        func1(1, *args, **kwargs)  # Accepted
 
         # This should generate an error because keyword parameters
         # are not allowed in this situation.
-        foo(x=1, *args, **kwargs)  # Rejected
+        func1(x=1, *args, **kwargs)  # Rejected
 
-    return bar
+        # This should generate an error because *args is duplicated.
+        func1(1, *args, *args, **kwargs)
+
+        # This should generate an error because **kwargs is duplicated.
+        func1(1, *args, **kwargs, **kwargs)
+
+    return func2
