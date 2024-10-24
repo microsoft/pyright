@@ -920,6 +920,10 @@
         "paramAnnotationMissing": "Type annotation is missing for parameter \"{name}\"",
         "paramAssignmentMismatch": "Expression of type \"{sourceType}\" cannot be assigned to parameter of type \"{paramType}\"",
         "paramNameMissing": "No parameter named \"{name}\"",
+        "paramSpecArgsKwargsDuplicate": {
+            "message": "Arguments for ParamSpec \"{type}\" have already been provided",
+            "comment": "{Locked='ParamSpec'}"
+        },
         "paramSpecArgsKwargsUsage": {
             "message": "\"args\" and \"kwargs\" attributes of ParamSpec must both appear within a function signature",
             "comment": "{Locked='args','kwargs','ParamSpec'}"
