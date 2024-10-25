@@ -8,7 +8,7 @@
  * Python files.
  */
 
-import * as TOML from '@iarna/toml';
+import * as TOML from 'js-toml';
 import * as JSONC from 'jsonc-parser';
 import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-languageserver';
 
@@ -1137,9 +1137,9 @@ export class AnalyzerService {
     private _parsePyprojectTomlFile(pyprojectPath: Uri): object | undefined {
         return this._attemptParseFile(pyprojectPath, (fileContents, attemptCount) => {
             try {
-                const configObj = TOML.parse(fileContents);
-                if (configObj && configObj.tool && (configObj.tool as TOML.JsonMap).pyright) {
-                    return (configObj.tool as TOML.JsonMap).pyright as object;
+                const configObj = TOML.load(fileContents);
+                if (configObj && 'tool' in configObj) {
+                    return (configObj.tool as Record<string, object>).pyright as object;
                 }
             } catch (e: any) {
                 this._console.error(`Pyproject file parse attempt ${attemptCount} error: ${JSON.stringify(e)}`);
