@@ -1,4 +1,4 @@
-version = "6.0.*"
+version = "~= 6.0.1"
 upstream_repository = "https://github.com/collective/icalendar"
 requires = ["types-python-dateutil", "backports.zoneinfo; python_version<'3.9'"]
 
