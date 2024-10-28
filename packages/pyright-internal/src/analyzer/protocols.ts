@@ -569,7 +569,7 @@ function assignToProtocolInternal(
             destMemberType = applySolvedTypeVars(destMemberType, selfSolution);
 
             // If the dest is a method, bind it.
-            if (isFunction(destMemberType) || isOverloaded(destMemberType)) {
+            if (!destSymbol.isInstanceMember() && (isFunction(destMemberType) || isOverloaded(destMemberType))) {
                 let boundDeclaredType: FunctionType | OverloadedType | undefined;
 
                 // Functions are considered read-only.
