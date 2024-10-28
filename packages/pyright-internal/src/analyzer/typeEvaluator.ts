@@ -19229,6 +19229,20 @@ export function createTypeEvaluator(
                 }
 
                 writeTypeCache(node.d.suite, { type: inferredReturnType, isIncomplete }, EvalFlags.None);
+            } catch (err) {
+                // Attempt to handle a stack overflow without crashing. In rare
+                // cases, we can get very deep stacks when inferring return types
+                // within untyped code.
+                if ((err as any)?.message === 'Maximum call stack size exceeded') {
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                    console.error(
+                        `Overflowed stack when inferring return type for function: ${
+                            node.d.name.d.value
+                        } in file ${fileInfo.fileUri.toUserVisibleString()}`
+                    );
+                    return;
+                }
+                throw err;
             } finally {
                 functionRecursionMap.delete(node.id);
             }
