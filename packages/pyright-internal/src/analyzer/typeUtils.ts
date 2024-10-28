@@ -1156,6 +1156,10 @@ export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOpt
     }
 
     const typeParams = type.shared.typeParams.map((typeParam) => {
+        if (isTypeVarTuple(typeParam)) {
+            typeParam = TypeVarType.cloneForUnpacked(typeParam);
+        }
+
         return options?.useBoundTypeVars ? TypeVarType.cloneAsBound(typeParam) : typeParam;
     });
     return ClassType.specialize(type, typeParams);
