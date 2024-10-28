@@ -6566,8 +6566,30 @@ export function createTypeEvaluator(
         if (!getterSymbolResult || !setterSymbolResult) {
             isAsymmetric = false;
         } else {
-            const getterType = getEffectiveTypeOfSymbol(getterSymbolResult.symbol);
+            let getterType = getEffectiveTypeOfSymbol(getterSymbolResult.symbol);
             const setterType = getEffectiveTypeOfSymbol(setterSymbolResult.symbol);
+
+            // If this is an overload, find the appropriate overload.
+            if (isOverloaded(getterType)) {
+                const getOverloads = OverloadedType.getOverloads(getterType).filter((overload) => {
+                    if (overload.shared.parameters.length < 2) {
+                        return false;
+                    }
+                    const param1Type = FunctionType.getParamType(overload, 1);
+                    return !isNoneInstance(param1Type);
+                });
+
+                if (getOverloads.length === 1) {
+                    getterType = getOverloads[0];
+                } else {
+                    isAsymmetric = true;
+                }
+            }
+
+            // If this is an overload, find the appropriate overload.
+            if (isOverloaded(setterType)) {
+                isAsymmetric = true;
+            }
 
             // If either the setter or getter is an overload (or some other non-function type),
             // conservatively assume that it's not asymmetric.
