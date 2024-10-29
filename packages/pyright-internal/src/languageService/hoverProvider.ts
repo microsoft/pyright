@@ -263,9 +263,9 @@ export class HoverProvider {
                 const primaryDeclaration = HoverProvider.getPrimaryDeclaration(declarations);
                 this._addResultsForDeclaration(results.parts, primaryDeclaration, node);
             } else if (declInfo && declInfo.synthesizedTypes.length > 0) {
-                const name = node.d.value;
+                const nameNode = node;
                 declInfo?.synthesizedTypes.forEach((type) => {
-                    this._addResultsForSynthesizedType(results.parts, type, name);
+                    this._addResultsForSynthesizedType(results.parts, type, nameNode);
                 });
                 this._addDocumentationPart(results.parts, node, /* resolvedDecl */ undefined);
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
@@ -458,19 +458,21 @@ export class HoverProvider {
         }
     }
 
-    private _addResultsForSynthesizedType(parts: HoverTextPart[], typeInfo: SynthesizedTypeInfo, name: string) {
+    private _addResultsForSynthesizedType(parts: HoverTextPart[], typeInfo: SynthesizedTypeInfo, hoverNode: NameNode) {
         let typeText: string | undefined;
 
         if (isModule(typeInfo.type)) {
-            typeText = '(module) ' + name;
-        } else if (typeInfo.node) {
-            const type = this._getType(typeInfo.node);
+            typeText = '(module) ' + hoverNode.d.value;
+        } else {
+            const node = typeInfo.node ?? hoverNode;
+
+            const type = this._getType(node);
             typeText = getVariableTypeText(
                 this._evaluator,
                 /* declaration */ undefined,
-                typeInfo.node.d.value,
+                node.d.value,
                 type,
-                typeInfo.node,
+                node,
                 this._functionSignatureDisplay
             );
         }
