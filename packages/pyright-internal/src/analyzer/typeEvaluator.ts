@@ -3584,7 +3584,12 @@ export function createTypeEvaluator(
                     enclosingClass = classTypeResults.classType;
 
                     if (isClassInstance(baseType)) {
-                        if (ClassType.isSameGenericClass(baseType, classTypeResults.classType)) {
+                        if (
+                            ClassType.isSameGenericClass(
+                                ClassType.cloneAsInstantiable(baseType),
+                                classTypeResults.classType
+                            )
+                        ) {
                             assignTypeToMemberVariable(target, typeResult, /* isInstanceMember */ true, srcExpr);
                         }
                     } else if (isInstantiableClass(baseType)) {
@@ -5603,7 +5608,7 @@ export function createTypeEvaluator(
                         // Is this an attempt to delete or overwrite an enum member?
                         if (
                             isClassInstance(enumMemberResult.type) &&
-                            ClassType.isSameGenericClass(enumMemberResult.type, baseType) &&
+                            ClassType.isSameGenericClass(enumMemberResult.type, ClassType.cloneAsInstance(baseType)) &&
                             enumMemberResult.type.priv.literalValue !== undefined
                         ) {
                             const diagMessage =
@@ -5995,7 +6000,10 @@ export function createTypeEvaluator(
                 if (
                     containingClassType &&
                     isInstantiableClass(containingClassType) &&
-                    ClassType.isSameGenericClass(containingClassType, classType)
+                    ClassType.isSameGenericClass(
+                        isAccessedThroughObject ? ClassType.cloneAsInstance(containingClassType) : containingClassType,
+                        classType
+                    )
                 ) {
                     type = getDeclaredTypeOfSymbol(memberInfo.symbol)?.type;
                     if (type && isInstantiableClass(memberInfo.classType)) {
@@ -6069,7 +6077,10 @@ export function createTypeEvaluator(
             if (
                 errorNode &&
                 isInstantiableClass(memberInfo.classType) &&
-                ClassType.isSameGenericClass(memberInfo.classType, classType)
+                ClassType.isSameGenericClass(
+                    memberInfo.classType,
+                    isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType
+                )
             ) {
                 setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(errorNode), memberInfo.symbol, errorNode);
             }
@@ -8837,7 +8848,10 @@ export function createTypeEvaluator(
                 bindToType &&
                 ClassType.isProtocolClass(bindToType) &&
                 effectiveTargetClass &&
-                !ClassType.isSameGenericClass(bindToType, effectiveTargetClass)
+                !ClassType.isSameGenericClass(
+                    TypeBase.isInstance(bindToType) ? ClassType.cloneAsInstantiable(bindToType) : bindToType,
+                    effectiveTargetClass
+                )
             ) {
                 isProtocolClass = true;
                 effectiveTargetClass = undefined;
@@ -8909,7 +8923,12 @@ export function createTypeEvaluator(
             if (bindToType) {
                 let nextBaseClassType: Type | undefined;
 
-                if (ClassType.isSameGenericClass(bindToType, concreteTargetClassType)) {
+                if (
+                    ClassType.isSameGenericClass(
+                        TypeBase.isInstance(bindToType) ? ClassType.cloneAsInstantiable(bindToType) : bindToType,
+                        concreteTargetClassType
+                    )
+                ) {
                     if (bindToType.shared.baseClasses.length > 0) {
                         nextBaseClassType = bindToType.shared.baseClasses[0];
                     }
@@ -13475,7 +13494,7 @@ export function createTypeEvaluator(
             if (isNoneInstance(subtype)) {
                 if (objectClass && isInstantiableClass(objectClass)) {
                     // Use 'object' for 'None'.
-                    return handleSubtype(convertToInstance(objectClass));
+                    return handleSubtype(ClassType.cloneAsInstance(objectClass));
                 }
             }
 
@@ -24344,8 +24363,8 @@ export function createTypeEvaluator(
                 if (destMetaclass && isInstantiableClass(destMetaclass)) {
                     if (
                         assignClass(
-                            ClassType.cloneAsInstance(destMetaclass),
-                            expandedSrcType,
+                            destMetaclass,
+                            ClassType.cloneAsInstantiable(expandedSrcType),
                             diag,
                             constraints,
                             flags,

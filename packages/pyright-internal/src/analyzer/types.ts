@@ -1324,13 +1324,12 @@ export namespace ClassType {
             return false;
         }
 
-        // Handle type[] specially.
-        if (TypeBase.getInstantiableDepth(classType) > 0) {
-            return TypeBase.isInstantiable(type2) || ClassType.isBuiltIn(type2, 'type');
+        if (TypeBase.isInstance(classType) !== TypeBase.isInstance(type2)) {
+            return false;
         }
 
-        if (TypeBase.getInstantiableDepth(type2) > 0) {
-            return TypeBase.isInstantiable(classType) || ClassType.isBuiltIn(classType, 'type');
+        if (TypeBase.getInstantiableDepth(classType) !== TypeBase.getInstantiableDepth(type2)) {
+            return false;
         }
 
         const class1Details = classType.shared;
