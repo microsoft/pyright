@@ -5899,7 +5899,7 @@ export class Checker extends ParseTreeWalker {
                     const dataclassEntry = overriddenClassAndSymbol.classType.shared.dataClassEntries.find(
                         (entry) => entry.name === memberName
                     );
-                    if (dataclassEntry) {
+                    if (dataclassEntry && ClassType.isDataClass(overrideClassAndSymbol.classType)) {
                         isInvariant = false;
                     }
                 }
@@ -6735,7 +6735,7 @@ export class Checker extends ParseTreeWalker {
                         const dataclassEntry = baseClass.shared.dataClassEntries.find(
                             (entry) => entry.name === memberName
                         );
-                        if (dataclassEntry) {
+                        if (dataclassEntry && ClassType.isDataClass(childClassType)) {
                             isInvariant = false;
                         }
                     }

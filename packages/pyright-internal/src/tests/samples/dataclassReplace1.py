@@ -43,3 +43,24 @@ nt1.__replace__(b=2)
 
 # This should generate an error.
 nt1.__replace__(d="")
+
+
+
+
+@dataclass(frozen=True)
+class DC2:
+    x: int | str
+
+
+@dataclass(frozen=True)
+class DC3(DC2):
+    x: str
+    y: str
+
+
+class DC4(DC2):
+    # This should generate an error because DC4 is not
+    # a dataclass, and it inherits the __replace__ method
+    # from DC2, which means that x can be mutated.
+    x: str
+    y: str
