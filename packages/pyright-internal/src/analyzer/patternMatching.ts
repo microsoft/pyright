@@ -760,7 +760,7 @@ function narrowTypeBasedOnClassPattern(
             classType = ClassType.specialize(classType, /* typeArgs */ undefined);
         }
 
-        const classInstance = convertToInstance(classType);
+        const classInstance = ClassType.cloneAsInstance(classType);
         const isPatternMetaclass = isMetaclassInstance(classInstance);
 
         return evaluator.mapSubtypesExpandTypeVars(

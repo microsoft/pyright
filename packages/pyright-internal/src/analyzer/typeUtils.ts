@@ -1839,7 +1839,10 @@ export function* getClassMemberIterator(
                         if (
                             memberName === '__call__' &&
                             classType.priv.partialCallType &&
-                            ClassType.isSameGenericClass(classType, specializedMroClass)
+                            ClassType.isSameGenericClass(
+                                TypeBase.isInstance(classType) ? ClassType.cloneAsInstantiable(classType) : classType,
+                                specializedMroClass
+                            )
                         ) {
                             symbol = Symbol.createWithType(SymbolFlags.ClassMember, classType.priv.partialCallType);
                         }
@@ -2298,7 +2301,6 @@ export function isEffectivelyInstantiable(type: Type, options?: IsInstantiableOp
     return false;
 }
 
-export function convertToInstance(type: ClassType, includeSubclasses?: boolean): ClassType;
 export function convertToInstance(type: ParamSpecType, includeSubclasses?: boolean): ParamSpecType;
 export function convertToInstance(type: TypeVarTupleType, includeSubclasses?: boolean): TypeVarTupleType;
 export function convertToInstance(type: TypeVarType, includeSubclasses?: boolean): TypeVarType;
