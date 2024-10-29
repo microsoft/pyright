@@ -5932,18 +5932,8 @@ export function createTypeEvaluator(
         selfType?: ClassType | TypeVarType,
         recursionCount = 0
     ): ClassMemberLookup | undefined {
-        const getMagicAttributeLookup = (
-            exprNode: ExpressionNode,
-            getAttribute: boolean
-        ): ClassMemberLookup | undefined => {
-            const generalAttrType = applyAttributeAccessOverride(
-                exprNode,
-                classType,
-                usage,
-                memberName,
-                getAttribute,
-                selfType
-            );
+        const getMagicAttributeLookup = (exprNode: ExpressionNode): ClassMemberLookup | undefined => {
+            const generalAttrType = applyAttributeAccessOverride(exprNode, classType, usage, memberName, selfType);
             return generalAttrType
                 ? {
                       symbol: undefined,
@@ -5956,13 +5946,6 @@ export function createTypeEvaluator(
                   }
                 : undefined;
         };
-
-        if ((flags & MemberAccessFlags.SkipAttributeAccessOverride) === 0 && exprNode) {
-            const generalAttrLookup = getMagicAttributeLookup(exprNode, true);
-            if (generalAttrLookup) {
-                return generalAttrLookup;
-            }
-        }
 
         const isAccessedThroughObject = TypeBase.isInstance(classType);
 
@@ -5980,7 +5963,7 @@ export function createTypeEvaluator(
             // through an object, see if there's an attribute access override
             // method ("__getattr__", etc.).
             if ((flags & MemberAccessFlags.SkipAttributeAccessOverride) === 0 && exprNode) {
-                const generalAttrLookup = getMagicAttributeLookup(exprNode, false);
+                const generalAttrLookup = getMagicAttributeLookup(exprNode);
                 if (generalAttrLookup) {
                     return generalAttrLookup;
                 }
@@ -6652,7 +6635,6 @@ export function createTypeEvaluator(
         classType: ClassType,
         usage: EvaluatorUsage,
         memberName: string,
-        getAttribute: boolean,
         selfType?: ClassType | TypeVarType
     ): MemberAccessTypeResult | undefined {
         const getAttributeAccessMember = (name: string) => {
@@ -6672,14 +6654,12 @@ export function createTypeEvaluator(
 
         let accessMemberType: Type | undefined;
         if (usage.method === 'get') {
-            accessMemberType = getAttribute
-                ? getAttributeAccessMember('__getattribute__')
-                : getAttributeAccessMember('__getattr__');
+            accessMemberType = getAttributeAccessMember('__getattribute__') ?? getAttributeAccessMember('__getattr__');
         } else if (usage.method === 'set') {
-            if (!getAttribute) accessMemberType = getAttributeAccessMember('__setattr__');
+            accessMemberType = getAttributeAccessMember('__setattr__');
         } else {
             assert(usage.method === 'del');
-            if (!getAttribute) accessMemberType = getAttributeAccessMember('__delattr__');
+            accessMemberType = getAttributeAccessMember('__delattr__');
         }
 
         if (!accessMemberType) {
@@ -21484,12 +21464,9 @@ export function createTypeEvaluator(
                 doForEachSubtype(baseType, (subtype) => {
                     let symbol: Symbol | undefined;
 
-                    const getAttributeSymbol = getMagicAttributeAccessSymbol(memberAccess, true);
                     subtype = makeTopLevelTypeVarsConcrete(subtype);
 
-                    if (getAttributeSymbol) {
-                        symbol = getAttributeSymbol;
-                    } else if (isInstantiableClass(subtype)) {
+                    if (isInstantiableClass(subtype)) {
                         // Try to find a member that has a declared type. If so, that
                         // overrides any inferred types.
                         let member = lookUpClassMember(subtype, memberName, MemberAccessFlags.DeclaredTypesOnly);
@@ -21522,8 +21499,8 @@ export function createTypeEvaluator(
                     }
 
                     if (!symbol) {
-                        // If nothing else has been found, check the non-__getattribute__ magic attribute access methods
-                        symbol = getMagicAttributeAccessSymbol(memberAccess, false);
+                        // If nothing else has been found, check the magic attribute access methods
+                        symbol = getMagicAttributeAccessSymbol(memberAccess);
                     }
 
                     if (symbol) {
@@ -21644,24 +21621,22 @@ export function createTypeEvaluator(
         return { decls: declarations, synthesizedTypes };
     }
 
-    function getMagicAttributeAccessSymbol(node: MemberAccessNode, getAttribute: boolean): Symbol | undefined {
+    function getMagicAttributeAccessSymbol(node: MemberAccessNode): Symbol | undefined {
         const baseType = getType(node.d.leftExpr);
         if (baseType && baseType.category === TypeCategory.Class) {
             let symbolResult: ClassMember | undefined;
             if (node.parent && node.parent.nodeType === ParseNodeType.Del) {
-                if (!getAttribute)
-                    symbolResult = lookUpClassMember(baseType, '__delattr__', MemberAccessFlags.SkipBaseClasses);
+                symbolResult = lookUpClassMember(baseType, '__delattr__', MemberAccessFlags.SkipBaseClasses);
             } else if (
                 node.parent &&
                 node.parent.nodeType === ParseNodeType.Assignment &&
                 node === node.parent.d.leftExpr
             ) {
-                if (!getAttribute)
-                    symbolResult = lookUpClassMember(baseType, '__setattr__', MemberAccessFlags.SkipBaseClasses);
+                symbolResult = lookUpClassMember(baseType, '__setattr__', MemberAccessFlags.SkipBaseClasses);
             } else {
-                symbolResult = getAttribute
-                    ? lookUpClassMember(baseType, '__getattribute__', MemberAccessFlags.SkipBaseClasses)
-                    : lookUpClassMember(baseType, '__getattr__', MemberAccessFlags.SkipBaseClasses);
+                symbolResult =
+                    lookUpClassMember(baseType, '__getattribute__', MemberAccessFlags.SkipBaseClasses) ??
+                    lookUpClassMember(baseType, '__getattr__', MemberAccessFlags.SkipBaseClasses);
             }
             return symbolResult?.symbol;
         }
