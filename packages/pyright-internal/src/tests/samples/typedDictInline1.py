@@ -38,3 +38,13 @@ def func1(val: TypedDict[{"a": int}]) -> TypedDict[{"a": int}]:
 
 
 func1({"a": 3})
+
+
+type TA1[T] = TypedDict[{"a": int, "b": T, "c": NotRequired[int]}]
+
+
+class Outer1[T]:
+    attr1: TypedDict[{"a": list[T]}]
+
+    def __init__(self, v: T) -> None:
+        self.attr1 = {"a": [v]}
