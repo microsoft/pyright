@@ -1466,6 +1466,14 @@ class UniqueNameMap {
         }
 
         if (isClass(type1) && isClass(type2)) {
+            while (TypeBase.isInstantiable(type1)) {
+                type1 = convertToInstance(type1);
+            }
+
+            while (TypeBase.isInstantiable(type2)) {
+                type2 = convertToInstance(type2);
+            }
+
             return ClassType.isSameGenericClass(type1, type2);
         }
 

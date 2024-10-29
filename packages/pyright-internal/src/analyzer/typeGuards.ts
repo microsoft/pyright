@@ -1435,7 +1435,14 @@ function narrowTypeForInstance(
                     }
 
                     if (filterIsSubclass && !ClassType.isSameGenericClass(runtimeVarType, concreteFilterType)) {
-                        isClassRelationshipIndeterminate = true;
+                        // If the runtime variable type is a type[T], handle a filter
+                        // of 'type' as a special case.
+                        if (
+                            !ClassType.isBuiltIn(concreteFilterType, 'type') ||
+                            TypeBase.getInstantiableDepth(runtimeVarType) === 0
+                        ) {
+                            isClassRelationshipIndeterminate = true;
+                        }
                     }
                 }
 
@@ -2324,7 +2331,7 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
                 const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
                 if (isPositiveTest) {
                     if (matches) {
-                        if (ClassType.isSameGenericClass(subtype, classType)) {
+                        if (ClassType.isSameGenericClass(ClassType.cloneAsInstantiable(subtype), classType)) {
                             return addConditionToType(subtype, classType.props?.condition);
                         }
 

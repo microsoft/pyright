@@ -1839,7 +1839,10 @@ export function* getClassMemberIterator(
                         if (
                             memberName === '__call__' &&
                             classType.priv.partialCallType &&
-                            ClassType.isSameGenericClass(classType, specializedMroClass)
+                            ClassType.isSameGenericClass(
+                                TypeBase.isInstance(classType) ? ClassType.cloneAsInstantiable(classType) : classType,
+                                specializedMroClass
+                            )
                         ) {
                             symbol = Symbol.createWithType(SymbolFlags.ClassMember, classType.priv.partialCallType);
                         }

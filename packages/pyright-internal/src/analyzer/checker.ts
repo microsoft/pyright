@@ -4898,7 +4898,7 @@ export class Checker extends ParseTreeWalker {
             if (
                 !symbolType ||
                 !isClassInstance(symbolType) ||
-                !ClassType.isSameGenericClass(symbolType, classType) ||
+                !ClassType.isSameGenericClass(symbolType, ClassType.cloneAsInstance(classType)) ||
                 !(symbolType.priv.literalValue instanceof EnumLiteral)
             ) {
                 return;
