@@ -174,6 +174,7 @@ import {
     assignToTypedDict,
     assignTypedDictToTypedDict,
     createTypedDictType,
+    createTypedDictTypeInlined,
     getTypedDictDictEquivalent,
     getTypedDictMappingEquivalent,
     getTypedDictMembersForClass,
@@ -368,6 +369,7 @@ interface GetTypeArgsOptions {
     hasCustomClassGetItem?: boolean;
     isFinalAnnotation?: boolean;
     isClassVarAnnotation?: boolean;
+    supportsTypedDictTypeArg?: boolean;
 }
 
 interface MatchArgsToParamsResult {
@@ -654,6 +656,7 @@ export function createTypeEvaluator(
     let strClass: Type | undefined;
     let dictClass: Type | undefined;
     let moduleTypeClass: Type | undefined;
+    let typedDictClass: Type | undefined;
     let typedDictPrivateClass: Type | undefined;
     let supportsKeysAndGetItemClass: Type | undefined;
     let mappingClass: Type | undefined;
@@ -1022,6 +1025,7 @@ export function createTypeEvaluator(
             strClass = getBuiltInType(node, 'str');
             dictClass = getBuiltInType(node, 'dict');
             moduleTypeClass = getTypingType(node, 'ModuleType');
+            typedDictClass = getTypingType(node, 'TypedDict');
             typedDictPrivateClass = getTypingType(node, '_TypedDict');
             awaitableClass = getTypingType(node, 'Awaitable');
             mappingClass = getTypingType(node, 'Mapping');
@@ -7523,11 +7527,17 @@ export function createTypeEvaluator(
                     const isClassVarAnnotation =
                         isInstantiableClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'ClassVar');
 
+                    // This feature is currently experimental.
+                    const supportsTypedDictTypeArg =
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures &&
+                        ClassType.isBuiltIn(concreteSubtype, 'TypedDict');
+
                     let typeArgs = getTypeArgs(node, flags, {
                         isAnnotatedClass,
                         hasCustomClassGetItem: hasCustomClassGetItem || !isGenericClass,
                         isFinalAnnotation,
                         isClassVarAnnotation,
+                        supportsTypedDictTypeArg,
                     });
 
                     if (!isAnnotatedClass) {
@@ -8014,7 +8024,7 @@ export function createTypeEvaluator(
                     node: expr,
                 };
             } else {
-                typeResult = getTypeArg(expr, adjFlags);
+                typeResult = getTypeArg(expr, adjFlags, !!options?.supportsTypedDictTypeArg && argIndex === 0);
             }
 
             return typeResult;
@@ -8120,7 +8130,7 @@ export function createTypeEvaluator(
         return undefined;
     }
 
-    function getTypeArg(node: ExpressionNode, flags: EvalFlags): TypeResultWithNode {
+    function getTypeArg(node: ExpressionNode, flags: EvalFlags, supportsDictExpression: boolean): TypeResultWithNode {
         let typeResult: TypeResultWithNode;
 
         let adjustedFlags =
@@ -8142,6 +8152,18 @@ export function createTypeEvaluator(
 
             // Set the node's type so it isn't reevaluated later.
             setTypeResultForNode(node, { type: UnknownType.create() });
+        } else if (node.nodeType === ParseNodeType.Dictionary && supportsDictExpression) {
+            const inlinedTypeDict =
+                typedDictClass && isInstantiableClass(typedDictClass)
+                    ? createTypedDictTypeInlined(evaluatorInterface, node, typedDictClass)
+                    : undefined;
+            const keyTypeFallback = strClass && isInstantiableClass(strClass) ? strClass : UnknownType.create();
+
+            typeResult = {
+                type: keyTypeFallback,
+                inlinedTypeDict,
+                node,
+            };
         } else {
             typeResult = { ...getTypeOfExpression(node, adjustedFlags), node };
 
@@ -20577,11 +20599,17 @@ export function createTypeEvaluator(
 
                 case 'TypedDict': {
                     if ((flags & (EvalFlags.NoNonTypeSpecialForms | EvalFlags.TypeExpression)) !== 0) {
-                        addDiagnostic(
-                            DiagnosticRule.reportInvalidTypeForm,
-                            LocMessage.typedDictNotAllowed(),
-                            errorNode
-                        );
+                        const isInlinedTypedDict =
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures &&
+                            !!typeArgs;
+
+                        if (!isInlinedTypedDict) {
+                            addDiagnostic(
+                                DiagnosticRule.reportInvalidTypeForm,
+                                LocMessage.typedDictNotAllowed(),
+                                errorNode
+                            );
+                        }
                     }
                     isValidTypeForm = false;
                     break;
@@ -20746,7 +20774,22 @@ export function createTypeEvaluator(
                 minTypeArgCount = firstDefaultParamIndex;
             }
 
-            if (typeArgCount > typeParams.length) {
+            // Classes that accept inlined type dict type args allow only one.
+            if (typeArgs.length > 0 && typeArgs[0].inlinedTypeDict) {
+                if (typeArgs.length > 1) {
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeArguments,
+                        LocMessage.typeArgsTooMany().format({
+                            name: classType.priv.aliasName || classType.shared.name,
+                            expected: 1,
+                            received: typeArgCount,
+                        }),
+                        typeArgs[1].node
+                    );
+                }
+
+                return { type: typeArgs[0].inlinedTypeDict };
+            } else if (typeArgCount > typeParams.length) {
                 if (!ClassType.isPartiallyEvaluated(classType) && !ClassType.isTupleClass(classType)) {
                     if (typeParams.length === 0) {
                         isValidTypeForm = false;
@@ -21862,12 +21905,18 @@ export function createTypeEvaluator(
                             declaration.node.parent?.nodeType === ParseNodeType.MemberAccess
                                 ? declaration.node.parent
                                 : declaration.node;
+                        const allowClassVar = ParseTreeUtils.isClassVarAllowedForAssignmentTarget(declNode);
+                        const allowFinal = ParseTreeUtils.isFinalAllowedForAssignmentTarget(declNode);
+                        const allowRequired =
+                            ParseTreeUtils.isRequiredAllowedForAssignmentTarget(declNode) ||
+                            !!declaration.isInInlinedTypedDict;
+
                         declaredType = getTypeOfAnnotation(typeAnnotationNode, {
                             varTypeAnnotation: true,
-                            allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(declNode),
-                            allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(declNode),
-                            allowRequired: ParseTreeUtils.isRequiredAllowedForAssignmentTarget(declNode),
-                            allowReadOnly: ParseTreeUtils.isRequiredAllowedForAssignmentTarget(declNode),
+                            allowClassVar,
+                            allowFinal,
+                            allowRequired,
+                            allowReadOnly: allowRequired,
                             enforceClassTypeVarScope: declaration.isDefinedByMemberAccess,
                         });
                     }

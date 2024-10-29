@@ -221,6 +221,9 @@ export interface TypeResult<T extends Type = Type> {
     // Type consistency errors detected when evaluating this type.
     typeErrors?: boolean | undefined;
 
+    // For inlined TypedDict definitions.
+    inlinedTypeDict?: ClassType;
+
     // Used for getTypeOfBoundMember to indicate that class
     // that declares the member.
     classType?: ClassType | UnknownType | AnyType;
