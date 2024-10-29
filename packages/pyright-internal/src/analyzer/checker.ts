@@ -6558,9 +6558,11 @@ export class Checker extends ParseTreeWalker {
         }
 
         const baseClass = baseClassAndSymbol.classType;
-        const childClassSelf = ClassType.cloneAsInstance(selfSpecializeClass(childClassType));
+        const childClassSelf = ClassType.cloneAsInstance(
+            selfSpecializeClass(childClassType, { useBoundTypeVars: true })
+        );
 
-        let baseType = partiallySpecializeType(
+        const baseType = partiallySpecializeType(
             this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
             baseClass,
             this._evaluator.getTypeClassType(),
@@ -6575,7 +6577,6 @@ export class Checker extends ParseTreeWalker {
         );
 
         if (childClassType.shared.typeVarScopeId) {
-            baseType = makeTypeVarsBound(baseType, [childClassType.shared.typeVarScopeId]);
             overrideType = makeTypeVarsBound(overrideType, [childClassType.shared.typeVarScopeId]);
         }
 
