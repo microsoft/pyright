@@ -26812,6 +26812,7 @@ export function createTypeEvaluator(
     ): boolean {
         const baseParamDetails = getParamListDetails(baseMethod);
         const overrideParamDetails = getParamListDetails(overrideMethod);
+        const constraints = new ConstraintTracker();
 
         let canOverride = true;
 
@@ -26853,8 +26854,8 @@ export function createTypeEvaluator(
                                 overrideArgsType,
                                 baseParamDetails.params[i].type,
                                 diag?.createAddendum(),
-                                /* constraints */ undefined,
-                                AssignTypeFlags.Default
+                                constraints,
+                                AssignTypeFlags.Contravariant
                             )
                         ) {
                             LocAddendum.overrideParamType().format({
@@ -26976,8 +26977,8 @@ export function createTypeEvaluator(
                                 overrideParamType,
                                 baseParamType,
                                 diag?.createAddendum(),
-                                /* constraints */ undefined,
-                                AssignTypeFlags.Default
+                                constraints,
+                                AssignTypeFlags.Contravariant
                             )
                         ) {
                             diag?.addMessage(
@@ -27038,8 +27039,8 @@ export function createTypeEvaluator(
                             overrideParamType,
                             baseParamType,
                             diag?.createAddendum(),
-                            /* constraints */ undefined,
-                            AssignTypeFlags.Default
+                            constraints,
+                            AssignTypeFlags.Contravariant
                         )
                     ) {
                         diag?.addMessage(
@@ -27083,8 +27084,8 @@ export function createTypeEvaluator(
                             targetParamType,
                             paramInfo.type,
                             diag?.createAddendum(),
-                            /* constraints */ undefined,
-                            AssignTypeFlags.Default
+                            constraints,
+                            AssignTypeFlags.Contravariant
                         )
                     ) {
                         diag?.addMessage(
@@ -27164,7 +27165,7 @@ export function createTypeEvaluator(
                 baseReturnType,
                 overrideReturnType,
                 diag?.createAddendum(),
-                /* constraints */ undefined,
+                constraints,
                 AssignTypeFlags.Default
             )
         ) {
