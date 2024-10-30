@@ -2037,6 +2037,11 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
             return [];
         }
 
+        // Don't return any bound type variables.
+        if (TypeVarType.isBound(type)) {
+            return [];
+        }
+
         // Don't return any P.args or P.kwargs types.
         if (isParamSpec(type) && type.priv.paramSpecAccess) {
             return [TypeVarType.cloneForParamSpecAccess(type, /* access */ undefined)];
