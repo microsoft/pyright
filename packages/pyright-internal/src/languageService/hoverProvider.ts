@@ -94,6 +94,35 @@ export function convertHoverResults(hoverResults: HoverResults | null, format: M
     };
 }
 
+export function addParameterResultsPart(
+    serviceProvider: ServiceProvider,
+    paramNameNode: NameNode,
+    resolvedDecl: Declaration | undefined,
+    format: MarkupKind,
+    parts: HoverTextPart[]
+) {
+    // See if we have a docstring for the parent function.
+    let docString: string | undefined = undefined;
+    const funcNode = ParseTreeUtils.getEnclosingFunction(resolvedDecl?.node || paramNameNode);
+    if (funcNode) {
+        docString = ParseTreeUtils.getDocString(funcNode?.d.suite?.d.statements ?? []);
+        if (docString) {
+            // Compute the docstring now.
+            docString = serviceProvider
+                .docStringService()
+                .extractParameterDocumentation(docString, paramNameNode.d.value, format);
+        }
+    }
+    if (!docString) {
+        return;
+    }
+
+    parts.push({
+        python: false,
+        text: docString,
+    });
+}
+
 export function addDocumentationResultsPart(
     serviceProvider: ServiceProvider,
     docString: string | undefined,
@@ -376,10 +405,7 @@ export class HoverProvider {
 
             case DeclarationType.Param: {
                 this._addResultsPart(parts, '(parameter) ' + node.d.value + this._getTypeText(node), /* python */ true);
-
-                if (resolvedDecl.docString) {
-                    this._addResultsPart(parts, resolvedDecl.docString);
-                }
+                addParameterResultsPart(this._program.serviceProvider, node, resolvedDecl, this._format, parts);
                 this._addDocumentationPart(parts, node, resolvedDecl);
                 break;
             }
