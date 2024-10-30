@@ -73,6 +73,14 @@ test('TypeParams7', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('TypeParams8', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams8.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('AutoVariance1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_12;
