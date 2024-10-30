@@ -22,7 +22,6 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever, fail } from '../common/debug';
 import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { DocStringService } from '../common/docStringService';
 import { stripFileExtension } from '../common/pathUtils';
 import { convertTextRangeToRange } from '../common/positionUtils';
 import { TextRange, getEmptyRange } from '../common/textRange';
@@ -250,11 +249,7 @@ export class Binder extends ParseTreeWalker {
     // the current function.
     private _codeFlowComplexity = 0;
 
-    constructor(
-        fileInfo: AnalyzerFileInfo,
-        private _docStringService: DocStringService,
-        private _moduleSymbolOnly = false
-    ) {
+    constructor(fileInfo: AnalyzerFileInfo, private _moduleSymbolOnly = false) {
         super();
 
         this._fileInfo = fileInfo;
@@ -536,15 +531,6 @@ export class Binder extends ParseTreeWalker {
                         if (paramNode.d.name) {
                             const symbol = this._bindNameToScope(this._currentScope, paramNode.d.name);
 
-                            // Extract the parameter docString from the function docString
-                            let docString = ParseTreeUtils.getDocString(node?.d.suite?.d.statements ?? []);
-                            if (docString !== undefined) {
-                                docString = this._docStringService.extractParameterDocumentation(
-                                    docString,
-                                    paramNode.d.name.d.value
-                                );
-                            }
-
                             if (symbol) {
                                 const paramDeclaration: ParamDeclaration = {
                                     type: DeclarationType.Param,
@@ -553,7 +539,6 @@ export class Binder extends ParseTreeWalker {
                                     range: convertTextRangeToRange(paramNode, this._fileInfo.lines),
                                     moduleName: this._fileInfo.moduleName,
                                     isInExceptSuite: this._isInExceptSuite,
-                                    docString: docString,
                                 };
 
                                 symbol.addDeclaration(paramDeclaration);
