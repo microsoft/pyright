@@ -18,6 +18,7 @@ import { ArgCategory, ExpressionNode, ParamCategory } from '../parser/parseNodes
 import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor } from './constructors';
 import { getParamListDetails, ParamKind } from './parameterUtils';
+import { getTypedDictMembersForClass } from './typedDicts';
 import { Arg, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
@@ -31,8 +32,10 @@ import {
     isOverloaded,
     isTypeSame,
     isTypeVar,
+    isUnpackedClass,
     OverloadedType,
     Type,
+    TypedDictEntry,
 } from './types';
 import { convertToInstance, lookUpObjectMember, makeInferenceContext, MemberAccessFlags } from './typeUtils';
 
@@ -404,7 +407,29 @@ function applyPartialTransformToFunction(
     // Create a new parameter list that omits parameters that have been
     // populated already.
     const updatedParamList: FunctionParam[] = specializedFunctionType.shared.parameters.map((param, index) => {
-        const newType = FunctionType.getParamType(specializedFunctionType, index);
+        let newType = FunctionType.getParamType(specializedFunctionType, index);
+
+        // If this is an **kwargs with an unpacked TypedDict, mark the provided
+        // TypedDict entries as provided.
+        if (
+            param.category === ParamCategory.KwargsDict &&
+            isClassInstance(newType) &&
+            isUnpackedClass(newType) &&
+            ClassType.isTypedDictClass(newType)
+        ) {
+            const typedDictEntries = getTypedDictMembersForClass(evaluator, newType);
+            const narrowedEntriesMap = new Map<string, TypedDictEntry>(newType.priv.typedDictNarrowedEntries ?? []);
+
+            typedDictEntries.knownItems.forEach((entry, name) => {
+                if (paramMap.has(name)) {
+                    narrowedEntriesMap.set(name, { ...entry, isRequired: false });
+                }
+            });
+
+            newType = ClassType.cloneAsInstance(
+                ClassType.cloneForNarrowedTypedDictEntries(newType, narrowedEntriesMap)
+            );
+        }
 
         // If it's a keyword parameter that has been assigned a value through
         // the "partial" mechanism, mark it has having a default value.
