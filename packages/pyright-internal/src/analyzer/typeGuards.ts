@@ -1348,7 +1348,7 @@ function narrowTypeForInstance(
                     // any metaclass, but we specifically want to treat type as the class
                     // type[object] in this case.
                     if (ClassType.isBuiltIn(filterMetaclass, 'type') && !filterMetaclass.priv.isTypeArgExplicit) {
-                        if (!ClassType.isBuiltIn(metaclassType, 'type')) {
+                        if (!isClass(metaclassType) || !ClassType.isBuiltIn(metaclassType, 'type')) {
                             isMetaclassOverlap = false;
                         }
                     }
@@ -1435,7 +1435,14 @@ function narrowTypeForInstance(
                     }
 
                     if (filterIsSubclass && !ClassType.isSameGenericClass(runtimeVarType, concreteFilterType)) {
-                        isClassRelationshipIndeterminate = true;
+                        // If the runtime variable type is a type[T], handle a filter
+                        // of 'type' as a special case.
+                        if (
+                            !ClassType.isBuiltIn(concreteFilterType, 'type') ||
+                            TypeBase.getInstantiableDepth(runtimeVarType) === 0
+                        ) {
+                            isClassRelationshipIndeterminate = true;
+                        }
                     }
                 }
 
@@ -1479,8 +1486,8 @@ function narrowTypeForInstance(
                                     if (
                                         addConstraintsForExpectedType(
                                             evaluator,
-                                            convertToInstance(unspecializedFilterType),
-                                            convertToInstance(concreteVarType),
+                                            ClassType.cloneAsInstance(unspecializedFilterType),
+                                            ClassType.cloneAsInstance(concreteVarType),
                                             constraints,
                                             /* liveTypeVarScopes */ undefined,
                                             errorNode.start
@@ -1664,7 +1671,7 @@ function narrowTypeForInstance(
     const isFilterTypeCallbackProtocol = (filterType: Type) => {
         return (
             isInstantiableClass(filterType) &&
-            evaluator.getCallbackProtocolType(convertToInstance(filterType)) !== undefined
+            evaluator.getCallbackProtocolType(ClassType.cloneAsInstance(filterType)) !== undefined
         );
     };
 
@@ -2324,7 +2331,7 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
                 const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
                 if (isPositiveTest) {
                     if (matches) {
-                        if (ClassType.isSameGenericClass(subtype, classType)) {
+                        if (ClassType.isSameGenericClass(ClassType.cloneAsInstantiable(subtype), classType)) {
                             return addConditionToType(subtype, classType.props?.condition);
                         }
 
@@ -2468,7 +2475,7 @@ function narrowTypeForLiteralComparison(
     isPositiveTest: boolean,
     isIsOperator: boolean
 ): Type {
-    return mapSubtypes(referenceType, (subtype) => {
+    return evaluator.mapSubtypesExpandTypeVars(referenceType, /* options */ undefined, (subtype) => {
         subtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
         if (isAnyOrUnknown(subtype)) {

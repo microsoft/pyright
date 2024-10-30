@@ -1,41 +1,33 @@
 # This sample tests the detection and handling of asymmetric descriptors
 # and properties. Type narrowing should be disabled in these cases.
 
-from typing import Any, Literal
+from typing import Any, Hashable, Iterable, Literal, overload
 
 
 class A:
     @property
-    def prop1(self) -> int | None:
-        ...
+    def prop1(self) -> int | None: ...
 
     @prop1.setter
-    def prop1(self, val: int | None) -> None:
-        ...
+    def prop1(self, val: int | None) -> None: ...
 
     @property
-    def prop2(self) -> int | None:
-        ...
+    def prop2(self) -> int | None: ...
 
     @prop2.setter
-    def prop2(self, val: int) -> None:
-        ...
+    def prop2(self, val: int) -> None: ...
 
     @prop2.deleter
-    def prop2(self) -> None:
-        ...
+    def prop2(self) -> None: ...
 
     @property
-    def prop3(self) -> int:
-        ...
+    def prop3(self) -> int: ...
 
     @prop3.setter
-    def prop3(self, val: int | None) -> None:
-        ...
+    def prop3(self, val: int | None) -> None: ...
 
     @prop3.deleter
-    def prop3(self) -> None:
-        ...
+    def prop3(self) -> None: ...
 
 
 def func1(obj: A) -> Literal[3]:
@@ -72,33 +64,49 @@ def func3(obj: A) -> Literal[3]:
 
 
 class Descriptor1:
-    def __get__(self, instance: Any, owner: Any) -> int | None:
-        ...
+    def __get__(self, instance: Any, owner: Any) -> int | None: ...
 
-    def __set__(self, owner: Any, value: int | None) -> None:
-        ...
+    def __set__(self, owner: Any, value: int | None) -> None: ...
 
 
 class Descriptor2:
-    def __get__(self, instance: Any, owner: Any) -> int | None:
-        ...
+    def __get__(self, instance: Any, owner: Any) -> int | None: ...
 
-    def __set__(self, owner: Any, value: int) -> None:
-        ...
+    def __set__(self, owner: Any, value: int) -> None: ...
 
 
 class Descriptor3:
-    def __get__(self, instance: Any, owner: Any) -> int:
-        ...
+    def __get__(self, instance: Any, owner: Any) -> int: ...
 
-    def __set__(self, owner: Any, value: int | None) -> None:
-        ...
+    def __set__(self, owner: Any, value: int | None) -> None: ...
+
+
+class Descriptor4:
+    @overload
+    def __get__(self, instance: None, owner: Any) -> int: ...
+    @overload
+    def __get__(self, instance: Any, owner: Any) -> str: ...
+    def __get__(self, instance: Any, owner: Any) -> int | str: ...
+
+    def __set__(self, owner: Any, value: int | None) -> None: ...
+
+
+class Descriptor5:
+    def __get__(self, instance: Any, owner: Any) -> int: ...
+
+    @overload
+    def __set__(self, owner: bytes, value: int | None) -> None: ...
+    @overload
+    def __set__(self, owner: "B", value: int | None) -> None: ...
+    def __set__(self, owner: Any, value: int | None) -> None: ...
 
 
 class B:
     desc1: Descriptor1
     desc2: Descriptor2
     desc3: Descriptor3
+    desc4: Descriptor4
+    desc5: Descriptor5
 
 
 def func4(obj: B) -> Literal[3]:
@@ -132,3 +140,11 @@ def func6(obj: B) -> Literal[3]:
     # This should generate an error because prop2 isn't
     # narrowed in this case.
     return obj.desc3
+
+
+def func7(obj: B):
+    obj.desc4 = 3
+    reveal_type(obj.desc4, expected_text="str")
+
+    obj.desc5 = 3
+    reveal_type(obj.desc5, expected_text="int")

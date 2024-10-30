@@ -605,6 +605,12 @@ test('Protocol51', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Protocol52', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol52.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ProtocolExplicit1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit1.py']);
 
@@ -759,6 +765,14 @@ test('TypedDict24', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict24.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TypedDictInline1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictInline1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('ClassVar1', () => {

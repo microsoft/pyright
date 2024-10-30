@@ -1156,6 +1156,10 @@ export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOpt
     }
 
     const typeParams = type.shared.typeParams.map((typeParam) => {
+        if (isTypeVarTuple(typeParam)) {
+            typeParam = TypeVarType.cloneForUnpacked(typeParam);
+        }
+
         return options?.useBoundTypeVars ? TypeVarType.cloneAsBound(typeParam) : typeParam;
     });
     return ClassType.specialize(type, typeParams);
@@ -1738,7 +1742,7 @@ export function* getClassMemberIterator(
         let classFlags = ClassIteratorFlags.Default;
         if (flags & MemberAccessFlags.SkipOriginalClass) {
             if (isClass(classType)) {
-                skipMroClass = classType;
+                skipMroClass = isClassInstance(classType) ? ClassType.cloneAsInstantiable(classType) : classType;
             }
         }
         if (flags & MemberAccessFlags.SkipBaseClasses) {
@@ -1835,7 +1839,10 @@ export function* getClassMemberIterator(
                         if (
                             memberName === '__call__' &&
                             classType.priv.partialCallType &&
-                            ClassType.isSameGenericClass(classType, specializedMroClass)
+                            ClassType.isSameGenericClass(
+                                TypeBase.isInstance(classType) ? ClassType.cloneAsInstantiable(classType) : classType,
+                                specializedMroClass
+                            )
                         ) {
                             symbol = Symbol.createWithType(SymbolFlags.ClassMember, classType.priv.partialCallType);
                         }
@@ -2027,6 +2034,11 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
     if (isTypeVar(type)) {
         // Don't return any recursive type alias placeholders.
         if (type.shared.recursiveAlias) {
+            return [];
+        }
+
+        // Don't return any bound type variables.
+        if (TypeVarType.isBound(type)) {
             return [];
         }
 
@@ -2294,7 +2306,6 @@ export function isEffectivelyInstantiable(type: Type, options?: IsInstantiableOp
     return false;
 }
 
-export function convertToInstance(type: ClassType, includeSubclasses?: boolean): ClassType;
 export function convertToInstance(type: ParamSpecType, includeSubclasses?: boolean): ParamSpecType;
 export function convertToInstance(type: TypeVarTupleType, includeSubclasses?: boolean): TypeVarTupleType;
 export function convertToInstance(type: TypeVarType, includeSubclasses?: boolean): TypeVarType;
