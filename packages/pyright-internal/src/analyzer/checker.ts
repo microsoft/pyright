@@ -3846,7 +3846,7 @@ export class Checker extends ParseTreeWalker {
             if (isInstantiableClass(filterType)) {
                 this._validateUnsafeProtocolOverlap(
                     node.d.args[0].d.valueExpr,
-                    convertToInstance(filterType),
+                    ClassType.cloneAsInstance(filterType),
                     isInstanceCheck ? arg0Type : convertToInstance(arg0Type)
                 );
             }
@@ -4898,7 +4898,7 @@ export class Checker extends ParseTreeWalker {
             if (
                 !symbolType ||
                 !isClassInstance(symbolType) ||
-                !ClassType.isSameGenericClass(symbolType, classType) ||
+                !ClassType.isSameGenericClass(symbolType, ClassType.cloneAsInstance(classType)) ||
                 !(symbolType.priv.literalValue instanceof EnumLiteral)
             ) {
                 return;
