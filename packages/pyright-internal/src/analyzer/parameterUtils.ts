@@ -242,6 +242,8 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
 
                 const typedDictType = paramType;
                 paramType.shared.typedDictEntries.knownItems.forEach((entry, name) => {
+                    entry = paramType.priv.typedDictNarrowedEntries?.get(name) ?? entry;
+
                     const specializedParamType = partiallySpecializeType(
                         entry.valueType,
                         typedDictType,
