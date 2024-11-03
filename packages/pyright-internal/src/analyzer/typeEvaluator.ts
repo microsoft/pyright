@@ -17232,8 +17232,7 @@ export function createTypeEvaluator(
                                             arg.d.valueExpr
                                         );
                                     }
-                                    genericTypeParams = [];
-                                    addTypeVarsToListIfUnique(genericTypeParams, getTypeVarArgsRecursive(argType));
+                                    genericTypeParams = buildTypeParamsFromTypeArgs(argType);
                                 }
                             }
                         } else if (
@@ -17249,8 +17248,7 @@ export function createTypeEvaluator(
                                         arg.d.valueExpr
                                     );
                                 }
-                                protocolTypeParams = [];
-                                addTypeVarsToListIfUnique(protocolTypeParams, getTypeVarArgsRecursive(argType));
+                                protocolTypeParams = buildTypeParamsFromTypeArgs(argType);
 
                                 if (node.d.typeParams && protocolTypeParams.length > 0) {
                                     addDiagnostic(
@@ -17747,6 +17745,25 @@ export function createTypeEvaluator(
 
             return { classType, decoratedType };
         });
+    }
+
+    function buildTypeParamsFromTypeArgs(classType: ClassType): TypeVarType[] {
+        const typeParams: TypeVarType[] = [];
+        const typeArgs = classType.priv.typeArgs ?? [];
+
+        typeArgs.forEach((typeArg, index) => {
+            if (isTypeVar(typeArg)) {
+                typeParams.push(typeArg);
+                return;
+            }
+
+            // Synthesize a dummy type parameter.
+            const typeVar = TypeVarType.createInstance(`__P${index}`);
+            typeVar.shared.isSynthesized = true;
+            typeParams.push(typeVar);
+        });
+
+        return typeParams;
     }
 
     // Determines whether the type parameters has a default that refers to another
