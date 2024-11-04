@@ -4033,9 +4033,10 @@ export class Binder extends ParseTreeWalker {
             // To determine whether the first parameter of the method
             // refers to the class or the instance, we need to apply
             // some heuristics.
-            if (methodNode.d.name.d.value === '__new__') {
-                // The __new__ method is special. It acts as a classmethod even
-                // though it doesn't have a @classmethod decorator.
+            const implicitClassMethods = ['__new__', '__init_subclass__', '__class_getitem__'];
+            if (implicitClassMethods.includes(methodNode.d.name.d.value)) {
+                // Several methods are special. They act as class methods even
+                // though they don't have a @classmethod decorator.
                 isInstanceMember = false;
             } else {
                 // Assume that it's an instance member unless we find

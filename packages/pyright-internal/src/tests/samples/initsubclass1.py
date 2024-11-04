@@ -62,3 +62,14 @@ class ClassH(ClassG):
 # in the object.__init_subclass__ method.
 class ClassI(a=3):
     a: int
+
+
+class ClassJ:
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        cls.custom_attribute = 9
+
+
+class ClassJChild(ClassJ):
+    def __init__(self):
+        reveal_type(self.custom_attribute, expected_text="int")
