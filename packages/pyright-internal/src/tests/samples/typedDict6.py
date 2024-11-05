@@ -1,7 +1,7 @@
 # This sample tests the type analyzer's handling of TypedDict
 # "alternate syntax" defined in PEP 589.
 
-from typing import NotRequired, Required, TypedDict
+from typing import NotRequired, Required, TypedDict, reveal_type
 
 Movie = TypedDict("Movie", {"name": str, "year": int})
 
@@ -81,3 +81,7 @@ movie12: Movie12 = {"title": "Two Towers", "predecessor": {"title": "Fellowship"
 # This should generate an error because the name doesn't match.
 # the arguments are missing.
 Movie13 = TypedDict("NotMovie13", {"name": str, "year": int})
+
+
+Movie14 = TypedDict("Movie14", {"@illegal identifier": int, "legal_identifier": int})
+reveal_type(Movie14.__init__, expected_text="Overload[(self: Movie14, __map: Movie14, /, *, legal_identifier: int = ...) -> None, (self: Movie14, *, legal_identifier: int) -> None]")

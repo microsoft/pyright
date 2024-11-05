@@ -24,6 +24,7 @@ import {
     ParamCategory,
     ParseNodeType,
 } from '../parser/parseNodes';
+import { Tokenizer } from '../parser/tokenizer';
 import { KeywordType } from '../parser/tokenizerTypes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ConstraintTracker } from './constraintTracker';
@@ -359,27 +360,29 @@ export function synthesizeTypedDictClassMethods(
     }
 
     entries.knownItems.forEach((entry, name) => {
-        FunctionType.addParam(
-            initOverride1,
-            FunctionParam.create(
-                ParamCategory.Simple,
-                entry.valueType,
-                FunctionParamFlags.TypeDeclared,
-                name,
-                entry.valueType
-            )
-        );
+        if (Tokenizer.isPythonIdentifier(name)) {
+            FunctionType.addParam(
+                initOverride1,
+                FunctionParam.create(
+                    ParamCategory.Simple,
+                    entry.valueType,
+                    FunctionParamFlags.TypeDeclared,
+                    name,
+                    entry.valueType
+                )
+            );
 
-        FunctionType.addParam(
-            initOverride2,
-            FunctionParam.create(
-                ParamCategory.Simple,
-                entry.valueType,
-                FunctionParamFlags.TypeDeclared,
-                name,
-                entry.isRequired ? undefined : entry.valueType
-            )
-        );
+            FunctionType.addParam(
+                initOverride2,
+                FunctionParam.create(
+                    ParamCategory.Simple,
+                    entry.valueType,
+                    FunctionParamFlags.TypeDeclared,
+                    name,
+                    entry.isRequired ? undefined : entry.valueType
+                )
+            );
+        }
 
         if (!entry.isReadOnly) {
             allEntriesAreReadOnly = false;
