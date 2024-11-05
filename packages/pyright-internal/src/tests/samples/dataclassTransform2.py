@@ -2,6 +2,7 @@
 # when applied to a metaclass.
 
 from typing import Any, TypeVar
+
 from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
     dataclass_transform,
 )
@@ -100,3 +101,10 @@ c3_1 = Customer3(id=2, name="hi")
 
 # This should generate an error because Customer3 is frozen.
 c3_1.id = 4
+
+
+class Customer4(ModelBase):
+    name1: str = model_field(alias="valid_alias")
+    name2: str = model_field(alias="invalid alias")
+
+c4_1 = Customer4(valid_alias="hi", name2="hi")

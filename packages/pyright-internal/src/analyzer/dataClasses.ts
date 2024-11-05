@@ -25,6 +25,7 @@ import {
     ParseNodeType,
     TypeAnnotationNode,
 } from '../parser/parseNodes';
+import { Tokenizer } from '../parser/tokenizer';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { getFileInfo } from './analyzerNodeInfo';
 import { ConstraintSolution } from './constraintSolution';
@@ -329,7 +330,8 @@ export function synthesizeDataClassMethods(
                             if (
                                 isClassInstance(valueType) &&
                                 ClassType.isBuiltIn(valueType, 'str') &&
-                                isLiteralType(valueType)
+                                isLiteralType(valueType) &&
+                                Tokenizer.isPythonIdentifier(valueType.priv.literalValue as string)
                             ) {
                                 aliasName = valueType.priv.literalValue as string;
                             }
