@@ -104,7 +104,6 @@
         "dataClassConverterFunction": "\"{argType}\" türündeki bağımsız değişken, \"{fieldName}\" türündeki \"{fieldType}\" alanı için geçerli bir dönüştürücü değil",
         "dataClassConverterOverloads": "\"{funcName}\" işlevinin aşırı yüklemelerinden hiçbiri \"{fieldType}\" türündeki \"{fieldName}\" alanı için geçerli dönüştürücüler değil",
         "dataClassFieldInheritedDefault": "\"{fieldName}\", aynı ada sahip bir alanı geçersiz kılıyor ancak varsayılan değeri yok",
-        "dataClassFieldInvalidAlias": "\"{aliasName}\" diğer adı geçerli bir tanımlayıcı değil",
         "dataClassFieldWithDefault": "Varsayılan değerleri olmayan alanlar, varsayılan değerleri olan alanlardan sonra gelemez",
         "dataClassFieldWithPrivateName": "Veri sınıfı alanı özel ad kullanamıyor",
         "dataClassFieldWithoutAnnotation": "Tür ek açıklaması olmayan veri sınıfı alanı çalışma zamanı özel durumuna neden olur",

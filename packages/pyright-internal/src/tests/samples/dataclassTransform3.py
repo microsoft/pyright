@@ -123,11 +123,3 @@ c3_1 = Customer3(id=2, name="hi")
 
 # This should generate an error because Customer3 is frozen.
 c3_1.id = 4
-
-
-class Customer4(ModelBase):
-    # This should generate an error because alias must be a valid identifier.
-    name1: str = model_field(alias="other name")
-
-    # This should generate an error because alias must be a valid identifier.
-    name2: str = model_field(alias="+test")

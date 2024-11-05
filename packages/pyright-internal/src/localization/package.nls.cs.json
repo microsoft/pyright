@@ -104,7 +104,6 @@
         "dataClassConverterFunction": "Argument typu {argType} není platný převaděč pro pole {fieldName} typu {fieldType}",
         "dataClassConverterOverloads": "Žádná přetížení {funcName} nejsou platné převaděče pro pole {fieldName} typu {fieldType}",
         "dataClassFieldInheritedDefault": "{fieldName} přepíše pole se stejným názvem, ale chybí mu výchozí hodnota.",
-        "dataClassFieldInvalidAlias": "Název aliasu {aliasName} není platný identifikátor.",
         "dataClassFieldWithDefault": "Pole bez výchozích hodnot se nemůžou zobrazit po polích s výchozími hodnotami",
         "dataClassFieldWithPrivateName": "Pole datové třídy nemůže používat privátní název",
         "dataClassFieldWithoutAnnotation": "Pole dataclass bez poznámky typu způsobí výjimku modulu runtime",
