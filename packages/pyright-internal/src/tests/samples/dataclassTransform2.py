@@ -2,7 +2,6 @@
 # when applied to a metaclass.
 
 from typing import Any, TypeVar
-
 from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
     dataclass_transform,
 )
