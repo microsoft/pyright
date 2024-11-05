@@ -104,7 +104,6 @@
         "dataClassConverterFunction": "Аргумент типа \"{argType}\" не является допустимым преобразователем для поля \"{fieldName}\" типа \"{fieldType}\"",
         "dataClassConverterOverloads": "Ни одна перегрузка \"{funcName}\" не является допустимым преобразователем поля \"{fieldName}\" типа \"{fieldType}\"",
         "dataClassFieldInheritedDefault": "\"{fieldName}\" переопределяет поле с тем же именем, но в нем отсутствует значение по умолчанию",
-        "dataClassFieldInvalidAlias": "Псевдоним \"{aliasName}\" не является допустимым идентификатором",
         "dataClassFieldWithDefault": "Поля без значений по умолчанию не могут отображаться после полей со значениями по умолчанию.",
         "dataClassFieldWithPrivateName": "Поле класса данных не может использовать закрытое имя",
         "dataClassFieldWithoutAnnotation": "Поле dataclass без заметки с типом вызовет исключение среды выполнения",
