@@ -1,9 +1,7 @@
 import { ReadOnlyFileSystem } from '../common/fileSystem';
+import { configFileName, pyprojectTomlName } from '../common/pathConsts';
 import { Uri } from '../common/uri/uri';
 import { forEachAncestorDirectory } from '../common/uri/uriUtils';
-
-export const configFileName = 'pyrightconfig.json';
-export const pyprojectTomlName = 'pyproject.toml';
 
 export function findPyprojectTomlFileHereOrUp(fs: ReadOnlyFileSystem, searchPath: Uri): Uri | undefined {
     return forEachAncestorDirectory(searchPath, (ancestor) => findPyprojectTomlFile(fs, ancestor));

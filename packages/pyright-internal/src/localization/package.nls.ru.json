@@ -374,6 +374,7 @@
         "paramAnnotationMissing": "Отсутствует заметка с типом для параметра \"{name}\"",
         "paramAssignmentMismatch": "Выражение типа \"{sourceType}\" не может быть назначено параметру типа \"{paramType}\"",
         "paramNameMissing": "Параметра с именем \"{name}\" не существует",
+        "paramSpecArgsKwargsDuplicate": "Аргументы для \"{type}\" ParamSpec уже предоставлены",
         "paramSpecArgsKwargsUsage": "Атрибуты \"args\" и \"kwargs\" ParamSpec должны одновременно присутствовать в сигнатуре функции",
         "paramSpecArgsMissing": "Отсутствуют аргументы для \"{type}\" ParamSpec",
         "paramSpecArgsUsage": "Атрибут \"args\" ParamSpec допустим только при использовании с параметром *args",

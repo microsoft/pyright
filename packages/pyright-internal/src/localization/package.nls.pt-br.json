@@ -374,6 +374,7 @@
         "paramAnnotationMissing": "A anotação de tipo está ausente para o parâmetro \"{name}\"",
         "paramAssignmentMismatch": "A expressão do tipo \"{sourceType}\" não pode ser atribuída ao parâmetro do tipo \"{paramType}\"",
         "paramNameMissing": "Nenhum parâmetro chamado \"{name}\"",
+        "paramSpecArgsKwargsDuplicate": "Os argumentos para ParamSpec \"{type}\" já foram fornecidos",
         "paramSpecArgsKwargsUsage": "Os atributos \"args\" e \"kwargs\" de ParamSpec devem aparecer dentro de uma assinatura de função",
         "paramSpecArgsMissing": "Argumentos para ParamSpec \"{type}\" estão ausentes",
         "paramSpecArgsUsage": "O atributo \"args\" de ParamSpec é válido somente quando usado com o parâmetro *args",

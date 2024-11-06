@@ -374,6 +374,7 @@
         "paramAnnotationMissing": "参数“{name}”缺少类型批注",
         "paramAssignmentMismatch": "无法将\"{sourceType}\"类型的表达式分配给\"{paramType}\"类型的参数",
         "paramNameMissing": "没有名为“{name}”的参数",
+        "paramSpecArgsKwargsDuplicate": "已提供 ParamSpec \"{type}\" 的参数",
         "paramSpecArgsKwargsUsage": "ParamSpec 的 \"args\" 和 \"kwargs\" 属性必须同时出现在函数签名中",
         "paramSpecArgsMissing": "缺少 ParamSpec“{type}”的参数",
         "paramSpecArgsUsage": "ParamSpec 的 \"args\" 属性仅在与 *args 参数一起使用时有效",

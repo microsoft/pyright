@@ -374,6 +374,7 @@
         "paramAnnotationMissing": "參數 \"{name}\" 遺漏了型別註釋",
         "paramAssignmentMismatch": "無法將型別 \"{sourceType}\" 的運算式指派給型別 \"{paramType}\" 的參數",
         "paramNameMissing": "沒有名為 \"{name}\" 的參數",
+        "paramSpecArgsKwargsDuplicate": "ParamSpec \"{type}\" 的引數已提供",
         "paramSpecArgsKwargsUsage": "ParamSpec 的 \"args\" 和 \"kwargs\" 屬性都必須出現在函式簽章內",
         "paramSpecArgsMissing": "ParamSpec \"{type}\" 的引數遺失",
         "paramSpecArgsUsage": "只有搭配 *args 參數使用時，ParamSpec 的 \"args\" 屬性才有效",

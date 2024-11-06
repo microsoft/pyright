@@ -374,6 +374,7 @@
         "paramAnnotationMissing": "Brak adnotacji typu dla parametru „{name}”",
         "paramAssignmentMismatch": "Wyrażenia typu „{sourceType}” nie można przypisać do parametru typu „{paramType}”",
         "paramNameMissing": "Brak parametru o nazwie „{name}”",
+        "paramSpecArgsKwargsDuplicate": "Argumenty parametru ParamSpec „{type}” zostały już podane",
         "paramSpecArgsKwargsUsage": "Atrybuty „args” i „kwargs” specyfikacji ParamSpec muszą znajdować się w sygnaturze funkcji",
         "paramSpecArgsMissing": "Brak argumentów dla parametru ParamSpec „{type}”.",
         "paramSpecArgsUsage": "Atrybut „args” parametru ParamSpec jest ważna tylko wtedy, gdy jest używana z parametrem *args",

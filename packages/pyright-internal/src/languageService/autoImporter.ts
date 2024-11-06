@@ -51,8 +51,8 @@ export interface AutoImportSymbol {
 }
 
 export interface ModuleSymbolTable {
-    uri: Uri;
-    forEach(callbackfn: (symbol: AutoImportSymbol, name: string, library: boolean) => void): void;
+    readonly uri: Uri;
+    getSymbols(): Generator<{ symbol: AutoImportSymbol; name: string; library: boolean }>;
 }
 
 export type ModuleSymbolMap = Map<string, ModuleSymbolTable>;
@@ -138,34 +138,34 @@ export function buildModuleSymbolsMap(files: readonly SourceFileInfo[]): ModuleS
 
         moduleSymbolMap.set(uri.key, {
             uri,
-            forEach(callbackfn: (value: AutoImportSymbol, key: string, library: boolean) => void): void {
-                symbolTable.forEach((symbol, name) => {
+            *getSymbols() {
+                for (const [name, symbol] of symbolTable) {
                     if (!isVisibleExternally(symbol)) {
-                        return;
+                        continue;
                     }
 
                     const declarations = symbol.getDeclarations();
                     if (!declarations || declarations.length === 0) {
-                        return;
+                        continue;
                     }
 
                     const declaration = declarations[0];
                     if (!declaration) {
-                        return;
+                        continue;
                     }
 
                     if (declaration.type === DeclarationType.Alias && isUserCode(file)) {
                         // We don't include import alias in auto import
                         // for workspace files.
-                        return;
+                        continue;
                     }
 
                     const variableKind =
                         declaration.type === DeclarationType.Variable && !declaration.isConstant && !declaration.isFinal
                             ? SymbolKind.Variable
                             : undefined;
-                    callbackfn({ symbol, kind: variableKind }, name, /* library */ !isUserCode(file));
-                });
+                    yield { symbol: { symbol, kind: variableKind }, name, library: !isUserCode(file) };
+                }
             },
         });
         return;
@@ -351,9 +351,9 @@ export class AutoImporter {
         }
 
         const dotCount = StringUtils.getCharacterCount(importSource, '.');
-        topLevelSymbols.forEach((autoImportSymbol, name) => {
+        for (const { symbol: autoImportSymbol, name } of topLevelSymbols.getSymbols()) {
             if (!this.shouldIncludeVariable(autoImportSymbol, name, fileProperties.isStub)) {
-                return;
+                continue;
             }
 
             // For very short matching strings, we will require an exact match. Otherwise
@@ -361,12 +361,12 @@ export class AutoImporter {
             // characters, we can do a fuzzy match.
             const isSimilar = this._isSimilar(word, name, similarityLimit);
             if (!isSimilar) {
-                return;
+                continue;
             }
 
             const alreadyIncluded = this._containsName(name, importSource, results);
             if (alreadyIncluded) {
-                return;
+                continue;
             }
 
             // We will collect all aliases and then process it later
@@ -392,7 +392,7 @@ export class AutoImporter {
                     },
                     importAliasMap
                 );
-                return;
+                continue;
             }
 
             const nameForImportFrom = this.getNameForImportFrom(/* library */ !fileProperties.isUserCode, moduleUri);
@@ -416,7 +416,7 @@ export class AutoImporter {
                 originalName: name,
                 originalDeclUri: moduleUri,
             });
-        });
+        }
 
         // If the current file is in a directory that also contains an "__init__.py[i]"
         // file, we can use that directory name as an implicit import target.
