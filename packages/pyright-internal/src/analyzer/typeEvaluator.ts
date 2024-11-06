@@ -3693,10 +3693,11 @@ export function createTypeEvaluator(
                     const inheritedSlotsNames = ClassType.getInheritedSlotsNames(memberClass);
 
                     if (inheritedSlotsNames && memberClass.shared.localSlotsNames) {
-                        // Skip this check if the local slots is specified but empty because this pattern
-                        // is used in a legitimate manner for mix-in classes.
+                        // Skip this check if the local slots is specified but empty
+                        // and the class isn't final. This pattern is used in a
+                        // legitimate manner for mix-in classes.
                         if (
-                            memberClass.shared.localSlotsNames.length > 0 &&
+                            (memberClass.shared.localSlotsNames.length > 0 || ClassType.isFinal(memberClass)) &&
                             !inheritedSlotsNames.some((name) => name === memberName)
                         ) {
                             // Determine whether the assignment corresponds to a descriptor
@@ -17232,8 +17233,7 @@ export function createTypeEvaluator(
                                             arg.d.valueExpr
                                         );
                                     }
-                                    genericTypeParams = [];
-                                    addTypeVarsToListIfUnique(genericTypeParams, getTypeVarArgsRecursive(argType));
+                                    genericTypeParams = buildTypeParamsFromTypeArgs(argType);
                                 }
                             }
                         } else if (
@@ -17249,8 +17249,7 @@ export function createTypeEvaluator(
                                         arg.d.valueExpr
                                     );
                                 }
-                                protocolTypeParams = [];
-                                addTypeVarsToListIfUnique(protocolTypeParams, getTypeVarArgsRecursive(argType));
+                                protocolTypeParams = buildTypeParamsFromTypeArgs(argType);
 
                                 if (node.d.typeParams && protocolTypeParams.length > 0) {
                                     addDiagnostic(
@@ -17747,6 +17746,25 @@ export function createTypeEvaluator(
 
             return { classType, decoratedType };
         });
+    }
+
+    function buildTypeParamsFromTypeArgs(classType: ClassType): TypeVarType[] {
+        const typeParams: TypeVarType[] = [];
+        const typeArgs = classType.priv.typeArgs ?? [];
+
+        typeArgs.forEach((typeArg, index) => {
+            if (isTypeVar(typeArg)) {
+                typeParams.push(typeArg);
+                return;
+            }
+
+            // Synthesize a dummy type parameter.
+            const typeVar = TypeVarType.createInstance(`__P${index}`);
+            typeVar.shared.isSynthesized = true;
+            typeParams.push(typeVar);
+        });
+
+        return typeParams;
     }
 
     // Determines whether the type parameters has a default that refers to another
@@ -23859,7 +23877,7 @@ export function createTypeEvaluator(
                 effectiveFlags = flags | AssignTypeFlags.RetainLiteralsForTypeVar;
                 errorSource = LocAddendum.typeVarIsCovariant;
             } else if (variance === Variance.Contravariant) {
-                effectiveFlags = (flags ^ AssignTypeFlags.Contravariant) | AssignTypeFlags.RetainLiteralsForTypeVar;
+                effectiveFlags = flags | AssignTypeFlags.Contravariant | AssignTypeFlags.RetainLiteralsForTypeVar;
                 errorSource = LocAddendum.typeVarIsContravariant;
             } else {
                 effectiveFlags = flags | AssignTypeFlags.Invariant | AssignTypeFlags.RetainLiteralsForTypeVar;

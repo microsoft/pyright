@@ -37,3 +37,20 @@ def func2(movie: MovieNotClosed) -> None:
     reveal_type(movie.items(), expected_text="dict_items[str, object]")
     reveal_type(movie.keys(), expected_text="dict_keys[str, object]")
     reveal_type(movie.values(), expected_text="dict_values[str, object]")
+
+
+class MovieClosed(TypedDict, closed=True):
+    name: str
+    year: int
+
+
+def func3(movie: MovieClosed) -> None:
+    reveal_type(
+        movie.items(), expected_text="dict_items[Literal['name', 'year'], str | int]"
+    )
+    reveal_type(
+        movie.keys(), expected_text="dict_keys[Literal['name', 'year'], str | int]"
+    )
+    reveal_type(
+        movie.values(), expected_text="dict_values[Literal['name', 'year'], str | int]"
+    )

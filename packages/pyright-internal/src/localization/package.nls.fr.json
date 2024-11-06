@@ -104,7 +104,6 @@
         "dataClassConverterFunction": "L’argument de type « {argType} » n’est pas un convertisseur valide pour le champ « {fieldName} » de type « {fieldType} »",
         "dataClassConverterOverloads": "Aucune surcharge de « {funcName} » n’est valide pour le champ « {fieldName} » de type « {fieldType} »",
         "dataClassFieldInheritedDefault": "« {fieldName} » remplace un champ du même nom mais n’a pas de valeur par défaut",
-        "dataClassFieldInvalidAlias": "Le nom d’alias « {aliasName} » n’est pas un identificateur valide",
         "dataClassFieldWithDefault": "Les champs sans valeurs par défaut ne peuvent pas apparaître après les champs avec des valeurs par défaut",
         "dataClassFieldWithPrivateName": "Le champ Dataclass ne peut pas utiliser de nom privé",
         "dataClassFieldWithoutAnnotation": "Le champ Dataclass sans annotation de type provoquera une exception d'exécution",

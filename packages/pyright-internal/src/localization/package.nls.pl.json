@@ -104,7 +104,6 @@
         "dataClassConverterFunction": "Argument typu „{argType}” nie jest prawidłowym konwerterem pola „{fieldName}” typu „{fieldType}”",
         "dataClassConverterOverloads": "Żadne przeciążenia „{funcName}” nie są prawidłowymi konwerterami dla pola „{fieldName}” typu „{fieldType}”",
         "dataClassFieldInheritedDefault": "Pole „{fieldName}” zastępuje pole o tej samej nazwie, ale brakuje wartości domyślnej",
-        "dataClassFieldInvalidAlias": "Nazwa aliasu „{aliasName}” nie jest prawidłowym identyfikatorem",
         "dataClassFieldWithDefault": "Pola bez wartości domyślnych nie mogą występować po polach z wartościami domyślnymi",
         "dataClassFieldWithPrivateName": "Pole klasy danych nie może używać nazwy prywatnej",
         "dataClassFieldWithoutAnnotation": "Pole klasy danych bez adnotacji typu spowoduje wyjątek środowiska uruchomieniowego",

@@ -5357,6 +5357,12 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
+            // Skip type variables that have been internally synthesized
+            // for a variety of reasons.
+            if (param.shared.isSynthesized) {
+                return;
+            }
+
             // Skip type variables with auto-variance.
             if (param.shared.declaredVariance === Variance.Auto) {
                 return;

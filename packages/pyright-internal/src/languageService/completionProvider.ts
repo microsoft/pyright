@@ -111,6 +111,7 @@ import {
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
+import { Tokenizer } from '../parser/tokenizer';
 import {
     FStringStartToken,
     OperatorToken,
@@ -2893,7 +2894,10 @@ export class CompletionProvider {
                 paramInfo.kind !== ParamKind.Positional &&
                 paramInfo.kind !== ParamKind.ExpandedArgs
             ) {
-                if (!SymbolNameUtils.isPrivateOrProtectedName(paramInfo.param.name)) {
+                if (
+                    !SymbolNameUtils.isPrivateOrProtectedName(paramInfo.param.name) &&
+                    Tokenizer.isPythonIdentifier(paramInfo.param.name)
+                ) {
                     names.add(paramInfo.param.name);
                 }
             }

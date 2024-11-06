@@ -104,7 +104,6 @@
         "dataClassConverterFunction": "型 \"{argType}\" の引数は、型 \"{fieldType}\" のフィールド \"{fieldName}\" の有効なコンバーターではありません",
         "dataClassConverterOverloads": "{funcName}\" のオーバーロードは、型 \"{fieldType}\" のフィールド \"{fieldName}\" に対して有効なコンバーターではありません",
         "dataClassFieldInheritedDefault": "\"{fieldName}\" は同じ名前のフィールドをオーバーライドしますが、既定値がありません",
-        "dataClassFieldInvalidAlias": "エイリアス名 \"{aliasName}\" は有効な識別子ではありません",
         "dataClassFieldWithDefault": "既定値のないフィールドは、既定値を持つフィールドの後に表示できません",
         "dataClassFieldWithPrivateName": "データクラス フィールドはプライベート名を使用できません",
         "dataClassFieldWithoutAnnotation": "型注釈のないデータクラス フィールドが原因でランタイム例外が発生する",

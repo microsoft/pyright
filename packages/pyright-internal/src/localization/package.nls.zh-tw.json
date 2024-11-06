@@ -104,7 +104,6 @@
         "dataClassConverterFunction": "類型 \"{argType}\" 的引數不是類型 \"{fieldType}\" 欄位 \"{fieldName}\" 的有效轉換程式",
         "dataClassConverterOverloads": "\"{funcName}\" 沒有任何多載是類型 \"{fieldType}\" 欄位 \"{fieldName}\" 的有效轉換程式",
         "dataClassFieldInheritedDefault": "\"{fieldName}\" 覆寫相同名稱的欄位，但缺少預設值",
-        "dataClassFieldInvalidAlias": "別名名稱 \"{aliasName}\" 並非有效的識別碼",
         "dataClassFieldWithDefault": "沒有預設值的欄位無法出現在具有預設值的欄位後面",
         "dataClassFieldWithPrivateName": "Dataclass 欄位不能使用私人名稱",
         "dataClassFieldWithoutAnnotation": "沒有型別註釋的 Dataclass 欄位會造成執行階段例外狀況",

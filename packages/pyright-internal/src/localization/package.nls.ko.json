@@ -104,7 +104,6 @@
         "dataClassConverterFunction": "\"{argType}\" 형식의 인수는 \"{fieldType}\" 형식의 \"{fieldName}\" 필드에 유효한 변환기가 아닙니다.",
         "dataClassConverterOverloads": "\"{funcName}\"의 오버로드는 \"{fieldType}\" 형식의 \"{fieldName}\" 필드에 유효한 변환기가 아닙니다.",
         "dataClassFieldInheritedDefault": "\"{fieldName}\"이(가) 같은 이름의 필드를 재정의하지만 기본값이 없음",
-        "dataClassFieldInvalidAlias": "별칭 이름 \"{aliasName}\"은(는) 유효한 식별자가 아닙니다.",
         "dataClassFieldWithDefault": "기본값이 없는 필드는 기본값이 있는 필드 뒤에 나타날 수 없습니다.",
         "dataClassFieldWithPrivateName": "데이터 클래스 필드는 프라이빗 이름을 사용할 수 없습니다.",
         "dataClassFieldWithoutAnnotation": "형식 주석이 없는 데이터 클래스 필드를 사용하면 런타임 예외가 발생합니다.",

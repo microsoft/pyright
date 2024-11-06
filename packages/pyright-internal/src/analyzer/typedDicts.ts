@@ -761,6 +761,16 @@ export function synthesizeTypedDictClassMethods(
         const mappingValueType = getTypedDictMappingEquivalent(evaluator, classType);
 
         if (mappingValueType) {
+            let keyValueType: Type = strType;
+
+            // If we know that there can be no more items, we can provide
+            // a more accurate key type consisting of all known keys.
+            if (entries.extraItems && isNever(entries.extraItems.valueType)) {
+                keyValueType = combineTypes(
+                    Array.from(entries.knownItems.keys()).map((key) => ClassType.cloneWithLiteral(strType, key))
+                );
+            }
+
             ['items', 'keys', 'values'].forEach((methodName) => {
                 const method = FunctionType.createSynthesizedInstance(methodName);
                 FunctionType.addParam(method, selfParam);
@@ -773,7 +783,7 @@ export function synthesizeTypedDictClassMethods(
                 ) {
                     method.shared.declaredReturnType = ClassType.specialize(
                         ClassType.cloneAsInstance(returnTypeClass),
-                        [strType, mappingValueType]
+                        [keyValueType, mappingValueType]
                     );
 
                     symbolTable.set(methodName, Symbol.createWithType(SymbolFlags.ClassMember, method));

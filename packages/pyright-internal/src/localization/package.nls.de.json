@@ -104,7 +104,6 @@
         "dataClassConverterFunction": "Das Argument vom Typ \"{argType}\" ist kein gültiger Konverter für das Feld \"{fieldName}\" vom Typ \"{fieldType}\"",
         "dataClassConverterOverloads": "Keine Überladungen von \"{funcName}\" sind gültige Konverter für das Feld \"{fieldName}\" vom Typ \"{fieldType}\"",
         "dataClassFieldInheritedDefault": "„{fieldName}“ überschreibt ein Feld mit demselben Namen, aber es fehlt ein Standardwert",
-        "dataClassFieldInvalidAlias": "Der Aliasname „{aliasName}“ ist kein gültiger Bezeichner.",
         "dataClassFieldWithDefault": "Felder ohne Standardwerte dürfen nicht nach Feldern mit Standardwerten angezeigt werden.",
         "dataClassFieldWithPrivateName": "Das Feld \"Dataclass\" kann keinen privaten Namen verwenden.",
         "dataClassFieldWithoutAnnotation": "Datenklassenfeld ohne Typanmerkung verursacht eine Laufzeitausnahme",
