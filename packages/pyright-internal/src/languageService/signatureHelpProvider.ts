@@ -265,12 +265,10 @@ export class SignatureHelpProvider {
                     text: paramString,
                 });
 
-                const effectiveParamIndex = parameters.length - 1;
-
                 // Name match for active parameter. The set of parameters from the function
                 // may not match the actual string output from the typeEvaluator (kwargs for TypedDict is an example).
                 if (paramName && signature.activeParam && signature.activeParam.name === paramName) {
-                    activeParameter = effectiveParamIndex;
+                    activeParameter = parameters.length - 1;
                 }
 
                 label += paramString;
