@@ -373,6 +373,7 @@
         "paramAnnotationMissing": "‘{name}’ 매개 변수에 대한 형식 주석이 없습니다.",
         "paramAssignmentMismatch": "‘{sourceType}’ 형식의 식을 ‘{paramType}’ 형식의 매개 변수에 할당할 수 없습니다.",
         "paramNameMissing": "이름이 \"{name}\"인 매개 변수가 없습니다.",
+        "paramSpecArgsKwargsDuplicate": "ParamSpec \"{type}\" 인수가 이미 제공되었습니다.",
         "paramSpecArgsKwargsUsage": "ParamSpec의 \"args\" 및 \"kwargs\" 특성은 모두 함수 서명 내에 나타나야 함",
         "paramSpecArgsMissing": "ParamSpec \"{type}\"에 대한 인수가 없습니다.",
         "paramSpecArgsUsage": "ParamSpec의 \"args\" 특성은 *args 매개 변수와 함께 사용할 경우에만 유효함",

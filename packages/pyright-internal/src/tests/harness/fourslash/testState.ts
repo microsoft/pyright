@@ -693,6 +693,13 @@ export class TestState {
                 continue;
             }
 
+            const uri = Uri.file(range.fileName, this.serviceProvider);
+            const sourceFile = this.program.getSourceFile(uri);
+            if (!sourceFile) {
+                this.raiseError(`source file not found: ${range.fileName}`);
+            }
+            const diagnostics = sourceFile.getDiagnostics(this.configOptions) || [];
+
             const codeActions = await this._getCodeActions(range);
             if (verifyMode === 'exact') {
                 if (codeActions.length !== map[name].codeActions.length) {
@@ -734,8 +741,17 @@ export class TestState {
                 if (verifyMode === 'excluded' && matches.length > 0) {
                     this.raiseError(`unexpected result: ${stringify(map[name])}`);
                 } else if (verifyMode !== 'excluded' && matches.length !== 1) {
+                    const uri = Uri.file('test2.py', this.serviceProvider);
+                    const sourceFile = this.program.getSourceFile(uri);
+                    const symbolsInTest2 = sourceFile
+                        ? ', symbols in test2.py: ' +
+                          Array.from(sourceFile.getModuleSymbolTable()?.keys() ?? []).join(',')
+                        : '';
+
                     this.raiseError(
-                        `doesn't contain expected result: ${stringify(expected)}, actual: ${stringify(codeActions)}`
+                        `doesn't contain expected result: ${stringify(expected)}, actual: ${stringify(
+                            codeActions
+                        )}, diagnostics: ${stringify(diagnostics)}${symbolsInTest2}`
                     );
                 }
             }

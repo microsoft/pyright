@@ -28,7 +28,7 @@ import { EditableProgram, ProgramView } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
-import { defaultStubsDirectory } from '../common/pathConsts';
+import { configFileName, defaultStubsDirectory } from '../common/pathConsts';
 import { getFileName, isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { ServiceKeys } from '../common/serviceKeys';
@@ -59,7 +59,6 @@ import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor }
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import {
-    configFileName,
     findConfigFile,
     findConfigFileHereOrUp,
     findPyprojectTomlFile,
