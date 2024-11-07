@@ -151,6 +151,12 @@ test('Await2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Await3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['await3.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});
+
 test('Coroutines1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
