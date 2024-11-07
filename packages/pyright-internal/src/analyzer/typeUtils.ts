@@ -2094,18 +2094,15 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
 // Creates a specialized version of the class, filling in any unspecified
 // type arguments with Unknown or default value.
 export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
-    if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
+    if (type.shared.typeParams.length === 0 || type.priv.typeArgs || !type.shared.typeVarScopeId) {
         return type;
     }
 
     const solution = new ConstraintSolution();
-    const typeParams = ClassType.getTypeParams(type);
 
-    typeParams.forEach((typeParam) => {
-        solution.setType(typeParam, applySolvedTypeVars(typeParam.shared.defaultType, solution));
-    });
-
-    return applySolvedTypeVars(type, solution) as ClassType;
+    return applySolvedTypeVars(type, solution, {
+        replaceUnsolved: { scopeIds: [type.shared.typeVarScopeId], tupleClassType: undefined },
+    }) as ClassType;
 }
 
 // Builds a mapping between type parameters and their specialized
@@ -3711,8 +3708,15 @@ export class TypeVarTransformer {
             }
         }
 
+        let isTypeArgExplicit = true;
+
         if (!newTypeArgs) {
             const typeArgs = classType.priv.typeArgs ?? typeParams;
+
+            if (!classType.priv.typeArgs) {
+                isTypeArgExplicit = false;
+            }
+
             newTypeArgs = typeArgs.map((oldTypeArgType) => {
                 let newTypeArgType = this.apply(oldTypeArgType, recursionCount);
                 if (newTypeArgType !== oldTypeArgType) {
@@ -3736,7 +3740,7 @@ export class TypeVarTransformer {
         return ClassType.specialize(
             classType,
             newTypeArgs,
-            /* isTypeArgExplicit */ true,
+            isTypeArgExplicit,
             /* includeSubclasses */ undefined,
             newTupleTypeArgs
         );
