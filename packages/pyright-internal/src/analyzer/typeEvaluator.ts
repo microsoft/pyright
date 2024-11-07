@@ -4431,7 +4431,7 @@ export function createTypeEvaluator(
             doForEachSubtype(exceptionType, (subtype) => {
                 const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
-                if (isAnyOrUnknown(concreteSubtype) || isNever(concreteSubtype) || isNoneInstance(concreteSubtype)) {
+                if (isAnyOrUnknown(concreteSubtype) || isNever(concreteSubtype)) {
                     return;
                 }
 
