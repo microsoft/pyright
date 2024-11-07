@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "‘{classType}’ 클래스에서 __new__ 서명과 __init__가 불일치합니다.",
         "containmentAlwaysFalse": "‘{leftType}’ 및 ‘{rightType}’ 형식이 겹치지 않으므로 식은 항상 False로 평가됩니다.",
         "containmentAlwaysTrue": "‘{leftType}’ 및 ‘{rightType}’ 형식이 겹치지 않으므로 식은 항상 True로 평가됩니다.",
-        "continueInFinally": "finally 절 내에서는 \"continue\"를 사용할 수 없습니다.",
         "continueOutsideLoop": "\"continue\"는 루프 내에서만 사용할 수 있습니다.",
         "coroutineInConditionalExpression": "조건식은 항상 True로 평가되는 코루틴을 참조합니다.",
         "dataClassBaseClassFrozen": "고정되지 않은 클래스는 고정된 클래스에서 상속할 수 없습니다.",

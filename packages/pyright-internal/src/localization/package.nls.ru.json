@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "Несоответствие подписи __new__ и __init__ в классе \"{classType}\"",
         "containmentAlwaysFalse": "Выражение всегда будет оцениваться как False, так как типы \"{leftType}\" и \"{rightType}\" не перекрываются",
         "containmentAlwaysTrue": "Выражение всегда будет оцениваться как True, так как типы \"{leftType}\" и \"{rightType}\" не перекрываются",
-        "continueInFinally": "Невозможно использовать \"continue\" в предложении finally",
         "continueOutsideLoop": "Ключевое слово \"continue\" можно использовать только внутри цикла",
         "coroutineInConditionalExpression": "Условное выражение ссылается на сопрограмму, которая всегда возвращает значение True",
         "dataClassBaseClassFrozen": "Незафиксированный класс не может наследоваться от зафиксированного класса",

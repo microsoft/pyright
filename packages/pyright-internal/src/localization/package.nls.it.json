@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "Mancata corrispondenza tra firma di __new__ e __init__ nella classe \"{classType}\"",
         "containmentAlwaysFalse": "L'espressione restituisce sempre False perché i tipi \"{leftType}\" e \"{rightType}\" non si sovrappongono",
         "containmentAlwaysTrue": "L'espressione restituisce sempre True perché i tipi \"{leftType}\" e \"{rightType}\" non si sovrappongono",
-        "continueInFinally": "Non è possibile usare \"continue\" all'interno di una clausola finally",
         "continueOutsideLoop": "\"continue\" può essere usato solo all'interno di un ciclo",
         "coroutineInConditionalExpression": "L'espressione condizionale fa riferimento a una coroutine che restituisce sempre True",
         "dataClassBaseClassFrozen": "Una classe non bloccata non può ereditare da una classe bloccata",

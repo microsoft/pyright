@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "Error de coincidencia entre la firma de __new__ y __init__ en la clase \"{classType}\"",
         "containmentAlwaysFalse": "La expresión siempre se evaluará como False, ya que los tipos \"{leftType}\" y \"{rightType}\" no tienen superposición",
         "containmentAlwaysTrue": "La expresión siempre se evaluará como True, ya que los tipos \"{leftType}\" y \"{rightType}\" no tienen superposición",
-        "continueInFinally": "\"continue\" no puede utilizarse dentro de una cláusula finally",
         "continueOutsideLoop": "\"continue\" solo puede utilizarse dentro de un bucle",
         "coroutineInConditionalExpression": "La expresión condicional hace referencia a una corrutina que siempre se evalúa como True",
         "dataClassBaseClassFrozen": "Una clase no inmovilizada no puede heredar de una clase inmovilizada",

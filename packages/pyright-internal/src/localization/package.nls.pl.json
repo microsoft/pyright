@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "Niezgodność między sygnaturą „__new__” i „__init__” w klasie „{classType}”",
         "containmentAlwaysFalse": "Warunek zawsze będzie miał wartość False, ponieważ typy „{leftType}” i „{rightType}” nie nakładają się na siebie",
         "containmentAlwaysTrue": "Warunek zawsze będzie miał wartość „True”, ponieważ typy „{leftType}” i „{rightType}” nie nakładają się na siebie",
-        "continueInFinally": "Wartość „continue” nie może być używana w klauzuli finally",
         "continueOutsideLoop": "Wartość „continue” może być używana tylko w pętli",
         "coroutineInConditionalExpression": "Wyrażenie warunkowe odwołuje się do koprocedury, która zawsze wyznacza wartość True",
         "dataClassBaseClassFrozen": "Klasa niezablokowana nie może dziedziczyć po klasie zablokowanej",
