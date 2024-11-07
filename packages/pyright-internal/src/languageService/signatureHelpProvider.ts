@@ -21,7 +21,7 @@ import {
 } from 'vscode-languageserver';
 
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
-import { getParamListDetails } from '../analyzer/parameterUtils';
+import { getParamListDetails, ParamKind } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParamIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
@@ -250,8 +250,7 @@ export class SignatureHelpProvider {
             }
 
             const isKeywordOnly =
-                paramListDetails.firstKeywordOnlyIndex !== undefined &&
-                paramIndex >= paramListDetails.firstKeywordOnlyIndex;
+                paramListDetails.params.find((param) => param.param.name === paramName)?.kind === ParamKind.Keyword;
 
             if (!isKeywordOnly || Tokenizer.isPythonIdentifier(paramName)) {
                 if (!isFirstParamInLabel) {
