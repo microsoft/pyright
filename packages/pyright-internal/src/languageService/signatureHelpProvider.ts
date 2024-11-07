@@ -249,8 +249,9 @@ export class SignatureHelpProvider {
                 paramName = params[params.length - 1].name || '';
             }
 
-            const isKeywordOnly =
-                paramListDetails.params.find((param) => param.param.name === paramName)?.kind === ParamKind.Keyword;
+            const isKeywordOnly = paramListDetails.params.some(
+                (param) => param.param.name === paramName && param.kind === ParamKind.Keyword
+            );
 
             if (!isKeywordOnly || Tokenizer.isPythonIdentifier(paramName)) {
                 if (!isFirstParamInLabel) {
