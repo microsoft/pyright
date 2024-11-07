@@ -16,6 +16,15 @@ a = coroutine1()
 await a
 
 
+async def func1() -> int: ...
+
+
+async def func2() -> None:
+    # This should generate an error because await cannot be
+    # used in a lambda.
+    x = lambda: await func2()
+
+
 def needs_int(val: int):
     pass
 

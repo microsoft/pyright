@@ -159,7 +159,7 @@ test('Coroutines1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['coroutines1.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Coroutines2', () => {
