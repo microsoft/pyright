@@ -15,9 +15,9 @@ import {
 import { FileSystem } from '../common/fileSystem';
 import { deduplicateFolders, isFile } from '../common/uri/uriUtils';
 import { DynamicFeature } from './dynamicFeature';
-import { configFileName } from '../analyzer/serviceUtils';
 import { Workspace } from '../workspaceFactory';
 import { isDefined } from '../common/core';
+import { configFileName } from '../common/pathConsts';
 
 export class FileWatcherDynamicFeature extends DynamicFeature {
     constructor(
