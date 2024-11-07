@@ -509,6 +509,12 @@ export class ImportResolver {
         return excludes;
     }
 
+    // Intended to be overridden by subclasses to provide additional stub
+    // path capabilities. Return undefined if no extra stub path were found.
+    getTypeshedPathEx(execEnv: ExecutionEnvironment, importFailureInfo: string[]): Uri | undefined {
+        return undefined;
+    }
+
     protected readdirEntriesCached(uri: Uri): Dirent[] {
         const cachedValue = this._cachedEntriesForPath.get(uri.key);
         if (cachedValue) {
@@ -742,12 +748,6 @@ export class ImportResolver {
             allowPyi,
             lookForPyTyped
         );
-    }
-
-    // Intended to be overridden by subclasses to provide additional stub
-    // path capabilities. Return undefined if no extra stub path were found.
-    protected getTypeshedPathEx(execEnv: ExecutionEnvironment, importFailureInfo: string[]): Uri | undefined {
-        return undefined;
     }
 
     // Intended to be overridden by subclasses to provide additional stub

@@ -373,6 +373,7 @@
         "paramAnnotationMissing": "パラメーター \"{name}\" に型注釈がありません",
         "paramAssignmentMismatch": "型 \"{sourceType}\" の式を型 \"{paramType}\" のパラメーターに割り当てることはできません",
         "paramNameMissing": "\"{name}\" という名前のパラメーターがありません",
+        "paramSpecArgsKwargsDuplicate": "ParamSpec \"{type}\" の引数は既に指定されています",
         "paramSpecArgsKwargsUsage": "ParamSpec の \"args\" 属性と \"kwargs\" 属性の両方が関数シグネチャ内に含まれている必要があります",
         "paramSpecArgsMissing": "ParamSpec \"{type}\" の引数がありません",
         "paramSpecArgsUsage": "ParamSpec の \"args\" 属性は、*args パラメーターと共に使用する場合にのみ有効です",

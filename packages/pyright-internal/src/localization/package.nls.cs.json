@@ -373,6 +373,7 @@
         "paramAnnotationMissing": "Chybí poznámka typu pro parametr „{name}“",
         "paramAssignmentMismatch": "Výraz typu „{sourceType}“ nelze přiřadit k parametru typu „{paramType}“",
         "paramNameMissing": "Žádný parametr s názvem {name}",
+        "paramSpecArgsKwargsDuplicate": "Argumenty pro ParamSpec {type} již byly zadány.",
         "paramSpecArgsKwargsUsage": "Atributy args a kwargs ParamSpec se musí vyskytovat v signatuře funkce.",
         "paramSpecArgsMissing": "Chybí argumenty pro parametr ParamSpec {type}",
         "paramSpecArgsUsage": "Atribut args ParamSpec je platný jenom v případě, že se používá s parametrem *args.",

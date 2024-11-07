@@ -373,6 +373,7 @@
         "paramAnnotationMissing": "\"{name}\" parametresi için tür ek açıklaması eksik",
         "paramAssignmentMismatch": "\"{sourceType}\" türündeki ifade, \"{paramType}\" türündeki parametreye atanamaz",
         "paramNameMissing": "\"{name}\" adlı parametre yok",
+        "paramSpecArgsKwargsDuplicate": "\"{type}\" ParamSpec'i için bağımsız değişkenler zaten sağlandı",
         "paramSpecArgsKwargsUsage": "ParamSpec'in \"args\" ve \"kwargs\" özniteliklerinin ikisi de işlev imzasında görünmelidir",
         "paramSpecArgsMissing": "ParamSpec \"{type}\" bağımsız değişkenleri eksik",
         "paramSpecArgsUsage": "ParamSpec'in \"args\" özniteliği yalnızca *args parametresiyle kullanıldığında geçerlidir",
