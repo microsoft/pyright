@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "类“{classType}”中__new__和__init__的签名不匹配",
         "containmentAlwaysFalse": "表达式的计算结果始终为 False，因为类型“{leftType}”和“{rightType}”没有重叠",
         "containmentAlwaysTrue": "表达式的计算结果始终为 True，因为类型“{leftType}”和“{rightType}”没有重叠",
-        "continueInFinally": "“continue”不能在 finally 子句中使用",
         "continueOutsideLoop": "“continue”只能在循环中使用",
         "coroutineInConditionalExpression": "始终计算结果为 True 的条件表达式引用协同例程",
         "dataClassBaseClassFrozen": "非冻结类不能从已冻结类继承",

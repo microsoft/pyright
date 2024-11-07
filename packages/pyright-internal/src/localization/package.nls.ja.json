@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "クラス \"{classType}\" の__new__と__init__のシグネチャの不一致",
         "containmentAlwaysFalse": "型 \"{leftType}\" と \"{rightType}\" に重複がないため、式は常に False に評価されます",
         "containmentAlwaysTrue": "型 \"{leftType}\" と \"{rightType}\" に重複がないため、式は常に True に評価されます",
-        "continueInFinally": "finally 句内では \"continue\" を使用できません",
         "continueOutsideLoop": "\"continue\" はループ内でのみ使用できます",
         "coroutineInConditionalExpression": "常に True に評価される条件式参照コルーチン",
         "dataClassBaseClassFrozen": "固定されていないクラスは、固定されているクラスから継承できません",

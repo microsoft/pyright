@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "Non-concordance entre la signature de __new__ et __init__ dans la classe \"{classType}\"",
         "containmentAlwaysFalse": "L'expression sera toujours évaluée à False car les types \"{leftType}\" et \"{rightType}\" ne se chevauchent pas",
         "containmentAlwaysTrue": "L'expression sera toujours évaluée à True puisque les types \"{leftType}\" et \"{rightType}\" ne se chevauchent pas",
-        "continueInFinally": "« continuer » ne peut pas être utilisé dans une clause finally",
         "continueOutsideLoop": "« continuer » ne peut être utilisé qu’au sein d’une boucle",
         "coroutineInConditionalExpression": "L'expression conditionnelle fait référence à une coroutine qui est toujours évaluée à True",
         "dataClassBaseClassFrozen": "Une classe non gelée ne peut pas hériter d'une classe gelée",

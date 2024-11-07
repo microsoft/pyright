@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "Incompatibilidade entre a assinatura de __new__ e __init__ na classe \"{classType}\"",
         "containmentAlwaysFalse": "A expressão sempre será avaliada como False, pois os tipos \"{leftType}\" e \"{rightType}\" não têm sobreposição",
         "containmentAlwaysTrue": "A expressão sempre será avaliada como True, pois os tipos \"{leftType}\" e \"{rightType}\" não têm sobreposição",
-        "continueInFinally": "\"continue\" não pode ser usado em uma cláusula finally",
         "continueOutsideLoop": "\"continue\" só pode ser usado dentro de um loop",
         "coroutineInConditionalExpression": "A expressão condicional faz referência à corrotina, que sempre é avaliada como True",
         "dataClassBaseClassFrozen": "Uma classe não congelada não pode herdar de uma classe congelada",

@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "Neshoda mezi signaturou __new__ a __init__ ve třídě“ {classType}“",
         "containmentAlwaysFalse": "Výraz se vždy vyhodnotí jako False, protože typy „{leftType}“ a „{rightType}“ se nepřekrývají",
         "containmentAlwaysTrue": "Výraz se vždy vyhodnotí jako True, protože typy „{leftType}“ a „{rightType}“ se nepřekrývají.",
-        "continueInFinally": "continue není možné použít v klauzuli finally",
         "continueOutsideLoop": "continue se dá použít jenom ve smyčce",
         "coroutineInConditionalExpression": "Podmíněný výraz odkazuje na korutinu, která se vždy vyhodnotí jako True.",
         "dataClassBaseClassFrozen": "Nezablokovaná třída nemůže dědit z zmrazené třídy",

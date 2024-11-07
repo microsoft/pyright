@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "\"{classType}\" sınıfındaki __new__ ve __init__ imzaları arasında uyuşmazlık var",
         "containmentAlwaysFalse": "\"{leftType}\" türleri ve \"{rightType}\" türleri çakışmadığından ifade her zaman False olarak değerlendirilir",
         "containmentAlwaysTrue": "\"{leftType}\" türleri ve \"{rightType}\" türleri çakışmadığından ifade her zaman True olarak değerlendirilir",
-        "continueInFinally": "\"continue\" finally yan tümcesi içinde kullanılamaz",
         "continueOutsideLoop": "\"continue\" yalnızca bir döngü içinde kullanılabilir",
         "coroutineInConditionalExpression": "Koşullu ifade, her zaman True olarak değerlendirilen eş yordama başvurur",
         "dataClassBaseClassFrozen": "Dondurulmuş olmayan bir sınıf dondurulmuş bir sınıftan devralamaz",

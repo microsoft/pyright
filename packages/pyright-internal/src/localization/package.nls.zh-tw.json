@@ -96,7 +96,6 @@
         "constructorParametersMismatch": "類別 \"{classType}\" 中__new__與__init__的簽章不相符",
         "containmentAlwaysFalse": "運算式一律會評估為 False，因為型別 \"{leftType}\" 和 \"{rightType}\" 沒有重疊",
         "containmentAlwaysTrue": "運算式一律會評估為 True，因為型別 \"{leftType}\" 和 \"{rightType}\" 沒有重疊",
-        "continueInFinally": "\"continue\" 不能在 finally 子句內使用",
         "continueOutsideLoop": "\"continue\" 只能在 loop 內使用",
         "coroutineInConditionalExpression": "條件運算式參考協同程式，一律評估為 True",
         "dataClassBaseClassFrozen": "未凍結的類別無法繼承已凍結的類別",
