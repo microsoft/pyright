@@ -1093,11 +1093,11 @@ export class Checker extends ParseTreeWalker {
 
     override visitRaise(node: RaiseNode): boolean {
         if (node.d.expr) {
-            this._evaluator.verifyRaiseExceptionType(node.d.expr);
+            this._evaluator.verifyRaiseExceptionType(node.d.expr, /* allowNone */ false);
         }
 
         if (node.d.fromExpr) {
-            this._evaluator.verifyRaiseExceptionType(node.d.fromExpr);
+            this._evaluator.verifyRaiseExceptionType(node.d.fromExpr, /* allowNone */ true);
         }
 
         return true;
