@@ -21,6 +21,7 @@ import {
 } from 'vscode-languageserver';
 
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
+import { getParamListDetails, ParamKind } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParamIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
@@ -35,6 +36,7 @@ import { Position } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
+import { Tokenizer } from '../parser/tokenizer';
 import { getDocumentationPartsForTypeAndDecl, getFunctionDocStringFromType } from './tooltipUtils';
 
 export class SignatureHelpProvider {
@@ -232,8 +234,10 @@ export class SignatureHelpProvider {
             getFunctionDocStringFromType(functionType, this._sourceMapper, this._evaluator) ??
             this._getDocStringFromCallNode(callNode);
         const fileInfo = getFileInfo(callNode);
+        const paramListDetails = getParamListDetails(functionType);
 
         let label = '(';
+        let isFirstParamInLabel = true;
         let activeParameter: number | undefined;
         const params = functionType.shared.parameters;
 
@@ -245,21 +249,29 @@ export class SignatureHelpProvider {
                 paramName = params[params.length - 1].name || '';
             }
 
-            parameters.push({
-                startOffset: label.length,
-                endOffset: label.length + paramString.length,
-                text: paramString,
-            });
+            const isKeywordOnly = paramListDetails.params.some(
+                (param) => param.param.name === paramName && param.kind === ParamKind.Keyword
+            );
 
-            // Name match for active parameter. The set of parameters from the function
-            // may not match the actual string output from the typeEvaluator (kwargs for TypedDict is an example).
-            if (paramName && signature.activeParam && signature.activeParam.name === paramName) {
-                activeParameter = paramIndex;
-            }
+            if (!isKeywordOnly || Tokenizer.isPythonIdentifier(paramName)) {
+                if (!isFirstParamInLabel) {
+                    label += ', ';
+                }
+                isFirstParamInLabel = false;
 
-            label += paramString;
-            if (paramIndex < stringParts[0].length - 1) {
-                label += ', ';
+                parameters.push({
+                    startOffset: label.length,
+                    endOffset: label.length + paramString.length,
+                    text: paramString,
+                });
+
+                // Name match for active parameter. The set of parameters from the function
+                // may not match the actual string output from the typeEvaluator (kwargs for TypedDict is an example).
+                if (paramName && signature.activeParam && signature.activeParam.name === paramName) {
+                    activeParameter = parameters.length - 1;
+                }
+
+                label += paramString;
             }
         });
 
