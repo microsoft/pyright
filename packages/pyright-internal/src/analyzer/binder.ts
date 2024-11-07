@@ -1607,11 +1607,17 @@ export class Binder extends ParseTreeWalker {
                 return true;
             }
 
+            const isInGenerator =
+                node.parent?.nodeType === ParseNodeType.Comprehension &&
+                node.parent?.parent?.nodeType !== ParseNodeType.List &&
+                node.parent?.parent?.nodeType !== ParseNodeType.Set &&
+                node.parent?.parent?.nodeType !== ParseNodeType.Dictionary;
+
             // Allow if it's within a generator expression. Execution of
             // generator expressions is deferred and therefore can be
             // run within the context of an async function later.
-            if (node.parent?.nodeType !== ParseNodeType.Comprehension) {
-                this._addSyntaxError(LocMessage.awaitNotInAsync(), node);
+            if (!isInGenerator) {
+                this._addSyntaxError(LocMessage.awaitNotInAsync(), node.d.awaitToken);
             }
         }
 
@@ -2181,7 +2187,11 @@ export class Binder extends ParseTreeWalker {
                                 // Allow if it's within a generator expression. Execution of
                                 // generator expressions is deferred and therefore can be
                                 // run within the context of an async function later.
-                                if (node.parent?.nodeType === ParseNodeType.List) {
+                                if (
+                                    node.parent?.nodeType === ParseNodeType.List ||
+                                    node.parent?.nodeType === ParseNodeType.Set ||
+                                    node.parent?.nodeType === ParseNodeType.Dictionary
+                                ) {
                                     this._addSyntaxError(LocMessage.asyncNotInAsyncFunction(), compr.d.asyncToken);
                                 }
                             }
