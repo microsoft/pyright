@@ -1600,9 +1600,9 @@ export class Binder extends ParseTreeWalker {
 
     override visitAwait(node: AwaitNode) {
         // Make sure this is within an async lambda or function.
-        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
-        if (enclosingFunction === undefined || !enclosingFunction.d.isAsync) {
-            if (this._fileInfo.ipythonMode && enclosingFunction === undefined) {
+        const execScopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+        if (execScopeNode?.nodeType !== ParseNodeType.Function || !execScopeNode.d.isAsync) {
+            if (this._fileInfo.ipythonMode && execScopeNode?.nodeType === ParseNodeType.Module) {
                 // Top level await is allowed in ipython mode.
                 return true;
             }
