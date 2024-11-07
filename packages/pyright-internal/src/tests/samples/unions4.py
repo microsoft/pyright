@@ -18,3 +18,13 @@ def func1() -> Union: ...
 
 # This should generate an error.
 var1: Union
+
+
+# This should generate two errors.
+def func2(x: (list | set)[int]):
+    reveal_type(x)
+
+
+# This should generate two errors.
+def func3(x: Union[list, set][int]):
+    reveal_type(x)
