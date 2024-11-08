@@ -24585,16 +24585,20 @@ export function createTypeEvaluator(
                 if (metaclass) {
                     if (isAnyOrUnknown(metaclass)) {
                         return true;
-                    } else {
-                        return assignClass(
+                    }
+
+                    if (
+                        assignClass(
                             ClassType.cloneAsInstantiable(destType),
                             metaclass,
-                            diag,
+                            /* diag */ undefined,
                             constraints,
                             flags,
                             recursionCount,
-                            /* reportErrorsUsingObjType */ false
-                        );
+                            /* reportErrorsUsingObjType */ true
+                        )
+                    ) {
+                        return true;
                     }
                 }
             } else if (isAnyOrUnknown(concreteSrcType) && !concreteSrcType.props?.specialForm) {
