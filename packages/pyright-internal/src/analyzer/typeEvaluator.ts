@@ -4418,7 +4418,7 @@ export function createTypeEvaluator(
         }
     }
 
-    function verifyRaiseExceptionType(node: ExpressionNode) {
+    function verifyRaiseExceptionType(node: ExpressionNode, allowNone: boolean) {
         const baseExceptionType = getBuiltInType(node, 'BaseException');
         const exceptionType = getTypeOfExpression(node).type;
 
@@ -4431,7 +4431,11 @@ export function createTypeEvaluator(
             doForEachSubtype(exceptionType, (subtype) => {
                 const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
-                if (isAnyOrUnknown(concreteSubtype) || isNever(concreteSubtype) || isNoneInstance(concreteSubtype)) {
+                if (isAnyOrUnknown(concreteSubtype) || isNever(concreteSubtype)) {
+                    return;
+                }
+
+                if (allowNone && isNoneInstance(concreteSubtype)) {
                     return;
                 }
 
