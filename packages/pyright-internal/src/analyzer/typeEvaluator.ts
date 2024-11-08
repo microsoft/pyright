@@ -12489,7 +12489,7 @@ export function createTypeEvaluator(
         }
 
         if (!options.skipUnknownArgCheck) {
-            const simplifiedType = removeUnbound(argType);
+            const simplifiedType = makeTopLevelTypeVarsConcrete(removeUnbound(argType));
             const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
 
             function getDiagAddendum() {
