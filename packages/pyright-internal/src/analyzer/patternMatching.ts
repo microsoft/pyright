@@ -859,7 +859,8 @@ function narrowTypeBasedOnClassPattern(
             LocAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
             pattern.d.className
         );
-        return NeverType.createNever();
+
+        return isPositiveTest ? UnknownType.create() : type;
     } else if (isInstantiableClass(exprType)) {
         if (ClassType.isProtocolClass(exprType) && !ClassType.isRuntimeCheckable(exprType)) {
             evaluator.addDiagnostic(
@@ -867,12 +868,16 @@ function narrowTypeBasedOnClassPattern(
                 LocAddendum.protocolRequiresRuntimeCheckable(),
                 pattern.d.className
             );
+
+            return isPositiveTest ? UnknownType.create() : type;
         } else if (ClassType.isTypedDictClass(exprType)) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.typedDictInClassPattern(),
                 pattern.d.className
             );
+
+            return isPositiveTest ? UnknownType.create() : type;
         }
     }
 
