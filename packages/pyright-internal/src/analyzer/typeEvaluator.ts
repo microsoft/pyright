@@ -1946,6 +1946,19 @@ export function createTypeEvaluator(
                     return isUnboundedTupleClass(tupleBaseClass) || tupleBaseClass.priv.tupleTypeArgs.length === 0;
                 }
 
+                // Handle TypedDicts specially. If one or more entries are required
+                // or known to exist, we can say for sure that the type is not falsy.
+                if (ClassType.isTypedDictClass(type)) {
+                    const tdEntries = getTypedDictMembersForClass(evaluatorInterface, type, /* allowNarrowed */ true);
+                    if (tdEntries) {
+                        for (const tdEntry of tdEntries.knownItems.values()) {
+                            if (tdEntry.isRequired || tdEntry.isProvided) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+
                 // Check for bool, int, str and bytes literals that are never falsy.
                 if (type.priv.literalValue !== undefined) {
                     if (ClassType.isBuiltIn(type, ['bool', 'int', 'str', 'bytes'])) {
