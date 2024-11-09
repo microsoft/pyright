@@ -27275,7 +27275,8 @@ export function createTypeEvaluator(
 
         // Now check the return type.
         const baseReturnType = getEffectiveReturnType(baseMethod);
-        const overrideReturnType = getEffectiveReturnType(overrideMethod);
+        const overrideReturnType = solveAndApplyConstraints(getEffectiveReturnType(overrideMethod), constraints);
+
         if (
             !assignType(
                 baseReturnType,

@@ -14,23 +14,31 @@ _T2 = TypeVar("_T2")
 _T3 = TypeVar("_T3")
 
 
-class Base(Generic[_TSource]):
+class BaseA(Generic[_TSource]):
     @abstractmethod
     def method1(
-        self, mapper: Callable[[_TSource, _T1], _TResult], other: "Base[_T1]"
-    ) -> "Base[_TResult]":
+        self, mapper: Callable[[_TSource, _T1], _TResult], other: "BaseA[_T1]"
+    ) -> "BaseA[_TResult]":
         raise NotImplementedError
 
 
-class Subclass1(Base[_TSource]):
+class SubclassA1(BaseA[_TSource]):
     def method1(
-        self, mapper: Callable[[_TSource, _T2], _TResult], other: Base[_T2]
-    ) -> Base[_TResult]:
-        return Subclass2()
+        self, mapper: Callable[[_TSource, _T2], _TResult], other: BaseA[_T2]
+    ) -> BaseA[_TResult]:
+        return SubclassA2()
 
 
-class Subclass2(Base[_TSource]):
+class SubclassA2(BaseA[_TSource]):
     def method1(
-        self, mapper: Callable[[_TSource, _T3], _TResult], other: Base[_T3]
-    ) -> Base[_TResult]:
-        return Subclass2()
+        self, mapper: Callable[[_TSource, _T3], _TResult], other: BaseA[_T3]
+    ) -> BaseA[_TResult]:
+        return SubclassA2()
+
+
+class BaseB:
+    def f(self, v: str) -> str: ...
+
+
+class SubclassB1(BaseB):
+    def f[T](self, v: T) -> T: ...
