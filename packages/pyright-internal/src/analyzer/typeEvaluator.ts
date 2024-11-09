@@ -17072,6 +17072,17 @@ export function createTypeEvaluator(
                     argType = stripTypeFormRecursive(argType);
 
                     if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
+                        // If the specified base class is type(T), use the metaclass
+                        // of T if it's known.
+                        if (
+                            isClass(argType) &&
+                            TypeBase.getInstantiableDepth(argType) > 0 &&
+                            argType.shared.effectiveMetaclass &&
+                            isClass(argType.shared.effectiveMetaclass)
+                        ) {
+                            argType = argType.shared.effectiveMetaclass;
+                        }
+
                         if (isMetaclassInstance(argType)) {
                             assert(isClassInstance(argType));
                             argType =
@@ -17539,7 +17550,7 @@ export function createTypeEvaluator(
 
             // Determine the effective metaclass.
             if (metaclassNode) {
-                const metaclassType = getTypeOfExpression(metaclassNode, exprFlags).type;
+                let metaclassType = getTypeOfExpression(metaclassNode, exprFlags).type;
                 if (isInstantiableClass(metaclassType) || isUnknown(metaclassType)) {
                     if (requiresSpecialization(metaclassType, { ignorePseudoGeneric: true })) {
                         addDiagnostic(
@@ -17547,6 +17558,17 @@ export function createTypeEvaluator(
                             LocMessage.metaclassIsGeneric(),
                             metaclassNode
                         );
+                    }
+
+                    // If the specified metaclass is type(T), use the metaclass
+                    // of T if it's known.
+                    if (
+                        TypeBase.getInstantiableDepth(metaclassType) > 0 &&
+                        isClass(metaclassType) &&
+                        metaclassType.shared.effectiveMetaclass &&
+                        isClass(metaclassType.shared.effectiveMetaclass)
+                    ) {
+                        metaclassType = metaclassType.shared.effectiveMetaclass;
                     }
 
                     classType.shared.declaredMetaclass = metaclassType;
