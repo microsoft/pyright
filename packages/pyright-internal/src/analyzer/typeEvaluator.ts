@@ -21321,9 +21321,8 @@ export function createTypeEvaluator(
         // within the local scope.
         let scopeTypeHonorsCodeFlow = scopeType !== ScopeType.Function && scopeType !== ScopeType.Comprehension;
 
-        // Type parameter scopes don't honor code flow, but if the symbol is resolved
-        // using the proxy scope for the type parameter scope, we should use code flow.
-        if (scopeType === ScopeType.TypeParameter && symbolWithScope && symbolWithScope.scope === scope) {
+        // Type parameter scopes don't honor code flow.
+        if (symbolWithScope?.scope.type === ScopeType.TypeParameter) {
             scopeTypeHonorsCodeFlow = false;
         }
 
