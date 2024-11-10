@@ -8,8 +8,8 @@
  * Python files.
  */
 
-import * as TOML from 'js-toml';
 import * as JSONC from 'jsonc-parser';
+import { parse } from 'smol-toml';
 import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-languageserver';
 
 import { BackgroundAnalysisBase, RefreshOptions } from '../backgroundAnalysisBase';
@@ -1136,7 +1136,7 @@ export class AnalyzerService {
     private _parsePyprojectTomlFile(pyprojectPath: Uri): object | undefined {
         return this._attemptParseFile(pyprojectPath, (fileContents, attemptCount) => {
             try {
-                const configObj = TOML.load(fileContents);
+                const configObj = parse(fileContents);
                 if (configObj && 'tool' in configObj) {
                     return (configObj.tool as Record<string, object>).pyright as object;
                 }
