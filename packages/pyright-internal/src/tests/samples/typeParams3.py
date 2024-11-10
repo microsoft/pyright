@@ -101,3 +101,9 @@ class Outer2[T]:
 
         def inner_func():
             reveal_type(T, expected_text="complex")
+
+
+class Outer3[T]:
+    # This should generate an error because Outer3 is
+    # not bound at this point.
+    def inner_func1[S](self: Outer3[S]): ...

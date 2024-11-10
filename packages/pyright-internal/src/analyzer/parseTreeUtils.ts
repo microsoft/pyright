@@ -1092,9 +1092,12 @@ export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
     let evaluationScope = getEvaluationScopeNode(node).node;
 
     // Classes are not considered execution scope because they are executed
-    // within the context of their containing module or function. Likewise, list
-    // comprehensions are executed within their container.
+    // within the context of their containing module or function. Likewise,
+    // list comprehensions are executed within their container. Type parameter
+    // scopes are special because they act as proxies for their containing
+    // function or class scope.
     while (
+        evaluationScope.nodeType === ParseNodeType.TypeParameterList ||
         evaluationScope.nodeType === ParseNodeType.Class ||
         evaluationScope.nodeType === ParseNodeType.Comprehension
     ) {

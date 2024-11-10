@@ -38,7 +38,7 @@ test('TypeParams3', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypeParams4', () => {
