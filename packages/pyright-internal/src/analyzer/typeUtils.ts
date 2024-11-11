@@ -96,6 +96,10 @@ export interface ClassMember {
     // or frozen dataclasses.
     isReadOnly: boolean;
 
+    // True if the member is a method -- a class variable declared
+    // with a "def" statement.
+    isMethod: boolean;
+
     // True if member has declared type, false if inferred
     isTypeDeclared: boolean;
 
@@ -1631,6 +1635,7 @@ export function getProtocolSymbolsRecursive(
                 isClassMember: symbol.isClassMember(),
                 isClassVar: isEffectivelyClassVar(symbol, /* isDataclass */ false),
                 isReadOnly: false,
+                isMethod: false,
                 isTypeDeclared: symbol.hasTypedDeclarations(),
                 skippedUndeclaredType: false,
             });
@@ -1772,6 +1777,7 @@ export function* getClassMemberIterator(
                         classType,
                         unspecializedClassType: classType,
                         isReadOnly: false,
+                        isMethod: false,
                         isTypeDeclared: false,
                         skippedUndeclaredType: false,
                     };
@@ -1800,6 +1806,7 @@ export function* getClassMemberIterator(
                             classType: specializedMroClass,
                             unspecializedClassType: mroClass,
                             isReadOnly: isMemberReadOnly(specializedMroClass, memberName),
+                            isMethod: false,
                             isTypeDeclared: hasDeclaredType,
                             skippedUndeclaredType,
                         };
@@ -1847,6 +1854,10 @@ export function* getClassMemberIterator(
                             symbol = Symbol.createWithType(SymbolFlags.ClassMember, classType.priv.partialCallType);
                         }
 
+                        const isMethod = symbol
+                            .getTypedDeclarations()
+                            .some((decl) => decl.type === DeclarationType.Function);
+
                         const cm: ClassMember = {
                             symbol,
                             isInstanceMember,
@@ -1855,6 +1866,7 @@ export function* getClassMemberIterator(
                             classType: specializedMroClass,
                             unspecializedClassType: mroClass,
                             isReadOnly: false,
+                            isMethod,
                             isTypeDeclared: hasDeclaredType,
                             skippedUndeclaredType,
                         };
@@ -1876,6 +1888,7 @@ export function* getClassMemberIterator(
             classType,
             unspecializedClassType: classType,
             isReadOnly: false,
+            isMethod: false,
             isTypeDeclared: false,
             skippedUndeclaredType: false,
         };
@@ -1970,6 +1983,7 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
                         isClassMember: symbol.isClassMember(),
                         isClassVar: isEffectivelyClassVar(symbol, ClassType.isDataClass(specializedMroClass)),
                         isReadOnly: isMemberReadOnly(specializedMroClass, name),
+                        isMethod: false,
                         isTypeDeclared: true,
                         skippedUndeclaredType: false,
                     });

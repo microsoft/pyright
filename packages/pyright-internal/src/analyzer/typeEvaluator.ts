@@ -6225,6 +6225,11 @@ export function createTypeEvaluator(
                 isDescriptorError = true;
             }
 
+            if (memberInfo?.isMethod && usage.method === 'set') {
+                diag?.addMessage(LocAddendum.assignMethod());
+                isDescriptorError = true;
+            }
+
             return resultType;
         });
 

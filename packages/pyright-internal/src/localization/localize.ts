@@ -1235,6 +1235,7 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.argumentType'));
         export const argumentTypes = () =>
             new ParameterizedString<{ types: string }>(getRawString('DiagnosticAddendum.argumentTypes'));
+        export const assignMethod = () => getRawString('DiagnosticAddendum.assignMethod');
         export const assignToNone = () => getRawString('DiagnosticAddendum.assignToNone');
         export const asyncHelp = () => getRawString('DiagnosticAddendum.asyncHelp');
         export const baseClassIncompatible = () =>

@@ -1726,6 +1726,7 @@
         "argsPositionOnly": "Position-only parameter mismatch; expected {expected} but received {received}",
         "argumentType": "Argument type is \"{type}\"",
         "argumentTypes": "Argument types: ({types})",
+        "assignMethod": "Method cannot be reassigned",
         "assignToNone": {
             "message": "Type is not assignable to \"None\"",
             "comment": "{Locked='None'}"
