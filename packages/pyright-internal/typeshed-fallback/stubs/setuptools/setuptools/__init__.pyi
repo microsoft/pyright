@@ -31,7 +31,7 @@ from .dist import Distribution as Distribution
 from .extension import Extension as Extension
 from .warnings import SetuptoolsDeprecationWarning as SetuptoolsDeprecationWarning
 
-_CommandT = TypeVar("_CommandT", bound=Command)
+_CommandT = TypeVar("_CommandT", bound=_Command)
 
 __all__ = [
     "setup",

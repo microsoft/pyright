@@ -1,4 +1,5 @@
 from _typeshed import Incomplete, StrPath
+from collections.abc import Iterable
 from typing import Any, ClassVar, Generic, TypeVar
 from typing_extensions import TypeAlias
 
@@ -8,14 +9,14 @@ from . import expand
 
 SingleCommandOptions: TypeAlias = dict[str, tuple[str, Any]]
 AllCommandOptions: TypeAlias = dict[str, SingleCommandOptions]
-Target = TypeVar("Target", bound=Distribution | DistributionMetadata)  # noqa: Y001 # Exists at runtime
+Target = TypeVar("Target", Distribution, DistributionMetadata)  # noqa: Y001 # Exists at runtime
 
 def read_configuration(
     filepath: StrPath, find_others: bool = False, ignore_option_errors: bool = False
 ) -> dict[Incomplete, Incomplete]: ...
 def apply_configuration(dist: Distribution, filepath: StrPath) -> Distribution: ...
 def configuration_to_dict(
-    handlers: tuple[ConfigHandler[Distribution | DistributionMetadata], ...]
+    handlers: Iterable[ConfigHandler[Distribution] | ConfigHandler[DistributionMetadata]],
 ) -> dict[Incomplete, Incomplete]: ...
 def parse_configuration(
     distribution: Distribution, command_options: AllCommandOptions, ignore_option_errors: bool = False
@@ -47,7 +48,7 @@ class ConfigMetadataHandler(ConfigHandler[DistributionMetadata]):
     aliases: ClassVar[dict[str, str]]
     strict_mode: bool
     package_dir: dict[Incomplete, Incomplete] | None
-    root_dir: StrPath
+    root_dir: StrPath | None
     def __init__(
         self,
         target_obj: DistributionMetadata,
@@ -55,7 +56,7 @@ class ConfigMetadataHandler(ConfigHandler[DistributionMetadata]):
         ignore_option_errors: bool,
         ensure_discovered: expand.EnsurePackagesDiscovered,
         package_dir: dict[Incomplete, Incomplete] | None = None,
-        root_dir: StrPath = ".",
+        root_dir: StrPath | None = ".",
     ) -> None: ...
     @property
     def parsers(self): ...

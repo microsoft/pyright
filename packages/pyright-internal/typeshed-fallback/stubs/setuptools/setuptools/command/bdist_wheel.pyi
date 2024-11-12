@@ -40,7 +40,7 @@ class bdist_wheel(Command):
     owner: Incomplete | None
     group: Incomplete | None
     universal: bool
-    compression: int | str
+    compression: str | int
     python_tag: str
     build_number: str | None
     py_limited_api: str | Literal[False]

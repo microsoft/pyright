@@ -1,4 +1,4 @@
-from _typeshed import Incomplete, StrPath
+from _typeshed import Incomplete, StrPath, Unused
 from typing import ClassVar
 
 from setuptools.dist import Distribution
@@ -21,7 +21,7 @@ class build_py(orig.build_py):
         preserve_mode: bool = True,
         preserve_times: bool = True,
         link: str | None = None,
-        level: int = 1,
+        level: Unused = 1,
     ) -> tuple[_StrPathT | str, bool]: ...
     def run(self) -> None: ...
     data_files: list[tuple[Incomplete, Incomplete, Incomplete, list[Incomplete]]]

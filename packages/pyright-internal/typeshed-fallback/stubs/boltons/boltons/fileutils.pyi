@@ -41,7 +41,11 @@ class AtomicSaver:
     ) -> None: ...
 
 def iter_find_files(
-    directory: str, patterns: str | Iterable[str], ignored: str | Iterable[str] | None = None, include_dirs: bool = False
+    directory: str,
+    patterns: str | Iterable[str],
+    ignored: str | Iterable[str] | None = None,
+    include_dirs: bool = False,
+    max_depth: int | None = None,
 ) -> Generator[str, None, None]: ...
 def copy_tree(
     src: StrOrBytesPath,

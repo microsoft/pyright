@@ -9,6 +9,11 @@ from typing_extensions import Never, Self, TypeAlias
 _RetType: TypeAlias = type[float | datetime.datetime]
 _Expressions: TypeAlias = list[str]  # fixed-length list of 5 or 6 strings
 
+def is_32bit() -> bool: ...
+
+OVERFLOW32B_MODE: Final[bool]
+
+EPOCH: Final[datetime.datetime]
 M_ALPHAS: Final[dict[str, int]]
 DOW_ALPHAS: Final[dict[str, int]]
 ALPHAS: Final[dict[str, int]]
@@ -37,6 +42,8 @@ YEAR_FIELDS: Final[tuple[int, int, int, int, int, int, int]]
 CRON_FIELDS: Final[dict[str | int, tuple[int, ...]]]
 VALID_LEN_EXPRESSION: Final[set[int]]
 EXPRESSIONS: dict[tuple[str, bytes], _Expressions]
+
+UTC_DT: Final[datetime.timezone]
 
 def timedelta_to_seconds(td: datetime.timedelta) -> float: ...
 

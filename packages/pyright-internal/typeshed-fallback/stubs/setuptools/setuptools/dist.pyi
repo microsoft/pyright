@@ -3,6 +3,7 @@ from collections.abc import Iterable, Iterator, MutableMapping
 from typing import Literal, TypeVar, overload
 
 from . import Command, SetuptoolsDeprecationWarning
+from ._distutils.cmd import Command as _Command
 from ._distutils.dist import Distribution as _Distribution
 from .command.alias import alias
 from .command.bdist_egg import bdist_egg
@@ -26,7 +27,7 @@ from .command.saveopts import saveopts
 from .command.sdist import sdist
 from .command.setopt import setopt
 
-_CommandT = TypeVar("_CommandT", bound=Command)
+_CommandT = TypeVar("_CommandT", bound=_Command)
 
 __all__ = ["Distribution"]
 
