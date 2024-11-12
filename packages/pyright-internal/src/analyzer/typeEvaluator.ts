@@ -22306,6 +22306,7 @@ export function createTypeEvaluator(
                         'TypedDict',
                         'NamedTuple',
                         'NewType',
+                        'TypeAliasType',
                     ];
 
                     if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, exemptBuiltins)) {
