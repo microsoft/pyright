@@ -38,7 +38,7 @@ export const enum SymbolFlags {
     PrivateMember = 1 << 5,
 
     // Indicates that the symbol is not considered for protocol
-    // matching. This applies to some built-in symbols like __class__.
+    // matching. This applies to some built-in symbols like __module__.
     IgnoredForProtocolMatch = 1 << 6,
 
     // Indicates that the symbol is a ClassVar, so it cannot be
