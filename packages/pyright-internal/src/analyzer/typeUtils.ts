@@ -1993,7 +1993,7 @@ export function addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarTy
             continue;
         }
 
-        if (!list1.find((type1) => isTypeSame(convertToInstance(type1), convertToInstance(type2)))) {
+        if (!list1.find((type1) => isTypeSame(type1, type2))) {
             list1.push(type2);
         }
     }
