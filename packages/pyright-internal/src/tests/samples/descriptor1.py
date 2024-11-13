@@ -1,7 +1,7 @@
 # This sample tests the detection and handling of asymmetric descriptors
 # and properties. Type narrowing should be disabled in these cases.
 
-from typing import Any, Hashable, Iterable, Literal, overload
+from typing import Any, Hashable, Iterable, Literal, Self, overload
 
 
 class A:
@@ -101,12 +101,24 @@ class Descriptor5:
     def __set__(self, owner: Any, value: int | None) -> None: ...
 
 
+class Descriptor6[GT, ST]:
+    @overload
+    def __get__(self, instance: None, owner: Any) -> Self: ...
+
+    @overload
+    def __get__(self, instance: Any, owner: Any) -> GT: ...
+    def __get__(self, instance: Any, owner: Any) -> Any: ...
+
+    def __set__(self, instance: Any, value: ST): ...
+
+
 class B:
     desc1: Descriptor1
     desc2: Descriptor2
     desc3: Descriptor3
     desc4: Descriptor4
     desc5: Descriptor5
+    desc6: Descriptor6[int | None, int | None]
 
 
 def func4(obj: B) -> Literal[3]:
@@ -148,3 +160,6 @@ def func7(obj: B):
 
     obj.desc5 = 3
     reveal_type(obj.desc5, expected_text="int")
+
+    obj.desc6 = 1
+    reveal_type(obj.desc6, expected_text="Literal[1]")
