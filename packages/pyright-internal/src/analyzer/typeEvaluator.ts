@@ -6610,8 +6610,8 @@ export function createTypeEvaluator(
         if (!getterSymbolResult || !setterSymbolResult) {
             isAsymmetric = false;
         } else {
-            let getterType = getEffectiveTypeOfSymbol(getterSymbolResult.symbol);
-            const setterType = getEffectiveTypeOfSymbol(setterSymbolResult.symbol);
+            let getterType = getTypeOfMember(getterSymbolResult);
+            const setterType = getTypeOfMember(setterSymbolResult);
 
             // If this is an overload, find the appropriate overload.
             if (isOverloaded(getterType)) {
