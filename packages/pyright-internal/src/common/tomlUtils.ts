@@ -6,11 +6,16 @@
  * helpers related to TOML
  */
 
-type TomlPrimitive = string | number | boolean | {
-    [key: string]: TomlPrimitive;
-} | TomlPrimitive[];
+type TomlPrimitive =
+    | string
+    | number
+    | boolean
+    | {
+          [key: string]: TomlPrimitive;
+      }
+    | TomlPrimitive[];
 
-// Dynamically load `smol-toml` to address module loading issues and 
+// Dynamically load `smol-toml` to address module loading issues and
 // maintain existing module resolution to support multiple environments.
 let TOML: any;
 (async () => {
