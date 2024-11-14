@@ -34,6 +34,7 @@ import { FileSystem } from '../../common/fileSystem';
 import { ServerSettings } from '../../common/languageServerInterface';
 import { PythonVersion } from '../../common/pythonVersion';
 import { ServiceKeys } from '../../common/serviceKeys';
+import { initializeDependencies } from '../../common/shared';
 import { PyrightFileSystem } from '../../pyrightFileSystem';
 import { PyrightServer } from '../../server';
 import { InitStatus, Workspace } from '../../workspaceFactory';
@@ -388,7 +389,9 @@ async function runTestBackgroundThread() {
     }
 }
 
-export function run() {
+export async function run() {
+    await initializeDependencies();
+    
     // Start the background thread if this is not the first worker.
     if (getEnvironmentData(WORKER_STARTED) === 'true') {
         runTestBackgroundThread();

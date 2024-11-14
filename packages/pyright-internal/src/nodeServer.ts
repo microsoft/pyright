@@ -11,12 +11,10 @@ import { createConnection } from 'vscode-languageserver/node';
 import { isMainThread } from 'worker_threads';
 
 import { getCancellationStrategyFromArgv } from './common/fileBasedCancellationUtils';
+import { initializeDependencies } from './common/shared';
 
-export function run(runServer: (connection: Connection) => void, runBackgroundThread: () => void) {
-    if (process.env.NODE_ENV === 'production') {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require('source-map-support').install();
-    }
+export async function run(runServer: (connection: Connection) => void, runBackgroundThread: () => void) {
+    await initializeDependencies();
 
     if (isMainThread) {
         runServer(createConnection(getConnectionOptions()));

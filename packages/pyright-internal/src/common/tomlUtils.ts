@@ -18,9 +18,13 @@ type TomlPrimitive =
 // Dynamically load `smol-toml` to address module loading issues and
 // maintain existing module resolution to support multiple environments.
 let TOML: any;
-(async () => {
+const loadTomlModule = (async () => {
     TOML = await import('smol-toml');
 })();
+
+export async function ensureTomlModuleLoaded() {
+    await loadTomlModule;
+}
 
 export const parse = (toml: string): Record<string, TomlPrimitive> => {
     if (!TOML) {

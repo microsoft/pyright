@@ -38,6 +38,7 @@ import { PythonVersion } from './common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
+import { initializeDependencies } from './common/shared';
 import { Range, isEmptyRange } from './common/textRange';
 import { Uri } from './common/uri/uri';
 import { getFileSpec, tryStat } from './common/uri/uriUtils';
@@ -1326,10 +1327,7 @@ function parseThreadsArgValue(input: string | null): any {
 Error.stackTraceLimit = 64;
 
 export async function main() {
-    if (process.env.NODE_ENV === 'production') {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require('source-map-support').install();
-    }
+    await initializeDependencies();
 
     // Is this a worker process for multi-threaded analysis?
     if (process.argv[2] === 'worker') {
