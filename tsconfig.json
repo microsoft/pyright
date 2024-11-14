@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "target": "es2019",
-        "module": "preserve",
+        "module": "node16",
         "lib": [
             "es2019"
         ],
@@ -10,7 +10,7 @@
         "allowSyntheticDefaultImports": true,
         "strict": true,
         "forceConsistentCasingInFileNames": true,
-        "moduleResolution": "Bundler",
+        "moduleResolution": "node16",
         "resolveJsonModule": true,
         "sourceMap": true,
         "outDir": "./out",
