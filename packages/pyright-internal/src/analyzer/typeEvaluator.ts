@@ -19446,6 +19446,7 @@ export function createTypeEvaluator(
 
         const exceptionTypeResult = getTypeOfExpression(node.d.typeExpr!);
         const exceptionTypes = exceptionTypeResult.type;
+        let includesBaseException = false;
 
         function getExceptionType(exceptionType: Type, errorNode: ExpressionNode) {
             exceptionType = makeTopLevelTypeVarsConcrete(exceptionType);
@@ -19455,6 +19456,9 @@ export function createTypeEvaluator(
             }
 
             if (isInstantiableClass(exceptionType)) {
+                if (ClassType.isBuiltIn(exceptionType, 'BaseException')) {
+                    includesBaseException = true;
+                }
                 return ClassType.cloneAsInstance(exceptionType);
             }
 
@@ -19492,9 +19496,13 @@ export function createTypeEvaluator(
             return getExceptionType(subType, node.d.typeExpr!);
         });
 
-        // If this is an except group, wrap the exception type in an BaseExceptionGroup.
+        // If this is an except group, wrap the exception type in an ExceptionGroup
+        // or BaseExceptionGroup depending on whether the target exception is
+        // a BaseException.
         if (node.d.isExceptGroup) {
-            targetType = getBuiltInObject(node, 'BaseExceptionGroup', [targetType]);
+            targetType = getBuiltInObject(node, includesBaseException ? 'BaseExceptionGroup' : 'ExceptionGroup', [
+                targetType,
+            ]);
         }
 
         if (node.d.name) {
