@@ -10,8 +10,8 @@ import { Connection, ConnectionOptions } from 'vscode-languageserver';
 import { createConnection } from 'vscode-languageserver/node';
 import { isMainThread } from 'worker_threads';
 
+import { initializeDependencies } from './common/asyncInitialization';
 import { getCancellationStrategyFromArgv } from './common/fileBasedCancellationUtils';
-import { initializeDependencies } from './common/shared';
 
 export async function run(runServer: (connection: Connection) => void, runBackgroundThread: () => void) {
     await initializeDependencies();
