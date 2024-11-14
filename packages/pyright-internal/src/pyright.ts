@@ -25,6 +25,7 @@ import { PackageTypeVerifier } from './analyzer/packageTypeVerifier';
 import { AnalyzerService } from './analyzer/service';
 import { maxSourceFileSize } from './analyzer/sourceFile';
 import { SourceFileInfo } from './analyzer/sourceFileInfo';
+import { initializeDependencies } from './common/asyncInitialization';
 import { ChokidarFileWatcherProvider } from './common/chokidarFileWatcherProvider';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, StderrConsole } from './common/console';
@@ -1326,10 +1327,7 @@ function parseThreadsArgValue(input: string | null): any {
 Error.stackTraceLimit = 64;
 
 export async function main() {
-    if (process.env.NODE_ENV === 'production') {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require('source-map-support').install();
-    }
+    await initializeDependencies();
 
     // Is this a worker process for multi-threaded analysis?
     if (process.argv[2] === 'worker') {

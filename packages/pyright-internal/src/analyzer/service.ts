@@ -9,8 +9,8 @@
  */
 
 import * as JSONC from 'jsonc-parser';
-import { parse } from 'smol-toml';
 import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-languageserver';
+import { parse } from '../common/tomlUtils';
 
 import { BackgroundAnalysisBase, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
