@@ -6,7 +6,7 @@
  * helpers shared between multiple packages such as pyright-internal and pyright
  */
 
-import { ensureTomlModuleLoaded } from "./tomlUtils";
+import { ensureTomlModuleLoaded } from './tomlUtils';
 
 export async function initializeDependencies() {
     // Ensure dynamic imports are loaded.

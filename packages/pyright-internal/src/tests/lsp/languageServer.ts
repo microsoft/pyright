@@ -391,7 +391,7 @@ async function runTestBackgroundThread() {
 
 export async function run() {
     await initializeDependencies();
-    
+
     // Start the background thread if this is not the first worker.
     if (getEnvironmentData(WORKER_STARTED) === 'true') {
         runTestBackgroundThread();
