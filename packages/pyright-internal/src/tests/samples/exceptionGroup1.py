@@ -9,7 +9,7 @@ def func1():
 
     # This should generate an error if using Python 3.10 or earlier.
     except* ValueError as e:
-        reveal_type(e, expected_text="BaseExceptionGroup[ValueError]")
+        reveal_type(e, expected_text="ExceptionGroup[ValueError]")
         pass
 
     # This should generate an error if using Python 3.10 or earlier.
@@ -105,3 +105,19 @@ def func7():
             # return is not allowed in an except* block.
             return
 
+
+
+def func8():
+
+    try:
+        pass
+
+    # This should generate an error if using Python 3.10 or earlier.
+    except* (ValueError, FloatingPointError) as e:
+        reveal_type(e, expected_text="ExceptionGroup[ValueError | FloatingPointError]")
+        pass
+
+    # This should generate an error if using Python 3.10 or earlier.
+    except* BaseException as e:
+        reveal_type(e, expected_text="BaseExceptionGroup[BaseException]")
+        pass
