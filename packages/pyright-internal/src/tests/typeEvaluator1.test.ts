@@ -496,7 +496,7 @@ test('TypeNarrowingTupleLength1', () => {
 test('TypeNarrowingIn1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn1.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeNarrowingIn2', () => {

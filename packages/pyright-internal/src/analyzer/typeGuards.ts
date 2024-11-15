@@ -2060,7 +2060,7 @@ export function getElementTypeForContainerNarrowing(containerType: Type) {
 export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, referenceType: Type, elementType: Type) {
     return evaluator.mapSubtypesExpandTypeVars(referenceType, /* options */ undefined, (referenceSubtype) => {
         return mapSubtypes(elementType, (elementSubtype) => {
-            if (isAnyOrUnknown(referenceSubtype)) {
+            if (isAnyOrUnknown(elementSubtype)) {
                 return referenceSubtype;
             }
 
