@@ -52,14 +52,6 @@ def func1(val: object):
     else:
         return
     reveal_type(val) # mypy: object, pyright: str | int
-
-def func2(condition: bool, val1: str, val2: int):
-    x = val1 if condition else val2
-    reveal_type(x) # mypy: object, pyright: str | int
-
-    y = val1 or val2
-    # In this case, mypy uses a union instead of a join
-    reveal_type(y) # mypy: str | int, pyright: str | int
 ```
 
 
