@@ -18354,7 +18354,6 @@ export function createTypeEvaluator(
         // Set the "partially evaluated" flag around this logic to detect recursion.
         functionType.shared.flags |= FunctionTypeFlags.PartiallyEvaluated;
         const preDecoratedType = node.d.isAsync ? createAsyncFunction(node, functionType) : functionType;
-        functionType.shared.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
 
         // Apply all of the decorators in reverse order.
         decoratedType = preDecoratedType;
@@ -18401,6 +18400,10 @@ export function createTypeEvaluator(
         decoratedType = addOverloadsToFunctionType(evaluatorInterface, node, decoratedType);
 
         writeTypeCache(node, { type: decoratedType }, EvalFlags.None);
+
+        // Now that the decorator has been applied, we can clear the
+        // "partially evaluated" flag.
+        functionType.shared.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
 
         return { functionType, decoratedType };
     }
