@@ -7717,15 +7717,18 @@ export function createTypeEvaluator(
         }
 
         const transformedType = transformPossibleRecursiveTypeAlias(type);
+        const isRecursiveTypeAlias = transformedType !== type;
 
         // If this is a recursive type alias, see if we've already recursed
         // seen it once before in the recursion stack. If so, don't recurse
         // further.
-        if (transformedType !== type) {
+        if (isRecursiveTypeAlias) {
             const pendingOverlaps = pendingTypes.filter((pendingType) => isTypeSame(pendingType, type));
             if (pendingOverlaps.length > 1) {
                 return;
             }
+
+            pendingTypes.push(type);
         }
 
         recursionCount++;
@@ -7737,8 +7740,6 @@ export function createTypeEvaluator(
                 if (typeParamIndex >= 0) {
                     usageVariances[typeParamIndex] = combineVariances(usageVariances[typeParamIndex], variance);
                 } else {
-                    pendingTypes.push(type);
-
                     updateUsageVariancesRecursive(
                         subtype,
                         typeAliasTypeParams,
@@ -7747,8 +7748,6 @@ export function createTypeEvaluator(
                         pendingTypes,
                         recursionCount
                     );
-
-                    pendingTypes.pop();
                 }
             });
         }
@@ -7796,6 +7795,10 @@ export function createTypeEvaluator(
                 }
             }
         });
+
+        if (isRecursiveTypeAlias) {
+            pendingTypes.pop();
+        }
     }
 
     function getIndexAccessMagicMethodName(usage: EvaluatorUsage): string {
