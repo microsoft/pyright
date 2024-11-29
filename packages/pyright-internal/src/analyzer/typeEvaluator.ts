@@ -26416,6 +26416,16 @@ export function createTypeEvaluator(
             }
         }
 
+        // If we're checking for full overlapping overloads and the source is
+        // a gradual form, the dest must also be a gradual form.
+        if (
+            (flags & AssignTypeFlags.OverloadOverlap) !== 0 &&
+            FunctionType.isGradualCallableForm(srcType) &&
+            !FunctionType.isGradualCallableForm(destType)
+        ) {
+            canAssign = false;
+        }
+
         // If the source and the dest are using the same ParamSpec, any additional
         // concatenated parameters must match.
         if (targetIncludesParamSpec && srcParamSpec?.priv.nameWithScope === destParamSpec?.priv.nameWithScope) {
