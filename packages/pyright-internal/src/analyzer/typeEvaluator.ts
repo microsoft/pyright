@@ -2443,7 +2443,7 @@ export function createTypeEvaluator(
             return getBoundMagicMethod(
                 boundMethodResult.type,
                 '__call__',
-                selfType ?? ClassType.cloneAsInstance(classType),
+                /* selfType */ undefined,
                 diag,
                 recursionCount
             );
