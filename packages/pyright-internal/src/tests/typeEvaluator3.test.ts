@@ -850,6 +850,15 @@ test('RecursiveTypeAlias15', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('RecursiveTypeAlias16', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias16.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Classes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes1.py']);
 
