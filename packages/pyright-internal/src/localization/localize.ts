@@ -286,6 +286,7 @@ export namespace Localizer {
             );
         export const breakInExceptionGroup = () => getRawString('Diagnostic.breakInExceptionGroup');
         export const breakOutsideLoop = () => getRawString('Diagnostic.breakOutsideLoop');
+        export const bytesUnsupportedEscape = () => getRawString('Diagnostic.bytesUnsupportedEscape');
         export const callableExtraArgs = () => getRawString('Diagnostic.callableExtraArgs');
         export const callableFirstArg = () => getRawString('Diagnostic.callableFirstArg');
         export const callableNotInstantiable = () =>

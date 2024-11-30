@@ -1351,7 +1351,9 @@ export class Checker extends ParseTreeWalker {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
                             DiagnosticRule.reportInvalidStringEscapeSequence,
-                            LocMessage.stringUnsupportedEscape(),
+                            node.d.strings.some((string) => (string.d.token.flags & StringTokenFlags.Bytes) !== 0)
+                                ? LocMessage.bytesUnsupportedEscape()
+                                : LocMessage.stringUnsupportedEscape(),
                             { start: start + error.offset, length: error.length }
                         );
                     }

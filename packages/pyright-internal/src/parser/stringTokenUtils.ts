@@ -41,8 +41,9 @@ interface IncompleteUnescapedString {
 
 function completeUnescapedString(incomplete: IncompleteUnescapedString, originalString: string): UnescapedString {
     const newValue = incomplete.valueParts.join('');
-    // Use the original string if it's identical. This prevents us from allocating memory to hold
-    // a copy (a copy is made because the original string is a 'slice' of another, so it doesn't exist in the cache yet).
+    // Use the original string if it's identical. This prevents us from allocating
+    // memory to hold a copy. A copy is made because the original string is a
+    // 'slice' of another, so it doesn't exist in the cache yet.
     const value = originalString !== newValue ? newValue : originalString;
     return {
         ...incomplete,
@@ -224,6 +225,12 @@ export function getUnescapedString(stringToken: StringToken | FStringMiddleToken
                         case Char.N: {
                             let foundIllegalChar = false;
                             let charCount = 1;
+
+                            // This type of escape isn't allowed for bytes.
+                            if (isBytes) {
+                                foundIllegalChar = true;
+                            }
+
                             if (getEscapedCharacter(charCount) !== Char.OpenBrace) {
                                 foundIllegalChar = true;
                             } else {
@@ -260,11 +267,12 @@ export function getUnescapedString(stringToken: StringToken | FStringMiddleToken
                         }
 
                         case Char.u:
-                            localValue = scanHexEscape(4);
-                            break;
-
                         case Char.U:
-                            localValue = scanHexEscape(8);
+                            // This type of escape isn't allowed for bytes.
+                            if (isBytes) {
+                                addInvalidEscapeOffset();
+                            }
+                            localValue = scanHexEscape(curChar === Char.u ? 4 : 8);
                             break;
 
                         default:

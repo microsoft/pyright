@@ -115,6 +115,10 @@
             "message": "\"break\" can be used only within a loop",
             "comment": "{Locked='break'}"
         },
+        "bytesUnsupportedEscape": {
+            "message": "Unsupported escape sequence in bytes literal",
+            "comment": "{Locked='bytes'}"
+        },
         "callableExtraArgs": {
             "message": "Expected only two type arguments to \"Callable\"",
             "comment": "{Locked='Callable'}"
