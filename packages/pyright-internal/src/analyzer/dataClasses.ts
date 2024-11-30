@@ -181,8 +181,10 @@ export function synthesizeDataClassMethods(
             return;
         }
 
+        let isInferredFinal = false;
+
         // Only variables (not functions, classes, etc.) are considered.
-        const classVarDecl = symbol.getTypedDeclarations().find((decl) => {
+        let classVarDecl = symbol.getTypedDeclarations().find((decl) => {
             if (decl.type !== DeclarationType.Variable) {
                 return false;
             }
@@ -194,6 +196,15 @@ export function synthesizeDataClassMethods(
 
             return true;
         });
+
+        // See if this is an unannotated (inferred) Final value.
+        if (!classVarDecl) {
+            classVarDecl = symbol.getDeclarations().find((decl) => {
+                return decl.type === DeclarationType.Variable && !decl.typeAnnotationNode && decl.isFinal;
+            });
+
+            isInferredFinal = true;
+        }
 
         if (classVarDecl) {
             let statement: ParseNode | undefined = classVarDecl.node;
@@ -236,8 +247,12 @@ export function synthesizeDataClassMethods(
                     variableNameNode = statement.d.leftExpr.d.valueExpr;
                     typeAnnotationNode = statement.d.leftExpr;
                     const assignmentStatement = statement;
-                    variableTypeEvaluator = () =>
-                        evaluator.getTypeOfAnnotation(
+                    variableTypeEvaluator = () => {
+                        if (isInferredFinal && defaultExpr) {
+                            return evaluator.getTypeOfExpression(defaultExpr).type;
+                        }
+
+                        return evaluator.getTypeOfAnnotation(
                             (assignmentStatement.d.leftExpr as TypeAnnotationNode).d.annotation,
                             {
                                 varTypeAnnotation: true,
@@ -245,6 +260,7 @@ export function synthesizeDataClassMethods(
                                 allowClassVar: true,
                             }
                         );
+                    };
                 }
 
                 hasDefault = true;
