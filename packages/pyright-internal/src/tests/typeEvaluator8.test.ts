@@ -830,7 +830,7 @@ test('PseudoGeneric3', () => {
 test('Strings2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['strings2.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 2, 1);
 });
 
 test('LiteralString1', () => {
