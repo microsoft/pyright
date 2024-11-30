@@ -1,5 +1,7 @@
 from _typeshed import Incomplete, StrPath
 from collections.abc import Mapping
+from contextlib import _GeneratorContextManager
+from typing import NoReturn
 from typing_extensions import TypeAlias
 
 from . import dist
@@ -24,9 +26,9 @@ class SetupRequirementsError(BaseException):
     def __init__(self, specifiers) -> None: ...
 
 class Distribution(dist.Distribution):
-    def fetch_build_eggs(self, specifiers) -> None: ...
+    def fetch_build_eggs(self, specifiers) -> NoReturn: ...
     @classmethod
-    def patch(cls) -> None: ...
+    def patch(cls) -> _GeneratorContextManager[None]: ...
 
 class _BuildMetaBackend:
     def run_setup(self, setup_script: str = "setup.py") -> None: ...

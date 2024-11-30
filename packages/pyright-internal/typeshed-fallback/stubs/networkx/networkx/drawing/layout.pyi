@@ -1,5 +1,7 @@
 from _typeshed import Incomplete
 
+import numpy
+
 def random_layout(G, center: Incomplete | None = None, dim: int = 2, seed: Incomplete | None = None): ...
 def circular_layout(G, scale: float = 1, center: Incomplete | None = None, dim: int = 2): ...
 def shell_layout(
@@ -54,6 +56,8 @@ def arf_layout(
     etol: float = 1e-06,
     dt: float = 0.001,
     max_iter: int = 1000,
+    *,
+    seed: int | numpy.random.RandomState | None = None,
 ): ...
 def rescale_layout(pos, scale: float = 1): ...
 def rescale_layout_dict(pos, scale: float = 1): ...

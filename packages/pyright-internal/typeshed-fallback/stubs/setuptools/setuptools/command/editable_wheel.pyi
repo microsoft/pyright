@@ -71,7 +71,7 @@ class _NamespaceInstaller(namespaces.Installer):
     src_root: Incomplete
     installation_dir: Incomplete
     editable_name: Incomplete
-    outputs: list[Incomplete]
+    outputs: list[str]
     dry_run: bool
     def __init__(self, distribution, installation_dir, editable_name, src_root) -> None: ...
 

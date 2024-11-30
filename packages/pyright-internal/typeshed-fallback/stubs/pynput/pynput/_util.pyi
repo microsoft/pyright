@@ -1,5 +1,5 @@
-import sys
 import threading
+from _typeshed import OptExcInfo
 from collections.abc import Callable
 from queue import Queue
 from types import ModuleType, TracebackType
@@ -28,7 +28,7 @@ class AbstractListener(threading.Thread):
     _thread: threading.Thread  # undocumented
     _condition: threading.Condition  # undocumented
     _ready: bool  # undocumented
-    _queue: Queue[sys._OptExcInfo | None]  # undocumented
+    _queue: Queue[OptExcInfo | None]  # undocumented
     daemon: bool
     def __init__(self, suppress: bool = False, **kwargs: Callable[..., bool | None] | None) -> None: ...
     @property

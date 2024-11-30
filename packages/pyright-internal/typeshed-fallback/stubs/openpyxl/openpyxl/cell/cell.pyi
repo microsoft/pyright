@@ -3,7 +3,7 @@ from datetime import datetime
 from re import Pattern
 from typing import Final, Literal, overload
 
-from openpyxl.cell import _CellValue, _TimeTypes
+from openpyxl.cell import _CellOrMergedCell, _CellValue, _TimeTypes
 from openpyxl.comments.comments import Comment
 from openpyxl.compat.numbers import NUMERIC_TYPES as NUMERIC_TYPES  # cell numeric types
 from openpyxl.styles.cell_style import StyleArray
@@ -75,7 +75,7 @@ class Cell(StyleableObject):
     def hyperlink(self, val: Hyperlink | str | None) -> None: ...
     @property
     def is_date(self) -> bool: ...
-    def offset(self, row: int = 0, column: int = 0) -> Cell: ...
+    def offset(self, row: int = 0, column: int = 0) -> _CellOrMergedCell: ...
     @property
     def comment(self) -> Comment | None: ...
     @comment.setter

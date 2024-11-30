@@ -26,7 +26,25 @@ class NetworkXConfig(Config):
     backend_priority: list[str]
     backends: Config
     cache_converted_graphs: bool
-    def __init__(self, *, backend_priority: list[str], backends: Config, cache_converted_graphs: bool) -> None: ...
-    def __new__(cls, *, backend_priority: list[str], backends: Config, cache_converted_graphs: bool) -> Self: ...
+    fallback_to_nx: bool
+    warnings_to_ignore: set[str]
+    def __init__(
+        self,
+        *,
+        backend_priority: list[str],
+        backends: Config,
+        cache_converted_graphs: bool,
+        fallback_to_nx: bool,
+        warnings_to_ignore: set[str],
+    ) -> None: ...
+    def __new__(
+        cls,
+        *,
+        backend_priority: list[str],
+        backends: Config,
+        cache_converted_graphs: bool,
+        fallback_to_nx: bool,
+        warnings_to_ignore: set[str],
+    ) -> Self: ...
 
 config: NetworkXConfig

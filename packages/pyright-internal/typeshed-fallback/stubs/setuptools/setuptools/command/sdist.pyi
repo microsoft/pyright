@@ -1,11 +1,12 @@
 from _typeshed import Incomplete
+from collections.abc import Iterator
 from typing import ClassVar
 
 from setuptools.dist import Distribution
 
 from .._distutils.command import sdist as orig
 
-def walk_revctrl(dirname: str = "") -> None: ...
+def walk_revctrl(dirname: str = "") -> Iterator[Incomplete]: ...
 
 class sdist(orig.sdist):
     distribution: Distribution  # override distutils.dist.Distribution with setuptools.dist.Distribution
