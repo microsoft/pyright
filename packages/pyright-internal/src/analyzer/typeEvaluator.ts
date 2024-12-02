@@ -15015,23 +15015,45 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfSlice(node: SliceNode): TypeResult {
+        const noneType = getNoneType();
+        let startType = noneType;
+        let endType = noneType;
+        let stepType = noneType;
+        let isIncomplete = false;
+
         // Evaluate the expressions to report errors and record symbol
-        // references. We can skip this if we're executing speculatively.
-        if (!isSpeculativeModeInUse(node)) {
-            if (node.d.startValue) {
-                getTypeOfExpression(node.d.startValue);
-            }
-
-            if (node.d.endValue) {
-                getTypeOfExpression(node.d.endValue);
-            }
-
-            if (node.d.stepValue) {
-                getTypeOfExpression(node.d.stepValue);
+        // references.
+        if (node.d.startValue) {
+            const startTypeResult = getTypeOfExpression(node.d.startValue);
+            startType = startTypeResult.type;
+            if (startTypeResult.isIncomplete) {
+                isIncomplete = true;
             }
         }
 
-        return { type: getBuiltInObject(node, 'slice') };
+        if (node.d.endValue) {
+            const endTypeResult = getTypeOfExpression(node.d.endValue);
+            endType = endTypeResult.type;
+            if (endTypeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+        }
+
+        if (node.d.stepValue) {
+            const stepTypeResult = getTypeOfExpression(node.d.stepValue);
+            stepType = stepTypeResult.type;
+            if (stepTypeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+        }
+
+        const sliceType = getBuiltInObject(node, 'slice');
+
+        if (!isClassInstance(sliceType)) {
+            return { type: sliceType };
+        }
+
+        return { type: ClassType.specialize(sliceType, [startType, endType, stepType]), isIncomplete };
     }
 
     // Verifies that a type argument's type is not disallowed.
