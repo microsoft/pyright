@@ -33,7 +33,7 @@ import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { CodeFlowReferenceExpressionNode, FlowNode } from './codeFlowTypes';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration } from './declaration';
-import * as DeclarationUtils from './declarationUtils';
+import { ResolvedAliasInfo } from './declarationUtils';
 import { SymbolWithScope } from './scope';
 import { Symbol, SynthesizedTypeInfo } from './symbol';
 import { PrintTypeFlags } from './typePrinter';
@@ -684,7 +684,7 @@ export interface TypeEvaluator {
         declaration: Declaration,
         resolveLocalNames: boolean,
         options?: ResolveAliasOptions
-    ) => DeclarationUtils.ResolvedAliasInfo | undefined;
+    ) => ResolvedAliasInfo | undefined;
     getTypeOfIterable: (
         typeResult: TypeResult,
         isAsync: boolean,
