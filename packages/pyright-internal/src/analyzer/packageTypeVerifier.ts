@@ -1204,7 +1204,8 @@ export class PackageTypeVerifier {
                 if (metaclassKnownStatus !== TypeKnownStatus.Known) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type of metaclass "${type.shared.effectiveMetaclass}" is partially unknown` + diag.getString(),
+                        `Type of metaclass "${type.shared.effectiveMetaclass.shared.name}" is partially unknown` +
+                            diag.getString(),
                         getEmptyRange(),
                         Uri.empty()
                     );
