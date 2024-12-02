@@ -97,7 +97,7 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ConstraintTracker } from './constraintTracker';
 import { getBoundCallMethod, getBoundInitMethod, getBoundNewMethod } from './constructors';
 import { addInheritedDataClassEntries } from './dataClasses';
-import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
+import { Declaration, DeclarationType, isAliasDeclaration, isVariableDeclaration } from './declaration';
 import { getNameNodeForDeclaration } from './declarationUtils';
 import { deprecatedAliases, deprecatedSpecialForms } from './deprecatedSymbols';
 import { getEnumDeclaredValueType, isEnumClassWithMembers, transformTypeForEnumMember } from './enums';
@@ -109,7 +109,7 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
 import { isMethodOnlyProtocol, isProtocolUnsafeOverlap } from './protocols';
-import { ScopeType } from './scope';
+import { Scope, ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
 import { SourceMapper, isStubFile } from './sourceMapper';
@@ -3024,6 +3024,8 @@ export class Checker extends ParseTreeWalker {
 
                     this._reportIncompatibleDeclarations(name, symbol);
 
+                    this._reportOverwriteOfImportedFinal(name, symbol);
+                    this._reportOverwriteOfBuiltinsFinal(name, symbol, scope);
                     this._reportMultipleFinalDeclarations(name, symbol, scope.type);
 
                     this._reportFinalInLoop(symbol);
@@ -3205,6 +3207,69 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
+    // If a variable that is marked Final in one module is imported by another
+    // module, an attempt to overwrite the imported symbol should generate an
+    // error.
+    private _reportOverwriteOfImportedFinal(name: string, symbol: Symbol) {
+        if (this._evaluator.isFinalVariable(symbol)) {
+            return;
+        }
+
+        const decls = symbol.getDeclarations();
+
+        const finalImportDecl = decls.find((decl) => {
+            if (decl.type === DeclarationType.Alias) {
+                const resolvedDecl = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+                if (resolvedDecl && isVariableDeclaration(resolvedDecl) && resolvedDecl.isFinal) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+        if (!finalImportDecl) {
+            return;
+        }
+
+        decls.forEach((decl) => {
+            if (decl !== finalImportDecl) {
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.finalReassigned().format({ name }),
+                    getNameNodeForDeclaration(decl) ?? decl.node
+                );
+            }
+        });
+    }
+
+    // If the builtins module (or any implicitly chained module) defines a
+    // Final variable, an attempt to overwrite it should generate an error.
+    private _reportOverwriteOfBuiltinsFinal(name: string, symbol: Symbol, scope: Scope) {
+        if (scope.type !== ScopeType.Module || !scope.parent) {
+            return;
+        }
+
+        const shadowedSymbolInfo = scope.parent.lookUpSymbolRecursive(name);
+        if (!shadowedSymbolInfo) {
+            return;
+        }
+
+        if (!this._evaluator.isFinalVariable(shadowedSymbolInfo.symbol)) {
+            return;
+        }
+
+        const decls = symbol.getDeclarations();
+        decls.forEach((decl) => {
+            this._evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.finalReassigned().format({ name }),
+                getNameNodeForDeclaration(decl) ?? decl.node
+            );
+        });
+    }
+
+    // If a variable is marked Final, it should receive only one assigned value.
     private _reportMultipleFinalDeclarations(name: string, symbol: Symbol, scopeType: ScopeType) {
         if (!this._evaluator.isFinalVariable(symbol)) {
             return;
