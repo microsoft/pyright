@@ -1178,15 +1178,6 @@ export function isFinalAllowedForAssignmentTarget(targetNode: ExpressionNode): b
     return false;
 }
 
-export function isClassVarAllowedForAssignmentTarget(targetNode: ExpressionNode): boolean {
-    const classNode = getEnclosingClass(targetNode, /* stopAtFunction */ true);
-    if (!classNode) {
-        return false;
-    }
-
-    return true;
-}
-
 export function isRequiredAllowedForAssignmentTarget(targetNode: ExpressionNode): boolean {
     const classNode = getEnclosingClass(targetNode, /* stopAtFunction */ true);
     if (!classNode) {
