@@ -15617,7 +15617,7 @@ export function createTypeEvaluator(
         flags: EvalFlags
     ) {
         // Self doesn't support any type arguments.
-        if (typeArgs) {
+        if (typeArgs && typeArgs.length > 0) {
             addDiagnostic(
                 DiagnosticRule.reportInvalidTypeArguments,
                 LocMessage.typeArgsExpectingNone().format({
