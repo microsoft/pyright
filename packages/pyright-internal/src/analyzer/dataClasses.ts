@@ -396,11 +396,9 @@ export function synthesizeDataClassMethods(
                 const variableSymbol = ClassType.getSymbolTable(classType).get(variableName);
                 namedTupleEntries.add(variableName);
 
-                if (variableSymbol?.isClassVar() && !variableSymbol?.isFinalVarInClassBody()) {
+                if (variableSymbol?.isClassVar()) {
                     // If an ancestor class declared an instance variable but this dataclass
                     // declares a ClassVar, delete the older one from the full data class entries.
-                    // We exclude final variables here because a Final type annotation is implicitly
-                    // considered a ClassVar by the binder, but dataclass rules are different.
                     const index = fullDataClassEntries.findIndex((p) => p.name === variableName);
                     if (index >= 0) {
                         fullDataClassEntries.splice(index, 1);
