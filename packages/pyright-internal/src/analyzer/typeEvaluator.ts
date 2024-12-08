@@ -19510,7 +19510,8 @@ export function createTypeEvaluator(
                     getTypeOfIterator(
                         { type: exceptionType, isIncomplete: exceptionTypeResult.isIncomplete },
                         /* isAsync */ false,
-                        errorNode
+                        errorNode,
+                        /* emitNotIterableError */ false
                     )?.type ?? UnknownType.create();
 
                 return mapSubtypes(iterableType, (subtype) => {
