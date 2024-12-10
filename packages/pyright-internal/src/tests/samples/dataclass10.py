@@ -7,15 +7,38 @@ T = TypeVar("T")
 
 
 @dataclass
-class Foo(Generic[T]):
+class ABase(Generic[T]):
     value: Union[str, T]
 
 
-reveal_type(Foo(""), expected_text="Foo[Unknown]")
+reveal_type(ABase(""), expected_text="ABase[Unknown]")
 
 
-class Bar(Foo[int]):
+class AChild(ABase[int]):
     pass
 
 
-reveal_type(Bar(123), expected_text="Bar")
+reveal_type(AChild(123), expected_text="AChild")
+
+
+class B(Generic[T]):
+    pass
+
+
+@dataclass
+class CBase(Generic[T]):
+    x: B[T] = B[T]()
+
+
+@dataclass
+class CChild(CBase[T]):
+    pass
+
+
+c1 = CBase[int]()
+reveal_type(c1, expected_text="CBase[int]")
+reveal_type(c1.x, expected_text="B[int]")
+
+c2 = CChild[int]()
+reveal_type(c2, expected_text="CChild[int]")
+reveal_type(c2.x, expected_text="B[int]")

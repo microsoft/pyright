@@ -613,6 +613,11 @@ export function synthesizeDataClassMethods(
                                 });
 
                                 defaultType = makeTypeVarsFree(defaultType, liveTypeVars);
+
+                                if (entry.mroClass && requiresSpecialization(defaultType)) {
+                                    const solution = buildSolutionFromSpecializedClass(entry.mroClass);
+                                    defaultType = applySolvedTypeVars(defaultType, solution);
+                                }
                             }
                         }
                     }
@@ -1135,7 +1140,7 @@ export function addInheritedDataClassEntries(classType: ClassType, entries: Data
 
                 // If the type from the parent class is generic, we need to convert
                 // to the type parameter namespace of child class.
-                const updatedEntry = { ...entry };
+                const updatedEntry = { ...entry, mroClass };
                 updatedEntry.type = applySolvedTypeVars(updatedEntry.type, solution);
 
                 if (entry.isClassVar) {
