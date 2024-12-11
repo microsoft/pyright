@@ -19,7 +19,9 @@ type TomlPrimitive =
 // maintain existing module resolution to support multiple environments.
 let TOML: any;
 const loadTomlModule = (async () => {
-    TOML = await import('smol-toml');
+    // Use a magic comment to prevent webpack from creating an extra chunk for the dynamic import by default.
+    // An extra chunk will still be created if explicitly configured in the webpack config.
+    TOML = await import(/* webpackMode: "eager" */ 'smol-toml');
 })();
 
 export async function ensureTomlModuleLoaded() {

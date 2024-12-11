@@ -952,7 +952,8 @@ export class Program {
             this._importResolver,
             this._configOptions,
             this.serviceProvider,
-            new LogTracker(this._console, 'Cloned')
+            new LogTracker(this._console, 'Cloned'),
+            this._disableChecker
         );
 
         // Cloned program will use whatever user files the program currently has.
