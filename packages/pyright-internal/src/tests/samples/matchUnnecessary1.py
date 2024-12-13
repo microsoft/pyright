@@ -84,3 +84,14 @@ def func4(vals: list[str]) -> TA1:
             case _:
                 pass
     return x
+
+
+def func5(subj: int | str):
+    match subj:
+        case int() | str():
+            pass
+
+        # This should not generate a diagnostic becuase _ is exempted
+        # from the reportUnnecessaryComparison check.
+        case _:
+            pass
