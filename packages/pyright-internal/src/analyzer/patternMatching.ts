@@ -2174,6 +2174,16 @@ export function getPatternSubtypeNarrowingCallback(
 }
 
 function reportUnnecessaryPattern(evaluator: TypeEvaluator, pattern: PatternAtomNode, subjectType: Type): void {
+    // If this is a simple wildcard pattern, exempt it from this diagnostic.
+    if (
+        pattern.nodeType === ParseNodeType.PatternAs &&
+        pattern.d.orPatterns.length === 1 &&
+        pattern.d.orPatterns[0].nodeType === ParseNodeType.PatternCapture &&
+        pattern.d.orPatterns[0].d.isWildcard
+    ) {
+        return;
+    }
+
     evaluator.addDiagnostic(
         DiagnosticRule.reportUnnecessaryComparison,
         LocMessage.patternNeverMatches().format({ type: evaluator.printType(subjectType) }),

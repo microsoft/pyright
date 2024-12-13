@@ -199,7 +199,7 @@ The following settings allow more fine grained control over the **typeCheckingMo
 
 - <a name="reportUnnecessaryCast"></a> **reportUnnecessaryCast** [boolean or string, optional]: Generate or suppress diagnostics for `cast` calls that are statically determined to be unnecessary. Such calls are sometimes indicative of a programming error. The default value for this setting is `"none"`.
 
-- <a name="reportUnnecessaryComparison"></a> **reportUnnecessaryComparison** [boolean or string, optional]: Generate or suppress diagnostics for `==` or `!=` comparisons or other conditional expressions that are statically determined to always evaluate to False or True. Such comparisons are sometimes indicative of a programming error. The default value for this setting is `"none"`.
+- <a name="reportUnnecessaryComparison"></a> **reportUnnecessaryComparison** [boolean or string, optional]: Generate or suppress diagnostics for `==` or `!=` comparisons or other conditional expressions that are statically determined to always evaluate to False or True. Such comparisons are sometimes indicative of a programming error. The default value for this setting is `"none"`. Also reports `case` clauses in a `match` statement that can be statically determined to never match (with exception of the `_` wildcard pattern, which is exempted).
 
 - <a name="reportUnnecessaryContains"></a> **reportUnnecessaryContains** [boolean or string, optional]: Generate or suppress diagnostics for `in` operations that are statically determined to always evaluate to False or True. Such operations are sometimes indicative of a programming error. The default value for this setting is `"none"`.
 
