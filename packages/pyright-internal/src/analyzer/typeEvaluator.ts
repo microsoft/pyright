@@ -2412,11 +2412,12 @@ export function createTypeEvaluator(
         classType: ClassType,
         memberName: string,
         selfType?: ClassType | TypeVarType | undefined,
+        errorNode?: ExpressionNode | undefined,
         diag?: DiagnosticAddendum,
         recursionCount = 0
     ): FunctionType | OverloadedType | undefined {
         const boundMethodResult = getTypeOfBoundMember(
-            /* errorNode */ undefined,
+            errorNode,
             classType,
             memberName,
             /* usage */ undefined,
@@ -2444,6 +2445,7 @@ export function createTypeEvaluator(
                 boundMethodResult.type,
                 '__call__',
                 /* selfType */ undefined,
+                errorNode,
                 diag,
                 recursionCount
             );
@@ -13469,7 +13471,7 @@ export function createTypeEvaluator(
             const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isClass(concreteSubtype)) {
-                magicMethodType = getBoundMagicMethod(concreteSubtype, methodName, subtype, diag);
+                magicMethodType = getBoundMagicMethod(concreteSubtype, methodName, subtype, errorNode, diag);
             }
 
             if (magicMethodType) {
@@ -24738,6 +24740,7 @@ export function createTypeEvaluator(
                     concreteSrcType,
                     '__call__',
                     /* selfType */ undefined,
+                    /* errorNode */ undefined,
                     /* diag */ undefined,
                     recursionCount
                 );
@@ -25667,6 +25670,7 @@ export function createTypeEvaluator(
             objType,
             '__call__',
             /* selfType */ undefined,
+            /* errorNode */ undefined,
             /* diag */ undefined,
             recursionCount
         );

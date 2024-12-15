@@ -742,6 +742,7 @@ export interface TypeEvaluator {
         classType: ClassType,
         memberName: string,
         selfType?: ClassType | TypeVarType | undefined,
+        errorNode?: ExpressionNode | undefined,
         diag?: DiagnosticAddendum,
         recursionCount?: number
     ) => FunctionType | OverloadedType | undefined;
