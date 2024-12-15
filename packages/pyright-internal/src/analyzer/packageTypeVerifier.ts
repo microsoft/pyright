@@ -465,7 +465,9 @@ export class PackageTypeVerifier {
                     const nameWithoutExtension = stripFileExtension(entry.name);
 
                     if (nameWithoutExtension === '__init__') {
-                        publicModules.push(modulePath);
+                        if (!isModuleSingleFile) {
+                            publicModules.push(modulePath);
+                        }
                     } else {
                         if (
                             !isPrivateOrProtectedName(nameWithoutExtension) &&
@@ -481,7 +483,7 @@ export class PackageTypeVerifier {
                         }
                     }
                 }
-            } else if (isDirectory) {
+            } else if (isDirectory && !isModuleSingleFile) {
                 if (!isPrivateOrProtectedName(entry.name) && this._isLegalModulePartName(entry.name)) {
                     this._addPublicModulesRecursive(
                         dirPath.combinePaths(entry.name),
