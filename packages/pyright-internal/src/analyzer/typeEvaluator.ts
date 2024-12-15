@@ -24501,29 +24501,6 @@ export function createTypeEvaluator(
 
                 diag?.addMessage(LocAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType)));
                 return false;
-            } else if (isClassInstance(expandedSrcType) && isMetaclassInstance(expandedSrcType)) {
-                // If the source is a metaclass instance, verify that it's compatible with
-                // the metaclass of the instantiable dest type.
-                const destMetaclass = destType.shared.effectiveMetaclass;
-
-                if (destMetaclass && isInstantiableClass(destMetaclass)) {
-                    if (
-                        assignClass(
-                            destMetaclass,
-                            ClassType.cloneAsInstantiable(expandedSrcType),
-                            diag,
-                            constraints,
-                            flags,
-                            recursionCount,
-                            /* reportErrorsUsingObjType */ false
-                        )
-                    ) {
-                        return true;
-                    }
-
-                    diag?.addMessage(LocAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType)));
-                    return false;
-                }
             }
         }
 
