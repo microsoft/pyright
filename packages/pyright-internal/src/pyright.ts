@@ -15,7 +15,6 @@ import { timingStats } from './common/timing';
 
 import chalk from 'chalk';
 import commandLineArgs, { CommandLineOptions, OptionDefinition } from 'command-line-args';
-import * as fs from 'fs';
 import * as os from 'os';
 
 import { ChildProcess, fork } from 'child_process';
@@ -39,6 +38,7 @@ import { PythonVersion } from './common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
+import { getStdin } from './common/streamUtils';
 import { Range, isEmptyRange } from './common/textRange';
 import { Uri } from './common/uri/uri';
 import { getFileSpec, tryStat } from './common/uri/uriUtils';
@@ -255,7 +255,7 @@ async function processArgs(): Promise<ExitStatus> {
         // Has the caller indicated that the file list will be supplied by stdin?
         if (args.files.length === 1 && args.files[0] === '-') {
             try {
-                const stdText = fs.readFileSync(process.stdin.fd, 'utf-8');
+                const stdText = await getStdin();
                 fileSpecList = stdText
                     .replace(/[\r\n]/g, ' ')
                     .trim()
@@ -263,7 +263,7 @@ async function processArgs(): Promise<ExitStatus> {
                     .map((s) => s.trim())
                     .filter((s) => !!s);
             } catch (e) {
-                console.error('Invalid file list specified by stdin input.');
+                console.error('Invalid file list specified by stdin input');
                 return ExitStatus.ParameterError;
             }
         }
@@ -281,7 +281,7 @@ async function processArgs(): Promise<ExitStatus> {
             try {
                 const stat = tryStat(tempFileSystem, includeSpec.wildcardRoot);
                 if (!stat) {
-                    console.error(`File or directory "${includeSpec.wildcardRoot}" does not exist.`);
+                    console.error(`File or directory "${includeSpec.wildcardRoot}" does not exist`);
                     return ExitStatus.ParameterError;
                 }
             } catch {
