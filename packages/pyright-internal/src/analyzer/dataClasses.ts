@@ -880,10 +880,14 @@ function getConverterInputType(
     fieldType: Type,
     fieldName: string
 ): Type {
-    const converterType = getConverterAsFunction(
-        evaluator,
-        evaluator.getTypeOfExpression(converterNode.d.valueExpr, EvalFlags.NoSpecialize).type
-    );
+    // Use speculative mode here so we don't cache the results.
+    // We'll want to re-evaluate this expression later, potentially
+    // with different evaluation flags.
+    const valueType = evaluator.useSpeculativeMode(converterNode.d.valueExpr, () => {
+        return evaluator.getTypeOfExpression(converterNode.d.valueExpr, EvalFlags.NoSpecialize).type;
+    });
+
+    const converterType = getConverterAsFunction(evaluator, valueType);
 
     if (!converterType) {
         return fieldType;
