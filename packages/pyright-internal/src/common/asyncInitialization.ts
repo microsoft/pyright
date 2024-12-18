@@ -1,5 +1,5 @@
 /*
- * shared.ts
+ * asyncInitialization.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
