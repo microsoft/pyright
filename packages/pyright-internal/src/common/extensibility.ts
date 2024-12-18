@@ -39,6 +39,7 @@ export interface SourceFile {
     getClientVersion(): number | undefined;
     getOpenFileContents(): string | undefined;
     getModuleSymbolTable(): SymbolTable | undefined;
+    getDiagnostics(options: ConfigOptions): Diagnostic[] | undefined;
 }
 
 export interface SourceFileInfo {
