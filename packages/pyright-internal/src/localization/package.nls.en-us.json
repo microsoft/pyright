@@ -2064,20 +2064,20 @@
         "uninitializedAbstractVariable": "Instance variable \"{name}\" is defined in abstract base class \"{classType}\" but not initialized",
         "unreachableExcept": "\"{exceptionType}\" is a subclass of \"{parentType}\"",
         "useDictInstead": {
-            "message": "Use Dict[T1, T2] to indicate a dictionary type",
-            "comment": "{Locked='Dict[T1, T2]'}"
+            "message": "Use dict[T1, T2] to indicate a dictionary type",
+            "comment": "{Locked='dict[T1, T2]'}"
         },
         "useListInstead": {
-            "message": "Use List[T] to indicate a list type or Union[T1, T2] to indicate a union type",
-            "comment": "{Locked='List[T]','list','Union[T1, T2]','union'}"
+            "message": "Use list[T] to indicate a list type or T1 | T2 to indicate a union type",
+            "comment": "{Locked='list[T]','list','T1 | T2','union'}"
         },
         "useTupleInstead": {
-            "message": "Use tuple[T1, ..., Tn] to indicate a tuple type or Union[T1, T2] to indicate a union type",
-            "comment": "{Locked='tuple[T1, ..., Tn]','tuple','Union[T1, T2]','union'}"
+            "message": "Use tuple[T1, ..., Tn] to indicate a tuple type or T1 | T2 to indicate a union type",
+            "comment": "{Locked='tuple[T1, ..., Tn]','tuple','T1 | T2','union'}"
         },
         "useTypeInstead": {
-            "message": "Use Type[T] instead",
-            "comment": "{Locked='Type[T]'}"
+            "message": "Use type[T] instead",
+            "comment": "{Locked='type[T]'}"
         },
         "varianceMismatchForClass": "Variance of type argument \"{typeVarName}\" is incompatible with base class \"{className}\"",
         "varianceMismatchForTypeAlias": "Variance of type argument \"{typeVarName}\" is incompatible with \"{typeAliasParam}\""

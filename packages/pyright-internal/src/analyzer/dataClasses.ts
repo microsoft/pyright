@@ -396,11 +396,9 @@ export function synthesizeDataClassMethods(
                 const variableSymbol = ClassType.getSymbolTable(classType).get(variableName);
                 namedTupleEntries.add(variableName);
 
-                if (variableSymbol?.isClassVar() && !variableSymbol?.isFinalVarInClassBody()) {
+                if (variableSymbol?.isClassVar()) {
                     // If an ancestor class declared an instance variable but this dataclass
                     // declares a ClassVar, delete the older one from the full data class entries.
-                    // We exclude final variables here because a Final type annotation is implicitly
-                    // considered a ClassVar by the binder, but dataclass rules are different.
                     const index = fullDataClassEntries.findIndex((p) => p.name === variableName);
                     if (index >= 0) {
                         fullDataClassEntries.splice(index, 1);
@@ -615,6 +613,11 @@ export function synthesizeDataClassMethods(
                                 });
 
                                 defaultType = makeTypeVarsFree(defaultType, liveTypeVars);
+
+                                if (entry.mroClass && requiresSpecialization(defaultType)) {
+                                    const solution = buildSolutionFromSpecializedClass(entry.mroClass);
+                                    defaultType = applySolvedTypeVars(defaultType, solution);
+                                }
                             }
                         }
                     }
@@ -877,10 +880,14 @@ function getConverterInputType(
     fieldType: Type,
     fieldName: string
 ): Type {
-    const converterType = getConverterAsFunction(
-        evaluator,
-        evaluator.getTypeOfExpression(converterNode.d.valueExpr, EvalFlags.NoSpecialize).type
-    );
+    // Use speculative mode here so we don't cache the results.
+    // We'll want to re-evaluate this expression later, potentially
+    // with different evaluation flags.
+    const valueType = evaluator.useSpeculativeMode(converterNode.d.valueExpr, () => {
+        return evaluator.getTypeOfExpression(converterNode.d.valueExpr, EvalFlags.NoSpecialize).type;
+    });
+
+    const converterType = getConverterAsFunction(evaluator, valueType);
 
     if (!converterType) {
         return fieldType;
@@ -1137,7 +1144,7 @@ export function addInheritedDataClassEntries(classType: ClassType, entries: Data
 
                 // If the type from the parent class is generic, we need to convert
                 // to the type parameter namespace of child class.
-                const updatedEntry = { ...entry };
+                const updatedEntry = { ...entry, mroClass };
                 updatedEntry.type = applySolvedTypeVars(updatedEntry.type, solution);
 
                 if (entry.isClassVar) {

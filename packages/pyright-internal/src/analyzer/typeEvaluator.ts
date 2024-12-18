@@ -2412,11 +2412,12 @@ export function createTypeEvaluator(
         classType: ClassType,
         memberName: string,
         selfType?: ClassType | TypeVarType | undefined,
+        errorNode?: ExpressionNode | undefined,
         diag?: DiagnosticAddendum,
         recursionCount = 0
     ): FunctionType | OverloadedType | undefined {
         const boundMethodResult = getTypeOfBoundMember(
-            /* errorNode */ undefined,
+            errorNode,
             classType,
             memberName,
             /* usage */ undefined,
@@ -2444,6 +2445,7 @@ export function createTypeEvaluator(
                 boundMethodResult.type,
                 '__call__',
                 /* selfType */ undefined,
+                errorNode,
                 diag,
                 recursionCount
             );
@@ -13469,7 +13471,7 @@ export function createTypeEvaluator(
             const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isClass(concreteSubtype)) {
-                magicMethodType = getBoundMagicMethod(concreteSubtype, methodName, subtype, diag);
+                magicMethodType = getBoundMagicMethod(concreteSubtype, methodName, subtype, errorNode, diag);
             }
 
             if (magicMethodType) {
@@ -15617,7 +15619,7 @@ export function createTypeEvaluator(
         flags: EvalFlags
     ) {
         // Self doesn't support any type arguments.
-        if (typeArgs) {
+        if (typeArgs && typeArgs.length > 0) {
             addDiagnostic(
                 DiagnosticRule.reportInvalidTypeArguments,
                 LocMessage.typeArgsExpectingNone().format({
@@ -19510,7 +19512,8 @@ export function createTypeEvaluator(
                     getTypeOfIterator(
                         { type: exceptionType, isIncomplete: exceptionTypeResult.isIncomplete },
                         /* isAsync */ false,
-                        errorNode
+                        errorNode,
+                        /* emitNotIterableError */ false
                     )?.type ?? UnknownType.create();
 
                 return mapSubtypes(iterableType, (subtype) => {
@@ -24498,29 +24501,6 @@ export function createTypeEvaluator(
 
                 diag?.addMessage(LocAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType)));
                 return false;
-            } else if (isClassInstance(expandedSrcType) && isMetaclassInstance(expandedSrcType)) {
-                // If the source is a metaclass instance, verify that it's compatible with
-                // the metaclass of the instantiable dest type.
-                const destMetaclass = destType.shared.effectiveMetaclass;
-
-                if (destMetaclass && isInstantiableClass(destMetaclass)) {
-                    if (
-                        assignClass(
-                            destMetaclass,
-                            ClassType.cloneAsInstantiable(expandedSrcType),
-                            diag,
-                            constraints,
-                            flags,
-                            recursionCount,
-                            /* reportErrorsUsingObjType */ false
-                        )
-                    ) {
-                        return true;
-                    }
-
-                    diag?.addMessage(LocAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType)));
-                    return false;
-                }
             }
         }
 
@@ -24737,6 +24717,7 @@ export function createTypeEvaluator(
                     concreteSrcType,
                     '__call__',
                     /* selfType */ undefined,
+                    /* errorNode */ undefined,
                     /* diag */ undefined,
                     recursionCount
                 );
@@ -25666,6 +25647,7 @@ export function createTypeEvaluator(
             objType,
             '__call__',
             /* selfType */ undefined,
+            /* errorNode */ undefined,
             /* diag */ undefined,
             recursionCount
         );

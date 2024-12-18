@@ -538,6 +538,7 @@ export namespace ModuleType {
 export interface DataClassEntry {
     name: string;
     classType: ClassType;
+    mroClass?: ClassType;
     isClassVar: boolean;
     isKeywordOnly: boolean;
     alias?: string | undefined;
