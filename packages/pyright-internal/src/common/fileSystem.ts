@@ -16,6 +16,7 @@ import { Uri } from './uri/uri';
 export interface Stats {
     size: number;
     mtimeMs: number;
+    ctimeMs: number;
 
     isFile(): boolean;
     isDirectory(): boolean;
