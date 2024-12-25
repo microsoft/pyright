@@ -26490,21 +26490,32 @@ export function createTypeEvaluator(
                         if (p.name) {
                             matchedParamCount++;
                         }
-                    } else if (isPositionOnlySeparator(p) && remainingParams.length === 0) {
+
+                        // If this is a *args parameter, assume that it provides
+                        // the remaining positional parameters, but also assume
+                        // that it is not exhausted and can provide additional
+                        // parameters.
+                        if (p.category !== ParamCategory.ArgsList) {
+                            return;
+                        }
+                    }
+
+                    if (isPositionOnlySeparator(p) && remainingParams.length === 0) {
                         // Don't bother pushing a position-only separator if it
                         // is the first remaining param.
-                    } else {
-                        remainingParams.push(
-                            FunctionParam.create(
-                                p.category,
-                                FunctionType.getParamType(effectiveSrcType, index),
-                                p.flags,
-                                p.name,
-                                FunctionType.getParamDefaultType(effectiveSrcType, index),
-                                p.defaultExpr
-                            )
-                        );
+                        return;
                     }
+
+                    remainingParams.push(
+                        FunctionParam.create(
+                            p.category,
+                            FunctionType.getParamType(effectiveSrcType, index),
+                            p.flags,
+                            p.name,
+                            FunctionType.getParamDefaultType(effectiveSrcType, index),
+                            p.defaultExpr
+                        )
+                    );
                 });
 
                 // If there are remaining parameters and the source and dest do not contain
