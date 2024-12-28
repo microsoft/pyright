@@ -1648,6 +1648,10 @@ export class ConfigOptions {
                         `Config executionEnvironments index ${index}: extraPaths field must contain an array.`
                     );
                 } else {
+                    // If specified, this overrides the default extra paths inherited
+                    // from the top-level config.
+                    newExecEnv.extraPaths = [];
+
                     const pathList = envObj.extraPaths as string[];
                     pathList.forEach((path, pathIndex) => {
                         if (typeof path !== 'string') {

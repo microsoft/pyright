@@ -473,7 +473,6 @@ test('Command line options can override config but only when not using extension
     commandLineOptions.configSettings.useLibraryCodeForTypes = true;
     commandLineOptions.configSettings.includeFileSpecs = ['test2'];
     commandLineOptions.configSettings.excludeFileSpecs = ['test2'];
-    commandLineOptions.configSettings.extraPaths = ['test2'];
     commandLineOptions.configSettings.diagnosticSeverityOverrides = {
         reportMissingImports: DiagnosticSeverityOverrides.Error,
     };
@@ -485,10 +484,6 @@ test('Command line options can override config but only when not using extension
     assert.notDeepStrictEqual(defaultOptions.exclude, overriddenOptions.exclude);
     assert.notDeepStrictEqual(defaultOptions.ignore, overriddenOptions.ignore);
     assert.notDeepStrictEqual(defaultOptions.diagnosticRuleSet, overriddenOptions.diagnosticRuleSet);
-    assert.notDeepStrictEqual(
-        defaultOptions.executionEnvironments[0].extraPaths,
-        overriddenOptions.executionEnvironments[0].extraPaths
-    );
     assert.notDeepStrictEqual(defaultOptions.venvPath, overriddenOptions.venvPath);
     // Typeshed and stub path are an exception, it should just be reported as a dupe.
     assert.deepStrictEqual(defaultOptions.typeshedPath, overriddenOptions.typeshedPath);
