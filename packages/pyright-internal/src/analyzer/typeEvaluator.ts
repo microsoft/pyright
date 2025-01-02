@@ -13836,7 +13836,15 @@ export function createTypeEvaluator(
             stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags, /* convertModule */ true))
         );
 
-        keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : fallbackType;
+        if (keyTypes.length > 0) {
+            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || hasExpectedType) {
+                keyType = combineTypes(keyTypes);
+            } else {
+                keyType = areTypesSame(keyTypes, { ignorePseudoGeneric: true }) ? keyTypes[0] : fallbackType;
+            }
+        } else {
+            valueType = fallbackType;
+        }
 
         // If the value type differs and we're not using "strict inference mode",
         // we need to back off because we can't properly represent the mappings
@@ -14051,7 +14059,12 @@ export function createTypeEvaluator(
                 }
 
                 const unexpandedType = unexpandedTypeResult.type;
+
                 if (isAnyOrUnknown(unexpandedType)) {
+                    if (forceStrictInference || index < maxEntriesToUseForInference) {
+                        keyTypes.push({ node: entryNode, type: unexpandedType });
+                        valueTypes.push({ node: entryNode, type: unexpandedType });
+                    }
                     addUnknown = false;
                 } else if (isClassInstance(unexpandedType) && ClassType.isTypedDictClass(unexpandedType)) {
                     // Handle dictionary expansion for a TypedDict.
