@@ -1728,7 +1728,7 @@ export namespace FunctionType {
     }
 
     export function createSynthesizedInstance(name: string, additionalFlags = FunctionTypeFlags.None) {
-        return create(name, '', '', additionalFlags | FunctionTypeFlags.SynthesizedMethod, TypeFlags.Instance);
+        return create(name, name, '', additionalFlags | FunctionTypeFlags.SynthesizedMethod, TypeFlags.Instance);
     }
 
     function create(

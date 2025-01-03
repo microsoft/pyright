@@ -445,7 +445,6 @@ interface ValidateArgTypeOptions {
 
 interface EffectiveReturnTypeOptions {
     callSiteInfo?: CallSiteEvaluationInfo;
-    skipInferReturnType?: boolean;
 }
 
 interface SignatureTrackerStackEntry {
@@ -23030,11 +23029,7 @@ export function createTypeEvaluator(
             return specializedReturnType;
         }
 
-        if (!options?.skipInferReturnType) {
-            return getInferredReturnType(type, options?.callSiteInfo);
-        }
-
-        return UnknownType.create();
+        return getInferredReturnType(type, options?.callSiteInfo);
     }
 
     function _getInferredReturnType(type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) {
@@ -23950,7 +23945,7 @@ export function createTypeEvaluator(
         return true;
     }
 
-    function getGetterTypeFromProperty(propertyClass: ClassType, inferTypeIfNeeded: boolean): Type | undefined {
+    function getGetterTypeFromProperty(propertyClass: ClassType): Type | undefined {
         if (!ClassType.isPropertyClass(propertyClass)) {
             return undefined;
         }

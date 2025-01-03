@@ -654,7 +654,7 @@ function assignToProtocolInternal(
                     }
                 } else {
                     // Extract the property type from the property class.
-                    let getterType = evaluator.getGetterTypeFromProperty(destMemberType, /* inferTypeIfNeeded */ true);
+                    let getterType = evaluator.getGetterTypeFromProperty(destMemberType);
 
                     if (getterType) {
                         getterType = partiallySpecializeType(getterType, mroClass, evaluator.getTypeClassType());

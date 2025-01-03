@@ -697,7 +697,7 @@ export interface TypeEvaluator {
         errorNode: ExpressionNode,
         emitNotIterableError?: boolean
     ) => TypeResult | undefined;
-    getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
+    getGetterTypeFromProperty: (propertyClass: ClassType) => Type | undefined;
     getTypeOfArg: (arg: Arg, inferenceContext: InferenceContext | undefined) => TypeResult;
     convertNodeToArg: (node: ArgumentNode) => ArgWithExpression;
     buildTupleTypesList: (entryTypeResults: TypeResult[], stripLiterals: boolean) => TupleTypeArg[];
