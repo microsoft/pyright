@@ -611,6 +611,10 @@ interface CodeFlowAnalyzerCacheEntry {
     codeFlowAnalyzer: CodeFlowAnalyzer;
 }
 
+interface FunctionRecursionInfo {
+    callerNode: ExpressionNode | undefined;
+}
+
 type LogWrapper = <T extends (...args: any[]) => any>(func: T) => (...args: Parameters<T>) => ReturnType<T>;
 
 interface SuppressedNodeStackEntry {
@@ -629,7 +633,7 @@ export function createTypeEvaluator(
     const suppressedNodeStack: SuppressedNodeStackEntry[] = [];
     const assignClassToSelfStack: AssignClassToSelfInfo[] = [];
 
-    let functionRecursionMap = new Set<number>();
+    let functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
     let typeCache = new Map<number, TypeCacheEntry>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
@@ -669,7 +673,7 @@ export function createTypeEvaluator(
     // circular references in complex data structures, so it fails
     // to clean up the objects if we don't help it out.
     function disposeEvaluator() {
-        functionRecursionMap = new Set<number>();
+        functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
         codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
         typeCache = new Map<number, TypeCacheEntry>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
@@ -19223,7 +19227,11 @@ export function createTypeEvaluator(
         return awaitableReturnType;
     }
 
-    function inferFunctionReturnType(node: FunctionNode, isAbstract: boolean): TypeResult | undefined {
+    function inferFunctionReturnType(
+        node: FunctionNode,
+        isAbstract: boolean,
+        callerNode: ExpressionNode | undefined
+    ): TypeResult | undefined {
         const returnAnnotation = node.d.returnAnnotation || node.d.funcAnnotationComment?.d.returnAnnotation;
 
         // This shouldn't be called if there is a declared return type, but it
@@ -19242,11 +19250,17 @@ export function createTypeEvaluator(
             return { type: inferredReturnType, isIncomplete };
         }
 
-        if (functionRecursionMap.has(node.id) || functionRecursionMap.size >= maxInferFunctionReturnRecursionCount) {
+        const recursionEntry = functionRecursionMap.get(node.id) ?? [];
+
+        if (functionRecursionMap.size >= maxInferFunctionReturnRecursionCount) {
+            inferredReturnType = UnknownType.create();
+            isIncomplete = true;
+        } else if (recursionEntry.some((entry) => entry.callerNode === callerNode)) {
             inferredReturnType = UnknownType.create();
             isIncomplete = true;
         } else {
-            functionRecursionMap.add(node.id);
+            recursionEntry.push({ callerNode });
+            functionRecursionMap.set(node.id, recursionEntry);
 
             try {
                 let functionDecl: FunctionDeclaration | undefined;
@@ -19433,7 +19447,10 @@ export function createTypeEvaluator(
                 }
                 throw err;
             } finally {
-                functionRecursionMap.delete(node.id);
+                recursionEntry.pop();
+                if (recursionEntry.length === 0) {
+                    functionRecursionMap.delete(node.id);
+                }
             }
         }
 
@@ -23086,7 +23103,8 @@ export function createTypeEvaluator(
                         disableSpeculativeMode(() => {
                             returnTypeResult = inferFunctionReturnType(
                                 functionNode,
-                                FunctionType.isAbstractMethod(type)
+                                FunctionType.isAbstractMethod(type),
+                                callSiteInfo?.errorNode
                             );
                         });
 
@@ -23295,7 +23313,8 @@ export function createTypeEvaluator(
                     } else {
                         contextualReturnType = inferFunctionReturnType(
                             functionNode,
-                            FunctionType.isAbstractMethod(type)
+                            FunctionType.isAbstractMethod(type),
+                            callSiteInfo?.errorNode
                         )?.type;
                     }
                 }
