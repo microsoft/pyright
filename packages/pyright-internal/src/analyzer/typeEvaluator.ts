@@ -7494,7 +7494,9 @@ export function createTypeEvaluator(
                     ) {
                         const itemMethodType = getBoundMagicMethod(
                             concreteSubtype,
-                            getIndexAccessMagicMethodName(usage)
+                            getIndexAccessMagicMethodName(usage),
+                            /* selfType */ undefined,
+                            node.d.leftExpr
                         );
 
                         if ((flags & EvalFlags.TypeExpression) !== 0) {
@@ -7844,7 +7846,7 @@ export function createTypeEvaluator(
         }
 
         const magicMethodName = getIndexAccessMagicMethodName(usage);
-        const itemMethodType = getBoundMagicMethod(baseType, magicMethodName, selfType);
+        const itemMethodType = getBoundMagicMethod(baseType, magicMethodName, selfType, node.d.leftExpr);
 
         if (!itemMethodType) {
             addDiagnostic(
