@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/git-commands/git-subrepo#readme
+;
+[subrepo]
+remote = https://github.com/microsoft/pyright.git
+branch = main
+	commit = b0bd5bfc3e5ebb5b3b45ee18f853a25301cc387d
+	parent = c7f9742d017c57093e9f8f389e750878889ed1a8
+	method = merge
+	cmdver = 0.4.1

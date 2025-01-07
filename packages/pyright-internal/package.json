@@ -39,9 +39,9 @@
     "devDependencies": {
         "@types/command-line-args": "^5.2.3",
         "@types/fs-extra": "^11.0.4",
-        "@types/jest": "^29.5.13",
-        "@types/lodash": "^4.17.7",
-        "@types/node": "^22.7.0",
+        "@types/jest": "^29.5.14",
+        "@types/lodash": "^4.17.14",
+        "@types/node": "^22.10.5",
         "@types/tmp": "^0.2.6",
         "copy-webpack-plugin": "^11.0.0",
         "esbuild-loader": "^3.2.0",
@@ -51,7 +51,7 @@
         "ts-jest": "^29.2.5",
         "ts-loader": "^9.5.1",
         "typescript": "~5.5.4",
-        "webpack": "^5.94.0",
+        "webpack": "^5.97.1",
         "webpack-cli": "^5.1.4",
         "word-wrap": "1.2.5"
     }
