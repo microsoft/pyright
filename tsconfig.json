@@ -1,9 +1,9 @@
 {
     "compilerOptions": {
-        "target": "es2019",
+        "target": "es2020",
         "module": "node16",
         "lib": [
-            "es2019"
+            "es2020"
         ],
         "skipLibCheck": true,
         "esModuleInterop": true,

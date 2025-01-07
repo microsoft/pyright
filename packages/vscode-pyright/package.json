@@ -1582,7 +1582,7 @@
         "vscode-languageserver-protocol": "^3.17.6-next.10"
     },
     "devDependencies": {
-        "@types/node": "^22.7.0",
+        "@types/node": "^22.10.5",
         "@types/vscode": "^1.90.0",
         "@vscode/vsce": "^2.32.0",
         "copy-webpack-plugin": "^11.0.0",
@@ -1590,7 +1590,7 @@
         "shx": "^0.3.4",
         "ts-loader": "^9.5.1",
         "typescript": "~5.5.4",
-        "webpack": "^5.94.0",
+        "webpack": "^5.97.1",
         "webpack-cli": "^5.1.4"
     }
 }

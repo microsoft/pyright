@@ -1909,6 +1909,35 @@ export function getTokenAtLeft(
     return tokens.getItemAt(index);
 }
 
+export function getTokenIndexAfter(
+    tokens: TextRangeCollection<Token>,
+    position: number,
+    predicate: (t: Token) => boolean
+) {
+    const index = tokens.getItemAtPosition(position);
+    if (index < 0) {
+        return -1;
+    }
+
+    for (let i = index; i < tokens.length; i++) {
+        const token = tokens.getItemAt(i);
+        if (predicate(token)) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+export function getTokenAfter(tokens: TextRangeCollection<Token>, position: number, predicate: (t: Token) => boolean) {
+    const index = getTokenIndexAfter(tokens, position, predicate);
+    if (index < 0) {
+        return undefined;
+    }
+
+    return tokens.getItemAt(index);
+}
+
 export function isWhitespace(token: Token) {
     return token.type === TokenType.NewLine || token.type === TokenType.Indent || token.type === TokenType.Dedent;
 }
@@ -1939,24 +1968,6 @@ export function getIndexOfTokenOverlapping(tokens: TextRangeCollection<Token>, p
     const token = tokens.getItemAt(index);
 
     return TextRange.overlaps(token, position) ? index : -1;
-}
-
-export function findTokenAfter(tokenizerOutput: TokenizerOutput, offset: number, predicate: (t: Token) => boolean) {
-    const tokens = tokenizerOutput.tokens;
-
-    const index = tokens.getItemAtPosition(offset);
-    if (index < 0) {
-        return undefined;
-    }
-
-    for (let i = index; i < tokens.length; i++) {
-        const token = tokens.getItemAt(i);
-        if (predicate(token)) {
-            return token;
-        }
-    }
-
-    return undefined;
 }
 
 export function getCommentsAtTokenIndex(tokens: TextRangeCollection<Token>, index: number) {
