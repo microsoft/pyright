@@ -56,7 +56,7 @@ export class ParentDirectoryCache {
             this._libPathCache ??
             this._importRootGetter()
                 .map((r) => fs.realCasePath(r))
-                .filter((r) => r !== root)
+                .filter((r) => !r.equals(root))
                 .filter((r) => r.startsWith(root));
 
         if (this._libPathCache.some((p) => sourceFileUri.startsWith(p))) {
