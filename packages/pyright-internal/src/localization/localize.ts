@@ -810,6 +810,7 @@ export namespace Localizer {
         export const patternNeverMatches = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.patternNeverMatches'));
         export const positionArgAfterNamedArg = () => getRawString('Diagnostic.positionArgAfterNamedArg');
+        export const positionArgAfterUnpackedDictArg = () => getRawString('Diagnostic.positionArgAfterUnpackedDictArg');
         export const privateImportFromPyTypedModule = () =>
             new ParameterizedString<{ name: string; module: string }>(
                 getRawString('Diagnostic.privateImportFromPyTypedModule')

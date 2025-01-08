@@ -10452,6 +10452,14 @@ export function createTypeEvaluator(
 
     // Evaluates the type of the "cast" call.
     function evaluateCastCall(argList: Arg[], errorNode: ExpressionNode) {
+        if (argList[0].argCategory !== ArgCategory.Simple && argList[0].valueExpression) {
+            addDiagnostic(
+                DiagnosticRule.reportInvalidTypeForm,
+                LocMessage.unpackInAnnotation(),
+                argList[0].valueExpression
+            );
+        }
+
         // Verify that the cast is necessary.
         let castToType = getTypeOfArgExpectingType(argList[0], { typeExpression: true }).type;
 
