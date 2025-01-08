@@ -35,7 +35,7 @@ import { TokenType } from '../parser/tokenizerTypes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ModuleNameAndType } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
-import { findTokenAfter, getTokenAt } from './parseTreeUtils';
+import { getTokenAfter, getTokenAt } from './parseTreeUtils';
 import * as SymbolNameUtils from './symbolNameUtils';
 
 export interface ImportStatement {
@@ -797,8 +797,8 @@ function getEditsPreservingFirstCommentAfterCommaIfExist(
         return [{ start: offsetOfPreviousNodeEnd, length }];
     }
 
-    const commaToken = findTokenAfter(
-        parseFileResults.tokenizerOutput,
+    const commaToken = getTokenAfter(
+        parseFileResults.tokenizerOutput.tokens,
         TextRange.getEnd(previousNode),
         (t) => t.type === TokenType.Comma
     );

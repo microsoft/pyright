@@ -685,6 +685,18 @@ export class TestState {
         this.workspace.service.invalidateAndForceReanalysis(InvalidatedReason.Reanalyzed);
         this.analyze();
 
+        // calling `analyze` should have parse and bind all or open user files. make sure that's true at least for open files.
+        for (const info of this.program.getOpened()) {
+            if (!info.sourceFile.getModuleSymbolTable()) {
+                this.console.error(
+                    `Module symbol missing?: ${info.sourceFile.getUri()}, bound: ${!info.sourceFile.isBindingRequired}`
+                );
+
+                // Make sure it is bound.
+                this.program.getBoundSourceFile(info.sourceFile.getUri());
+            }
+        }
+
         // Local copy to use in capture.
         const serviceProvider = this.serviceProvider;
         for (const range of this.getRanges()) {
