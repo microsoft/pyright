@@ -996,6 +996,7 @@
         },
         "patternNeverMatches": "Pattern will never be matched for subject type \"{type}\"",
         "positionArgAfterNamedArg": "Positional argument cannot appear after keyword arguments",
+        "positionArgAfterUnpackedDictArg": "Positional argument cannot appear after keyword argument unpacking",
         "positionOnlyAfterArgs": "Position-only parameter separator not allowed after \"*\" parameter",
         "positionOnlyAfterKeywordOnly": "\"/\" parameter must appear before \"*\" parameter",
         "positionOnlyAfterNon": "Position-only parameter not allowed after parameter that is not position-only",

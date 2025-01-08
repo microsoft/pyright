@@ -3862,6 +3862,7 @@ export class Parser {
     private _parseArgList(): ArgListResult {
         const argList: ArgumentNode[] = [];
         let sawKeywordArg = false;
+        let sawUnpackedKeywordArg = false;
         let trailingComma = false;
 
         while (true) {
@@ -3878,8 +3879,17 @@ export class Parser {
             const arg = this._parseArgument();
             if (arg.d.name) {
                 sawKeywordArg = true;
-            } else if (sawKeywordArg && arg.d.argCategory === ArgCategory.Simple) {
-                this._addSyntaxError(LocMessage.positionArgAfterNamedArg(), arg);
+            } else {
+                if (sawKeywordArg && arg.d.argCategory === ArgCategory.Simple) {
+                    this._addSyntaxError(LocMessage.positionArgAfterNamedArg(), arg);
+                }
+
+                if (sawUnpackedKeywordArg && arg.d.argCategory !== ArgCategory.UnpackedDictionary) {
+                    this._addSyntaxError(LocMessage.positionArgAfterUnpackedDictArg(), arg);
+                }
+            }
+            if (arg.d.argCategory === ArgCategory.UnpackedDictionary) {
+                sawUnpackedKeywordArg = true;
             }
             argList.push(arg);
 
