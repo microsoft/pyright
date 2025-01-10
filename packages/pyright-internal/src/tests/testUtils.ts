@@ -218,6 +218,6 @@ export function validateResults(
 
 function logDiagnostics(diags: Diagnostic[]) {
     for (const diag of diags) {
-        console.error(diag.message);
+        console.error(`   [${diag.range.start.line + 1}:${diag.range.start.character + 1}] ${diag.message}`);
     }
 }

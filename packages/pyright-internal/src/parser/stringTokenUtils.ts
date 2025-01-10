@@ -51,7 +51,7 @@ function completeUnescapedString(incomplete: IncompleteUnescapedString, original
     };
 }
 
-export function getUnescapedString(stringToken: StringToken | FStringMiddleToken): UnescapedString {
+export function getUnescapedString(stringToken: StringToken | FStringMiddleToken, elideCrlf = true): UnescapedString {
     const escapedString = stringToken.escapedValue;
     const isRaw = (stringToken.flags & StringTokenFlags.Raw) !== 0;
 
@@ -305,6 +305,9 @@ export function getUnescapedString(stringToken: StringToken | FStringMiddleToken
         } else if (curChar === Char.LineFeed || curChar === Char.CarriageReturn) {
             // Skip over the escaped new line (either one or two characters).
             if (curChar === Char.CarriageReturn && getEscapedCharacter(1) === Char.LineFeed) {
+                if (!elideCrlf) {
+                    appendOutputChar(curChar);
+                }
                 strOffset++;
                 curChar = getEscapedCharacter();
             }
