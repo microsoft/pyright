@@ -305,7 +305,6 @@ export function getUnescapedString(stringToken: StringToken | FStringMiddleToken
         } else if (curChar === Char.LineFeed || curChar === Char.CarriageReturn) {
             // Skip over the escaped new line (either one or two characters).
             if (curChar === Char.CarriageReturn && getEscapedCharacter(1) === Char.LineFeed) {
-                appendOutputChar(curChar);
                 strOffset++;
                 curChar = getEscapedCharacter();
             }
