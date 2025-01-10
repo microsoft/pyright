@@ -42,17 +42,21 @@ import { IndexAliasData } from './symbolIndexer';
 import { fromLSPAny } from '../common/lspUtils';
 
 export interface AutoImportSymbol {
-    readonly importAlias?: IndexAliasData;
-    readonly symbol?: Symbol;
+    readonly name: string;
+    readonly library: boolean;
+
     readonly kind?: SymbolKind;
     readonly itemKind?: CompletionItemKind;
+    readonly importAlias?: IndexAliasData;
+
+    readonly symbol?: Symbol;
     readonly inDunderAll?: boolean;
     readonly hasRedundantAlias?: boolean;
 }
 
 export interface ModuleSymbolTable {
     readonly uri: Uri;
-    getSymbols(): Generator<{ symbol: AutoImportSymbol; name: string; library: boolean }>;
+    getSymbols(): Generator<AutoImportSymbol>;
 }
 
 export type ModuleSymbolMap = Map<string, ModuleSymbolTable>;
@@ -164,7 +168,14 @@ export function buildModuleSymbolsMap(files: readonly SourceFileInfo[]): ModuleS
                         declaration.type === DeclarationType.Variable && !declaration.isConstant && !declaration.isFinal
                             ? SymbolKind.Variable
                             : undefined;
-                    yield { symbol: { symbol, kind: variableKind }, name, library: !isUserCode(file) };
+
+                    yield {
+                        name,
+                        symbol,
+                        kind: variableKind,
+                        library: !isUserCode(file),
+                        inDunderAll: symbol.isInDunderAll(),
+                    };
                 }
             },
         });
@@ -351,14 +362,15 @@ export class AutoImporter {
         }
 
         const dotCount = StringUtils.getCharacterCount(importSource, '.');
-        for (const { symbol: autoImportSymbol, name } of topLevelSymbols.getSymbols()) {
-            if (!this.shouldIncludeVariable(autoImportSymbol, name, fileProperties.isStub)) {
+        for (const autoSymbol of topLevelSymbols.getSymbols()) {
+            if (!this.shouldIncludeVariable(autoSymbol, fileProperties.isStub)) {
                 continue;
             }
 
             // For very short matching strings, we will require an exact match. Otherwise
             // we will tend to return a list that's too long. Once we get beyond two
             // characters, we can do a fuzzy match.
+            const name = autoSymbol.name;
             const isSimilar = this._isSimilar(word, name, similarityLimit);
             if (!isSimilar) {
                 continue;
@@ -370,9 +382,9 @@ export class AutoImporter {
             }
 
             // We will collect all aliases and then process it later
-            if (autoImportSymbol.importAlias) {
+            if (autoSymbol.importAlias) {
                 this._addToImportAliasMap(
-                    autoImportSymbol.importAlias,
+                    autoSymbol.importAlias,
                     {
                         importParts: {
                             symbolName: name,
@@ -383,12 +395,12 @@ export class AutoImporter {
                             moduleNameAndType,
                         },
                         importGroup,
-                        symbol: autoImportSymbol.symbol,
-                        kind: autoImportSymbol.importAlias.kind,
-                        itemKind: autoImportSymbol.importAlias.itemKind,
-                        inDunderAll: autoImportSymbol.inDunderAll,
-                        hasRedundantAlias: autoImportSymbol.hasRedundantAlias,
-                        fileUri: autoImportSymbol.importAlias.moduleUri,
+                        symbol: autoSymbol.symbol,
+                        kind: autoSymbol.importAlias.kind,
+                        itemKind: autoSymbol.importAlias.itemKind,
+                        inDunderAll: autoSymbol.inDunderAll,
+                        hasRedundantAlias: autoSymbol.hasRedundantAlias,
+                        fileUri: autoSymbol.importAlias.moduleUri,
                     },
                     importAliasMap
                 );
@@ -407,9 +419,9 @@ export class AutoImporter {
             this._addResult(results, {
                 name,
                 alias: abbrFromUsers,
-                symbol: autoImportSymbol.symbol,
+                symbol: autoSymbol.symbol,
                 source: importSource,
-                kind: autoImportSymbol.itemKind ?? convertSymbolKindToCompletionItemKind(autoImportSymbol.kind),
+                kind: autoSymbol.itemKind ?? convertSymbolKindToCompletionItemKind(autoSymbol.kind),
                 insertionText: autoImportTextEdits.insertionText,
                 edits: autoImportTextEdits.edits,
                 declUri: moduleUri,
@@ -497,14 +509,14 @@ export class AutoImporter {
         return StringUtils.getStringComparer()(left.importParts.importName, right.importParts.importName);
     }
 
-    protected shouldIncludeVariable(autoImportSymbol: AutoImportSymbol, name: string, isStub: boolean) {
+    protected shouldIncludeVariable(autoSymbol: AutoImportSymbol, isStub: boolean) {
         // If it is not a stub file and symbol is Variable, we only include it if
         // name is public constant or type alias
-        if (isStub || autoImportSymbol.kind !== SymbolKind.Variable) {
+        if (isStub || autoSymbol.kind !== SymbolKind.Variable) {
             return true;
         }
 
-        return SymbolNameUtils.isPublicConstantOrTypeAlias(name);
+        return SymbolNameUtils.isPublicConstantOrTypeAlias(autoSymbol.name);
     }
 
     private _addToImportAliasMap(
