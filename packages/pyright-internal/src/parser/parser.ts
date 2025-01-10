@@ -5034,7 +5034,10 @@ export class Parser {
                 }
             } else {
                 const stringToken = stringNode.d.strings[0].d.token;
-                const stringValue = StringTokenUtils.getUnescapedString(stringNode.d.strings[0].d.token);
+                const stringValue = StringTokenUtils.getUnescapedString(
+                    stringNode.d.strings[0].d.token,
+                    /* elideCrlf */ false
+                );
                 const unescapedString = stringValue.value;
                 const tokenOffset = stringToken.start;
                 const prefixLength = stringToken.prefixLength + stringToken.quoteMarkLength;
