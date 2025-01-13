@@ -860,6 +860,10 @@
             "message": "Object of type \"None\" cannot be used with \"with\"",
             "comment": "{Locked='None','with'}"
         },
+        "noneNotUsableWithAsync": {
+            "message": "Object of type \"None\" cannot be used with \"async with\"",
+            "comment": "{Locked='None','with', 'async}"
+        },
         "noneOperator": {
             "message": "Operator \"{operator}\" not supported for \"None\"",
             "comment": "{Locked='None'}"
@@ -1333,7 +1337,11 @@
         "typeNotSupportBinaryOperatorBidirectional": "Operator \"{operator}\" not supported for types \"{leftType}\" and \"{rightType}\" when expected type is \"{expectedType}\"",
         "typeNotSupportUnaryOperator": "Operator \"{operator}\" not supported for type \"{type}\"",
         "typeNotSupportUnaryOperatorBidirectional": "Operator \"{operator}\" not supported for type \"{type}\" when expected type is \"{expectedType}\"",
-        "typeNotUsableWith": "Object of type \"{type}\" cannot be used with \"with\" because it does not implement {method}",
+        "typeNotUsableWith": "Object of type \"{type}\" cannot be used with \"with\" because it does not correctly implement {method}",
+        "typeNotUsableWithAsync": {
+            "message": "Object of type \"{type}\" cannot be used with \"async with\" because it does not correctly implement {method}",
+            "comment": ["{Locked='async','with}"]
+    },
         "typeParameterBoundNotAllowed": {
             "message": "Bound or constraint cannot be used with a variadic type parameter or ParamSpec",
             "comment": ["{Locked='ParamSpec'}", "'variadic' means that it accepts a variable number of arguments"]

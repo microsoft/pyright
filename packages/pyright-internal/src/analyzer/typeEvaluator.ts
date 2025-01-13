@@ -19607,7 +19607,11 @@ export function createTypeEvaluator(
         const isAsync = node.parent && node.parent.nodeType === ParseNodeType.With && !!node.parent.d.isAsync;
 
         if (isOptionalType(exprType)) {
-            addDiagnostic(DiagnosticRule.reportOptionalContextManager, LocMessage.noneNotUsableWith(), node.d.expr);
+            addDiagnostic(
+                DiagnosticRule.reportOptionalContextManager,
+                isAsync ? LocMessage.noneNotUsableWithAsync() : LocMessage.noneNotUsableWith(),
+                node.d.expr
+            );
             exprType = removeNoneFromUnion(exprType);
         }
 
@@ -19620,25 +19624,20 @@ export function createTypeEvaluator(
                 return subtype;
             }
 
-            const additionalHelp = new DiagnosticAddendum();
+            const enterDiag = new DiagnosticAddendum();
 
             if (isClass(subtype)) {
-                let enterType = getTypeOfMagicMethodCall(
+                const enterTypeResult = getTypeOfMagicMethodCall(
                     subtype,
                     enterMethodName,
                     [],
                     node.d.expr,
                     /* inferenceContext */ undefined,
-                    additionalHelp.createAddendum()
-                )?.type;
+                    enterDiag.createAddendum()
+                );
 
-                if (enterType) {
-                    // For "async while", an implicit "await" is performed.
-                    if (isAsync) {
-                        enterType = getTypeOfAwaitable(enterType, node.d.expr);
-                    }
-
-                    return enterType;
+                if (enterTypeResult) {
+                    return isAsync ? getTypeOfAwaitable(enterTypeResult.type, node.d.expr) : enterTypeResult.type;
                 }
 
                 if (!isAsync) {
@@ -19651,15 +19650,15 @@ export function createTypeEvaluator(
                             /* inferenceContext */ undefined
                         )?.type
                     ) {
-                        additionalHelp.addMessage(LocAddendum.asyncHelp());
+                        enterDiag.addMessage(LocAddendum.asyncHelp());
                     }
                 }
             }
 
+            const message = isAsync ? LocMessage.typeNotUsableWithAsync() : LocMessage.typeNotUsableWith();
             addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.typeNotUsableWith().format({ type: printType(subtype), method: enterMethodName }) +
-                    additionalHelp.getString(),
+                message.format({ type: printType(subtype), method: enterMethodName }) + enterDiag.getString(),
                 node.d.expr
             );
             return UnknownType.create();
@@ -19667,6 +19666,8 @@ export function createTypeEvaluator(
 
         // Verify that the target has an __exit__ or __aexit__ method defined.
         const exitMethodName = isAsync ? '__aexit__' : '__exit__';
+        const exitDiag = new DiagnosticAddendum();
+
         doForEachSubtype(exprType, (subtype) => {
             subtype = makeTopLevelTypeVarsConcrete(subtype);
 
@@ -19676,24 +19677,27 @@ export function createTypeEvaluator(
 
             if (isClass(subtype)) {
                 const anyArg: TypeResult = { type: AnyType.create() };
-                const exitType = getTypeOfMagicMethodCall(
+                const exitTypeResult = getTypeOfMagicMethodCall(
                     subtype,
                     exitMethodName,
                     [anyArg, anyArg, anyArg],
                     node.d.expr,
-                    /* inferenceContext */ undefined
-                )?.type;
+                    /* inferenceContext */ undefined,
+                    exitDiag
+                );
 
-                if (exitType) {
-                    return;
+                if (exitTypeResult) {
+                    return isAsync ? getTypeOfAwaitable(exitTypeResult.type, node.d.expr) : exitTypeResult.type;
                 }
             }
 
             addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.typeNotUsableWith().format({ type: printType(subtype), method: exitMethodName }),
+                LocMessage.typeNotUsableWith().format({ type: printType(subtype), method: exitMethodName }) +
+                    exitDiag.getString(),
                 node.d.expr
             );
+            return UnknownType.create();
         });
 
         if (node.d.target) {
