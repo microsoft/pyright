@@ -25709,18 +25709,6 @@ export function createTypeEvaluator(
         flags: AssignTypeFlags,
         recursionCount: number
     ) {
-        // Handle the special case where the dest type is a synthesized
-        // "self" for a protocol class.
-        if (
-            isTypeVar(destType) &&
-            destType.shared.isSynthesized &&
-            destType.shared.boundType &&
-            isClassInstance(destType.shared.boundType) &&
-            ClassType.isProtocolClass(destType.shared.boundType)
-        ) {
-            return true;
-        }
-
         if (isTypeVarTuple(destType) && !isUnpacked(srcType)) {
             return false;
         }
