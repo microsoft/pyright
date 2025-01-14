@@ -521,6 +521,7 @@ class Base7(Generic[T]):
 
 
 class Derived7_1(Base7[T]):
+    # This should generate an error.
     def method1(self, x: S) -> S:
         return x
 
@@ -528,3 +529,12 @@ class Derived7_1(Base7[T]):
 class Derived7_2(Base7[int]):
     def method1(self, x: U) -> U:
         return x
+
+
+class Base8[T]:
+    def method1(self, x: T) -> T: ...
+
+
+class Derived8[T](Base8[T]):
+    # This should generate an error.
+    def method1[U: str](self, x: U) -> U: ...
