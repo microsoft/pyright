@@ -423,16 +423,20 @@ function validateNewMethod(
 
     const constraints = new ConstraintTracker();
 
-    const callResult = evaluator.useSpeculativeMode(useSpeculativeModeForArgs ? errorNode : undefined, () => {
-        return evaluator.validateCallArgs(
-            errorNode,
-            argList,
-            newMethodTypeResult,
-            constraints,
-            skipUnknownArgCheck,
-            inferenceContext
-        );
-    });
+    const callResult = evaluator.useSpeculativeMode(
+        useSpeculativeModeForArgs ? errorNode : undefined,
+        () => {
+            return evaluator.validateCallArgs(
+                errorNode,
+                argList,
+                newMethodTypeResult,
+                constraints,
+                skipUnknownArgCheck,
+                inferenceContext
+            );
+        },
+        { dependentType: newMethodTypeResult.type }
+    );
 
     if (callResult.isTypeIncomplete) {
         isTypeIncomplete = true;
