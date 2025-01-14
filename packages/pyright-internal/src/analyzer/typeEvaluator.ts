@@ -2761,13 +2761,7 @@ export function createTypeEvaluator(
                 );
 
                 if (baseType && isClassInstance(baseType)) {
-                    const setItemType = getBoundMagicMethod(baseType, '__setitem__');
-                    if (setItemType && isFunction(setItemType) && setItemType.shared.parameters.length >= 2) {
-                        const paramType = FunctionType.getParamType(setItemType, 1);
-                        if (!isAnyOrUnknown(paramType)) {
-                            return paramType;
-                        }
-                    } else if (ClassType.isTypedDictClass(baseType)) {
+                    if (ClassType.isTypedDictClass(baseType)) {
                         const typeFromTypedDict = getTypeOfIndexedTypedDict(
                             evaluatorInterface,
                             expression,
@@ -2776,6 +2770,39 @@ export function createTypeEvaluator(
                         );
                         if (typeFromTypedDict) {
                             return typeFromTypedDict.type;
+                        }
+                    }
+
+                    let setItemType = getBoundMagicMethod(baseType, '__setitem__');
+                    if (!setItemType) {
+                        break;
+                    }
+
+                    if (isOverloaded(setItemType)) {
+                        // Determine whether we need to use the slice overload.
+                        const expectsSlice =
+                            expression.d.items.length === 1 &&
+                            expression.d.items[0].d.valueExpr.nodeType === ParseNodeType.Slice;
+                        const overloads = OverloadedType.getOverloads(setItemType);
+                        setItemType = overloads.find((overload) => {
+                            if (overload.shared.parameters.length < 2) {
+                                return false;
+                            }
+
+                            const keyType = FunctionType.getParamType(overload, 0);
+                            const isSlice = isClassInstance(keyType) && ClassType.isBuiltIn(keyType, 'slice');
+                            return expectsSlice === isSlice;
+                        });
+
+                        if (!setItemType) {
+                            break;
+                        }
+                    }
+
+                    if (isFunction(setItemType) && setItemType.shared.parameters.length >= 2) {
+                        const paramType = FunctionType.getParamType(setItemType, 1);
+                        if (!isAnyOrUnknown(paramType)) {
+                            return paramType;
                         }
                     }
                 }

@@ -2,7 +2,7 @@
 # when used with the __getitem__ and __setitem__ method.
 
 
-from typing import Generic, Self, Type, TypeVar, Any
+from typing import Generic, Literal, Self, Type, TypeVar, Any
 
 
 class MyInt:
@@ -121,3 +121,8 @@ class ClassI:
 
 
 reveal_type(ClassI()[0], expected_text="ClassH")
+
+
+def func4(l: list[Literal["a", "b"]]):
+    l[0] = "a"
+    l[0:0] = ["a", "b"]
