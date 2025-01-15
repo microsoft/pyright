@@ -20712,7 +20712,12 @@ export function createTypeEvaluator(
         }
 
         if (checkCodeFlowTooComplex(reference)) {
-            return FlowNodeTypeResult.create(/* type */ undefined, /* isIncomplete */ true);
+            return FlowNodeTypeResult.create(
+                /* type */ options?.typeAtStart && isUnbound(options.typeAtStart.type)
+                    ? UnknownType.create()
+                    : undefined,
+                /* isIncomplete */ true
+            );
         }
 
         // Is there an code flow analyzer cached for this execution scope?
