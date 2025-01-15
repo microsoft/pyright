@@ -187,9 +187,20 @@ export function getVariableTypeText(
         }
     }
 
-    // Handle the case where type is a function and was assigned to a variable.
-    if (type.category === TypeCategory.Function || type.category === TypeCategory.Overloaded) {
-        return getToolTipForType(type, label, name, evaluator, /* isProperty */ false, functionSignatureDisplay);
+    if (
+        type.category === TypeCategory.Function ||
+        type.category === TypeCategory.Overloaded ||
+        typeNode.parent?.nodeType === ParseNodeType.Call
+    ) {
+        return getToolTipForType(
+            type,
+            label,
+            name,
+            evaluator,
+            /* isProperty */ false,
+            functionSignatureDisplay,
+            typeNode
+        );
     }
 
     const typeText = typeVarName ?? name + ': ' + evaluator.printType(getTypeForToolTip(evaluator, typeNode));
