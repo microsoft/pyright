@@ -58,7 +58,7 @@ export interface SpeculativeModeOptions {
 // a context is popped off the stack, all of the speculative type cache
 // entries that were created within that context are removed from the
 // corresponding type caches because they are no longer valid.
-// Each type context also contains a map of "speculative types" that are
+// The tracker also also contains a map of "speculative types" that are
 // contextually evaluated based on an "expected type" and potentially
 // one or more "dependent types". The "expected type" applies in cases
 // where the speculative root node is being evaluated with bidirectional

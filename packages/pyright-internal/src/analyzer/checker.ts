@@ -5892,34 +5892,18 @@ export class Checker extends ParseTreeWalker {
 
         if (isFunction(overriddenType) || isOverloaded(overriddenType)) {
             const diagAddendum = new DiagnosticAddendum();
-            let overrideFunction: FunctionType | undefined;
 
-            if (isFunction(overrideType)) {
-                overrideFunction = overrideType;
-            } else if (isOverloaded(overrideType)) {
-                // Use the last overload.
-                const impl = OverloadedType.getImplementation(overrideType);
-
-                // If the last overload isn't an implementation, skip the check for this symbol.
-                if (!impl || !isFunction(impl)) {
-                    return;
-                }
-
-                overrideFunction = impl;
-            }
-
-            if (overrideFunction) {
+            if (isFunction(overrideType) || isOverloaded(overrideType)) {
                 if (
                     !this._evaluator.validateOverrideMethod(
                         overriddenType,
-                        overrideFunction,
+                        overrideType,
                         /* baseClass */ undefined,
                         diagAddendum,
                         /* enforceParamNameMatch */ true
                     )
                 ) {
-                    const decl = overrideFunction.shared.declaration;
-                    if (decl && decl.type === DeclarationType.Function) {
+                    if (overrideDecl && overrideDecl.type === DeclarationType.Function) {
                         diag = this._evaluator.addDiagnostic(
                             DiagnosticRule.reportIncompatibleMethodOverride,
                             LocMessage.baseClassMethodTypeIncompatible().format({
@@ -6635,7 +6619,7 @@ export class Checker extends ParseTreeWalker {
             selfSpecializeClass(childClassType, { useBoundTypeVars: true })
         );
 
-        const baseType = partiallySpecializeType(
+        let baseType = partiallySpecializeType(
             this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
             baseClass,
             this._evaluator.getTypeClassType(),
@@ -6651,6 +6635,7 @@ export class Checker extends ParseTreeWalker {
 
         if (childClassType.shared.typeVarScopeId) {
             overrideType = makeTypeVarsBound(overrideType, [childClassType.shared.typeVarScopeId]);
+            baseType = makeTypeVarsBound(baseType, [childClassType.shared.typeVarScopeId]);
         }
 
         if (isFunction(baseType) || isOverloaded(baseType)) {

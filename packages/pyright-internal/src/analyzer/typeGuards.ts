@@ -1249,20 +1249,15 @@ function narrowTypeForInstanceOrSubclassInternal(
         if (!isInstanceCheck) {
             const isTypeInstance = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'type');
 
+            // Handle metaclass instances specially.
             if (isMetaclassInstance(subtype) && !isTypeInstance) {
-                // Handle metaclass instances specially.
                 adjFilterTypes = filterTypes.map((filterType) => convertToInstantiable(filterType));
             } else {
-                const convSubtype = convertToInstance(subtype);
+                adjSubtype = convertToInstance(subtype);
 
-                // Handle type[Any] specially for this case.
-                if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'type') && isAnyOrUnknown(convSubtype)) {
-                    adjSubtype = convertToInstance(evaluator.getObjectType());
-                } else {
-                    adjSubtype = convSubtype;
+                if (!isAnyOrUnknown(subtype) || isPositiveTest) {
+                    resultRequiresAdj = true;
                 }
-
-                resultRequiresAdj = true;
             }
         }
 
@@ -1276,7 +1271,18 @@ function narrowTypeForInstanceOrSubclassInternal(
             errorNode
         );
 
-        return resultRequiresAdj ? convertToInstantiable(narrowedResult) : narrowedResult;
+        if (!resultRequiresAdj) {
+            return narrowedResult;
+        }
+
+        if (isAnyOrUnknown(narrowedResult)) {
+            const typeClass = evaluator.getTypeClassType();
+            if (typeClass) {
+                return ClassType.specialize(ClassType.cloneAsInstance(typeClass), [narrowedResult]);
+            }
+        }
+
+        return convertToInstantiable(narrowedResult);
     });
 
     return result;

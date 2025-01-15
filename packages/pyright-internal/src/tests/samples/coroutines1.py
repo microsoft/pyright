@@ -48,7 +48,7 @@ class ScopedClass1:
         yield 3
         return 3
 
-    def __aexit__(
+    async def __aexit__(
         self,
         t: Optional[type] = None,
         exc: Optional[BaseException] = None,

@@ -36,6 +36,7 @@ import { Declaration } from './declaration';
 import { ResolvedAliasInfo } from './declarationUtils';
 import { SymbolWithScope } from './scope';
 import { Symbol, SynthesizedTypeInfo } from './symbol';
+import { SpeculativeModeOptions } from './typeCacheUtils';
 import { PrintTypeFlags } from './typePrinter';
 import {
     AnyType,
@@ -843,7 +844,11 @@ export interface TypeEvaluator {
 
     getTypeCacheEntryCount: () => number;
     disposeEvaluator: () => void;
-    useSpeculativeMode: <T>(speculativeNode: ParseNode | undefined, callback: () => T) => T;
+    useSpeculativeMode: <T>(
+        speculativeNode: ParseNode | undefined,
+        callback: () => T,
+        options?: SpeculativeModeOptions
+    ) => T;
     isSpeculativeModeInUse: (node: ParseNode | undefined) => boolean;
     setTypeResultForNode: (node: ParseNode, typeResult: TypeResult, flags?: EvalFlags) => void;
 
