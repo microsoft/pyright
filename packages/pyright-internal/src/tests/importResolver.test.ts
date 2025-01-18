@@ -763,6 +763,7 @@ describe('Import tests that can run with or without a true venv', () => {
 if (usingTrueVenv()) {
     describe('Import tests that have to run with a venv', () => {
         test('venv can find imports', () => {
+            const tempFile = new RealTempFile();
             const files = [
                 {
                     path: combinePaths('/', 'file1.py'),
@@ -770,8 +771,10 @@ if (usingTrueVenv()) {
                 },
             ];
 
-            const importResult = getImportResult(files, ['pytest']);
+            const importResult = getImportResult(files, ['pytest'], undefined, tempFile);
             assert(importResult.isImportFound, `Import not found: ${importResult.importFailureInfo?.join('\n')}`);
+
+            tempFile.dispose();
         });
     });
 }
@@ -779,9 +782,10 @@ if (usingTrueVenv()) {
 function getImportResult(
     files: { path: string; content: string }[],
     nameParts: string[],
-    setup?: (c: ConfigOptions) => void
+    setup?: (c: ConfigOptions) => void,
+    tempFile?: RealTempFile
 ) {
-    const { importResolver, uri, configOptions } = setupImportResolver(files, setup);
+    const { importResolver, uri, configOptions } = setupImportResolver(files, setup, tempFile);
 
     const importResult = importResolver.resolveImport(uri, configOptions.findExecEnvironment(uri), {
         leadingDots: 0,
@@ -798,8 +802,12 @@ function getImportResult(
     return importResult;
 }
 
-function getModuleNameForImport(files: { path: string; content: string }[], setup?: (c: ConfigOptions) => void) {
-    const { importResolver, uri, configOptions } = setupImportResolver(files, setup);
+function getModuleNameForImport(
+    files: { path: string; content: string }[],
+    setup?: (c: ConfigOptions) => void,
+    tempFile?: RealTempFile
+) {
+    const { importResolver, uri, configOptions } = setupImportResolver(files, setup, tempFile);
 
     const moduleImportInfo = importResolver.getModuleNameForImport(
         uri,
@@ -811,7 +819,11 @@ function getModuleNameForImport(files: { path: string; content: string }[], setu
     return moduleImportInfo;
 }
 
-function setupImportResolver(files: { path: string; content: string }[], setup?: (c: ConfigOptions) => void) {
+function setupImportResolver(
+    files: { path: string; content: string }[],
+    setup?: (c: ConfigOptions) => void,
+    tempFile?: RealTempFile
+) {
     const defaultHostFactory = (sp: ServiceProvider) =>
         new TestAccessHost(sp.fs().getModulePath(), [UriEx.file(libraryRoot)]);
     const defaultSetup =
@@ -847,7 +859,10 @@ function setupImportResolver(files: { path: string; content: string }[], setup?:
                 /* checkRelative */ true
             );
         };
-        hostFactory = (sp: ServiceProvider) => new TruePythonTestAccessHost(sp);
+        hostFactory = (sp: ServiceProvider) => {
+            assert(tempFile);
+            return new TruePythonTestAccessHost(sp, tempFile);
+        };
         spFactory = (files: { path: string; content: string }[]) => createServiceProviderWithCombinedFs(files);
     }
 
@@ -896,11 +911,12 @@ function createServiceProviderWithCombinedFs(files: { path: string; content: str
 }
 
 class TruePythonTestAccessHost extends FullAccessHost {
-    constructor(sp: ServiceProvider) {
-        // Make sure the service provide in use is using a real file system and real temporary file provider.
+    constructor(sp: ServiceProvider, tempFile: RealTempFile) {
         const clone = sp.clone();
-        clone.add(ServiceKeys.fs, createFromRealFileSystem(sp.get(ServiceKeys.caseSensitivityDetector)));
-        clone.add(ServiceKeys.tempFile, new RealTempFile());
+
+        // Make sure the service provide in use is using a real file system and real temporary file provider.
+        clone.add(ServiceKeys.tempFile, tempFile);
+        clone.add(ServiceKeys.fs, createFromRealFileSystem(tempFile));
         super(clone);
     }
 }

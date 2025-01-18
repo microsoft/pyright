@@ -98,6 +98,8 @@ export function renameWorkspace(workspace: Workspace, name: string) {
     workspace.service.setServiceName(name);
 }
 
+export type CreateServiceFunction = (name: string, workspaceRoot: Uri, kinds: string[]) => AnalyzerService;
+
 export class WorkspaceFactory {
     private _defaultWorkspacePath = '<default>';
     private _map = new Map<string, AllWorkspace>();
@@ -105,7 +107,7 @@ export class WorkspaceFactory {
 
     constructor(
         private readonly _console: ConsoleInterface,
-        private readonly _createService: (name: string, rootPath: Uri, kinds: string[]) => AnalyzerService,
+        private readonly _createService: CreateServiceFunction,
         private readonly _onWorkspaceCreated: (workspace: AllWorkspace) => void,
         private readonly _onWorkspaceRemoved: (workspace: AllWorkspace) => void,
         private readonly _serviceProvider: ServiceProvider

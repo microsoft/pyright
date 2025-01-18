@@ -54,6 +54,10 @@ export class BackgroundAnalysisProgram {
         this._backgroundAnalysis?.setProgramView(this._program);
     }
 
+    get serviceProvider() {
+        return this._serviceProvider;
+    }
+
     get configOptions() {
         return this._configOptions;
     }
