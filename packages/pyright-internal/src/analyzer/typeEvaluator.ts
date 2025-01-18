@@ -22961,7 +22961,13 @@ export function createTypeEvaluator(
 
             type = combineTypes(typesToCombine);
         } else {
-            type = UnboundType.create();
+            // We can encounter this situation in the case of a bare ClassVar annotation.
+            if (symbol.isClassVar()) {
+                type = UnknownType.create();
+                isIncomplete = false;
+            } else {
+                type = UnboundType.create();
+            }
         }
 
         return { type, isIncomplete, includesSpeculativeResult, evaluationAttempts };
