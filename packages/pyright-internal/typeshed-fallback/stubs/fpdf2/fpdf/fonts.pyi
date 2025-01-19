@@ -6,7 +6,7 @@ from typing import Final, overload
 from typing_extensions import Self, deprecated
 
 from .drawing import DeviceGray, DeviceRGB, Number
-from .enums import TextEmphasis
+from .enums import Align, TextEmphasis
 from .syntax import PDFObject
 
 # Only defined if harfbuzz is installed.
@@ -41,7 +41,7 @@ class FontFace:
 
 class TextStyle(FontFace):
     t_margin: int
-    l_margin: int
+    l_margin: int | Align
     b_margin: int
     def __init__(
         self,
@@ -52,7 +52,7 @@ class TextStyle(FontFace):
         fill_color: int | tuple[int, int, int] | None = None,
         underline: bool = False,
         t_margin: int | None = None,
-        l_margin: int | None = None,
+        l_margin: int | Align | str | None = None,
         b_margin: int | None = None,
     ): ...
     def replace(  # type: ignore[override]

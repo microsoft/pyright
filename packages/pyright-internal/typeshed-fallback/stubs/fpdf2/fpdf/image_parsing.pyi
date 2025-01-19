@@ -1,9 +1,10 @@
 from _typeshed import Incomplete
+from collections.abc import Iterable
 from dataclasses import dataclass
 from io import BytesIO
 from logging import Logger
 from types import TracebackType
-from typing import Any, Literal
+from typing import Any, Final, Literal
 from typing_extensions import TypeAlias
 
 from PIL import Image
@@ -11,7 +12,7 @@ from PIL import Image
 from .image_datastructures import ImageCache, ImageInfo, VectorImageInfo
 from .svg import SVGObject
 
-_ImageFilter: TypeAlias = Literal["AUTO", "FlateDecode", "DCTDecode", "JPXDecode"]
+_ImageFilter: TypeAlias = Literal["AUTO", "FlateDecode", "DCTDecode", "JPXDecode", "LZWDecode"]
 
 RESAMPLE: Image.Resampling
 
@@ -24,6 +25,11 @@ SUPPORTED_IMAGE_FILTERS: tuple[_ImageFilter, ...]
 SETTINGS: ImageSettings
 
 TIFFBitRevTable: list[int]
+
+LZW_CLEAR_TABLE_MARKER: Final = 256
+LZW_EOD_MARKER: Final = 257
+LZW_INITIAL_BITS_PER_CODE: Final = 9
+LZW_MAX_BITS_PER_CODE: Final = 12
 
 def preload_image(
     image_cache: ImageCache, name: str | BytesIO | Image.Image, dims: tuple[float, float] | None = None
@@ -50,3 +56,5 @@ class temp_attr:
 
 def ccitt_payload_location_from_pil(img: Image.Image) -> tuple[int, int]: ...
 def transcode_monochrome(img: Image.Image): ...
+def pack_codes_into_bytes(codes: Iterable[int]) -> bytes: ...
+def clear_table() -> tuple[dict[bytes, int], int, int, int]: ...

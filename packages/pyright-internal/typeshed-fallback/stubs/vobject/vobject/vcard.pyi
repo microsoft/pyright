@@ -1,27 +1,26 @@
 from _typeshed import Incomplete
-from typing import Any
 
 from .behavior import Behavior
 
 class Name:
-    family: Any
-    given: Any
-    additional: Any
-    prefix: Any
-    suffix: Any
+    family: Incomplete
+    given: Incomplete
+    additional: Incomplete
+    prefix: Incomplete
+    suffix: Incomplete
     def __init__(self, family: str = "", given: str = "", additional: str = "", prefix: str = "", suffix: str = "") -> None: ...
     @staticmethod
     def toString(val): ...
     def __eq__(self, other): ...
 
 class Address:
-    box: Any
-    extended: Any
-    street: Any
-    city: Any
-    region: Any
-    code: Any
-    country: Any
+    box: Incomplete
+    extended: Incomplete
+    street: Incomplete
+    city: Incomplete
+    region: Incomplete
+    code: Incomplete
+    country: Incomplete
     def __init__(
         self,
         street: str = "",
@@ -34,8 +33,8 @@ class Address:
     ) -> None: ...
     @staticmethod
     def toString(val, join_char: str = "\n"): ...
-    lines: Any
-    one_line: Any
+    lines: Incomplete
+    one_line: Incomplete
     def __eq__(self, other): ...
 
 class VCardTextBehavior(Behavior):
@@ -48,15 +47,14 @@ class VCardTextBehavior(Behavior):
 
 class VCardBehavior(Behavior):
     allowGroup: bool
-    defaultBehavior: Any
+    defaultBehavior: Incomplete
 
 class VCard3_0(VCardBehavior):
     name: str
     description: str
     versionString: str
     isComponent: bool
-    sortFirst: Any
-    knownChildren: Any
+    sortFirst: Incomplete
     @classmethod
     def generateImplicitParameters(cls, obj) -> None: ...
 
@@ -67,6 +65,8 @@ class FN(VCardTextBehavior):
 class Label(VCardTextBehavior):
     name: str
     description: str
+
+class GEO(VCardBehavior): ...
 
 wacky_apple_photo_serialize: bool
 REALLY_LARGE: float
@@ -84,8 +84,8 @@ def splitFields(string): ...
 def toList(stringOrList): ...
 def serializeFields(obj, order: Incomplete | None = None): ...
 
-NAME_ORDER: Any
-ADDRESS_ORDER: Any
+NAME_ORDER: Incomplete
+ADDRESS_ORDER: Incomplete
 
 class NameBehavior(VCardBehavior):
     hasNative: bool

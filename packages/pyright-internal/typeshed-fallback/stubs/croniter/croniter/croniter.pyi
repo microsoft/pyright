@@ -162,6 +162,13 @@ class croniter(Iterator[Any]):
     def iter(self, ret_type: _RetType | None = ...) -> Iterator[Any]: ...
     def is_leap(self, year: int) -> bool: ...
     @classmethod
+    def value_alias(
+        cls,
+        val: int,
+        field: Literal[0, 1, 2, 3, 4, 5, 6],
+        len_expressions: int | list[Any] | dict[Any, Any] | tuple[Any, ...] | set[Any] = 5,
+    ) -> int: ...
+    @classmethod
     def expand(
         cls,
         expr_format: str,
