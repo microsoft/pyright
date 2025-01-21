@@ -942,6 +942,7 @@ test('Realcase', () => {
             assert.strictEqual(p, real.getFilePath());
         }
     }
+    tempFile.dispose();
 });
 
 test('Realcase use cwd implicitly', () => {
@@ -957,6 +958,7 @@ test('Realcase use cwd implicitly', () => {
 
     const fspaths = fsentries.map((entry) => fs.realCasePath(uri.combinePaths(entry)).getFilePath());
     assert.deepStrictEqual(lowerCaseDrive(paths), fspaths);
+    tempFile.dispose();
 });
 
 test('Web URIs dont exist', () => {
@@ -966,6 +968,7 @@ test('Web URIs dont exist', () => {
     assert(!fs.existsSync(uri));
     const stat = fs.statSync(uri);
     assert(!stat.isFile());
+    tempFile.dispose();
 });
 
 test('constant uri test', () => {

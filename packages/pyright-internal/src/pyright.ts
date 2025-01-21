@@ -36,6 +36,7 @@ import { FullAccessHost } from './common/fullAccessHost';
 import { combinePaths, normalizePath } from './common/pathUtils';
 import { PythonVersion } from './common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem';
+import { ServiceKeys } from './common/serviceKeys';
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
 import { getStdin } from './common/streamUtils';
@@ -658,7 +659,14 @@ async function runMultiThreaded(
     // Launch worker processes.
     for (let i = 0; i < workerCount; i++) {
         const mainModulePath = process.mainModule!.filename;
-        const worker = fork(mainModulePath, ['worker', i.toString()]);
+
+        // Ensure forked processes use the temp folder owned by the main process.
+        // This allows for automatic deletion when the main process exits.
+        const worker = fork(mainModulePath, [
+            'worker',
+            i.toString(),
+            service.serviceProvider.get(ServiceKeys.tempFile).tmpdir().getFilePath(),
+        ]);
 
         worker.on('message', (message) => {
             let messageObj: any;
@@ -725,7 +733,7 @@ async function runMultiThreaded(
 
 // This is the message loop for a worker process used used for
 // multi-threaded analysis.
-function runWorkerMessageLoop(workerNum: number) {
+function runWorkerMessageLoop(workerNum: number, tempFolderName: string) {
     let serviceProvider: ServiceProvider | undefined;
     let service: AnalyzerService | undefined;
     let fileSystem: PyrightFileSystem | undefined;
@@ -759,7 +767,7 @@ function runWorkerMessageLoop(workerNum: number) {
                 }
 
                 const output = new StderrConsole(logLevel);
-                const tempFile = new RealTempFile();
+                const tempFile = new RealTempFile(tempFolderName);
                 fileSystem = new PyrightFileSystem(
                     createFromRealFileSystem(tempFile, output, new ChokidarFileWatcherProvider(output))
                 );
@@ -1332,7 +1340,7 @@ export async function main() {
     // Is this a worker process for multi-threaded analysis?
     if (process.argv[2] === 'worker') {
         const workerNumber = parseInt(process.argv[3]);
-        runWorkerMessageLoop(workerNumber);
+        runWorkerMessageLoop(workerNumber, process.argv[4]);
         return;
     }
 

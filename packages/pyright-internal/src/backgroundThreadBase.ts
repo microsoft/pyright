@@ -16,7 +16,7 @@ import {
 } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel } from './common/console';
-import { Disposable, isThenable } from './common/core';
+import { isThenable } from './common/core';
 import * as debug from './common/debug';
 import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem';
 import { ServiceKeys } from './common/serviceKeys';
@@ -70,14 +70,14 @@ export class BackgroundThreadBase {
             this._serviceProvider.add(ServiceKeys.console, new BackgroundConsole());
         }
 
-        let tempFile: RealTempFile | undefined = undefined;
-        if (!this._serviceProvider.tryGet(ServiceKeys.tempFile)) {
-            tempFile = new RealTempFile();
+        let tempFile = this._serviceProvider.tryGet(ServiceKeys.tempFile);
+        if (!tempFile) {
+            tempFile = new RealTempFile(data.tempFileName);
             this._serviceProvider.add(ServiceKeys.tempFile, tempFile);
         }
 
         if (!this._serviceProvider.tryGet(ServiceKeys.caseSensitivityDetector)) {
-            this._serviceProvider.add(ServiceKeys.caseSensitivityDetector, tempFile ?? new RealTempFile());
+            this._serviceProvider.add(ServiceKeys.caseSensitivityDetector, tempFile as RealTempFile);
         }
 
         if (!this._serviceProvider.tryGet(ServiceKeys.fs)) {
@@ -114,11 +114,7 @@ export class BackgroundThreadBase {
     }
 
     protected handleShutdown() {
-        const tempFile = this._serviceProvider.tryGet(ServiceKeys.tempFile);
-        if (Disposable.is(tempFile)) {
-            tempFile.dispose();
-        }
-
+        this._serviceProvider.dispose();
         parentPort?.close();
     }
 }
@@ -256,6 +252,7 @@ export function getBackgroundWaiter<T>(port: MessagePort, deserializer: (v: any)
 
 export interface InitializationData {
     rootUri: string;
+    tempFileName: string;
     serviceId: string;
     workerIndex: number;
     cancellationFolderName: string | undefined;

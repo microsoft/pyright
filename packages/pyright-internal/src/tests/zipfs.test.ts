@@ -91,6 +91,8 @@ function runTests(p: string): void {
         assert.strictEqual(fs.isInZip(zipRoot.combinePaths('EGG-INFO', 'top_level.txt')), true);
         assert.strictEqual(fs.isInZip(Uri.file(module.filename, tempFile)), false);
     });
+
+    tempFile.dispose();
 }
 
 describe('zip', () => runTests('./samples/zipfs/basic.zip'));
@@ -111,6 +113,8 @@ function runBadTests(p: string): void {
     test('isInZip', () => {
         assert.strictEqual(fs.isInZip(zipRoot.combinePaths('EGG-INFO', 'top_level.txt')), false);
     });
+
+    tempFile.dispose();
 }
 
 describe('corrupt zip', () => runBadTests('./samples/zipfs/bad.zip'));

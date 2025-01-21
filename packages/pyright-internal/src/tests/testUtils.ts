@@ -117,6 +117,8 @@ export function typeAnalyzeSampleFiles(
     const results = getAnalysisResults(program, fileUris, configOptions);
 
     program.dispose();
+    serviceProvider.dispose();
+
     return results;
 }
 
