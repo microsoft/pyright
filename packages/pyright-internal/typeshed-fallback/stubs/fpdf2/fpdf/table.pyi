@@ -7,7 +7,16 @@ from typing import Literal, overload
 from PIL import Image
 
 from .drawing import DeviceGray, DeviceRGB
-from .enums import Align, TableBordersLayout, TableCellFillMode, TableHeadingsDisplay, TableSpan, VAlign, WrapMode
+from .enums import (
+    Align,
+    CellBordersLayout,
+    TableBordersLayout,
+    TableCellFillMode,
+    TableHeadingsDisplay,
+    TableSpan,
+    VAlign,
+    WrapMode,
+)
 from .fonts import FontFace
 from .fpdf import FPDF
 from .image_datastructures import _TextAlign
@@ -70,6 +79,7 @@ class Row:
         rowspan: int = 1,
         padding: tuple[float, ...] | None = None,
         link: str | int | None = None,
+        border: CellBordersLayout | int = ...,
     ) -> str: ...
     @overload
     def cell(
@@ -84,6 +94,7 @@ class Row:
         rowspan: int = 1,
         padding: tuple[float, ...] | None = None,
         link: str | int | None = None,
+        border: CellBordersLayout | int = ...,
     ) -> TableSpan: ...
 
 @dataclass
@@ -98,6 +109,7 @@ class Cell:
     rowspan: int
     padding: int | tuple[float, ...] | None
     link: str | int | None
+    border: CellBordersLayout | None
 
     def write(self, text, align: Incomplete | None = None): ...
 

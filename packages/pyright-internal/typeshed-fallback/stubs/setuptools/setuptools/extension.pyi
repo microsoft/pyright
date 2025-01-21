@@ -1,6 +1,5 @@
 from _typeshed import StrPath
-from os import PathLike
-from pathlib import Path
+from collections.abc import Iterable
 
 from ._distutils.extension import Extension as _Extension
 
@@ -11,7 +10,7 @@ class Extension(_Extension):
     def __init__(
         self,
         name: str,
-        sources: list[str] | list[PathLike[str]] | list[Path] | list[StrPath],
+        sources: Iterable[StrPath],
         include_dirs: list[str] | None = None,
         define_macros: list[tuple[str, str | None]] | None = None,
         undef_macros: list[str] | None = None,

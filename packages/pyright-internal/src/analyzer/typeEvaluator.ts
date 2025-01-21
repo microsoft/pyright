@@ -22675,13 +22675,21 @@ export function createTypeEvaluator(
             if (declaredType || !declaredTypeInfo.isTypeAlias) {
                 const typedDecls = symbol.getTypedDeclarations();
 
+                // If we received an undefined declared type, this can be caused by
+                // exceeding the max number of type declarations, speculative
+                // evaluation, or a recursive definition.
+                const isRecursiveDefinition =
+                    !declaredType &&
+                    !declaredTypeInfo.exceedsMaxDecls &&
+                    !speculativeTypeTracker.isSpeculative(/* node */ undefined);
+
                 const result: EffectiveTypeResult = {
                     type: declaredType ?? UnknownType.create(),
                     isIncomplete,
                     includesVariableDecl: includesVariableTypeDecl(typedDecls),
                     includesIllegalTypeAliasDecl: !typedDecls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
                     includesSpeculativeResult: false,
-                    isRecursiveDefinition: !declaredType && !speculativeTypeTracker.isSpeculative(/* node */ undefined),
+                    isRecursiveDefinition,
                 };
 
                 return result;
@@ -22953,7 +22961,13 @@ export function createTypeEvaluator(
 
             type = combineTypes(typesToCombine);
         } else {
-            type = UnboundType.create();
+            // We can encounter this situation in the case of a bare ClassVar annotation.
+            if (symbol.isClassVar()) {
+                type = UnknownType.create();
+                isIncomplete = false;
+            } else {
+                type = UnboundType.create();
+            }
         }
 
         return { type, isIncomplete, includesSpeculativeResult, evaluationAttempts };
@@ -22991,12 +23005,14 @@ export function createTypeEvaluator(
         // reachable from the usage node (if specified). This can happen in
         // cases where a property symbol is redefined to add a setter, deleter,
         // etc.
+        let exceedsMaxDecls = false;
         if (usageNode && typedDecls.length > 1) {
             if (typedDecls.length > maxTypedDeclsPerSymbol) {
                 // If there are too many typed decls, don't bother filtering them
                 // because this can be very expensive. Simply use the last one
                 // in this case.
                 typedDecls = [typedDecls[typedDecls.length - 1]];
+                exceedsMaxDecls = true;
             } else {
                 const filteredTypedDecls = typedDecls.filter((decl) => {
                     if (decl.type !== DeclarationType.Alias) {
@@ -23062,7 +23078,7 @@ export function createTypeEvaluator(
             declIndex--;
         }
 
-        return { type: undefined };
+        return { type: undefined, exceedsMaxDecls };
     }
 
     function inferReturnTypeIfNecessary(type: Type) {

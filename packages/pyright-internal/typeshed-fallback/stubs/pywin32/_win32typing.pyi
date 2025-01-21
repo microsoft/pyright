@@ -170,13 +170,13 @@ class PRINTER_DEFAULTS:
 class PyACL:
     def Initialize(self) -> None: ...
     def IsValid(self) -> bool: ...
+    @overload
     @deprecated(
         """\
 Early versions of this function supported only two arguments. \
 This has been deprecated in preference of the three argument version, \
 which reflects the win32 API and the new functions in this module."""
     )
-    @overload
     def AddAccessAllowedAce(self, access: int, sid: PySID, /) -> None: ...
     @overload
     def AddAccessAllowedAce(self, revision: int, access: int, sid: PySID, /) -> None: ...
@@ -184,13 +184,13 @@ which reflects the win32 API and the new functions in this module."""
     def AddAccessAllowedObjectAce(
         self, AceRevision, AceFlags, AccessMask, ObjectTypeGuid: PyIID, InheritedObjectTypeGuid: PyIID, sid: PySID, /
     ) -> None: ...
+    @overload
     @deprecated(
         """\
 Early versions of this function supported only two arguments. \
 This has been deprecated in preference of the three argument version, \
 which reflects the win32 API and the new functions in this module."""
     )
-    @overload
     def AddAccessDeniedAce(self, access: int, sid: PySID, /) -> None: ...
     @overload
     def AddAccessDeniedAce(self, revision: int, access: int, sid: PySID, /) -> None: ...
@@ -240,6 +240,7 @@ class PyCERTSTORE:
     def HCERTSTORE(self): ...
     @overload
     def CertCloseStore(self) -> None: ...
+    @overload
     @deprecated(
         """\
 `Flags` argument has been deprecated as it is likely to crash the process if \
@@ -247,7 +248,6 @@ class PyCERTSTORE:
 always called with `CERT_CLOSE_STORE_CHECK_FLAG`, and support for this \
 param will be dropped at some point in the future."""
     )
-    @overload
     def CertCloseStore(self, Flags: int) -> None: ...
     def CertControlStore(self, Flags, CtrlType, CtrlPara: int) -> None: ...
     def CertEnumCertificatesInStore(self) -> list[PyCERT_CONTEXT]: ...

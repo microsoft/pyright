@@ -35,7 +35,7 @@ class Container(Model):
     def diff(self): ...
     def exec_run(
         self,
-        cmd,
+        cmd: str | list[str],
         stdout: bool = True,
         stderr: bool = True,
         stdin: bool = False,
@@ -51,7 +51,7 @@ class Container(Model):
     ) -> ExecResult: ...
     def export(self, chunk_size: int | None = 2097152) -> str: ...
     def get_archive(
-        self, path, chunk_size: int | None = 2097152, encode_stream: bool = False
+        self, path: str, chunk_size: int | None = 2097152, encode_stream: bool = False
     ) -> tuple[Incomplete, Incomplete]: ...
     def kill(self, signal: Incomplete | None = None): ...
     @overload

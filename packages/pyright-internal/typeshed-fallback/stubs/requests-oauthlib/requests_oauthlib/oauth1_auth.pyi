@@ -23,7 +23,7 @@ class OAuth1(AuthBase):
         signature_type="AUTH_HEADER",
         rsa_key: Incomplete | None = None,
         verifier: Incomplete | None = None,
-        decoding: str = "utf-8",
+        decoding: str | None = "utf-8",
         client_class: type[Client] | None = None,
         force_include_body: bool = False,
         *,

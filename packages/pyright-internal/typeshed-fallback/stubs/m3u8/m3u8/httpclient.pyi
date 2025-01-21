@@ -16,4 +16,4 @@ class DefaultHTTPClient:
     ) -> tuple[str, str]: ...
 
 class HTTPSHandler:
-    def __new__(cls, verify_ssl: bool = True) -> urllib.request.HTTPSHandler: ...  # type: ignore
+    def __new__(cls, verify_ssl: bool = True) -> urllib.request.HTTPSHandler: ...  # type: ignore[misc]

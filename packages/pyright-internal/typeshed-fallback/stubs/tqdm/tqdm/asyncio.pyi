@@ -1,5 +1,5 @@
 from _typeshed import Incomplete, SupportsWrite
-from collections.abc import Awaitable, Callable, Generator, Iterable, Iterator, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Generator, Iterable, Iterator, Mapping
 from typing import NoReturn, TypeVar, overload
 from typing_extensions import Self
 
@@ -84,7 +84,7 @@ class tqdm_asyncio(std_tqdm[_T]):
     @overload
     def __init__(
         self,
-        iterable: Iterable[_T],
+        iterable: Iterable[_T] | AsyncIterator[_T],
         desc: str | None = ...,
         total: float | None = ...,
         leave: bool | None = ...,

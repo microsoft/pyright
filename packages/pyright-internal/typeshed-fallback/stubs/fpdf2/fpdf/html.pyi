@@ -55,6 +55,7 @@ class HTML2FPDF(HTMLParser):
     ol_type: list[_OLType]
     bullet: list[Incomplete]
     heading_level: Incomplete | None
+    render_title_tag: bool
     table_line_separators: bool
     table: Table | None
     table_row: Row | None
@@ -78,6 +79,7 @@ class HTML2FPDF(HTMLParser):
         tag_indents: dict[str, int] | None = None,
         tag_styles: Mapping[str, FontFace] | None = None,
         font_family: str = "times",
+        render_title_tag: bool = False,
     ) -> None: ...
     def handle_data(self, data) -> None: ...
     def handle_starttag(self, tag, attrs) -> None: ...
