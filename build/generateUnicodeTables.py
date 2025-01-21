@@ -115,6 +115,7 @@ def getSurrogateRanges(chars: list[Character]) -> list[CharacterRange]:
 def writeRangeTable(writer: TextIOWrapper, category: str, chars: list[Character]):
     chars = [ch for ch in chars if ch.category == category]
 
+    writer.write("\n")
     writer.write(f"export const unicode{category}: UnicodeRangeTable = [\n")
 
     consecutiveRangeStartChar: Character | None = None
@@ -126,13 +127,13 @@ def writeRangeTable(writer: TextIOWrapper, category: str, chars: list[Character]
 
         if i + 1 >= len(chars) or chars[i + 1].code != char.code + 1:
             if consecutiveRangeStartChar.code == char.code:
-                writer.write(f"    0x{consecutiveRangeStartChar.code:04X},\n")
+                writer.write(f"    0x{consecutiveRangeStartChar.code:04x},\n")
             else:
-                writer.write(f"    [0x{consecutiveRangeStartChar.code:04X}, 0x{char.code:04X}],\n")
+                writer.write(f"    [0x{consecutiveRangeStartChar.code:04x}, 0x{char.code:04x}],\n")
 
             consecutiveRangeStartChar = None
 
-    writer.write("];\n\n")
+    writer.write("];\n")
 
 
 # Write out a table of all characters within the specified category using their UTF-16
@@ -146,6 +147,7 @@ def writeSurrogateRangeTable(
     if len(surrogateRanges) == 0:
         return
 
+    writer.write("\n")
     writer.write(
         f"export const unicode{category}Surrogate: UnicodeSurrogateRangeTable = {{\n"
     )
@@ -160,21 +162,21 @@ def writeSurrogateRangeTable(
             previousCharRange = None
 
         if not previousCharRange:
-            writer.write(f"    0x{charRange.start.highSurrogate:04X}: [\n")
+            writer.write(f"    0x{charRange.start.highSurrogate:04x}: [\n")
             previousCharRange = charRange
 
         if charRange.start.lowSurrogate == charRange.end.lowSurrogate:
-            writer.write(f"        0x{charRange.start.lowSurrogate:04X}, // 0x{charRange.start.code:04X}\n")
+            writer.write(f"        0x{charRange.start.lowSurrogate:04x}, // 0x{charRange.start.code:04X}\n")
         else:
             writer.write(
-                f"        [0x{charRange.start.lowSurrogate:04X}, 0x{charRange.end.lowSurrogate:04X}], // 0x{charRange.start.code:04X}..0x{charRange.end.code:04X}\n"
+                f"        [0x{charRange.start.lowSurrogate:04x}, 0x{charRange.end.lowSurrogate:04x}], // 0x{charRange.start.code:04X}..0x{charRange.end.code:04X}\n"
             )
 
     writer.write("    ],\n")
-    writer.write("};\n\n")
+    writer.write("};\n")
 
 
-unicodeVersion = "15.1" if len(sys.argv) <= 1 else sys.argv[1]
+unicodeVersion = "16.0" if len(sys.argv) <= 1 else sys.argv[1]
 path = downloadUnicodeData(unicodeVersion)
 chars = parseFile(path)
 surrogateRanges = getSurrogateRanges(chars)
@@ -196,7 +198,6 @@ with open("packages/pyright-internal/src/parser/unicode.ts", "w") as writer:
 export type UnicodeRange = [number, number] | number;
 export type UnicodeRangeTable = UnicodeRange[];
 export type UnicodeSurrogateRangeTable = {{ [surrogate: number]: UnicodeRange[] }};
-
 """
     )
 

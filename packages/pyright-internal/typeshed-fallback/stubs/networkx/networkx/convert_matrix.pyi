@@ -5,7 +5,7 @@ from typing_extensions import TypeAlias
 
 import numpy
 from networkx.classes.graph import Graph, _Node
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 # stub_uploader won't allow pandas-stubs in the requires field https://github.com/typeshed-internal/stub_uploader/issues/90
 # from pandas import DataFrame
@@ -17,7 +17,7 @@ _ExtensionDtype: TypeAlias = Incomplete
 _Axes: TypeAlias = Collection[_Node]
 _G = TypeVar("_G", bound=Graph[Hashable])
 
-@_dispatch
+@_dispatchable
 def to_pandas_adjacency(
     G: Graph[_Node],
     nodelist: _Axes[_Node] | None = None,
@@ -31,7 +31,7 @@ def to_pandas_adjacency(
 def from_pandas_adjacency(df: _DataFrame, create_using: type[_G]) -> _G: ...
 @overload
 def from_pandas_adjacency(df: _DataFrame, create_using: None = None) -> Graph[Incomplete]: ...
-@_dispatch
+@_dispatchable
 def to_pandas_edgelist(
     G: Graph[_Node],
     source: str | int = "source",
@@ -68,7 +68,7 @@ def from_pandas_edgelist(
     create_using: None = None,
     edge_key: str | None = None,
 ) -> Graph[Incomplete]: ...
-@_dispatch
+@_dispatchable
 def to_numpy_array(
     G: Graph[_Node],
     nodelist: Collection[_Node] | None = None,

@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 __all__ = ["random_internet_as_graph"]
 
@@ -37,5 +37,5 @@ class AS_graph_generator:
     nodes: Incomplete
     def generate(self): ...
 
-@_dispatch
+@_dispatchable
 def random_internet_as_graph(n, seed: Incomplete | None = None): ...

@@ -2,21 +2,21 @@ from _typeshed import Incomplete
 from collections.abc import Generator
 
 from networkx.classes.graph import Graph, _Node
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def dfs_edges(
     G: Graph[_Node], source: _Node | None = None, depth_limit: int | None = None
 ) -> Generator[tuple[_Node, _Node], None, None]: ...
-@_dispatch
+@_dispatchable
 def dfs_tree(G, source: Incomplete | None = None, depth_limit: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def dfs_predecessors(G, source: Incomplete | None = None, depth_limit: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def dfs_successors(G, source: Incomplete | None = None, depth_limit: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def dfs_postorder_nodes(G, source: Incomplete | None = None, depth_limit: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def dfs_preorder_nodes(G, source: Incomplete | None = None, depth_limit: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def dfs_labeled_edges(G, source: Incomplete | None = None, depth_limit: Incomplete | None = None) -> None: ...

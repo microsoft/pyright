@@ -1,6 +1,6 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def tutte_polynomial(G): ...
-@_dispatch
+@_dispatchable
 def chromatic_polynomial(G): ...

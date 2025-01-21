@@ -823,11 +823,7 @@ export class SourceFile {
                     );
                     AnalyzerNodeInfo.setFileInfo(this._writableData.parserOutput!.parseTree, fileInfo);
 
-                    const binder = new Binder(
-                        fileInfo,
-                        this.serviceProvider.docStringService(),
-                        configOptions.indexGenerationMode
-                    );
+                    const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
                     this._writableData.isBindingInProgress = true;
                     binder.bindModule(this._writableData.parserOutput!.parseTree);
 

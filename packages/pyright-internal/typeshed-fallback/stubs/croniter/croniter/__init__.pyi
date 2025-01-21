@@ -1,4 +1,5 @@
 from .croniter import (
+    OVERFLOW32B_MODE as OVERFLOW32B_MODE,
     CroniterBadCronError as CroniterBadCronError,
     CroniterBadDateError as CroniterBadDateError,
     CroniterBadTypeRangeError as CroniterBadTypeRangeError,

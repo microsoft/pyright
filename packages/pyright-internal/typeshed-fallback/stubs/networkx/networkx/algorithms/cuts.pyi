@@ -1,20 +1,20 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def cut_size(G, S, T: Incomplete | None = None, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def volume(G, S, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def normalized_cut_size(G, S, T: Incomplete | None = None, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def conductance(G, S, T: Incomplete | None = None, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def edge_expansion(G, S, T: Incomplete | None = None, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def mixing_expansion(G, S, T: Incomplete | None = None, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def node_expansion(G, S): ...
-@_dispatch
+@_dispatchable
 def boundary_expansion(G, S): ...

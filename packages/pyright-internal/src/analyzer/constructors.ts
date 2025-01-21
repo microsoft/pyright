@@ -120,9 +120,12 @@ export function validateConstructorArgs(
     // If this is an unspecialized generic type alias, specialize it now
     // using default type argument values.
     const aliasInfo = type.props?.typeAliasInfo;
-    if (aliasInfo?.typeParams && !aliasInfo.typeArgs) {
+    if (aliasInfo?.shared.typeParams && !aliasInfo.typeArgs) {
         type = applySolvedTypeVars(type, new ConstraintSolution(), {
-            replaceUnsolved: { scopeIds: [aliasInfo.typeVarScopeId], tupleClassType: evaluator.getTupleClassType() },
+            replaceUnsolved: {
+                scopeIds: [aliasInfo.shared.typeVarScopeId],
+                tupleClassType: evaluator.getTupleClassType(),
+            },
         }) as ClassType;
     }
 
@@ -132,7 +135,8 @@ export function validateConstructorArgs(
         argList,
         type,
         skipUnknownArgCheck,
-        inferenceContext
+        inferenceContext,
+        /* useSpeculativeModeForArgs */ true
     );
 
     if (metaclassResult) {
@@ -143,6 +147,16 @@ export function validateConstructorArgs(
         // overrides the normal `type.__call__` logic and don't perform the usual
         // __new__ and __init__ validation.
         if (metaclassResult.argumentErrors || shouldSkipNewAndInitEvaluation(evaluator, type, metaclassReturnType)) {
+            validateMetaclassCall(
+                evaluator,
+                errorNode,
+                argList,
+                type,
+                skipUnknownArgCheck,
+                inferenceContext,
+                /* useSpeculativeModeForArgs */ false
+            );
+
             return metaclassResult;
         }
     }
@@ -409,16 +423,20 @@ function validateNewMethod(
 
     const constraints = new ConstraintTracker();
 
-    const callResult = evaluator.useSpeculativeMode(useSpeculativeModeForArgs ? errorNode : undefined, () => {
-        return evaluator.validateCallArgs(
-            errorNode,
-            argList,
-            newMethodTypeResult,
-            constraints,
-            skipUnknownArgCheck,
-            inferenceContext
-        );
-    });
+    const callResult = evaluator.useSpeculativeMode(
+        useSpeculativeModeForArgs ? errorNode : undefined,
+        () => {
+            return evaluator.validateCallArgs(
+                errorNode,
+                argList,
+                newMethodTypeResult,
+                constraints,
+                skipUnknownArgCheck,
+                inferenceContext
+            );
+        },
+        { dependentType: newMethodTypeResult.type }
+    );
 
     if (callResult.isTypeIncomplete) {
         isTypeIncomplete = true;
@@ -428,7 +446,6 @@ function validateNewMethod(
         argumentErrors = true;
 
         // Evaluate the arguments in a non-speculative manner to generate any diagnostics.
-        constraints.unlock();
         evaluator.validateCallArgs(
             errorNode,
             argList,
@@ -562,7 +579,8 @@ function validateMetaclassCall(
     argList: Arg[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
-    inferenceContext: InferenceContext | undefined
+    inferenceContext: InferenceContext | undefined,
+    useSpeculativeModeForArgs: boolean
 ): CallResult | undefined {
     const metaclassCallMethodInfo = getBoundCallMethod(evaluator, errorNode, type);
 
@@ -570,24 +588,28 @@ function validateMetaclassCall(
         return undefined;
     }
 
-    const callResult = evaluator.validateCallArgs(
-        errorNode,
-        argList,
-        metaclassCallMethodInfo,
-        /* constraints */ undefined,
-        skipUnknownArgCheck,
-        inferenceContext
-    );
+    const callResult = evaluator.useSpeculativeMode(useSpeculativeModeForArgs ? errorNode : undefined, () => {
+        return evaluator.validateCallArgs(
+            errorNode,
+            argList,
+            metaclassCallMethodInfo,
+            /* constraints */ undefined,
+            skipUnknownArgCheck,
+            inferenceContext
+        );
+    });
 
-    // If the return type is unannotated, don't use the inferred return type.
-    const callType = metaclassCallMethodInfo.type;
-    if (isFunction(callType) && !callType.shared.declaredReturnType) {
-        return undefined;
-    }
+    if (!callResult.argumentErrors) {
+        // If the return type is unannotated, don't use the inferred return type.
+        const callType = metaclassCallMethodInfo.type;
+        if (isFunction(callType) && !callType.shared.declaredReturnType) {
+            return undefined;
+        }
 
-    // If the return type is unknown, ignore it.
-    if (callResult.returnType && isUnknown(callResult.returnType)) {
-        return undefined;
+        // If the return type is unknown, ignore it.
+        if (callResult.returnType && isUnknown(callResult.returnType)) {
+            return undefined;
+        }
     }
 
     return callResult;
@@ -1050,7 +1072,11 @@ function shouldSkipInitEvaluation(evaluator: TypeEvaluator, classType: ClassType
 
         if (isClassInstance(subtype)) {
             const inheritanceChain: InheritanceChain = [];
-            const isDerivedFrom = ClassType.isDerivedFrom(subtype, classType, inheritanceChain);
+            const isDerivedFrom = ClassType.isDerivedFrom(
+                ClassType.cloneAsInstantiable(subtype),
+                classType,
+                inheritanceChain
+            );
 
             if (!isDerivedFrom) {
                 skipInitCheck = true;

@@ -1,10 +1,10 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def maximum_independent_set(G): ...
-@_dispatch
+@_dispatchable
 def max_clique(G): ...
-@_dispatch
+@_dispatchable
 def clique_removal(G): ...
-@_dispatch
+@_dispatchable
 def large_clique_size(G): ...

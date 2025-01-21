@@ -24,8 +24,7 @@ class Request:
     id: int
 
 
-async def func1(check: "Callable[[AnyMsg], bool]") -> AnyMsg:
-    ...
+async def func1(check: "Callable[[AnyMsg], bool]") -> AnyMsg: ...
 
 
 async def func2():
@@ -40,22 +39,18 @@ async def func4() -> int:
     return await anext(func3())
 
 
-async def func5(__fn: Callable[..., T]) -> T:
-    ...
+async def func5(__fn: Callable[..., T]) -> T: ...
 
 
 @overload
-def sum(__iterable: Iterable[Literal[0]]) -> int:
-    ...
+def sum(__iterable: Iterable[Literal[0]]) -> int: ...
 
 
 @overload
-def sum(__iterable: Iterable[T]) -> T:
-    ...
+def sum(__iterable: Iterable[T]) -> T: ...
 
 
-def sum(__iterable: Iterable[Any]) -> Any:
-    ...
+def sum(__iterable: Iterable[Any]) -> Any: ...
 
 
 async def func6(f: Callable[[], list[int]]):

@@ -16,6 +16,15 @@ a = coroutine1()
 await a
 
 
+async def func1() -> int: ...
+
+
+async def func2() -> None:
+    # This should generate an error because await cannot be
+    # used in a lambda.
+    x = lambda: await func2()
+
+
 def needs_int(val: int):
     pass
 
@@ -39,7 +48,7 @@ class ScopedClass1:
         yield 3
         return 3
 
-    def __aexit__(
+    async def __aexit__(
         self,
         t: Optional[type] = None,
         exc: Optional[BaseException] = None,

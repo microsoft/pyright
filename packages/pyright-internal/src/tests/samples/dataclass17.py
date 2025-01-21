@@ -33,3 +33,9 @@ A.d = 0
 
 # This should generate an error.
 A.e = 0
+
+
+@dataclass
+class B:
+    a: ClassVar[Final[int]] = 0
+    b: int = 1

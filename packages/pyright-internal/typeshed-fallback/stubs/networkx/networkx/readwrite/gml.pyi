@@ -3,15 +3,15 @@ from collections.abc import Generator
 from enum import Enum
 from typing import Generic, NamedTuple, TypeVar
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 _T = TypeVar("_T")
 
 __all__ = ["read_gml", "parse_gml", "generate_gml", "write_gml"]
 
-@_dispatch
+@_dispatchable
 def read_gml(path, label: str = "label", destringizer: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def parse_gml(lines, label: str = "label", destringizer: Incomplete | None = None): ...
 
 class Pattern(Enum):

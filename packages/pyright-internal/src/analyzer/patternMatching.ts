@@ -60,6 +60,7 @@ import {
     isTypeSame,
     isTypeVarTuple,
     isUnknown,
+    isUnpackedTypeVar,
     isUnpackedTypeVarTuple,
 } from './types';
 import {
@@ -101,6 +102,14 @@ const classPatternSpecialCases = [
     'builtins.str',
     'builtins.tuple',
 ];
+
+// There are cases where sequence pattern matching of tuples with
+// large unions can blow up and cause hangs. This constant limits
+// the total number of subtypes that can be generated during type
+// narrowing for sequence patterns before the narrowed type is
+// converted to Any. This is tuned empirically to provide a reasonable
+// performance cutoff.
+const maxSequencePatternTupleExpansionSubtypes = 128;
 
 interface SequencePatternInfo {
     subtype: Type;
@@ -203,6 +212,7 @@ function narrowTypeBasedOnSequencePattern(
     pattern: PatternSequenceNode,
     isPositiveTest: boolean
 ): Type {
+    let usingTupleExpansion = false;
     type = transformPossibleRecursiveTypeAlias(type);
     let sequenceInfo = getSequencePatternInfo(evaluator, pattern, type);
 
@@ -359,6 +369,10 @@ function narrowTypeBasedOnSequencePattern(
                             );
                         })
                     );
+
+                    // Note that we're using tuple expansion in case we
+                    // need to limit the number of subtypes generated.
+                    usingTupleExpansion = true;
                 }
             }
 
@@ -401,7 +415,10 @@ function narrowTypeBasedOnSequencePattern(
         return isPlausibleMatch;
     });
 
-    return combineTypes(sequenceInfo.map((entry) => entry.subtype));
+    return combineTypes(
+        sequenceInfo.map((entry) => entry.subtype),
+        { maxSubtypeCount: usingTupleExpansion ? maxSequencePatternTupleExpansionSubtypes : undefined }
+    );
 }
 
 function narrowTypeBasedOnAsPattern(
@@ -743,7 +760,7 @@ function narrowTypeBasedOnClassPattern(
             classType = ClassType.specialize(classType, /* typeArgs */ undefined);
         }
 
-        const classInstance = convertToInstance(classType);
+        const classInstance = ClassType.cloneAsInstance(classType);
         const isPatternMetaclass = isMetaclassInstance(classInstance);
 
         return evaluator.mapSubtypesExpandTypeVars(
@@ -842,17 +859,26 @@ function narrowTypeBasedOnClassPattern(
             LocAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
             pattern.d.className
         );
-        return NeverType.createNever();
-    } else if (
-        isInstantiableClass(exprType) &&
-        ClassType.isProtocolClass(exprType) &&
-        !ClassType.isRuntimeCheckable(exprType)
-    ) {
-        evaluator.addDiagnostic(
-            DiagnosticRule.reportGeneralTypeIssues,
-            LocAddendum.protocolRequiresRuntimeCheckable(),
-            pattern.d.className
-        );
+
+        return isPositiveTest ? UnknownType.create() : type;
+    } else if (isInstantiableClass(exprType)) {
+        if (ClassType.isProtocolClass(exprType) && !ClassType.isRuntimeCheckable(exprType)) {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocAddendum.protocolRequiresRuntimeCheckable(),
+                pattern.d.className
+            );
+
+            return isPositiveTest ? UnknownType.create() : type;
+        } else if (ClassType.isTypedDictClass(exprType)) {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typedDictInClassPattern(),
+                pattern.d.className
+            );
+
+            return isPositiveTest ? UnknownType.create() : type;
+        }
     }
 
     return evaluator.mapSubtypesExpandTypeVars(
@@ -1367,7 +1393,7 @@ function getSequencePatternInfo(
                     ];
 
                     const tupleIndeterminateIndex = typeArgs.findIndex(
-                        (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type)
+                        (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
                     );
 
                     let tupleDeterminateEntryCount = typeArgs.length;
@@ -1397,7 +1423,9 @@ function getSequencePatternInfo(
                         const removedEntries = typeArgs.splice(patternStarEntryIndex, entriesToCombine);
                         typeArgs.splice(patternStarEntryIndex, 0, {
                             type: combineTypes(removedEntries.map((t) => t.type)),
-                            isUnbounded: removedEntries.every((t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type)),
+                            isUnbounded: removedEntries.every(
+                                (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
+                            ),
                         });
                     }
 
@@ -2146,6 +2174,16 @@ export function getPatternSubtypeNarrowingCallback(
 }
 
 function reportUnnecessaryPattern(evaluator: TypeEvaluator, pattern: PatternAtomNode, subjectType: Type): void {
+    // If this is a simple wildcard pattern, exempt it from this diagnostic.
+    if (
+        pattern.nodeType === ParseNodeType.PatternAs &&
+        pattern.d.orPatterns.length === 1 &&
+        pattern.d.orPatterns[0].nodeType === ParseNodeType.PatternCapture &&
+        pattern.d.orPatterns[0].d.isWildcard
+    ) {
+        return;
+    }
+
     evaluator.addDiagnostic(
         DiagnosticRule.reportUnnecessaryComparison,
         LocMessage.patternNeverMatches().format({ type: evaluator.printType(subjectType) }),

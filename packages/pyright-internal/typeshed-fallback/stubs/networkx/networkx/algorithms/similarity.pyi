@@ -1,9 +1,9 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def graph_edit_distance(
     G1,
     G2,
@@ -19,7 +19,7 @@ def graph_edit_distance(
     upper_bound: Incomplete | None = None,
     timeout: Incomplete | None = None,
 ): ...
-@_dispatch
+@_dispatchable
 def optimal_edit_paths(
     G1,
     G2,
@@ -33,7 +33,7 @@ def optimal_edit_paths(
     edge_ins_cost: Incomplete | None = None,
     upper_bound: Incomplete | None = None,
 ): ...
-@_dispatch
+@_dispatchable
 def optimize_graph_edit_distance(
     G1,
     G2,
@@ -47,7 +47,7 @@ def optimize_graph_edit_distance(
     edge_ins_cost: Incomplete | None = None,
     upper_bound: Incomplete | None = None,
 ) -> Generator[Incomplete, None, None]: ...
-@_dispatch
+@_dispatchable
 def optimize_edit_paths(
     G1,
     G2,
@@ -64,7 +64,7 @@ def optimize_edit_paths(
     roots: Incomplete | None = None,
     timeout: Incomplete | None = None,
 ) -> Generator[Incomplete, None, Incomplete]: ...
-@_dispatch
+@_dispatchable
 def simrank_similarity(
     G,
     source: Incomplete | None = None,
@@ -73,11 +73,11 @@ def simrank_similarity(
     max_iterations: int = 1000,
     tolerance: float = 0.0001,
 ): ...
-@_dispatch
+@_dispatchable
 def panther_similarity(
     G, source, k: int = 5, path_length: int = 5, c: float = 0.5, delta: float = 0.1, eps: Incomplete | None = None
 ): ...
-@_dispatch
+@_dispatchable
 def generate_random_paths(
     G, sample_size, path_length: int = 5, index_map: Incomplete | None = None
 ) -> Generator[Incomplete, None, None]: ...

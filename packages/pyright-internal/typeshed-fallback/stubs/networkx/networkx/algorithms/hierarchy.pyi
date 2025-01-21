@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def flow_hierarchy(G, weight: Incomplete | None = None): ...

@@ -55,10 +55,6 @@ export class TestFeatures implements HostSpecificFeatures {
             /* disableChecker */ undefined
         );
 
-    runIndexer(workspace: Workspace, noStdLib: boolean, options?: string): void {
-        /* empty */
-    }
-
     getCodeActionsForPosition(
         workspace: Workspace,
         fileUri: Uri,

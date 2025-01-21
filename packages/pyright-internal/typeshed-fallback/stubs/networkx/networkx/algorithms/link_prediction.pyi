@@ -1,20 +1,20 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def resource_allocation_index(G, ebunch: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def jaccard_coefficient(G, ebunch: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def adamic_adar_index(G, ebunch: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def common_neighbor_centrality(G, ebunch: Incomplete | None = None, alpha: float = 0.8): ...
-@_dispatch
+@_dispatchable
 def preferential_attachment(G, ebunch: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def cn_soundarajan_hopcroft(G, ebunch: Incomplete | None = None, community: str = "community"): ...
-@_dispatch
+@_dispatchable
 def ra_index_soundarajan_hopcroft(G, ebunch: Incomplete | None = None, community: str = "community"): ...
-@_dispatch
+@_dispatchable
 def within_inter_cluster(G, ebunch: Incomplete | None = None, delta: float = 0.001, community: str = "community"): ...

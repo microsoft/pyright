@@ -60,6 +60,8 @@ import {
     isDescriptorInstance,
     isEllipsisType,
     isPartlyUnknown,
+    partiallySpecializeType,
+    specializeForBaseClass,
 } from './typeUtils';
 
 type PublicSymbolSet = Set<string>;
@@ -463,7 +465,9 @@ export class PackageTypeVerifier {
                     const nameWithoutExtension = stripFileExtension(entry.name);
 
                     if (nameWithoutExtension === '__init__') {
-                        publicModules.push(modulePath);
+                        if (!isModuleSingleFile) {
+                            publicModules.push(modulePath);
+                        }
                     } else {
                         if (
                             !isPrivateOrProtectedName(nameWithoutExtension) &&
@@ -479,7 +483,7 @@ export class PackageTypeVerifier {
                         }
                     }
                 }
-            } else if (isDirectory) {
+            } else if (isDirectory && !isModuleSingleFile) {
                 if (!isPrivateOrProtectedName(entry.name) && this._isLegalModulePartName(entry.name)) {
                     this._addPublicModulesRecursive(
                         dirPath.combinePaths(entry.name),
@@ -510,7 +514,7 @@ export class PackageTypeVerifier {
         symbolTable: SymbolTable,
         scopeType: ScopeType,
         publicSymbols: PublicSymbolSet,
-        overrideSymbolCallback?: (name: string, symbol: Symbol) => Symbol
+        overrideSymbolCallback?: (name: string, symbol: Symbol) => Type | undefined
     ): TypeKnownStatus {
         if (this._shouldIgnoreType(report, scopeName)) {
             return TypeKnownStatus.Known;
@@ -544,11 +548,10 @@ export class PackageTypeVerifier {
                 let childSymbolType: Type | undefined;
 
                 if (overrideSymbolCallback) {
-                    const baseTypeSymbol = overrideSymbolCallback(name, symbol);
+                    const baseSymbolType = overrideSymbolCallback(name, symbol);
 
-                    if (baseTypeSymbol !== symbol) {
+                    if (baseSymbolType) {
                         childSymbolType = symbolType;
-                        baseSymbolType = this._program.getTypeOfSymbol(baseTypeSymbol);
 
                         // If the inferred type is ambiguous or the declared base class type is
                         // not the same type as the inferred type, mark it as ambiguous because
@@ -765,7 +768,7 @@ export class PackageTypeVerifier {
                 if (isUnknown(typeArg)) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has unknown type`,
+                        `Type argument ${index + 1} for type alias "${aliasInfo!.shared.name}" has unknown type`,
                         declRange,
                         declFileUri
                     );
@@ -773,7 +776,9 @@ export class PackageTypeVerifier {
                 } else if (isPartlyUnknown(typeArg)) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has partially unknown type`,
+                        `Type argument ${index + 1} for type alias "${
+                            aliasInfo!.shared.name
+                        }" has partially unknown type`,
                         declRange,
                         declFileUri
                     );
@@ -1162,18 +1167,23 @@ export class PackageTypeVerifier {
                 // If the symbol within this class is lacking a type declaration,
                 // see if we can find a same-named symbol in a parent class with
                 // a type declaration.
-                if (!symbol.hasTypedDeclarations()) {
-                    for (const mroClass of type.shared.mro.slice(1)) {
-                        if (isClass(mroClass)) {
-                            const overrideSymbol = ClassType.getSymbolTable(mroClass).get(name);
-                            if (overrideSymbol && overrideSymbol.hasTypedDeclarations()) {
-                                return overrideSymbol;
-                            }
+                if (symbol.hasTypedDeclarations()) {
+                    return undefined;
+                }
+
+                for (const mroClass of type.shared.mro.slice(1)) {
+                    if (isClass(mroClass)) {
+                        const overrideSymbol = ClassType.getSymbolTable(mroClass).get(name);
+                        if (overrideSymbol && overrideSymbol.hasTypedDeclarations()) {
+                            const baseSymbolType = this._program.getTypeOfSymbol(overrideSymbol);
+                            const baseClassType = specializeForBaseClass(type, mroClass);
+
+                            return partiallySpecializeType(baseSymbolType, baseClassType, /* typeClass */ undefined);
                         }
                     }
                 }
 
-                return symbol;
+                return undefined;
             }
         );
 
@@ -1202,7 +1212,8 @@ export class PackageTypeVerifier {
                 if (metaclassKnownStatus !== TypeKnownStatus.Known) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type of metaclass "${type.shared.effectiveMetaclass}" is partially unknown` + diag.getString(),
+                        `Type of metaclass "${type.shared.effectiveMetaclass.shared.name}" is partially unknown` +
+                            diag.getString(),
                         getEmptyRange(),
                         Uri.empty()
                     );
@@ -1308,11 +1319,15 @@ export class PackageTypeVerifier {
         if (aliasInfo?.typeArgs) {
             aliasInfo.typeArgs.forEach((typeArg, index) => {
                 if (isUnknown(typeArg)) {
-                    diag.addMessage(`Type argument ${index + 1} for type alias "${aliasInfo!.name}" has unknown type`);
+                    diag.addMessage(
+                        `Type argument ${index + 1} for type alias "${aliasInfo!.shared.name}" has unknown type`
+                    );
                     knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                 } else if (isPartlyUnknown(typeArg)) {
                     diag.addMessage(
-                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has partially unknown type`
+                        `Type argument ${index + 1} for type alias "${
+                            aliasInfo!.shared.name
+                        }" has partially unknown type`
                     );
                     knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.PartiallyUnknown);
                 }

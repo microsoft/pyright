@@ -1,8 +1,8 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def efficiency(G, u, v): ...
-@_dispatch
+@_dispatchable
 def global_efficiency(G): ...
-@_dispatch
+@_dispatchable
 def local_efficiency(G): ...

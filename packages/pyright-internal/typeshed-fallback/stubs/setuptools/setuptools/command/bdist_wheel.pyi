@@ -1,5 +1,5 @@
-from _typeshed import ExcInfo, Incomplete, Unused
-from collections.abc import Callable, Iterable
+from _typeshed import Incomplete
+from collections.abc import Iterable
 from typing import ClassVar, Final, Literal
 
 from setuptools import Command
@@ -17,8 +17,6 @@ def get_flag(var: str, fallback: bool, expected: bool = True, warn: bool = True)
 def get_abi_tag() -> str | None: ...
 def safer_name(name: str) -> str: ...
 def safer_version(version: str) -> str: ...
-def remove_readonly(func: Callable[[str], Unused], path: str, excinfo: ExcInfo) -> None: ...
-def remove_readonly_exc(func: Callable[[str], Unused], path: str, exc: BaseException) -> None: ...
 
 class bdist_wheel(Command):
     description: ClassVar[str]
@@ -27,7 +25,7 @@ class bdist_wheel(Command):
     boolean_options: ClassVar[list[str]]
 
     bdist_dir: str | None
-    data_dir: str | None
+    data_dir: str
     plat_name: str | None
     plat_tag: str | None
     format: str
@@ -40,7 +38,7 @@ class bdist_wheel(Command):
     owner: Incomplete | None
     group: Incomplete | None
     universal: bool
-    compression: int | str
+    compression: str | int
     python_tag: str
     build_number: str | None
     py_limited_api: str | Literal[False]

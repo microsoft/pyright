@@ -135,6 +135,20 @@ def func6_2(ty: type[int] | int):
         reveal_type(ty, expected_text="int")
 
 
+def func6_3(ty: type):
+    if issubclass(ty, str):
+        reveal_type(ty, expected_text="type[str]")
+    else:
+        reveal_type(ty, expected_text="type[Unknown]")
+
+
+def func6_4(ty: Any):
+    if issubclass(ty, str):
+        reveal_type(ty, expected_text="type[str]")
+    else:
+        reveal_type(ty, expected_text="Any")
+
+
 # Test the handling of protocol classes that support runtime checking.
 def func7(a: Union[list[int], int]):
     if isinstance(a, Sized):
@@ -208,7 +222,7 @@ class Sub2(Base2[T, T]):
 
 def func10(val: Sub2[str] | Base2[str, float]):
     if isinstance(val, Sub2):
-        reveal_type(val, expected_text="Sub2[str] | Sub2[Unknown]")
+        reveal_type(val, expected_text="Sub2[str] | Sub2[str | float]")
 
 
 @runtime_checkable

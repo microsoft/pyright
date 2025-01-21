@@ -1,14 +1,14 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def laplacian_spectrum(G, weight: str = "weight"): ...
-@_dispatch
+@_dispatchable
 def normalized_laplacian_spectrum(G, weight: str = "weight"): ...
-@_dispatch
+@_dispatchable
 def adjacency_spectrum(G, weight: str = "weight"): ...
-@_dispatch
+@_dispatchable
 def modularity_spectrum(G): ...
-@_dispatch
+@_dispatchable
 def bethe_hessian_spectrum(G, r: Incomplete | None = None): ...

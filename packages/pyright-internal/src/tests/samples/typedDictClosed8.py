@@ -1,17 +1,15 @@
 # This sample tests the case where bidirectional type inference is required
-# for the __extra_items__ in a closed TypedDict.
+# for the extra_items in a closed TypedDict.
 
 from typing_extensions import TypedDict  # pyright: ignore[reportMissingModuleSource]
 
 
-class Typed(TypedDict, closed=True):
+class Typed(TypedDict, extra_items=str | int):
     type: str
-    __extra_items__: str | int
 
 
-class Named(TypedDict, closed=True):
+class Named(TypedDict, extra_items="str | int | Typed | Named"):
     name: str
-    __extra_items__: "str | int | Typed | Named"
 
 
 td2_1: Named = {

@@ -4,16 +4,16 @@ from io import TextIOBase
 from typing_extensions import TypeAlias
 
 from networkx.classes.graph import Graph, _Node
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 # from pygraphviz.agraph import AGraph as _AGraph
 _AGraph: TypeAlias = Incomplete
 
-@_dispatch
+@_dispatchable
 def from_agraph(A, create_using: Incomplete | None = None) -> Graph[Incomplete]: ...
 def to_agraph(N: Graph[Hashable]) -> _AGraph: ...
 def write_dot(G: Graph[Hashable], path: str | TextIOBase) -> None: ...
-@_dispatch
+@_dispatchable
 def read_dot(path: str | TextIOBase) -> Graph[Incomplete]: ...
 def graphviz_layout(
     G: Graph[_Node], prog: str = "neato", root: str | None = None, args: str = ""

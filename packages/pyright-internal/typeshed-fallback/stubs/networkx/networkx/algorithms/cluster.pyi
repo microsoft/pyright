@@ -1,16 +1,16 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def triangles(G, nodes: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def average_clustering(G, nodes: Incomplete | None = None, weight: Incomplete | None = None, count_zeros: bool = True): ...
-@_dispatch
+@_dispatchable
 def clustering(G, nodes: Incomplete | None = None, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def transitivity(G): ...
-@_dispatch
+@_dispatchable
 def square_clustering(G, nodes: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def generalized_degree(G, nodes: Incomplete | None = None): ...

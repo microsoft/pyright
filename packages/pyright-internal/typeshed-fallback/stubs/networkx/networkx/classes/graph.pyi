@@ -22,7 +22,7 @@ _Data: TypeAlias = (
     | dict[_Node, dict[_Node, dict[str, Any]]]
     | dict[_Node, Iterable[_Node]]
     | Iterable[_EdgePlus[_Node]]
-    | numpy.ndarray[_Node, Any]
+    | numpy.ndarray[Any, Any]
     # | scipy.sparse.base.spmatrix
 )
 

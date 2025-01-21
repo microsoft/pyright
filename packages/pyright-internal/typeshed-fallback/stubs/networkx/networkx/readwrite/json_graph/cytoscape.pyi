@@ -1,5 +1,5 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 def cytoscape_data(G, name: str = "name", ident: str = "id"): ...
-@_dispatch
+@_dispatchable
 def cytoscape_graph(data, name: str = "name", ident: str = "id"): ...

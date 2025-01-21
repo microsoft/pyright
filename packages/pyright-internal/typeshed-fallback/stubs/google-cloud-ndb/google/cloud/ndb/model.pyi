@@ -416,7 +416,7 @@ class Expando(Model):
     def __delattr__(self, name: str) -> None: ...
 
 def get_multi_async(
-    keys: Sequence[type[key_module.Key]],
+    keys: Sequence[key_module.Key],
     read_consistency: Literal["EVENTUAL"] | None = ...,
     read_policy: Literal["EVENTUAL"] | None = ...,
     transaction: bytes | None = ...,
@@ -432,9 +432,9 @@ def get_multi_async(
     max_memcache_items: int | None = ...,
     force_writes: bool | None = ...,
     _options: object = None,
-) -> list[type[tasklets_module.Future]]: ...
+) -> list[tasklets_module.Future]: ...
 def get_multi(
-    keys: Sequence[type[key_module.Key]],
+    keys: Sequence[key_module.Key],
     read_consistency: Literal["EVENTUAL"] | None = ...,
     read_policy: Literal["EVENTUAL"] | None = ...,
     transaction: bytes | None = ...,
@@ -450,9 +450,9 @@ def get_multi(
     max_memcache_items: int | None = ...,
     force_writes: bool | None = ...,
     _options: object = None,
-) -> list[type[Model] | None]: ...
+) -> list[Model | None]: ...
 def put_multi_async(
-    entities: list[type[Model]],
+    entities: list[Model],
     retries: int | None = ...,
     timeout: float | None = ...,
     deadline: float | None = ...,
@@ -482,7 +482,7 @@ def put_multi(
     _options: object = None,
 ) -> list[key_module.Key]: ...
 def delete_multi_async(
-    keys: list[key_module.Key],
+    keys: Sequence[key_module.Key],
     retries: int | None = ...,
     timeout: float | None = ...,
     deadline: float | None = ...,

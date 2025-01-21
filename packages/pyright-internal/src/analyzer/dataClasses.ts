@@ -32,7 +32,13 @@ import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
 import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
-import { getClassFullName, getEnclosingClassOrFunction, getScopeIdForNode, getTypeSourceId } from './parseTreeUtils';
+import {
+    getClassFullName,
+    getEnclosingClassOrFunction,
+    getScopeIdForNode,
+    getTypeSourceId,
+    getTypeVarScopesForNode,
+} from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
@@ -57,21 +63,26 @@ import {
     OverloadedType,
     TupleTypeArg,
     Type,
+    TypeVarScopeType,
     TypeVarType,
     UnknownType,
+    Variance,
 } from './types';
 import {
     addSolutionForSelfType,
     applySolvedTypeVars,
+    buildSolution,
     buildSolutionFromSpecializedClass,
     computeMroLinearization,
-    convertNodeToArg,
     convertToInstance,
     doForEachSignature,
     getTypeVarScopeId,
     getTypeVarScopeIds,
     isLiteralType,
     isMetaclassInstance,
+    makeInferenceContext,
+    makeTypeVarsBound,
+    makeTypeVarsFree,
     requiresSpecialization,
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
@@ -173,8 +184,10 @@ export function synthesizeDataClassMethods(
             return;
         }
 
+        let isInferredFinal = false;
+
         // Only variables (not functions, classes, etc.) are considered.
-        const classVarDecl = symbol.getTypedDeclarations().find((decl) => {
+        let classVarDecl = symbol.getTypedDeclarations().find((decl) => {
             if (decl.type !== DeclarationType.Variable) {
                 return false;
             }
@@ -186,6 +199,15 @@ export function synthesizeDataClassMethods(
 
             return true;
         });
+
+        // See if this is an unannotated (inferred) Final value.
+        if (!classVarDecl) {
+            classVarDecl = symbol.getDeclarations().find((decl) => {
+                return decl.type === DeclarationType.Variable && !decl.typeAnnotationNode && decl.isFinal;
+            });
+
+            isInferredFinal = true;
+        }
 
         if (classVarDecl) {
             let statement: ParseNode | undefined = classVarDecl.node;
@@ -210,9 +232,11 @@ export function synthesizeDataClassMethods(
             }
 
             let variableNameNode: NameNode | undefined;
+            let typeAnnotationNode: TypeAnnotationNode | undefined;
             let aliasName: string | undefined;
             let variableTypeEvaluator: EntryTypeEvaluator | undefined;
-            let hasDefaultValue = false;
+            let hasDefault = false;
+            let isDefaultFactory = false;
             let isKeywordOnly = ClassType.isDataClassKeywordOnly(classType) || sawKeywordOnlySeparator;
             let defaultExpr: ExpressionNode | undefined;
             let includeInInit = true;
@@ -224,9 +248,14 @@ export function synthesizeDataClassMethods(
                     statement.d.leftExpr.d.valueExpr.nodeType === ParseNodeType.Name
                 ) {
                     variableNameNode = statement.d.leftExpr.d.valueExpr;
+                    typeAnnotationNode = statement.d.leftExpr;
                     const assignmentStatement = statement;
-                    variableTypeEvaluator = () =>
-                        evaluator.getTypeOfAnnotation(
+                    variableTypeEvaluator = () => {
+                        if (isInferredFinal && defaultExpr) {
+                            return evaluator.getTypeOfExpression(defaultExpr).type;
+                        }
+
+                        return evaluator.getTypeOfAnnotation(
                             (assignmentStatement.d.leftExpr as TypeAnnotationNode).d.annotation,
                             {
                                 varTypeAnnotation: true,
@@ -234,9 +263,10 @@ export function synthesizeDataClassMethods(
                                 allowClassVar: true,
                             }
                         );
+                    };
                 }
 
-                hasDefaultValue = true;
+                hasDefault = true;
                 defaultExpr = statement.d.rightExpr;
 
                 // If the RHS of the assignment is assigning a field instance where the
@@ -293,16 +323,23 @@ export function synthesizeDataClassMethods(
                                 ) ?? isKeywordOnly;
                         }
 
-                        const defaultArg = statement.d.rightExpr.d.args.find(
-                            (arg) =>
-                                arg.d.name?.d.value === 'default' ||
-                                arg.d.name?.d.value === 'default_factory' ||
-                                arg.d.name?.d.value === 'factory'
+                        const defaultValueArg = statement.d.rightExpr.d.args.find(
+                            (arg) => arg.d.name?.d.value === 'default'
                         );
+                        hasDefault = !!defaultValueArg;
+                        if (defaultValueArg?.d.valueExpr) {
+                            defaultExpr = defaultValueArg.d.valueExpr;
+                        }
 
-                        hasDefaultValue = !!defaultArg;
-                        if (defaultArg?.d.valueExpr) {
-                            defaultExpr = defaultArg.d.valueExpr;
+                        const defaultFactoryArg = statement.d.rightExpr.d.args.find(
+                            (arg) => arg.d.name?.d.value === 'default_factory' || arg.d.name?.d.value === 'factory'
+                        );
+                        if (defaultFactoryArg) {
+                            hasDefault = true;
+                            isDefaultFactory = true;
+                        }
+                        if (defaultFactoryArg?.d.valueExpr) {
+                            defaultExpr = defaultFactoryArg.d.valueExpr;
                         }
 
                         const aliasArg = statement.d.rightExpr.d.args.find((arg) => arg.d.name?.d.value === 'alias');
@@ -328,6 +365,7 @@ export function synthesizeDataClassMethods(
             } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
                 if (statement.d.valueExpr.nodeType === ParseNodeType.Name) {
                     variableNameNode = statement.d.valueExpr;
+                    typeAnnotationNode = statement;
                     const annotationStatement = statement;
                     variableTypeEvaluator = () =>
                         evaluator.getTypeOfAnnotation(annotationStatement.d.annotation, {
@@ -343,6 +381,7 @@ export function synthesizeDataClassMethods(
                         if (isClassInstance(annotatedType) && ClassType.isBuiltIn(annotatedType, 'KW_ONLY')) {
                             sawKeywordOnlySeparator = true;
                             variableNameNode = undefined;
+                            typeAnnotationNode = undefined;
                             variableTypeEvaluator = undefined;
                         }
                     }
@@ -357,11 +396,9 @@ export function synthesizeDataClassMethods(
                 const variableSymbol = ClassType.getSymbolTable(classType).get(variableName);
                 namedTupleEntries.add(variableName);
 
-                if (variableSymbol?.isClassVar() && !variableSymbol?.isFinalVarInClassBody()) {
+                if (variableSymbol?.isClassVar()) {
                     // If an ancestor class declared an instance variable but this dataclass
                     // declares a ClassVar, delete the older one from the full data class entries.
-                    // We exclude final variables here because a Final type annotation is implicitly
-                    // considered a ClassVar by the binder, but dataclass rules are different.
                     const index = fullDataClassEntries.findIndex((p) => p.name === variableName);
                     if (index >= 0) {
                         fullDataClassEntries.splice(index, 1);
@@ -371,10 +408,12 @@ export function synthesizeDataClassMethods(
                         classType,
                         alias: aliasName,
                         isKeywordOnly: false,
-                        hasDefault: hasDefaultValue,
+                        hasDefault,
+                        isDefaultFactory,
                         defaultExpr,
                         includeInInit,
                         nameNode: variableNameNode,
+                        typeAnnotationNode: typeAnnotationNode,
                         type: UnknownType.create(),
                         isClassVar: true,
                         converter,
@@ -389,10 +428,12 @@ export function synthesizeDataClassMethods(
                         classType,
                         alias: aliasName,
                         isKeywordOnly,
-                        hasDefault: hasDefaultValue,
+                        hasDefault,
+                        isDefaultFactory,
                         defaultExpr,
                         includeInInit,
                         nameNode: variableNameNode,
+                        typeAnnotationNode: typeAnnotationNode,
                         type: UnknownType.create(),
                         isClassVar: false,
                         converter,
@@ -417,7 +458,7 @@ export function synthesizeDataClassMethods(
                         if (!dataClassEntry.hasDefault && oldEntry.hasDefault && oldEntry.includeInInit) {
                             dataClassEntry.hasDefault = true;
                             dataClassEntry.defaultExpr = oldEntry.defaultExpr;
-                            hasDefaultValue = true;
+                            hasDefault = true;
 
                             // Warn the user of this case because it can result in type errors if the
                             // default value is incompatible with the new type.
@@ -436,7 +477,7 @@ export function synthesizeDataClassMethods(
 
                     // If we've already seen a entry with a default value defined,
                     // all subsequent entries must also have default values.
-                    if (!isKeywordOnly && includeInInit && !skipSynthesizeInit && !hasDefaultValue) {
+                    if (!isKeywordOnly && includeInInit && !skipSynthesizeInit && !hasDefault) {
                         const firstDefaultValueIndex = fullDataClassEntries.findIndex(
                             (p) => p.hasDefault && p.includeInInit && !p.isKeywordOnly
                         );
@@ -514,6 +555,8 @@ export function synthesizeDataClassMethods(
         if (allAncestorsKnown) {
             fullDataClassEntries.forEach((entry) => {
                 if (entry.includeInInit) {
+                    let defaultType: Type | undefined;
+
                     // If the type refers to Self of the parent class, we need to
                     // transform it to refer to the Self of this subclass.
                     let effectiveType = entry.type;
@@ -534,13 +577,49 @@ export function synthesizeDataClassMethods(
                             entry.name,
                             getDescriptorForConverterField(
                                 evaluator,
+                                classType,
                                 node,
+                                entry.nameNode,
                                 entry.converter,
                                 entry.name,
                                 fieldType,
                                 effectiveType
                             )
                         );
+
+                        if (entry.hasDefault) {
+                            defaultType = entry.type;
+                        }
+                    } else {
+                        if (entry.hasDefault) {
+                            if (entry.isDefaultFactory || !entry.defaultExpr) {
+                                defaultType = entry.type;
+                            } else {
+                                const defaultExpr = entry.defaultExpr;
+                                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                                const flags = fileInfo.isStubFile ? EvalFlags.ConvertEllipsisToAny : EvalFlags.None;
+                                const liveTypeVars = getTypeVarScopesForNode(entry.defaultExpr);
+                                const boundEffectiveType = makeTypeVarsBound(effectiveType, liveTypeVars);
+
+                                // Use speculative mode here so we don't cache the results.
+                                // We'll want to re-evaluate this expression later, potentially
+                                // with different evaluation flags.
+                                defaultType = evaluator.useSpeculativeMode(defaultExpr, () => {
+                                    return evaluator.getTypeOfExpression(
+                                        defaultExpr,
+                                        flags,
+                                        makeInferenceContext(boundEffectiveType)
+                                    ).type;
+                                });
+
+                                defaultType = makeTypeVarsFree(defaultType, liveTypeVars);
+
+                                if (entry.mroClass && requiresSpecialization(defaultType)) {
+                                    const solution = buildSolutionFromSpecializedClass(entry.mroClass);
+                                    defaultType = applySolvedTypeVars(defaultType, solution);
+                                }
+                            }
+                        }
                     }
 
                     const effectiveName = entry.alias || entry.name;
@@ -558,7 +637,7 @@ export function synthesizeDataClassMethods(
                         effectiveType,
                         FunctionParamFlags.TypeDeclared,
                         effectiveName,
-                        entry.hasDefault ? entry.type : undefined,
+                        defaultType,
                         entry.defaultExpr
                     );
 
@@ -746,7 +825,7 @@ function getDefaultArgValueForFieldSpecifier(
         callTarget = evaluator.getBestOverloadForArgs(
             callNode,
             { type: callType, isIncomplete: callTypeResult.isIncomplete },
-            callNode.d.args.map((arg) => convertNodeToArg(arg))
+            callNode.d.args.map((arg) => evaluator.convertNodeToArg(arg))
         );
     } else if (isInstantiableClass(callType)) {
         const initMethodResult = getBoundInitMethod(evaluator, callNode, callType);
@@ -757,7 +836,7 @@ function getDefaultArgValueForFieldSpecifier(
                 callTarget = evaluator.getBestOverloadForArgs(
                     callNode,
                     { type: initMethodResult.type },
-                    callNode.d.args.map((arg) => convertNodeToArg(arg))
+                    callNode.d.args.map((arg) => evaluator.convertNodeToArg(arg))
                 );
             }
         }
@@ -801,10 +880,14 @@ function getConverterInputType(
     fieldType: Type,
     fieldName: string
 ): Type {
-    const converterType = getConverterAsFunction(
-        evaluator,
-        evaluator.getTypeOfExpression(converterNode.d.valueExpr).type
-    );
+    // Use speculative mode here so we don't cache the results.
+    // We'll want to re-evaluate this expression later, potentially
+    // with different evaluation flags.
+    const valueType = evaluator.useSpeculativeMode(converterNode.d.valueExpr, () => {
+        return evaluator.getTypeOfExpression(converterNode.d.valueExpr, EvalFlags.NoSpecialize).type;
+    });
+
+    const converterType = getConverterAsFunction(evaluator, valueType);
 
     if (!converterType) {
         return fieldType;
@@ -932,7 +1015,9 @@ function getConverterAsFunction(
 // type.
 function getDescriptorForConverterField(
     evaluator: TypeEvaluator,
+    dataclass: ClassType,
     dataclassNode: ParseNode,
+    fieldNameNode: NameNode | undefined,
     converterNode: ParseNode,
     fieldName: string,
     getType: Type,
@@ -952,6 +1037,26 @@ function getDescriptorForConverterField(
         /* declaredMetaclass */ undefined,
         isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
     );
+
+    const scopeId = getScopeIdForNode(converterNode);
+    descriptorClass.shared.typeVarScopeId = scopeId;
+
+    // Make the descriptor generic, copying the type parameters from the dataclass.
+    descriptorClass.shared.typeParams = dataclass.shared.typeParams.map((typeParm) => {
+        const typeParam = TypeVarType.cloneForScopeId(
+            typeParm,
+            scopeId,
+            descriptorClass.shared.name,
+            TypeVarScopeType.Class
+        );
+        typeParam.priv.computedVariance = Variance.Covariant;
+        return typeParam;
+    });
+
+    const solution = buildSolution(dataclass.shared.typeParams, descriptorClass.shared.typeParams);
+    getType = applySolvedTypeVars(getType, solution);
+    setType = applySolvedTypeVars(setType, solution);
+
     descriptorClass.shared.baseClasses.push(evaluator.getBuiltInType(dataclassNode, 'object'));
     computeMroLinearization(descriptorClass);
 
@@ -992,7 +1097,11 @@ function getDescriptorForConverterField(
     const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
     fields.set('__get__', getSymbol);
 
-    return Symbol.createWithType(SymbolFlags.ClassMember, ClassType.cloneAsInstance(descriptorClass));
+    const descriptorInstance = ClassType.specialize(ClassType.cloneAsInstance(descriptorClass), [
+        ...dataclass.shared.typeParams,
+    ]);
+
+    return Symbol.createWithType(SymbolFlags.ClassMember, descriptorInstance, fieldNameNode);
 }
 
 // If the specified type is a descriptor — in particular, if it implements a
@@ -1035,7 +1144,7 @@ export function addInheritedDataClassEntries(classType: ClassType, entries: Data
 
                 // If the type from the parent class is generic, we need to convert
                 // to the type parameter namespace of child class.
-                const updatedEntry = { ...entry };
+                const updatedEntry = { ...entry, mroClass };
                 updatedEntry.type = applySolvedTypeVars(updatedEntry.type, solution);
 
                 if (entry.isClassVar) {
@@ -1464,7 +1573,7 @@ export function applyDataClassDecorator(
         evaluator,
         errorNode,
         classType,
-        (callNode?.d.args ?? []).map((arg) => convertNodeToArg(arg)),
+        (callNode?.d.args ?? []).map((arg) => evaluator.convertNodeToArg(arg)),
         defaultBehaviors
     );
 }

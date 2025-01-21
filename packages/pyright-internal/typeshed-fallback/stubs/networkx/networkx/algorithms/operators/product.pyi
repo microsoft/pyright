@@ -1,16 +1,16 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def tensor_product(G, H): ...
-@_dispatch
+@_dispatchable
 def cartesian_product(G, H): ...
-@_dispatch
+@_dispatchable
 def lexicographic_product(G, H): ...
-@_dispatch
+@_dispatchable
 def strong_product(G, H): ...
-@_dispatch
+@_dispatchable
 def power(G, k): ...
-@_dispatch
+@_dispatchable
 def rooted_product(G, H, root): ...
-@_dispatch
+@_dispatchable
 def corona_product(G, H): ...

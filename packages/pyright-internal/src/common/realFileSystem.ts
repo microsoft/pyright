@@ -267,6 +267,8 @@ export class RealFileSystem implements FileSystem {
                 if (entry.isFile() && yarnFS.isZip(path)) {
                     return {
                         name: entry.name,
+                        parentPath: path,
+                        path: path,
                         isFile: () => false,
                         isDirectory: () => true,
                         isBlockDevice: () => false,
@@ -502,8 +504,16 @@ export class RealTempFile implements TempFile, CaseSensitivityDetector {
     private _caseSensitivity?: boolean;
     private _tmpdir?: tmp.DirResult;
 
-    constructor() {
-        // Empty
+    constructor(name?: string) {
+        if (name) {
+            this._tmpdir = {
+                name,
+                removeCallback: () => {
+                    // If a name is provided, the temp folder is not managed by this instance.
+                    // Do nothing.
+                },
+            };
+        }
     }
 
     tmpdir(): Uri {

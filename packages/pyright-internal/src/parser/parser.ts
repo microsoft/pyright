@@ -231,7 +231,7 @@ export class Parser {
     private _diagSink: DiagnosticSink = new DiagnosticSink();
     private _isInLoop = false;
     private _isInFunction = false;
-    private _isInFinally = false;
+    private _isInExceptionGroup = false;
     private _isParsingTypeAnnotation = false;
     private _isParsingIndexTrailer = false;
     private _isParsingQuotedText = false;
@@ -1450,11 +1450,22 @@ export class Parser {
         return ifNode;
     }
 
+    private _parseExceptSuite<T>(isExceptionGroup: boolean, callback: () => T): T {
+        const wasInExceptionGroup = this._isInExceptionGroup;
+
+        if (isExceptionGroup) {
+            this._isInExceptionGroup = true;
+        }
+        const result = callback();
+
+        this._isInExceptionGroup = wasInExceptionGroup;
+
+        return result;
+    }
+
     private _parseLoopSuite(): SuiteNode {
         const wasInLoop = this._isInLoop;
-        const wasInFinally = this._isInFinally;
         this._isInLoop = true;
-        this._isInFinally = false;
 
         let typeComment: StringToken | undefined;
         const suite = this._parseSuite(this._isInFunction, /* skipBody */ false, () => {
@@ -1465,7 +1476,6 @@ export class Parser {
         });
 
         this._isInLoop = wasInLoop;
-        this._isInFinally = wasInFinally;
 
         if (typeComment) {
             suite.d.typeComment = typeComment;
@@ -1827,6 +1837,7 @@ export class Parser {
         const trySuite = this._parseSuite(this._isInFunction);
         const tryNode = TryNode.create(tryToken, trySuite);
         let sawCatchAllExcept = false;
+        let reportedExceptGroupMismatch = false;
 
         while (true) {
             const exceptToken = this._peekToken();
@@ -1844,7 +1855,18 @@ export class Parser {
                 ) {
                     this._addSyntaxError(LocMessage.exceptionGroupIncompatible(), possibleStarToken);
                 }
+
                 isExceptGroup = true;
+
+                if (!reportedExceptGroupMismatch && tryNode.d.exceptClauses.some((clause) => !clause.d.isExceptGroup)) {
+                    this._addSyntaxError(LocMessage.exceptGroupMismatch(), possibleStarToken);
+                    reportedExceptGroupMismatch = true;
+                }
+            } else {
+                if (!reportedExceptGroupMismatch && tryNode.d.exceptClauses.some((clause) => clause.d.isExceptGroup)) {
+                    this._addSyntaxError(LocMessage.exceptGroupMismatch(), possibleStarToken);
+                    reportedExceptGroupMismatch = true;
+                }
             }
 
             let typeExpr: ExpressionNode | undefined;
@@ -1867,6 +1889,8 @@ export class Parser {
                         this._parseTestExpression(/* allowAssignmentExpression */ false);
                     }
                 }
+            } else if (isExceptGroup) {
+                this._addSyntaxError(LocMessage.exceptGroupRequiresType(), this._peekToken());
             }
 
             if (!typeExpr) {
@@ -1880,7 +1904,7 @@ export class Parser {
                 }
             }
 
-            const exceptSuite = this._parseSuite(this._isInFunction);
+            const exceptSuite = this._parseExceptSuite(isExceptGroup, () => this._parseSuite(this._isInFunction));
             const exceptNode = ExceptNode.create(exceptToken, exceptSuite, isExceptGroup);
             if (typeExpr) {
                 exceptNode.d.typeExpr = typeExpr;
@@ -1971,11 +1995,14 @@ export class Parser {
         }
 
         let functionTypeAnnotationToken: StringToken | undefined;
+        const wasInExceptionGroup = this._isInExceptionGroup;
+        this._isInExceptionGroup = false;
         const suite = this._parseSuite(/* isFunction */ true, this._parseOptions.skipFunctionAndClassBody, () => {
             if (!functionTypeAnnotationToken) {
                 functionTypeAnnotationToken = this._getTypeAnnotationCommentText();
             }
         });
+        this._isInExceptionGroup = wasInExceptionGroup;
 
         const functionNode = FunctionNode.create(defToken, NameNode.create(nameToken), suite, typeParameters);
         if (asyncToken) {
@@ -2472,6 +2499,8 @@ export class Parser {
 
         if (!this._isInLoop) {
             this._addSyntaxError(LocMessage.breakOutsideLoop(), breakToken);
+        } else if (this._isInExceptionGroup) {
+            this._addSyntaxError(LocMessage.breakInExceptionGroup(), breakToken);
         }
 
         return BreakNode.create(breakToken);
@@ -2482,8 +2511,8 @@ export class Parser {
 
         if (!this._isInLoop) {
             this._addSyntaxError(LocMessage.continueOutsideLoop(), continueToken);
-        } else if (this._isInFinally) {
-            this._addSyntaxError(LocMessage.continueInFinally(), continueToken);
+        } else if (this._isInExceptionGroup) {
+            this._addSyntaxError(LocMessage.continueInExceptionGroup(), continueToken);
         }
 
         return ContinueNode.create(continueToken);
@@ -2497,6 +2526,8 @@ export class Parser {
 
         if (!this._isInFunction) {
             this._addSyntaxError(LocMessage.returnOutsideFunction(), returnToken);
+        } else if (this._isInExceptionGroup) {
+            this._addSyntaxError(LocMessage.returnInExceptionGroup(), returnToken);
         }
 
         if (!this._isNextTokenNeverExpression()) {
@@ -3831,6 +3862,7 @@ export class Parser {
     private _parseArgList(): ArgListResult {
         const argList: ArgumentNode[] = [];
         let sawKeywordArg = false;
+        let sawUnpackedKeywordArg = false;
         let trailingComma = false;
 
         while (true) {
@@ -3847,8 +3879,17 @@ export class Parser {
             const arg = this._parseArgument();
             if (arg.d.name) {
                 sawKeywordArg = true;
-            } else if (sawKeywordArg && arg.d.argCategory === ArgCategory.Simple) {
-                this._addSyntaxError(LocMessage.positionArgAfterNamedArg(), arg);
+            } else {
+                if (sawKeywordArg && arg.d.argCategory === ArgCategory.Simple) {
+                    this._addSyntaxError(LocMessage.positionArgAfterNamedArg(), arg);
+                }
+
+                if (sawUnpackedKeywordArg && arg.d.argCategory !== ArgCategory.UnpackedDictionary) {
+                    this._addSyntaxError(LocMessage.positionArgAfterUnpackedDictArg(), arg);
+                }
+            }
+            if (arg.d.argCategory === ArgCategory.UnpackedDictionary) {
+                sawUnpackedKeywordArg = true;
             }
             argList.push(arg);
 
@@ -4993,7 +5034,10 @@ export class Parser {
                 }
             } else {
                 const stringToken = stringNode.d.strings[0].d.token;
-                const stringValue = StringTokenUtils.getUnescapedString(stringNode.d.strings[0].d.token);
+                const stringValue = StringTokenUtils.getUnescapedString(
+                    stringNode.d.strings[0].d.token,
+                    /* elideCrlf */ false
+                );
                 const unescapedString = stringValue.value;
                 const tokenOffset = stringToken.start;
                 const prefixLength = stringToken.prefixLength + stringToken.quoteMarkLength;

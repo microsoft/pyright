@@ -1,18 +1,18 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def christofides(G, weight: str = "weight", tree: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def traveling_salesman_problem(
-    G, weight: str = "weight", nodes: Incomplete | None = None, cycle: bool = True, method: Incomplete | None = None
+    G, weight: str = "weight", nodes: Incomplete | None = None, cycle: bool = True, method: Incomplete | None = None, **kwargs
 ): ...
-@_dispatch
+@_dispatchable
 def asadpour_atsp(G, weight: str = "weight", seed: Incomplete | None = None, source: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def greedy_tsp(G, weight: str = "weight", source: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def simulated_annealing_tsp(
     G,
     init_cycle,
@@ -26,7 +26,7 @@ def simulated_annealing_tsp(
     alpha: float = 0.01,
     seed: Incomplete | None = None,
 ): ...
-@_dispatch
+@_dispatchable
 def threshold_accepting_tsp(
     G,
     init_cycle,

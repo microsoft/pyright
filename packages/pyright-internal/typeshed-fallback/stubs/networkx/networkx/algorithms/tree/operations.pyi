@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
-def join(rooted_trees, label_attribute: Incomplete | None = None): ...
+@_dispatchable
+def join_trees(rooted_trees, label_attribute: Incomplete | None = None): ...

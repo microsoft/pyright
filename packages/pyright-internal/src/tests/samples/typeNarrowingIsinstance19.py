@@ -2,7 +2,7 @@
 # issubclass call.
 
 from abc import ABC, ABCMeta
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Iterable
 from typing_extensions import reveal_type  # pyright: ignore[reportMissingModuleSource]
 
 
@@ -41,7 +41,7 @@ def func3(m: ABCMeta) -> None:
 
 def func4(m: ABCMeta) -> None:
     if issubclass(m, (Parent1, Child1, int)):
-        reveal_type(m, expected_text="type[Parent1] | type[Child1] | ABCMeta")
+        reveal_type(m, expected_text="type[Parent1] | type[Child1]")
     else:
         reveal_type(m, expected_text="ABCMeta")
 
@@ -72,3 +72,18 @@ def func8(cls: type):
         reveal_type(cls, expected_text="Meta1")
     else:
         reveal_type(cls, expected_text="type")
+
+
+class Meta2(type):
+    pass
+
+
+class Class2(metaclass=Meta2):
+    pass
+
+
+def func9(v: type[Class2] | Iterable[type[Class2]]):
+    if isinstance(v, Meta2):
+        reveal_type(v, expected_text="type[Class2]")
+    else:
+        reveal_type(v, expected_text="Iterable[type[Class2]]")

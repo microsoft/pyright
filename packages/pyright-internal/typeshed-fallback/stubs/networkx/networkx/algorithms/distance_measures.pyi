@@ -1,18 +1,18 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def eccentricity(G, v: Incomplete | None = None, sp: Incomplete | None = None, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def diameter(G, e: Incomplete | None = None, usebounds: bool = False, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def periphery(G, e: Incomplete | None = None, usebounds: bool = False, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def radius(G, e: Incomplete | None = None, usebounds: bool = False, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def center(G, e: Incomplete | None = None, usebounds: bool = False, weight: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def barycenter(G, weight: Incomplete | None = None, attr: Incomplete | None = None, sp: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def resistance_distance(G, nodeA, nodeB, weight: Incomplete | None = None, invert_weight: bool = True): ...

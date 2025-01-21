@@ -7,9 +7,10 @@
  * Representation of types used during type analysis within Python.
  */
 
+import { partition } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
-import { ArgumentNode, ExpressionNode, NameNode, ParamCategory } from '../parser/parseNodes';
+import { ArgumentNode, ExpressionNode, NameNode, ParamCategory, TypeAnnotationNode } from '../parser/parseNodes';
 import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
@@ -118,10 +119,11 @@ export interface TypeSameOptions {
     ignoreConditions?: boolean;
     ignoreTypedDictNarrowEntries?: boolean;
     honorTypeForm?: boolean;
+    honorIsTypeArgExplicit?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
 
-export interface TypeAliasInfo {
+export interface TypeAliasSharedInfo {
     name: string;
     fullName: string;
     moduleName: string;
@@ -139,7 +141,11 @@ export interface TypeAliasInfo {
 
     // Lazily-evaluated variance of type parameters based on how
     // they are used in the type alias
-    usageVariance: Variance[] | undefined;
+    computedVariance: Variance[] | undefined;
+}
+
+export interface TypeAliasInfo {
+    shared: TypeAliasSharedInfo;
 
     // Type argument, if type alias is specialized
     typeArgs: Type[] | undefined;
@@ -162,15 +168,15 @@ interface CachedTypeInfo {
 export interface TypeBaseProps {
     // Used to handle nested references to instantiable classes
     // (e.g. type[type[type[T]]]). If the field isn't present,
-    // it is assumed to be zero.
+    // it is assumed to be zero
     instantiableDepth: number | undefined;
 
     // Used in cases where the type is a special form when used in a
-    // value expression such as UnionType, Literal, or Required.
+    // value expression such as UnionType, Literal, or Required
     specialForm: ClassType | undefined;
 
     // Used for "type form" objects, the evaluated form
-    // of a type expression in a value expression context.
+    // of a type expression in a value expression context
     typeForm: Type | undefined;
 
     // Used only for type aliases
@@ -532,11 +538,14 @@ export namespace ModuleType {
 export interface DataClassEntry {
     name: string;
     classType: ClassType;
+    mroClass?: ClassType;
     isClassVar: boolean;
     isKeywordOnly: boolean;
     alias?: string | undefined;
     hasDefault?: boolean | undefined;
+    isDefaultFactory?: boolean | undefined;
     nameNode: NameNode | undefined;
+    typeAnnotationNode: TypeAnnotationNode | undefined;
     defaultExpr?: ExpressionNode | undefined;
     includeInInit: boolean;
     type: Type;
@@ -689,6 +698,7 @@ interface ClassDetailsShared {
     dataClassBehaviors?: DataClassBehaviors | undefined;
     namedTupleEntries?: Set<string> | undefined;
     typedDictEntries?: TypedDictEntries | undefined;
+    typedDictExtraItemsExpr?: ExpressionNode | undefined;
     localSlotsNames?: string[];
 
     // If the class is decorated with a @deprecated decorator, this
@@ -820,6 +830,9 @@ export interface ClassDetailsPriv {
     // the "deprecated" class. This allows these instances to be used
     // as decorators for other classes or functions.
     deprecatedInstanceMessage?: string | undefined;
+
+    // Special-case fields for partial class.
+    partialCallType?: Type | undefined;
 }
 
 export interface ClassType extends TypeBase<TypeCategory.Class> {
@@ -994,18 +1007,29 @@ export namespace ClassType {
         return newClassType;
     }
 
-    export function cloneForSymbolTableUpdate(classType: ClassType): ClassType {
+    export function cloneForPartial(classType: ClassType, partialCallType: Type): ClassType {
         const newClassType = TypeBase.cloneType(classType);
-        newClassType.shared = { ...newClassType.shared };
-        newClassType.shared.fields = new Map(newClassType.shared.fields);
-        newClassType.shared.mro = Array.from(newClassType.shared.mro);
-        newClassType.shared.mro[0] = cloneAsInstantiable(newClassType);
+        newClassType.priv.partialCallType = partialCallType;
         return newClassType;
     }
 
-    export function cloneForUnpacked(classType: ClassType, isUnpacked = true): ClassType {
+    export function cloneForUnpacked(classType: ClassType): ClassType {
+        if (classType.priv.isUnpacked) {
+            return classType;
+        }
+
         const newClassType = TypeBase.cloneType(classType);
-        newClassType.priv.isUnpacked = isUnpacked;
+        newClassType.priv.isUnpacked = true;
+        return newClassType;
+    }
+
+    export function cloneForPacked(classType: ClassType): ClassType {
+        if (!classType.priv.isUnpacked) {
+            return classType;
+        }
+
+        const newClassType = TypeBase.cloneType(classType);
+        newClassType.priv.isUnpacked = false;
         return newClassType;
     }
 
@@ -1301,13 +1325,12 @@ export namespace ClassType {
             return false;
         }
 
-        // Handle type[] specially.
-        if (TypeBase.getInstantiableDepth(classType) > 0) {
-            return TypeBase.isInstantiable(type2) || ClassType.isBuiltIn(type2, 'type');
+        if (TypeBase.isInstance(classType) !== TypeBase.isInstance(type2)) {
+            return false;
         }
 
-        if (TypeBase.getInstantiableDepth(type2) > 0) {
-            return TypeBase.isInstantiable(classType) || ClassType.isBuiltIn(classType, 'type');
+        if (TypeBase.getInstantiableDepth(classType) !== TypeBase.getInstantiableDepth(type2)) {
+            return false;
         }
 
         const class1Details = classType.shared;
@@ -1478,11 +1501,11 @@ export interface FunctionParam {
     flags: FunctionParamFlags;
     name: string | undefined;
 
-    // Use getEffectiveParamType to access this field.
+    // Use getParamType to access this field.
     // eslint-disable-next-line @typescript-eslint/naming-convention
     _type: Type;
 
-    // Use getEffectiveParamDefaultArgType to access this field.
+    // Use getParamDefaultType to access this field.
     // eslint-disable-next-line @typescript-eslint/naming-convention
     _defaultType: Type | undefined;
 
@@ -1705,7 +1728,7 @@ export namespace FunctionType {
     }
 
     export function createSynthesizedInstance(name: string, additionalFlags = FunctionTypeFlags.None) {
-        return create(name, '', '', additionalFlags | FunctionTypeFlags.SynthesizedMethod, TypeFlags.Instance);
+        return create(name, name, '', additionalFlags | FunctionTypeFlags.SynthesizedMethod, TypeFlags.Instance);
     }
 
     function create(
@@ -2732,7 +2755,7 @@ export interface TypeVarDetailsShared {
     isTypeParamSyntax: boolean;
 
     // Information about recursive type aliases.
-    recursiveAlias: RecursiveAliasInfo | undefined;
+    recursiveAlias: TypeAliasSharedInfo | undefined;
 }
 
 export type ParamSpecAccess = 'args' | 'kwargs';
@@ -2771,6 +2794,9 @@ export interface TypeVarDetailsPriv {
     // If the TypeVar is bound form of a TypeVar, this refers to
     // the corresponding free TypeVar.
     freeTypeVar?: TypeVarType | undefined;
+
+    // Is this TypeVar or TypeVarTuple unpacked (i.e. Unpack or * operator applied)?
+    isUnpacked?: boolean | undefined;
 }
 
 export interface TypeVarType extends TypeBase<TypeCategory.TypeVar> {
@@ -2805,9 +2831,6 @@ export namespace ParamSpecType {
 }
 
 export interface TypeVarTupleDetailsPriv extends TypeVarDetailsPriv {
-    // Is this TypeVarTuple unpacked (i.e. Unpack or * operator applied)?
-    isUnpacked?: boolean | undefined;
-
     // Is this TypeVarTuple included in a Union[]? This allows us to
     // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
     isInUnion?: boolean | undefined;
@@ -2892,10 +2915,13 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneForUnpacked(type: TypeVarTupleType, isInUnion = false) {
+    export function cloneForUnpacked(type: TypeVarType, isInUnion = false) {
         const newInstance = TypeBase.cloneType(type);
         newInstance.priv.isUnpacked = true;
-        newInstance.priv.isInUnion = isInUnion;
+
+        if (isTypeVarTuple(newInstance) && isInUnion) {
+            newInstance.priv.isInUnion = isInUnion;
+        }
 
         if (newInstance.priv.freeTypeVar) {
             newInstance.priv.freeTypeVar = TypeVarType.cloneForUnpacked(newInstance.priv.freeTypeVar, isInUnion);
@@ -2903,10 +2929,13 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneForPacked(type: TypeVarTupleType) {
+    export function cloneForPacked(type: TypeVarType) {
         const newInstance = TypeBase.cloneType(type);
         newInstance.priv.isUnpacked = false;
-        newInstance.priv.isInUnion = false;
+
+        if (isTypeVarTuple(newInstance)) {
+            newInstance.priv.isInUnion = false;
+        }
 
         if (newInstance.priv.freeTypeVar) {
             newInstance.priv.freeTypeVar = TypeVarType.cloneForPacked(newInstance.priv.freeTypeVar);
@@ -2972,6 +3001,12 @@ export namespace TypeVarType {
         newInstance.priv.isUnificationVar = true;
         newInstance.priv.scopeId = UnificationScopeId;
         newInstance.priv.nameWithScope = newNameWithScope;
+        return newInstance;
+    }
+
+    export function cloneWithComputedVariance(type: TypeVarType, computedVariance: Variance): TypeVarType {
+        const newInstance = TypeBase.cloneType(type);
+        newInstance.priv.computedVariance = computedVariance;
         return newInstance;
     }
 
@@ -3064,8 +3099,8 @@ export namespace TypeVarType {
         return typeVarType.priv.nameWithScope || typeVarType.shared.name;
     }
 
-    export function getReadableName(type: TypeVarType) {
-        if (type.priv.scopeName) {
+    export function getReadableName(type: TypeVarType, includeScope = true) {
+        if (type.priv.scopeName && includeScope) {
             return `${type.shared.name}@${type.priv.scopeName}`;
         }
 
@@ -3182,6 +3217,10 @@ export function isUnpackedTypeVarTuple(type: Type): type is TypeVarTupleType {
     return isTypeVarTuple(type) && !!type.priv.isUnpacked && !type.priv.isInUnion;
 }
 
+export function isUnpackedTypeVar(type: Type): type is TypeVarTupleType {
+    return isTypeVar(type) && !isTypeVarTuple(type) && !!type.priv.isUnpacked;
+}
+
 export function isUnpackedClass(type: Type): type is ClassType {
     if (!isClass(type) || !type.priv.isUnpacked) {
         return false;
@@ -3191,7 +3230,7 @@ export function isUnpackedClass(type: Type): type is ClassType {
 }
 
 export function isUnpacked(type: Type): boolean {
-    return isUnpackedTypeVarTuple(type) || isUnpackedClass(type);
+    return isUnpackedTypeVarTuple(type) || isUnpackedTypeVar(type) || isUnpackedClass(type);
 }
 
 export function isFunction(type: Type): type is FunctionType {
@@ -3335,6 +3374,12 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
+            if (options.honorIsTypeArgExplicit) {
+                if (!!type1.priv.isTypeArgExplicit !== !!classType2.priv.isTypeArgExplicit) {
+                    return false;
+                }
+            }
+
             if (!options.ignoreTypedDictNarrowEntries && !ClassType.isTypedDictNarrowedEntriesSame(type1, classType2)) {
                 return false;
             }
@@ -3465,6 +3510,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             const type2TypeVar = type2 as TypeVarType;
 
             if (type1.priv.scopeId !== type2TypeVar.priv.scopeId) {
+                return false;
+            }
+
+            if (type1.priv.nameWithScope !== type2TypeVar.priv.nameWithScope) {
                 return false;
             }
 
@@ -3640,19 +3689,19 @@ export interface CombineTypesOptions {
 // are combined into a UnionType. NeverTypes are filtered out.
 // If no types remain in the end, a NeverType is returned.
 export function combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
-    // Filter out any "Never" and "NoReturn" types.
-    let sawNoReturn = false;
+    let neverTypes: NeverType[];
 
-    if (subtypes.some((subtype) => subtype.category === TypeCategory.Never))
-        subtypes = subtypes.filter((subtype) => {
-            if (subtype.category === TypeCategory.Never && subtype.priv.isNoReturn) {
-                sawNoReturn = true;
-            }
-            return subtype.category !== TypeCategory.Never;
-        });
+    // Filter out any Never or NoReturn types.
+    [neverTypes, subtypes] = partition<Type, NeverType>(subtypes, isNever);
 
     if (subtypes.length === 0) {
-        return sawNoReturn ? NeverType.createNoReturn() : NeverType.createNever();
+        if (neverTypes.length > 0) {
+            // Prefer NoReturn over Never. This approach preserves type alias
+            // information if present.
+            return neverTypes.find((t) => t.priv.isNoReturn) ?? neverTypes[0];
+        }
+
+        return NeverType.createNever();
     }
 
     // Handle the common case where there is only one type.

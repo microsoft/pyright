@@ -20,6 +20,7 @@ def draw_networkx_nodes(
     edgecolors: Incomplete | None = None,
     label: Incomplete | None = None,
     margins: Incomplete | None = None,
+    hide_ticks: bool = True,
 ): ...
 def draw_networkx_edges(
     G,
@@ -43,6 +44,7 @@ def draw_networkx_edges(
     connectionstyle: str = "arc3",
     min_source_margin: int = 0,
     min_target_margin: int = 0,
+    hide_ticks: bool = True,
 ): ...
 def draw_networkx_labels(
     G,
@@ -58,6 +60,7 @@ def draw_networkx_labels(
     verticalalignment: str = "center",
     ax: Incomplete | None = None,
     clip_on: bool = True,
+    hide_ticks: bool = True,
 ): ...
 def draw_networkx_edge_labels(
     G,
@@ -75,6 +78,10 @@ def draw_networkx_edge_labels(
     ax: Incomplete | None = None,
     rotate: bool = True,
     clip_on: bool = True,
+    node_size: int = 300,
+    nodelist: Incomplete | None = None,
+    connectionstyle: str = "arc3",
+    hide_ticks: bool = True,
 ): ...
 def draw_circular(G, **kwargs) -> None: ...
 def draw_kamada_kawai(G, **kwargs) -> None: ...

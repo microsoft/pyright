@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 __all__ = [
     "configuration_model",
@@ -12,21 +12,21 @@ __all__ = [
     "random_degree_sequence_graph",
 ]
 
-@_dispatch
+@_dispatchable
 def configuration_model(deg_sequence, create_using: Incomplete | None = None, seed: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def directed_configuration_model(
     in_degree_sequence, out_degree_sequence, create_using: Incomplete | None = None, seed: Incomplete | None = None
 ): ...
-@_dispatch
+@_dispatchable
 def expected_degree_graph(w, seed: Incomplete | None = None, selfloops: bool = True): ...
-@_dispatch
+@_dispatchable
 def havel_hakimi_graph(deg_sequence, create_using: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def directed_havel_hakimi_graph(in_deg_sequence, out_deg_sequence, create_using: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def degree_sequence_tree(deg_sequence, create_using: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def random_degree_sequence_graph(sequence, seed: Incomplete | None = None, tries: int = 10): ...
 
 class DegreeSequenceRandomGraph:

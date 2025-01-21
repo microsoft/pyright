@@ -1,11 +1,11 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def cycle_basis(G, root: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def simple_cycles(G, length_bound: Incomplete | None = None) -> Generator[Incomplete, Incomplete, None]: ...
 
 class _NeighborhoodCache(dict[Incomplete, Incomplete]):
@@ -13,11 +13,11 @@ class _NeighborhoodCache(dict[Incomplete, Incomplete]):
     def __init__(self, G) -> None: ...
     def __missing__(self, v): ...
 
-@_dispatch
+@_dispatchable
 def chordless_cycles(G, length_bound: Incomplete | None = None) -> Generator[Incomplete, Incomplete, None]: ...
-@_dispatch
+@_dispatchable
 def recursive_simple_cycles(G): ...
-@_dispatch
+@_dispatchable
 def find_cycle(G, source: Incomplete | None = None, orientation: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def minimum_cycle_basis(G, weight: Incomplete | None = None): ...

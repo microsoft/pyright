@@ -111,6 +111,7 @@ import {
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
+import { Tokenizer } from '../parser/tokenizer';
 import {
     FStringStartToken,
     OperatorToken,
@@ -723,7 +724,7 @@ export class CompletionProvider {
             });
         } else {
             // Does the symbol have no declaration but instead has a synthesized type?
-            const synthesizedType = symbol.getSynthesizedType();
+            const synthesizedType = symbol.getSynthesizedType()?.type;
             if (synthesizedType) {
                 const itemKind: CompletionItemKind = this._convertTypeToItemKind(synthesizedType);
                 this.addNameToCompletions(name, itemKind, priorWord, completionMap, {
@@ -803,9 +804,8 @@ export class CompletionProvider {
         );
 
         return new AutoImporter(
-            this.execEnv,
             this.program,
-            this.importResolver,
+            this.execEnv,
             this.parseResults,
             this.position,
             completionMap,
@@ -820,7 +820,8 @@ export class CompletionProvider {
         priorWord: string,
         similarityLimit: number,
         lazyEdit: boolean,
-        completionMap: CompletionMap
+        completionMap: CompletionMap,
+        parensDisabled?: boolean
     ) {
         if (!this.configOptions.autoImportCompletions) {
             // If auto import on the server is turned off or this particular invocation
@@ -841,10 +842,15 @@ export class CompletionProvider {
             )
         );
 
-        this.addImportResults(results, priorWord, completionMap);
+        this.addImportResults(results, priorWord, completionMap, parensDisabled);
     }
 
-    protected addImportResults(results: AutoImportResult[], priorWord: string, completionMap: CompletionMap) {
+    protected addImportResults(
+        results: AutoImportResult[],
+        priorWord: string,
+        completionMap: CompletionMap,
+        parensDisabled?: boolean
+    ) {
         for (const result of results) {
             if (result.symbol) {
                 this.addSymbol(result.name, result.symbol, priorWord, completionMap, {
@@ -855,6 +861,7 @@ export class CompletionProvider {
                         textEdit: this.createReplaceEdits(priorWord, /* node */ undefined, result.insertionText),
                         additionalTextEdits: result.edits,
                     },
+                    funcParensDisabled: parensDisabled,
                 });
             } else {
                 this.addNameToCompletions(
@@ -869,6 +876,7 @@ export class CompletionProvider {
                             textEdit: this.createReplaceEdits(priorWord, /* node */ undefined, result.insertionText),
                             additionalTextEdits: result.edits,
                         },
+                        funcParensDisabled: parensDisabled,
                     }
                 );
             }
@@ -1974,7 +1982,14 @@ export class CompletionProvider {
         // Add auto-import suggestions from other modules.
         // Ignore this check for privates, since they are not imported.
         if (!priorWord.startsWith('_') && !this.itemToResolve) {
-            this.addAutoImportCompletions(priorWord, similarityLimit, this.options.lazyEdit, completionMap);
+            const parensDisabled = parseNode.parent?.nodeType === ParseNodeType.Decorator;
+            this.addAutoImportCompletions(
+                priorWord,
+                similarityLimit,
+                this.options.lazyEdit,
+                completionMap,
+                parensDisabled
+            );
         }
 
         // Add literal values if appropriate.
@@ -2874,8 +2889,15 @@ export class CompletionProvider {
         const paramDetails = getParamListDetails(type);
 
         paramDetails.params.forEach((paramInfo) => {
-            if (paramInfo.param.name && paramInfo.kind !== ParamKind.Positional) {
-                if (!SymbolNameUtils.isPrivateOrProtectedName(paramInfo.param.name)) {
+            if (
+                paramInfo.param.name &&
+                paramInfo.kind !== ParamKind.Positional &&
+                paramInfo.kind !== ParamKind.ExpandedArgs
+            ) {
+                if (
+                    !SymbolNameUtils.isPrivateOrProtectedName(paramInfo.param.name) &&
+                    Tokenizer.isPythonIdentifier(paramInfo.param.name)
+                ) {
                     names.add(paramInfo.param.name);
                 }
             }
@@ -2961,9 +2983,10 @@ export class CompletionProvider {
                 if (!completionMap.has(name)) {
                     // Skip func parens for classes when not a direct assignment or an argument (passed as a value)
                     const skipForClass = !this._shouldShowAutoParensForClass(symbol, node);
+                    const skipForDecorator = node.parent?.nodeType === ParseNodeType.Decorator;
                     this.addSymbol(name, symbol, priorWord, completionMap, {
                         boundObjectOrClass,
-                        funcParensDisabled: isInImport || insideTypeAnnotation || skipForClass,
+                        funcParensDisabled: isInImport || insideTypeAnnotation || skipForClass || skipForDecorator,
                         extraCommitChars: !isInImport && !!priorWord,
                     });
                 }
@@ -3164,7 +3187,10 @@ export class CompletionProvider {
         return (
             symbolType &&
             isClassInstance(symbolType) &&
-            ClassType.isSameGenericClass(symbolType, containingType) &&
+            ClassType.isSameGenericClass(
+                symbolType,
+                TypeBase.isInstance(containingType) ? containingType : ClassType.cloneAsInstance(containingType)
+            ) &&
             symbolType.priv.literalValue instanceof EnumLiteral
         );
     }

@@ -19,6 +19,7 @@ import {
 } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
+import { SynthesizedTypeInfo } from '../analyzer/symbol';
 import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 import { PrintTypeOptions, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { convertToInstance, doForEachSubtype, isMaybeDescriptorInstance } from '../analyzer/typeUtils';
@@ -93,6 +94,35 @@ export function convertHoverResults(hoverResults: HoverResults | null, format: M
     };
 }
 
+export function addParameterResultsPart(
+    serviceProvider: ServiceProvider,
+    paramNameNode: NameNode,
+    resolvedDecl: Declaration | undefined,
+    format: MarkupKind,
+    parts: HoverTextPart[]
+) {
+    // See if we have a docstring for the parent function.
+    let docString: string | undefined = undefined;
+    const funcNode = ParseTreeUtils.getEnclosingFunction(resolvedDecl?.node || paramNameNode);
+    if (funcNode) {
+        docString = ParseTreeUtils.getDocString(funcNode?.d.suite?.d.statements ?? []);
+        if (docString) {
+            // Compute the docstring now.
+            docString = serviceProvider
+                .docStringService()
+                .extractParameterDocumentation(docString, paramNameNode.d.value, format);
+        }
+    }
+    if (!docString) {
+        return;
+    }
+
+    parts.push({
+        python: false,
+        text: docString,
+    });
+}
+
 export function addDocumentationResultsPart(
     serviceProvider: ServiceProvider,
     docString: string | undefined,
@@ -127,20 +157,22 @@ export function addDocumentationResultsPart(
 
 export function getVariableTypeText(
     evaluator: TypeEvaluator,
-    declaration: VariableDeclaration,
+    declaration: VariableDeclaration | undefined,
     name: string,
     type: Type,
     typeNode: ExpressionNode,
     functionSignatureDisplay: SignatureDisplayType
 ) {
-    let label = declaration.isConstant || evaluator.isFinalVariableDeclaration(declaration) ? 'constant' : 'variable';
+    let label = 'variable';
+    if (declaration) {
+        label = declaration.isConstant || evaluator.isFinalVariableDeclaration(declaration) ? 'constant' : 'variable';
+    }
 
-    const expandTypeAlias = false;
     let typeVarName: string | undefined;
 
     if (type.props?.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
         const typeAliasInfo = getTypeAliasInfo(type);
-        if (typeAliasInfo?.name === typeNode.d.value) {
+        if (typeAliasInfo?.shared.name === typeNode.d.value) {
             if (isTypeVar(type)) {
                 label = isParamSpec(type) ? 'param spec' : 'type variable';
                 typeVarName = type.shared.name;
@@ -155,13 +187,23 @@ export function getVariableTypeText(
         }
     }
 
-    // Handle the case where type is a function and was assigned to a variable.
-    if (type.category === TypeCategory.Function || type.category === TypeCategory.Overloaded) {
-        return getToolTipForType(type, label, name, evaluator, /* isProperty */ false, functionSignatureDisplay);
+    if (
+        type.category === TypeCategory.Function ||
+        type.category === TypeCategory.Overloaded ||
+        typeNode.parent?.nodeType === ParseNodeType.Call
+    ) {
+        return getToolTipForType(
+            type,
+            label,
+            name,
+            evaluator,
+            /* isProperty */ false,
+            functionSignatureDisplay,
+            typeNode
+        );
     }
 
-    const typeText =
-        typeVarName ?? name + ': ' + evaluator.printType(getTypeForToolTip(evaluator, typeNode), { expandTypeAlias });
+    const typeText = typeVarName ?? name + ': ' + evaluator.printType(getTypeForToolTip(evaluator, typeNode));
 
     return `(${label}) ` + typeText;
 }
@@ -261,9 +303,9 @@ export class HoverProvider {
                 const primaryDeclaration = HoverProvider.getPrimaryDeclaration(declarations);
                 this._addResultsForDeclaration(results.parts, primaryDeclaration, node);
             } else if (declInfo && declInfo.synthesizedTypes.length > 0) {
-                const name = node.d.value;
+                const nameNode = node;
                 declInfo?.synthesizedTypes.forEach((type) => {
-                    this._addResultsForSynthesizedType(results.parts, type, name);
+                    this._addResultsForSynthesizedType(results.parts, type, nameNode);
                 });
                 this._addDocumentationPart(results.parts, node, /* resolvedDecl */ undefined);
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
@@ -374,10 +416,7 @@ export class HoverProvider {
 
             case DeclarationType.Param: {
                 this._addResultsPart(parts, '(parameter) ' + node.d.value + this._getTypeText(node), /* python */ true);
-
-                if (resolvedDecl.docString) {
-                    this._addResultsPart(parts, resolvedDecl.docString);
-                }
+                addParameterResultsPart(this._program.serviceProvider, node, resolvedDecl, this._format, parts);
                 this._addDocumentationPart(parts, node, resolvedDecl);
                 break;
             }
@@ -386,7 +425,8 @@ export class HoverProvider {
                 // If the user is hovering over a type parameter name in a class type parameter
                 // list, display the computed variance of the type param.
                 const typeParamListNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeParameterList);
-                const printTypeVarVariance = typeParamListNode?.parent?.nodeType === ParseNodeType.Class;
+                const nodeType = typeParamListNode?.parent?.nodeType;
+                const printTypeVarVariance = nodeType === ParseNodeType.Class || nodeType === ParseNodeType.TypeAlias;
 
                 this._addResultsPart(
                     parts,
@@ -455,30 +495,28 @@ export class HoverProvider {
         }
     }
 
-    private _addResultsForSynthesizedType(parts: HoverTextPart[], type: Type, name: string) {
-        let typeText: string;
+    private _addResultsForSynthesizedType(parts: HoverTextPart[], typeInfo: SynthesizedTypeInfo, hoverNode: NameNode) {
+        let typeText: string | undefined;
 
-        if (isModule(type)) {
-            typeText = '(module) ' + name;
+        if (isModule(typeInfo.type)) {
+            typeText = '(module) ' + hoverNode.d.value;
         } else {
-            // Treat it as a function declaration if it's a function or overloaded type.
-            let label = 'variable';
+            const node = typeInfo.node ?? hoverNode;
 
-            if (isFunction(type) || isOverloaded(type)) {
-                label = 'function';
-            }
-
-            typeText = getToolTipForType(
-                type,
-                label,
-                name,
+            const type = this._getType(node);
+            typeText = getVariableTypeText(
                 this._evaluator,
-                /* isProperty */ false,
+                /* declaration */ undefined,
+                node.d.value,
+                type,
+                node,
                 this._functionSignatureDisplay
             );
         }
 
-        this._addResultsPart(parts, typeText, /* python */ true);
+        if (typeText) {
+            this._addResultsPart(parts, typeText, /* python */ true);
+        }
     }
 
     private _tryAddPartsForTypedDictKey(node: StringNode, type: Type, parts: HoverTextPart[]) {

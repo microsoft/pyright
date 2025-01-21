@@ -33,9 +33,10 @@ import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { CodeFlowReferenceExpressionNode, FlowNode } from './codeFlowTypes';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration } from './declaration';
-import * as DeclarationUtils from './declarationUtils';
+import { ResolvedAliasInfo } from './declarationUtils';
 import { SymbolWithScope } from './scope';
-import { Symbol } from './symbol';
+import { Symbol, SynthesizedTypeInfo } from './symbol';
+import { SpeculativeModeOptions } from './typeCacheUtils';
 import { PrintTypeFlags } from './typePrinter';
 import {
     AnyType,
@@ -43,18 +44,23 @@ import {
     FunctionParam,
     FunctionType,
     OverloadedType,
+    TupleTypeArg,
     Type,
     TypeCondition,
-    TypeVarScopeId,
     TypeVarType,
     UnknownType,
     Variance,
 } from './types';
-import { ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
+import { ApplyTypeVarOptions, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
 
 // Maximum number of unioned subtypes for an inferred type (e.g.
 // a list) before the type is considered an "Any".
 export const maxSubtypesForInferredType = 64;
+
+// In certain loops, it's possible to construct arbitrarily-deep containers
+// (tuples, lists, sets, or dicts) which can lead to infinite type analysis.
+// This limits the depth.
+export const maxInferredContainerDepth = 8;
 
 export const enum EvalFlags {
     None = 0,
@@ -119,6 +125,9 @@ export const enum EvalFlags {
     // Used for PEP 526-style variable type annotations.
     VarTypeAnnotation = 1 << 15,
 
+    // An ellipsis is allowed even if TypeExpression is set.
+    AllowEllipsis = 1 << 16,
+
     // 'ClassVar' is not allowed in this context.
     NoClassVar = 1 << 17,
 
@@ -132,16 +141,19 @@ export const enum EvalFlags {
     // Required and NotRequired are allowed in this context.
     AllowRequired = 1 << 20,
 
+    // ReadOnly is allowed in this context.
+    AllowReadOnly = 1 << 21,
+
     // Allow Unpack annotation for a tuple or TypeVarTuple.
-    AllowUnpackedTuple = 1 << 21,
+    AllowUnpackedTuple = 1 << 22,
 
     // Allow Unpack annotation for TypedDict.
-    AllowUnpackedTypedDict = 1 << 22,
+    AllowUnpackedTypedDict = 1 << 23,
 
     // Even though an expression is enclosed in a string literal,
     // the interpreter (within a source file, not a stub) still
     // parses the expression and generates parse errors.
-    ParsesStringLiteral = 1 << 23,
+    ParsesStringLiteral = 1 << 24,
 
     // Do not convert special forms to their corresponding runtime
     // objects even when expecting a type expression.
@@ -190,6 +202,26 @@ export const enum EvalFlags {
         IsinstanceArg,
 }
 
+// Types whose definitions are prefetched and cached by the type evaluator
+export interface PrefetchedTypes {
+    noneTypeClass: Type;
+    objectClass: Type;
+    typeClass: Type;
+    unionTypeClass: Type;
+    awaitableClass: Type;
+    functionClass: Type;
+    tupleClass: Type;
+    boolClass: Type;
+    intClass: Type;
+    strClass: Type;
+    dictClass: Type;
+    moduleTypeClass: Type;
+    typedDictClass: Type;
+    typedDictPrivateClass: Type;
+    supportsKeysAndGetItemClass: Type;
+    mappingClass: Type;
+}
+
 export interface TypeResult<T extends Type = Type> {
     type: T;
 
@@ -209,6 +241,9 @@ export interface TypeResult<T extends Type = Type> {
 
     // Type consistency errors detected when evaluating this type.
     typeErrors?: boolean | undefined;
+
+    // For inlined TypedDict definitions.
+    inlinedTypeDict?: ClassType;
 
     // Used for getTypeOfBoundMember to indicate that class
     // that declares the member.
@@ -351,6 +386,7 @@ export interface ValidateArgTypeParams {
 export interface ExpectedTypeOptions {
     allowFinal?: boolean;
     allowRequired?: boolean;
+    allowReadOnly?: boolean;
     allowUnpackedTuple?: boolean;
     allowUnpackedTypedDict?: boolean;
     allowParamSpec?: boolean;
@@ -366,6 +402,7 @@ export interface ExpectedTypeOptions {
     forwardRefs?: boolean;
     typeExpression?: boolean;
     convertEllipsisToAny?: boolean;
+    allowEllipsis?: boolean;
 }
 
 export interface ExpectedTypeResult {
@@ -455,17 +492,6 @@ export interface SolveConstraintsOptions {
     useLowerBoundOnly?: boolean;
 }
 
-export interface ApplyTypeVarOptions {
-    typeClassType?: ClassType;
-    replaceUnsolved?: {
-        scopeIds: TypeVarScopeId[];
-        tupleClassType: ClassType | undefined;
-        unsolvedExemptTypeVars?: TypeVarType[];
-        useUnknown?: boolean;
-        eliminateUnsolvedInUnions?: boolean;
-    };
-}
-
 export enum Reachability {
     Reachable,
     UnreachableAlways,
@@ -485,6 +511,7 @@ export interface PrintTypeOptions {
 export interface DeclaredSymbolTypeInfo {
     type: Type | undefined;
     isTypeAlias?: boolean;
+    exceedsMaxDecls?: boolean;
 }
 
 export interface ResolveAliasOptions {
@@ -513,7 +540,7 @@ export interface CallSiteEvaluationInfo {
 
 export interface SymbolDeclInfo {
     decls: Declaration[];
-    synthesizedTypes: Type[];
+    synthesizedTypes: SynthesizedTypeInfo[];
 }
 
 export const enum AssignTypeFlags {
@@ -626,7 +653,7 @@ export interface TypeEvaluator {
     ) => Type;
 
     getExpectedType: (node: ExpressionNode) => ExpectedTypeResult | undefined;
-    verifyRaiseExceptionType: (node: ExpressionNode) => void;
+    verifyRaiseExceptionType: (node: ExpressionNode, allowNone: boolean) => void;
     verifyDeleteExpression: (node: ExpressionNode) => void;
     validateOverloadedArgTypes: (
         errorNode: ExpressionNode,
@@ -659,7 +686,7 @@ export interface TypeEvaluator {
         declaration: Declaration,
         resolveLocalNames: boolean,
         options?: ResolveAliasOptions
-    ) => DeclarationUtils.ResolvedAliasInfo | undefined;
+    ) => ResolvedAliasInfo | undefined;
     getTypeOfIterable: (
         typeResult: TypeResult,
         isAsync: boolean,
@@ -672,8 +699,10 @@ export interface TypeEvaluator {
         errorNode: ExpressionNode,
         emitNotIterableError?: boolean
     ) => TypeResult | undefined;
-    getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
+    getGetterTypeFromProperty: (propertyClass: ClassType) => Type | undefined;
     getTypeOfArg: (arg: Arg, inferenceContext: InferenceContext | undefined) => TypeResult;
+    convertNodeToArg: (node: ArgumentNode) => ArgWithExpression;
+    buildTupleTypesList: (entryTypeResults: TypeResult[], stripLiterals: boolean) => TupleTypeArg[];
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     expandPromotionTypes: (node: ParseNode, type: Type) => Type;
     makeTopLevelTypeVarsConcrete: (type: Type, makeParamSpecsConcrete?: boolean) => Type;
@@ -693,8 +722,8 @@ export interface TypeEvaluator {
     ) => EffectiveTypeResult;
     getInferredTypeOfDeclaration: (symbol: Symbol, decl: Declaration) => Type | undefined;
     getDeclaredTypeForExpression: (expression: ExpressionNode, usage?: EvaluatorUsage) => Type | undefined;
-    getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
-    getFunctionInferredReturnType: (type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) => Type;
+    getDeclaredReturnType: (node: FunctionNode) => Type | undefined;
+    getInferredReturnType: (type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) => Type;
     getBestOverloadForArgs: (
         errorNode: ExpressionNode,
         typeResult: TypeResult<OverloadedType>,
@@ -715,6 +744,7 @@ export interface TypeEvaluator {
         classType: ClassType,
         memberName: string,
         selfType?: ClassType | TypeVarType | undefined,
+        errorNode?: ExpressionNode | undefined,
         diag?: DiagnosticAddendum,
         recursionCount?: number
     ) => FunctionType | OverloadedType | undefined;
@@ -815,7 +845,11 @@ export interface TypeEvaluator {
 
     getTypeCacheEntryCount: () => number;
     disposeEvaluator: () => void;
-    useSpeculativeMode: <T>(speculativeNode: ParseNode | undefined, callback: () => T) => T;
+    useSpeculativeMode: <T>(
+        speculativeNode: ParseNode | undefined,
+        callback: () => T,
+        options?: SpeculativeModeOptions
+    ) => T;
     isSpeculativeModeInUse: (node: ParseNode | undefined) => boolean;
     setTypeResultForNode: (node: ParseNode, typeResult: TypeResult, flags?: EvalFlags) => void;
 

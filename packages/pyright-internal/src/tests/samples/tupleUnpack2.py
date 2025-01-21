@@ -3,9 +3,6 @@
 # it uses the * syntax instead of the backward compatibility
 # "Unpack" form.
 
-from typing import Union
-
-
 def func1(v1: tuple[int, *tuple[bool, bool], str]):
     reveal_type(v1, expected_text="tuple[int, bool, bool, str]")
 

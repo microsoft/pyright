@@ -1,6 +1,6 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def build_auxiliary_node_connectivity(G): ...
-@_dispatch
+@_dispatchable
 def build_auxiliary_edge_connectivity(G): ...

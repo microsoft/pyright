@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 from collections.abc import Generator
 from typing import NamedTuple
 
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 class _GraphParameters(NamedTuple):
     G1: Incomplete
@@ -25,11 +25,11 @@ class _StateParameters(NamedTuple):
     T2_tilde: Incomplete
     T2_tilde_in: Incomplete
 
-@_dispatch
+@_dispatchable
 def vf2pp_isomorphism(G1, G2, node_label: Incomplete | None = None, default_label: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def vf2pp_is_isomorphic(G1, G2, node_label: Incomplete | None = None, default_label: Incomplete | None = None): ...
-@_dispatch
+@_dispatchable
 def vf2pp_all_isomorphisms(
     G1, G2, node_label: Incomplete | None = None, default_label: Incomplete | None = None
 ) -> Generator[Incomplete, None, Incomplete]: ...

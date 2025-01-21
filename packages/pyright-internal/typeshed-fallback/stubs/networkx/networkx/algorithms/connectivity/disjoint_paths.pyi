@@ -2,13 +2,13 @@ from _typeshed import Incomplete
 from collections.abc import Generator
 
 from networkx.algorithms.flow import edmonds_karp
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
 __all__ = ["edge_disjoint_paths", "node_disjoint_paths"]
 
 default_flow_func = edmonds_karp
 
-@_dispatch
+@_dispatchable
 def edge_disjoint_paths(
     G,
     s,
@@ -18,7 +18,7 @@ def edge_disjoint_paths(
     auxiliary: Incomplete | None = None,
     residual: Incomplete | None = None,
 ) -> Generator[Incomplete, None, None]: ...
-@_dispatch
+@_dispatchable
 def node_disjoint_paths(
     G,
     s,

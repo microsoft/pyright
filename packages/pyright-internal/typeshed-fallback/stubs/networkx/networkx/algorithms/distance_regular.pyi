@@ -1,10 +1,10 @@
-from networkx.utils.backends import _dispatch
+from networkx.utils.backends import _dispatchable
 
-@_dispatch
+@_dispatchable
 def is_distance_regular(G): ...
-@_dispatch
+@_dispatchable
 def global_parameters(b, c): ...
-@_dispatch
+@_dispatchable
 def intersection_array(G): ...
-@_dispatch
+@_dispatchable
 def is_strongly_regular(G): ...

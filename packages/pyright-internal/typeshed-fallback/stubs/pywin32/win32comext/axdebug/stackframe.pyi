@@ -1,8 +1,6 @@
 from _typeshed import Incomplete
 
-from win32com.server.exception import COMException as COMException
 from win32comext.axdebug import gateways
-from win32comext.axdebug.util import RaiseNotImpl as RaiseNotImpl, trace as trace
 
 class EnumDebugStackFrames(gateways.EnumDebugStackFrames):
     def __init__(self, debugger) -> None: ...

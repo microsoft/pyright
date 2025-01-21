@@ -18,7 +18,7 @@ test('TypeParams1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('TypeParams2', () => {
@@ -38,7 +38,7 @@ test('TypeParams3', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypeParams4', () => {
@@ -71,6 +71,14 @@ test('TypeParams7', () => {
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams7.py'], configOptions);
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('TypeParams8', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams8.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('AutoVariance1', () => {
@@ -115,7 +123,7 @@ test('TypeAliasStatement1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasStatement1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('TypeAliasStatement2', () => {
@@ -144,6 +152,14 @@ test('TypeAliasStatement4', () => {
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasStatement4.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
+});
+
+test('TypeAliasStatement5', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasStatement5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Hashability1', () => {
@@ -187,7 +203,7 @@ test('TypeVarDefault2', () => {
     configOptions.defaultPythonVersion = pythonVersion3_13;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 23);
+    TestUtils.validateResults(analysisResults, 24);
 });
 
 test('TypeVarDefault3', () => {
@@ -314,7 +330,7 @@ test('TypeAliasType1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasType1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 14);
+    TestUtils.validateResults(analysisResults, 15);
 });
 
 test('TypeAliasType2', () => {
@@ -341,7 +357,7 @@ test('TypedDictClosed1', () => {
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('TypedDictClosed2', () => {

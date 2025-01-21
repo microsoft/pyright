@@ -58,10 +58,12 @@ bytes4 = b"'"
 reveal_type(bytes4, expected_text='Literal[b"\'"]')
 
 
-x = [Literal[1], Literal[2]]
-reveal_type(x, expected_text="list[type[Literal]]")
+t1 = [Literal[1], Literal[2]]
+reveal_type(t1, expected_text="list[type[Literal]]")
 
+t2 = Literal[*(1, 2)]
+reveal_type(t2, expected_text="Literal")
 
 values = ("a", "b", "c")
-t1 = Literal[values]
-reveal_type(t1, expected_text="Literal")
+t3 = Literal[values]
+reveal_type(t3, expected_text="Literal")

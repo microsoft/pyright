@@ -17,6 +17,7 @@ import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
 import { ServiceProvider } from './common/serviceProvider';
 import { getRootUri } from './common/uri/uriUtils';
+import { ServiceKeys } from './common/serviceKeys';
 
 export class BackgroundAnalysis extends BackgroundAnalysisBase {
     private static _workerIndex = 0;
@@ -27,6 +28,7 @@ export class BackgroundAnalysis extends BackgroundAnalysisBase {
         const index = ++BackgroundAnalysis._workerIndex;
         const initialData: InitializationData = {
             rootUri: getRootUri(serviceProvider)?.toString() ?? '',
+            tempFileName: serviceProvider.get(ServiceKeys.tempFile).tmpdir().getFilePath(),
             serviceId: index.toString(),
             cancellationFolderName: getCancellationFolderName(),
             runner: undefined,

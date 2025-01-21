@@ -8,9 +8,9 @@
  * Python files.
  */
 
-import * as TOML from '@iarna/toml';
 import * as JSONC from 'jsonc-parser';
 import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-languageserver';
+import { parse } from '../common/tomlUtils';
 
 import { BackgroundAnalysisBase, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
@@ -28,8 +28,9 @@ import { EditableProgram, ProgramView } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
-import { defaultStubsDirectory } from '../common/pathConsts';
+import { configFileName, defaultStubsDirectory } from '../common/pathConsts';
 import { getFileName, isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
+import { PythonVersion } from '../common/pythonVersion';
 import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
 import { Range } from '../common/textRange';
@@ -58,7 +59,6 @@ import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor }
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import {
-    configFileName,
     findConfigFile,
     findConfigFileHereOrUp,
     findPyprojectTomlFile,
@@ -126,7 +126,7 @@ export class AnalyzerService {
     private _commandLineOptions: CommandLineOptions | undefined;
     private _analyzeTimer: any;
     private _requireTrackedFileUpdate = true;
-    private _lastUserInteractionTime = Date.now();
+    private _lastUserInteractionTime = 0;
     private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
 
     private _disposed = false;
@@ -478,16 +478,9 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.restart();
     }
 
-    protected getCancellationToken() {
-        if (!this._backgroundAnalysisCancellationSource) {
-            this._backgroundAnalysisCancellationSource = this.cancellationProvider.createCancellationTokenSource();
-        }
-        return this._backgroundAnalysisCancellationSource.token;
-    }
-
-    protected runAnalysis() {
+    protected runAnalysis(token: CancellationToken) {
         // This creates a cancellation source only if it actually gets used.
-        const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(this.getCancellationToken());
+        const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(token);
         if (moreToAnalyze) {
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
         }
@@ -506,11 +499,25 @@ export class AnalyzerService {
 
         if (this._commandLineOptions?.fromLanguageServer || this._configOptions.verboseOutput) {
             const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
-            for (const execEnv of this._configOptions.getExecutionEnvironments()) {
-                log(this._console, logLevel, `Search paths for ${execEnv.root || '<default>'}`);
+
+            const execEnvs = this._configOptions.getExecutionEnvironments();
+
+            for (const execEnv of execEnvs) {
+                log(this._console, logLevel, `Execution environment: ${execEnv.name}`);
+                log(this._console, logLevel, `  Extra paths:`);
+                if (execEnv.extraPaths.length > 0) {
+                    execEnv.extraPaths.forEach((path) => {
+                        log(this._console, logLevel, `    ${path.toUserVisibleString()}`);
+                    });
+                } else {
+                    log(this._console, logLevel, `    (none)`);
+                }
+                log(this._console, logLevel, `  Python version: ${PythonVersion.toString(execEnv.pythonVersion)}`);
+                log(this._console, logLevel, `  Python platform: ${execEnv.pythonPlatform ?? 'All'}`);
+                log(this._console, logLevel, `  Search paths:`);
                 const roots = importResolver.getImportRoots(execEnv, /* forLogging */ true);
                 roots.forEach((path) => {
-                    log(this._console, logLevel, `  ${path.toUserVisibleString()}`);
+                    log(this._console, logLevel, `    ${path.toUserVisibleString()}`);
                 });
             }
         }
@@ -694,7 +701,7 @@ export class AnalyzerService {
         // Ensure that if no command line or config options were applied, we have some defaults.
         this._ensureDefaultOptions(host, configOptions, projectRoot, executionRoot, commandLineOptions);
 
-        // Once we have defaults, we can then setup the execution environments. Execution enviroments
+        // Once we have defaults, we can then setup the execution environments. Execution environments
         // inherit from the defaults.
         if (configs) {
             for (const config of configs) {
@@ -1126,9 +1133,9 @@ export class AnalyzerService {
     private _parsePyprojectTomlFile(pyprojectPath: Uri): object | undefined {
         return this._attemptParseFile(pyprojectPath, (fileContents, attemptCount) => {
             try {
-                const configObj = TOML.parse(fileContents);
-                if (configObj && configObj.tool && (configObj.tool as TOML.JsonMap).pyright) {
-                    return (configObj.tool as TOML.JsonMap).pyright as object;
+                const configObj = parse(fileContents);
+                if (configObj && 'tool' in configObj) {
+                    return (configObj.tool as Record<string, object>).pyright as object;
                 }
             } catch (e: any) {
                 this._console.error(`Pyproject file parse attempt ${attemptCount} error: ${JSON.stringify(e)}`);
@@ -1322,7 +1329,10 @@ export class AnalyzerService {
         const results: Uri[] = [];
         const startTime = Date.now();
         const longOperationLimitInSec = 10;
+        const nFilesToSuggestSubfolder = 50;
+
         let loggedLongOperationError = false;
+        let nFilesVisited = 0;
 
         const visitDirectoryUnchecked = (absolutePath: Uri, includeRegExp: RegExp, hasDirectoryWildcard: boolean) => {
             if (!loggedLongOperationError) {
@@ -1330,7 +1340,7 @@ export class AnalyzerService {
 
                 // If this is taking a long time, log an error to help the user
                 // diagnose and mitigate the problem.
-                if (secondsSinceStart >= longOperationLimitInSec) {
+                if (secondsSinceStart >= longOperationLimitInSec && nFilesVisited >= nFilesToSuggestSubfolder) {
                     this._console.error(
                         `Enumeration of workspace source files is taking longer than ${longOperationLimitInSec} seconds.\n` +
                             'This may be because:\n' +
@@ -1344,7 +1354,7 @@ export class AnalyzerService {
                             'https://github.com/microsoft/pyright/blob/main/docs/configuration.md.'
                     );
 
-                    // Show it in messagebox if it is supported.
+                    // Show it in message box if it is supported.
                     this._tryShowLongOperationMessageBox();
 
                     loggedLongOperationError = true;
@@ -1367,6 +1377,7 @@ export class AnalyzerService {
 
             for (const filePath of files) {
                 if (FileSpec.matchIncludeFileSpec(includeRegExp, exclude, filePath)) {
+                    nFilesVisited++;
                     results.push(filePath);
                 }
             }
@@ -1496,9 +1507,6 @@ export class AnalyzerService {
                     // this can affect how we resolve imports. This requires us to reset caches and reanalyze everything.
                     //
                     // However, we don't need to rebuild any indexes in this situation. Changes to workspace files don't affect library indices.
-                    // As for user files, their indices don't contain import alias symbols, so adding or removing user files won't affect the existing indices.
-                    // We only rebuild the indices for a user file when the symbols within the file are changed, like when a user edits the file.
-                    // The index scanner will index any new files during its next background run.
                     this.invalidateAndForceReanalysis(InvalidatedReason.SourceWatcherChanged);
                     this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
                 });
@@ -1872,7 +1880,7 @@ export class AnalyzerService {
         // is too small (like zero), the VS Code extension becomes
         // unresponsive during heavy analysis. If this number is too
         // large, analysis takes longer.
-        const minTimeBetweenAnalysisPassesInMs = 20;
+        const minTimeBetweenAnalysisPassesInMs = 5;
 
         const timeUntilNextAnalysisInMs = Math.max(
             minBackoffTimeInMs - timeSinceLastUserInteractionInMs,
@@ -1887,9 +1895,12 @@ export class AnalyzerService {
                 this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
             }
 
+            // Recreate the cancellation token every time we start analysis.
+            this._backgroundAnalysisCancellationSource = this.cancellationProvider.createCancellationTokenSource();
+
             // Now that the timer has fired, actually send the message to the BG thread to
             // start the analysis.
-            this.runAnalysis();
+            this.runAnalysis(this._backgroundAnalysisCancellationSource.token);
         }, timeUntilNextAnalysisInMs);
     }
 

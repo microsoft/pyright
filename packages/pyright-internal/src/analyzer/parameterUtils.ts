@@ -39,6 +39,7 @@ export enum ParamKind {
     Positional,
     Standard,
     Keyword,
+    ExpandedArgs,
 }
 
 export interface VirtualParamDetails {
@@ -185,7 +186,7 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
                         index,
                         tupleArg.type,
                         /* defaultArgTypeOverride */ undefined,
-                        ParamKind.Positional
+                        ParamKind.ExpandedArgs
                     );
 
                     if (category === ParamCategory.Simple) {
@@ -241,6 +242,8 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
 
                 const typedDictType = paramType;
                 paramType.shared.typedDictEntries.knownItems.forEach((entry, name) => {
+                    entry = paramType.priv.typedDictNarrowedEntries?.get(name) ?? entry;
+
                     const specializedParamType = partiallySpecializeType(
                         entry.valueType,
                         typedDictType,

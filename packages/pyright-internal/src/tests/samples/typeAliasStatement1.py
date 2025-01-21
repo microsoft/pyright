@@ -38,8 +38,7 @@ else:
     type TA7 = int
 
 
-def func1() -> type[int]:
-    ...
+def func1() -> type[int]: ...
 
 
 # This should generate an error because a call expression is not
@@ -87,3 +86,6 @@ def func4():
 
 type TA12[T] = "list[T]"
 ta12: TA12[int] = [1, 2, 3]
+
+# This should generate an error.
+type TA13[T] = ...

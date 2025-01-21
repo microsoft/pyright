@@ -12,3 +12,5 @@ v3 = "a" b"b"
 # This should generate an error.
 v4 = b"a" f""
 
+# This should generate a warning.
+v5 = b"\u00FF"

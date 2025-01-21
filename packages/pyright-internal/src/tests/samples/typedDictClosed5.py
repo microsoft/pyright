@@ -4,14 +4,12 @@
 from typing import Mapping, TypedDict
 
 
-class MovieExtraStr(TypedDict, closed=True):
+class MovieExtraStr(TypedDict, extra_items=str):
     name: str
-    __extra_items__: str
 
 
-class MovieExtraInt(TypedDict, closed=True):
+class MovieExtraInt(TypedDict, extra_items=int):
     name: str
-    __extra_items__: int
 
 
 extra_str: MovieExtraStr = {"name": "Blade Runner", "summary": ""}
@@ -33,10 +31,26 @@ def func1(movie: MovieExtraStr) -> None:
 
 class MovieNotClosed(TypedDict):
     name: str
-    __extra_items__: int
 
 
 def func2(movie: MovieNotClosed) -> None:
     reveal_type(movie.items(), expected_text="dict_items[str, object]")
     reveal_type(movie.keys(), expected_text="dict_keys[str, object]")
     reveal_type(movie.values(), expected_text="dict_values[str, object]")
+
+
+class MovieClosed(TypedDict, closed=True):
+    name: str
+    year: int
+
+
+def func3(movie: MovieClosed) -> None:
+    reveal_type(
+        movie.items(), expected_text="dict_items[Literal['name', 'year'], str | int]"
+    )
+    reveal_type(
+        movie.keys(), expected_text="dict_keys[Literal['name', 'year'], str | int]"
+    )
+    reveal_type(
+        movie.values(), expected_text="dict_values[Literal['name', 'year'], str | int]"
+    )

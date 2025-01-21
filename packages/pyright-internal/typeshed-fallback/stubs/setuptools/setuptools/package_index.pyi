@@ -1,20 +1,24 @@
 import configparser
 import urllib.request
 from _typeshed import Incomplete
+from collections.abc import Generator
 from hashlib import _Hash
 from re import Pattern
 from typing import ClassVar
 from typing_extensions import NamedTuple
 
-from pkg_resources import Environment
+from pkg_resources import Distribution, Environment
 
 __all__ = ["PackageIndex", "distros_for_url", "parse_bdist_wininst", "interpret_distro_name"]
 
 def parse_bdist_wininst(name): ...
-def distros_for_url(url, metadata: Incomplete | None = None) -> None: ...
+def distros_for_url(url, metadata: Incomplete | None = None) -> Generator[Distribution]: ...
+def distros_for_location(
+    location, basename, metadata: Incomplete | None = None
+) -> list[Distribution] | Generator[Distribution]: ...
 def interpret_distro_name(
     location, basename, metadata, py_version: Incomplete | None = None, precedence=1, platform: Incomplete | None = None
-) -> None: ...
+) -> Generator[Distribution]: ...
 
 class ContentChecker:
     def feed(self, block) -> None: ...

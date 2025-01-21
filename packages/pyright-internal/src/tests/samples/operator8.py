@@ -3,7 +3,9 @@
 # class.
 
 from functools import reduce
-from typing import Iterable, Literal
+from typing import Iterable, Literal, TypeVar
+
+TLiteral = TypeVar("TLiteral", bound=Literal[0, 1, 2])
 
 
 def func1(a: Literal[1, 2], b: Literal[0, 4], c: Literal[3, 4]):
@@ -184,3 +186,13 @@ def func9(a: int) -> None:
 
     inner1()
     inner2()
+
+
+def func10(a: TLiteral) -> TLiteral:
+    # This should generate an error.
+    return -a
+
+
+def func11(a: TLiteral, b: TLiteral) -> TLiteral:
+    # This should generate an error.
+    return a + b

@@ -15,9 +15,6 @@ class DataTuple(NamedTuple):
     def _m(self):
         pass
 
-    # ClassVar variables should not be included.
-    class_var: ClassVar[int] = 4
-
     id: int
     aid: Other
     value: str = ""
