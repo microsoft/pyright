@@ -97,7 +97,7 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ConstraintTracker } from './constraintTracker';
 import { getBoundCallMethod, getBoundInitMethod, getBoundNewMethod } from './constructors';
 import { addInheritedDataClassEntries } from './dataClasses';
-import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
+import { Declaration, DeclarationType, isAliasDeclaration, isVariableDeclaration } from './declaration';
 import { getNameNodeForDeclaration } from './declarationUtils';
 import { deprecatedAliases, deprecatedSpecialForms } from './deprecatedSymbols';
 import { getEnumDeclaredValueType, isEnumClassWithMembers, transformTypeForEnumMember } from './enums';
@@ -109,7 +109,7 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
 import { isMethodOnlyProtocol, isProtocolUnsafeOverlap } from './protocols';
-import { ScopeType } from './scope';
+import { Scope, ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
 import { SourceMapper, isStubFile } from './sourceMapper';
@@ -1093,11 +1093,11 @@ export class Checker extends ParseTreeWalker {
 
     override visitRaise(node: RaiseNode): boolean {
         if (node.d.expr) {
-            this._evaluator.verifyRaiseExceptionType(node.d.expr);
+            this._evaluator.verifyRaiseExceptionType(node.d.expr, /* allowNone */ false);
         }
 
         if (node.d.fromExpr) {
-            this._evaluator.verifyRaiseExceptionType(node.d.fromExpr);
+            this._evaluator.verifyRaiseExceptionType(node.d.fromExpr, /* allowNone */ true);
         }
 
         return true;
@@ -1351,7 +1351,9 @@ export class Checker extends ParseTreeWalker {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
                             DiagnosticRule.reportInvalidStringEscapeSequence,
-                            LocMessage.stringUnsupportedEscape(),
+                            node.d.strings.some((string) => (string.d.token.flags & StringTokenFlags.Bytes) !== 0)
+                                ? LocMessage.bytesUnsupportedEscape()
+                                : LocMessage.stringUnsupportedEscape(),
                             { start: start + error.offset, length: error.length }
                         );
                     }
@@ -3022,6 +3024,8 @@ export class Checker extends ParseTreeWalker {
 
                     this._reportIncompatibleDeclarations(name, symbol);
 
+                    this._reportOverwriteOfImportedFinal(name, symbol);
+                    this._reportOverwriteOfBuiltinsFinal(name, symbol, scope);
                     this._reportMultipleFinalDeclarations(name, symbol, scope.type);
 
                     this._reportFinalInLoop(symbol);
@@ -3203,6 +3207,69 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
+    // If a variable that is marked Final in one module is imported by another
+    // module, an attempt to overwrite the imported symbol should generate an
+    // error.
+    private _reportOverwriteOfImportedFinal(name: string, symbol: Symbol) {
+        if (this._evaluator.isFinalVariable(symbol)) {
+            return;
+        }
+
+        const decls = symbol.getDeclarations();
+
+        const finalImportDecl = decls.find((decl) => {
+            if (decl.type === DeclarationType.Alias) {
+                const resolvedDecl = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+                if (resolvedDecl && isVariableDeclaration(resolvedDecl) && resolvedDecl.isFinal) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+        if (!finalImportDecl) {
+            return;
+        }
+
+        decls.forEach((decl) => {
+            if (decl !== finalImportDecl) {
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.finalReassigned().format({ name }),
+                    getNameNodeForDeclaration(decl) ?? decl.node
+                );
+            }
+        });
+    }
+
+    // If the builtins module (or any implicitly chained module) defines a
+    // Final variable, an attempt to overwrite it should generate an error.
+    private _reportOverwriteOfBuiltinsFinal(name: string, symbol: Symbol, scope: Scope) {
+        if (scope.type !== ScopeType.Module || !scope.parent) {
+            return;
+        }
+
+        const shadowedSymbolInfo = scope.parent.lookUpSymbolRecursive(name);
+        if (!shadowedSymbolInfo) {
+            return;
+        }
+
+        if (!this._evaluator.isFinalVariable(shadowedSymbolInfo.symbol)) {
+            return;
+        }
+
+        const decls = symbol.getDeclarations();
+        decls.forEach((decl) => {
+            this._evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.finalReassigned().format({ name }),
+                getNameNodeForDeclaration(decl) ?? decl.node
+            );
+        });
+    }
+
+    // If a variable is marked Final, it should receive only one assigned value.
     private _reportMultipleFinalDeclarations(name: string, symbol: Symbol, scopeType: ScopeType) {
         if (!this._evaluator.isFinalVariable(symbol)) {
             return;
@@ -3846,7 +3913,7 @@ export class Checker extends ParseTreeWalker {
             if (isInstantiableClass(filterType)) {
                 this._validateUnsafeProtocolOverlap(
                     node.d.args[0].d.valueExpr,
-                    convertToInstance(filterType),
+                    ClassType.cloneAsInstance(filterType),
                     isInstanceCheck ? arg0Type : convertToInstance(arg0Type)
                 );
             }
@@ -4898,7 +4965,7 @@ export class Checker extends ParseTreeWalker {
             if (
                 !symbolType ||
                 !isClassInstance(symbolType) ||
-                !ClassType.isSameGenericClass(symbolType, classType) ||
+                !ClassType.isSameGenericClass(symbolType, ClassType.cloneAsInstance(classType)) ||
                 !(symbolType.priv.literalValue instanceof EnumLiteral)
             ) {
                 return;
@@ -5354,6 +5421,12 @@ export class Checker extends ParseTreeWalker {
         classType.shared.typeParams.forEach((param, paramIndex) => {
             // Skip TypeVarTuples and ParamSpecs.
             if (isTypeVarTuple(param) || isParamSpec(param)) {
+                return;
+            }
+
+            // Skip type variables that have been internally synthesized
+            // for a variety of reasons.
+            if (param.shared.isSynthesized) {
                 return;
             }
 
@@ -5819,34 +5892,18 @@ export class Checker extends ParseTreeWalker {
 
         if (isFunction(overriddenType) || isOverloaded(overriddenType)) {
             const diagAddendum = new DiagnosticAddendum();
-            let overrideFunction: FunctionType | undefined;
 
-            if (isFunction(overrideType)) {
-                overrideFunction = overrideType;
-            } else if (isOverloaded(overrideType)) {
-                // Use the last overload.
-                const impl = OverloadedType.getImplementation(overrideType);
-
-                // If the last overload isn't an implementation, skip the check for this symbol.
-                if (!impl || !isFunction(impl)) {
-                    return;
-                }
-
-                overrideFunction = impl;
-            }
-
-            if (overrideFunction) {
+            if (isFunction(overrideType) || isOverloaded(overrideType)) {
                 if (
                     !this._evaluator.validateOverrideMethod(
                         overriddenType,
-                        overrideFunction,
+                        overrideType,
                         /* baseClass */ undefined,
                         diagAddendum,
                         /* enforceParamNameMatch */ true
                     )
                 ) {
-                    const decl = overrideFunction.shared.declaration;
-                    if (decl && decl.type === DeclarationType.Function) {
+                    if (overrideDecl && overrideDecl.type === DeclarationType.Function) {
                         diag = this._evaluator.addDiagnostic(
                             DiagnosticRule.reportIncompatibleMethodOverride,
                             LocMessage.baseClassMethodTypeIncompatible().format({
@@ -6558,7 +6615,9 @@ export class Checker extends ParseTreeWalker {
         }
 
         const baseClass = baseClassAndSymbol.classType;
-        const childClassSelf = ClassType.cloneAsInstance(selfSpecializeClass(childClassType));
+        const childClassSelf = ClassType.cloneAsInstance(
+            selfSpecializeClass(childClassType, { useBoundTypeVars: true })
+        );
 
         let baseType = partiallySpecializeType(
             this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
@@ -6575,8 +6634,8 @@ export class Checker extends ParseTreeWalker {
         );
 
         if (childClassType.shared.typeVarScopeId) {
-            baseType = makeTypeVarsBound(baseType, [childClassType.shared.typeVarScopeId]);
             overrideType = makeTypeVarsBound(overrideType, [childClassType.shared.typeVarScopeId]);
+            baseType = makeTypeVarsBound(baseType, [childClassType.shared.typeVarScopeId]);
         }
 
         if (isFunction(baseType) || isOverloaded(baseType)) {

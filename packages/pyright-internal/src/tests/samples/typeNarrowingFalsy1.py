@@ -1,26 +1,30 @@
 # This sample tests type narrowing for falsey and truthy values.
 
-from typing import AnyStr, Iterable, Literal, NamedTuple, TypeVar
+from typing import (
+    AnyStr,
+    Iterable,
+    Literal,
+    NamedTuple,
+    NotRequired,
+    TypeVar,
+    TypedDict,
+)
 from enum import Enum, IntEnum
 
 
-class A:
-    ...
+class A: ...
 
 
 class B:
-    def __bool__(self) -> bool:
-        ...
+    def __bool__(self) -> bool: ...
 
 
 class C:
-    def __bool__(self) -> Literal[False]:
-        ...
+    def __bool__(self) -> Literal[False]: ...
 
 
 class D:
-    def __bool__(self) -> Literal[True]:
-        ...
+    def __bool__(self) -> Literal[True]: ...
 
 
 def func1(x: int | list[int] | A | B | C | D | None) -> None:
@@ -196,3 +200,45 @@ def func18(x: Literal[Enum3.A], y: Literal[Enum3.B]):
         reveal_type(y, expected_text="Literal[Enum3.B]")
     else:
         reveal_type(y, expected_text="Never")
+
+
+class TD1(TypedDict):
+    d1: int
+
+
+class TD2(TypedDict):
+    d1: NotRequired[int]
+
+
+class TD3(TypedDict):
+    pass
+
+
+def func19(v1: TD1 | None, v2: TD2 | None, v3: TD3 | None):
+    if v1:
+        reveal_type(v1, expected_text="TD1")
+    else:
+        reveal_type(v1, expected_text="None")
+
+    if v2:
+        reveal_type(v2, expected_text="TD2")
+    else:
+        reveal_type(v2, expected_text="TD2 | None")
+
+    if v2 is not None:
+        if v2:
+            reveal_type(v2, expected_text="TD2")
+        else:
+            reveal_type(v2, expected_text="TD2")
+
+        v2["d1"] = 1
+
+        if v2:
+            reveal_type(v2, expected_text="TD2")
+        else:
+            reveal_type(v2, expected_text="Never")
+
+    if v3:
+        reveal_type(v3, expected_text="TD3")
+    else:
+        reveal_type(v3, expected_text="TD3 | None")

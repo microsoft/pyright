@@ -1210,9 +1210,11 @@ export class ConfigOptions {
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
                         console.error(`Index ${index} of "ignore" array should be a string.`);
-                    } else if (isAbsolute(fileSpec)) {
-                        console.error(`Ignoring path "${fileSpec}" in "ignore" array because it is not relative.`);
                     } else {
+                        // We'll allow absolute paths in the ignore list. While it
+                        // is not recommended to use absolute paths anywhere in
+                        // the config file, there are a few legit use cases for ignore
+                        // paths when the conf file is used with a language server.
                         this.ignore.push(getFileSpec(configDirUri, fileSpec));
                     }
                 });
@@ -1657,6 +1659,10 @@ export class ConfigOptions {
                         `Config executionEnvironments index ${index}: extraPaths field must contain an array.`
                     );
                 } else {
+                    // If specified, this overrides the default extra paths inherited
+                    // from the top-level config.
+                    newExecEnv.extraPaths = [];
+
                     const pathList = envObj.extraPaths as string[];
                     pathList.forEach((path, pathIndex) => {
                         if (typeof path !== 'string') {

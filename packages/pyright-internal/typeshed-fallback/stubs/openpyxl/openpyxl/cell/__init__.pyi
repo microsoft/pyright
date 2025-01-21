@@ -22,3 +22,5 @@ _CellValue: TypeAlias = (  # noqa: Y047 # Used in other modules
     | ArrayFormula
 )
 _AnyCellValue: TypeAlias = Any  # Any of _CellValue # noqa: Y047 # Used in other modules
+
+_CellOrMergedCell: TypeAlias = Cell | MergedCell  # noqa: Y047 # Used in other modules

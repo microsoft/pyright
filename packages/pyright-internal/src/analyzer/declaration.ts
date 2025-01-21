@@ -72,6 +72,9 @@ export interface DeclarationBase {
     // The declaration is within an except clause of a try
     // statement. We may want to ignore such declarations.
     isInExceptSuite: boolean;
+
+    // This declaration is within an inlined TypedDict definition.
+    isInInlinedTypedDict?: boolean;
 }
 
 export interface IntrinsicDeclaration extends DeclarationBase {
@@ -105,10 +108,6 @@ export interface FunctionDeclaration extends DeclarationBase {
 export interface ParamDeclaration extends DeclarationBase {
     type: DeclarationType.Param;
     node: ParameterNode;
-
-    // Documentation specified in the function's docstring (if any) can be
-    // associated with the parameter
-    docString?: string;
 
     // Inferred parameters can be inferred from pieces of an actual NameNode, so this
     // value represents the actual 'name' as the user thinks of it.

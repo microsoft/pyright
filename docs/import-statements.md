@@ -3,7 +3,7 @@
 ### Loader Side Effects
 
 An import statement instructs the Python import loader to perform several operations. For example, the statement `from a.b import Foo as Bar` causes the following steps to be performed at runtime:
-1. Load and execute module `a` if it hasn’t previously been loaded. Cache a reference to a.
+1. Load and execute module `a` if it hasn’t previously been loaded. Cache a reference to `a`.
 2. Load and execute submodule `b` if it hasn’t previously been loaded.
 3. Store a reference to submodule `b` to the variable `b` within module `a`’s namespace.
 4. Look up attribute `Foo` within module `b`.

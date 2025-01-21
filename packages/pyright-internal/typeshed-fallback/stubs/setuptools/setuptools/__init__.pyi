@@ -1,6 +1,6 @@
-from _typeshed import Incomplete, StrPath
+from _typeshed import Incomplete
 from abc import abstractmethod
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal, TypedDict, TypeVar, overload, type_check_only
 from typing_extensions import NotRequired
 
@@ -27,11 +27,12 @@ from .command.saveopts import saveopts
 from .command.sdist import sdist
 from .command.setopt import setopt
 from .depends import Require as Require
+from .discovery import _Finder
 from .dist import Distribution as Distribution
 from .extension import Extension as Extension
 from .warnings import SetuptoolsDeprecationWarning as SetuptoolsDeprecationWarning
 
-_CommandT = TypeVar("_CommandT", bound=Command)
+_CommandT = TypeVar("_CommandT", bound=_Command)
 
 __all__ = [
     "setup",
@@ -54,11 +55,9 @@ class _BuildInfo(TypedDict):
     include_dirs: NotRequired[list[str]]
     cflags: NotRequired[list[str]]
 
-# Pytype fails with the following:
-# find_packages = PackageFinder.find
-# find_namespace_packages = PEP420PackageFinder.find
-def find_packages(where: StrPath = ".", exclude: Iterable[str] = (), include: Iterable[str] = ("*",)) -> list[str]: ...
-def find_namespace_packages(where: StrPath = ".", exclude: Iterable[str] = (), include: Iterable[str] = ("*",)) -> list[str]: ...
+find_packages = _Finder.find
+find_namespace_packages = _Finder.find
+
 def setup(
     *,
     name: str = ...,

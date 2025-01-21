@@ -134,7 +134,7 @@ export function clonePropertyWithSetter(
         const typeAnnotation = getTypeAnnotationForParam(errorNode, 1);
         if (typeAnnotation) {
             // Verify consistency of the type.
-            const fgetType = evaluator.getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);
+            const fgetType = evaluator.getGetterTypeFromProperty(classType);
             if (fgetType && !isAnyOrUnknown(fgetType)) {
                 const fsetType = evaluator.getTypeOfAnnotation(typeAnnotation, {
                     typeVarGetsCurScope: true,

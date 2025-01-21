@@ -11,7 +11,7 @@ class install(orig.install):
     user_options: ClassVar[list[tuple[str, str | None, str]]]
     boolean_options: ClassVar[list[str]]
     # Any to work around variance issues
-    new_commands: list[tuple[str, Callable[[Any], bool]] | None]
+    new_commands: ClassVar[list[tuple[str, Callable[[Any], bool]] | None]]
     old_and_unmanageable: Incomplete
     single_version_externally_managed: bool | None
     def initialize_options(self) -> None: ...

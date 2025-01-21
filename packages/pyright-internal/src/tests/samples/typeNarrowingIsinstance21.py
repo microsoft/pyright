@@ -64,3 +64,14 @@ def func4(t: B):
         reveal_type(t, expected_text="<subclass of B and type[A]>")
     else:
         reveal_type(t, expected_text="B")
+
+
+class CParent: ...
+
+
+class CChild(CParent): ...
+
+
+def func5(val: CChild, t: type[CParent]):
+    if not isinstance(val, t):
+        reveal_type(val, expected_text="CChild")

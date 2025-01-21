@@ -539,6 +539,12 @@ test('Tuple18', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('Tuple19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple19.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('NamedTuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple1.py']);
 
@@ -761,6 +767,12 @@ test('Partial6', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('Partial7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial7.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('TotalOrdering1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['totalOrdering1.py']);
 
@@ -824,7 +836,7 @@ test('PseudoGeneric3', () => {
 test('Strings2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['strings2.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 2, 1);
 });
 
 test('LiteralString1', () => {

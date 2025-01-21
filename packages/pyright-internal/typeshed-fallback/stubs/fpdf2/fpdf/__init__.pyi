@@ -6,6 +6,7 @@ from .fpdf import FPDF as FPDF, FPDFException as FPDFException, TitleStyle as Ti
 from .html import HTML2FPDF as HTML2FPDF, HTMLMixin as HTMLMixin
 from .prefs import ViewerPreferences as ViewerPreferences
 from .template import FlexTemplate as FlexTemplate, Template as Template
+from .util import get_scale_factor as get_scale_factor
 
 __license__: str
 __version__: str
@@ -31,4 +32,5 @@ __all__ = [
     "HTML2FPDF",
     "FPDF_VERSION",
     "FPDF_FONT_DIR",
+    "get_scale_factor",
 ]

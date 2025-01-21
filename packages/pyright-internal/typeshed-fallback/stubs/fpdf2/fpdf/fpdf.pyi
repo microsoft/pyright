@@ -9,6 +9,7 @@ from typing import Any, ClassVar, Final, Literal, NamedTuple, overload
 from typing_extensions import TypeAlias, deprecated
 
 from fpdf import ViewerPreferences
+from fpdf.outline import OutlineSection
 from PIL import Image
 
 from .annotations import AnnotationDict, PDFEmbeddedFile
@@ -22,8 +23,10 @@ from .enums import (
     EncryptionMethod,
     FileAttachmentAnnotationName,
     MethodReturnValue,
+    PageLabelStyle,
     PageLayout,
     PageMode,
+    PageOrientation,
     PathPaintRule,
     RenderStyle,
     TableBordersLayout,
@@ -40,7 +43,7 @@ from .enums import (
     _Align,
 )
 from .errors import FPDFException as FPDFException
-from .fonts import FontFace, TextStyle, TitleStyle as TitleStyle
+from .fonts import CoreFont, FontFace, TextStyle, TitleStyle as TitleStyle, TTFFont
 from .graphics_state import GraphicsStateMixin
 from .html import HTML2FPDF
 from .image_datastructures import (
@@ -55,6 +58,7 @@ from .recorder import FPDFRecorder
 from .structure_tree import StructureTreeBuilder
 from .syntax import DestinationXYZ
 from .table import Table
+from .transitions import Transition
 from .util import Padding, _Unit
 
 __all__ = [
@@ -79,15 +83,13 @@ FPDF_VERSION: Final[str]
 PAGE_FORMATS: dict[_Format, tuple[float, float]]
 
 class ToCPlaceholder(NamedTuple):
-    render_function: Callable[[FPDF, Any], object]
+    render_function: Callable[[FPDF, list[OutlineSection]], object]
     start_page: int
     y: int
+    page_orientation: str
     pages: int = 1
 
 def get_page_format(format: _Format | tuple[float, float], k: float | None = None) -> tuple[float, float]: ...
-
-# TODO: TypedDicts
-_Font: TypeAlias = dict[str, Any]
 
 class FPDF(GraphicsStateMixin):
     MARKDOWN_BOLD_MARKER: ClassVar[str]
@@ -102,7 +104,7 @@ class FPDF(GraphicsStateMixin):
 
     page: int
     pages: dict[int, PDFPage]
-    fonts: dict[str, _Font]
+    fonts: dict[str, CoreFont | TTFFont]
     fonts_used_per_page_number: dict[int, set[int]]
     links: dict[int, DestinationXYZ]
     embedded_files: list[PDFEmbeddedFile]
@@ -119,6 +121,9 @@ class FPDF(GraphicsStateMixin):
     oversized_images: Incomplete | None
     oversized_images_ratio: float
     struct_builder: StructureTreeBuilder
+    toc_placeholder: ToCPlaceholder | None
+    in_toc_rendering: bool
+    title: str | None
     section_title_styles: dict[int, TextStyle]
 
     core_fonts: dict[str, str]
@@ -145,7 +150,7 @@ class FPDF(GraphicsStateMixin):
     buffer: bytearray | None
 
     # Set during call to _set_orientation(), called from __init__().
-    cur_orientation: Literal["P", "L"]
+    cur_orientation: PageOrientation
     w_pt: float
     h_pt: float
     w: float
@@ -208,7 +213,6 @@ class FPDF(GraphicsStateMixin):
         language: str | None = None,
     ) -> None: ...
     def set_compression(self, compress: bool) -> None: ...
-    title: str
     def set_title(self, title: str) -> None: ...
     lang: str
     def set_lang(self, lang: str) -> None: ...
@@ -227,17 +231,24 @@ class FPDF(GraphicsStateMixin):
     def set_doc_option(self, opt: str, value: str) -> None: ...
     def set_image_filter(self, image_filter: str) -> None: ...
     def alias_nb_pages(self, alias: str = "{nb}") -> None: ...
+    def set_page_label(
+        self, label_style: PageLabelStyle | str | None = None, label_prefix: str | None = None, label_start: int | None = None
+    ) -> None: ...
     def add_page(
         self,
         orientation: _Orientation = "",
         format: _Format | tuple[float, float] = "",
         same: bool = False,
-        duration: int = 0,
-        transition: Incomplete | None = None,
+        duration: float = 0,
+        transition: Transition | None = None,
+        label_style: PageLabelStyle | str | None = None,
+        label_prefix: str | None = None,
+        label_start: int | None = None,
     ) -> None: ...
     def header(self) -> None: ...
     def footer(self) -> None: ...
     def page_no(self) -> int: ...
+    def get_page_label(self) -> str: ...
     def set_draw_color(self, r: int, g: int = -1, b: int = -1) -> None: ...
     def set_fill_color(self, r: int, g: int = -1, b: int = -1) -> None: ...
     def set_text_color(self, r: int, g: int = -1, b: int = -1) -> None: ...
@@ -340,7 +351,16 @@ class FPDF(GraphicsStateMixin):
     def add_link(self, y: float = 0, x: float = 0, page: int = -1, zoom: float | Literal["null"] = "null") -> int: ...
     def set_link(self, link, y: float = 0, x: float = 0, page: int = -1, zoom: float | Literal["null"] = "null") -> None: ...
     def link(
-        self, x: float, y: float, w: float, h: float, link: str | int, alt_text: str | None = None, border_width: int = 0
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        link: str | int,
+        alt_text: str | None = None,
+        *,
+        border_width: int = 0,
+        **kwargs,  # accepts AnnotationDict arguments
     ) -> AnnotationDict: ...
     def embed_file(
         self,
@@ -380,7 +400,9 @@ class FPDF(GraphicsStateMixin):
         w: float = 1,
         h: float = 1,
         name: AnnotationName | str | None = None,
+        *,
         flags: tuple[AnnotationFlag, ...] | tuple[str, ...] = ...,
+        **kwargs,  # accepts AnnotationDict arguments
     ) -> AnnotationDict: ...
     def free_text_annotation(
         self,
@@ -389,16 +411,22 @@ class FPDF(GraphicsStateMixin):
         y: float | None = None,
         w: float | None = None,
         h: float | None = None,
+        *,
         flags: tuple[AnnotationFlag, ...] | tuple[str, ...] = ...,
+        **kwargs,  # accepts AnnotationDict arguments
     ) -> AnnotationDict: ...
-    def add_action(self, action, x: float, y: float, w: float, h: float) -> None: ...
+    def add_action(
+        self, action, x: float, y: float, w: float, h: float, **kwargs  # accepts AnnotationDict arguments
+    ) -> AnnotationDict: ...
     def highlight(
         self,
         text: str,
-        title: str = "",
         type: TextMarkupType | str = "Highlight",
         color: tuple[float, float, float] = (1, 1, 0),
         modification_time: datetime.datetime | None = None,
+        *,
+        title: str | None = None,
+        **kwargs,  # accepts AnnotationDict arguments
     ) -> _GeneratorContextManager[None]: ...
     add_highlight = highlight
     def add_text_markup_annotation(
@@ -406,18 +434,22 @@ class FPDF(GraphicsStateMixin):
         type: str,
         text: str,
         quad_points: Sequence[int],
-        title: str = "",
         color: tuple[float, float, float] = (1, 1, 0),
         modification_time: datetime.datetime | None = None,
         page: int | None = None,
+        *,
+        title: str | None = None,
+        **kwargs,  # accepts AnnotationDict arguments
     ) -> AnnotationDict: ...
     def ink_annotation(
         self,
         coords: Iterable[Incomplete],
-        contents: str = "",
-        title: str = "",
+        text: str = "",
         color: Sequence[float] = (1, 1, 0),
-        border_width: int = 1,
+        border_width: float = 1,
+        *,
+        title: str | None = None,
+        **kwargs,  # accepts AnnotationDict arguments
     ) -> AnnotationDict: ...
     def text(self, x: float, y: float, text: str = "") -> None: ...
     def rotate(self, angle: float, x: float | None = None, y: float | None = None) -> None: ...
@@ -585,7 +617,9 @@ class FPDF(GraphicsStateMixin):
     def round_clip(self, x: float, y: float, r: float) -> _GeneratorContextManager[None]: ...
     def unbreakable(self) -> _GeneratorContextManager[FPDFRecorder]: ...
     def offset_rendering(self) -> _GeneratorContextManager[FPDFRecorder]: ...
-    def insert_toc_placeholder(self, render_toc_function, pages: int = 1) -> None: ...
+    def insert_toc_placeholder(
+        self, render_toc_function: Callable[[FPDF, list[OutlineSection]], object], pages: int = 1, allow_extra_pages: bool = False
+    ) -> None: ...
     def set_section_title_styles(
         self,
         level0: TextStyle,
@@ -597,6 +631,7 @@ class FPDF(GraphicsStateMixin):
         level6: TextStyle | None = None,
     ) -> None: ...
     def start_section(self, name: str, level: int = 0, strict: bool = True) -> None: ...
+    def use_text_style(self, text_style: TextStyle) -> _GeneratorContextManager[None]: ...
     def use_font_face(self, font_face: FontFace) -> _GeneratorContextManager[None]: ...
     def table(
         self,

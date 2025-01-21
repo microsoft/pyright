@@ -1249,20 +1249,15 @@ function narrowTypeForInstanceOrSubclassInternal(
         if (!isInstanceCheck) {
             const isTypeInstance = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'type');
 
+            // Handle metaclass instances specially.
             if (isMetaclassInstance(subtype) && !isTypeInstance) {
-                // Handle metaclass instances specially.
                 adjFilterTypes = filterTypes.map((filterType) => convertToInstantiable(filterType));
             } else {
-                const convSubtype = convertToInstance(subtype);
+                adjSubtype = convertToInstance(subtype);
 
-                // Handle type[Any] specially for this case.
-                if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'type') && isAnyOrUnknown(convSubtype)) {
-                    adjSubtype = convertToInstance(evaluator.getObjectType());
-                } else {
-                    adjSubtype = convSubtype;
+                if (!isAnyOrUnknown(subtype) || isPositiveTest) {
+                    resultRequiresAdj = true;
                 }
-
-                resultRequiresAdj = true;
             }
         }
 
@@ -1276,7 +1271,18 @@ function narrowTypeForInstanceOrSubclassInternal(
             errorNode
         );
 
-        return resultRequiresAdj ? convertToInstantiable(narrowedResult) : narrowedResult;
+        if (!resultRequiresAdj) {
+            return narrowedResult;
+        }
+
+        if (isAnyOrUnknown(narrowedResult)) {
+            const typeClass = evaluator.getTypeClassType();
+            if (typeClass) {
+                return ClassType.specialize(ClassType.cloneAsInstance(typeClass), [narrowedResult]);
+            }
+        }
+
+        return convertToInstantiable(narrowedResult);
     });
 
     return result;
@@ -1348,7 +1354,7 @@ function narrowTypeForInstance(
                     // any metaclass, but we specifically want to treat type as the class
                     // type[object] in this case.
                     if (ClassType.isBuiltIn(filterMetaclass, 'type') && !filterMetaclass.priv.isTypeArgExplicit) {
-                        if (!ClassType.isBuiltIn(metaclassType, 'type')) {
+                        if (!isClass(metaclassType) || !ClassType.isBuiltIn(metaclassType, 'type')) {
                             isMetaclassOverlap = false;
                         }
                     }
@@ -1426,7 +1432,7 @@ function narrowTypeForInstance(
                 // class whose type is unknown (e.g. an import failed). We'll
                 // note this case specially so we don't do any narrowing, which
                 // will generate false positives.
-                if (filterIsSubclass && filterIsSuperclass) {
+                if (filterIsSuperclass) {
                     if (!isTypeIsCheck && concreteFilterType.priv.includeSubclasses) {
                         // If the filter type includes subclasses, we can't eliminate
                         // this type in the negative direction. We'll relax this for
@@ -1434,8 +1440,15 @@ function narrowTypeForInstance(
                         isClassRelationshipIndeterminate = true;
                     }
 
-                    if (!ClassType.isSameGenericClass(runtimeVarType, concreteFilterType)) {
-                        isClassRelationshipIndeterminate = true;
+                    if (filterIsSubclass && !ClassType.isSameGenericClass(runtimeVarType, concreteFilterType)) {
+                        // If the runtime variable type is a type[T], handle a filter
+                        // of 'type' as a special case.
+                        if (
+                            !ClassType.isBuiltIn(concreteFilterType, 'type') ||
+                            TypeBase.getInstantiableDepth(runtimeVarType) === 0
+                        ) {
+                            isClassRelationshipIndeterminate = true;
+                        }
                     }
                 }
 
@@ -1479,8 +1492,8 @@ function narrowTypeForInstance(
                                     if (
                                         addConstraintsForExpectedType(
                                             evaluator,
-                                            convertToInstance(unspecializedFilterType),
-                                            convertToInstance(concreteVarType),
+                                            ClassType.cloneAsInstance(unspecializedFilterType),
+                                            ClassType.cloneAsInstance(concreteVarType),
                                             constraints,
                                             /* liveTypeVarScopes */ undefined,
                                             errorNode.start
@@ -1521,9 +1534,6 @@ function narrowTypeForInstance(
                                     concreteFilterType
                                 );
                                 filteredTypes.push(intersection ?? varType);
-
-                                // Don't attempt to narrow in the negative direction.
-                                isClassRelationshipIndeterminate = true;
                             }
                         }
                     } else if (
@@ -1667,7 +1677,7 @@ function narrowTypeForInstance(
     const isFilterTypeCallbackProtocol = (filterType: Type) => {
         return (
             isInstantiableClass(filterType) &&
-            evaluator.getCallbackProtocolType(convertToInstance(filterType)) !== undefined
+            evaluator.getCallbackProtocolType(ClassType.cloneAsInstance(filterType)) !== undefined
         );
     };
 
@@ -2056,7 +2066,7 @@ export function getElementTypeForContainerNarrowing(containerType: Type) {
 export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, referenceType: Type, elementType: Type) {
     return evaluator.mapSubtypesExpandTypeVars(referenceType, /* options */ undefined, (referenceSubtype) => {
         return mapSubtypes(elementType, (elementSubtype) => {
-            if (isAnyOrUnknown(referenceSubtype)) {
+            if (isAnyOrUnknown(elementSubtype)) {
                 return referenceSubtype;
             }
 
@@ -2327,8 +2337,8 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
                 const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
                 if (isPositiveTest) {
                     if (matches) {
-                        if (ClassType.isSameGenericClass(subtype, classType)) {
-                            return addConditionToType(subtype, classType.props?.condition);
+                        if (ClassType.isSameGenericClass(ClassType.cloneAsInstantiable(subtype), classType)) {
+                            return addConditionToType(subtype, getTypeCondition(classType));
                         }
 
                         return addConditionToType(ClassType.cloneAsInstance(classType), subtype.props?.condition);
@@ -2350,7 +2360,9 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
                     return subtype;
                 }
             } else if (isAnyOrUnknown(subtype)) {
-                return isPositiveTest ? ClassType.cloneAsInstance(classType) : subtype;
+                return isPositiveTest
+                    ? ClassType.cloneAsInstance(addConditionToType(classType, getTypeCondition(subtype)))
+                    : subtype;
             }
 
             return unexpandedSubtype;
@@ -2382,7 +2394,7 @@ function narrowTypeForClassComparison(
             }
 
             if (isAnyOrUnknown(concreteSubtype)) {
-                return classType;
+                return addConditionToType(classType, getTypeCondition(concreteSubtype));
             }
 
             if (isClass(concreteSubtype)) {
@@ -2401,7 +2413,7 @@ function narrowTypeForClassComparison(
                     }
 
                     if (isSuperType) {
-                        return classType;
+                        return addConditionToType(classType, getTypeCondition(concreteSubtype));
                     }
 
                     const isSubType = ClassType.isDerivedFrom(classType, concreteSubtype);
@@ -2471,7 +2483,7 @@ function narrowTypeForLiteralComparison(
     isPositiveTest: boolean,
     isIsOperator: boolean
 ): Type {
-    return mapSubtypes(referenceType, (subtype) => {
+    return evaluator.mapSubtypesExpandTypeVars(referenceType, /* options */ undefined, (subtype) => {
         subtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
         if (isAnyOrUnknown(subtype)) {

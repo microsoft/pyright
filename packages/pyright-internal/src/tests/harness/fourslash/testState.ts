@@ -98,6 +98,7 @@ import {
     getRangeByMarkerName,
 } from './testStateUtils';
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
+import { Host } from '../../../common/host';
 
 export interface TextChange {
     span: TextRange;
@@ -187,11 +188,12 @@ export class TestState {
             this._applyTestConfigOptions(configOptions);
         }
 
-        const service = this._createAnalysisService(
+        const service = this.createAnalysisService(
             this.console,
             this._hostSpecificFeatures.importResolverFactory,
             this._hostSpecificFeatures.backgroundAnalysisProgramFactory,
-            configOptions
+            configOptions,
+            testAccessHost
         );
 
         this.workspace = {
@@ -685,6 +687,18 @@ export class TestState {
         this.workspace.service.invalidateAndForceReanalysis(InvalidatedReason.Reanalyzed);
         this.analyze();
 
+        // calling `analyze` should have parse and bind all or open user files. make sure that's true at least for open files.
+        for (const info of this.program.getOpened()) {
+            if (!info.sourceFile.getModuleSymbolTable()) {
+                this.console.error(
+                    `Module symbol missing?: ${info.sourceFile.getUri()}, bound: ${!info.sourceFile.isBindingRequired}`
+                );
+
+                // Make sure it is bound.
+                this.program.getBoundSourceFile(info.sourceFile.getUri());
+            }
+        }
+
         // Local copy to use in capture.
         const serviceProvider = this.serviceProvider;
         for (const range of this.getRanges()) {
@@ -692,6 +706,13 @@ export class TestState {
             if (!map[name]) {
                 continue;
             }
+
+            const uri = Uri.file(range.fileName, this.serviceProvider);
+            const sourceFile = this.program.getSourceFile(uri);
+            if (!sourceFile) {
+                this.raiseError(`source file not found: ${range.fileName}`);
+            }
+            const diagnostics = sourceFile.getDiagnostics(this.configOptions) || [];
 
             const codeActions = await this._getCodeActions(range);
             if (verifyMode === 'exact') {
@@ -734,8 +755,17 @@ export class TestState {
                 if (verifyMode === 'excluded' && matches.length > 0) {
                     this.raiseError(`unexpected result: ${stringify(map[name])}`);
                 } else if (verifyMode !== 'excluded' && matches.length !== 1) {
+                    const uri = Uri.file('test2.py', this.serviceProvider);
+                    const sourceFile = this.program.getSourceFile(uri);
+                    const symbolsInTest2 = sourceFile
+                        ? ', symbols in test2.py: ' +
+                          Array.from(sourceFile.getModuleSymbolTable()?.keys() ?? []).join(',')
+                        : '';
+
                     this.raiseError(
-                        `doesn't contain expected result: ${stringify(expected)}, actual: ${stringify(codeActions)}`
+                        `doesn't contain expected result: ${stringify(expected)}, actual: ${stringify(
+                            codeActions
+                        )}, diagnostics: ${stringify(diagnostics)}${symbolsInTest2}`
                     );
                 }
             }
@@ -1675,6 +1705,39 @@ export class TestState {
         }
     }
 
+    protected createAnalysisService(
+        nullConsole: ConsoleInterface,
+        importResolverFactory: ImportResolverFactory,
+        backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory,
+        configOptions: ConfigOptions,
+        host: Host
+    ) {
+        // we do not initiate automatic analysis or file watcher in test.
+        const service = new AnalyzerService('test service', this.serviceProvider, {
+            console: nullConsole,
+            hostFactory: () => host,
+            importResolverFactory,
+            backgroundAnalysisProgramFactory,
+            configOptions,
+            fileSystem: this.fs,
+            libraryReanalysisTimeProvider: () => 0,
+        });
+
+        // directly set files to track rather than using fileSpec from config
+        // to discover those files from file system
+        service.test_program.setTrackedFiles(
+            this.files
+                .filter((path) => {
+                    const fileExtension = getFileExtension(path).toLowerCase();
+                    return fileExtension === '.py' || fileExtension === '.pyi';
+                })
+                .map((path) => Uri.file(path, this.serviceProvider))
+                .filter((path) => service.isTracked(path))
+        );
+
+        return service;
+    }
+
     private _convertGlobalOptionsToConfigOptions(projectRoot: string, mountPaths?: Map<string, string>): ConfigOptions {
         const configOptions = new ConfigOptions(Uri.file(projectRoot, this.serviceProvider));
 
@@ -1928,38 +1991,6 @@ export class TestState {
         });
 
         return new Map<string, (typeof results)[0][1]>(results);
-    }
-
-    private _createAnalysisService(
-        nullConsole: ConsoleInterface,
-        importResolverFactory: ImportResolverFactory,
-        backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory,
-        configOptions: ConfigOptions
-    ) {
-        // we do not initiate automatic analysis or file watcher in test.
-        const service = new AnalyzerService('test service', this.serviceProvider, {
-            console: nullConsole,
-            hostFactory: () => testAccessHost,
-            importResolverFactory,
-            backgroundAnalysisProgramFactory,
-            configOptions,
-            fileSystem: this.fs,
-            libraryReanalysisTimeProvider: () => 0,
-        });
-
-        // directly set files to track rather than using fileSpec from config
-        // to discover those files from file system
-        service.test_program.setTrackedFiles(
-            this.files
-                .filter((path) => {
-                    const fileExtension = getFileExtension(path).toLowerCase();
-                    return fileExtension === '.py' || fileExtension === '.pyi';
-                })
-                .map((path) => Uri.file(path, this.serviceProvider))
-                .filter((path) => service.isTracked(path))
-        );
-
-        return service;
     }
 
     private _deepEqual(a: any, e: any) {

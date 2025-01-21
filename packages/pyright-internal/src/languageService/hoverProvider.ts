@@ -94,6 +94,35 @@ export function convertHoverResults(hoverResults: HoverResults | null, format: M
     };
 }
 
+export function addParameterResultsPart(
+    serviceProvider: ServiceProvider,
+    paramNameNode: NameNode,
+    resolvedDecl: Declaration | undefined,
+    format: MarkupKind,
+    parts: HoverTextPart[]
+) {
+    // See if we have a docstring for the parent function.
+    let docString: string | undefined = undefined;
+    const funcNode = ParseTreeUtils.getEnclosingFunction(resolvedDecl?.node || paramNameNode);
+    if (funcNode) {
+        docString = ParseTreeUtils.getDocString(funcNode?.d.suite?.d.statements ?? []);
+        if (docString) {
+            // Compute the docstring now.
+            docString = serviceProvider
+                .docStringService()
+                .extractParameterDocumentation(docString, paramNameNode.d.value, format);
+        }
+    }
+    if (!docString) {
+        return;
+    }
+
+    parts.push({
+        python: false,
+        text: docString,
+    });
+}
+
 export function addDocumentationResultsPart(
     serviceProvider: ServiceProvider,
     docString: string | undefined,
@@ -158,9 +187,20 @@ export function getVariableTypeText(
         }
     }
 
-    // Handle the case where type is a function and was assigned to a variable.
-    if (type.category === TypeCategory.Function || type.category === TypeCategory.Overloaded) {
-        return getToolTipForType(type, label, name, evaluator, /* isProperty */ false, functionSignatureDisplay);
+    if (
+        type.category === TypeCategory.Function ||
+        type.category === TypeCategory.Overloaded ||
+        typeNode.parent?.nodeType === ParseNodeType.Call
+    ) {
+        return getToolTipForType(
+            type,
+            label,
+            name,
+            evaluator,
+            /* isProperty */ false,
+            functionSignatureDisplay,
+            typeNode
+        );
     }
 
     const typeText = typeVarName ?? name + ': ' + evaluator.printType(getTypeForToolTip(evaluator, typeNode));
@@ -263,9 +303,9 @@ export class HoverProvider {
                 const primaryDeclaration = HoverProvider.getPrimaryDeclaration(declarations);
                 this._addResultsForDeclaration(results.parts, primaryDeclaration, node);
             } else if (declInfo && declInfo.synthesizedTypes.length > 0) {
-                const name = node.d.value;
+                const nameNode = node;
                 declInfo?.synthesizedTypes.forEach((type) => {
-                    this._addResultsForSynthesizedType(results.parts, type, name);
+                    this._addResultsForSynthesizedType(results.parts, type, nameNode);
                 });
                 this._addDocumentationPart(results.parts, node, /* resolvedDecl */ undefined);
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
@@ -376,10 +416,7 @@ export class HoverProvider {
 
             case DeclarationType.Param: {
                 this._addResultsPart(parts, '(parameter) ' + node.d.value + this._getTypeText(node), /* python */ true);
-
-                if (resolvedDecl.docString) {
-                    this._addResultsPart(parts, resolvedDecl.docString);
-                }
+                addParameterResultsPart(this._program.serviceProvider, node, resolvedDecl, this._format, parts);
                 this._addDocumentationPart(parts, node, resolvedDecl);
                 break;
             }
@@ -458,19 +495,21 @@ export class HoverProvider {
         }
     }
 
-    private _addResultsForSynthesizedType(parts: HoverTextPart[], typeInfo: SynthesizedTypeInfo, name: string) {
+    private _addResultsForSynthesizedType(parts: HoverTextPart[], typeInfo: SynthesizedTypeInfo, hoverNode: NameNode) {
         let typeText: string | undefined;
 
         if (isModule(typeInfo.type)) {
-            typeText = '(module) ' + name;
-        } else if (typeInfo.node) {
-            const type = this._getType(typeInfo.node);
+            typeText = '(module) ' + hoverNode.d.value;
+        } else {
+            const node = typeInfo.node ?? hoverNode;
+
+            const type = this._getType(node);
             typeText = getVariableTypeText(
                 this._evaluator,
                 /* declaration */ undefined,
-                typeInfo.node.d.value,
+                node.d.value,
                 type,
-                typeInfo.node,
+                node,
                 this._functionSignatureDisplay
             );
         }

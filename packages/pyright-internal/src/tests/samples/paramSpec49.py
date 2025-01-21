@@ -30,6 +30,8 @@ class Queue:
             self.dispatcher.dispatch(stub, 1, *args, **kwargs)
 
         def inner1(*args: P.args, **kwargs: P.kwargs) -> None:
+            # This should generate an error because a positional argument
+            # cannot appear after an unpacked keyword argument.
             self.dispatcher.dispatch(stub, 1, **kwargs, *args)
 
         def inner2(*args: P.args, **kwargs: P.kwargs) -> None:
@@ -57,3 +59,6 @@ class Queue:
             # extra *args argument.
             self.dispatcher.dispatch(stub, 1, *args, *args, **kwargs)
 
+            # This should generate an error because it has an
+            # extra **kwargs argument.
+            self.dispatcher.dispatch(stub, 1, *args, **kwargs, **kwargs)

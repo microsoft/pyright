@@ -14,6 +14,7 @@ import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
 import { LanguageServerBaseInterface, ServerSettings } from '../common/languageServerInterface';
+import { EmptyUri } from '../common/uri/emptyUri';
 import { Uri } from '../common/uri/uri';
 
 import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../workspaceFactory';
@@ -63,7 +64,9 @@ export class AnalyzerServiceExecutor {
             service: workspace.service.clone(
                 instanceName,
                 serviceId,
-                options.useBackgroundAnalysis ? ls.createBackgroundAnalysis(serviceId) : undefined,
+                options.useBackgroundAnalysis
+                    ? ls.createBackgroundAnalysis(serviceId, workspace.rootUri || EmptyUri.instance)
+                    : undefined,
                 options.fileSystem
             ),
             disableLanguageServices: true,

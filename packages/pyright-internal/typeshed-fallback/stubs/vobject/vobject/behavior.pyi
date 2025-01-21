@@ -1,17 +1,18 @@
-from typing import Any
+from _typeshed import Incomplete
+from typing import ClassVar
 
 class Behavior:
     name: str
     description: str
     versionString: str
-    knownChildren: Any
+    knownChildren: ClassVar[dict[str, tuple[int, int | None, int | None]]]
     quotedPrintable: bool
-    defaultBehavior: Any
+    defaultBehavior: Incomplete
     hasNative: bool
     isComponent: bool
     allowGroup: bool
     forceUTC: bool
-    sortFirst: Any
+    sortFirst: Incomplete
     @classmethod
     def validate(cls, obj, raiseException: bool = False, complainUnrecognized: bool = False): ...
     @classmethod

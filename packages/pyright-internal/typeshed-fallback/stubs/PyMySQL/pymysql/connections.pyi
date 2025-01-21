@@ -10,17 +10,19 @@ from .constants import CLIENT as CLIENT, COMMAND as COMMAND, FIELD_TYPE as FIELD
 from .cursors import Cursor
 from .util import byte2int as byte2int, int2byte as int2byte
 
-SSL_ENABLED: Any
-DEFAULT_USER: Any
-DEBUG: Any
-DEFAULT_CHARSET: Any
+SSL_ENABLED: bool
+DEFAULT_USER: str | None
+DEBUG: bool
+DEFAULT_CHARSET: str
+TEXT_TYPES: set[int]
+MAX_PACKET_LEN: int
 
 _C = TypeVar("_C", bound=Cursor)
 _C2 = TypeVar("_C2", bound=Cursor)
 
 def dump_packet(data): ...
 def pack_int24(n): ...
-def lenenc_int(i: int) -> bytes: ...
+def _lenenc_int(i: int) -> bytes: ...
 
 class MysqlPacket:
     connection: Any

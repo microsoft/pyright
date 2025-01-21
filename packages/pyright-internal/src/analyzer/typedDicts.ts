@@ -259,6 +259,34 @@ export function createTypedDictType(
     return classType;
 }
 
+// Creates a new anonymous TypedDict class from an inlined dict[{}] type annotation.
+export function createTypedDictTypeInlined(
+    evaluator: TypeEvaluator,
+    dictNode: DictionaryNode,
+    typedDictClass: ClassType
+): ClassType {
+    const fileInfo = AnalyzerNodeInfo.getFileInfo(dictNode);
+    const className = '<TypedDict>';
+
+    const classType = ClassType.createInstantiable(
+        className,
+        ParseTreeUtils.getClassFullName(dictNode, fileInfo.moduleName, className),
+        fileInfo.moduleName,
+        fileInfo.fileUri,
+        ClassTypeFlags.TypedDictClass,
+        ParseTreeUtils.getTypeSourceId(dictNode),
+        /* declaredMetaclass */ undefined,
+        typedDictClass.shared.effectiveMetaclass
+    );
+    classType.shared.baseClasses.push(typedDictClass);
+    computeMroLinearization(classType);
+
+    getTypedDictFieldsFromDictSyntax(evaluator, dictNode, ClassType.getSymbolTable(classType), /* isInline */ true);
+    synthesizeTypedDictClassMethods(evaluator, dictNode, classType);
+
+    return classType;
+}
+
 export function synthesizeTypedDictClassMethods(
     evaluator: TypeEvaluator,
     node: ClassNode | ExpressionNode,
@@ -733,6 +761,16 @@ export function synthesizeTypedDictClassMethods(
         const mappingValueType = getTypedDictMappingEquivalent(evaluator, classType);
 
         if (mappingValueType) {
+            let keyValueType: Type = strType;
+
+            // If we know that there can be no more items, we can provide
+            // a more accurate key type consisting of all known keys.
+            if (entries.extraItems && isNever(entries.extraItems.valueType)) {
+                keyValueType = combineTypes(
+                    Array.from(entries.knownItems.keys()).map((key) => ClassType.cloneWithLiteral(strType, key))
+                );
+            }
+
             ['items', 'keys', 'values'].forEach((methodName) => {
                 const method = FunctionType.createSynthesizedInstance(methodName);
                 FunctionType.addParam(method, selfParam);
@@ -745,7 +783,7 @@ export function synthesizeTypedDictClassMethods(
                 ) {
                     method.shared.declaredReturnType = ClassType.specialize(
                         ClassType.cloneAsInstance(returnTypeClass),
-                        [strType, mappingValueType]
+                        [keyValueType, mappingValueType]
                     );
 
                     symbolTable.set(methodName, Symbol.createWithType(SymbolFlags.ClassMember, method));
@@ -964,6 +1002,7 @@ function getTypedDictFieldsFromDictSyntax(
             range: convertOffsetsToRange(entry.d.keyExpr.start, TextRange.getEnd(entry.d.keyExpr), fileInfo.lines),
             moduleName: fileInfo.moduleName,
             isInExceptSuite: false,
+            isInInlinedTypedDict: true,
         };
         newSymbol.addDeclaration(declaration);
 

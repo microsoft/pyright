@@ -226,6 +226,13 @@ export interface AddConditionOptions {
     skipBoundTypeVars?: boolean;
 }
 
+// There are cases where tuple types can be infinitely nested. The
+// recursion count limit will eventually be hit, but this will create
+// deep types that will effectively hang the analyzer. To prevent this,
+// we'll limit the depth of the tuple type arguments. This value is
+// large enough that we should never hit it in legitimate circumstances.
+const maxTupleTypeArgRecursionDepth = 10;
+
 // Tracks whether a function signature has been seen before within
 // an expression. For example, in the expression "foo(foo, foo)", the
 // signature for "foo" will be seen three times at three different
@@ -1160,6 +1167,10 @@ export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOpt
     }
 
     const typeParams = type.shared.typeParams.map((typeParam) => {
+        if (isTypeVarTuple(typeParam)) {
+            typeParam = TypeVarType.cloneForUnpacked(typeParam);
+        }
+
         return options?.useBoundTypeVars ? TypeVarType.cloneAsBound(typeParam) : typeParam;
     });
     return ClassType.specialize(type, typeParams);
@@ -1754,7 +1765,7 @@ export function* getClassMemberIterator(
         let classFlags = ClassIteratorFlags.Default;
         if (flags & MemberAccessFlags.SkipOriginalClass) {
             if (isClass(classType)) {
-                skipMroClass = classType;
+                skipMroClass = isClassInstance(classType) ? ClassType.cloneAsInstantiable(classType) : classType;
             }
         }
         if (flags & MemberAccessFlags.SkipBaseClasses) {
@@ -1851,7 +1862,10 @@ export function* getClassMemberIterator(
                         if (
                             memberName === '__call__' &&
                             classType.priv.partialCallType &&
-                            ClassType.isSameGenericClass(classType, specializedMroClass)
+                            ClassType.isSameGenericClass(
+                                TypeBase.isInstance(classType) ? ClassType.cloneAsInstantiable(classType) : classType,
+                                specializedMroClass
+                            )
                         ) {
                             symbol = Symbol.createWithType(SymbolFlags.ClassMember, classType.priv.partialCallType);
                         }
@@ -2002,7 +2016,7 @@ export function addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarTy
             continue;
         }
 
-        if (!list1.find((type1) => isTypeSame(convertToInstance(type1), convertToInstance(type2)))) {
+        if (!list1.find((type1) => isTypeSame(type1, type2))) {
             list1.push(type2);
         }
     }
@@ -2020,19 +2034,34 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
     recursionCount++;
 
     const aliasInfo = type.props?.typeAliasInfo;
-    if (aliasInfo?.typeArgs) {
+    if (aliasInfo) {
         const combinedList: TypeVarType[] = [];
 
-        aliasInfo?.typeArgs.forEach((typeArg) => {
-            addTypeVarsToListIfUnique(combinedList, getTypeVarArgsRecursive(typeArg, recursionCount));
-        });
+        if (aliasInfo.typeArgs) {
+            aliasInfo?.typeArgs.forEach((typeArg) => {
+                addTypeVarsToListIfUnique(combinedList, getTypeVarArgsRecursive(typeArg, recursionCount));
+            });
 
-        return combinedList;
+            return combinedList;
+        }
+
+        if (aliasInfo.shared.typeParams) {
+            aliasInfo.shared.typeParams.forEach((typeParam) => {
+                addTypeVarsToListIfUnique(combinedList, [typeParam]);
+            });
+
+            return combinedList;
+        }
     }
 
     if (isTypeVar(type)) {
         // Don't return any recursive type alias placeholders.
         if (type.shared.recursiveAlias) {
+            return [];
+        }
+
+        // Don't return any bound type variables.
+        if (TypeVarType.isBound(type)) {
             return [];
         }
 
@@ -2125,18 +2154,15 @@ export function getWhereConstraintsRecursive(type: Type, recursionCount = 0): Wh
 // Creates a specialized version of the class, filling in any unspecified
 // type arguments with Unknown or default value.
 export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
-    if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
+    if (type.shared.typeParams.length === 0 || type.priv.typeArgs || !type.shared.typeVarScopeId) {
         return type;
     }
 
     const solution = new ConstraintSolution();
-    const typeParams = ClassType.getTypeParams(type);
 
-    typeParams.forEach((typeParam) => {
-        solution.setType(typeParam, applySolvedTypeVars(typeParam.shared.defaultType, solution));
-    });
-
-    return applySolvedTypeVars(type, solution) as ClassType;
+    return applySolvedTypeVars(type, solution, {
+        replaceUnsolved: { scopeIds: [type.shared.typeVarScopeId], tupleClassType: undefined },
+    }) as ClassType;
 }
 
 // Builds a mapping between type parameters and their specialized
@@ -2337,7 +2363,6 @@ export function isEffectivelyInstantiable(type: Type, options?: IsInstantiableOp
     return false;
 }
 
-export function convertToInstance(type: ClassType, includeSubclasses?: boolean): ClassType;
 export function convertToInstance(type: ParamSpecType, includeSubclasses?: boolean): ParamSpecType;
 export function convertToInstance(type: TypeVarTupleType, includeSubclasses?: boolean): TypeVarTupleType;
 export function convertToInstance(type: TypeVarType, includeSubclasses?: boolean): TypeVarType;
@@ -3683,11 +3708,16 @@ export class TypeVarTransformer {
         let newTypeArgs: Type[] | undefined;
         let newTupleTypeArgs: TupleTypeArg[] | undefined;
         let specializationNeeded = false;
+        let isTypeArgExplicit = true;
 
         // If type args were previously provided, specialize them.
 
         // Handle tuples specially.
         if (ClassType.isTupleClass(classType)) {
+            if (getContainerDepth(classType) > maxTupleTypeArgRecursionDepth) {
+                return classType;
+            }
+
             if (classType.priv.tupleTypeArgs) {
                 newTupleTypeArgs = [];
 
@@ -3733,6 +3763,7 @@ export class TypeVarTransformer {
                     const newTypeArgType = this.apply(typeParams[0], recursionCount);
                     newTupleTypeArgs = [{ type: newTypeArgType, isUnbounded: true }];
                     specializationNeeded = true;
+                    isTypeArgExplicit = false;
                 }
             }
 
@@ -3745,6 +3776,11 @@ export class TypeVarTransformer {
 
         if (!newTypeArgs) {
             const typeArgs = classType.priv.typeArgs ?? typeParams;
+
+            if (!classType.priv.typeArgs) {
+                isTypeArgExplicit = false;
+            }
+
             newTypeArgs = typeArgs.map((oldTypeArgType) => {
                 let newTypeArgType = this.apply(oldTypeArgType, recursionCount);
                 if (newTypeArgType !== oldTypeArgType) {
@@ -3768,7 +3804,7 @@ export class TypeVarTransformer {
         return ClassType.specialize(
             classType,
             newTypeArgs,
-            /* isTypeArgExplicit */ true,
+            isTypeArgExplicit,
             /* includeSubclasses */ undefined,
             newTupleTypeArgs
         );
@@ -4263,30 +4299,43 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         // in cases where TypeVars can go unsolved due to unions in parameter
         // annotations, like this:
         //   def test(x: Union[str, T]) -> Union[str, T]
-        if (this._options.replaceUnsolved?.eliminateUnsolvedInUnions) {
-            if (
-                isTypeVar(preTransform) &&
-                this._shouldReplaceTypeVar(preTransform) &&
-                this._shouldReplaceUnsolvedTypeVar(preTransform)
-            ) {
-                const solutionSet = this._solution.getSolutionSet(this._activeConstraintSetIndex ?? 0);
-                const typeVarType = solutionSet.getType(preTransform);
+        if (!this._options.replaceUnsolved?.eliminateUnsolvedInUnions) {
+            return postTransform;
+        }
 
-                // Did the TypeVar remain unsolved?
-                if (!typeVarType || (isTypeVar(typeVarType) && TypeVarType.isUnification(typeVarType))) {
-                    // If the TypeVar was not transformed, then it was unsolved,
-                    // and we'll eliminate it.
-                    if (preTransform === postTransform) {
-                        return undefined;
-                    }
+        const solutionSet = this._solution.getSolutionSet(this._activeConstraintSetIndex ?? 0);
 
-                    // If useDefaultForUnsolved or useUnknownForUnsolved is true, the postTransform type will
-                    // be Unknown, which we want to eliminate.
-                    if (this._options.replaceUnsolved) {
-                        if (isUnknown(postTransform)) {
-                            return undefined;
-                        }
-                    }
+        if (isTypeVar(preTransform)) {
+            if (!this._shouldReplaceTypeVar(preTransform) || !this._shouldReplaceUnsolvedTypeVar(preTransform)) {
+                return postTransform;
+            }
+
+            const typeVarType = solutionSet.getType(preTransform);
+
+            // Did the TypeVar remain unsolved?
+            if (typeVarType) {
+                if (!isTypeVar(typeVarType) || !TypeVarType.isUnification(typeVarType)) {
+                    return postTransform;
+                }
+            }
+
+            // If the TypeVar was not transformed, then it was unsolved,
+            // and we'll eliminate it.
+            if (preTransform === postTransform) {
+                return undefined;
+            }
+
+            // If useDefaultForUnsolved or useUnknownForUnsolved is true, the postTransform type will
+            // be Unknown, which we want to eliminate.
+            if (this._options.replaceUnsolved && isUnknown(postTransform)) {
+                return undefined;
+            }
+        } else if (preTransform.props?.condition) {
+            // If this is a type that is conditioned on a unification TypeVar,
+            // see if TypeVar was solved. If not, eliminate the type.
+            for (const condition of preTransform.props.condition) {
+                if (TypeVarType.isUnification(condition.typeVar) && !solutionSet.getType(condition.typeVar)) {
+                    return undefined;
                 }
             }
         }

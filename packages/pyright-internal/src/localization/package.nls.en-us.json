@@ -107,9 +107,17 @@
             "message": "Could not bind method \"{methodName}\" because \"{type}\" is not assignable to parameter \"{paramName}\"",
             "comment": "Binding is the process through which Pyright determines what object a name refers to"
         },
+        "breakInExceptionGroup": {
+            "message": "\"break\" is not allowed in an \"except*\" block",
+            "comment": "{Locked='break','except*'}"
+        },
         "breakOutsideLoop": {
             "message": "\"break\" can be used only within a loop",
             "comment": "{Locked='break'}"
+        },
+        "bytesUnsupportedEscape": {
+            "message": "Unsupported escape sequence in bytes literal",
+            "comment": "{Locked='bytes'}"
         },
         "callableExtraArgs": {
             "message": "Expected only two type arguments to \"Callable\"",
@@ -201,9 +209,9 @@
             "message": "Expression will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",
             "comment": "{Locked='True'}"
         },
-        "continueInFinally": {
-            "message": "\"continue\" cannot be used within a finally clause",
-            "comment": "{Locked='continue','finally'}"
+        "continueInExceptionGroup": {
+            "message": "\"continue\" is not allowed in an \"except*\" block",
+            "comment": "{Locked='continue','except*'}"
         },
         "continueOutsideLoop": {
             "message": "\"continue\" can be used only within a loop",
@@ -218,7 +226,6 @@
         "dataClassConverterFunction": "Argument of type \"{argType}\" is not a valid converter for field \"{fieldName}\" of type \"{fieldType}\"",
         "dataClassConverterOverloads": "No overloads of \"{funcName}\" are valid converters for field \"{fieldName}\" of type \"{fieldType}\"",
         "dataClassFieldInheritedDefault": "\"{fieldName}\" overrides a field of the same name but is missing a default value",
-        "dataClassFieldInvalidAlias": "Alias name \"{aliasName}\" is not a valid identifier",
         "dataClassFieldWithDefault": "Fields without default values cannot appear after fields with default values",
         "dataClassFieldWithPrivateName": "Dataclass field cannot use private name",
         "dataClassFieldWithoutAnnotation": "Dataclass field without type annotation will cause runtime exception",
@@ -340,6 +347,14 @@
         },
         "exceptionGroupIncompatible": {
             "message": "Exception group syntax (\"except*\") requires Python 3.11 or newer",
+            "comment": "{Locked='except*'}"
+        },
+        "exceptGroupMismatch": {
+            "message": "Try statement cannot include both \"except\" and \"except*\"",
+            "comment": "{Locked='except','except*'}"
+        },
+        "exceptGroupRequiresType": {
+            "message": "Exception group syntax (\"except*\") requires an exception type",
             "comment": "{Locked='except*'}"
         },
         "exceptionGroupTypeIncorrect": {
@@ -845,6 +860,10 @@
             "message": "Object of type \"None\" cannot be used with \"with\"",
             "comment": "{Locked='None','with'}"
         },
+        "noneNotUsableWithAsync": {
+            "message": "Object of type \"None\" cannot be used with \"async with\"",
+            "comment": "{Locked='None','with', 'async}"
+        },
         "noneOperator": {
             "message": "Operator \"{operator}\" not supported for \"None\"",
             "comment": "{Locked='None'}"
@@ -920,6 +939,10 @@
         "paramAnnotationMissing": "Type annotation is missing for parameter \"{name}\"",
         "paramAssignmentMismatch": "Expression of type \"{sourceType}\" cannot be assigned to parameter of type \"{paramType}\"",
         "paramNameMissing": "No parameter named \"{name}\"",
+        "paramSpecArgsKwargsDuplicate": {
+            "message": "Arguments for ParamSpec \"{type}\" have already been provided",
+            "comment": "{Locked='ParamSpec'}"
+        },
         "paramSpecArgsKwargsUsage": {
             "message": "\"args\" and \"kwargs\" attributes of ParamSpec must both appear within a function signature",
             "comment": "{Locked='args','kwargs','ParamSpec'}"
@@ -977,6 +1000,7 @@
         },
         "patternNeverMatches": "Pattern will never be matched for subject type \"{type}\"",
         "positionArgAfterNamedArg": "Positional argument cannot appear after keyword arguments",
+        "positionArgAfterUnpackedDictArg": "Positional argument cannot appear after keyword argument unpacking",
         "positionOnlyAfterArgs": "Position-only parameter separator not allowed after \"*\" parameter",
         "positionOnlyAfterKeywordOnly": "\"/\" parameter must appear before \"*\" parameter",
         "positionOnlyAfterNon": "Position-only parameter not allowed after parameter that is not position-only",
@@ -1081,6 +1105,10 @@
             "comment": "{Locked='async'}"
         },
         "returnMissing": "Function with declared return type \"{returnType}\" must return value on all code paths",
+        "returnInExceptionGroup": {
+            "message": "\"return\" is not allowed in an \"except*\" block",
+            "comment": "{Locked='return','except*'}"
+        },
         "returnOutsideFunction": {
             "message": "\"return\" can be used only within a function",
             "comment": "{Locked='return'}"
@@ -1309,7 +1337,11 @@
         "typeNotSupportBinaryOperatorBidirectional": "Operator \"{operator}\" not supported for types \"{leftType}\" and \"{rightType}\" when expected type is \"{expectedType}\"",
         "typeNotSupportUnaryOperator": "Operator \"{operator}\" not supported for type \"{type}\"",
         "typeNotSupportUnaryOperatorBidirectional": "Operator \"{operator}\" not supported for type \"{type}\" when expected type is \"{expectedType}\"",
-        "typeNotUsableWith": "Object of type \"{type}\" cannot be used with \"with\" because it does not implement {method}",
+        "typeNotUsableWith": "Object of type \"{type}\" cannot be used with \"with\" because it does not correctly implement {method}",
+        "typeNotUsableWithAsync": {
+            "message": "Object of type \"{type}\" cannot be used with \"async with\" because it does not correctly implement {method}",
+            "comment": ["{Locked='async','with}"]
+    },
         "typeParameterBoundNotAllowed": {
             "message": "Bound or constraint cannot be used with a variadic type parameter or ParamSpec",
             "comment": ["{Locked='ParamSpec'}", "'variadic' means that it accepts a variable number of arguments"]
@@ -2041,20 +2073,20 @@
         "uninitializedAbstractVariable": "Instance variable \"{name}\" is defined in abstract base class \"{classType}\" but not initialized",
         "unreachableExcept": "\"{exceptionType}\" is a subclass of \"{parentType}\"",
         "useDictInstead": {
-            "message": "Use Dict[T1, T2] to indicate a dictionary type",
-            "comment": "{Locked='Dict[T1, T2]'}"
+            "message": "Use dict[T1, T2] to indicate a dictionary type",
+            "comment": "{Locked='dict[T1, T2]'}"
         },
         "useListInstead": {
-            "message": "Use List[T] to indicate a list type or Union[T1, T2] to indicate a union type",
-            "comment": "{Locked='List[T]','list','Union[T1, T2]','union'}"
+            "message": "Use list[T] to indicate a list type or T1 | T2 to indicate a union type",
+            "comment": "{Locked='list[T]','list','T1 | T2','union'}"
         },
         "useTupleInstead": {
-            "message": "Use tuple[T1, ..., Tn] to indicate a tuple type or Union[T1, T2] to indicate a union type",
-            "comment": "{Locked='tuple[T1, ..., Tn]','tuple','Union[T1, T2]','union'}"
+            "message": "Use tuple[T1, ..., Tn] to indicate a tuple type or T1 | T2 to indicate a union type",
+            "comment": "{Locked='tuple[T1, ..., Tn]','tuple','T1 | T2','union'}"
         },
         "useTypeInstead": {
-            "message": "Use Type[T] instead",
-            "comment": "{Locked='Type[T]'}"
+            "message": "Use type[T] instead",
+            "comment": "{Locked='type[T]'}"
         },
         "varianceMismatchForClass": "Variance of type argument \"{typeVarName}\" is incompatible with base class \"{className}\"",
         "varianceMismatchForTypeAlias": "Variance of type argument \"{typeVarName}\" is incompatible with \"{typeAliasParam}\"",

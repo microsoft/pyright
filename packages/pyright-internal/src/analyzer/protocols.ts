@@ -569,7 +569,7 @@ function assignToProtocolInternal(
             destMemberType = applySolvedTypeVars(destMemberType, selfSolution);
 
             // If the dest is a method, bind it.
-            if (isFunction(destMemberType) || isOverloaded(destMemberType)) {
+            if (!destSymbol.isInstanceMember() && (isFunction(destMemberType) || isOverloaded(destMemberType))) {
                 let boundDeclaredType: FunctionType | OverloadedType | undefined;
 
                 // Functions are considered read-only.
@@ -654,7 +654,7 @@ function assignToProtocolInternal(
                     }
                 } else {
                     // Extract the property type from the property class.
-                    let getterType = evaluator.getGetterTypeFromProperty(destMemberType, /* inferTypeIfNeeded */ true);
+                    let getterType = evaluator.getGetterTypeFromProperty(destMemberType);
 
                     if (getterType) {
                         getterType = partiallySpecializeType(getterType, mroClass, evaluator.getTypeClassType());

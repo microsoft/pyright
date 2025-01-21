@@ -1583,7 +1583,7 @@ export function getCodeFlowEngine(
                                     );
 
                                     return priorRemainingConstraints.filter((subtype) =>
-                                        ClassType.isSameGenericClass(subtype, classType)
+                                        ClassType.isSameGenericClass(subtype, ClassType.cloneAsInstance(classType))
                                     );
                                 }
                             }
@@ -1632,7 +1632,7 @@ export function getCodeFlowEngine(
 
                             if (isInstantiableClass(arg1Type)) {
                                 return priorRemainingConstraints.filter((subtype) => {
-                                    if (ClassType.isSameGenericClass(subtype, arg1Type)) {
+                                    if (ClassType.isSameGenericClass(subtype, ClassType.cloneAsInstance(arg1Type))) {
                                         return isPositiveTest;
                                     } else {
                                         return !isPositiveTest;

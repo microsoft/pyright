@@ -176,7 +176,17 @@ export function applyFunctionDecorator(
         }
     }
 
-    let returnType = getTypeOfDecorator(evaluator, decoratorNode, inputFunctionType);
+    // Clear the PartiallyEvaluated flag in the input if it's set so
+    // it doesn't propagate to the decorated type.
+    const decoratorArg =
+        isFunction(inputFunctionType) && FunctionType.isPartiallyEvaluated(inputFunctionType)
+            ? FunctionType.cloneWithNewFlags(
+                  inputFunctionType,
+                  inputFunctionType.shared.flags & ~FunctionTypeFlags.PartiallyEvaluated
+              )
+            : inputFunctionType;
+
+    let returnType = getTypeOfDecorator(evaluator, decoratorNode, decoratorArg);
 
     // Check for some built-in decorator types with known semantics.
     if (isFunction(decoratorType)) {

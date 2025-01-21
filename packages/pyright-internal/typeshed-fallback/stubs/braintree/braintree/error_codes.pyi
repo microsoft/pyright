@@ -73,6 +73,7 @@ class ErrorCodes:
     class ClientToken:
         CustomerDoesNotExist: Final = "92804"
         FailOnDuplicatePaymentMethodRequiresCustomerId: Final = "92803"
+        FailOnDuplicatePaymentMethodForCustomerRequiresCustomerId: Final = "92805"
         InvalidDomainFormat: Final = "92011"
         MakeDefaultRequiresCustomerId: Final = "92801"
         MerchantAccountDoesNotExist: Final = "92807"
@@ -95,6 +96,7 @@ class ErrorCodes:
         CvvIsRequired: Final = "81706"
         CvvVerificationFailed: Final = "81736"
         DuplicateCardExists: Final = "81724"
+        DuplicateCardExistsForCustomer: Final = "81763"
         ExpirationDateConflict: Final = "91708"
         ExpirationDateIsInvalid: Final = "81710"
         ExpirationDateIsRequired: Final = "81709"
@@ -103,6 +105,7 @@ class ErrorCodes:
         ExpirationYearIsInvalid: Final = "81713"
         InvalidParamsForCreditCardUpdate: Final = "91745"
         InvalidVenmoSDKPaymentMethodCode: Final = "91727"
+        LimitExceededforDuplicatePaymentMethodCheckForCustomer: Final = "81764"
         NetworkTokenizationAttributeCryptogramIsRequired: Final = "81762"
         NumberHasInvalidLength: Final = "81716"
         NumberLengthIsInvalid: Final = "81716"

@@ -1,8 +1,6 @@
-from typing import Final
+from .base import VERSION as VERSION, Component
 
-from .base import Component
+__version__ = VERSION
 
 def iCalendar() -> Component: ...
 def vCard() -> Component: ...
-
-VERSION: Final[str]

@@ -1,7 +1,6 @@
 import sys
-from _typeshed import Unused
 from types import TracebackType
-from typing import ClassVar, Literal
+from typing import ClassVar
 from typing_extensions import Self
 
 from ._distutils.errors import DistutilsError
@@ -14,16 +13,16 @@ class UnpickleableException(Exception):
 
 class ExceptionSaver:
     def __enter__(self) -> Self: ...
-    def __exit__(
-        self, type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None
-    ) -> Literal[True] | None: ...
+    def __exit__(self, type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> bool: ...
     def resume(self) -> None: ...
 
 def run_setup(setup_script, args): ...
 
 class AbstractSandbox:
     def __enter__(self) -> None: ...
-    def __exit__(self, exc_type: Unused, exc_value: Unused, traceback: Unused) -> None: ...
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None
+    ) -> None: ...
     def run(self, func): ...
     # Dynamically created
     if sys.platform == "win32":

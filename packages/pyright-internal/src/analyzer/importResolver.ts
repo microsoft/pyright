@@ -509,6 +509,12 @@ export class ImportResolver {
         return excludes;
     }
 
+    // Intended to be overridden by subclasses to provide additional stub
+    // path capabilities. Return undefined if no extra stub path were found.
+    getTypeshedPathEx(execEnv: ExecutionEnvironment, importFailureInfo: string[]): Uri | undefined {
+        return undefined;
+    }
+
     protected readdirEntriesCached(uri: Uri): Dirent[] {
         const cachedValue = this._cachedEntriesForPath.get(uri.key);
         if (cachedValue) {
@@ -745,12 +751,6 @@ export class ImportResolver {
     }
 
     // Intended to be overridden by subclasses to provide additional stub
-    // path capabilities. Return undefined if no extra stub path were found.
-    protected getTypeshedPathEx(execEnv: ExecutionEnvironment, importFailureInfo: string[]): Uri | undefined {
-        return undefined;
-    }
-
-    // Intended to be overridden by subclasses to provide additional stub
     // resolving capabilities. Return undefined if no stubs were found for
     // this import.
     protected resolveImportEx(
@@ -817,6 +817,101 @@ export class ImportResolver {
         const newImportResult = Object.assign({}, importResult);
         newImportResult.filteredImplicitImports = filteredImplicitImports;
         return newImportResult;
+    }
+
+    protected findImplicitImports(
+        importingModuleName: string,
+        dirPath: Uri,
+        exclusions: Uri[]
+    ): Map<string, ImplicitImport> {
+        const implicitImportMap = new Map<string, ImplicitImport>();
+
+        // Enumerate all of the files and directories in the path, expanding links.
+        const entries = getFileSystemEntriesFromDirEntries(
+            this.readdirEntriesCached(dirPath),
+            this.fileSystem,
+            dirPath
+        );
+
+        // Add implicit file-based modules.
+        for (const filePath of entries.files) {
+            const fileExt = filePath.lastExtension;
+            let strippedFileName: string;
+            let isNativeLib = false;
+
+            if (fileExt === '.py' || fileExt === '.pyi') {
+                strippedFileName = stripFileExtension(filePath.fileName);
+            } else if (
+                _isNativeModuleFileExtension(fileExt) &&
+                !this.fileExistsCached(filePath.packageUri) &&
+                !this.fileExistsCached(filePath.packageStubUri)
+            ) {
+                // Native module.
+                strippedFileName = filePath.stripAllExtensions().fileName;
+                isNativeLib = true;
+            } else {
+                continue;
+            }
+
+            if (!exclusions.find((exclusion) => exclusion.equals(filePath))) {
+                const implicitImport: ImplicitImport = {
+                    isStubFile: filePath.hasExtension('.pyi'),
+                    isNativeLib,
+                    name: strippedFileName,
+                    uri: filePath,
+                };
+
+                // Always prefer stub files over non-stub files.
+                const entry = implicitImportMap.get(implicitImport.name);
+                if (!entry || !entry.isStubFile) {
+                    // Try resolving resolving native lib to a custom stub.
+                    if (isNativeLib) {
+                        const nativeLibPath = filePath;
+                        const nativeStubPath = this.resolveNativeImportEx(
+                            nativeLibPath,
+                            `${importingModuleName}.${strippedFileName}`,
+                            []
+                        );
+                        if (nativeStubPath) {
+                            implicitImport.uri = nativeStubPath;
+                            implicitImport.isNativeLib = false;
+                        }
+                    }
+                    implicitImportMap.set(implicitImport.name, implicitImport);
+                }
+            }
+        }
+
+        // Add implicit directory-based modules.
+        for (const dirPath of entries.directories) {
+            const pyFilePath = dirPath.initPyUri;
+            const pyiFilePath = dirPath.initPyiUri;
+            let isStubFile = false;
+            let path: Uri | undefined;
+
+            if (this.fileExistsCached(pyiFilePath)) {
+                isStubFile = true;
+                path = pyiFilePath;
+            } else if (this.fileExistsCached(pyFilePath)) {
+                path = pyFilePath;
+            }
+
+            if (path) {
+                if (!exclusions.find((exclusion) => exclusion.equals(path))) {
+                    const implicitImport: ImplicitImport = {
+                        isStubFile,
+                        isNativeLib: false,
+                        name: dirPath.fileName,
+                        uri: path,
+                        pyTypedInfo: this._getPyTypedInfo(dirPath),
+                    };
+
+                    implicitImportMap.set(implicitImport.name, implicitImport);
+                }
+            }
+        }
+
+        return implicitImportMap;
     }
 
     private _resolveImportStrict(
@@ -1279,7 +1374,7 @@ export class ImportResolver {
                 isNamespacePackage = true;
             }
 
-            implicitImports = this._findImplicitImports(importName, dirPath, [pyFilePath, pyiFilePath]);
+            implicitImports = this.findImplicitImports(importName, dirPath, [pyFilePath, pyiFilePath]);
         } else {
             for (let i = 0; i < moduleDescriptor.nameParts.length; i++) {
                 const isFirstPart = i === 0;
@@ -1327,7 +1422,7 @@ export class ImportResolver {
                             continue;
                         }
 
-                        implicitImports = this._findImplicitImports(moduleDescriptor.nameParts.join('.'), dirPath, [
+                        implicitImports = this.findImplicitImports(moduleDescriptor.nameParts.join('.'), dirPath, [
                             pyFilePath,
                             pyiFilePath,
                         ]);
@@ -1380,7 +1475,7 @@ export class ImportResolver {
                     resolvedPaths.push(Uri.empty());
 
                     if (isLastPart) {
-                        implicitImports = this._findImplicitImports(importName, dirPath, [pyFilePath, pyiFilePath]);
+                        implicitImports = this.findImplicitImports(importName, dirPath, [pyFilePath, pyiFilePath]);
                         isNamespacePackage = true;
                     }
                 }
@@ -2544,101 +2639,6 @@ export class ImportResolver {
         return true;
     }
 
-    private _findImplicitImports(
-        importingModuleName: string,
-        dirPath: Uri,
-        exclusions: Uri[]
-    ): Map<string, ImplicitImport> {
-        const implicitImportMap = new Map<string, ImplicitImport>();
-
-        // Enumerate all of the files and directories in the path, expanding links.
-        const entries = getFileSystemEntriesFromDirEntries(
-            this.readdirEntriesCached(dirPath),
-            this.fileSystem,
-            dirPath
-        );
-
-        // Add implicit file-based modules.
-        for (const filePath of entries.files) {
-            const fileExt = filePath.lastExtension;
-            let strippedFileName: string;
-            let isNativeLib = false;
-
-            if (fileExt === '.py' || fileExt === '.pyi') {
-                strippedFileName = stripFileExtension(filePath.fileName);
-            } else if (
-                _isNativeModuleFileExtension(fileExt) &&
-                !this.fileExistsCached(filePath.packageUri) &&
-                !this.fileExistsCached(filePath.packageStubUri)
-            ) {
-                // Native module.
-                strippedFileName = filePath.stripAllExtensions().fileName;
-                isNativeLib = true;
-            } else {
-                continue;
-            }
-
-            if (!exclusions.find((exclusion) => exclusion.equals(filePath))) {
-                const implicitImport: ImplicitImport = {
-                    isStubFile: filePath.hasExtension('.pyi'),
-                    isNativeLib,
-                    name: strippedFileName,
-                    uri: filePath,
-                };
-
-                // Always prefer stub files over non-stub files.
-                const entry = implicitImportMap.get(implicitImport.name);
-                if (!entry || !entry.isStubFile) {
-                    // Try resolving resolving native lib to a custom stub.
-                    if (isNativeLib) {
-                        const nativeLibPath = filePath;
-                        const nativeStubPath = this.resolveNativeImportEx(
-                            nativeLibPath,
-                            `${importingModuleName}.${strippedFileName}`,
-                            []
-                        );
-                        if (nativeStubPath) {
-                            implicitImport.uri = nativeStubPath;
-                            implicitImport.isNativeLib = false;
-                        }
-                    }
-                    implicitImportMap.set(implicitImport.name, implicitImport);
-                }
-            }
-        }
-
-        // Add implicit directory-based modules.
-        for (const dirPath of entries.directories) {
-            const pyFilePath = dirPath.initPyUri;
-            const pyiFilePath = dirPath.initPyiUri;
-            let isStubFile = false;
-            let path: Uri | undefined;
-
-            if (this.fileExistsCached(pyiFilePath)) {
-                isStubFile = true;
-                path = pyiFilePath;
-            } else if (this.fileExistsCached(pyFilePath)) {
-                path = pyFilePath;
-            }
-
-            if (path) {
-                if (!exclusions.find((exclusion) => exclusion.equals(path))) {
-                    const implicitImport: ImplicitImport = {
-                        isStubFile,
-                        isNativeLib: false,
-                        name: dirPath.fileName,
-                        uri: path,
-                        pyTypedInfo: this._getPyTypedInfo(dirPath),
-                    };
-
-                    implicitImportMap.set(implicitImport.name, implicitImport);
-                }
-            }
-        }
-
-        return implicitImportMap;
-    }
-
     // Retrieves the pytyped info for a directory if it exists. This is a small perf optimization
     // that allows skipping the search when the pytyped file doesn't exist.
     private _getPyTypedInfo(filePath: Uri): PyTypedInfo | undefined {
@@ -2741,7 +2741,7 @@ export class ImportResolver {
         return (
             current &&
             !current.isEmpty() &&
-            (current.isChild(root) || (current.equals(root) && _isDefaultWorkspace(execEnv.root)))
+            (current.isChild(root) || (current.equals(root) && isDefaultWorkspace(execEnv.root)))
         );
     }
 }
@@ -2757,7 +2757,7 @@ export function formatImportName(moduleDescriptor: ImportedModuleDescriptor) {
 }
 
 export function getParentImportResolutionRoot(sourceFileUri: Uri, executionRoot: Uri | undefined): Uri {
-    if (!_isDefaultWorkspace(executionRoot)) {
+    if (!isDefaultWorkspace(executionRoot)) {
         return executionRoot!;
     }
 
@@ -2830,6 +2830,6 @@ function _isNativeModuleFileExtension(fileExtension: string): boolean {
     return supportedNativeLibExtensions.some((ext) => ext === fileExtension);
 }
 
-function _isDefaultWorkspace(uri: Uri | undefined) {
+export function isDefaultWorkspace(uri: Uri | undefined) {
     return !uri || uri.isEmpty() || Uri.isDefaultWorkspace(uri);
 }

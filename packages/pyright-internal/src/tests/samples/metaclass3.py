@@ -1,5 +1,7 @@
 # This sample tests the detection of metaclass conflicts.
 
+from typing import Protocol
+
 
 class Meta1(type):
     pass
@@ -19,7 +21,7 @@ class Base2(metaclass=Meta2):
 
 # This should generate an error because the two
 # metaclasses conflict.
-class Foobar1(Base1, Base2):
+class Base3(Base1, Base2):
     pass
 
 
@@ -39,5 +41,21 @@ class Base5(metaclass=SubMeta3):
     pass
 
 
-class Foobar2(Base4, Base5):
+class Base6(Base4, Base5):
     pass
+
+
+class Meta10(type): ...
+
+
+class Base10(metaclass=Meta10): ...
+
+
+class Proto10(Protocol): ...
+
+
+class Meta11(type(Base10), type(Proto10)):
+    pass
+
+
+class Base11(Base10, Proto10, metaclass=Meta11): ...

@@ -235,7 +235,7 @@ export class FullAccessHost extends LimitedAccessHost {
     }
 
     /**
-     * Excecutes a chunk of Python code via the provided interpreter and returns the output.
+     * Executes a chunk of Python code via the provided interpreter and returns the output.
      * @param interpreterPath Path to interpreter.
      * @param commandLineArgs Command line args for interpreter other than the code to execute.
      * @param code Code to execute.

@@ -96,7 +96,12 @@ test('OverloadOverride1', () => {
 
 test('OverloadImpl1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadImpl1.py']);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 6);
+});
+
+test('OverloadImpl2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadImpl2.py']);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('OverloadOverlap1', () => {
@@ -108,7 +113,7 @@ test('OverloadOverlap1', () => {
 
     configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 14);
+    TestUtils.validateResults(analysisResults, 15);
 });
 
 test('TypeGuard1', () => {
@@ -419,6 +424,14 @@ test('TypeVarTuple29', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeVarTuple30', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple30.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Match1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -505,6 +518,14 @@ test('MatchClass6', () => {
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass6.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('MatchClass7', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass7.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('MatchValue1', () => {
@@ -826,6 +847,12 @@ test('Constructor32', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor32.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Constructor33', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor33.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('ConstructorCallable1', () => {

@@ -56,7 +56,11 @@ export function isEnumClassWithMembers(evaluator: TypeEvaluator, classType: Clas
 
     ClassType.getSymbolTable(classType).forEach((symbol, name) => {
         const symbolType = transformTypeForEnumMember(evaluator, classType, name);
-        if (symbolType && isClassInstance(symbolType) && ClassType.isSameGenericClass(symbolType, classType)) {
+        if (
+            symbolType &&
+            isClassInstance(symbolType) &&
+            ClassType.isSameGenericClass(symbolType, ClassType.cloneAsInstance(classType))
+        ) {
             definesMember = true;
         }
     });

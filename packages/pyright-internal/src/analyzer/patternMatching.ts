@@ -760,7 +760,7 @@ function narrowTypeBasedOnClassPattern(
             classType = ClassType.specialize(classType, /* typeArgs */ undefined);
         }
 
-        const classInstance = convertToInstance(classType);
+        const classInstance = ClassType.cloneAsInstance(classType);
         const isPatternMetaclass = isMetaclassInstance(classInstance);
 
         return evaluator.mapSubtypesExpandTypeVars(
@@ -859,7 +859,8 @@ function narrowTypeBasedOnClassPattern(
             LocAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
             pattern.d.className
         );
-        return NeverType.createNever();
+
+        return isPositiveTest ? UnknownType.create() : type;
     } else if (isInstantiableClass(exprType)) {
         if (ClassType.isProtocolClass(exprType) && !ClassType.isRuntimeCheckable(exprType)) {
             evaluator.addDiagnostic(
@@ -867,12 +868,16 @@ function narrowTypeBasedOnClassPattern(
                 LocAddendum.protocolRequiresRuntimeCheckable(),
                 pattern.d.className
             );
+
+            return isPositiveTest ? UnknownType.create() : type;
         } else if (ClassType.isTypedDictClass(exprType)) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.typedDictInClassPattern(),
                 pattern.d.className
             );
+
+            return isPositiveTest ? UnknownType.create() : type;
         }
     }
 
@@ -2169,6 +2174,16 @@ export function getPatternSubtypeNarrowingCallback(
 }
 
 function reportUnnecessaryPattern(evaluator: TypeEvaluator, pattern: PatternAtomNode, subjectType: Type): void {
+    // If this is a simple wildcard pattern, exempt it from this diagnostic.
+    if (
+        pattern.nodeType === ParseNodeType.PatternAs &&
+        pattern.d.orPatterns.length === 1 &&
+        pattern.d.orPatterns[0].nodeType === ParseNodeType.PatternCapture &&
+        pattern.d.orPatterns[0].d.isWildcard
+    ) {
+        return;
+    }
+
     evaluator.addDiagnostic(
         DiagnosticRule.reportUnnecessaryComparison,
         LocMessage.patternNeverMatches().format({ type: evaluator.printType(subjectType) }),

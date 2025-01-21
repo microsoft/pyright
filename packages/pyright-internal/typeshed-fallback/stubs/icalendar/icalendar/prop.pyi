@@ -9,13 +9,13 @@ from typing_extensions import Self, TypeAlias
 from .caselessdict import CaselessDict
 from .parser import Parameters
 from .parser_tools import ICAL_TYPE
+from .timezone import tzid_from_dt as tzid_from_dt, tzid_from_tzinfo as tzid_from_tzinfo
 
 __all__ = [
     "DURATION_REGEX",
     "TimeBase",
     "TypesFactory",
     "WEEKDAY_RULE",
-    "tzid_from_dt",
     "vBinary",
     "vBoolean",
     "vCalAddress",
@@ -39,6 +39,8 @@ __all__ = [
     "vUTCOffset",
     "vUri",
     "vWeekday",
+    "tzid_from_dt",
+    "tzid_from_tzinfo",
 ]
 
 _PropType: TypeAlias = type[Any]  # any of the v* classes in this file
@@ -46,8 +48,6 @@ _vRecurT = TypeVar("_vRecurT", bound=vRecur)
 
 DURATION_REGEX: Final[Pattern[str]]
 WEEKDAY_RULE: Final[Pattern[str]]
-
-def tzid_from_dt(dt: datetime.datetime) -> str | None: ...
 
 class vBinary:
     obj: Incomplete
@@ -140,7 +140,7 @@ class vDatetime(TimeBase):
     def __init__(self, dt) -> None: ...
     def to_ical(self) -> bytes: ...
     @staticmethod
-    def from_ical(ical, timezone: str | None = None) -> datetime.datetime: ...
+    def from_ical(ical, timezone: datetime.timezone | str | None = None) -> datetime.datetime: ...
 
 class vDuration(TimeBase):
     td: Incomplete
@@ -241,13 +241,14 @@ class vGeo:
 
 class vUTCOffset:
     ignore_exceptions: bool
-    td: Incomplete
+    td: datetime.timedelta
     params: Parameters
-    def __init__(self, td) -> None: ...
+    def __init__(self, td: datetime.timedelta) -> None: ...
     def to_ical(self) -> bytes: ...
     @classmethod
     def from_ical(cls, ical): ...
-    def __eq__(self, other): ...
+    def __eq__(self, other: object) -> bool: ...
+    def __hash__(self) -> int: ...
 
 class vInline(str):
     params: Parameters

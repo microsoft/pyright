@@ -566,6 +566,7 @@ export namespace ModuleType {
 export interface DataClassEntry {
     name: string;
     classType: ClassType;
+    mroClass?: ClassType;
     isClassVar: boolean;
     isKeywordOnly: boolean;
     alias?: string | undefined;
@@ -1352,13 +1353,12 @@ export namespace ClassType {
             return false;
         }
 
-        // Handle type[] specially.
-        if (TypeBase.getInstantiableDepth(classType) > 0) {
-            return TypeBase.isInstantiable(type2) || ClassType.isBuiltIn(type2, 'type');
+        if (TypeBase.isInstance(classType) !== TypeBase.isInstance(type2)) {
+            return false;
         }
 
-        if (TypeBase.getInstantiableDepth(type2) > 0) {
-            return TypeBase.isInstantiable(classType) || ClassType.isBuiltIn(classType, 'type');
+        if (TypeBase.getInstantiableDepth(classType) !== TypeBase.getInstantiableDepth(type2)) {
+            return false;
         }
 
         const class1Details = classType.shared;
@@ -1772,7 +1772,7 @@ export namespace FunctionType {
     }
 
     export function createSynthesizedInstance(name: string, additionalFlags = FunctionTypeFlags.None) {
-        return create(name, '', '', additionalFlags | FunctionTypeFlags.SynthesizedMethod, TypeFlags.Instance);
+        return create(name, name, '', additionalFlags | FunctionTypeFlags.SynthesizedMethod, TypeFlags.Instance);
     }
 
     function create(

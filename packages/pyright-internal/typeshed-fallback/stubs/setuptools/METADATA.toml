@@ -1,4 +1,4 @@
-version = "75.2.*"
+version = "75.8.*"
 upstream_repository = "https://github.com/pypa/setuptools"
 extra_description = """\
 If using `setuptools >= 71.1` *only* for `pkg_resources`,

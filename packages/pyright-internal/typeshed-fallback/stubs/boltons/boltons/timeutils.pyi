@@ -1,7 +1,8 @@
 from collections.abc import Generator
 from datetime import date, datetime, timedelta, tzinfo
 
-def total_seconds(td: timedelta) -> float: ...
+total_seconds = timedelta.total_seconds
+
 def dt_to_timestamp(dt: datetime) -> int: ...
 def isoparse(iso_str: str) -> datetime: ...
 def parse_timedelta(text: str) -> timedelta: ...
@@ -30,7 +31,6 @@ class ConstantTZInfo(tzinfo):
 
 UTC: ConstantTZInfo
 EPOCH_AWARE: datetime
-EPOCH_NAIVE: datetime
 
 class LocalTZInfo(tzinfo):
     def is_dst(self, dt: datetime) -> bool: ...

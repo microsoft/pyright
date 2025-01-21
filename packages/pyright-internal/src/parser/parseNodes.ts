@@ -1262,7 +1262,8 @@ export namespace AugmentedAssignmentNode {
 export interface AwaitNode extends ParseNodeBase<ParseNodeType.Await> {
     d: {
         expr: ExpressionNode;
-        hasParens?: boolean;
+        awaitToken: Token;
+        hasParens: boolean;
     };
 }
 
@@ -1275,7 +1276,7 @@ export namespace AwaitNode {
             id: _nextNodeId++,
             parent: undefined,
             a: undefined,
-            d: { expr },
+            d: { expr, awaitToken, hasParens: false },
         };
 
         expr.parent = node;
@@ -1418,7 +1419,7 @@ export interface ComprehensionNode extends ParseNodeBase<ParseNodeType.Comprehen
         expr: ParseNode;
         forIfNodes: ComprehensionForIfNode[];
         isGenerator: boolean;
-        hasParens?: boolean;
+        hasParens: boolean;
     };
 }
 
@@ -1435,6 +1436,7 @@ export namespace ComprehensionNode {
                 expr,
                 forIfNodes: [],
                 isGenerator,
+                hasParens: false,
             },
         };
 

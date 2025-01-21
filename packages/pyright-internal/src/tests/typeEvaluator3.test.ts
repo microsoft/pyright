@@ -151,6 +151,12 @@ test('Await2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Await3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['await3.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});
+
 test('Coroutines1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -159,7 +165,7 @@ test('Coroutines1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['coroutines1.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Coroutines2', () => {
@@ -481,6 +487,18 @@ test('Loop49', () => {
 
 test('Loop50', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop50.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Loop51', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop51.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Loop52', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop52.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
@@ -838,6 +856,15 @@ test('RecursiveTypeAlias15', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('RecursiveTypeAlias16', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias16.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Classes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes1.py']);
 
@@ -919,7 +946,7 @@ test('MethodOverride1', () => {
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 41);
+    TestUtils.validateResults(analysisResults, 42);
 });
 
 test('MethodOverride2', () => {

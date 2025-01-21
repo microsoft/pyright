@@ -53,11 +53,14 @@ const pythonPathChangedListenerMap = new Map<string, string>();
 const defaultHeapSize = 3072;
 
 export async function activate(context: ExtensionContext) {
+    const pythonSettings = workspace.getConfiguration('python');
+    const langServer = pythonSettings.get('languageServer');
+
     // See if Pylance is installed. If so, don't activate the Pyright extension.
     // Doing so will generate "command already registered" errors and redundant
     // hover text, etc.because the two extensions overlap in functionality.
     const pylanceExtension = extensions.getExtension('ms-python.vscode-pylance');
-    if (pylanceExtension) {
+    if (pylanceExtension && langServer !== 'None') {
         window.showErrorMessage(
             'Pyright has detected that the Pylance extension is installed. ' +
                 'Pylance includes the functionality of Pyright, and running both of ' +

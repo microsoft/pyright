@@ -122,8 +122,7 @@ export function getTypeDetail(
 
             if (isProperty(functionType) && detail?.boundObjectOrClass && isClassInstance(detail.boundObjectOrClass)) {
                 const propertyType =
-                    evaluator.getGetterTypeFromProperty(functionType as ClassType, /* inferTypeIfNeeded */ true) ||
-                    UnknownType.create();
+                    evaluator.getGetterTypeFromProperty(functionType as ClassType) || UnknownType.create();
                 return name + ': ' + evaluator.printType(propertyType) + ' (property)';
             }
 

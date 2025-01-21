@@ -1,16 +1,4 @@
 version = "0.13.2"
 # Requires a version of numpy and matplotlib with a `py.typed` file
-# see https://github.com/python/typeshed/issues/12551
-# on why we need the upper bound for numpy
-#
-# TODO: Specifying the python-version for matplotlib should not be necessary,
-# because of the requires_python field. However, this needs changes to
-# get_typeshed_stub_version.py (see there).
-requires = [
-    "matplotlib>=3.8; python_version>='3.9'",
-    "numpy>=1.20,<2.1.0",
-    "pandas-stubs",
-]
-# matplotlib>=3.8 requires Python >=3.9
-requires_python = ">=3.9"
+requires = ["matplotlib>=3.8", "numpy>=1.20", "pandas-stubs"]
 upstream_repository = "https://github.com/mwaskom/seaborn"

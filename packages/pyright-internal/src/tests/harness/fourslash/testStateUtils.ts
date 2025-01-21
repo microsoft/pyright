@@ -14,7 +14,7 @@ import { combinePaths, getBaseFileName } from '../../../common/pathUtils';
 import { getStringComparer } from '../../../common/stringUtils';
 import * as vfs from '../vfs/filesystem';
 import { FourSlashData, FourSlashFile, GlobalMetadataOptionNames, Marker, MetadataOptionNames } from './fourSlashTypes';
-import { configFileName } from '../../../analyzer/serviceUtils';
+import { configFileName } from '../../../common/pathConsts';
 
 export function createVfsInfoFromFourSlashData(projectRoot: string, testData: FourSlashData) {
     const metaProjectRoot = testData.globalOptions[GlobalMetadataOptionNames.projectRoot];

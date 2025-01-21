@@ -8,9 +8,9 @@
  * Python files.
  */
 
-import * as TOML from '@iarna/toml';
 import * as JSONC from 'jsonc-parser';
 import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-languageserver';
+import { parse } from '../common/tomlUtils';
 
 import { BackgroundAnalysisBase, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
@@ -28,7 +28,7 @@ import { EditableProgram, ProgramView } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
-import { defaultStubsDirectory } from '../common/pathConsts';
+import { configFileName, defaultStubsDirectory } from '../common/pathConsts';
 import { getFileName, isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { ServiceKeys } from '../common/serviceKeys';
@@ -59,7 +59,6 @@ import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor }
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import {
-    configFileName,
     findConfigFile,
     findConfigFileHereOrUp,
     findPyprojectTomlFile,
@@ -702,7 +701,7 @@ export class AnalyzerService {
         // Ensure that if no command line or config options were applied, we have some defaults.
         this._ensureDefaultOptions(host, configOptions, projectRoot, executionRoot, commandLineOptions);
 
-        // Once we have defaults, we can then setup the execution environments. Execution enviroments
+        // Once we have defaults, we can then setup the execution environments. Execution environments
         // inherit from the defaults.
         if (configs) {
             for (const config of configs) {
@@ -1137,9 +1136,9 @@ export class AnalyzerService {
     private _parsePyprojectTomlFile(pyprojectPath: Uri): object | undefined {
         return this._attemptParseFile(pyprojectPath, (fileContents, attemptCount) => {
             try {
-                const configObj = TOML.parse(fileContents);
-                if (configObj && configObj.tool && (configObj.tool as TOML.JsonMap).pyright) {
-                    return (configObj.tool as TOML.JsonMap).pyright as object;
+                const configObj = parse(fileContents);
+                if (configObj && 'tool' in configObj) {
+                    return (configObj.tool as Record<string, object>).pyright as object;
                 }
             } catch (e: any) {
                 this._console.error(`Pyproject file parse attempt ${attemptCount} error: ${JSON.stringify(e)}`);
@@ -1358,7 +1357,7 @@ export class AnalyzerService {
                             'https://github.com/microsoft/pyright/blob/main/docs/configuration.md.'
                     );
 
-                    // Show it in messagebox if it is supported.
+                    // Show it in message box if it is supported.
                     this._tryShowLongOperationMessageBox();
 
                     loggedLongOperationError = true;

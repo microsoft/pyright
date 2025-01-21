@@ -1,5 +1,5 @@
 from _typeshed import BytesPath, StrPath, Unused
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, MutableSequence, Sequence
 from typing import ClassVar, Literal, TypeVar, overload
 from typing_extensions import TypeAlias, TypeVarTuple, Unpack
 
@@ -67,7 +67,7 @@ class CCompiler:
     def set_executables(self, **args: str) -> None: ...
     def compile(
         self,
-        sources: list[str],
+        sources: Sequence[StrPath],
         output_dir: str | None = None,
         macros: list[_Macro] | None = None,
         include_dirs: list[str] | None = None,
@@ -169,7 +169,7 @@ class CCompiler:
     def execute(
         self, func: Callable[[Unpack[_Ts]], Unused], args: tuple[Unpack[_Ts]], msg: str | None = None, level: int = 1
     ) -> None: ...
-    def spawn(self, cmd: list[str]) -> None: ...
+    def spawn(self, cmd: MutableSequence[str]) -> None: ...
     def mkpath(self, name: str, mode: int = 0o777) -> None: ...
     @overload
     def move_file(self, src: StrPath, dst: _StrPathT) -> _StrPathT | str: ...

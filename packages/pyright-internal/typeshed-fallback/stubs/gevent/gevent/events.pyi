@@ -49,13 +49,15 @@ class IEventLoopBlocked(Interface):
     greenlet: greenlet_t
     blocking_time: float
     info: Sequence[str]
+    hub: Hub | None
 
 @implementer(IEventLoopBlocked)
 class EventLoopBlocked:
     greenlet: greenlet_t
     blocking_time: float
     info: Sequence[str]
-    def __init__(self, greenlet: greenlet_t, blocking_time: float, info: Sequence[str]) -> None: ...
+    hub: Hub | None
+    def __init__(self, greenlet: greenlet_t, blocking_time: float, info: Sequence[str], *, hub: Hub | None = None) -> None: ...
 
 class IMemoryUsageThresholdExceeded(Interface):
     mem_usage: int

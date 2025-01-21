@@ -29,3 +29,21 @@ class CustomException2:
 # the exception doesn't derive from BaseException.
 if a or 2 > 1:
     raise CustomException2
+
+
+def func1(x1: type[BaseException], x2: type[BaseException]):
+    if 2 > 1:
+        raise x1 from None
+
+    if 2 > 1:
+        raise x1 from x2
+
+    if 2 > 1:
+        # This should generate an error because the exception
+        # type doesn't derive from BaseException.
+        raise 1 from x2
+
+    if 2 > 1:
+        # This should generate an error because the exception
+        # type doesn't derive from BaseException.
+        raise ValueError from 1

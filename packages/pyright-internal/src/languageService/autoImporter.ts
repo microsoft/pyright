@@ -42,17 +42,21 @@ import { IndexAliasData } from './symbolIndexer';
 import { fromLSPAny } from '../common/lspUtils';
 
 export interface AutoImportSymbol {
-    readonly importAlias?: IndexAliasData;
-    readonly symbol?: Symbol;
+    readonly name: string;
+    readonly library: boolean;
+
     readonly kind?: SymbolKind;
     readonly itemKind?: CompletionItemKind;
+    readonly importAlias?: IndexAliasData;
+
+    readonly symbol?: Symbol;
     readonly inDunderAll?: boolean;
     readonly hasRedundantAlias?: boolean;
 }
 
 export interface ModuleSymbolTable {
-    uri: Uri;
-    forEach(callbackfn: (symbol: AutoImportSymbol, name: string, library: boolean) => void): void;
+    readonly uri: Uri;
+    getSymbols(): Generator<AutoImportSymbol>;
 }
 
 export type ModuleSymbolMap = Map<string, ModuleSymbolTable>;
@@ -138,34 +142,41 @@ export function buildModuleSymbolsMap(files: readonly SourceFileInfo[]): ModuleS
 
         moduleSymbolMap.set(uri.key, {
             uri,
-            forEach(callbackfn: (value: AutoImportSymbol, key: string, library: boolean) => void): void {
-                symbolTable.forEach((symbol, name) => {
+            *getSymbols() {
+                for (const [name, symbol] of symbolTable) {
                     if (!isVisibleExternally(symbol)) {
-                        return;
+                        continue;
                     }
 
                     const declarations = symbol.getDeclarations();
                     if (!declarations || declarations.length === 0) {
-                        return;
+                        continue;
                     }
 
                     const declaration = declarations[0];
                     if (!declaration) {
-                        return;
+                        continue;
                     }
 
                     if (declaration.type === DeclarationType.Alias && isUserCode(file)) {
                         // We don't include import alias in auto import
                         // for workspace files.
-                        return;
+                        continue;
                     }
 
                     const variableKind =
                         declaration.type === DeclarationType.Variable && !declaration.isConstant && !declaration.isFinal
                             ? SymbolKind.Variable
                             : undefined;
-                    callbackfn({ symbol, kind: variableKind }, name, /* library */ !isUserCode(file));
-                });
+
+                    yield {
+                        name,
+                        symbol,
+                        kind: variableKind,
+                        library: !isUserCode(file),
+                        inDunderAll: symbol.isInDunderAll(),
+                    };
+                }
             },
         });
         return;
@@ -351,28 +362,29 @@ export class AutoImporter {
         }
 
         const dotCount = StringUtils.getCharacterCount(importSource, '.');
-        topLevelSymbols.forEach((autoImportSymbol, name) => {
-            if (!this.shouldIncludeVariable(autoImportSymbol, name, fileProperties.isStub)) {
-                return;
+        for (const autoSymbol of topLevelSymbols.getSymbols()) {
+            if (!this.shouldIncludeVariable(autoSymbol, fileProperties.isStub)) {
+                continue;
             }
 
             // For very short matching strings, we will require an exact match. Otherwise
             // we will tend to return a list that's too long. Once we get beyond two
             // characters, we can do a fuzzy match.
+            const name = autoSymbol.name;
             const isSimilar = this._isSimilar(word, name, similarityLimit);
             if (!isSimilar) {
-                return;
+                continue;
             }
 
             const alreadyIncluded = this._containsName(name, importSource, results);
             if (alreadyIncluded) {
-                return;
+                continue;
             }
 
             // We will collect all aliases and then process it later
-            if (autoImportSymbol.importAlias) {
+            if (autoSymbol.importAlias) {
                 this._addToImportAliasMap(
-                    autoImportSymbol.importAlias,
+                    autoSymbol.importAlias,
                     {
                         importParts: {
                             symbolName: name,
@@ -383,16 +395,16 @@ export class AutoImporter {
                             moduleNameAndType,
                         },
                         importGroup,
-                        symbol: autoImportSymbol.symbol,
-                        kind: autoImportSymbol.importAlias.kind,
-                        itemKind: autoImportSymbol.importAlias.itemKind,
-                        inDunderAll: autoImportSymbol.inDunderAll,
-                        hasRedundantAlias: autoImportSymbol.hasRedundantAlias,
-                        fileUri: autoImportSymbol.importAlias.moduleUri,
+                        symbol: autoSymbol.symbol,
+                        kind: autoSymbol.importAlias.kind,
+                        itemKind: autoSymbol.importAlias.itemKind,
+                        inDunderAll: autoSymbol.inDunderAll,
+                        hasRedundantAlias: autoSymbol.hasRedundantAlias,
+                        fileUri: autoSymbol.importAlias.moduleUri,
                     },
                     importAliasMap
                 );
-                return;
+                continue;
             }
 
             const nameForImportFrom = this.getNameForImportFrom(/* library */ !fileProperties.isUserCode, moduleUri);
@@ -407,16 +419,16 @@ export class AutoImporter {
             this._addResult(results, {
                 name,
                 alias: abbrFromUsers,
-                symbol: autoImportSymbol.symbol,
+                symbol: autoSymbol.symbol,
                 source: importSource,
-                kind: autoImportSymbol.itemKind ?? convertSymbolKindToCompletionItemKind(autoImportSymbol.kind),
+                kind: autoSymbol.itemKind ?? convertSymbolKindToCompletionItemKind(autoSymbol.kind),
                 insertionText: autoImportTextEdits.insertionText,
                 edits: autoImportTextEdits.edits,
                 declUri: moduleUri,
                 originalName: name,
                 originalDeclUri: moduleUri,
             });
-        });
+        }
 
         // If the current file is in a directory that also contains an "__init__.py[i]"
         // file, we can use that directory name as an implicit import target.
@@ -497,14 +509,14 @@ export class AutoImporter {
         return StringUtils.getStringComparer()(left.importParts.importName, right.importParts.importName);
     }
 
-    protected shouldIncludeVariable(autoImportSymbol: AutoImportSymbol, name: string, isStub: boolean) {
+    protected shouldIncludeVariable(autoSymbol: AutoImportSymbol, isStub: boolean) {
         // If it is not a stub file and symbol is Variable, we only include it if
         // name is public constant or type alias
-        if (isStub || autoImportSymbol.kind !== SymbolKind.Variable) {
+        if (isStub || autoSymbol.kind !== SymbolKind.Variable) {
             return true;
         }
 
-        return SymbolNameUtils.isPublicConstantOrTypeAlias(name);
+        return SymbolNameUtils.isPublicConstantOrTypeAlias(autoSymbol.name);
     }
 
     private _addToImportAliasMap(

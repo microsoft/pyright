@@ -7,6 +7,7 @@
  */
 
 import { addIfUnique, removeArrayElements } from './collectionUtils';
+import { Disposable } from './core';
 import * as debug from './debug';
 
 abstract class InternalKey {
@@ -100,6 +101,14 @@ export class ServiceProvider {
         });
 
         return serviceProvider;
+    }
+
+    dispose() {
+        for (const service of this._container.values()) {
+            if (Disposable.is(service)) {
+                service.dispose();
+            }
+        }
     }
 
     private _addGroupService<T>(key: GroupServiceKey<T>, newValue: T | undefined) {

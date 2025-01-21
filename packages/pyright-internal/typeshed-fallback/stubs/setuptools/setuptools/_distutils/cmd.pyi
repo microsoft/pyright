@@ -1,6 +1,6 @@
 from _typeshed import BytesPath, StrOrBytesPath, StrPath, Unused
 from abc import abstractmethod
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, MutableSequence
 from typing import Any, ClassVar, TypeVar, overload
 from typing_extensions import TypeVarTuple, Unpack
 
@@ -16,6 +16,11 @@ class Command:
     distribution: Distribution
     # Any to work around variance issues
     sub_commands: ClassVar[list[tuple[str, Callable[[Any], bool] | None]]]
+    user_options: ClassVar[
+        # Specifying both because list is invariant. Avoids mypy override assignment issues
+        list[tuple[str, str, str]]
+        | list[tuple[str, str | None, str]]
+    ]
     def __init__(self, dist: Distribution) -> None: ...
     def ensure_finalized(self) -> None: ...
     @abstractmethod
@@ -79,7 +84,7 @@ class Command:
     def move_file(self, src: StrPath, dst: _StrPathT, level: Unused = 1) -> _StrPathT | str: ...
     @overload
     def move_file(self, src: BytesPath, dst: _BytesPathT, level: Unused = 1) -> _BytesPathT | bytes: ...
-    def spawn(self, cmd: Iterable[str], search_path: bool = True, level: Unused = 1) -> None: ...
+    def spawn(self, cmd: MutableSequence[str], search_path: bool = True, level: Unused = 1) -> None: ...
     @overload
     def make_archive(
         self,

@@ -8,6 +8,7 @@
  * completion suggestions, etc.
  */
 
+import { getBoundCallMethod } from '../analyzer/constructors';
 import { Declaration, DeclarationType, VariableDeclaration } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
@@ -51,8 +52,23 @@ export function getToolTipForType(
     name: string,
     evaluator: TypeEvaluator,
     isProperty: boolean,
-    functionSignatureDisplay: SignatureDisplayType
+    functionSignatureDisplay: SignatureDisplayType,
+    typeNode?: ExpressionNode
 ): string {
+    // Support __call__ method for class instances to show the signature of the method
+    if (type.category === TypeCategory.Class && isClassInstance(type) && typeNode) {
+        const callMethodResult = getBoundCallMethod(evaluator, typeNode, type);
+        if (
+            callMethodResult?.type.category === TypeCategory.Function ||
+            callMethodResult?.type.category === TypeCategory.Overloaded
+        ) {
+            // narrow down specific overload if possible
+            const methodType = bindFunctionToClassOrObjectToolTip(evaluator, typeNode, type, callMethodResult.type);
+            if (methodType) {
+                type = methodType;
+            }
+        }
+    }
     let signatureString = '';
     if (isOverloaded(type)) {
         signatureString = label.length > 0 ? `(${label})\n` : '';

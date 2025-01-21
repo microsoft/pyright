@@ -18,7 +18,7 @@ test('TypeParams1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('TypeParams2', () => {
@@ -38,7 +38,7 @@ test('TypeParams3', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypeParams4', () => {
@@ -71,6 +71,14 @@ test('TypeParams7', () => {
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams7.py'], configOptions);
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('TypeParams8', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams8.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('AutoVariance1', () => {
@@ -431,7 +439,7 @@ test('DataclassTransform2', () => {
 test('DataclassTransform3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform3.py']);
 
-    TestUtils.validateResults(analysisResults, 8);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('DataclassTransform4', () => {

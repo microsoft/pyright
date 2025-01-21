@@ -1,3 +1,11 @@
+from .alarms import (
+    Alarms as Alarms,
+    AlarmTime as AlarmTime,
+    ComponentEndMissing as ComponentEndMissing,
+    ComponentStartMissing as ComponentStartMissing,
+    IncompleteAlarmInformation as IncompleteAlarmInformation,
+    LocalTimezoneMissing as LocalTimezoneMissing,
+)
 from .cal import (
     Alarm as Alarm,
     Calendar as Calendar,
@@ -87,4 +95,10 @@ __all__ = [
     "vMonth",
     "IncompleteComponent",
     "InvalidCalendar",
+    "Alarms",
+    "AlarmTime",
+    "ComponentEndMissing",
+    "ComponentStartMissing",
+    "IncompleteAlarmInformation",
+    "LocalTimezoneMissing",
 ]

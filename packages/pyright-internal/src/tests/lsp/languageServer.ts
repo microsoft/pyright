@@ -30,6 +30,7 @@ import { clearCache } from '../harness/vfs/factory';
 import { BackgroundAnalysis, BackgroundAnalysisRunner } from '../../backgroundAnalysis';
 import { BackgroundAnalysisBase } from '../../backgroundAnalysisBase';
 import { serialize } from '../../backgroundThreadBase';
+import { initializeDependencies } from '../../common/asyncInitialization';
 import { FileSystem } from '../../common/fileSystem';
 import { ServerSettings } from '../../common/languageServerInterface';
 import { PythonVersion } from '../../common/pythonVersion';
@@ -388,7 +389,9 @@ async function runTestBackgroundThread() {
     }
 }
 
-export function run() {
+export async function run() {
+    await initializeDependencies();
+
     // Start the background thread if this is not the first worker.
     if (getEnvironmentData(WORKER_STARTED) === 'true') {
         runTestBackgroundThread();
