@@ -177,6 +177,26 @@ function findSitePackagesPath(
     return undefined;
 }
 
+export function readPthSearchPaths(pthFile: Uri, fs: FileSystem): Uri[] {
+    const searchPaths: Uri[] = [];
+
+    if (fs.existsSync(pthFile)) {
+        const data = fs.readFileSync(pthFile, 'utf8');
+        const lines = data.split(/\r?\n/);
+        lines.forEach((line) => {
+            const trimmedLine = line.trim();
+            if (trimmedLine.length > 0 && !trimmedLine.startsWith('#') && !trimmedLine.match(/^import\s/)) {
+                const pthPath = pthFile.getDirectory().combinePaths(trimmedLine);
+                if (fs.existsSync(pthPath) && isDirectory(fs, pthPath)) {
+                    searchPaths.push(fs.realCasePath(pthPath));
+                }
+            }
+        });
+    }
+
+    return searchPaths;
+}
+
 export function getPathsFromPthFiles(fs: FileSystem, parentDir: Uri): Uri[] {
     const searchPaths: Uri[] = [];
 
@@ -192,24 +212,14 @@ export function getPathsFromPthFiles(fs: FileSystem, parentDir: Uri): Uri[] {
 
         // Skip all files that are much larger than expected.
         if (fileStats?.isFile() && fileStats.size > 0 && fileStats.size < 64 * 1024) {
-            const data = fs.readFileSync(filePath, 'utf8');
-            const lines = data.split(/\r?\n/);
-            lines.forEach((line) => {
-                const trimmedLine = line.trim();
-                if (trimmedLine.length > 0 && !trimmedLine.startsWith('#') && !trimmedLine.match(/^import\s/)) {
-                    const pthPath = parentDir.combinePaths(trimmedLine);
-                    if (fs.existsSync(pthPath) && isDirectory(fs, pthPath)) {
-                        searchPaths.push(fs.realCasePath(pthPath));
-                    }
-                }
-            });
+            searchPaths.push(...readPthSearchPaths(filePath, fs));
         }
     });
 
     return searchPaths;
 }
 
-function addPathIfUnique(pathList: Uri[], pathToAdd: Uri) {
+export function addPathIfUnique(pathList: Uri[], pathToAdd: Uri) {
     if (!pathList.some((path) => path.key === pathToAdd.key)) {
         pathList.push(pathToAdd);
         return true;

@@ -31,6 +31,7 @@ test('Empty', () => {
     const importResolver = new ImportResolver(sp, configOptions, new FullAccessHost(sp));
 
     sourceFile.parse(configOptions, importResolver);
+    serviceProvider.dispose();
 });
 
 test('Empty Open file', () => {

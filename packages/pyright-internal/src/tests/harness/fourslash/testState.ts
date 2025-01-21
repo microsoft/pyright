@@ -98,6 +98,7 @@ import {
     getRangeByMarkerName,
 } from './testStateUtils';
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
+import { Host } from '../../../common/host';
 
 export interface TextChange {
     span: TextRange;
@@ -187,11 +188,12 @@ export class TestState {
             this._applyTestConfigOptions(configOptions);
         }
 
-        const service = this._createAnalysisService(
+        const service = this.createAnalysisService(
             this.console,
             this._hostSpecificFeatures.importResolverFactory,
             this._hostSpecificFeatures.backgroundAnalysisProgramFactory,
-            configOptions
+            configOptions,
+            testAccessHost
         );
 
         this.workspace = {
@@ -1703,6 +1705,39 @@ export class TestState {
         }
     }
 
+    protected createAnalysisService(
+        nullConsole: ConsoleInterface,
+        importResolverFactory: ImportResolverFactory,
+        backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory,
+        configOptions: ConfigOptions,
+        host: Host
+    ) {
+        // we do not initiate automatic analysis or file watcher in test.
+        const service = new AnalyzerService('test service', this.serviceProvider, {
+            console: nullConsole,
+            hostFactory: () => host,
+            importResolverFactory,
+            backgroundAnalysisProgramFactory,
+            configOptions,
+            fileSystem: this.fs,
+            libraryReanalysisTimeProvider: () => 0,
+        });
+
+        // directly set files to track rather than using fileSpec from config
+        // to discover those files from file system
+        service.test_program.setTrackedFiles(
+            this.files
+                .filter((path) => {
+                    const fileExtension = getFileExtension(path).toLowerCase();
+                    return fileExtension === '.py' || fileExtension === '.pyi';
+                })
+                .map((path) => Uri.file(path, this.serviceProvider))
+                .filter((path) => service.isTracked(path))
+        );
+
+        return service;
+    }
+
     private _convertGlobalOptionsToConfigOptions(projectRoot: string, mountPaths?: Map<string, string>): ConfigOptions {
         const configOptions = new ConfigOptions(Uri.file(projectRoot, this.serviceProvider));
 
@@ -1956,38 +1991,6 @@ export class TestState {
         });
 
         return new Map<string, (typeof results)[0][1]>(results);
-    }
-
-    private _createAnalysisService(
-        nullConsole: ConsoleInterface,
-        importResolverFactory: ImportResolverFactory,
-        backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory,
-        configOptions: ConfigOptions
-    ) {
-        // we do not initiate automatic analysis or file watcher in test.
-        const service = new AnalyzerService('test service', this.serviceProvider, {
-            console: nullConsole,
-            hostFactory: () => testAccessHost,
-            importResolverFactory,
-            backgroundAnalysisProgramFactory,
-            configOptions,
-            fileSystem: this.fs,
-            libraryReanalysisTimeProvider: () => 0,
-        });
-
-        // directly set files to track rather than using fileSpec from config
-        // to discover those files from file system
-        service.test_program.setTrackedFiles(
-            this.files
-                .filter((path) => {
-                    const fileExtension = getFileExtension(path).toLowerCase();
-                    return fileExtension === '.py' || fileExtension === '.pyi';
-                })
-                .map((path) => Uri.file(path, this.serviceProvider))
-                .filter((path) => service.isTracked(path))
-        );
-
-        return service;
     }
 
     private _deepEqual(a: any, e: any) {
