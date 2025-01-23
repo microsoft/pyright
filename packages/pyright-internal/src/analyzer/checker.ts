@@ -6562,6 +6562,14 @@ export class Checker extends ParseTreeWalker {
             if (impl && isFunction(impl)) {
                 overrideFunction = impl;
             }
+
+            // If there is no implementation present, use the first overload.
+            if (!impl) {
+                const overloads = OverloadedType.getOverloads(overrideType);
+                if (overloads.length > 0) {
+                    overrideFunction = overloads[0];
+                }
+            }
         } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
             if (overrideType.priv.fgetInfo) {
                 overrideFunction = overrideType.priv.fgetInfo.methodType;
