@@ -4871,7 +4871,9 @@ export function createTypeEvaluator(
         }
 
         if (isTypeVar(type)) {
-            return true;
+            if (type.props?.specialForm || type.props?.typeAliasInfo) {
+                return true;
+            }
         }
 
         // Exempts class types that are created by calling NewType, NamedTuple, etc.
