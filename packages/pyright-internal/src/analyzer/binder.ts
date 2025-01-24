@@ -2569,6 +2569,11 @@ export class Binder extends ParseTreeWalker {
 
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
+        let uriOfFirstSubmodule: Uri | undefined;
+        if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedUris.length > 0) {
+            uriOfFirstSubmodule = importInfo.resolvedUris[0];
+        }
+
         // See if there's already a matching alias declaration for this import.
         // if so, we'll update it rather than creating a new one. This is required
         // to handle cases where multiple import statements target the same
@@ -2578,7 +2583,12 @@ export class Binder extends ParseTreeWalker {
         // python module loader.
         const existingDecl = symbol
             .getDeclarations()
-            .find((decl) => decl.type === DeclarationType.Alias && decl.firstNamePart === firstNamePartValue);
+            .find(
+                (decl) =>
+                    decl.type === DeclarationType.Alias &&
+                    decl.firstNamePart === firstNamePartValue &&
+                    (!uriOfFirstSubmodule || uriOfFirstSubmodule.equals(decl.uri))
+            );
         let newDecl: AliasDeclaration;
         let uriOfLastSubmodule: Uri;
         if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedUris.length > 0) {
