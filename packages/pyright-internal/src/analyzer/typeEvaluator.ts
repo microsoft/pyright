@@ -9432,7 +9432,7 @@ export function createTypeEvaluator(
 
         // Start by evaluating the types of the arguments without any expected
         // type. Also, filter the list of overloads based on the number of
-        // positional and named arguments that are present. We do all of this
+        // positional and keyword arguments that are present. We do all of this
         // speculatively because we don't want to record any types in the type
         // cache or record any diagnostics at this stage.
         useSpeculativeMode(speculativeNode, () => {
@@ -10864,10 +10864,6 @@ export function createTypeEvaluator(
                         errorNode,
                         /* emitNotIterableError */ false
                     )?.type;
-
-                    if (paramInfo.param.category !== ParamCategory.ArgsList) {
-                        matchedUnpackedListOfUnknownLength = true;
-                    }
                 }
 
                 const funcArg: Arg | undefined = listElementType
