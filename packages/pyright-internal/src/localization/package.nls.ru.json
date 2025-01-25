@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "Перегрузки должны соответствовать абстрактному статусу реализации",
         "overloadAbstractMismatch": "Все перегрузки должны быть абстрактными или не абстрактными",
         "overloadClassMethodInconsistent": "Перегрузки для \"{name}\" используют @classmethod несогласованно",
-        "overloadFinalInconsistencyImpl": "Перегрузка для \"{name}\" помечена как @final, но реализация — нет",
-        "overloadFinalInconsistencyNoImpl": "Перегрузка {index} для \"{name}\" помечена как @final, но перегрузка 1 — нет",
         "overloadImplementationMismatch": "Перегруженная реализация не согласована с сигнатурой перегрузки {index}",
         "overloadReturnTypeMismatch": "Перегрузка {prevIndex} для \"{name}\" перекрывает перегрузку {newIndex} и возвращает несовместимый тип",
         "overloadStaticMethodInconsistent": "Перегрузки для \"{name}\" используют @staticmethod несогласованно",

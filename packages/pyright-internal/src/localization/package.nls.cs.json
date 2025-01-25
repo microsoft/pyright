@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "Přetížení musí odpovídat abstraktnímu stavu implementace.",
         "overloadAbstractMismatch": "Buď musí být všechna přetížení abstraktní, nebo naopak nesmí být žádné z nich abstraktní.",
         "overloadClassMethodInconsistent": "Přetížení pro {name} používají @classmethod nekonzistentně.",
-        "overloadFinalInconsistencyImpl": "Přetížení pro „{name}“ je označené @final ale implementace není",
-        "overloadFinalInconsistencyNoImpl": "Přetížení {index} pro „{name}“ je označené @final ale přetížení 1 není",
         "overloadImplementationMismatch": "Přetížená implementace není konzistentní se signaturou přetížení {index}",
         "overloadReturnTypeMismatch": "Přetížení {prevIndex} pro {name} se překrývá s přetížením {newIndex} a vrací nekompatibilní typ",
         "overloadStaticMethodInconsistent": "Přetížení pro {name} používají @staticmethod nekonzistentně.",

@@ -908,15 +908,23 @@
             "message": "Overloads for \"{name}\" use @classmethod inconsistently",
             "comment": "{Locked='@classmethod'}"
         },
-        "overloadFinalInconsistencyImpl": {
-            "message": "Overload for \"{name}\" is marked @final but implementation is not",
+        "overloadFinalImpl": {
+            "message": "@final decorator should be applied only to the implementation",
             "comment": "{Locked='@final'}"
         },
-        "overloadFinalInconsistencyNoImpl": {
-            "message": "Overload {index} for \"{name}\" is marked @final but overload 1 is not",
+        "overloadFinalNoImpl": {
+            "message": "Only the first overload should be marked @final",
             "comment": "{Locked='@final'}"
         },
         "overloadImplementationMismatch": "Overloaded implementation is not consistent with signature of overload {index}",
+        "overloadOverrideImpl": {
+            "message": "@override decorator should be applied only to the implementation",
+            "comment": "{Locked='@override'}"
+        },
+        "overloadOverrideNoImpl": {
+            "message": "Only the first overload should be marked @override",
+            "comment": "{Locked='@override'}"
+        },
         "overloadReturnTypeMismatch": "Overload {prevIndex} for \"{name}\" overlaps overload {newIndex} and returns an incompatible type",
         "overloadStaticMethodInconsistent": {
             "message": "Overloads for \"{name}\" use @staticmethod inconsistently",

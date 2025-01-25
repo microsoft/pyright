@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "Gli overload devono corrispondere allo stato astratto dell'implementazione",
         "overloadAbstractMismatch": "Gli overload devono essere tutti astratti o no",
         "overloadClassMethodInconsistent": "Gli overload per \"{name}\" usano @classmethod in modo incoerente",
-        "overloadFinalInconsistencyImpl": "L'overload per “{name}” è contrassegnato @final ma l'implementazione non lo è",
-        "overloadFinalInconsistencyNoImpl": "L'overload {index} per “{name}” è contrassegnato @final ma l'overload 1 non lo è",
         "overloadImplementationMismatch": "L'implementazione di overload non è coerente con la firma dell'overload {index}",
         "overloadReturnTypeMismatch": "L'overload {prevIndex} per \"{name}\" si sovrappone all'overload {newIndex} e restituisce un tipo incompatibile",
         "overloadStaticMethodInconsistent": "Gli overload per \"{name}\" usano @staticmethod in modo incoerente",

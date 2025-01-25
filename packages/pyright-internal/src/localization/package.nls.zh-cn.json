@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "重载必须与实现的抽象状态匹配",
         "overloadAbstractMismatch": "重载必须全是抽象重载，或者全都不是抽象重载",
         "overloadClassMethodInconsistent": "“{name}”的重载使用 @classmethod 的方式不一致",
-        "overloadFinalInconsistencyImpl": "“{name}”的重载被标记为 @final，但实施未被标记",
-        "overloadFinalInconsistencyNoImpl": "“{name}”的重载 {index} 被标记为 @final，但重载 1 未被标记",
         "overloadImplementationMismatch": "重载实现与重载 {index} 的签名不一致",
         "overloadReturnTypeMismatch": "“{name}”的重载 {prevIndex} 与重载 {newIndex} 重叠，并返回不兼容的类型",
         "overloadStaticMethodInconsistent": "“{name}”的重载使用 @staticmethod 的方式不一致",

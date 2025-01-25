@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "As sobrecargas devem corresponder ao status abstrato da implementação",
         "overloadAbstractMismatch": "As sobrecargas devem ser abstratas ou não",
         "overloadClassMethodInconsistent": "Sobrecargas para \"{name}\" usam @classmethod inconsistentemente",
-        "overloadFinalInconsistencyImpl": "A sobrecarga para \"{name}\" está marcada como @final mas a implementação não está",
-        "overloadFinalInconsistencyNoImpl": "A sobrecarga {index} para \"{name}\" está marcada como @final mas a sobrecarga 1 não está",
         "overloadImplementationMismatch": "A implementação sobrecarregada não é consistente com a assinatura da sobrecarga {index}",
         "overloadReturnTypeMismatch": "A sobrecarga {prevIndex} para \"{name}\" sobrepõe a sobrecarga {newIndex} e retorna um tipo incompatível",
         "overloadStaticMethodInconsistent": "Sobrecargas para \"{name}\" usam @staticmethod inconsistentemente",
