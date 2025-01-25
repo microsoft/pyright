@@ -11,22 +11,18 @@ _T2 = TypeVar("_T2")
 # This should generate an error because this overload overlaps
 # with the third one and returns a different type.
 @overload
-def func1(__iter1: Iterable[_T1]) -> Tuple[_T1]:
-    ...
+def func1(__iter1: Iterable[_T1]) -> Tuple[_T1]: ...
 
 
 @overload
-def func1(__iter1: Iterable[_T1], __iter2: Iterable[_T2]) -> Tuple[_T1, _T2]:
-    ...
+def func1(__iter1: Iterable[_T1], __iter2: Iterable[_T2]) -> Tuple[_T1, _T2]: ...
 
 
 @overload
-def func1(*iterables: Iterable[_T1]) -> float:
-    ...
+def func1(*iterables: Iterable[_T1]) -> float: ...
 
 
-def func1(*iterables: Iterable[_T1 | _T2]) -> Tuple[_T1 | _T2, ...] | float:
-    ...
+def func1(*iterables: Iterable[_T1 | _T2]) -> Tuple[_T1 | _T2, ...] | float: ...
 
 
 def test1(x: Iterable[int]):
@@ -48,18 +44,15 @@ def test1(x: Iterable[int]):
 
 
 @overload
-def func2() -> tuple[()]:
-    ...
+def func2() -> tuple[()]: ...
 
 
 @overload
-def func2(x: int, /) -> tuple[int]:
-    ...
+def func2(x: int, /) -> tuple[int]: ...
 
 
 @overload
-def func2(*x: int) -> tuple[int, ...]:
-    ...
+def func2(*x: int) -> tuple[int, ...]: ...
 
 
 def func2(*x: int) -> tuple[int, ...]:
@@ -70,3 +63,20 @@ reveal_type(func2(), expected_text="tuple[()]")
 reveal_type(func2(1), expected_text="tuple[int]")
 reveal_type(func2(1, 2), expected_text="tuple[int, ...]")
 reveal_type(func2(*[1, 2, 3]), expected_text="tuple[int, ...]")
+
+
+@overload
+def func3(x: int, /) -> str: ...
+
+
+@overload
+def func3(x: int, y: int, /, *args: int) -> int: ...
+
+
+def func3(*args: int) -> int | str:
+    return 1
+
+
+def test3(v: list[int]) -> None:
+    r = func3(*v)
+    reveal_type(r, expected_text="int")
