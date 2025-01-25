@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "Przeciążenia muszą być zgodne ze stanem abstrakcyjnym implementacji",
         "overloadAbstractMismatch": "Przeciążenia muszą być abstrakcyjne lub nieabstrakcyjne",
         "overloadClassMethodInconsistent": "Przeciążenia dla nazwy „{name}” używają metody @classmethod niekonsekwentnie",
-        "overloadFinalInconsistencyImpl": "Przeciążenie elementu „{name}” jest oznaczone @final, ale implementacja nie jest",
-        "overloadFinalInconsistencyNoImpl": "Przeciążenie {index} dla elementu „{name}” jest oznaczone @final, ale przeciążenie 1 nie jest",
         "overloadImplementationMismatch": "Przeciążone wdrożenie jest niespójne z sygnaturą przeciążenia {index}",
         "overloadReturnTypeMismatch": "Przeciążenie {prevIndex} dla nazwy „{name}” nakłada się na przeciążenie {newIndex} i zwraca niezgodny typ",
         "overloadStaticMethodInconsistent": "Przeciążenia dla nazwy „{name}” używają metody @staticmethod niekonsekwentnie",

@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "オーバーロードは実装の抽象状態と一致する必要があります",
         "overloadAbstractMismatch": "オーバーロードはすべて抽象であるか抽象でない必要があります",
         "overloadClassMethodInconsistent": "\"{name}\" のオーバーロードでは、@classmethod を不整合に使用します",
-        "overloadFinalInconsistencyImpl": "\"{name}\" のオーバーロードは @final としてマークされていますが、実装は @final としてマークされていません",
-        "overloadFinalInconsistencyNoImpl": "\"{name}\" のオーバーロード {index} は @final としてマークされていますが、オーバーロード 1 は @final としてマークされていません",
         "overloadImplementationMismatch": "オーバーロードされた実装がオーバーロード {index} のシグネチャと一致しません",
         "overloadReturnTypeMismatch": "\"{name}\" のオーバーロード {prevIndex} はオーバーロード {newIndex} と重複し、互換性のない型を返します",
         "overloadStaticMethodInconsistent": "\"{name}\" のオーバーロードでは、@staticmethod を不整合に使用します",

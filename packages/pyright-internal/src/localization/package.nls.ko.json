@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "오버로드는 구현의 추상 상태와 일치해야 합니다.",
         "overloadAbstractMismatch": "오버로드는 모두 추상이거나 아니어야 합니다",
         "overloadClassMethodInconsistent": "\"{name}\"의 오버로드가 @classmethod를 일관되지 않게 사용합니다.",
-        "overloadFinalInconsistencyImpl": "\"{name}\"에 대한 오버로드가 @final로 표시되었지만 구현은 아닙니다.",
-        "overloadFinalInconsistencyNoImpl": "\"{name}\"에 대한 오버로드 {index}는 @final로 표시되지만 오버로드 1은 표시되지 않습니다.",
         "overloadImplementationMismatch": "오버로드된 구현이 오버로드 {index}의 시그니처와 일치하지 않습니다.",
         "overloadReturnTypeMismatch": "\"{name}\"에 대한 {prevIndex} 오버로드가 오버로드 {newIndex}과(와) 겹치고 호환되지 않는 형식을 반환합니다.",
         "overloadStaticMethodInconsistent": "\"{name}\"의 오버로드가 @staticmethod를 일관되지 않게 사용합니다.",

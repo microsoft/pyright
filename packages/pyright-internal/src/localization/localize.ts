@@ -747,16 +747,14 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadAbstractImplMismatch'));
         export const overloadClassMethodInconsistent = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadClassMethodInconsistent'));
-        export const overloadFinalInconsistencyImpl = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadFinalInconsistencyImpl'));
-        export const overloadFinalInconsistencyNoImpl = () =>
-            new ParameterizedString<{ name: string; index: number }>(
-                getRawString('Diagnostic.overloadFinalInconsistencyNoImpl')
-            );
+        export const overloadFinalImpl = () => getRawString('Diagnostic.overloadFinalImpl');
+        export const overloadFinalNoImpl = () => getRawString('Diagnostic.overloadFinalNoImpl');
         export const overloadImplementationMismatch = () =>
             new ParameterizedString<{ name: string; index: number }>(
                 getRawString('Diagnostic.overloadImplementationMismatch')
             );
+        export const overloadOverrideImpl = () => getRawString('Diagnostic.overloadOverrideImpl');
+        export const overloadOverrideNoImpl = () => getRawString('Diagnostic.overloadOverrideNoImpl');
         export const overloadReturnTypeMismatch = () =>
             new ParameterizedString<{ name: string; newIndex: number; prevIndex: number }>(
                 getRawString('Diagnostic.overloadReturnTypeMismatch')
