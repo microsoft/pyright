@@ -26629,42 +26629,60 @@ export function createTypeEvaluator(
                     !effectiveSrcParamSpec ||
                     !isTypeSame(effectiveSrcParamSpec, effectiveDestParamSpec, { ignoreTypeFlags: true })
                 ) {
-                    const remainingFunction = FunctionType.createInstance(
-                        '',
-                        '',
-                        '',
-                        effectiveSrcType.shared.flags | FunctionTypeFlags.SynthesizedMethod,
-                        effectiveSrcType.shared.docString
-                    );
-                    remainingFunction.shared.deprecatedMessage = effectiveSrcType.shared.deprecatedMessage;
-                    remainingFunction.shared.typeVarScopeId = effectiveSrcType.shared.typeVarScopeId;
-                    remainingFunction.priv.constructorTypeVarScopeId = effectiveSrcType.priv.constructorTypeVarScopeId;
-                    remainingFunction.shared.methodClass = effectiveSrcType.shared.methodClass;
-                    remainingParams.forEach((param) => {
-                        FunctionType.addParam(remainingFunction, param);
-                    });
-                    if (effectiveSrcParamSpec) {
-                        FunctionType.addParamSpecVariadics(remainingFunction, convertToInstance(effectiveSrcParamSpec));
-                    }
+                    const effectiveSrcPosCount = isContra ? destPositionalCount : srcPositionalCount;
+                    const effectiveDestPosCount = isContra ? srcPositionalCount : destPositionalCount;
 
-                    if (
-                        !assignType(effectiveDestParamSpec, remainingFunction, /* diag */ undefined, constraints, flags)
-                    ) {
-                        // If we couldn't assign the function to the ParamSpec, see if we can
-                        // assign only the ParamSpec. This is possible if there were no
-                        // remaining parameters.
+                    // If the src and dest both have ParamSpecs but the src has additional positional
+                    // parameters that have not been matched to dest positional parameters (probably due
+                    // to a Concatenate), don't attempt to assign the remaining parameters to the ParamSpec.
+                    if (!effectiveSrcParamSpec || effectiveSrcPosCount >= effectiveDestPosCount) {
+                        const remainingFunction = FunctionType.createInstance(
+                            '',
+                            '',
+                            '',
+                            effectiveSrcType.shared.flags | FunctionTypeFlags.SynthesizedMethod,
+                            effectiveSrcType.shared.docString
+                        );
+                        remainingFunction.shared.deprecatedMessage = effectiveSrcType.shared.deprecatedMessage;
+                        remainingFunction.shared.typeVarScopeId = effectiveSrcType.shared.typeVarScopeId;
+                        remainingFunction.priv.constructorTypeVarScopeId =
+                            effectiveSrcType.priv.constructorTypeVarScopeId;
+                        remainingFunction.shared.methodClass = effectiveSrcType.shared.methodClass;
+                        remainingParams.forEach((param) => {
+                            FunctionType.addParam(remainingFunction, param);
+                        });
+                        if (effectiveSrcParamSpec) {
+                            FunctionType.addParamSpecVariadics(
+                                remainingFunction,
+                                convertToInstance(effectiveSrcParamSpec)
+                            );
+                        }
+
                         if (
-                            remainingParams.length > 0 ||
-                            !effectiveSrcParamSpec ||
                             !assignType(
-                                convertToInstance(effectiveDestParamSpec),
-                                convertToInstance(effectiveSrcParamSpec),
+                                effectiveDestParamSpec,
+                                remainingFunction,
                                 /* diag */ undefined,
                                 constraints,
                                 flags
                             )
                         ) {
-                            canAssign = false;
+                            // If we couldn't assign the function to the ParamSpec, see if we can
+                            // assign only the ParamSpec. This is possible if there were no
+                            // remaining parameters.
+                            if (
+                                remainingParams.length > 0 ||
+                                !effectiveSrcParamSpec ||
+                                !assignType(
+                                    convertToInstance(effectiveDestParamSpec),
+                                    convertToInstance(effectiveSrcParamSpec),
+                                    /* diag */ undefined,
+                                    constraints,
+                                    flags
+                                )
+                            ) {
+                                canAssign = false;
+                            }
                         }
                     }
                 }
