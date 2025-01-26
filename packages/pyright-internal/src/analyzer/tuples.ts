@@ -548,6 +548,48 @@ export function getSlicedTupleType(
     return ClassType.cloneAsInstance(specializeTupleClass(tupleType, slicedTypeArgs));
 }
 
+// If the type is a fixed-length tuple instance and one or more of the element types
+// is a union, this function expands the tuple into a union of tuples where each
+// element is a union of the corresponding element types. This is done for all
+// element combinations until the total number of tuples exceeds maxExpansion,
+// at which point the function returns the original tuple type.
+export function expandTuple(tupleType: ClassType, maxExpansion: number): Type[] | undefined {
+    if (
+        !isTupleClass(tupleType) ||
+        !tupleType.priv.tupleTypeArgs ||
+        tupleType.priv.tupleTypeArgs.some((typeArg) => typeArg.isUnbounded || isTypeVarTuple(typeArg.type))
+    ) {
+        return undefined;
+    }
+
+    let typesToCombine: ClassType[] = [tupleType];
+    let index = 0;
+
+    while (index < tupleType.priv.tupleTypeArgs.length) {
+        const elemType = tupleType.priv.tupleTypeArgs[index].type;
+        if (isUnion(elemType)) {
+            const newTypesToCombine: ClassType[] = [];
+
+            for (const typeToCombine of typesToCombine) {
+                doForEachSubtype(elemType, (subtype) => {
+                    const newTypeArgs = [...typeToCombine.priv.tupleTypeArgs!];
+                    newTypeArgs[index] = { type: subtype, isUnbounded: false };
+                    newTypesToCombine.push(ClassType.cloneAsInstance(specializeTupleClass(typeToCombine, newTypeArgs)));
+                });
+            }
+            typesToCombine = newTypesToCombine;
+        }
+
+        if (typesToCombine.length > maxExpansion) {
+            return undefined;
+        }
+
+        index++;
+    }
+
+    return typesToCombine.length === 1 ? undefined : typesToCombine;
+}
+
 function getTupleSliceParam(
     evaluator: TypeEvaluator,
     expression: ExpressionNode | undefined,
