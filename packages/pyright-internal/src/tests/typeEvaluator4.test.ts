@@ -857,6 +857,11 @@ test('ParamSpec54', () => {
     TestUtils.validateResults(results, 0);
 });
 
+test('ParamSpec55', () => {
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec55.py']);
+    TestUtils.validateResults(results, 1);
+});
+
 test('Slice1', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['slice1.py']);
     TestUtils.validateResults(results, 0);
