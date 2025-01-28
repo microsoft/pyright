@@ -101,6 +101,7 @@ export interface FlowNodeTypeOptions {
     targetSymbolId?: number;
     typeAtStart?: TypeResult;
     skipConditionalNarrowing?: boolean;
+    returnUndefinedForTooComplex?: boolean;
 }
 
 export interface CodeFlowAnalyzer {

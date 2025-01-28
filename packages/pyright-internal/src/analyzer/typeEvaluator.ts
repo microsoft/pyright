@@ -4764,6 +4764,13 @@ export function createTypeEvaluator(
                     targetSymbolId: symbol.id,
                     typeAtStart: { type: typeAtStart, isIncomplete: isTypeAtStartIncomplete },
                     skipConditionalNarrowing: (flags & EvalFlags.TypeExpression) !== 0,
+
+                    // If we're resolving a symbol in the module scope and the code flow
+                    // graph at that level is too complex, return undefined rather
+                    // than Unknown (which is the default behavior). This is needed to
+                    // handle the aws_cdk top-level module, which is over a hundred thousand
+                    // lines long.
+                    returnUndefinedForTooComplex: symbolWithScope.scope.type === ScopeType.Module,
                 });
 
                 if (codeFlowTypeResult.type) {
@@ -20757,7 +20764,9 @@ export function createTypeEvaluator(
         if (checkCodeFlowTooComplex(reference)) {
             return FlowNodeTypeResult.create(
                 /* type */ options?.typeAtStart && isUnbound(options.typeAtStart.type)
-                    ? UnknownType.create()
+                    ? options?.returnUndefinedForTooComplex
+                        ? undefined
+                        : UnknownType.create()
                     : undefined,
                 /* isIncomplete */ true
             );

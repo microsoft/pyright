@@ -4087,17 +4087,25 @@ export class Binder extends ParseTreeWalker {
                 // a decorator that tells us otherwise.
                 isInstanceMember = true;
                 for (const decorator of methodNode.d.decorators) {
-                    if (decorator.d.expr.nodeType === ParseNodeType.Name) {
-                        const decoratorName = decorator.d.expr.d.value;
+                    let decoratorName: string | undefined;
 
-                        if (decoratorName === 'staticmethod') {
-                            // A static method doesn't have a "self" or "cls" parameter.
-                            return undefined;
-                        } else if (decoratorName === 'classmethod') {
-                            // A classmethod implies that the first parameter is "cls".
-                            isInstanceMember = false;
-                            break;
-                        }
+                    if (decorator.d.expr.nodeType === ParseNodeType.Name) {
+                        decoratorName = decorator.d.expr.d.value;
+                    } else if (
+                        decorator.d.expr.nodeType === ParseNodeType.MemberAccess &&
+                        decorator.d.expr.d.leftExpr.nodeType === ParseNodeType.Name &&
+                        decorator.d.expr.d.leftExpr.d.value === 'builtins'
+                    ) {
+                        decoratorName = decorator.d.expr.d.member.d.value;
+                    }
+
+                    if (decoratorName === 'staticmethod') {
+                        // A static method doesn't have a "self" or "cls" parameter.
+                        return undefined;
+                    } else if (decoratorName === 'classmethod') {
+                        // A classmethod implies that the first parameter is "cls".
+                        isInstanceMember = false;
+                        break;
                     }
                 }
             }
