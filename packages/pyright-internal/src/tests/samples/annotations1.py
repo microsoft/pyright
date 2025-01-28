@@ -147,3 +147,15 @@ x12: b"int"
 
 # This should generate an error because format strings aren't allowed.
 x13: f"int"
+
+
+class A:
+    def method1(self):
+        # This should result in an error.
+        x: self
+
+    @classmethod
+    def method2(cls):
+        # This should result in an error.
+        x: cls
+

@@ -179,7 +179,7 @@ test('Hashability3', () => {
 
 test('Override1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['override1.py']);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Override2', () => {

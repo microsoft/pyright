@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "多載必須符合實作的抽象狀態",
         "overloadAbstractMismatch": "多載必須全為抽象或不抽象",
         "overloadClassMethodInconsistent": "\"{name}\" 的多載不一致地使用 @classmethod",
-        "overloadFinalInconsistencyImpl": "\"{name}\" 的多載已標示為 @final 但未實作",
-        "overloadFinalInconsistencyNoImpl": "\"{name}\" 的多載 {index} 標示為 @final 但多載 1 未標示",
         "overloadImplementationMismatch": "多載的實作與多載 {index} 的簽章不一致",
         "overloadReturnTypeMismatch": "\"{name}\" 的多載 {prevIndex} 與多載 {newIndex} 重疊，並傳回不相容的類型",
         "overloadStaticMethodInconsistent": "\"{name}\" 的多載不一致地使用 @staticmethod",

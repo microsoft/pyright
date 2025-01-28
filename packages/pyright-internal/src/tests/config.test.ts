@@ -16,7 +16,7 @@ import { ConfigOptions, ExecutionEnvironment, getStandardDiagnosticRuleSet } fro
 import { ConsoleInterface, NullConsole } from '../common/console';
 import { TaskListPriority } from '../common/diagnostic';
 import { combinePaths, normalizePath, normalizeSlashes } from '../common/pathUtils';
-import { pythonVersion3_9 } from '../common/pythonVersion';
+import { pythonVersion3_13, pythonVersion3_9 } from '../common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
@@ -577,10 +577,36 @@ describe(`config test'}`, () => {
         assert.equal(options.venvPath?.pathIncludes('test_venv_path'), false);
     });
 
+    test('DefaultPythonVersion no config', () => {
+        const cwd = normalizePath(process.cwd());
+        const nullConsole = new NullConsole();
+        const service = createAnalyzer(nullConsole);
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath = 'src/tests/samples/package1';
+        service.setOptions(commandLineOptions);
+
+        const config = service.test_getConfigOptions(commandLineOptions);
+        assert.deepStrictEqual(config.defaultPythonVersion, pythonVersion3_13);
+    });
+
+    test('DefaultPythonVersion with config', () => {
+        const cwd = normalizePath(process.cwd());
+        const nullConsole = new NullConsole();
+        const service = createAnalyzer(nullConsole);
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath = 'src/tests/samples/project1';
+        service.setOptions(commandLineOptions);
+
+        const config = service.test_getConfigOptions(commandLineOptions);
+        assert.deepStrictEqual(config.defaultPythonVersion, pythonVersion3_13);
+    });
+
     function createAnalyzer(console?: ConsoleInterface) {
         const cons = console ?? new NullConsole();
         const fs = createFromRealFileSystem(tempFile, cons);
         const serviceProvider = createServiceProvider(fs, cons, tempFile);
-        return new AnalyzerService('<default>', serviceProvider, { console: cons });
+        const host = new TestAccessHost();
+        host.getPythonVersion = () => pythonVersion3_13;
+        return new AnalyzerService('<default>', serviceProvider, { console: cons, hostFactory: () => host });
     }
 });

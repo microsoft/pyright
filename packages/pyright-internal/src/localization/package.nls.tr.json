@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "Aşırı yüklemeler uygulamanın özet durumuyla eşleşmelidir",
         "overloadAbstractMismatch": "Aşırı yüklemelerin tümü soyut olmalı veya tümü olmamalıdır",
         "overloadClassMethodInconsistent": "\"{name}\" için aşırı yüklemeler, @classmethod yöntemini tutarlı kullanıyor",
-        "overloadFinalInconsistencyImpl": "\"{name}\" için aşırı yükleme @final olarak işaretlendi ancak uygulama işaretlenmedi",
-        "overloadFinalInconsistencyNoImpl": "\"{name}\" için aşırı yükleme {index} @final olarak işaretlendi ancak aşırı yükleme 1 işaretlenmedi",
         "overloadImplementationMismatch": "Aşırı yüklenmiş uygulama, {index} aşırı yükleme imzası ile tutarlı değil",
         "overloadReturnTypeMismatch": "\"{name}\" için {prevIndex} aşırı yüklemesi {newIndex} aşırı yüklemesi ile çakışıyor ve uyumsuz bir tür döndürüyor",
         "overloadStaticMethodInconsistent": "\"{name}\" için aşırı yüklemeler, @staticmethod yöntemini tutarsız kullanıyor",

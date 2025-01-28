@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "Les surcharges doivent correspondre à l’état abstrait de l’implémentation",
         "overloadAbstractMismatch": "Les surcharges doivent toutes être abstraites ou non",
         "overloadClassMethodInconsistent": "Les surcharges pour « {name} » utilisent @classmethod de manière incohérente",
-        "overloadFinalInconsistencyImpl": "La surcharge pour « {name} » est marquée @final, mais l’implémentation ne l’est pas",
-        "overloadFinalInconsistencyNoImpl": "La surcharge {index} pour « {name} » est marquée @final mais la surcharge 1 n’est pas",
         "overloadImplementationMismatch": "L’implémentation surchargée n’est pas cohérente avec la signature de la surcharge {index}",
         "overloadReturnTypeMismatch": "La surcharge {prevIndex} pour « {name} » chevauche la surcharge {newIndex} et retourne un type incompatible",
         "overloadStaticMethodInconsistent": "Les surcharges pour « {name} » utilisent @staticmethod de manière incohérente",

@@ -265,7 +265,7 @@ test('MemberAccess28', () => {
 test('DataClassNamedTuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassNamedTuple1.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('DataClassNamedTuple2', () => {
@@ -855,6 +855,11 @@ test('ParamSpec53', () => {
 test('ParamSpec54', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec54.py']);
     TestUtils.validateResults(results, 0);
+});
+
+test('ParamSpec55', () => {
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec55.py']);
+    TestUtils.validateResults(results, 1);
 });
 
 test('Slice1', () => {

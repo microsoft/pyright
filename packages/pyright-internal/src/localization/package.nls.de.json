@@ -365,8 +365,6 @@
         "overloadAbstractImplMismatch": "Überladungen müssen dem abstrakten Status der Implementierung entsprechen.",
         "overloadAbstractMismatch": "Überladungen müssen alle abstrakt sein oder nicht.",
         "overloadClassMethodInconsistent": "Überladungen für \"{name}\" verwenden @classmethod inkonsistent",
-        "overloadFinalInconsistencyImpl": "Die Überladung für „{name}“ ist @final markiert, die Implementierung ist es jedoch nicht.",
-        "overloadFinalInconsistencyNoImpl": "Überladung {index} für „{name}“ ist als @final markiert, Überladung 1 ist es jedoch nicht.",
         "overloadImplementationMismatch": "Die überladene Implementierung ist nicht konsistent mit der Signatur der Überladung {index}",
         "overloadReturnTypeMismatch": "Überladung {prevIndex} für \"{name}\" überlappt {newIndex} und gibt einen inkompatiblen Typ zurück.",
         "overloadStaticMethodInconsistent": "Überladungen für \"{name}\" verwenden @staticmethod inkonsistent",
