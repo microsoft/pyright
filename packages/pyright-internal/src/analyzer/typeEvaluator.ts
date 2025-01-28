@@ -4392,7 +4392,7 @@ export function createTypeEvaluator(
             case ParseNodeType.TypeAnnotation: {
                 let annotationType: Type | undefined = getTypeOfAnnotation(target.d.annotation, {
                     varTypeAnnotation: true,
-                    allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.d.valueExpr),
+                    allowFinal: isFinalAllowedForAssignmentTarget(target.d.valueExpr),
                     allowClassVar: isClassVarAllowedForAssignmentTarget(target.d.valueExpr),
                 });
 
@@ -4467,18 +4467,34 @@ export function createTypeEvaluator(
     }
 
     function isClassVarAllowedForAssignmentTarget(targetNode: ExpressionNode): boolean {
+        // ClassVar is allowed only in a class body.
         const classNode = ParseTreeUtils.getEnclosingClass(targetNode, /* stopAtFunction */ true);
         if (!classNode) {
             return false;
         }
 
         // ClassVar is not allowed in a TypedDict or a NamedTuple class.
+        return !isInTypedDictOrNamedTuple(classNode);
+    }
+
+    function isFinalAllowedForAssignmentTarget(targetNode: ExpressionNode): boolean {
+        const classNode = ParseTreeUtils.getEnclosingClass(targetNode, /* stopAtFunction */ true);
+
+        // Final is not allowed in the body of a TypedDict or NamedTuple class.
+        if (classNode && isInTypedDictOrNamedTuple(classNode)) {
+            return false;
+        }
+
+        return ParseTreeUtils.isFinalAllowedForAssignmentTarget(targetNode);
+    }
+
+    function isInTypedDictOrNamedTuple(classNode: ClassNode): boolean {
         const classType = getTypeOfClass(classNode)?.classType;
         if (!classType) {
             return false;
         }
 
-        return !ClassType.isTypedDictClass(classType) && !classType.shared.namedTupleEntries;
+        return ClassType.isTypedDictClass(classType) || !!classType.shared.namedTupleEntries;
     }
 
     function verifyRaiseExceptionType(node: ExpressionNode, allowNone: boolean) {
@@ -20038,7 +20054,7 @@ export function createTypeEvaluator(
         } else {
             const annotationType = getTypeOfAnnotation(node.d.annotation, {
                 varTypeAnnotation: true,
-                allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(node.d.valueExpr),
+                allowFinal: isFinalAllowedForAssignmentTarget(node.d.valueExpr),
                 allowClassVar: isClassVarAllowedForAssignmentTarget(node.d.valueExpr),
             });
 
@@ -20187,7 +20203,7 @@ export function createTypeEvaluator(
                 if (annotationNode === annotationParent.d.annotationComment) {
                     getTypeOfAnnotation(annotationNode, {
                         varTypeAnnotation: true,
-                        allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(annotationParent.d.leftExpr),
+                        allowFinal: isFinalAllowedForAssignmentTarget(annotationParent.d.leftExpr),
                         allowClassVar: isClassVarAllowedForAssignmentTarget(annotationParent.d.leftExpr),
                     });
                 } else {
@@ -22169,7 +22185,7 @@ export function createTypeEvaluator(
                                 ? declaration.node.parent
                                 : declaration.node;
                         const allowClassVar = isClassVarAllowedForAssignmentTarget(declNode);
-                        const allowFinal = ParseTreeUtils.isFinalAllowedForAssignmentTarget(declNode);
+                        const allowFinal = isFinalAllowedForAssignmentTarget(declNode);
                         const allowRequired =
                             ParseTreeUtils.isRequiredAllowedForAssignmentTarget(declNode) ||
                             !!declaration.isInInlinedTypedDict;

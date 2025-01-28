@@ -23,8 +23,7 @@ class DataTuple(NamedTuple):
     not_annotated = 5
 
     name: str | None = None
-
-    name2: Final[str | None] = None
+    name2: str | None = None
 
     not_a_method = standalone
 
@@ -47,3 +46,18 @@ d5 = DataTuple(id=1, aid=Other(), name=3)
 # This should generate an error because aid is a required
 # parameter and is missing an argument here.
 d6 = DataTuple(id=1, name=None)
+
+
+class DataTuple2(NamedTuple):
+    # This should generate an error because Final cannot
+    # be used in a NamedTuple. A second downstream error
+    # is also generated.
+    x: Final[int]
+
+    # This should generate an error because Final cannot
+    # be used in a NamedTuple.
+    y: Final = 1
+
+    # This should generate an error because ClassVar cannot
+    # be used in a NamedTuple.
+    z: ClassVar[int] = 1
