@@ -259,8 +259,8 @@ export function synthesizeDataClassMethods(
                             (assignmentStatement.d.leftExpr as TypeAnnotationNode).d.annotation,
                             {
                                 varTypeAnnotation: true,
-                                allowFinal: true,
-                                allowClassVar: true,
+                                allowFinal: !isNamedTuple,
+                                allowClassVar: !isNamedTuple,
                             }
                         );
                     };
@@ -370,8 +370,8 @@ export function synthesizeDataClassMethods(
                     variableTypeEvaluator = () =>
                         evaluator.getTypeOfAnnotation(annotationStatement.d.annotation, {
                             varTypeAnnotation: true,
-                            allowFinal: true,
-                            allowClassVar: true,
+                            allowFinal: !isNamedTuple,
+                            allowClassVar: !isNamedTuple,
                         });
 
                     // Is this a KW_ONLY separator introduced in Python 3.10?
