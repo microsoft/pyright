@@ -2309,6 +2309,20 @@ export function isWriteAccess(node: NameNode) {
     return false;
 }
 
+export function getMatchingDescendants(node: ParseNode, match: (n: ParseNode) => boolean): ParseNode[] {
+    const matches: ParseNode[] = [];
+    const children = getChildNodes(node);
+    for (const child of children) {
+        if (child && match(child)) {
+            matches.push(child);
+        }
+        if (child) {
+            matches.push(...getMatchingDescendants(child, match));
+        }
+    }
+    return matches;
+}
+
 export function getModuleNode(node: ParseNode) {
     let current: ParseNode | undefined = node;
     while (current && current.nodeType !== ParseNodeType.Module) {

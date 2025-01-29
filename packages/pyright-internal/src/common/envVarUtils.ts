@@ -28,6 +28,11 @@ export function resolvePathWithEnvVariables(
         return Uri.parse(normalizeSlashes(expanded, '/'), caseDetector);
     }
 
+    // Expansion may have failed.
+    if (expanded.includes('${')) {
+        return undefined;
+    }
+
     if (rootUri) {
         // normal case, resolve the path against workspace root.
         return rootUri.resolvePaths(normalizeSlashes(expanded, '/'));

@@ -247,6 +247,13 @@ export class TestState {
             if (file.meta?.[MetadataOptionNames.ipythonMode]) {
                 this.program.getSourceFile(Uri.file(filePath, this.serviceProvider))?.test_enableIPythonMode(true);
             }
+            if (file.meta?.[MetadataOptionNames.chainedTo]) {
+                const chainedTo = file.meta[MetadataOptionNames.chainedTo] as string;
+                const to = this.program.getSourceFile(Uri.file(chainedTo, this.serviceProvider));
+                if (to) {
+                    this.program.updateChainedUri(Uri.file(filePath, this.serviceProvider), to.getUri());
+                }
+            }
         }
     }
 
