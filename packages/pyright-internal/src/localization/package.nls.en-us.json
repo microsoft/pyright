@@ -844,6 +844,10 @@
             "message": "\"{name}\" was already declared nonlocal",
             "comment": "{Locked='nonlocal'}"
         },
+        "nonlocalTypeParam": {
+            "message": "Nonlocal binding is not allowed for type parameter \"{name}\"",
+            "comment": ["{StrContains=i'nonlocal'}", "'nonlocal' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
+        },
         "noneNotCallable": {
             "message": "Object of type \"None\" cannot be called",
             "comment": "{Locked='None'}"

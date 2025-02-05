@@ -101,3 +101,15 @@ class ClassI2:
 
 
 class ClassI3: ...
+
+
+def func9[T, **P, S](x: T) -> T:
+    S = 1
+
+    def inner():
+        # This should generate two errors.
+        nonlocal T, P
+
+        nonlocal S
+
+    return x
