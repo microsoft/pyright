@@ -1440,6 +1440,8 @@ export class Checker extends ParseTreeWalker {
                 this._evaluator.getType(name);
 
                 this.walk(name);
+
+                this._validateNonlocalTypeParam(name);
             });
         });
 
@@ -1907,6 +1909,22 @@ export class Checker extends ParseTreeWalker {
         if (reportAsUnused) {
             this._evaluator.addDiagnostic(DiagnosticRule.reportUnusedExpression, LocMessage.unusedExpression(), node);
         }
+    }
+
+    // Verifies that the target of a nonlocal statement is not a PEP 695-style
+    // TypeParameter. This situation results in a runtime exception.
+    private _validateNonlocalTypeParam(node: NameNode) {
+        // Look up the symbol to see if it's a type parameter.
+        const symbolWithScope = this._evaluator.lookUpSymbolRecursive(node, node.d.value, /* honorCodeFlow */ false);
+        if (!symbolWithScope || symbolWithScope.scope.type !== ScopeType.TypeParameter) {
+            return;
+        }
+
+        this._evaluator.addDiagnostic(
+            DiagnosticRule.reportGeneralTypeIssues,
+            LocMessage.nonlocalTypeParam().format({ name: node.d.value }),
+            node
+        );
     }
 
     private _validateExhaustiveMatch(node: MatchNode) {
