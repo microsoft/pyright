@@ -158,6 +158,11 @@ export const enum MemberAccessFlags {
     // expression, and errors should be reported if it doesn't conform
     // with type expression rules.
     TypeExpression = 1 << 11,
+
+    // Skip symbol table entries in the class that correspond to
+    // TypedDict entries. These are not considered attributes of
+    // the class and cannot be accessed using a member access expression.
+    SkipTypedDictEntries = 1 << 12,
 }
 
 export const enum ClassIteratorFlags {
@@ -1792,11 +1797,15 @@ export function* getClassMemberIterator(
             }
 
             const memberFields = ClassType.getSymbolTable(specializedMroClass);
+            const skipTdEntry =
+                (flags & MemberAccessFlags.SkipTypedDictEntries) !== 0 &&
+                specializedMroClass.shared.typedDictEntries?.knownItems.has(memberName);
 
             // Look at instance members first if requested.
             if ((flags & MemberAccessFlags.SkipInstanceMembers) === 0) {
                 const symbol = memberFields.get(memberName);
-                if (symbol && symbol.isInstanceMember()) {
+
+                if (symbol && symbol.isInstanceMember() && !skipTdEntry) {
                     const hasDeclaredType = symbol.hasTypedDeclarations();
                     if (!declaredTypesOnly || hasDeclaredType) {
                         const cm: ClassMember = {
@@ -1821,7 +1830,7 @@ export function* getClassMemberIterator(
             if ((flags & MemberAccessFlags.SkipClassMembers) === 0) {
                 let symbol = memberFields.get(memberName);
 
-                if (symbol && symbol.isClassMember()) {
+                if (symbol && symbol.isClassMember() && !skipTdEntry) {
                     const hasDeclaredType = symbol.hasTypedDeclarations();
                     if (!declaredTypesOnly || hasDeclaredType) {
                         let isInstanceMember = symbol.isInstanceMember();

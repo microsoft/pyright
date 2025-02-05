@@ -2293,7 +2293,7 @@ export function createTypeEvaluator(
                 memberName,
                 usage,
                 /* diag */ undefined,
-                flags | MemberAccessFlags.SkipAttributeAccessOverride,
+                flags | MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.SkipTypedDictEntries,
                 objectType,
                 recursionCount
             );
@@ -2310,7 +2310,7 @@ export function createTypeEvaluator(
         let subDiag: DiagnosticAddendum | undefined;
 
         if (!skipObjectTypeLookup) {
-            let effectiveFlags = flags;
+            let effectiveFlags = flags | MemberAccessFlags.SkipTypedDictEntries;
 
             if (objectTypeIsInstantiable) {
                 effectiveFlags |=
