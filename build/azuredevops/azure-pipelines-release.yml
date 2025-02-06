@@ -18,7 +18,6 @@ variables:
   - name: AZURE_ARTIFACTS_FEED
     value: 'https://devdiv.pkgs.visualstudio.com/DevDiv/_packaging/Pylance_PublicPackages/npm/registry/'
 
-
 extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
   parameters:
