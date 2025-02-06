@@ -1,5 +1,5 @@
 {
-    "recommendations": [
+    "dataset": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode"
     ]
