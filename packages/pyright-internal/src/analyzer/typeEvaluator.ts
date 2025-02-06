@@ -17208,6 +17208,7 @@ export function createTypeEvaluator(
             if (fileInfo.isStubFile) {
                 exprFlags |= EvalFlags.ForwardRefs;
             }
+            let sawClosedOrExtraItems = false;
 
             node.d.arguments.forEach((arg) => {
                 // Ignore unpacked arguments.
@@ -17478,20 +17479,33 @@ export function createTypeEvaluator(
                             );
                         } else if (arg.d.name.d.value === 'total' && !constArgValue) {
                             classType.shared.flags |= ClassTypeFlags.CanOmitDictValues;
-                        } else if (arg.d.name.d.value === 'closed' && constArgValue) {
-                            // This is an experimental feature because PEP 728 hasn't been accepted yet.
-                            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
-                                classType.shared.flags |=
-                                    ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
+                        } else if (arg.d.name.d.value === 'closed') {
+                            if (constArgValue) {
+                                // This is an experimental feature because PEP 728 hasn't been accepted yet.
+                                if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
+                                    classType.shared.flags |=
+                                        ClassTypeFlags.TypedDictMarkedClosed |
+                                        ClassTypeFlags.TypedDictEffectivelyClosed;
 
-                                if (classType.shared.typedDictExtraItemsExpr) {
-                                    addDiagnostic(
-                                        DiagnosticRule.reportGeneralTypeIssues,
-                                        LocMessage.typedDictExtraItemsClosed(),
-                                        classType.shared.typedDictExtraItemsExpr
-                                    );
+                                    if (classType.shared.typedDictExtraItemsExpr) {
+                                        addDiagnostic(
+                                            DiagnosticRule.reportGeneralTypeIssues,
+                                            LocMessage.typedDictExtraItemsClosed(),
+                                            classType.shared.typedDictExtraItemsExpr
+                                        );
+                                    }
                                 }
                             }
+
+                            if (sawClosedOrExtraItems) {
+                                addDiagnostic(
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    LocMessage.typedDictExtraItemsClosed(),
+                                    arg.d.valueExpr
+                                );
+                            }
+
+                            sawClosedOrExtraItems = true;
                         }
                     } else if (arg.d.name.d.value === 'extra_items') {
                         // This is an experimental feature because PEP 728 hasn't been accepted yet.
@@ -17509,6 +17523,16 @@ export function createTypeEvaluator(
                                 );
                             }
                         }
+
+                        if (sawClosedOrExtraItems) {
+                            addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.typedDictExtraItemsClosed(),
+                                arg.d.valueExpr
+                            );
+                        }
+
+                        sawClosedOrExtraItems = true;
                     } else {
                         addDiagnostic(
                             DiagnosticRule.reportGeneralTypeIssues,
