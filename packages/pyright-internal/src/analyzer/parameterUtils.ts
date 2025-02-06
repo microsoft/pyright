@@ -9,12 +9,14 @@
 import { ParamCategory } from '../parser/parseNodes';
 import { isDunderName } from './symbolNameUtils';
 import {
+    AnyType,
     ClassType,
     FunctionParam,
     FunctionParamFlags,
     FunctionType,
     isAnyOrUnknown,
     isClassInstance,
+    isNever,
     isParamSpec,
     isPositionOnlySeparator,
     isTypeSame,
@@ -72,10 +74,19 @@ export interface ParamListDetails {
     paramSpec?: TypeVarType;
 }
 
+export interface ParamListDetailsOptions {
+    // Should we disallow extra keyword arguments to be passed
+    // if the function uses a **kwargs annotated with a (non-closed)
+    // unpacked TypedDict? By default, this is allowed, but PEP 692
+    // suggests that this should be disallowed for calls whereas it
+    // explicitly says this is allowed for callable assignment rules.
+    disallowExtraKwargsForTd?: boolean;
+}
+
 // Examines the input parameters within a function signature and creates a
 // "virtual list" of parameters, stripping out any markers and expanding
 // any *args with unpacked tuples.
-export function getParamListDetails(type: FunctionType): ParamListDetails {
+export function getParamListDetails(type: FunctionType, options?: ParamListDetailsOptions): ParamListDetails {
     const result: ParamListDetails = {
         firstPositionOrKeywordIndex: 0,
         positionParamCount: 0,
@@ -265,16 +276,21 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
                     );
                 });
 
-                if (paramType.shared.typedDictEntries.extraItems) {
+                const extraItemsType = paramType.shared.typedDictEntries.extraItems?.valueType ?? AnyType.create();
+
+                // Unless the TypedDict is completely closed (i.e. is not allowed to
+                // have any extra items), add a virtual **kwargs parameter to represent
+                // any additional items.
+                if (!isNever(extraItemsType) && !options?.disallowExtraKwargsForTd) {
                     addVirtualParam(
                         FunctionParam.create(
                             ParamCategory.KwargsDict,
-                            paramType.shared.typedDictEntries.extraItems.valueType,
+                            extraItemsType,
                             FunctionParamFlags.TypeDeclared,
                             'kwargs'
                         ),
                         index,
-                        paramType.shared.typedDictEntries.extraItems.valueType
+                        extraItemsType
                     );
 
                     result.kwargsIndex = result.params.length - 1;

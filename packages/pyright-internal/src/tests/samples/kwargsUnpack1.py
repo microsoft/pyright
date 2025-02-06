@@ -132,3 +132,11 @@ def func6(a: int, /, **kwargs: Unpack[TD3]):
 
 
 func6(1, a=2)
+
+
+def func7(*, v1: int, v3: str, v2: str = "") -> None: ...
+
+
+# This should generate an error because func7 doesn't
+# accept additional keyword arguments.
+v7: TDProtocol6 = func7

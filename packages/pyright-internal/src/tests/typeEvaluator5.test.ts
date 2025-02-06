@@ -365,7 +365,7 @@ test('TypedDictClosed2', () => {
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('TypedDictClosed3', () => {

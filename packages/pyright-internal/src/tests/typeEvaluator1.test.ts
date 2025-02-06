@@ -954,7 +954,7 @@ test('Function10', () => {
 test('KwargsUnpack1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['kwargsUnpack1.py']);
 
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 13);
 });
 
 test('FunctionMember1', () => {
