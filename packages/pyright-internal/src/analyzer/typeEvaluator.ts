@@ -10628,7 +10628,7 @@ export function createTypeEvaluator(
         overloadIndex: number
     ): MatchArgsToParamsResult {
         const overload = typeResult.type;
-        const paramDetails = getParamListDetails(overload);
+        const paramDetails = getParamListDetails(overload, { disallowExtraKwargsForTd: true });
         const paramSpec = FunctionType.getParamSpecFromArgsKwargs(overload);
 
         let argIndex = 0;
@@ -11207,8 +11207,8 @@ export function createTypeEvaluator(
 
                                 validateArgTypeParams.push({
                                     paramCategory: ParamCategory.KwargsDict,
-                                    paramType: kwargsParam.declaredType,
-                                    requiresTypeVarMatching: requiresSpecialization(kwargsParam.declaredType),
+                                    paramType: kwargsParam.type,
+                                    requiresTypeVarMatching: requiresSpecialization(kwargsParam.type),
                                     argument: {
                                         argCategory: ArgCategory.UnpackedDictionary,
                                         typeResult: { type: extraItemsType },
