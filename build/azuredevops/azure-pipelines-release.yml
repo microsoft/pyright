@@ -16,7 +16,7 @@ variables:
   - name: ARTIFACT_NAME_VSIX
     value: vsix
   - name: AZURE_ARTIFACTS_FEED
-    value: 'https://devdiv.pkgs.visualstudio.com/DevDiv/_packaging/Pyright_PublicPackages/npm/registry/'
+    value: 'https://devdiv.pkgs.visualstudio.com/DevDiv/_packaging/Pylance_PublicPackages/npm/registry/'
 
 
 extends:
