@@ -703,6 +703,17 @@ export function synthesizeTypedDictClassMethods(
             getOverloads.push(createGetMethod(strType, AnyType.create(), /* includeDefault */ true));
         }
 
+        // Add a catch-all pop method.
+        if (ClassType.isTypedDictEffectivelyClosed(classType)) {
+            if (!isNever(extraEntriesInfo.valueType)) {
+                popOverloads.push(
+                    ...createPopMethods(strType, extraEntriesInfo.valueType, /* isEntryRequired */ false)
+                );
+            }
+        } else {
+            popOverloads.push(...createPopMethods(strType, evaluator.getObjectType(), /* isEntryRequired */ false));
+        }
+
         symbolTable.set('get', Symbol.createWithType(SymbolFlags.ClassMember, OverloadedType.create(getOverloads)));
 
         if (popOverloads.length > 0) {
