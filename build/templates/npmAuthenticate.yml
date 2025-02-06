@@ -1,0 +1,16 @@
+steps:
+  - task: npmAuthenticate@0
+    inputs:
+      workingFile: .npmrc
+
+  - task: npmAuthenticate@0
+    inputs:
+      workingFile: packages/pyright/.npmrc
+
+  - task: npmAuthenticate@0
+    inputs:
+      workingFile: packages/pyright-internal/.npmrc
+
+  - task: npmAuthenticate@0
+    inputs:
+      workingFile: packages/vscode-pyright/.npmrc

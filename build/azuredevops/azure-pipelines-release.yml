@@ -15,6 +15,9 @@ variables:
     value: vscode-pyright.vsix
   - name: ARTIFACT_NAME_VSIX
     value: vsix
+  - name: AZURE_ARTIFACTS_FEED
+    value: 'https://devdiv.pkgs.visualstudio.com/DevDiv/_packaging/Pyright_PublicPackages/npm/registry/'
+
 
 extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
@@ -61,6 +64,7 @@ extends:
                 displayName: Use Node 18.x
                 inputs:
                   versionSpec: 18.x
+              - template: /build/templates/npmAuthenticate.yml@self
               - task: CmdLine@2
                 displayName: npm install
                 inputs:
