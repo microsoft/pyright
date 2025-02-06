@@ -5,7 +5,7 @@ from typing import NotRequired, Required, TypedDict
 from typing_extensions import ReadOnly  # pyright: ignore[reportMissingModuleSource]
 
 
-class Movie(TypedDict, closed=False, extra_items=bool):
+class Movie(TypedDict, extra_items=bool):
     name: str
 
 
@@ -52,3 +52,9 @@ class BadTD2(TypedDict, extra_items=NotRequired[str]):
 # This should generate an error.
 class BadTD3(TypedDict, closed=True, extra_items=str):
     pass
+
+
+# This should generate an error because "closed" and
+# "extra_items" cannot both be specified.
+class BadTD4(TypedDict, closed=False, extra_items=bool):
+    name: str

@@ -187,6 +187,7 @@ export function createTypedDictType(
 
     if (usingDictSyntax) {
         const argsToConsider = argList.slice(2);
+        let sawClosedOrExtraItems = false;
 
         for (const arg of argsToConsider) {
             if (arg.name?.d.value === 'total' || arg.name?.d.value === 'closed') {
@@ -205,16 +206,38 @@ export function createTypedDictType(
                     );
                 } else if (arg.name.d.value === 'total' && arg.valueExpression.d.constType === KeywordType.False) {
                     classType.shared.flags |= ClassTypeFlags.CanOmitDictValues;
-                } else if (arg.name.d.value === 'closed' && arg.valueExpression.d.constType === KeywordType.True) {
-                    // This is an experimental feature because PEP 728 hasn't been accepted yet.
-                    if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
-                        classType.shared.flags |=
-                            ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
+                } else if (arg.name.d.value === 'closed') {
+                    if (arg.valueExpression.d.constType === KeywordType.True) {
+                        // This is an experimental feature because PEP 728 hasn't been accepted yet.
+                        if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
+                            classType.shared.flags |=
+                                ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
+                        }
                     }
+
+                    if (sawClosedOrExtraItems) {
+                        evaluator.addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.typedDictExtraItemsClosed(),
+                            arg.valueExpression || errorNode
+                        );
+                    }
+
+                    sawClosedOrExtraItems = true;
                 }
             } else if (arg.name?.d.value === 'extra_items') {
                 classType.shared.typedDictExtraItemsExpr = arg.valueExpression;
                 classType.shared.flags |= ClassTypeFlags.TypedDictEffectivelyClosed;
+
+                if (sawClosedOrExtraItems) {
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typedDictExtraItemsClosed(),
+                        arg.valueExpression || errorNode
+                    );
+                }
+
+                sawClosedOrExtraItems = true;
             } else {
                 evaluator.addDiagnostic(
                     DiagnosticRule.reportCallIssue,
@@ -222,17 +245,6 @@ export function createTypedDictType(
                     arg.valueExpression || errorNode
                 );
             }
-        }
-
-        if (ClassType.isTypedDictMarkedClosed(classType) && classType.shared.typedDictExtraItemsExpr) {
-            const arg = argsToConsider.find((arg) => arg.name?.d.value === 'extra_items');
-
-            // A TypedDict cannot be "closed" and allow extra_items at the same time.
-            evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.typedDictExtraItemsClosed(),
-                arg?.valueExpression ?? errorNode
-            );
         }
     }
 

@@ -1476,7 +1476,7 @@
             "comment": "{Locked='True','False'}"
         },
         "typedDictClosedExtras": {
-            "message": "Base class \"{name}\" is a closed TypedDict; extra items must be type \"{type}\"",
+            "message": "Base class \"{name}\" is a TypedDict that limits the type of extra items to type \"{type}\"",
             "comment": "{Locked='closed','TypedDict'}"
         },
         "typedDictClosedNoExtras": {
@@ -1498,8 +1498,8 @@
             "comment": "{Locked='TypedDict'}"
         },
         "typedDictExtraItemsClosed": {
-            "message": "A TypedDict cannot be closed if it supports extra items",
-            "comment": "{Locked='TypedDict','closed'}"
+            "message": "TypedDict can use either \"closed\" or \"extra_items\" but not both",
+            "comment": "{Locked='TypedDict','closed','extra_items'}"
         },
         "typedDictFieldNotRequiredRedefinition": {
             "message": "TypedDict item \"{name}\" cannot be redefined as NotRequired",
