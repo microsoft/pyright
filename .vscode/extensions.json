@@ -1,5 +1,5 @@
 {
-    "recommendations": [
+    "sklearn": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode"
     ]
