@@ -40,8 +40,11 @@ v6: str = td1.pop("bar")
 v7: str | int = td1.pop("bar", 1)
 v8: str | int = td1.pop("bar", 3)
 
-# This should generate two errors.
-v9: str = td2.pop("foo")
+v9 = td2.pop("foo")
+reveal_type(v9, expected_text="object")
+
+v10 = td2.pop("foo", None)
+reveal_type(v10, expected_text="object | None")
 
 td1.__delitem__("bar")
 
