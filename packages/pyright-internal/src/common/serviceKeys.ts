@@ -8,7 +8,7 @@
 
 import { CacheManager } from '../analyzer/cacheManager';
 import { ISourceFileFactory } from '../analyzer/programTypes';
-import { SupportPartialStubs } from '../pyrightFileSystem';
+import { SupportPartialStubs } from '../partialStubService';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface } from './console';
 import { DocStringService } from './docStringService';

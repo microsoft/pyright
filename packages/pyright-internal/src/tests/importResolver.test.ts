@@ -25,6 +25,8 @@ import { UriEx } from '../common/uri/uriUtils';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
+import { Disposable } from 'vscode-jsonrpc';
+import { PartialStubService } from '../partialStubService';
 
 const libraryRoot = combinePaths(normalizeSlashes('/'), lib, sitePackages);
 
@@ -899,13 +901,15 @@ function createTestFileSystem(files: { path: string; content: string }[]): TestF
 function createServiceProviderFromFiles(files: { path: string; content: string }[]): ServiceProvider {
     const testFS = createTestFileSystem(files);
     const fs = new PyrightFileSystem(testFS);
-    return createServiceProvider(testFS, fs);
+    const partialStubService = new PartialStubService(fs);
+    return createServiceProvider(testFS, fs, partialStubService);
 }
 
 function createServiceProviderWithCombinedFs(files: { path: string; content: string }[]): ServiceProvider {
     const testFS = createTestFileSystem(files);
     const fs = new PyrightFileSystem(new CombinedFileSystem(testFS));
-    return createServiceProvider(testFS, fs);
+    const partialStubService = new PartialStubService(fs);
+    return createServiceProvider(testFS, fs, partialStubService);
 }
 
 class TruePythonTestAccessHost extends FullAccessHost {
@@ -1038,5 +1042,9 @@ class CombinedFileSystem implements FileSystem {
 
     isInZip(path: Uri): boolean {
         return this._testFS.isInZip(path);
+    }
+
+    mapDirectory(mappedUri: Uri, originalUri: Uri, filter?: (originalUri: Uri, fs: FileSystem) => boolean): Disposable {
+        return this._realFS.mapDirectory(mappedUri, originalUri, filter);
     }
 }
