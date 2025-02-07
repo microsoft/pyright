@@ -1846,7 +1846,7 @@ export function getCodeFlowEngine(
         if (returnType) {
             if (
                 isClassInstance(returnType) &&
-                ClassType.isBuiltIn(returnType, 'Coroutine') &&
+                ClassType.isBuiltIn(returnType, ['Coroutine', 'CoroutineType']) &&
                 returnType.priv.typeArgs &&
                 returnType.priv.typeArgs.length >= 3
             ) {
@@ -1955,7 +1955,7 @@ export function getCodeFlowEngine(
                     if (isAsync) {
                         if (
                             isClassInstance(returnType) &&
-                            ClassType.isBuiltIn(returnType, 'Coroutine') &&
+                            ClassType.isBuiltIn(returnType, ['Coroutine', 'CoroutineType']) &&
                             returnType.priv.typeArgs &&
                             returnType.priv.typeArgs.length >= 3
                         ) {
