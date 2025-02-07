@@ -1,0 +1,33 @@
+name: Add auth token to .npmrc
+
+on:
+  workflow_call:
+
+inputs:
+  working-directory:
+    description: The directory whose .npmrc file should be modified
+    required: true
+    type: string
+  token:
+    description: The auth token to add to the .npmrc file
+    required: true
+    type: string
+  feed-url:
+    description: The URL of the Azure Artifacts feed to authenticate with
+    required: false
+    default: //devdiv.pkgs.visualstudio.com/DevDiv/_packaging/Pylance_PublicPackages
+
+runs:
+  using: composite
+  steps:
+    - name: Generate .npmrc
+      shell: bash
+      run: |
+        echo "registry=https:${{ inputs.feed-url }}/npm/registry/" > ${{ inputs.working-directory }}/.npmrc
+        echo "" >> ${{ inputs.working-directory }}/.npmrc
+        echo "${{ inputs.feed-url }}/npm/registry/:username=github-actions" >> ${{ inputs.working-directory }}/.npmrc
+        echo "${{ inputs.feed-url }}/npm/registry/:_authToken=${{ inputs.token }}" >> ${{ inputs.working-directory }}/.npmrc
+        echo "${{ inputs.feed-url }}/npm/registry/:email=actions@github.com" >> ${{ inputs.working-directory }}/.npmrc
+        echo "${{ inputs.feed-url }}/npm:username=github-actions"  >> ${{ inputs.working-directory }}/.npmrc
+        echo "${{ inputs.feed-url }}/npm:_authToken=${{ inputs.token }}" >> ${{ inputs.working-directory }}/.npmrc
+        echo "${{ inputs.feed-url }}/npm:email=actions@github.com" >> ${{ inputs.working-directory }}/.npmrc
