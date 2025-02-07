@@ -815,7 +815,10 @@ export class Checker extends ParseTreeWalker {
                         node
                     );
 
-                    if (isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'Coroutine')) {
+                    if (
+                        isClassInstance(returnType) &&
+                        ClassType.isBuiltIn(returnType, ['Coroutine', 'CoroutineType'])
+                    ) {
                         this._evaluator.addDiagnostic(
                             DiagnosticRule.reportUnusedCoroutine,
                             LocMessage.unusedCoroutine(),
@@ -1064,7 +1067,7 @@ export class Checker extends ParseTreeWalker {
         let yieldType: Type | undefined;
         let sendType: Type | undefined;
 
-        if (isClassInstance(yieldFromType) && ClassType.isBuiltIn(yieldFromType, 'Coroutine')) {
+        if (isClassInstance(yieldFromType) && ClassType.isBuiltIn(yieldFromType, ['Coroutine', 'CoroutineType'])) {
             // Handle the case of old-style (pre-await) coroutines.
             yieldType = UnknownType.create();
         } else {
@@ -1842,7 +1845,7 @@ export class Checker extends ParseTreeWalker {
                 isExprFunction = false;
             }
 
-            if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, 'Coroutine')) {
+            if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, ['Coroutine', 'CoroutineType'])) {
                 isCoroutine = false;
             }
         });
