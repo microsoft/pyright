@@ -115,6 +115,7 @@ import {
     Declaration,
     DeclarationType,
     FunctionDeclaration,
+    isVariableDeclaration,
     ModuleLoaderActions,
     SpecialBuiltInClassDeclaration,
     VariableDeclaration,
@@ -22919,6 +22920,18 @@ export function createTypeEvaluator(
 
             declsToConsider.push(resolvedDecl);
         });
+
+        // If all of the decls come from augmented assignments, we won't be able to
+        // determine its type. At least one declaration must be a simple assignment.
+        if (
+            declsToConsider.every(
+                (decl) =>
+                    isVariableDeclaration(decl) &&
+                    ParseTreeUtils.isNodeContainedWithinNodeType(decl.node, ParseNodeType.AugmentedAssignment)
+            )
+        ) {
+            declsToConsider.splice(0);
+        }
 
         const result = getTypeOfSymbolForDecls(symbol, declsToConsider, effectiveTypeCacheKey);
         result.includesVariableDecl = includesVariableDecl;

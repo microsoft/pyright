@@ -15,6 +15,7 @@
 //// if (a/*marker4*/:= 1): pass
 
 // @filename: test5.py
+//// a = 1
 //// a/*marker5*/ *= 1
 
 // @filename: test6.py
@@ -28,13 +29,13 @@
     await helper.verifyCompletion('excluded', 'markdown', {
         marker1: { completions: [{ label: 'a', kind: Consts.CompletionItemKind.Variable }] },
         marker3: { completions: [{ label: 'a', kind: Consts.CompletionItemKind.Variable }] },
-        marker5: { completions: [{ label: 'a', kind: Consts.CompletionItemKind.Variable }] },
     });
 
     // @ts-ignore
     await helper.verifyCompletion('included', 'markdown', {
         marker2: { completions: [{ label: 'a', kind: Consts.CompletionItemKind.Variable }] },
         marker4: { completions: [{ label: 'a', kind: Consts.CompletionItemKind.Variable }] },
+        marker5: { completions: [{ label: 'a', kind: Consts.CompletionItemKind.Variable }] },
         marker6: { completions: [{ label: 'a', kind: Consts.CompletionItemKind.Variable }] },
     });
 }
