@@ -19313,8 +19313,8 @@ export function createTypeEvaluator(
         }
 
         if (!awaitableReturnType || !isGenerator) {
-            // Wrap in either an Awaitable or a Coroutine, which is a subclass of Awaitable.
-            const awaitableType = getTypingType(node, useCoroutine ? 'Coroutine' : 'Awaitable');
+            // Wrap in either an Awaitable or a CoroutineType, which is a subclass of Awaitable.
+            const awaitableType = useCoroutine ? getTypesType(node, 'CoroutineType') : getTypingType(node, 'Awaitable');
             if (awaitableType && isInstantiableClass(awaitableType)) {
                 awaitableReturnType = ClassType.cloneAsInstance(
                     ClassType.specialize(
