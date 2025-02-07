@@ -4434,17 +4434,17 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Unpack: {
-                if (target.d.expr.nodeType === ParseNodeType.Name) {
-                    assignTypeToNameNode(
-                        target.d.expr,
-                        {
-                            type: getBuiltInObject(target.d.expr, 'list', [typeResult.type]),
-                            isIncomplete: typeResult.isIncomplete,
-                        },
-                        ignoreEmptyContainers,
-                        srcExpr
-                    );
-                }
+                assignTypeToExpression(
+                    target.d.expr,
+                    {
+                        type: getBuiltInObject(target.d.expr, 'list', [typeResult.type]),
+                        isIncomplete: typeResult.isIncomplete,
+                    },
+                    srcExpr,
+                    ignoreEmptyContainers,
+                    allowAssignmentToFinalVar,
+                    expectedTypeDiagAddendum
+                );
                 break;
             }
 
