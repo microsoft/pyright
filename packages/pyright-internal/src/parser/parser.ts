@@ -4945,9 +4945,12 @@ export class Parser {
                 continue;
             }
 
-            // We've hit an error. Consume tokens until we find the end.
-            if (this._consumeTokensUntilType([TokenType.FStringEnd])) {
-                this._getNextToken();
+            // We've hit an error. Try to recover as gracefully as possible.
+            if (nextToken.type !== TokenType.NewLine) {
+                // Consume tokens until we find the end.
+                if (this._consumeTokensUntilType([TokenType.FStringEnd])) {
+                    this._getNextToken();
+                }
             }
 
             this._addSyntaxError(

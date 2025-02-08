@@ -1649,13 +1649,15 @@ export class Tokenizer {
                     }
                 }
             } else if (this._cs.currentChar === Char.LineFeed || this._cs.currentChar === Char.CarriageReturn) {
-                if (!isTriplicate && !isFString) {
-                    // Unterminated single-line string
-                    flags |= StringTokenFlags.Unterminated;
-                    return {
-                        escapedValue: getEscapedValue(),
-                        flags,
-                    };
+                if (!isTriplicate) {
+                    if (!isFString || !this._activeFString?.activeReplacementField) {
+                        // Unterminated single-line string
+                        flags |= StringTokenFlags.Unterminated;
+                        return {
+                            escapedValue: getEscapedValue(),
+                            flags,
+                        };
+                    }
                 }
 
                 // Skip over the new line (either one or two characters).
