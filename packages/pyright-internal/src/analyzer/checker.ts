@@ -3137,6 +3137,8 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (!implementation) {
+            // If this is a method within a protocol class, don't require that
+            // there is an implementation.
             const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(primaryDecl.node);
             if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
                 const classType = this._evaluator.getTypeOfClass(containingClassNode);
@@ -3158,8 +3160,13 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
-            // If this is a method within a protocol class, don't require that
-            // there is an implementation.
+            // If the declaration isn't associated with any of the overloads in the
+            // type, the overloads came from a decorator that captured the overload
+            // from somewhere else.
+            if (!overloads.find((overload) => overload.shared.declaration === primaryDecl)) {
+                return;
+            }
+
             this._evaluator.addDiagnostic(
                 DiagnosticRule.reportNoOverloadImplementation,
                 LocMessage.overloadWithoutImplementation().format({

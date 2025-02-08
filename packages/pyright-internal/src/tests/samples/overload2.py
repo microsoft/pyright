@@ -80,3 +80,12 @@ def deco2(
 @deco2(x=dict)
 def func7() -> dict[str, str]:
     return {}
+
+
+class ClassC[T]:
+    def __init__(self, _: T): ...
+    def __call__(self, a) -> T: ...
+
+
+@ClassC(print)
+def func8(a: int) -> None: ...
