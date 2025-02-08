@@ -552,7 +552,11 @@ const maxEffectiveTypeEvaluationAttempts = 16;
 
 // Maximum number of combinatoric argument type expansions allowed
 // when resolving an overload.
-const maxOverloadArgTypeExpansionCount = 64;
+const maxTotalOverloadArgTypeExpansionCount = 256;
+
+// Maximum size of an enum that will be expanded during overload
+// argument type expansion.
+const maxSingleOverloadArgTypeExpansionCount = 64;
 
 // Maximum number of recursive function return type inference attempts
 // that can be concurrently pending before we give up.
@@ -9614,7 +9618,7 @@ export function createTypeEvaluator(
             expandedArgTypes = expandArgTypes(contextFreeArgTypes!, expandedArgTypes);
 
             // Check for combinatoric explosion and break out of loop.
-            if (!expandedArgTypes || expandedArgTypes.length > maxOverloadArgTypeExpansionCount) {
+            if (!expandedArgTypes || expandedArgTypes.length > maxTotalOverloadArgTypeExpansionCount) {
                 break;
             }
         }
@@ -9702,13 +9706,13 @@ export function createTypeEvaluator(
             if (isClassInstance(subtype)) {
                 // Expand any bool or Enum literals.
                 const expandedLiteralTypes = enumerateLiteralsForType(evaluatorInterface, subtype);
-                if (expandedLiteralTypes) {
+                if (expandedLiteralTypes && expandedLiteralTypes.length <= maxSingleOverloadArgTypeExpansionCount) {
                     appendArray(expandedTypes, expandedLiteralTypes);
                     return;
                 }
 
                 // Expand any fixed-size tuples.
-                const expandedTuples = expandTuple(subtype, maxOverloadArgTypeExpansionCount);
+                const expandedTuples = expandTuple(subtype, maxSingleOverloadArgTypeExpansionCount);
                 if (expandedTuples) {
                     appendArray(expandedTypes, expandedTuples);
                     return;
