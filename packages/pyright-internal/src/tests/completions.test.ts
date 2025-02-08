@@ -1410,3 +1410,29 @@ test('enum with regular base type', async () => {
         },
     });
 });
+
+test('import statements with implicit import', async () => {
+    const code = `
+// @filename: test.py
+//// from lib import /*marker*/
+
+// @filename: lib/__init__.py
+//// from . import api as api
+
+// @filename: lib/api.py
+//// # Empty
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'api',
+                    kind: CompletionItemKind.Module,
+                },
+            ],
+        },
+    });
+});

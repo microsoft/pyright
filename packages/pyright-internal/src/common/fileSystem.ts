@@ -12,6 +12,7 @@
 import type * as fs from 'fs';
 import { FileWatcher, FileWatcherEventHandler } from './fileWatcher';
 import { Uri } from './uri/uri';
+import { Disposable } from 'vscode-jsonrpc';
 
 export interface Stats {
     size: number;
@@ -75,6 +76,8 @@ export interface FileSystem extends ReadOnlyFileSystem {
     createReadStream(uri: Uri): fs.ReadStream;
     createWriteStream(uri: Uri): fs.WriteStream;
     copyFileSync(uri: Uri, dst: Uri): void;
+
+    mapDirectory(mappedUri: Uri, originalUri: Uri, filter?: (originalUri: Uri, fs: FileSystem) => boolean): Disposable;
 }
 
 export interface TmpfileOptions {

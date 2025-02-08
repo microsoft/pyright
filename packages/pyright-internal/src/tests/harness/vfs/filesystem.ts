@@ -19,6 +19,7 @@ import { Uri } from '../../../common/uri/uri';
 import { bufferFrom, createIOError } from '../utils';
 import { Metadata, SortedMap, closeIterator, getIterator, nextResult } from './../utils';
 import { ValidationFlags, validate } from './pathValidation';
+import { Disposable } from 'vscode-jsonrpc';
 
 export const MODULE_PATH = pathUtil.normalizeSlashes('/');
 
@@ -900,6 +901,10 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
     }
 
     copyFileSync(src: Uri, dst: Uri): void {
+        throw new Error('Not implemented in test file system.');
+    }
+
+    mapDirectory(mappedUri: Uri, originalUri: Uri, filter?: (originalUri: Uri, fs: FileSystem) => boolean): Disposable {
         throw new Error('Not implemented in test file system.');
     }
 

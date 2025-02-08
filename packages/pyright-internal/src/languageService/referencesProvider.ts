@@ -252,7 +252,7 @@ export class ReferencesProvider {
                 // See if the reference symbol's string is located somewhere within the file.
                 // If not, we can skip additional processing for the file.
                 const fileContents = curSourceFileInfo.sourceFile.getFileContent();
-                if (!fileContents || referencesResult.symbolNames.some((s) => fileContents.search(s) >= 0)) {
+                if (!fileContents || referencesResult.symbolNames.some((s) => fileContents.indexOf(s) >= 0)) {
                     this.addReferencesToResult(
                         curSourceFileInfo.sourceFile.getUri(),
                         includeDeclaration,
