@@ -86,11 +86,11 @@ test('FString1', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['fstring1.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 14, 1);
+    TestUtils.validateResults(analysisResults1, 15, 1);
 
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['fstring1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 10, 1);
+    TestUtils.validateResults(analysisResults2, 11, 1);
 });
 
 test('FString2', () => {
