@@ -26440,104 +26440,119 @@ export function createTypeEvaluator(
 
             if (srcStartOfNamed >= 0) {
                 srcParamDetails.params.forEach((srcParamInfo, index) => {
-                    if (index >= srcStartOfNamed) {
-                        if (
-                            srcParamInfo.param.name &&
-                            srcParamInfo.param.category === ParamCategory.Simple &&
-                            srcParamInfo.kind !== ParamKind.Positional
-                        ) {
-                            const destParamInfo = destParamMap.get(srcParamInfo.param.name);
-                            const paramDiag = diag?.createAddendum();
-                            const srcParamType = srcParamInfo.type;
+                    if (index < srcStartOfNamed) {
+                        return;
+                    }
 
-                            if (!destParamInfo) {
-                                if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.defaultType) {
-                                    if (paramDiag) {
-                                        paramDiag.addMessage(
-                                            LocAddendum.namedParamMissingInDest().format({
-                                                name: srcParamInfo.param.name,
-                                            })
-                                        );
-                                    }
-                                    canAssign = false;
-                                } else if (destParamDetails.kwargsIndex !== undefined) {
-                                    // Make sure we can assign the type to the Kwargs.
-                                    if (
-                                        !assignParam(
-                                            destParamDetails.params[destParamDetails.kwargsIndex].type,
-                                            srcParamType,
-                                            destParamDetails.params[destParamDetails.kwargsIndex].index,
-                                            diag?.createAddendum(),
-                                            constraints,
-                                            flags,
-                                            recursionCount
-                                        )
-                                    ) {
-                                        canAssign = false;
-                                    }
-                                } else if (srcParamInfo.defaultType) {
-                                    // Assign default arg values in case they are needed for
-                                    // populating TypeVar constraints.
-                                    const defaultArgType = srcParamInfo.defaultType ?? srcParamInfo.defaultType;
+                    if (
+                        !srcParamInfo.param.name ||
+                        srcParamInfo.param.category !== ParamCategory.Simple ||
+                        srcParamInfo.kind === ParamKind.Positional
+                    ) {
+                        return;
+                    }
 
-                                    if (
-                                        defaultArgType &&
-                                        !assignType(
-                                            srcParamInfo.type,
-                                            defaultArgType,
-                                            diag?.createAddendum(),
-                                            constraints,
-                                            flags,
-                                            recursionCount
-                                        )
-                                    ) {
-                                        if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
-                                            canAssign = false;
-                                        }
-                                    }
-                                }
-                            } else {
-                                const destParamType = destParamInfo.type;
-                                const specializedDestParamType = constraints
-                                    ? solveAndApplyConstraints(destParamType, constraints)
-                                    : destParamType;
+                    const destParamInfo = destParamMap.get(srcParamInfo.param.name);
+                    const paramDiag = diag?.createAddendum();
+                    const srcParamType = srcParamInfo.type;
 
-                                if (
-                                    !assignParam(
-                                        destParamInfo.type,
-                                        srcParamType,
-                                        /* paramIndex */ undefined,
-                                        paramDiag?.createAddendum(),
-                                        constraints,
-                                        flags,
-                                        recursionCount
-                                    )
-                                ) {
-                                    if (paramDiag) {
-                                        paramDiag.addMessage(
-                                            LocAddendum.namedParamTypeMismatch().format({
-                                                name: srcParamInfo.param.name,
-                                                sourceType: printType(specializedDestParamType),
-                                                destType: printType(srcParamType),
-                                            })
-                                        );
-                                    }
+                    if (!destParamInfo) {
+                        if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.defaultType) {
+                            if (paramDiag) {
+                                paramDiag.addMessage(
+                                    LocAddendum.namedParamMissingInDest().format({
+                                        name: srcParamInfo.param.name,
+                                    })
+                                );
+                            }
+                            canAssign = false;
+                        } else if (destParamDetails.kwargsIndex !== undefined) {
+                            // Make sure we can assign the type to the Kwargs.
+                            if (
+                                !assignParam(
+                                    destParamDetails.params[destParamDetails.kwargsIndex].type,
+                                    srcParamType,
+                                    destParamDetails.params[destParamDetails.kwargsIndex].index,
+                                    diag?.createAddendum(),
+                                    constraints,
+                                    flags,
+                                    recursionCount
+                                )
+                            ) {
+                                canAssign = false;
+                            }
+                        } else if (srcParamInfo.defaultType) {
+                            // Assign default arg values in case they are needed for
+                            // populating TypeVar constraints.
+                            const defaultArgType = srcParamInfo.defaultType ?? srcParamInfo.defaultType;
+
+                            if (
+                                defaultArgType &&
+                                !assignType(
+                                    srcParamInfo.type,
+                                    defaultArgType,
+                                    diag?.createAddendum(),
+                                    constraints,
+                                    flags,
+                                    recursionCount
+                                )
+                            ) {
+                                if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
                                     canAssign = false;
                                 }
-
-                                if (destParamInfo.defaultType && !srcParamInfo.defaultType) {
-                                    diag?.createAddendum().addMessage(
-                                        LocAddendum.functionParamDefaultMissing().format({
-                                            name: srcParamInfo.param.name,
-                                        })
-                                    );
-                                    canAssign = false;
-                                }
-
-                                destParamMap.delete(srcParamInfo.param.name);
                             }
                         }
+                        return;
                     }
+
+                    // If we're performing a partial overload match and both the source
+                    // and dest parameters provide defaults, assume that there could
+                    // be a match.
+                    if (srcParamInfo.defaultType && destParamInfo.defaultType) {
+                        if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
+                            destParamMap.delete(srcParamInfo.param.name);
+                            return;
+                        }
+                    }
+
+                    const destParamType = destParamInfo.type;
+                    const specializedDestParamType = constraints
+                        ? solveAndApplyConstraints(destParamType, constraints)
+                        : destParamType;
+
+                    if (
+                        !assignParam(
+                            destParamInfo.type,
+                            srcParamType,
+                            /* paramIndex */ undefined,
+                            paramDiag?.createAddendum(),
+                            constraints,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        if (paramDiag) {
+                            paramDiag.addMessage(
+                                LocAddendum.namedParamTypeMismatch().format({
+                                    name: srcParamInfo.param.name,
+                                    sourceType: printType(specializedDestParamType),
+                                    destType: printType(srcParamType),
+                                })
+                            );
+                        }
+                        canAssign = false;
+                    }
+
+                    if (destParamInfo.defaultType && !srcParamInfo.defaultType) {
+                        diag?.createAddendum().addMessage(
+                            LocAddendum.functionParamDefaultMissing().format({
+                                name: srcParamInfo.param.name,
+                            })
+                        );
+                        canAssign = false;
+                    }
+
+                    destParamMap.delete(srcParamInfo.param.name);
                 });
             }
 
