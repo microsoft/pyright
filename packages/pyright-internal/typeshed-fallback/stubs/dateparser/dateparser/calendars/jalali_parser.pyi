@@ -15,3 +15,4 @@ class jalali_parser(non_gregorian_parser):
     default_month: int
     default_day: int
     non_gregorian_date_cls: Any
+    def handle_two_digit_year(self, year: int) -> int: ...

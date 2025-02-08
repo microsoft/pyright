@@ -2,7 +2,7 @@ import datetime as dt
 from _typeshed import ConvertibleToInt, Incomplete, SupportsRead, SupportsReadline, SupportsWrite, Unused
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from types import TracebackType
-from typing import Any, Literal, NoReturn, Protocol, TypeVar, overload, type_check_only
+from typing import Any, Literal, NoReturn, Protocol, TextIO, TypeVar, overload, type_check_only
 from typing_extensions import Self, TypeAlias
 
 from psycopg2.extras import ReplicationCursor as extras_ReplicationCursor
@@ -83,7 +83,9 @@ threadsafety: int
 
 __libpq_version__: int
 
-class _SupportsReadAndReadline(SupportsRead[str], SupportsReadline[str], Protocol): ...
+_T_co = TypeVar("_T_co", covariant=True)
+
+class _SupportsReadAndReadline(SupportsRead[_T_co], SupportsReadline[_T_co], Protocol[_T_co]): ...
 
 class cursor:
     arraysize: int
@@ -120,11 +122,14 @@ class cursor:
     def cast(self, oid: int, s: str | bytes, /) -> Any: ...
     def close(self) -> None: ...
     def copy_expert(
-        self, sql: str | bytes | Composable, file: _SupportsReadAndReadline | SupportsWrite[str], size: int = 8192
+        self,
+        sql: str | bytes | Composable,
+        file: _SupportsReadAndReadline[bytes] | SupportsWrite[bytes] | TextIO,
+        size: int = 8192,
     ) -> None: ...
     def copy_from(
         self,
-        file: _SupportsReadAndReadline,
+        file: _SupportsReadAndReadline[bytes] | _SupportsReadAndReadline[str],
         table: str,
         sep: str = "\t",
         null: str = "\\N",
@@ -132,7 +137,12 @@ class cursor:
         columns: Iterable[str] | None = None,
     ) -> None: ...
     def copy_to(
-        self, file: SupportsWrite[str], table: str, sep: str = "\t", null: str = "\\N", columns: Iterable[str] | None = None
+        self,
+        file: SupportsWrite[bytes] | TextIO,
+        table: str,
+        sep: str = "\t",
+        null: str = "\\N",
+        columns: Iterable[str] | None = None,
     ) -> None: ...
     def execute(self, query: str | bytes | Composable, vars: _Vars = None) -> None: ...
     def executemany(self, query: str | bytes | Composable, vars_list: Iterable[_Vars]) -> None: ...

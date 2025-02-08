@@ -1,6 +1,6 @@
 from _typeshed import Incomplete, ReadableBuffer, WriteableBuffer
 from collections.abc import Callable
-from typing import Literal, TypeVar
+from typing import Any, Literal, TypeVar
 
 import _win32typing
 from win32.lib.pywintypes import error as error
@@ -448,7 +448,9 @@ def GetOpenFileNameW(
     DefExt: Incomplete | None = ...,
     TemplateName: _win32typing.PyResourceId | None = ...,
 ) -> tuple[Incomplete, Incomplete, Incomplete]: ...
-def SystemParametersInfo(Action, Param: Incomplete | None = ..., WinIni: int = ...) -> None: ...
+
+# Any: Return type is too varied based on Action. This would require an overload for all win32con.SPI_* literals
+def SystemParametersInfo(Action: int, Param: Incomplete | None = ..., WinIni: int = ...) -> Any: ...
 def SetLayeredWindowAttributes(hwnd: int, Key, Alpha, Flags) -> None: ...
 def GetLayeredWindowAttributes(hwnd: int) -> tuple[Incomplete, Incomplete, Incomplete]: ...
 def UpdateLayeredWindow(
