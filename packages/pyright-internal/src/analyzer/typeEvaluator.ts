@@ -25182,6 +25182,13 @@ export function createTypeEvaluator(
             return true;
         }
 
+        if (
+            (flags & AssignTypeFlags.OverloadOverlap) !== 0 &&
+            srcType.priv.subtypes.some((subtype) => isAnyOrUnknown(subtype))
+        ) {
+            return false;
+        }
+
         // Sort the subtypes so we have a deterministic order for unions.
         let sortedSrcTypes: Type[] = sortTypes(srcType.priv.subtypes);
         let matchedSomeSubtypes = false;
