@@ -794,26 +794,51 @@ function assignToProtocolInternal(
         // Create a specialized version of the protocol defined by the dest and
         // make sure the resulting type args can be assigned.
         const genericProtocolType = ClassType.specialize(destType, undefined);
-        const specializedProtocolType = evaluator.solveAndApplyConstraints(
-            genericProtocolType,
-            protocolConstraints
-        ) as ClassType;
+        const constraintSets = protocolConstraints.getConstraintSets();
+        let srcConstraints = protocolConstraints;
+        let destConstraints = constraints;
 
-        if (destType.priv.typeArgs) {
-            if (
-                !evaluator.assignTypeArgs(destType, specializedProtocolType, diag, constraints, flags, recursionCount)
-            ) {
-                typesAreConsistent = false;
+        constraintSets.forEach((constraintSet) => {
+            // If there are multiple constraint sets, handle each one separately.
+            // We'll combine them later. If there is only one (which is the common
+            // case), don't bother allocating a new constraint tracker.
+            if (constraintSets.length > 1) {
+                srcConstraints = protocolConstraints.cloneWithSignature(constraintSet.getScopeIds());
+                destConstraints = constraints?.cloneWithSignature(constraintSet.getScopeIds());
             }
-        } else if (constraints) {
-            for (const typeParam of destType.shared.typeParams) {
-                const typeArgEntry = protocolConstraints.getMainConstraintSet().getTypeVar(typeParam);
 
-                if (typeArgEntry) {
-                    constraints.copyBounds(typeArgEntry);
+            const specializedProtocolType = evaluator.solveAndApplyConstraints(
+                genericProtocolType,
+                srcConstraints
+            ) as ClassType;
+
+            if (destType.priv.typeArgs) {
+                if (
+                    !evaluator.assignTypeArgs(
+                        destType,
+                        specializedProtocolType,
+                        diag,
+                        destConstraints,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    typesAreConsistent = false;
+                }
+            } else if (destConstraints) {
+                for (const typeParam of destType.shared.typeParams) {
+                    const typeArgEntry = constraintSet.getTypeVar(typeParam);
+
+                    if (typeArgEntry) {
+                        destConstraints.copyBounds(typeArgEntry);
+                    }
                 }
             }
-        }
+
+            if (constraintSets.length > 1 && destConstraints) {
+                constraints?.addConstraintSets(destConstraints.getConstraintSets());
+            }
+        });
     }
 
     return typesAreConsistent;
