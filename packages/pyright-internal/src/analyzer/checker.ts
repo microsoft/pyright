@@ -6688,27 +6688,7 @@ export class Checker extends ParseTreeWalker {
             const diagAddendum = new DiagnosticAddendum();
 
             // Determine whether this is an attempt to override a method marked @final.
-            let reportFinalMethodOverride = false;
-
-            // Private names (starting with double underscore) are exempt from this check.
-            if (!SymbolNameUtils.isPrivateName(memberName)) {
-                if (isFunction(baseType) && FunctionType.isFinal(baseType)) {
-                    reportFinalMethodOverride = true;
-                } else if (isOverloaded(baseType)) {
-                    const overloads = OverloadedType.getOverloads(baseType);
-                    const impl = OverloadedType.getImplementation(baseType);
-
-                    if (overloads.some((overload) => FunctionType.isFinal(overload))) {
-                        reportFinalMethodOverride = true;
-                    }
-
-                    if (impl && isFunction(impl) && FunctionType.isFinal(impl)) {
-                        reportFinalMethodOverride = true;
-                    }
-                }
-            }
-
-            if (reportFinalMethodOverride) {
+            if (this._isFinalFunction(memberName, baseType)) {
                 const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
                 if (decl && decl.type === DeclarationType.Function) {
                     const diag = this._evaluator.addDiagnostic(
@@ -7009,6 +6989,31 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
+    private _isFinalFunction(name: string, type: Type) {
+        if (SymbolNameUtils.isPrivateName(name)) {
+            return false;
+        }
+
+        if (isFunction(type) && FunctionType.isFinal(type)) {
+            return true;
+        }
+
+        if (isOverloaded(type)) {
+            const overloads = OverloadedType.getOverloads(type);
+            const impl = OverloadedType.getImplementation(type);
+
+            if (overloads.some((overload) => FunctionType.isFinal(overload))) {
+                return true;
+            }
+
+            if (impl && isFunction(impl) && FunctionType.isFinal(impl)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private _validatePropertyOverride(
         baseClassType: ClassType,
         childClassType: ClassType,
@@ -7069,6 +7074,18 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     return;
+                } else if (this._isFinalFunction(methodName, baseClassPropMethod)) {
+                    const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
+                    if (decl && decl.type === DeclarationType.Function) {
+                        this._evaluator.addDiagnostic(
+                            DiagnosticRule.reportIncompatibleMethodOverride,
+                            LocMessage.finalMethodOverride().format({
+                                name: memberName,
+                                className: baseClassType.shared.name,
+                            }),
+                            decl.node.d.name
+                        );
+                    }
                 }
 
                 const subclassMethodType = partiallySpecializeType(
