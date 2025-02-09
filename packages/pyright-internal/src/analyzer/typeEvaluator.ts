@@ -24942,7 +24942,7 @@ export function createTypeEvaluator(
 
                 overloads.forEach((overload) => {
                     const overloadScopeId = getTypeVarScopeId(overload) ?? '';
-                    const constraintsClone = constraints?.cloneWithSignature(overloadScopeId);
+                    const constraintsClone = constraints?.cloneWithSignature([overloadScopeId]);
 
                     if (assignType(destType, overload, /* diag */ undefined, constraintsClone, flags, recursionCount)) {
                         filteredOverloads.push(overload);
