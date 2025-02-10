@@ -54,3 +54,13 @@ def func1(p1: tuple[str, ...]):
     a, b = p1
 
     c, d, *f = p1
+
+
+def func2(p1: tuple[str, ...], p2: tuple[str, *tuple[str, ...]]):
+    () = p1
+    (_,) = p1
+    (_, _) = p1
+
+    # This should generate an error.
+    () = p2
+    (_,) = p2
