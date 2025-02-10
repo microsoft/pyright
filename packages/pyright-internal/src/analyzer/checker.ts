@@ -2125,7 +2125,7 @@ export class Checker extends ParseTreeWalker {
                         return;
                     }
 
-                    if (this._isTypeComparable(leftSubtype, rightSubtype)) {
+                    if (this._evaluator.isTypeComparable(leftSubtype, rightSubtype)) {
                         isComparable = true;
                     }
 
@@ -2149,97 +2149,6 @@ export class Checker extends ParseTreeWalker {
                 );
             }
         }
-    }
-
-    // Determines whether the two types are potentially comparable -- i.e.
-    // their types overlap in such a way that it makes sense for them to
-    // be compared with an == or != operator.
-    private _isTypeComparable(leftType: Type, rightType: Type) {
-        if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
-            return true;
-        }
-
-        if (isNever(leftType) || isNever(rightType)) {
-            return false;
-        }
-
-        if (isModule(leftType) || isModule(rightType)) {
-            return isTypeSame(leftType, rightType, { ignoreConditions: true });
-        }
-
-        const isLeftCallable = isFunction(leftType) || isOverloaded(leftType);
-        const isRightCallable = isFunction(rightType) || isOverloaded(rightType);
-        if (isLeftCallable !== isRightCallable) {
-            return false;
-        }
-
-        if (isInstantiableClass(leftType) || (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'type'))) {
-            if (
-                isInstantiableClass(rightType) ||
-                (isClassInstance(rightType) && ClassType.isBuiltIn(rightType, 'type'))
-            ) {
-                const genericLeftType = ClassType.specialize(leftType, /* typeArgs */ undefined);
-                const genericRightType = ClassType.specialize(rightType, /* typeArgs */ undefined);
-
-                if (
-                    this._evaluator.assignType(genericLeftType, genericRightType) ||
-                    this._evaluator.assignType(genericRightType, genericLeftType)
-                ) {
-                    return true;
-                }
-            }
-
-            // Does the class have an operator overload for eq?
-            const metaclass = leftType.shared.effectiveMetaclass;
-            if (metaclass && isClass(metaclass)) {
-                if (lookUpClassMember(metaclass, '__eq__', MemberAccessFlags.SkipObjectBaseClass)) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        if (isClassInstance(leftType)) {
-            if (isClass(rightType)) {
-                const genericLeftType = ClassType.specialize(leftType, /* typeArgs */ undefined);
-                const genericRightType = ClassType.specialize(rightType, /* typeArgs */ undefined);
-
-                if (
-                    this._evaluator.assignType(genericLeftType, genericRightType) ||
-                    this._evaluator.assignType(genericRightType, genericLeftType)
-                ) {
-                    return true;
-                }
-
-                // Assume that if the types are disjoint and built-in classes that they
-                // will never be comparable.
-                if (ClassType.isBuiltIn(leftType) && ClassType.isBuiltIn(rightType) && TypeBase.isInstance(rightType)) {
-                    return false;
-                }
-            }
-
-            // Does the class have an operator overload for eq?
-            const eqMethod = lookUpClassMember(
-                ClassType.cloneAsInstantiable(leftType),
-                '__eq__',
-                MemberAccessFlags.SkipObjectBaseClass
-            );
-
-            if (eqMethod) {
-                // If this is a synthesized method for a dataclass, we can assume
-                // that other dataclass types will not be comparable.
-                if (ClassType.isDataClass(leftType) && eqMethod.symbol.getSynthesizedType()) {
-                    return false;
-                }
-
-                return true;
-            }
-
-            return false;
-        }
-
-        return true;
     }
 
     // If the function is a generator, validates that its annotated return type
