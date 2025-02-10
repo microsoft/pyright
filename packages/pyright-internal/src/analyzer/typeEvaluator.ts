@@ -3873,6 +3873,11 @@ export function createTypeEvaluator(
                             sourceEntryTypes.splice(unboundedIndex, 0, typeToReplicate);
                         }
                     }
+
+                    if (sourceEntryTypes.length > targetTypes.length) {
+                        // Remove elements to make the count match the target count.
+                        sourceEntryTypes.splice(unboundedIndex, 1);
+                    }
                 }
 
                 // If there's an unpack operator in the target and we have too many source elements,
