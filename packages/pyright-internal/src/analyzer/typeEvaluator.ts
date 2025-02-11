@@ -10792,7 +10792,7 @@ export function createTypeEvaluator(
                 } else {
                     let tooManyPositionals = false;
 
-                    if (foundUnpackedListArg && argList[argIndex].argCategory === ArgCategory.UnpackedList) {
+                    if (argList[argIndex].argCategory === ArgCategory.UnpackedList) {
                         // If this is an unpacked iterable, we will conservatively assume that it
                         // might have zero iterations unless we can tell from its type that it
                         // definitely has at least one iterable value.
@@ -10806,8 +10806,6 @@ export function createTypeEvaluator(
                             argType.priv.tupleTypeArgs.length > 0
                         ) {
                             tooManyPositionals = true;
-                        } else {
-                            matchedUnpackedListOfUnknownLength = true;
                         }
                     } else {
                         tooManyPositionals = true;
@@ -10919,6 +10917,10 @@ export function createTypeEvaluator(
                         errorNode,
                         /* emitNotIterableError */ false
                     )?.type;
+
+                    if (paramInfo.param.category === ParamCategory.ArgsList) {
+                        matchedUnpackedListOfUnknownLength = true;
+                    }
                 }
 
                 const funcArg: Arg | undefined = listElementType
@@ -11656,10 +11658,10 @@ export function createTypeEvaluator(
 
         let relevance = 0;
         if (matchedUnpackedListOfUnknownLength) {
-            // Lower the relevance if we made assumptions about the length
+            // Increase the relevance if we made assumptions about the length
             // of an unpacked argument. This will favor overloads that
             // associate this case with a *args parameter.
-            relevance--;
+            relevance++;
         }
 
         // Special-case the builtin isinstance and issubclass functions.
