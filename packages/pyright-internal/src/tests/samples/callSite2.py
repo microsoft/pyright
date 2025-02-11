@@ -13,4 +13,4 @@ v3 = add2(1, 2)
 reveal_type(v3, expected_text="Unknown")
 
 v4 = async_call(1)
-reveal_type(v4, expected_text="Coroutine[Any, Any, Unknown]")
+reveal_type(v4, expected_text="CoroutineType[Any, Any, Unknown]")

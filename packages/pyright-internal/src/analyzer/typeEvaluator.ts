@@ -115,6 +115,7 @@ import {
     Declaration,
     DeclarationType,
     FunctionDeclaration,
+    isVariableDeclaration,
     ModuleLoaderActions,
     SpecialBuiltInClassDeclaration,
     VariableDeclaration,
@@ -551,7 +552,11 @@ const maxEffectiveTypeEvaluationAttempts = 16;
 
 // Maximum number of combinatoric argument type expansions allowed
 // when resolving an overload.
-const maxOverloadArgTypeExpansionCount = 64;
+const maxTotalOverloadArgTypeExpansionCount = 256;
+
+// Maximum size of an enum that will be expanded during overload
+// argument type expansion.
+const maxSingleOverloadArgTypeExpansionCount = 64;
 
 // Maximum number of recursive function return type inference attempts
 // that can be concurrently pending before we give up.
@@ -3868,6 +3873,11 @@ export function createTypeEvaluator(
                             sourceEntryTypes.splice(unboundedIndex, 0, typeToReplicate);
                         }
                     }
+
+                    if (sourceEntryTypes.length > targetTypes.length) {
+                        // Remove elements to make the count match the target count.
+                        sourceEntryTypes.splice(unboundedIndex, 1);
+                    }
                 }
 
                 // If there's an unpack operator in the target and we have too many source elements,
@@ -4434,17 +4444,17 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Unpack: {
-                if (target.d.expr.nodeType === ParseNodeType.Name) {
-                    assignTypeToNameNode(
-                        target.d.expr,
-                        {
-                            type: getBuiltInObject(target.d.expr, 'list', [typeResult.type]),
-                            isIncomplete: typeResult.isIncomplete,
-                        },
-                        ignoreEmptyContainers,
-                        srcExpr
-                    );
-                }
+                assignTypeToExpression(
+                    target.d.expr,
+                    {
+                        type: getBuiltInObject(target.d.expr, 'list', [typeResult.type]),
+                        isIncomplete: typeResult.isIncomplete,
+                    },
+                    srcExpr,
+                    ignoreEmptyContainers,
+                    allowAssignmentToFinalVar,
+                    expectedTypeDiagAddendum
+                );
                 break;
             }
 
@@ -9613,7 +9623,7 @@ export function createTypeEvaluator(
             expandedArgTypes = expandArgTypes(contextFreeArgTypes!, expandedArgTypes);
 
             // Check for combinatoric explosion and break out of loop.
-            if (!expandedArgTypes || expandedArgTypes.length > maxOverloadArgTypeExpansionCount) {
+            if (!expandedArgTypes || expandedArgTypes.length > maxTotalOverloadArgTypeExpansionCount) {
                 break;
             }
         }
@@ -9701,13 +9711,13 @@ export function createTypeEvaluator(
             if (isClassInstance(subtype)) {
                 // Expand any bool or Enum literals.
                 const expandedLiteralTypes = enumerateLiteralsForType(evaluatorInterface, subtype);
-                if (expandedLiteralTypes) {
+                if (expandedLiteralTypes && expandedLiteralTypes.length <= maxSingleOverloadArgTypeExpansionCount) {
                     appendArray(expandedTypes, expandedLiteralTypes);
                     return;
                 }
 
                 // Expand any fixed-size tuples.
-                const expandedTuples = expandTuple(subtype, maxOverloadArgTypeExpansionCount);
+                const expandedTuples = expandTuple(subtype, maxSingleOverloadArgTypeExpansionCount);
                 if (expandedTuples) {
                     appendArray(expandedTypes, expandedTuples);
                     return;
@@ -10782,7 +10792,7 @@ export function createTypeEvaluator(
                 } else {
                     let tooManyPositionals = false;
 
-                    if (foundUnpackedListArg && argList[argIndex].argCategory === ArgCategory.UnpackedList) {
+                    if (argList[argIndex].argCategory === ArgCategory.UnpackedList) {
                         // If this is an unpacked iterable, we will conservatively assume that it
                         // might have zero iterations unless we can tell from its type that it
                         // definitely has at least one iterable value.
@@ -10796,8 +10806,6 @@ export function createTypeEvaluator(
                             argType.priv.tupleTypeArgs.length > 0
                         ) {
                             tooManyPositionals = true;
-                        } else {
-                            matchedUnpackedListOfUnknownLength = true;
                         }
                     } else {
                         tooManyPositionals = true;
@@ -10909,6 +10917,10 @@ export function createTypeEvaluator(
                         errorNode,
                         /* emitNotIterableError */ false
                     )?.type;
+
+                    if (paramInfo.param.category === ParamCategory.ArgsList) {
+                        matchedUnpackedListOfUnknownLength = true;
+                    }
                 }
 
                 const funcArg: Arg | undefined = listElementType
@@ -11646,10 +11658,10 @@ export function createTypeEvaluator(
 
         let relevance = 0;
         if (matchedUnpackedListOfUnknownLength) {
-            // Lower the relevance if we made assumptions about the length
+            // Increase the relevance if we made assumptions about the length
             // of an unpacked argument. This will favor overloads that
             // associate this case with a *args parameter.
-            relevance--;
+            relevance++;
         }
 
         // Special-case the builtin isinstance and issubclass functions.
@@ -14667,7 +14679,10 @@ export function createTypeEvaluator(
             }
 
             // Handle old-style (pre-await) Coroutines as a special case.
-            if (isClassInstance(yieldFromSubtype) && ClassType.isBuiltIn(yieldFromSubtype, 'Coroutine')) {
+            if (
+                isClassInstance(yieldFromSubtype) &&
+                ClassType.isBuiltIn(yieldFromSubtype, ['Coroutine', 'CoroutineType'])
+            ) {
                 return UnknownType.create();
             }
 
@@ -19312,8 +19327,8 @@ export function createTypeEvaluator(
         }
 
         if (!awaitableReturnType || !isGenerator) {
-            // Wrap in either an Awaitable or a Coroutine, which is a subclass of Awaitable.
-            const awaitableType = getTypingType(node, useCoroutine ? 'Coroutine' : 'Awaitable');
+            // Wrap in either an Awaitable or a CoroutineType, which is a subclass of Awaitable.
+            const awaitableType = useCoroutine ? getTypesType(node, 'CoroutineType') : getTypingType(node, 'Awaitable');
             if (awaitableType && isInstantiableClass(awaitableType)) {
                 awaitableReturnType = ClassType.cloneAsInstance(
                     ClassType.specialize(
@@ -19461,7 +19476,7 @@ export function createTypeEvaluator(
                                         const iteratorTypeResult = getTypeOfExpression(yieldNode.d.expr);
                                         if (
                                             isClassInstance(iteratorTypeResult.type) &&
-                                            ClassType.isBuiltIn(iteratorTypeResult.type, 'Coroutine')
+                                            ClassType.isBuiltIn(iteratorTypeResult.type, ['Coroutine', 'CoroutineType'])
                                         ) {
                                             const yieldType =
                                                 iteratorTypeResult.type.priv.typeArgs &&
@@ -22920,6 +22935,18 @@ export function createTypeEvaluator(
             declsToConsider.push(resolvedDecl);
         });
 
+        // If all of the decls come from augmented assignments, we won't be able to
+        // determine its type. At least one declaration must be a simple assignment.
+        if (
+            declsToConsider.every(
+                (decl) =>
+                    isVariableDeclaration(decl) &&
+                    ParseTreeUtils.isNodeContainedWithinNodeType(decl.node, ParseNodeType.AugmentedAssignment)
+            )
+        ) {
+            declsToConsider.splice(0);
+        }
+
         const result = getTypeOfSymbolForDecls(symbol, declsToConsider, effectiveTypeCacheKey);
         result.includesVariableDecl = includesVariableDecl;
         result.includesIllegalTypeAliasDecl = includesIllegalTypeAliasDecl;
@@ -24922,7 +24949,7 @@ export function createTypeEvaluator(
 
                 overloads.forEach((overload) => {
                     const overloadScopeId = getTypeVarScopeId(overload) ?? '';
-                    const constraintsClone = constraints?.cloneWithSignature(overloadScopeId);
+                    const constraintsClone = constraints?.cloneWithSignature([overloadScopeId]);
 
                     if (assignType(destType, overload, /* diag */ undefined, constraintsClone, flags, recursionCount)) {
                         filteredOverloads.push(overload);
@@ -25160,6 +25187,13 @@ export function createTypeEvaluator(
         // that contain recursive type aliases.
         if (isTypeSame(srcType, destType, {}, recursionCount)) {
             return true;
+        }
+
+        if (
+            (flags & AssignTypeFlags.OverloadOverlap) !== 0 &&
+            srcType.priv.subtypes.some((subtype) => isAnyOrUnknown(subtype))
+        ) {
+            return false;
         }
 
         // Sort the subtypes so we have a deterministic order for unions.
@@ -25508,6 +25542,120 @@ export function createTypeEvaluator(
         );
     }
 
+    // Determines whether the two types are potentially comparable -- i.e.
+    // their types overlap in such a way that it makes sense for them to
+    // be compared with an == or != operator.
+    function isTypeComparable(leftType: Type, rightType: Type) {
+        if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
+            return true;
+        }
+
+        if (isNever(leftType) || isNever(rightType)) {
+            return false;
+        }
+
+        if (isModule(leftType) || isModule(rightType)) {
+            return isTypeSame(leftType, rightType, { ignoreConditions: true });
+        }
+
+        const isLeftCallable = isFunction(leftType) || isOverloaded(leftType);
+        const isRightCallable = isFunction(rightType) || isOverloaded(rightType);
+        if (isLeftCallable !== isRightCallable) {
+            return false;
+        }
+
+        if (isInstantiableClass(leftType) || (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'type'))) {
+            if (
+                isInstantiableClass(rightType) ||
+                (isClassInstance(rightType) && ClassType.isBuiltIn(rightType, 'type'))
+            ) {
+                const genericLeftType = ClassType.specialize(leftType, /* typeArgs */ undefined);
+                const genericRightType = ClassType.specialize(rightType, /* typeArgs */ undefined);
+
+                if (assignType(genericLeftType, genericRightType) || assignType(genericRightType, genericLeftType)) {
+                    return true;
+                }
+            }
+
+            // Does the class have an operator overload for eq?
+            const metaclass = leftType.shared.effectiveMetaclass;
+            if (metaclass && isClass(metaclass)) {
+                if (lookUpClassMember(metaclass, '__eq__', MemberAccessFlags.SkipObjectBaseClass)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (isClassInstance(leftType)) {
+            if (isClass(rightType)) {
+                const genericLeftType = ClassType.specialize(leftType, /* typeArgs */ undefined);
+                const genericRightType = ClassType.specialize(rightType, /* typeArgs */ undefined);
+
+                if (assignType(genericLeftType, genericRightType) || assignType(genericRightType, genericLeftType)) {
+                    return true;
+                }
+
+                // Assume that if the types are disjoint and built-in classes that they
+                // will never be comparable.
+                if (ClassType.isBuiltIn(leftType) && ClassType.isBuiltIn(rightType) && TypeBase.isInstance(rightType)) {
+                    // We need to be careful with bool and int literals because
+                    // they are comparable under certain circumstances.
+                    let boolType: ClassType | undefined;
+                    let intType: ClassType | undefined;
+                    if (ClassType.isBuiltIn(leftType, 'bool') && ClassType.isBuiltIn(rightType, 'int')) {
+                        boolType = leftType;
+                        intType = rightType;
+                    } else if (ClassType.isBuiltIn(rightType, 'bool') && ClassType.isBuiltIn(leftType, 'int')) {
+                        boolType = rightType;
+                        intType = leftType;
+                    }
+
+                    if (boolType && intType) {
+                        const intVal = intType.priv?.literalValue as number | BigInt | undefined;
+                        if (intVal === undefined) {
+                            return true;
+                        }
+                        if (intVal !== 0 && intVal !== 1) {
+                            return false;
+                        }
+
+                        const boolVal = boolType.priv?.literalValue as boolean | undefined;
+                        if (boolVal === undefined) {
+                            return true;
+                        }
+
+                        return boolVal === (intVal === 1);
+                    }
+
+                    return false;
+                }
+            }
+
+            // Does the class have an operator overload for eq?
+            const eqMethod = lookUpClassMember(
+                ClassType.cloneAsInstantiable(leftType),
+                '__eq__',
+                MemberAccessFlags.SkipObjectBaseClass
+            );
+
+            if (eqMethod) {
+                // If this is a synthesized method for a dataclass, we can assume
+                // that other dataclass types will not be comparable.
+                if (ClassType.isDataClass(leftType) && eqMethod.symbol.getSynthesizedType()) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
     function assignToUnionType(
         destType: UnionType,
         srcType: Type,
@@ -25782,18 +25930,30 @@ export function createTypeEvaluator(
         for (const mroClass of objType.shared.mro) {
             if (isClass(mroClass) && ClassType.isProtocolClass(mroClass)) {
                 for (const field of ClassType.getSymbolTable(mroClass)) {
-                    if (field[0] !== '__call__' && !field[1].isIgnoredForProtocolMatch()) {
-                        let fieldIsPartOfFunction = false;
+                    const fieldName = field[0];
+                    const fieldSymbol = field[1];
 
-                        if (prefetched?.functionClass && isClass(prefetched.functionClass)) {
-                            if (ClassType.getSymbolTable(prefetched.functionClass).has(field[0])) {
-                                fieldIsPartOfFunction = true;
-                            }
-                        }
+                    // We're expecting a __call__ method. We will also ignore a
+                    // __slots__ definition, which is (by convention) ignored for
+                    // protocol matching.
+                    if (fieldName === '__call__' || fieldName === '__slots__') {
+                        continue;
+                    }
 
-                        if (!fieldIsPartOfFunction) {
-                            return undefined;
+                    if (fieldSymbol.isIgnoredForProtocolMatch()) {
+                        continue;
+                    }
+
+                    let fieldIsPartOfFunction = false;
+
+                    if (prefetched?.functionClass && isClass(prefetched.functionClass)) {
+                        if (ClassType.getSymbolTable(prefetched.functionClass).has(field[0])) {
+                            fieldIsPartOfFunction = true;
                         }
+                    }
+
+                    if (!fieldIsPartOfFunction) {
+                        return undefined;
                     }
                 }
             }
@@ -26424,104 +26584,119 @@ export function createTypeEvaluator(
 
             if (srcStartOfNamed >= 0) {
                 srcParamDetails.params.forEach((srcParamInfo, index) => {
-                    if (index >= srcStartOfNamed) {
-                        if (
-                            srcParamInfo.param.name &&
-                            srcParamInfo.param.category === ParamCategory.Simple &&
-                            srcParamInfo.kind !== ParamKind.Positional
-                        ) {
-                            const destParamInfo = destParamMap.get(srcParamInfo.param.name);
-                            const paramDiag = diag?.createAddendum();
-                            const srcParamType = srcParamInfo.type;
+                    if (index < srcStartOfNamed) {
+                        return;
+                    }
 
-                            if (!destParamInfo) {
-                                if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.defaultType) {
-                                    if (paramDiag) {
-                                        paramDiag.addMessage(
-                                            LocAddendum.namedParamMissingInDest().format({
-                                                name: srcParamInfo.param.name,
-                                            })
-                                        );
-                                    }
-                                    canAssign = false;
-                                } else if (destParamDetails.kwargsIndex !== undefined) {
-                                    // Make sure we can assign the type to the Kwargs.
-                                    if (
-                                        !assignParam(
-                                            destParamDetails.params[destParamDetails.kwargsIndex].type,
-                                            srcParamType,
-                                            destParamDetails.params[destParamDetails.kwargsIndex].index,
-                                            diag?.createAddendum(),
-                                            constraints,
-                                            flags,
-                                            recursionCount
-                                        )
-                                    ) {
-                                        canAssign = false;
-                                    }
-                                } else if (srcParamInfo.defaultType) {
-                                    // Assign default arg values in case they are needed for
-                                    // populating TypeVar constraints.
-                                    const defaultArgType = srcParamInfo.defaultType ?? srcParamInfo.defaultType;
+                    if (
+                        !srcParamInfo.param.name ||
+                        srcParamInfo.param.category !== ParamCategory.Simple ||
+                        srcParamInfo.kind === ParamKind.Positional
+                    ) {
+                        return;
+                    }
 
-                                    if (
-                                        defaultArgType &&
-                                        !assignType(
-                                            srcParamInfo.type,
-                                            defaultArgType,
-                                            diag?.createAddendum(),
-                                            constraints,
-                                            flags,
-                                            recursionCount
-                                        )
-                                    ) {
-                                        if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
-                                            canAssign = false;
-                                        }
-                                    }
-                                }
-                            } else {
-                                const destParamType = destParamInfo.type;
-                                const specializedDestParamType = constraints
-                                    ? solveAndApplyConstraints(destParamType, constraints)
-                                    : destParamType;
+                    const destParamInfo = destParamMap.get(srcParamInfo.param.name);
+                    const paramDiag = diag?.createAddendum();
+                    const srcParamType = srcParamInfo.type;
 
-                                if (
-                                    !assignParam(
-                                        destParamInfo.type,
-                                        srcParamType,
-                                        /* paramIndex */ undefined,
-                                        paramDiag?.createAddendum(),
-                                        constraints,
-                                        flags,
-                                        recursionCount
-                                    )
-                                ) {
-                                    if (paramDiag) {
-                                        paramDiag.addMessage(
-                                            LocAddendum.namedParamTypeMismatch().format({
-                                                name: srcParamInfo.param.name,
-                                                sourceType: printType(specializedDestParamType),
-                                                destType: printType(srcParamType),
-                                            })
-                                        );
-                                    }
+                    if (!destParamInfo) {
+                        if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.defaultType) {
+                            if (paramDiag) {
+                                paramDiag.addMessage(
+                                    LocAddendum.namedParamMissingInDest().format({
+                                        name: srcParamInfo.param.name,
+                                    })
+                                );
+                            }
+                            canAssign = false;
+                        } else if (destParamDetails.kwargsIndex !== undefined) {
+                            // Make sure we can assign the type to the Kwargs.
+                            if (
+                                !assignParam(
+                                    destParamDetails.params[destParamDetails.kwargsIndex].type,
+                                    srcParamType,
+                                    destParamDetails.params[destParamDetails.kwargsIndex].index,
+                                    diag?.createAddendum(),
+                                    constraints,
+                                    flags,
+                                    recursionCount
+                                )
+                            ) {
+                                canAssign = false;
+                            }
+                        } else if (srcParamInfo.defaultType) {
+                            // Assign default arg values in case they are needed for
+                            // populating TypeVar constraints.
+                            const defaultArgType = srcParamInfo.defaultType ?? srcParamInfo.defaultType;
+
+                            if (
+                                defaultArgType &&
+                                !assignType(
+                                    srcParamInfo.type,
+                                    defaultArgType,
+                                    diag?.createAddendum(),
+                                    constraints,
+                                    flags,
+                                    recursionCount
+                                )
+                            ) {
+                                if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
                                     canAssign = false;
                                 }
-
-                                if (destParamInfo.defaultType && !srcParamInfo.defaultType) {
-                                    diag?.createAddendum().addMessage(
-                                        LocAddendum.functionParamDefaultMissing().format({
-                                            name: srcParamInfo.param.name,
-                                        })
-                                    );
-                                    canAssign = false;
-                                }
-
-                                destParamMap.delete(srcParamInfo.param.name);
                             }
                         }
+                        return;
                     }
+
+                    // If we're performing a partial overload match and both the source
+                    // and dest parameters provide defaults, assume that there could
+                    // be a match.
+                    if (srcParamInfo.defaultType && destParamInfo.defaultType) {
+                        if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
+                            destParamMap.delete(srcParamInfo.param.name);
+                            return;
+                        }
+                    }
+
+                    const destParamType = destParamInfo.type;
+                    const specializedDestParamType = constraints
+                        ? solveAndApplyConstraints(destParamType, constraints)
+                        : destParamType;
+
+                    if (
+                        !assignParam(
+                            destParamInfo.type,
+                            srcParamType,
+                            /* paramIndex */ undefined,
+                            paramDiag?.createAddendum(),
+                            constraints,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        if (paramDiag) {
+                            paramDiag.addMessage(
+                                LocAddendum.namedParamTypeMismatch().format({
+                                    name: srcParamInfo.param.name,
+                                    sourceType: printType(specializedDestParamType),
+                                    destType: printType(srcParamType),
+                                })
+                            );
+                        }
+                        canAssign = false;
+                    }
+
+                    if (destParamInfo.defaultType && !srcParamInfo.defaultType) {
+                        diag?.createAddendum().addMessage(
+                            LocAddendum.functionParamDefaultMissing().format({
+                                name: srcParamInfo.param.name,
+                            })
+                        );
+                        canAssign = false;
+                    }
+
+                    destParamMap.delete(srcParamInfo.param.name);
                 });
             }
 
@@ -28278,6 +28453,7 @@ export function createTypeEvaluator(
         getCallSignatureInfo,
         getAbstractSymbols,
         narrowConstrainedTypeVar,
+        isTypeComparable,
         assignType,
         validateOverrideMethod,
         validateCallArgs,

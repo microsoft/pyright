@@ -1,0 +1,54 @@
+# Does an npm install using our private Azure Artifacts registry which requires OIDC authentication.
+# Workflows that use this action must add the id-token: write permission.
+
+name: npm install via CFS
+
+on:
+  workflow_call:
+
+runs:
+  using: composite
+  steps:
+    - name: Azure OIDC Login
+      uses: azure/login@v2
+      with:
+        # These are not secret values and are safe to commit to the repository
+        client-id: 92c669e8-02ad-4ce6-ad73-f222fc7177e2
+        tenant-id: 72f988bf-86f1-41af-91ab-2d7cd011db47
+        allow-no-subscriptions: true
+
+    - name: Setup CFS Credentials
+      shell: bash
+      id: npm-auth
+      # The resource guid is the app id of Azure DevOps
+      run: |
+        echo "token=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 | jq -r .accessToken)" >> $GITHUB_OUTPUT
+
+    - uses: ./.github/actions/cfs-npm-authenticate
+      with:
+        working-directory: .
+        token: ${{ steps.npm-auth.outputs.token }}
+
+    - uses: ./.github/actions/cfs-npm-authenticate
+      with:
+        working-directory: packages/pyright
+        token: ${{ steps.npm-auth.outputs.token }}
+
+    - uses: ./.github/actions/cfs-npm-authenticate
+      with:
+        working-directory: packages/pyright-internal
+        token: ${{ steps.npm-auth.outputs.token }}
+
+    - uses: ./.github/actions/cfs-npm-authenticate
+      with:
+        working-directory: packages/vscode-pyright
+        token: ${{ steps.npm-auth.outputs.token }}
+
+    - run: npm run install:all
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+
+    - name: Cleanup .npmrc
+      shell: bash
+      run: rm .npmrc
+      working-directory: ${{ inputs.working-directory }}

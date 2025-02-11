@@ -815,7 +815,10 @@ export class Checker extends ParseTreeWalker {
                         node
                     );
 
-                    if (isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'Coroutine')) {
+                    if (
+                        isClassInstance(returnType) &&
+                        ClassType.isBuiltIn(returnType, ['Coroutine', 'CoroutineType'])
+                    ) {
                         this._evaluator.addDiagnostic(
                             DiagnosticRule.reportUnusedCoroutine,
                             LocMessage.unusedCoroutine(),
@@ -1064,7 +1067,7 @@ export class Checker extends ParseTreeWalker {
         let yieldType: Type | undefined;
         let sendType: Type | undefined;
 
-        if (isClassInstance(yieldFromType) && ClassType.isBuiltIn(yieldFromType, 'Coroutine')) {
+        if (isClassInstance(yieldFromType) && ClassType.isBuiltIn(yieldFromType, ['Coroutine', 'CoroutineType'])) {
             // Handle the case of old-style (pre-await) coroutines.
             yieldType = UnknownType.create();
         } else {
@@ -1842,7 +1845,7 @@ export class Checker extends ParseTreeWalker {
                 isExprFunction = false;
             }
 
-            if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, 'Coroutine')) {
+            if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, ['Coroutine', 'CoroutineType'])) {
                 isCoroutine = false;
             }
         });
@@ -2122,7 +2125,7 @@ export class Checker extends ParseTreeWalker {
                         return;
                     }
 
-                    if (this._isTypeComparable(leftSubtype, rightSubtype)) {
+                    if (this._evaluator.isTypeComparable(leftSubtype, rightSubtype)) {
                         isComparable = true;
                     }
 
@@ -2146,97 +2149,6 @@ export class Checker extends ParseTreeWalker {
                 );
             }
         }
-    }
-
-    // Determines whether the two types are potentially comparable -- i.e.
-    // their types overlap in such a way that it makes sense for them to
-    // be compared with an == or != operator.
-    private _isTypeComparable(leftType: Type, rightType: Type) {
-        if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
-            return true;
-        }
-
-        if (isNever(leftType) || isNever(rightType)) {
-            return false;
-        }
-
-        if (isModule(leftType) || isModule(rightType)) {
-            return isTypeSame(leftType, rightType, { ignoreConditions: true });
-        }
-
-        const isLeftCallable = isFunction(leftType) || isOverloaded(leftType);
-        const isRightCallable = isFunction(rightType) || isOverloaded(rightType);
-        if (isLeftCallable !== isRightCallable) {
-            return false;
-        }
-
-        if (isInstantiableClass(leftType) || (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'type'))) {
-            if (
-                isInstantiableClass(rightType) ||
-                (isClassInstance(rightType) && ClassType.isBuiltIn(rightType, 'type'))
-            ) {
-                const genericLeftType = ClassType.specialize(leftType, /* typeArgs */ undefined);
-                const genericRightType = ClassType.specialize(rightType, /* typeArgs */ undefined);
-
-                if (
-                    this._evaluator.assignType(genericLeftType, genericRightType) ||
-                    this._evaluator.assignType(genericRightType, genericLeftType)
-                ) {
-                    return true;
-                }
-            }
-
-            // Does the class have an operator overload for eq?
-            const metaclass = leftType.shared.effectiveMetaclass;
-            if (metaclass && isClass(metaclass)) {
-                if (lookUpClassMember(metaclass, '__eq__', MemberAccessFlags.SkipObjectBaseClass)) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        if (isClassInstance(leftType)) {
-            if (isClass(rightType)) {
-                const genericLeftType = ClassType.specialize(leftType, /* typeArgs */ undefined);
-                const genericRightType = ClassType.specialize(rightType, /* typeArgs */ undefined);
-
-                if (
-                    this._evaluator.assignType(genericLeftType, genericRightType) ||
-                    this._evaluator.assignType(genericRightType, genericLeftType)
-                ) {
-                    return true;
-                }
-
-                // Assume that if the types are disjoint and built-in classes that they
-                // will never be comparable.
-                if (ClassType.isBuiltIn(leftType) && ClassType.isBuiltIn(rightType) && TypeBase.isInstance(rightType)) {
-                    return false;
-                }
-            }
-
-            // Does the class have an operator overload for eq?
-            const eqMethod = lookUpClassMember(
-                ClassType.cloneAsInstantiable(leftType),
-                '__eq__',
-                MemberAccessFlags.SkipObjectBaseClass
-            );
-
-            if (eqMethod) {
-                // If this is a synthesized method for a dataclass, we can assume
-                // that other dataclass types will not be comparable.
-                if (ClassType.isDataClass(leftType) && eqMethod.symbol.getSynthesizedType()) {
-                    return false;
-                }
-
-                return true;
-            }
-
-            return false;
-        }
-
-        return true;
     }
 
     // If the function is a generator, validates that its annotated return type
@@ -3134,6 +3046,8 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (!implementation) {
+            // If this is a method within a protocol class, don't require that
+            // there is an implementation.
             const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(primaryDecl.node);
             if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
                 const classType = this._evaluator.getTypeOfClass(containingClassNode);
@@ -3155,8 +3069,13 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
-            // If this is a method within a protocol class, don't require that
-            // there is an implementation.
+            // If the declaration isn't associated with any of the overloads in the
+            // type, the overloads came from a decorator that captured the overload
+            // from somewhere else.
+            if (!overloads.find((overload) => overload.shared.declaration === primaryDecl)) {
+                return;
+            }
+
             this._evaluator.addDiagnostic(
                 DiagnosticRule.reportNoOverloadImplementation,
                 LocMessage.overloadWithoutImplementation().format({
@@ -6678,27 +6597,7 @@ export class Checker extends ParseTreeWalker {
             const diagAddendum = new DiagnosticAddendum();
 
             // Determine whether this is an attempt to override a method marked @final.
-            let reportFinalMethodOverride = false;
-
-            // Private names (starting with double underscore) are exempt from this check.
-            if (!SymbolNameUtils.isPrivateName(memberName)) {
-                if (isFunction(baseType) && FunctionType.isFinal(baseType)) {
-                    reportFinalMethodOverride = true;
-                } else if (isOverloaded(baseType)) {
-                    const overloads = OverloadedType.getOverloads(baseType);
-                    const impl = OverloadedType.getImplementation(baseType);
-
-                    if (overloads.some((overload) => FunctionType.isFinal(overload))) {
-                        reportFinalMethodOverride = true;
-                    }
-
-                    if (impl && isFunction(impl) && FunctionType.isFinal(impl)) {
-                        reportFinalMethodOverride = true;
-                    }
-                }
-            }
-
-            if (reportFinalMethodOverride) {
+            if (this._isFinalFunction(memberName, baseType)) {
                 const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
                 if (decl && decl.type === DeclarationType.Function) {
                     const diag = this._evaluator.addDiagnostic(
@@ -6999,6 +6898,31 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
+    private _isFinalFunction(name: string, type: Type) {
+        if (SymbolNameUtils.isPrivateName(name)) {
+            return false;
+        }
+
+        if (isFunction(type) && FunctionType.isFinal(type)) {
+            return true;
+        }
+
+        if (isOverloaded(type)) {
+            const overloads = OverloadedType.getOverloads(type);
+            const impl = OverloadedType.getImplementation(type);
+
+            if (overloads.some((overload) => FunctionType.isFinal(overload))) {
+                return true;
+            }
+
+            if (impl && isFunction(impl) && FunctionType.isFinal(impl)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private _validatePropertyOverride(
         baseClassType: ClassType,
         childClassType: ClassType,
@@ -7059,6 +6983,18 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     return;
+                } else if (this._isFinalFunction(methodName, baseClassPropMethod)) {
+                    const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
+                    if (decl && decl.type === DeclarationType.Function) {
+                        this._evaluator.addDiagnostic(
+                            DiagnosticRule.reportIncompatibleMethodOverride,
+                            LocMessage.finalMethodOverride().format({
+                                name: memberName,
+                                className: baseClassType.shared.name,
+                            }),
+                            decl.node.d.name
+                        );
+                    }
                 }
 
                 const subclassMethodType = partiallySpecializeType(

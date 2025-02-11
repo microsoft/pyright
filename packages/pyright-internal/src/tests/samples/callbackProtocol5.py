@@ -54,6 +54,7 @@ class CallbackProto2(Protocol):
     __module__: str
     __qualname__: str
     __annotations__: dict[str, Any]
+    __slots__ = ()
 
     def __call__(self) -> None:
         ...

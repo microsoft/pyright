@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from typing import Any
 
 from dateparser.parser import _parser
@@ -16,5 +17,7 @@ class non_gregorian_parser(_parser):
     non_gregorian_date_cls: Any
     @classmethod
     def to_latin(cls, source): ...
+    @abstractmethod
+    def handle_two_digit_year(self, year: int) -> int: ...
     @classmethod
     def parse(cls, datestring, settings): ...
