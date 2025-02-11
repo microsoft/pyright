@@ -25928,18 +25928,30 @@ export function createTypeEvaluator(
         for (const mroClass of objType.shared.mro) {
             if (isClass(mroClass) && ClassType.isProtocolClass(mroClass)) {
                 for (const field of ClassType.getSymbolTable(mroClass)) {
-                    if (field[0] !== '__call__' && !field[1].isIgnoredForProtocolMatch()) {
-                        let fieldIsPartOfFunction = false;
+                    const fieldName = field[0];
+                    const fieldSymbol = field[1];
 
-                        if (prefetched?.functionClass && isClass(prefetched.functionClass)) {
-                            if (ClassType.getSymbolTable(prefetched.functionClass).has(field[0])) {
-                                fieldIsPartOfFunction = true;
-                            }
-                        }
+                    // We're expecting a __call__ method. We will also ignore a
+                    // __slots__ definition, which is (by convention) ignored for
+                    // protocol matching.
+                    if (fieldName === '__call__' || fieldName === '__slots__') {
+                        continue;
+                    }
 
-                        if (!fieldIsPartOfFunction) {
-                            return undefined;
+                    if (fieldSymbol.isIgnoredForProtocolMatch()) {
+                        continue;
+                    }
+
+                    let fieldIsPartOfFunction = false;
+
+                    if (prefetched?.functionClass && isClass(prefetched.functionClass)) {
+                        if (ClassType.getSymbolTable(prefetched.functionClass).has(field[0])) {
+                            fieldIsPartOfFunction = true;
                         }
+                    }
+
+                    if (!fieldIsPartOfFunction) {
+                        return undefined;
                     }
                 }
             }
