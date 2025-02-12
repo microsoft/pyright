@@ -1566,10 +1566,6 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; type: string }>(
                 getRawString('DiagnosticAddendum.typedDictFieldUndefined')
             );
-        export const typedDictFinalMismatch = () =>
-            new ParameterizedString<{ sourceType: string; destType: string }>(
-                getRawString('DiagnosticAddendum.typedDictFinalMismatch')
-            );
         export const typedDictKeyAccess = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typedDictKeyAccess'));
         export const typedDictNotAllowed = () => getRawString('DiagnosticAddendum.typedDictNotAllowed');

@@ -814,7 +814,6 @@
         "typedDictFieldRequired": "\"{type}\"中需要\"{name}\"",
         "typedDictFieldTypeMismatch": "类型“{type}”不可分配给项“{name}”",
         "typedDictFieldUndefined": "“{name}”是类型“{type}”中的未定义项",
-        "typedDictFinalMismatch": "\"{sourceType}\"与\"{destType}\"不兼容，因为@final不匹配",
         "typedDictKeyAccess": "使用 [\"{name}\"] 引用 TypedDict 中的项",
         "typedDictNotAllowed": "不能对实例或类检查使用 TypedDict",
         "unhashableType": "类型“{type}”不可哈希",

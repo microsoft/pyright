@@ -23646,16 +23646,6 @@ export function createTypeEvaluator(
                     return false;
                 }
 
-                if (ClassType.isFinal(destType) !== ClassType.isFinal(srcType)) {
-                    diag?.addMessage(
-                        LocAddendum.typedDictFinalMismatch().format({
-                            sourceType: printType(convertToInstance(srcType)),
-                            destType: printType(convertToInstance(destType)),
-                        })
-                    );
-                    return false;
-                }
-
                 // If invariance is being enforced, the two TypedDicts must be assignable to each other.
                 if ((flags & AssignTypeFlags.Invariant) !== 0) {
                     return assignTypedDictToTypedDict(
