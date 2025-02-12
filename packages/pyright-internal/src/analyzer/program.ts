@@ -522,6 +522,10 @@ export class Program {
         return this._sourceFileList.filter((s) => s.isOpenByClient);
     }
 
+    getOwnedFiles(): SourceFileInfo[] {
+        return this._sourceFileList.filter((s) => isUserCode(s) && this.owns(s.sourceFile.getUri()));
+    }
+
     getFilesToAnalyzeCount(): RequiringAnalysisCount {
         let filesToAnalyzeCount = 0;
         let cellsToAnalyzeCount = 0;
@@ -2191,7 +2195,7 @@ export class Program {
             if (chainedSourceFile.sourceFile.isCheckingRequired()) {
                 // If the file is marked for checking, its chained one should be marked
                 // as well. Stop here.
-                return;
+                break;
             }
 
             reevaluationRequired = true;

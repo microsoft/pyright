@@ -8,7 +8,6 @@
 import { CacheManager } from '../analyzer/cacheManager';
 import { ISourceFileFactory } from '../analyzer/programTypes';
 import { IPythonMode, SourceFile, SourceFileEditMode } from '../analyzer/sourceFile';
-import { SupportPartialStubs } from '../pyrightFileSystem';
 import { ServiceKeys } from './serviceKeys';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface } from './console';
@@ -18,6 +17,7 @@ import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 import { DocStringService, PyrightDocStringService } from './docStringService';
 import { CommandService, WindowService } from './languageServerInterface';
+import { SupportPartialStubs } from '../partialStubService';
 
 declare module './serviceProvider' {
     interface ServiceProvider {

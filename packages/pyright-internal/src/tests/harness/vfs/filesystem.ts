@@ -19,6 +19,7 @@ import { Uri } from '../../../common/uri/uri';
 import { bufferFrom, createIOError } from '../utils';
 import { Metadata, SortedMap, closeIterator, getIterator, nextResult } from './../utils';
 import { ValidationFlags, validate } from './pathValidation';
+import { Disposable } from 'vscode-jsonrpc';
 
 export const MODULE_PATH = pathUtil.normalizeSlashes('/');
 
@@ -38,7 +39,6 @@ export class TestFileSystemWatcher implements FileWatcher {
     fireFileChange(path: Uri, eventType: FileWatcherEventType): boolean {
         if (this.paths.some((p) => path.startsWith(p))) {
             this._listener(eventType, path.getFilePath());
-            return true;
         }
         return false;
     }
@@ -341,8 +341,9 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
     }
 
     fireFileWatcherEvent(path: string, event: FileWatcherEventType) {
+        const uri = Uri.file(path, this);
         for (const watcher of this._watchers) {
-            if (watcher.fireFileChange(Uri.file(path, this), event)) {
+            if (watcher.fireFileChange(uri, event)) {
                 break;
             }
         }
@@ -900,6 +901,10 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
     }
 
     copyFileSync(src: Uri, dst: Uri): void {
+        throw new Error('Not implemented in test file system.');
+    }
+
+    mapDirectory(mappedUri: Uri, originalUri: Uri, filter?: (originalUri: Uri, fs: FileSystem) => boolean): Disposable {
         throw new Error('Not implemented in test file system.');
     }
 

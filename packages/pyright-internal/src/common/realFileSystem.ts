@@ -26,6 +26,7 @@ import { combinePaths, getRootLength } from './pathUtils';
 import { FileUri, FileUriSchema } from './uri/fileUri';
 import { Uri } from './uri/uri';
 import { getRootUri } from './uri/uriUtils';
+import { Disposable } from 'vscode-jsonrpc';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -450,6 +451,15 @@ export class RealFileSystem implements FileSystem {
 
     getMappedUri(originalUri: Uri) {
         return originalUri;
+    }
+
+    mapDirectory(mappedUri: Uri, originalUri: Uri, filter?: (originalUri: Uri, fs: FileSystem) => boolean): Disposable {
+        // Not supported at this level.
+        return {
+            dispose: () => {
+                // Do nothing.
+            },
+        };
     }
 
     isInZip(uri: Uri): boolean {
