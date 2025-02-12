@@ -521,6 +521,7 @@ const maxReturnTypeInferenceStackSize = 2;
 // analyze.
 const maxReturnTypeInferenceArgCount = 6;
 
+// todo
 // What is the max complexity of the code flow graph that
 // we will analyze to determine the return type of a function
 // when its parameters are unannotated? We want to keep this
