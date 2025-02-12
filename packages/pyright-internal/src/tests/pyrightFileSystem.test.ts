@@ -12,6 +12,7 @@ import { PyrightFileSystem } from '../pyrightFileSystem';
 import { TestFileSystem } from './harness/vfs/filesystem';
 import { Uri } from '../common/uri/uri';
 import { UriEx } from '../common/uri/uriUtils';
+import { PartialStubService } from '../partialStubService';
 
 const libraryRoot = combinePaths(normalizeSlashes('/'), lib, sitePackages);
 const libraryRootUri = UriEx.file(libraryRoot);
@@ -37,7 +38,8 @@ test('virtual file exists', () => {
     ];
 
     const fs = createFileSystem(files);
-    fs.processPartialStubPackages([libraryRootUri], [libraryRootUri]);
+    const ps = new PartialStubService(fs);
+    ps.processPartialStubPackages([libraryRootUri], [libraryRootUri]);
 
     const stubFile = libraryRootUri.combinePaths('myLib', 'partialStub.pyi');
     assert(fs.existsSync(stubFile));
@@ -82,7 +84,8 @@ test('virtual file coexists with real', () => {
     ];
 
     const fs = createFileSystem(files);
-    fs.processPartialStubPackages([libraryRootUri], [libraryRootUri]);
+    const ps = new PartialStubService(fs);
+    ps.processPartialStubPackages([libraryRootUri], [libraryRootUri]);
 
     const stubFile = libraryRootUri.combinePaths('myLib', 'partialStub.pyi');
     assert(fs.existsSync(stubFile));
@@ -118,7 +121,8 @@ test('virtual file not exist', () => {
     ];
 
     const fs = createFileSystem(files);
-    fs.processPartialStubPackages([libraryRootUri], [libraryRootUri]);
+    const ps = new PartialStubService(fs);
+    ps.processPartialStubPackages([libraryRootUri], [libraryRootUri]);
 
     assert(!fs.existsSync(libraryRootUri.combinePaths('myLib', 'partialStub.pyi')));
 
@@ -152,7 +156,8 @@ test('existing stub file', () => {
     ];
 
     const fs = createFileSystem(files);
-    fs.processPartialStubPackages([libraryRootUri], [libraryRootUri]);
+    const ps = new PartialStubService(fs);
+    ps.processPartialStubPackages([libraryRootUri], [libraryRootUri]);
 
     const stubFile = libraryRootUri.combinePaths('myLib', 'partialStub.pyi');
     assert(fs.existsSync(stubFile));
@@ -189,10 +194,11 @@ test('multiple package installed', () => {
     ];
 
     const fs = createFileSystem(files);
-    fs.processPartialStubPackages([libraryRootUri, extraRootUri], [libraryRootUri, extraRootUri]);
+    const ps = new PartialStubService(fs);
+    ps.processPartialStubPackages([libraryRootUri, extraRootUri], [libraryRootUri, extraRootUri]);
 
-    assert(fs.isPathScanned(libraryRootUri));
-    assert(fs.isPathScanned(extraRootUri));
+    assert(ps.isPathScanned(libraryRootUri));
+    assert(ps.isPathScanned(extraRootUri));
 
     assert(fs.existsSync(libraryRootUri.combinePaths('myLib', 'partialStub.pyi')));
     assert(fs.existsSync(extraRootUri.combinePaths('myLib', 'partialStub.pyi')));
@@ -225,7 +231,8 @@ test('bundled partial stubs', () => {
     ];
 
     const fs = createFileSystem(files);
-    fs.processPartialStubPackages([bundledPathUri], [libraryRootUri], bundledPathUri);
+    const ps = new PartialStubService(fs);
+    ps.processPartialStubPackages([bundledPathUri], [libraryRootUri], bundledPathUri);
 
     const stubFile = libraryRootUri.combinePaths('myLib', 'partialStub.pyi');
     assert(!fs.existsSync(stubFile));
