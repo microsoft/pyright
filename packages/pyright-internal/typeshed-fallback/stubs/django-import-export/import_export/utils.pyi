@@ -1,10 +1,8 @@
-from collections.abc import Callable
 from types import TracebackType
-from typing import Any, TypeVar
+from typing import Any, overload
 
+from django.db.models import Field as DjangoField, ForeignObjectRel, Model
 from django.db.transaction import Atomic
-
-_C = TypeVar("_C", bound=Callable[..., Any])
 
 class atomic_if_using_transaction:
     using_transactions: bool
@@ -15,4 +13,7 @@ class atomic_if_using_transaction:
         self, exc_type: type[BaseException] | None, exc_value: BaseException | None, exc_tb: TracebackType | None
     ) -> None: ...
 
-def original(method: _C) -> _C: ...
+@overload
+def get_related_model(field: ForeignObjectRel) -> Model: ...
+@overload
+def get_related_model(field: DjangoField[Any, Any]) -> Model | None: ...

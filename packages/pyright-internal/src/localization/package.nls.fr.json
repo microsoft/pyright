@@ -815,7 +815,6 @@
         "typedDictFieldRequired": "« {name} » est obligatoire dans « {type} »",
         "typedDictFieldTypeMismatch": "Le type « {type} » n'est pas attribuable à l’élément « {name} »",
         "typedDictFieldUndefined": "« {name} » est un élément non défini dans le type « {type} »",
-        "typedDictFinalMismatch": "« {sourceType} » n’est pas compatible avec « {destType} » en raison d’une incompatibilité de @final",
         "typedDictKeyAccess": "Utilisez [« {name} »] pour référencer l’élément dans TypedDict",
         "typedDictNotAllowed": "TypedDict ne peut pas être utilisé pour les vérifications d’instance ou de classe",
         "unhashableType": "Le type \"{type}\" n'est pas hachable",

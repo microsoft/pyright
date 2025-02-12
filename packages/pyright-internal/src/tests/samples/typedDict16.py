@@ -79,26 +79,3 @@ v24: list[TD20] = [v21]
 # This should generate an error.
 v25: list[TD21] = v24
 
-
-@final
-class TD30(TypedDict):
-    value: str
-
-
-@final
-class TD31(TypedDict):
-    value: str
-
-
-class TD32(TypedDict):
-    value: str
-
-
-v30: TD30 = TD31(value="")
-v31: TD31 = TD30(value="")
-
-# This should generate an error because of a @final mismatch.
-v32: TD32 = TD30(value="")
-
-# This should generate an error because of a @final mismatch.
-v33: TD30 = TD32(value="")

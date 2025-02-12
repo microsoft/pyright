@@ -815,7 +815,6 @@
         "typedDictFieldRequired": "\"{name}\" es obligatorio en \"{type}\"",
         "typedDictFieldTypeMismatch": "El tipo \"{type}\" no se puede asignar al elemento \"{name}\"",
         "typedDictFieldUndefined": "\"{name}\" es un elemento no definido en el tipo \"{type}\"",
-        "typedDictFinalMismatch": "\"{sourceType}\" no es compatible con \"{destType}\" debido a una discrepancia @final",
         "typedDictKeyAccess": "Utilizar [\"{name}\"] para hacer referencia al elemento en TypedDict",
         "typedDictNotAllowed": "No se puede usar TypedDict para comprobaciones de instancia o clase",
         "unhashableType": "El tipo \"{type}\" no admite hash",

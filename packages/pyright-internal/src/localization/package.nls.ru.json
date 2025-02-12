@@ -815,7 +815,6 @@
         "typedDictFieldRequired": "\"{name}\" является обязательным в \"{type}\"",
         "typedDictFieldTypeMismatch": "Тип \"{type}\" нельзя присвоить полю \"{name}\"",
         "typedDictFieldUndefined": "Элемент \"{name}\" не определен в типе \"{type}\"",
-        "typedDictFinalMismatch": "\"{sourceType}\" несовместим с \"{destType}\" из-за несоответствия @final",
         "typedDictKeyAccess": "Использовать [\"{name}\"] для ссылки на элемент в TypedDict",
         "typedDictNotAllowed": "TypedDict не может использоваться для проверок экземпляров или классов",
         "unhashableType": "Тип \"{type}\" не является хэшируемым",

@@ -815,7 +815,6 @@
         "typedDictFieldRequired": "\"{type}\"에 \"{name}\"이(가) 필요합니다.",
         "typedDictFieldTypeMismatch": "\"{type}\" 형식은 \"{name}\" 항목에 할당할 수 없습니다.",
         "typedDictFieldUndefined": "\"{name}\"은(는) \"{type}\" 형식의 정의되지 않은 항목입니다.",
-        "typedDictFinalMismatch": "@final 불일치로 인해 \"{sourceType}\"이(가) \"{destType}\"과(와) 호환되지 않습니다.",
         "typedDictKeyAccess": "TypedDict에서 항목을 참조하려면 [\"{name}\"]을(를) 사용하세요.",
         "typedDictNotAllowed": "TypedDict는 인스턴스 또는 클래스 검사에 사용할 수 없습니다.",
         "unhashableType": "‘{type}’ 형식을 해시할 수 없습니다.",

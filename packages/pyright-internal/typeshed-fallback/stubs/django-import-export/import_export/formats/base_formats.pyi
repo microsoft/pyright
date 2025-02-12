@@ -1,8 +1,11 @@
 from _typeshed import Incomplete, ReadableBuffer
+from logging import Logger
 from typing import IO, Any, ClassVar
 from typing_extensions import Self, TypeAlias
 
 Dataset: TypeAlias = Incomplete  # tablib.Dataset
+
+logger: Logger
 
 class Format:
     def get_title(self) -> type[Self]: ...
@@ -43,8 +46,7 @@ class TSV(TextFormat):
 class ODS(TextFormat):
     def export_data(self, dataset: Dataset, **kwargs: Any) -> bytes: ...
 
-class HTML(TextFormat):
-    def export_data(self, dataset: Dataset, **kwargs: Any) -> str: ...
+class HTML(TextFormat): ...
 
 class XLS(TablibFormat):
     def export_data(self, dataset: Dataset, **kwargs: Any) -> bytes: ...
@@ -55,3 +57,4 @@ class XLSX(TablibFormat):
     def create_dataset(self, in_stream: ReadableBuffer) -> Dataset: ...  # type: ignore[override]
 
 DEFAULT_FORMATS: list[type[Format]]
+BINARY_FORMATS: list[type[Format]]

@@ -171,7 +171,7 @@ test('AugmentedAssignment2', () => {
 test('AugmentedAssignment3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['augmentedAssignment3.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Super1', () => {

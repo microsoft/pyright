@@ -44,7 +44,7 @@ def get_generator4() -> AsyncGenerator[int, None]:
 
 async def demo_bug1() -> None:
     v1 = get_generator1()
-    reveal_type(v1, expected_text="Coroutine[Any, Any, AsyncGenerator[str, None]]")
+    reveal_type(v1, expected_text="CoroutineType[Any, Any, AsyncGenerator[str, None]]")
     gen = await v1
     reveal_type(gen, expected_text="AsyncGenerator[str, None]")
     async for s in gen:
@@ -53,7 +53,7 @@ async def demo_bug1() -> None:
 
 async def demo_bug2() -> None:
     v1 = get_generator2()
-    reveal_type(v1, expected_text="Coroutine[Any, Any, AsyncIterator[str]]")
+    reveal_type(v1, expected_text="CoroutineType[Any, Any, AsyncIterator[str]]")
     gen = await v1
     reveal_type(gen, expected_text="AsyncIterator[str]")
     async for s in gen:

@@ -2066,15 +2066,40 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
                 return referenceSubtype;
             }
 
-            if (evaluator.assignType(referenceSubtype, elementSubtype)) {
+            // If the two types are disjoint (i.e. are not comparable), eliminate this subtype.
+            if (!evaluator.isTypeComparable(elementSubtype, referenceSubtype)) {
+                return undefined;
+            }
+
+            // If one of the two types is a literal, we can narrow to that type.
+            if (
+                isClassInstance(elementSubtype) &&
+                (isLiteralType(elementSubtype) || isNoneInstance(elementSubtype)) &&
+                evaluator.assignType(referenceSubtype, elementSubtype)
+            ) {
                 return stripTypeForm(addConditionToType(elementSubtype, referenceSubtype.props?.condition));
             }
 
-            if (evaluator.assignType(elementSubtype, referenceSubtype)) {
+            if (
+                isClassInstance(referenceSubtype) &&
+                (isLiteralType(referenceSubtype) || isNoneInstance(referenceSubtype)) &&
+                evaluator.assignType(elementSubtype, referenceSubtype)
+            ) {
                 return stripTypeForm(addConditionToType(referenceSubtype, elementSubtype.props?.condition));
             }
 
-            return undefined;
+            // If the element type is a known class object that is assignable to
+            // the reference type, we can narrow to that class object.
+            if (
+                isInstantiableClass(elementSubtype) &&
+                !elementSubtype.priv.includeSubclasses &&
+                evaluator.assignType(referenceSubtype, elementSubtype)
+            ) {
+                return stripTypeForm(addConditionToType(elementSubtype, referenceSubtype.props?.condition));
+            }
+
+            // It's not safe to narrow.
+            return referenceSubtype;
         });
     });
 }

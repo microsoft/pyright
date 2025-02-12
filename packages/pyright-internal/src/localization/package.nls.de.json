@@ -815,7 +815,6 @@
         "typedDictFieldRequired": "\"{name}\" ist in \"{type}\" erforderlich.",
         "typedDictFieldTypeMismatch": "Der Typ „{type}“ kann dem Element „{name}“ nicht zugewiesen werden.",
         "typedDictFieldUndefined": "„{name}“ ist ein nicht definiertes Element im Typ „{type}“.",
-        "typedDictFinalMismatch": "\"{sourceType}\" ist aufgrund eines @final-Konflikts nicht mit \"{destType}\" kompatibel.",
         "typedDictKeyAccess": "[\"{name}\"] verwenden, um in TypedDict auf ein Element zu verweisen",
         "typedDictNotAllowed": "TypedDict kann nicht für Instanzen- oder Klassenüberprüfungen verwendet werden.",
         "unhashableType": "Der Typ \"{type}\" kann nicht mit einem Hash erstellt werden.",

@@ -815,7 +815,6 @@
         "typedDictFieldRequired": "\"{name}\" は \"{type}\" に必要です",
         "typedDictFieldTypeMismatch": "型 \"{type}\" は、アイテム \"{name}\" に割り当てできません",
         "typedDictFieldUndefined": "\"{name}\" は型 \"{type}\" の未定義のアイテムです",
-        "typedDictFinalMismatch": "@final が一致しないため、\"{sourceType}\" は \"{destType}\" と互換性がありません",
         "typedDictKeyAccess": "[\"{name}\"] を使用して TypedDict の項目を参照する",
         "typedDictNotAllowed": "TypedDict はインスタンスまたはクラスのチェックには使用できません",
         "unhashableType": "型 \"{type}\" はハッシュ可能ではありません",
