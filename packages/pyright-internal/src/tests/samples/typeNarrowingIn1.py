@@ -85,10 +85,10 @@ def func6(x: type):
 
 def func7(x: object | bytes, y: str, z: int):
     if x in (y, z):
-        reveal_type(x, expected_text="str | int")
+        reveal_type(x, expected_text="object")
     else:
         reveal_type(x, expected_text="object | bytes")
-    reveal_type(x, expected_text="str | int | object | bytes")
+    reveal_type(x, expected_text="object | bytes")
 
 
 def func8(x: object):
@@ -125,13 +125,6 @@ class TD1(TypedDict):
 
 class TD2(TypedDict):
     y: str
-
-
-def func11(x: dict[str, str]):
-    if x in (TD1(x="a"), TD2(y="b")):
-        reveal_type(x, expected_text="TD1 | TD2")
-    else:
-        reveal_type(x, expected_text="dict[str, str]")
 
 
 T1 = TypeVar("T1", TD1, TD2)
@@ -175,4 +168,39 @@ def func14(x: str, y: dict[Any, Any]):
 
 def func15(x: Any, y: dict[str, str]):
     if x in y:
-        reveal_type(x, expected_text="str")
+        reveal_type(x, expected_text="Any")
+
+
+def func16(x: int, y: list[Literal[0, 1]]):
+    if x in y:
+        reveal_type(x, expected_text="Literal[0, 1]")
+
+
+def func17(x: Literal[-1, 0], y: list[Literal[0, 1]]):
+    if x in y:
+        reveal_type(x, expected_text="Literal[0]")
+
+
+def func18(x: Literal[0, 1, 2], y: list[Literal[0, 1]]):
+    if x in y:
+        reveal_type(x, expected_text="Literal[0, 1]")
+
+
+def func19(x: float, y: list[int]):
+    if x in y:
+        reveal_type(x, expected_text="float")
+
+
+def func20(x: float, y: list[Literal[0, 1]]):
+    if x in y:
+        reveal_type(x, expected_text="Literal[0, 1]")
+
+
+def func21(x: int, y: list[Literal[0, True]]):
+    if x in y:
+        reveal_type(x, expected_text="Literal[0, True]")
+
+
+def func22(x: bool, y: list[Literal[0, 1]]):
+    if x in y:
+        reveal_type(x, expected_text="bool")

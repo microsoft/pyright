@@ -32,6 +32,7 @@ class ClassB(ClassA[T_co], Protocol[T_co, P]):
 
 
 class ClassC(Protocol):
+    # This should generate a overlapping overload error.
     @overload
     def __call__(
         self,

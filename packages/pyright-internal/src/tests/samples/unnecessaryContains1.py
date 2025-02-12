@@ -34,7 +34,7 @@ def func3(x: list[str]):
         return
 
     # This should generate an error if "reportUnnecessaryContains" is enabled.
-    if x not in ([1, 2], [3]):
+    if x not in ((1, 2), (3,)):
         pass
 
 

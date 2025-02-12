@@ -80,3 +80,14 @@ def func3(*args: int) -> int | str:
 def test3(v: list[int]) -> None:
     r = func3(*v)
     reveal_type(r, expected_text="int")
+
+
+def test4(v: list[tuple[int, str]]):
+    z1 = zip(*v)
+    reveal_type(z1, expected_text="zip[tuple[Any, ...]]")
+
+    z2 = zip(v[0])
+    reveal_type(z2, expected_text="zip[tuple[int | str]]")
+
+    z3 = zip(v[0], v[1])
+    reveal_type(z3, expected_text="zip[tuple[int | str, int | str]]")

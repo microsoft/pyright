@@ -94,6 +94,11 @@ test('OverloadCall10', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('OverloadCall11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall11.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('OverloadOverride1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverride1.py']);
     TestUtils.validateResults(analysisResults, 1);
@@ -106,7 +111,7 @@ test('OverloadImpl1', () => {
 
 test('OverloadImpl2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadImpl2.py']);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('OverloadOverlap1', () => {
@@ -118,7 +123,7 @@ test('OverloadOverlap1', () => {
 
     configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 15);
+    TestUtils.validateResults(analysisResults, 16);
 });
 
 test('TypeGuard1', () => {

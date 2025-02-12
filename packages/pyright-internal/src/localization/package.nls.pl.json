@@ -815,7 +815,6 @@
         "typedDictFieldRequired": "Nazwa „{name}” jest wymagana w typie „{type}”",
         "typedDictFieldTypeMismatch": "Nie można przypisać typu „{type}” do elementu „{name}”",
         "typedDictFieldUndefined": "Nazwa „{name}” jest niezdefiniowanym elementem w typie „{type}”",
-        "typedDictFinalMismatch": "Typ „{sourceType}” jest niezgodny z typem „{destType}” z powodu niezgodności @final",
         "typedDictKeyAccess": "Użyj elementu [\"{name}\"], aby odwołać się do elementu w TypedDict",
         "typedDictNotAllowed": "Funkcja TypedDict nie może być używana do sprawdzania wystąpień lub klas",
         "unhashableType": "Typ „{type}” nie jest wartością skrótu",

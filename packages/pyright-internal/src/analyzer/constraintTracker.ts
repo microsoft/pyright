@@ -168,7 +168,7 @@ export class ConstraintSet {
     }
 
     getScopeIds() {
-        return new Set(this._scopeIds);
+        return this._scopeIds ? [...this._scopeIds] : [];
     }
 
     hasUnificationVars() {
@@ -197,17 +197,26 @@ export class ConstraintTracker {
         return newTypeVarMap;
     }
 
-    cloneWithSignature(scopeId: TypeVarScopeId): ConstraintTracker {
+    cloneWithSignature(scopeIds: TypeVarScopeId[]): ConstraintTracker {
         const cloned = this.clone();
 
-        if (scopeId) {
-            const filteredSets = this._constraintSets.filter((context) => context.hasScopeId(scopeId));
+        const nonEmptyScopeIds = scopeIds.filter((scopeId) => !!scopeId);
 
+        if (nonEmptyScopeIds.length > 0) {
+            const filteredSets = this._constraintSets.filter((context) =>
+                nonEmptyScopeIds.every((scopeId) => context.hasScopeId(scopeId))
+            );
+
+            // If there are already some constraints that match the scopeIDs,
+            // reuse them. Otherwise, duplicate all existing constraint sets
+            // and add the new scope IDs.
             if (filteredSets.length > 0) {
                 cloned._constraintSets = filteredSets;
             } else {
                 cloned._constraintSets.forEach((context) => {
-                    context.addScopeId(scopeId);
+                    nonEmptyScopeIds.forEach((scopeId) => {
+                        context.addScopeId(scopeId);
+                    });
                 });
             }
         }
