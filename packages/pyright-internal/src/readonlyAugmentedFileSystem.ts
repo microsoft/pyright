@@ -9,30 +9,34 @@
 
 import type * as fs from 'fs';
 
-import { appendArray, getOrAdd } from './common/collectionUtils';
 import { FileSystem, MkDirOptions, Stats, VirtualDirent } from './common/fileSystem';
 import { FileWatcher, FileWatcherEventHandler } from './common/fileWatcher';
 import { Uri } from './common/uri/uri';
+import { UriMap } from './common/uri/uriMap';
+import { Disposable } from 'vscode-jsonrpc';
+
+interface MappedEntry {
+    mappedUri: Uri;
+    originalUri: Uri;
+    filter: (uri: Uri, fs: FileSystem) => boolean;
+}
 
 export class ReadOnlyAugmentedFileSystem implements FileSystem {
-    // Mapped file to original file map
-    private readonly _entryMap = new Map<string, Uri>();
+    // Mapped (fake location) directory to original directory map
+    private readonly _entryMap = new UriMap<MappedEntry>();
 
-    // Original file to mapped file map
-    private readonly _reverseEntryMap = new Map<string, Uri>();
-
-    // Mapped files per a containing folder map
-    private readonly _folderMap = new Map<string, { name: string; isFile: boolean }[]>();
+    // Original directory to mapped (fake location) directory map
+    private readonly _reverseEntryMap = new UriMap<MappedEntry>();
 
     constructor(protected realFS: FileSystem) {}
 
     existsSync(uri: Uri): boolean {
-        if (this.isMovedEntry(uri)) {
-            // Pretend partial stub folder and its files not exist
+        if (this._isOriginalPath(uri)) {
+            // Pretend original files don't exist anymore. They are only in their mapped location.
             return false;
         }
 
-        return this.realFS.existsSync(this.getOriginalPath(uri));
+        return this.realFS.existsSync(this._getInternalOriginalUri(uri));
     }
 
     mkdirSync(uri: Uri, options?: MkDirOptions): void {
@@ -44,28 +48,52 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     }
 
     readdirEntriesSync(uri: Uri): fs.Dirent[] {
-        const entries: fs.Dirent[] = [];
-        const movedEntries = this._folderMap.get(uri.key);
-        if (!movedEntries || this.realFS.existsSync(uri)) {
-            appendArray(
-                entries,
-                this.realFS.readdirEntriesSync(uri).filter((item) => {
-                    // Filter out the stub package directory and any
-                    // entries that will be overwritten by stub package
-                    // virtual items.
-                    return (
-                        !this.isMovedEntry(uri.combinePaths(item.name)) &&
-                        !movedEntries?.some((movedEntry) => movedEntry.name === item.name)
-                    );
-                })
-            );
+        // Stick all entries in a map by name to make sure we don't have duplicates.
+        const entries = new Map<string, fs.Dirent>();
+
+        // Handle the case where the directory has children that are remappings.
+        // Example:
+        // uri: /lib/site-packages
+        // mapping: /lib/site-packages/foo -> /lib/site-packages/foo-stubs
+        // We should show 'foo' as a directory in this case.
+        for (const [key] of this._entryMap.entries()) {
+            if (key.isChild(uri) && key.getRelativePathComponents(uri).length === 1) {
+                entries.set(key.fileName, new VirtualDirent(key.fileName, false, uri.getFilePath()));
+            }
         }
 
-        if (!movedEntries) {
-            return entries;
+        // Handle the case where we're looking at a mapped directory (or a child).
+        // Example:
+        // uri: /lib/site-packages/foo/module
+        // mapping: /lib/site-packages/foo -> /lib/site-packages/foo-stubs
+        // We should list all of the children of /lib/site-packages/foo-stubs/module.
+        const mappedEntry = this._getOriginalEntry(uri);
+        if (mappedEntry) {
+            const originalUri = this._getInternalOriginalUri(uri);
+            const filteredEntries = this.realFS
+                .readdirEntriesSync(originalUri)
+                .filter((e) => mappedEntry.filter(originalUri.combinePaths(e.name), this.realFS))
+                .map((e) => new VirtualDirent(e.name, e.isFile(), uri.getFilePath()));
+            for (const entry of filteredEntries) {
+                entries.set(entry.name, entry);
+            }
         }
-        const dirPath = uri.getFilePath();
-        return entries.concat(movedEntries.map((e) => new VirtualDirent(e.name, e.isFile, dirPath)));
+
+        if (this.realFS.existsSync(uri)) {
+            // Get our real entries, but filter out entries that are mapped to a different location.
+            // Example:
+            // uri: /lib/site-packages/foo-stubs
+            // mapping: /lib/site-packages/foo -> /lib/site-packages/foo-stubs
+            // We should list all of the children of /lib/site-packages/foo-stubs but only if they don't match the filter
+            const filteredEntries = this.realFS
+                .readdirEntriesSync(uri)
+                .filter((e) => !this._isOriginalPath(uri.combinePaths(e.name)));
+            for (const entry of filteredEntries) {
+                entries.set(entry.name, entry);
+            }
+        }
+
+        return [...entries.values()];
     }
 
     readdirSync(uri: Uri): string[] {
@@ -75,7 +103,7 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     readFileSync(uri: Uri, encoding?: null): Buffer;
     readFileSync(uri: Uri, encoding: BufferEncoding): string;
     readFileSync(uri: Uri, encoding?: BufferEncoding | null): string | Buffer {
-        return this.realFS.readFileSync(this.getOriginalPath(uri), encoding);
+        return this.realFS.readFileSync(this._getInternalOriginalUri(uri), encoding);
     }
 
     writeFileSync(uri: Uri, data: string | Buffer, encoding: BufferEncoding | null): void {
@@ -83,7 +111,7 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     }
 
     statSync(uri: Uri): Stats {
-        return this.realFS.statSync(this.getOriginalPath(uri));
+        return this.realFS.statSync(this._getInternalOriginalUri(uri));
     }
 
     rmdirSync(uri: Uri): void {
@@ -95,7 +123,7 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     }
 
     realpathSync(uri: Uri): Uri {
-        if (this._entryMap.has(uri.key)) {
+        if (this._entryMap.has(uri)) {
             return uri;
         }
 
@@ -111,7 +139,7 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     }
 
     createReadStream(uri: Uri): fs.ReadStream {
-        return this.realFS.createReadStream(this.getOriginalPath(uri));
+        return this.realFS.createReadStream(this._getInternalOriginalUri(uri));
     }
 
     createWriteStream(uri: Uri): fs.WriteStream {
@@ -124,11 +152,11 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
 
     // Async I/O
     readFile(uri: Uri): Promise<Buffer> {
-        return this.realFS.readFile(this.getOriginalPath(uri));
+        return this.realFS.readFile(this._getInternalOriginalUri(uri));
     }
 
     readFileText(uri: Uri, encoding?: BufferEncoding): Promise<string> {
-        return this.realFS.readFileText(this.getOriginalPath(uri), encoding);
+        return this.realFS.readFileText(this._getInternalOriginalUri(uri), encoding);
     }
 
     realCasePath(uri: Uri): Uri {
@@ -137,60 +165,103 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
 
     // See whether the file is mapped to another location.
     isMappedUri(fileUri: Uri): boolean {
-        return this._entryMap.has(fileUri.key) || this.realFS.isMappedUri(fileUri);
+        if (this._getOriginalEntry(fileUri) !== undefined) {
+            return true;
+        }
+        return this.realFS.isMappedUri(fileUri);
     }
 
     // Get original filepath if the given filepath is mapped.
     getOriginalUri(mappedFileUri: Uri) {
-        return this.realFS.getOriginalUri(this.getOriginalPath(mappedFileUri));
+        const internalUri = this._getInternalOriginalUri(mappedFileUri);
+        return this.realFS.getOriginalUri(internalUri);
     }
 
     // Get mapped filepath if the given filepath is mapped.
     getMappedUri(originalFileUri: Uri) {
-        const mappedFileUri = this.realFS.getMappedUri(originalFileUri);
-        return this._reverseEntryMap.get(mappedFileUri.key) ?? mappedFileUri;
+        const entry = this._getMappedEntry(originalFileUri);
+        if (!entry) {
+            return this.realFS.getMappedUri(originalFileUri);
+        }
+        const relative = entry.originalUri.getRelativePathComponents(originalFileUri);
+        return entry.mappedUri.combinePaths(...relative);
     }
 
     isInZip(uri: Uri): boolean {
         return this.realFS.isInZip(uri);
     }
 
-    protected recordMovedEntry(mappedUri: Uri, originalUri: Uri, rootPath: Uri) {
-        this._entryMap.set(mappedUri.key, originalUri);
-        this._reverseEntryMap.set(originalUri.key, mappedUri);
-
-        const directory = mappedUri.getDirectory();
-        const folderInfo = getOrAdd(this._folderMap, directory.key, () => []);
-
-        const name = mappedUri.fileName;
-        if (!folderInfo.some((entry) => entry.name === name)) {
-            folderInfo.push({ name, isFile: true });
-        }
-
-        // Add the directory entries for the sub paths as well.
-        const subPathEntries = rootPath.getRelativePathComponents(directory);
-        for (let i = 0; i < subPathEntries.length; i++) {
-            const subdir = rootPath.combinePaths(...subPathEntries.slice(0, i + 1));
-            const parent = subdir.getDirectory().key;
-            const dirInfo = getOrAdd(this._folderMap, parent, () => []);
-            const dirName = subdir.fileName;
-            if (!dirInfo.some((entry) => entry.name === dirName)) {
-                dirInfo.push({ name: dirName, isFile: false });
-            }
-        }
-    }
-
-    protected getOriginalPath(mappedFileUri: Uri) {
-        return this._entryMap.get(mappedFileUri.key) ?? mappedFileUri;
-    }
-
-    protected isMovedEntry(uri: Uri) {
-        return this._reverseEntryMap.has(uri.key);
+    mapDirectory(mappedUri: Uri, originalUri: Uri, filter?: (originalUri: Uri, fs: FileSystem) => boolean): Disposable {
+        const entry: MappedEntry = { originalUri, mappedUri, filter: filter ?? (() => true) };
+        this._entryMap.set(mappedUri, entry);
+        this._reverseEntryMap.set(originalUri, entry);
+        return {
+            dispose: () => {
+                this._entryMap.delete(mappedUri);
+                this._reverseEntryMap.delete(originalUri);
+            },
+        };
     }
 
     protected clear() {
         this._entryMap.clear();
         this._reverseEntryMap.clear();
-        this._folderMap.clear();
+    }
+
+    private _findClosestMatch(uri: Uri, map: UriMap<MappedEntry>): MappedEntry | undefined {
+        // Search through the map of directories to find the closest match. The
+        // closest match is the longest path that is a parent of the uri.
+        let entry = map.get(uri);
+        if (!entry) {
+            let foundKey = undefined;
+            for (const [key, value] of map.entries()) {
+                if (uri.isChild(key)) {
+                    // Update the found key if it is a better match.
+                    if (!foundKey || foundKey.getPathLength() < key.getPathLength()) {
+                        foundKey = key;
+                        entry = value;
+                    }
+                }
+            }
+        }
+        return entry;
+    }
+
+    private _getOriginalEntry(uri: Uri): MappedEntry | undefined {
+        return this._findClosestMatch(uri, this._entryMap);
+    }
+
+    // Returns the original uri if the given uri is a mapped uri in this file system's
+    // internal mapping. getOriginalUri is different in that it will also ask the realFS
+    // if it has a mapping too.
+    private _getInternalOriginalUri(uri: Uri): Uri {
+        const entry = this._getOriginalEntry(uri);
+        if (!entry) {
+            return uri;
+        }
+        const relative = entry.mappedUri.getRelativePathComponents(uri);
+        const original = entry.originalUri.combinePaths(...relative);
+
+        // Make sure this original URI passes the filter too.
+        if (entry.filter(original, this.realFS)) {
+            return original;
+        }
+
+        return uri;
+    }
+
+    private _getMappedEntry(uri: Uri): MappedEntry | undefined {
+        const reverseMatch = this._findClosestMatch(uri, this._reverseEntryMap);
+
+        // Uri in this case is an original Uri. It should also match the filter.
+        if (reverseMatch && reverseMatch.filter(uri, this.realFS)) {
+            return reverseMatch;
+        }
+        return undefined;
+    }
+
+    private _isOriginalPath(uri: Uri): boolean {
+        // If the uri is a child of any reverse entry or equals a reversed entry, then it is an original entry.
+        return this._getMappedEntry(uri) !== undefined;
     }
 }

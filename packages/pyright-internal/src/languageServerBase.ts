@@ -92,7 +92,6 @@ import { FileSystem, ReadOnlyFileSystem } from './common/fileSystem';
 import { FileWatcherEventType } from './common/fileWatcher';
 import { Host } from './common/host';
 import {
-    ClientCapabilities,
     LanguageServerInterface,
     ServerOptions,
     ServerSettings,
@@ -123,6 +122,7 @@ import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvid
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { ParseFileResults } from './parser/parser';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
+import { ClientCapabilities } from './types';
 
 export abstract class LanguageServerBase implements LanguageServerInterface, Disposable {
     // We support running only one "find all reference" at a time.
@@ -160,6 +160,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         supportsUnnecessaryDiagnosticTag: false,
         supportsTaskItemDiagnosticTag: false,
         completionItemResolveSupportsAdditionalTextEdits: false,
+        hasPullDiagnosticsCapability: false,
+        hasPullRelatedInformationCapability: false,
     };
 
     protected defaultClientConfig: any;

@@ -318,6 +318,10 @@ export class AnalyzerService {
         return this._program.getOpened().map((i) => i.sourceFile.getUri());
     }
 
+    getOwnedFiles() {
+        return this._program.getOwnedFiles().map((i) => i.sourceFile.getUri());
+    }
+
     setFileOpened(
         uri: Uri,
         version: number | null,
@@ -479,7 +483,6 @@ export class AnalyzerService {
     }
 
     protected runAnalysis(token: CancellationToken) {
-        // This creates a cancellation source only if it actually gets used.
         const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(token);
         if (moreToAnalyze) {
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);

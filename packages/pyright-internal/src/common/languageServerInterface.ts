@@ -6,7 +6,6 @@
  * Interface for language server
  */
 
-import { MarkupKind } from 'vscode-languageserver';
 import { MaxAnalysisTime } from '../analyzer/program';
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { Workspace } from '../workspaceFactory';
@@ -94,30 +93,6 @@ export interface ServerOptions {
     supportedCommands?: string[];
     supportedCodeActions?: string[];
     supportsTelemetry?: boolean;
-}
-
-export interface ClientCapabilities {
-    hasConfigurationCapability: boolean;
-    hasVisualStudioExtensionsCapability: boolean;
-    hasWorkspaceFoldersCapability: boolean;
-    hasWatchFileCapability: boolean;
-    hasWatchFileRelativePathCapability: boolean;
-    hasActiveParameterCapability: boolean;
-    hasSignatureLabelOffsetCapability: boolean;
-    hasHierarchicalDocumentSymbolCapability: boolean;
-    hasWindowProgressCapability: boolean;
-    hasGoToDeclarationCapability: boolean;
-    hasDocumentChangeCapability: boolean;
-    hasDocumentAnnotationCapability: boolean;
-    hasCompletionCommitCharCapability: boolean;
-    hoverContentFormat: MarkupKind;
-    completionDocFormat: MarkupKind;
-    completionSupportsSnippet: boolean;
-    signatureDocFormat: MarkupKind;
-    supportsDeprecatedDiagnosticTag: boolean;
-    supportsUnnecessaryDiagnosticTag: boolean;
-    supportsTaskItemDiagnosticTag: boolean;
-    completionItemResolveSupportsAdditionalTextEdits: boolean;
 }
 
 export interface LanguageServerBaseInterface {
