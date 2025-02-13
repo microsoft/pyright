@@ -2,7 +2,7 @@
 # a type that differs from the class that contains it.
 
 
-from typing import Callable, ParamSpec, TypeVar
+from typing import Any, Callable, ParamSpec, Self, TypeVar
 
 
 class ClassA:
@@ -29,3 +29,23 @@ class ClassB:
 
 v2 = ClassB(func1)
 reveal_type(v2, expected_text="(a: int) -> int")
+
+
+class ClassC:
+    def __new__(cls) -> Any:
+        return 1
+
+    def __init__(self, a: int) -> None: ...
+
+
+ClassC()
+
+
+class ClassD:
+    def __new__(cls) -> Self | Any:
+        return 1
+
+    def __init__(self, a: int) -> None: ...
+
+
+ClassD()
