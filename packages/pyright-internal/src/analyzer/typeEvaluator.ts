@@ -26182,6 +26182,7 @@ export function createTypeEvaluator(
         const destPositionalCount = destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
         const srcPositionalCount = srcParamDetails.firstKeywordOnlyIndex ?? srcParamDetails.params.length;
         const positionalsToMatch = Math.min(destPositionalCount, srcPositionalCount);
+        const skippedPosParamIndices: number[] = [];
 
         // Match positional parameters.
         for (let paramIndex = 0; paramIndex < positionalsToMatch; paramIndex++) {
@@ -26197,6 +26198,9 @@ export function createTypeEvaluator(
 
             // Skip over the *args parameter since it's handled separately below.
             if (paramIndex === destParamDetails.argsIndex) {
+                if (!isUnpackedTypeVarTuple(destParamDetails.params[destParamDetails.argsIndex].type)) {
+                    skippedPosParamIndices.push(paramIndex);
+                }
                 continue;
             }
 
@@ -26329,7 +26333,13 @@ export function createTypeEvaluator(
         }
 
         if (destPositionalCount < srcPositionalCount && !targetIncludesParamSpec) {
+            // Add any remaining positional parameter indices to the list that
+            // need to be validated.
             for (let i = destPositionalCount; i < srcPositionalCount; i++) {
+                skippedPosParamIndices.push(i);
+            }
+
+            for (const i of skippedPosParamIndices) {
                 // If the dest has an *args parameter, make sure it can accept the remaining
                 // positional arguments in the source.
                 if (destParamDetails.argsIndex !== undefined) {
