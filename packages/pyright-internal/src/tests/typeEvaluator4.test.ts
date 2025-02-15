@@ -425,7 +425,7 @@ test('DataClassHash1', () => {
 test('DataClassDescriptors1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassDescriptors1.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('DataClassDescriptors2', () => {
