@@ -6616,74 +6616,90 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
+            // Don't check certain magic functions or private symbols.
+            // Also, skip this check if the class is a TypedDict. The methods for a TypedDict
+            // are synthesized, and they can result in many overloads. We assume they
+            // are correct and will not produce any errors.
+            if (
+                this._isMethodExemptFromLsp(memberName) ||
+                SymbolNameUtils.isPrivateName(memberName) ||
+                ClassType.isTypedDictClass(childClassType)
+            ) {
+                return;
+            }
+
             if (isFunction(overrideType) || isOverloaded(overrideType)) {
                 // Don't enforce parameter names for dundered methods. Many of them
                 // are misnamed in typeshed stubs, so this would result in many
                 // false positives.
                 const enforceParamNameMatch = !SymbolNameUtils.isDunderName(memberName);
 
-                // Don't check certain magic functions or private symbols.
-                // Also, skip this check if the class is a TypedDict. The methods for a TypedDict
-                // are synthesized, and they can result in many overloads. We assume they
-                // are correct and will not produce any errors.
                 if (
-                    !this._isMethodExemptFromLsp(memberName) &&
-                    !SymbolNameUtils.isPrivateName(memberName) &&
-                    !ClassType.isTypedDictClass(childClassType)
+                    this._evaluator.validateOverrideMethod(
+                        baseType,
+                        overrideType,
+                        childClassType,
+                        diagAddendum,
+                        enforceParamNameMatch
+                    )
                 ) {
-                    if (
-                        !this._evaluator.validateOverrideMethod(
-                            baseType,
-                            overrideType,
-                            childClassType,
-                            diagAddendum,
-                            enforceParamNameMatch
-                        )
-                    ) {
-                        const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
-                        if (decl) {
-                            const diag = this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportIncompatibleMethodOverride,
-                                LocMessage.incompatibleMethodOverride().format({
-                                    name: memberName,
-                                    className: baseClass.shared.name,
-                                }) + diagAddendum.getString(),
-                                getNameNodeForDeclaration(decl) ?? decl.node
-                            );
-
-                            const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
-                            if (diag && origDecl) {
-                                diag.addRelatedInfo(LocAddendum.overriddenMethod(), origDecl.uri, origDecl.range);
-                            }
-                        }
-                    }
+                    return;
                 }
-            } else if (!isAnyOrUnknown(overrideType)) {
+
+                const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
+                if (!decl) {
+                    return;
+                }
+
+                const diag = this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportIncompatibleMethodOverride,
+                    LocMessage.incompatibleMethodOverride().format({
+                        name: memberName,
+                        className: baseClass.shared.name,
+                    }) + diagAddendum.getString(),
+                    getNameNodeForDeclaration(decl) ?? decl.node
+                );
+
+                const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
+                if (diag && origDecl) {
+                    diag.addRelatedInfo(LocAddendum.overriddenMethod(), origDecl.uri, origDecl.range);
+                }
+                return;
+            }
+
+            if (!isAnyOrUnknown(overrideType)) {
                 // Special-case overrides of methods in '_TypedDict', since
                 // TypedDict attributes aren't manifest as attributes but rather
                 // as named keys.
-                if (!ClassType.isBuiltIn(baseClass, '_TypedDict')) {
-                    const decls = overrideSymbol.getDeclarations();
-                    if (decls.length > 0) {
-                        const lastDecl = decls[decls.length - 1];
-                        const diag = this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportIncompatibleMethodOverride,
-                            LocMessage.methodOverridden().format({
-                                name: memberName,
-                                className: baseClass.shared.name,
-                                type: this._evaluator.printType(overrideType),
-                            }),
-                            getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
-                        );
+                if (ClassType.isBuiltIn(baseClass, '_TypedDict')) {
+                    return;
+                }
 
-                        const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
-                        if (diag && origDecl) {
-                            diag.addRelatedInfo(LocAddendum.overriddenMethod(), origDecl.uri, origDecl.range);
-                        }
-                    }
+                const decls = overrideSymbol.getDeclarations();
+                if (decls.length === 0) {
+                    return;
+                }
+
+                const lastDecl = decls[decls.length - 1];
+                const diag = this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportIncompatibleMethodOverride,
+                    LocMessage.methodOverridden().format({
+                        name: memberName,
+                        className: baseClass.shared.name,
+                        type: this._evaluator.printType(overrideType),
+                    }),
+                    getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
+                );
+
+                const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
+                if (diag && origDecl) {
+                    diag.addRelatedInfo(LocAddendum.overriddenMethod(), origDecl.uri, origDecl.range);
                 }
             }
-        } else if (isProperty(baseType)) {
+            return;
+        }
+
+        if (isProperty(baseType)) {
             // Handle properties specially.
             if (!isProperty(overrideType)) {
                 const decls = overrideSymbol.getDeclarations();
@@ -6708,191 +6724,190 @@ export class Checker extends ParseTreeWalker {
                     memberName
                 );
             }
-        } else {
-            // This check can be expensive, so don't perform it if the corresponding
-            // rule is disabled.
-            if (this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride !== 'none') {
-                const decls = overrideSymbol.getDeclarations();
+            return;
+        }
 
-                if (decls.length > 0) {
-                    const lastDecl = decls[decls.length - 1];
-                    const primaryDecl = decls[0];
+        // This check can be expensive, so don't perform it if the corresponding
+        // rule is disabled.
+        if (this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride !== 'none') {
+            const decls = overrideSymbol.getDeclarations();
 
-                    // Verify that the override type is assignable to (same or narrower than)
-                    // the declared type of the base symbol.
-                    let isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
+            if (decls.length === 0) {
+                return;
+            }
 
-                    // If the entry is a member of a frozen dataclass, it is immutable,
-                    // so it does not need to be invariant.
-                    if (ClassType.isDataClassFrozen(baseClass) && baseClass.shared.dataClassEntries) {
-                        const dataclassEntry = baseClass.shared.dataClassEntries.find(
-                            (entry) => entry.name === memberName
-                        );
-                        if (dataclassEntry) {
-                            isInvariant = false;
-                        }
+            const lastDecl = decls[decls.length - 1];
+            const primaryDecl = decls[0];
+
+            // Verify that the override type is assignable to (same or narrower than)
+            // the declared type of the base symbol.
+            let isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
+
+            // If the entry is a member of a frozen dataclass, it is immutable,
+            // so it does not need to be invariant.
+            if (ClassType.isDataClassFrozen(baseClass) && baseClass.shared.dataClassEntries) {
+                const dataclassEntry = baseClass.shared.dataClassEntries.find((entry) => entry.name === memberName);
+                if (dataclassEntry) {
+                    isInvariant = false;
+                }
+            }
+
+            let overriddenTDEntry: TypedDictEntry | undefined;
+            let overrideTDEntry: TypedDictEntry | undefined;
+
+            if (!overrideSymbol.isIgnoredForProtocolMatch()) {
+                if (baseClass.shared.typedDictEntries) {
+                    overriddenTDEntry =
+                        baseClass.shared.typedDictEntries.knownItems.get(memberName) ??
+                        baseClass.shared.typedDictEntries.extraItems ??
+                        getEffectiveExtraItemsEntryType(this._evaluator, baseClass);
+
+                    if (overriddenTDEntry?.isReadOnly) {
+                        isInvariant = false;
                     }
+                }
 
-                    let overriddenTDEntry: TypedDictEntry | undefined;
-                    let overrideTDEntry: TypedDictEntry | undefined;
+                if (childClassType.shared.typedDictEntries) {
+                    overrideTDEntry =
+                        childClassType.shared.typedDictEntries.knownItems.get(memberName) ??
+                        childClassType.shared.typedDictEntries.extraItems ??
+                        getEffectiveExtraItemsEntryType(this._evaluator, childClassType);
+                }
+            }
 
-                    if (!overrideSymbol.isIgnoredForProtocolMatch()) {
-                        if (baseClass.shared.typedDictEntries) {
-                            overriddenTDEntry =
-                                baseClass.shared.typedDictEntries.knownItems.get(memberName) ??
-                                baseClass.shared.typedDictEntries.extraItems ??
-                                getEffectiveExtraItemsEntryType(this._evaluator, baseClass);
+            let diagAddendum = new DiagnosticAddendum();
+            if (
+                !this._evaluator.assignType(
+                    baseType,
+                    overrideType,
+                    diagAddendum,
+                    /* constraints */ undefined,
+                    isInvariant ? AssignTypeFlags.Invariant : AssignTypeFlags.Default
+                )
+            ) {
+                if (isInvariant) {
+                    diagAddendum = new DiagnosticAddendum();
+                    diagAddendum.addMessage(LocAddendum.overrideIsInvariant());
+                    diagAddendum.createAddendum().addMessage(
+                        LocAddendum.overrideInvariantMismatch().format({
+                            overrideType: this._evaluator.printType(overrideType),
+                            baseType: this._evaluator.printType(baseType),
+                        })
+                    );
+                }
 
-                            if (overriddenTDEntry?.isReadOnly) {
-                                isInvariant = false;
-                            }
-                        }
+                const diag = this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportIncompatibleVariableOverride,
+                    LocMessage.symbolOverridden().format({
+                        name: memberName,
+                        className: baseClass.shared.name,
+                    }) + diagAddendum.getString(),
+                    getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
+                );
 
-                        if (childClassType.shared.typedDictEntries) {
-                            overrideTDEntry =
-                                childClassType.shared.typedDictEntries.knownItems.get(memberName) ??
-                                childClassType.shared.typedDictEntries.extraItems ??
-                                getEffectiveExtraItemsEntryType(this._evaluator, childClassType);
-                        }
-                    }
+                const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
+                if (diag && origDecl) {
+                    diag.addRelatedInfo(LocAddendum.overriddenSymbol(), origDecl.uri, origDecl.range);
+                }
+            } else if (overriddenTDEntry && overrideTDEntry) {
+                // Make sure the required/not-required attribute is compatible.
+                let isRequiredCompatible = true;
+                if (overriddenTDEntry.isReadOnly) {
+                    // If the read-only flag is set, a not-required field can be overridden
+                    // by a required field, but not vice versa.
+                    isRequiredCompatible = overrideTDEntry.isRequired || !overriddenTDEntry.isRequired;
+                } else {
+                    isRequiredCompatible = overrideTDEntry.isRequired === overriddenTDEntry.isRequired;
+                }
 
-                    let diagAddendum = new DiagnosticAddendum();
-                    if (
-                        !this._evaluator.assignType(
-                            baseType,
-                            overrideType,
-                            diagAddendum,
-                            /* constraints */ undefined,
-                            isInvariant ? AssignTypeFlags.Invariant : AssignTypeFlags.Default
-                        )
-                    ) {
-                        if (isInvariant) {
-                            diagAddendum = new DiagnosticAddendum();
-                            diagAddendum.addMessage(LocAddendum.overrideIsInvariant());
-                            diagAddendum.createAddendum().addMessage(
-                                LocAddendum.overrideInvariantMismatch().format({
-                                    overrideType: this._evaluator.printType(overrideType),
-                                    baseType: this._evaluator.printType(baseType),
-                                })
-                            );
-                        }
+                if (!isRequiredCompatible) {
+                    const message = overrideTDEntry.isRequired
+                        ? LocMessage.typedDictFieldRequiredRedefinition
+                        : LocMessage.typedDictFieldNotRequiredRedefinition;
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        message().format({ name: memberName }),
+                        getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
+                    );
+                }
 
-                        const diag = this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportIncompatibleVariableOverride,
-                            LocMessage.symbolOverridden().format({
-                                name: memberName,
-                                className: baseClass.shared.name,
-                            }) + diagAddendum.getString(),
-                            getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
-                        );
+                // Make sure that the derived class isn't marking a previously writable
+                // entry as read-only.
+                if (!overriddenTDEntry.isReadOnly && overrideTDEntry.isReadOnly) {
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typedDictFieldReadOnlyRedefinition().format({
+                            name: memberName,
+                        }),
+                        getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
+                    );
+                }
+            }
 
-                        const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
-                        if (diag && origDecl) {
-                            diag.addRelatedInfo(LocAddendum.overriddenSymbol(), origDecl.uri, origDecl.range);
-                        }
-                    } else if (overriddenTDEntry && overrideTDEntry) {
-                        // Make sure the required/not-required attribute is compatible.
-                        let isRequiredCompatible = true;
-                        if (overriddenTDEntry.isReadOnly) {
-                            // If the read-only flag is set, a not-required field can be overridden
-                            // by a required field, but not vice versa.
-                            isRequiredCompatible = overrideTDEntry.isRequired || !overriddenTDEntry.isRequired;
-                        } else {
-                            isRequiredCompatible = overrideTDEntry.isRequired === overriddenTDEntry.isRequired;
-                        }
+            // Verify that there is not a Final mismatch.
+            const isBaseVarFinal = this._evaluator.isFinalVariable(baseClassAndSymbol.symbol);
+            const overrideFinalVarDecl = decls.find((d) => this._evaluator.isFinalVariableDeclaration(d));
 
-                        if (!isRequiredCompatible) {
-                            const message = overrideTDEntry.isRequired
-                                ? LocMessage.typedDictFieldRequiredRedefinition
-                                : LocMessage.typedDictFieldNotRequiredRedefinition;
-                            this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                message().format({ name: memberName }),
-                                getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
-                            );
-                        }
+            if (!isBaseVarFinal && overrideFinalVarDecl) {
+                const diag = this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportIncompatibleVariableOverride,
+                    LocMessage.variableFinalOverride().format({
+                        name: memberName,
+                        className: baseClass.shared.name,
+                    }),
+                    getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
+                );
 
-                        // Make sure that the derived class isn't marking a previously writable
-                        // entry as read-only.
-                        if (!overriddenTDEntry.isReadOnly && overrideTDEntry.isReadOnly) {
-                            this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                LocMessage.typedDictFieldReadOnlyRedefinition().format({
-                                    name: memberName,
-                                }),
-                                getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
-                            );
-                        }
-                    }
+                if (diag) {
+                    diag.addRelatedInfo(
+                        LocAddendum.overriddenSymbol(),
+                        overrideFinalVarDecl.uri,
+                        overrideFinalVarDecl.range
+                    );
+                }
+            }
 
-                    // Verify that there is not a Final mismatch.
-                    const isBaseVarFinal = this._evaluator.isFinalVariable(baseClassAndSymbol.symbol);
-                    const overrideFinalVarDecl = decls.find((d) => this._evaluator.isFinalVariableDeclaration(d));
+            // Verify that a class variable isn't overriding an instance
+            // variable or vice versa.
+            const isBaseClassVar = baseClassAndSymbol.symbol.isClassVar();
+            let isClassVar = overrideSymbol.isClassVar();
 
-                    if (!isBaseVarFinal && overrideFinalVarDecl) {
-                        const diag = this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportIncompatibleVariableOverride,
-                            LocMessage.variableFinalOverride().format({
-                                name: memberName,
-                                className: baseClass.shared.name,
-                            }),
-                            getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
-                        );
+            if (isBaseClassVar && !isClassVar) {
+                // If the subclass doesn't redeclare the type but simply assigns
+                // it without declaring its type, we won't consider it an instance
+                // variable.
+                if (!overrideSymbol.hasTypedDeclarations()) {
+                    isClassVar = true;
+                }
 
-                        if (diag) {
-                            diag.addRelatedInfo(
-                                LocAddendum.overriddenSymbol(),
-                                overrideFinalVarDecl.uri,
-                                overrideFinalVarDecl.range
-                            );
-                        }
-                    }
+                // If the subclass is declaring an inner class, we'll consider that
+                // to be a ClassVar.
+                if (overrideSymbol.getTypedDeclarations().every((decl) => decl.type === DeclarationType.Class)) {
+                    isClassVar = true;
+                }
+            }
 
-                    // Verify that a class variable isn't overriding an instance
-                    // variable or vice versa.
-                    const isBaseClassVar = baseClassAndSymbol.symbol.isClassVar();
-                    let isClassVar = overrideSymbol.isClassVar();
+            // Allow TypedDict members to have the same name as class variables in the
+            // base class because TypedDict members are not really instance members.
+            const ignoreTypedDictOverride = ClassType.isTypedDictClass(childClassType) && !isClassVar;
 
-                    if (isBaseClassVar && !isClassVar) {
-                        // If the subclass doesn't redeclare the type but simply assigns
-                        // it without declaring its type, we won't consider it an instance
-                        // variable.
-                        if (!overrideSymbol.hasTypedDeclarations()) {
-                            isClassVar = true;
-                        }
+            if (isBaseClassVar !== isClassVar && !ignoreTypedDictOverride) {
+                const unformattedMessage = overrideSymbol.isClassVar()
+                    ? LocMessage.classVarOverridesInstanceVar()
+                    : LocMessage.instanceVarOverridesClassVar();
 
-                        // If the subclass is declaring an inner class, we'll consider that
-                        // to be a ClassVar.
-                        if (
-                            overrideSymbol.getTypedDeclarations().every((decl) => decl.type === DeclarationType.Class)
-                        ) {
-                            isClassVar = true;
-                        }
-                    }
+                const diag = this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportIncompatibleVariableOverride,
+                    unformattedMessage.format({
+                        name: memberName,
+                        className: baseClass.shared.name,
+                    }),
+                    getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
+                );
 
-                    // Allow TypedDict members to have the same name as class variables in the
-                    // base class because TypedDict members are not really instance members.
-                    const ignoreTypedDictOverride = ClassType.isTypedDictClass(childClassType) && !isClassVar;
-
-                    if (isBaseClassVar !== isClassVar && !ignoreTypedDictOverride) {
-                        const unformattedMessage = overrideSymbol.isClassVar()
-                            ? LocMessage.classVarOverridesInstanceVar()
-                            : LocMessage.instanceVarOverridesClassVar();
-
-                        const diag = this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportIncompatibleVariableOverride,
-                            unformattedMessage.format({
-                                name: memberName,
-                                className: baseClass.shared.name,
-                            }),
-                            getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
-                        );
-
-                        const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
-                        if (diag && origDecl) {
-                            diag.addRelatedInfo(LocAddendum.overriddenSymbol(), origDecl.uri, origDecl.range);
-                        }
-                    }
+                const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
+                if (diag && origDecl) {
+                    diag.addRelatedInfo(LocAddendum.overriddenSymbol(), origDecl.uri, origDecl.range);
                 }
             }
         }
