@@ -1177,7 +1177,10 @@ export function createTypeEvaluator(
                         AssignTypeFlags.Default
                     )
                 ) {
-                    typeResult.typeErrors = true;
+                    // Set the typeErrors to true, but first make a copy of the
+                    // type result because the (non-error) version may already
+                    // be cached.
+                    typeResult = { ...typeResult, typeErrors: true };
                     typeResult.expectedTypeDiagAddendum = diag;
                     diag.addTextRange(node);
                 }
