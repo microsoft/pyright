@@ -17489,21 +17489,20 @@ export function createTypeEvaluator(
                             );
                         } else if (arg.d.name.d.value === 'total' && !constArgValue) {
                             classType.shared.flags |= ClassTypeFlags.CanOmitDictValues;
-                        } else if (arg.d.name.d.value === 'closed') {
+                        } else if (
+                            arg.d.name.d.value === 'closed' &&
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures
+                        ) {
                             if (constArgValue) {
-                                // This is an experimental feature because PEP 728 hasn't been accepted yet.
-                                if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
-                                    classType.shared.flags |=
-                                        ClassTypeFlags.TypedDictMarkedClosed |
-                                        ClassTypeFlags.TypedDictEffectivelyClosed;
+                                classType.shared.flags |=
+                                    ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
 
-                                    if (classType.shared.typedDictExtraItemsExpr) {
-                                        addDiagnostic(
-                                            DiagnosticRule.reportGeneralTypeIssues,
-                                            LocMessage.typedDictExtraItemsClosed(),
-                                            classType.shared.typedDictExtraItemsExpr
-                                        );
-                                    }
+                                if (classType.shared.typedDictExtraItemsExpr) {
+                                    addDiagnostic(
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        LocMessage.typedDictExtraItemsClosed(),
+                                        classType.shared.typedDictExtraItemsExpr
+                                    );
                                 }
                             }
 
@@ -17517,21 +17516,21 @@ export function createTypeEvaluator(
 
                             sawClosedOrExtraItems = true;
                         }
-                    } else if (arg.d.name.d.value === 'extra_items') {
-                        // This is an experimental feature because PEP 728 hasn't been accepted yet.
-                        if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
-                            // Record a reference to the expression but don't evaluate it yet.
-                            // It may refer to the class itself.
-                            classType.shared.typedDictExtraItemsExpr = arg.d.valueExpr;
-                            classType.shared.flags |= ClassTypeFlags.TypedDictEffectivelyClosed;
+                    } else if (
+                        arg.d.name.d.value === 'extra_items' &&
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures
+                    ) {
+                        // Record a reference to the expression but don't evaluate it yet.
+                        // It may refer to the class itself.
+                        classType.shared.typedDictExtraItemsExpr = arg.d.valueExpr;
+                        classType.shared.flags |= ClassTypeFlags.TypedDictEffectivelyClosed;
 
-                            if (ClassType.isTypedDictMarkedClosed(classType)) {
-                                addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    LocMessage.typedDictExtraItemsClosed(),
-                                    classType.shared.typedDictExtraItemsExpr
-                                );
-                            }
+                        if (ClassType.isTypedDictMarkedClosed(classType)) {
+                            addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.typedDictExtraItemsClosed(),
+                                classType.shared.typedDictExtraItemsExpr
+                            );
                         }
 
                         if (sawClosedOrExtraItems) {
