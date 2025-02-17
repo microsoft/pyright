@@ -958,7 +958,7 @@ test('TypeForm2', () => {
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm2.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 8);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeForm3', () => {

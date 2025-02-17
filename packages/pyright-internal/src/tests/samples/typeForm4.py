@@ -126,28 +126,28 @@ T = TypeVar("T")
 
 def func6[**P, R]():
     # This should generate an error.
-    t1: TypeForm = Generic
+    t1: TypeForm[int] = Generic
 
     # This should generate an error.
-    t2: TypeForm = Final
+    t2: TypeForm[int] = Final
 
     # This should generate an error.
-    t3: TypeForm = Final[int]
+    t3: TypeForm[int] = Final[int]
 
     # This should generate an error.
-    t4: TypeForm = Concatenate[int]
+    t4: TypeForm[int] = Concatenate[int]
 
     # This should generate an error.
-    t5: TypeForm = Unpack[int]
+    t5: TypeForm[int] = Unpack[int]
 
     # This should generate an error.
-    t6: TypeForm = Required[int]
+    t6: TypeForm[int] = Required[int]
 
     # This should generate an error.
-    t7: TypeForm = NotRequired[int]
+    t7: TypeForm[int] = NotRequired[int]
 
     # This should generate an error.
-    t8: TypeForm = ReadOnly[int]
+    t8: TypeForm[int] = ReadOnly[int]
 
     var1 = 1
     # This should generate an error.
@@ -230,3 +230,12 @@ def func9():
 
     # This should generate an error.
     t1.append(complex)
+
+
+def func10[T](x: type[T], y: type[int]):
+    t1: TypeForm = x
+    t2: TypeForm[T] = x
+
+    t3: TypeForm = y
+    t4: TypeForm[int] = y
+    t5: TypeForm[float] = y

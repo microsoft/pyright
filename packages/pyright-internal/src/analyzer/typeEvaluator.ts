@@ -24708,6 +24708,27 @@ export function createTypeEvaluator(
             }
 
             let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
+
+            // Handle the TypeForm special form. Add a special case for
+            // type[T] to be assignable to TypeForm[T].
+            if (ClassType.isBuiltIn(destType, 'TypeForm')) {
+                const destTypeArg =
+                    destType.priv.typeArgs && destType.priv.typeArgs.length > 0
+                        ? destType.priv.typeArgs[0]
+                        : UnknownType.create();
+
+                let srcTypeArg: Type | undefined;
+                if (isClassInstance(concreteSrcType) && ClassType.isBuiltIn(concreteSrcType, 'type')) {
+                    srcTypeArg = concreteSrcType;
+                } else if (isInstantiableClass(concreteSrcType)) {
+                    srcTypeArg = convertToInstance(concreteSrcType);
+                }
+
+                if (srcTypeArg) {
+                    return assignType(destTypeArg, srcTypeArg, diag, constraints, flags, recursionCount);
+                }
+            }
+
             if (isClass(concreteSrcType) && TypeBase.isInstance(concreteSrcType)) {
                 // Handle the case where the source is an unpacked tuple.
                 if (
