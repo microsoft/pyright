@@ -1106,7 +1106,7 @@ function isDefaultNewMethod(newMethod?: Type): boolean {
         return false;
     }
 
-    const returnType = newMethod.shared.declaredReturnType ?? newMethod.priv.inferredReturnType;
+    const returnType = newMethod.shared.declaredReturnType ?? newMethod.priv.inferredReturnType?.type;
     if (!returnType || !isTypeVar(returnType) || !TypeVarType.isSelf(returnType)) {
         return false;
     }
