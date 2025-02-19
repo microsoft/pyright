@@ -23279,9 +23279,7 @@ export function createTypeEvaluator(
             returnType = makeTypeVarsFree(returnType, typeVarScopes);
 
             // Cache the type for next time.
-            if (!isIncomplete) {
-                type.priv.inferredReturnType = returnType;
-            }
+            type.priv.inferredReturnType = returnType;
         }
 
         // If the type is partially unknown and the function has one or more unannotated
