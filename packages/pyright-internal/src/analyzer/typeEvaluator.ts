@@ -14885,7 +14885,9 @@ export function createTypeEvaluator(
                         makeInferenceContext(expectedReturnType)
                     );
 
-                    functionType.priv.inferredReturnType = returnTypeResult.type;
+                    functionType.priv.inferredReturnType = {
+                        type: returnTypeResult.type,
+                    };
                     if (returnTypeResult.isIncomplete) {
                         isIncomplete = true;
                     }
@@ -19274,11 +19276,13 @@ export function createTypeEvaluator(
                 FunctionType.isGenerator(functionType)
             );
         } else {
-            awaitableFunctionType.priv.inferredReturnType = createAwaitableReturnType(
-                node,
-                getInferredReturnType(functionType),
-                FunctionType.isGenerator(functionType)
-            );
+            awaitableFunctionType.priv.inferredReturnType = {
+                type: createAwaitableReturnType(
+                    node,
+                    getInferredReturnType(functionType),
+                    FunctionType.isGenerator(functionType)
+                ),
+            };
         }
 
         return awaitableFunctionType;
@@ -23188,7 +23192,7 @@ export function createTypeEvaluator(
     // a type annotation, that type is returned. If not, an attempt is made to infer
     // the return type. If a list of args is provided, the inference logic may take
     // into account argument types to infer the return type.
-    function getEffectiveReturnType(type: FunctionType, options?: EffectiveReturnTypeOptions) {
+    function getEffectiveReturnType(type: FunctionType, options?: EffectiveReturnTypeOptions): Type {
         const specializedReturnType = FunctionType.getEffectiveReturnType(type, /* includeInferred */ false);
         if (specializedReturnType && !isUnknown(specializedReturnType)) {
             return specializedReturnType;
@@ -23220,8 +23224,8 @@ export function createTypeEvaluator(
 
         // If the return type has already been lazily evaluated,
         // don't bother computing it again.
-        if (type.priv.inferredReturnType) {
-            returnType = type.priv.inferredReturnType;
+        if (type.priv.inferredReturnType && !type.priv.inferredReturnType.isIncomplete) {
+            returnType = type.priv.inferredReturnType.type;
         } else {
             // Don't bother inferring the return type of __init__ because it's
             // always None.
@@ -23279,7 +23283,7 @@ export function createTypeEvaluator(
             returnType = makeTypeVarsFree(returnType, typeVarScopes);
 
             // Cache the type for next time.
-            type.priv.inferredReturnType = returnType;
+            type.priv.inferredReturnType = { type: returnType, isIncomplete };
         }
 
         // If the type is partially unknown and the function has one or more unannotated
