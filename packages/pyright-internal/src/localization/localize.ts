@@ -280,6 +280,8 @@ export namespace Localizer {
             );
         export const baseClassUnknown = () => getRawString('Diagnostic.baseClassUnknown');
         export const binaryOperationNotAllowed = () => getRawString('Diagnostic.binaryOperationNotAllowed');
+        export const bindParamMissing = () =>
+            new ParameterizedString<{ methodName: string }>(getRawString('Diagnostic.bindParamMissing'));
         export const bindTypeMismatch = () =>
             new ParameterizedString<{ type: string; methodName: string; paramName: string }>(
                 getRawString('Diagnostic.bindTypeMismatch')
