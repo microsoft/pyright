@@ -28010,56 +28010,68 @@ export function createTypeEvaluator(
     ): FunctionType | undefined {
         const constraints = new ConstraintTracker();
 
-        if (firstParamType && memberType.shared.parameters.length > 0) {
-            const memberTypeFirstParam = memberType.shared.parameters[0];
-            const memberTypeFirstParamType = FunctionType.getParamType(memberType, 0);
-
-            if (
-                isTypeVar(memberTypeFirstParamType) &&
-                memberTypeFirstParamType.shared.boundType &&
-                isClassInstance(memberTypeFirstParamType.shared.boundType) &&
-                ClassType.isProtocolClass(memberTypeFirstParamType.shared.boundType)
-            ) {
-                // Handle the protocol class specially. Some protocol classes
-                // contain references to themselves or their subclasses, so if
-                // we attempt to call assignType, we'll risk infinite recursion.
-                // Instead, we'll assume it's assignable.
-                constraints.setBounds(
-                    memberTypeFirstParamType,
-                    TypeBase.isInstantiable(memberTypeFirstParamType)
-                        ? convertToInstance(firstParamType)
-                        : firstParamType
-                );
-            } else {
-                const subDiag = diag?.createAddendum();
+        if (firstParamType) {
+            if (memberType.shared.parameters.length > 0) {
+                const memberTypeFirstParam = memberType.shared.parameters[0];
+                const memberTypeFirstParamType = FunctionType.getParamType(memberType, 0);
 
                 if (
-                    !assignType(
-                        memberTypeFirstParamType,
-                        firstParamType,
-                        subDiag?.createAddendum(),
-                        constraints,
-                        AssignTypeFlags.AllowUnspecifiedTypeArgs,
-                        recursionCount
-                    )
+                    isTypeVar(memberTypeFirstParamType) &&
+                    memberTypeFirstParamType.shared.boundType &&
+                    isClassInstance(memberTypeFirstParamType.shared.boundType) &&
+                    ClassType.isProtocolClass(memberTypeFirstParamType.shared.boundType)
                 ) {
+                    // Handle the protocol class specially. Some protocol classes
+                    // contain references to themselves or their subclasses, so if
+                    // we attempt to call assignType, we'll risk infinite recursion.
+                    // Instead, we'll assume it's assignable.
+                    constraints.setBounds(
+                        memberTypeFirstParamType,
+                        TypeBase.isInstantiable(memberTypeFirstParamType)
+                            ? convertToInstance(firstParamType)
+                            : firstParamType
+                    );
+                } else {
+                    const subDiag = diag?.createAddendum();
+
                     if (
-                        memberTypeFirstParam.name &&
-                        !FunctionParam.isNameSynthesized(memberTypeFirstParam) &&
-                        FunctionParam.isTypeDeclared(memberTypeFirstParam)
+                        !assignType(
+                            memberTypeFirstParamType,
+                            firstParamType,
+                            subDiag?.createAddendum(),
+                            constraints,
+                            AssignTypeFlags.AllowUnspecifiedTypeArgs,
+                            recursionCount
+                        )
                     ) {
-                        if (subDiag) {
-                            subDiag.addMessage(
-                                LocMessage.bindTypeMismatch().format({
-                                    type: printType(firstParamType),
-                                    methodName: memberType.shared.name || '<anonymous>',
-                                    paramName: memberTypeFirstParam.name,
-                                })
-                            );
+                        if (
+                            memberTypeFirstParam.name &&
+                            !FunctionParam.isNameSynthesized(memberTypeFirstParam) &&
+                            FunctionParam.isTypeDeclared(memberTypeFirstParam)
+                        ) {
+                            if (subDiag) {
+                                subDiag.addMessage(
+                                    LocMessage.bindTypeMismatch().format({
+                                        type: printType(firstParamType),
+                                        methodName: memberType.shared.name || '<anonymous>',
+                                        paramName: memberTypeFirstParam.name,
+                                    })
+                                );
+                            }
+                            return undefined;
                         }
-                        return undefined;
                     }
                 }
+            } else {
+                const subDiag = diag?.createAddendum();
+                if (subDiag) {
+                    subDiag.addMessage(
+                        LocMessage.bindParamMissing().format({
+                            methodName: memberType.shared.name || '<anonymous>',
+                        })
+                    );
+                }
+                return undefined;
             }
         }
 
