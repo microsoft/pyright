@@ -8,6 +8,7 @@
  */
 
 import { appendArray } from '../common/collectionUtils';
+import { ConfigOptions } from '../common/configOptions';
 import { assert } from '../common/debug';
 import { ParamCategory } from '../parser/parseNodes';
 import { isTypedKwargs } from './parameterUtils';
@@ -1479,4 +1480,30 @@ class UniqueNameMap {
 
         return false;
     }
+}
+
+export function getPrintTypeFlags(configOptions: ConfigOptions): PrintTypeFlags {
+    let flags = PrintTypeFlags.None;
+
+    if (configOptions.diagnosticRuleSet.printUnknownAsAny) {
+        flags |= PrintTypeFlags.PrintUnknownWithAny;
+    }
+
+    if (configOptions.diagnosticRuleSet.omitConditionalConstraint) {
+        flags |= PrintTypeFlags.OmitConditionalConstraint;
+    }
+
+    if (configOptions.diagnosticRuleSet.omitTypeArgsIfUnknown) {
+        flags |= PrintTypeFlags.OmitTypeArgsIfUnknown;
+    }
+
+    if (configOptions.diagnosticRuleSet.omitUnannotatedParamType) {
+        flags |= PrintTypeFlags.OmitUnannotatedParamType;
+    }
+
+    if (configOptions.diagnosticRuleSet.pep604Printing) {
+        flags |= PrintTypeFlags.PEP604;
+    }
+
+    return flags;
 }

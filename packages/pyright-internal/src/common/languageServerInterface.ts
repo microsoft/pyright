@@ -7,7 +7,7 @@
  */
 
 import { MaxAnalysisTime } from '../analyzer/program';
-import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
+import { IBackgroundAnalysis } from '../backgroundAnalysisBase';
 import { Workspace } from '../workspaceFactory';
 import { CancellationProvider } from './cancellationUtils';
 import { DiagnosticBooleanOverridesMap, DiagnosticSeverityOverridesMap } from './commandLineOptions';
@@ -78,7 +78,7 @@ export namespace WindowInterface {
 
 export interface WorkspaceServices {
     fs: FileSystem | undefined;
-    backgroundAnalysis: BackgroundAnalysisBase | undefined;
+    backgroundAnalysis: IBackgroundAnalysis | undefined;
 }
 
 export interface ServerOptions {
@@ -101,7 +101,7 @@ export interface LanguageServerBaseInterface {
     readonly supportAdvancedEdits: boolean;
     readonly serviceProvider: ServiceProvider;
 
-    createBackgroundAnalysis(serviceId: string, workspaceRoot: Uri): BackgroundAnalysisBase | undefined;
+    createBackgroundAnalysis(serviceId: string, workspaceRoot: Uri): IBackgroundAnalysis | undefined;
     reanalyze(): void;
     restart(): void;
 

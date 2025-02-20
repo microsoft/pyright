@@ -6,7 +6,7 @@
  * run analyzer from background thread
  */
 
-import { CancellationToken } from 'vscode-languageserver';
+import { CancellationToken, Disposable } from 'vscode-languageserver';
 import { MessageChannel, MessagePort, Worker, parentPort, threadId, workerData } from 'worker_threads';
 
 import {
@@ -46,7 +46,35 @@ import { Range } from './common/textRange';
 import { Uri } from './common/uri/uri';
 import { ProgramView } from './common/extensibility';
 
-export class BackgroundAnalysisBase {
+export interface IBackgroundAnalysis extends Disposable {
+    setProgramView(program: Program): void;
+    setCompletionCallback(callback?: AnalysisCompleteCallback): void;
+    setImportResolver(importResolver: ImportResolver): void;
+    setConfigOptions(configOptions: ConfigOptions): void;
+    setTrackedFiles(fileUris: Uri[]): void;
+    setAllowedThirdPartyImports(importNames: string[]): void;
+    ensurePartialStubPackages(executionRoot: string | undefined): void;
+    setFileOpened(fileUri: Uri, version: number | null, contents: string, options: OpenFileOptions): void;
+    updateChainedUri(fileUri: Uri, chainedUri: Uri | undefined): void;
+    setFileClosed(fileUri: Uri, isTracked?: boolean): void;
+    addInterimFile(fileUri: Uri): void;
+    markAllFilesDirty(evenIfContentsAreSame: boolean): void;
+    markFilesDirty(fileUris: Uri[], evenIfContentsAreSame: boolean): void;
+    startAnalysis(token: CancellationToken): void;
+    analyzeFile(fileUri: Uri, token: CancellationToken): Promise<boolean>;
+    getDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]>;
+    writeTypeStub(
+        targetImportPath: Uri,
+        targetIsSingleFile: boolean,
+        stubPath: Uri,
+        token: CancellationToken
+    ): Promise<any>;
+    invalidateAndForceReanalysis(reason: InvalidatedReason): void;
+    restart(): void;
+    shutdown(): void;
+}
+
+export class BackgroundAnalysisBase implements IBackgroundAnalysis {
     private _worker: Worker | undefined;
     private _onAnalysisCompletion: AnalysisCompleteCallback = nullCallback;
     private _analysisCancellationTokenId: string | undefined = undefined;
