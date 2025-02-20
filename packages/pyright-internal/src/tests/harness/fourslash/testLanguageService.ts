@@ -15,7 +15,7 @@ import {
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { MaxAnalysisTime } from '../../../analyzer/program';
 import { AnalyzerService, AnalyzerServiceOptions } from '../../../analyzer/service';
-import { BackgroundAnalysisBase } from '../../../backgroundAnalysisBase';
+import { IBackgroundAnalysis } from '../../../backgroundAnalysisBase';
 import { CommandController } from '../../../commands/commandController';
 import { ConfigOptions } from '../../../common/configOptions';
 import { ConsoleInterface } from '../../../common/console';
@@ -42,7 +42,7 @@ export class TestFeatures implements HostSpecificFeatures {
         serviceProvider: ServiceProvider,
         configOptions: ConfigOptions,
         importResolver: ImportResolver,
-        backgroundAnalysis?: BackgroundAnalysisBase,
+        backgroundAnalysis?: IBackgroundAnalysis,
         maxAnalysisTime?: MaxAnalysisTime
     ) =>
         new BackgroundAnalysisProgram(
@@ -138,7 +138,7 @@ export class TestLanguageService implements LanguageServerInterface {
         return Promise.resolve(settings);
     }
 
-    createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined {
+    createBackgroundAnalysis(serviceId: string): IBackgroundAnalysis | undefined {
         // worker thread doesn't work in Jest
         // by returning undefined, analysis will run inline
         return undefined;

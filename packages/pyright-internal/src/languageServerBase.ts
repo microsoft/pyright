@@ -77,7 +77,7 @@ import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, LibraryReanalysisTimeProvider, getNextServiceId } from './analyzer/service';
 import { IPythonMode } from './analyzer/sourceFile';
-import type { BackgroundAnalysisBase } from './backgroundAnalysisBase';
+import type { IBackgroundAnalysis } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
 import { CancelAfter } from './common/cancellationUtils';
 import { CaseSensitivityDetector } from './common/caseSensitivityDetector';
@@ -241,7 +241,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this._workspaceFoldersChangedDisposable?.dispose();
     }
 
-    abstract createBackgroundAnalysis(serviceId: string, workspaceRoot: Uri): BackgroundAnalysisBase | undefined;
+    abstract createBackgroundAnalysis(serviceId: string, workspaceRoot: Uri): IBackgroundAnalysis | undefined;
 
     abstract getSettings(workspace: Workspace): Promise<ServerSettings>;
 
@@ -424,7 +424,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         serviceProvider: ServiceProvider,
         configOptions: ConfigOptions,
         importResolver: ImportResolver,
-        backgroundAnalysis?: BackgroundAnalysisBase,
+        backgroundAnalysis?: IBackgroundAnalysis,
         maxAnalysisTime?: MaxAnalysisTime
     ): BackgroundAnalysisProgram {
         return new BackgroundAnalysisProgram(

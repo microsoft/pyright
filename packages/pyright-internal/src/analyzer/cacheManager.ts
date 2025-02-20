@@ -10,7 +10,6 @@
 
 import type { HeapInfo } from 'v8';
 import { Worker } from 'worker_threads';
-import { BackgroundRequest } from '../backgroundAnalysisBase';
 import { ConsoleInterface } from '../common/console';
 import { fail } from '../common/debug';
 import { getHeapStatistics, getSystemMemoryInfo } from '../common/memUtils';
@@ -31,7 +30,10 @@ export class CacheManager {
     private _sharedUsagePosition = 0;
     private _lastHeapStats = Date.now();
 
-    constructor(private readonly _maxWorkers: number = 0) {}
+    constructor(private readonly _maxWorkers: number = 0) {
+        // Empty
+    }
+
     registerCacheOwner(provider: CacheOwner) {
         this._cacheOwners.push(provider);
     }
@@ -51,7 +53,11 @@ export class CacheManager {
         }
     }
 
-    handleCachedUsageBufferMessage(msg: BackgroundRequest) {
+    handleCachedUsageBufferMessage(msg: {
+        requestType: string;
+        data: string | null;
+        sharedUsageBuffer?: SharedArrayBuffer;
+    }) {
         if (msg.requestType === 'cacheUsageBuffer') {
             const index = parseInt(msg.data || '0');
             const buffer = msg.sharedUsageBuffer;
