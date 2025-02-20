@@ -1679,7 +1679,10 @@ export interface FunctionDetailsPriv {
     specializedTypes?: SpecializedFunctionTypes | undefined;
 
     // Inferred return type. Filled in lazily.
-    inferredReturnType?: Type | undefined;
+    inferredReturnType?: {
+        type: Type;
+        isIncomplete?: boolean;
+    };
 
     // Call-site return type inference cache.
     callSiteReturnTypeCache?: CallSiteInferenceTypeCacheEntry[];
@@ -1857,7 +1860,12 @@ export namespace FunctionType {
         }
 
         newFunction.priv.specializedTypes = specializedTypes;
-        newFunction.priv.inferredReturnType = specializedInferredReturnType;
+        if (specializedInferredReturnType) {
+            newFunction.priv.inferredReturnType = {
+                type: specializedInferredReturnType,
+                isIncomplete: type.priv.inferredReturnType?.isIncomplete,
+            };
+        }
 
         return newFunction;
     }
@@ -2302,7 +2310,7 @@ export namespace FunctionType {
         addParam(type, FunctionParam.create(ParamCategory.ArgsList, AnyType.create()));
     }
 
-    export function getEffectiveReturnType(type: FunctionType, includeInferred = true) {
+    export function getEffectiveReturnType(type: FunctionType, includeInferred = true): Type | undefined {
         if (type.priv.specializedTypes?.returnType) {
             return type.priv.specializedTypes.returnType;
         }
@@ -2312,7 +2320,7 @@ export namespace FunctionType {
         }
 
         if (includeInferred) {
-            return type.priv.inferredReturnType;
+            return type.priv.inferredReturnType?.type;
         }
 
         return undefined;
@@ -3444,7 +3452,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return1Type = type1.priv.specializedTypes.returnType;
             }
             if (!return1Type && type1.priv.inferredReturnType) {
-                return1Type = type1.priv.inferredReturnType;
+                return1Type = type1.priv.inferredReturnType?.type;
             }
 
             let return2Type = functionType2.shared.declaredReturnType;
@@ -3452,7 +3460,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return2Type = functionType2.priv.specializedTypes.returnType;
             }
             if (!return2Type && functionType2.priv.inferredReturnType) {
-                return2Type = functionType2.priv.inferredReturnType;
+                return2Type = functionType2.priv.inferredReturnType?.type;
             }
 
             if (return1Type || return2Type) {

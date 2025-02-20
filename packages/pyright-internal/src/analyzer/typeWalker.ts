@@ -149,7 +149,7 @@ export class TypeWalker {
         }
 
         if (!this._isWalkCanceled && !FunctionType.isParamSpecValue(type) && !FunctionType.isParamSpecValue(type)) {
-            const returnType = type.shared.declaredReturnType ?? type.priv.inferredReturnType;
+            const returnType = type.shared.declaredReturnType ?? type.priv.inferredReturnType?.type;
             if (returnType) {
                 this.walk(returnType);
             }

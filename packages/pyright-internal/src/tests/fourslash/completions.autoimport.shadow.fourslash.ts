@@ -11,12 +11,12 @@
 // @filename: testLib/__init__.pyi
 // @library: true
 //// class MyShadow:
-////     def method(): ...
+////     def method(self): ...
 
 // @filename: testLib/__init__.py
 // @library: true
 //// class MyShadow:
-////     def method():
+////     def method(self):
 ////         'doc string'
 ////         pass
 

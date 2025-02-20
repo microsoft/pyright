@@ -209,27 +209,23 @@ def func6(x: T) -> T:
     return x
 
 
+# These should maybe generage errors, but given
+# that the typing spec doesn't say anything about how
+# to evaluate the type of a special form when it's used
+# in a value expression context, it's not clear.
 def func7():
-    # This should generate an error.
     t1 = tf(Generic)
 
-    # This should generate an error.
     t2 = tf(Final)
 
-    # This should generate an error.
     t3 = tf(Final[int])
 
-    # This should generate an error.
     t4 = tf(Concatenate[int])
 
-    # This should generate an error.
     t5 = tf(Unpack[int])
 
-    # This should generate an error.
     t6 = tf(Required[int])
 
-    # This should generate an error.
     t7 = tf(NotRequired[int])
 
-    # This should generate an error.
     t8 = tf(ReadOnly[int])

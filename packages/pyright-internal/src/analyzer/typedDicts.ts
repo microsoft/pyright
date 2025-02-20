@@ -206,13 +206,13 @@ export function createTypedDictType(
                     );
                 } else if (arg.name.d.value === 'total' && arg.valueExpression.d.constType === KeywordType.False) {
                     classType.shared.flags |= ClassTypeFlags.CanOmitDictValues;
-                } else if (arg.name.d.value === 'closed') {
+                } else if (
+                    arg.name.d.value === 'closed' &&
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures
+                ) {
                     if (arg.valueExpression.d.constType === KeywordType.True) {
-                        // This is an experimental feature because PEP 728 hasn't been accepted yet.
-                        if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
-                            classType.shared.flags |=
-                                ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
-                        }
+                        classType.shared.flags |=
+                            ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
                     }
 
                     if (sawClosedOrExtraItems) {
@@ -225,7 +225,10 @@ export function createTypedDictType(
 
                     sawClosedOrExtraItems = true;
                 }
-            } else if (arg.name?.d.value === 'extra_items') {
+            } else if (
+                arg.name?.d.value === 'extra_items' &&
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures
+            ) {
                 classType.shared.typedDictExtraItemsExpr = arg.valueExpression;
                 classType.shared.flags |= ClassTypeFlags.TypedDictEffectivelyClosed;
 

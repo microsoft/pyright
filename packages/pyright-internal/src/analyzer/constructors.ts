@@ -33,7 +33,6 @@ import {
     combineTypes,
     findSubtype,
     isAny,
-    isAnyOrUnknown,
     isClass,
     isClassInstance,
     isFunction,
@@ -288,8 +287,8 @@ function validateNewAndInitMethods(
         // (cls, *args, **kwargs) -> Self, allow the __init__ method to
         // determine the specialized type of the class.
         newMethodReturnType = ClassType.cloneAsInstance(type);
-    } else if (isAnyOrUnknown(newMethodReturnType)) {
-        // If the __new__ method returns Any or Unknown, we'll ignore its return
+    } else if (isUnknown(newMethodReturnType) || (newMethodTypeResult && isAny(newMethodTypeResult.type))) {
+        // If the __new__ method returns Unknown, we'll ignore its return
         // type and assume that it returns Self.
         newMethodReturnType = applySolvedTypeVars(ClassType.cloneAsInstance(type), new ConstraintSolution(), {
             replaceUnsolved: {
@@ -1107,7 +1106,7 @@ function isDefaultNewMethod(newMethod?: Type): boolean {
         return false;
     }
 
-    const returnType = newMethod.shared.declaredReturnType ?? newMethod.priv.inferredReturnType;
+    const returnType = newMethod.shared.declaredReturnType ?? newMethod.priv.inferredReturnType?.type;
     if (!returnType || !isTypeVar(returnType) || !TypeVarType.isSelf(returnType)) {
         return false;
     }

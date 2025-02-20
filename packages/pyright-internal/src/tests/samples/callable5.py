@@ -35,6 +35,6 @@ func2(func1, b"")
 
 map(complex, ["3j", "4"])
 
-# This should generate an error because a "bytes" argument
+# This should generate two errors because a "bytes" argument
 # doesn't match any of the overloads in the "complex" constructor.
 map(complex, [b"3j"])

@@ -103,6 +103,10 @@
         "baseClassUnknown": "Base class type is unknown, obscuring type of derived class",
         "baseClassVariableTypeIncompatible": "Base classes for class \"{classType}\" define variable \"{name}\" in incompatible way",
         "binaryOperationNotAllowed": "Binary operator not allowed in type expression",
+        "bindParamMissing": {
+            "message": "Could not bind method \"{methodName}\" because it is missing a \"self\" or \"cls\" parameter",
+            "comment": "Binding is the process through which Pyright determines what object a name refers to"
+        },
         "bindTypeMismatch": {
             "message": "Could not bind method \"{methodName}\" because \"{type}\" is not assignable to parameter \"{paramName}\"",
             "comment": "Binding is the process through which Pyright determines what object a name refers to"

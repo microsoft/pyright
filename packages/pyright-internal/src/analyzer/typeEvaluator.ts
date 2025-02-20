@@ -1193,7 +1193,10 @@ export function createTypeEvaluator(
                         AssignTypeFlags.Default
                     )
                 ) {
-                    typeResult.typeErrors = true;
+                    // Set the typeErrors to true, but first make a copy of the
+                    // type result because the (non-error) version may already
+                    // be cached.
+                    typeResult = { ...typeResult, typeErrors: true };
                     typeResult.expectedTypeDiagAddendum = diag;
                     diag.addTextRange(node);
                 }
@@ -11553,28 +11556,20 @@ export function createTypeEvaluator(
                     if (param.category === ParamCategory.Simple && param.name) {
                         const entry = paramMap.get(param.name);
 
-                        if (entry && entry.argsNeeded === 0 && entry.argsReceived === 0) {
-                            const defaultArgType = paramInfo.defaultType;
-
-                            if (
-                                defaultArgType &&
-                                !isEllipsisType(defaultArgType) &&
-                                requiresSpecialization(paramInfo.declaredType)
-                            ) {
-                                validateArgTypeParams.push({
-                                    paramCategory: param.category,
-                                    paramType: paramInfo.type,
-                                    requiresTypeVarMatching: true,
-                                    argument: {
-                                        argCategory: ArgCategory.Simple,
-                                        typeResult: { type: defaultArgType },
-                                    },
-                                    isDefaultArg: true,
-                                    errorNode,
-                                    paramName: param.name,
-                                    isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
-                                });
-                            }
+                        if (entry && entry.argsNeeded === 0 && entry.argsReceived === 0 && paramInfo.defaultType) {
+                            validateArgTypeParams.push({
+                                paramCategory: param.category,
+                                paramType: paramInfo.type,
+                                requiresTypeVarMatching: true,
+                                argument: {
+                                    argCategory: ArgCategory.Simple,
+                                    typeResult: { type: paramInfo.defaultType },
+                                },
+                                isDefaultArg: true,
+                                errorNode,
+                                paramName: param.name,
+                                isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
+                            });
                         }
                     }
                 });
@@ -14906,7 +14901,9 @@ export function createTypeEvaluator(
                         makeInferenceContext(expectedReturnType)
                     );
 
-                    functionType.priv.inferredReturnType = returnTypeResult.type;
+                    functionType.priv.inferredReturnType = {
+                        type: returnTypeResult.type,
+                    };
                     if (returnTypeResult.isIncomplete) {
                         isIncomplete = true;
                     }
@@ -17510,21 +17507,20 @@ export function createTypeEvaluator(
                             );
                         } else if (arg.d.name.d.value === 'total' && !constArgValue) {
                             classType.shared.flags |= ClassTypeFlags.CanOmitDictValues;
-                        } else if (arg.d.name.d.value === 'closed') {
+                        } else if (
+                            arg.d.name.d.value === 'closed' &&
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures
+                        ) {
                             if (constArgValue) {
-                                // This is an experimental feature because PEP 728 hasn't been accepted yet.
-                                if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
-                                    classType.shared.flags |=
-                                        ClassTypeFlags.TypedDictMarkedClosed |
-                                        ClassTypeFlags.TypedDictEffectivelyClosed;
+                                classType.shared.flags |=
+                                    ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
 
-                                    if (classType.shared.typedDictExtraItemsExpr) {
-                                        addDiagnostic(
-                                            DiagnosticRule.reportGeneralTypeIssues,
-                                            LocMessage.typedDictExtraItemsClosed(),
-                                            classType.shared.typedDictExtraItemsExpr
-                                        );
-                                    }
+                                if (classType.shared.typedDictExtraItemsExpr) {
+                                    addDiagnostic(
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        LocMessage.typedDictExtraItemsClosed(),
+                                        classType.shared.typedDictExtraItemsExpr
+                                    );
                                 }
                             }
 
@@ -17538,21 +17534,21 @@ export function createTypeEvaluator(
 
                             sawClosedOrExtraItems = true;
                         }
-                    } else if (arg.d.name.d.value === 'extra_items') {
-                        // This is an experimental feature because PEP 728 hasn't been accepted yet.
-                        if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
-                            // Record a reference to the expression but don't evaluate it yet.
-                            // It may refer to the class itself.
-                            classType.shared.typedDictExtraItemsExpr = arg.d.valueExpr;
-                            classType.shared.flags |= ClassTypeFlags.TypedDictEffectivelyClosed;
+                    } else if (
+                        arg.d.name.d.value === 'extra_items' &&
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures
+                    ) {
+                        // Record a reference to the expression but don't evaluate it yet.
+                        // It may refer to the class itself.
+                        classType.shared.typedDictExtraItemsExpr = arg.d.valueExpr;
+                        classType.shared.flags |= ClassTypeFlags.TypedDictEffectivelyClosed;
 
-                            if (ClassType.isTypedDictMarkedClosed(classType)) {
-                                addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    LocMessage.typedDictExtraItemsClosed(),
-                                    classType.shared.typedDictExtraItemsExpr
-                                );
-                            }
+                        if (ClassType.isTypedDictMarkedClosed(classType)) {
+                            addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.typedDictExtraItemsClosed(),
+                                classType.shared.typedDictExtraItemsExpr
+                            );
                         }
 
                         if (sawClosedOrExtraItems) {
@@ -19296,11 +19292,13 @@ export function createTypeEvaluator(
                 FunctionType.isGenerator(functionType)
             );
         } else {
-            awaitableFunctionType.priv.inferredReturnType = createAwaitableReturnType(
-                node,
-                getInferredReturnType(functionType),
-                FunctionType.isGenerator(functionType)
-            );
+            awaitableFunctionType.priv.inferredReturnType = {
+                type: createAwaitableReturnType(
+                    node,
+                    getInferredReturnType(functionType),
+                    FunctionType.isGenerator(functionType)
+                ),
+            };
         }
 
         return awaitableFunctionType;
@@ -23210,7 +23208,7 @@ export function createTypeEvaluator(
     // a type annotation, that type is returned. If not, an attempt is made to infer
     // the return type. If a list of args is provided, the inference logic may take
     // into account argument types to infer the return type.
-    function getEffectiveReturnType(type: FunctionType, options?: EffectiveReturnTypeOptions) {
+    function getEffectiveReturnType(type: FunctionType, options?: EffectiveReturnTypeOptions): Type {
         const specializedReturnType = FunctionType.getEffectiveReturnType(type, /* includeInferred */ false);
         if (specializedReturnType && !isUnknown(specializedReturnType)) {
             return specializedReturnType;
@@ -23242,8 +23240,8 @@ export function createTypeEvaluator(
 
         // If the return type has already been lazily evaluated,
         // don't bother computing it again.
-        if (type.priv.inferredReturnType) {
-            returnType = type.priv.inferredReturnType;
+        if (type.priv.inferredReturnType && !type.priv.inferredReturnType.isIncomplete) {
+            returnType = type.priv.inferredReturnType.type;
         } else {
             // Don't bother inferring the return type of __init__ because it's
             // always None.
@@ -23301,9 +23299,7 @@ export function createTypeEvaluator(
             returnType = makeTypeVarsFree(returnType, typeVarScopes);
 
             // Cache the type for next time.
-            if (!isIncomplete) {
-                type.priv.inferredReturnType = returnType;
-            }
+            type.priv.inferredReturnType = { type: returnType, isIncomplete };
         }
 
         // If the type is partially unknown and the function has one or more unannotated
@@ -24730,6 +24726,27 @@ export function createTypeEvaluator(
             }
 
             let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
+
+            // Handle the TypeForm special form. Add a special case for
+            // type[T] to be assignable to TypeForm[T].
+            if (ClassType.isBuiltIn(destType, 'TypeForm')) {
+                const destTypeArg =
+                    destType.priv.typeArgs && destType.priv.typeArgs.length > 0
+                        ? destType.priv.typeArgs[0]
+                        : UnknownType.create();
+
+                let srcTypeArg: Type | undefined;
+                if (isClassInstance(concreteSrcType) && ClassType.isBuiltIn(concreteSrcType, 'type')) {
+                    srcTypeArg = concreteSrcType;
+                } else if (isInstantiableClass(concreteSrcType)) {
+                    srcTypeArg = convertToInstance(concreteSrcType);
+                }
+
+                if (srcTypeArg) {
+                    return assignType(destTypeArg, srcTypeArg, diag, constraints, flags, recursionCount);
+                }
+            }
+
             if (isClass(concreteSrcType) && TypeBase.isInstance(concreteSrcType)) {
                 // Handle the case where the source is an unpacked tuple.
                 if (
@@ -26198,6 +26215,7 @@ export function createTypeEvaluator(
         const destPositionalCount = destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
         const srcPositionalCount = srcParamDetails.firstKeywordOnlyIndex ?? srcParamDetails.params.length;
         const positionalsToMatch = Math.min(destPositionalCount, srcPositionalCount);
+        const skippedPosParamIndices: number[] = [];
 
         // Match positional parameters.
         for (let paramIndex = 0; paramIndex < positionalsToMatch; paramIndex++) {
@@ -26213,6 +26231,9 @@ export function createTypeEvaluator(
 
             // Skip over the *args parameter since it's handled separately below.
             if (paramIndex === destParamDetails.argsIndex) {
+                if (!isUnpackedTypeVarTuple(destParamDetails.params[destParamDetails.argsIndex].type)) {
+                    skippedPosParamIndices.push(paramIndex);
+                }
                 continue;
             }
 
@@ -26345,7 +26366,13 @@ export function createTypeEvaluator(
         }
 
         if (destPositionalCount < srcPositionalCount && !targetIncludesParamSpec) {
+            // Add any remaining positional parameter indices to the list that
+            // need to be validated.
             for (let i = destPositionalCount; i < srcPositionalCount; i++) {
+                skippedPosParamIndices.push(i);
+            }
+
+            for (const i of skippedPosParamIndices) {
                 // If the dest has an *args parameter, make sure it can accept the remaining
                 // positional arguments in the source.
                 if (destParamDetails.argsIndex !== undefined) {
@@ -27999,56 +28026,68 @@ export function createTypeEvaluator(
     ): FunctionType | undefined {
         const constraints = new ConstraintTracker();
 
-        if (firstParamType && memberType.shared.parameters.length > 0) {
-            const memberTypeFirstParam = memberType.shared.parameters[0];
-            const memberTypeFirstParamType = FunctionType.getParamType(memberType, 0);
-
-            if (
-                isTypeVar(memberTypeFirstParamType) &&
-                memberTypeFirstParamType.shared.boundType &&
-                isClassInstance(memberTypeFirstParamType.shared.boundType) &&
-                ClassType.isProtocolClass(memberTypeFirstParamType.shared.boundType)
-            ) {
-                // Handle the protocol class specially. Some protocol classes
-                // contain references to themselves or their subclasses, so if
-                // we attempt to call assignType, we'll risk infinite recursion.
-                // Instead, we'll assume it's assignable.
-                constraints.setBounds(
-                    memberTypeFirstParamType,
-                    TypeBase.isInstantiable(memberTypeFirstParamType)
-                        ? convertToInstance(firstParamType)
-                        : firstParamType
-                );
-            } else {
-                const subDiag = diag?.createAddendum();
+        if (firstParamType) {
+            if (memberType.shared.parameters.length > 0) {
+                const memberTypeFirstParam = memberType.shared.parameters[0];
+                const memberTypeFirstParamType = FunctionType.getParamType(memberType, 0);
 
                 if (
-                    !assignType(
-                        memberTypeFirstParamType,
-                        firstParamType,
-                        subDiag?.createAddendum(),
-                        constraints,
-                        AssignTypeFlags.AllowUnspecifiedTypeArgs,
-                        recursionCount
-                    )
+                    isTypeVar(memberTypeFirstParamType) &&
+                    memberTypeFirstParamType.shared.boundType &&
+                    isClassInstance(memberTypeFirstParamType.shared.boundType) &&
+                    ClassType.isProtocolClass(memberTypeFirstParamType.shared.boundType)
                 ) {
+                    // Handle the protocol class specially. Some protocol classes
+                    // contain references to themselves or their subclasses, so if
+                    // we attempt to call assignType, we'll risk infinite recursion.
+                    // Instead, we'll assume it's assignable.
+                    constraints.setBounds(
+                        memberTypeFirstParamType,
+                        TypeBase.isInstantiable(memberTypeFirstParamType)
+                            ? convertToInstance(firstParamType)
+                            : firstParamType
+                    );
+                } else {
+                    const subDiag = diag?.createAddendum();
+
                     if (
-                        memberTypeFirstParam.name &&
-                        !FunctionParam.isNameSynthesized(memberTypeFirstParam) &&
-                        FunctionParam.isTypeDeclared(memberTypeFirstParam)
+                        !assignType(
+                            memberTypeFirstParamType,
+                            firstParamType,
+                            subDiag?.createAddendum(),
+                            constraints,
+                            AssignTypeFlags.AllowUnspecifiedTypeArgs,
+                            recursionCount
+                        )
                     ) {
-                        if (subDiag) {
-                            subDiag.addMessage(
-                                LocMessage.bindTypeMismatch().format({
-                                    type: printType(firstParamType),
-                                    methodName: memberType.shared.name || '<anonymous>',
-                                    paramName: memberTypeFirstParam.name,
-                                })
-                            );
+                        if (
+                            memberTypeFirstParam.name &&
+                            !FunctionParam.isNameSynthesized(memberTypeFirstParam) &&
+                            FunctionParam.isTypeDeclared(memberTypeFirstParam)
+                        ) {
+                            if (subDiag) {
+                                subDiag.addMessage(
+                                    LocMessage.bindTypeMismatch().format({
+                                        type: printType(firstParamType),
+                                        methodName: memberType.shared.name || '<anonymous>',
+                                        paramName: memberTypeFirstParam.name,
+                                    })
+                                );
+                            }
+                            return undefined;
                         }
-                        return undefined;
                     }
                 }
+            } else {
+                const subDiag = diag?.createAddendum();
+                if (subDiag) {
+                    subDiag.addMessage(
+                        LocMessage.bindParamMissing().format({
+                            methodName: memberType.shared.name || '<anonymous>',
+                        })
+                    );
+                }
+                return undefined;
             }
         }
 
