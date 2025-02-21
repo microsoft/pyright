@@ -13193,6 +13193,17 @@ export function createTypeEvaluator(
             return undefined;
         }
 
+        const scope = ScopeUtils.getScopeForNode(errorNode);
+        if (scope) {
+            if (scope.type !== ScopeType.Class && scope.type !== ScopeType.Module && scope.type !== ScopeType.Builtin) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeAliasTypeBadScope(),
+                    errorNode.parent.d.leftExpr
+                );
+            }
+        }
+
         const nameNode = errorNode.parent.d.leftExpr;
 
         const firstArg = argList[0];
