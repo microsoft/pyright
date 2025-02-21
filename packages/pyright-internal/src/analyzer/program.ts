@@ -48,9 +48,10 @@ import { Symbol } from './symbol';
 import { createTracePrinter } from './tracePrinter';
 import { PrintTypeOptions, TypeEvaluator } from './typeEvaluatorTypes';
 import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
-import { PrintTypeFlags } from './typePrinter';
+import { getPrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
+import { isThenable } from '../common/core';
 
 const _maxImportDepth = 256;
 
@@ -1044,13 +1045,27 @@ export class Program {
     // Wrapper function that should be used when invoking this._evaluator
     // with a cancellation token. It handles cancellation exceptions and
     // any other unexpected exceptions.
-    private _runEvaluatorWithCancellationToken<T>(token: CancellationToken | undefined, callback: () => T): T {
+    private _runEvaluatorWithCancellationToken<T>(token: CancellationToken | undefined, callback: () => T): T;
+    private _runEvaluatorWithCancellationToken<T>(
+        token: CancellationToken | undefined,
+        callback: () => Promise<T>
+    ): Promise<T>;
+    private _runEvaluatorWithCancellationToken<T>(
+        token: CancellationToken | undefined,
+        callback: () => T | Promise<T>
+    ): T | Promise<T> {
         try {
-            if (token) {
-                return this._evaluator!.runWithCancellationToken(token, callback);
-            } else {
-                return callback();
+            const result = token ? this._evaluator!.runWithCancellationToken(token, callback) : callback();
+            if (!isThenable(result)) {
+                return result;
             }
+
+            return result.catch((e) => {
+                if (!OperationCanceledException.is(e) || e.isTypeCacheInvalid) {
+                    this._createNewEvaluator();
+                }
+                throw e;
+            });
         } catch (e: any) {
             // An unexpected exception occurred, potentially leaving the current evaluator
             // in an inconsistent state. Discard it and replace it with a fresh one. It is
@@ -1533,32 +1548,6 @@ export class Program {
         this._sourceFileMap.set(fileUri.key, fileInfo);
     }
 
-    private static _getPrintTypeFlags(configOptions: ConfigOptions): PrintTypeFlags {
-        let flags = PrintTypeFlags.None;
-
-        if (configOptions.diagnosticRuleSet.printUnknownAsAny) {
-            flags |= PrintTypeFlags.PrintUnknownWithAny;
-        }
-
-        if (configOptions.diagnosticRuleSet.omitConditionalConstraint) {
-            flags |= PrintTypeFlags.OmitConditionalConstraint;
-        }
-
-        if (configOptions.diagnosticRuleSet.omitTypeArgsIfUnknown) {
-            flags |= PrintTypeFlags.OmitTypeArgsIfUnknown;
-        }
-
-        if (configOptions.diagnosticRuleSet.omitUnannotatedParamType) {
-            flags |= PrintTypeFlags.OmitUnannotatedParamType;
-        }
-
-        if (configOptions.diagnosticRuleSet.pep604Printing) {
-            flags |= PrintTypeFlags.PEP604;
-        }
-
-        return flags;
-    }
-
     private _getModuleImportInfoForFile(fileUri: Uri) {
         // We allow illegal module names (e.g. names that include "-" in them)
         // because we want a unique name for each module even if it cannot be
@@ -1632,7 +1621,7 @@ export class Program {
         this._evaluator = createTypeEvaluatorWithTracker(
             this._lookUpImport,
             {
-                printTypeFlags: Program._getPrintTypeFlags(this._configOptions),
+                printTypeFlags: getPrintTypeFlags(this._configOptions),
                 logCalls: this._configOptions.logTypeEvaluationTime,
                 minimumLoggingThreshold: this._configOptions.typeEvaluationTimeThreshold,
                 evaluateUnknownImportsAsAny: !!this._configOptions.evaluateUnknownImportsAsAny,
@@ -1943,6 +1932,7 @@ export class Program {
                     const execEnv = this._configOptions.findExecEnvironment(fileToCheck.sourceFile.getUri());
                     fileToCheck.sourceFile.check(
                         this.configOptions,
+                        this._lookUpImport,
                         this._importResolver,
                         this._evaluator!,
                         this._createSourceMapper(execEnv, token, fileToCheck),

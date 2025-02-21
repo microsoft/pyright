@@ -884,6 +884,7 @@ export class SourceFile {
 
     check(
         configOptions: ConfigOptions,
+        importLookup: ImportLookup,
         importResolver: ImportResolver,
         evaluator: TypeEvaluator,
         sourceMapper: SourceMapper,

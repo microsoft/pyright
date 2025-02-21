@@ -26,7 +26,7 @@ export interface TracePrinter {
     printFileOrModuleName(fileUriOrModule: Uri | AbsoluteModuleDescriptor): string;
 }
 
-export function createTracePrinter(roots: Uri[]): TracePrinter {
+export function createTracePrinter(roots: Uri[], includeRoots: boolean = false): TracePrinter {
     function wrap(value: string | undefined, ch = "'") {
         return value ? `${ch}${value}${ch}` : '';
     }
@@ -43,7 +43,8 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
                 for (const root of roots) {
                     if (fileUriOrModule.isChild(root)) {
                         const subFile = root.getRelativePath(fileUriOrModule);
-                        return stripFileExtension(subFile!).replace(separatorRegExp, '.');
+                        const stripped = stripFileExtension(subFile!).replace(separatorRegExp, '.');
+                        return includeRoots ? `${root.fileName}:${stripped}` : stripped;
                     }
                 }
 

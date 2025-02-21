@@ -621,6 +621,7 @@ export const enum AssignTypeFlags {
 
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
+    runWithCancellationToken<T>(token: CancellationToken, callback: () => Promise<T>): Promise<T>;
 
     getType: (node: ExpressionNode) => Type | undefined;
     getTypeResult: (node: ExpressionNode) => TypeResult | undefined;

@@ -366,6 +366,7 @@ import {
     UniqueSignatureTracker,
     validateTypeVarDefault,
 } from './typeUtils';
+import { isThenable } from '../common/core';
 
 interface GetTypeArgsOptions {
     isAnnotatedClass?: boolean;
@@ -653,12 +654,27 @@ export function createTypeEvaluator(
     const signatureTrackerStack: SignatureTrackerStackEntry[] = [];
     let prefetched: Partial<PrefetchedTypes> | undefined;
 
-    function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T {
+    function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
+    function runWithCancellationToken<T>(token: CancellationToken, callback: () => Promise<T>): Promise<T>;
+    function runWithCancellationToken<T>(token: CancellationToken, callback: () => T | Promise<T>): T | Promise<T> {
+        // Save the current token and restore it after the callback to support nested calls
+        const oldToken = cancellationToken;
+        let result: T | Promise<T> | undefined = undefined;
         try {
             cancellationToken = token;
-            return callback();
+            result = callback();
+
+            if (!isThenable(result)) {
+                return result;
+            }
+
+            return result.finally(() => {
+                cancellationToken = oldToken;
+            });
         } finally {
-            cancellationToken = undefined;
+            if (!isThenable(result)) {
+                cancellationToken = oldToken;
+            }
         }
     }
 

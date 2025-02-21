@@ -2949,3 +2949,18 @@ export function isSimpleDefault(node: ExpressionNode): boolean {
             return false;
     }
 }
+
+export function getPreviousNonWhitespaceToken(tokens: TextRangeCollection<Token>, offset: number): Token | undefined {
+    let tokenIndex = tokens.getItemAtPosition(offset);
+
+    while (tokenIndex >= 0) {
+        const token = tokens.getItemAt(tokenIndex);
+        if (!isWhitespace(token)) {
+            return token;
+        }
+
+        tokenIndex -= 1;
+    }
+
+    return undefined;
+}

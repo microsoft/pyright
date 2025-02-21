@@ -20,7 +20,7 @@ import { CacheManager } from './analyzer/cacheManager';
 import { ImportResolver } from './analyzer/importResolver';
 import { isPythonBinary } from './analyzer/pythonPathUtils';
 import { BackgroundAnalysis } from './backgroundAnalysis';
-import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
+import { IBackgroundAnalysis } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions, SignatureDisplayType } from './common/configOptions';
@@ -217,7 +217,7 @@ export class PyrightServer extends LanguageServerBase {
         return serverSettings;
     }
 
-    createBackgroundAnalysis(serviceId: string, workspaceRoot: Uri): BackgroundAnalysisBase | undefined {
+    createBackgroundAnalysis(serviceId: string, workspaceRoot: Uri): IBackgroundAnalysis | undefined {
         if (isDebugMode() || !getCancellationFolderName()) {
             // Don't do background analysis if we're in debug mode or an old client
             // is used where cancellation is not supported.

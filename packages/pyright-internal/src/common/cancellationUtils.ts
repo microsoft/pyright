@@ -78,8 +78,28 @@ export function onCancellationRequested(token: CancellationToken, func: (i: any)
 
 export function CancelAfter(provider: CancellationProvider, ...tokens: CancellationToken[]) {
     const source = provider.createCancellationTokenSource();
-    const disposables: Disposable[] = [];
+    setupCombinedTokensFor(source, ...tokens);
+    return source;
+}
 
+export function createCombinedToken(...tokens: CancellationToken[]): CancellationToken {
+    const source = new CancellationTokenSource();
+    setupCombinedTokensFor(source, ...tokens);
+    return source.token;
+}
+
+export function setupCombinedTokensFor(source: AbstractCancellationTokenSource, ...tokens: CancellationToken[]) {
+    // If any token is already cancelled, cancel immediately.
+    for (const token of tokens) {
+        if (!token.isCancellationRequested) {
+            continue;
+        }
+
+        source.cancel();
+        return;
+    }
+
+    const disposables: Disposable[] = [];
     for (const token of tokens) {
         disposables.push(
             onCancellationRequested(token, () => {
@@ -93,8 +113,6 @@ export function CancelAfter(provider: CancellationProvider, ...tokens: Cancellat
             disposables.forEach((d) => d.dispose());
         })
     );
-
-    return source;
 }
 
 export class DefaultCancellationProvider implements CancellationProvider {

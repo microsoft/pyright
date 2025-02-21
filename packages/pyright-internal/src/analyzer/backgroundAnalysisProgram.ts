@@ -9,7 +9,7 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
+import { IBackgroundAnalysis } from '../backgroundAnalysisBase';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
@@ -32,14 +32,14 @@ export class BackgroundAnalysisProgram {
     private _program: Program;
     private _disposed = false;
     private _onAnalysisCompletion: AnalysisCompleteCallback | undefined;
-    private _preEditAnalysis: BackgroundAnalysisBase | undefined;
+    private _preEditAnalysis: IBackgroundAnalysis | undefined;
 
     constructor(
         protected readonly serviceId: string,
         private readonly _serviceProvider: ServiceProvider,
         private _configOptions: ConfigOptions,
         private _importResolver: ImportResolver,
-        private _backgroundAnalysis?: BackgroundAnalysisBase,
+        private _backgroundAnalysis?: IBackgroundAnalysis,
         private readonly _maxAnalysisTime?: MaxAnalysisTime,
         private readonly _disableChecker?: boolean
     ) {
@@ -284,6 +284,6 @@ export type BackgroundAnalysisProgramFactory = (
     serviceProvider: ServiceProvider,
     configOptions: ConfigOptions,
     importResolver: ImportResolver,
-    backgroundAnalysis?: BackgroundAnalysisBase,
+    backgroundAnalysis?: IBackgroundAnalysis,
     maxAnalysisTime?: MaxAnalysisTime
 ) => BackgroundAnalysisProgram;
