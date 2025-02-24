@@ -1,2 +1,2 @@
-version = "6.11.*"
+version = "6.12.*"
 upstream_repository = "https://github.com/pyinstaller/pyinstaller"

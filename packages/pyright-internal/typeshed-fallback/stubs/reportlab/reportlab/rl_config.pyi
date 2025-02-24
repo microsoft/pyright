@@ -69,3 +69,4 @@ defCWRF: float
 T1SearchPath: Incomplete
 TTFSearchPath: Incomplete
 CMapSearchPath: Incomplete
+shapedFontGlob: list[Incomplete]
