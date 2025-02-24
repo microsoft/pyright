@@ -20,6 +20,7 @@ import { invalidateTypeCacheIfCanceled, throwIfCancellationRequested } from '../
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
+import { isThenable } from '../common/core';
 import { assert, assertNever, fail } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -366,7 +367,6 @@ import {
     UniqueSignatureTracker,
     validateTypeVarDefault,
 } from './typeUtils';
-import { isThenable } from '../common/core';
 
 interface GetTypeArgsOptions {
     isAnnotatedClass?: boolean;
@@ -18008,6 +18008,11 @@ export function createTypeEvaluator(
                     }
                 }
             };
+
+            // If Any is defined using a class statement, treat it as a special form.
+            if (node.d.name.d.value === 'Any' && fileInfo.isTypingStubFile) {
+                decoratedType = AnyType.createSpecialForm();
+            }
 
             // Update the undecorated class type.
             writeTypeCache(node.d.name, { type: classType }, EvalFlags.None);
