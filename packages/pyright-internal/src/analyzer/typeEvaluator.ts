@@ -10940,6 +10940,15 @@ export function createTypeEvaluator(
                     if (paramInfo.param.category === ParamCategory.ArgsList) {
                         matchedUnpackedListOfUnknownLength = true;
                     }
+
+                    if (isParamVariadic && listElementType) {
+                        isArgCompatibleWithVariadic = true;
+                        listElementType = makeTupleObject(
+                            evaluatorInterface,
+                            [{ type: listElementType, isUnbounded: true }],
+                            /* isUnpacked */ true
+                        );
+                    }
                 }
 
                 const funcArg: Arg | undefined = listElementType
