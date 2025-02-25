@@ -86,3 +86,8 @@ def func3(val: _T1) -> _T1:
 def func4(val: D):
     if isinstance(val, A):
         reveal_type(val, expected_text="Never")
+
+
+def func5(val: type[int]):
+    if isinstance(val, str):
+        x: type = val
