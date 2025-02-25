@@ -19030,24 +19030,6 @@ export function createTypeEvaluator(
                 );
             }
 
-            // If the return type is explicitly annotated as a generator, mark the
-            // function as a generator even though it may not contain a "yield" statement.
-            // This is important for generator functions declared in stub files, abstract
-            // methods or protocol definitions.
-            if (fileInfo.isStubFile || ParseTreeUtils.isSuiteEmpty(node.d.suite)) {
-                if (
-                    functionType.shared.declaredReturnType &&
-                    isClassInstance(functionType.shared.declaredReturnType) &&
-                    ClassType.isBuiltIn(functionType.shared.declaredReturnType, [
-                        'Generator',
-                        'AsyncGenerator',
-                        'AwaitableGenerator',
-                    ])
-                ) {
-                    functionType.shared.flags |= FunctionTypeFlags.Generator;
-                }
-            }
-
             // Validate the default types for all type parameters.
             functionType.shared.typeParams.forEach((typeParam, index) => {
                 let bestErrorNode: ExpressionNode = node.d.name;
@@ -19346,12 +19328,15 @@ export function createTypeEvaluator(
                             ClassType.specialize(asyncGeneratorType, typeArgs)
                         );
                     }
-                } else if (
-                    ['AsyncGenerator', 'AsyncIterator', 'AsyncIterable'].some((name) => name === returnType.shared.name)
-                ) {
-                    // If it's already an AsyncGenerator, AsyncIterator or AsyncIterable,
-                    // leave it as is.
+                } else if (['AsyncIterator', 'AsyncIterable'].some((name) => name === returnType.shared.name)) {
+                    // If it's already an AsyncIterator or AsyncIterable, leave it as is.
                     awaitableReturnType = returnType;
+                } else if (returnType.shared.name === 'AsyncGenerator') {
+                    // If it's already an AsyncGenerator and the function is a generator,
+                    // leave it as is.
+                    if (isGenerator) {
+                        awaitableReturnType = returnType;
+                    }
                 }
             }
         }

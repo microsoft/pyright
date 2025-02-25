@@ -1,7 +1,7 @@
 # This sample tests async generator and non-generator functions.
 
 import asyncio
-from typing import AsyncGenerator, AsyncIterator
+from typing import AsyncGenerator, AsyncIterator, Protocol
 
 
 async def get_data() -> list[int]:
@@ -15,14 +15,14 @@ async def generate(nums: list[int]) -> AsyncGenerator[str, None]:
         yield f"The number is {n}"
 
 
-async def get_generator1() -> AsyncGenerator[str, None]:
+async def func1() -> AsyncGenerator[str, None]:
     data = await get_data()
     v1 = generate(data)
     reveal_type(v1, expected_text="AsyncGenerator[str, None]")
     return v1
 
 
-async def get_generator2() -> AsyncIterator[str]:
+async def func2() -> AsyncIterator[str]:
     data = await get_data()
     v1 = generate(data)
     reveal_type(v1, expected_text="AsyncGenerator[str, None]")
@@ -34,16 +34,16 @@ async def get_value(v: int) -> int:
     return v + 1
 
 
-async def get_generator3() -> AsyncGenerator[int, None]:
+async def func3() -> AsyncGenerator[int, None]:
     return (await get_value(v) for v in [1, 2, 3])
 
 
-def get_generator4() -> AsyncGenerator[int, None]:
+def func4() -> AsyncGenerator[int, None]:
     return (await get_value(v) for v in [1, 2, 3])
 
 
-async def demo_bug1() -> None:
-    v1 = get_generator1()
+async def func5() -> None:
+    v1 = func1()
     reveal_type(v1, expected_text="CoroutineType[Any, Any, AsyncGenerator[str, None]]")
     gen = await v1
     reveal_type(gen, expected_text="AsyncGenerator[str, None]")
@@ -51,8 +51,8 @@ async def demo_bug1() -> None:
         print(s)
 
 
-async def demo_bug2() -> None:
-    v1 = get_generator2()
+async def func6() -> None:
+    v1 = func2()
     reveal_type(v1, expected_text="CoroutineType[Any, Any, AsyncIterator[str]]")
     gen = await v1
     reveal_type(gen, expected_text="AsyncIterator[str]")
@@ -61,5 +61,14 @@ async def demo_bug2() -> None:
 
 
 loop = asyncio.get_event_loop()
-loop.run_until_complete(demo_bug1())
-loop.run_until_complete(demo_bug2())
+loop.run_until_complete(func5())
+loop.run_until_complete(func6())
+
+
+class Proto(Protocol):
+    async def iter(self) -> AsyncGenerator[bytes, None]: ...
+
+
+async def func7(p: Proto):
+    async for x in await p.iter():
+        pass
