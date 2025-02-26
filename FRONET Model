@@ -1,0 +1,21 @@
+import joblib
+import json
+
+# Load the model once at the top-level scope
+model = joblib.load('FRONETpredictive_model.pkl')
+
+def lambda_handler(event, context):
+    # Example input processing
+    input_data = json.loads(event['body'])  # Assuming the input comes as a JSON body
+    features = input_data['features']  # Extract features from input
+
+    # Make prediction
+    prediction = model.predict([features])
+
+    # Return response
+    return {
+        'statusCode': 200,
+        'body': json.dumps({
+            'prediction': prediction.tolist()  # Convert to list for JSON serialization
+        })
+    }
