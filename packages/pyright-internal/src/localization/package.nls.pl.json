@@ -58,6 +58,7 @@
         "baseClassUnknown": "Typ klasy bazowej jest nieznany, zasłaniając typ klasy pochodnej",
         "baseClassVariableTypeIncompatible": "Klasy bazowe dla klasy „{classType}” definiują zmienną „{name}” w niezgodny sposób",
         "binaryOperationNotAllowed": "Operator binarny nie jest dozwolony w wyrażeniu typu",
+        "bindParamMissing": "Nie można powiązać metody „{methodName}”, ponieważ brakuje w niej parametru „self” lub „cls”",
         "bindTypeMismatch": "Nie można powiązać metody „{methodName}”, ponieważ nie można przypisać typu „{type}” do parametru „{paramName}”",
         "breakInExceptionGroup": "„break” nie jest dozwolone w bloku „except*”",
         "breakOutsideLoop": "Wartość „break” może być używana tylko w pętli",

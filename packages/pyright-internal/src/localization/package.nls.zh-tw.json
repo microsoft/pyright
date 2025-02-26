@@ -58,6 +58,7 @@
         "baseClassUnknown": "基底類別類型未知，遮蔽衍生類別的類型",
         "baseClassVariableTypeIncompatible": "類別 \"{classType}\" 的基底類別以不相容的方式定義變數 \"{name}\"",
         "binaryOperationNotAllowed": "類型運算式中不允許二元運算子",
+        "bindParamMissing": "無法繫結方法 \"{methodName}\"，因為缺少 \"self\" 或 \"cls\" 參數",
         "bindTypeMismatch": "無法繫結方法 \"{methodName}\"，因為 \"{type}\" 無法指派給參數 \"{paramName}\"",
         "breakInExceptionGroup": "\"except*\" 區塊中不允許 \"break\"",
         "breakOutsideLoop": "\"break\" 只能在迴圈內使用",

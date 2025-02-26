@@ -58,6 +58,7 @@
         "baseClassUnknown": "Il tipo della classe di base è sconosciuto. È in corso il tentativo di determinare il tipo della classe derivata",
         "baseClassVariableTypeIncompatible": "Le classi di base per la classe \"{classType}\" definiscono la variabile \"{name}\" in modo incompatibile",
         "binaryOperationNotAllowed": "Operatore binario non consentito nell'espressione di tipo",
+        "bindParamMissing": "Impossibile associare il metodo \"{methodName}\" dal momento che il parametro \"self\" o \"cls\" risulta mancante",
         "bindTypeMismatch": "Non è stato possibile associare il metodo \"{methodName}\" perché non è possibile assegnare\"{type}\" al parametro \"{paramName}\"",
         "breakInExceptionGroup": "\"break\" non consentito in un blocco \"except*\"",
         "breakOutsideLoop": "\"break\" può essere usato solo all'interno di un ciclo",
