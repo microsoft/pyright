@@ -58,6 +58,7 @@
         "baseClassUnknown": "基底クラスの型が不明で、派生クラスの型が不明です",
         "baseClassVariableTypeIncompatible": "クラス \"{classType}\" の基底クラスは、互換性のない方法で変数 \"{name}\" を定義します",
         "binaryOperationNotAllowed": "2 項演算子は型式では使用できません",
+        "bindParamMissing": "\"self\" または \"cls\" パラメーターがないため、メソッド \"{methodName}\" をバインドできませんでした",
         "bindTypeMismatch": "\"{type}\" がパラメーター \"{paramName}\" に割り当てできないため、メソッド \"{methodName}\" をバインドできませんでした",
         "breakInExceptionGroup": "\"except*\" ブロックでは \"break\" を使用できません",
         "breakOutsideLoop": "\"break\" はループ内でのみ使用できます",

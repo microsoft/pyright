@@ -58,6 +58,7 @@
         "baseClassUnknown": "Der Basisklassentyp ist unbekannt, sodass der Typ der abgeleiteten Klasse verdeckt wird.",
         "baseClassVariableTypeIncompatible": "Basisklassen für die Klasse \"{classType}\" definieren die Variable \"{name}\" auf inkompatible Weise.",
         "binaryOperationNotAllowed": "Der binärer Operator ist im Typausdruck nicht zulässig",
+        "bindParamMissing": "Die Methode „{methodName}“ konnte nicht gebunden werden, weil der Parameter „self“ oder „cls“ fehlt.",
         "bindTypeMismatch": "Die Methode \"{methodName}\" konnte nicht gebunden werden, da \"{type}\" dem Parameter \"{paramName}\" nicht zugewiesen werden kann.",
         "breakInExceptionGroup": "„break“ ist in einem „except*“ Block nicht zulässig.",
         "breakOutsideLoop": "\"break\" kann nur innerhalb einer Schleife verwendet werden.",

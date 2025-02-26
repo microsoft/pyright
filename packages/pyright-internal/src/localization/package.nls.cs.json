@@ -58,6 +58,7 @@
         "baseClassUnknown": "Typ základní třídy je neznámý, co zakrývá typ odvozené třídy",
         "baseClassVariableTypeIncompatible": "Základní třídy pro třídu {classType} definují proměnnou {name} nekompatibilním způsobem",
         "binaryOperationNotAllowed": "Ve výrazu typu není povolený binární operátor.",
+        "bindParamMissing": "Nepovedlo se vytvořit vazbu metody {methodName}, protože chybí parametr self nebo cls",
         "bindTypeMismatch": "Nepovedlo se vytvořit vazbu metody „{methodName}“, protože „{type}“ nejde přiřadit k parametru „{paramName}“",
         "breakInExceptionGroup": "V bloku except* není povolená možnost break.",
         "breakOutsideLoop": "„break“ se dá použít jenom ve smyčce",

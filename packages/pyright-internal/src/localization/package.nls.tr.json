@@ -58,6 +58,7 @@
         "baseClassUnknown": "Temel sınıf türü bilinmiyor, türetilmiş sınıfı gizliyor",
         "baseClassVariableTypeIncompatible": "\"{classType}\" sınıfı için temel sınıflar, \"{name}\" değişkenini uyumsuz bir şekilde tanımlıyor",
         "binaryOperationNotAllowed": "Tür ifadesinde ikili işleç kullanılamaz",
+        "bindParamMissing": "\"self\" veya \"cls\" parametresi eksik olduğundan \"{methodName}\" yöntemi bağlanamadı",
         "bindTypeMismatch": "\"{type}\", \"{paramName}\" parametresine atanamadığından \"{methodName}\" metodu bağlanamadı",
         "breakInExceptionGroup": "\"except*\" bloğunda \"break\" kullanılamaz",
         "breakOutsideLoop": "\"break\" yalnızca bir döngü içinde kullanılabilir",
