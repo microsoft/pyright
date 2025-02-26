@@ -1449,6 +1449,18 @@ export namespace ClassType {
             return true;
         }
 
+        // Handle the case where the subclass is a type[type[T]] and the parent
+        // class is type.
+        const subclassDepth = TypeBase.getInstantiableDepth(subclassType);
+        if (subclassDepth > 0) {
+            if (isBuiltIn(parentClassType, 'type') && TypeBase.getInstantiableDepth(parentClassType) < subclassDepth) {
+                if (inheritanceChain) {
+                    inheritanceChain.push(parentClassType);
+                }
+                return true;
+            }
+        }
+
         // Handle the case where both source and dest are property objects. This
         // special case is needed because we synthesize a new class for each
         // property declaration.

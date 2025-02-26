@@ -56,3 +56,8 @@ print(TA12.__value__)
 
 # This should generate an error.
 TA13 = TypeAliasType("TA13", ...)
+
+
+def func1():
+    # This should generate an error.
+    TA14 = TypeAliasType("TA14", int)

@@ -1270,6 +1270,7 @@
             "comment": "{Locked='type'}"
         },
         "typeAliasStatementIllegal": "Type alias statement requires Python 3.12 or newer",
+        "typeAliasTypeBadScope": "A type alias can be defined only within a module or class scope",
         "typeAliasTypeBaseClass": {
             "message": "A type alias defined in a \"type\" statement cannot be used as a base class",
             "comment": "{Locked='\"type\"'}"

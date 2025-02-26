@@ -6,7 +6,6 @@ from typing import Any, NamedTuple
 from psutil import _psutil_windows
 from psutil._common import (
     ENCODING as ENCODING,
-    ENCODING_ERRS as ENCODING_ERRS,
     AccessDenied as AccessDenied,
     NoSuchProcess as NoSuchProcess,
     TimeoutExpired as TimeoutExpired,
@@ -18,7 +17,6 @@ from psutil._common import (
     parse_environ_block as parse_environ_block,
     usage_percent as usage_percent,
 )
-from psutil._compat import PY3 as PY3
 from psutil._psutil_windows import (
     ABOVE_NORMAL_PRIORITY_CLASS as ABOVE_NORMAL_PRIORITY_CLASS,
     BELOW_NORMAL_PRIORITY_CLASS as BELOW_NORMAL_PRIORITY_CLASS,
@@ -116,7 +114,6 @@ class pio(NamedTuple):
     other_bytes: Any
 
 def convert_dos_path(s): ...
-def py2_strencode(s): ...
 def getpagesize(): ...
 def virtual_memory() -> svmem: ...
 def swap_memory(): ...
