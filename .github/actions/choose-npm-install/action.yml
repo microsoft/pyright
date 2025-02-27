@@ -1,0 +1,19 @@
+# Accessing the CFS feed requires OIDC authentication which is not allowed on branches from forks.
+# https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#permissions-for-the-github_token
+# This action decides whether to use CFS based on the source of the branch in play.
+
+name: npm install (consider using CFS)
+
+on:
+  workflow_call:
+
+runs:
+  using: composite
+  steps:
+    - name: CFS npm install
+      if: github.event.pull_request.head.repo.fork != true
+      uses: ./.github/actions/cfs-npm-install
+
+    - name: Standard npm install
+      if: github.event.pull_request.head.repo.fork == true
+      uses: ./.github/actions/standard-npm-install
