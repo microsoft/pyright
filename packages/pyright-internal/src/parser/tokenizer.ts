@@ -889,7 +889,9 @@ export class Tokenizer {
                     KeywordToken.create(start, this._cs.position - start, _keywords.get(value)!, this._getComments())
                 );
             } else {
-                this._tokens.push(IdentifierToken.create(start, this._cs.position - start, cloneStr(value), this._getComments()));
+                this._tokens.push(
+                    IdentifierToken.create(start, this._cs.position - start, cloneStr(value), this._getComments())
+                );
             }
             return true;
         }
