@@ -13,6 +13,7 @@
 import { isWhitespace } from '../analyzer/parseTreeUtils';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { Char } from '../common/charCodes';
+import { cloneStr } from '../common/core';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import {
@@ -888,7 +889,7 @@ export class Tokenizer {
                     KeywordToken.create(start, this._cs.position - start, _keywords.get(value)!, this._getComments())
                 );
             } else {
-                this._tokens.push(IdentifierToken.create(start, this._cs.position - start, value, this._getComments()));
+                this._tokens.push(IdentifierToken.create(start, this._cs.position - start, cloneStr(value), this._getComments()));
             }
             return true;
         }
@@ -1346,7 +1347,7 @@ export class Tokenizer {
             if (endTrimmed.length > 0) {
                 commentRules.push({
                     range: { start: currentOffset, length: endTrimmed.length },
-                    text: endTrimmed,
+                    text: cloneStr(endTrimmed),
                 });
             }
 
