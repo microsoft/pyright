@@ -20,6 +20,7 @@ import {
 
 import {
     CancellationProvider,
+    CancelledTokenId,
     FileBasedToken,
     getCancellationFolderName,
     setCancellationFolderName,
@@ -79,7 +80,10 @@ class OwningFileToken extends FileBasedToken {
 
 class FileBasedCancellationTokenSource implements AbstractCancellationTokenSource {
     private _token: CancellationToken | undefined;
-    constructor(private _cancellationId: string, private _ownFile: boolean = false) {}
+
+    constructor(private _cancellationId: string, private _ownFile: boolean = false) {
+        // Empty
+    }
 
     get token(): CancellationToken {
         if (!this._token) {
@@ -178,6 +182,10 @@ export function disposeCancellationToken(token: CancellationToken) {
 export function getCancellationTokenFromId(cancellationId: string) {
     if (!cancellationId) {
         return CancellationToken.None;
+    }
+
+    if (cancellationId === CancelledTokenId) {
+        return CancellationToken.Cancelled;
     }
 
     return new FileBasedToken(cancellationId, new StatSyncFromFs());

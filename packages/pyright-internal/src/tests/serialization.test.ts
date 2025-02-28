@@ -10,6 +10,7 @@ import assert from 'assert';
 
 import { deserialize, serialize } from '../backgroundThreadBase';
 import { UriEx } from '../common/uri/uriUtils';
+import { CancellationToken } from 'vscode-languageserver';
 
 export function serializationTests(serializer = serialize, deserializer = deserialize) {
     test('Simple string', () => {
@@ -86,6 +87,14 @@ export function serializationTests(serializer = serialize, deserializer = deseri
         const serialized = serializer({ a: [UriEx.file('hello'), UriEx.file('world')] });
         const deserialized = deserializer(serialized);
         assert.deepStrictEqual(deserialized, { a: [UriEx.file('hello'), UriEx.file('world')] });
+    });
+
+    test('cancellatoin', () => {
+        const cancelled = serializer(CancellationToken.Cancelled);
+        const none = serializer(CancellationToken.None);
+
+        assert(CancellationToken.Cancelled === deserializer(cancelled));
+        assert(CancellationToken.None === deserializer(none));
     });
 }
 
