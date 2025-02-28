@@ -11565,20 +11565,28 @@ export function createTypeEvaluator(
                     if (param.category === ParamCategory.Simple && param.name) {
                         const entry = paramMap.get(param.name);
 
-                        if (entry && entry.argsNeeded === 0 && entry.argsReceived === 0 && paramInfo.defaultType) {
-                            validateArgTypeParams.push({
-                                paramCategory: param.category,
-                                paramType: paramInfo.type,
-                                requiresTypeVarMatching: true,
-                                argument: {
-                                    argCategory: ArgCategory.Simple,
-                                    typeResult: { type: paramInfo.defaultType },
-                                },
-                                isDefaultArg: true,
-                                errorNode,
-                                paramName: param.name,
-                                isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
-                            });
+                        if (entry && entry.argsNeeded === 0 && entry.argsReceived === 0) {
+                            const defaultArgType = paramInfo.defaultType;
+
+                            if (
+                                defaultArgType &&
+                                !isEllipsisType(defaultArgType) &&
+                                requiresSpecialization(paramInfo.declaredType)
+                            ) {
+                                validateArgTypeParams.push({
+                                    paramCategory: param.category,
+                                    paramType: paramInfo.type,
+                                    requiresTypeVarMatching: true,
+                                    argument: {
+                                        argCategory: ArgCategory.Simple,
+                                        typeResult: { type: defaultArgType },
+                                    },
+                                    isDefaultArg: true,
+                                    errorNode,
+                                    paramName: param.name,
+                                    isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
+                                });
+                            }
                         }
                     }
                 });
