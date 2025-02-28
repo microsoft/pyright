@@ -8325,7 +8325,11 @@ export function createTypeEvaluator(
         return typeResult;
     }
 
-    function buildTupleTypesList(entryTypeResults: TypeResult[], stripLiterals: boolean): TupleTypeArg[] {
+    function buildTupleTypesList(
+        entryTypeResults: TypeResult[],
+        stripLiterals: boolean,
+        convertModule: boolean
+    ): TupleTypeArg[] {
         const entryTypes: TupleTypeArg[] = [];
 
         for (const typeResult of entryTypeResults) {
@@ -8355,11 +8359,7 @@ export function createTypeEvaluator(
             } else if (isNever(typeResult.type) && typeResult.isIncomplete && !typeResult.unpackedType) {
                 entryTypes.push({ type: UnknownType.create(/* isIncomplete */ true), isUnbounded: false });
             } else {
-                let entryType = convertSpecialFormToRuntimeValue(
-                    typeResult.type,
-                    EvalFlags.None,
-                    /* convertModule */ true
-                );
+                let entryType = convertSpecialFormToRuntimeValue(typeResult.type, EvalFlags.None, convertModule);
                 entryType = stripLiterals ? stripTypeForm(stripLiteralValue(entryType)) : entryType;
                 entryTypes.push({ type: entryType, isUnbounded: !!typeResult.unpackedType });
             }
@@ -11565,20 +11565,28 @@ export function createTypeEvaluator(
                     if (param.category === ParamCategory.Simple && param.name) {
                         const entry = paramMap.get(param.name);
 
-                        if (entry && entry.argsNeeded === 0 && entry.argsReceived === 0 && paramInfo.defaultType) {
-                            validateArgTypeParams.push({
-                                paramCategory: param.category,
-                                paramType: paramInfo.type,
-                                requiresTypeVarMatching: true,
-                                argument: {
-                                    argCategory: ArgCategory.Simple,
-                                    typeResult: { type: paramInfo.defaultType },
-                                },
-                                isDefaultArg: true,
-                                errorNode,
-                                paramName: param.name,
-                                isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
-                            });
+                        if (entry && entry.argsNeeded === 0 && entry.argsReceived === 0) {
+                            const defaultArgType = paramInfo.defaultType;
+
+                            if (
+                                defaultArgType &&
+                                !isEllipsisType(defaultArgType) &&
+                                requiresSpecialization(paramInfo.declaredType)
+                            ) {
+                                validateArgTypeParams.push({
+                                    paramCategory: param.category,
+                                    paramType: paramInfo.type,
+                                    requiresTypeVarMatching: true,
+                                    argument: {
+                                        argCategory: ArgCategory.Simple,
+                                        typeResult: { type: defaultArgType },
+                                    },
+                                    isDefaultArg: true,
+                                    errorNode,
+                                    paramName: param.name,
+                                    isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
+                                });
+                            }
                         }
                     }
                 });
@@ -13956,10 +13964,10 @@ export function createTypeEvaluator(
 
         // Strip any literal values and TypeForm types.
         const keyTypes = keyTypeResults.map((t) =>
-            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags, /* convertModule */ true))
+            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags, !hasExpectedType))
         );
         const valueTypes = valueTypeResults.map((t) =>
-            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags, /* convertModule */ true))
+            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags, !hasExpectedType))
         );
 
         if (keyTypes.length > 0) {
@@ -14523,7 +14531,7 @@ export function createTypeEvaluator(
             }
 
             entryTypeResult.type = stripTypeForm(
-                convertSpecialFormToRuntimeValue(entryTypeResult.type, flags, /* convertModule */ true)
+                convertSpecialFormToRuntimeValue(entryTypeResult.type, flags, !hasExpectedType)
             );
 
             if (entryTypeResult.isIncomplete) {

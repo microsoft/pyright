@@ -168,8 +168,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - uses: ./.github/actions/cfs-npm-cache
-      - uses: ./.github/actions/cfs-npm-install
+      - uses: ./.github/actions/choose-npm-install
 
       - run: npm publish --dry-run
         working-directory: packages/pyright

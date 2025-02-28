@@ -59,7 +59,7 @@ def func1(val: object):
 
 Pyright treats variable type annotations as type declarations. If a variable is not annotated, pyright allows any value to be assigned to that variable, and its type is inferred to be the union of all assigned types.
 
-Mypy’s behavior for variables depends on whether the [`--allow-redefinition`](https://mypy.readthedocs.io/en/stable/command_line.html#cmdoption-mypy-allow-redefinition) is specified. If redefinitions are not allowed, then mypy typically treats the first assignment (the one with the smallest line number) as though it is an implicit type declaration.
+Mypy’s behavior for variables depends on whether [`--allow-redefinition`](https://mypy.readthedocs.io/en/stable/command_line.html#cmdoption-mypy-allow-redefinition) is specified. If redefinitions are not allowed, then mypy typically treats the first assignment (the one with the smallest line number) as though it is an implicit type declaration.
 
 ```python
 def func1(condition: bool):
