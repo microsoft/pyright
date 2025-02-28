@@ -1,7 +1,7 @@
 # Does an npm install using our private Azure Artifacts registry which requires OIDC authentication.
 # Workflows that use this action must add the id-token: write permission.
 
-name: npm install via CFS
+name: npm install (CFS)
 
 on:
   workflow_call:
@@ -43,6 +43,8 @@ runs:
       with:
         working-directory: packages/vscode-pyright
         token: ${{ steps.npm-auth.outputs.token }}
+
+    - uses: ./.github/actions/cfs-npm-cache
 
     - run: npm run install:all
       shell: bash
