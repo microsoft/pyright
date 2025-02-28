@@ -75,10 +75,14 @@ export interface IBackgroundAnalysis extends Disposable {
 }
 
 export class BackgroundAnalysisBase implements IBackgroundAnalysis {
+    // This map tracks pending analysis requests and their associated cancellation tokens.
+    // When analysis is completed or cancelled, the token will be disposed.
+    private readonly _analysisCancellationMap = new Map<string, CancellationToken>();
+
     private _worker: Worker | undefined;
     private _onAnalysisCompletion: AnalysisCompleteCallback = nullCallback;
-    private _analysisCancellationTokenId: string | undefined = undefined;
     private _messageChannel: MessageChannel;
+
     protected program: ProgramView | undefined;
 
     protected constructor(protected console: ConsoleInterface) {
@@ -162,10 +166,14 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
     }
 
     startAnalysis(token: CancellationToken) {
-        this._analysisCancellationTokenId = getCancellationTokenId(token);
+        const tokenId = getCancellationTokenId(token);
+        if (tokenId) {
+            this._analysisCancellationMap.set(tokenId, token);
+        }
+
         this.enqueueRequest({
             requestType: 'analyze',
-            data: serialize(this._analysisCancellationTokenId),
+            data: serialize(token),
         });
     }
 
@@ -313,16 +321,24 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
                 // analyze, so queue another message to resume later.
                 this.enqueueRequest({
                     requestType: 'resumeAnalysis',
-                    data: serialize(this._analysisCancellationTokenId),
+                    data: serialize(msg.data),
                 });
                 break;
             }
 
             case 'analysisDone': {
-                if (this._analysisCancellationTokenId) {
-                    disposeCancellationToken(getCancellationTokenFromId(this._analysisCancellationTokenId));
+                if (!msg.data) {
+                    break;
                 }
-                this._analysisCancellationTokenId = undefined;
+
+                const token = this._analysisCancellationMap.get(msg.data);
+                this._analysisCancellationMap.delete(msg.data);
+
+                if (!token) {
+                    break;
+                }
+
+                disposeCancellationToken(token);
                 break;
             }
 
@@ -398,16 +414,13 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             }
 
             case 'analyze': {
-                const data = deserialize(msg.data);
-                const token = getCancellationTokenFromId(data);
+                const token = deserialize(msg.data);
                 this.handleAnalyze(this.responsePort, token);
                 break;
             }
 
             case 'resumeAnalysis': {
-                const data = deserialize(msg.data);
-                const token = getCancellationTokenFromId(data);
-
+                const token = getCancellationTokenFromId(deserialize(msg.data));
                 this.handleResumeAnalysis(this.responsePort, token);
                 break;
             }
@@ -571,7 +584,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             // then queue up a message to resume the analysis.
             this._analysisPaused(port, token);
         } else {
-            this.analysisDone(port, getCancellationTokenId(token) || '');
+            this.analysisDone(port, token);
         }
     }
 
@@ -705,8 +718,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         super.handleShutdown();
     }
 
-    protected analysisDone(port: MessagePort, tokenId: string) {
-        port.postMessage({ requestType: 'analysisDone', data: tokenId });
+    protected analysisDone(port: MessagePort, token: CancellationToken) {
+        port.postMessage({ requestType: 'analysisDone', data: getCancellationTokenId(token) });
     }
 
     protected onAnalysisCompletion(port: MessagePort, result: AnalysisResults) {
@@ -756,7 +769,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     private _analysisPaused(port: MessagePort, token: CancellationToken) {
-        port.postMessage({ requestType: 'analysisPaused', data: serialize(token) });
+        port.postMessage({ requestType: 'analysisPaused', data: getCancellationTokenId(token) });
     }
 }
 
