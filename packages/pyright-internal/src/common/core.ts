@@ -187,6 +187,16 @@ export function containsOnlyWhitespace(text: string, span?: TextRange) {
     return /^\s*$/.test(text);
 }
 
+export function cloneStr(str: string): string {
+    // Ensure we get a copy of the string that is not shared with the original string.
+    // Node.js has an internal optimization where it uses sliced strings for `substring`, `slice`, `substr`
+    // when it deems appropriate. Most of the time, this optimization is beneficial, but in this case, we want
+    // to ensure we get a copy of the string to prevent the original string from being retained in memory.
+    // For example, the import resolution cache in importResolver might hold onto the full original file content
+    // because seemingly innocent the import name  (e.g., `foo` in `import foo`) is in the cache.
+    return Buffer.from(str, 'utf8').toString('utf8');
+}
+
 export namespace Disposable {
     export function is(value: any): value is { dispose(): void } {
         return value && typeof value.dispose === 'function';
