@@ -16,7 +16,6 @@ import { Host } from '../common/host';
 import { stubsSuffix } from '../common/pathConsts';
 import { stripFileExtension } from '../common/pathUtils';
 import { PythonVersion, pythonVersion3_0 } from '../common/pythonVersion';
-import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
 import * as StringUtils from '../common/stringUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
@@ -125,7 +124,7 @@ export class ImportResolver {
     }
 
     get partialStubs() {
-        return this.serviceProvider.tryGet(ServiceKeys.partialStubs);
+        return this.serviceProvider.partialStubs();
     }
 
     static isSupportedImportSourceFile(uri: Uri) {
