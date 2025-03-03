@@ -58,6 +58,7 @@
         "baseClassUnknown": "Неизвестный тип базового класса скрывает тип производного класса",
         "baseClassVariableTypeIncompatible": "Базовые классы класса \"{classType}\" определяют переменную \"{name}\" несовместимым способом",
         "binaryOperationNotAllowed": "Бинарный оператор нельзя использовать в выражении типа",
+        "bindParamMissing": "Не удалось привязать метод \"{methodName}\", так как в нем отсутствует параметр \"self\" или \"cls\"",
         "bindTypeMismatch": "Не удалось привязать метод \"{methodName}\", \"{type}\" не может быть назначен параметру \"{paramName}\"",
         "breakInExceptionGroup": "Запрещено наличие \"break\" в блоке \"except*\"",
         "breakOutsideLoop": "\"break\" можно использовать только внутри цикла",
