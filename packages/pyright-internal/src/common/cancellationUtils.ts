@@ -121,16 +121,26 @@ export class DefaultCancellationProvider implements CancellationProvider {
     }
 }
 
+export const CancelledTokenId = 'cancelled';
+
 export function getCancellationTokenId(token: CancellationToken): string | undefined {
+    if (token === CancellationToken.Cancelled) {
+        // Ensure the token is recognized as already cancelled. Returning `undefined` would be interpreted as CancellationToken.None.
+        return CancelledTokenId;
+    }
+
     return token instanceof FileBasedToken ? token.id : undefined;
 }
 
 export class FileBasedToken implements CancellationToken {
-    cancellationFilePath: Uri;
+    protected readonly cancellationFilePath: Uri;
+
     protected isCancelled = false;
     private _emitter: Emitter<any> | undefined;
 
     constructor(cancellationId: string, private _fs: { statSync(fileUri: Uri): void }) {
+        // Normally, `UriEx` is intended for use in tests only. However, this is a special case
+        // because we construct the cancellationId and control the file casing.
         this.cancellationFilePath = UriEx.file(cancellationId);
     }
 

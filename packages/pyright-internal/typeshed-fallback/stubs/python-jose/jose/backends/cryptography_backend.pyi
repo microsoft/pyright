@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from typing import Any
+from typing import Any, ClassVar
 
 from .base import Key
 
@@ -51,6 +51,7 @@ class CryptographyAESKey(Key):
     KEY_512: Any
     AES_KW_ALGS: Any
     MODES: Any
+    IV_BYTE_LENGTH_MODE_MAP: ClassVar[dict[str, int]]
     def __init__(self, key, algorithm) -> None: ...
     def to_dict(self): ...
     def encrypt(self, plain_text, aad: Incomplete | None = None): ...

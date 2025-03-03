@@ -230,7 +230,10 @@ export function getTypeOfTupleWithContext(
     if (node.d.items.length > maxInferredTupleEntryCount && entryTypeResults.some((result) => result.typeErrors)) {
         type = makeTupleObject(evaluator, [{ type: UnknownType.create(), isUnbounded: true }]);
     } else {
-        type = makeTupleObject(evaluator, evaluator.buildTupleTypesList(entryTypeResults, /* stripLiterals */ false));
+        type = makeTupleObject(
+            evaluator,
+            evaluator.buildTupleTypesList(entryTypeResults, /* stripLiterals */ false, /* convertModule */ false)
+        );
     }
 
     return { type, expectedTypeDiagAddendum, isIncomplete };
@@ -251,7 +254,11 @@ export function getTypeOfTupleInferred(evaluator: TypeEvaluator, node: TupleNode
 
     const type = makeTupleObject(
         evaluator,
-        evaluator.buildTupleTypesList(entryTypeResults, (flags & EvalFlags.StripTupleLiterals) !== 0)
+        evaluator.buildTupleTypesList(
+            entryTypeResults,
+            (flags & EvalFlags.StripTupleLiterals) !== 0,
+            /* convertModule */ true
+        )
     );
 
     if (isIncomplete) {

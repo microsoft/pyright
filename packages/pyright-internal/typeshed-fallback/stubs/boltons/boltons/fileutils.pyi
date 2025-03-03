@@ -1,10 +1,15 @@
-from _typeshed import StrOrBytesPath
+from _typeshed import BytesPath, StrOrBytesPath, StrPath
 from collections.abc import Callable, Generator, Iterable
+from os import PathLike
 from types import TracebackType
-from typing import IO, Any, NoReturn
+from typing import IO, Any, NoReturn, TypeVar, overload
 from typing_extensions import Self
 
+_StrPathT = TypeVar("_StrPathT", bound=StrPath)
+_BytesPathT = TypeVar("_BytesPathT", bound=BytesPath)
+
 def mkdir_p(path: StrOrBytesPath) -> None: ...
+def rotate_file(filename: PathLike[str], *, keep: int = 5) -> None: ...
 
 class FilePerms:
     user: str
@@ -22,9 +27,9 @@ def atomic_save(dest_path: str, **kwargs) -> AtomicSaver: ...
 class AtomicSaver:
     dest_path: str
     overwrite: bool
-    file_perms: int
+    file_perms: int | None
     overwrite_part: bool
-    part_filename: str
+    part_filename: str | None
     rm_part_on_exc: bool
     text_mode: bool
     buffering: int
@@ -47,17 +52,22 @@ def iter_find_files(
     include_dirs: bool = False,
     max_depth: int | None = None,
 ) -> Generator[str, None, None]: ...
+@overload
 def copy_tree(
-    src: StrOrBytesPath,
-    dst: StrOrBytesPath,
+    src: _StrPathT, dst: _StrPathT, symlinks: bool = False, ignore: Callable[[_StrPathT, list[str]], Iterable[str]] | None = None
+) -> None: ...
+@overload
+def copy_tree(
+    src: _BytesPathT,
+    dst: _BytesPathT,
     symlinks: bool = False,
-    ignore: None | Callable[[str, list[str]], Iterable[str]] | Callable[[StrOrBytesPath, list[str]], Iterable[str]] = None,
+    ignore: Callable[[_BytesPathT, list[bytes]], Iterable[bytes]] | None = None,
 ) -> None: ...
 
 copytree = copy_tree
 
 class DummyFile:
-    name: str
+    name: StrOrBytesPath
     mode: str
     closed: bool
     errors: None

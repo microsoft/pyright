@@ -329,7 +329,9 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
     // extract the ParamSpec P.
     result.paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
 
-    result.firstPositionOrKeywordIndex = result.params.findIndex((p) => p.kind !== ParamKind.Positional);
+    result.firstPositionOrKeywordIndex = result.params.findIndex(
+        (p) => p.kind !== ParamKind.Positional && p.kind !== ParamKind.ExpandedArgs
+    );
     if (result.firstPositionOrKeywordIndex < 0) {
         result.firstPositionOrKeywordIndex = result.params.length;
     }

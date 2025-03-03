@@ -1,7 +1,7 @@
 import unittest
 from _typeshed import Incomplete
 from configparser import ConfigParser
-from typing import Final
+from typing import Final, Literal
 
 __version__: Final[str]
 
@@ -11,6 +11,11 @@ def isWritable(D): ...
 RL_HOME: Incomplete
 testsFolder: Incomplete
 
+DEJAVUSANS: tuple[
+    Literal["DejaVuSans"], Literal["DejaVuSans-Bold"], Literal["DejaVuSans-Oblique"], Literal["DejaVuSans-BoldOblique"]
+] = ...
+
+def haveDejaVu() -> bool: ...
 def setOutDir(name): ...
 def mockUrlRead(name): ...
 def outputfile(fn): ...

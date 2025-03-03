@@ -703,7 +703,11 @@ export interface TypeEvaluator {
     getGetterTypeFromProperty: (propertyClass: ClassType) => Type | undefined;
     getTypeOfArg: (arg: Arg, inferenceContext: InferenceContext | undefined) => TypeResult;
     convertNodeToArg: (node: ArgumentNode) => ArgWithExpression;
-    buildTupleTypesList: (entryTypeResults: TypeResult[], stripLiterals: boolean) => TupleTypeArg[];
+    buildTupleTypesList: (
+        entryTypeResults: TypeResult[],
+        stripLiterals: boolean,
+        convertModules: boolean
+    ) => TupleTypeArg[];
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     expandPromotionTypes: (node: ParseNode, type: Type) => Type;
     makeTopLevelTypeVarsConcrete: (type: Type, makeParamSpecsConcrete?: boolean) => Type;

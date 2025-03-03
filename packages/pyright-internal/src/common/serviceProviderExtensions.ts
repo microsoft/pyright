@@ -8,16 +8,16 @@
 import { CacheManager } from '../analyzer/cacheManager';
 import { ISourceFileFactory } from '../analyzer/programTypes';
 import { IPythonMode, SourceFile, SourceFileEditMode } from '../analyzer/sourceFile';
-import { ServiceKeys } from './serviceKeys';
+import { PartialStubService, SupportPartialStubs } from '../partialStubService';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface } from './console';
+import { DocStringService, PyrightDocStringService } from './docStringService';
 import { FileSystem, TempFile } from './fileSystem';
+import { CommandService, WindowService } from './languageServerInterface';
 import { LogTracker } from './logTracker';
+import { ServiceKeys } from './serviceKeys';
 import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
-import { DocStringService, PyrightDocStringService } from './docStringService';
-import { CommandService, WindowService } from './languageServerInterface';
-import { SupportPartialStubs } from '../partialStubService';
 
 declare module './serviceProvider' {
     interface ServiceProvider {
@@ -77,6 +77,10 @@ ServiceProvider.prototype.console = function () {
     return this.get(ServiceKeys.console);
 };
 ServiceProvider.prototype.partialStubs = function () {
+    const result = this.tryGet(ServiceKeys.partialStubs);
+    if (!result) {
+        this.add(ServiceKeys.partialStubs, new PartialStubService(this.fs()));
+    }
     return this.get(ServiceKeys.partialStubs);
 };
 ServiceProvider.prototype.tmp = function () {

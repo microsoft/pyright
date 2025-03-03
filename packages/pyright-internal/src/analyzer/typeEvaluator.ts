@@ -20,6 +20,7 @@ import { invalidateTypeCacheIfCanceled, throwIfCancellationRequested } from '../
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
+import { isThenable } from '../common/core';
 import { assert, assertNever, fail } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -366,7 +367,6 @@ import {
     UniqueSignatureTracker,
     validateTypeVarDefault,
 } from './typeUtils';
-import { isThenable } from '../common/core';
 
 interface GetTypeArgsOptions {
     isAnnotatedClass?: boolean;
@@ -8325,7 +8325,11 @@ export function createTypeEvaluator(
         return typeResult;
     }
 
-    function buildTupleTypesList(entryTypeResults: TypeResult[], stripLiterals: boolean): TupleTypeArg[] {
+    function buildTupleTypesList(
+        entryTypeResults: TypeResult[],
+        stripLiterals: boolean,
+        convertModule: boolean
+    ): TupleTypeArg[] {
         const entryTypes: TupleTypeArg[] = [];
 
         for (const typeResult of entryTypeResults) {
@@ -8355,11 +8359,7 @@ export function createTypeEvaluator(
             } else if (isNever(typeResult.type) && typeResult.isIncomplete && !typeResult.unpackedType) {
                 entryTypes.push({ type: UnknownType.create(/* isIncomplete */ true), isUnbounded: false });
             } else {
-                let entryType = convertSpecialFormToRuntimeValue(
-                    typeResult.type,
-                    EvalFlags.None,
-                    /* convertModule */ true
-                );
+                let entryType = convertSpecialFormToRuntimeValue(typeResult.type, EvalFlags.None, convertModule);
                 entryType = stripLiterals ? stripTypeForm(stripLiteralValue(entryType)) : entryType;
                 entryTypes.push({ type: entryType, isUnbounded: !!typeResult.unpackedType });
             }
@@ -10940,6 +10940,15 @@ export function createTypeEvaluator(
                     if (paramInfo.param.category === ParamCategory.ArgsList) {
                         matchedUnpackedListOfUnknownLength = true;
                     }
+
+                    if (isParamVariadic && listElementType) {
+                        isArgCompatibleWithVariadic = true;
+                        listElementType = makeTupleObject(
+                            evaluatorInterface,
+                            [{ type: listElementType, isUnbounded: true }],
+                            /* isUnpacked */ true
+                        );
+                    }
                 }
 
                 const funcArg: Arg | undefined = listElementType
@@ -11556,20 +11565,28 @@ export function createTypeEvaluator(
                     if (param.category === ParamCategory.Simple && param.name) {
                         const entry = paramMap.get(param.name);
 
-                        if (entry && entry.argsNeeded === 0 && entry.argsReceived === 0 && paramInfo.defaultType) {
-                            validateArgTypeParams.push({
-                                paramCategory: param.category,
-                                paramType: paramInfo.type,
-                                requiresTypeVarMatching: true,
-                                argument: {
-                                    argCategory: ArgCategory.Simple,
-                                    typeResult: { type: paramInfo.defaultType },
-                                },
-                                isDefaultArg: true,
-                                errorNode,
-                                paramName: param.name,
-                                isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
-                            });
+                        if (entry && entry.argsNeeded === 0 && entry.argsReceived === 0) {
+                            const defaultArgType = paramInfo.defaultType;
+
+                            if (
+                                defaultArgType &&
+                                !isEllipsisType(defaultArgType) &&
+                                requiresSpecialization(paramInfo.declaredType)
+                            ) {
+                                validateArgTypeParams.push({
+                                    paramCategory: param.category,
+                                    paramType: paramInfo.type,
+                                    requiresTypeVarMatching: true,
+                                    argument: {
+                                        argCategory: ArgCategory.Simple,
+                                        typeResult: { type: defaultArgType },
+                                    },
+                                    isDefaultArg: true,
+                                    errorNode,
+                                    paramName: param.name,
+                                    isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
+                                });
+                            }
                         }
                     }
                 });
@@ -13193,6 +13210,17 @@ export function createTypeEvaluator(
             return undefined;
         }
 
+        const scope = ScopeUtils.getScopeForNode(errorNode);
+        if (scope) {
+            if (scope.type !== ScopeType.Class && scope.type !== ScopeType.Module && scope.type !== ScopeType.Builtin) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeAliasTypeBadScope(),
+                    errorNode.parent.d.leftExpr
+                );
+            }
+        }
+
         const nameNode = errorNode.parent.d.leftExpr;
 
         const firstArg = argList[0];
@@ -13936,10 +13964,10 @@ export function createTypeEvaluator(
 
         // Strip any literal values and TypeForm types.
         const keyTypes = keyTypeResults.map((t) =>
-            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags, /* convertModule */ true))
+            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags, !hasExpectedType))
         );
         const valueTypes = valueTypeResults.map((t) =>
-            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags, /* convertModule */ true))
+            stripTypeForm(convertSpecialFormToRuntimeValue(stripLiteralValue(t.type), flags, !hasExpectedType))
         );
 
         if (keyTypes.length > 0) {
@@ -14503,7 +14531,7 @@ export function createTypeEvaluator(
             }
 
             entryTypeResult.type = stripTypeForm(
-                convertSpecialFormToRuntimeValue(entryTypeResult.type, flags, /* convertModule */ true)
+                convertSpecialFormToRuntimeValue(entryTypeResult.type, flags, !hasExpectedType)
             );
 
             if (entryTypeResult.isIncomplete) {
@@ -17998,6 +18026,11 @@ export function createTypeEvaluator(
                 }
             };
 
+            // If Any is defined using a class statement, treat it as a special form.
+            if (node.d.name.d.value === 'Any' && fileInfo.isTypingStubFile) {
+                decoratedType = AnyType.createSpecialForm();
+            }
+
             // Update the undecorated class type.
             writeTypeCache(node.d.name, { type: classType }, EvalFlags.None);
 
@@ -19014,24 +19047,6 @@ export function createTypeEvaluator(
                 );
             }
 
-            // If the return type is explicitly annotated as a generator, mark the
-            // function as a generator even though it may not contain a "yield" statement.
-            // This is important for generator functions declared in stub files, abstract
-            // methods or protocol definitions.
-            if (fileInfo.isStubFile || ParseTreeUtils.isSuiteEmpty(node.d.suite)) {
-                if (
-                    functionType.shared.declaredReturnType &&
-                    isClassInstance(functionType.shared.declaredReturnType) &&
-                    ClassType.isBuiltIn(functionType.shared.declaredReturnType, [
-                        'Generator',
-                        'AsyncGenerator',
-                        'AwaitableGenerator',
-                    ])
-                ) {
-                    functionType.shared.flags |= FunctionTypeFlags.Generator;
-                }
-            }
-
             // Validate the default types for all type parameters.
             functionType.shared.typeParams.forEach((typeParam, index) => {
                 let bestErrorNode: ExpressionNode = node.d.name;
@@ -19330,12 +19345,15 @@ export function createTypeEvaluator(
                             ClassType.specialize(asyncGeneratorType, typeArgs)
                         );
                     }
-                } else if (
-                    ['AsyncGenerator', 'AsyncIterator', 'AsyncIterable'].some((name) => name === returnType.shared.name)
-                ) {
-                    // If it's already an AsyncGenerator, AsyncIterator or AsyncIterable,
-                    // leave it as is.
+                } else if (['AsyncIterator', 'AsyncIterable'].some((name) => name === returnType.shared.name)) {
+                    // If it's already an AsyncIterator or AsyncIterable, leave it as is.
                     awaitableReturnType = returnType;
+                } else if (returnType.shared.name === 'AsyncGenerator') {
+                    // If it's already an AsyncGenerator and the function is a generator,
+                    // leave it as is.
+                    if (isGenerator) {
+                        awaitableReturnType = returnType;
+                    }
                 }
             }
         }
