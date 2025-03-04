@@ -1,6 +1,15 @@
 # This sample tests type narrowing for the "in" operator.
 
-from typing import Any, Callable, Generic, Literal, ParamSpec, TypeVar, TypedDict
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Literal,
+    LiteralString,
+    ParamSpec,
+    TypeVar,
+    TypedDict,
+)
 import random
 
 
@@ -204,3 +213,9 @@ def func21(x: int, y: list[Literal[0, True]]):
 def func22(x: bool, y: list[Literal[0, 1]]):
     if x in y:
         reveal_type(x, expected_text="bool")
+
+
+def func23[T: LiteralString](x: str, y: tuple[T, ...]) -> T:
+    if x in y:
+        return x
+    raise ValueError(f"Invalid value {x!r}")
