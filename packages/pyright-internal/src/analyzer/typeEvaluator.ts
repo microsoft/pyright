@@ -12278,6 +12278,7 @@ export function createTypeEvaluator(
             });
 
             return {
+                returnType: FunctionType.getEffectiveReturnType(typeResult.type),
                 argumentErrors: true,
                 activeParam: matchResults.activeParam,
                 overloadsUsedForCall: [],
