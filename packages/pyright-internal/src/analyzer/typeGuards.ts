@@ -76,6 +76,7 @@ import {
     getTypeVarScopeIds,
     getUnknownTypeForCallable,
     isInstantiableMetaclass,
+    isLiteralLikeType,
     isLiteralType,
     isLiteralTypeOrUnion,
     isMaybeDescriptorInstance,
@@ -2074,7 +2075,7 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
             // If one of the two types is a literal, we can narrow to that type.
             if (
                 isClassInstance(elementSubtype) &&
-                (isLiteralType(elementSubtype) || isNoneInstance(elementSubtype)) &&
+                (isLiteralLikeType(elementSubtype) || isNoneInstance(elementSubtype)) &&
                 evaluator.assignType(referenceSubtype, elementSubtype)
             ) {
                 return stripTypeForm(addConditionToType(elementSubtype, referenceSubtype.props?.condition));
@@ -2082,7 +2083,7 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
 
             if (
                 isClassInstance(referenceSubtype) &&
-                (isLiteralType(referenceSubtype) || isNoneInstance(referenceSubtype)) &&
+                (isLiteralLikeType(referenceSubtype) || isNoneInstance(referenceSubtype)) &&
                 evaluator.assignType(elementSubtype, referenceSubtype)
             ) {
                 return stripTypeForm(addConditionToType(referenceSubtype, elementSubtype.props?.condition));
