@@ -12277,7 +12277,14 @@ export function createTypeEvaluator(
                 }
             });
 
+            // Use a return type of Unknown but attach a "possible type" to it
+            // so the completion provider can suggest better completions.
+            const possibleType = FunctionType.getEffectiveReturnType(typeResult.type);
             return {
+                returnType:
+                    possibleType && !isAnyOrUnknown(possibleType)
+                        ? UnknownType.createPossibleType(possibleType, /* isIncomplete */ false)
+                        : undefined,
                 argumentErrors: true,
                 activeParam: matchResults.activeParam,
                 overloadsUsedForCall: [],
