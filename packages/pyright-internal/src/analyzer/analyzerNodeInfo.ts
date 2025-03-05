@@ -26,7 +26,6 @@ import { FlowFlags, FlowNode } from './codeFlowTypes';
 import { Declaration } from './declaration';
 import { ImportResult } from './importResult';
 import { Scope } from './scope';
-import { Symbol } from './symbol';
 
 export interface DunderAllInfo {
     names: string[];
@@ -71,9 +70,6 @@ interface AnalyzerNodeInfo {
 
     // List of __all__ symbols in the module.
     dunderAllInfo?: DunderAllInfo | undefined;
-
-    // Indicates that the NameNode refers to a type parameter.
-    typeParamSymbol?: Symbol;
 }
 
 export type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode | ComprehensionNode;
@@ -112,10 +108,6 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
 
     if (info?.dunderAllInfo) {
         info.dunderAllInfo = undefined;
-    }
-
-    if (info?.typeParamSymbol) {
-        info.typeParamSymbol = undefined;
     }
 }
 
