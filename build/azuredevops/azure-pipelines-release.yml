@@ -119,6 +119,9 @@ extends:
         jobs:
           - job: create_release
             displayName: Create GitHub Release
+            templateContext:
+              type: releaseJob # This makes a job a release job
+              isProduction: true # Indicates a production release
             steps:
               - checkout: none
               - download: current
