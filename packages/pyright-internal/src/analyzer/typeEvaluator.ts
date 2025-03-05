@@ -11571,7 +11571,7 @@ export function createTypeEvaluator(
                             if (
                                 defaultArgType &&
                                 !isEllipsisType(defaultArgType) &&
-                                requiresSpecialization(paramInfo.declaredType, {ignorePseudoGeneric: true})
+                                requiresSpecialization(paramInfo.declaredType, { ignorePseudoGeneric: true })
                             ) {
                                 validateArgTypeParams.push({
                                     paramCategory: param.category,
