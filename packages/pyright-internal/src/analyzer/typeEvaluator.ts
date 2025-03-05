@@ -9854,6 +9854,16 @@ export function createTypeEvaluator(
         inferenceContext: InferenceContext | undefined,
         recursionCount: number
     ): CallResult {
+        function touchArgTypes() {
+            if (!isCallTypeIncomplete) {
+                argList.forEach((arg) => {
+                    if (arg.valueExpression && !isSpeculativeModeInUse(arg.valueExpression)) {
+                        getTypeOfArg(arg, /* inferenceContext */ undefined);
+                    }
+                });
+            }
+        }
+
         switch (expandedCallType.category) {
             case TypeCategory.Never:
             case TypeCategory.Unknown:
@@ -9861,13 +9871,7 @@ export function createTypeEvaluator(
                 // Touch all of the args so they're marked accessed. Don't bother
                 // doing this if the call type is incomplete because this will need
                 // to be done again once it is complete.
-                if (!isCallTypeIncomplete) {
-                    argList.forEach((arg) => {
-                        if (arg.valueExpression && !isSpeculativeModeInUse(arg.valueExpression)) {
-                            getTypeOfArg(arg, /* inferenceContext */ undefined);
-                        }
-                    });
-                }
+                touchArgTypes();
 
                 return { returnType: expandedCallType };
             }
@@ -9949,6 +9953,7 @@ export function createTypeEvaluator(
             }
         }
 
+        touchArgTypes();
         return { argumentErrors: true };
     }
 
