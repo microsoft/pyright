@@ -488,6 +488,20 @@ test('UnusedImport1', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('UnusedImport2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    // Disable it.
+    configOptions.diagnosticRuleSet.reportUnusedImport = 'none';
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedImport2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Enable it as an error.
+    configOptions.diagnosticRuleSet.reportUnusedImport = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedImport2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('UninitializedVariable1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
