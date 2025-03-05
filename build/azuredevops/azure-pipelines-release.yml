@@ -162,6 +162,10 @@ extends:
                   title: 'Published $(Build.SourceBranchName)'
                   assets: |
                     $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)/$(VSIX_NAME)
+              - script: |
+                  echo "Just want to test through GitHub Release creation"
+                  exit 1
+                displayName: 'Force job failure'
       - stage: WaitForValidation
         dependsOn:
           - CreateRelease
