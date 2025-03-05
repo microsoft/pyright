@@ -120,8 +120,12 @@ extends:
           - job: create_release
             displayName: Create GitHub Release
             templateContext:
-              type: releaseJob # This makes a job a release job
-              isProduction: true # Indicates a production release
+              type: releaseJob
+              isProduction: true
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_VSIX)
+                  targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)
             steps:
               - checkout: none
               - download: current
