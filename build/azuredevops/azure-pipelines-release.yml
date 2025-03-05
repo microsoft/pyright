@@ -128,7 +128,6 @@ extends:
                   targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)
             steps:
               - checkout: none
-              - download: current
               - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
                 displayName: 'Create GitHub Release'
                 inputs:
