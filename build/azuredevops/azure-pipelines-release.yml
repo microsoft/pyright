@@ -147,9 +147,15 @@ extends:
         jobs:
           - job: create_release
             displayName: Create GitHub Release
+            templateContext:
+              type: releaseJob
+              isProduction: true
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_VSIX)
+                  targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)
             steps:
               - checkout: none
-              - download: current
               - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
                 displayName: 'Create GitHub Release'
                 inputs:
