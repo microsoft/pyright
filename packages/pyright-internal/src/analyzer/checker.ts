@@ -142,6 +142,7 @@ import {
     EnumLiteral,
     FunctionParam,
     FunctionType,
+    ModuleType,
     OverloadedType,
     Type,
     TypeBase,
@@ -226,6 +227,9 @@ export class Checker extends ParseTreeWalker {
     // A list of all visited type parameter lists.
     private _typeParamLists: TypeParameterListNode[] = [];
 
+    // A list of all visited multipart import statements.
+    private _multipartImports: ImportAsNode[] = [];
+
     constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
@@ -275,6 +279,8 @@ export class Checker extends ParseTreeWalker {
         // Perform a one-time validation of symbols in all scopes
         // defined in this module for things like unaccessed variables.
         this._validateSymbolTables();
+
+        this._reportUnusedMultipartImports();
 
         this._reportDuplicateImports();
     }
@@ -1503,6 +1509,12 @@ export class Checker extends ParseTreeWalker {
     override visitImportAs(node: ImportAsNode): boolean {
         this._conditionallyReportShadowedImport(node);
         this._evaluator.evaluateTypesForStatement(node);
+
+        const nameParts = node.d.module.d.nameParts;
+        if (nameParts.length > 1) {
+            this._multipartImports.push(node);
+        }
+
         return true;
     }
 
@@ -1709,6 +1721,54 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    private _reportUnusedMultipartImports() {
+        this._multipartImports.forEach((node) => {
+            const nameParts = node.d.module.d.nameParts;
+
+            if (this._isMultipartImportUnused(node)) {
+                const multipartName = nameParts.map((np) => np.d.value).join('.');
+                let textRange: TextRange = { start: nameParts[0].start, length: nameParts[0].length };
+                textRange = TextRange.extend(textRange, nameParts[nameParts.length - 1]);
+
+                this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+                    LocMessage.unaccessedSymbol().format({ name: multipartName }),
+                    textRange,
+                    { action: Commands.unusedImport }
+                );
+
+                this._evaluator.addDiagnosticForTextRange(
+                    this._fileInfo,
+                    DiagnosticRule.reportUnusedImport,
+                    LocMessage.unaccessedImport().format({ name: multipartName }),
+                    textRange
+                );
+            }
+        });
+    }
+
+    private _isMultipartImportUnused(node: ImportAsNode): boolean {
+        const nameParts = node.d.module.d.nameParts;
+        assert(nameParts.length > 1);
+
+        const secondLastPartType = this._evaluator.getType(nameParts[nameParts.length - 2]);
+        if (!secondLastPartType) {
+            // If there was no cached type for this node, assume it
+            // was never evaluated and is therefore unreferenced.
+            return true;
+        }
+
+        assert(isModule(secondLastPartType));
+
+        const lastPartName = nameParts[nameParts.length - 1].d.value;
+        const symbol = ModuleType.getField(secondLastPartType, lastPartName);
+
+        if (!symbol) {
+            return false;
+        }
+
+        return !this._fileInfo.accessedSymbolSet.has(symbol.id);
     }
 
     private _getImportResult(node: ImportFromAsNode, uri: Uri) {
@@ -3603,25 +3663,16 @@ export class Checker extends ParseTreeWalker {
                             nameNode = decl.node.d.alias;
                         }
                     } else {
-                        // Handle multi-part names specially.
                         const nameParts = decl.node.d.module.d.nameParts;
-                        if (nameParts.length > 0) {
-                            const multipartName = nameParts.map((np) => np.d.value).join('.');
-                            let textRange: TextRange = { start: nameParts[0].start, length: nameParts[0].length };
-                            textRange = TextRange.extend(textRange, nameParts[nameParts.length - 1]);
-                            this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
-                                LocMessage.unaccessedSymbol().format({ name: multipartName }),
-                                textRange,
-                                { action: Commands.unusedImport }
-                            );
-
-                            this._evaluator.addDiagnosticForTextRange(
-                                this._fileInfo,
+                        // Multi-part imports are handled separately, so ignore those here.
+                        if (nameParts.length === 1) {
+                            nameNode = nameParts[0];
+                            this._evaluator.addDiagnostic(
                                 DiagnosticRule.reportUnusedImport,
-                                LocMessage.unaccessedImport().format({ name: multipartName }),
-                                textRange
+                                LocMessage.unaccessedImport().format({ name: nameNode.d.value }),
+                                nameNode
                             );
-                            return;
+                            message = LocMessage.unaccessedImport().format({ name: nameNode.d.value });
                         }
                     }
                 } else if (decl.node.nodeType === ParseNodeType.ImportFromAs) {
