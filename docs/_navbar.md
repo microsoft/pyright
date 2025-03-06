@@ -1,1 +1,1 @@
-[Github Site](https://github.com/Microsoft/pyright)
+[GitHub Site](https://github.com/Microsoft/pyright)
