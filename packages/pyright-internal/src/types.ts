@@ -35,4 +35,5 @@ export interface ClientCapabilities {
 
 export type InitializationOptions = {
     diagnosticMode?: string;
+    disablePullDiagnostics?: boolean;
 };

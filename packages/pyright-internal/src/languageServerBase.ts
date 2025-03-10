@@ -563,10 +563,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             );
         this.client.hasPullDiagnosticsCapability =
             !!capabilities.textDocument?.diagnostic?.dynamicRegistration &&
-            initializationOptions?.diagnosticMode !== 'workspace';
+            initializationOptions?.diagnosticMode !== 'workspace' &&
+            initializationOptions?.disablePullDiagnostics !== true;
         this.client.hasPullRelatedInformationCapability =
             !!capabilities.textDocument?.diagnostic?.relatedInformation &&
-            initializationOptions?.diagnosticMode !== 'workspace';
+            initializationOptions?.diagnosticMode !== 'workspace' &&
+            initializationOptions?.disablePullDiagnostics !== true;
 
         // Create a service instance for each of the workspace folders.
         this.workspaceFactory.handleInitialize(params);

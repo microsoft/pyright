@@ -990,6 +990,10 @@ export function getInitializeParams(
                         properties: ['tooltip', 'textEdits', 'label.tooltip', 'label.location', 'label.command'],
                     },
                 },
+                diagnostic: {
+                    dynamicRegistration: true,
+                    relatedDocumentSupport: false,
+                },
             },
             window: {
                 showMessage: {
@@ -1031,16 +1035,10 @@ export function getInitializeParams(
         initializationOptions: {
             autoFormatStrings: true,
             diagnosticMode: diagnosticMode ?? 'openFilesOnly',
+            disablePullDiagnostics: !supportsPullDiagnostics,
         },
         workspaceFolders,
     };
-
-    if (supportsPullDiagnostics) {
-        params.capabilities.textDocument!.diagnostic = {
-            dynamicRegistration: true,
-            relatedDocumentSupport: false,
-        };
-    }
 
     return params;
 }
