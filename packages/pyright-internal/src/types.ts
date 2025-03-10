@@ -32,3 +32,7 @@ export interface ClientCapabilities {
     hasPullDiagnosticsCapability: boolean;
     hasPullRelatedInformationCapability: boolean;
 }
+
+export type InitializationOptions = {
+    diagnosticMode?: string;
+};

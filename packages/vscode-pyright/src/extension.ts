@@ -175,6 +175,11 @@ export async function activate(context: ExtensionContext) {
                 },
             },
         },
+        initializationOptions: {
+            // Send the initial diagnostic mode to the server.
+            // This is used to determine whether to run in pull or push mode for diagnostics.
+            diagnosticMode: workspace.getConfiguration('python.analysis').get('diagnosticMode'),
+        },
     };
 
     // Create the language client and start the client.
