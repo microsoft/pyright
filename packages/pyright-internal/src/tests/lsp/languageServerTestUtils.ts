@@ -288,39 +288,20 @@ export async function getOpenFiles(info: PyrightServerInfo, projectRoot?: Uri): 
     return deserialize(result.files);
 }
 
-async function waitForPushDiagnostics(
-    info: PyrightServerInfo,
-    clearFirst: boolean,
-    numberOfFiles = 1,
-    timeout = 10000
-): Promise<PublishDiagnosticsParams[]> {
-    if (clearFirst) {
-        info.diagnostics = [];
+async function waitForPushDiagnostics(info: PyrightServerInfo, timeout = 10000) {
+    const deferred = createDeferred<void>();
+    const disposable = info.diagnosticsEvent((params) => {
+        if (params.diagnostics.length > 0) {
+            deferred.resolve();
+        }
+    });
+    const timer = setTimeout(() => deferred.reject('Timed out waiting for diagnostics'), timeout);
+    try {
+        await deferred.promise;
+    } finally {
+        clearTimeout(timer);
+        disposable.dispose();
     }
-
-    // We may already have the necessary diagnostics.
-    const currentCount = info.diagnostics.filter((d) => d.diagnostics.length > 0).length;
-    if (currentCount >= numberOfFiles) {
-        return info.diagnostics;
-    }
-
-    // Otherwise we have to get called back with the diagnostics.
-    let eventCount = 0;
-    await waitForEvent(
-        info.diagnosticsEvent,
-        'diagnostics',
-        (params) => {
-            if (params.diagnostics.length > 0) {
-                eventCount++;
-                if (eventCount >= numberOfFiles) {
-                    return true;
-                }
-            }
-
-            return false;
-        },
-        timeout
-    );
     return info.diagnostics;
 }
 
@@ -392,17 +373,12 @@ async function waitForPullDiagnostics(info: PyrightServerInfo): Promise<PublishD
     }
 }
 
-export async function waitForDiagnostics(
-    info: PyrightServerInfo,
-    clearFirst: boolean = false,
-    numberOfFiles = 1,
-    timeout = 10000
-) {
+export async function waitForDiagnostics(info: PyrightServerInfo, timeout = 20000) {
     if (info.supportsPullDiagnostics) {
         // Timeout doesn't apply on pull because we can actually ask for them.
         return waitForPullDiagnostics(info);
     }
-    return waitForPushDiagnostics(info, clearFirst, numberOfFiles, timeout);
+    return waitForPushDiagnostics(info, timeout);
 }
 
 interface ProgressPart {}
@@ -514,7 +490,8 @@ export async function runPyrightServer(
         diagnosticsEvent: diagnosticsEmitter.event,
         workspaceEdits: [],
         workspaceEditsEvent: workspaceEditsEmitter.event,
-        getInitializeParams: () => getInitializeParams(testServerData.projectRoots, diagnosticsMode),
+        getInitializeParams: () =>
+            getInitializeParams(testServerData.projectRoots, !!supportPullDiagnostics, diagnosticsMode),
         convertPathToUri: (path: string) => UriEx.file(path, !ignoreCase),
         dispose: async () => {
             // Send shutdown. This should disconnect the dispatcher and kill the server.
@@ -700,7 +677,11 @@ export async function hover(info: PyrightServerInfo, markerName: string) {
     return hoverResult;
 }
 
-export function getInitializeParams(projectRoots: Uri[], diagnosticMode: string | undefined = undefined) {
+export function getInitializeParams(
+    projectRoots: Uri[],
+    supportsPullDiagnostics: boolean,
+    diagnosticMode: string | undefined = undefined
+) {
     // cloned vscode "1.71.0-insider"'s initialize params.
     const workspaceFolders = projectRoots
         ? projectRoots.map((root, i) => ({ name: root.fileName, uri: projectRoots[i].toString() }))
@@ -1009,10 +990,6 @@ export function getInitializeParams(projectRoots: Uri[], diagnosticMode: string 
                         properties: ['tooltip', 'textEdits', 'label.tooltip', 'label.location', 'label.command'],
                     },
                 },
-                diagnostic: {
-                    dynamicRegistration: true,
-                    relatedDocumentSupport: false,
-                },
             },
             window: {
                 showMessage: {
@@ -1057,6 +1034,13 @@ export function getInitializeParams(projectRoots: Uri[], diagnosticMode: string 
         },
         workspaceFolders,
     };
+
+    if (supportsPullDiagnostics) {
+        params.capabilities.textDocument!.diagnostic = {
+            dynamicRegistration: true,
+            relatedDocumentSupport: false,
+        };
+    }
 
     return params;
 }

@@ -207,7 +207,7 @@ async function runServer(
             CustomLSP.onRequest(connection, CustomLSP.Requests.GetOpenFiles, async (params) => {
                 const workspace = await server.getWorkspaceForFile(Uri.parse(params.uri, server.serviceProvider));
                 const files = serialize(workspace.service.test_program.getOpened().map((f) => f.sourceFile.getUri()));
-                return { files: serialize(files) };
+                return { files: files };
             })
         );
 
