@@ -1,7 +1,7 @@
 # This sample tests function parameter matching logic.
 
 
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 
 def func1(a: int, *b: int):
@@ -168,3 +168,8 @@ func_args2: dict[Literal["a", "b", "c"], str] = {
 
 # This should generate an error.
 func13(**func_args2)
+
+
+def func14(cb1: Callable[..., Any], cb2: Any, x: None):
+    cb1(**x)  # This should generate an error
+    cb2(**x)  # This should generate an error

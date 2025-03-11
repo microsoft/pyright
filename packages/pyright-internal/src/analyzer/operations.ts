@@ -737,7 +737,7 @@ export function getTypeOfUnaryOperation(
 
         if (!type) {
             if (!isIncomplete) {
-                if (inferenceContext) {
+                if (inferenceContext && !isAnyOrUnknown(inferenceContext.expectedType)) {
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportOperatorIssue,
                         LocMessage.typeNotSupportUnaryOperatorBidirectional().format({
@@ -1345,7 +1345,7 @@ function validateArithmeticOperation(
                     }
 
                     if (!resultTypeResult) {
-                        if (inferenceContext) {
+                        if (inferenceContext && !isAnyOrUnknown(inferenceContext.expectedType)) {
                             diag.addMessage(
                                 LocMessage.typeNotSupportBinaryOperatorBidirectional().format({
                                     operator: printOperator(operator),
