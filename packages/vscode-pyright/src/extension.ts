@@ -175,6 +175,10 @@ export async function activate(context: ExtensionContext) {
                 },
             },
         },
+        initializationOptions: {
+            diagnosticMode: workspace.getConfiguration('python.analysis').get('diagnosticMode'),
+            disablePullDiagnostics: workspace.getConfiguration('pyright').get('disablePullDiagnostics'),
+        },
     };
 
     // Create the language client and start the client.

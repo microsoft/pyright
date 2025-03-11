@@ -203,6 +203,11 @@ async function runServer(
                 const file = workspace.service.test_program.getBoundSourceFile(filePath);
                 const diagnostics = file?.getDiagnostics(workspace.service.test_program.configOptions) || [];
                 return { diagnostics: serialize(diagnostics) };
+            }),
+            CustomLSP.onRequest(connection, CustomLSP.Requests.GetOpenFiles, async (params) => {
+                const workspace = await server.getWorkspaceForFile(Uri.parse(params.uri, server.serviceProvider));
+                const files = serialize(workspace.service.test_program.getOpened().map((f) => f.sourceFile.getUri()));
+                return { files: files };
             })
         );
 
@@ -403,3 +408,13 @@ export async function run() {
         stateManager.run();
     }
 }
+
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught exception in worker:', err);
+    process.exit(10); // Exit the worker process
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled rejection in worker:', reason);
+    process.exit(11); // Exit the worker process
+});

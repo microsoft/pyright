@@ -16,9 +16,13 @@ import {
     CancellationToken,
     ConfigurationItem,
     ConfigurationRequest,
+    DiagnosticRefreshRequest,
     DidChangeWorkspaceFoldersNotification,
     DidOpenTextDocumentNotification,
     Disposable,
+    DocumentDiagnosticReport,
+    DocumentDiagnosticRequest,
+    FullDocumentDiagnosticReport,
     InitializedNotification,
     InitializeParams,
     InitializeRequest,
@@ -32,7 +36,10 @@ import {
     SemanticTokensRefreshRequest,
     ShutdownRequest,
     TelemetryEventNotification,
+    UnchangedDocumentDiagnosticReport,
     UnregistrationRequest,
+    WorkspaceDiagnosticReport,
+    WorkspaceDiagnosticRequest,
 } from 'vscode-languageserver-protocol';
 import {
     Connection,
@@ -52,6 +59,7 @@ import {
 } from 'vscode-languageserver/node';
 import { PythonPathResult } from '../../analyzer/pythonPathUtils';
 import { IPythonMode } from '../../analyzer/sourceFile';
+import { deserialize } from '../../backgroundThreadBase';
 import { PythonPlatform } from '../../common/configOptions';
 import { toBoolean } from '../../common/core';
 import { createDeferred, Deferred } from '../../common/deferred';
@@ -100,6 +108,7 @@ export interface PyrightServerInfo {
     progressReporterStatus: Map<string, number>;
     progressParts: Map<string, TestProgressPart>;
     telemetry: any[];
+    supportsPullDiagnostics: boolean;
     diagnostics: PublishDiagnosticsParams[];
     diagnosticsEvent: Event<PublishDiagnosticsParams>;
     workspaceEdits: ApplyWorkspaceEditParams[];
@@ -188,6 +197,7 @@ function createServerWorker(file: string, testServerData: CustomLSP.TestServerSt
     });
     serverWorker.on('exit', (code) => {
         logToDisk(`Worker exit: ${code}`, testServerData.logFile);
+        serverWorker = undefined;
     });
     return serverWorker;
 }
@@ -268,7 +278,17 @@ function createServerConnection(testServerData: CustomLSP.TestServerStartOptions
     return connection;
 }
 
-export async function waitForDiagnostics(info: PyrightServerInfo, timeout = 10000) {
+function getProjectRootString(info: PyrightServerInfo, projectRoot?: Uri) {
+    return projectRoot ? projectRoot.toString() : info.projectRoots.length > 0 ? info.projectRoots[0].toString() : '';
+}
+
+export async function getOpenFiles(info: PyrightServerInfo, projectRoot?: Uri): Promise<Uri[]> {
+    const uri = getProjectRootString(info, projectRoot);
+    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetOpenFiles, { uri });
+    return deserialize(result.files);
+}
+
+async function waitForPushDiagnostics(info: PyrightServerInfo, timeout = 10000) {
     const deferred = createDeferred<void>();
     const disposable = info.diagnosticsEvent((params) => {
         if (params.diagnostics.length > 0) {
@@ -283,6 +303,82 @@ export async function waitForDiagnostics(info: PyrightServerInfo, timeout = 1000
         disposable.dispose();
     }
     return info.diagnostics;
+}
+
+export async function waitForEvent<T>(event: Event<T>, name: string, condition: (p: T) => boolean, timeout = 10000) {
+    const deferred = createDeferred<void>();
+    const disposable = event((params) => {
+        if (condition(params)) {
+            deferred.resolve();
+        }
+    });
+
+    const timer = setTimeout(() => deferred.reject(`Timed out waiting for ${name} event`), timeout);
+
+    try {
+        await deferred.promise;
+    } finally {
+        clearTimeout(timer);
+        disposable.dispose();
+    }
+}
+
+function convertDiagnosticReportItem(
+    uri: string,
+    item: FullDocumentDiagnosticReport | UnchangedDocumentDiagnosticReport
+): PublishDiagnosticsParams {
+    if (item.kind === 'unchanged') {
+        return {
+            uri,
+            diagnostics: [],
+        };
+    }
+
+    return {
+        uri,
+        diagnostics: item.items,
+    };
+}
+export function convertDiagnosticReport(
+    uri: string | undefined,
+    report: DocumentDiagnosticReport | WorkspaceDiagnosticReport
+): PublishDiagnosticsParams[] {
+    if (!(report as any).kind || !uri) {
+        const workspaceReport = report as WorkspaceDiagnosticReport;
+        return workspaceReport.items.map((item) => convertDiagnosticReportItem(item.uri, item));
+    }
+    const documentReport = report as DocumentDiagnosticReport;
+    return [convertDiagnosticReportItem(uri, documentReport)];
+}
+
+async function waitForPullDiagnostics(info: PyrightServerInfo): Promise<PublishDiagnosticsParams[]> {
+    const openFiles = await getOpenFiles(info);
+    if (openFiles.length <= 0) {
+        const results = await info.connection.sendRequest(WorkspaceDiagnosticRequest.type, {
+            identifier: 'Pylance',
+            previousResultIds: [],
+        });
+        return convertDiagnosticReport(undefined, results);
+    } else {
+        const results: PublishDiagnosticsParams[] = [];
+        for (const openFile of openFiles) {
+            const result = await info.connection.sendRequest(DocumentDiagnosticRequest.type, {
+                textDocument: {
+                    uri: openFile.toString(),
+                },
+            });
+            results.push(convertDiagnosticReport(openFile.toString(), result)[0]);
+        }
+        return results;
+    }
+}
+
+export async function waitForDiagnostics(info: PyrightServerInfo, timeout = 20000) {
+    if (info.supportsPullDiagnostics) {
+        // Timeout doesn't apply on pull because we can actually ask for them.
+        return waitForPullDiagnostics(info);
+    }
+    return waitForPushDiagnostics(info, timeout);
 }
 
 interface ProgressPart {}
@@ -329,7 +425,8 @@ export async function runPyrightServer(
     callInitialize = true,
     extraSettings?: { item: ConfigurationItem; value: any }[],
     pythonVersion: PythonVersion = pythonVersion3_10,
-    backgroundAnalysis?: boolean
+    backgroundAnalysis?: boolean,
+    supportPullDiagnostics?: boolean
 ): Promise<PyrightServerInfo> {
     // Setup the test data we need to send for Test server startup.
     const projectRootsArray = Array.isArray(projectRoots) ? projectRoots : [projectRoots];
@@ -372,6 +469,7 @@ export async function runPyrightServer(
     const serverStarted = createDeferred<string>();
     const diagnosticsEmitter = new Emitter<PublishDiagnosticsParams>();
     const workspaceEditsEmitter = new Emitter<ApplyWorkspaceEditParams>();
+    const diagnosticsMode = extraSettings?.find((s) => s.item.section === 'python.analysis')?.value?.diagnosticMode;
 
     // Setup the server info.
     const info: PyrightServerInfo = {
@@ -386,16 +484,20 @@ export async function runPyrightServer(
         testData,
         testName: testServerData.testName,
         telemetry: [],
+        supportsPullDiagnostics: (supportPullDiagnostics && diagnosticsMode !== 'workspace') ?? false,
         projectRoots: testServerData.projectRoots,
         diagnostics: [],
         diagnosticsEvent: diagnosticsEmitter.event,
         workspaceEdits: [],
         workspaceEditsEvent: workspaceEditsEmitter.event,
-        getInitializeParams: () => getInitializeParams(testServerData.projectRoots),
+        getInitializeParams: () =>
+            getInitializeParams(testServerData.projectRoots, !!supportPullDiagnostics, diagnosticsMode),
         convertPathToUri: (path: string) => UriEx.file(path, !ignoreCase),
         dispose: async () => {
             // Send shutdown. This should disconnect the dispatcher and kill the server.
-            await connection.sendRequest(ShutdownRequest.type, undefined);
+            if (serverWorker) {
+                await connection.sendRequest(ShutdownRequest.type, undefined);
+            }
 
             // Now we can dispose the connection.
             disposables.forEach((d) => d.dispose());
@@ -422,6 +524,7 @@ export async function runPyrightServer(
         info.connection.onRequest(InlayHintRefreshRequest.type, () => {
             // Empty. Silently ignore for now.
         }),
+        info.connection.onRequest(DiagnosticRefreshRequest.type, () => {}),
         info.connection.onRequest(ApplyWorkspaceEditRequest.type, (p) => {
             info.workspaceEdits.push(p);
             workspaceEditsEmitter.fire(p);
@@ -574,7 +677,11 @@ export async function hover(info: PyrightServerInfo, markerName: string) {
     return hoverResult;
 }
 
-export function getInitializeParams(projectRoots: Uri[]) {
+export function getInitializeParams(
+    projectRoots: Uri[],
+    supportsPullDiagnostics: boolean,
+    diagnosticMode: string | undefined = undefined
+) {
     // cloned vscode "1.71.0-insider"'s initialize params.
     const workspaceFolders = projectRoots
         ? projectRoots.map((root, i) => ({ name: root.fileName, uri: projectRoots[i].toString() }))
@@ -927,6 +1034,8 @@ export function getInitializeParams(projectRoots: Uri[]) {
         },
         initializationOptions: {
             autoFormatStrings: true,
+            diagnosticMode: diagnosticMode ?? 'openFilesOnly',
+            disablePullDiagnostics: !supportsPullDiagnostics,
         },
         workspaceFolders,
     };

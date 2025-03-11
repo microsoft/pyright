@@ -55,6 +55,7 @@ export namespace CustomLSP {
 
     export enum Requests {
         GetDiagnostics = 'test/getDiagnostics',
+        GetOpenFiles = 'test/getOpenFiles',
     }
 
     export enum Notifications {
@@ -86,6 +87,7 @@ export namespace CustomLSP {
 
     interface Params {
         [Requests.GetDiagnostics]: { uri: string };
+        [Requests.GetOpenFiles]: { uri: string };
         [Notifications.CacheDirCreate]: { uri: string };
         [Notifications.CacheFileWrite]: { uri: string; contents: string; overwrite: boolean };
         [Notifications.SetStatusBarMessage]: string;
@@ -102,6 +104,7 @@ export namespace CustomLSP {
 
     interface Response {
         [Requests.GetDiagnostics]: { diagnostics: string };
+        [Requests.GetOpenFiles]: { files: string };
     }
 
     // Interface for returning config options as we cannot return a

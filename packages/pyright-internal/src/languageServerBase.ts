@@ -33,6 +33,7 @@ import {
     Definition,
     DefinitionLink,
     Diagnostic,
+    DiagnosticRefreshRequest,
     DiagnosticRelatedInformation,
     DiagnosticSeverity,
     DiagnosticTag,
@@ -42,6 +43,8 @@ import {
     DidCloseTextDocumentParams,
     DidOpenTextDocumentParams,
     Disposable,
+    DocumentDiagnosticParams,
+    DocumentDiagnosticReport,
     DocumentHighlight,
     DocumentHighlightParams,
     DocumentSymbol,
@@ -50,6 +53,7 @@ import {
     HoverParams,
     InitializeParams,
     InitializeResult,
+    LSPObject,
     Location,
     MarkupKind,
     PrepareRenameParams,
@@ -57,18 +61,20 @@ import {
     ReferenceParams,
     RemoteWindow,
     RenameParams,
+    ResultProgressReporter,
     SignatureHelp,
     SignatureHelpParams,
     SymbolInformation,
     TextDocumentPositionParams,
     TextDocumentSyncKind,
     WorkDoneProgressReporter,
+    WorkspaceDiagnosticParams,
+    WorkspaceDocumentDiagnosticReport,
     WorkspaceEdit,
     WorkspaceFoldersChangeEvent,
     WorkspaceSymbol,
     WorkspaceSymbolParams,
 } from 'vscode-languageserver';
-import { ResultProgressReporter } from 'vscode-languageserver';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AnalysisResults } from './analyzer/analysis';
@@ -76,7 +82,7 @@ import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgro
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, LibraryReanalysisTimeProvider, getNextServiceId } from './analyzer/service';
-import { IPythonMode } from './analyzer/sourceFile';
+import { IPythonMode, SourceFile } from './analyzer/sourceFile';
 import type { IBackgroundAnalysis } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
 import { CancelAfter } from './common/cancellationUtils';
@@ -121,8 +127,10 @@ import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { ParseFileResults } from './parser/parser';
+import { ClientCapabilities, InitializationOptions } from './types';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
-import { ClientCapabilities } from './types';
+
+const UncomputedDiagnosticsVersion = -1;
 
 export abstract class LanguageServerBase implements LanguageServerInterface, Disposable {
     // We support running only one "find all reference" at a time.
@@ -160,8 +168,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         supportsUnnecessaryDiagnosticTag: false,
         supportsTaskItemDiagnosticTag: false,
         completionItemResolveSupportsAdditionalTextEdits: false,
-        hasPullDiagnosticsCapability: false,
-        hasPullRelatedInformationCapability: false,
+        usingPullDiagnostics: false,
+        requiresPullRelatedInformationCapability: false,
     };
 
     protected defaultClientConfig: any;
@@ -269,6 +277,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             libraryReanalysisTimeProvider,
             serviceId,
             fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
+            usingPullDiagnostics: this.client.usingPullDiagnostics,
+            onInvalidated: (reason) => {
+                if (this.client.usingPullDiagnostics) {
+                    this.connection.sendRequest(DiagnosticRefreshRequest.type);
+                }
+            },
         });
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(service.fs, results));
@@ -484,6 +498,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.connection.onDidCloseTextDocument(async (params) => this.onDidCloseTextDocument(params));
         this.connection.onDidChangeWatchedFiles((params) => this.onDidChangeWatchedFiles(params));
 
+        this.connection.languages.diagnostics.on(async (params, token) => this.onDiagnostics(params, token));
+        this.connection.languages.diagnostics.onWorkspace(async (params, token) =>
+            this.onWorkspaceDiagnostics(params, token)
+        );
         this.connection.onExecuteCommand(async (params, token, reporter) =>
             this.onExecuteCommand(params, token, reporter)
         );
@@ -499,6 +517,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             setLocaleOverride(params.locale);
         }
 
+        const initializationOptions = (params.initializationOptions ?? {}) as LSPObject & InitializationOptions;
         const capabilities = params.capabilities;
         this.client.hasConfigurationCapability = !!capabilities.workspace?.configuration;
         this.client.hasWatchFileCapability = !!capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration;
@@ -543,6 +562,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             !!capabilities.textDocument?.completion?.completionItem?.resolveSupport?.properties.some(
                 (p) => p === 'additionalTextEdits'
             );
+        this.client.usingPullDiagnostics =
+            !!capabilities.textDocument?.diagnostic?.dynamicRegistration &&
+            initializationOptions?.diagnosticMode !== 'workspace' &&
+            initializationOptions?.disablePullDiagnostics !== true;
+        this.client.requiresPullRelatedInformationCapability =
+            !!capabilities.textDocument?.diagnostic?.relatedInformation &&
+            initializationOptions?.diagnosticMode !== 'workspace' &&
+            initializationOptions?.disablePullDiagnostics !== true;
 
         // Create a service instance for each of the workspace folders.
         this.workspaceFactory.handleInitialize(params);
@@ -601,6 +628,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 },
             },
         };
+
+        if (this.client.usingPullDiagnostics) {
+            result.capabilities.diagnosticProvider = {
+                identifier: 'pyright',
+                documentSelector: null,
+                interFileDependencies: true,
+                workspaceDiagnostics: false, // Workspace wide are not pull diagnostics.
+            };
+        }
 
         return result;
     }
@@ -1061,6 +1097,88 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.openFileMap.delete(uri.key);
     }
 
+    protected async onDiagnostics(params: DocumentDiagnosticParams, token: CancellationToken) {
+        const uri = this.convertLspUriStringToUri(params.textDocument.uri);
+        const workspace = await this.getWorkspaceForFile(uri);
+        let sourceFile = workspace.service.getSourceFile(uri);
+        let diagnosticsVersion = sourceFile?.isCheckingRequired()
+            ? UncomputedDiagnosticsVersion
+            : sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion - 1;
+        const result: DocumentDiagnosticReport = {
+            kind: 'full',
+            resultId: sourceFile?.getDiagnosticVersion()?.toString(),
+            items: [],
+        };
+        if (
+            workspace.disableLanguageServices ||
+            !canNavigateToFile(workspace.service.fs, uri) ||
+            token.isCancellationRequested
+        ) {
+            return result;
+        }
+
+        // Reanalyze the file if it's not up to date.
+        if (params.previousResultId !== diagnosticsVersion.toString() && sourceFile) {
+            let diagnosticsVersionAfter = UncomputedDiagnosticsVersion - 1; // Just has to be different
+            let serverDiagnostics: AnalyzerDiagnostic[] = [];
+
+            // Loop until we analyze the same version that we started with.
+            while (diagnosticsVersion !== diagnosticsVersionAfter && !token.isCancellationRequested && sourceFile) {
+                // Reset the version we're analyzing
+                sourceFile = workspace.service.getSourceFile(uri);
+                diagnosticsVersion = sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
+
+                // Then reanalyze the file (this should go to the background thread so this thread can handle other requests).
+                if (sourceFile) {
+                    await workspace.service.analyzeFile(uri, token);
+                }
+
+                // Then pick up the diagnostics created.
+                serverDiagnostics = sourceFile
+                    ? await workspace.service.getDiagnosticsForRange(uri, sourceFile.getRange(), token)
+                    : [];
+
+                // If any text edits came in, make sure we reanalyze the file. Diagnostics version should be reset to zero
+                // if a text edit comes in.
+                const sourceFileAfter = workspace.service.getSourceFile(uri);
+                diagnosticsVersionAfter = sourceFileAfter?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
+            }
+
+            // Then convert the diagnostics to the LSP format.
+            const lspDiagnostics = this._convertDiagnostics(workspace.service.fs, serverDiagnostics).filter(
+                (d) => d !== undefined
+            ) as Diagnostic[];
+
+            result.resultId = diagnosticsVersionAfter.toString();
+            result.items = lspDiagnostics;
+        } else {
+            (result as any).kind = 'unchanged';
+            result.resultId = diagnosticsVersion.toString();
+            delete (result as any).items;
+        }
+
+        return result;
+    }
+
+    protected async onWorkspaceDiagnostics(params: WorkspaceDiagnosticParams, token: CancellationToken) {
+        const workspaces = await this.getWorkspaces();
+        const promises: Promise<WorkspaceDocumentDiagnosticReport>[] = [];
+        workspaces.forEach((workspace) => {
+            if (!workspace.disableLanguageServices) {
+                const files = workspace.service.getOwnedFiles();
+                files.forEach((file) => {
+                    const sourceFile = workspace.service.getSourceFile(file)!;
+                    if (canNavigateToFile(workspace.service.fs, sourceFile.getUri())) {
+                        promises.push(this._getWorkspaceDocumentDiagnostics(params, sourceFile, workspace, token));
+                    }
+                });
+            }
+        });
+        return {
+            items: await Promise.all(promises),
+        };
+    }
+
     protected onDidChangeWatchedFiles(params: DidChangeWatchedFilesParams) {
         params.changes.forEach((change) => {
             const filePath = this.fs.realCasePath(this.convertLspUriStringToUri(change.uri));
@@ -1151,6 +1269,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected onAnalysisCompletedHandler(fs: FileSystem, results: AnalysisResults): void {
+        // If we're in pull mode, disregard any 'tracking' results. They're not necessary.
+        if (this.client.usingPullDiagnostics && results.reason === 'tracking') {
+            return;
+        }
+
         // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
             if (!this.canNavigateToFile(fileDiag.fileUri, fs)) {
@@ -1314,6 +1437,32 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }
 
         return MarkupKind.PlainText;
+    }
+    private async _getWorkspaceDocumentDiagnostics(
+        params: WorkspaceDiagnosticParams,
+        sourceFile: SourceFile,
+        workspace: Workspace,
+        token: CancellationToken
+    ) {
+        const originalUri = workspace.service.fs.getOriginalUri(sourceFile.getUri());
+        const result: WorkspaceDocumentDiagnosticReport = {
+            uri: originalUri.toString(),
+            version: sourceFile.getClientVersion() ?? null,
+            kind: 'full',
+            items: [],
+        };
+        const previousId = params.previousResultIds.find((x) => x.uri === originalUri.toString());
+        const documentResult = await this.onDiagnostics(
+            { previousResultId: previousId?.value, textDocument: { uri: result.uri } },
+            token
+        );
+        if (documentResult.kind === 'full') {
+            result.items = documentResult.items;
+        } else {
+            (result as any).kind = documentResult.kind;
+            delete (result as any).items;
+        }
+        return result;
     }
 
     private _convertDiagnostics(fs: FileSystem, diags: AnalyzerDiagnostic[]): Diagnostic[] {
