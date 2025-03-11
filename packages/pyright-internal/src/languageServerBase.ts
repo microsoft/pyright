@@ -1098,7 +1098,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected async onDiagnostics(params: DocumentDiagnosticParams, token: CancellationToken) {
-        this.console.log(`Received diagnostics request for ${params.textDocument.uri}`);
         const uri = this.convertLspUriStringToUri(params.textDocument.uri);
         const workspace = await this.getWorkspaceForFile(uri);
         let sourceFile = workspace.service.getSourceFile(uri);
@@ -1149,12 +1148,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
             result.resultId = diagnosticsVersion.toString();
             result.items = lspDiagnostics;
-            this.console.log(`Updated diagnostics request for ${params.textDocument.uri}`);
         } else {
             (result as any).kind = 'unchanged';
             result.resultId = diagnosticsVersion.toString();
             delete (result as any).items;
-            this.console.log(`Using old diagnostics request for ${params.textDocument.uri}`);
         }
 
         return result;
