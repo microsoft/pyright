@@ -168,8 +168,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         supportsUnnecessaryDiagnosticTag: false,
         supportsTaskItemDiagnosticTag: false,
         completionItemResolveSupportsAdditionalTextEdits: false,
-        hasPullDiagnosticsCapability: false,
-        hasPullRelatedInformationCapability: false,
+        usingPullDiagnostics: false,
+        requiresPullRelatedInformationCapability: false,
     };
 
     protected defaultClientConfig: any;
@@ -277,9 +277,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             libraryReanalysisTimeProvider,
             serviceId,
             fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
-            usingPullDiagnostics: this.client.hasPullDiagnosticsCapability,
+            usingPullDiagnostics: this.client.usingPullDiagnostics,
             onInvalidated: (reason) => {
-                if (this.client.hasPullDiagnosticsCapability) {
+                if (this.client.usingPullDiagnostics) {
                     this.connection.sendRequest(DiagnosticRefreshRequest.type);
                 }
             },
@@ -562,11 +562,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             !!capabilities.textDocument?.completion?.completionItem?.resolveSupport?.properties.some(
                 (p) => p === 'additionalTextEdits'
             );
-        this.client.hasPullDiagnosticsCapability =
+        this.client.usingPullDiagnostics =
             !!capabilities.textDocument?.diagnostic?.dynamicRegistration &&
             initializationOptions?.diagnosticMode !== 'workspace' &&
             initializationOptions?.disablePullDiagnostics !== true;
-        this.client.hasPullRelatedInformationCapability =
+        this.client.requiresPullRelatedInformationCapability =
             !!capabilities.textDocument?.diagnostic?.relatedInformation &&
             initializationOptions?.diagnosticMode !== 'workspace' &&
             initializationOptions?.disablePullDiagnostics !== true;
@@ -629,12 +629,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             },
         };
 
-        if (this.client.hasPullDiagnosticsCapability) {
+        if (this.client.usingPullDiagnostics) {
             result.capabilities.diagnosticProvider = {
                 identifier: 'pyright',
                 documentSelector: null,
                 interFileDependencies: true,
-                workspaceDiagnostics: initializationOptions.diagnosticMode === 'workspace',
+                workspaceDiagnostics: false, // Workspace wide are not pull diagnostics.
             };
         }
 
@@ -1129,7 +1129,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 diagnosticsVersion = sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
 
                 // Then reanalyze the file (this should go to the background thread so this thread can handle other requests).
-                await workspace.service.analyzeFile(uri, token);
+                if (sourceFile) {
+                    await workspace.service.analyzeFile(uri, token);
+                }
 
                 // Then pick up the diagnostics created.
                 serverDiagnostics = sourceFile
@@ -1267,7 +1269,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected onAnalysisCompletedHandler(fs: FileSystem, results: AnalysisResults): void {
         // If we're in pull mode, disregard any 'tracking' results. They're not necessary.
-        if (this.client.hasPullDiagnosticsCapability && results.reason === 'tracking') {
+        if (this.client.usingPullDiagnostics && results.reason === 'tracking') {
             return;
         }
 

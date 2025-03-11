@@ -29,8 +29,8 @@ export interface ClientCapabilities {
     supportsUnnecessaryDiagnosticTag: boolean;
     supportsTaskItemDiagnosticTag: boolean;
     completionItemResolveSupportsAdditionalTextEdits: boolean;
-    hasPullDiagnosticsCapability: boolean;
-    hasPullRelatedInformationCapability: boolean;
+    usingPullDiagnostics: boolean;
+    requiresPullRelatedInformationCapability: boolean;
 }
 
 export type InitializationOptions = {
