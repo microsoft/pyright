@@ -9,12 +9,7 @@
  */
 
 import * as JSONC from 'jsonc-parser';
-import {
-    AbstractCancellationTokenSource,
-    CancellationToken,
-    Connection,
-    DiagnosticRefreshRequest,
-} from 'vscode-languageserver';
+import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-languageserver';
 import { parse } from '../common/tomlUtils';
 
 import { IBackgroundAnalysis, RefreshOptions } from '../backgroundAnalysisBase';
@@ -97,6 +92,7 @@ export interface AnalyzerServiceOptions {
     skipScanningUserFiles?: boolean;
     fileSystem?: FileSystem;
     usingPullDiagnostics?: boolean;
+    onInvalidated?: (reason: InvalidatedReason) => void;
 }
 
 interface ConfigFileContents {
@@ -138,12 +134,7 @@ export class AnalyzerService {
     private _disposed = false;
     private _pendingLibraryChanges: RefreshOptions = { changesOnly: true };
 
-    constructor(
-        instanceName: string,
-        serviceProvider: ServiceProvider,
-        options: AnalyzerServiceOptions,
-        private readonly _connection?: Connection
-    ) {
+    constructor(instanceName: string, serviceProvider: ServiceProvider, options: AnalyzerServiceOptions) {
         this._instanceName = instanceName;
 
         this._executionRootUri = Uri.empty();
@@ -234,19 +225,14 @@ export class AnalyzerService {
         backgroundAnalysis?: IBackgroundAnalysis,
         fileSystem?: FileSystem
     ): AnalyzerService {
-        const service = new AnalyzerService(
-            instanceName,
-            this._serviceProvider,
-            {
-                ...this.options,
-                serviceId,
-                backgroundAnalysis,
-                skipScanningUserFiles: true,
-                fileSystem,
-                usingPullDiagnostics: this.options.usingPullDiagnostics,
-            },
-            this._connection
-        );
+        const service = new AnalyzerService(instanceName, this._serviceProvider, {
+            ...this.options,
+            serviceId,
+            backgroundAnalysis,
+            skipScanningUserFiles: true,
+            fileSystem,
+            usingPullDiagnostics: this.options.usingPullDiagnostics,
+        });
 
         // Cloned service will use whatever user files the service currently has.
         const userFiles = this.getUserFiles();
@@ -488,6 +474,10 @@ export class AnalyzerService {
     }
 
     invalidateAndForceReanalysis(reason: InvalidatedReason) {
+        if (this.options.onInvalidated) {
+            this.options.onInvalidated(reason);
+        }
+
         this._backgroundAnalysisProgram.invalidateAndForceReanalysis(reason);
     }
 
@@ -500,12 +490,9 @@ export class AnalyzerService {
     }
 
     protected runAnalysis(token: CancellationToken) {
-        // In pull diagnostics mode, ask VS code to refresh the diagnostics. This is how
-        // we tell VS code that something happened that might affect diagnostics.
-        if (this.options.usingPullDiagnostics) {
-            this._connection?.sendRequest(DiagnosticRefreshRequest.type);
-        } else {
-            // Otherwise perform the analysis ourselves.
+        // In pull diagnostics mode, the service doesn't perform analysis on its own.
+        // Instead the client deliberately asks for diagnostics on a file-by-file basis.
+        if (!this.options.usingPullDiagnostics) {
             const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(token);
             if (moreToAnalyze) {
                 this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);

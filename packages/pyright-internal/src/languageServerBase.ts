@@ -33,6 +33,7 @@ import {
     Definition,
     DefinitionLink,
     Diagnostic,
+    DiagnosticRefreshRequest,
     DiagnosticRelatedInformation,
     DiagnosticSeverity,
     DiagnosticTag,
@@ -263,26 +264,26 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.console.info(`Starting service instance "${name}"`);
 
         const serviceId = getNextServiceId(name);
-        const service = new AnalyzerService(
-            name,
-            this.serverOptions.serviceProvider,
-            {
-                console: this.console,
-                hostFactory: this.createHost.bind(this),
-                importResolverFactory: this.createImportResolver.bind(this),
-                backgroundAnalysis: services
-                    ? services.backgroundAnalysis
-                    : this.createBackgroundAnalysis(serviceId, workspaceRoot),
-                maxAnalysisTime: this.serverOptions.maxAnalysisTimeInForeground,
-                backgroundAnalysisProgramFactory: this.createBackgroundAnalysisProgram.bind(this),
-                cancellationProvider: this.serverOptions.cancellationProvider,
-                libraryReanalysisTimeProvider,
-                serviceId,
-                fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
-                usingPullDiagnostics: this.client.hasPullDiagnosticsCapability,
+        const service = new AnalyzerService(name, this.serverOptions.serviceProvider, {
+            console: this.console,
+            hostFactory: this.createHost.bind(this),
+            importResolverFactory: this.createImportResolver.bind(this),
+            backgroundAnalysis: services
+                ? services.backgroundAnalysis
+                : this.createBackgroundAnalysis(serviceId, workspaceRoot),
+            maxAnalysisTime: this.serverOptions.maxAnalysisTimeInForeground,
+            backgroundAnalysisProgramFactory: this.createBackgroundAnalysisProgram.bind(this),
+            cancellationProvider: this.serverOptions.cancellationProvider,
+            libraryReanalysisTimeProvider,
+            serviceId,
+            fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
+            usingPullDiagnostics: this.client.hasPullDiagnosticsCapability,
+            onInvalidated: (reason) => {
+                if (this.client.hasPullDiagnosticsCapability) {
+                    this.connection.sendRequest(DiagnosticRefreshRequest.type);
+                }
             },
-            this.connection
-        );
+        });
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(service.fs, results));
         return service;
@@ -1097,6 +1098,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected async onDiagnostics(params: DocumentDiagnosticParams, token: CancellationToken) {
+        this.console.log(`Received diagnostics request for ${params.textDocument.uri}`);
         const uri = this.convertLspUriStringToUri(params.textDocument.uri);
         const workspace = await this.getWorkspaceForFile(uri);
         let sourceFile = workspace.service.getSourceFile(uri);
@@ -1147,10 +1149,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
             result.resultId = diagnosticsVersion.toString();
             result.items = lspDiagnostics;
+            this.console.log(`Updated diagnostics request for ${params.textDocument.uri}`);
         } else {
             (result as any).kind = 'unchanged';
             result.resultId = diagnosticsVersion.toString();
             delete (result as any).items;
+            this.console.log(`Using old diagnostics request for ${params.textDocument.uri}`);
         }
 
         return result;
