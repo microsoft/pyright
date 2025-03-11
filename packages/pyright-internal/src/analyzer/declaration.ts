@@ -46,7 +46,14 @@ export const enum DeclarationType {
     Alias,
 }
 
-export type IntrinsicType = 'Any' | 'str' | 'str | None' | 'int' | 'Iterable[str]' | 'type[self]' | 'Dict[str, Any]';
+export type IntrinsicType =
+    | 'Any'
+    | 'str'
+    | 'str | None'
+    | 'int'
+    | 'MutableSequence[str]'
+    | 'type[self]'
+    | 'Dict[str, Any]';
 
 export interface DeclarationBase {
     // Category of this symbol (function, variable, etc.).

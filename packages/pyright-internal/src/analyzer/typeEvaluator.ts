@@ -22164,11 +22164,11 @@ export function createTypeEvaluator(
                         return { type: intType };
                     }
 
-                    if (declaration.intrinsicType === 'Iterable[str]') {
-                        const iterableType = getBuiltInType(declaration.node, 'Iterable');
-                        if (isInstantiableClass(iterableType)) {
+                    if (declaration.intrinsicType === 'MutableSequence[str]') {
+                        const sequenceType = getBuiltInType(declaration.node, 'MutableSequence');
+                        if (isInstantiableClass(sequenceType)) {
                             return {
-                                type: ClassType.cloneAsInstance(ClassType.specialize(iterableType, [strType])),
+                                type: ClassType.cloneAsInstance(ClassType.specialize(sequenceType, [strType])),
                             };
                         }
                     }

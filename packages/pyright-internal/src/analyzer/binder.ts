@@ -286,7 +286,7 @@ export class Binder extends ParseTreeWalker {
                 this._addImplicitSymbolToCurrentScope('__loader__', node, 'Any');
                 this._addImplicitSymbolToCurrentScope('__package__', node, 'str | None');
                 this._addImplicitSymbolToCurrentScope('__spec__', node, 'Any');
-                this._addImplicitSymbolToCurrentScope('__path__', node, 'Iterable[str]');
+                this._addImplicitSymbolToCurrentScope('__path__', node, 'MutableSequence[str]');
                 this._addImplicitSymbolToCurrentScope('__file__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__cached__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');
