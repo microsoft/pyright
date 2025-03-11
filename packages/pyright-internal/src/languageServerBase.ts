@@ -1103,7 +1103,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         let sourceFile = workspace.service.getSourceFile(uri);
         let diagnosticsVersion = sourceFile?.isCheckingRequired()
             ? UncomputedDiagnosticsVersion
-            : sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
+            : sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion - 1;
         const result: DocumentDiagnosticReport = {
             kind: 'full',
             resultId: sourceFile?.getDiagnosticVersion()?.toString(),
