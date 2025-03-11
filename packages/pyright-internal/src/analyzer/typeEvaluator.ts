@@ -9868,12 +9868,22 @@ export function createTypeEvaluator(
             case TypeCategory.Never:
             case TypeCategory.Unknown:
             case TypeCategory.Any: {
-                // Touch all of the args so they're marked accessed. Don't bother
-                // doing this if the call type is incomplete because this will need
-                // to be done again once it is complete.
-                touchArgTypes();
+                // Create a dummy callable that accepts all arguments and validate
+                // that the argument expressions are valid.
+                const dummyFunctionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.None);
+                FunctionType.addDefaultParams(dummyFunctionType);
 
-                return { returnType: expandedCallType };
+                const dummyCallResult = validateCallForFunction(
+                    errorNode,
+                    argList,
+                    dummyFunctionType,
+                    isCallTypeIncomplete,
+                    constraints,
+                    skipUnknownArgCheck,
+                    inferenceContext
+                );
+
+                return { ...dummyCallResult, returnType: expandedCallType };
             }
 
             case TypeCategory.Function: {
