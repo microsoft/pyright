@@ -1148,7 +1148,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 (d) => d !== undefined
             ) as Diagnostic[];
 
-            result.resultId = diagnosticsVersion.toString();
+            result.resultId = diagnosticsVersionAfter.toString();
             result.items = lspDiagnostics;
         } else {
             (result as any).kind = 'unchanged';
