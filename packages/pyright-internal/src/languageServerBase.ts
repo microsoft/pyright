@@ -1103,7 +1103,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         let sourceFile = workspace.service.getSourceFile(uri);
         let diagnosticsVersion = sourceFile?.isCheckingRequired()
             ? UncomputedDiagnosticsVersion
-            : sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion - 1;
+            : sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
         const result: DocumentDiagnosticReport = {
             kind: 'full',
             resultId: sourceFile?.getDiagnosticVersion()?.toString(),
@@ -1149,11 +1149,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 (d) => d !== undefined
             ) as Diagnostic[];
 
-            result.resultId = diagnosticsVersionAfter.toString();
+            result.resultId =
+                diagnosticsVersionAfter === UncomputedDiagnosticsVersion
+                    ? undefined
+                    : diagnosticsVersionAfter.toString();
             result.items = lspDiagnostics;
         } else {
             (result as any).kind = 'unchanged';
-            result.resultId = diagnosticsVersion.toString();
+            result.resultId =
+                diagnosticsVersion === UncomputedDiagnosticsVersion ? undefined : diagnosticsVersion.toString();
             delete (result as any).items;
         }
 
