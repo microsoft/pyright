@@ -1123,7 +1123,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             let serverDiagnostics: AnalyzerDiagnostic[] = [];
 
             // Loop until we analyze the same version that we started with.
-            while (diagnosticsVersion !== diagnosticsVersionAfter && !token.isCancellationRequested) {
+            while (diagnosticsVersion !== diagnosticsVersionAfter && !token.isCancellationRequested && sourceFile) {
                 // Reset the version we're analyzing
                 sourceFile = workspace.service.getSourceFile(uri);
                 diagnosticsVersion = sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
