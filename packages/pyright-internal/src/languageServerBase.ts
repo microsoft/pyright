@@ -1138,7 +1138,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                     ? await workspace.service.getDiagnosticsForRange(uri, sourceFile.getRange(), token)
                     : [];
 
-                // If any text edits came in, make sure we reanalyze the file.
+                // If any text edits came in, make sure we reanalyze the file. Diagnostics version should be reset to zero
+                // if a text edit comes in.
                 const sourceFileAfter = workspace.service.getSourceFile(uri);
                 diagnosticsVersionAfter = sourceFileAfter?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
             }
