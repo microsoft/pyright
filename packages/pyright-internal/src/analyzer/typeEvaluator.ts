@@ -609,7 +609,7 @@ interface DeferredClassCompletion {
 
 interface TypeCacheEntry {
     typeResult: TypeResult;
-    incompleteGenerationCount: number;
+    incompleteGenCount: number;
     flags: EvalFlags | undefined;
 }
 
@@ -648,7 +648,7 @@ export function createTypeEvaluator(
     let deferredClassCompletions: DeferredClassCompletion[] = [];
     let cancellationToken: CancellationToken | undefined;
     let printExpressionSpaceCount = 0;
-    let incompleteGenerationCount = 0;
+    let incompleteGenCount = 0;
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
     const signatureTrackerStack: SignatureTrackerStackEntry[] = [];
@@ -718,9 +718,7 @@ export function createTypeEvaluator(
             return false;
         }
 
-        return (
-            !cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenerationCount === incompleteGenerationCount
-        );
+        return !cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenCount === incompleteGenCount;
     }
 
     function readTypeCache(node: ParseNode, flags: EvalFlags | undefined): Type | undefined {
@@ -769,15 +767,15 @@ export function createTypeEvaluator(
                 : typeCache;
 
         if (!typeResult.isIncomplete) {
-            incompleteGenerationCount++;
+            incompleteGenCount++;
         } else {
             const oldValue = typeCacheToUse.get(node.id);
             if (oldValue !== undefined && !isTypeSame(typeResult.type, oldValue.typeResult.type)) {
-                incompleteGenerationCount++;
+                incompleteGenCount++;
             }
         }
 
-        typeCacheToUse.set(node.id, { typeResult, flags, incompleteGenerationCount: incompleteGenerationCount });
+        typeCacheToUse.set(node.id, { typeResult, flags, incompleteGenCount });
 
         // If the entry is located within a part of the parse tree that is currently being
         // "speculatively" evaluated, track it so we delete the cached entry when we leave
@@ -788,7 +786,7 @@ export function createTypeEvaluator(
                 speculativeTypeTracker.addSpeculativeType(
                     node,
                     typeResult,
-                    incompleteGenerationCount,
+                    incompleteGenCount,
                     inferenceContext?.expectedType
                 );
             }
@@ -1083,36 +1081,38 @@ export function createTypeEvaluator(
     ): TypeResult {
         // Is this type already cached?
         const cacheEntry = readTypeCacheEntry(node);
-        if (
-            cacheEntry &&
-            (!cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenerationCount === incompleteGenerationCount)
-        ) {
-            if (printExpressionTypes) {
-                console.log(
-                    `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
-                        node
-                    )}): Cached ${printType(cacheEntry.typeResult.type)} ${
-                        cacheEntry.typeResult.typeErrors ? ' Errors' : ''
-                    }`
-                );
+        if (cacheEntry) {
+            if (!cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenCount === incompleteGenCount) {
+                if (printExpressionTypes) {
+                    console.log(
+                        `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
+                            node
+                        )}): Cached ${printType(cacheEntry.typeResult.type)} ${
+                            cacheEntry.typeResult.typeErrors ? ' Errors' : ''
+                        }`
+                    );
+                }
+
+                return cacheEntry.typeResult;
             }
-            return cacheEntry.typeResult;
-        } else {
-            // Is it cached in the speculative type cache?
-            const cacheEntry = speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
+        }
+
+        // Is it cached in the speculative type cache?
+        const specCacheEntry = speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
+        if (specCacheEntry) {
             if (
-                cacheEntry &&
-                (!cacheEntry.typeResult.isIncomplete ||
-                    cacheEntry.incompleteGenerationCount === incompleteGenerationCount)
+                !specCacheEntry.typeResult.isIncomplete ||
+                specCacheEntry.incompleteGenerationCount === incompleteGenCount
             ) {
                 if (printExpressionTypes) {
                     console.log(
                         `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
                             node
-                        )}): Speculative ${printType(cacheEntry.typeResult.type)}`
+                        )}): Speculative ${printType(specCacheEntry.typeResult.type)}`
                     );
                 }
-                return cacheEntry.typeResult;
+
+                return specCacheEntry.typeResult;
             }
         }
 
@@ -12497,9 +12497,9 @@ export function createTypeEvaluator(
                 skippedBareTypeVarExpectedType = true;
             }
 
-            // If the expected type is unknown, don't use an expected type. Instead,
+            // If the expected type is Any, don't use an expected type. Instead,
             // use default rules for evaluating the expression type.
-            if (expectedType && isUnknown(expectedType)) {
+            if (expectedType && isAnyOrUnknown(expectedType)) {
                 expectedType = undefined;
             }
 
@@ -12522,9 +12522,7 @@ export function createTypeEvaluator(
                     isTypeIncomplete = true;
                 }
 
-                if (exprTypeResult.typeErrors) {
-                    isCompatible = false;
-                } else if (expectedType && requiresSpecialization(expectedType)) {
+                if (expectedType && requiresSpecialization(expectedType)) {
                     // Assign the argument type back to the expected type to assign
                     // values to any unification variables.
                     const clonedConstraints = constraints.clone();
