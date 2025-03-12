@@ -27240,12 +27240,12 @@ export function createTypeEvaluator(
         // with the declared type. In strict mode, this will retain the "unknown type"
         // diagnostics while still providing reasonable completion suggestions.
         if (isIncompleteUnknown(narrowedType)) {
-            return { type: narrowedType };
+            return { type: narrowedType, isIncomplete: assignedTypeResult.isIncomplete };
         } else if (isUnknown(narrowedType)) {
-            return { type: combineTypes([narrowedType, declaredType]) };
+            return { type: combineTypes([narrowedType, declaredType]), isIncomplete: assignedTypeResult.isIncomplete };
         }
 
-        return { type: narrowedType };
+        return { type: narrowedType, isIncomplete: assignedTypeResult.isIncomplete };
     }
 
     function validateOverrideMethod(
