@@ -173,3 +173,11 @@ func13(**func_args2)
 def func14(cb1: Callable[..., Any], cb2: Any, x: None):
     cb1(**x)  # This should generate an error
     cb2(**x)  # This should generate an error
+
+
+def func15(cb1: Callable[..., Any], cb2: Any, a: int, b: None | str):
+    print(*a)  # This should generate an error
+    print(*b)  # This should generate an error
+    cb1(*a)  # This should generate an error
+    cb2(*b)  # This should generate an error
+
