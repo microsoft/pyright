@@ -10880,6 +10880,7 @@ export function createTypeEvaluator(
                 const argTypeResult = getTypeOfArg(argList[argIndex], /* inferenceContext */ undefined);
 
                 let listElementType: Type | undefined;
+                let enforceIterable = false;
                 let advanceToNextArg = false;
 
                 // Handle the case where *args is being passed to a function defined
@@ -10952,6 +10953,10 @@ export function createTypeEvaluator(
                         /* emitNotIterableError */ false
                     )?.type;
 
+                    if (!listElementType) {
+                        enforceIterable = true;
+                    }
+
                     if (paramInfo.param.category === ParamCategory.ArgsList) {
                         matchedUnpackedListOfUnknownLength = true;
                     }
@@ -10971,7 +10976,7 @@ export function createTypeEvaluator(
                           argCategory: ArgCategory.Simple,
                           typeResult: { type: listElementType, isIncomplete: argTypeResult.isIncomplete },
                       }
-                    : { ...argList[argIndex] };
+                    : { ...argList[argIndex], enforceIterable };
 
                 if (argTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
@@ -12517,6 +12522,18 @@ export function createTypeEvaluator(
                 );
 
                 argType = exprTypeResult.type;
+
+                // If the argument is unpacked and we are supposed to enforce
+                // that it's an iterator, do so now.
+                if (argParam.argument.argCategory === ArgCategory.UnpackedList && argParam.argument.enforceIterable) {
+                    const iteratorType = getTypeOfIterator(
+                        exprTypeResult,
+                        /* isAsync */ false,
+                        argParam.argument.valueExpression
+                    );
+                    // Try to prevent cascading errors if it was not iterable.
+                    argType = iteratorType?.type ?? UnknownType.create();
+                }
 
                 if (exprTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
