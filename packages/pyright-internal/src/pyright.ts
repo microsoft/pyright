@@ -589,7 +589,7 @@ async function runMultiThreaded(
     output.info(`Found ${sourceFilesToAnalyze.length} files to analyze`);
     output.info(`Using ${workerCount} threads`);
 
-    const fileDiagnostics: FileDiagnostics[] = [];
+    let fileDiagnostics: FileDiagnostics[] = [];
     let pendingAnalysisCount = 0;
 
     const sendMessageToWorker = (worker: ChildProcess, message: string, data: any) => {
@@ -626,6 +626,12 @@ async function runMultiThreaded(
                 if (!exitStatus.resolved) {
                     const elapsedTime = (Date.now() - startTime) / 1000;
                     let errorCount = 0;
+
+                    // Sort all file diagnostics by the file URI so
+                    // we have a deterministic ordering.
+                    fileDiagnostics = fileDiagnostics.sort((a, b) =>
+                        a.fileUri.toString() < b.fileUri.toString() ? -1 : 1
+                    );
 
                     if (args.outputjson) {
                         const report = reportDiagnosticsAsJson(
