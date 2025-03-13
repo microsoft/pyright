@@ -1032,6 +1032,15 @@ function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightTyp
                     } else if (operator === OperatorType.FloorDivide) {
                         if (rightLiteralValue !== BigInt(0)) {
                             newValue = leftLiteralValue / rightLiteralValue;
+
+                            // BigInt rounds to zero, but floor divide rounds to negative
+                            // infinity, so we need to adjust the result if the signs
+                            // of the operands are different.
+                            if (leftLiteralValue !== rightLiteralValue) {
+                                if (leftLiteralValue < BigInt(0) !== rightLiteralValue < BigInt(0)) {
+                                    newValue -= BigInt(1);
+                                }
+                            }
                         }
                     } else if (operator === OperatorType.Mod) {
                         if (rightLiteralValue !== BigInt(0)) {
