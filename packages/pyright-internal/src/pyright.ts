@@ -468,9 +468,15 @@ async function runSingleThreaded(
 
         let errorCount = 0;
         if (!args.createstub && !args.verifytypes) {
+            // Sort all file diagnostics by the file URI so
+            // we have a deterministic ordering.
+            const fileDiagnostics = results.diagnostics.sort((a, b) =>
+                a.fileUri.toString() < b.fileUri.toString() ? -1 : 1
+            );
+
             if (args.outputjson) {
                 const report = reportDiagnosticsAsJson(
-                    results.diagnostics,
+                    fileDiagnostics,
                     minSeverityLevel,
                     results.filesInProgram,
                     results.elapsedTime
@@ -481,7 +487,7 @@ async function runSingleThreaded(
                 }
             } else {
                 printVersion(output);
-                const report = reportDiagnosticsAsText(results.diagnostics, minSeverityLevel);
+                const report = reportDiagnosticsAsText(fileDiagnostics, minSeverityLevel);
                 errorCount += report.errorCount;
                 if (treatWarningsAsErrors) {
                     errorCount += report.warningCount;
