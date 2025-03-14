@@ -501,6 +501,10 @@ export class AnalyzerService {
     }
 
     protected applyConfigOptions(host: Host) {
+        // Indicate that we are about to reanalyze because of this config change.
+        if (this.options.onInvalidated) {
+            this.options.onInvalidated(InvalidatedReason.Reanalyzed);
+        }
         // Allocate a new import resolver because the old one has information
         // cached based on the previous config options.
         const importResolver = this._importResolverFactory(
