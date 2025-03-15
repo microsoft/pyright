@@ -22540,19 +22540,33 @@ export function createTypeEvaluator(
 
             if (loaderActions.implicitImports) {
                 loaderActions.implicitImports.forEach((implicitImport, name) => {
+                    const existingLoaderField = moduleType.priv.loaderFields.get(name);
+
                     // Recursively apply loader actions.
                     let symbolType: Type;
 
                     if (implicitImport.isUnresolved) {
                         symbolType = UnknownType.create();
                     } else {
-                        const moduleName = moduleType.priv.moduleName ? moduleType.priv.moduleName + '.' + name : '';
-                        const importedModuleType = ModuleType.create(moduleName, implicitImport.uri);
+                        let importedModuleType: ModuleType;
+
+                        const existingType = existingLoaderField?.getSynthesizedType();
+                        if (existingType?.type && isModule(existingType.type)) {
+                            importedModuleType = existingType.type;
+                        } else {
+                            const moduleName = moduleType.priv.moduleName
+                                ? moduleType.priv.moduleName + '.' + name
+                                : '';
+                            importedModuleType = ModuleType.create(moduleName, implicitImport.uri);
+                        }
+
                         symbolType = applyLoaderActionsToModuleType(importedModuleType, implicitImport, importLookup);
                     }
 
-                    const importedModuleSymbol = Symbol.createWithType(SymbolFlags.None, symbolType);
-                    moduleType.priv.loaderFields.set(name, importedModuleSymbol);
+                    if (!existingLoaderField) {
+                        const importedModuleSymbol = Symbol.createWithType(SymbolFlags.None, symbolType);
+                        moduleType.priv.loaderFields.set(name, importedModuleSymbol);
+                    }
                 });
             }
 
@@ -22563,14 +22577,36 @@ export function createTypeEvaluator(
         // is pointing at a module, and we need to synthesize a
         // module type.
         if (resolvedDecl.type === DeclarationType.Alias) {
-            // Build a module type that corresponds to the declaration and
-            // its associated loader actions.
-            const moduleType = ModuleType.create(resolvedDecl.moduleName, resolvedDecl.uri);
-            if (resolvedDecl.symbolName && resolvedDecl.submoduleFallback) {
-                return applyLoaderActionsToModuleType(moduleType, resolvedDecl.submoduleFallback, importLookup);
-            } else {
-                return applyLoaderActionsToModuleType(moduleType, resolvedDecl, importLookup);
+            let moduleType: ModuleType | undefined;
+
+            // See if this is an import that shares a ModuleType with another
+            // import statement. If so, used the cached type. This happens when
+            // multiple import statements start with the same module name, such
+            // as "import a.b" and "import a.c".
+            if (resolvedDecl.node.nodeType === ParseNodeType.ImportAs) {
+                const cachedType = readTypeCache(resolvedDecl.node.d.module, EvalFlags.None);
+                if (cachedType && isModule(cachedType)) {
+                    moduleType = cachedType;
+                }
             }
+
+            if (!moduleType) {
+                // Build a module type that corresponds to the declaration and
+                // its associated loader actions.
+                moduleType = ModuleType.create(resolvedDecl.moduleName, resolvedDecl.uri);
+
+                if (resolvedDecl.node.nodeType === ParseNodeType.ImportAs) {
+                    writeTypeCache(resolvedDecl.node.d.module, { type: moduleType }, EvalFlags.None);
+                }
+            }
+
+            return applyLoaderActionsToModuleType(
+                moduleType,
+                resolvedDecl.symbolName && resolvedDecl.submoduleFallback
+                    ? resolvedDecl.submoduleFallback
+                    : resolvedDecl,
+                importLookup
+            );
         }
 
         const declaredType = getTypeForDeclaration(resolvedDecl);
