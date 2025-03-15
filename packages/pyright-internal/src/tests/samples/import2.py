@@ -13,8 +13,8 @@ from .package1 import foo
 b = foo()
 
 # This should generate an error because there is no
-# directory or file named package2.
-from . import package2 as p2
+# directory or file named packageXXX.
+from . import packageXXX as p2
 
 from .package1.sub import subfoo
 # subfoo should resolve to the package1/sub/__init__.py,
