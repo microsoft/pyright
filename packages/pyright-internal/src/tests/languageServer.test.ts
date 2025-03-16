@@ -198,7 +198,7 @@ describe(`Basic language server tests`, () => {
                 // Make sure the error has a special rule
                 assert.equal(diagnostic.diagnostics[1].code, 'reportUnusedImport');
                 assert.equal(diagnostic.diagnostics[3].code, 'reportUnusedImport');
-                assert.equal(diagnostic.diagnostics[5].code, 'reportUnusedImport');
+                assert.equal(diagnostic.diagnostics[4].code, 'reportUnusedImport');
             });
 
             test('background thread diagnostics open mode', async () => {
@@ -242,7 +242,7 @@ describe(`Basic language server tests`, () => {
                 // Make sure the error has a special rule
                 assert.equal(diagnostic.diagnostics[1].code, 'reportUnusedImport');
                 assert.equal(diagnostic.diagnostics[3].code, 'reportUnusedImport');
-                assert.equal(diagnostic.diagnostics[5].code, 'reportUnusedImport');
+                assert.equal(diagnostic.diagnostics[4].code, 'reportUnusedImport');
             });
 
             test('Diagnostic severity overrides test', async () => {
