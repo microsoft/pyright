@@ -1752,17 +1752,35 @@ export class Checker extends ParseTreeWalker {
         const nameParts = node.d.module.d.nameParts;
         assert(nameParts.length > 1);
 
-        const secondLastPartType = this._evaluator.getType(nameParts[nameParts.length - 2]);
-        if (!secondLastPartType) {
-            // If there was no cached type for this node, assume it
-            // was never evaluated and is therefore unreferenced.
-            return true;
+        // Get the top-level module type associated with this import.
+        let moduleType = this._evaluator.evaluateTypeForSubnode(node, () => {
+            this._evaluator.evaluateTypesForStatement(node);
+        })?.type;
+
+        if (!moduleType || !isModule(moduleType)) {
+            return false;
         }
 
-        assert(isModule(secondLastPartType));
+        // Walk the module hierarchy to get the submodules in the
+        // multi-name import path until we get to the second-to-the-last
+        // part.
+        for (let i = 1; i < nameParts.length - 1; i++) {
+            const symbol = ModuleType.getField(moduleType, nameParts[i].d.value);
+            if (!symbol) {
+                return false;
+            }
 
+            const submoduleType = symbol.getSynthesizedType();
+            if (!submoduleType || !isModule(submoduleType.type)) {
+                return false;
+            }
+
+            moduleType = submoduleType.type;
+        }
+
+        // Look up the last part of the import to get its symbol ID.
         const lastPartName = nameParts[nameParts.length - 1].d.value;
-        const symbol = ModuleType.getField(secondLastPartType, lastPartName);
+        const symbol = ModuleType.getField(moduleType, lastPartName);
 
         if (!symbol) {
             return false;
