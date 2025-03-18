@@ -1106,7 +1106,13 @@ function isDefaultNewMethod(newMethod?: Type): boolean {
         return false;
     }
 
-    const returnType = newMethod.shared.declaredReturnType ?? newMethod.priv.inferredReturnType?.type;
+    let returnType: Type | undefined;
+    if (newMethod.shared.declaredReturnType) {
+        returnType = newMethod.shared.declaredReturnType;
+    } else {
+        returnType = newMethod.priv.specializedTypes?.returnType ?? newMethod.shared.inferredReturnType?.type;
+    }
+
     if (!returnType || !isTypeVar(returnType) || !TypeVarType.isSelf(returnType)) {
         return false;
     }

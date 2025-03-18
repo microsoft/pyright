@@ -1654,6 +1654,12 @@ interface FunctionDetailsShared {
     // Transforms to apply if this function is used
     // as a decorator.
     decoratorDataClassBehaviors: DataClassBehaviors | undefined;
+
+    // Inferred return type. Filled in lazily.
+    inferredReturnType?: {
+        type: Type;
+        isIncomplete?: boolean;
+    };
 }
 
 export interface SpecializedFunctionTypes {
@@ -1689,12 +1695,6 @@ export interface FunctionDetailsPriv {
     // A function type can be specialized (i.e. generic type
     // variables replaced by a concrete type).
     specializedTypes?: SpecializedFunctionTypes | undefined;
-
-    // Inferred return type. Filled in lazily.
-    inferredReturnType?: {
-        type: Type;
-        isIncomplete?: boolean;
-    };
 
     // Call-site return type inference cache.
     callSiteReturnTypeCache?: CallSiteInferenceTypeCacheEntry[];
@@ -1830,7 +1830,7 @@ export namespace FunctionType {
             };
         }
 
-        newFunction.priv.inferredReturnType = type.priv.inferredReturnType;
+        newFunction.shared.inferredReturnType = type.shared.inferredReturnType;
 
         return newFunction;
     }
@@ -1859,11 +1859,7 @@ export namespace FunctionType {
     // Creates a shallow copy of the function type with new
     // specialized types. The clone shares the _functionDetails
     // with the object being cloned.
-    export function specialize(
-        type: FunctionType,
-        specializedTypes: SpecializedFunctionTypes,
-        specializedInferredReturnType: Type | undefined
-    ): FunctionType {
+    export function specialize(type: FunctionType, specializedTypes: SpecializedFunctionTypes): FunctionType {
         const newFunction = TypeBase.cloneType(type);
 
         assert(specializedTypes.parameterTypes.length === type.shared.parameters.length);
@@ -1872,13 +1868,6 @@ export namespace FunctionType {
         }
 
         newFunction.priv.specializedTypes = specializedTypes;
-        if (specializedInferredReturnType) {
-            newFunction.priv.inferredReturnType = {
-                type: specializedInferredReturnType,
-                isIncomplete: type.priv.inferredReturnType?.isIncomplete,
-            };
-        }
-
         return newFunction;
     }
 
@@ -2073,8 +2062,8 @@ export namespace FunctionType {
             }
         }
 
-        if (type.priv.inferredReturnType) {
-            newFunction.priv.inferredReturnType = type.priv.inferredReturnType;
+        if (type.shared.inferredReturnType) {
+            newFunction.shared.inferredReturnType = type.shared.inferredReturnType;
         }
 
         return newFunction;
@@ -2332,7 +2321,7 @@ export namespace FunctionType {
         }
 
         if (includeInferred) {
-            return type.priv.inferredReturnType?.type;
+            return type.shared.inferredReturnType?.type;
         }
 
         return undefined;
@@ -3463,16 +3452,16 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             if (type1.priv.specializedTypes && type1.priv.specializedTypes.returnType) {
                 return1Type = type1.priv.specializedTypes.returnType;
             }
-            if (!return1Type && type1.priv.inferredReturnType) {
-                return1Type = type1.priv.inferredReturnType?.type;
+            if (!return1Type && type1.shared.inferredReturnType) {
+                return1Type = type1.shared.inferredReturnType?.type;
             }
 
             let return2Type = functionType2.shared.declaredReturnType;
             if (functionType2.priv.specializedTypes && functionType2.priv.specializedTypes.returnType) {
                 return2Type = functionType2.priv.specializedTypes.returnType;
             }
-            if (!return2Type && functionType2.priv.inferredReturnType) {
-                return2Type = functionType2.priv.inferredReturnType?.type;
+            if (!return2Type && functionType2.shared.inferredReturnType) {
+                return2Type = functionType2.shared.inferredReturnType?.type;
             }
 
             if (return1Type || return2Type) {
