@@ -1659,6 +1659,7 @@ interface FunctionDetailsShared {
     inferredReturnType?: {
         type: Type;
         isIncomplete?: boolean;
+        evaluationCount?: number;
     };
 }
 

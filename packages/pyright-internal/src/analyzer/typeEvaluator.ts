@@ -542,6 +542,11 @@ const maxCallSiteReturnTypeCacheSize = 8;
 // to avoid excessive computation.
 const maxEntriesToUseForInference = 64;
 
+// How many times should attempt to infer a return type of a
+// function before giving up and assuming that it won't converge
+// due to recursion?
+const maxReturnTypeInferenceAttempts = 8;
+
 // How many assignments to an unannotated variable should be used
 // when inferring its type? We need to cut it off at some point
 // to avoid excessive computation.
@@ -23329,10 +23334,15 @@ export function createTypeEvaluator(
             return UnknownType.create();
         }
 
+        const evalCount = type.shared.inferredReturnType?.evaluationCount ?? 0;
+
         // If the return type has already been lazily evaluated,
         // don't bother computing it again.
         if (type.shared.inferredReturnType && !type.shared.inferredReturnType.isIncomplete) {
             returnType = type.shared.inferredReturnType.type;
+        } else if (evalCount > maxReturnTypeInferenceAttempts) {
+            // Detect a case where a return type won't converge because of recursion.
+            returnType = UnknownType.create();
         } else {
             // Don't bother inferring the return type of __init__ because it's
             // always None.
@@ -23390,7 +23400,7 @@ export function createTypeEvaluator(
             returnType = makeTypeVarsFree(returnType, typeVarScopes);
 
             // Cache the type for next time.
-            type.shared.inferredReturnType = { type: returnType, isIncomplete };
+            type.shared.inferredReturnType = { type: returnType, isIncomplete, evaluationCount: evalCount + 1 };
         }
 
         // If the type is partially unknown and the function has one or more unannotated
