@@ -490,7 +490,7 @@
         "typeAliasRedeclared": "\"{name}\" объявлен как TypeAlias и может быть присвоен только один раз",
         "typeAliasStatementBadScope": "Утверждение type можно использовать только внутри области модуля или класса",
         "typeAliasStatementIllegal": "Оператор псевдонима типа можно использовать в Python версии не ниже 3.12",
-        "typeAliasTypeBadScope": "A type alias can be defined only within a module or class scope",
+        "typeAliasTypeBadScope": "Псевдоним типа можно определить только внутри области модуля или класса",
         "typeAliasTypeBaseClass": "Псевдоним типа, определяемый в операторе \"type\", не может использоваться в качестве базового класса.",
         "typeAliasTypeMustBeAssigned": "TypeAliasType должен быть назначен переменной с тем же именем, что и псевдоним типа",
         "typeAliasTypeNameArg": "Первый аргумент TypeAliasType должен быть строковым литералом, представляющим имя псевдонима типа",

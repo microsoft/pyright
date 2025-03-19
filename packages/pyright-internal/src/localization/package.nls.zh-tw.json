@@ -490,7 +490,7 @@
         "typeAliasRedeclared": "\"{name}\" 宣告為 TypeAlias，且只能指派一次",
         "typeAliasStatementBadScope": "A type statement can be used only within a module or class scope",
         "typeAliasStatementIllegal": "類型別名陳述式需要 Python 3.12 或更新版本",
-        "typeAliasTypeBadScope": "A type alias can be defined only within a module or class scope",
+        "typeAliasTypeBadScope": "類型別名只能在模組或類別範圍內定義",
         "typeAliasTypeBaseClass": "\"type\" 陳述式中定義的類型別名不能做為基底類別使用",
         "typeAliasTypeMustBeAssigned": "TypeAliasType 必須指派給與型別別名相同的變數",
         "typeAliasTypeNameArg": "TypeAliasType 的第一個引數必須是代表型別別名名稱的字串常值",

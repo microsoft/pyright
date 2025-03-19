@@ -13,7 +13,6 @@ import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-langu
 import { parse } from '../common/tomlUtils';
 
 import { IBackgroundAnalysis, RefreshOptions } from '../backgroundAnalysisBase';
-import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
 import {
     CommandLineConfigOptions,
     CommandLineLanguageServerOptions,
@@ -86,7 +85,6 @@ export interface AnalyzerServiceOptions {
     backgroundAnalysis?: IBackgroundAnalysis;
     maxAnalysisTime?: MaxAnalysisTime;
     backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory;
-    cancellationProvider?: CancellationProvider;
     libraryReanalysisTimeProvider?: LibraryReanalysisTimeProvider;
     serviceId?: string;
     skipScanningUserFiles?: boolean;
@@ -155,7 +153,6 @@ export class AnalyzerService {
         }
 
         this.options.importResolverFactory = options.importResolverFactory ?? AnalyzerService.createImportResolver;
-        this.options.cancellationProvider = options.cancellationProvider ?? new DefaultCancellationProvider();
         this.options.hostFactory = options.hostFactory ?? (() => new NoAccessHost());
 
         this.options.configOptions =
@@ -196,7 +193,7 @@ export class AnalyzerService {
     }
 
     get cancellationProvider() {
-        return this.options.cancellationProvider!;
+        return this.serviceProvider.cancellationProvider();
     }
 
     get librarySearchUrisToWatch() {

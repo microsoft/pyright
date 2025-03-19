@@ -9,7 +9,6 @@
 import { MaxAnalysisTime } from '../analyzer/program';
 import { IBackgroundAnalysis } from '../backgroundAnalysisBase';
 import { Workspace } from '../workspaceFactory';
-import { CancellationProvider } from './cancellationUtils';
 import { DiagnosticBooleanOverridesMap, DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { SignatureDisplayType } from './configOptions';
 import { ConsoleInterface, LogLevel } from './console';
@@ -85,7 +84,6 @@ export interface ServerOptions {
     productName: string;
     rootDirectory: Uri;
     version: string;
-    cancellationProvider: CancellationProvider;
     serviceProvider: ServiceProvider;
     fileWatcherHandler: FileWatcherHandler;
     maxAnalysisTimeInForeground?: MaxAnalysisTime;

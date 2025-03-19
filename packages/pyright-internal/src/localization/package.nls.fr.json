@@ -490,7 +490,7 @@
         "typeAliasRedeclared": "« {name} » est déclaré en tant que TypeAlias et ne peut être attribué qu’une seule fois",
         "typeAliasStatementBadScope": "Une instruction de type ne peut être utilisée que dans une étendue de module ou de classe",
         "typeAliasStatementIllegal": "L’instruction d’alias de type nécessite Python 3.12 ou version ultérieure",
-        "typeAliasTypeBadScope": "A type alias can be defined only within a module or class scope",
+        "typeAliasTypeBadScope": "Vous ne pouvez définir un alias de type qu’au sein d’un module ou d’une étendue de classe",
         "typeAliasTypeBaseClass": "A type alias defined in a \"type\" statement cannot be used as a base class",
         "typeAliasTypeMustBeAssigned": "TypeAliasType doit être affecté à une variable portant le même nom que l'alias de type",
         "typeAliasTypeNameArg": "Le premier argument de TypeAliasType doit être un littéral de chaîne représentant le nom de l'alias de type",

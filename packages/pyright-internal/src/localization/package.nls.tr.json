@@ -490,7 +490,7 @@
         "typeAliasRedeclared": "\"{name}\" bir TypeAlias olarak bildirilmiş ve yalnızca bir kez atanabilir",
         "typeAliasStatementBadScope": "A type statement can be used only within a module or class scope",
         "typeAliasStatementIllegal": "Tür diğer adı deyimi için Python 3.12 veya daha yeni bir sürümü gerekiyor",
-        "typeAliasTypeBadScope": "A type alias can be defined only within a module or class scope",
+        "typeAliasTypeBadScope": "Tür diğer adı yalnızca bir modül veya sınıf kapsamında tanımlanabilir",
         "typeAliasTypeBaseClass": "Bir \"type\" deyiminde tanımlanan type diğer adı temel sınıf olarak kullanılamaz",
         "typeAliasTypeMustBeAssigned": "TypeAliasType, tür diğer adıyla aynı ada sahip bir değişkene atanmalıdır",
         "typeAliasTypeNameArg": "TypeAliasType için ilk bağımsız değişken, tür diğer adının adını temsil eden bir sabit değerli dize olmalıdır",
