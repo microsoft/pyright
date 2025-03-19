@@ -28052,7 +28052,7 @@ export function createTypeEvaluator(
                 return FunctionType.clone(functionType, /* stripFirstParam */ true);
             }
 
-            if (FunctionType.isInstanceMethod(functionType)) {
+            if (FunctionType.isInstanceMethod(functionType) && !functionType.priv.boundToType) {
                 // If the baseType is a metaclass, don't specialize the function.
                 if (isInstantiableMetaclass(baseType)) {
                     return functionType;
@@ -28083,17 +28083,21 @@ export function createTypeEvaluator(
                 FunctionType.isClassMethod(functionType) ||
                 (treatConstructorAsClassMethod && FunctionType.isConstructorMethod(functionType))
             ) {
-                const baseClass = isInstantiableClass(baseType) ? baseType : ClassType.cloneAsInstantiable(baseType);
-                const clsType = selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : undefined;
+                if (!functionType.priv.boundToType) {
+                    const baseClass = isInstantiableClass(baseType)
+                        ? baseType
+                        : ClassType.cloneAsInstantiable(baseType);
+                    const clsType = selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : undefined;
 
-                return partiallySpecializeBoundMethod(
-                    baseClass,
-                    functionType,
-                    diag,
-                    recursionCount,
-                    clsType ?? baseClass,
-                    /* stripFirstParam */ true
-                );
+                    return partiallySpecializeBoundMethod(
+                        baseClass,
+                        functionType,
+                        diag,
+                        recursionCount,
+                        clsType ?? baseClass,
+                        /* stripFirstParam */ true
+                    );
+                }
             }
 
             if (FunctionType.isStaticMethod(functionType)) {

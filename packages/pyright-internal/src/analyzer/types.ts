@@ -1808,11 +1808,6 @@ export namespace FunctionType {
             } else {
                 stripFirstParam = false;
             }
-
-            // If we strip off the first parameter, this is no longer an
-            // instance method or class method.
-            newFunction.shared.flags &= ~(FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.ClassMethod);
-            newFunction.shared.flags |= FunctionTypeFlags.StaticMethod;
         }
 
         if (type.props?.typeAliasInfo) {
