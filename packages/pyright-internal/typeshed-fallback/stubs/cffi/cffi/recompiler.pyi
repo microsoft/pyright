@@ -90,5 +90,6 @@ def recompile(
     compiler_verbose: int = 1,
     target: Incomplete | None = None,
     debug: Incomplete | None = None,
+    uses_ffiplatform: bool = True,
     **kwds,
 ): ...

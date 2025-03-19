@@ -1,3 +1,4 @@
+import sys
 from typing import Any
 
 from passlib.context import CryptContext
@@ -8,4 +9,5 @@ freebsd_context: Any
 openbsd_context: Any
 netbsd_context: Any
 # Only exists if crypt is present
-host_context: CryptContext
+if sys.version_info < (3, 13):
+    host_context: CryptContext

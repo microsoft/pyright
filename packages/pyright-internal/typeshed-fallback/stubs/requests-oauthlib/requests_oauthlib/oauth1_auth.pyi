@@ -1,5 +1,6 @@
 from _typeshed import Incomplete
 from logging import Logger
+from typing import Any
 
 from oauthlib.oauth1 import Client
 from requests.auth import AuthBase
@@ -27,7 +28,9 @@ class OAuth1(AuthBase):
         client_class: type[Client] | None = None,
         force_include_body: bool = False,
         *,
+        realm: Incomplete | None = None,
         encoding: str = "utf-8",
         nonce: Incomplete | None = None,
         timestamp: Incomplete | None = None,
+        **kwargs: Any,  # passed to client_class's __init__
     ) -> None: ...

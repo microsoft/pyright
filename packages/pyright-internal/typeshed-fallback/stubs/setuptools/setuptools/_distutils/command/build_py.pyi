@@ -4,7 +4,7 @@ from typing import ClassVar
 from ..cmd import Command
 
 class build_py(Command):
-    description: str
+    description: ClassVar[str]
     user_options: ClassVar[list[tuple[str, str | None, str]]]
     boolean_options: ClassVar[list[str]]
     negative_opt: ClassVar[dict[str, str]]
@@ -13,8 +13,8 @@ class build_py(Command):
     package: Incomplete
     package_data: Incomplete
     package_dir: Incomplete
-    compile: int
-    optimize: int
+    compile: bool
+    optimize: bool
     force: Incomplete
     def initialize_options(self) -> None: ...
     packages: Incomplete

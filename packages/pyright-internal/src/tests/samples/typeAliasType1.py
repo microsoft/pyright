@@ -43,7 +43,7 @@ TA9 = TypeAliasType("TA9", list[S], type_params=(T,))
 
 my_tuple = (S, T)
 
-# This should generate two errors because type_params is not a tuple.
+# This should generate two errors because type_params is not a tuple expression.
 TA10 = TypeAliasType("TA10", int, type_params=my_tuple)
 print(TA10.__value__)
 

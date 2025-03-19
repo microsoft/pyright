@@ -1,14 +1,13 @@
-from _typeshed import Incomplete
-
+from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
 @_dispatchable
 def boykov_kolmogorov(
-    G,
-    s,
-    t,
+    G: Graph[_Node],
+    s: _Node,
+    t: _Node,
     capacity: str = "capacity",
-    residual: Incomplete | None = None,
+    residual: Graph[_Node] | None = None,
     value_only: bool = False,
-    cutoff: Incomplete | None = None,
+    cutoff: float | None = None,
 ): ...

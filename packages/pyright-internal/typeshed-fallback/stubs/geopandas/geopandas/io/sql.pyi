@@ -10,9 +10,6 @@ from pandas._typing import Scalar
 from ..base import _ConvertibleToCRS
 from ..geodataframe import GeoDataFrame
 
-# inline ruff noqa at _SqlalchemyConnectionLike.__enter__ confuses flake8
-# ruff: noqa: PYI034
-
 # Start SQLAlchemy hack
 # ---------------------
 # The code actually explicitly checks for SQLAlchemy's `Connection` and `Engine` with

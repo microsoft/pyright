@@ -315,7 +315,7 @@ class GeoDataFrame(GeoPandasBase, pd.DataFrame):  # type: ignore[misc]
         dtype: AstypeArg | Mapping[Any, Dtype] | pd.Series[Any],  # any because of mapping invariance and series typevar bounds
         copy: bool | None = None,
         errors: Literal["ignore", "raise"] = "raise",
-    ) -> GeoDataFrame | pd.DataFrame: ...
+    ) -> GeoDataFrame: ...
     def to_postgis(
         self,
         name: str,

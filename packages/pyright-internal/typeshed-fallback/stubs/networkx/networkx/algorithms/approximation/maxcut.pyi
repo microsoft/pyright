@@ -1,8 +1,14 @@
 from _typeshed import Incomplete
 
+from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
+from numpy.random import RandomState
 
 @_dispatchable
-def randomized_partitioning(G, seed: Incomplete | None = None, p: float = 0.5, weight: Incomplete | None = None): ...
+def randomized_partitioning(
+    G: Graph[_Node], seed: int | RandomState | None = None, p: float = 0.5, weight: str | None = None
+): ...
 @_dispatchable
-def one_exchange(G, initial_cut: Incomplete | None = None, seed: Incomplete | None = None, weight: Incomplete | None = None): ...
+def one_exchange(
+    G: Graph[_Node], initial_cut: set[Incomplete] | None = None, seed: int | RandomState | None = None, weight: str | None = None
+): ...

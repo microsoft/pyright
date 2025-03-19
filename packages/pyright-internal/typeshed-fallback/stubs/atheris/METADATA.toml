@@ -4,3 +4,7 @@ partial_stub = true
 
 [tool.stubtest]
 ignore_missing_stub = true
+# TODO (2025-03-05): unskip once `atheris` can be installed on `ubuntu-24.04`,
+# see https://github.com/python/typeshed/pull/13582 and
+# https://github.com/google/atheris/issues/82
+skip = true

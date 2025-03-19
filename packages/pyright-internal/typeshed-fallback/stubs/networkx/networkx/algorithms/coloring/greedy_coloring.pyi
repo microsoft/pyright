@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
 
+from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
 __all__ = [
@@ -32,23 +33,4 @@ def strategy_connected_sequential(G, colors, traversal: str = "bfs") -> Generato
 @_dispatchable
 def strategy_saturation_largest_first(G, colors) -> Generator[Incomplete, None, Incomplete]: ...
 @_dispatchable
-def greedy_color(G, strategy: str = "largest_first", interchange: bool = False): ...
-
-class _Node:
-    node_id: Incomplete
-    color: int
-    adj_list: Incomplete
-    adj_color: Incomplete
-    def __init__(self, node_id, n) -> None: ...
-    def assign_color(self, adj_entry, color) -> None: ...
-    def clear_color(self, adj_entry, color) -> None: ...
-    def iter_neighbors(self) -> Generator[Incomplete, None, None]: ...
-    def iter_neighbors_color(self, color) -> Generator[Incomplete, None, None]: ...
-
-class _AdjEntry:
-    node_id: Incomplete
-    next: Incomplete
-    mate: Incomplete
-    col_next: Incomplete
-    col_prev: Incomplete
-    def __init__(self, node_id) -> None: ...
+def greedy_color(G: Graph[_Node], strategy="largest_first", interchange: bool = False): ...

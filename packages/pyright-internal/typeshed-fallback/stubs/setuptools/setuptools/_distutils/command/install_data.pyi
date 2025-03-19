@@ -4,7 +4,7 @@ from typing import ClassVar
 from ..cmd import Command
 
 class install_data(Command):
-    description: str
+    description: ClassVar[str]
     user_options: ClassVar[list[tuple[str, str | None, str]]]
     boolean_options: Incomplete
     install_dir: Incomplete

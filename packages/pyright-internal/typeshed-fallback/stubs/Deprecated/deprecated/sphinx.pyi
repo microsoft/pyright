@@ -32,4 +32,5 @@ def deprecated(
     *,
     action: _Actions | None = ...,
     category: type[Warning] | None = ...,
+    extra_stacklevel: int = 0,
 ) -> Callable[[_F], _F]: ...

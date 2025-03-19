@@ -8,6 +8,7 @@ class CreditCardNumbers:
         Healthcare: Final = "4111111510101010"
         Payroll: Final = "4111111114101010"
         Prepaid: Final = "4111111111111210"
+        PrepaidReloadable: Final = "4229989900000002"
         IssuingBank: Final = "4111111141010101"
         CountryOfIssuance: Final = "4111111111121102"
         No: Final = "4111111111310101"

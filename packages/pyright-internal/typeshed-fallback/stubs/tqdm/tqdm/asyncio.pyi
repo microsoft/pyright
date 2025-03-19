@@ -1,5 +1,6 @@
-from _typeshed import Incomplete, SupportsWrite
-from collections.abc import AsyncIterator, Awaitable, Callable, Generator, Iterable, Iterator, Mapping
+from _typeshed import SupportsWrite
+from asyncio import Future
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Mapping
 from typing import NoReturn, TypeVar, overload
 from typing_extensions import Self
 
@@ -48,7 +49,7 @@ class tqdm_asyncio(std_tqdm[_T]):
         nrows: int | None = ...,
         colour: str | None = ...,
         delay: float | None = ...,
-    ) -> Generator[Incomplete, Incomplete, None]: ...
+    ) -> Iterator[Future[_T]]: ...
     @classmethod
     async def gather(
         cls,
