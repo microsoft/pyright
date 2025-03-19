@@ -3862,7 +3862,7 @@ export class TypeVarTransformer {
             }
 
             // Do we need to update the strippedFirstParamType?
-            if (functionType.priv.strippedFirstParamType) {
+            if (functionType.priv.strippedFirstParamType && !isAnyOrUnknown(functionType.priv.strippedFirstParamType)) {
                 const newStrippedType = this.apply(functionType.priv.strippedFirstParamType, recursionCount);
                 if (newStrippedType !== functionType.priv.strippedFirstParamType) {
                     functionType = TypeBase.cloneType(functionType);

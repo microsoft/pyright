@@ -28052,6 +28052,12 @@ export function createTypeEvaluator(
                 return FunctionType.clone(functionType, /* stripFirstParam */ true);
             }
 
+            // If the first parameter was already stripped, it has already been
+            // bound. Don't attempt to rebind.
+            if (functionType.priv.strippedFirstParamType) {
+                return functionType;
+            }
+
             if (FunctionType.isInstanceMethod(functionType)) {
                 // If the baseType is a metaclass, don't specialize the function.
                 if (isInstantiableMetaclass(baseType)) {
