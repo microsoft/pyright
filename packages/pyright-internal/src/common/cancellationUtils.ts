@@ -17,6 +17,12 @@ export interface CancellationProvider {
     createCancellationTokenSource(): AbstractCancellationTokenSource;
 }
 
+export namespace CancellationProvider {
+    export function is(value: any): value is CancellationProvider {
+        return value && !!value.createCancellationTokenSource;
+    }
+}
+
 let cancellationFolderName: string | undefined;
 
 export function getCancellationFolderName() {
