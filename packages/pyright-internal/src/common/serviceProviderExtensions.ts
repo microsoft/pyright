@@ -9,6 +9,7 @@ import { CacheManager } from '../analyzer/cacheManager';
 import { ISourceFileFactory } from '../analyzer/programTypes';
 import { IPythonMode, SourceFile, SourceFileEditMode } from '../analyzer/sourceFile';
 import { PartialStubService, SupportPartialStubs } from '../partialStubService';
+import { CancellationProvider, DefaultCancellationProvider } from './cancellationUtils';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface } from './console';
 import { DocStringService, PyrightDocStringService } from './docStringService';
@@ -23,6 +24,7 @@ declare module './serviceProvider' {
     interface ServiceProvider {
         fs(): FileSystem;
         console(): ConsoleInterface;
+        cancellationProvider(): CancellationProvider;
         tmp(): TempFile | undefined;
         sourceFileFactory(): ISourceFileFactory;
         partialStubs(): SupportPartialStubs;
@@ -66,6 +68,9 @@ export function createServiceProvider(...services: any): ServiceProvider {
         if (CommandService.is(service)) {
             sp.add(ServiceKeys.commandService, service);
         }
+        if (CancellationProvider.is(service)) {
+            sp.add(ServiceKeys.cancellationProvider, service);
+        }
     });
     return sp;
 }
@@ -86,6 +91,11 @@ ServiceProvider.prototype.partialStubs = function () {
 ServiceProvider.prototype.tmp = function () {
     return this.tryGet(ServiceKeys.tempFile);
 };
+
+ServiceProvider.prototype.cancellationProvider = function () {
+    return this.tryGet(ServiceKeys.cancellationProvider) ?? new DefaultCancellationProvider();
+};
+
 ServiceProvider.prototype.sourceFileFactory = function () {
     const result = this.tryGet(ServiceKeys.sourceFileFactory);
     return result || DefaultSourceFileFactory;

@@ -273,7 +273,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 : this.createBackgroundAnalysis(serviceId, workspaceRoot),
             maxAnalysisTime: this.serverOptions.maxAnalysisTimeInForeground,
             backgroundAnalysisProgramFactory: this.createBackgroundAnalysisProgram.bind(this),
-            cancellationProvider: this.serverOptions.cancellationProvider,
             libraryReanalysisTimeProvider,
             serviceId,
             fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
@@ -1395,7 +1394,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         // created by the LSP library. If it's the latter, we'll create a server-initiated
         // progress reporter.
         if (!isNullProgressReporter(reporter)) {
-            return { reporter: reporter, source: CancelAfter(this.serverOptions.cancellationProvider, token) };
+            return { reporter: reporter, source: CancelAfter(this.serviceProvider.cancellationProvider(), token) };
         }
 
         const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
@@ -1408,7 +1407,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         return {
             reporter: serverInitiatedReporter,
-            source: CancelAfter(this.serverOptions.cancellationProvider, token, serverInitiatedReporter.token),
+            source: CancelAfter(this.serviceProvider.cancellationProvider(), token, serverInitiatedReporter.token),
         };
     }
 

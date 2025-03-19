@@ -111,6 +111,10 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     }
 
     statSync(uri: Uri): Stats {
+        if (this._isOriginalPath(uri)) {
+            // Pretend original files don't exist anymore. They are only in their mapped location.
+            throw new Error('ENOENT: path does not exist');
+        }
         return this.realFS.statSync(this._getInternalOriginalUri(uri));
     }
 
