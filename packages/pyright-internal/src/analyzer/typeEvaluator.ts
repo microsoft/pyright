@@ -12507,9 +12507,9 @@ export function createTypeEvaluator(
                 skippedBareTypeVarExpectedType = true;
             }
 
-            // If the expected type is Any, don't use an expected type. Instead,
+            // If the expected type is unknown, don't use an expected type. Instead,
             // use default rules for evaluating the expression type.
-            if (expectedType && isAnyOrUnknown(expectedType)) {
+            if (expectedType && isUnknown(expectedType)) {
                 expectedType = undefined;
             }
 
