@@ -2964,3 +2964,28 @@ export function getPreviousNonWhitespaceToken(tokens: TextRangeCollection<Token>
 
     return undefined;
 }
+
+export function getNextNonWhitespaceToken(tokens: TextRangeCollection<Token>, offset: number): Token | undefined {
+    return getNextMatchingToken(tokens, offset, (token) => !isWhitespace(token));
+}
+
+export function getNextMatchingToken(
+    tokens: TextRangeCollection<Token>,
+    offset: number,
+    match: (token: Token) => boolean,
+    exit: (token: Token) => boolean = () => false
+): Token | undefined {
+    let tokenIndex = tokens.getItemAtPosition(offset) + 1;
+    while (tokenIndex < tokens.count) {
+        const token = tokens.getItemAt(tokenIndex);
+        if (match(token)) {
+            return token;
+        }
+        if (exit(token)) {
+            return undefined;
+        }
+        tokenIndex += 1;
+    }
+
+    return undefined;
+}

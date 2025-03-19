@@ -9,6 +9,7 @@
 import { CacheManager } from '../analyzer/cacheManager';
 import { ISourceFileFactory } from '../analyzer/programTypes';
 import { SupportPartialStubs } from '../partialStubService';
+import { CancellationProvider } from './cancellationUtils';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface } from './console';
 import { DocStringService } from './docStringService';
@@ -37,4 +38,5 @@ export namespace ServiceKeys {
     export const docStringService = new ServiceKey<DocStringService>();
     export const windowService = new ServiceKey<WindowService>();
     export const commandService = new ServiceKey<CommandService>();
+    export const cancellationProvider = new ServiceKey<CancellationProvider>();
 }
