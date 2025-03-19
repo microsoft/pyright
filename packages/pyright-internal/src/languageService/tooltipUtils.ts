@@ -62,8 +62,8 @@ export function getToolTipForType(
             callMethodResult?.type.category === TypeCategory.Function ||
             callMethodResult?.type.category === TypeCategory.Overloaded
         ) {
-            // narrow down specific overload if possible
-            const methodType = bindFunctionToClassOrObjectToolTip(evaluator, typeNode, type, callMethodResult.type);
+            // Eliminate overloads that are not applicable.
+            const methodType = limitOverloadBasedOnCall(evaluator, callMethodResult.type, typeNode);
             if (methodType) {
                 type = methodType;
             }

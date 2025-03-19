@@ -1798,21 +1798,20 @@ export namespace FunctionType {
         if (stripFirstParam) {
             if (type.shared.parameters.length > 0) {
                 if (type.shared.parameters[0].category === ParamCategory.Simple) {
-                    if (type.shared.parameters.length > 0 && !FunctionParam.isTypeInferred(type.shared.parameters[0])) {
-                        // Stash away the effective type of the first parameter if it
-                        // wasn't synthesized.
-                        newFunction.priv.strippedFirstParamType = getParamType(type, 0);
+                    if (type.shared.parameters.length > 0) {
+                        // Stash away the effective type of the first parameter or
+                        // Any if it was inferred.
+                        newFunction.priv.strippedFirstParamType = FunctionParam.isTypeInferred(
+                            type.shared.parameters[0]
+                        )
+                            ? AnyType.create()
+                            : getParamType(type, 0);
                     }
                     newFunction.shared.parameters = type.shared.parameters.slice(1);
                 }
             } else {
                 stripFirstParam = false;
             }
-
-            // If we strip off the first parameter, this is no longer an
-            // instance method or class method.
-            newFunction.shared.flags &= ~(FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.ClassMethod);
-            newFunction.shared.flags |= FunctionTypeFlags.StaticMethod;
         }
 
         if (type.props?.typeAliasInfo) {
