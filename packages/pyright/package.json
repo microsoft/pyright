@@ -28,7 +28,7 @@
     "devDependencies": {
         "@types/node": "^22.10.5",
         "copy-webpack-plugin": "^11.0.0",
-        "esbuild-loader": "^3.2.0",
+        "esbuild-loader": "^4.3.0",
         "shx": "^0.3.4",
         "ts-loader": "^9.5.1",
         "typescript": "~5.5.4",
