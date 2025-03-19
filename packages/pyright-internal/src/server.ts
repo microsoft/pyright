@@ -61,7 +61,14 @@ export class PyrightServer extends LanguageServerBase {
         const cacheManager = new CacheManager(maxWorkers);
         const partialStubService = new PartialStubService(pyrightFs);
 
-        const serviceProvider = createServiceProvider(pyrightFs, tempFile, console, cacheManager, partialStubService);
+        const serviceProvider = createServiceProvider(
+            pyrightFs,
+            tempFile,
+            console,
+            cacheManager,
+            partialStubService,
+            new FileBasedCancellationProvider('bg')
+        );
 
         // When executed from CLI command (pyright-langserver), __rootDirectory is
         // already defined. When executed from VSCode extension, rootDirectory should
@@ -76,7 +83,6 @@ export class PyrightServer extends LanguageServerBase {
                 version,
                 serviceProvider,
                 fileWatcherHandler: fileWatcherProvider,
-                cancellationProvider: new FileBasedCancellationProvider('bg'),
                 maxAnalysisTimeInForeground,
                 supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
             },

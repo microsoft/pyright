@@ -490,7 +490,7 @@
         "typeAliasRedeclared": "\"{name}\" は TypeAlias として宣言されており、1 回だけ割り当てることができます",
         "typeAliasStatementBadScope": "type ステートメントは、モジュールまたはクラススコープ内でのみ使用できます",
         "typeAliasStatementIllegal": "型エイリアス ステートメントには Python 3.12 以降が必要です",
-        "typeAliasTypeBadScope": "A type alias can be defined only within a module or class scope",
+        "typeAliasTypeBadScope": "型エイリアスは、モジュールまたはクラス スコープ内でのみ定義できます",
         "typeAliasTypeBaseClass": "\"type\" ステートメントで定義された型エイリアスを基底クラスとして使用することはできません",
         "typeAliasTypeMustBeAssigned": "TypeAliasType は、型エイリアスと同じ名前の変数に割り当てる必要があります",
         "typeAliasTypeNameArg": "TypeAliasType の最初の引数は、型エイリアスの名前を表す文字列リテラルである必要があります",

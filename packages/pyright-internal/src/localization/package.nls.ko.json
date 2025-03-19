@@ -490,7 +490,7 @@
         "typeAliasRedeclared": "\"{name}\"은(는) TypeAlias로 선언되며 한 번만 할당할 수 있습니다.",
         "typeAliasStatementBadScope": "type 문은 모듈 또는 클래스 범위 내에서만 사용할 수 있습니다.",
         "typeAliasStatementIllegal": "형식 별칭 문에는 Python 3.12 이상이 필요합니다.",
-        "typeAliasTypeBadScope": "A type alias can be defined only within a module or class scope",
+        "typeAliasTypeBadScope": "형식 별칭은 모듈 또는 클래스 범위 내에서만 정의할 수 있습니다.",
         "typeAliasTypeBaseClass": "\"type\" 문에 정의된 형식 별칭은 기본 클래스로 사용할 수 없습니다.",
         "typeAliasTypeMustBeAssigned": "TypeAliasType은 형식 별칭과 이름이 같은 변수에 할당해야 합니다.",
         "typeAliasTypeNameArg": "TypeAliasType의 첫 번째 인수는 형식 별칭의 이름을 나타내는 문자열 리터럴이어야 합니다.",

@@ -490,7 +490,7 @@
         "typeAliasRedeclared": "„{name}“ se deklaruje jako TypeAlias a dá se přiřadit jenom jednou.",
         "typeAliasStatementBadScope": "Příkaz type se dá použít jenom v rámci oboru modulu nebo třídy.",
         "typeAliasStatementIllegal": "Příkaz alias typu vyžaduje Python 3.12 nebo novější",
-        "typeAliasTypeBadScope": "A type alias can be defined only within a module or class scope",
+        "typeAliasTypeBadScope": "Alias typu se dá definovat jenom v rámci oboru modulu nebo třídy",
         "typeAliasTypeBaseClass": "Alias typu definovaný v příkazu \"type\" nejde použít jako základní třídu.",
         "typeAliasTypeMustBeAssigned": "Typ TypeAliasType musí být přiřazen proměnné se stejným názvem jako alias typu",
         "typeAliasTypeNameArg": "První argument TypeAliasType musí být řetězcový literál představující název aliasu typu.",
