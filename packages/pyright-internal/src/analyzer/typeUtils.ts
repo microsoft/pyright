@@ -2973,8 +2973,8 @@ function _requiresSpecialization(type: Type, options?: RequiresSpecializationOpt
                 if (requiresSpecialization(declaredReturnType, options, recursionCount)) {
                     return true;
                 }
-            } else if (type.priv.inferredReturnType) {
-                if (requiresSpecialization(type.priv.inferredReturnType?.type, options, recursionCount)) {
+            } else if (type.shared.inferredReturnType) {
+                if (requiresSpecialization(type.shared.inferredReturnType?.type, options, recursionCount)) {
                     return true;
                 }
             }
@@ -3842,9 +3842,13 @@ export class TypeVarTransformer {
             }
 
             let specializedInferredReturnType: Type | undefined;
-            if (functionType.priv.inferredReturnType) {
-                specializedInferredReturnType = this.apply(functionType.priv.inferredReturnType?.type, recursionCount);
-                if (specializedInferredReturnType !== functionType.priv.inferredReturnType?.type) {
+            if (functionType.shared.inferredReturnType) {
+                specializedInferredReturnType = this.apply(
+                    functionType.shared.inferredReturnType?.type,
+                    recursionCount
+                );
+                if (specializedInferredReturnType !== functionType.shared.inferredReturnType?.type) {
+                    specializedParams.returnType = specializedInferredReturnType;
                     typesRequiredSpecialization = true;
                 }
             }
@@ -3858,7 +3862,7 @@ export class TypeVarTransformer {
             }
 
             // Do we need to update the strippedFirstParamType?
-            if (functionType.priv.strippedFirstParamType) {
+            if (functionType.priv.strippedFirstParamType && !isAnyOrUnknown(functionType.priv.strippedFirstParamType)) {
                 const newStrippedType = this.apply(functionType.priv.strippedFirstParamType, recursionCount);
                 if (newStrippedType !== functionType.priv.strippedFirstParamType) {
                     functionType = TypeBase.cloneType(functionType);
@@ -3876,7 +3880,7 @@ export class TypeVarTransformer {
 
             // If there was no unpacked variadic type variable, we're done.
             if (!variadicTypesToUnpack) {
-                return FunctionType.specialize(functionType, specializedParams, specializedInferredReturnType);
+                return FunctionType.specialize(functionType, specializedParams);
             }
 
             // Unpack the tuple and synthesize a new function in the process.

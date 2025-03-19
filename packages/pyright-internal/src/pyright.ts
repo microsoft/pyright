@@ -468,9 +468,15 @@ async function runSingleThreaded(
 
         let errorCount = 0;
         if (!args.createstub && !args.verifytypes) {
+            // Sort all file diagnostics by the file URI so
+            // we have a deterministic ordering.
+            const fileDiagnostics = results.diagnostics.sort((a, b) =>
+                a.fileUri.toString() < b.fileUri.toString() ? -1 : 1
+            );
+
             if (args.outputjson) {
                 const report = reportDiagnosticsAsJson(
-                    results.diagnostics,
+                    fileDiagnostics,
                     minSeverityLevel,
                     results.filesInProgram,
                     results.elapsedTime
@@ -481,7 +487,7 @@ async function runSingleThreaded(
                 }
             } else {
                 printVersion(output);
-                const report = reportDiagnosticsAsText(results.diagnostics, minSeverityLevel);
+                const report = reportDiagnosticsAsText(fileDiagnostics, minSeverityLevel);
                 errorCount += report.errorCount;
                 if (treatWarningsAsErrors) {
                     errorCount += report.warningCount;
@@ -589,7 +595,7 @@ async function runMultiThreaded(
     output.info(`Found ${sourceFilesToAnalyze.length} files to analyze`);
     output.info(`Using ${workerCount} threads`);
 
-    const fileDiagnostics: FileDiagnostics[] = [];
+    let fileDiagnostics: FileDiagnostics[] = [];
     let pendingAnalysisCount = 0;
 
     const sendMessageToWorker = (worker: ChildProcess, message: string, data: any) => {
@@ -626,6 +632,12 @@ async function runMultiThreaded(
                 if (!exitStatus.resolved) {
                     const elapsedTime = (Date.now() - startTime) / 1000;
                     let errorCount = 0;
+
+                    // Sort all file diagnostics by the file URI so
+                    // we have a deterministic ordering.
+                    fileDiagnostics = fileDiagnostics.sort((a, b) =>
+                        a.fileUri.toString() < b.fileUri.toString() ? -1 : 1
+                    );
 
                     if (args.outputjson) {
                         const report = reportDiagnosticsAsJson(

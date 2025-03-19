@@ -59,6 +59,12 @@ def func1(a: Literal[1, 2], b: Literal[0, 4], c: Literal[3, 4]):
         c6 += a
         reveal_type(c6, expected_text="int")
 
+    c7 = -10 // 8
+    reveal_type(c7, expected_text="Literal[-2]")
+
+    c8 = 10 // -6
+    reveal_type(c8, expected_text="Literal[-2]")
+
 
 def func2(cond: bool):
     c1 = "Hi " + ("Steve" if cond else "Amy")

@@ -478,7 +478,7 @@ function applyPartialTransformToFunction(
 
     newCallMemberType.shared.declaredReturnType = specializedFunctionType.shared.declaredReturnType
         ? FunctionType.getEffectiveReturnType(specializedFunctionType)
-        : specializedFunctionType.priv.inferredReturnType?.type;
+        : specializedFunctionType.shared.inferredReturnType?.type;
     newCallMemberType.shared.declaration = partialCallMemberType.shared.declaration;
     newCallMemberType.shared.typeVarScopeId = specializedFunctionType.shared.typeVarScopeId;
 

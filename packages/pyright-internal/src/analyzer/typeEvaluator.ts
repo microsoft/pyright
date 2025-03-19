@@ -542,6 +542,11 @@ const maxCallSiteReturnTypeCacheSize = 8;
 // to avoid excessive computation.
 const maxEntriesToUseForInference = 64;
 
+// How many times should attempt to infer a return type of a
+// function before giving up and assuming that it won't converge
+// due to recursion?
+const maxReturnTypeInferenceAttempts = 8;
+
 // How many assignments to an unannotated variable should be used
 // when inferring its type? We need to cut it off at some point
 // to avoid excessive computation.
@@ -609,7 +614,7 @@ interface DeferredClassCompletion {
 
 interface TypeCacheEntry {
     typeResult: TypeResult;
-    incompleteGenerationCount: number;
+    incompleteGenCount: number;
     flags: EvalFlags | undefined;
 }
 
@@ -648,7 +653,7 @@ export function createTypeEvaluator(
     let deferredClassCompletions: DeferredClassCompletion[] = [];
     let cancellationToken: CancellationToken | undefined;
     let printExpressionSpaceCount = 0;
-    let incompleteGenerationCount = 0;
+    let incompleteGenCount = 0;
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
     const signatureTrackerStack: SignatureTrackerStackEntry[] = [];
@@ -718,9 +723,7 @@ export function createTypeEvaluator(
             return false;
         }
 
-        return (
-            !cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenerationCount === incompleteGenerationCount
-        );
+        return !cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenCount === incompleteGenCount;
     }
 
     function readTypeCache(node: ParseNode, flags: EvalFlags | undefined): Type | undefined {
@@ -769,15 +772,15 @@ export function createTypeEvaluator(
                 : typeCache;
 
         if (!typeResult.isIncomplete) {
-            incompleteGenerationCount++;
+            incompleteGenCount++;
         } else {
             const oldValue = typeCacheToUse.get(node.id);
             if (oldValue !== undefined && !isTypeSame(typeResult.type, oldValue.typeResult.type)) {
-                incompleteGenerationCount++;
+                incompleteGenCount++;
             }
         }
 
-        typeCacheToUse.set(node.id, { typeResult, flags, incompleteGenerationCount: incompleteGenerationCount });
+        typeCacheToUse.set(node.id, { typeResult, flags, incompleteGenCount });
 
         // If the entry is located within a part of the parse tree that is currently being
         // "speculatively" evaluated, track it so we delete the cached entry when we leave
@@ -788,7 +791,7 @@ export function createTypeEvaluator(
                 speculativeTypeTracker.addSpeculativeType(
                     node,
                     typeResult,
-                    incompleteGenerationCount,
+                    incompleteGenCount,
                     inferenceContext?.expectedType
                 );
             }
@@ -1083,36 +1086,38 @@ export function createTypeEvaluator(
     ): TypeResult {
         // Is this type already cached?
         const cacheEntry = readTypeCacheEntry(node);
-        if (
-            cacheEntry &&
-            (!cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenerationCount === incompleteGenerationCount)
-        ) {
-            if (printExpressionTypes) {
-                console.log(
-                    `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
-                        node
-                    )}): Cached ${printType(cacheEntry.typeResult.type)} ${
-                        cacheEntry.typeResult.typeErrors ? ' Errors' : ''
-                    }`
-                );
+        if (cacheEntry) {
+            if (!cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenCount === incompleteGenCount) {
+                if (printExpressionTypes) {
+                    console.log(
+                        `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
+                            node
+                        )}): Cached ${printType(cacheEntry.typeResult.type)} ${
+                            cacheEntry.typeResult.typeErrors ? ' Errors' : ''
+                        }`
+                    );
+                }
+
+                return cacheEntry.typeResult;
             }
-            return cacheEntry.typeResult;
-        } else {
-            // Is it cached in the speculative type cache?
-            const cacheEntry = speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
+        }
+
+        // Is it cached in the speculative type cache?
+        const specCacheEntry = speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
+        if (specCacheEntry) {
             if (
-                cacheEntry &&
-                (!cacheEntry.typeResult.isIncomplete ||
-                    cacheEntry.incompleteGenerationCount === incompleteGenerationCount)
+                !specCacheEntry.typeResult.isIncomplete ||
+                specCacheEntry.incompleteGenerationCount === incompleteGenCount
             ) {
                 if (printExpressionTypes) {
                     console.log(
                         `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
                             node
-                        )}): Speculative ${printType(cacheEntry.typeResult.type)}`
+                        )}): Speculative ${printType(specCacheEntry.typeResult.type)}`
                     );
                 }
-                return cacheEntry.typeResult;
+
+                return specCacheEntry.typeResult;
             }
         }
 
@@ -10880,6 +10885,7 @@ export function createTypeEvaluator(
                 const argTypeResult = getTypeOfArg(argList[argIndex], /* inferenceContext */ undefined);
 
                 let listElementType: Type | undefined;
+                let enforceIterable = false;
                 let advanceToNextArg = false;
 
                 // Handle the case where *args is being passed to a function defined
@@ -10952,6 +10958,10 @@ export function createTypeEvaluator(
                         /* emitNotIterableError */ false
                     )?.type;
 
+                    if (!listElementType) {
+                        enforceIterable = true;
+                    }
+
                     if (paramInfo.param.category === ParamCategory.ArgsList) {
                         matchedUnpackedListOfUnknownLength = true;
                     }
@@ -10971,7 +10981,7 @@ export function createTypeEvaluator(
                           argCategory: ArgCategory.Simple,
                           typeResult: { type: listElementType, isIncomplete: argTypeResult.isIncomplete },
                       }
-                    : { ...argList[argIndex] };
+                    : { ...argList[argIndex], enforceIterable };
 
                 if (argTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
@@ -12497,9 +12507,9 @@ export function createTypeEvaluator(
                 skippedBareTypeVarExpectedType = true;
             }
 
-            // If the expected type is unknown, don't use an expected type. Instead,
+            // If the expected type is Any, don't use an expected type. Instead,
             // use default rules for evaluating the expression type.
-            if (expectedType && isUnknown(expectedType)) {
+            if (expectedType && isAnyOrUnknown(expectedType)) {
                 expectedType = undefined;
             }
 
@@ -12518,13 +12528,23 @@ export function createTypeEvaluator(
 
                 argType = exprTypeResult.type;
 
+                // If the argument is unpacked and we are supposed to enforce
+                // that it's an iterator, do so now.
+                if (argParam.argument.argCategory === ArgCategory.UnpackedList && argParam.argument.enforceIterable) {
+                    const iteratorType = getTypeOfIterator(
+                        exprTypeResult,
+                        /* isAsync */ false,
+                        argParam.argument.valueExpression
+                    );
+                    // Try to prevent cascading errors if it was not iterable.
+                    argType = iteratorType?.type ?? UnknownType.create();
+                }
+
                 if (exprTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
                 }
 
-                if (exprTypeResult.typeErrors) {
-                    isCompatible = false;
-                } else if (expectedType && requiresSpecialization(expectedType)) {
+                if (expectedType && requiresSpecialization(expectedType)) {
                     // Assign the argument type back to the expected type to assign
                     // values to any unification variables.
                     const clonedConstraints = constraints.clone();
@@ -14951,7 +14971,7 @@ export function createTypeEvaluator(
                         makeInferenceContext(expectedReturnType)
                     );
 
-                    functionType.priv.inferredReturnType = {
+                    functionType.shared.inferredReturnType = {
                         type: returnTypeResult.type,
                     };
                     if (returnTypeResult.isIncomplete) {
@@ -19329,7 +19349,7 @@ export function createTypeEvaluator(
                 FunctionType.isGenerator(functionType)
             );
         } else {
-            awaitableFunctionType.priv.inferredReturnType = {
+            awaitableFunctionType.shared.inferredReturnType = {
                 type: createAwaitableReturnType(
                     node,
                     getInferredReturnType(functionType),
@@ -22525,19 +22545,33 @@ export function createTypeEvaluator(
 
             if (loaderActions.implicitImports) {
                 loaderActions.implicitImports.forEach((implicitImport, name) => {
+                    const existingLoaderField = moduleType.priv.loaderFields.get(name);
+
                     // Recursively apply loader actions.
                     let symbolType: Type;
 
                     if (implicitImport.isUnresolved) {
                         symbolType = UnknownType.create();
                     } else {
-                        const moduleName = moduleType.priv.moduleName ? moduleType.priv.moduleName + '.' + name : '';
-                        const importedModuleType = ModuleType.create(moduleName, implicitImport.uri);
+                        let importedModuleType: ModuleType;
+
+                        const existingType = existingLoaderField?.getSynthesizedType();
+                        if (existingType?.type && isModule(existingType.type)) {
+                            importedModuleType = existingType.type;
+                        } else {
+                            const moduleName = moduleType.priv.moduleName
+                                ? moduleType.priv.moduleName + '.' + name
+                                : '';
+                            importedModuleType = ModuleType.create(moduleName, implicitImport.uri);
+                        }
+
                         symbolType = applyLoaderActionsToModuleType(importedModuleType, implicitImport, importLookup);
                     }
 
-                    const importedModuleSymbol = Symbol.createWithType(SymbolFlags.None, symbolType);
-                    moduleType.priv.loaderFields.set(name, importedModuleSymbol);
+                    if (!existingLoaderField) {
+                        const importedModuleSymbol = Symbol.createWithType(SymbolFlags.None, symbolType);
+                        moduleType.priv.loaderFields.set(name, importedModuleSymbol);
+                    }
                 });
             }
 
@@ -22548,14 +22582,36 @@ export function createTypeEvaluator(
         // is pointing at a module, and we need to synthesize a
         // module type.
         if (resolvedDecl.type === DeclarationType.Alias) {
-            // Build a module type that corresponds to the declaration and
-            // its associated loader actions.
-            const moduleType = ModuleType.create(resolvedDecl.moduleName, resolvedDecl.uri);
-            if (resolvedDecl.symbolName && resolvedDecl.submoduleFallback) {
-                return applyLoaderActionsToModuleType(moduleType, resolvedDecl.submoduleFallback, importLookup);
-            } else {
-                return applyLoaderActionsToModuleType(moduleType, resolvedDecl, importLookup);
+            let moduleType: ModuleType | undefined;
+
+            // See if this is an import that shares a ModuleType with another
+            // import statement. If so, used the cached type. This happens when
+            // multiple import statements start with the same module name, such
+            // as "import a.b" and "import a.c".
+            if (resolvedDecl.node.nodeType === ParseNodeType.ImportAs) {
+                const cachedType = readTypeCache(resolvedDecl.node.d.module, EvalFlags.None);
+                if (cachedType && isModule(cachedType)) {
+                    moduleType = cachedType;
+                }
             }
+
+            if (!moduleType) {
+                // Build a module type that corresponds to the declaration and
+                // its associated loader actions.
+                moduleType = ModuleType.create(resolvedDecl.moduleName, resolvedDecl.uri);
+
+                if (resolvedDecl.node.nodeType === ParseNodeType.ImportAs) {
+                    writeTypeCache(resolvedDecl.node.d.module, { type: moduleType }, EvalFlags.None);
+                }
+            }
+
+            return applyLoaderActionsToModuleType(
+                moduleType,
+                resolvedDecl.symbolName && resolvedDecl.submoduleFallback
+                    ? resolvedDecl.submoduleFallback
+                    : resolvedDecl,
+                importLookup
+            );
         }
 
         const declaredType = getTypeForDeclaration(resolvedDecl);
@@ -23278,10 +23334,15 @@ export function createTypeEvaluator(
             return UnknownType.create();
         }
 
+        const evalCount = type.shared.inferredReturnType?.evaluationCount ?? 0;
+
         // If the return type has already been lazily evaluated,
         // don't bother computing it again.
-        if (type.priv.inferredReturnType && !type.priv.inferredReturnType.isIncomplete) {
-            returnType = type.priv.inferredReturnType.type;
+        if (type.shared.inferredReturnType && !type.shared.inferredReturnType.isIncomplete) {
+            returnType = type.shared.inferredReturnType.type;
+        } else if (evalCount > maxReturnTypeInferenceAttempts) {
+            // Detect a case where a return type won't converge because of recursion.
+            returnType = UnknownType.create();
         } else {
             // Don't bother inferring the return type of __init__ because it's
             // always None.
@@ -23339,7 +23400,7 @@ export function createTypeEvaluator(
             returnType = makeTypeVarsFree(returnType, typeVarScopes);
 
             // Cache the type for next time.
-            type.priv.inferredReturnType = { type: returnType, isIncomplete };
+            type.shared.inferredReturnType = { type: returnType, isIncomplete, evaluationCount: evalCount + 1 };
         }
 
         // If the type is partially unknown and the function has one or more unannotated
@@ -27240,12 +27301,12 @@ export function createTypeEvaluator(
         // with the declared type. In strict mode, this will retain the "unknown type"
         // diagnostics while still providing reasonable completion suggestions.
         if (isIncompleteUnknown(narrowedType)) {
-            return { type: narrowedType };
+            return { type: narrowedType, isIncomplete: assignedTypeResult.isIncomplete };
         } else if (isUnknown(narrowedType)) {
-            return { type: combineTypes([narrowedType, declaredType]) };
+            return { type: combineTypes([narrowedType, declaredType]), isIncomplete: assignedTypeResult.isIncomplete };
         }
 
-        return { type: narrowedType };
+        return { type: narrowedType, isIncomplete: assignedTypeResult.isIncomplete };
     }
 
     function validateOverrideMethod(
@@ -27989,6 +28050,12 @@ export function createTypeEvaluator(
             // first parameter. This is used in cases like constructors.
             if (!baseType) {
                 return FunctionType.clone(functionType, /* stripFirstParam */ true);
+            }
+
+            // If the first parameter was already stripped, it has already been
+            // bound. Don't attempt to rebind.
+            if (functionType.priv.strippedFirstParamType) {
+                return functionType;
             }
 
             if (FunctionType.isInstanceMethod(functionType)) {
