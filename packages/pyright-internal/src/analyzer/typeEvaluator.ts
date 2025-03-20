@@ -293,7 +293,6 @@ import {
     combineVariances,
     computeMroLinearization,
     containsAnyOrUnknown,
-    containsAnyRecursive,
     containsLiteralType,
     convertToInstance,
     convertToInstantiable,
@@ -3568,7 +3567,7 @@ export function createTypeEvaluator(
                 destType = declaredType;
             } else {
                 // Constrain the resulting type to match the declared type.
-                destType = narrowTypeBasedOnAssignment(nameNode, declaredType, typeResult).type;
+                destType = narrowTypeBasedOnAssignment(declaredType, typeResult).type;
             }
         } else {
             // If this is a member name (within a class scope) and the member name
@@ -4448,7 +4447,7 @@ export function createTypeEvaluator(
                             // is a enum because the annotated type in an enum doesn't reflect
                             // the type of the symbol.
                             if (!isClassInstance(typeResult.type) || !ClassType.isEnumClass(typeResult.type)) {
-                                typeResult = narrowTypeBasedOnAssignment(target, annotationType, typeResult);
+                                typeResult = narrowTypeBasedOnAssignment(annotationType, typeResult);
                             }
                         }
                     }
@@ -6344,7 +6343,7 @@ export function createTypeEvaluator(
                 // descriptor-based accesses.
                 narrowedTypeForSet = isDescriptorApplied
                     ? usage.setType.type
-                    : narrowTypeBasedOnAssignment(errorNode, type, usage.setType).type;
+                    : narrowTypeBasedOnAssignment(type, usage.setType).type;
             }
 
             // Verify that the assigned type is compatible.
@@ -27086,108 +27085,9 @@ export function createTypeEvaluator(
         return canAssign;
     }
 
-    // If the declaredType contains type arguments that are "Any" and
-    // the corresponding type argument in the assignedType is not "Any",
-    // replace that type argument in the assigned type. This function assumes
-    // that the caller has already verified that the assignedType is assignable
-    // to the declaredType.
-    function replaceTypeArgsWithAny(
-        node: ExpressionNode,
-        declaredType: ClassType,
-        assignedType: ClassType,
-        recursionCount = 0
-    ): ClassType | undefined {
-        if (recursionCount > maxTypeRecursionCount) {
-            return undefined;
-        }
-        recursionCount++;
-
-        if (
-            assignedType.shared.typeParams.length > 0 &&
-            assignedType.priv.typeArgs &&
-            assignedType.priv.typeArgs.length <= assignedType.shared.typeParams.length &&
-            !assignedType.priv.tupleTypeArgs
-        ) {
-            const constraints = new ConstraintTracker();
-            addConstraintsForExpectedType(
-                evaluatorInterface,
-                ClassType.specialize(assignedType, /* typeArgs */ undefined),
-                declaredType,
-                constraints,
-                ParseTreeUtils.getTypeVarScopesForNode(node),
-                node.start
-            );
-
-            let replacedTypeArg = false;
-            const solution = solveConstraints(evaluatorInterface, constraints).getMainSolutionSet();
-
-            const newTypeArgs = assignedType.priv.typeArgs.map((typeArg, index) => {
-                const typeParam = assignedType.shared.typeParams[index];
-                const expectedTypeArgType = solution.getType(typeParam);
-
-                if (expectedTypeArgType) {
-                    if (isAnyOrUnknown(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
-                        replacedTypeArg = true;
-                        return expectedTypeArgType;
-                    }
-
-                    if (isClassInstance(expectedTypeArgType) && isClassInstance(typeArg)) {
-                        // Recursively replace Any in the type argument.
-                        const recursiveReplacement = replaceTypeArgsWithAny(
-                            node,
-                            expectedTypeArgType,
-                            typeArg,
-                            recursionCount
-                        );
-
-                        if (recursiveReplacement) {
-                            replacedTypeArg = true;
-                            return recursiveReplacement;
-                        }
-                    } else if (containsAnyRecursive(expectedTypeArgType)) {
-                        // If the expected type arg contains an Any, we can replace it with
-                        // a version that doesn't contain Any if the replacement doesn't violate
-                        // the variance of the type parameter.
-                        const variance = TypeVarType.getVariance(typeParam);
-                        const isSubtype = assignType(expectedTypeArgType, typeArg);
-                        const isSupertype = assignType(typeArg, expectedTypeArgType);
-
-                        if (
-                            (variance === Variance.Contravariant || isSubtype) &&
-                            (variance === Variance.Covariant || isSupertype)
-                        ) {
-                            replacedTypeArg = true;
-                            return expectedTypeArgType;
-                        }
-                    }
-                }
-
-                return typeArg;
-            });
-
-            if (replacedTypeArg) {
-                return ClassType.specialize(assignedType, newTypeArgs);
-            }
-        }
-
-        // If the declared and assigned types are the same generic type but the assigned type
-        // contains one or more unknowns, use the declared type instead.
-        if (ClassType.isSameGenericClass(declaredType, assignedType)) {
-            if (containsAnyRecursive(assignedType) && !containsAnyRecursive(declaredType)) {
-                return declaredType;
-            }
-        }
-
-        return undefined;
-    }
-
     // When a value is assigned to a variable with a declared type,
     // we may be able to narrow the type based on the assignment.
-    function narrowTypeBasedOnAssignment(
-        node: ExpressionNode,
-        declaredType: Type,
-        assignedTypeResult: TypeResult
-    ): TypeResult {
+    function narrowTypeBasedOnAssignment(declaredType: Type, assignedTypeResult: TypeResult): TypeResult {
         // TODO: The rules for narrowing types on assignment are not defined in
         // the typing spec. Pyright's current logic is currently not even internally
         // consistent and probably not sound from a type theory perspective. It
@@ -27205,59 +27105,43 @@ export function createTypeEvaluator(
             }
 
             const narrowedSubtype = mapSubtypes(declaredType, (declaredSubtype) => {
-                // We can't narrow "Any".
-                if (isAnyOrUnknown(declaredSubtype)) {
-                    return declaredSubtype;
+                if (!assignType(declaredSubtype, assignedSubtype)) {
+                    return undefined;
                 }
 
-                if (assignType(declaredSubtype, assignedSubtype)) {
-                    // If the assigned subtype is Any, stick with the declared type.
-                    if (isAny(assignedSubtype)) {
-                        return declaredSubtype;
-                    }
-
-                    if (
-                        isClass(declaredSubtype) &&
-                        isClass(assignedSubtype) &&
-                        TypeBase.isInstance(declaredSubtype) === TypeBase.isInstance(assignedSubtype)
-                    ) {
-                        const result = replaceTypeArgsWithAny(node, declaredSubtype, assignedSubtype);
-                        if (result) {
-                            assignedSubtype = result;
-                        }
-                        return assignedSubtype;
-                    }
-
-                    if (
-                        !isTypeVar(declaredSubtype) &&
-                        isTypeVar(assignedSubtype) &&
-                        !TypeVarType.isBound(assignedSubtype)
-                    ) {
-                        // If the source is an unsolved TypeVar but the declared type is concrete,
-                        // use the concrete type.
-                        return declaredSubtype;
-                    }
-
-                    // If the declared type doesn't contain any `Any` but the assigned
-                    // type does, stick with the declared type. We don't include unknowns
-                    // in the assigned subtype check here so unknowns are preserved so
-                    // reportUnknownVariableType assignment diagnostics are reported.
-
-                    // TODO - this is an inconsistency because Any and Unknown should
-                    // always be treated the same for purposes of type narrowing. This
-                    // should be revisited once the narrowing-on-assignment behavior
-                    // is properly specified in the typing spec.
-                    if (
-                        containsAnyRecursive(assignedSubtype, /* includeUnknown */ false) &&
-                        !containsAnyRecursive(declaredSubtype)
-                    ) {
-                        return declaredSubtype;
-                    }
-
+                // Retain unknowns for code flow analysis convergence and for
+                // unknown type reporting in strict mode.
+                if (isUnknown(assignedSubtype)) {
                     return assignedSubtype;
                 }
 
-                return undefined;
+                // If the two types are bidirectionally assignable, they are
+                // either equivalent (in which case it doesn't matter which
+                // one we choose) or one or both include gradual types (Any, etc.),
+                // in which case we'll want to stick with the declared subtype.
+                if (assignType(assignedSubtype, declaredSubtype)) {
+                    // We need to be careful with TypedDict types that have
+                    // narrowed fields. In this case, we want to return the
+                    // assigned type.
+                    if (
+                        isClass(assignedSubtype) &&
+                        assignedSubtype.priv.typedDictNarrowedEntries &&
+                        isTypeSame(assignedSubtype, declaredSubtype, { ignoreTypedDictNarrowEntries: true })
+                    ) {
+                        return assignedSubtype;
+                    }
+
+                    // We also need to be careful with callback protocols.
+                    if (isClassInstance(declaredSubtype) && ClassType.isProtocolClass(declaredSubtype)) {
+                        if (isFunction(assignedSubtype) || isOverloaded(assignedSubtype)) {
+                            return assignedSubtype;
+                        }
+                    }
+
+                    return declaredSubtype;
+                }
+
+                return assignedSubtype;
             });
 
             // If we couldn't assign the assigned subtype any of the declared
