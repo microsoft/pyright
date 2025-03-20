@@ -28015,6 +28015,25 @@ export function createTypeEvaluator(
                 } else {
                     const subDiag = diag?.createAddendum();
 
+                    // Protect against the case where a callback protocol is being
+                    // bound to its own __call__ method but the first parameter
+                    // is annotated with its own callable type. This can lead to
+                    // infinite recursion.
+                    if (isFunction(memberTypeFirstParamType) || isOverloaded(memberTypeFirstParamType)) {
+                        if (isClassInstance(firstParamType) && ClassType.isProtocolClass(firstParamType)) {
+                            if (subDiag) {
+                                subDiag.addMessage(
+                                    LocMessage.bindTypeMismatch().format({
+                                        type: printType(firstParamType),
+                                        methodName: memberType.shared.name || '<anonymous>',
+                                        paramName: memberTypeFirstParam.name || '__p0',
+                                    })
+                                );
+                            }
+                            return undefined;
+                        }
+                    }
+
                     if (
                         !assignType(
                             memberTypeFirstParamType,
