@@ -6,6 +6,7 @@
  * Utility functions for parameters.
  */
 
+import { assert } from '../common/debug';
 import { ParamCategory } from '../parser/parseNodes';
 import { isDunderName } from './symbolNameUtils';
 import {
@@ -407,4 +408,79 @@ export function isParamSpecKwargs(paramSpec: TypeVarType, argType: Type) {
     });
 
     return isCompatible;
+}
+
+export interface ParamAssignmentInfo {
+    paramDetails: VirtualParamDetails;
+    keywordName?: string;
+    argsNeeded: number;
+    argsReceived: number;
+}
+
+// A class that tracks which parameters in a signature
+// have been assigned arguments.
+export class ParamAssignmentTracker {
+    params: ParamAssignmentInfo[];
+
+    constructor(paramInfos: VirtualParamDetails[]) {
+        this.params = paramInfos.map((p) => {
+            const argsNeeded = !!p.defaultType || p.param.category !== ParamCategory.Simple ? 0 : 1;
+            return { paramDetails: p, argsNeeded, argsReceived: 0 };
+        });
+    }
+
+    // Add a virtual keyword parameter for a keyword argument that
+    // targets a **kwargs parameter. This allows us to detect duplicate
+    // keyword arguments.
+    addKeywordParam(name: string, info: VirtualParamDetails): void {
+        this.params.push({
+            paramDetails: info,
+            keywordName: name,
+            argsNeeded: 1,
+            argsReceived: 1,
+        });
+    }
+
+    lookupName(name: string): ParamAssignmentInfo | undefined {
+        return this.params.find((p) => {
+            // Don't return positional parameters because their names are irrelevant.
+            const kind = p.paramDetails.kind;
+            if (kind === ParamKind.Positional || kind === ParamKind.ExpandedArgs) {
+                return false;
+            }
+
+            const effectiveName = p.keywordName ?? p.paramDetails.param.name;
+            return effectiveName === name;
+        });
+    }
+
+    lookupDetails(paramInfo: VirtualParamDetails): ParamAssignmentInfo {
+        const info = this.params.find((p) => p.paramDetails === paramInfo);
+        assert(info !== undefined);
+        return info;
+    }
+
+    markArgReceived(paramInfo: VirtualParamDetails) {
+        const entry = this.lookupDetails(paramInfo);
+        entry.argsReceived++;
+    }
+
+    // Returns a list of params that have not received their
+    // required number of arguments.
+    getUnassignedParams(): string[] {
+        const unassignedParams: string[] = [];
+        this.params.forEach((p) => {
+            if (!p.paramDetails.param.name) {
+                return;
+            }
+
+            if (p.argsReceived >= p.argsNeeded) {
+                return;
+            }
+
+            unassignedParams.push(p.paramDetails.param.name);
+        });
+
+        return unassignedParams;
+    }
 }
