@@ -2,7 +2,7 @@
 # a *args parameter.
 
 
-from typing import Iterable, Tuple, TypeVar, overload
+from typing import Any, Iterable, Tuple, TypeVar, overload
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
@@ -91,3 +91,17 @@ def test4(v: list[tuple[int, str]]):
 
     z3 = zip(v[0], v[1])
     reveal_type(z3, expected_text="zip[tuple[int | str, int | str]]")
+
+
+@overload
+def func4() -> tuple[()]: ...
+@overload
+def func4[T](**kwargs: T) -> tuple[T, ...]: ...
+def func4(**kwargs: Any) -> tuple[Any, ...]: ...
+
+
+def test5():
+    v1 = func4(**{"a": 1})
+    reveal_type(v1, expected_text="tuple[int, ...]")
+    v2 = func4()
+    reveal_type(v2, expected_text="tuple[()]")
