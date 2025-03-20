@@ -9913,6 +9913,7 @@ export function createTypeEvaluator(
                 if (isNoneInstance(expandedCallType)) {
                     addDiagnostic(DiagnosticRule.reportOptionalCall, LocMessage.noneNotCallable(), errorNode);
 
+                    touchArgTypes();
                     return { argumentErrors: true };
                 }
 
@@ -9958,6 +9959,7 @@ export function createTypeEvaluator(
             case TypeCategory.Module: {
                 addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.moduleNotCallable(), errorNode);
 
+                touchArgTypes();
                 return { argumentErrors: true };
             }
         }
