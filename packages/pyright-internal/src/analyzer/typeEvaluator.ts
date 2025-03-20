@@ -156,6 +156,7 @@ import {
     getParamListDetails,
     isParamSpecArgs,
     isParamSpecKwargs,
+    ParamAssignmentTracker,
     ParamKind,
     ParamListDetails,
     VirtualParamDetails,
@@ -424,11 +425,6 @@ interface AliasMapEntry {
 interface AssignClassToSelfInfo {
     class: ClassType;
     assumedVariance: Variance;
-}
-
-interface ParamAssignmentInfo {
-    argsNeeded: number;
-    argsReceived: number;
 }
 
 interface MatchedOverloadInfo {
@@ -10689,20 +10685,8 @@ export function createTypeEvaluator(
         // Expand any unpacked tuples in the arg list.
         argList = expandArgList(argList);
 
-        // Build a map of parameters by name.
-        const paramMap = new Map<string, ParamAssignmentInfo>();
-        paramDetails.params.forEach((paramInfo) => {
-            assert(paramInfo !== undefined, 'paramInfo is undefined for param name map');
-            const param = paramInfo.param;
-
-            if (param.name && param.category === ParamCategory.Simple && paramInfo.kind !== ParamKind.Positional) {
-                let argsNeeded = paramMap.get(param.name)?.argsNeeded ?? 0;
-                if (param.category === ParamCategory.Simple && !paramInfo.defaultType) {
-                    argsNeeded += 1;
-                }
-                paramMap.set(param.name, { argsNeeded, argsReceived: 0 });
-            }
-        });
+        // Construct an object that racks which parameters have been assigned arguments.
+        const paramTracker = new ParamAssignmentTracker(paramDetails.params);
 
         let positionalOnlyLimitIndex = paramDetails.positionOnlyParamCount;
         let positionParamLimitIndex = paramDetails.firstKeywordOnlyIndex ?? paramDetails.params.length;
@@ -11020,12 +11004,8 @@ export function createTypeEvaluator(
                 trySetActive(argList[argIndex], paramDetails.params[paramIndex].param);
 
                 // Note that the parameter has received an argument.
-                if (
-                    paramName &&
-                    paramDetails.params[paramIndex].param.category === ParamCategory.Simple &&
-                    paramMap.has(paramName)
-                ) {
-                    paramMap.get(paramName)!.argsReceived++;
+                if (paramName && paramDetails.params[paramIndex].param.category === ParamCategory.Simple) {
+                    paramTracker.markArgReceived(paramInfo);
                 }
 
                 if (advanceToNextArg || paramDetails.params[paramIndex].param.category === ParamCategory.ArgsList) {
@@ -11110,9 +11090,7 @@ export function createTypeEvaluator(
                 trySetActive(argList[argIndex], paramInfo.param);
 
                 // Note that the parameter has received an argument.
-                if (paramName && paramMap.has(paramName) && paramInfo.kind !== ParamKind.Positional) {
-                    paramMap.get(paramName)!.argsReceived++;
-                }
+                paramTracker.markArgReceived(paramInfo);
 
                 argIndex++;
                 paramIndex++;
@@ -11210,7 +11188,7 @@ export function createTypeEvaluator(
                         const diag = new DiagnosticAddendum();
 
                         tdEntries.knownItems.forEach((entry, name) => {
-                            const paramEntry = paramMap.get(name);
+                            const paramEntry = paramTracker.lookupName(name);
                             if (paramEntry) {
                                 if (paramEntry.argsReceived > 0) {
                                     diag.addMessage(LocMessage.paramAlreadyAssigned().format({ name }));
@@ -11250,10 +11228,7 @@ export function createTypeEvaluator(
                                 });
 
                                 // Remember that this parameter has already received a value.
-                                paramMap.set(name, {
-                                    argsNeeded: 1,
-                                    argsReceived: 1,
-                                });
+                                paramTracker.addKeywordParam(name, paramDetails.params[paramDetails.kwargsIndex]);
                             } else {
                                 // If the function doesn't have a **kwargs parameter, we need to emit an error.
                                 // However, it's possible that there was a **kwargs but it was eliminated by
@@ -11393,7 +11368,7 @@ export function createTypeEvaluator(
                     const paramName = argList[argIndex].name;
                     if (paramName) {
                         const paramNameValue = paramName.d.value;
-                        const paramEntry = paramMap.get(paramNameValue);
+                        const paramEntry = paramTracker.lookupName(paramNameValue);
 
                         if (paramEntry) {
                             if (paramEntry.argsReceived > 0) {
@@ -11449,14 +11424,15 @@ export function createTypeEvaluator(
                                     paramName: paramNameValue,
                                 });
 
-                                // Remember that this parameter has already received a value.
-                                paramMap.set(paramNameValue, {
-                                    argsNeeded: 1,
-                                    argsReceived: 1,
-                                });
                                 assert(
                                     paramDetails.params[paramDetails.kwargsIndex],
                                     'paramDetails.kwargsIndex params entry is undefined'
+                                );
+
+                                // Remember that this parameter has already received a value.
+                                paramTracker.addKeywordParam(
+                                    paramNameValue,
+                                    paramDetails.params[paramDetails.kwargsIndex]
                                 );
                             }
                             trySetActive(argList[argIndex], paramDetails.params[paramDetails.kwargsIndex].param);
@@ -11527,8 +11503,7 @@ export function createTypeEvaluator(
                         paramIndex >= paramDetails.firstPositionOrKeywordIndex &&
                         param.category === ParamCategory.Simple &&
                         param.name &&
-                        paramMap.has(param.name) &&
-                        paramMap.get(param.name)!.argsReceived === 0
+                        paramTracker.lookupDetails(paramInfo).argsReceived === 0
                     ) {
                         const paramType = paramDetails.params[paramIndex].type;
 
@@ -11548,7 +11523,7 @@ export function createTypeEvaluator(
                                 isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
                             });
 
-                            paramMap.get(param.name)!.argsReceived = 1;
+                            paramTracker.markArgReceived(paramDetails.params[paramIndex]);
                         }
                     }
                 });
@@ -11559,10 +11534,7 @@ export function createTypeEvaluator(
             // (i.e. an arg starting with a "**"), we will assume that all parameters
             // are matched.
             if (!unpackedDictArgType && !FunctionType.isDefaultParamCheckDisabled(overload)) {
-                const unassignedParams = Array.from(paramMap.keys()).filter((name) => {
-                    const entry = paramMap.get(name)!;
-                    return !entry || entry.argsReceived < entry.argsNeeded;
-                });
+                const unassignedParams = paramTracker.getUnassignedParams();
 
                 if (unassignedParams.length > 0) {
                     if (!canSkipDiagnosticForNode(errorNode)) {
@@ -11588,9 +11560,9 @@ export function createTypeEvaluator(
                 paramDetails.params.forEach((paramInfo) => {
                     const param = paramInfo.param;
                     if (param.category === ParamCategory.Simple && param.name) {
-                        const entry = paramMap.get(param.name);
+                        const entry = paramTracker.lookupDetails(paramInfo);
 
-                        if (entry && entry.argsNeeded === 0 && entry.argsReceived === 0) {
+                        if (entry.argsNeeded === 0 && entry.argsReceived === 0) {
                             const defaultArgType = paramInfo.defaultType;
 
                             if (
