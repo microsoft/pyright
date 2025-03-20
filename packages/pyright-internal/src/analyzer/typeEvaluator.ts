@@ -388,9 +388,11 @@ interface MatchArgsToParamsResult {
     paramSpecTarget?: ParamSpecType | undefined;
     paramSpecArgList?: Arg[] | undefined;
 
-    // A higher relevance means that it should be considered
-    // first, before lower relevance overloads.
-    relevance: number;
+    // Was there an unpacked argument of unknown length?
+    unpackedArgOfUnknownLength?: boolean;
+
+    // Did that unpacked argument map to a variadic parameter?
+    unpackedArgMapsToVariadic?: boolean;
 
     // A score that indicates how well the overload matches with
     // supplied arguments. Used to pick the "best" for purposes
@@ -9153,7 +9155,7 @@ export function createTypeEvaluator(
         inferenceContext: InferenceContext | undefined
     ): CallResult {
         const returnTypes: Type[] = [];
-        const matchedOverloads: MatchedOverloadInfo[] = [];
+        let matchedOverloads: MatchedOverloadInfo[] = [];
         let isTypeIncomplete = false;
         let overloadsUsedForCall: FunctionType[] = [];
         let isDefinitiveMatchFound = false;
@@ -9215,10 +9217,13 @@ export function createTypeEvaluator(
                     };
                     matchedOverloads.push(matchedOverloadInfo);
 
-                    if (callResult.anyOrUnknownArg) {
+                    if (callResult.anyOrUnknownArg || matchResults.unpackedArgOfUnknownLength) {
                         possibleMatchResults.push(matchedOverloadInfo);
-                        if (isIncompleteUnknown(callResult.anyOrUnknownArg)) {
-                            possibleMatchInvolvesIncompleteUnknown = true;
+
+                        if (callResult.anyOrUnknownArg) {
+                            if (isIncompleteUnknown(callResult.anyOrUnknownArg)) {
+                                possibleMatchInvolvesIncompleteUnknown = true;
+                            }
                         }
                     } else {
                         returnTypes.push(callResult.returnType);
@@ -9234,12 +9239,14 @@ export function createTypeEvaluator(
             // Unknown, but include the "possible types" to allow for completion
             // suggestions.
             if (!isDefinitiveMatchFound && possibleMatchResults.length > 0) {
+                possibleMatchResults = filterOverloadMatchesForUnpackedArgs(possibleMatchResults);
                 possibleMatchResults = filterOverloadMatchesForAnyArgs(possibleMatchResults);
 
                 // Did the filtering produce a single result? If so, we're done.
                 if (possibleMatchResults.length === 1) {
                     overloadsUsedForCall = [possibleMatchResults[0].overload];
                     returnTypes.push(possibleMatchResults[0].returnType);
+                    matchedOverloads = [possibleMatchResults[0]];
                 } else {
                     // Eliminate any return types that are subsumed by other return types.
                     let dedupedMatchResults: Type[] = [];
@@ -9338,22 +9345,28 @@ export function createTypeEvaluator(
         };
     }
 
-    // This function determines whether multiple incompatible overloads match
-    // due to an Any or Unknown argument type.
-    function filterOverloadMatchesForAnyArgs(matches: MatchedOverloadInfo[]): MatchedOverloadInfo[] {
+    // Determines whether one or more overloads can be eliminated because they
+    // rely on an unpacked argument of unknown length when there is at least
+    // one overload that doesn't because it maps to an *args parameter.
+    function filterOverloadMatchesForUnpackedArgs(matches: MatchedOverloadInfo[]): MatchedOverloadInfo[] {
         if (matches.length < 2) {
             return matches;
         }
 
-        // If the relevance of some matches differs, filter out the ones that
-        // are lower relevance. This favors *args parameters in cases where
-        // a *args argument is used.
-        if (matches[0].matchResults.relevance !== matches[matches.length - 1].matchResults.relevance) {
-            matches = matches.filter((m) => m.matchResults.relevance === matches[0].matchResults.relevance);
+        // Is there at least one overload that relies on unpacked args for a match?
+        const unpackedArgsOverloads = matches.filter((match) => match.matchResults.unpackedArgMapsToVariadic);
+        if (unpackedArgsOverloads.length === matches.length || unpackedArgsOverloads.length === 0) {
+            return matches;
+        }
 
-            if (matches.length < 2) {
-                return matches;
-            }
+        return unpackedArgsOverloads;
+    }
+
+    // Determines whether multiple incompatible overloads match
+    // due to an Any or Unknown argument type.
+    function filterOverloadMatchesForAnyArgs(matches: MatchedOverloadInfo[]): MatchedOverloadInfo[] {
+        if (matches.length < 2) {
+            return matches;
         }
 
         // If all of the return types match, select the first one.
@@ -9405,7 +9418,7 @@ export function createTypeEvaluator(
         argList: Arg[]
     ): FunctionType | undefined {
         let overloadIndex = 0;
-        let matches: MatchArgsToParamsResult[] = [];
+        const matches: MatchArgsToParamsResult[] = [];
         const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         useSignatureTracker(errorNode, () => {
@@ -9427,8 +9440,6 @@ export function createTypeEvaluator(
                 });
             });
         });
-
-        matches = sortOverloadsByBestMatch(matches);
 
         let winningOverloadIndex: number | undefined;
 
@@ -9452,17 +9463,6 @@ export function createTypeEvaluator(
         return winningOverloadIndex === undefined ? undefined : matches[winningOverloadIndex].overload;
     }
 
-    // Sorts the list of overloads based first on "relevance" and second on order.
-    function sortOverloadsByBestMatch(matches: MatchArgsToParamsResult[]) {
-        return matches.sort((a, b) => {
-            if (a.relevance !== b.relevance) {
-                return b.relevance - a.relevance;
-            }
-
-            return a.overloadIndex - b.overloadIndex;
-        });
-    }
-
     function validateOverloadedArgTypes(
         errorNode: ExpressionNode,
         argList: Arg[],
@@ -9471,7 +9471,7 @@ export function createTypeEvaluator(
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
-        let filteredMatchResults: MatchArgsToParamsResult[] = [];
+        const filteredMatchResults: MatchArgsToParamsResult[] = [];
         let contextFreeArgTypes: Type[] | undefined;
         let isTypeIncomplete = !!typeResult.isIncomplete;
         const type = typeResult.type;
@@ -9502,8 +9502,6 @@ export function createTypeEvaluator(
                 overloadIndex++;
             });
         });
-
-        filteredMatchResults = sortOverloadsByBestMatch(filteredMatchResults);
 
         // If there are no possible arg/param matches among the overloads,
         // emit an error that includes the argument types.
@@ -10677,7 +10675,8 @@ export function createTypeEvaluator(
         const paramSpec = FunctionType.getParamSpecFromArgsKwargs(overload);
 
         let argIndex = 0;
-        let matchedUnpackedListOfUnknownLength = false;
+        let unpackedArgOfUnknownLength = false;
+        let unpackedArgMapsToVariadic = false;
         let reportedArgError = false;
         let isTypeIncomplete = !!typeResult.isIncomplete;
         let isTypeVarTupleFullyMatched = false;
@@ -10829,6 +10828,8 @@ export function createTypeEvaluator(
                             argType.priv.tupleTypeArgs.length > 0
                         ) {
                             tooManyPositionals = true;
+                        } else {
+                            unpackedArgOfUnknownLength = true;
                         }
                     } else {
                         tooManyPositionals = true;
@@ -10946,8 +10947,10 @@ export function createTypeEvaluator(
                         enforceIterable = true;
                     }
 
+                    unpackedArgOfUnknownLength = true;
+
                     if (paramInfo.param.category === ParamCategory.ArgsList) {
-                        matchedUnpackedListOfUnknownLength = true;
+                        unpackedArgMapsToVariadic = true;
                     }
 
                     if (isParamVariadic && listElementType) {
@@ -11332,6 +11335,8 @@ export function createTypeEvaluator(
                                 }
                             }
 
+                            unpackedArgOfUnknownLength = true;
+
                             if (paramDetails.kwargsIndex !== undefined && unpackedDictArgType) {
                                 const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
                                 validateArgTypeParams.push({
@@ -11343,6 +11348,8 @@ export function createTypeEvaluator(
                                     errorNode: argList[argIndex].valueExpression || errorNode,
                                     paramName: paramDetails.params[paramDetails.kwargsIndex].param.name,
                                 });
+
+                                unpackedArgMapsToVariadic = true;
                             }
 
                             if (!isValidMappingType) {
@@ -11681,14 +11688,6 @@ export function createTypeEvaluator(
             }
         }
 
-        let relevance = 0;
-        if (matchedUnpackedListOfUnknownLength) {
-            // Increase the relevance if we made assumptions about the length
-            // of an unpacked argument. This will favor overloads that
-            // associate this case with a *args parameter.
-            relevance++;
-        }
-
         // Special-case the builtin isinstance and issubclass functions.
         if (FunctionType.isBuiltIn(overload, ['isinstance', 'issubclass']) && validateArgTypeParams.length === 2) {
             validateArgTypeParams[1].isinstanceParam = true;
@@ -11703,7 +11702,8 @@ export function createTypeEvaluator(
             paramSpecTarget,
             paramSpecArgList,
             activeParam,
-            relevance,
+            unpackedArgOfUnknownLength,
+            unpackedArgMapsToVariadic,
             argumentMatchScore: 0,
         };
     }
