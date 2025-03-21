@@ -12,6 +12,7 @@
 // @filename: testLib/__init__.py
 // @library: true
 //// from .module1 import one as one, two, three
+//// from ._module2 import ten as ten
 //// four: int = two * two
 //// _five: int = two + three
 //// _six: int = 6
@@ -22,6 +23,10 @@
 //// one: int = 1
 //// two: int = 2
 //// three: int = 3
+
+// @filename: testLib/_module2/__init__.py
+// @library: true
+//// ten: int = 10
 
 // @filename: .src/test1.py
 //// # pyright: reportPrivateUsage=true, reportPrivateImportUsage=true
@@ -38,6 +43,12 @@
 //// testLib.four
 //// testLib.[|/*marker6*/_five|]
 //// testLib._six
+////
+//// from testLib._module2 import [|/*marker7*/ten|]
+//// from testLib import ten
+//// import testLib._module2
+//// testLib.ten
+//// testLib._module2.[|/*marker8*/ten|]
 
 // @ts-ignore
 await helper.verifyDiagnostics({
@@ -61,5 +72,13 @@ await helper.verifyDiagnostics({
     marker6: {
         category: 'error',
         message: `"_five" is private and used outside of the module in which it is declared`,
+    },
+    marker7: {
+        category: 'error',
+        message: `"ten" is not exported from module "testLib._module2"`,
+    },
+    marker8: {
+        category: 'error',
+        message: `"ten" is not exported from module "testLib._module2"`,
     },
 });
