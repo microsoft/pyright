@@ -5857,8 +5857,9 @@ export function createTypeEvaluator(
                             if (isModuleGetAttrSupported) {
                                 const getAttrTypeResult = getEffectiveTypeOfSymbolForUsage(getAttrSymbol);
                                 if (isFunction(getAttrTypeResult.type)) {
-                                    type = getEffectiveReturnType(getAttrTypeResult.type);
-                                    if (getAttrTypeResult.isIncomplete) {
+                                    const returnTypeResult = getEffectiveReturnTypeResult(getAttrTypeResult.type);
+                                    type = returnTypeResult.type;
+                                    if (getAttrTypeResult.isIncomplete || returnTypeResult.isIncomplete) {
                                         isIncomplete = true;
                                     }
                                 }
@@ -12091,9 +12092,13 @@ export function createTypeEvaluator(
         }
 
         // Calculate the return type.
-        let returnType = getEffectiveReturnType(type, {
+        const returnTypeResult = getEffectiveReturnTypeResult(type, {
             callSiteInfo: { args: matchResults.argParams, errorNode },
         });
+        let returnType = returnTypeResult.type;
+        if (returnTypeResult.isIncomplete) {
+            isTypeIncomplete = true;
+        }
 
         if (condition.length > 0) {
             returnType = TypeBase.cloneForCondition(returnType, condition);
@@ -23273,38 +23278,46 @@ export function createTypeEvaluator(
         }
     }
 
+    function getEffectiveReturnType(type: FunctionType): Type {
+        return getEffectiveReturnTypeResult(type).type;
+    }
+
+    function getInferredReturnType(type: FunctionType): Type {
+        return getInferredReturnTypeResult(type).type;
+    }
+
     // Returns the return type of the function. If the type is explicitly provided in
     // a type annotation, that type is returned. If not, an attempt is made to infer
     // the return type. If a list of args is provided, the inference logic may take
     // into account argument types to infer the return type.
-    function getEffectiveReturnType(type: FunctionType, options?: EffectiveReturnTypeOptions): Type {
+    function getEffectiveReturnTypeResult(type: FunctionType, options?: EffectiveReturnTypeOptions): TypeResult {
         const specializedReturnType = FunctionType.getEffectiveReturnType(type, /* includeInferred */ false);
         if (specializedReturnType && !isUnknown(specializedReturnType)) {
-            return specializedReturnType;
+            return { type: specializedReturnType };
         }
 
-        return getInferredReturnType(type, options?.callSiteInfo);
+        return getInferredReturnTypeResult(type, options?.callSiteInfo);
     }
 
-    function _getInferredReturnType(type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) {
+    function _getInferredReturnTypeResult(type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo): TypeResult {
         let returnType: Type | undefined;
         let isIncomplete = false;
         const analyzeUnannotatedFunctions = true;
 
         // Don't attempt to infer the return type for a stub file.
         if (FunctionType.isStubDefinition(type)) {
-            return UnknownType.create();
+            return { type: UnknownType.create() };
         }
 
         // Don't infer the return type for a ParamSpec value.
         if (FunctionType.isParamSpecValue(type)) {
-            return UnknownType.create();
+            return { type: UnknownType.create() };
         }
 
         // Don't infer the return type for an overloaded function (unless it's synthesized,
         // which is needed for proper operation of the __get__ method in properties).
         if (FunctionType.isOverloaded(type) && !FunctionType.isSynthesizedMethod(type)) {
-            return UnknownType.create();
+            return { type: UnknownType.create() };
         }
 
         const evalCount = type.shared.inferredReturnType?.evaluationCount ?? 0;
@@ -23416,7 +23429,7 @@ export function createTypeEvaluator(
             }
         }
 
-        return returnType;
+        return { type: returnType, isIncomplete };
     }
 
     function inferReturnTypeForCallSite(type: FunctionType, callSiteInfo: CallSiteEvaluationInfo): Type | undefined {
@@ -28409,7 +28422,7 @@ export function createTypeEvaluator(
     }
 
     // Track these apis internal usages when logging is on. otherwise, it should be noop.
-    const getInferredReturnType = wrapWithLogger(_getInferredReturnType);
+    const getInferredReturnTypeResult = wrapWithLogger(_getInferredReturnTypeResult);
 
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,
