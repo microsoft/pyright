@@ -25654,8 +25654,10 @@ export function createTypeEvaluator(
 
     // Determines whether the two types are potentially comparable -- i.e.
     // their types overlap in such a way that it makes sense for them to
-    // be compared with an == or != operator.
-    function isTypeComparable(leftType: Type, rightType: Type) {
+    // be compared with an == or != operator. The functional also supports
+    // a special variant that can be used for the "is" and "is not" operator.
+    // This variant can be less conservative in some cases.
+    function isTypeComparable(leftType: Type, rightType: Type, assumeIsOperator = false) {
         if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
             return true;
         }
@@ -25705,6 +25707,18 @@ export function createTypeEvaluator(
 
                 if (assignType(genericLeftType, genericRightType) || assignType(genericRightType, genericLeftType)) {
                     return true;
+                }
+
+                // Check for the "is None" or "is not None" case.
+                if (assumeIsOperator && isNoneInstance(rightType)) {
+                    if (isNoneInstance(leftType)) {
+                        return true;
+                    }
+
+                    // The LHS could be a protocol or 'object', in which case None is
+                    // potentially comparable to it. In other cases, None is not comparable
+                    // because the types are disjoint.
+                    return assignType(leftType, rightType);
                 }
 
                 // Assume that if the types are disjoint and built-in classes that they

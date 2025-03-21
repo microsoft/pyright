@@ -2128,6 +2128,7 @@ export class Checker extends ParseTreeWalker {
     // have overlapping types.
     private _validateComparisonTypes(node: BinaryOperationNode) {
         let rightExpression = node.d.rightExpr;
+        const assumeIsOperator = node.d.operator === OperatorType.Is || node.d.operator === OperatorType.IsNot;
 
         // Check for chained comparisons.
         if (
@@ -2203,7 +2204,7 @@ export class Checker extends ParseTreeWalker {
                         return;
                     }
 
-                    if (this._evaluator.isTypeComparable(leftSubtype, rightSubtype)) {
+                    if (this._evaluator.isTypeComparable(leftSubtype, rightSubtype, assumeIsOperator)) {
                         isComparable = true;
                     }
 

@@ -778,7 +778,7 @@ export interface TypeEvaluator {
     getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
     getAbstractSymbols: (classType: ClassType) => AbstractSymbol[];
     narrowConstrainedTypeVar: (node: ParseNode, typeVar: TypeVarType) => Type | undefined;
-    isTypeComparable: (leftType: Type, rightType: Type) => boolean;
+    isTypeComparable: (leftType: Type, rightType: Type, assumeIsOperator?: boolean) => boolean;
 
     assignType: (
         destType: Type,
