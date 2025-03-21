@@ -139,7 +139,7 @@ test('MemberAccess3', () => {
 
 test('MemberAccess4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess4.py']);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('MemberAccess5', () => {
