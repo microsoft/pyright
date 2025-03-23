@@ -16,6 +16,7 @@
 import { assert, fail } from '../common/debug';
 import {
     ArgCategory,
+    AssignmentExpressionNode,
     CallNode,
     CaseNode,
     ExpressionNode,
@@ -54,7 +55,7 @@ export enum FlowFlags {
 
 let _nextFlowNodeId = 1;
 
-export type CodeFlowReferenceExpressionNode = NameNode | MemberAccessNode | IndexNode;
+export type CodeFlowReferenceExpressionNode = NameNode | MemberAccessNode | IndexNode | AssignmentExpressionNode;
 
 export function getUniqueFlowNodeId() {
     return _nextFlowNodeId++;
@@ -176,6 +177,10 @@ export function isCodeFlowSupportedForReference(
         return isCodeFlowSupportedForReference(reference.d.leftExpr);
     }
 
+    if (reference.nodeType === ParseNodeType.AssignmentExpression) {
+        return true;
+    }
+
     if (reference.nodeType === ParseNodeType.Index) {
         // Allow index expressions that have a single subscript that is a
         // literal integer or string value.
@@ -218,6 +223,8 @@ export function createKeyForReference(reference: CodeFlowReferenceExpressionNode
     let key;
     if (reference.nodeType === ParseNodeType.Name) {
         key = reference.d.value;
+    } else if (reference.nodeType === ParseNodeType.AssignmentExpression) {
+        key = reference.d.name.d.value;
     } else if (reference.nodeType === ParseNodeType.MemberAccess) {
         const leftKey = createKeyForReference(reference.d.leftExpr as CodeFlowReferenceExpressionNode);
         key = `${leftKey}.${reference.d.member.d.value}`;
@@ -250,6 +257,10 @@ export function createKeyForReference(reference: CodeFlowReferenceExpressionNode
 export function createKeysForReferenceSubexpressions(reference: CodeFlowReferenceExpressionNode): string[] {
     if (reference.nodeType === ParseNodeType.Name) {
         return [createKeyForReference(reference)];
+    }
+
+    if (reference.nodeType === ParseNodeType.AssignmentExpression) {
+        return [createKeyForReference(reference.d.name)];
     }
 
     if (reference.nodeType === ParseNodeType.MemberAccess) {

@@ -38,6 +38,7 @@ The following expression forms support type narrowing:
 
 * `<ident>` (where `<ident>` is an identifier)
 * `<expr>.<member>` (member access expression where `<expr>` is a supported expression form)
+* `<ident> := <expr>` (assignment expression where `<expr>` is a supported expression form)
 * `<expr>[<int>]` (subscript expression where `<int>` is a non-negative integer)
 * `<expr>[<str>]` (subscript expression where `<str>` is a string literal)
 
