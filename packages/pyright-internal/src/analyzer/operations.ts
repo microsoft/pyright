@@ -1037,7 +1037,7 @@ function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightTyp
                             // infinity, so we need to adjust the result if the signs
                             // of the operands are different.
                             if (leftLiteralValue !== rightLiteralValue) {
-                                if (leftLiteralValue < BigInt(0) !== rightLiteralValue < BigInt(0)) {
+                                if (leftLiteralValue <= BigInt(0) !== rightLiteralValue <= BigInt(0)) {
                                     newValue -= BigInt(1);
                                 }
                             }
