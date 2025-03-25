@@ -2514,31 +2514,41 @@ function narrowTypeForLiteralComparison(
             }
 
             return subtype;
-        } else if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
+        }
+
+        if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
             if (subtype.priv.literalValue !== undefined) {
                 const literalValueMatches = ClassType.isLiteralValueSame(subtype, literalType);
                 if (isPositiveTest) {
                     return literalValueMatches ? subtype : undefined;
-                } else {
-                    const isEnumOrBool = ClassType.isEnumClass(literalType) || ClassType.isBuiltIn(literalType, 'bool');
+                }
 
-                    // For negative tests, we can eliminate the literal value if it doesn't match,
-                    // but only for equality tests or for 'is' tests that involve enums or bools.
-                    return literalValueMatches && (isEnumOrBool || !isIsOperator) ? undefined : subtype;
-                }
-            } else if (isPositiveTest) {
-                return literalType;
-            } else {
-                // If we're able to enumerate all possible literal values
-                // (for bool or enum), we can eliminate all others in a negative test.
-                const allLiteralTypes = enumerateLiteralsForType(evaluator, subtype);
-                if (allLiteralTypes && allLiteralTypes.length > 0) {
-                    return combineTypes(
-                        allLiteralTypes.filter((type) => !ClassType.isLiteralValueSame(type, literalType))
-                    );
-                }
+                const isEnumOrBool = ClassType.isEnumClass(literalType) || ClassType.isBuiltIn(literalType, 'bool');
+
+                // For negative tests, we can eliminate the literal value if it doesn't match,
+                // but only for equality tests or for 'is' tests that involve enums or bools.
+                return literalValueMatches && (isEnumOrBool || !isIsOperator) ? undefined : subtype;
             }
-        } else if (isPositiveTest) {
+
+            if (isPositiveTest) {
+                return literalType;
+            }
+
+            // If we're able to enumerate all possible literal values
+            // (for bool or enum), we can eliminate all others in a negative test.
+            const allLiteralTypes = enumerateLiteralsForType(evaluator, subtype);
+            if (allLiteralTypes && allLiteralTypes.length > 0) {
+                return combineTypes(allLiteralTypes.filter((type) => !ClassType.isLiteralValueSame(type, literalType)));
+            }
+
+            return subtype;
+        }
+
+        if (isPositiveTest) {
+            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'LiteralString')) {
+                return literalType;
+            }
+
             if (isIsOperator || isNoneInstance(subtype)) {
                 const isSubtype = evaluator.assignType(subtype, literalType);
                 return isSubtype ? literalType : undefined;
