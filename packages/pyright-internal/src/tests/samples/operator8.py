@@ -71,6 +71,18 @@ def func1(a: Literal[1, 2], b: Literal[0, 4], c: Literal[3, 4]):
     c10 = 0 // 6
     reveal_type(c10, expected_text="Literal[0]")
 
+    c11 = -6 // 6
+    reveal_type(c11, expected_text="Literal[-1]")
+
+    c12 = 6 // -6
+    reveal_type(c12, expected_text="Literal[-1]")
+
+    c13 = 1 << -1
+    reveal_type(c13, expected_text="int")
+
+    c14 = 1 >> -1
+    reveal_type(c14, expected_text="int")
+
 
 def func2(cond: bool):
     c1 = "Hi " + ("Steve" if cond else "Amy")

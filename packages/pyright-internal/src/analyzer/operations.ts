@@ -1037,7 +1037,10 @@ function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightTyp
                             // infinity, so we need to adjust the result if the signs
                             // of the operands are different.
                             if (leftLiteralValue !== rightLiteralValue && leftLiteralValue !== BigInt(0)) {
-                                if (leftLiteralValue < BigInt(0) !== rightLiteralValue < BigInt(0)) {
+                                if (
+                                    leftLiteralValue < BigInt(0) !== rightLiteralValue < BigInt(0) &&
+                                    leftLiteralValue !== rightLiteralValue * BigInt(-1)
+                                ) {
                                     newValue -= BigInt(1);
                                 }
                             }
@@ -1055,9 +1058,13 @@ function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightTyp
                             }
                         }
                     } else if (operator === OperatorType.LeftShift) {
-                        newValue = leftLiteralValue << rightLiteralValue;
+                        if (rightLiteralValue >= BigInt(0)) {
+                            newValue = leftLiteralValue << rightLiteralValue;
+                        }
                     } else if (operator === OperatorType.RightShift) {
-                        newValue = leftLiteralValue >> rightLiteralValue;
+                        if (rightLiteralValue >= BigInt(0)) {
+                            newValue = leftLiteralValue >> rightLiteralValue;
+                        }
                     } else if (operator === OperatorType.BitwiseAnd) {
                         newValue = leftLiteralValue & rightLiteralValue;
                     } else if (operator === OperatorType.BitwiseOr) {
