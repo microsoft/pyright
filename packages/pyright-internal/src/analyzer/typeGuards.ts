@@ -41,6 +41,7 @@ import {
     FunctionParam,
     FunctionParamFlags,
     FunctionType,
+    FunctionTypeFlags,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -1695,8 +1696,34 @@ function narrowTypeForInstance(
                     } else {
                         filteredTypes.push(convertToInstance(filterType));
                     }
-                } else if (evaluator.assignType(convertToInstance(convertVarTypeToFree(concreteFilterType)), varType)) {
-                    filteredTypes.push(convertToInstance(varType));
+                } else {
+                    const filterTypeInstance = convertToInstance(convertVarTypeToFree(concreteFilterType));
+                    if (evaluator.assignType(filterTypeInstance, varType)) {
+                        filteredTypes.push(convertToInstance(varType));
+                    } else {
+                        // If this is a class instance that's not callable and it's not @final,
+                        // a subclass could be compatible with the filter type.
+                        if (isClassInstance(filterTypeInstance) && !ClassType.isFinal(filterTypeInstance)) {
+                            const gradualFunc = FunctionType.createSynthesizedInstance(
+                                '',
+                                FunctionTypeFlags.GradualCallableForm
+                            );
+                            FunctionType.addDefaultParams(gradualFunc);
+
+                            // If the class is callable (i.e. can be assigned to the generic gradual
+                            // function signature), then the assignment check above didn't fail because
+                            // of a signature mismatch. It failed because the class is not callable.
+                            // We assume therefore that a subclass might be.
+                            if (!evaluator.assignType(gradualFunc, filterTypeInstance)) {
+                                // The resulting type should be an intersection of the filter type and
+                                // the subtype, but we don't have a way to encode that yet. For now,
+                                // we'll use the variable type.
+                                filteredTypes.push(
+                                    addConditionToType(convertToInstance(unexpandedType), getTypeCondition(filterType))
+                                );
+                            }
+                        }
+                    }
                 }
             }
         } else {
