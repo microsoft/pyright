@@ -4,7 +4,7 @@ from typing import ClassVar
 from ..cmd import Command
 
 class install(Command):
-    description: str
+    description: ClassVar[str]
     user_options: ClassVar[list[tuple[str, str | None, str]]]
     boolean_options: ClassVar[list[str]]
     negative_opt: ClassVar[dict[str, str]]
@@ -26,10 +26,10 @@ class install(Command):
     compile: Incomplete
     optimize: Incomplete
     extra_path: Incomplete
-    install_path_file: int
-    force: int
-    skip_build: int
-    warn_dir: int
+    install_path_file: bool
+    force: bool
+    skip_build: bool
+    warn_dir: bool
     build_base: Incomplete
     build_lib: Incomplete
     record: Incomplete

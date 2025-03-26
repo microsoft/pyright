@@ -5,6 +5,7 @@ from typing_extensions import TypeAlias
 from networkx.classes.coreviews import MultiAdjacencyView
 from networkx.classes.graph import Graph, _Node
 from networkx.classes.multidigraph import MultiDiGraph
+from networkx.classes.reportviews import OutMultiEdgeView
 
 _MultiEdge: TypeAlias = tuple[_Node, _Node, int]  # noqa: Y047
 
@@ -23,3 +24,5 @@ class MultiGraph(Graph[_Node]):
     def to_directed(self, as_view: bool = False) -> MultiDiGraph[_Node]: ...
     def to_undirected(self, as_view: bool = False) -> MultiGraph[_Node]: ...
     def number_of_edges(self, u: _Node | None = None, v: _Node | None = None) -> int: ...
+    @cached_property
+    def edges(self) -> OutMultiEdgeView[_Node]: ...

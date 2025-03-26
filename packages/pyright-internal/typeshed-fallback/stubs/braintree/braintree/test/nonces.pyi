@@ -72,6 +72,7 @@ class Nonces:
     TransactablePayroll: Final = "fake-valid-payroll-nonce"
     TransactablePinlessDebitVisa: Final = "fake-pinless-debit-visa-nonce"
     TransactablePrepaid: Final = "fake-valid-prepaid-nonce"
+    TransactablePrepaidReloadable: Final = "fake-valid-prepaid-reloadable-nonce"
     TransactableUnknownIndicators: Final = "fake-valid-unknown-indicators-nonce"
     TransactableVisa: Final = "fake-valid-visa-nonce"
     VenmoAccount: Final = "fake-venmo-account-nonce"

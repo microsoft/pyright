@@ -1,41 +1,51 @@
 from _typeshed import Incomplete
+from collections.abc import Callable
 
+from networkx.classes.digraph import DiGraph
+from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
+from numpy.random import RandomState
 
 @_dispatchable
-def christofides(G, weight: str = "weight", tree: Incomplete | None = None): ...
+def christofides(G: Graph[_Node], weight: str | None = "weight", tree: Graph[_Node] | None = None): ...
 @_dispatchable
 def traveling_salesman_problem(
-    G, weight: str = "weight", nodes: Incomplete | None = None, cycle: bool = True, method: Incomplete | None = None, **kwargs
+    G: Graph[_Node],
+    weight: str = "weight",
+    nodes=None,
+    cycle: bool = True,
+    method: Callable[..., Incomplete] | None = None,
+    **kwargs,
 ): ...
 @_dispatchable
-def asadpour_atsp(G, weight: str = "weight", seed: Incomplete | None = None, source: Incomplete | None = None): ...
+def asadpour_atsp(
+    G: DiGraph[_Node], weight: str | None = "weight", seed: int | RandomState | None = None, source: str | None = None
+): ...
 @_dispatchable
-def greedy_tsp(G, weight: str = "weight", source: Incomplete | None = None): ...
+def greedy_tsp(G: Graph[_Node], weight: str | None = "weight", source=None): ...
 @_dispatchable
 def simulated_annealing_tsp(
-    G,
+    G: Graph[_Node],
     init_cycle,
-    weight: str = "weight",
-    source: Incomplete | None = None,
-    # docstring says int, but it can be a float and does become a float mid-equation if alpha is also a float
-    temp: float = 100,
-    move: str = "1-1",
-    max_iterations: int = 10,
-    N_inner: int = 100,
-    alpha: float = 0.01,
-    seed: Incomplete | None = None,
+    weight: str | None = "weight",
+    source=None,
+    temp: int | None = 100,
+    move="1-1",
+    max_iterations: int | None = 10,
+    N_inner: int | None = 100,
+    alpha=0.01,
+    seed: int | RandomState | None = None,
 ): ...
 @_dispatchable
 def threshold_accepting_tsp(
-    G,
+    G: Graph[_Node],
     init_cycle,
-    weight: str = "weight",
-    source: Incomplete | None = None,
-    threshold: float = 1,
-    move: str = "1-1",
-    max_iterations: int = 10,
-    N_inner: int = 100,
-    alpha: float = 0.1,
-    seed: Incomplete | None = None,
+    weight: str | None = "weight",
+    source=None,
+    threshold: int | None = 1,
+    move="1-1",
+    max_iterations: int | None = 10,
+    N_inner: int | None = 100,
+    alpha=0.1,
+    seed: int | RandomState | None = None,
 ): ...

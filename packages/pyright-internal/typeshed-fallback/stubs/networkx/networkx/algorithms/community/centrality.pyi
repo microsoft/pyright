@@ -1,7 +1,10 @@
 from _typeshed import Incomplete
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 
+from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
 @_dispatchable
-def girvan_newman(G, most_valuable_edge: Incomplete | None = None) -> Generator[Incomplete, None, Incomplete]: ...
+def girvan_newman(
+    G: Graph[_Node], most_valuable_edge: Callable[..., Incomplete] | None = None
+) -> Generator[Incomplete, None, Incomplete]: ...

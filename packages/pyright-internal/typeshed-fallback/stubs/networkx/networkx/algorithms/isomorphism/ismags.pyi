@@ -6,6 +6,7 @@ class ISMAGS:
     subgraph: Incomplete
     node_equality: Incomplete
     edge_equality: Incomplete
+
     def __init__(
         self,
         graph,

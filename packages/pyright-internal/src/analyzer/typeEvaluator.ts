@@ -156,6 +156,7 @@ import {
     getParamListDetails,
     isParamSpecArgs,
     isParamSpecKwargs,
+    ParamAssignmentTracker,
     ParamKind,
     ParamListDetails,
     VirtualParamDetails,
@@ -292,7 +293,6 @@ import {
     combineVariances,
     computeMroLinearization,
     containsAnyOrUnknown,
-    containsAnyRecursive,
     containsLiteralType,
     convertToInstance,
     convertToInstantiable,
@@ -387,9 +387,11 @@ interface MatchArgsToParamsResult {
     paramSpecTarget?: ParamSpecType | undefined;
     paramSpecArgList?: Arg[] | undefined;
 
-    // A higher relevance means that it should be considered
-    // first, before lower relevance overloads.
-    relevance: number;
+    // Was there an unpacked argument of unknown length?
+    unpackedArgOfUnknownLength?: boolean;
+
+    // Did that unpacked argument map to a variadic parameter?
+    unpackedArgMapsToVariadic?: boolean;
 
     // A score that indicates how well the overload matches with
     // supplied arguments. Used to pick the "best" for purposes
@@ -424,11 +426,6 @@ interface AliasMapEntry {
 interface AssignClassToSelfInfo {
     class: ClassType;
     assumedVariance: Variance;
-}
-
-interface ParamAssignmentInfo {
-    argsNeeded: number;
-    argsReceived: number;
 }
 
 interface MatchedOverloadInfo {
@@ -3570,7 +3567,7 @@ export function createTypeEvaluator(
                 destType = declaredType;
             } else {
                 // Constrain the resulting type to match the declared type.
-                destType = narrowTypeBasedOnAssignment(nameNode, declaredType, typeResult).type;
+                destType = narrowTypeBasedOnAssignment(declaredType, typeResult).type;
             }
         } else {
             // If this is a member name (within a class scope) and the member name
@@ -4450,7 +4447,7 @@ export function createTypeEvaluator(
                             // is a enum because the annotated type in an enum doesn't reflect
                             // the type of the symbol.
                             if (!isClassInstance(typeResult.type) || !ClassType.isEnumClass(typeResult.type)) {
-                                typeResult = narrowTypeBasedOnAssignment(target, annotationType, typeResult);
+                                typeResult = narrowTypeBasedOnAssignment(annotationType, typeResult);
                             }
                         }
                     }
@@ -5860,8 +5857,9 @@ export function createTypeEvaluator(
                             if (isModuleGetAttrSupported) {
                                 const getAttrTypeResult = getEffectiveTypeOfSymbolForUsage(getAttrSymbol);
                                 if (isFunction(getAttrTypeResult.type)) {
-                                    type = getEffectiveReturnType(getAttrTypeResult.type);
-                                    if (getAttrTypeResult.isIncomplete) {
+                                    const returnTypeResult = getEffectiveReturnTypeResult(getAttrTypeResult.type);
+                                    type = returnTypeResult.type;
+                                    if (getAttrTypeResult.isIncomplete || returnTypeResult.isIncomplete) {
                                         isIncomplete = true;
                                     }
                                 }
@@ -6346,7 +6344,7 @@ export function createTypeEvaluator(
                 // descriptor-based accesses.
                 narrowedTypeForSet = isDescriptorApplied
                     ? usage.setType.type
-                    : narrowTypeBasedOnAssignment(errorNode, type, usage.setType).type;
+                    : narrowTypeBasedOnAssignment(type, usage.setType).type;
             }
 
             // Verify that the assigned type is compatible.
@@ -9157,7 +9155,7 @@ export function createTypeEvaluator(
         inferenceContext: InferenceContext | undefined
     ): CallResult {
         const returnTypes: Type[] = [];
-        const matchedOverloads: MatchedOverloadInfo[] = [];
+        let matchedOverloads: MatchedOverloadInfo[] = [];
         let isTypeIncomplete = false;
         let overloadsUsedForCall: FunctionType[] = [];
         let isDefinitiveMatchFound = false;
@@ -9219,10 +9217,13 @@ export function createTypeEvaluator(
                     };
                     matchedOverloads.push(matchedOverloadInfo);
 
-                    if (callResult.anyOrUnknownArg) {
+                    if (callResult.anyOrUnknownArg || matchResults.unpackedArgOfUnknownLength) {
                         possibleMatchResults.push(matchedOverloadInfo);
-                        if (isIncompleteUnknown(callResult.anyOrUnknownArg)) {
-                            possibleMatchInvolvesIncompleteUnknown = true;
+
+                        if (callResult.anyOrUnknownArg) {
+                            if (isIncompleteUnknown(callResult.anyOrUnknownArg)) {
+                                possibleMatchInvolvesIncompleteUnknown = true;
+                            }
                         }
                     } else {
                         returnTypes.push(callResult.returnType);
@@ -9238,12 +9239,14 @@ export function createTypeEvaluator(
             // Unknown, but include the "possible types" to allow for completion
             // suggestions.
             if (!isDefinitiveMatchFound && possibleMatchResults.length > 0) {
+                possibleMatchResults = filterOverloadMatchesForUnpackedArgs(possibleMatchResults);
                 possibleMatchResults = filterOverloadMatchesForAnyArgs(possibleMatchResults);
 
                 // Did the filtering produce a single result? If so, we're done.
                 if (possibleMatchResults.length === 1) {
                     overloadsUsedForCall = [possibleMatchResults[0].overload];
                     returnTypes.push(possibleMatchResults[0].returnType);
+                    matchedOverloads = [possibleMatchResults[0]];
                 } else {
                     // Eliminate any return types that are subsumed by other return types.
                     let dedupedMatchResults: Type[] = [];
@@ -9342,22 +9345,28 @@ export function createTypeEvaluator(
         };
     }
 
-    // This function determines whether multiple incompatible overloads match
-    // due to an Any or Unknown argument type.
-    function filterOverloadMatchesForAnyArgs(matches: MatchedOverloadInfo[]): MatchedOverloadInfo[] {
+    // Determines whether one or more overloads can be eliminated because they
+    // rely on an unpacked argument of unknown length when there is at least
+    // one overload that doesn't because it maps to an *args parameter.
+    function filterOverloadMatchesForUnpackedArgs(matches: MatchedOverloadInfo[]): MatchedOverloadInfo[] {
         if (matches.length < 2) {
             return matches;
         }
 
-        // If the relevance of some matches differs, filter out the ones that
-        // are lower relevance. This favors *args parameters in cases where
-        // a *args argument is used.
-        if (matches[0].matchResults.relevance !== matches[matches.length - 1].matchResults.relevance) {
-            matches = matches.filter((m) => m.matchResults.relevance === matches[0].matchResults.relevance);
+        // Is there at least one overload that relies on unpacked args for a match?
+        const unpackedArgsOverloads = matches.filter((match) => match.matchResults.unpackedArgMapsToVariadic);
+        if (unpackedArgsOverloads.length === matches.length || unpackedArgsOverloads.length === 0) {
+            return matches;
+        }
 
-            if (matches.length < 2) {
-                return matches;
-            }
+        return unpackedArgsOverloads;
+    }
+
+    // Determines whether multiple incompatible overloads match
+    // due to an Any or Unknown argument type.
+    function filterOverloadMatchesForAnyArgs(matches: MatchedOverloadInfo[]): MatchedOverloadInfo[] {
+        if (matches.length < 2) {
+            return matches;
         }
 
         // If all of the return types match, select the first one.
@@ -9409,7 +9418,7 @@ export function createTypeEvaluator(
         argList: Arg[]
     ): FunctionType | undefined {
         let overloadIndex = 0;
-        let matches: MatchArgsToParamsResult[] = [];
+        const matches: MatchArgsToParamsResult[] = [];
         const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         useSignatureTracker(errorNode, () => {
@@ -9431,8 +9440,6 @@ export function createTypeEvaluator(
                 });
             });
         });
-
-        matches = sortOverloadsByBestMatch(matches);
 
         let winningOverloadIndex: number | undefined;
 
@@ -9456,17 +9463,6 @@ export function createTypeEvaluator(
         return winningOverloadIndex === undefined ? undefined : matches[winningOverloadIndex].overload;
     }
 
-    // Sorts the list of overloads based first on "relevance" and second on order.
-    function sortOverloadsByBestMatch(matches: MatchArgsToParamsResult[]) {
-        return matches.sort((a, b) => {
-            if (a.relevance !== b.relevance) {
-                return b.relevance - a.relevance;
-            }
-
-            return a.overloadIndex - b.overloadIndex;
-        });
-    }
-
     function validateOverloadedArgTypes(
         errorNode: ExpressionNode,
         argList: Arg[],
@@ -9475,7 +9471,7 @@ export function createTypeEvaluator(
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
-        let filteredMatchResults: MatchArgsToParamsResult[] = [];
+        const filteredMatchResults: MatchArgsToParamsResult[] = [];
         let contextFreeArgTypes: Type[] | undefined;
         let isTypeIncomplete = !!typeResult.isIncomplete;
         const type = typeResult.type;
@@ -9506,8 +9502,6 @@ export function createTypeEvaluator(
                 overloadIndex++;
             });
         });
-
-        filteredMatchResults = sortOverloadsByBestMatch(filteredMatchResults);
 
         // If there are no possible arg/param matches among the overloads,
         // emit an error that includes the argument types.
@@ -9919,6 +9913,7 @@ export function createTypeEvaluator(
                 if (isNoneInstance(expandedCallType)) {
                     addDiagnostic(DiagnosticRule.reportOptionalCall, LocMessage.noneNotCallable(), errorNode);
 
+                    touchArgTypes();
                     return { argumentErrors: true };
                 }
 
@@ -9964,6 +9959,7 @@ export function createTypeEvaluator(
             case TypeCategory.Module: {
                 addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.moduleNotCallable(), errorNode);
 
+                touchArgTypes();
                 return { argumentErrors: true };
             }
         }
@@ -10681,7 +10677,8 @@ export function createTypeEvaluator(
         const paramSpec = FunctionType.getParamSpecFromArgsKwargs(overload);
 
         let argIndex = 0;
-        let matchedUnpackedListOfUnknownLength = false;
+        let unpackedArgOfUnknownLength = false;
+        let unpackedArgMapsToVariadic = false;
         let reportedArgError = false;
         let isTypeIncomplete = !!typeResult.isIncomplete;
         let isTypeVarTupleFullyMatched = false;
@@ -10689,20 +10686,8 @@ export function createTypeEvaluator(
         // Expand any unpacked tuples in the arg list.
         argList = expandArgList(argList);
 
-        // Build a map of parameters by name.
-        const paramMap = new Map<string, ParamAssignmentInfo>();
-        paramDetails.params.forEach((paramInfo) => {
-            assert(paramInfo !== undefined, 'paramInfo is undefined for param name map');
-            const param = paramInfo.param;
-
-            if (param.name && param.category === ParamCategory.Simple && paramInfo.kind !== ParamKind.Positional) {
-                let argsNeeded = paramMap.get(param.name)?.argsNeeded ?? 0;
-                if (param.category === ParamCategory.Simple && !paramInfo.defaultType) {
-                    argsNeeded += 1;
-                }
-                paramMap.set(param.name, { argsNeeded, argsReceived: 0 });
-            }
-        });
+        // Construct an object that racks which parameters have been assigned arguments.
+        const paramTracker = new ParamAssignmentTracker(paramDetails.params);
 
         let positionalOnlyLimitIndex = paramDetails.positionOnlyParamCount;
         let positionParamLimitIndex = paramDetails.firstKeywordOnlyIndex ?? paramDetails.params.length;
@@ -10845,6 +10830,8 @@ export function createTypeEvaluator(
                             argType.priv.tupleTypeArgs.length > 0
                         ) {
                             tooManyPositionals = true;
+                        } else {
+                            unpackedArgOfUnknownLength = true;
                         }
                     } else {
                         tooManyPositionals = true;
@@ -10962,8 +10949,10 @@ export function createTypeEvaluator(
                         enforceIterable = true;
                     }
 
+                    unpackedArgOfUnknownLength = true;
+
                     if (paramInfo.param.category === ParamCategory.ArgsList) {
-                        matchedUnpackedListOfUnknownLength = true;
+                        unpackedArgMapsToVariadic = true;
                     }
 
                     if (isParamVariadic && listElementType) {
@@ -11020,12 +11009,8 @@ export function createTypeEvaluator(
                 trySetActive(argList[argIndex], paramDetails.params[paramIndex].param);
 
                 // Note that the parameter has received an argument.
-                if (
-                    paramName &&
-                    paramDetails.params[paramIndex].param.category === ParamCategory.Simple &&
-                    paramMap.has(paramName)
-                ) {
-                    paramMap.get(paramName)!.argsReceived++;
+                if (paramName && paramDetails.params[paramIndex].param.category === ParamCategory.Simple) {
+                    paramTracker.markArgReceived(paramInfo);
                 }
 
                 if (advanceToNextArg || paramDetails.params[paramIndex].param.category === ParamCategory.ArgsList) {
@@ -11110,9 +11095,7 @@ export function createTypeEvaluator(
                 trySetActive(argList[argIndex], paramInfo.param);
 
                 // Note that the parameter has received an argument.
-                if (paramName && paramMap.has(paramName) && paramInfo.kind !== ParamKind.Positional) {
-                    paramMap.get(paramName)!.argsReceived++;
-                }
+                paramTracker.markArgReceived(paramInfo);
 
                 argIndex++;
                 paramIndex++;
@@ -11210,7 +11193,7 @@ export function createTypeEvaluator(
                         const diag = new DiagnosticAddendum();
 
                         tdEntries.knownItems.forEach((entry, name) => {
-                            const paramEntry = paramMap.get(name);
+                            const paramEntry = paramTracker.lookupName(name);
                             if (paramEntry) {
                                 if (paramEntry.argsReceived > 0) {
                                     diag.addMessage(LocMessage.paramAlreadyAssigned().format({ name }));
@@ -11250,10 +11233,7 @@ export function createTypeEvaluator(
                                 });
 
                                 // Remember that this parameter has already received a value.
-                                paramMap.set(name, {
-                                    argsNeeded: 1,
-                                    argsReceived: 1,
-                                });
+                                paramTracker.addKeywordParam(name, paramDetails.params[paramDetails.kwargsIndex]);
                             } else {
                                 // If the function doesn't have a **kwargs parameter, we need to emit an error.
                                 // However, it's possible that there was a **kwargs but it was eliminated by
@@ -11357,6 +11337,8 @@ export function createTypeEvaluator(
                                 }
                             }
 
+                            unpackedArgOfUnknownLength = true;
+
                             if (paramDetails.kwargsIndex !== undefined && unpackedDictArgType) {
                                 const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
                                 validateArgTypeParams.push({
@@ -11368,6 +11350,8 @@ export function createTypeEvaluator(
                                     errorNode: argList[argIndex].valueExpression || errorNode,
                                     paramName: paramDetails.params[paramDetails.kwargsIndex].param.name,
                                 });
+
+                                unpackedArgMapsToVariadic = true;
                             }
 
                             if (!isValidMappingType) {
@@ -11393,7 +11377,7 @@ export function createTypeEvaluator(
                     const paramName = argList[argIndex].name;
                     if (paramName) {
                         const paramNameValue = paramName.d.value;
-                        const paramEntry = paramMap.get(paramNameValue);
+                        const paramEntry = paramTracker.lookupName(paramNameValue);
 
                         if (paramEntry) {
                             if (paramEntry.argsReceived > 0) {
@@ -11449,14 +11433,15 @@ export function createTypeEvaluator(
                                     paramName: paramNameValue,
                                 });
 
-                                // Remember that this parameter has already received a value.
-                                paramMap.set(paramNameValue, {
-                                    argsNeeded: 1,
-                                    argsReceived: 1,
-                                });
                                 assert(
                                     paramDetails.params[paramDetails.kwargsIndex],
                                     'paramDetails.kwargsIndex params entry is undefined'
+                                );
+
+                                // Remember that this parameter has already received a value.
+                                paramTracker.addKeywordParam(
+                                    paramNameValue,
+                                    paramDetails.params[paramDetails.kwargsIndex]
                                 );
                             }
                             trySetActive(argList[argIndex], paramDetails.params[paramDetails.kwargsIndex].param);
@@ -11527,8 +11512,7 @@ export function createTypeEvaluator(
                         paramIndex >= paramDetails.firstPositionOrKeywordIndex &&
                         param.category === ParamCategory.Simple &&
                         param.name &&
-                        paramMap.has(param.name) &&
-                        paramMap.get(param.name)!.argsReceived === 0
+                        paramTracker.lookupDetails(paramInfo).argsReceived === 0
                     ) {
                         const paramType = paramDetails.params[paramIndex].type;
 
@@ -11548,7 +11532,7 @@ export function createTypeEvaluator(
                                 isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
                             });
 
-                            paramMap.get(param.name)!.argsReceived = 1;
+                            paramTracker.markArgReceived(paramDetails.params[paramIndex]);
                         }
                     }
                 });
@@ -11559,10 +11543,7 @@ export function createTypeEvaluator(
             // (i.e. an arg starting with a "**"), we will assume that all parameters
             // are matched.
             if (!unpackedDictArgType && !FunctionType.isDefaultParamCheckDisabled(overload)) {
-                const unassignedParams = Array.from(paramMap.keys()).filter((name) => {
-                    const entry = paramMap.get(name)!;
-                    return !entry || entry.argsReceived < entry.argsNeeded;
-                });
+                const unassignedParams = paramTracker.getUnassignedParams();
 
                 if (unassignedParams.length > 0) {
                     if (!canSkipDiagnosticForNode(errorNode)) {
@@ -11588,9 +11569,9 @@ export function createTypeEvaluator(
                 paramDetails.params.forEach((paramInfo) => {
                     const param = paramInfo.param;
                     if (param.category === ParamCategory.Simple && param.name) {
-                        const entry = paramMap.get(param.name);
+                        const entry = paramTracker.lookupDetails(paramInfo);
 
-                        if (entry && entry.argsNeeded === 0 && entry.argsReceived === 0) {
+                        if (entry.argsNeeded === 0 && entry.argsReceived === 0) {
                             const defaultArgType = paramInfo.defaultType;
 
                             if (
@@ -11709,14 +11690,6 @@ export function createTypeEvaluator(
             }
         }
 
-        let relevance = 0;
-        if (matchedUnpackedListOfUnknownLength) {
-            // Increase the relevance if we made assumptions about the length
-            // of an unpacked argument. This will favor overloads that
-            // associate this case with a *args parameter.
-            relevance++;
-        }
-
         // Special-case the builtin isinstance and issubclass functions.
         if (FunctionType.isBuiltIn(overload, ['isinstance', 'issubclass']) && validateArgTypeParams.length === 2) {
             validateArgTypeParams[1].isinstanceParam = true;
@@ -11731,7 +11704,8 @@ export function createTypeEvaluator(
             paramSpecTarget,
             paramSpecArgList,
             activeParam,
-            relevance,
+            unpackedArgOfUnknownLength,
+            unpackedArgMapsToVariadic,
             argumentMatchScore: 0,
         };
     }
@@ -12118,9 +12092,13 @@ export function createTypeEvaluator(
         }
 
         // Calculate the return type.
-        let returnType = getEffectiveReturnType(type, {
+        const returnTypeResult = getEffectiveReturnTypeResult(type, {
             callSiteInfo: { args: matchResults.argParams, errorNode },
         });
+        let returnType = returnTypeResult.type;
+        if (returnTypeResult.isIncomplete) {
+            isTypeIncomplete = true;
+        }
 
         if (condition.length > 0) {
             returnType = TypeBase.cloneForCondition(returnType, condition);
@@ -12507,9 +12485,9 @@ export function createTypeEvaluator(
                 skippedBareTypeVarExpectedType = true;
             }
 
-            // If the expected type is Any, don't use an expected type. Instead,
+            // If the expected type is unknown, don't use an expected type. Instead,
             // use default rules for evaluating the expression type.
-            if (expectedType && isAnyOrUnknown(expectedType)) {
+            if (expectedType && isUnknown(expectedType)) {
                 expectedType = undefined;
             }
 
@@ -23300,38 +23278,46 @@ export function createTypeEvaluator(
         }
     }
 
+    function getEffectiveReturnType(type: FunctionType): Type {
+        return getEffectiveReturnTypeResult(type).type;
+    }
+
+    function getInferredReturnType(type: FunctionType): Type {
+        return getInferredReturnTypeResult(type).type;
+    }
+
     // Returns the return type of the function. If the type is explicitly provided in
     // a type annotation, that type is returned. If not, an attempt is made to infer
     // the return type. If a list of args is provided, the inference logic may take
     // into account argument types to infer the return type.
-    function getEffectiveReturnType(type: FunctionType, options?: EffectiveReturnTypeOptions): Type {
+    function getEffectiveReturnTypeResult(type: FunctionType, options?: EffectiveReturnTypeOptions): TypeResult {
         const specializedReturnType = FunctionType.getEffectiveReturnType(type, /* includeInferred */ false);
         if (specializedReturnType && !isUnknown(specializedReturnType)) {
-            return specializedReturnType;
+            return { type: specializedReturnType };
         }
 
-        return getInferredReturnType(type, options?.callSiteInfo);
+        return getInferredReturnTypeResult(type, options?.callSiteInfo);
     }
 
-    function _getInferredReturnType(type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) {
+    function _getInferredReturnTypeResult(type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo): TypeResult {
         let returnType: Type | undefined;
         let isIncomplete = false;
         const analyzeUnannotatedFunctions = true;
 
         // Don't attempt to infer the return type for a stub file.
         if (FunctionType.isStubDefinition(type)) {
-            return UnknownType.create();
+            return { type: UnknownType.create() };
         }
 
         // Don't infer the return type for a ParamSpec value.
         if (FunctionType.isParamSpecValue(type)) {
-            return UnknownType.create();
+            return { type: UnknownType.create() };
         }
 
         // Don't infer the return type for an overloaded function (unless it's synthesized,
         // which is needed for proper operation of the __get__ method in properties).
         if (FunctionType.isOverloaded(type) && !FunctionType.isSynthesizedMethod(type)) {
-            return UnknownType.create();
+            return { type: UnknownType.create() };
         }
 
         const evalCount = type.shared.inferredReturnType?.evaluationCount ?? 0;
@@ -23443,7 +23429,7 @@ export function createTypeEvaluator(
             }
         }
 
-        return returnType;
+        return { type: returnType, isIncomplete };
     }
 
     function inferReturnTypeForCallSite(type: FunctionType, callSiteInfo: CallSiteEvaluationInfo): Type | undefined {
@@ -25668,8 +25654,10 @@ export function createTypeEvaluator(
 
     // Determines whether the two types are potentially comparable -- i.e.
     // their types overlap in such a way that it makes sense for them to
-    // be compared with an == or != operator.
-    function isTypeComparable(leftType: Type, rightType: Type) {
+    // be compared with an == or != operator. The functional also supports
+    // a special variant that can be used for the "is" and "is not" operator.
+    // This variant can be less conservative in some cases.
+    function isTypeComparable(leftType: Type, rightType: Type, assumeIsOperator = false) {
         if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
             return true;
         }
@@ -25719,6 +25707,18 @@ export function createTypeEvaluator(
 
                 if (assignType(genericLeftType, genericRightType) || assignType(genericRightType, genericLeftType)) {
                     return true;
+                }
+
+                // Check for the "is None" or "is not None" case.
+                if (assumeIsOperator && isNoneInstance(rightType)) {
+                    if (isNoneInstance(leftType)) {
+                        return true;
+                    }
+
+                    // The LHS could be a protocol or 'object', in which case None is
+                    // potentially comparable to it. In other cases, None is not comparable
+                    // because the types are disjoint.
+                    return assignType(leftType, rightType);
                 }
 
                 // Assume that if the types are disjoint and built-in classes that they
@@ -27112,108 +27112,9 @@ export function createTypeEvaluator(
         return canAssign;
     }
 
-    // If the declaredType contains type arguments that are "Any" and
-    // the corresponding type argument in the assignedType is not "Any",
-    // replace that type argument in the assigned type. This function assumes
-    // that the caller has already verified that the assignedType is assignable
-    // to the declaredType.
-    function replaceTypeArgsWithAny(
-        node: ExpressionNode,
-        declaredType: ClassType,
-        assignedType: ClassType,
-        recursionCount = 0
-    ): ClassType | undefined {
-        if (recursionCount > maxTypeRecursionCount) {
-            return undefined;
-        }
-        recursionCount++;
-
-        if (
-            assignedType.shared.typeParams.length > 0 &&
-            assignedType.priv.typeArgs &&
-            assignedType.priv.typeArgs.length <= assignedType.shared.typeParams.length &&
-            !assignedType.priv.tupleTypeArgs
-        ) {
-            const constraints = new ConstraintTracker();
-            addConstraintsForExpectedType(
-                evaluatorInterface,
-                ClassType.specialize(assignedType, /* typeArgs */ undefined),
-                declaredType,
-                constraints,
-                ParseTreeUtils.getTypeVarScopesForNode(node),
-                node.start
-            );
-
-            let replacedTypeArg = false;
-            const solution = solveConstraints(evaluatorInterface, constraints).getMainSolutionSet();
-
-            const newTypeArgs = assignedType.priv.typeArgs.map((typeArg, index) => {
-                const typeParam = assignedType.shared.typeParams[index];
-                const expectedTypeArgType = solution.getType(typeParam);
-
-                if (expectedTypeArgType) {
-                    if (isAnyOrUnknown(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
-                        replacedTypeArg = true;
-                        return expectedTypeArgType;
-                    }
-
-                    if (isClassInstance(expectedTypeArgType) && isClassInstance(typeArg)) {
-                        // Recursively replace Any in the type argument.
-                        const recursiveReplacement = replaceTypeArgsWithAny(
-                            node,
-                            expectedTypeArgType,
-                            typeArg,
-                            recursionCount
-                        );
-
-                        if (recursiveReplacement) {
-                            replacedTypeArg = true;
-                            return recursiveReplacement;
-                        }
-                    } else if (containsAnyRecursive(expectedTypeArgType)) {
-                        // If the expected type arg contains an Any, we can replace it with
-                        // a version that doesn't contain Any if the replacement doesn't violate
-                        // the variance of the type parameter.
-                        const variance = TypeVarType.getVariance(typeParam);
-                        const isSubtype = assignType(expectedTypeArgType, typeArg);
-                        const isSupertype = assignType(typeArg, expectedTypeArgType);
-
-                        if (
-                            (variance === Variance.Contravariant || isSubtype) &&
-                            (variance === Variance.Covariant || isSupertype)
-                        ) {
-                            replacedTypeArg = true;
-                            return expectedTypeArgType;
-                        }
-                    }
-                }
-
-                return typeArg;
-            });
-
-            if (replacedTypeArg) {
-                return ClassType.specialize(assignedType, newTypeArgs);
-            }
-        }
-
-        // If the declared and assigned types are the same generic type but the assigned type
-        // contains one or more unknowns, use the declared type instead.
-        if (ClassType.isSameGenericClass(declaredType, assignedType)) {
-            if (containsAnyRecursive(assignedType) && !containsAnyRecursive(declaredType)) {
-                return declaredType;
-            }
-        }
-
-        return undefined;
-    }
-
     // When a value is assigned to a variable with a declared type,
     // we may be able to narrow the type based on the assignment.
-    function narrowTypeBasedOnAssignment(
-        node: ExpressionNode,
-        declaredType: Type,
-        assignedTypeResult: TypeResult
-    ): TypeResult {
+    function narrowTypeBasedOnAssignment(declaredType: Type, assignedTypeResult: TypeResult): TypeResult {
         // TODO: The rules for narrowing types on assignment are not defined in
         // the typing spec. Pyright's current logic is currently not even internally
         // consistent and probably not sound from a type theory perspective. It
@@ -27231,59 +27132,43 @@ export function createTypeEvaluator(
             }
 
             const narrowedSubtype = mapSubtypes(declaredType, (declaredSubtype) => {
-                // We can't narrow "Any".
-                if (isAnyOrUnknown(declaredSubtype)) {
-                    return declaredSubtype;
+                if (!assignType(declaredSubtype, assignedSubtype)) {
+                    return undefined;
                 }
 
-                if (assignType(declaredSubtype, assignedSubtype)) {
-                    // If the assigned subtype is Any, stick with the declared type.
-                    if (isAny(assignedSubtype)) {
-                        return declaredSubtype;
-                    }
-
-                    if (
-                        isClass(declaredSubtype) &&
-                        isClass(assignedSubtype) &&
-                        TypeBase.isInstance(declaredSubtype) === TypeBase.isInstance(assignedSubtype)
-                    ) {
-                        const result = replaceTypeArgsWithAny(node, declaredSubtype, assignedSubtype);
-                        if (result) {
-                            assignedSubtype = result;
-                        }
-                        return assignedSubtype;
-                    }
-
-                    if (
-                        !isTypeVar(declaredSubtype) &&
-                        isTypeVar(assignedSubtype) &&
-                        !TypeVarType.isBound(assignedSubtype)
-                    ) {
-                        // If the source is an unsolved TypeVar but the declared type is concrete,
-                        // use the concrete type.
-                        return declaredSubtype;
-                    }
-
-                    // If the declared type doesn't contain any `Any` but the assigned
-                    // type does, stick with the declared type. We don't include unknowns
-                    // in the assigned subtype check here so unknowns are preserved so
-                    // reportUnknownVariableType assignment diagnostics are reported.
-
-                    // TODO - this is an inconsistency because Any and Unknown should
-                    // always be treated the same for purposes of type narrowing. This
-                    // should be revisited once the narrowing-on-assignment behavior
-                    // is properly specified in the typing spec.
-                    if (
-                        containsAnyRecursive(assignedSubtype, /* includeUnknown */ false) &&
-                        !containsAnyRecursive(declaredSubtype)
-                    ) {
-                        return declaredSubtype;
-                    }
-
+                // Retain unknowns for code flow analysis convergence and for
+                // unknown type reporting in strict mode.
+                if (isUnknown(assignedSubtype)) {
                     return assignedSubtype;
                 }
 
-                return undefined;
+                // If the two types are bidirectionally assignable, they are
+                // either equivalent (in which case it doesn't matter which
+                // one we choose) or one or both include gradual types (Any, etc.),
+                // in which case we'll want to stick with the declared subtype.
+                if (assignType(assignedSubtype, declaredSubtype)) {
+                    // We need to be careful with TypedDict types that have
+                    // narrowed fields. In this case, we want to return the
+                    // assigned type.
+                    if (
+                        isClass(assignedSubtype) &&
+                        assignedSubtype.priv.typedDictNarrowedEntries &&
+                        isTypeSame(assignedSubtype, declaredSubtype, { ignoreTypedDictNarrowEntries: true })
+                    ) {
+                        return assignedSubtype;
+                    }
+
+                    // We also need to be careful with callback protocols.
+                    if (isClassInstance(declaredSubtype) && ClassType.isProtocolClass(declaredSubtype)) {
+                        if (isFunction(assignedSubtype) || isOverloaded(assignedSubtype)) {
+                            return assignedSubtype;
+                        }
+                    }
+
+                    return declaredSubtype;
+                }
+
+                return assignedSubtype;
             });
 
             // If we couldn't assign the assigned subtype any of the declared
@@ -28157,6 +28042,25 @@ export function createTypeEvaluator(
                 } else {
                     const subDiag = diag?.createAddendum();
 
+                    // Protect against the case where a callback protocol is being
+                    // bound to its own __call__ method but the first parameter
+                    // is annotated with its own callable type. This can lead to
+                    // infinite recursion.
+                    if (isFunction(memberTypeFirstParamType) || isOverloaded(memberTypeFirstParamType)) {
+                        if (isClassInstance(firstParamType) && ClassType.isProtocolClass(firstParamType)) {
+                            if (subDiag) {
+                                subDiag.addMessage(
+                                    LocMessage.bindTypeMismatch().format({
+                                        type: printType(firstParamType),
+                                        methodName: memberType.shared.name || '<anonymous>',
+                                        paramName: memberTypeFirstParam.name || '__p0',
+                                    })
+                                );
+                            }
+                            return undefined;
+                        }
+                    }
+
                     if (
                         !assignType(
                             memberTypeFirstParamType,
@@ -28532,7 +28436,7 @@ export function createTypeEvaluator(
     }
 
     // Track these apis internal usages when logging is on. otherwise, it should be noop.
-    const getInferredReturnType = wrapWithLogger(_getInferredReturnType);
+    const getInferredReturnTypeResult = wrapWithLogger(_getInferredReturnTypeResult);
 
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,

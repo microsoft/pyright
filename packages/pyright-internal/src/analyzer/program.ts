@@ -73,6 +73,7 @@ interface UpdateImportInfo {
     isTypeshedFile: boolean;
     isThirdPartyImport: boolean;
     isPyTypedPresent: boolean;
+    isModulePrivate: boolean;
 }
 
 export type PreCheckCallback = (parserOutput: ParserOutput, evaluator: TypeEvaluator) => void;
@@ -347,6 +348,7 @@ export class Program {
             importName,
             isThirdPartyImport,
             isInPyTypedPackage,
+            /* isModulePrivate */ false,
             this._editModeTracker,
             this._console,
             this._logTracker
@@ -375,6 +377,7 @@ export class Program {
                 moduleImportInfo.moduleName,
                 /* isThirdPartyImport */ false,
                 moduleImportInfo.isThirdPartyPyTypedPresent,
+                moduleImportInfo.isModulePrivate,
                 this._editModeTracker,
                 this._console,
                 this._logTracker,
@@ -1362,22 +1365,30 @@ export class Program {
         const getThirdPartyImportInfo = (importResult: ImportResult) => {
             let isThirdPartyImport = false;
             let isPyTypedPresent = false;
+            let isModulePrivate = false;
 
             if (importResult.importType === ImportType.ThirdParty) {
                 isThirdPartyImport = true;
                 if (importResult.pyTypedInfo) {
                     isPyTypedPresent = true;
                 }
+                if (importResult.isModulePrivate) {
+                    isModulePrivate = true;
+                }
             } else if (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local) {
                 isThirdPartyImport = true;
                 if (sourceFileInfo.isThirdPartyPyTypedPresent) {
                     isPyTypedPresent = true;
+                }
+                if (importResult.isModulePrivate) {
+                    isModulePrivate = true;
                 }
             }
 
             return {
                 isThirdPartyImport,
                 isPyTypedPresent,
+                isModulePrivate,
             };
         };
 
@@ -1395,6 +1406,7 @@ export class Program {
                     isTypeshedFile: false,
                     isThirdPartyImport: false,
                     isPyTypedPresent: false,
+                    isModulePrivate: false,
                 });
             }
         }
@@ -1412,6 +1424,7 @@ export class Program {
                                     !!importResult.isStdlibTypeshedFile || !!importResult.isThirdPartyTypeshedFile,
                                 isThirdPartyImport: thirdPartyTypeInfo.isThirdPartyImport,
                                 isPyTypedPresent: thirdPartyTypeInfo.isPyTypedPresent,
+                                isModulePrivate: thirdPartyTypeInfo.isModulePrivate,
                             });
                         }
                     }
@@ -1427,6 +1440,7 @@ export class Program {
                                     !!importResult.isStdlibTypeshedFile || !!importResult.isThirdPartyTypeshedFile,
                                 isThirdPartyImport: thirdPartyTypeInfo.isThirdPartyImport,
                                 isPyTypedPresent: thirdPartyTypeInfo.isPyTypedPresent,
+                                isModulePrivate: thirdPartyTypeInfo.isModulePrivate,
                             });
                         }
                     }
@@ -1496,6 +1510,7 @@ export class Program {
                         moduleImportInfo.moduleName,
                         importInfo.isThirdPartyImport,
                         importInfo.isPyTypedPresent,
+                        importInfo.isModulePrivate,
                         this._editModeTracker,
                         this._console,
                         this._logTracker
@@ -1612,6 +1627,7 @@ export class Program {
             moduleImportInfo.moduleName,
             /* isThirdPartyImport */ false,
             /* isInPyTypedPackage */ false,
+            /* isModulePrivate */ false,
             this._editModeTracker,
             this._console,
             this._logTracker

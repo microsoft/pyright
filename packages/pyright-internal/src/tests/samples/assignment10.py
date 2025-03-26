@@ -20,8 +20,7 @@ class A:
 T = TypeVar("T")
 
 
-class B(Generic[T]):
-    ...
+class B(Generic[T]): ...
 
 
 def func1(v1: list[Any | None], v2: list[int | str]):
@@ -54,15 +53,15 @@ def func3(y: list[int]):
     reveal_type(x2, expected_text="list[int]")
 
     x3: Iterable[Any] = y
-    reveal_type(x3, expected_text="list[Any]")
+    reveal_type(x3, expected_text="list[int]")
 
 
 def func4(y: list[Any]):
     x1: Iterable[int | B[Any]] = y
-    reveal_type(x1, expected_text="list[int | B[Any]]")
+    reveal_type(x1, expected_text="list[Any]")
 
     x2: Iterable[Any | B[Any]] = y
-    reveal_type(x2, expected_text="list[Any | B[Any]]")
+    reveal_type(x2, expected_text="list[Any]")
 
     x3: Iterable[Any] = y
     reveal_type(x3, expected_text="list[Any]")

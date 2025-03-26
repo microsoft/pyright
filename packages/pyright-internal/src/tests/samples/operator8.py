@@ -65,6 +65,60 @@ def func1(a: Literal[1, 2], b: Literal[0, 4], c: Literal[3, 4]):
     c8 = 10 // -6
     reveal_type(c8, expected_text="Literal[-2]")
 
+    c9 = 0 // -6
+    reveal_type(c9, expected_text="Literal[0]")
+
+    c10 = 0 // 6
+    reveal_type(c10, expected_text="Literal[0]")
+
+    c11 = -6 // 6
+    reveal_type(c11, expected_text="Literal[-1]")
+
+    c12 = 6 // -6
+    reveal_type(c12, expected_text="Literal[-1]")
+
+    c13 = 6 // -3
+    reveal_type(c13, expected_text="Literal[-2]")
+
+    c14 = 256 // -16
+    reveal_type(c14, expected_text="Literal[-16]")
+
+    c20 = 1 << -1
+    reveal_type(c20, expected_text="int")
+
+    c21 = 1 >> -1
+    reveal_type(c21, expected_text="int")
+
+    c30 = -129 % 16
+    reveal_type(c30, expected_text="Literal[15]")
+
+    c31 = -129 % 32
+    reveal_type(c31, expected_text="Literal[31]")
+    
+    c32 = -129 % 100
+    reveal_type(c32, expected_text="Literal[71]")
+
+    c33 = 256 % -32678
+    reveal_type(c33, expected_text="Literal[-32422]")
+
+    c34 = 256 % -129
+    reveal_type(c34, expected_text="Literal[-2]")
+    
+    c35 = 0 % -1
+    reveal_type(c35, expected_text="Literal[0]")
+
+    c36 = -1 % -1
+    reveal_type(c36, expected_text="Literal[0]")
+
+    c37 = 1 % 1
+    reveal_type(c37, expected_text="Literal[0]")
+
+    c38 = -2 % 1
+    reveal_type(c38, expected_text="Literal[0]")
+
+    c39 = 4 % -2
+    reveal_type(c39, expected_text="Literal[0]")
+
 
 def func2(cond: bool):
     c1 = "Hi " + ("Steve" if cond else "Amy")

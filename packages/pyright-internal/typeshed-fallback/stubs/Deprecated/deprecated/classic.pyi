@@ -27,5 +27,10 @@ class ClassicAdapter:
 def deprecated(wrapped: _F, /) -> _F: ...
 @overload
 def deprecated(
-    reason: str = ..., *, version: str = ..., action: _Actions | None = ..., category: type[Warning] | None = ...
+    reason: str = ...,
+    *,
+    version: str = ...,
+    action: _Actions | None = ...,
+    category: type[Warning] | None = ...,
+    extra_stacklevel: int = 0,
 ) -> Callable[[_F], _F]: ...

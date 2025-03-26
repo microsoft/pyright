@@ -2,7 +2,7 @@
 # "self" or "cls" parameter type is honored when binding the
 # method to an object or class.
 
-from typing import Protocol, TypeVar
+from typing import Callable, Protocol, TypeVar
 
 
 class HasItemProtocol1(Protocol):
@@ -79,8 +79,7 @@ TFoo2 = TypeVar("TFoo2", bound="Foo2")
 
 class Foo2:
     @classmethod
-    def bar(cls: type[TFoo2]) -> TFoo2:
-        ...
+    def bar(cls: type[TFoo2]) -> TFoo2: ...
 
     def baz(self) -> None:
         self.bar()
@@ -89,3 +88,23 @@ class Foo2:
 class ClassWithNewOverride:
     def __new__(cls):
         return object.__new__(cls)
+
+
+def curry[First, *Rest, Result](
+    function: Callable[[First, *Rest], Result],
+) -> Callable[[*Rest], Callable[[First], Result]]: ...
+
+
+class EvilProto1(Protocol):
+    @curry
+    def __call__[A, B](
+        self, a: Callable[[A], B], b: Callable[[Callable[[A], B]], A]
+    ) -> B: ...
+
+
+# This should generate an error and not hang.
+EvilProto1.__call__
+
+
+# This should generate two errors and not hang.
+p: EvilProto1 = curry(lambda a, b: a(b(a)))

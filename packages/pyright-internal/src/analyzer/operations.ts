@@ -1036,15 +1036,19 @@ function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightTyp
                             // BigInt rounds to zero, but floor divide rounds to negative
                             // infinity, so we need to adjust the result if the signs
                             // of the operands are different.
-                            if (leftLiteralValue !== rightLiteralValue) {
-                                if (leftLiteralValue < BigInt(0) !== rightLiteralValue < BigInt(0)) {
-                                    newValue -= BigInt(1);
-                                }
+                            if (
+                                newValue * rightLiteralValue !== leftLiteralValue &&
+                                leftLiteralValue < BigInt(0) !== rightLiteralValue < BigInt(0)
+                            ) {
+                                newValue -= BigInt(1);
                             }
                         }
                     } else if (operator === OperatorType.Mod) {
                         if (rightLiteralValue !== BigInt(0)) {
-                            newValue = leftLiteralValue % rightLiteralValue;
+                            // BigInt always produces a remainder, but Python produces
+                            // a modulo result whose sign is always the same as the
+                            // right operand.
+                            newValue = ((leftLiteralValue % rightLiteralValue) + rightLiteralValue) % rightLiteralValue;
                         }
                     } else if (operator === OperatorType.Power) {
                         if (rightLiteralValue >= BigInt(0)) {
@@ -1055,9 +1059,13 @@ function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightTyp
                             }
                         }
                     } else if (operator === OperatorType.LeftShift) {
-                        newValue = leftLiteralValue << rightLiteralValue;
+                        if (rightLiteralValue >= BigInt(0)) {
+                            newValue = leftLiteralValue << rightLiteralValue;
+                        }
                     } else if (operator === OperatorType.RightShift) {
-                        newValue = leftLiteralValue >> rightLiteralValue;
+                        if (rightLiteralValue >= BigInt(0)) {
+                            newValue = leftLiteralValue >> rightLiteralValue;
+                        }
                     } else if (operator === OperatorType.BitwiseAnd) {
                         newValue = leftLiteralValue & rightLiteralValue;
                     } else if (operator === OperatorType.BitwiseOr) {

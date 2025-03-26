@@ -10,6 +10,7 @@ class CurrentEdge:
 class Level:
     active: Incomplete
     inactive: Incomplete
+
     def __init__(self) -> None: ...
 
 class GlobalRelabelThreshold:

@@ -3,6 +3,7 @@ from networkx.algorithms.bipartite.centrality import *
 from networkx.algorithms.bipartite.cluster import *
 from networkx.algorithms.bipartite.covering import *
 from networkx.algorithms.bipartite.edgelist import *
+from networkx.algorithms.bipartite.extendability import *
 from networkx.algorithms.bipartite.generators import *
 from networkx.algorithms.bipartite.matching import *
 from networkx.algorithms.bipartite.matrix import *

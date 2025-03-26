@@ -41,6 +41,7 @@ import {
     FunctionParam,
     FunctionParamFlags,
     FunctionType,
+    FunctionTypeFlags,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -1695,8 +1696,32 @@ function narrowTypeForInstance(
                     } else {
                         filteredTypes.push(convertToInstance(filterType));
                     }
-                } else if (evaluator.assignType(convertToInstance(convertVarTypeToFree(concreteFilterType)), varType)) {
-                    filteredTypes.push(convertToInstance(varType));
+                } else {
+                    const filterTypeInstance = convertToInstance(convertVarTypeToFree(concreteFilterType));
+                    if (evaluator.assignType(filterTypeInstance, varType)) {
+                        filteredTypes.push(convertToInstance(varType));
+                    } else {
+                        // If this is a class instance that's not callable and it's not @final,
+                        // a subclass could be compatible with the filter type.
+                        if (isClassInstance(filterTypeInstance) && !ClassType.isFinal(filterTypeInstance)) {
+                            const gradualFunc = FunctionType.createSynthesizedInstance(
+                                '',
+                                FunctionTypeFlags.GradualCallableForm
+                            );
+                            FunctionType.addDefaultParams(gradualFunc);
+
+                            // If the class is callable (i.e. can be assigned to the generic gradual
+                            // function signature), then the assignment check above didn't fail because
+                            // of a signature mismatch. It failed because the class is not callable.
+                            // We assume therefore that a subclass might be.
+                            if (!evaluator.assignType(gradualFunc, filterTypeInstance)) {
+                                // The resulting type should be an intersection of the filter type and
+                                // the subtype, but we don't have a way to encode that yet. For now,
+                                // we'll use the filter type.
+                                filteredTypes.push(convertToInstance(filterType));
+                            }
+                        }
+                    }
                 }
             }
         } else {
@@ -2514,31 +2539,41 @@ function narrowTypeForLiteralComparison(
             }
 
             return subtype;
-        } else if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
+        }
+
+        if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
             if (subtype.priv.literalValue !== undefined) {
                 const literalValueMatches = ClassType.isLiteralValueSame(subtype, literalType);
                 if (isPositiveTest) {
                     return literalValueMatches ? subtype : undefined;
-                } else {
-                    const isEnumOrBool = ClassType.isEnumClass(literalType) || ClassType.isBuiltIn(literalType, 'bool');
+                }
 
-                    // For negative tests, we can eliminate the literal value if it doesn't match,
-                    // but only for equality tests or for 'is' tests that involve enums or bools.
-                    return literalValueMatches && (isEnumOrBool || !isIsOperator) ? undefined : subtype;
-                }
-            } else if (isPositiveTest) {
-                return literalType;
-            } else {
-                // If we're able to enumerate all possible literal values
-                // (for bool or enum), we can eliminate all others in a negative test.
-                const allLiteralTypes = enumerateLiteralsForType(evaluator, subtype);
-                if (allLiteralTypes && allLiteralTypes.length > 0) {
-                    return combineTypes(
-                        allLiteralTypes.filter((type) => !ClassType.isLiteralValueSame(type, literalType))
-                    );
-                }
+                const isEnumOrBool = ClassType.isEnumClass(literalType) || ClassType.isBuiltIn(literalType, 'bool');
+
+                // For negative tests, we can eliminate the literal value if it doesn't match,
+                // but only for equality tests or for 'is' tests that involve enums or bools.
+                return literalValueMatches && (isEnumOrBool || !isIsOperator) ? undefined : subtype;
             }
-        } else if (isPositiveTest) {
+
+            if (isPositiveTest) {
+                return literalType;
+            }
+
+            // If we're able to enumerate all possible literal values
+            // (for bool or enum), we can eliminate all others in a negative test.
+            const allLiteralTypes = enumerateLiteralsForType(evaluator, subtype);
+            if (allLiteralTypes && allLiteralTypes.length > 0) {
+                return combineTypes(allLiteralTypes.filter((type) => !ClassType.isLiteralValueSame(type, literalType)));
+            }
+
+            return subtype;
+        }
+
+        if (isPositiveTest) {
+            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'LiteralString')) {
+                return literalType;
+            }
+
             if (isIsOperator || isNoneInstance(subtype)) {
                 const isSubtype = evaluator.assignType(subtype, literalType);
                 return isSubtype ? literalType : undefined;

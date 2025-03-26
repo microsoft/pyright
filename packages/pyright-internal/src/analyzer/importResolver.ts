@@ -46,6 +46,7 @@ export interface ModuleNameAndType {
 export interface ModuleImportInfo extends ModuleNameAndType {
     isTypeshedFile: boolean;
     isThirdPartyPyTypedPresent: boolean;
+    isModulePrivate: boolean;
 }
 
 export interface ModuleNameInfoFromPath {
@@ -935,6 +936,7 @@ export class ImportResolver {
             importType: ImportType.Local,
             isStubFile: false,
             isNativeLib: false,
+            isModulePrivate: false,
             implicitImports: new Map<string, ImplicitImport>(),
             filteredImplicitImports: new Map<string, ImplicitImport>(),
             nonStubImportResult: undefined,
@@ -1118,6 +1120,7 @@ export class ImportResolver {
         let importType = ImportType.BuiltIn;
         let isLocalTypingsFile = false;
         let isThirdPartyPyTypedPresent = false;
+        const isModulePrivate = false;
         let isTypeshedFile = false;
 
         const importFailureInfo: string[] = [];
@@ -1160,6 +1163,7 @@ export class ImportResolver {
                         isTypeshedFile: true,
                         isLocalTypingsFile,
                         isThirdPartyPyTypedPresent,
+                        isModulePrivate,
                     };
                 }
             }
@@ -1296,7 +1300,14 @@ export class ImportResolver {
         }
 
         if (moduleName) {
-            return { moduleName, importType, isTypeshedFile, isLocalTypingsFile, isThirdPartyPyTypedPresent };
+            return {
+                moduleName,
+                importType,
+                isTypeshedFile,
+                isLocalTypingsFile,
+                isThirdPartyPyTypedPresent,
+                isModulePrivate,
+            };
         }
 
         if (allowInvalidModuleName && moduleNameWithInvalidCharacters) {
@@ -1306,6 +1317,7 @@ export class ImportResolver {
                 importType,
                 isLocalTypingsFile,
                 isThirdPartyPyTypedPresent,
+                isModulePrivate,
             };
         }
 
@@ -1316,6 +1328,7 @@ export class ImportResolver {
             importType: ImportType.Local,
             isLocalTypingsFile,
             isThirdPartyPyTypedPresent,
+            isModulePrivate,
         };
     }
 
@@ -1355,6 +1368,7 @@ export class ImportResolver {
         let implicitImports = new Map<string, ImplicitImport>();
         let packageDirectory: Uri | undefined;
         let pyTypedInfo: PyTypedInfo | undefined;
+        let isModulePrivate = false;
 
         // Handle the "from . import XXX" case.
         if (moduleDescriptor.nameParts.length === 0) {
@@ -1379,7 +1393,12 @@ export class ImportResolver {
             for (let i = 0; i < moduleDescriptor.nameParts.length; i++) {
                 const isFirstPart = i === 0;
                 const isLastPart = i === moduleDescriptor.nameParts.length - 1;
-                dirPath = dirPath.combinePaths(moduleDescriptor.nameParts[i]);
+                const namePart = moduleDescriptor.nameParts[i];
+                dirPath = dirPath.combinePaths(namePart);
+
+                if (SymbolNameUtils.isProtectedName(namePart)) {
+                    isModulePrivate = true;
+                }
 
                 if (useStubPackage && isFirstPart) {
                     dirPath = dirPath.addPath(stubsSuffix);
@@ -1495,6 +1514,12 @@ export class ImportResolver {
             importFound = resolvedPaths.length >= moduleDescriptor.nameParts.length;
         }
 
+        // Modules are considered private only if they are stub files or located
+        // within a py.typed package.
+        if (!isStubFile && !pyTypedInfo) {
+            isModulePrivate = false;
+        }
+
         return {
             importName,
             isRelative: false,
@@ -1511,6 +1536,7 @@ export class ImportResolver {
             isNativeLib,
             implicitImports,
             pyTypedInfo,
+            isModulePrivate,
             filteredImplicitImports: implicitImports,
             packageDirectory,
         };

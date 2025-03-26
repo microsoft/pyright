@@ -2,8 +2,8 @@ import sys
 from _typeshed import FileDescriptor
 from collections.abc import Sequence
 
-import gevent.libev.watcher as watcher
 from gevent._ffi.loop import AbstractLoop
+from gevent.libev import watcher
 
 def get_version() -> str: ...
 def get_header_version() -> str: ...

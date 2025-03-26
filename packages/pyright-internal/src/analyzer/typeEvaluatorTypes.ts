@@ -438,6 +438,10 @@ export interface CallResult {
     // Did one or more arguments evaluated to Any or Unknown?
     anyOrUnknownArg?: UnknownType | AnyType;
 
+    // Was one or more of the arguments an unpacked iterable or
+    // mapping whose length is unknown?
+    unpackedArgOfUnknownLength?: boolean;
+
     // The parameter associated with the "active" argument (used
     // for signature help provider)
     activeParam?: FunctionParam | undefined;
@@ -774,7 +778,7 @@ export interface TypeEvaluator {
     getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
     getAbstractSymbols: (classType: ClassType) => AbstractSymbol[];
     narrowConstrainedTypeVar: (node: ParseNode, typeVar: TypeVarType) => Type | undefined;
-    isTypeComparable: (leftType: Type, rightType: Type) => boolean;
+    isTypeComparable: (leftType: Type, rightType: Type, assumeIsOperator?: boolean) => boolean;
 
     assignType: (
         destType: Type,

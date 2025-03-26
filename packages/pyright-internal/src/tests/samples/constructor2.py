@@ -69,7 +69,7 @@ def s4():
 
 def s5():
     a: Animal[Any, Any] = Bear[int]()
-    reveal_type(a, expected_text="Bear[Any]")
+    reveal_type(a, expected_text="Bear[int]")
 
 
 def s6():
@@ -94,7 +94,7 @@ def s9(p: dict[str, str]):
 
 def s10(p: list[str]):
     a: Iterable[Any] = p
-    reveal_type(a, expected_text="list[Any]")
+    reveal_type(a, expected_text="list[str]")
     b: Iterable[str] = []
     reveal_type(b, expected_text="list[str]")
     c: Iterable[str] = list()
@@ -108,7 +108,7 @@ def s11():
 
 def s12(p: Bear[_T1], b: _T1):
     a: Animal[Any, int] = p
-    reveal_type(a, expected_text="Bear[Any]")
+    reveal_type(a, expected_text="Bear[_T1@s12]")
 
 
 def s13(p: Bat):
@@ -178,8 +178,7 @@ def s18():
 
 
 class Plant(Generic[_T1]):
-    def __new__(cls, o: _T1) -> Self:
-        ...
+    def __new__(cls, o: _T1) -> Self: ...
 
 
 plant: Plant[float] = Plant(0)

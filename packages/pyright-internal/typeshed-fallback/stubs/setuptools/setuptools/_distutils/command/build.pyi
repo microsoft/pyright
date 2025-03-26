@@ -7,7 +7,7 @@ from ..cmd import Command
 def show_compilers() -> None: ...
 
 class build(Command):
-    description: str
+    description: ClassVar[str]
     user_options: ClassVar[list[tuple[str, str | None, str]]]
     boolean_options: ClassVar[list[str]]
     help_options: ClassVar[list[tuple[str, str | None, str, Callable[[], Unused]]]]
@@ -20,7 +20,7 @@ class build(Command):
     compiler: Incomplete
     plat_name: Incomplete
     debug: Incomplete
-    force: int
+    force: bool
     executable: Incomplete
     parallel: Incomplete
     def initialize_options(self) -> None: ...
