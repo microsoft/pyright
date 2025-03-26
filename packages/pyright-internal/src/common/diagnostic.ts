@@ -111,6 +111,7 @@ export class Diagnostic {
     private _actions: DiagnosticAction[] | undefined;
     private _rule: string | undefined;
     private _relatedInfo: DiagnosticRelatedInfo[] = [];
+    private _data: any | null = null;
 
     constructor(
         readonly category: DiagnosticCategory,
@@ -127,6 +128,7 @@ export class Diagnostic {
             priority: this.priority,
             actions: this._actions,
             rule: this._rule,
+            data: this._data,
             relatedInfo: this._relatedInfo.map((info) => DiagnosticRelatedInfo.toJsonObj(info)),
         };
     }
@@ -136,6 +138,7 @@ export class Diagnostic {
         diag._actions = obj.actions;
         diag._rule = obj.rule;
         diag._relatedInfo = obj.relatedInfo.map((info: any) => DiagnosticRelatedInfo.fromJsonObj(info));
+        diag._data = obj.data;
         return diag;
     }
 
@@ -145,6 +148,14 @@ export class Diagnostic {
         } else {
             this._actions.push(action);
         }
+    }
+
+    setData(data: any) {
+        this._data = data;
+    }
+
+    getData(): any | null {
+        return this._data;
     }
 
     getActions() {

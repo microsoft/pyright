@@ -20,6 +20,7 @@ import { ServiceKeys } from './serviceKeys';
 import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 import { isDirectory } from './uri/uriUtils';
+import { terminateChild } from './processUtils';
 
 // preventLocalImports removes the working directory from sys.path.
 // The -c flag adds it automatically, which can allow some stdlib
@@ -164,18 +165,7 @@ export class FullAccessHost extends LimitedAccessHost {
             );
             const tokenWatch = onCancellationRequested(token, () => {
                 if (child) {
-                    try {
-                        if (child.pid && child.exitCode === null) {
-                            if (process.platform === 'win32') {
-                                // Windows doesn't support SIGTERM, so execute taskkill to kill the process
-                                child_process.execSync(`taskkill /pid ${child.pid} /T /F > NUL 2>&1`);
-                            } else {
-                                process.kill(child.pid);
-                            }
-                        }
-                    } catch {
-                        // Ignore.
-                    }
+                    terminateChild(child);
                 }
                 reject(new OperationCanceledException());
             });

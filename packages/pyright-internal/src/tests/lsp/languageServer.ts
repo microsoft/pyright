@@ -163,9 +163,9 @@ class TestServer extends PyrightServer {
         return result;
     }
 
-    override createBackgroundAnalysis(serviceId: string): IBackgroundAnalysis | undefined {
+    override createBackgroundAnalysis(serviceId: string, workspaceRoot: Uri): IBackgroundAnalysis | undefined {
         if (this._supportsBackgroundAnalysis) {
-            return new BackgroundAnalysis(this.serverOptions.serviceProvider);
+            return new BackgroundAnalysis(workspaceRoot, this.serverOptions.serviceProvider);
         }
         return undefined;
     }

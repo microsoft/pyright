@@ -18,16 +18,18 @@ import { Host } from './common/host';
 import { ServiceProvider } from './common/serviceProvider';
 import { getRootUri } from './common/uri/uriUtils';
 import { ServiceKeys } from './common/serviceKeys';
+import { Uri } from './common/uri/uri';
 
 export class BackgroundAnalysis extends BackgroundAnalysisBase {
     private static _workerIndex = 0;
 
-    constructor(serviceProvider: ServiceProvider) {
+    constructor(workspaceRoot: Uri, serviceProvider: ServiceProvider) {
         super(serviceProvider.console());
 
         const index = ++BackgroundAnalysis._workerIndex;
         const initialData: InitializationData = {
             rootUri: getRootUri(serviceProvider)?.toString() ?? '',
+            workspaceRootUri: workspaceRoot.toString(),
             tempFileName: serviceProvider.get(ServiceKeys.tempFile).tmpdir().getFilePath(),
             serviceId: index.toString(),
             cancellationFolderName: getCancellationFolderName(),

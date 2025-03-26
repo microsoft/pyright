@@ -84,7 +84,7 @@ ServiceProvider.prototype.console = function () {
 ServiceProvider.prototype.partialStubs = function () {
     const result = this.tryGet(ServiceKeys.partialStubs);
     if (!result) {
-        this.add(ServiceKeys.partialStubs, new PartialStubService(this.fs()));
+        this.add(ServiceKeys.partialStubs, new PartialStubService(this.fs(), this.console()));
     }
     return this.get(ServiceKeys.partialStubs);
 };
