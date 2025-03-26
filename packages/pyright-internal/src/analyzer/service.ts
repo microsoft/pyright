@@ -337,7 +337,7 @@ export class AnalyzerService {
             ipythonMode,
             chainedFileUri: chainedFileUri,
         });
-        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+        this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     getChainedUri(uri: Uri): Uri | undefined {
@@ -346,7 +346,7 @@ export class AnalyzerService {
 
     updateChainedUri(uri: Uri, chainedFileUri: Uri | undefined) {
         this._backgroundAnalysisProgram.updateChainedUri(uri, chainedFileUri);
-        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+        this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     updateOpenFileContents(uri: Uri, version: number | null, contents: string, ipythonMode = IPythonMode.None) {
@@ -355,12 +355,12 @@ export class AnalyzerService {
             ipythonMode,
             chainedFileUri: undefined,
         });
-        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+        this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     setFileClosed(uri: Uri, isTracked?: boolean) {
         this._backgroundAnalysisProgram.setFileClosed(uri, isTracked);
-        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+        this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     addInterimFile(uri: Uri) {
@@ -410,6 +410,10 @@ export class AnalyzerService {
         return this._backgroundAnalysisProgram.analyzeFile(fileUri, token);
     }
 
+    analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<Diagnostic[]> {
+        return this._backgroundAnalysisProgram.analyzeFileAndGetDiagnostics(fileUri, token);
+    }
+
     getDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
         return this._backgroundAnalysisProgram.getDiagnosticsForRange(fileUri, range, token);
     }
@@ -428,7 +432,7 @@ export class AnalyzerService {
         // If we have a pending timer for reanalysis, cancel it
         // and reschedule for some time in the future.
         if (this._analyzeTimer) {
-            this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+            this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
         }
     }
 
@@ -492,9 +496,57 @@ export class AnalyzerService {
         if (!this.options.usingPullDiagnostics) {
             const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(token);
             if (moreToAnalyze) {
-                this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+                this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
             }
         }
+    }
+
+    protected scheduleReanalysis(requireTrackedFileUpdate: boolean) {
+        if (this._disposed || !this._commandLineOptions?.languageServerSettings.enableAmbientAnalysis) {
+            // already disposed
+            return;
+        }
+
+        if (requireTrackedFileUpdate) {
+            this._requireTrackedFileUpdate = true;
+        }
+
+        this._backgroundAnalysisCancellationSource?.cancel();
+
+        // Remove any existing analysis timer.
+        this._clearReanalysisTimer();
+
+        // How long has it been since the user interacted with the service?
+        // If the user is actively typing, back off to let him or her finish.
+        const timeSinceLastUserInteractionInMs = Date.now() - this._lastUserInteractionTime;
+        const minBackoffTimeInMs = _userActivityBackoffTimeInMs;
+
+        // We choose a small non-zero value here. If this value
+        // is too small (like zero), the VS Code extension becomes
+        // unresponsive during heavy analysis. If this number is too
+        // large, analysis takes longer.
+        const minTimeBetweenAnalysisPassesInMs = 5;
+
+        const timeUntilNextAnalysisInMs = Math.max(
+            minBackoffTimeInMs - timeSinceLastUserInteractionInMs,
+            minTimeBetweenAnalysisPassesInMs
+        );
+
+        // Schedule a new timer.
+        this._analyzeTimer = setTimeout(() => {
+            this._analyzeTimer = undefined;
+
+            if (this._requireTrackedFileUpdate) {
+                this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
+            }
+
+            // Recreate the cancellation token every time we start analysis.
+            this._backgroundAnalysisCancellationSource = this.cancellationProvider.createCancellationTokenSource();
+
+            // Now that the timer has fired, actually send the message to the BG thread to
+            // start the analysis.
+            this.runAnalysis(this._backgroundAnalysisCancellationSource.token);
+        }, timeUntilNextAnalysisInMs);
     }
 
     protected applyConfigOptions(host: Host) {
@@ -542,7 +594,7 @@ export class AnalyzerService {
         this._updateSourceFileWatchers();
         this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ true);
 
-        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+        this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     private get _console() {
@@ -1514,7 +1566,7 @@ export class AnalyzerService {
                     // (those that have a transitive dependency on this file).
                     if (eventInfo.isFile && eventInfo.event === 'change') {
                         this._backgroundAnalysisProgram.markFilesDirty([uri], /* evenIfContentsAreSame */ false);
-                        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+                        this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
                         return;
                     }
 
@@ -1523,7 +1575,7 @@ export class AnalyzerService {
                     //
                     // However, we don't need to rebuild any indexes in this situation. Changes to workspace files don't affect library indices.
                     this.invalidateAndForceReanalysis(InvalidatedReason.SourceWatcherChanged);
-                    this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
+                    this.scheduleReanalysis(/* requireTrackedFileUpdate */ true);
                 });
             } catch {
                 this._console.error(
@@ -1777,7 +1829,7 @@ export class AnalyzerService {
                     ? InvalidatedReason.LibraryWatcherContentOnlyChanged
                     : InvalidatedReason.LibraryWatcherChanged
             );
-            this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+            this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
 
             // No more pending changes.
             reanalysisTimeProvider!.libraryReanalysisStarted?.();
@@ -1869,54 +1921,6 @@ export class AnalyzerService {
             clearTimeout(this._analyzeTimer);
             this._analyzeTimer = undefined;
         }
-    }
-
-    private _scheduleReanalysis(requireTrackedFileUpdate: boolean) {
-        if (this._disposed || !this._commandLineOptions?.languageServerSettings.enableAmbientAnalysis) {
-            // already disposed
-            return;
-        }
-
-        if (requireTrackedFileUpdate) {
-            this._requireTrackedFileUpdate = true;
-        }
-
-        this._backgroundAnalysisCancellationSource?.cancel();
-
-        // Remove any existing analysis timer.
-        this._clearReanalysisTimer();
-
-        // How long has it been since the user interacted with the service?
-        // If the user is actively typing, back off to let him or her finish.
-        const timeSinceLastUserInteractionInMs = Date.now() - this._lastUserInteractionTime;
-        const minBackoffTimeInMs = _userActivityBackoffTimeInMs;
-
-        // We choose a small non-zero value here. If this value
-        // is too small (like zero), the VS Code extension becomes
-        // unresponsive during heavy analysis. If this number is too
-        // large, analysis takes longer.
-        const minTimeBetweenAnalysisPassesInMs = 5;
-
-        const timeUntilNextAnalysisInMs = Math.max(
-            minBackoffTimeInMs - timeSinceLastUserInteractionInMs,
-            minTimeBetweenAnalysisPassesInMs
-        );
-
-        // Schedule a new timer.
-        this._analyzeTimer = setTimeout(() => {
-            this._analyzeTimer = undefined;
-
-            if (this._requireTrackedFileUpdate) {
-                this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
-            }
-
-            // Recreate the cancellation token every time we start analysis.
-            this._backgroundAnalysisCancellationSource = this.cancellationProvider.createCancellationTokenSource();
-
-            // Now that the timer has fired, actually send the message to the BG thread to
-            // start the analysis.
-            this.runAnalysis(this._backgroundAnalysisCancellationSource.token);
-        }, timeUntilNextAnalysisInMs);
     }
 
     private _reportConfigParseError() {

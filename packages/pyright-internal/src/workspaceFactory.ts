@@ -98,7 +98,7 @@ export function renameWorkspace(workspace: Workspace, name: string) {
     workspace.service.setServiceName(name);
 }
 
-export type CreateServiceFunction = (name: string, workspaceRoot: Uri, kinds: string[]) => AnalyzerService;
+export type CreateServiceFunction = (name: string, workspaceRoot: Uri | undefined, kinds: string[]) => AnalyzerService;
 
 export class WorkspaceFactory {
     private _defaultWorkspacePath = '<default>';

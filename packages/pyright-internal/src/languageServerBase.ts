@@ -140,6 +140,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     private _pendingCommandCancellationSource: AbstractCancellationTokenSource | undefined;
 
     private _progressReporter: ProgressReporter;
+    private _progressReportCounter = 0;
 
     private _lastTriggerKind: CompletionTriggerKind | undefined = CompletionTriggerKind.Invoked;
 
@@ -1116,6 +1117,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             return result;
         }
 
+        // Send a progress message to the client.
+        this.incrementAnalysisProgress();
+
         // Reanalyze the file if it's not up to date.
         if (params.previousResultId !== diagnosticsVersion.toString() && sourceFile) {
             let diagnosticsVersionAfter = UncomputedDiagnosticsVersion - 1; // Just has to be different
@@ -1129,13 +1133,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
                 // Then reanalyze the file (this should go to the background thread so this thread can handle other requests).
                 if (sourceFile) {
-                    await workspace.service.analyzeFile(uri, token);
+                    serverDiagnostics = await workspace.service.analyzeFileAndGetDiagnostics(uri, token);
                 }
-
-                // Then pick up the diagnostics created.
-                serverDiagnostics = sourceFile
-                    ? await workspace.service.getDiagnosticsForRange(uri, sourceFile.getRange(), token)
-                    : [];
 
                 // If any text edits came in, make sure we reanalyze the file. Diagnostics version should be reset to zero
                 // if a text edit comes in.
@@ -1159,6 +1158,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 diagnosticsVersion === UncomputedDiagnosticsVersion ? undefined : diagnosticsVersion.toString();
             delete (result as any).items;
         }
+        this.decrementAnalysisProgress();
 
         return result;
     }
@@ -1296,29 +1296,39 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }
 
         // Update progress.
-        const progressMessage = this.getProgressMessage(results);
-        if (progressMessage) {
-            this._progressReporter.begin();
-            this._progressReporter.report(progressMessage);
-        } else {
-            this._progressReporter.end();
-        }
+        this.sendProgressMessage(results.requiringAnalysisCount.files);
     }
 
-    protected getProgressMessage(results: AnalysisResults): string | undefined {
-        const fileCount = results.requiringAnalysisCount.files;
+    protected incrementAnalysisProgress() {
+        this._progressReportCounter += 1;
+        this.sendProgressMessage(this._progressReportCounter);
+    }
 
-        if (fileCount === 0) {
-            return undefined;
+    protected decrementAnalysisProgress() {
+        this._progressReportCounter -= 1;
+        if (this._progressReportCounter < 0) {
+            this._progressReportCounter = 0;
         }
+        this.sendProgressMessage(this._progressReportCounter);
+    }
 
+    protected sendProgressMessage(fileCount: number) {
+        if (fileCount <= 0) {
+            this._progressReporter.end();
+            return;
+        }
         const progressMessage =
             fileCount === 1
                 ? Localizer.CodeAction.filesToAnalyzeOne()
                 : Localizer.CodeAction.filesToAnalyzeCount().format({
                       count: fileCount,
                   });
-        return progressMessage;
+
+        // Update progress.
+        if (!this._progressReporter.isDisplayingProgess()) {
+            this._progressReporter.begin();
+        }
+        this._progressReporter.report(progressMessage);
     }
 
     protected onWorkspaceCreated(workspace: Workspace) {
@@ -1354,14 +1364,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected createAnalyzerServiceForWorkspace(
         name: string,
-        workspaceRoot: Uri,
+        workspaceRoot: Uri | undefined,
         kinds: string[],
         services?: WorkspaceServices
     ): AnalyzerService {
         // 5 seconds default
         const defaultBackOffTime = 5 * 1000;
 
-        return this.createAnalyzerService(name, workspaceRoot, services, () => defaultBackOffTime);
+        return this.createAnalyzerService(name, workspaceRoot || Uri.empty(), services, () => defaultBackOffTime);
     }
 
     protected recordUserInteractionTime() {

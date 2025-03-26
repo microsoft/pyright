@@ -177,6 +177,14 @@ export class BackgroundAnalysisProgram {
         return this._program.analyzeFile(fileUri, token);
     }
 
+    async analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<Diagnostic[]> {
+        if (this._backgroundAnalysis) {
+            return this._backgroundAnalysis.analyzeFileAndGetDiagnostics(fileUri, token);
+        }
+
+        return this._program.analyzeFileAndGetDiagnostics(fileUri, token);
+    }
+
     libraryUpdated(): boolean {
         return false;
     }

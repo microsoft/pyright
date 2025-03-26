@@ -415,6 +415,7 @@ export class ImportResolver {
         addPaths(execEnv.root ?? this._configOptions.projectRoot);
         execEnv.extraPaths.forEach((p) => addPaths(p));
         addPaths(typeshedPathEx);
+
         this.getPythonSearchPaths(ignored).forEach((p) => addPaths(p));
 
         this.partialStubs.processPartialStubPackages(paths, this.getImportRoots(execEnv), typeshedPathEx);

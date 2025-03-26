@@ -530,6 +530,12 @@ export class Program {
         return this._sourceFileList.filter((s) => isUserCode(s) && this.owns(s.sourceFile.getUri()));
     }
 
+    getCheckingRequiredFiles(): SourceFileInfo[] {
+        return this._sourceFileList.filter(
+            (s) => s.isOpenByClient && this.owns(s.sourceFile.getUri()) && s.sourceFile.isCheckingRequired()
+        );
+    }
+
     getFilesToAnalyzeCount(): RequiringAnalysisCount {
         let filesToAnalyzeCount = 0;
         let cellsToAnalyzeCount = 0;
@@ -683,6 +689,17 @@ export class Program {
             }
             return false;
         });
+    }
+
+    analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken = CancellationToken.None): Diagnostic[] {
+        throwIfCancellationRequested(token);
+        this.analyzeFile(fileUri, token);
+        throwIfCancellationRequested(token);
+        const sourceFile = this.getSourceFile(fileUri);
+        if (!sourceFile) {
+            return [];
+        }
+        return this.getDiagnosticsForRange(fileUri, sourceFile.getRange());
     }
 
     // This will allow the callback to execute a type evaluator with an associated

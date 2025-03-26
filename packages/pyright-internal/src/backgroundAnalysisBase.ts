@@ -62,6 +62,7 @@ export interface IBackgroundAnalysis extends Disposable {
     markFilesDirty(fileUris: Uri[], evenIfContentsAreSame: boolean): void;
     startAnalysis(token: CancellationToken): void;
     analyzeFile(fileUri: Uri, token: CancellationToken): Promise<boolean>;
+    analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<Diagnostic[]>;
     getDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]>;
     writeTypeStub(
         targetImportPath: Uri,
@@ -198,6 +199,27 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
         return result;
     }
 
+    async analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<Diagnostic[]> {
+        throwIfCancellationRequested(token);
+
+        const { port1, port2 } = new MessageChannel();
+        const waiter = getBackgroundWaiter<Diagnostic[]>(port1);
+
+        const cancellationId = getCancellationTokenId(token);
+        this.enqueueRequest({
+            requestType: 'analyzeFileAndGetDiagnostics',
+            data: serialize({ fileUri, cancellationId }),
+            port: port2,
+        });
+
+        const result = await waiter;
+
+        port2.close();
+        port1.close();
+
+        return convertDiagnostics(result);
+    }
+
     async getDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
         throwIfCancellationRequested(token);
 
@@ -272,6 +294,10 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
         // print log and ignore exception
         worker.on('error', (msg) => {
             this.log(LogLevel.Error, `Error occurred on background thread: ${JSON.stringify(msg)}`);
+        });
+
+        worker.on('exit', (code) => {
+            this.log(LogLevel.Log, `Background thread exited with code: ${code}`);
         });
 
         // Send the port to the other side for use in sending responses. It can only be sent once cause after it's transferred
@@ -435,6 +461,16 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
                 break;
             }
 
+            case 'analyzeFileAndGetDiagnostics': {
+                run(() => {
+                    const { fileUri, cancellationId } = deserialize(msg.data);
+                    const token = getCancellationTokenFromId(cancellationId);
+
+                    return this.handleAnalyzeFileAndGetDiagnostics(fileUri, token);
+                }, msg.port!);
+                break;
+            }
+
             case 'getDiagnosticsForRange': {
                 run(() => {
                     const { fileUri, range, cancellationId } = deserialize(msg.data);
@@ -591,6 +627,10 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     protected handleAnalyzeFile(fileUri: Uri, token: CancellationToken) {
         throwIfCancellationRequested(token);
         return this.program.analyzeFile(fileUri, token);
+    }
+
+    protected handleAnalyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken) {
+        return this.program.analyzeFileAndGetDiagnostics(fileUri, token);
     }
 
     protected handleGetDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken) {
@@ -831,6 +871,7 @@ export type BackgroundRequestKind =
     | 'shutdown'
     | 'addInterimFile'
     | 'analyzeFile'
+    | 'analyzeFileAndGetDiagnostics'
     | 'cacheUsageBuffer';
 
 export interface BackgroundRequest {
