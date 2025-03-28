@@ -43,7 +43,7 @@ extends:
     stages:
       - stage: BuildVsix
         jobs:
-          - job: build
+          - job: build_vsix
             displayName: Build VSIX
             timeoutInMinutes: 60
             templateContext:
@@ -149,6 +149,7 @@ extends:
         dependsOn:
         jobs:
           - job: build_npm
+            displayName: Build NPM
             templateContext:
               outputs:
                 - output: pipelineArtifact
@@ -174,6 +175,7 @@ extends:
 
               - script: |
                   npm pack
+                  ls -l
                   mv pyright-*.tgz ${{ variables.PACKAGE_NAME }}
                 displayName: npm pack
                 workingDirectory: packages/pyright
