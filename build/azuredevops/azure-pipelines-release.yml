@@ -179,8 +179,8 @@ extends:
                 workingDirectory: packages/pyright
 
               - script: |
-                  ls -l
-                  mv pyright-*.tgz ${{ variables.PACKAGE_NAME }}
+                  dir
+                  ren pyright-*.tgz ${{ variables.PACKAGE_NAME }}
                 displayName: npm pack (post check)
                 workingDirectory: packages/pyright
 
