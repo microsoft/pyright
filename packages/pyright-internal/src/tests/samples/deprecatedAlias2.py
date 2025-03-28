@@ -1,8 +1,9 @@
-# This sample tests the detection of deprecated classes from the typing
-# module.
+# This sample tests the detection of deprecated classes from the
+# typing_extensions module.
 
+# This test is heavily derived from deprecatedAlias1.py.
 
-from typing import (
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
     ChainMap as CM1,
     Counter as CT1,
     DefaultDict,
@@ -33,13 +34,13 @@ from typing import (
     MutableMapping,
     Sequence,
     MutableSequence,
-    ByteString as BS1,
+    # ByteString as BS1, # This symbol doesn't exist in typing_extensions
     MappingView,
     KeysView,
     ItemsView,
     ValuesView,
-    ContextManager as CM1,
-    AsyncContextManager,
+    ContextManager as CM1,  # This symbol is reexported from contextlib
+    AsyncContextManager,  # This symbol is reexported from contextlib
     Pattern as P1,
     Match as M1,
 )
