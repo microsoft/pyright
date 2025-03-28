@@ -175,9 +175,13 @@ extends:
 
               - script: |
                   npm pack
+                displayName: npm pack
+                workingDirectory: packages/pyright
+
+              - script: |
                   ls -l
                   mv pyright-*.tgz ${{ variables.PACKAGE_NAME }}
-                displayName: npm pack
+                displayName: npm pack (post check)
                 workingDirectory: packages/pyright
 
               # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
