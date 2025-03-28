@@ -1488,11 +1488,9 @@ export class Checker extends ParseTreeWalker {
         const type = typeResult?.type ?? UnknownType.create();
 
         const leftExprType = this._evaluator.getType(node.d.leftExpr);
-        this._reportDeprecatedUseForType(
-            node.d.member,
-            type,
-            leftExprType && isModule(leftExprType) && leftExprType.priv.moduleName === 'typing'
-        );
+        const moduleName = leftExprType && isModule(leftExprType) ? leftExprType.priv.moduleName : undefined;
+        const isImportedFromTyping = moduleName === 'typing' || moduleName === 'typing_extensions';
+        this._reportDeprecatedUseForType(node.d.member, type, isImportedFromTyping);
 
         if (typeResult?.memberAccessDeprecationInfo) {
             this._reportDeprecatedUseForMemberAccess(node.d.member, typeResult.memberAccessDeprecationInfo);
@@ -1596,7 +1594,8 @@ export class Checker extends ParseTreeWalker {
         let isImportFromTyping = false;
         if (node.parent?.nodeType === ParseNodeType.ImportFrom) {
             if (node.parent.d.module.d.leadingDots === 0 && node.parent.d.module.d.nameParts.length === 1) {
-                if (node.parent.d.module.d.nameParts[0].d.value === 'typing') {
+                const namePart = node.parent.d.module.d.nameParts[0].d.value;
+                if (namePart === 'typing' || namePart === 'typing_extensions') {
                     isImportFromTyping = true;
                 }
             }
