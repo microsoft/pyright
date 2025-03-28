@@ -192,6 +192,7 @@ extends:
       - stage: CreateRelease
         dependsOn:
           - BuildVsix
+          - BuildNpm
         jobs:
           - job: create_release
             displayName: Create GitHub Release
@@ -216,6 +217,7 @@ extends:
                   title: 'Published $(Build.SourceBranchName)'
                   assets: |
                     $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)/$(VSIX_NAME)
+                    $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
 
       - stage: WaitForValidation
         dependsOn:
