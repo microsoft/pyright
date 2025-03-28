@@ -174,18 +174,18 @@ extends:
 
               - script: |
                   npm pack
-                  mv pyright-*.tgz ${{ parameters.PACKAGE_NAME }}
+                  mv pyright-*.tgz ${{ variables.PACKAGE_NAME }}
                 displayName: npm pack
                 workingDirectory: packages/pyright
 
               # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
               # We don't want it to scan the microbuild plugins, which is installed in the agent.stagedirectory by default.
               - task: CopyFiles@2
-                displayName: 'Copy ${{ parameters.PACKAGE_NAME }} to subfolder'
+                displayName: 'Copy ${{ variables.PACKAGE_NAME }} to subfolder'
                 inputs:
                   SourceFolder: packages/pyright
-                  Contents: '${{ parameters.PACKAGE_NAME }}'
-                  TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ parameters.ARTIFACT_NAME_PACKAGE }}'
+                  Contents: '${{ variables.PACKAGE_NAME }}'
+                  TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
       - stage: CreateRelease
         dependsOn:
