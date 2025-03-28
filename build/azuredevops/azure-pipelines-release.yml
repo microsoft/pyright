@@ -226,45 +226,45 @@ extends:
               - task: ManualValidation@0
                 timeoutInMinutes: 120 # task times out in 2 hours
                 inputs:
-                  notifyUsers: 'plseng@microsoft.com,eric@traut.com'
+                  notifyUsers: 'erikd@microsoft.com'
                   instructions: 'In the next 2 hours please test the latest draft release of Pyright, then Publish the release in GitHub.'
                   onTimeout: 'reject' # require sign-off
 
-      - stage: PublishToMarketplace
-        dependsOn:
-          - WaitForValidation
-        jobs:
-          - job: publish_extension
-            displayName: Publish extension to marketplace
-            steps:
-              - checkout: none
-              - task: NodeTool@0
-                inputs:
-                  versionSpec: 18.x
-              - task: DownloadPipelineArtifact@2
-                displayName: 'Download Artifacts from Validation Job'
-                inputs:
-                  buildType: 'current'
-                  artifactName: '$(ARTIFACT_NAME_VSIX)'
-                  targetPath: '$(System.ArtifactsDirectory)'
-              # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
-              # Install dependencies and VS Code Extension Manager (vsce >= v2.26.1 needed)
-              - script: |
-                  npm install -g @vscode/vsce
-                displayName: 'Install vsce and dependencies'
-              # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
-              # Publish to Marketplace
-              # see. stackoverflow.com/collectives/ci-cd/articles/76873787/publish-azure-devops-extensions-using-azure-workload-identity
-              # az rest -u https://app.vssps.visualstudio.com/_apis/profile/profiles/me --resource 499b84ac-1321-427f-aa17-267ca6975798
-              - task: AzureCLI@2
-                displayName: 'Publishing with Managed Identity'
-                inputs:
-                  azureSubscription: PyrightPublishPipelineSecureConnectionWithManagedIdentity
-                  scriptType: 'pscore'
-                  scriptLocation: 'inlineScript'
-                  inlineScript: |
-                    $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
-                    vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
+      # - stage: PublishToMarketplace
+      #   dependsOn:
+      #     - WaitForValidation
+      #   jobs:
+      #     - job: publish_extension
+      #       displayName: Publish extension to marketplace
+      #       steps:
+      #         - checkout: none
+      #         - task: NodeTool@0
+      #           inputs:
+      #             versionSpec: 18.x
+      #         - task: DownloadPipelineArtifact@2
+      #           displayName: 'Download Artifacts from Validation Job'
+      #           inputs:
+      #             buildType: 'current'
+      #             artifactName: '$(ARTIFACT_NAME_VSIX)'
+      #             targetPath: '$(System.ArtifactsDirectory)'
+      #         # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
+      #         # Install dependencies and VS Code Extension Manager (vsce >= v2.26.1 needed)
+      #         - script: |
+      #             npm install -g @vscode/vsce
+      #           displayName: 'Install vsce and dependencies'
+      #         # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
+      #         # Publish to Marketplace
+      #         # see. stackoverflow.com/collectives/ci-cd/articles/76873787/publish-azure-devops-extensions-using-azure-workload-identity
+      #         # az rest -u https://app.vssps.visualstudio.com/_apis/profile/profiles/me --resource 499b84ac-1321-427f-aa17-267ca6975798
+      #         - task: AzureCLI@2
+      #           displayName: 'Publishing with Managed Identity'
+      #           inputs:
+      #             azureSubscription: PyrightPublishPipelineSecureConnectionWithManagedIdentity
+      #             scriptType: 'pscore'
+      #             scriptLocation: 'inlineScript'
+      #             inlineScript: |
+      #               $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
+      #               vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
 
       - stage: PublishToNpm
         dependsOn: WaitForValidation
@@ -286,12 +286,14 @@ extends:
                 targetPath: $(Build.StagingDirectory)/dist
 
           steps:
-            - template: MicroBuild.Publish.yml@MicroBuildTemplate
-              parameters:
-                intent: PackageDistribution
-                contentType: npm
-                contentSource: Folder
-                folderLocation: $(Build.StagingDirectory)/dist
-                waitForReleaseCompletion: true
-                owners: plseng@microsoft.com
-                approvers: grwheele@microsoft.com
+            - script:
+                echo $(Build.StagingDirectory)/dist
+            # - template: MicroBuild.Publish.yml@MicroBuildTemplate
+            #   parameters:
+            #     intent: PackageDistribution
+            #     contentType: npm
+            #     contentSource: Folder
+            #     folderLocation: $(Build.StagingDirectory)/dist
+            #     waitForReleaseCompletion: true
+            #     owners: plseng@microsoft.com
+            #     approvers: grwheele@microsoft.com
