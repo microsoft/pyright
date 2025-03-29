@@ -11,7 +11,6 @@ import * as assert from 'assert';
 import { ImportResolver } from '../analyzer/importResolver';
 import { SourceFile } from '../analyzer/sourceFile';
 import { ConfigOptions } from '../common/configOptions';
-import { NullConsole } from '../common/console';
 import { FullAccessHost } from '../common/fullAccessHost';
 import { combinePaths } from '../common/pathUtils';
 import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
@@ -22,7 +21,6 @@ import { parseAndGetTestState } from './harness/fourslash/testState';
 test('Empty', () => {
     const filePath = combinePaths(process.cwd(), 'tests/samples/test_file1.py');
     const tempFile = new RealTempFile();
-    const console = new NullConsole();
     const fs = createFromRealFileSystem(tempFile);
     const serviceProvider = createServiceProvider(tempFile, fs);
     const sourceFile = new SourceFile(
@@ -35,7 +33,7 @@ test('Empty', () => {
         { isEditMode: false }
     );
     const configOptions = new ConfigOptions(Uri.file(process.cwd(), serviceProvider));
-    const sp = createServiceProvider(fs, console);
+    const sp = createServiceProvider(fs);
     const importResolver = new ImportResolver(sp, configOptions, new FullAccessHost(sp));
 
     sourceFile.parse(configOptions, importResolver);
