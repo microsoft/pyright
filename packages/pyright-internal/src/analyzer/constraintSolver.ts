@@ -941,7 +941,7 @@ function assignUnconstrainedTypeVar(
         // If the dest is a Type[T] but the source is not a valid Type,
         // skip the assignType check and the diagnostic addendum, which will
         // be confusing and inaccurate.
-        if (TypeBase.isInstantiable(destType) && !isEffectivelyInstantiable(srcType)) {
+        if (TypeBase.isInstantiable(destType) && !isEffectivelyInstantiable(srcType, { honorTypeVarBounds: true })) {
             return false;
         }
 
