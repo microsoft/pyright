@@ -146,6 +146,7 @@ extends:
                   TargetFolder: build_output
 
       - stage: BuildNpm
+        dependsOn: # Blank to allow running in parallel with BuildVsix
         jobs:
           - job: build_npm
             displayName: Build NPM
