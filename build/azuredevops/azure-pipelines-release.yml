@@ -172,10 +172,12 @@ extends:
                 inputs:
                   script: npm run install:all
 
-              - script: |
-                  npm pack
-                  ren pyright-*.tgz ${{ variables.PACKAGE_NAME }}
+              - script: npm pack
                 displayName: npm pack
+                workingDirectory: packages/pyright
+
+              - script: ren pyright-*.tgz ${{ variables.PACKAGE_NAME }}
+                displayName: Remove version from package name
                 workingDirectory: packages/pyright
 
               # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
