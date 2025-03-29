@@ -95,7 +95,7 @@ export function createProperty(
 
     // Fill in the fget method.
     propertyObject.priv.fgetInfo = {
-        methodType: FunctionType.cloneWithNewFlags(fget, fget.shared.flags | FunctionTypeFlags.StaticMethod),
+        methodType: fget,
         classType: fget.shared.methodClass,
     };
 
@@ -194,7 +194,7 @@ export function clonePropertyWithSetter(
 
     // Fill in the new fset method.
     propertyObject.priv.fsetInfo = {
-        methodType: FunctionType.cloneWithNewFlags(fset, fset.shared.flags | FunctionTypeFlags.StaticMethod),
+        methodType: fset,
         classType: fset.shared.methodClass,
     };
 
@@ -253,7 +253,7 @@ export function clonePropertyWithDeleter(
 
     // Fill in the fdel method.
     propertyObject.priv.fdelInfo = {
-        methodType: FunctionType.cloneWithNewFlags(fdel, fdel.shared.flags | FunctionTypeFlags.StaticMethod),
+        methodType: fdel,
         classType: fdel.shared.methodClass,
     };
 
@@ -504,7 +504,7 @@ export function assignProperty(
         let destAccessType = accessorInfo.getFunction(destPropertyType);
 
         if (destAccessType && isFunction(destAccessType)) {
-            let srcAccessType = accessorInfo.getFunction(srcPropertyType);
+            const srcAccessType = accessorInfo.getFunction(srcPropertyType);
 
             if (!srcAccessType || !isFunction(srcAccessType)) {
                 diag?.addMessage(accessorInfo.missingDiagMsg());
@@ -520,20 +520,6 @@ export function assignProperty(
             if (selfSolution) {
                 destAccessType = applySolvedTypeVars(destAccessType, selfSolution) as FunctionType;
             }
-
-            // The access methods of fget, fset and fdel are modeled as static
-            // variables because they do not bind go the "property" class that
-            // contains them, but we'll turn it back into a non-static method
-            // here and bind them to the associated objects.
-            destAccessType = FunctionType.cloneWithNewFlags(
-                destAccessType,
-                destAccessType.shared.flags & ~FunctionTypeFlags.StaticMethod
-            );
-
-            srcAccessType = FunctionType.cloneWithNewFlags(
-                srcAccessType,
-                srcAccessType.shared.flags & ~FunctionTypeFlags.StaticMethod
-            );
 
             const boundDestAccessType = evaluator.bindFunctionToClassOrObject(
                 destObjectToBind,
