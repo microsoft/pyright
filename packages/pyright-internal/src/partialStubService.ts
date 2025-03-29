@@ -8,14 +8,13 @@
 
 import type * as fs from 'fs';
 
+import { Disposable } from 'vscode-jsonrpc';
 import { getPyTypedInfo, PyTypedInfo } from './analyzer/pyTypedUtils';
 import { ExecutionEnvironment } from './common/configOptions';
 import { FileSystem } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
 import { Uri } from './common/uri/uri';
 import { isDirectory, tryStat } from './common/uri/uriUtils';
-import { Disposable } from 'vscode-jsonrpc';
-import { ConsoleInterface } from './common/console';
 
 export interface SupportPartialStubs {
     isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean;
@@ -45,7 +44,7 @@ export class PartialStubService implements SupportPartialStubs {
     // Disposables to cleanup moved directories
     private _movedDirectories: Disposable[] = [];
 
-    constructor(private _realFs: FileSystem, private _console?: ConsoleInterface) {}
+    constructor(private _realFs: FileSystem) {}
 
     isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean {
         return execEnv.root ? this.isPathScanned(execEnv.root) : false;
