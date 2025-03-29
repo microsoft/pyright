@@ -201,6 +201,9 @@ extends:
                 - input: pipelineArtifact
                   artifactName: $(ARTIFACT_NAME_VSIX)
                   targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_PACKAGE)
+                  targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)
             steps:
               - checkout: none
               - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
