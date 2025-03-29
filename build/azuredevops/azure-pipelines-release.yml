@@ -193,35 +193,35 @@ extends:
                   Contents: '${{ variables.PACKAGE_NAME }}'
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
-      # - stage: CreateRelease
-      #   dependsOn:
-      #     - BuildVsix
-      #     - BuildNpm
-      #   jobs:
-      #     - job: create_release
-      #       displayName: Create GitHub Release
-      #       templateContext:
-      #         type: releaseJob
-      #         isProduction: true
-      #         inputs:
-      #           - input: pipelineArtifact
-      #             artifactName: $(ARTIFACT_NAME_VSIX)
-      #             targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)
-      #       steps:
-      #         - checkout: none
-      #         - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
-      #           displayName: 'Create GitHub Release'
-      #           inputs:
-      #             gitHubConnection: 'Github-Pylance' # The name of the GitHub service connection
-      #             repositoryName: 'microsoft/pyright' # The name of your GitHub repository
-      #             action: 'create'
-      #             isDraft: true
-      #             isPreRelease: false
-      #             addChangeLog: true
-      #             title: 'Published $(Build.SourceBranchName)'
-      #             assets: |
-      #               $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)/$(VSIX_NAME)
-      #               $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
+      - stage: CreateRelease
+        dependsOn:
+          - BuildVsix
+          - BuildNpm
+        jobs:
+          - job: create_release
+            displayName: Create GitHub Release
+            templateContext:
+              type: releaseJob
+              isProduction: true
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_VSIX)
+                  targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)
+            steps:
+              - checkout: none
+              - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
+                displayName: 'Create GitHub Release'
+                inputs:
+                  gitHubConnection: 'Github-Pylance' # The name of the GitHub service connection
+                  repositoryName: 'microsoft/pyright' # The name of your GitHub repository
+                  action: 'create'
+                  isDraft: true
+                  isPreRelease: false
+                  addChangeLog: true
+                  title: 'Published $(Build.SourceBranchName)'
+                  assets: |
+                    $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)/$(VSIX_NAME)
+                    $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
 
       - stage: WaitForValidation
         dependsOn:
