@@ -42,3 +42,12 @@ class BaseB:
 
 class SubclassB1(BaseB):
     def f[T](self, v: T) -> T: ...
+
+
+class BaseC:
+    def method1[T: BaseC](self, x: T) -> T: ...
+
+
+class SubclassC(BaseC):
+    # This should generate an error because of the upper bound.
+    def method1[T: SubclassC](self, x: T) -> T: ...
