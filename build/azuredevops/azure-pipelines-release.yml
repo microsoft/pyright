@@ -146,7 +146,6 @@ extends:
                   TargetFolder: build_output
 
       - stage: BuildNpm
-        dependsOn:
         jobs:
           - job: build_npm
             displayName: Build NPM
