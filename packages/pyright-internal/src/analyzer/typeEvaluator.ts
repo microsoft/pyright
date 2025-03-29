@@ -27429,7 +27429,7 @@ export function createTypeEvaluator(
                                 baseParamDetails.params[i].type,
                                 diag?.createAddendum(),
                                 constraints,
-                                AssignTypeFlags.Contravariant
+                                AssignTypeFlags.Default
                             )
                         ) {
                             LocAddendum.overrideParamType().format({
@@ -27552,7 +27552,7 @@ export function createTypeEvaluator(
                                 baseParamType,
                                 diag?.createAddendum(),
                                 constraints,
-                                AssignTypeFlags.Contravariant
+                                AssignTypeFlags.Default
                             )
                         ) {
                             diag?.addMessage(
@@ -27614,7 +27614,7 @@ export function createTypeEvaluator(
                             baseParamType,
                             diag?.createAddendum(),
                             constraints,
-                            AssignTypeFlags.Contravariant
+                            AssignTypeFlags.Default
                         )
                     ) {
                         diag?.addMessage(
@@ -27659,7 +27659,7 @@ export function createTypeEvaluator(
                             paramInfo.type,
                             diag?.createAddendum(),
                             constraints,
-                            AssignTypeFlags.Contravariant
+                            AssignTypeFlags.Default
                         )
                     ) {
                         diag?.addMessage(
