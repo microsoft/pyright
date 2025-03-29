@@ -295,7 +295,7 @@ extends:
 
           steps:
             - script:
-                echo $(Build.StagingDirectory)/dist
+                dir $(Build.StagingDirectory)\dist
             # - template: MicroBuild.Publish.yml@MicroBuildTemplate
             #   parameters:
             #     intent: PackageDistribution
