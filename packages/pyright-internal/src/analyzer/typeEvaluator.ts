@@ -27277,8 +27277,7 @@ export function createTypeEvaluator(
                     baseOverload,
                     overrideOverload,
                     /* diag */ undefined,
-                    enforceParamNames,
-                    /* exemptSelfClsParam */ false
+                    enforceParamNames
                 );
 
                 // If the override is compatible but the match is one that is below the previous
@@ -27373,16 +27372,12 @@ export function createTypeEvaluator(
     // Determines whether the override method is compatible with the overridden method.
     // This is used both for parent/child overrides and implicit overrides for peer
     // classes in a multi-inheritance case. If enforceParamNames is true, the parameter
-    // names of non-positional-only parameters are enforced. If exemptSelfClsParam
-    // is true, the "self" and "cls" parameters are exempted from type checks.
-    // This is normally the case except with overloaded method overrides where the
-    // "self" or "cls" parameter type must be honored to differentiate between overloads.
+    // names of non-positional-only parameters are enforced.
     function validateOverrideMethodInternal(
         baseMethod: FunctionType,
         overrideMethod: FunctionType,
         diag: DiagnosticAddendum | undefined,
-        enforceParamNames: boolean,
-        exemptSelfClsParam = true
+        enforceParamNames: boolean
     ): boolean {
         const baseParamDetails = getParamListDetails(baseMethod);
         const overrideParamDetails = getParamListDetails(overrideMethod);
@@ -27478,7 +27473,7 @@ export function createTypeEvaluator(
                 // If the first parameter is a "self" or "cls" parameter, skip the
                 // test because these are allowed to violate the Liskov substitution
                 // principle.
-                if (i === 0 && exemptSelfClsParam) {
+                if (i === 0) {
                     if (
                         FunctionType.isInstanceMethod(overrideMethod) ||
                         FunctionType.isClassMethod(overrideMethod) ||
@@ -27544,7 +27539,8 @@ export function createTypeEvaluator(
                     const baseIsSynthesizedTypeVar = isTypeVar(baseParamType) && baseParamType.shared.isSynthesized;
                     const overrideIsSynthesizedTypeVar =
                         isTypeVar(overrideParamType) && overrideParamType.shared.isSynthesized;
-                    if (!exemptSelfClsParam || (!baseIsSynthesizedTypeVar && !overrideIsSynthesizedTypeVar)) {
+
+                    if (!baseIsSynthesizedTypeVar && !overrideIsSynthesizedTypeVar) {
                         if (
                             baseParam.category !== overrideParam.category ||
                             !assignType(
