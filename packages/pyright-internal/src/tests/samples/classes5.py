@@ -215,8 +215,7 @@ class SubclassTuple2(ParentClass2):
     cv_decl_1, cv_decl_2, cv_decl_3 = (3, 4.5, None)
 
 
-class ConfigBase:
-    ...
+class ConfigBase: ...
 
 
 class ParentClass3(Protocol):
@@ -225,13 +224,11 @@ class ParentClass3(Protocol):
 
 
 class ChildClass3(ParentClass3):
-    class Config1(ConfigBase):
-        ...
+    class Config1(ConfigBase): ...
 
     # This should generate an error if reportIncompatibleVariableOverride
     # is enabled.
-    class Config2:
-        ...
+    class Config2: ...
 
 
 class PeerClass1:

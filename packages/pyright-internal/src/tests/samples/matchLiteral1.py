@@ -67,8 +67,7 @@ def test_none(value_to_match: int | None):
             reveal_type(a2, expected_text="int")
 
 
-class A(str):
-    ...
+class A(str): ...
 
 
 def test_subclass(a: A):

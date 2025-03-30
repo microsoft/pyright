@@ -13,7 +13,7 @@ class TD1(TypedDict):
 
 
 def func1(**kwargs: Unpack[TD1]) -> None:
-    print(f"a: {kwargs['a']}, b: {kwargs.get( 'b' )}, c: {kwargs['c']}")
+    print(f"a: {kwargs['a']}, b: {kwargs.get('b')}, c: {kwargs['c']}")
 
 
 func1_1 = partial(func1, c=["a", "b"], a=2)

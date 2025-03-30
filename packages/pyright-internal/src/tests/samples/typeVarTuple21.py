@@ -11,8 +11,7 @@ T = TypeVar("T")
 Ts = TypeVarTuple("Ts")
 
 
-def f(*args: Unpack[Ts]) -> Union[Unpack[Ts]]:
-    ...
+def f(*args: Unpack[Ts]) -> Union[Unpack[Ts]]: ...
 
 
 def g(x: tuple[T, Unpack[Ts]]) -> Union[T, Unpack[Ts]]:

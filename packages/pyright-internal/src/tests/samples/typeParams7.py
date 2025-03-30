@@ -2,8 +2,7 @@
 # as specified in PEP 695 type parameter statements.
 
 
-class ClassA[**P, R: str]:
-    ...
+class ClassA[**P, R: str]: ...
 
 
 A1 = ClassA[..., str]
@@ -19,15 +18,13 @@ A3 = ClassA[[str], str]
 A4 = ClassA[..., int]
 
 
-class StrSubclass(str):
-    ...
+class StrSubclass(str): ...
 
 
 A5 = ClassA[..., StrSubclass]
 
 
-class ClassB[X: (int, str), Y](dict[Y, X]):
-    ...
+class ClassB[X: (int, str), Y](dict[Y, X]): ...
 
 
 B1 = ClassB[int, int]
@@ -37,8 +34,7 @@ B1 = ClassB[int, int]
 B2 = ClassB[float, float]
 
 
-class ClassC[*Ts]:
-    ...
+class ClassC[*Ts]: ...
 
 
 C1 = ClassC[str, str]

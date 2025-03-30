@@ -9,8 +9,7 @@ Tct = TypeVar("Tct", contravariant=True)
 
 
 class Interface(Protocol[Tct]):
-    def run(self, *, value1: Tct, value2: int) -> object:
-        ...
+    def run(self, *, value1: Tct, value2: int) -> object: ...
 
 
 class Implementation(Generic[Tct]):

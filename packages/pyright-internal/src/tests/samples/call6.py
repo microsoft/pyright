@@ -37,8 +37,7 @@ func2(*unbounded_tuple)
 func2(*unbounded_tuple, 2)
 
 
-def func3(*args: str):
-    ...
+def func3(*args: str): ...
 
 
 def func4(v1: list[str] | None, v2: None, v3: list[str]):

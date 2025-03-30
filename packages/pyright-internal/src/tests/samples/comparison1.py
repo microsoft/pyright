@@ -30,12 +30,10 @@ def func1(os: OS, val: Literal[1, "linux"]):
         return True
 
 
-class ClassA:
-    ...
+class ClassA: ...
 
 
-class ClassB:
-    ...
+class ClassB: ...
 
 
 _T1 = TypeVar("_T1")

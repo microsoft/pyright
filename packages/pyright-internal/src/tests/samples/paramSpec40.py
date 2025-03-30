@@ -34,8 +34,7 @@ class TD1(TypedDict, total=False):
 
 def func3(
     a: int, b: int, /, *, c: str = ..., d: str = ..., **kwargs: Unpack[TD1]
-) -> float:
-    ...
+) -> float: ...
 
 
 call(func3, 1, 2, e="", c="")

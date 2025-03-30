@@ -27,8 +27,7 @@ class ClassB(ClassA):
     def func5(self, x: ClassA):
         x.func0()
 
-    class ClassA:
-        ...
+    class ClassA: ...
 
     def func6(self, x: ClassC):
         x.my_int

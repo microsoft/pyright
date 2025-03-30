@@ -11,8 +11,7 @@ _T = TypeVar("_T")
 
 @overload
 @dataclass_transform(kw_only_default=True, order_default=True)
-def create_model(cls: _T) -> _T:
-    ...
+def create_model(cls: _T) -> _T: ...
 
 
 @overload
@@ -22,12 +21,10 @@ def create_model(
     frozen: bool = False,
     kw_only: bool = True,
     order: bool = True,
-) -> Callable[[_T], _T]:
-    ...
+) -> Callable[[_T], _T]: ...
 
 
-def create_model(*args: Any, **kwargs: Any) -> Any:
-    ...
+def create_model(*args: Any, **kwargs: Any) -> Any: ...
 
 
 @create_model(kw_only=False, order=False)
@@ -74,8 +71,7 @@ v2 = c2_1 < c2_2
 
 
 @dataclass_transform(kw_only_default=True, order_default=True, frozen_default=True)
-def create_model_frozen(cls: _T) -> _T:
-    ...
+def create_model_frozen(cls: _T) -> _T: ...
 
 
 @create_model_frozen

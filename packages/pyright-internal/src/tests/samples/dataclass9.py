@@ -14,8 +14,7 @@ class IsDataclass(Protocol):
 
 def dataclass_only(
     x: IsDataclass,
-):
-    ...  # do something that only makes sense with a dataclass
+): ...  # do something that only makes sense with a dataclass
 
 
 @dataclass

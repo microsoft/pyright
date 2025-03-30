@@ -9,8 +9,7 @@ from typing import Iterable, Sequence
 list1 = [1]
 
 
-class NT(tuple[list]):
-    ...
+class NT(tuple[list]): ...
 
 
 x1: Iterable[NT | Sequence] = list(zip(list1))

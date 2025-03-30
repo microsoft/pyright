@@ -10,8 +10,7 @@ Output = TypeVar("Output")
 
 
 class Proto1(Protocol):
-    def __call__(self, item: S, /) -> S:
-        ...
+    def __call__(self, item: S, /) -> S: ...
 
 
 class Impl1:

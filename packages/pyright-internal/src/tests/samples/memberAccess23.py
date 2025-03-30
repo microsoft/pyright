@@ -23,8 +23,7 @@ class MyMeta(type):
 
     attr6 = 6
 
-    def __getattr__(self, name: str) -> complex:
-        ...
+    def __getattr__(self, name: str) -> complex: ...
 
 
 class A(metaclass=MyMeta):

@@ -36,8 +36,7 @@ def func1(a: str, b: bytes, c: Literal["a"], d: Literal["a", "b"], e: Literal["a
     v10: LiteralString = e
 
 
-def func2(a: str):
-    ...
+def func2(a: str): ...
 
 
 def func3(a: LiteralString):
@@ -60,9 +59,9 @@ def func5(
 ):
     v1: LiteralString = f"{a} {a}"
 
-    v2: LiteralString = f"{a}" f"{a}"
+    v2: LiteralString = f"{a}{a}"
 
-    v3: LiteralString = f"{'xxx'}" f"{'xxx'}"
+    v3: LiteralString = f"{'xxx'}{'xxx'}"
 
     # This should generate an error because "b" is not literal.
     v4: LiteralString = f"{a} {b}"

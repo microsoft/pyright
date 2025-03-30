@@ -23,5 +23,4 @@ class Bar(Foo):
 @final
 # This should generate an error because Foo.foo, Bar.bar, and Bar.bar1
 # are abstract.
-class Baz(Bar):
-    ...
+class Baz(Bar): ...

@@ -8,17 +8,14 @@ T = TypeVar("T")
 
 
 @overload
-def func1(real: float):
-    ...
+def func1(real: float): ...
 
 
 @overload
-def func1(real: str):
-    ...
+def func1(real: str): ...
 
 
-def func1(real: float | str) -> None:
-    ...
+def func1(real: float | str) -> None: ...
 
 
 def func2(f: Callable[[T], Any], p: T):

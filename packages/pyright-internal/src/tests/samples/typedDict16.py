@@ -78,4 +78,3 @@ v23: list[TD20] = v22
 v24: list[TD20] = [v21]
 # This should generate an error.
 v25: list[TD21] = v24
-

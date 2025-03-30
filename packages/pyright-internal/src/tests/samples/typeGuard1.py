@@ -93,8 +93,7 @@ def func3(x: Any):
         reveal_type(x, expected_text="int")
 
 
-def is_int(obj: type) -> TypeGuard[type[int]]:
-    ...
+def is_int(obj: type) -> TypeGuard[type[int]]: ...
 
 
 def func4(typ: type[_T]) -> _T:

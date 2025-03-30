@@ -7,8 +7,7 @@ P = ParamSpec("P")
 
 
 class A(Generic[P]):
-    def __call__(self, a: int, b: int, *args: P.args, **kwargs: P.kwargs) -> None:
-        ...
+    def __call__(self, a: int, b: int, *args: P.args, **kwargs: P.kwargs) -> None: ...
 
 
 class B:

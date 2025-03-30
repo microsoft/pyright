@@ -117,20 +117,22 @@ def func10(x: object, y: type[object]):
     if x is not y:
         pass
 
+
 class SupportsBool(Protocol):
-        def __bool__(self) -> Any: ...
+    def __bool__(self) -> Any: ...
+
 
 def func11(a: A, b: SupportsBool, c: object):
     # This should generate an error if reportUnnecessaryComparison is enabled.
     if a is None:
         pass
-    
+
     # This should generate an error if reportUnnecessaryComparison is enabled.
     if a is not None:
         pass
-    
+
     if b is None:
         pass
-    
+
     if c is None:
         pass

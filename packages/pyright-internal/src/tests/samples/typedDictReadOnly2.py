@@ -231,8 +231,7 @@ class TD_A2(TypedDict):
 
 
 # This should generate an error for x but not y.
-class TD_A(TD_A1, TD_A2):
-    ...
+class TD_A(TD_A1, TD_A2): ...
 
 
 class TD_B1(TypedDict):
@@ -246,5 +245,4 @@ class TD_B2(TypedDict):
 
 
 # This should generate an error for x but not y.
-class TD_B(TD_B1, TD_B2):
-    ...
+class TD_B(TD_B1, TD_B2): ...

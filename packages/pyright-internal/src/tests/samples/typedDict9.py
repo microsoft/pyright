@@ -40,8 +40,7 @@ class Outer3(TypedDict):
     z: Literal[""] | Inner4
 
 
-def func1(td: Outer3):
-    ...
+def func1(td: Outer3): ...
 
 
 o3: Outer2 = {"y": "", "z": {"x": 0}}

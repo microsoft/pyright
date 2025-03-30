@@ -19,7 +19,6 @@ def dynamic_subclass1(cls: type[T_A]):
 
 
 def dynamic_subclass2(base: type[A] | None):
-    class SubClass(base or A):
-        ...
+    class SubClass(base or A): ...
 
     return SubClass

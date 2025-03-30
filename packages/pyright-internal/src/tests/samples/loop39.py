@@ -4,8 +4,7 @@
 # pyright: strict
 
 
-def func1() -> str | None:
-    ...
+def func1() -> str | None: ...
 
 
 s1: str | None = None

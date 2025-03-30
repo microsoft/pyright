@@ -5,13 +5,11 @@ from typing import TypeVar
 
 
 class A:
-    def method(self, x: "A") -> "A":
-        ...
+    def method(self, x: "A") -> "A": ...
 
 
 class B:
-    def method(self, x: "B") -> "B":
-        ...
+    def method(self, x: "B") -> "B": ...
 
 
 T = TypeVar("T", A, B)

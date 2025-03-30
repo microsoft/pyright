@@ -6,12 +6,10 @@ from typing import TypeVar, Any
 T = TypeVar("T")
 
 
-def func1(x: T) -> T:
-    ...
+def func1(x: T) -> T: ...
 
 
-def func2(schema: bool):
-    ...
+def func2(schema: bool): ...
 
 
 def func3(v1: list[bool], v2: int | str):

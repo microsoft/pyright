@@ -11,6 +11,7 @@ import package2.module3
 
 import package2.module2 as dummy
 
+
 def func1():
     print(package2.module3.a3)
     print(dummy)

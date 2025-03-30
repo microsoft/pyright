@@ -10,8 +10,7 @@ class DC1(TypedDict, total=False):
     y: int
 
 
-def test1(**kwargs: Unpack[DC1]) -> None:
-    ...
+def test1(**kwargs: Unpack[DC1]) -> None: ...
 
 
 test1_partial = partial(test1, x="")

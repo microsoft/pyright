@@ -1,8 +1,7 @@
 # This sample tests the inferred type of async and sync generators.
 
 
-async def foo() -> int:
-    ...
+async def foo() -> int: ...
 
 
 async def main() -> None:

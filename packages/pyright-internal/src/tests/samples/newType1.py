@@ -81,8 +81,7 @@ def func2(x: MyString):
 
 class AbstractBase(ABC):
     @abstractmethod
-    def method1(self, /) -> int:
-        ...
+    def method1(self, /) -> int: ...
 
 
 class DerivedBase(AbstractBase):

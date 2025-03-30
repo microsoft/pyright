@@ -8,22 +8,18 @@ R = TypeVar("R")
 
 def callable1(
     func: Callable[P, R], *args: P.args, **kwargs: P.kwargs
-) -> Callable[[], R]:
-    ...
+) -> Callable[[], R]: ...
 
 
 @overload
-def func1() -> None:
-    ...
+def func1() -> None: ...
 
 
 @overload
-def func1(a: int) -> None:
-    ...
+def func1(a: int) -> None: ...
 
 
-def func1(a: int = 1) -> None:
-    ...
+def func1(a: int = 1) -> None: ...
 
 
 callable1(func1)
@@ -41,27 +37,22 @@ callable1(func1, b=2)
 
 def callable2(
     func: Callable[Concatenate[int, P], R], *args: P.args, **kwargs: P.kwargs
-) -> Callable[[], R]:
-    ...
+) -> Callable[[], R]: ...
 
 
 @overload
-def func2() -> None:
-    ...
+def func2() -> None: ...
 
 
 @overload
-def func2(a: int) -> int:
-    ...
+def func2(a: int) -> int: ...
 
 
 @overload
-def func2(a: int, b: str) -> str:
-    ...
+def func2(a: int, b: str) -> str: ...
 
 
-def func2(a: int = 1, b: str = "") -> None | int | str:
-    ...
+def func2(a: int = 1, b: str = "") -> None | int | str: ...
 
 
 callable2(func2)
@@ -73,8 +64,7 @@ callable2(func2, b="")
 callable2(func2, 1, "")
 
 
-def callable3(func: Callable[P, R]) -> Callable[Concatenate[int, P], R]:
-    ...
+def callable3(func: Callable[P, R]) -> Callable[Concatenate[int, P], R]: ...
 
 
 c3_2 = callable3(func2)
@@ -92,21 +82,18 @@ c3_2(1, 1, c="")
 
 
 @overload
-def func3(x: int) -> None:
-    ...
+def func3(x: int) -> None: ...
 
 
 @overload
-def func3(x: str) -> None:
-    ...
+def func3(x: str) -> None: ...
 
 
 def func3(x) -> None:
     pass
 
 
-def callable4(func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
-    ...
+def callable4(func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
 
 
 callable4(func3, 1)
@@ -122,13 +109,11 @@ callable4(func3, y=1)
 
 
 @overload
-def func4(x: str) -> str:
-    ...
+def func4(x: str) -> str: ...
 
 
 @overload
-def func4(x: int) -> int:
-    ...
+def func4(x: int) -> int: ...
 
 
 def func4(x: str | int):

@@ -7,13 +7,11 @@ T = TypeVar("T")
 
 
 class IterableProxy(Iterable[T]):
-    def __iter__(self) -> Iterator[T]:
-        ...
+    def __iter__(self) -> Iterator[T]: ...
 
 
 class Parent(Generic[T]):
-    def m1(self, v: Iterable[T] = IterableProxy()) -> None:
-        ...
+    def m1(self, v: Iterable[T] = IterableProxy()) -> None: ...
 
 
 class Child(Parent[T]):

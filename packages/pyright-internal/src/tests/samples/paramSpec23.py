@@ -11,8 +11,7 @@ from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
 P = ParamSpec("P")
 
 
-def is_inty(f: Callable[P, object]) -> Callable[P, int]:
-    ...
+def is_inty(f: Callable[P, object]) -> Callable[P, int]: ...
 
 
 T = TypeVar("T")

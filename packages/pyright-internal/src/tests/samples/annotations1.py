@@ -64,8 +64,7 @@ class ClassD:
 
     str: "str"
 
-    def int(self):
-        ...
+    def int(self): ...
 
     foo: "int"
 
@@ -158,4 +157,3 @@ class A:
     def method2(cls):
         # This should result in an error.
         x: cls
-

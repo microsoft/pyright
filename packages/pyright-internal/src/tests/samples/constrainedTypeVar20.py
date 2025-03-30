@@ -7,22 +7,18 @@ from typing import Any, AnyStr, Literal, LiteralString, TypeVar, overload
 AnyOrLiteralStr = TypeVar("AnyOrLiteralStr", str, bytes, LiteralString)
 
 
-def abspath(path: PathLike[AnyStr] | AnyStr) -> AnyStr:
-    ...
+def abspath(path: PathLike[AnyStr] | AnyStr) -> AnyStr: ...
 
 
 @overload
-def dirname(p: PathLike[AnyStr]) -> AnyStr:
-    ...
+def dirname(p: PathLike[AnyStr]) -> AnyStr: ...
 
 
 @overload
-def dirname(p: AnyOrLiteralStr) -> AnyOrLiteralStr:
-    ...
+def dirname(p: AnyOrLiteralStr) -> AnyOrLiteralStr: ...
 
 
-def dirname(p: Any) -> Any:
-    ...
+def dirname(p: Any) -> Any: ...
 
 
 def func1(refpath: Literal["-"]):

@@ -19,8 +19,7 @@ def foo() -> ValidationResult[str]:
 
 
 class ClassA(Generic[T]):
-    def __new__(cls, value: T) -> "ClassA[T]":
-        ...
+    def __new__(cls, value: T) -> "ClassA[T]": ...
 
 
 TypeAliasA1 = ClassA[T]
