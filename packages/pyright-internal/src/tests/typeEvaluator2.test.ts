@@ -153,7 +153,7 @@ test('Assignment12', () => {
 
     configOptions.diagnosticRuleSet.reportUnknownVariableType = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['assignment12.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 2);
+    TestUtils.validateResults(analysisResults2, 3);
 });
 
 test('AugmentedAssignment1', () => {

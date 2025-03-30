@@ -3619,7 +3619,7 @@ export function createTypeEvaluator(
                 fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                 DiagnosticRule.reportUnknownVariableType,
                 nameNode,
-                destType,
+                typeResult.type,
                 nameNode,
                 ignoreEmptyContainers
             );
@@ -4421,37 +4421,11 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.TypeAnnotation: {
-                let annotationType: Type | undefined = getTypeOfAnnotation(target.d.annotation, {
+                getTypeOfAnnotation(target.d.annotation, {
                     varTypeAnnotation: true,
                     allowFinal: isFinalAllowedForAssignmentTarget(target.d.valueExpr),
                     allowClassVar: isClassVarAllowedForAssignmentTarget(target.d.valueExpr),
                 });
-
-                if (annotationType) {
-                    const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(target);
-                    annotationType = makeTypeVarsBound(annotationType, liveScopeIds);
-                }
-
-                // Handle a bare "Final" or "ClassVar" in a special manner.
-                const isBareFinalOrClassVar =
-                    isClassInstance(annotationType) &&
-                    (ClassType.isBuiltIn(annotationType, 'Final') || ClassType.isBuiltIn(annotationType, 'ClassVar'));
-
-                if (!isBareFinalOrClassVar) {
-                    const isTypeAliasAnnotation =
-                        isClassInstance(annotationType) && ClassType.isBuiltIn(annotationType, 'TypeAlias');
-
-                    if (!isTypeAliasAnnotation) {
-                        if (assignType(annotationType, typeResult.type)) {
-                            // Don't attempt to narrow based on the annotated type if the type
-                            // is a enum because the annotated type in an enum doesn't reflect
-                            // the type of the symbol.
-                            if (!isClassInstance(typeResult.type) || !ClassType.isEnumClass(typeResult.type)) {
-                                typeResult = narrowTypeBasedOnAssignment(annotationType, typeResult);
-                            }
-                        }
-                    }
-                }
 
                 assignTypeToExpression(
                     target.d.valueExpr,
