@@ -364,25 +364,25 @@ function assignToProtocolInternal(
     const protocolConstraints = createProtocolConstraints(evaluator, destType, constraints);
     const selfSolution = new ConstraintSolution();
 
-    let selfType: ClassType | TypeVarType | undefined;
+    let srcSelfType: ClassType | TypeVarType | undefined;
     if (isClass(srcType)) {
         // If the srcType is conditioned on "self", use "Self" as the selfType.
         // Otherwise use the class type for selfType.
         const synthCond = srcType.props?.condition?.find((c) => TypeVarType.isSelf(c.typeVar));
         if (synthCond) {
-            selfType = synthesizeTypeVarForSelfCls(
+            srcSelfType = synthesizeTypeVarForSelfCls(
                 TypeBase.cloneForCondition(srcType, undefined),
                 /* isClsType */ false
             );
 
             if (TypeVarType.isBound(synthCond.typeVar)) {
-                selfType = TypeVarType.cloneAsBound(selfType);
+                srcSelfType = TypeVarType.cloneAsBound(srcSelfType);
             }
         } else {
-            selfType = srcType;
+            srcSelfType = srcType;
         }
 
-        addSolutionForSelfType(selfSolution, destType, selfType);
+        addSolutionForSelfType(selfSolution, destType, srcSelfType);
     }
 
     // If the source is a TypedDict, use the _TypedDict placeholder class
@@ -479,17 +479,12 @@ function assignToProtocolInternal(
 
                 srcSymbol = srcMemberInfo.symbol;
 
-                // Partially specialize the type of the symbol based on the MRO class.
-                // We can skip this if it's the dest class because it is already
-                // specialized.
-                if (!ClassType.isSameGenericClass(mroClass, destType)) {
-                    destMemberType = partiallySpecializeType(
-                        destMemberType,
-                        mroClass,
-                        evaluator.getTypeClassType(),
-                        selfType
-                    );
-                }
+                destMemberType = partiallySpecializeType(
+                    destMemberType,
+                    mroClass,
+                    evaluator.getTypeClassType(),
+                    destType
+                );
 
                 if (isInstantiableClass(srcMemberInfo.classType)) {
                     const symbolType = evaluator.getEffectiveTypeOfSymbol(srcMemberInfo.symbol);
@@ -503,7 +498,7 @@ function assignToProtocolInternal(
                         symbolType,
                         srcMemberInfo.classType,
                         evaluator.getTypeClassType(),
-                        selfType
+                        srcSelfType
                     );
                 } else {
                     srcMemberType = UnknownType.create();
@@ -535,7 +530,7 @@ function assignToProtocolInternal(
                                 srcMemberType,
                                 isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
                                 /* treatConstructorAsClassMethod */ undefined,
-                                isMemberFromMetaclass ? srcType : selfType,
+                                isMemberFromMetaclass ? srcType : srcSelfType,
                                 diag?.createAddendum(),
                                 recursionCount
                             );
@@ -584,7 +579,7 @@ function assignToProtocolInternal(
                             destMemberType,
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
                             /* treatConstructorAsClassMethod */ undefined,
-                            isMemberFromMetaclass ? srcType : selfType,
+                            isMemberFromMetaclass ? srcType : srcSelfType,
                             diag,
                             recursionCount
                         );
