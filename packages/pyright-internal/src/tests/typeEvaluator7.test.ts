@@ -611,6 +611,22 @@ test('Protocol52', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Protocol53', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    // Note: This test exposes some inconsistencies between override checks
+    // and protocol matching. Both of these should generate 8 errors.
+    configOptions.diagnosticRuleSet.reportAssignmentType = 'none';
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['protocol53.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 10);
+
+    configOptions.diagnosticRuleSet.reportAssignmentType = 'error';
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['protocol53.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 8);
+});
+
 test('ProtocolExplicit1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit1.py']);
 
