@@ -6966,19 +6966,37 @@ export function createTypeEvaluator(
 
         // Is there a *tuple[T, ...] somewhere in the type arguments that we can expand if needed?
         let srcUnboundedTupleType: Type | undefined;
-        let srcUnboundedTupleIndex = typeArgs.findIndex((arg) => {
-            if (
-                isUnpackedClass(arg.type) &&
-                arg.type.priv.tupleTypeArgs &&
-                arg.type.priv.tupleTypeArgs.length === 1 &&
-                arg.type.priv.tupleTypeArgs[0].isUnbounded
-            ) {
-                srcUnboundedTupleType = arg.type.priv.tupleTypeArgs[0].type;
-                return true;
-            }
+        const findUnboundedTupleIndex = (startArgIndex: number) => {
+            return typeArgs.findIndex((arg, index) => {
+                if (index < startArgIndex) {
+                    return false;
+                }
+                if (
+                    isUnpackedClass(arg.type) &&
+                    arg.type.priv.tupleTypeArgs &&
+                    arg.type.priv.tupleTypeArgs.length === 1 &&
+                    arg.type.priv.tupleTypeArgs[0].isUnbounded
+                ) {
+                    srcUnboundedTupleType = arg.type.priv.tupleTypeArgs[0].type;
+                    return true;
+                }
 
-            return false;
-        });
+                return false;
+            });
+        };
+        let srcUnboundedTupleIndex = findUnboundedTupleIndex(0);
+
+        // Allow only one unpacked tuple that maps to a TypeVarTuple.
+        if (srcUnboundedTupleIndex >= 0) {
+            const secondUnboundedTupleIndex = findUnboundedTupleIndex(srcUnboundedTupleIndex + 1);
+            if (secondUnboundedTupleIndex >= 0) {
+                addDiagnostic(
+                    DiagnosticRule.reportInvalidTypeForm,
+                    LocMessage.variadicTypeArgsTooMany(),
+                    typeArgs[secondUnboundedTupleIndex].node
+                );
+            }
+        }
 
         if (
             srcUnboundedTupleType &&
@@ -16211,11 +16229,7 @@ export function createTypeEvaluator(
                         }
                         validateTypeVarTupleIsUnpacked(typeArg.type, typeArg.node);
                     } else if (paramLimit === undefined && isUnpackedClass(typeArg.type)) {
-                        if (
-                            typeArg.type.priv.tupleTypeArgs?.some(
-                                (typeArg) => isTypeVarTuple(typeArg.type) || typeArg.isUnbounded
-                            )
-                        ) {
+                        if (isUnboundedTupleClass(typeArg.type)) {
                             noteSawUnpacked(typeArg);
                         }
                         validateTypeArg(typeArg, { allowUnpackedTuples: true });
