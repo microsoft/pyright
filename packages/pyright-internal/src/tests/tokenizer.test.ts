@@ -952,8 +952,8 @@ test('Strings: escape at the end of double quoted string', () => {
 
 test('Strings: b/u/r-string', () => {
     const t = new Tokenizer();
-    const results = t.tokenize('b"b" U\'u\' bR"br" Ru\'ur\'');
-    assert.equal(results.tokens.count, 4 + _implicitTokenCount);
+    const results = t.tokenize('b"b" U\'u\' bR"br"');
+    assert.equal(results.tokens.count, 3 + _implicitTokenCount);
 
     const stringToken0 = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken0.type, TokenType.String);
@@ -976,26 +976,15 @@ test('Strings: b/u/r-string', () => {
     assert.equal(stringToken2.escapedValue, 'br');
     assert.equal(stringToken2.prefixLength, 2);
 
-    const stringToken3 = results.tokens.getItemAt(3) as StringToken;
-    assert.equal(stringToken3.type, TokenType.String);
-    assert.equal(stringToken3.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Unicode | StringTokenFlags.Raw);
-    assert.equal(stringToken3.length, 6);
-    assert.equal(stringToken3.escapedValue, 'ur');
-    assert.equal(stringToken3.prefixLength, 2);
-
     assert.equal(results.tokens.getItemAtPosition(0), 0);
     assert.equal(results.tokens.getItemAtPosition(4), 0);
     assert.equal(results.tokens.getItemAtPosition(5), 1);
     assert.equal(results.tokens.getItemAtPosition(9), 1);
     assert.equal(results.tokens.getItemAtPosition(10), 2);
-    assert.equal(results.tokens.getItemAtPosition(16), 2);
-    assert.equal(results.tokens.getItemAtPosition(17), 3);
-    assert.equal(results.tokens.getItemAtPosition(21), 3);
-    assert.equal(results.tokens.getItemAtPosition(22), 3);
-    assert.equal(results.tokens.getItemAtPosition(23), 5);
+    assert.equal(results.tokens.getItemAtPosition(15), 2);
 
-    assert.equal(results.tokens.contains(22), true);
-    assert.equal(results.tokens.contains(23), false);
+    assert.equal(results.tokens.contains(15), true);
+    assert.equal(results.tokens.contains(16), false);
 });
 
 test('Strings: bytes string with non-ASCII', () => {

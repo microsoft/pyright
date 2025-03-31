@@ -3619,7 +3619,7 @@ export function createTypeEvaluator(
                 fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                 DiagnosticRule.reportUnknownVariableType,
                 nameNode,
-                destType,
+                typeResult.type,
                 nameNode,
                 ignoreEmptyContainers
             );
@@ -4421,37 +4421,11 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.TypeAnnotation: {
-                let annotationType: Type | undefined = getTypeOfAnnotation(target.d.annotation, {
+                getTypeOfAnnotation(target.d.annotation, {
                     varTypeAnnotation: true,
                     allowFinal: isFinalAllowedForAssignmentTarget(target.d.valueExpr),
                     allowClassVar: isClassVarAllowedForAssignmentTarget(target.d.valueExpr),
                 });
-
-                if (annotationType) {
-                    const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(target);
-                    annotationType = makeTypeVarsBound(annotationType, liveScopeIds);
-                }
-
-                // Handle a bare "Final" or "ClassVar" in a special manner.
-                const isBareFinalOrClassVar =
-                    isClassInstance(annotationType) &&
-                    (ClassType.isBuiltIn(annotationType, 'Final') || ClassType.isBuiltIn(annotationType, 'ClassVar'));
-
-                if (!isBareFinalOrClassVar) {
-                    const isTypeAliasAnnotation =
-                        isClassInstance(annotationType) && ClassType.isBuiltIn(annotationType, 'TypeAlias');
-
-                    if (!isTypeAliasAnnotation) {
-                        if (assignType(annotationType, typeResult.type)) {
-                            // Don't attempt to narrow based on the annotated type if the type
-                            // is a enum because the annotated type in an enum doesn't reflect
-                            // the type of the symbol.
-                            if (!isClassInstance(typeResult.type) || !ClassType.isEnumClass(typeResult.type)) {
-                                typeResult = narrowTypeBasedOnAssignment(annotationType, typeResult);
-                            }
-                        }
-                    }
-                }
 
                 assignTypeToExpression(
                     target.d.valueExpr,
@@ -6992,19 +6966,37 @@ export function createTypeEvaluator(
 
         // Is there a *tuple[T, ...] somewhere in the type arguments that we can expand if needed?
         let srcUnboundedTupleType: Type | undefined;
-        let srcUnboundedTupleIndex = typeArgs.findIndex((arg) => {
-            if (
-                isUnpackedClass(arg.type) &&
-                arg.type.priv.tupleTypeArgs &&
-                arg.type.priv.tupleTypeArgs.length === 1 &&
-                arg.type.priv.tupleTypeArgs[0].isUnbounded
-            ) {
-                srcUnboundedTupleType = arg.type.priv.tupleTypeArgs[0].type;
-                return true;
-            }
+        const findUnboundedTupleIndex = (startArgIndex: number) => {
+            return typeArgs.findIndex((arg, index) => {
+                if (index < startArgIndex) {
+                    return false;
+                }
+                if (
+                    isUnpackedClass(arg.type) &&
+                    arg.type.priv.tupleTypeArgs &&
+                    arg.type.priv.tupleTypeArgs.length === 1 &&
+                    arg.type.priv.tupleTypeArgs[0].isUnbounded
+                ) {
+                    srcUnboundedTupleType = arg.type.priv.tupleTypeArgs[0].type;
+                    return true;
+                }
 
-            return false;
-        });
+                return false;
+            });
+        };
+        let srcUnboundedTupleIndex = findUnboundedTupleIndex(0);
+
+        // Allow only one unpacked tuple that maps to a TypeVarTuple.
+        if (srcUnboundedTupleIndex >= 0) {
+            const secondUnboundedTupleIndex = findUnboundedTupleIndex(srcUnboundedTupleIndex + 1);
+            if (secondUnboundedTupleIndex >= 0) {
+                addDiagnostic(
+                    DiagnosticRule.reportInvalidTypeForm,
+                    LocMessage.variadicTypeArgsTooMany(),
+                    typeArgs[secondUnboundedTupleIndex].node
+                );
+            }
+        }
 
         if (
             srcUnboundedTupleType &&
@@ -16237,11 +16229,7 @@ export function createTypeEvaluator(
                         }
                         validateTypeVarTupleIsUnpacked(typeArg.type, typeArg.node);
                     } else if (paramLimit === undefined && isUnpackedClass(typeArg.type)) {
-                        if (
-                            typeArg.type.priv.tupleTypeArgs?.some(
-                                (typeArg) => isTypeVarTuple(typeArg.type) || typeArg.isUnbounded
-                            )
-                        ) {
+                        if (isUnboundedTupleClass(typeArg.type)) {
                             noteSawUnpacked(typeArg);
                         }
                         validateTypeArg(typeArg, { allowUnpackedTuples: true });
@@ -24977,22 +24965,20 @@ export function createTypeEvaluator(
                 // Determine if the metaclass can be assigned to the object.
                 const metaclass = concreteSrcType.shared.effectiveMetaclass;
                 if (metaclass) {
-                    if (isAnyOrUnknown(metaclass)) {
-                        return true;
-                    }
-
-                    if (
-                        assignClass(
-                            ClassType.cloneAsInstantiable(destType),
-                            metaclass,
-                            /* diag */ undefined,
-                            constraints,
-                            flags,
-                            recursionCount,
-                            /* reportErrorsUsingObjType */ true
-                        )
-                    ) {
-                        return true;
+                    if (!isAnyOrUnknown(metaclass)) {
+                        if (
+                            assignClass(
+                                ClassType.cloneAsInstantiable(destType),
+                                metaclass,
+                                /* diag */ undefined,
+                                constraints,
+                                flags,
+                                recursionCount,
+                                /* reportErrorsUsingObjType */ true
+                            )
+                        ) {
+                            return true;
+                        }
                     }
                 }
             } else if (isAnyOrUnknown(concreteSrcType) && !concreteSrcType.props?.specialForm) {
