@@ -24965,22 +24965,20 @@ export function createTypeEvaluator(
                 // Determine if the metaclass can be assigned to the object.
                 const metaclass = concreteSrcType.shared.effectiveMetaclass;
                 if (metaclass) {
-                    if (isAnyOrUnknown(metaclass)) {
-                        return true;
-                    }
-
-                    if (
-                        assignClass(
-                            ClassType.cloneAsInstantiable(destType),
-                            metaclass,
-                            /* diag */ undefined,
-                            constraints,
-                            flags,
-                            recursionCount,
-                            /* reportErrorsUsingObjType */ true
-                        )
-                    ) {
-                        return true;
+                    if (!isAnyOrUnknown(metaclass)) {
+                        if (
+                            assignClass(
+                                ClassType.cloneAsInstantiable(destType),
+                                metaclass,
+                                /* diag */ undefined,
+                                constraints,
+                                flags,
+                                recursionCount,
+                                /* reportErrorsUsingObjType */ true
+                            )
+                        ) {
+                            return true;
+                        }
                     }
                 }
             } else if (isAnyOrUnknown(concreteSrcType) && !concreteSrcType.props?.specialForm) {
