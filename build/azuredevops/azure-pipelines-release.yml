@@ -15,6 +15,10 @@ variables:
     value: vscode-pyright.vsix
   - name: ARTIFACT_NAME_VSIX
     value: vsix
+  - name: PACKAGE_NAME
+    value: pyright.tgz
+  - name: ARTIFACT_NAME_PACKAGE
+    value: pyright
   - name: AZURE_ARTIFACTS_FEED
     value: 'https://devdiv.pkgs.visualstudio.com/DevDiv/_packaging/Pylance_PublicPackages/npm/registry/'
 
@@ -39,7 +43,7 @@ extends:
     stages:
       - stage: BuildVsix
         jobs:
-          - job: build
+          - job: build_vsix
             displayName: Build VSIX
             timeoutInMinutes: 60
             templateContext:
@@ -141,9 +145,55 @@ extends:
                   Contents: 'extension.signature.p7s'
                   TargetFolder: build_output
 
+      - stage: BuildNpm
+        dependsOn: # Blank to allow running in parallel with BuildVsix
+        jobs:
+          - job: build_npm
+            displayName: Build NPM
+            templateContext:
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}/${{ variables.PACKAGE_NAME }}'
+                  sbomBuildDropPath: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
+                  artifactName: ${{ variables.ARTIFACT_NAME_PACKAGE }}
+            steps:
+              - checkout: self
+                fetchDepth: 1
+                clean: true
+                submodules: true
+                fetchTags: false
+                persistCredentials: True
+              - task: NodeTool@0
+                displayName: Use Node 18.x
+                inputs:
+                  versionSpec: 18.x
+              - template: /build/templates/npmAuthenticate.yml@self
+              - task: CmdLine@2
+                displayName: npm install
+                inputs:
+                  script: npm run install:all
+
+              - script: npm pack
+                displayName: npm pack
+                workingDirectory: packages/pyright
+
+              - script: ren pyright-*.tgz ${{ variables.PACKAGE_NAME }}
+                displayName: Remove version from package name
+                workingDirectory: packages/pyright
+
+              # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
+              # We don't want it to scan the microbuild plugins, which is installed in the agent.stagedirectory by default.
+              - task: CopyFiles@2
+                displayName: 'Copy ${{ variables.PACKAGE_NAME }} to subfolder'
+                inputs:
+                  SourceFolder: packages/pyright
+                  Contents: '${{ variables.PACKAGE_NAME }}'
+                  TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
+
       - stage: CreateRelease
         dependsOn:
           - BuildVsix
+          - BuildNpm
         jobs:
           - job: create_release
             displayName: Create GitHub Release
@@ -154,6 +204,9 @@ extends:
                 - input: pipelineArtifact
                   artifactName: $(ARTIFACT_NAME_VSIX)
                   targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_PACKAGE)
+                  targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)
             steps:
               - checkout: none
               - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
@@ -168,6 +221,8 @@ extends:
                   title: 'Published $(Build.SourceBranchName)'
                   assets: |
                     $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)/$(VSIX_NAME)
+                    $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
+
       - stage: WaitForValidation
         dependsOn:
           - CreateRelease
@@ -183,7 +238,7 @@ extends:
                   instructions: 'In the next 2 hours please test the latest draft release of Pyright, then Publish the release in GitHub.'
                   onTimeout: 'reject' # require sign-off
 
-      - stage: PublishExtension
+      - stage: PublishToMarketplace
         dependsOn:
           - WaitForValidation
         jobs:
@@ -218,3 +273,33 @@ extends:
                   inlineScript: |
                     $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
                     vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
+
+      - stage: PublishToNpm
+        dependsOn: WaitForValidation
+        jobs:
+          - job: publish_package
+            displayName: Publish package to NPM
+
+            pool:
+              name: VSEngSS-MicroBuild2022-1ES # This pool is required to have the certs needed to publish using ESRP.
+              os: windows
+              image: server2022-microbuildVS2022-1es
+
+            templateContext:
+              type: releaseJob
+              isProduction: true
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_PACKAGE)
+                  targetPath: $(Build.StagingDirectory)/dist
+
+            steps:
+              - template: MicroBuild.Publish.yml@MicroBuildTemplate
+                parameters:
+                  intent: PackageDistribution
+                  contentType: npm
+                  contentSource: Folder
+                  folderLocation: $(Build.StagingDirectory)/dist
+                  waitForReleaseCompletion: true
+                  owners: plseng@microsoft.com
+                  approvers: grwheele@microsoft.com
