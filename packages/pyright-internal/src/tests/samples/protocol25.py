@@ -5,20 +5,17 @@
 from typing import Any, Iterable, Protocol
 
 
-class B:
-    ...
+class B: ...
 
 
 class C:
-    def __class_getitem__(cls, __item: Any) -> Any:
-        ...
+    def __class_getitem__(cls, __item: Any) -> Any: ...
 
 
 class SupportsClassGetItem(Protocol):
     __slots__: str | Iterable[str] = ()
 
-    def __class_getitem__(cls, __item: Any) -> Any:
-        ...
+    def __class_getitem__(cls, __item: Any) -> Any: ...
 
 
 b1: SupportsClassGetItem = B()  # OK (missing __class_getitem__ is ignored)

@@ -15,3 +15,12 @@ def func2(x: S) -> S:
     v1 = func1(x)
     reveal_type(v1, expected_text="Unknown")
     return v1
+
+
+def func3[R: int](num: type[R]) -> None: ...
+
+
+class A[T: type[int]](tuple[T]): ...
+
+
+func3(*A[type[int]]())

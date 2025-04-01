@@ -29,11 +29,9 @@ reveal_type(v4["ccc"], expected_text="int | str")
 
 
 class Asymmetric:
-    def __setitem__(self, i: int, value: object) -> None:
-        ...
+    def __setitem__(self, i: int, value: object) -> None: ...
 
-    def __getitem__(self, i: int) -> int:
-        ...
+    def __getitem__(self, i: int) -> int: ...
 
 
 v5 = Asymmetric()

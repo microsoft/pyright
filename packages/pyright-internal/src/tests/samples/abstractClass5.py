@@ -18,15 +18,13 @@ class ClassA(ABC):
         pass
 
     @overload
-    def func1(self, a: str) -> str:
-        ...
+    def func1(self, a: str) -> str: ...
 
     def func1(self, a: Union[int, float, str]) -> Union[int, float, str]:
         raise NotImplementedError()
 
     @overload
-    def func2(self, a: str) -> str:
-        ...
+    def func2(self, a: str) -> str: ...
 
     @overload
     @abstractmethod
@@ -44,8 +42,7 @@ class ClassA(ABC):
     @overload
     @abstractmethod
     # This should generate an error because the abstract status is inconsistent.
-    def func3(self, a: int) -> int:
-        ...
+    def func3(self, a: int) -> int: ...
 
     @overload
     @abstractmethod
@@ -54,5 +51,4 @@ class ClassA(ABC):
 
     @overload
     # This should generate an error because the abstract status is inconsistent.
-    def func4(self, a: int) -> int:
-        ...
+    def func4(self, a: int) -> int: ...

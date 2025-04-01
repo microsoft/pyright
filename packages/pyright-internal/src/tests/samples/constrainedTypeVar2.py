@@ -42,8 +42,7 @@ archive_path = data_dir / "hello"
 shutil.rmtree(archive_path)
 
 
-def func1(a: AnyStr, b: AnyStr) -> None:
-    ...
+def func1(a: AnyStr, b: AnyStr) -> None: ...
 
 
 def func2(a: Union[str, bytes], b: Union[str, bytes]):
@@ -51,27 +50,22 @@ def func2(a: Union[str, bytes], b: Union[str, bytes]):
     func1(a, b)
 
 
-class A:
-    ...
+class A: ...
 
 
-class B:
-    ...
+class B: ...
 
 
-class C:
-    ...
+class C: ...
 
 
-class D:
-    ...
+class D: ...
 
 
 T3 = TypeVar("T3", A, B, Union[C, D])
 
 
-def do_something(value: T3) -> T3:
-    ...
+def do_something(value: T3) -> T3: ...
 
 
 def func10(value: Union[C, D]):

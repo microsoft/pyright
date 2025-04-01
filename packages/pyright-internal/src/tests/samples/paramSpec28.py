@@ -13,13 +13,11 @@ _Self = TypeVar("_Self", bound="_GenerativeType")
 
 def decorator(
     target: Callable[Concatenate[_Fn, _Args], _Ret],
-) -> Callable[[_Fn], Callable[_Args, _Ret]]:
-    ...
+) -> Callable[[_Fn], Callable[_Args, _Ret]]: ...
 
 
 class _GenerativeType(Protocol):
-    def _generate(self: "_Self") -> "_Self":
-        ...
+    def _generate(self: "_Self") -> "_Self": ...
 
 
 def generative(
@@ -31,8 +29,7 @@ def generative(
         self: _Self,
         *args: _Args.args,
         **kw: _Args.kwargs,
-    ) -> _Self:
-        ...
+    ) -> _Self: ...
 
     decorated = _generative(fn)
 

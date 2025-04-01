@@ -1398,8 +1398,6 @@ export class Tokenizer {
             switch (prefix) {
                 case 'rf':
                 case 'fr':
-                case 'ur':
-                case 'ru':
                 case 'br':
                 case 'rb':
                     return 2;

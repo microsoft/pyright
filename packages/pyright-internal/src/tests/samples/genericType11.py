@@ -30,8 +30,7 @@ v5 = func2("test")
 reveal_type(v5, expected_text="List[str]")
 
 
-def reduce(function: Callable[[_T, _T], _T], sequence: Iterable[_T]) -> _T:
-    ...
+def reduce(function: Callable[[_T, _T], _T], sequence: Iterable[_T]) -> _T: ...
 
 
 dicts = [{"a": "b"}, {"c": "d"}]

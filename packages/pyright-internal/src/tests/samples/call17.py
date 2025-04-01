@@ -14,13 +14,11 @@ F = TypeVar("F")
 
 
 class Ok(Generic[T_co]):
-    def or_else(self, op: object) -> Ok[T_co]:
-        ...
+    def or_else(self, op: object) -> Ok[T_co]: ...
 
 
 class Err(Generic[E_co]):
-    def or_else(self, op: Callable[[E_co], Result[T_co, F]]) -> Result[T_co, F]:
-        ...
+    def or_else(self, op: Callable[[E_co], Result[T_co, F]]) -> Result[T_co, F]: ...
 
 
 Result = Ok[T_co] | Err[E_co]

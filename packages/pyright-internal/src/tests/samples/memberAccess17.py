@@ -6,12 +6,10 @@ from typing import Any, overload, Literal
 
 class Obj:
     @overload
-    def __getattr__(self, name: Literal["foo"]) -> int:
-        ...
+    def __getattr__(self, name: Literal["foo"]) -> int: ...
 
     @overload
-    def __getattr__(self, name: Literal["bar"]) -> str:
-        ...
+    def __getattr__(self, name: Literal["bar"]) -> str: ...
 
     def __getattr__(self, name: str) -> Any:
         if name == "foo":

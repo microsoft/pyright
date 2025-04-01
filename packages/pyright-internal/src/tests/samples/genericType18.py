@@ -8,8 +8,7 @@ _T = TypeVar("_T")
 
 
 def func1(val1: _T) -> Callable[[_T], None]:
-    def f(a: str):
-        ...
+    def f(a: str): ...
 
     # This should generate an error because str isn't
     # compatible with _T.
@@ -17,7 +16,6 @@ def func1(val1: _T) -> Callable[[_T], None]:
 
 
 def func2(val1: _T) -> Callable[[_T], None]:
-    def f(a: _T):
-        ...
+    def f(a: _T): ...
 
     return f

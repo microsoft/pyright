@@ -9,8 +9,7 @@ _P = TypeVar("_P", bound=str)
 
 class ClassA(str):
     @property
-    def parent(self: _P) -> _P:
-        ...
+    def parent(self: _P) -> _P: ...
 
 
 p = ClassA().parent

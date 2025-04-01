@@ -26,13 +26,11 @@ _T = TypeVar("_T")
 
 
 class Metaclass1(type):
-    def __or__(cls: _T, other: type) -> _T:
-        ...
+    def __or__(cls: _T, other: type) -> _T: ...
 
 
 class Metaclass2(type):
-    def __ror__(cls: _T, other: type) -> _T:
-        ...
+    def __ror__(cls: _T, other: type) -> _T: ...
 
 
 class ClassWithMeta1(metaclass=Metaclass1):

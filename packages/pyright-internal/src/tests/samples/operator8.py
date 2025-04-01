@@ -94,7 +94,7 @@ def func1(a: Literal[1, 2], b: Literal[0, 4], c: Literal[3, 4]):
 
     c31 = -129 % 32
     reveal_type(c31, expected_text="Literal[31]")
-    
+
     c32 = -129 % 100
     reveal_type(c32, expected_text="Literal[71]")
 
@@ -103,7 +103,7 @@ def func1(a: Literal[1, 2], b: Literal[0, 4], c: Literal[3, 4]):
 
     c34 = 256 % -129
     reveal_type(c34, expected_text="Literal[-2]")
-    
+
     c35 = 0 % -1
     reveal_type(c35, expected_text="Literal[0]")
 

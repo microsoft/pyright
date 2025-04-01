@@ -7,8 +7,7 @@ from typing import Iterable, Iterator, Literal, TypeVar
 _T = TypeVar("_T")
 
 
-def filter(__function: None, __iterable: Iterable[_T | None]) -> Iterator[_T]:
-    ...
+def filter(__function: None, __iterable: Iterable[_T | None]) -> Iterator[_T]: ...
 
 
 # In this case, bool is a subclass of int, so the TypeVar

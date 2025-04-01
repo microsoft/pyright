@@ -8,8 +8,7 @@ T2 = TypeVar("T2")
 
 
 class ProtoA(Protocol[T1]):
-    def method1(self, __key: str, __default: T2) -> "T1 | T2":
-        ...
+    def method1(self, __key: str, __default: T2) -> "T1 | T2": ...
 
 
 T3 = TypeVar("T3", covariant=True)
@@ -24,16 +23,14 @@ class A(Generic[T3]):
 a1: A[str] = A()
 
 
-def func1(storage: ProtoA[str]):
-    ...
+def func1(storage: ProtoA[str]): ...
 
 
 v1: ProtoA[str] = a1
 func1(a1)
 
 
-def func2(storage: ProtoA[int]):
-    ...
+def func2(storage: ProtoA[int]): ...
 
 
 # This should generate an error.

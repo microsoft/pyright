@@ -9,8 +9,7 @@ from typing import Callable, Protocol
 
 class HasA(Protocol):
     @property
-    def a(self) -> Callable[[int], int]:
-        ...
+    def a(self) -> Callable[[int], int]: ...
 
 
 @dataclass

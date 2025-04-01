@@ -87,7 +87,7 @@ async def func3():
 
 
 x5: Annotated[str, f""]
-x6: Annotated[str, "a" "b" "c"]
+x6: Annotated[str, "abc"]
 x7: Annotated[str, "a\nb"]
 x8: Annotated[str, *(1, 2, 3)]
 

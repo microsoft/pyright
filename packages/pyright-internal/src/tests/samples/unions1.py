@@ -30,8 +30,7 @@ T = TypeVar("T")
 
 
 def func4(a: str):
-    def helper(value: T) -> T | None:
-        ...
+    def helper(value: T) -> T | None: ...
 
     class Baz(Generic[T]):
         qux: T | None
@@ -44,12 +43,10 @@ T = TypeVar("T")
 TT = TypeVar("TT", bound=type)
 
 
-def decorator1(value: type[T]) -> type[T]:
-    ...
+def decorator1(value: type[T]) -> type[T]: ...
 
 
-def decorator2(value: TT) -> TT:
-    ...
+def decorator2(value: TT) -> TT: ...
 
 
 class ClassA:

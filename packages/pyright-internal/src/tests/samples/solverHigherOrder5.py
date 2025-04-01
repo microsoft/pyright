@@ -101,8 +101,7 @@ class Pair(Generic[A, B]):
     right: B
 
 
-def func1(f: Callable[[A], B]) -> Callable[[Pair[A, X]], Pair[B, X]]:
-    ...
+def func1(f: Callable[[A], B]) -> Callable[[Pair[A, X]], Pair[B, X]]: ...
 
 
 def test_3(pair: Pair[Pair[A, B], C]) -> Pair[Pair[A, B], C]:
@@ -127,22 +126,18 @@ def test_4(pair: Pair[Pair[Pair[A, B], C], D]) -> Pair[Pair[Pair[A, B], C], D]:
 
 
 @overload
-def test_5(a: Callable[P, type[T]], *, b: Literal[0] = ...) -> type[list[type[T]]]:
-    ...
+def test_5(a: Callable[P, type[T]], *, b: Literal[0] = ...) -> type[list[type[T]]]: ...
 
 
 @overload
-def test_5(a: T, *args: int, b: Literal[False, None] = ...) -> type[list[T]]:
-    ...
+def test_5(a: T, *args: int, b: Literal[False, None] = ...) -> type[list[T]]: ...
 
 
 @overload
-def test_5(a: T, *args: int, b: Literal[True] = ...) -> type[list[T]]:
-    ...
+def test_5(a: T, *args: int, b: Literal[True] = ...) -> type[list[T]]: ...
 
 
-def test_5(a: Any, *args: int, b: Any = ...) -> Any:
-    ...
+def test_5(a: Any, *args: int, b: Any = ...) -> Any: ...
 
 
 val3 = test_5(test_5, **{})
@@ -158,8 +153,7 @@ reveal_type(
 )
 
 
-def test_6(g: Callable[[B], C]) -> Callable[[Callable[[A], B]], Callable[[A], C]]:
-    ...
+def test_6(g: Callable[[B], C]) -> Callable[[Callable[[A], B]], Callable[[A], C]]: ...
 
 
 val5 = test_6(test_6)
@@ -180,20 +174,17 @@ def test_7(
     return val6
 
 
-def test_8(fn: Callable[[*Ts], Callable[[A], B]]) -> Callable[[A, *Ts], B]:
-    ...
+def test_8(fn: Callable[[*Ts], Callable[[A], B]]) -> Callable[[A, *Ts], B]: ...
 
 
 def test_9(x: Callable[[bool], Callable[[int], Callable[[str], None]]]):
     test_8(test_8(x))
 
 
-def test_10(func: Callable[[*Ts], Any], *args: *Ts) -> Any:
-    ...
+def test_10(func: Callable[[*Ts], Any], *args: *Ts) -> Any: ...
 
 
-def func2() -> None:
-    ...
+def func2() -> None: ...
 
 
 test_10(test_10, func2)
@@ -214,8 +205,7 @@ test_11(test_11, test_11, func3, 123)
 
 
 class Proto1(Protocol):
-    def __call__(self, a: T, b: T) -> T:
-        ...
+    def __call__(self, a: T, b: T) -> T: ...
 
 
 def func4(a: T, b: T) -> T:

@@ -22,8 +22,7 @@ def test3():
 
 
 class MyCallback(Protocol):
-    def __call__(self, y: int, a: int = 0) -> bool:
-        ...
+    def __call__(self, y: int, a: int = 0) -> bool: ...
 
 
 lambda1: Callable[[int, int], bool] = lambda y, a=0: a == y

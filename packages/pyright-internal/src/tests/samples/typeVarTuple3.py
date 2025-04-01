@@ -1,7 +1,7 @@
 # This sample tests the TypeVar matching logic related to
 # variadic type variables.
 
-from typing import Any, Generic, Literal, TypeVar, overload
+from typing import Any, Generic, Literal, TypeAlias, TypeVar, overload
 from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
     TypeVarTuple,
     Unpack,
@@ -104,3 +104,26 @@ def func5(a1: Array[Literal["a", "b"]], a2: Array[Literal["a"], Literal["b"]]):
 
 def func6(a: Array):
     reveal_type(a, expected_text="Array[*tuple[Unknown, ...]]")
+
+
+def func7():
+    x1: Array[*tuple[int, str], *tuple[str]]
+    x2: Array[*tuple[int, ...], *tuple[str]]
+    x3: Array[*tuple[str], *tuple[int, ...], *tuple[str]]
+
+    # This should generate an error because only one unpacked unbounded
+    # tuple can be used.
+    x4: Array[*tuple[str, ...], *tuple[int, ...], *tuple[str]]
+
+
+ArrayAlias: TypeAlias = Array[Unpack[_Xs]]
+
+
+def func8():
+    x1: ArrayAlias[*tuple[int, str], *tuple[str]]
+    x2: ArrayAlias[*tuple[int, ...], *tuple[str]]
+    x3: ArrayAlias[*tuple[str], *tuple[int, ...], *tuple[str]]
+
+    # This should generate an error because only one unpacked unbounded
+    # tuple can be used.
+    x4: ArrayAlias[*tuple[str, ...], *tuple[int, ...], *tuple[str]]

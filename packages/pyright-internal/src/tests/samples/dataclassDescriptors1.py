@@ -7,12 +7,10 @@ from typing import Any, cast, overload
 
 class MyDescriptor:
     @overload
-    def __get__(self, __obj: None, __owner: Any) -> "MyDescriptor":
-        ...
+    def __get__(self, __obj: None, __owner: Any) -> "MyDescriptor": ...
 
     @overload
-    def __get__(self, __obj: object, __owner: Any) -> int:
-        ...
+    def __get__(self, __obj: object, __owner: Any) -> int: ...
 
     def __get__(self, __obj: object | None, __owner: Any) -> "int | MyDescriptor":
         if __obj is None:

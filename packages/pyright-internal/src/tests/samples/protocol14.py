@@ -7,8 +7,7 @@ T = TypeVar("T")
 
 
 class HasParent(Protocol):
-    def get_parent(self: T) -> T:
-        ...
+    def get_parent(self: T) -> T: ...
 
 
 GenericNode = TypeVar("GenericNode", bound=HasParent)

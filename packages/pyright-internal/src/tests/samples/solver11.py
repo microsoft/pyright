@@ -5,8 +5,7 @@
 from typing import Callable, Literal, TypeVar
 
 
-def filter_fn(value: object):
-    ...
+def filter_fn(value: object): ...
 
 
 v1 = filter(filter_fn, [1, 2, 3])
@@ -23,15 +22,13 @@ _T = TypeVar("_T")
 Animal = Literal["cat"]
 
 
-def func(v: Callable[[], _T]) -> _T:
-    ...
+def func(v: Callable[[], _T]) -> _T: ...
 
 
 x1: dict[Animal, int] = func(lambda: {"cat": 0})
 
 
-def func1(factory: Callable[[], _T]) -> _T:
-    ...
+def func1(factory: Callable[[], _T]) -> _T: ...
 
 
 x2: set[int] = func1(lambda: set())

@@ -10,15 +10,13 @@ TA1 = Callable[[T], T]
 TA2 = Callable[[T], T] | Callable[P, T]
 
 
-def f1() -> TA1:
-    ...
+def f1() -> TA1: ...
 
 
 reveal_type(f1(), expected_text="(Unknown) -> Unknown")
 
 
-def f2() -> TA2:
-    ...
+def f2() -> TA2: ...
 
 
 g2 = f2()

@@ -5,8 +5,7 @@ _DEFAULT_VALUE = object()
 
 
 class ClassA:
-    def __init__(self, name, description=_DEFAULT_VALUE):
-        ...
+    def __init__(self, name, description=_DEFAULT_VALUE): ...
 
     @classmethod
     def create_new(cls):

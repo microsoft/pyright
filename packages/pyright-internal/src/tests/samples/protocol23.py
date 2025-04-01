@@ -7,8 +7,7 @@ from typing import Protocol
 
 class Proto(Protocol):
     @abstractmethod
-    def meth(self) -> int:
-        ...
+    def meth(self) -> int: ...
 
 
 class Concrete:
@@ -34,8 +33,7 @@ val1().meth()
 val1 = Proto
 
 
-def func2() -> type[Proto]:
-    ...
+def func2() -> type[Proto]: ...
 
 
 val1 = func2()

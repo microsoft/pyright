@@ -6639,11 +6639,18 @@ export class Checker extends ParseTreeWalker {
             selfSpecializeClass(childClassType, { useBoundTypeVars: true })
         );
 
+        // The "Self" value for the base class depends on whether it's a
+        // protocol or not. It's not clear from the typing spec whether
+        // this is the correct behavior.
+        const baseClassSelf = ClassType.isProtocolClass(baseClass)
+            ? childClassSelf
+            : ClassType.cloneAsInstance(selfSpecializeClass(baseClass, { useBoundTypeVars: true }));
+
         let baseType = partiallySpecializeType(
             this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
             baseClass,
             this._evaluator.getTypeClassType(),
-            childClassSelf
+            baseClassSelf
         );
 
         overrideType = partiallySpecializeType(

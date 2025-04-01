@@ -15,12 +15,10 @@ class B:
     __match_args__ = ("a", "b")
 
 
-class C(B):
-    ...
+class C(B): ...
 
 
-class D(int):
-    ...
+class D(int): ...
 
 
 def func1(subj: A | B):

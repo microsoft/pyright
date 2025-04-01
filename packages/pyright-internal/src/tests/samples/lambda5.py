@@ -12,12 +12,10 @@ class Msg(Generic[T]):
     body: T
 
 
-class Request:
-    ...
+class Request: ...
 
 
-def check(func: "Callable[[MsgT, int], object]") -> MsgT:
-    ...
+def check(func: "Callable[[MsgT, int], object]") -> MsgT: ...
 
 
 notification: Msg[Request] = check(lambda msg, foo: (msg.body, foo))

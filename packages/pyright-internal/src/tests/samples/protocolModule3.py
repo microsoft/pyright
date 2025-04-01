@@ -6,8 +6,7 @@ Y = TypeVar("Y", contravariant=True)
 
 
 class Fn(Protocol[Y]):
-    def __call__(self, y: Y) -> None:
-        ...
+    def __call__(self, y: Y) -> None: ...
 
 
 def x(x: Fn[int]) -> None:

@@ -6,18 +6,15 @@ from typing import AnyStr, overload
 
 
 @overload
-def func1(url: str) -> str:
-    ...
+def func1(url: str) -> str: ...
 
 
 @overload
-def func1(url: bytes) -> bytes:
-    ...
+def func1(url: bytes) -> bytes: ...
 
 
 @lru_cache()
-def func1(url: AnyStr) -> str | bytes:
-    ...
+def func1(url: AnyStr) -> str | bytes: ...
 
 
 reveal_type(func1(""), expected_text="str")

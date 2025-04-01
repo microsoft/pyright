@@ -10,8 +10,7 @@ T = TypeVar("T")
 
 class Proto(Protocol[T_co]):
     @property
-    def prop(self) -> T_co:
-        ...
+    def prop(self) -> T_co: ...
 
 
 @dataclass
@@ -21,8 +20,7 @@ class Model(Generic[T]):
 
 class RootProto(Protocol[T_co]):
     @property
-    def root(self) -> Proto[T_co]:
-        ...
+    def root(self) -> Proto[T_co]: ...
 
 
 class RootMixin(Generic[T]):

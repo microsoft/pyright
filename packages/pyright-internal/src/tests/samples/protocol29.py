@@ -13,17 +13,14 @@ _T = TypeVar("_T", covariant=True)
 
 class Partial(Protocol[_T]):
     @property
-    def func(self) -> Callable[..., _T]:
-        ...
+    def func(self) -> Callable[..., _T]: ...
 
     def __new__(
         cls: type[Self], __func: Callable[..., _T], *args: Any, **kwargs: Any
-    ) -> Self:
-        ...
+    ) -> Self: ...
 
 
-def func1(x: Partial[int]):
-    ...
+def func1(x: Partial[int]): ...
 
 
 func1(partial(int))

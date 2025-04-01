@@ -10,8 +10,7 @@ from typing import Any
 
 class Base(ABC):
     @abstractmethod
-    def f(self) -> None:
-        ...
+    def f(self) -> None: ...
 
 
 def func1(cls: Any):

@@ -6,16 +6,13 @@
 from dataclasses import dataclass, field
 
 
-class C1:
-    ...
+class C1: ...
 
 
-class C2:
-    ...
+class C2: ...
 
 
-class C3:
-    ...
+class C3: ...
 
 
 @dataclass
