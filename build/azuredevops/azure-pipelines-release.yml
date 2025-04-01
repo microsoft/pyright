@@ -277,29 +277,29 @@ extends:
       - stage: PublishToNpm
         dependsOn: WaitForValidation
         jobs:
-        - job: publish_package
-          displayName: Publish package to NPM
+          - job: publish_package
+            displayName: Publish package to NPM
 
-          pool:
-            name: VSEngSS-MicroBuild2022-1ES # This pool is required to have the certs needed to publish using ESRP.
-            os: windows
-            image: server2022-microbuildVS2022-1es
+            pool:
+              name: VSEngSS-MicroBuild2022-1ES # This pool is required to have the certs needed to publish using ESRP.
+              os: windows
+              image: server2022-microbuildVS2022-1es
 
-          templateContext:
-            type: releaseJob
-            isProduction: true
-            inputs:
-              - input: pipelineArtifact
-                artifactName: $(ARTIFACT_NAME_PACKAGE)
-                targetPath: $(Build.StagingDirectory)/dist
+            templateContext:
+              type: releaseJob
+              isProduction: true
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_PACKAGE)
+                  targetPath: $(Build.StagingDirectory)/dist
 
-          steps:
-            - template: MicroBuild.Publish.yml@MicroBuildTemplate
-              parameters:
-                intent: PackageDistribution
-                contentType: npm
-                contentSource: Folder
-                folderLocation: $(Build.StagingDirectory)/dist
-                waitForReleaseCompletion: true
-                owners: plseng@microsoft.com
-                approvers: grwheele@microsoft.com
+            steps:
+              - template: MicroBuild.Publish.yml@MicroBuildTemplate
+                parameters:
+                  intent: PackageDistribution
+                  contentType: npm
+                  contentSource: Folder
+                  folderLocation: $(Build.StagingDirectory)/dist
+                  waitForReleaseCompletion: true
+                  owners: plseng@microsoft.com
+                  approvers: grwheele@microsoft.com
