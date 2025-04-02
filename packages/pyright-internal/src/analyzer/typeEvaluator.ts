@@ -1519,9 +1519,10 @@ export function createTypeEvaluator(
             : undefined;
 
         const exprTypeResult = getTypeOfExpression(node.d.expr, flags, makeInferenceContext(expectedType));
+        const awaitableResult = getTypeOfAwaitable(exprTypeResult, node.d.expr);
         const typeResult: TypeResult = {
-            type: getTypeOfAwaitable(exprTypeResult.type, node.d.expr),
-            isIncomplete: exprTypeResult.isIncomplete,
+            type: awaitableResult.type,
+            isIncomplete: exprTypeResult.isIncomplete || awaitableResult.isIncomplete,
             typeErrors: exprTypeResult.typeErrors,
         };
 
@@ -2886,18 +2887,19 @@ export function createTypeEvaluator(
     // the result. According to PEP 492, await operates on an Awaitable
     // (object that provides an __await__ that returns a generator object).
     // If errorNode is undefined, no errors are reported.
-    function getTypeOfAwaitable(type: Type, errorNode?: ExpressionNode): Type {
+    function getTypeOfAwaitable(typeResult: TypeResult, errorNode?: ExpressionNode): TypeResult {
         if (
             !prefetched?.awaitableClass ||
             !isInstantiableClass(prefetched.awaitableClass) ||
             prefetched.awaitableClass.shared.typeParams.length !== 1
         ) {
-            return UnknownType.create();
+            return { type: UnknownType.create(), isIncomplete: typeResult.isIncomplete };
         }
 
         const awaitableProtocolObj = ClassType.cloneAsInstance(prefetched.awaitableClass);
+        const isIncomplete = !!typeResult.isIncomplete;
 
-        return mapSubtypes(type, (subtype) => {
+        const type = mapSubtypes(typeResult.type, (subtype) => {
             subtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isAnyOrUnknown(subtype)) {
@@ -2924,7 +2926,7 @@ export function createTypeEvaluator(
                 }
             }
 
-            if (errorNode) {
+            if (errorNode && !typeResult.isIncomplete) {
                 addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
                     LocMessage.typeNotAwaitable().format({ type: printType(subtype) }) + diag?.getString(),
@@ -2934,6 +2936,8 @@ export function createTypeEvaluator(
 
             return UnknownType.create();
         });
+
+        return { type, isIncomplete };
     }
 
     // Validates that the type is an iterator and returns the iterated type
@@ -2947,6 +2951,7 @@ export function createTypeEvaluator(
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         const nextMethodName = isAsync ? '__anext__' : '__next__';
         let isValidIterator = true;
+        let isIncomplete = typeResult.isIncomplete;
 
         let type = transformPossibleRecursiveTypeAlias(typeResult.type);
         type = makeTopLevelTypeVarsConcrete(type);
@@ -3037,7 +3042,14 @@ export function createTypeEvaluator(
 
                             // If it's an async iteration, there's an implicit
                             // 'await' operator applied.
-                            return getTypeOfAwaitable(nextReturnType, errorNode);
+                            const awaitableResult = getTypeOfAwaitable(
+                                { type: nextReturnType, isIncomplete: typeResult.isIncomplete },
+                                errorNode
+                            );
+                            if (awaitableResult.isIncomplete) {
+                                isIncomplete = true;
+                            }
+                            return awaitableResult.type;
                         }
 
                         return undefined;
@@ -3051,7 +3063,7 @@ export function createTypeEvaluator(
                 }
             }
 
-            if (!typeResult.isIncomplete && emitNotIterableError) {
+            if (!isIncomplete && emitNotIterableError) {
                 addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
                     LocMessage.typeNotIterable().format({ type: printType(subtype) }) + diag.getString(),
@@ -3063,7 +3075,7 @@ export function createTypeEvaluator(
             return undefined;
         });
 
-        return isValidIterator ? { type: iterableType, isIncomplete: typeResult.isIncomplete } : undefined;
+        return isValidIterator ? { type: iterableType, isIncomplete } : undefined;
     }
 
     // Validates that the type is an iterable and returns the iterable type argument.
@@ -19752,6 +19764,7 @@ export function createTypeEvaluator(
         }
 
         const exprTypeResult = getTypeOfExpression(node.d.expr);
+        let isIncomplete = exprTypeResult.isIncomplete;
         let exprType = exprTypeResult.type;
         const isAsync = node.parent && node.parent.nodeType === ParseNodeType.With && !!node.parent.d.isAsync;
 
@@ -19786,7 +19799,19 @@ export function createTypeEvaluator(
                 );
 
                 if (enterTypeResult) {
-                    return isAsync ? getTypeOfAwaitable(enterTypeResult.type, node.d.expr) : enterTypeResult.type;
+                    if (isAsync) {
+                        if (enterTypeResult.isIncomplete) {
+                            isIncomplete = true;
+                        }
+
+                        const asyncResult = getTypeOfAwaitable({ type: enterTypeResult.type }, node.d.expr);
+                        if (asyncResult.isIncomplete) {
+                            isIncomplete = true;
+                        }
+
+                        return asyncResult.type;
+                    }
+                    return enterTypeResult.type;
                 }
 
                 if (!isAsync) {
@@ -19836,7 +19861,20 @@ export function createTypeEvaluator(
                 );
 
                 if (exitTypeResult) {
-                    return isAsync ? getTypeOfAwaitable(exitTypeResult.type, node.d.expr) : exitTypeResult.type;
+                    if (exitTypeResult.isIncomplete) {
+                        isIncomplete = true;
+                    }
+
+                    if (isAsync) {
+                        const asyncResult = getTypeOfAwaitable({ type: exitTypeResult.type }, node.d.expr);
+                        if (asyncResult.isIncomplete) {
+                            isIncomplete = true;
+                        }
+
+                        return asyncResult.type;
+                    }
+
+                    return exitTypeResult.type;
                 }
             }
 
@@ -19850,14 +19888,10 @@ export function createTypeEvaluator(
         });
 
         if (node.d.target) {
-            assignTypeToExpression(
-                node.d.target,
-                { type: scopedType, isIncomplete: exprTypeResult.isIncomplete },
-                node.d.target
-            );
+            assignTypeToExpression(node.d.target, { type: scopedType, isIncomplete }, node.d.target);
         }
 
-        writeTypeCache(node, { type: scopedType, isIncomplete: !!exprTypeResult.isIncomplete }, EvalFlags.None);
+        writeTypeCache(node, { type: scopedType, isIncomplete }, EvalFlags.None);
     }
 
     function evaluateTypesForImportAs(node: ImportAsNode): void {
