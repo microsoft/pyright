@@ -82,3 +82,11 @@ def func12() -> NoReturn:
 def func13() -> NoReturn:
     # This should generate an error.
     func11(0)
+
+
+def func14(x: int) -> NoReturn: ...
+
+
+def func15():
+    # This should generate an error.
+    return func14()
