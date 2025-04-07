@@ -25692,8 +25692,15 @@ export function createTypeEvaluator(
 
         const isLeftCallable = isFunction(leftType) || isOverloaded(leftType);
         const isRightCallable = isFunction(rightType) || isOverloaded(rightType);
-        if (isLeftCallable !== isRightCallable) {
-            return false;
+
+        // If either type is a function, assume that it may be comparable. The other
+        // operand might be a callable object, an 'object' instance, etc. We could
+        // make this more precise for specific cases (e.g. if the other operand is
+        // None or a literal or an instance of a nominal class that doesn't override
+        // __call__ and is marked final, etc.), but coming up with a comprehensive
+        // list is probably not feasible.
+        if (isLeftCallable || isRightCallable) {
+            return true;
         }
 
         if (isInstantiableClass(leftType) || (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'type'))) {
