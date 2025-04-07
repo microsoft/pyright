@@ -66,12 +66,18 @@ if 1:
 with cm as val:
     pass
 
-# If "reportOptionalOperand" is enabled,
-# this should generate 3 errors.
 e = None
 if 1:
     e = 4
 
+# If "reportOptionalOperand" is enabled,
+# this should generate an error.
 v1 = e + 4
+
+# If "reportOptionalOperand" is enabled,
+# this should generate an error.
 v2 = e < 5
-v3 = not e
+
+# If "reportOptionalOperand" is enabled,
+# this should generate an error.
+v3 = ~e
