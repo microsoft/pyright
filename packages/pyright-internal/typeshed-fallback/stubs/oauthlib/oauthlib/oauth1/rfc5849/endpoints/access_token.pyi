@@ -1,9 +1,9 @@
 from _typeshed import Incomplete
-from typing import Any
+from logging import Logger
 
 from .base import BaseEndpoint as BaseEndpoint
 
-log: Any
+log: Logger
 
 class AccessTokenEndpoint(BaseEndpoint):
     def create_access_token(self, request, credentials): ...

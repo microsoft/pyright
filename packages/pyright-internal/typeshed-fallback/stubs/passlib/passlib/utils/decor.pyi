@@ -40,3 +40,12 @@ def deprecated_method(
     updoc: bool = True,
     replacement: Incomplete | None = None,
 ): ...
+
+__all__ = [
+    "classproperty",
+    "hybrid_method",
+    "memoize_single_value",
+    "memoized_property",
+    "deprecated_function",
+    "deprecated_method",
+]

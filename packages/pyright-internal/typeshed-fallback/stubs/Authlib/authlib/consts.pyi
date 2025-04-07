@@ -1,8 +1,8 @@
-from _typeshed import Incomplete
+from typing import Final
 
-name: str
-version: str
-author: str
-homepage: str
-default_user_agent: Incomplete
-default_json_headers: Incomplete
+name: Final[str]
+version: Final[str]
+author: Final[str]
+homepage: Final[str]
+default_user_agent: Final[str]
+default_json_headers: Final[list[tuple[str, str]]]

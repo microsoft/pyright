@@ -90,3 +90,13 @@ if sys.platform != "win32":
         def origflags_int(self) -> int: ...
         @property
         def sigfd(self) -> FileDescriptor: ...
+
+    __all__ = [
+        "get_version",
+        "get_header_version",
+        "supported_backends",
+        "recommended_backends",
+        "embeddable_backends",
+        "time",
+        "loop",
+    ]

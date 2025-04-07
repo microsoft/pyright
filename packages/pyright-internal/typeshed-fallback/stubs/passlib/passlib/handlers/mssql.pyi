@@ -19,3 +19,5 @@ class mssql2005(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
     max_salt_size: ClassVar[int]
     @classmethod
     def from_string(cls, hash): ...
+
+__all__ = ["mssql2000", "mssql2005"]

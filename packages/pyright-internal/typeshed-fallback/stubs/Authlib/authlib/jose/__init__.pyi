@@ -1,5 +1,3 @@
-from _typeshed import Incomplete
-
 from .errors import JoseError as JoseError
 from .rfc7515 import (
     JsonWebSignature as JsonWebSignature,
@@ -17,6 +15,8 @@ from .rfc7517 import JsonWebKey as JsonWebKey, Key as Key, KeySet as KeySet
 from .rfc7518 import ECKey as ECKey, OctKey as OctKey, RSAKey as RSAKey
 from .rfc7519 import BaseClaims as BaseClaims, JsonWebToken as JsonWebToken, JWTClaims as JWTClaims
 from .rfc8037 import OKPKey as OKPKey
+
+jwt: JsonWebToken
 
 __all__ = [
     "JoseError",
@@ -40,5 +40,3 @@ __all__ = [
     "JWTClaims",
     "jwt",
 ]
-
-jwt: Incomplete

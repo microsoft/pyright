@@ -1,24 +1,26 @@
 from _typeshed import Incomplete
-from typing import Any
+from collections.abc import Callable
+from logging import Logger
+from typing import Any, Final
 
-log: Any
-SIGNATURE_HMAC_SHA1: str
-SIGNATURE_HMAC_SHA256: str
-SIGNATURE_HMAC_SHA512: str
-SIGNATURE_HMAC: str
-SIGNATURE_RSA_SHA1: str
-SIGNATURE_RSA_SHA256: str
-SIGNATURE_RSA_SHA512: str
-SIGNATURE_RSA: str
-SIGNATURE_PLAINTEXT: str
-SIGNATURE_METHODS: Any
-SIGNATURE_TYPE_AUTH_HEADER: str
-SIGNATURE_TYPE_QUERY: str
-SIGNATURE_TYPE_BODY: str
-CONTENT_TYPE_FORM_URLENCODED: str
+log: Logger
+SIGNATURE_HMAC_SHA1: Final[str]
+SIGNATURE_HMAC_SHA256: Final[str]
+SIGNATURE_HMAC_SHA512: Final[str]
+SIGNATURE_HMAC: Final[str]
+SIGNATURE_RSA_SHA1: Final[str]
+SIGNATURE_RSA_SHA256: Final[str]
+SIGNATURE_RSA_SHA512: Final[str]
+SIGNATURE_RSA: Final[str]
+SIGNATURE_PLAINTEXT: Final[str]
+SIGNATURE_METHODS: Final[tuple[str, str, str, str, str, str, str]]
+SIGNATURE_TYPE_AUTH_HEADER: Final[str]
+SIGNATURE_TYPE_QUERY: Final[str]
+SIGNATURE_TYPE_BODY: Final[str]
+CONTENT_TYPE_FORM_URLENCODED: Final[str]
 
 class Client:
-    SIGNATURE_METHODS: Any
+    SIGNATURE_METHODS: dict[str, Callable[[str, Incomplete], str]]
     @classmethod
     def register_signature_method(cls, method_name, method_callback) -> None: ...
     client_key: Any
@@ -37,8 +39,8 @@ class Client:
     timestamp: Any
     def __init__(
         self,
-        client_key,
-        client_secret: Incomplete | None = None,
+        client_key: str,
+        client_secret: str | None = None,
         resource_owner_key: Incomplete | None = None,
         resource_owner_secret: Incomplete | None = None,
         callback_uri: Incomplete | None = None,
@@ -58,7 +60,7 @@ class Client:
         self,
         uri,
         http_method: str = "GET",
-        body: Incomplete | None = None,
-        headers: Incomplete | None = None,
+        body: str | None = None,
+        headers: dict[str, str] | None = None,
         realm: Incomplete | None = None,
     ): ...

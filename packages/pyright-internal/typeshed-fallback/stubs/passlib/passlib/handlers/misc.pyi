@@ -48,3 +48,5 @@ class plaintext(uh.MinimalHandler):
     def genconfig(cls): ...
     @classmethod
     def genhash(cls, secret, config, encoding: str | None = None): ...  # type: ignore[override]
+
+__all__ = ["unix_disabled", "unix_fallback", "plaintext"]

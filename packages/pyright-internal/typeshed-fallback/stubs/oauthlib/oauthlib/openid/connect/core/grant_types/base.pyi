@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
-from typing import Any
+from logging import Logger
 
-log: Any
+log: Logger
 
 class GrantTypeBase:
     def __getattr__(self, attr: str): ...

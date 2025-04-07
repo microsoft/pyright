@@ -13,11 +13,13 @@ def patch_thread(
     threading: bool = True, _threading_local: bool = True, Event: bool = True, logging: bool = True, existing_locks: bool = True
 ) -> None: ...
 def patch_socket(dns: bool = True, aggressive: bool = True) -> None: ...
+def patch_builtins() -> None: ...
 def patch_dns() -> None: ...
 def patch_ssl() -> None: ...
 def patch_select(aggressive: bool = True) -> None: ...
 def patch_selectors(aggressive: bool = True) -> None: ...
 def patch_subprocess() -> None: ...
+def patch_sys(stdin: bool = True, stdout: bool = True, stderr: bool = True) -> None: ...
 def patch_signal() -> None: ...
 def patch_all(
     socket: bool = True,
@@ -38,3 +40,29 @@ def patch_all(
     **kwargs: object,
 ) -> bool | None: ...
 def main() -> dict[str, Any]: ...
+
+__all__ = [
+    "patch_all",
+    "patch_builtins",
+    "patch_dns",
+    "patch_os",
+    "patch_queue",
+    "patch_select",
+    "patch_signal",
+    "patch_socket",
+    "patch_ssl",
+    "patch_subprocess",
+    "patch_sys",
+    "patch_thread",
+    "patch_time",
+    # query functions
+    "get_original",
+    "is_module_patched",
+    "is_object_patched",
+    # plugin API
+    "patch_module",
+    # module functions
+    "main",
+    # Errors and warnings
+    "MonkeyPatchWarning",
+]

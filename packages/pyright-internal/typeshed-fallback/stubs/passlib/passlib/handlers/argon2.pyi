@@ -83,3 +83,5 @@ class _PureBackend(_Argon2Common): ...
 
 class argon2(_NoBackend, _Argon2Common):  # type: ignore[misc]
     backends: ClassVar[tuple[str, ...]]
+
+__all__ = ["argon2"]

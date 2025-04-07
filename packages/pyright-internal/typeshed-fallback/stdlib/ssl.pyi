@@ -512,8 +512,6 @@ SSL_ERROR_ZERO_RETURN: SSLErrorNumber  # undocumented
 
 def get_protocol_name(protocol_code: int) -> str: ...
 
-if sys.version_info < (3, 9):
-    AF_INET: int
 PEM_FOOTER: str
 PEM_HEADER: str
 SOCK_STREAM: int

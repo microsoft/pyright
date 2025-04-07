@@ -183,3 +183,23 @@ class PrefixWrapper:
     def encrypt(self, secret, **kwds): ...
     def hash(self, secret, **kwds): ...
     def verify(self, secret, hash, **kwds): ...
+
+__all__ = [
+    # helpers for implementing MCF handlers
+    "parse_mc2",
+    "parse_mc3",
+    "render_mc2",
+    "render_mc3",
+    # framework for implementing handlers
+    "GenericHandler",
+    "StaticHandler",
+    "HasUserContext",
+    "HasRawChecksum",
+    "HasManyIdents",
+    "HasSalt",
+    "HasRawSalt",
+    "HasRounds",
+    "HasManyBackends",
+    # other helpers
+    "PrefixWrapper",
+]

@@ -155,3 +155,16 @@ class _MOFileParser(Generic[_TM]):
     def __init__(self, mofile: str, *args: Any, **kwargs: Any) -> None: ...
     def __del__(self) -> None: ...
     def parse(self) -> _TM: ...
+
+__all__ = [
+    "pofile",
+    "POFile",
+    "POEntry",
+    "mofile",
+    "MOFile",
+    "MOEntry",
+    "default_encoding",
+    "escape",
+    "unescape",
+    "detect_encoding",
+]

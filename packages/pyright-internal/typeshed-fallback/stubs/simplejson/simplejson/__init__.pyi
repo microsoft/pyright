@@ -1,4 +1,5 @@
 from _typeshed import SupportsRichComparison
+from collections import OrderedDict
 from collections.abc import Callable
 from typing import IO, Any, TypeVar, overload
 from typing_extensions import TypeAlias
@@ -166,3 +167,16 @@ def load(
     allow_nan: bool = ...,
 ) -> Any: ...
 def simple_first(kv: tuple[_T, object]) -> tuple[bool, _T]: ...
+
+__all__ = [
+    "dump",
+    "dumps",
+    "load",
+    "loads",
+    "JSONDecoder",
+    "JSONDecodeError",
+    "JSONEncoder",
+    "OrderedDict",
+    "simple_first",
+    "RawJSON",
+]
