@@ -50,3 +50,10 @@ class Grammar:
     @staticmethod
     def L():
         return Grammar.B
+
+
+async def func1(a):
+    if a == 0:
+        return
+    r = await func1(a - 1)
+    return r
