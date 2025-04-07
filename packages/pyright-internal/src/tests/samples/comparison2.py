@@ -2,7 +2,7 @@
 # when applied to functions that appear within a conditional expression.
 
 
-from typing import Any, Coroutine, Protocol
+from typing import Any, Callable, Coroutine, Protocol
 from dataclasses import dataclass
 
 
@@ -136,3 +136,7 @@ def func11(a: A, b: SupportsBool, c: object):
 
     if c is None:
         pass
+
+
+def func12(a: object, b: Callable[..., int]) -> bool:
+    return a is b

@@ -9,3 +9,17 @@ def escapePDF(s): ...
 def asciiBase85Encode(input): ...
 def asciiBase85Decode(input): ...
 def sameFrag(f, g): ...
+
+__all__ = [
+    "fp_str",
+    "unicode2T1",
+    "instanceStringWidthT1",
+    "instanceStringWidthTTF",
+    "asciiBase85Encode",
+    "asciiBase85Decode",
+    "escapePDF",
+    "sameFrag",
+    "calcChecksum",
+    "add32",
+    "hex32",
+]

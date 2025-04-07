@@ -1,7 +1,6 @@
-import sys
 from _typeshed import Unused
 from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
-from typing import Any, Literal, NoReturn, overload
+from typing import Any, Final, Literal, NoReturn, overload
 from typing_extensions import Self
 
 import numpy
@@ -317,14 +316,14 @@ def set_error_function(callback: Callable[[str], object] | None = None) -> None:
 def set_info_function(callback: Callable[[str], object] | None = None) -> None: ...
 def client_pid(name: str) -> int: ...
 
-METADATA_CONNECTED: str
-METADATA_HARDWARE: str
-METADATA_ICON_LARGE: str
-METADATA_ICON_SMALL: str
-METADATA_PORT_GROUP: str
-METADATA_PRETTY_NAME: str
-if sys.platform != "linux":
-    METADATA_EVENT_TYPES: str
-    METADATA_ICON_NAME: str
-    METADATA_ORDER: str
-    METADATA_SIGNAL_TYPE: str
+# Some METADATA_ constants are not available on all systems.
+METADATA_CONNECTED: Final[str]
+METADATA_HARDWARE: Final[str]
+METADATA_ICON_LARGE: Final[str]
+METADATA_ICON_SMALL: Final[str]
+METADATA_PORT_GROUP: Final[str]
+METADATA_PRETTY_NAME: Final[str]
+METADATA_EVENT_TYPES: Final[str]
+METADATA_ICON_NAME: Final[str]
+METADATA_ORDER: Final[str]
+METADATA_SIGNAL_TYPE: Final[str]

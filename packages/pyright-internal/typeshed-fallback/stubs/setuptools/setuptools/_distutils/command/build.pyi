@@ -4,8 +4,6 @@ from typing import ClassVar
 
 from ..cmd import Command
 
-def show_compilers() -> None: ...
-
 class build(Command):
     description: ClassVar[str]
     user_options: ClassVar[list[tuple[str, str | None, str]]]

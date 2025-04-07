@@ -1,9 +1,9 @@
 from _typeshed import Incomplete
-from typing import Any
+from logging import Logger
 
 from .base import BaseEndpoint as BaseEndpoint
 
-log: Any
+log: Logger
 
 class ResourceEndpoint(BaseEndpoint):
     def validate_protected_resource_request(

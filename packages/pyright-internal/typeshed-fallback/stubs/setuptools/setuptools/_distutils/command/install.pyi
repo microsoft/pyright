@@ -1,5 +1,6 @@
 from _typeshed import Incomplete
-from typing import ClassVar
+from collections import ChainMap
+from typing import Any, ClassVar
 
 from ..cmd import Command
 
@@ -34,7 +35,7 @@ class install(Command):
     build_lib: Incomplete
     record: Incomplete
     def initialize_options(self) -> None: ...
-    config_vars: Incomplete
+    config_vars: ChainMap[str, Any]  # Any: Same as sysconfig.get_config_vars
     install_libbase: Incomplete
     def finalize_options(self) -> None: ...
     def dump_dirs(self, msg) -> None: ...

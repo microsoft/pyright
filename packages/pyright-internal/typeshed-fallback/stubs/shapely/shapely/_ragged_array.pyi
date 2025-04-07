@@ -10,3 +10,5 @@ def to_ragged_array(
 def from_ragged_array(
     geometry_type: GeometryType, coords: ArrayLike[float], offsets: ArrayLikeSeq[int] | None = None
 ) -> GeoArray: ...
+
+__all__ = ["to_ragged_array", "from_ragged_array"]

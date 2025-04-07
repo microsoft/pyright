@@ -1,9 +1,14 @@
 from _typeshed import Incomplete
+from collections.abc import Mapping
+from typing import Any, Literal
+from typing_extensions import Self
 
-from jwcrypto.common import JWException
+from jwcrypto.common import JWException, JWSEHeaderParameter
+from jwcrypto.jwa import JWAAlgorithm
+from jwcrypto.jwk import JWK, JWKSet
 
-JWSHeaderRegistry: Incomplete
-default_allowed_algs: Incomplete
+JWSHeaderRegistry: Mapping[str, JWSEHeaderParameter]
+default_allowed_algs: list[str]
 
 class InvalidJWSSignature(JWException):
     def __init__(self, message: str | None = None, exception: BaseException | None = None) -> None: ...
@@ -15,19 +20,26 @@ class InvalidJWSOperation(JWException):
     def __init__(self, message: str | None = None, exception: BaseException | None = None) -> None: ...
 
 class JWSCore:
-    alg: Incomplete
-    engine: Incomplete
-    key: Incomplete
-    header: Incomplete
-    protected: Incomplete
-    payload: Incomplete
-    def __init__(self, alg, key, header, payload, algs: Incomplete | None = None) -> None: ...
-    def sign(self): ...
-    def verify(self, signature): ...
+    alg: str
+    engine: JWAAlgorithm
+    key: JWK | JWKSet
+    header: dict[str, Any]
+    protected: str
+    payload: bytes
+    def __init__(
+        self,
+        alg: str,
+        key: JWK | JWKSet,
+        header: dict[str, Any] | str | None,
+        payload: str | bytes,
+        algs: list[str] | None = None,
+    ) -> None: ...
+    def sign(self) -> dict[str, str | bytes]: ...
+    def verify(self, signature: bytes) -> Literal[True]: ...
 
 class JWS:
     objects: Incomplete
-    verifylog: Incomplete
+    verifylog: list[str] | None
     header_registry: Incomplete
     def __init__(self, payload: Incomplete | None = None, header_registry: Incomplete | None = None) -> None: ...
     @property
@@ -41,12 +53,12 @@ class JWS:
     def add_signature(
         self, key, alg: Incomplete | None = None, protected: Incomplete | None = None, header: Incomplete | None = None
     ) -> None: ...
-    def serialize(self, compact: bool = False): ...
+    def serialize(self, compact: bool = False) -> str: ...
     @property
     def payload(self): ...
     def detach_payload(self) -> None: ...
     @property
     def jose_header(self): ...
     @classmethod
-    def from_jose_token(cls, token): ...
+    def from_jose_token(cls, token: str | bytes) -> Self: ...
     def __eq__(self, other: object) -> bool: ...

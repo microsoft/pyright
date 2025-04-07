@@ -79,3 +79,14 @@ class django_disabled(DisabledHash, uh.StaticHandler):
     def identify(cls, hash: str | bytes) -> bool: ...
     @classmethod
     def verify(cls, secret: str | bytes, hash: str | bytes) -> bool: ...  # type: ignore[override]
+
+__all__ = [
+    "django_salted_sha1",
+    "django_salted_md5",
+    "django_bcrypt",
+    "django_pbkdf2_sha1",
+    "django_pbkdf2_sha256",
+    "django_argon2",
+    "django_des_crypt",
+    "django_disabled",
+]

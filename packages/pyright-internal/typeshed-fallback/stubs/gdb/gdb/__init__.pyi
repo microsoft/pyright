@@ -12,7 +12,6 @@ from typing_extensions import TypeAlias, deprecated
 
 import gdb.FrameDecorator
 import gdb.types
-import gdb.xmethod
 
 # The following submodules are automatically imported
 from . import events as events, printing as printing, prompt as prompt, types as types

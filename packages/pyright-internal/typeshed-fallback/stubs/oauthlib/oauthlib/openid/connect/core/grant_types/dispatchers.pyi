@@ -1,7 +1,8 @@
 from _typeshed import Incomplete
+from logging import Logger
 from typing import Any
 
-log: Any
+log: Logger
 
 class Dispatcher:
     default_grant: Any

@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal, overload
 
 import passlib.utils.handlers as uh
 
@@ -17,8 +17,15 @@ class nthash(uh.StaticHandler):
     checksum_size: ClassVar[int]
     @classmethod
     def raw(cls, secret): ...
+    @overload
     @classmethod
-    def raw_nthash(cls, secret, hex: bool = False): ...
+    def raw_nthash(cls, secret: str | bytes, hex: Literal[True]) -> str: ...
+    @overload
+    @classmethod
+    def raw_nthash(cls, secret: str | bytes, hex: Literal[False] = False) -> bytes: ...
+    @overload
+    @classmethod
+    def raw_nthash(cls, secret: str | bytes, hex: bool = False) -> str | bytes: ...
 
 bsd_nthash: Any
 
@@ -35,3 +42,5 @@ class msdcc2(uh.HasUserContext, uh.StaticHandler):
     checksum_size: ClassVar[int]
     @classmethod
     def raw(cls, secret, user): ...
+
+__all__ = ["lmhash", "nthash", "bsd_nthash", "msdcc", "msdcc2"]

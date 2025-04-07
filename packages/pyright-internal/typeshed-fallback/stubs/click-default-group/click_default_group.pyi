@@ -3,6 +3,7 @@ from _typeshed import Incomplete
 
 import click
 
+__all__ = ["DefaultGroup"]
 __version__: str
 
 class DefaultGroup(click.Group):
