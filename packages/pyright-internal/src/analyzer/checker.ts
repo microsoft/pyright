@@ -4068,6 +4068,13 @@ export class Checker extends ParseTreeWalker {
                     ) {
                         diag.addMessage(LocAddendum.annotatedNotAllowed());
                         isSupported = false;
+                    } else if (
+                        subtype.props?.specialForm &&
+                        isInstantiableClass(subtype.props.specialForm) &&
+                        ClassType.isBuiltIn(subtype.props.specialForm, 'Literal')
+                    ) {
+                        diag.addMessage(LocAddendum.literalNotAllowed());
+                        isSupported = false;
                     }
                     break;
 
