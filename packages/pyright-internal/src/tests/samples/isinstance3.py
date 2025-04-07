@@ -112,3 +112,8 @@ if isinstance(1, TA1):
 # in an isinstance call.
 if isinstance(1, Any):
     pass
+
+# This should generate an error because Literal can't be used
+# in an isinstance call.
+if isinstance(1, Literal[1, 2]):
+    pass

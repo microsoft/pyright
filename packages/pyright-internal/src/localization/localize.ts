@@ -1333,6 +1333,7 @@ export namespace Localizer {
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.literalAssignmentMismatch')
             );
+        export const literalNotAllowed = () => getRawString('DiagnosticAddendum.literalNotAllowed');
         export const matchIsNotExhaustiveType = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.matchIsNotExhaustiveType'));
         export const matchIsNotExhaustiveHint = () => getRawString('DiagnosticAddendum.matchIsNotExhaustiveHint');

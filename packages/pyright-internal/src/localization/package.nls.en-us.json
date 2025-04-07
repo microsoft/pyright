@@ -1842,6 +1842,10 @@
         "kwargsParamMissing": "Parameter \"**{paramName}\" has no corresponding parameter",
         "listAssignmentMismatch": "Type \"{type}\" is incompatible with target list",
         "literalAssignmentMismatch": "\"{sourceType}\" is not assignable to type \"{destType}\"",
+        "literalNotAllowed": {
+            "message": "\"Literal\" special form cannot be used with instance and class checks",
+            "comment": "{Locked='Literal'}"
+        },
         "matchIsNotExhaustiveHint": {
             "message": "If exhaustive handling is not intended, add \"case _: pass\"",
             "comment": "{Locked='case _: pass'}"
