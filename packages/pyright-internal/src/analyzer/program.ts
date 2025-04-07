@@ -1791,6 +1791,10 @@ export class Program {
             // Bind all of the implicit imports first. So we don't recurse into them.
             if (!isImplicitImport) {
                 this._bindImplicitImports(fileToBind);
+
+                if (!fileToBind.sourceFile.isBindingRequired()) {
+                    return true;
+                }
             }
 
             // If it is not builtin module itself, we need to parse and bind
