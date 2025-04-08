@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 
 class BaseClaims(dict[str, object]):
-    REGISTERED_CLAIMS: Incomplete
+    REGISTERED_CLAIMS: list[str]
     header: Incomplete
     options: Incomplete
     params: Incomplete
@@ -10,7 +10,7 @@ class BaseClaims(dict[str, object]):
     def get_registered_claims(self): ...
 
 class JWTClaims(BaseClaims):
-    REGISTERED_CLAIMS: Incomplete
+    REGISTERED_CLAIMS: list[str]
     def validate(self, now: Incomplete | None = None, leeway: int = 0) -> None: ...
     def validate_iss(self) -> None: ...
     def validate_sub(self) -> None: ...

@@ -410,7 +410,7 @@ test('Optional1', () => {
     configOptions.diagnosticRuleSet.reportOptionalContextManager = 'warning';
     configOptions.diagnosticRuleSet.reportOptionalOperand = 'warning';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0, 7);
+    TestUtils.validateResults(analysisResults, 0, 8);
 
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportOptionalSubscript = 'error';
@@ -420,7 +420,7 @@ test('Optional1', () => {
     configOptions.diagnosticRuleSet.reportOptionalContextManager = 'error';
     configOptions.diagnosticRuleSet.reportOptionalOperand = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Optional2', () => {

@@ -1273,6 +1273,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         if (node.d.expr) {
+            AnalyzerNodeInfo.setFlowNode(node.d.expr, this._currentFlowNode!);
             this.walk(node.d.expr);
         }
 

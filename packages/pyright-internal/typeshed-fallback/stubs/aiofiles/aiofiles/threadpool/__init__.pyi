@@ -104,3 +104,5 @@ stderr: AsyncTextIndirectIOWrapper
 stdin_bytes: AsyncIndirectBufferedIOBase
 stdout_bytes: AsyncIndirectBufferedIOBase
 stderr_bytes: AsyncIndirectBufferedIOBase
+
+__all__ = ("open", "stdin", "stdout", "stderr", "stdin_bytes", "stdout_bytes", "stderr_bytes")

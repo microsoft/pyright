@@ -30,3 +30,5 @@ class htdigest(uh.MinimalHandler):
     def genconfig(cls): ...
     @classmethod
     def genhash(cls, secret, config, user, realm, encoding: Incomplete | None = None): ...  # type: ignore[override]
+
+__all__ = ["create_hex_hash", "hex_md4", "hex_md5", "hex_sha1", "hex_sha256", "hex_sha512"]

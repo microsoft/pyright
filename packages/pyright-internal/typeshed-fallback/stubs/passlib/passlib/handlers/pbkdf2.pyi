@@ -87,3 +87,5 @@ class grub_pbkdf2_sha512(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.Gene
     rounds_cost: ClassVar[str]
     @classmethod
     def from_string(cls, hash): ...
+
+__all__ = ["pbkdf2_sha1", "pbkdf2_sha256", "pbkdf2_sha512", "cta_pbkdf2_sha1", "dlitz_pbkdf2_sha1", "grub_pbkdf2_sha512"]

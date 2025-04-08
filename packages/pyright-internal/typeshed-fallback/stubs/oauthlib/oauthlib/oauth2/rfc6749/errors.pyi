@@ -1,11 +1,13 @@
 from _typeshed import Incomplete
-from typing import Any
+from typing import Any, NoReturn
+
+from oauthlib.common import Request
 
 class OAuth2Error(Exception):
-    error: Any
+    error: str | None
     status_code: int
     description: str
-    uri: Any
+    uri: str | None
     state: Any
     redirect_uri: Any
     client_id: Any
@@ -15,21 +17,21 @@ class OAuth2Error(Exception):
     grant_type: Any
     def __init__(
         self,
-        description: Incomplete | None = None,
-        uri: Incomplete | None = None,
+        description: str | None = None,
+        uri: str | None = None,
         state: Incomplete | None = None,
-        status_code: Incomplete | None = None,
-        request: Incomplete | None = None,
+        status_code: int | None = None,
+        request: Request | None = None,
     ) -> None: ...
-    def in_uri(self, uri): ...
+    def in_uri(self, uri: str) -> str: ...
     @property
-    def twotuples(self): ...
+    def twotuples(self) -> list[tuple[str, Incomplete | str | None]]: ...
     @property
-    def urlencoded(self): ...
+    def urlencoded(self) -> str: ...
     @property
-    def json(self): ...
+    def json(self) -> str: ...
     @property
-    def headers(self): ...
+    def headers(self) -> dict[str, str]: ...
 
 class TokenExpiredError(OAuth2Error):
     error: str
@@ -135,7 +137,14 @@ class LoginRequired(OAuth2Error):
     error: str
 
 class CustomOAuth2Error(OAuth2Error):
-    error: Any
-    def __init__(self, error, *args, **kwargs) -> None: ...
+    def __init__(
+        self,
+        error: str,
+        description: str | None = None,
+        uri: str | None = None,
+        state: Incomplete | None = None,
+        status_code: int | None = None,
+        request: Request | None = None,
+    ) -> None: ...
 
-def raise_from_error(error, params: Incomplete | None = None) -> None: ...
+def raise_from_error(error: str, params: dict[str, Incomplete] | None = None) -> NoReturn: ...

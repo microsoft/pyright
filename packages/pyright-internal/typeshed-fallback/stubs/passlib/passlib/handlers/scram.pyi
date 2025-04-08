@@ -27,3 +27,5 @@ class scram(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler): 
     def __init__(self, algs: Incomplete | None = None, **kwds) -> None: ...
     @classmethod
     def verify(cls, secret, hash, full: bool = False): ...  # type: ignore[override]
+
+__all__ = ["scram"]

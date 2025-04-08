@@ -14,6 +14,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
+import { isThenable } from '../common/core';
 import * as debug from '../common/debug';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
@@ -51,7 +52,6 @@ import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { getPrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
-import { isThenable } from '../common/core';
 
 const _maxImportDepth = 256;
 
@@ -1791,6 +1791,12 @@ export class Program {
             // Bind all of the implicit imports first. So we don't recurse into them.
             if (!isImplicitImport) {
                 this._bindImplicitImports(fileToBind);
+
+                // Binding the implicit imports may indirectly cause the current file to be bound.
+                // If so, return now to avoid "Bind called unnecessarily" assert in sourceFile.bind().
+                if (!fileToBind.sourceFile.isBindingRequired()) {
+                    return true;
+                }
             }
 
             // If it is not builtin module itself, we need to parse and bind

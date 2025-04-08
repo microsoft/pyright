@@ -1,12 +1,13 @@
 import abc
 from _typeshed import Incomplete
 from collections.abc import Callable
+from logging import Logger
 from typing_extensions import Self
 
 from ..adapters.utils import nbio_interface
 from ..connection import Connection
 
-LOGGER: Incomplete
+LOGGER: Logger
 
 class BaseConnection(Connection, metaclass=abc.ABCMeta):
     def __init__(

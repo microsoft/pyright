@@ -1,13 +1,8 @@
 import datetime
-import sys
 from typing import Final, Literal
+from zoneinfo import ZoneInfo
 
 from dateutil.rrule import rrule, rruleset
-
-if sys.version_info >= (3, 9):
-    from zoneinfo import ZoneInfo
-else:
-    from backports.zoneinfo import ZoneInfo
 
 from ..cal import Timezone
 from ..prop import vRecur

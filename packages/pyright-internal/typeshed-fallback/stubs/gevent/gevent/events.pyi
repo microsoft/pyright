@@ -163,3 +163,35 @@ class IGeventDidPatchAllEvent(IGeventDidPatchEvent): ...
 @implementer(IGeventDidPatchAllEvent)
 class GeventDidPatchAllEvent(_PatchAllMixin, GeventDidPatchEvent):
     ENTRY_POINT_NAME: str
+
+__all__ = [
+    "subscribers",
+    # monitor thread
+    "IEventLoopBlocked",
+    "EventLoopBlocked",
+    "IMemoryUsageThresholdExceeded",
+    "MemoryUsageThresholdExceeded",
+    "IMemoryUsageUnderThreshold",
+    "MemoryUsageUnderThreshold",
+    # Hub
+    "IPeriodicMonitorThread",
+    "IPeriodicMonitorThreadStartedEvent",
+    "PeriodicMonitorThreadStartedEvent",
+    # monkey
+    "IGeventPatchEvent",
+    "GeventPatchEvent",
+    "IGeventWillPatchEvent",
+    "DoNotPatch",
+    "GeventWillPatchEvent",
+    "IGeventDidPatchEvent",
+    "IGeventWillPatchModuleEvent",
+    "GeventWillPatchModuleEvent",
+    "IGeventDidPatchModuleEvent",
+    "GeventDidPatchModuleEvent",
+    "IGeventWillPatchAllEvent",
+    "GeventWillPatchAllEvent",
+    "IGeventDidPatchBuiltinModulesEvent",
+    "GeventDidPatchBuiltinModulesEvent",
+    "IGeventDidPatchAllEvent",
+    "GeventDidPatchAllEvent",
+]
