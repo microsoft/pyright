@@ -40,6 +40,7 @@ export interface SourceFile {
     getOpenFileContents(): string | undefined;
     getModuleSymbolTable(): SymbolTable | undefined;
     getDiagnostics(options: ConfigOptions): Diagnostic[] | undefined;
+    getParserOutput(): ParserOutput | undefined;
 }
 
 export interface SourceFileInfo {

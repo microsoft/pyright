@@ -702,6 +702,7 @@
         "kwargsParamMissing": "‘**{paramName}’ 매개 변수에 해당하는 매개 변수가 없습니다.",
         "listAssignmentMismatch": "\"{type}\" 형식이 대상 목록과 호환되지 않습니다.",
         "literalAssignmentMismatch": "\"{sourceType}\"은 형식 \"{destType}\"에 할당할 수 없습니다.",
+        "literalNotAllowed": "\"Literal\" special form cannot be used with instance and class checks",
         "matchIsNotExhaustiveHint": "전체 처리가 의도되지 않은 경우 \"case _: pass\"를 추가합니다.",
         "matchIsNotExhaustiveType": "처리되지 않은 형식: \"{type}\"",
         "memberAssignment": "\"{type}\" 형식의 식을 \"{classType}\" 클래스의 \"{name}\" 특성에 할당할 수 없음",
