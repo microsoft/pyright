@@ -702,6 +702,7 @@
         "kwargsParamMissing": "Parametr „**{paramName}” nie ma odpowiadającego mu parametru",
         "listAssignmentMismatch": "Typ „{type}” jest niezgodny z listą docelową",
         "literalAssignmentMismatch": "Nie można przypisać typu „{sourceType}” do typu „{destType}”",
+        "literalNotAllowed": "\"Literal\" special form cannot be used with instance and class checks",
         "matchIsNotExhaustiveHint": "Jeśli kompleksowa obsługa nie jest zamierzona, dodaj „case _: pass”",
         "matchIsNotExhaustiveType": "Nieobsługiwany typ: „{type}”",
         "memberAssignment": "Wyrażenia typu „{type}” nie można przypisać do atrybutu „{name}” klasy „{classType}”",

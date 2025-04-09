@@ -184,6 +184,7 @@ export interface ParserOutput {
     futureImports: Set<string>;
     containsWildcardImport: boolean;
     typingSymbolAliases: Map<string, string>;
+    hasTypeAnnotations: boolean;
 }
 
 export interface ParseFileResults {
@@ -242,8 +243,10 @@ export class Parser {
     private _typingImportAliases: string[] = [];
     private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
     private _maxChildDepthMap = new Map<number, number>();
+    private _hasTypeAnnotations = false;
 
     parseSourceFile(fileContents: string, parseOptions: ParseOptions, diagSink: DiagnosticSink): ParseFileResults {
+        this._hasTypeAnnotations = false;
         timingStats.tokenizeFileTime.timeOperation(() => {
             this._startNewParse(fileContents, 0, fileContents.length, parseOptions, diagSink);
         });
@@ -286,6 +289,7 @@ export class Parser {
                 futureImports: this._futureImports,
                 containsWildcardImport: this._containsWildcardImport,
                 typingSymbolAliases: this._typingSymbolAliases,
+                hasTypeAnnotations: this._hasTypeAnnotations,
             },
             tokenizerOutput: this._tokenizerOutput!,
         };
@@ -4664,6 +4668,7 @@ export class Parser {
         }
 
         this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
+        this._hasTypeAnnotations = true;
 
         return result;
     }

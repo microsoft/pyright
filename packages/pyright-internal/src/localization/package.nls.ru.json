@@ -702,6 +702,7 @@
         "kwargsParamMissing": "У параметра \"**{paramName}\" нет соответствующего параметра",
         "listAssignmentMismatch": "Тип \"{type}\" несовместим с целевым списком",
         "literalAssignmentMismatch": "\"{sourceType}\" невозможно назначить тип \"{destType}\"",
+        "literalNotAllowed": "\"Literal\" special form cannot be used with instance and class checks",
         "matchIsNotExhaustiveHint": "Если не предполагается исчерпывающая обработка, добавьте \"case _: pass\"",
         "matchIsNotExhaustiveType": "Тип \"{type}\" не обрабатывается",
         "memberAssignment": "Выражение типа \"{type}\" не может быть назначено атрибуту \"{name}\" класса \"{classType}\"",

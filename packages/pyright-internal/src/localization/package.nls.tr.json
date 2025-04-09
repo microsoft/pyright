@@ -702,6 +702,7 @@
         "kwargsParamMissing": "\"**{paramName}\" parametresine karşılık gelen bir parametre yok",
         "listAssignmentMismatch": "\"{type}\" türü hedef listeyle uyumsuz",
         "literalAssignmentMismatch": "\"{sourceType}\" \"{destType}\" türüne atanamaz",
+        "literalNotAllowed": "\"Literal\" special form cannot be used with instance and class checks",
         "matchIsNotExhaustiveHint": "Tümlemeli işleme amaçlanmadıysa \"case _: pass\" ekleyin",
         "matchIsNotExhaustiveType": "\"{type}\" türü işlenmemiş",
         "memberAssignment": "\"{type}\" türündeki ifade, \"{classType}\" sınıfının \"{name}\" özniteliğine atanamaz",
