@@ -301,5 +301,5 @@ extends:
                   contentSource: Folder
                   folderLocation: $(Build.StagingDirectory)/dist
                   waitForReleaseCompletion: true
-                  owners: plseng@microsoft.com
+                  owners: erikd@microsoft.com
                   approvers: grwheele@microsoft.com
