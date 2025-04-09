@@ -702,6 +702,7 @@
         "kwargsParamMissing": "参数“**{paramName}”没有相应的参数",
         "listAssignmentMismatch": "类型“{type}”与目标列表不兼容",
         "literalAssignmentMismatch": "“{sourceType}”不可分配给类型“{destType}”",
+        "literalNotAllowed": "\"Literal\" special form cannot be used with instance and class checks",
         "matchIsNotExhaustiveHint": "如果未进行详尽处理，请添加\"case _: pass\"",
         "matchIsNotExhaustiveType": "未处理的类型: \"{type}\"",
         "memberAssignment": "无法将类型“{type}”的表达式分配给类“{classType}”的属性“{name}”",

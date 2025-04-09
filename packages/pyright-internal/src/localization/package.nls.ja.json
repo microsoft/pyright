@@ -702,6 +702,7 @@
         "kwargsParamMissing": "パラメーター \"**{paramName}\" に対応するパラメーターがありません",
         "listAssignmentMismatch": "型 \"{type}\" はターゲット リストと互換性がありません",
         "literalAssignmentMismatch": "\"{sourceType}\" は型 \"{destType}\" に割り当てできません",
+        "literalNotAllowed": "\"Literal\" special form cannot be used with instance and class checks",
         "matchIsNotExhaustiveHint": "完全な処理が意図されていない場合は、\"case _: pass\" を追加します",
         "matchIsNotExhaustiveType": "ハンドルされない型: \"{type}\"",
         "memberAssignment": "型 \"{type}\" の式をクラス \"{classType}\" の属性 \"{name}\" に割り当てることはできません",

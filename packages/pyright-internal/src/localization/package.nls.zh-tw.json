@@ -702,6 +702,7 @@
         "kwargsParamMissing": "參數 \"**{paramName}\" 沒有對應的參數",
         "listAssignmentMismatch": "類型 \"{type}\" 與目標清單不相容",
         "literalAssignmentMismatch": "\"{sourceType}\" 無法指派給型別 \"{destType}\"",
+        "literalNotAllowed": "\"Literal\" special form cannot be used with instance and class checks",
         "matchIsNotExhaustiveHint": "如果不需要徹底處理，請新增 \"case _: pass\"",
         "matchIsNotExhaustiveType": "未處理的類型: \"{type}\"",
         "memberAssignment": "無法將型別 \"{type}\" 的運算式指派給類別 \"{classType}\" 的屬性 \"{name}\"",

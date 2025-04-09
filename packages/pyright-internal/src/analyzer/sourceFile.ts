@@ -766,6 +766,7 @@ export class SourceFile {
                     futureImports: new Set<string>(),
                     containsWildcardImport: false,
                     typingSymbolAliases: new Map<string, string>(),
+                    hasTypeAnnotations: false,
                 };
 
                 this._writableData.tokenizerLines = new TextRangeCollection<TextRange>([]);

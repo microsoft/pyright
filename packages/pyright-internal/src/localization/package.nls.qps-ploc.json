@@ -702,6 +702,7 @@
         "kwargsParamMissing": "[KHgb2][นั้Pæræmëtër \"**{pæræmÑæmë}\" hæs ñø çørrëspøñðïñg pæræmëtërẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "listAssignmentMismatch": "[fERKI][นั้Tÿpë \"{tÿpë}\" ïs ïñçømpætïþlë wïth tærgët lïstẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "literalAssignmentMismatch": "[17LiQ][นั้\"{søµrçëTÿpë}\" ïs ñøt æssïgñæþlë tø tÿpë \"{ðëstTÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
+        "literalNotAllowed": "[kRsub][นั้\"Literal\" spëçïæl førm çæññøt þë µsëð wïth ïñstæñçë æñð çlæss çhëçksẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "matchIsNotExhaustiveHint": "[3NR39][นั้Ïf ëxhæµstïvë hæñðlïñg ïs ñøt ïñtëñðëð, æðð \"case _: pass\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्นั้ढूँ]",
         "matchIsNotExhaustiveType": "[9RN1P][นั้Üñhæñðlëð tÿpë: \"{tÿpë}\"Ấğ倪İЂҰक्र्นั้ढूँ]",
         "memberAssignment": "[1WFCt][นั้Ëxprëssïøñ øf tÿpë \"{tÿpë}\" çæññøt þë æssïgñëð tø ættrïþµtë \"{ñæmë}\" øf çlæss \"{çlæssTÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",

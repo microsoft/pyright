@@ -702,6 +702,7 @@
         "kwargsParamMissing": "Le paramètre \"**{paramName}\" n'a pas de paramètre correspondant",
         "listAssignmentMismatch": "Le type « {type} » n’est pas compatible avec la liste cible",
         "literalAssignmentMismatch": "« {sourceType} » n’est pas assignable au type « {destType} »",
+        "literalNotAllowed": "\"Literal\" special form cannot be used with instance and class checks",
         "matchIsNotExhaustiveHint": "Si la gestion exhaustive n’est pas prévue, ajoutez « case _: pass »",
         "matchIsNotExhaustiveType": "Type non géré : « {type} »",
         "memberAssignment": "L'expression de type « {type} » ne peut pas être attribuée à l’attribut « {name} » de la classe « {classType} »",
