@@ -23698,6 +23698,7 @@ export function createTypeEvaluator(
             errorNode &&
             selfClass &&
             isClass(selfClass) &&
+            !selfClass.priv.includeSubclasses &&
             member.isInstanceMember &&
             isClass(member.unspecializedClassType) &&
             (flags & MemberAccessFlags.DisallowGenericInstanceVariableAccess) !== 0 &&
