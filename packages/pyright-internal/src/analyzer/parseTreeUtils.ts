@@ -1306,13 +1306,37 @@ export function containsAwaitNode(node: ParseNode): boolean {
     return foundAwait;
 }
 
-export function isMatchingExpression(reference: ExpressionNode, expression: ExpressionNode): boolean {
+// Determines whether two expressions match. Names are compared by value only
+// unless an optional compareName function is provided. In that case, the
+// compareName function is called to determine whether the two names match.
+// This allows the caller to distinguish between names that are identical
+// but defined in different scopes.
+export function isMatchingExpression(
+    reference: ExpressionNode,
+    expression: ExpressionNode,
+    compareName?: (reference: NameNode, expression: NameNode) => boolean
+): boolean {
     if (reference.nodeType === ParseNodeType.Name) {
+        let nameToCompare: NameNode | undefined;
+
         if (expression.nodeType === ParseNodeType.Name) {
-            return reference.d.value === expression.d.value;
+            nameToCompare = expression;
         } else if (expression.nodeType === ParseNodeType.AssignmentExpression) {
-            return reference.d.value === expression.d.name.d.value;
+            nameToCompare = expression.d.name;
         }
+
+        if (nameToCompare) {
+            if (reference.d.value !== nameToCompare.d.value) {
+                return false;
+            }
+
+            if (compareName) {
+                return compareName(reference, nameToCompare);
+            }
+
+            return true;
+        }
+
         return false;
     } else if (
         reference.nodeType === ParseNodeType.MemberAccess &&
