@@ -6251,7 +6251,7 @@ export function createTypeEvaluator(
                 }
 
                 resultType = descResult.type;
-            } else if (isFunctionOrOverloaded(concreteSubtype)) {
+            } else if (isFunctionOrOverloaded(concreteSubtype) && TypeBase.isInstance(concreteSubtype)) {
                 const typeResult = bindMethodForMemberAccess(
                     subtype,
                     concreteSubtype,
