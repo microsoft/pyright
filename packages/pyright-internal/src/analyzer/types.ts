@@ -3250,6 +3250,10 @@ export function isOverloaded(type: Type): type is OverloadedType {
     return type.category === TypeCategory.Overloaded;
 }
 
+export function isFunctionOrOverloaded(type: Type): type is FunctionType | OverloadedType {
+    return type.category === TypeCategory.Function || type.category === TypeCategory.Overloaded;
+}
+
 export function getTypeAliasInfo(type: Type) {
     if (type.props?.typeAliasInfo) {
         return type.props.typeAliasInfo;

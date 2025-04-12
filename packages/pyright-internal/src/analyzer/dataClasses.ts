@@ -57,6 +57,7 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isOverloaded,
     isUnion,
@@ -911,7 +912,7 @@ function getConverterInputType(
     );
     FunctionType.addPositionOnlyParamSeparator(targetFunction);
 
-    if (isFunction(converterType) || isOverloaded(converterType)) {
+    if (isFunctionOrOverloaded(converterType)) {
         const acceptedTypes: Type[] = [];
         const diagAddendum = new DiagnosticAddendum();
 
@@ -981,7 +982,7 @@ function getConverterAsFunction(
     evaluator: TypeEvaluator,
     converterType: Type
 ): FunctionType | OverloadedType | undefined {
-    if (isFunction(converterType) || isOverloaded(converterType)) {
+    if (isFunctionOrOverloaded(converterType)) {
         return converterType;
     }
 
@@ -999,7 +1000,7 @@ function getConverterAsFunction(
                 fromConstructor = fromConstructor.priv.subtypes[0];
             }
 
-            if (isFunction(fromConstructor) || isOverloaded(fromConstructor)) {
+            if (isFunctionOrOverloaded(fromConstructor)) {
                 return fromConstructor;
             }
         }
@@ -1311,8 +1312,7 @@ export function validateDataClassTransformDecorator(
                     !ClassType.isBuiltIn(valueType, 'tuple') ||
                     !valueType.priv.tupleTypeArgs ||
                     valueType.priv.tupleTypeArgs.some(
-                        (entry) =>
-                            !isInstantiableClass(entry.type) && !isFunction(entry.type) && !isOverloaded(entry.type)
+                        (entry) => !isInstantiableClass(entry.type) && !isFunctionOrOverloaded(entry.type)
                     )
                 ) {
                     evaluator.addDiagnostic(

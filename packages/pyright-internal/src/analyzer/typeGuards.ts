@@ -46,6 +46,7 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isModule,
     isNever,
@@ -1903,7 +1904,7 @@ function narrowTypeForInstance(
                 );
             }
 
-            if (isFunction(subtype) || isOverloaded(subtype)) {
+            if (isFunctionOrOverloaded(subtype)) {
                 return combineTypes(filterFunctionType(subtype, unexpandedSubtype));
             }
 

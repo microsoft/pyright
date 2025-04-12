@@ -29,6 +29,7 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isKeywordOnlySeparator,
     isNever,
@@ -1345,7 +1346,7 @@ export function isProperty(type: Type) {
 }
 
 export function isCallableType(type: Type): boolean {
-    if (isFunction(type) || isOverloaded(type) || isAnyOrUnknown(type)) {
+    if (isFunctionOrOverloaded(type) || isAnyOrUnknown(type)) {
         return true;
     }
 
@@ -4031,7 +4032,7 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
                 });
 
                 updatedSourceType = applySolvedTypeVars(sourceType, solution);
-                assert(isFunction(updatedSourceType) || isOverloaded(updatedSourceType));
+                assert(isFunctionOrOverloaded(updatedSourceType));
             }
         }
 

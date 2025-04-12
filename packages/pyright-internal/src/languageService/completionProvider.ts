@@ -52,9 +52,9 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isModule,
-    isOverloaded,
     isUnknown,
     Type,
     TypeBase,
@@ -771,7 +771,7 @@ export class CompletionProvider {
                 }
             } else if (isModule(subtype)) {
                 getMembersForModule(subtype, symbolTable);
-            } else if (isFunction(subtype) || isOverloaded(subtype)) {
+            } else if (isFunctionOrOverloaded(subtype)) {
                 const functionClass = this.evaluator.getBuiltInType(leftExprNode, 'function');
                 if (functionClass && isInstantiableClass(functionClass)) {
                     getMembersForClass(functionClass, symbolTable, /* includeInstanceVars */ true);

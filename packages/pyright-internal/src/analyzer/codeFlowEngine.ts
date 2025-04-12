@@ -50,6 +50,7 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isNever,
     isOverloaded,
@@ -1771,7 +1772,7 @@ export function getCodeFlowEngine(
 
                     const newMethodResult = getBoundNewMethod(evaluator, node, callSubtype);
                     if (newMethodResult) {
-                        if (isFunction(newMethodResult.type) || isOverloaded(newMethodResult.type)) {
+                        if (isFunctionOrOverloaded(newMethodResult.type)) {
                             callSubtype = newMethodResult.type;
                         }
                     }

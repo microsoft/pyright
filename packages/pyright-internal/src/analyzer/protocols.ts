@@ -25,8 +25,8 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
-    isOverloaded,
     isTypeSame,
     ModuleType,
     OverloadedType,
@@ -510,7 +510,7 @@ function assignToProtocolInternal(
                 }
 
                 // If the source is a method, bind it.
-                if (isFunction(srcMemberType) || isOverloaded(srcMemberType)) {
+                if (isFunctionOrOverloaded(srcMemberType)) {
                     if (isMemberFromMetaclass || isInstantiableClass(srcMemberInfo.classType)) {
                         let isInstanceMember = !srcMemberInfo.symbol.isClassMember();
 
@@ -569,7 +569,7 @@ function assignToProtocolInternal(
             destMemberType = applySolvedTypeVars(destMemberType, selfSolution);
 
             // If the dest is a method, bind it.
-            if (!destSymbol.isInstanceMember() && (isFunction(destMemberType) || isOverloaded(destMemberType))) {
+            if (!destSymbol.isInstanceMember() && isFunctionOrOverloaded(destMemberType)) {
                 let boundDeclaredType: FunctionType | OverloadedType | undefined;
 
                 // Functions are considered read-only.

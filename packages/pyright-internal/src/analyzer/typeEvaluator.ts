@@ -240,6 +240,7 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isModule,
     isNever,
@@ -2462,7 +2463,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        if (isFunction(boundMethodResult.type) || isOverloaded(boundMethodResult.type)) {
+        if (isFunctionOrOverloaded(boundMethodResult.type)) {
             return boundMethodResult.type;
         }
 
@@ -2588,7 +2589,7 @@ export function createTypeEvaluator(
 
                         if (constructorType) {
                             doForEachSubtype(constructorType, (subtype) => {
-                                if (isFunction(subtype) || isOverloaded(subtype)) {
+                                if (isFunctionOrOverloaded(subtype)) {
                                     addFunctionToSignature(subtype);
                                 }
                             });
@@ -2863,7 +2864,7 @@ export function createTypeEvaluator(
                         );
                     }
 
-                    if (isFunction(declaredType) || isOverloaded(declaredType)) {
+                    if (isFunctionOrOverloaded(declaredType)) {
                         if (bindFunction) {
                             declaredType = bindFunctionToClassOrObject(
                                 classOrObjectBase,
@@ -5983,8 +5984,7 @@ export function createTypeEvaluator(
         // member could not be accessed.
         if (!type) {
             const isFunctionRule =
-                isFunction(baseType) ||
-                isOverloaded(baseType) ||
+                isFunctionOrOverloaded(baseType) ||
                 (isClassInstance(baseType) && ClassType.isBuiltIn(baseType, 'function'));
 
             if (!baseTypeResult.isIncomplete) {
@@ -6251,7 +6251,7 @@ export function createTypeEvaluator(
                 }
 
                 resultType = descResult.type;
-            } else if (isFunction(concreteSubtype) || isOverloaded(concreteSubtype)) {
+            } else if (isFunctionOrOverloaded(concreteSubtype)) {
                 const typeResult = bindMethodForMemberAccess(
                     subtype,
                     concreteSubtype,
@@ -6441,7 +6441,7 @@ export function createTypeEvaluator(
             return { type: UnknownType.create(), typeErrors: true };
         }
 
-        if (!isFunction(methodType) && !isOverloaded(methodType)) {
+        if (!isFunctionOrOverloaded(methodType)) {
             if (isAnyOrUnknown(methodType)) {
                 return { type: methodType };
             }
@@ -6501,7 +6501,7 @@ export function createTypeEvaluator(
                     selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : classType
                 );
 
-                if (isFunction(specializedType) || isOverloaded(specializedType)) {
+                if (isFunctionOrOverloaded(specializedType)) {
                     methodType = specializedType;
                 }
             }
@@ -6838,7 +6838,7 @@ export function createTypeEvaluator(
             });
         }
 
-        if (!isFunction(accessMemberType) && !isOverloaded(accessMemberType)) {
+        if (!isFunctionOrOverloaded(accessMemberType)) {
             if (isAnyOrUnknown(accessMemberType)) {
                 return { type: accessMemberType };
             }
@@ -12113,7 +12113,7 @@ export function createTypeEvaluator(
         // If the function is returning a callable, don't eliminate unsolved
         // type vars within a union. There are legit uses for unsolved type vars
         // within a callable.
-        if (isFunction(returnType) || isOverloaded(returnType)) {
+        if (isFunctionOrOverloaded(returnType)) {
             eliminateUnsolvedInUnions = false;
         }
 
@@ -19230,7 +19230,7 @@ export function createTypeEvaluator(
         } else {
             let skipInference = false;
 
-            if (isFunction(defaultValueType) || isOverloaded(defaultValueType)) {
+            if (isFunctionOrOverloaded(defaultValueType)) {
                 // Do not infer parameter types that use a lambda or another function as a
                 // default value. We're likely to generate false positives in this case.
                 // It's not clear whether parameters should be positional-only or not.
@@ -21092,7 +21092,7 @@ export function createTypeEvaluator(
             if (ClassType.isBuiltIn(classType, 'type') && typeArgs) {
                 if (typeArgs.length >= 1) {
                     // Treat type[function] as illegal.
-                    if (isFunction(typeArgs[0].type) || isOverloaded(typeArgs[0].type)) {
+                    if (isFunctionOrOverloaded(typeArgs[0].type)) {
                         addDiagnostic(
                             DiagnosticRule.reportInvalidTypeForm,
                             LocMessage.typeAnnotationWithCallable(),
@@ -21825,7 +21825,7 @@ export function createTypeEvaluator(
             return type;
         }
 
-        if (isFunction(type) || isOverloaded(type)) {
+        if (isFunctionOrOverloaded(type)) {
             return ensureSignaturesAreUnique(type, tracker, node.start);
         }
 
@@ -23715,8 +23715,7 @@ export function createTypeEvaluator(
                 findSubtype(
                     specializedType,
                     (subtype) =>
-                        !isFunction(subtype) &&
-                        !isOverloaded(subtype) &&
+                        !isFunctionOrOverloaded(subtype) &&
                         requiresSpecialization(subtype, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
                 )
             ) {
@@ -24940,7 +24939,7 @@ export function createTypeEvaluator(
                 }
 
                 return true;
-            } else if (isFunction(concreteSrcType) || isOverloaded(concreteSrcType)) {
+            } else if (isFunctionOrOverloaded(concreteSrcType)) {
                 // Is the destination a callback protocol (defined in PEP 544)?
                 const destCallbackType = getCallbackProtocolType(destType, recursionCount);
                 if (destCallbackType) {
@@ -25402,10 +25401,8 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    if (isFunction(srcSubtype) || isOverloaded(srcSubtype)) {
-                        if (isFunction(destSubtype) || isOverloaded(destSubtype)) {
-                            return true;
-                        }
+                    if (isFunctionOrOverloaded(srcSubtype) && isFunctionOrOverloaded(destSubtype)) {
+                        return true;
                     }
 
                     return false;
@@ -25691,8 +25688,8 @@ export function createTypeEvaluator(
             return isTypeSame(leftType, rightType, { ignoreConditions: true });
         }
 
-        const isLeftCallable = isFunction(leftType) || isOverloaded(leftType);
-        const isRightCallable = isFunction(rightType) || isOverloaded(rightType);
+        const isLeftCallable = isFunctionOrOverloaded(leftType);
+        const isRightCallable = isFunctionOrOverloaded(rightType);
 
         // If either type is a function, assume that it may be comparable. The other
         // operand might be a callable object, an 'object' instance, etc. We could
@@ -27188,7 +27185,7 @@ export function createTypeEvaluator(
 
                     // We also need to be careful with callback protocols.
                     if (isClassInstance(declaredSubtype) && ClassType.isProtocolClass(declaredSubtype)) {
-                        if (isFunction(assignedSubtype) || isOverloaded(assignedSubtype)) {
+                        if (isFunctionOrOverloaded(assignedSubtype)) {
                             return assignedSubtype;
                         }
                     }
@@ -27231,7 +27228,7 @@ export function createTypeEvaluator(
     ): boolean {
         // If we're overriding a non-method with a method, report it as an error.
         // This occurs when a non-property overrides a property.
-        if (!isFunction(baseMethod) && !isOverloaded(baseMethod)) {
+        if (!isFunctionOrOverloaded(baseMethod)) {
             diag.addMessage(LocAddendum.overrideType().format({ type: printType(baseMethod) }));
             return false;
         }
@@ -28070,7 +28067,7 @@ export function createTypeEvaluator(
                     // bound to its own __call__ method but the first parameter
                     // is annotated with its own callable type. This can lead to
                     // infinite recursion.
-                    if (isFunction(memberTypeFirstParamType) || isOverloaded(memberTypeFirstParamType)) {
+                    if (isFunctionOrOverloaded(memberTypeFirstParamType)) {
                         if (isClassInstance(firstParamType) && ClassType.isProtocolClass(firstParamType)) {
                             if (subDiag) {
                                 subDiag.addMessage(

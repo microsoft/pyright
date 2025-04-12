@@ -32,8 +32,8 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
-    isOverloaded,
     maxTypeRecursionCount,
 } from './types';
 
@@ -475,7 +475,7 @@ export function transformTypeForEnumMember(
 
         // The enum spec doesn't explicitly specify this, but it
         // appears that callables are excluded.
-        if (!findSubtype(valueType, (subtype) => !isFunction(subtype) && !isOverloaded(subtype))) {
+        if (!findSubtype(valueType, (subtype) => !isFunctionOrOverloaded(subtype))) {
             return undefined;
         }
 
