@@ -64,22 +64,22 @@ A2.do_stuff()
 B2.do_stuff()
 
 
-class Bar:
+class D:
     pass
 
 
-class Foo:
+class E:
     @staticmethod
-    def get_or_create(context: Bar):
+    def get_or_create(context: D):
         return object.__getattribute__(context, "")
 
 
-TFoo2 = TypeVar("TFoo2", bound="Foo2")
+T_F = TypeVar("T_F", bound="F")
 
 
-class Foo2:
+class F:
     @classmethod
-    def bar(cls: type[TFoo2]) -> TFoo2: ...
+    def bar(cls: type[T_F]) -> T_F: ...
 
     def baz(self) -> None:
         self.bar()
@@ -108,3 +108,13 @@ EvilProto1.__call__
 
 # This should generate two errors and not hang.
 p: EvilProto1 = curry(lambda a, b: a(b(a)))
+
+
+class G:
+    type TypeAlias1 = Callable[[], None]
+
+    def __init__(self):
+        self.someVarNoArgs: G.TypeAlias1
+
+
+g_ta: G.TypeAlias1
