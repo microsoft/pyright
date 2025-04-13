@@ -818,6 +818,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; module: string }>(
                 getRawString('Diagnostic.privateImportFromPyTypedModule')
             );
+        export const privateImportPyTypedSubmodule = () =>
+            new ParameterizedString<{ module: string; submodule: string }>(
+                getRawString('Diagnostic.privateImportPyTypedSubmodule')
+            );
         export const positionOnlyAfterArgs = () => getRawString('Diagnostic.positionOnlyAfterArgs');
         export const positionOnlyAfterKeywordOnly = () => getRawString('Diagnostic.positionOnlyAfterKeywordOnly');
         export const positionOnlyAfterNon = () => getRawString('Diagnostic.positionOnlyAfterNon');

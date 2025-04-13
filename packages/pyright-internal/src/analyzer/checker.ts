@@ -1509,6 +1509,8 @@ export class Checker extends ParseTreeWalker {
         this._conditionallyReportShadowedImport(node);
         this._evaluator.evaluateTypesForStatement(node);
 
+        this._reportPrivateModuleImport(node.d.module);
+
         const nameParts = node.d.module.d.nameParts;
         if (nameParts.length > 1 && !node.d.alias) {
             this._multipartImports.push(node);
@@ -1536,6 +1538,8 @@ export class Checker extends ParseTreeWalker {
         this._conditionallyReportShadowedImport(node);
 
         if (!node.d.isWildcardImport) {
+            this._reportPrivateModuleImport(node.d.module);
+
             node.d.imports.forEach((importAs) => {
                 this._evaluator.evaluateTypesForStatement(importAs);
             });
@@ -1721,6 +1725,82 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    // This method looks at the submodules in a multipart import name
+    // to see if any of them are named such that they could be private.
+    // If so, it determines whether the parent module publicly re-exports
+    // the submodule.
+    private _reportPrivateModuleImport(node: ModuleNameNode) {
+        // This check can be expensive, so skip it if it's disabled.
+        if (this._fileInfo.diagnosticRuleSet.reportPrivateImportUsage === 'none') {
+            return;
+        }
+
+        const nameParts = node.d.nameParts;
+        if (nameParts.length <= 1) {
+            return;
+        }
+
+        const importInfo = AnalyzerNodeInfo.getImportInfo(node);
+        if (!importInfo) {
+            return;
+        }
+
+        // If this isn't a pytyped package or a stub file, private names
+        // are not enforced.
+        if (!importInfo.pyTypedInfo && !importInfo.isStubFile) {
+            return;
+        }
+
+        for (let i = 1; i < nameParts.length; i++) {
+            if (!SymbolNameUtils.isProtectedName(nameParts[i].d.value)) {
+                continue;
+            }
+
+            // Load the parent module to see if the submodule is private.
+            const parentModuleUri = importInfo.resolvedUris[i - 1];
+
+            // If this is a namespace package, there is no parent module,
+            // so we'll assume it's a private submodule.
+            if (parentModuleUri) {
+                const parentImportResult = this._evaluator.lookUpImportedModule(parentModuleUri);
+                if (!parentImportResult) {
+                    continue;
+                }
+
+                if (parentImportResult.dunderAllNames?.some((name) => name === nameParts[i].d.value)) {
+                    continue;
+                }
+
+                const submoduleSymbol = parentImportResult.symbolTable.get(nameParts[i].d.value);
+                if (submoduleSymbol) {
+                    // See if the submodule symbol is marked as public (i.e. not
+                    // hidden in a stub file and not private in a py.typed file).
+                    if (parentImportResult.isStubFile) {
+                        if (!submoduleSymbol.isExternallyHidden()) {
+                            continue;
+                        }
+                    } else if (parentImportResult.isInPyTypedPackage) {
+                        if (!submoduleSymbol.isPrivatePyTypedImport()) {
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            this._evaluator.addDiagnostic(
+                DiagnosticRule.reportPrivateImportUsage,
+                LocMessage.privateImportPyTypedSubmodule().format({
+                    module: nameParts[i - 1].d.value,
+                    submodule: nameParts[i].d.value,
+                }),
+                nameParts[i]
+            );
+
+            // Don't report any errors for subsequent submodules.
+            break;
+        }
     }
 
     private _reportUnusedMultipartImports() {

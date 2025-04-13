@@ -124,7 +124,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { NameBindingType, Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { Symbol, SymbolFlags, indeterminateSymbolId } from './symbol';
-import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { isConstantName, isPrivateName, isPrivateOrProtectedName, isProtectedName } from './symbolNameUtils';
 
 interface MemberAccessInfo {
     classNode: ClassNode;
@@ -2577,6 +2577,14 @@ export class Binder extends ParseTreeWalker {
         const symbol = this._bindNameValueToScope(this._currentScope, symbolName);
         if (symbol) {
             this._createAliasDeclarationForMultipartImportName(node, /* importAlias */ undefined, importInfo, symbol);
+
+            // PEP 484 indicates that "from . import x" or "from .x import y" should
+            // implicitly mark x as a re-exported symbol. It doesn't speak to submodules
+            // whose names imply that they are private (e.g. _x). We'll assume that
+            // submodules with leading underscores are not implicitly re-exported.
+            if (isProtectedName(symbolName)) {
+                this._potentialHiddenSymbols.set(symbolName, symbol);
+            }
         }
 
         this._createFlowAssignment(node.d.module.d.nameParts[0]);

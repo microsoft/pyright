@@ -1023,6 +1023,7 @@
         "positionOnlyFirstParam": "Position-only parameter separator not allowed as first parameter",
         "positionOnlyIncompatible": "Position-only parameter separator requires Python 3.8 or newer",
         "privateImportFromPyTypedModule": "\"{name}\" is not exported from module \"{module}\"",
+        "privateImportPyTypedSubmodule": "\"{submodule}\" is not publicly exported from module \"{module}\"",
         "privateUsedOutsideOfClass": "\"{name}\" is private and used outside of the class in which it is declared",
         "privateUsedOutsideOfModule": "\"{name}\" is private and used outside of the module in which it is declared",
         "propertyOverridden": {

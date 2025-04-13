@@ -88,7 +88,12 @@ import {
 } from '../parser/parseNodes';
 import { ParseOptions, Parser, ParseTextMode } from '../parser/parser';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
-import { AnalyzerFileInfo, ImportLookup, isAnnotationEvaluationPostponed } from './analyzerFileInfo';
+import {
+    AnalyzerFileInfo,
+    ImportLookup,
+    ImportLookupResult,
+    isAnnotationEvaluationPostponed,
+} from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CodeFlowAnalyzer, FlowNodeTypeOptions, FlowNodeTypeResult, getCodeFlowEngine } from './codeFlowEngine';
 import {
@@ -3237,6 +3242,10 @@ export function createTypeEvaluator(
         }
 
         return getEffectiveTypeOfSymbol(symbol);
+    }
+
+    function lookUpImportedModule(importUri: Uri): ImportLookupResult | undefined {
+        return importLookup(importUri);
     }
 
     function checkCodeFlowTooComplex(node: ParseNode): boolean {
@@ -28461,6 +28470,7 @@ export function createTypeEvaluator(
 
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,
+        lookUpImportedModule,
         getType,
         getTypeResult,
         getTypeResultForDecorator,

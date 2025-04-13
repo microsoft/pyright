@@ -12,16 +12,30 @@
 // @filename: testLib/__init__.py
 // @library: true
 //// from .module1 import one as one, two, three
+//// from ._module2 import ten as ten
 //// four: int = two * two
 //// _five: int = two + three
 //// _six: int = 6
-//// __all__ = ["_six"]
+//// from . import _module3 as _module3
+//// __all__ = ["_six", "_module4"]
 
 // @filename: testLib/module1.py
 // @library: true
 //// one: int = 1
 //// two: int = 2
 //// three: int = 3
+
+// @filename: testLib/_module2/__init__.py
+// @library: true
+//// ten: int = 10
+
+// @filename: testLib/_module3/__init__.py
+// @library: true
+//// eleven: int = 11
+
+// @filename: testLib/_module4/__init__.py
+// @library: true
+//// twelve: int = 12
 
 // @filename: .src/test1.py
 //// # pyright: reportPrivateUsage=true, reportPrivateImportUsage=true
@@ -38,6 +52,15 @@
 //// testLib.four
 //// testLib.[|/*marker6*/_five|]
 //// testLib._six
+////
+//// from testLib.[|/*marker7*/_module2|] import ten
+//// from testLib import ten
+//// import testLib.[|/*marker8*/_module2|]
+//// import testLib._module3
+//// import testLib._module4
+//// testLib.ten
+//// testLib._module3.eleven
+//// testLib._module4.twelve
 
 // @ts-ignore
 await helper.verifyDiagnostics({
@@ -61,5 +84,13 @@ await helper.verifyDiagnostics({
     marker6: {
         category: 'error',
         message: `"_five" is private and used outside of the module in which it is declared`,
+    },
+    marker7: {
+        category: 'error',
+        message: `"_module2" is not publicly exported from module "testLib"`,
+    },
+    marker8: {
+        category: 'error',
+        message: `"_module2" is not publicly exported from module "testLib"`,
     },
 });

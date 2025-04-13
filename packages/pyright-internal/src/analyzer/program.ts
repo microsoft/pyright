@@ -1402,8 +1402,8 @@ export class Program {
         imports.forEach((importResult) => {
             if (importResult.isImportFound) {
                 if (this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
-                    if (importResult.resolvedUris.length > 0) {
-                        const fileUri = importResult.resolvedUris[importResult.resolvedUris.length - 1];
+                    for (let i = 0; i < importResult.resolvedUris.length; i++) {
+                        const fileUri = importResult.resolvedUris[i];
                         if (!fileUri.isEmpty()) {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
                             newImportPathMap.set(fileUri.key, {
@@ -1860,6 +1860,7 @@ export class Program {
                     return undefined;
                 },
                 isInPyTypedPackage: false,
+                isStubFile: false,
             };
         }
 
@@ -1890,6 +1891,7 @@ export class Program {
                 return getDocString(moduleNode.d.statements);
             },
             isInPyTypedPackage: fileInfo.isInPyTypedPackage,
+            isStubFile: fileInfo.isStubFile,
         };
     };
 

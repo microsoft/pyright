@@ -13,6 +13,7 @@ import { ConsoleInterface } from '../common/console';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import {
     ArgCategory,
     ArgumentNode,
@@ -29,7 +30,7 @@ import {
     ParseNode,
     StringNode,
 } from '../parser/parseNodes';
-import { AnalyzerFileInfo } from './analyzerFileInfo';
+import { AnalyzerFileInfo, ImportLookupResult } from './analyzerFileInfo';
 import { CodeFlowReferenceExpressionNode, FlowNode } from './codeFlowTypes';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration } from './declaration';
@@ -627,6 +628,8 @@ export const enum AssignTypeFlags {
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
     runWithCancellationToken<T>(token: CancellationToken, callback: () => Promise<T>): Promise<T>;
+
+    lookUpImportedModule: (importUri: Uri) => ImportLookupResult | undefined;
 
     getType: (node: ExpressionNode) => Type | undefined;
     getTypeResult: (node: ExpressionNode) => TypeResult | undefined;

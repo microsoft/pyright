@@ -40,6 +40,7 @@ export interface ImportLookupResult {
     usesUnsupportedDunderAllForm: boolean;
     docString: string | undefined;
     isInPyTypedPackage: boolean;
+    isStubFile: boolean;
 }
 
 export interface AnalyzerFileInfo {
