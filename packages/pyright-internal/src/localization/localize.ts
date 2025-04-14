@@ -519,6 +519,9 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.finalClassIsAbstract'));
         export const finalContext = () => getRawString('Diagnostic.finalContext');
         export const finalInLoop = () => getRawString('Diagnostic.finalInLoop');
+        export const finallyBreak = () => getRawString('Diagnostic.finallyBreak');
+        export const finallyContinue = () => getRawString('Diagnostic.finallyContinue');
+        export const finallyReturn = () => getRawString('Diagnostic.finallyReturn');
         export const finalMethodOverride = () =>
             new ParameterizedString<{ name: string; className: string }>(
                 getRawString('Diagnostic.finalMethodOverride')

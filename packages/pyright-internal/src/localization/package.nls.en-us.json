@@ -484,6 +484,18 @@
             "message": "A \"Final\" variable cannot be assigned within a loop",
             "comment": "{Locked='Final'}"
         },
+        "finallyBreak": {
+            "message": "A \"break\" cannot be used to exit a \"finally\" block",
+            "comment": "{Locked='break', 'finally'}"
+        },
+        "finallyContinue": {
+            "message": "A \"continue\" cannot be used to exit a \"finally\" block",
+            "comment": "{Locked='continue', 'finally'}"
+        },
+        "finallyReturn": {
+            "message": "A \"return\" cannot be used to exit a \"finally\" block",
+            "comment": "{Locked='return', 'finally'}"
+        },
         "finalMethodOverride": {
             "message": "Method \"{name}\" cannot override final method defined in class \"{className}\"",
             "comment": "{Locked='final'}"
