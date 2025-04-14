@@ -2748,31 +2748,41 @@ export function createTypeEvaluator(
                 const baseTypeConcrete = makeTopLevelTypeVarsConcrete(baseType);
                 let classMemberInfo: ClassMember | undefined;
 
-                if (isClassInstance(baseTypeConcrete)) {
-                    classMemberInfo = lookUpObjectMember(
-                        baseTypeConcrete,
-                        expression.d.member.d.value,
-                        MemberAccessFlags.DeclaredTypesOnly
-                    );
-                    classOrObjectBase = baseTypeConcrete;
-                    memberAccessClass = classMemberInfo?.classType;
+                // Normally, baseTypeConcrete will not be a composite type (a union),
+                // but this can occur. In this case, it's not clear how to handle this
+                // correctly. For now, we'll just loop through the subtypes and
+                // use one of them. We'll sort the subtypes for determinism.
+                doForEachSubtype(
+                    baseTypeConcrete,
+                    (baseSubtype) => {
+                        if (isClassInstance(baseSubtype)) {
+                            classMemberInfo = lookUpObjectMember(
+                                baseSubtype,
+                                expression.d.member.d.value,
+                                MemberAccessFlags.DeclaredTypesOnly
+                            );
+                            classOrObjectBase = baseSubtype;
+                            memberAccessClass = classMemberInfo?.classType;
 
-                    // If this is an instance member (e.g. a dataclass field), don't
-                    // bind it to the object if it's a function.
-                    if (classMemberInfo?.isInstanceMember) {
-                        bindFunction = false;
-                    }
+                            // If this is an instance member (e.g. a dataclass field), don't
+                            // bind it to the object if it's a function.
+                            if (classMemberInfo?.isInstanceMember) {
+                                bindFunction = false;
+                            }
 
-                    useDescriptorSetterType = true;
-                } else if (isInstantiableClass(baseTypeConcrete)) {
-                    classMemberInfo = lookUpClassMember(
-                        baseTypeConcrete,
-                        expression.d.member.d.value,
-                        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
-                    );
-                    classOrObjectBase = baseTypeConcrete;
-                    memberAccessClass = classMemberInfo?.classType;
-                }
+                            useDescriptorSetterType = true;
+                        } else if (isInstantiableClass(baseSubtype)) {
+                            classMemberInfo = lookUpClassMember(
+                                baseSubtype,
+                                expression.d.member.d.value,
+                                MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
+                            );
+                            classOrObjectBase = baseSubtype;
+                            memberAccessClass = classMemberInfo?.classType;
+                        }
+                    },
+                    /* sortSubtypes */ true
+                );
 
                 if (isTypeVar(baseType)) {
                     selfType = baseType;
