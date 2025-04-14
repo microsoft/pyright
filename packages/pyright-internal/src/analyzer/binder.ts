@@ -272,7 +272,7 @@ export class Binder extends ParseTreeWalker {
 
         this._addTypingImportAliasesFromBuiltinsScope();
 
-        const moduleScope = this._createNewScope(
+        this._createNewScope(
             isBuiltInModule ? ScopeType.Builtin : ScopeType.Module,
             this._fileInfo.builtinsScope,
             /* proxyScope */ undefined,
@@ -310,24 +310,17 @@ export class Binder extends ParseTreeWalker {
         // Perform all analysis that was deferred during the first pass.
         this._bindDeferred();
 
-        if (this._fileInfo.isModulePrivate) {
-            // All symbols in a private module are private outside of the package.
-            moduleScope.symbolTable.forEach((symbol) => {
-                symbol.setPrivatePyTypedImport();
-            });
-        } else {
-            // Use the __all__ list to determine whether any potential private
-            // symbols should be made externally hidden or private.
-            this._potentialHiddenSymbols.forEach((symbol, name) => {
-                if (!this._dunderAllNames?.some((sym) => sym === name)) {
-                    if (this._fileInfo.isStubFile) {
-                        symbol.setIsExternallyHidden();
-                    } else {
-                        symbol.setPrivatePyTypedImport();
-                    }
+        // Use the __all__ list to determine whether any potential private
+        // symbols should be made externally hidden or private.
+        this._potentialHiddenSymbols.forEach((symbol, name) => {
+            if (!this._dunderAllNames?.some((sym) => sym === name)) {
+                if (this._fileInfo.isStubFile) {
+                    symbol.setIsExternallyHidden();
+                } else {
+                    symbol.setPrivatePyTypedImport();
                 }
-            });
-        }
+            }
+        });
 
         this._potentialPrivateSymbols.forEach((symbol, name) => {
             if (!this._dunderAllNames?.some((sym) => sym === name)) {
