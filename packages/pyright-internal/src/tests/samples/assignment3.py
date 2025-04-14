@@ -2,7 +2,7 @@
 # there is an expected type, so bidirectional type
 # inference is used.
 
-from typing import Callable, Protocol
+from typing import Callable, Literal, Protocol
 
 f1: Callable[[int, int], int] = lambda a, b: a + b
 
@@ -43,3 +43,9 @@ class Adder(Protocol):
 
 v1: Adder = lambda x, y: x + y["hi"]
 reveal_type(v1, expected_text="(x: int, y: dict[str, int]) -> int")
+
+
+class A:
+    @classmethod
+    def method1(cls):
+        cls.v1: list[Literal[0]] = [] if issubclass(cls, int) else [0]
