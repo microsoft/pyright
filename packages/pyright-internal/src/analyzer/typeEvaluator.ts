@@ -6225,113 +6225,117 @@ export function createTypeEvaluator(
         let isDescriptorApplied = false;
         let memberAccessDeprecationInfo: MemberAccessDeprecationInfo | undefined;
 
-        type = mapSubtypes(type, (subtype) => {
-            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-            const isClassMember = !memberInfo || memberInfo.isClassMember;
-            let resultType: Type;
+        type = mapSubtypes(
+            type,
+            (subtype) => {
+                const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+                const isClassMember = !memberInfo || memberInfo.isClassMember;
+                let resultType: Type;
 
-            if (isClass(concreteSubtype) && isClassMember && errorNode) {
-                const descResult = applyDescriptorAccessMethod(
-                    subtype,
-                    concreteSubtype,
-                    memberInfo,
-                    classType,
-                    selfType,
-                    flags,
-                    errorNode,
-                    memberName,
-                    usage,
-                    diag
-                );
+                if (isClass(concreteSubtype) && isClassMember && errorNode) {
+                    const descResult = applyDescriptorAccessMethod(
+                        subtype,
+                        concreteSubtype,
+                        memberInfo,
+                        classType,
+                        selfType,
+                        flags,
+                        errorNode,
+                        memberName,
+                        usage,
+                        diag
+                    );
 
-                if (descResult.isAsymmetricAccessor) {
-                    isAsymmetricAccessor = true;
+                    if (descResult.isAsymmetricAccessor) {
+                        isAsymmetricAccessor = true;
+                    }
+
+                    if (descResult.memberAccessDeprecationInfo) {
+                        memberAccessDeprecationInfo = descResult.memberAccessDeprecationInfo;
+                    }
+
+                    if (descResult.typeErrors) {
+                        isDescriptorError = true;
+                    }
+
+                    if (descResult.isDescriptorApplied) {
+                        isDescriptorApplied = true;
+                    }
+
+                    resultType = descResult.type;
+                } else if (isFunctionOrOverloaded(concreteSubtype) && TypeBase.isInstance(concreteSubtype)) {
+                    const typeResult = bindMethodForMemberAccess(
+                        subtype,
+                        concreteSubtype,
+                        memberInfo,
+                        classType,
+                        selfType,
+                        flags,
+                        memberName,
+                        usage,
+                        diag,
+                        recursionCount
+                    );
+
+                    resultType = typeResult.type;
+                    if (typeResult.typeErrors) {
+                        isDescriptorError = true;
+                    }
+                } else {
+                    resultType = subtype;
                 }
 
-                if (descResult.memberAccessDeprecationInfo) {
-                    memberAccessDeprecationInfo = descResult.memberAccessDeprecationInfo;
+                // If this is a "set" or "delete" operation, we have a bit more work to do.
+                if (usage.method === 'get') {
+                    return resultType;
                 }
 
-                if (descResult.typeErrors) {
-                    isDescriptorError = true;
-                }
-
-                if (descResult.isDescriptorApplied) {
-                    isDescriptorApplied = true;
-                }
-
-                resultType = descResult.type;
-            } else if (isFunctionOrOverloaded(concreteSubtype) && TypeBase.isInstance(concreteSubtype)) {
-                const typeResult = bindMethodForMemberAccess(
-                    subtype,
-                    concreteSubtype,
-                    memberInfo,
-                    classType,
-                    selfType,
-                    flags,
-                    memberName,
-                    usage,
-                    diag,
-                    recursionCount
-                );
-
-                resultType = typeResult.type;
-                if (typeResult.typeErrors) {
-                    isDescriptorError = true;
-                }
-            } else {
-                resultType = subtype;
-            }
-
-            // If this is a "set" or "delete" operation, we have a bit more work to do.
-            if (usage.method === 'get') {
-                return resultType;
-            }
-
-            // Check for an attempt to overwrite or delete a ClassVar member from an instance.
-            if (
-                !isDescriptorApplied &&
-                memberInfo &&
-                isEffectivelyClassVar(memberInfo.symbol, ClassType.isDataClass(classType)) &&
-                (flags & MemberAccessFlags.DisallowClassVarWrites) !== 0
-            ) {
-                diag?.addMessage(LocAddendum.memberSetClassVar().format({ name: memberName }));
-                isDescriptorError = true;
-            }
-
-            // Check for an attempt to overwrite or delete a final member variable.
-            const finalVarTypeDecl = memberInfo?.symbol
-                .getDeclarations()
-                .find((decl) => isFinalVariableDeclaration(decl));
-
-            if (
-                finalVarTypeDecl &&
-                errorNode &&
-                !ParseTreeUtils.isNodeContainedWithin(errorNode, finalVarTypeDecl.node)
-            ) {
-                // If a Final instance variable is declared in the class body but is
-                // being assigned within an __init__ method, it's allowed.
-                const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
+                // Check for an attempt to overwrite or delete a ClassVar member from an instance.
                 if (
-                    !enclosingFunctionNode ||
-                    enclosingFunctionNode.d.name.d.value !== '__init__' ||
-                    (finalVarTypeDecl as VariableDeclaration).inferredTypeSource !== undefined ||
-                    isInstantiableClass(classType)
+                    !isDescriptorApplied &&
+                    memberInfo &&
+                    isEffectivelyClassVar(memberInfo.symbol, ClassType.isDataClass(classType)) &&
+                    (flags & MemberAccessFlags.DisallowClassVarWrites) !== 0
                 ) {
-                    diag?.addMessage(LocMessage.finalReassigned().format({ name: memberName }));
+                    diag?.addMessage(LocAddendum.memberSetClassVar().format({ name: memberName }));
                     isDescriptorError = true;
                 }
-            }
 
-            // Check for an attempt to overwrite or delete an instance variable that is
-            // read-only (e.g. in a named tuple).
-            if (memberInfo?.isInstanceMember && isClass(memberInfo.classType) && memberInfo.isReadOnly) {
-                diag?.addMessage(LocAddendum.readOnlyAttribute().format({ name: memberName }));
-                isDescriptorError = true;
-            }
+                // Check for an attempt to overwrite or delete a final member variable.
+                const finalVarTypeDecl = memberInfo?.symbol
+                    .getDeclarations()
+                    .find((decl) => isFinalVariableDeclaration(decl));
 
-            return resultType;
-        });
+                if (
+                    finalVarTypeDecl &&
+                    errorNode &&
+                    !ParseTreeUtils.isNodeContainedWithin(errorNode, finalVarTypeDecl.node)
+                ) {
+                    // If a Final instance variable is declared in the class body but is
+                    // being assigned within an __init__ method, it's allowed.
+                    const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
+                    if (
+                        !enclosingFunctionNode ||
+                        enclosingFunctionNode.d.name.d.value !== '__init__' ||
+                        (finalVarTypeDecl as VariableDeclaration).inferredTypeSource !== undefined ||
+                        isInstantiableClass(classType)
+                    ) {
+                        diag?.addMessage(LocMessage.finalReassigned().format({ name: memberName }));
+                        isDescriptorError = true;
+                    }
+                }
+
+                // Check for an attempt to overwrite or delete an instance variable that is
+                // read-only (e.g. in a named tuple).
+                if (memberInfo?.isInstanceMember && isClass(memberInfo.classType) && memberInfo.isReadOnly) {
+                    diag?.addMessage(LocAddendum.readOnlyAttribute().format({ name: memberName }));
+                    isDescriptorError = true;
+                }
+
+                return resultType;
+            },
+            { retainTypeAlias: true }
+        );
 
         if (!isDescriptorError && usage.method === 'set' && usage.setType) {
             if (errorNode && memberInfo.symbol.hasTypedDeclarations()) {
