@@ -49,9 +49,12 @@ TA7 = TypeAliasType("TA7", TA6)
 JSONNode = TypeAliasType("JSONNode", list[JSONNode] | dict[str, JSONNode] | str | float)
 
 
-class A(Generic[T]):
-    L = TypeAliasType("L", list[T])
+class A(Generic[T1]):
+    L = TypeAliasType("L", list[T1])
 
+
+a1: A[int].L = [1, 2, 3]
+a2: A[str].L = ["1", "2", "3"]
 
 # This should generate an error because S is not in scope.
 TA8 = TypeAliasType("TA8", list[S])
@@ -62,3 +65,10 @@ def identity[T](t: T) -> T:
 
 
 reveal_type(identity(TA1), expected_text="TypeAliasType")
+
+
+class B:
+    TA9 = TypeAliasType("TA9", T1 | list[T1], type_params=(T1,))
+
+
+b1: B.TA9[int]
