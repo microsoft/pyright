@@ -1000,10 +1000,12 @@ export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Ty
             return true;
         }
 
+        if (!isUnbound(type) && !isTypeAliasPlaceholder(type)) {
+            return false;
+        }
+
         // Handle the specific case where the type alias directly refers to itself.
-        // In this case, the type will be unbound because it could not be resolved.
         return (
-            isUnbound(type) &&
             type.props?.typeAliasInfo &&
             type.props.typeAliasInfo.shared.name === typeAliasPlaceholder.shared.recursiveAlias?.name
         );
