@@ -6008,7 +6008,7 @@ export function createTypeEvaluator(
                 // If there is an expected type diagnostic addendum (used for assignments),
                 // use that rather than the local diagnostic addendum because it will be
                 // more informative.
-                if (usage.setExpectedTypeDiag) {
+                if (usage.setExpectedTypeDiag && !usage.setExpectedTypeDiag.isEmpty()) {
                     diag = usage.setExpectedTypeDiag;
                 }
 
