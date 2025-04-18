@@ -12,6 +12,7 @@ import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
 import { ArgumentNode, ExpressionNode, NameNode, ParamCategory, TypeAnnotationNode } from '../parser/parseNodes';
 import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
+import { RefinementExpr, RefinementVar, TypeRefinement } from './refinementTypes';
 import { Symbol, SymbolTable } from './symbol';
 
 export const enum TypeCategory {
@@ -796,6 +797,9 @@ export interface ClassDetailsPriv {
     // literal types (e.g. true or 'string' or 3).
     literalValue?: LiteralValue | undefined;
 
+    // Refinement definitions.
+    refinements?: TypeRefinement[] | undefined;
+
     // The typing module defines aliases for builtin types
     // (e.g. Tuple, List, Dict). This field holds the alias
     // name.
@@ -968,6 +972,26 @@ export namespace ClassType {
         return newClassType;
     }
 
+    export function cloneAddRefinement(classType: ClassType, refinement: TypeRefinement): ClassType {
+        const newClassType = TypeBase.cloneType(classType);
+
+        if (!newClassType.priv.refinements) {
+            newClassType.priv.refinements = [refinement];
+        } else {
+            newClassType.priv.refinements = [...newClassType.priv.refinements, refinement];
+        }
+        return newClassType;
+    }
+
+    export function cloneWithRefinements(classType: ClassType, refinements: TypeRefinement[] | undefined): ClassType {
+        const newClassType = TypeBase.cloneType(classType);
+        if (refinements && refinements.length === 0) {
+            refinements = undefined;
+        }
+        newClassType.priv.refinements = refinements;
+        return newClassType;
+    }
+
     export function cloneForDeprecatedInstance(type: ClassType, deprecatedMessage?: string): ClassType {
         const newClassType = TypeBase.cloneType(type);
         newClassType.priv.deprecatedInstanceMessage = deprecatedMessage;
@@ -1055,6 +1079,26 @@ export namespace ClassType {
         }
 
         return type1.priv.literalValue === type2.priv.literalValue;
+    }
+
+    export function isRefinementSame(type1: ClassType, type2: ClassType): boolean {
+        if (type1.priv.refinements === undefined) {
+            return type2.priv.refinements === undefined;
+        } else if (type2.priv.refinements === undefined) {
+            return false;
+        }
+
+        if (type1.priv.refinements.length !== type2.priv.refinements.length) {
+            return false;
+        }
+
+        for (let i = 0; i < type1.priv.refinements.length; i++) {
+            if (!TypeRefinement.isSame(type1.priv.refinements[i], type2.priv.refinements[i])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // Determines whether two typed dict classes are equivalent given
@@ -1149,6 +1193,14 @@ export namespace ClassType {
         }
 
         return true;
+    }
+
+    export function hasRefinement(classType: ClassType, classId: string): boolean {
+        if (!classType.priv.refinements) {
+            return false;
+        }
+
+        return classType.priv.refinements.some((refinement) => refinement.classDetails.classId === classId);
     }
 
     export function supportsAbstractMethods(classType: ClassType) {
@@ -1522,6 +1574,8 @@ export interface FunctionParam {
     _defaultType: Type | undefined;
 
     defaultExpr: ExpressionNode | undefined;
+
+    refinementConditions?: RefinementExpr[];
 }
 
 export namespace FunctionParam {
@@ -1531,9 +1585,10 @@ export namespace FunctionParam {
         flags = FunctionParamFlags.None,
         name?: string,
         defaultType?: Type,
-        defaultExpr?: ExpressionNode
+        defaultExpr?: ExpressionNode,
+        refinementConditions?: RefinementExpr[]
     ): FunctionParam {
-        return { category, flags, name, _type: type, _defaultType: defaultType, defaultExpr };
+        return { category, flags, name, _type: type, _defaultType: defaultType, defaultExpr, refinementConditions };
     }
 
     export function isNameSynthesized(param: FunctionParam) {
@@ -1641,6 +1696,8 @@ interface FunctionDetailsShared {
     moduleName: string;
     flags: FunctionTypeFlags;
     typeParams: TypeVarType[];
+    refinements: TypeRefinement[] | undefined;
+    refinementVars: RefinementVar[] | undefined;
     parameters: FunctionParam[];
     declaredReturnType: Type | undefined;
     declaration: FunctionDeclaration | undefined;
@@ -1766,6 +1823,8 @@ export namespace FunctionType {
                 moduleName,
                 flags: functionFlags,
                 typeParams: [],
+                refinements: undefined,
+                refinementVars: undefined,
                 parameters: [],
                 declaredReturnType: undefined,
                 declaration: undefined,
@@ -3376,6 +3435,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             }
 
             if (!ClassType.isLiteralValueSame(type1, classType2)) {
+                return false;
+            }
+
+            if (!ClassType.isRefinementSame(type1, classType2)) {
                 return false;
             }
 

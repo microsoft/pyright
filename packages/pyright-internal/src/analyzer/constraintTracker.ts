@@ -10,6 +10,8 @@
  */
 
 import { assert } from '../common/debug';
+import { RefinementExpr } from './refinementTypes';
+import { isRefinementExprEquivalent } from './refinementTypeUtils';
 import { getComplexityScoreForType } from './typeComplexity';
 import { Type, TypeVarScopeId, TypeVarType, isTypeSame } from './types';
 
@@ -41,6 +43,9 @@ export class ConstraintSet {
     // Maps type variable IDs to their current constraints.
     private _typeVarMap: Map<string, TypeVarConstraints>;
 
+    // Maps refinement variable IDs to their current values.
+    private _refinementVarMap: Map<string, RefinementExpr> | undefined;
+
     // A set of one or more TypeVar scope IDs that identify this constraint set.
     // This corresponds to the scope ID of the overload signature. Normally
     // there will be only one scope ID associated with each signature, but
@@ -63,6 +68,13 @@ export class ConstraintSet {
 
         if (this._scopeIds) {
             this._scopeIds.forEach((scopeId) => constraintSet.addScopeId(scopeId));
+        }
+
+        if (this._refinementVarMap) {
+            constraintSet._refinementVarMap = new Map<string, RefinementExpr>();
+            this._refinementVarMap.forEach((value, key) => {
+                constraintSet._refinementVarMap!.set(key, value);
+            });
         }
 
         return constraintSet;
@@ -92,6 +104,21 @@ export class ConstraintSet {
                 isSame = false;
             }
         });
+
+        if (this._refinementVarMap) {
+            if (!other._refinementVarMap || this._refinementVarMap.size !== other._refinementVarMap.size) {
+                isSame = false;
+            } else {
+                this._refinementVarMap.forEach((value, key) => {
+                    const otherValue = other._refinementVarMap!.get(key);
+                    if (!otherValue || !isRefinementExprEquivalent(value, otherValue)) {
+                        isSame = false;
+                    }
+                });
+            }
+        } else if (other._refinementVarMap) {
+            isSame = false;
+        }
 
         return isSame;
     }
@@ -179,6 +206,24 @@ export class ConstraintSet {
         }
 
         return false;
+    }
+
+    getRefinementVarType(refinementVarId: string): RefinementExpr | undefined {
+        return this._refinementVarMap?.get(refinementVarId);
+    }
+
+    setRefinementVarType(refinementVarId: string, value: RefinementExpr) {
+        if (!this._refinementVarMap) {
+            this._refinementVarMap = new Map<string, RefinementExpr>();
+        }
+
+        this._refinementVarMap.set(refinementVarId, value);
+    }
+
+    doForEachRefinementVar(cb: (id: string, value: RefinementExpr) => void) {
+        this._refinementVarMap?.forEach((value, key) => {
+            cb(key, value);
+        });
     }
 }
 
@@ -292,5 +337,11 @@ export class ConstraintTracker {
     getConstraintSet(index: number) {
         assert(index >= 0 && index < this._constraintSets.length);
         return this._constraintSets[index];
+    }
+
+    setRefinementVarType(refinementVarId: string, value: RefinementExpr) {
+        return this._constraintSets.forEach((set) => {
+            set.setRefinementVarType(refinementVarId, value);
+        });
     }
 }

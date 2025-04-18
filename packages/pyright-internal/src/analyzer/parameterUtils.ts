@@ -47,6 +47,7 @@ export enum ParamKind {
 
 export interface VirtualParamDetails {
     param: FunctionParam;
+    realParamType: Type;
     type: Type;
     declaredType: Type;
     defaultType?: Type | undefined;
@@ -137,6 +138,7 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
 
     const addVirtualParam = (
         param: FunctionParam,
+        realParamType: Type,
         index: number,
         typeOverride?: Type,
         defaultTypeOverride?: Type,
@@ -158,6 +160,7 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
 
             result.params.push({
                 param,
+                realParamType,
                 index,
                 type: typeOverride ?? FunctionType.getParamType(type, index),
                 declaredType: FunctionType.getDeclaredParamType(type, index),
@@ -195,6 +198,7 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
                             FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
                             `${param.name}[${tupleIndex.toString()}]`
                         ),
+                        paramType,
                         index,
                         tupleArg.type,
                         /* defaultArgTypeOverride */ undefined,
@@ -239,7 +243,7 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
                     sawKeywordOnlySeparator = true;
                 }
 
-                addVirtualParam(param, index);
+                addVirtualParam(param, paramType, index);
             }
         } else if (param.category === ParamCategory.KwargsDict) {
             sawKeywordOnlySeparator = true;
@@ -271,6 +275,7 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
                             name,
                             defaultParamType
                         ),
+                        paramType,
                         index,
                         specializedParamType,
                         defaultParamType
@@ -290,6 +295,7 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
                             FunctionParamFlags.TypeDeclared,
                             'kwargs'
                         ),
+                        paramType,
                         index,
                         extraItemsType
                     );
@@ -308,7 +314,7 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
                     result.firstKeywordOnlyIndex = result.params.length;
                 }
 
-                addVirtualParam(param, index);
+                addVirtualParam(param, paramType, index);
             }
         } else if (param.category === ParamCategory.Simple) {
             if (param.name && !sawKeywordOnlySeparator) {
@@ -317,6 +323,7 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
 
             addVirtualParam(
                 param,
+                FunctionType.getParamType(type, index),
                 index,
                 /* typeOverride */ undefined,
                 type.priv.specializedTypes?.parameterDefaultTypes

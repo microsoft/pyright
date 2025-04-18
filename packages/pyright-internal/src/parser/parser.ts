@@ -103,6 +103,7 @@ import {
     PatternSequenceNode,
     PatternValueNode,
     RaiseNode,
+    RefinementNode,
     ReturnNode,
     SetNode,
     SliceNode,
@@ -218,6 +219,7 @@ export const enum ParseTextMode {
     Expression,
     VariableAnnotation,
     FunctionAnnotation,
+    Refinement,
 }
 
 // Limit the max child node depth to prevent stack overflows.
@@ -329,10 +331,19 @@ export class Parser {
         textOffset: number,
         textLength: number,
         parseOptions: ParseOptions,
+        parseTextMode: ParseTextMode.Refinement,
+        initialParenDepth?: number,
+        typingSymbolAliases?: Map<string, string>
+    ): ParseExpressionTextResults<RefinementNode>;
+    parseTextExpression(
+        fileContents: string,
+        textOffset: number,
+        textLength: number,
+        parseOptions: ParseOptions,
         parseTextMode = ParseTextMode.Expression,
         initialParenDepth = 0,
         typingSymbolAliases?: Map<string, string>
-    ): ParseExpressionTextResults<ExpressionNode | FunctionAnnotationNode> {
+    ): ParseExpressionTextResults<ExpressionNode | FunctionAnnotationNode | RefinementNode> {
         const diagSink = new DiagnosticSink();
         this._startNewParse(fileContents, textOffset, textLength, parseOptions, diagSink, initialParenDepth);
 
@@ -340,13 +351,16 @@ export class Parser {
             this._typingSymbolAliases = new Map<string, string>(typingSymbolAliases);
         }
 
-        let parseTree: ExpressionNode | FunctionAnnotationNode | undefined;
+        let parseTree: ExpressionNode | FunctionAnnotationNode | RefinementNode | undefined;
         if (parseTextMode === ParseTextMode.VariableAnnotation) {
             this._isParsingQuotedText = true;
             parseTree = this._parseTypeAnnotation();
         } else if (parseTextMode === ParseTextMode.FunctionAnnotation) {
             this._isParsingQuotedText = true;
             parseTree = this._parseFunctionTypeAnnotation();
+        } else if (parseTextMode === ParseTextMode.Refinement) {
+            this._isParsingQuotedText = true;
+            parseTree = this._parseRefinement();
         } else {
             const exprListResult = this._parseTestOrStarExpressionList(
                 /* allowAssignmentExpression */ false,
@@ -3508,6 +3522,8 @@ export class Parser {
             return leftExpr;
         }
 
+        const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
+
         let peekToken = this._peekToken();
         let nextOperator = this._peekOperatorType();
         while (
@@ -3518,11 +3534,18 @@ export class Parser {
             nextOperator === OperatorType.FloorDivide
         ) {
             this._getNextToken();
+
+            if (nextOperator === OperatorType.MatrixMultiply) {
+                this._isParsingTypeAnnotation = false;
+            }
+
             const rightExpr = this._parseArithmeticFactor();
             leftExpr = this._createBinaryOperationNode(leftExpr, rightExpr, peekToken, nextOperator);
             peekToken = this._peekToken();
             nextOperator = this._peekOperatorType();
         }
+
+        this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 
         return leftExpr;
     }
@@ -5009,6 +5032,45 @@ export class Parser {
         this._reportStringTokenErrors(startToken);
 
         return FormatStringNode.create(startToken, endToken, middleTokens, fieldExpressions, formatExpressions);
+    }
+
+    private _parseRefinement(): RefinementNode {
+        const valueExpr = this._parseRefinementValue();
+        let conditionExpr: ExpressionNode | undefined;
+
+        if (this._consumeTokenIfKeyword(KeywordType.If)) {
+            conditionExpr = this._parseOrTest();
+        } else {
+            const nextToken = this._peekToken();
+            if (nextToken.type !== TokenType.EndOfStream) {
+                this._addSyntaxError(LocMessage.expectedPredicateIf(), nextToken);
+                this._consumeTokensUntilType([TokenType.EndOfStream]);
+            }
+        }
+
+        return RefinementNode.create(valueExpr, conditionExpr);
+    }
+
+    private _parseRefinementValue(): ExpressionNode {
+        if (this._isNextTokenNeverExpression()) {
+            return this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingExpression,
+                LocMessage.expectedExpr()
+            );
+        }
+
+        const exprListResult = this._parseExpressionListGeneric(() => {
+            if (this._peekOperatorType() === OperatorType.Multiply) {
+                return this._parseExpression(/* allowUnpack */ true);
+            }
+
+            return this._parseOrTest();
+        });
+
+        if (exprListResult.parseError) {
+            return exprListResult.parseError;
+        }
+        return this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ false);
     }
 
     private _createBinaryOperationNode(

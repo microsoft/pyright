@@ -510,6 +510,8 @@ export namespace Localizer {
         export const expectedPatternExpr = () => getRawString('Diagnostic.expectedPatternExpr');
         export const expectedPatternSubjectExpr = () => getRawString('Diagnostic.expectedPatternSubjectExpr');
         export const expectedPatternValue = () => getRawString('Diagnostic.expectedPatternValue');
+        export const expectedPredicateIf = () => getRawString('Diagnostic.expectedPredicateIf');
+        export const expectedRefinement = () => getRawString('Diagnostic.expectedRefinement');
         export const expectedReturnExpr = () => getRawString('Diagnostic.expectedReturnExpr');
         export const expectedSliceIndex = () => getRawString('Diagnostic.expectedSliceIndex');
         export const expectedTypeNotString = () => getRawString('Diagnostic.expectedTypeNotString');
@@ -871,6 +873,30 @@ export namespace Localizer {
         export const readOnlyNotInTypedDict = () => getRawString('Diagnostic.readOnlyNotInTypedDict');
         export const recursiveDefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.recursiveDefinition'));
+        export const refinementBaseTypeInvalid = () => getRawString('Diagnostic.refinementBaseTypeInvalid');
+        export const refinementCallArgCount = () =>
+            new ParameterizedString<{ name: string; expected: number; received: number }>(
+                getRawString('Diagnostic.refinementCallArgCount')
+            );
+        export const refinementCallArgUnpacked = () => getRawString('Diagnostic.refinementCallArgUnpacked');
+        export const refinementCallArgKeyword = () => getRawString('Diagnostic.refinementCallArgKeyword');
+        export const refinementConditionFailure = () => getRawString('Diagnostic.refinementConditionFailure');
+        export const refinementFloatImaginary = () => getRawString('Diagnostic.refinementFloatImaginary');
+        export const refinementIntTupleNotAllowed = () => getRawString('Diagnostic.refinementIntTupleNotAllowed');
+        export const refinementPostCondition = () => getRawString('Diagnostic.refinementPostCondition');
+        export const refinementPrecondition = () => getRawString('Diagnostic.refinementPrecondition');
+        export const refinementTypeNotSupported = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.refinementTypeNotSupported'));
+        export const refinementUnexpectedValueType = () =>
+            new ParameterizedString<{ expected: string; received: string }>(
+                getRawString('Diagnostic.refinementUnexpectedValueType')
+            );
+        export const refinementUnsupportedCall = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.refinementUnsupportedCall'));
+        export const refinementUnsupportedExpression = () => getRawString('Diagnostic.refinementUnsupportedExpression');
+        export const refinementUnsupportedOperation = () => getRawString('Diagnostic.refinementUnsupportedOperation');
+        export const refinementVarNotInValue = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.refinementVarNotInValue'));
         export const relativeImportNotAllowed = () => getRawString('Diagnostic.relativeImportNotAllowed');
         export const requiredArgCount = () => getRawString('Diagnostic.requiredArgCount');
         export const requiredNotInTypedDict = () => getRawString('Diagnostic.requiredNotInTypedDict');
@@ -1033,6 +1059,7 @@ export namespace Localizer {
         export const typeGuardParamCount = () => getRawString('Diagnostic.typeGuardParamCount');
         export const typeIsReturnType = () =>
             new ParameterizedString<{ type: string; returnType: string }>(getRawString('Diagnostic.typeIsReturnType'));
+        export const typeMetadataInvalid = () => getRawString('Diagnostic.typeMetadataInvalid');
         export const typeNotAwaitable = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeNotAwaitable'));
         export const typeNotIntantiable = () =>
@@ -1488,6 +1515,37 @@ export namespace Localizer {
         export const pyrightCommentIgnoreTip = () => getRawString('DiagnosticAddendum.pyrightCommentIgnoreTip');
         export const readOnlyAttribute = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.readOnlyAttribute'));
+        export const refinementBroadcast = () => getRawString('DiagnosticAddendum.refinementBroadcast');
+        export const refinementConcatMismatch = () => getRawString('DiagnosticAddendum.refinementConcatMismatch');
+        export const refinementConditionNotSatisfied = () =>
+            new ParameterizedString<{ condition: string }>(
+                getRawString('DiagnosticAddendum.refinementConditionNotSatisfied')
+            );
+        export const refinementIndexOutOfRange = () =>
+            new ParameterizedString<{ value: number }>(getRawString('DiagnosticAddendum.refinementIndexOutOfRange'));
+        export const refinementLiteralAssignment = () =>
+            new ParameterizedString<{ expected: string; received: string }>(
+                getRawString('DiagnosticAddendum.refinementLiteralAssignment')
+            );
+        export const refinementPermuteDuplicate = () => getRawString('DiagnosticAddendum.refinementPermuteDuplicate');
+        export const refinementPermuteMismatch = () =>
+            new ParameterizedString<{ expected: string; received: string }>(
+                getRawString('DiagnosticAddendum.refinementPermuteMismatch')
+            );
+        export const refinementReshapeInferred = () => getRawString('DiagnosticAddendum.refinementReshapeInferred');
+        export const refinementReshapeMismatch = () => getRawString('DiagnosticAddendum.refinementReshapeMismatch');
+        export const refinementShapeMismatch = () =>
+            new ParameterizedString<{ expected: string; received: string }>(
+                getRawString('DiagnosticAddendum.refinementShapeMismatch')
+            );
+        export const refinementTupleMismatch = () =>
+            new ParameterizedString<{ expected: string; received: string }>(
+                getRawString('DiagnosticAddendum.refinementTupleMismatch')
+            );
+        export const refinementValMismatch = () =>
+            new ParameterizedString<{ expected: string; received: string }>(
+                getRawString('DiagnosticAddendum.refinementValMismatch')
+            );
         export const seeDeclaration = () => getRawString('DiagnosticAddendum.seeDeclaration');
         export const seeClassDeclaration = () => getRawString('DiagnosticAddendum.seeClassDeclaration');
         export const seeFunctionDeclaration = () => getRawString('DiagnosticAddendum.seeFunctionDeclaration');

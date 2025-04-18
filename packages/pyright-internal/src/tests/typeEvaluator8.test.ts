@@ -11,7 +11,7 @@
 import * as assert from 'assert';
 
 import { ConfigOptions } from '../common/configOptions';
-import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8 } from '../common/pythonVersion';
+import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -1005,4 +1005,111 @@ test('TypeForm7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm7.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TypeMeta1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeMeta1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('Refinement1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinement1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 8);
+});
+
+test('Refinement2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinement2.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 14);
+});
+
+test('Refinement3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinement3.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
+test('Refinement4', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinement4.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 7);
+});
+
+test('RefinementEnforce1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinementEnforce1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('RefinementImplicit1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinementImplicit1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('RefinementLiteral1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinementLiteral1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
+test('RefinementShape1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinementShape1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('RefinementShape2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinementShape2.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 10);
+});
+
+test('RefinementShape3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinementShape3.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 9);
+});
+
+test('RefinementCustom1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinementCustom1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('RefinementTuple1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['refinementTuple1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
 });

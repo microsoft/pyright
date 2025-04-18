@@ -110,6 +110,8 @@ export const enum ParseNodeType {
     TypeParameter,
     TypeParameterList,
     TypeAlias,
+
+    Refinement,
 }
 
 export const enum ErrorExpressionCategory {
@@ -1809,6 +1811,11 @@ export interface StringListNode extends ParseNodeBase<ParseNodeType.StringList> 
         // into an expression.
         annotation: ExpressionNode | undefined;
 
+        // If the string represents a refinement type definition
+        // within a type annotation, it is further parsed into
+        // an expression (lazily by the type evaluator).
+        refinement: RefinementNode | undefined;
+
         // Indicates that the string list is enclosed in parens.
         hasParens: boolean;
     };
@@ -1826,6 +1833,7 @@ export namespace StringListNode {
             d: {
                 strings,
                 annotation: undefined,
+                refinement: undefined,
                 hasParens: false,
             },
         };
@@ -2744,6 +2752,39 @@ export type PatternAtomNode =
     | PatternValueNode
     | ErrorNode;
 
+export interface RefinementNode extends ParseNodeBase<ParseNodeType.Refinement> {
+    d: {
+        valueExpr: ExpressionNode;
+        conditionExpr: ExpressionNode | undefined;
+    };
+}
+
+export namespace RefinementNode {
+    export function create(valueExpr: ExpressionNode, conditionExpr: ExpressionNode | undefined) {
+        const node: RefinementNode = {
+            start: valueExpr.start,
+            length: valueExpr.length,
+            nodeType: ParseNodeType.Refinement,
+            id: _nextNodeId++,
+            parent: undefined,
+            a: undefined,
+            d: {
+                valueExpr,
+                conditionExpr,
+            },
+        };
+
+        valueExpr.parent = node;
+
+        if (conditionExpr) {
+            conditionExpr.parent = node;
+            extendRange(node, conditionExpr);
+        }
+
+        return node;
+    }
+}
+
 export type ParseNode =
     | ErrorNode
     | ArgumentNode
@@ -2801,6 +2842,7 @@ export type ParseNode =
     | PatternMappingNode
     | PatternSequenceNode
     | PatternValueNode
+    | RefinementNode
     | RaiseNode
     | ReturnNode
     | SetNode

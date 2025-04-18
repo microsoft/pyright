@@ -13,6 +13,7 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
 import { ConstraintSolution, ConstraintSolutionSet } from './constraintSolution';
 import { ConstraintSet, ConstraintTracker, TypeVarConstraints } from './constraintTracker';
+import { solveRefinementVarRecursive } from './refinementSolver';
 import {
     AssignTypeFlags,
     maxSubtypesForInferredType,
@@ -258,6 +259,11 @@ export function solveConstraintSet(
     // Solve the type variables.
     constraintSet.doForEachTypeVar((entry) => {
         solveTypeVarRecursive(evaluator, constraintSet, options, solutionSet, entry);
+    });
+
+    // Solve the refinement variables.
+    constraintSet.doForEachRefinementVar((name) => {
+        solveRefinementVarRecursive(constraintSet, solutionSet, name);
     });
 
     return solutionSet;

@@ -12,7 +12,7 @@ import { getEmptyRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ImportLookup, ImportLookupResult } from './analyzerFileInfo';
-import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions, isAliasDeclaration } from './declaration';
+import { AliasDeclaration, Declaration, DeclarationType, isAliasDeclaration, ModuleLoaderActions } from './declaration';
 import { getFileInfoFromNode } from './parseTreeUtils';
 import { Symbol } from './symbol';
 

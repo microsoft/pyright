@@ -461,6 +461,11 @@
             "message": "Expected pattern value expression of the form \"a.b\"",
             "comment": "{Locked='a.b'}"
         },
+        "expectedPredicateIf": "Expected \"if\" after refinement value expression",
+        "expectedRefinement": {
+            "message": "Expected string literal for refinement type definition",
+            "comment": "{Locked='literal'"
+        },
         "expectedReturnExpr": {
             "message": "Expected expression after \"return\"",
             "comment": "{Locked='return'}"
@@ -1116,6 +1121,23 @@
             "comment": "{Locked='ReadOnly'}"
         },
         "recursiveDefinition": "Type of \"{name}\" could not be determined because it refers to itself",
+        "refinementBaseTypeInvalid": "Base type for a refinement type must be a nominal class",
+        "refinementBoolValueExpected": "Expected boolean expression",
+        "refinementBytes": "Bytes values are not supported in refinement types",
+        "refinementCallArgCount": "Incorrect argument count for \"name\"; expected {expected} but received {received}",
+        "refinementCallArgKeyword": "Keyword arguments are not supported in refinement types",
+        "refinementConditionFailure": "Argument value violates refinement condition",
+        "refinementCallArgUnpacked": "Unpacked argument expressions are not supported in refinement types",
+        "refinementFloatImaginary": "Float and imaginary values are not supported in refinement types",
+        "refinementIntTupleNotAllowed": "Literal value not supported by IntTupleRefinement",
+        "refinementPostCondition": "Refinement condition not allowed in return type",
+        "refinementPrecondition": "Invalid refinement value expression; use variable, literal, or \"_\"",
+        "refinementTypeNotSupported": "Refinement type \"{name}\" is not supported",
+        "refinementUnexpectedValueType": "Unexpected expression type; expected \"{expected}\" but received \"{received}\"",
+        "refinementUnsupportedCall": "Operation \"{name}\" not supported in refinement type",
+        "refinementUnsupportedExpression": "Expression not supported in refinement type",
+        "refinementUnsupportedOperation": "Operation not supported in refinement type",
+        "refinementVarNotInValue": "Refinement variable \"{name}\" is undefined",
         "relativeImportNotAllowed": {
             "message": "Relative imports cannot be used with \"import .a\" form; use \"from . import a\" instead",
             "comment": "{Locked='import .a','from . import a'}"
@@ -1354,6 +1376,9 @@
             "message": "Return type of TypeIs (\"{returnType}\") is not consistent with value parameter type (\"{type}\")",
             "comment": "{Locked='TypeIs'}"
         },
+        "typeMetadataInvalid": {
+            "message": "Type metadata must be instance of TypeMetadata or a literal value",
+            "comment": "{Locked='TypeMetadata'}"},
         "typeNotAwaitable": {
             "message": "\"{type}\" is not awaitable",
             "comment": "{Locked='awaitable'}"
@@ -2003,6 +2028,18 @@
             "comment": "{Locked='# pyright: ignore[<diagnostic rules>]'}"
         },
         "readOnlyAttribute": "Attribute \"{name}\" is read-only",
+        "refinementBroadcast": "Shapes differ and do not allow for broadcasting",
+        "refinementConcatMismatch": "Shape must match for all dimensions other than the concatenation dimension",
+        "refinementConditionNotSatisfied": "Refinement condition not satisfied: \"{condition}\"",
+        "refinementIndexOutOfRange": "Index {value} is out of range",
+        "refinementLiteralAssignment": "Refinement literal value is incompatible; expected {expected} but received {received}",
+        "refinementPermuteDuplicate": "Permute does not allow duplicate dimensions",
+        "refinementPermuteMismatch": "Permute dimension count mismatch (expected {expected} but received {received})",
+        "refinementReshapeInferred": "Only one inferred dimension is allowed",
+        "refinementReshapeMismatch": "New shape does not match existing shape",
+        "refinementShapeMismatch": "Could not assign shape \"{received}\" to \"{expected}\"",
+        "refinementTupleMismatch": "Could not assign refinement tuple \"{received}\" to \"{expected}\"",
+        "refinementValMismatch": "Refinement value is incompatible; expected {expected} but received {received}",
         "seeClassDeclaration": "See class declaration",
         "seeDeclaration": "See declaration",
         "seeFunctionDeclaration": "See function declaration",

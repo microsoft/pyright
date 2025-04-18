@@ -69,6 +69,7 @@ import {
     PatternSequenceNode,
     PatternValueNode,
     RaiseNode,
+    RefinementNode,
     ReturnNode,
     SetNode,
     SliceNode,
@@ -271,6 +272,9 @@ export function getChildNodes(node: ParseNode): (ParseNode | undefined)[] {
         case ParseNodeType.PatternValue:
             return [node.d.expr];
 
+        case ParseNodeType.Refinement:
+            return [node.d.valueExpr, node.d.conditionExpr];
+
         case ParseNodeType.Raise:
             return [node.d.expr, node.d.fromExpr];
 
@@ -287,7 +291,7 @@ export function getChildNodes(node: ParseNode): (ParseNode | undefined)[] {
             return node.d.statements;
 
         case ParseNodeType.StringList:
-            return [node.d.annotation, ...node.d.strings];
+            return [node.d.annotation, node.d.refinement, ...node.d.strings];
 
         case ParseNodeType.String:
             return [];
@@ -518,6 +522,9 @@ export class ParseTreeVisitor<T> {
 
             case ParseNodeType.PatternValue:
                 return this.visitPatternValue(node);
+
+            case ParseNodeType.Refinement:
+                return this.visitRefinement(node);
 
             case ParseNodeType.Raise:
                 return this.visitRaise(node);
@@ -812,6 +819,10 @@ export class ParseTreeVisitor<T> {
     }
 
     visitPatternValue(node: PatternValueNode) {
+        return this._default;
+    }
+
+    visitRefinement(node: RefinementNode) {
         return this._default;
     }
 
