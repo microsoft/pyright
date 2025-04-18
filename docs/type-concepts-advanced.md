@@ -62,7 +62,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x == ...` and `x != ...` (where `...` is an ellipsis token)
 * `type(x) is T` and `type(x) is not T`
 * `type(x) == T` and `type(x) != T`
-* `x is E` and `x is not L` (where L is an expression that evaluates to a literal type)
+* `x is L` and `x is not L` (where L is an expression that evaluates to a literal type)
 * `x is C` and `x is not C` (where C is a class)
 * `x == L` and `x != L` (where L is an expression that evaluates to a literal type)
 * `x.y is None` and `x.y is not None` (where x is a type that is distinguished by a field with a None)
