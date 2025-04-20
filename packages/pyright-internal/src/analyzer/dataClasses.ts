@@ -272,7 +272,7 @@ export function synthesizeDataClassMethods(
 
                 // If the RHS of the assignment is assigning a field instance where the
                 // "init" parameter is set to false, do not include it in the init method.
-                if (statement.d.rightExpr.nodeType === ParseNodeType.Call) {
+                if (!isNamedTuple && statement.d.rightExpr.nodeType === ParseNodeType.Call) {
                     const callTypeResult = evaluator.getTypeOfExpression(
                         statement.d.rightExpr.d.leftExpr,
                         EvalFlags.CallBaseDefaults
@@ -391,6 +391,16 @@ export function synthesizeDataClassMethods(
 
             if (variableNameNode && variableTypeEvaluator) {
                 const variableName = variableNameNode.d.value;
+
+                // Named tuples don't allow attributes that begin with an underscore.
+                if (isNamedTuple && variableName.startsWith('_')) {
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.namedTupleFieldUnderscore(),
+                        variableNameNode
+                    );
+                    return;
+                }
 
                 // Don't include class vars. PEP 557 indicates that they shouldn't
                 // be considered data class entries.
@@ -512,7 +522,7 @@ export function synthesizeDataClassMethods(
 
             // If the RHS of the assignment is assigning a field instance where the
             // "init" parameter is set to false, do not include it in the init method.
-            if (statement.d.rightExpr.nodeType === ParseNodeType.Call) {
+            if (!isNamedTuple && statement.d.rightExpr.nodeType === ParseNodeType.Call) {
                 const callType = evaluator.getTypeOfExpression(
                     statement.d.rightExpr.d.leftExpr,
                     EvalFlags.CallBaseDefaults

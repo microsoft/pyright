@@ -179,6 +179,16 @@ export function createNamedTupleType(
                 entries.forEach((entryName, index) => {
                     entryName = entryName.trim();
                     if (entryName) {
+                        // Named tuples don't allow leading underscores in the field names.
+                        if (entryName.startsWith('_')) {
+                            evaluator.addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.namedTupleFieldUnderscore(),
+                                entriesArg.valueExpression!
+                            );
+                            return;
+                        }
+
                         entryName = renameKeyword(
                             evaluator,
                             entryName,
@@ -279,6 +289,16 @@ export function createNamedTupleType(
                                     entryNameNode
                                 );
                             } else {
+                                // Named tuples don't allow leading underscores in the field names.
+                                if (entryName.startsWith('_')) {
+                                    evaluator.addDiagnostic(
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        LocMessage.namedTupleFieldUnderscore(),
+                                        entryNameNode
+                                    );
+                                    return;
+                                }
+
                                 entryName = renameKeyword(evaluator, entryName, allowRename, entryNameNode, index);
                             }
                         } else {
