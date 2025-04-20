@@ -773,6 +773,10 @@
             "message": "Cannot override \"{name}\" because parent class \"{className}\" is a named tuple",
             "comment": "{Locked='tuple'}"
         },
+        "namedTupleFieldUnderscore": {
+            "message": "Named tuple field names cannot start with an underscore",
+            "comment": "{Locked='Named','tuple'}"
+        },
         "namedTupleFirstArg": {
             "message": "Expected named tuple class name as first argument",
             "comment": "{Locked='tuple'}"
@@ -792,7 +796,7 @@
         },
         "namedTupleNoTypes": {
             "message": "\"namedtuple\" provides no types for tuple entries; use \"NamedTuple\" instead",
-            "comment": "{Locked='namedtuple\";'tuple','NamedTuple'}"
+            "comment": "{Locked='namedtuple','tuple','NamedTuple'}"
         },
         "namedTupleSecondArg": {
             "message": "Expected named tuple entry list as second argument",
