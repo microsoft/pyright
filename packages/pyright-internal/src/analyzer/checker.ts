@@ -2685,7 +2685,10 @@ export class Checker extends ParseTreeWalker {
             return false;
         }
 
-        let flags = AssignTypeFlags.SkipReturnTypeCheck | AssignTypeFlags.OverloadOverlap;
+        let flags =
+            AssignTypeFlags.SkipReturnTypeCheck |
+            AssignTypeFlags.OverloadOverlap |
+            AssignTypeFlags.DisallowExtraKwargsForTd;
         if (partialOverlap) {
             flags |= AssignTypeFlags.PartialOverloadOverlap;
         }
@@ -2745,7 +2748,10 @@ export class Checker extends ParseTreeWalker {
             implBound,
             diag,
             constraints,
-            AssignTypeFlags.SkipReturnTypeCheck | AssignTypeFlags.Contravariant | AssignTypeFlags.SkipSelfClsTypeCheck
+            AssignTypeFlags.SkipReturnTypeCheck |
+                AssignTypeFlags.Contravariant |
+                AssignTypeFlags.SkipSelfClsTypeCheck |
+                AssignTypeFlags.DisallowExtraKwargsForTd
         );
 
         // Now check the return types.

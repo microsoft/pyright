@@ -277,16 +277,23 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
                     );
                 });
 
-                const extraItemsType = paramType.shared.typedDictEntries.extraItems?.valueType ?? AnyType.create();
+                const extraItemsType = paramType.shared.typedDictEntries.extraItems?.valueType;
+
+                let addKwargsForExtraItems: boolean;
+                if (extraItemsType) {
+                    addKwargsForExtraItems = !isNever(extraItemsType);
+                } else {
+                    addKwargsForExtraItems = !options?.disallowExtraKwargsForTd;
+                }
 
                 // Unless the TypedDict is completely closed (i.e. is not allowed to
                 // have any extra items), add a virtual **kwargs parameter to represent
                 // any additional items.
-                if (!isNever(extraItemsType) && !options?.disallowExtraKwargsForTd) {
+                if (addKwargsForExtraItems) {
                     addVirtualParam(
                         FunctionParam.create(
                             ParamCategory.KwargsDict,
-                            extraItemsType,
+                            extraItemsType ?? AnyType.create(),
                             FunctionParamFlags.TypeDeclared,
                             'kwargs'
                         ),

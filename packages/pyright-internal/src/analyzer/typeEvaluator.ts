@@ -26342,8 +26342,12 @@ export function createTypeEvaluator(
             srcType = FunctionType.cloneRemoveParamSpecArgsKwargs(srcType);
         }
 
-        const destParamDetails = getParamListDetails(destType);
-        const srcParamDetails = getParamListDetails(srcType);
+        const destParamDetails = getParamListDetails(destType, {
+            disallowExtraKwargsForTd: (flags & AssignTypeFlags.DisallowExtraKwargsForTd) !== 0,
+        });
+        const srcParamDetails = getParamListDetails(srcType, {
+            disallowExtraKwargsForTd: (flags & AssignTypeFlags.DisallowExtraKwargsForTd) !== 0,
+        });
 
         adjustSourceParamDetailsForDestVariadic(
             isContra ? destParamDetails : srcParamDetails,

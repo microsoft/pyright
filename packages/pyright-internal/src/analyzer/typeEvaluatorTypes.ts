@@ -622,6 +622,10 @@ export const enum AssignTypeFlags {
     // Normally a protocol class object cannot be used as a source type. This
     // option overrides this behavior.
     AllowProtocolClassSource = 1 << 16,
+
+    // When assigning callables, should a kwargs with an unpacked TypedDict
+    // disallow additional named arguments if it does not have extraItems?
+    DisallowExtraKwargsForTd = 1 << 17,
 }
 
 export interface TypeEvaluator {
