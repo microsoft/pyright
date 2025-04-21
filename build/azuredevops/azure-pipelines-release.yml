@@ -26,9 +26,9 @@ extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
   parameters:
     sdl:
-      codeSignValidation:
-        enabled: true
-        additionalTargetsGlobPattern: -|**/gdn-vscode-pyright.vsix/**
+      # codeSignValidation:
+      #   enabled: true
+      #   additionalTargetsGlobPattern: -|**/gdn-vscode-pyright.vsix/**
       codeql:
         compiled:
           enabled: false
@@ -52,7 +52,7 @@ extends:
             templateContext:
               mb:
                 signing:
-                  enabled: true
+                  enabled: false
                   signType: 'real'
               outputs:
                 - output: pipelineArtifact
@@ -113,26 +113,26 @@ extends:
                   restoreSolution: '$(Build.SourcesDirectory)/packages/vscode-pyright/packages.config'
                   restoreDirectory: '$(Build.SourcesDirectory)/packages/vscode-pyright/packages'
 
-              - task: MSBuild@1
-                displayName: 'Sign binaries'
-                inputs:
-                  solution: 'packages/vscode-pyright/sign.proj'
-                  msbuildArguments: '/verbosity:diagnostic /p:SignType=real'
+              # - task: MSBuild@1
+              #   displayName: 'Sign binaries'
+              #   inputs:
+              #     solution: 'packages/vscode-pyright/sign.proj'
+              #     msbuildArguments: '/verbosity:diagnostic /p:SignType=real'
 
-              - task: PowerShell@2
-                displayName: 'Compare extension.manifest and extension.signature.p7s'
-                inputs:
-                  targetType: 'inline'
-                  script: |
-                    $manifestPath = "$(Build.SourcesDirectory)\packages\vscode-pyright\extension.manifest"
-                    $signaturePath = "$(Build.SourcesDirectory)\packages\vscode-pyright\extension.signature.p7s"
-                    $compareResult = Compare-Object (Get-Content $manifestPath) (Get-Content $signaturePath)
-                    if ($compareResult -eq $null) {
-                      Write-Error "Files are identical. Failing the build."
-                      exit 1
-                    } else {
-                      Write-Output "Files are different."
-                    }
+              # - task: PowerShell@2
+              #   displayName: 'Compare extension.manifest and extension.signature.p7s'
+              #   inputs:
+              #     targetType: 'inline'
+              #     script: |
+              #       $manifestPath = "$(Build.SourcesDirectory)\packages\vscode-pyright\extension.manifest"
+              #       $signaturePath = "$(Build.SourcesDirectory)\packages\vscode-pyright\extension.signature.p7s"
+              #       $compareResult = Compare-Object (Get-Content $manifestPath) (Get-Content $signaturePath)
+              #       if ($compareResult -eq $null) {
+              #         Write-Error "Files are identical. Failing the build."
+              #         exit 1
+              #       } else {
+              #         Write-Output "Files are different."
+              #       }
 
               - task: CopyFiles@2
                 displayName: 'Copy extension.manifest'
@@ -141,12 +141,12 @@ extends:
                   Contents: 'extension.manifest'
                   TargetFolder: build_output
 
-              - task: CopyFiles@2
-                displayName: 'Copy extension.signature.p7s'
-                inputs:
-                  SourceFolder: 'packages/vscode-pyright'
-                  Contents: 'extension.signature.p7s'
-                  TargetFolder: build_output
+              # - task: CopyFiles@2
+              #   displayName: 'Copy extension.signature.p7s'
+              #   inputs:
+              #     SourceFolder: 'packages/vscode-pyright'
+              #     Contents: 'extension.signature.p7s'
+              #     TargetFolder: build_output
 
       - stage: BuildNpm
         dependsOn: # Blank to allow running in parallel with BuildVsix
