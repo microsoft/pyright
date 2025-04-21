@@ -215,7 +215,7 @@ extends:
               - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
                 displayName: 'Create GitHub Release'
                 inputs:
-                  gitHubConnection: 'Github-Pylance' # The name of the GitHub service connection
+                  gitHubConnection: 'Github-sarif-tools' # The name of the GitHub service connection
                   repositoryName: 'debonte/pyright' # The name of your GitHub repository
                   action: 'create'
                   isDraft: true
