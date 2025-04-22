@@ -190,12 +190,13 @@ extends:
                 workingDirectory: packages/pyright
 
               - script: |
-                  mkdir $(Agent.TestDirectory)\pyrightTest
-                  cd $(Agent.TestDirectory)\pyrightTest
+                  mkdir pyrightTest
+                  cd pyrightTest
                   yarn
                   yarn add --dev $(Agent.BuildDirectory)/packages/pyright/pyright.tgz
                   ./node_modules/.bin/pyright --version
                 displayName: Test package
+                workingDirectory: $(Agent.TestDirectory)
 
               # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
               # We don't want it to scan the microbuild plugins, which is installed in the agent.stagedirectory by default.
