@@ -166,28 +166,46 @@ extends:
                 submodules: true
                 fetchTags: false
                 persistCredentials: True
+                path: repo
 
               - script: file index.js
                 displayName: Inspect index.js file
-                workingDirectory: packages/pyright
+                workingDirectory: repo/packages/pyright
 
               - task: NodeTool@0
                 displayName: Use Node 18.x
                 inputs:
                   versionSpec: 18.x
-              - template: /build/templates/npmAuthenticate.yml@self
+
+              - task: npmAuthenticate@0
+                inputs:
+                  workingFile: repo/.npmrc
+
+              - task: npmAuthenticate@0
+                inputs:
+                  workingFile: repo/packages/pyright/.npmrc
+
+              - task: npmAuthenticate@0
+                inputs:
+                  workingFile: repo/packages/pyright-internal/.npmrc
+
+              - task: npmAuthenticate@0
+                inputs:
+                  workingFile: repo/packages/vscode-pyright/.npmrc
+
               - task: CmdLine@2
                 displayName: npm install
                 inputs:
                   script: npm run install:all
+                workingDirectory: repo
 
               - script: npm pack
                 displayName: npm pack
-                workingDirectory: packages/pyright
+                workingDirectory: repo/packages/pyright
 
               - script: mv pyright-*.tgz ${{ variables.PACKAGE_NAME }}
                 displayName: Remove version from package name
-                workingDirectory: packages/pyright
+                workingDirectory: repo/packages/pyright
 
               - script: |
                   mkdir pyrightTest
@@ -196,14 +214,13 @@ extends:
                   yarn add --dev $(Agent.BuildDirectory)/packages/pyright/pyright.tgz
                   ./node_modules/.bin/pyright --version
                 displayName: Test package
-                workingDirectory: $(Agent.TestDirectory)
 
               # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
               # We don't want it to scan the microbuild plugins, which is installed in the agent.stagedirectory by default.
               - task: CopyFiles@2
                 displayName: 'Copy ${{ variables.PACKAGE_NAME }} to subfolder'
                 inputs:
-                  SourceFolder: packages/pyright
+                  SourceFolder: repo/packages/pyright
                   Contents: '${{ variables.PACKAGE_NAME }}'
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
