@@ -165,9 +165,9 @@ extends:
                 persistCredentials: True
                 path: repo
 
-              - script: file index.js
-                displayName: Inspect index.js file
-                workingDirectory: packages/pyright
+              # - script: file index.js
+              #   displayName: Inspect index.js file
+              #   workingDirectory: packages/pyright
 
               - task: NodeTool@0
                 displayName: Use Node 18.x
@@ -219,6 +219,9 @@ extends:
         jobs:
           - job: create_release
             displayName: Create GitHub Release
+            pool:
+              name: VSEngSS-MicroBuild2022-1ES
+              os: linux
             templateContext:
               type: releaseJob
               isProduction: true
