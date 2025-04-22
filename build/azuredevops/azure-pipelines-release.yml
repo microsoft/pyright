@@ -311,8 +311,9 @@ extends:
                   downloadPath: $(Agent.BuildDirectory)/pyrightTest
               - script: |
                   cd pyrightTest
+                  pwd
                   yarn
-                  yarn add --dev $(PACKAGE_NAME)
+                  yarn add --dev ./$(PACKAGE_NAME)
                   node_modules/.bin/pyright --version
                   file ./node_modules/pyright/index.js
                   sha256sum $(PACKAGE_NAME)
