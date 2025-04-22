@@ -170,7 +170,7 @@ extends:
 
               - script: file index.js
                 displayName: Inspect index.js file
-                workingDirectory: repo/packages/pyright
+                workingDirectory: packages/pyright
 
               - task: NodeTool@0
                 displayName: Use Node 18.x
@@ -179,19 +179,19 @@ extends:
 
               - task: npmAuthenticate@0
                 inputs:
-                  workingFile: repo/.npmrc
+                  workingFile: .npmrc
 
               - task: npmAuthenticate@0
                 inputs:
-                  workingFile: repo/packages/pyright/.npmrc
+                  workingFile: packages/pyright/.npmrc
 
               - task: npmAuthenticate@0
                 inputs:
-                  workingFile: repo/packages/pyright-internal/.npmrc
+                  workingFile: packages/pyright-internal/.npmrc
 
               - task: npmAuthenticate@0
                 inputs:
-                  workingFile: repo/packages/vscode-pyright/.npmrc
+                  workingFile: packages/vscode-pyright/.npmrc
 
               - task: CmdLine@2
                 displayName: npm install
@@ -201,18 +201,18 @@ extends:
 
               - script: npm pack
                 displayName: npm pack
-                workingDirectory: repo/packages/pyright
+                workingDirectory: packages/pyright
 
               - script: mv pyright-*.tgz ${{ variables.PACKAGE_NAME }}
                 displayName: Remove version from package name
-                workingDirectory: repo/packages/pyright
+                workingDirectory: packages/pyright
 
               - script: |
-                  mkdir pyrightTest
-                  cd pyrightTest
+                  mkdir ../pyrightTest
+                  cd ../pyrightTest
                   yarn
-                  yarn add --dev $(Agent.BuildDirectory)/packages/pyright/pyright.tgz
-                  ./node_modules/.bin/pyright --version
+                  yarn add --dev ../repo/packages/pyright/pyright.tgz
+                  ../repo/packages/pyright/node_modules/.bin/pyright --version
                 displayName: Test package
 
               # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
@@ -220,7 +220,7 @@ extends:
               - task: CopyFiles@2
                 displayName: 'Copy ${{ variables.PACKAGE_NAME }} to subfolder'
                 inputs:
-                  SourceFolder: repo/packages/pyright
+                  SourceFolder: packages/pyright
                   Contents: '${{ variables.PACKAGE_NAME }}'
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
