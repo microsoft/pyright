@@ -191,6 +191,7 @@ extends:
 
               - script: |
                   mkdir temp
+                  cd temp
                   yarn
                   yarn add --dev ${{ variables.PACKAGE_NAME }}
                   ./node_modules/.bin/pyright --version
