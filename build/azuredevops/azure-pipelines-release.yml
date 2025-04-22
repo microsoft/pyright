@@ -168,9 +168,9 @@ extends:
                 persistCredentials: True
                 path: repo
 
-              # - script: file index.js
-              #   displayName: Inspect index.js file
-              #   workingDirectory: packages/pyright
+              - script: file index.js
+                displayName: Inspect index.js file
+                workingDirectory: packages/pyright
 
               - task: NodeTool@0
                 displayName: Use Node 18.x
@@ -222,10 +222,6 @@ extends:
         jobs:
           - job: create_release
             displayName: Create GitHub Release
-            pool:
-              name: AzurePipelines-EO
-              image: 1ESPT-Ubuntu22.04
-              os: linux
             templateContext:
               type: releaseJob
               isProduction: true
