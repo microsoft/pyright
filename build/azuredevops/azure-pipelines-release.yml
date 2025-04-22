@@ -206,6 +206,14 @@ extends:
                 displayName: Remove version from package name
                 workingDirectory: packages/pyright
 
+              - script: |
+                  mkdir ../pyrightTest
+                  cd ../pyrightTest
+                  yarn
+                  yarn add --dev ../repo/packages/pyright/pyright.tgz
+                  node_modules/.bin/pyright --version
+                displayName: Test package
+
               # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
               # We don't want it to scan the microbuild plugins, which is installed in the agent.stagedirectory by default.
               - task: CopyFiles@2
@@ -214,6 +222,15 @@ extends:
                   SourceFolder: packages/pyright
                   Contents: '${{ variables.PACKAGE_NAME }}'
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
+
+              - script: |
+                  mkdir ../pyrightTest2
+                  cd ../pyrightTest2
+                  yarn
+                  yarn add --dev $(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}/${{ variables.PACKAGE_NAME }}
+                  node_modules/.bin/pyright --version
+                displayName: Test package after CopyFile@2
+
 
       - stage: CreateRelease
         dependsOn:
