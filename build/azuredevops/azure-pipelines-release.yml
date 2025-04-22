@@ -278,20 +278,44 @@ extends:
                     $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)/$(VSIX_NAME)
                     $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
 
-      # - stage: WaitForValidation
-      #   dependsOn:
-      #     - CreateRelease
-      #   jobs:
-      #     - job: wait_for_validation
-      #       displayName: Wait for manual validation
-      #       pool: server
-      #       steps:
-      #         - task: ManualValidation@0
-      #           timeoutInMinutes: 120 # task times out in 2 hours
-      #           inputs:
-      #             notifyUsers: 'plseng@microsoft.com,eric@traut.com'
-      #             instructions: 'In the next 2 hours please test the latest draft release of Pyright, then Publish the release in GitHub.'
-      #             onTimeout: 'reject' # require sign-off
+      - stage: WaitForValidation
+        dependsOn:
+          - CreateRelease
+        jobs:
+          - job: wait_for_validation
+            displayName: Wait for manual validation
+            pool: server
+            steps:
+              - task: ManualValidation@0
+                timeoutInMinutes: 120 # task times out in 2 hours
+                inputs:
+                  notifyUsers: 'erikd@microsoft.com'
+                  instructions: 'Publish new release so it is "latest"'
+                  onTimeout: 'reject' # require sign-off
+
+      - stage: DownloadPackage
+        dependsOn: WaitForValidation
+        jobs:
+          - job: download_package
+            displayName: Download package from GitHub Release
+            steps:
+              - checkout: none
+              - script: |
+                  mkdir pyrightTest
+              - task: DownloadGitHubRelease@0 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-github-release-v0?view=azure-pipelines
+                displayName: 'Download GitHub Release'
+                inputs:
+                  connection: 'Github-sarif-tools'
+                  userRepository: 'debonte/pyright'
+                  defaultVersionType: latest
+                  downloadPath: $(Agent.BuildDirectory)/pyrightTest
+              - script: |
+                  cd pyrightTest
+                  yarn
+                  yarn add --dev $(PACKAGE_NAME)
+                  node_modules/.bin/pyright --version
+                  file ./node_modules/pyright/index.js
+                  sha256sum $(PACKAGE_NAME)
 
       # - stage: PublishToMarketplace
       #   dependsOn:
