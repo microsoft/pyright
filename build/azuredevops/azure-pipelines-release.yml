@@ -301,7 +301,8 @@ extends:
             steps:
               - checkout: none
               - script: |
-                  mkdir pyrightTest
+                  pwd
+                  mkdir ../pyrightTest
               - task: DownloadGitHubRelease@0 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-github-release-v0?view=azure-pipelines
                 displayName: 'Download GitHub Release'
                 inputs:
@@ -310,7 +311,7 @@ extends:
                   defaultVersionType: latest
                   downloadPath: $(Agent.BuildDirectory)/pyrightTest
               - script: |
-                  cd pyrightTest
+                  cd ../pyrightTest
                   pwd
                   yarn
                   yarn add --dev ./$(PACKAGE_NAME)
