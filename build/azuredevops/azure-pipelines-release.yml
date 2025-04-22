@@ -166,6 +166,11 @@ extends:
                 submodules: true
                 fetchTags: false
                 persistCredentials: True
+
+              - script: file index.js
+                displayName: Inspect index.js file
+                workingDirectory: packages/pyright
+
               - task: NodeTool@0
                 displayName: Use Node 18.x
                 inputs:
