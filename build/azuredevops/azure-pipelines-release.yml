@@ -306,6 +306,9 @@ extends:
               - script: |
                   pwd
                   mkdir ../pyrightTest
+                  cd ../pyrightTest
+                  pwd
+                  ls -al
               - task: DownloadGitHubRelease@0 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/download-github-release-v0?view=azure-pipelines
                 displayName: 'Download GitHub Release'
                 inputs:
@@ -316,6 +319,7 @@ extends:
               - script: |
                   cd ../pyrightTest
                   pwd
+                  ls -al
                   yarn
                   yarn add --dev ./$(PACKAGE_NAME)
                   node_modules/.bin/pyright --version
