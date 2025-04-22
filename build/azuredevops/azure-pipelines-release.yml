@@ -153,9 +153,6 @@ extends:
         jobs:
           - job: build_npm
             displayName: Build NPM
-            pool:
-              name: VSEngSS-MicroBuild2022-1ES # use windows for codesigning to make things easier https://dev.azure.com/devdiv/DevDiv/_wiki/wikis/DevDiv.wiki/650/MicroBuild-Signing
-              os: windows
             templateContext:
               outputs:
                 - output: pipelineArtifact
@@ -171,9 +168,9 @@ extends:
                 persistCredentials: True
                 path: repo
 
-              # - script: file index.js
-              #   displayName: Inspect index.js file
-              #   workingDirectory: packages/pyright
+              - script: file index.js
+                displayName: Inspect index.js file
+                workingDirectory: packages/pyright
 
               - task: NodeTool@0
                 displayName: Use Node 18.x
@@ -205,19 +202,19 @@ extends:
                 displayName: npm pack
                 workingDirectory: packages/pyright
 
-              - script: ren pyright-*.tgz ${{ variables.PACKAGE_NAME }}
+              - script: mv pyright-*.tgz ${{ variables.PACKAGE_NAME }}
                 displayName: Remove version from package name
                 workingDirectory: packages/pyright
 
-              # - script: |
-              #     mkdir ../pyrightTest
-              #     cd ../pyrightTest
-              #     yarn
-              #     yarn add --dev ../repo/packages/pyright/pyright.tgz
-              #     node_modules/.bin/pyright --version
-              #     file ./node_modules/pyright/index.js
-              #     sha256sum ../repo/packages/pyright/pyright.tgz
-              #   displayName: Test package
+              - script: |
+                  mkdir ../pyrightTest
+                  cd ../pyrightTest
+                  yarn
+                  yarn add --dev ../repo/packages/pyright/pyright.tgz
+                  node_modules/.bin/pyright --version
+                  file ./node_modules/pyright/index.js
+                  sha256sum ../repo/packages/pyright/pyright.tgz
+                displayName: Test package
 
               # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
               # We don't want it to scan the microbuild plugins, which is installed in the agent.stagedirectory by default.
@@ -228,15 +225,15 @@ extends:
                   Contents: '${{ variables.PACKAGE_NAME }}'
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
-              # - script: |
-              #     mkdir ../pyrightTest2
-              #     cd ../pyrightTest2
-              #     yarn
-              #     yarn add --dev $(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}/${{ variables.PACKAGE_NAME }}
-              #     node_modules/.bin/pyright --version
-              #     file ./node_modules/pyright/index.js
-              #     sha256sum $(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}/${{ variables.PACKAGE_NAME }}
-              #   displayName: Test package after CopyFile@2
+              - script: |
+                  mkdir ../pyrightTest2
+                  cd ../pyrightTest2
+                  yarn
+                  yarn add --dev $(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}/${{ variables.PACKAGE_NAME }}
+                  node_modules/.bin/pyright --version
+                  file ./node_modules/pyright/index.js
+                  sha256sum $(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}/${{ variables.PACKAGE_NAME }}
+                displayName: Test package after CopyFile@2
 
 
       - stage: CreateRelease
