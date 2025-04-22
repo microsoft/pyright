@@ -211,7 +211,7 @@ extends:
                   cd ../pyrightTest
                   yarn
                   yarn add --dev ../repo/packages/pyright/pyright.tgz
-                  ../repo/packages/pyright/node_modules/.bin/pyright --version
+                  node_modules/.bin/pyright --version
                 displayName: Test package
 
               # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
