@@ -35,9 +35,9 @@ extends:
           justificationForDisabling: 'Running a scan on the Pyright-Build azure-pipelines.yml'
       sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
     pool:
-      name: AzurePipelines-EO
-      image: 1ESPT-Ubuntu22.04
-      os: linux
+      pool:
+      name: VSEngSS-MicroBuild2022-1ES
+      os: windows
     customBuildTags:
       - ES365AIMigrationTooling
     stages:
@@ -46,9 +46,6 @@ extends:
           - job: build_vsix
             displayName: Build VSIX
             timeoutInMinutes: 60
-            pool:
-              name: VSEngSS-MicroBuild2022-1ES # use windows for codesigning to make things easier https://dev.azure.com/devdiv/DevDiv/_wiki/wikis/DevDiv.wiki/650/MicroBuild-Signing
-              os: windows
             templateContext:
               mb:
                 signing:
@@ -202,7 +199,7 @@ extends:
                 displayName: npm pack
                 workingDirectory: packages/pyright
 
-              - script: mv pyright-*.tgz ${{ variables.PACKAGE_NAME }}
+              - script: ren pyright-*.tgz ${{ variables.PACKAGE_NAME }}
                 displayName: Remove version from package name
                 workingDirectory: packages/pyright
 
