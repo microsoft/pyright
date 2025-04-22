@@ -197,7 +197,7 @@ extends:
                 displayName: npm install
                 inputs:
                   script: npm run install:all
-                workingDirectory: repo
+                  workingDirectory: repo
 
               - script: npm pack
                 displayName: npm pack
