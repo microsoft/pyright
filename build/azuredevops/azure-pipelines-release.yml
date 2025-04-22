@@ -212,6 +212,7 @@ extends:
                   yarn
                   yarn add --dev ../repo/packages/pyright/pyright.tgz
                   node_modules/.bin/pyright --version
+                  sha256sum ../repo/packages/pyright/pyright.tgz
                 displayName: Test package
 
               # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
@@ -229,6 +230,7 @@ extends:
                   yarn
                   yarn add --dev $(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}/${{ variables.PACKAGE_NAME }}
                   node_modules/.bin/pyright --version
+                  sha256sum $(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}/${{ variables.PACKAGE_NAME }}
                 displayName: Test package after CopyFile@2
 
 
@@ -257,6 +259,7 @@ extends:
                   yarn
                   yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
                   node_modules/.bin/pyright --version
+                  sha256sum $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
                 displayName: Test package
               - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
                 displayName: 'Create GitHub Release'
