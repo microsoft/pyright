@@ -296,12 +296,20 @@ extends:
                   targetPath: $(Build.StagingDirectory)/dist
 
             steps:
-              - template: MicroBuild.Publish.yml@MicroBuildTemplate
-                parameters:
-                  intent: PackageDistribution
-                  contentType: npm
-                  contentSource: Folder
-                  folderLocation: $(Build.StagingDirectory)/dist
-                  waitForReleaseCompletion: true
-                  owners: erikd@microsoft.com
-                  approvers: grwheele@microsoft.com
+              - script: |
+                  mkdir pyrightTest
+                  cd pyrightTest
+                  yarn
+                  yarn add --dev $(Build.StagingDirectory)/dist/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
+                  file ./node_modules/pyright/index.js
+                  node_modules/.bin/pyright --version
+                displayName: Test package
+              # - template: MicroBuild.Publish.yml@MicroBuildTemplate
+              #   parameters:
+              #     intent: PackageDistribution
+              #     contentType: npm
+              #     contentSource: Folder
+              #     folderLocation: $(Build.StagingDirectory)/dist
+              #     waitForReleaseCompletion: true
+              #     owners: erikd@microsoft.com
+              #     approvers: grwheele@microsoft.com
