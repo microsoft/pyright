@@ -236,6 +236,8 @@ export class Parser {
     private _isParsingTypeAnnotation = false;
     private _isParsingIndexTrailer = false;
     private _isParsingQuotedText = false;
+    private _isInFinallyBlock = false;
+    private _isInFinallyLoop = false;
     private _futureImports = new Set<string>();
     private _importedModules: ModuleImport[] = [];
     private _containsWildcardImport = false;
@@ -1471,6 +1473,12 @@ export class Parser {
         const wasInLoop = this._isInLoop;
         this._isInLoop = true;
 
+        // Record the fact that we are no longer in a finally block
+        // that is contained within a loop. A loop within the finally
+        // block resets this. See PEP 765 for details.
+        const wasInFinallyLoop = this._isInFinallyLoop;
+        this._isInFinallyLoop = false;
+
         let typeComment: StringToken | undefined;
         const suite = this._parseSuite(this._isInFunction, /* skipBody */ false, () => {
             const comment = this._getTypeAnnotationCommentText();
@@ -1480,6 +1488,7 @@ export class Parser {
         });
 
         this._isInLoop = wasInLoop;
+        this._isInFinallyLoop = wasInFinallyLoop;
 
         if (typeComment) {
             suite.d.typeComment = typeComment;
@@ -1935,7 +1944,16 @@ export class Parser {
         }
 
         if (this._consumeTokenIfKeyword(KeywordType.Finally)) {
+            const wasInFinallyBlock = this._isInFinallyBlock;
+            const wasInFinallyLoop = this._isInFinallyLoop;
+            this._isInFinallyBlock = true;
+            this._isInFinallyLoop = this._isInLoop;
+
             tryNode.d.finallySuite = this._parseSuite(this._isInFunction);
+
+            this._isInFinallyBlock = wasInFinallyBlock;
+            this._isInFinallyLoop = wasInFinallyLoop;
+
             tryNode.d.finallySuite.parent = tryNode;
             extendRange(tryNode, tryNode.d.finallySuite);
         }
@@ -2001,12 +2019,21 @@ export class Parser {
         let functionTypeAnnotationToken: StringToken | undefined;
         const wasInExceptionGroup = this._isInExceptionGroup;
         this._isInExceptionGroup = false;
+
+        const wasInFinallyBlock = this._isInFinallyBlock;
+        const wasInFinallyLoop = this._isInFinallyLoop;
+        this._isInFinallyBlock = false;
+        this._isInFinallyLoop = false;
+
         const suite = this._parseSuite(/* isFunction */ true, this._parseOptions.skipFunctionAndClassBody, () => {
             if (!functionTypeAnnotationToken) {
                 functionTypeAnnotationToken = this._getTypeAnnotationCommentText();
             }
         });
+
         this._isInExceptionGroup = wasInExceptionGroup;
+        this._isInFinallyBlock = wasInFinallyBlock;
+        this._isInFinallyLoop = wasInFinallyLoop;
 
         const functionNode = FunctionNode.create(defToken, NameNode.create(nameToken), suite, typeParameters);
         if (asyncToken) {
@@ -2507,6 +2534,10 @@ export class Parser {
             this._addSyntaxError(LocMessage.breakInExceptionGroup(), breakToken);
         }
 
+        if (this._isInFinallyLoop && PythonVersion.isGreaterOrEqualTo(this._getLanguageVersion(), pythonVersion3_14)) {
+            this._addSyntaxError(LocMessage.finallyBreak(), breakToken);
+        }
+
         return BreakNode.create(breakToken);
     }
 
@@ -2517,6 +2548,10 @@ export class Parser {
             this._addSyntaxError(LocMessage.continueOutsideLoop(), continueToken);
         } else if (this._isInExceptionGroup) {
             this._addSyntaxError(LocMessage.continueInExceptionGroup(), continueToken);
+        }
+
+        if (this._isInFinallyLoop && PythonVersion.isGreaterOrEqualTo(this._getLanguageVersion(), pythonVersion3_14)) {
+            this._addSyntaxError(LocMessage.finallyContinue(), continueToken);
         }
 
         return ContinueNode.create(continueToken);
@@ -2532,6 +2567,10 @@ export class Parser {
             this._addSyntaxError(LocMessage.returnOutsideFunction(), returnToken);
         } else if (this._isInExceptionGroup) {
             this._addSyntaxError(LocMessage.returnInExceptionGroup(), returnToken);
+        }
+
+        if (this._isInFinallyBlock && PythonVersion.isGreaterOrEqualTo(this._getLanguageVersion(), pythonVersion3_14)) {
+            this._addSyntaxError(LocMessage.finallyReturn(), returnToken);
         }
 
         if (!this._isNextTokenNeverExpression()) {

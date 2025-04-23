@@ -35,6 +35,7 @@ import {
     combineTypes,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isModule,
     isOverloaded,
@@ -435,7 +436,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
     if (initMember) {
         const functionType = evaluator.getTypeOfMember(initMember);
 
-        if (isFunction(functionType) || isOverloaded(functionType)) {
+        if (isFunctionOrOverloaded(functionType)) {
             methodType = bindFunctionToClassOrObjectToolTip(evaluator, node, instanceType, functionType);
         }
     }
@@ -458,7 +459,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
             const newMemberType = evaluator.getTypeOfMember(newMember);
 
             // Prefer `__new__` if it doesn't have default params (*args: Any, **kwargs: Any) or no params ().
-            if (isFunction(newMemberType) || isOverloaded(newMemberType)) {
+            if (isFunctionOrOverloaded(newMemberType)) {
                 // Set `treatConstructorAsClassMethod` to true to exclude `cls` as a parameter.
                 methodType = bindFunctionToClassOrObjectToolTip(
                     evaluator,

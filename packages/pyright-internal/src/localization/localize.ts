@@ -519,6 +519,9 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.finalClassIsAbstract'));
         export const finalContext = () => getRawString('Diagnostic.finalContext');
         export const finalInLoop = () => getRawString('Diagnostic.finalInLoop');
+        export const finallyBreak = () => getRawString('Diagnostic.finallyBreak');
+        export const finallyContinue = () => getRawString('Diagnostic.finallyContinue');
+        export const finallyReturn = () => getRawString('Diagnostic.finallyReturn');
         export const finalMethodOverride = () =>
             new ParameterizedString<{ name: string; className: string }>(
                 getRawString('Diagnostic.finalMethodOverride')
@@ -680,6 +683,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; className: string }>(
                 getRawString('Diagnostic.namedTupleEntryRedeclared')
             );
+        export const namedTupleFieldUnderscore = () => getRawString('Diagnostic.namedTupleFieldUnderscore');
         export const namedTupleFirstArg = () => getRawString('Diagnostic.namedTupleFirstArg');
         export const namedTupleMultipleInheritance = () => getRawString('Diagnostic.namedTupleMultipleInheritance');
         export const namedTupleNameKeyword = () => getRawString('Diagnostic.namedTupleNameKeyword');

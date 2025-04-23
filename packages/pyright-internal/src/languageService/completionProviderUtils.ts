@@ -20,9 +20,8 @@ import {
     UnknownType,
     getTypeAliasInfo,
     isClassInstance,
-    isFunction,
+    isFunctionOrOverloaded,
     isModule,
-    isOverloaded,
 } from '../analyzer/types';
 import { SignatureDisplayType } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
@@ -113,7 +112,7 @@ export function getTypeDetail(
 
         case DeclarationType.Function: {
             const functionType =
-                detail?.boundObjectOrClass && (isFunction(type) || isOverloaded(type))
+                detail?.boundObjectOrClass && isFunctionOrOverloaded(type)
                     ? evaluator.bindFunctionToClassOrObject(detail.boundObjectOrClass, type)
                     : type;
             if (!functionType) {

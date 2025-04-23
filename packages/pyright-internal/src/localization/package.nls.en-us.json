@@ -484,6 +484,18 @@
             "message": "A \"Final\" variable cannot be assigned within a loop",
             "comment": "{Locked='Final'}"
         },
+        "finallyBreak": {
+            "message": "A \"break\" cannot be used to exit a \"finally\" block",
+            "comment": "{Locked='break', 'finally'}"
+        },
+        "finallyContinue": {
+            "message": "A \"continue\" cannot be used to exit a \"finally\" block",
+            "comment": "{Locked='continue', 'finally'}"
+        },
+        "finallyReturn": {
+            "message": "A \"return\" cannot be used to exit a \"finally\" block",
+            "comment": "{Locked='return', 'finally'}"
+        },
         "finalMethodOverride": {
             "message": "Method \"{name}\" cannot override final method defined in class \"{className}\"",
             "comment": "{Locked='final'}"
@@ -761,6 +773,10 @@
             "message": "Cannot override \"{name}\" because parent class \"{className}\" is a named tuple",
             "comment": "{Locked='tuple'}"
         },
+        "namedTupleFieldUnderscore": {
+            "message": "Named tuple field names cannot start with an underscore",
+            "comment": "{Locked='Named','tuple'}"
+        },
         "namedTupleFirstArg": {
             "message": "Expected named tuple class name as first argument",
             "comment": "{Locked='tuple'}"
@@ -780,7 +796,7 @@
         },
         "namedTupleNoTypes": {
             "message": "\"namedtuple\" provides no types for tuple entries; use \"NamedTuple\" instead",
-            "comment": "{Locked='namedtuple\";'tuple','NamedTuple'}"
+            "comment": "{Locked='namedtuple','tuple','NamedTuple'}"
         },
         "namedTupleSecondArg": {
             "message": "Expected named tuple entry list as second argument",

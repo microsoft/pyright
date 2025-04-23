@@ -29,6 +29,7 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isKeywordOnlySeparator,
     isNever,
@@ -999,10 +1000,12 @@ export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Ty
             return true;
         }
 
+        if (!isUnbound(type) && !isTypeAliasPlaceholder(type)) {
+            return false;
+        }
+
         // Handle the specific case where the type alias directly refers to itself.
-        // In this case, the type will be unbound because it could not be resolved.
         return (
-            isUnbound(type) &&
             type.props?.typeAliasInfo &&
             type.props.typeAliasInfo.shared.name === typeAliasPlaceholder.shared.recursiveAlias?.name
         );
@@ -1345,7 +1348,7 @@ export function isProperty(type: Type) {
 }
 
 export function isCallableType(type: Type): boolean {
-    if (isFunction(type) || isOverloaded(type) || isAnyOrUnknown(type)) {
+    if (isFunctionOrOverloaded(type) || isAnyOrUnknown(type)) {
         return true;
     }
 
@@ -4031,7 +4034,7 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
                 });
 
                 updatedSourceType = applySolvedTypeVars(sourceType, solution);
-                assert(isFunction(updatedSourceType) || isOverloaded(updatedSourceType));
+                assert(isFunctionOrOverloaded(updatedSourceType));
             }
         }
 

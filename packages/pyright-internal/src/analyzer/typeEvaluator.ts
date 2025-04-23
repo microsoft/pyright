@@ -240,6 +240,7 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isModule,
     isNever,
@@ -2462,7 +2463,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        if (isFunction(boundMethodResult.type) || isOverloaded(boundMethodResult.type)) {
+        if (isFunctionOrOverloaded(boundMethodResult.type)) {
             return boundMethodResult.type;
         }
 
@@ -2588,7 +2589,7 @@ export function createTypeEvaluator(
 
                         if (constructorType) {
                             doForEachSubtype(constructorType, (subtype) => {
-                                if (isFunction(subtype) || isOverloaded(subtype)) {
+                                if (isFunctionOrOverloaded(subtype)) {
                                     addFunctionToSignature(subtype);
                                 }
                             });
@@ -2747,31 +2748,41 @@ export function createTypeEvaluator(
                 const baseTypeConcrete = makeTopLevelTypeVarsConcrete(baseType);
                 let classMemberInfo: ClassMember | undefined;
 
-                if (isClassInstance(baseTypeConcrete)) {
-                    classMemberInfo = lookUpObjectMember(
-                        baseTypeConcrete,
-                        expression.d.member.d.value,
-                        MemberAccessFlags.DeclaredTypesOnly
-                    );
-                    classOrObjectBase = baseTypeConcrete;
-                    memberAccessClass = classMemberInfo?.classType;
+                // Normally, baseTypeConcrete will not be a composite type (a union),
+                // but this can occur. In this case, it's not clear how to handle this
+                // correctly. For now, we'll just loop through the subtypes and
+                // use one of them. We'll sort the subtypes for determinism.
+                doForEachSubtype(
+                    baseTypeConcrete,
+                    (baseSubtype) => {
+                        if (isClassInstance(baseSubtype)) {
+                            classMemberInfo = lookUpObjectMember(
+                                baseSubtype,
+                                expression.d.member.d.value,
+                                MemberAccessFlags.DeclaredTypesOnly
+                            );
+                            classOrObjectBase = baseSubtype;
+                            memberAccessClass = classMemberInfo?.classType;
 
-                    // If this is an instance member (e.g. a dataclass field), don't
-                    // bind it to the object if it's a function.
-                    if (classMemberInfo?.isInstanceMember) {
-                        bindFunction = false;
-                    }
+                            // If this is an instance member (e.g. a dataclass field), don't
+                            // bind it to the object if it's a function.
+                            if (classMemberInfo?.isInstanceMember) {
+                                bindFunction = false;
+                            }
 
-                    useDescriptorSetterType = true;
-                } else if (isInstantiableClass(baseTypeConcrete)) {
-                    classMemberInfo = lookUpClassMember(
-                        baseTypeConcrete,
-                        expression.d.member.d.value,
-                        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
-                    );
-                    classOrObjectBase = baseTypeConcrete;
-                    memberAccessClass = classMemberInfo?.classType;
-                }
+                            useDescriptorSetterType = true;
+                        } else if (isInstantiableClass(baseSubtype)) {
+                            classMemberInfo = lookUpClassMember(
+                                baseSubtype,
+                                expression.d.member.d.value,
+                                MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
+                            );
+                            classOrObjectBase = baseSubtype;
+                            memberAccessClass = classMemberInfo?.classType;
+                        }
+                    },
+                    /* sortSubtypes */ true
+                );
 
                 if (isTypeVar(baseType)) {
                     selfType = baseType;
@@ -2863,7 +2874,7 @@ export function createTypeEvaluator(
                         );
                     }
 
-                    if (isFunction(declaredType) || isOverloaded(declaredType)) {
+                    if (isFunctionOrOverloaded(declaredType)) {
                         if (bindFunction) {
                             declaredType = bindFunctionToClassOrObject(
                                 classOrObjectBase,
@@ -5983,8 +5994,7 @@ export function createTypeEvaluator(
         // member could not be accessed.
         if (!type) {
             const isFunctionRule =
-                isFunction(baseType) ||
-                isOverloaded(baseType) ||
+                isFunctionOrOverloaded(baseType) ||
                 (isClassInstance(baseType) && ClassType.isBuiltIn(baseType, 'function'));
 
             if (!baseTypeResult.isIncomplete) {
@@ -5998,7 +6008,7 @@ export function createTypeEvaluator(
                 // If there is an expected type diagnostic addendum (used for assignments),
                 // use that rather than the local diagnostic addendum because it will be
                 // more informative.
-                if (usage.setExpectedTypeDiag) {
+                if (usage.setExpectedTypeDiag && !usage.setExpectedTypeDiag.isEmpty()) {
                     diag = usage.setExpectedTypeDiag;
                 }
 
@@ -6215,113 +6225,117 @@ export function createTypeEvaluator(
         let isDescriptorApplied = false;
         let memberAccessDeprecationInfo: MemberAccessDeprecationInfo | undefined;
 
-        type = mapSubtypes(type, (subtype) => {
-            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-            const isClassMember = !memberInfo || memberInfo.isClassMember;
-            let resultType: Type;
+        type = mapSubtypes(
+            type,
+            (subtype) => {
+                const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+                const isClassMember = !memberInfo || memberInfo.isClassMember;
+                let resultType: Type;
 
-            if (isClass(concreteSubtype) && isClassMember && errorNode) {
-                const descResult = applyDescriptorAccessMethod(
-                    subtype,
-                    concreteSubtype,
-                    memberInfo,
-                    classType,
-                    selfType,
-                    flags,
-                    errorNode,
-                    memberName,
-                    usage,
-                    diag
-                );
+                if (isClass(concreteSubtype) && isClassMember && errorNode) {
+                    const descResult = applyDescriptorAccessMethod(
+                        subtype,
+                        concreteSubtype,
+                        memberInfo,
+                        classType,
+                        selfType,
+                        flags,
+                        errorNode,
+                        memberName,
+                        usage,
+                        diag
+                    );
 
-                if (descResult.isAsymmetricAccessor) {
-                    isAsymmetricAccessor = true;
+                    if (descResult.isAsymmetricAccessor) {
+                        isAsymmetricAccessor = true;
+                    }
+
+                    if (descResult.memberAccessDeprecationInfo) {
+                        memberAccessDeprecationInfo = descResult.memberAccessDeprecationInfo;
+                    }
+
+                    if (descResult.typeErrors) {
+                        isDescriptorError = true;
+                    }
+
+                    if (descResult.isDescriptorApplied) {
+                        isDescriptorApplied = true;
+                    }
+
+                    resultType = descResult.type;
+                } else if (isFunctionOrOverloaded(concreteSubtype) && TypeBase.isInstance(concreteSubtype)) {
+                    const typeResult = bindMethodForMemberAccess(
+                        subtype,
+                        concreteSubtype,
+                        memberInfo,
+                        classType,
+                        selfType,
+                        flags,
+                        memberName,
+                        usage,
+                        diag,
+                        recursionCount
+                    );
+
+                    resultType = typeResult.type;
+                    if (typeResult.typeErrors) {
+                        isDescriptorError = true;
+                    }
+                } else {
+                    resultType = subtype;
                 }
 
-                if (descResult.memberAccessDeprecationInfo) {
-                    memberAccessDeprecationInfo = descResult.memberAccessDeprecationInfo;
+                // If this is a "set" or "delete" operation, we have a bit more work to do.
+                if (usage.method === 'get') {
+                    return resultType;
                 }
 
-                if (descResult.typeErrors) {
-                    isDescriptorError = true;
-                }
-
-                if (descResult.isDescriptorApplied) {
-                    isDescriptorApplied = true;
-                }
-
-                resultType = descResult.type;
-            } else if (isFunction(concreteSubtype) || isOverloaded(concreteSubtype)) {
-                const typeResult = bindMethodForMemberAccess(
-                    subtype,
-                    concreteSubtype,
-                    memberInfo,
-                    classType,
-                    selfType,
-                    flags,
-                    memberName,
-                    usage,
-                    diag,
-                    recursionCount
-                );
-
-                resultType = typeResult.type;
-                if (typeResult.typeErrors) {
-                    isDescriptorError = true;
-                }
-            } else {
-                resultType = subtype;
-            }
-
-            // If this is a "set" or "delete" operation, we have a bit more work to do.
-            if (usage.method === 'get') {
-                return resultType;
-            }
-
-            // Check for an attempt to overwrite or delete a ClassVar member from an instance.
-            if (
-                !isDescriptorApplied &&
-                memberInfo &&
-                isEffectivelyClassVar(memberInfo.symbol, ClassType.isDataClass(classType)) &&
-                (flags & MemberAccessFlags.DisallowClassVarWrites) !== 0
-            ) {
-                diag?.addMessage(LocAddendum.memberSetClassVar().format({ name: memberName }));
-                isDescriptorError = true;
-            }
-
-            // Check for an attempt to overwrite or delete a final member variable.
-            const finalVarTypeDecl = memberInfo?.symbol
-                .getDeclarations()
-                .find((decl) => isFinalVariableDeclaration(decl));
-
-            if (
-                finalVarTypeDecl &&
-                errorNode &&
-                !ParseTreeUtils.isNodeContainedWithin(errorNode, finalVarTypeDecl.node)
-            ) {
-                // If a Final instance variable is declared in the class body but is
-                // being assigned within an __init__ method, it's allowed.
-                const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
+                // Check for an attempt to overwrite or delete a ClassVar member from an instance.
                 if (
-                    !enclosingFunctionNode ||
-                    enclosingFunctionNode.d.name.d.value !== '__init__' ||
-                    (finalVarTypeDecl as VariableDeclaration).inferredTypeSource !== undefined ||
-                    isInstantiableClass(classType)
+                    !isDescriptorApplied &&
+                    memberInfo &&
+                    isEffectivelyClassVar(memberInfo.symbol, ClassType.isDataClass(classType)) &&
+                    (flags & MemberAccessFlags.DisallowClassVarWrites) !== 0
                 ) {
-                    diag?.addMessage(LocMessage.finalReassigned().format({ name: memberName }));
+                    diag?.addMessage(LocAddendum.memberSetClassVar().format({ name: memberName }));
                     isDescriptorError = true;
                 }
-            }
 
-            // Check for an attempt to overwrite or delete an instance variable that is
-            // read-only (e.g. in a named tuple).
-            if (memberInfo?.isInstanceMember && isClass(memberInfo.classType) && memberInfo.isReadOnly) {
-                diag?.addMessage(LocAddendum.readOnlyAttribute().format({ name: memberName }));
-                isDescriptorError = true;
-            }
+                // Check for an attempt to overwrite or delete a final member variable.
+                const finalVarTypeDecl = memberInfo?.symbol
+                    .getDeclarations()
+                    .find((decl) => isFinalVariableDeclaration(decl));
 
-            return resultType;
-        });
+                if (
+                    finalVarTypeDecl &&
+                    errorNode &&
+                    !ParseTreeUtils.isNodeContainedWithin(errorNode, finalVarTypeDecl.node)
+                ) {
+                    // If a Final instance variable is declared in the class body but is
+                    // being assigned within an __init__ method, it's allowed.
+                    const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
+                    if (
+                        !enclosingFunctionNode ||
+                        enclosingFunctionNode.d.name.d.value !== '__init__' ||
+                        (finalVarTypeDecl as VariableDeclaration).inferredTypeSource !== undefined ||
+                        isInstantiableClass(classType)
+                    ) {
+                        diag?.addMessage(LocMessage.finalReassigned().format({ name: memberName }));
+                        isDescriptorError = true;
+                    }
+                }
+
+                // Check for an attempt to overwrite or delete an instance variable that is
+                // read-only (e.g. in a named tuple).
+                if (memberInfo?.isInstanceMember && isClass(memberInfo.classType) && memberInfo.isReadOnly) {
+                    diag?.addMessage(LocAddendum.readOnlyAttribute().format({ name: memberName }));
+                    isDescriptorError = true;
+                }
+
+                return resultType;
+            },
+            { retainTypeAlias: true }
+        );
 
         if (!isDescriptorError && usage.method === 'set' && usage.setType) {
             if (errorNode && memberInfo.symbol.hasTypedDeclarations()) {
@@ -6441,7 +6455,7 @@ export function createTypeEvaluator(
             return { type: UnknownType.create(), typeErrors: true };
         }
 
-        if (!isFunction(methodType) && !isOverloaded(methodType)) {
+        if (!isFunctionOrOverloaded(methodType)) {
             if (isAnyOrUnknown(methodType)) {
                 return { type: methodType };
             }
@@ -6501,7 +6515,7 @@ export function createTypeEvaluator(
                     selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : classType
                 );
 
-                if (isFunction(specializedType) || isOverloaded(specializedType)) {
+                if (isFunctionOrOverloaded(specializedType)) {
                     methodType = specializedType;
                 }
             }
@@ -6838,7 +6852,7 @@ export function createTypeEvaluator(
             });
         }
 
-        if (!isFunction(accessMemberType) && !isOverloaded(accessMemberType)) {
+        if (!isFunctionOrOverloaded(accessMemberType)) {
             if (isAnyOrUnknown(accessMemberType)) {
                 return { type: accessMemberType };
             }
@@ -12113,7 +12127,7 @@ export function createTypeEvaluator(
         // If the function is returning a callable, don't eliminate unsolved
         // type vars within a union. There are legit uses for unsolved type vars
         // within a callable.
-        if (isFunction(returnType) || isOverloaded(returnType)) {
+        if (isFunctionOrOverloaded(returnType)) {
             eliminateUnsolvedInUnions = false;
         }
 
@@ -19230,7 +19244,7 @@ export function createTypeEvaluator(
         } else {
             let skipInference = false;
 
-            if (isFunction(defaultValueType) || isOverloaded(defaultValueType)) {
+            if (isFunctionOrOverloaded(defaultValueType)) {
                 // Do not infer parameter types that use a lambda or another function as a
                 // default value. We're likely to generate false positives in this case.
                 // It's not clear whether parameters should be positional-only or not.
@@ -21092,7 +21106,7 @@ export function createTypeEvaluator(
             if (ClassType.isBuiltIn(classType, 'type') && typeArgs) {
                 if (typeArgs.length >= 1) {
                     // Treat type[function] as illegal.
-                    if (isFunction(typeArgs[0].type) || isOverloaded(typeArgs[0].type)) {
+                    if (isFunctionOrOverloaded(typeArgs[0].type)) {
                         addDiagnostic(
                             DiagnosticRule.reportInvalidTypeForm,
                             LocMessage.typeAnnotationWithCallable(),
@@ -21825,7 +21839,7 @@ export function createTypeEvaluator(
             return type;
         }
 
-        if (isFunction(type) || isOverloaded(type)) {
+        if (isFunctionOrOverloaded(type)) {
             return ensureSignaturesAreUnique(type, tracker, node.start);
         }
 
@@ -23698,6 +23712,7 @@ export function createTypeEvaluator(
             errorNode &&
             selfClass &&
             isClass(selfClass) &&
+            !selfClass.priv.includeSubclasses &&
             member.isInstanceMember &&
             isClass(member.unspecializedClassType) &&
             (flags & MemberAccessFlags.DisallowGenericInstanceVariableAccess) !== 0 &&
@@ -23714,8 +23729,7 @@ export function createTypeEvaluator(
                 findSubtype(
                     specializedType,
                     (subtype) =>
-                        !isFunction(subtype) &&
-                        !isOverloaded(subtype) &&
+                        !isFunctionOrOverloaded(subtype) &&
                         requiresSpecialization(subtype, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
                 )
             ) {
@@ -24939,7 +24953,7 @@ export function createTypeEvaluator(
                 }
 
                 return true;
-            } else if (isFunction(concreteSrcType) || isOverloaded(concreteSrcType)) {
+            } else if (isFunctionOrOverloaded(concreteSrcType)) {
                 // Is the destination a callback protocol (defined in PEP 544)?
                 const destCallbackType = getCallbackProtocolType(destType, recursionCount);
                 if (destCallbackType) {
@@ -25401,10 +25415,8 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    if (isFunction(srcSubtype) || isOverloaded(srcSubtype)) {
-                        if (isFunction(destSubtype) || isOverloaded(destSubtype)) {
-                            return true;
-                        }
+                    if (isFunctionOrOverloaded(srcSubtype) && isFunctionOrOverloaded(destSubtype)) {
+                        return true;
                     }
 
                     return false;
@@ -25690,8 +25702,8 @@ export function createTypeEvaluator(
             return isTypeSame(leftType, rightType, { ignoreConditions: true });
         }
 
-        const isLeftCallable = isFunction(leftType) || isOverloaded(leftType);
-        const isRightCallable = isFunction(rightType) || isOverloaded(rightType);
+        const isLeftCallable = isFunctionOrOverloaded(leftType);
+        const isRightCallable = isFunctionOrOverloaded(rightType);
 
         // If either type is a function, assume that it may be comparable. The other
         // operand might be a callable object, an 'object' instance, etc. We could
@@ -26330,8 +26342,12 @@ export function createTypeEvaluator(
             srcType = FunctionType.cloneRemoveParamSpecArgsKwargs(srcType);
         }
 
-        const destParamDetails = getParamListDetails(destType);
-        const srcParamDetails = getParamListDetails(srcType);
+        const destParamDetails = getParamListDetails(destType, {
+            disallowExtraKwargsForTd: (flags & AssignTypeFlags.DisallowExtraKwargsForTd) !== 0,
+        });
+        const srcParamDetails = getParamListDetails(srcType, {
+            disallowExtraKwargsForTd: (flags & AssignTypeFlags.DisallowExtraKwargsForTd) !== 0,
+        });
 
         adjustSourceParamDetailsForDestVariadic(
             isContra ? destParamDetails : srcParamDetails,
@@ -27187,7 +27203,7 @@ export function createTypeEvaluator(
 
                     // We also need to be careful with callback protocols.
                     if (isClassInstance(declaredSubtype) && ClassType.isProtocolClass(declaredSubtype)) {
-                        if (isFunction(assignedSubtype) || isOverloaded(assignedSubtype)) {
+                        if (isFunctionOrOverloaded(assignedSubtype)) {
                             return assignedSubtype;
                         }
                     }
@@ -27230,7 +27246,7 @@ export function createTypeEvaluator(
     ): boolean {
         // If we're overriding a non-method with a method, report it as an error.
         // This occurs when a non-property overrides a property.
-        if (!isFunction(baseMethod) && !isOverloaded(baseMethod)) {
+        if (!isFunctionOrOverloaded(baseMethod)) {
             diag.addMessage(LocAddendum.overrideType().format({ type: printType(baseMethod) }));
             return false;
         }
@@ -28069,7 +28085,7 @@ export function createTypeEvaluator(
                     // bound to its own __call__ method but the first parameter
                     // is annotated with its own callable type. This can lead to
                     // infinite recursion.
-                    if (isFunction(memberTypeFirstParamType) || isOverloaded(memberTypeFirstParamType)) {
+                    if (isFunctionOrOverloaded(memberTypeFirstParamType)) {
                         if (isClassInstance(firstParamType) && ClassType.isProtocolClass(firstParamType)) {
                             if (subDiag) {
                                 subDiag.addMessage(

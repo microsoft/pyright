@@ -157,6 +157,7 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isModule,
     isNever,
@@ -1918,7 +1919,7 @@ export class Checker extends ParseTreeWalker {
         doForEachSubtype(exprTypeResult.type, (subtype) => {
             subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
-            if (!isFunction(subtype) && !isOverloaded(subtype)) {
+            if (!isFunctionOrOverloaded(subtype)) {
                 isExprFunction = false;
             }
 
@@ -2684,7 +2685,10 @@ export class Checker extends ParseTreeWalker {
             return false;
         }
 
-        let flags = AssignTypeFlags.SkipReturnTypeCheck | AssignTypeFlags.OverloadOverlap;
+        let flags =
+            AssignTypeFlags.SkipReturnTypeCheck |
+            AssignTypeFlags.OverloadOverlap |
+            AssignTypeFlags.DisallowExtraKwargsForTd;
         if (partialOverlap) {
             flags |= AssignTypeFlags.PartialOverloadOverlap;
         }
@@ -2744,7 +2748,10 @@ export class Checker extends ParseTreeWalker {
             implBound,
             diag,
             constraints,
-            AssignTypeFlags.SkipReturnTypeCheck | AssignTypeFlags.Contravariant | AssignTypeFlags.SkipSelfClsTypeCheck
+            AssignTypeFlags.SkipReturnTypeCheck |
+                AssignTypeFlags.Contravariant |
+                AssignTypeFlags.SkipSelfClsTypeCheck |
+                AssignTypeFlags.DisallowExtraKwargsForTd
         );
 
         // Now check the return types.
@@ -5578,7 +5585,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         let newMemberType: Type | undefined = newMethodResult.type;
-        if (!isFunction(newMemberType) && !isOverloaded(newMemberType)) {
+        if (!isFunctionOrOverloaded(newMemberType)) {
             return;
         }
 
@@ -5592,7 +5599,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         let initMemberType: Type | undefined = initMethodResult.type;
-        if (!isFunction(initMemberType) && !isOverloaded(initMemberType)) {
+        if (!isFunctionOrOverloaded(initMemberType)) {
             return;
         }
 
@@ -5899,10 +5906,10 @@ export class Checker extends ParseTreeWalker {
         const overrideDecl = getLastTypedDeclarationForSymbol(overrideClassAndSymbol.symbol);
         const overriddenDecl = getLastTypedDeclarationForSymbol(overriddenClassAndSymbol.symbol);
 
-        if (isFunction(overriddenType) || isOverloaded(overriddenType)) {
+        if (isFunctionOrOverloaded(overriddenType)) {
             const diagAddendum = new DiagnosticAddendum();
 
-            if (isFunction(overrideType) || isOverloaded(overrideType)) {
+            if (isFunctionOrOverloaded(overrideType)) {
                 if (
                     !this._evaluator.validateOverrideMethod(
                         overriddenType,
@@ -6672,7 +6679,7 @@ export class Checker extends ParseTreeWalker {
             baseType = makeTypeVarsBound(baseType, [childClassType.shared.typeVarScopeId]);
         }
 
-        if (isFunction(baseType) || isOverloaded(baseType)) {
+        if (isFunctionOrOverloaded(baseType)) {
             const diagAddendum = new DiagnosticAddendum();
 
             // Determine whether this is an attempt to override a method marked @final.
@@ -6707,7 +6714,7 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
-            if (isFunction(overrideType) || isOverloaded(overrideType)) {
+            if (isFunctionOrOverloaded(overrideType)) {
                 // Don't enforce parameter names for dundered methods. Many of them
                 // are misnamed in typeshed stubs, so this would result in many
                 // false positives.

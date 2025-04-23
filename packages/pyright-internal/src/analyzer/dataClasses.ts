@@ -57,6 +57,7 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isOverloaded,
     isUnion,
@@ -271,7 +272,7 @@ export function synthesizeDataClassMethods(
 
                 // If the RHS of the assignment is assigning a field instance where the
                 // "init" parameter is set to false, do not include it in the init method.
-                if (statement.d.rightExpr.nodeType === ParseNodeType.Call) {
+                if (!isNamedTuple && statement.d.rightExpr.nodeType === ParseNodeType.Call) {
                     const callTypeResult = evaluator.getTypeOfExpression(
                         statement.d.rightExpr.d.leftExpr,
                         EvalFlags.CallBaseDefaults
@@ -390,6 +391,16 @@ export function synthesizeDataClassMethods(
 
             if (variableNameNode && variableTypeEvaluator) {
                 const variableName = variableNameNode.d.value;
+
+                // Named tuples don't allow attributes that begin with an underscore.
+                if (isNamedTuple && variableName.startsWith('_')) {
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.namedTupleFieldUnderscore(),
+                        variableNameNode
+                    );
+                    return;
+                }
 
                 // Don't include class vars. PEP 557 indicates that they shouldn't
                 // be considered data class entries.
@@ -511,7 +522,7 @@ export function synthesizeDataClassMethods(
 
             // If the RHS of the assignment is assigning a field instance where the
             // "init" parameter is set to false, do not include it in the init method.
-            if (statement.d.rightExpr.nodeType === ParseNodeType.Call) {
+            if (!isNamedTuple && statement.d.rightExpr.nodeType === ParseNodeType.Call) {
                 const callType = evaluator.getTypeOfExpression(
                     statement.d.rightExpr.d.leftExpr,
                     EvalFlags.CallBaseDefaults
@@ -911,7 +922,7 @@ function getConverterInputType(
     );
     FunctionType.addPositionOnlyParamSeparator(targetFunction);
 
-    if (isFunction(converterType) || isOverloaded(converterType)) {
+    if (isFunctionOrOverloaded(converterType)) {
         const acceptedTypes: Type[] = [];
         const diagAddendum = new DiagnosticAddendum();
 
@@ -981,7 +992,7 @@ function getConverterAsFunction(
     evaluator: TypeEvaluator,
     converterType: Type
 ): FunctionType | OverloadedType | undefined {
-    if (isFunction(converterType) || isOverloaded(converterType)) {
+    if (isFunctionOrOverloaded(converterType)) {
         return converterType;
     }
 
@@ -999,7 +1010,7 @@ function getConverterAsFunction(
                 fromConstructor = fromConstructor.priv.subtypes[0];
             }
 
-            if (isFunction(fromConstructor) || isOverloaded(fromConstructor)) {
+            if (isFunctionOrOverloaded(fromConstructor)) {
                 return fromConstructor;
             }
         }
@@ -1311,8 +1322,7 @@ export function validateDataClassTransformDecorator(
                     !ClassType.isBuiltIn(valueType, 'tuple') ||
                     !valueType.priv.tupleTypeArgs ||
                     valueType.priv.tupleTypeArgs.some(
-                        (entry) =>
-                            !isInstantiableClass(entry.type) && !isFunction(entry.type) && !isOverloaded(entry.type)
+                        (entry) => !isInstantiableClass(entry.type) && !isFunctionOrOverloaded(entry.type)
                     )
                 ) {
                     evaluator.addDiagnostic(

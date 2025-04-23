@@ -36,6 +36,7 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isNever,
     isOverloaded,
@@ -556,7 +557,7 @@ function validateFallbackConstructorCall(
     // If there was no object.__new__ or it's not a callable, then something has
     // gone terribly wrong in the typeshed stubs. To avoid crashing, simply
     // return the instance.
-    if (!newMethodType || (!isFunction(newMethodType) && !isOverloaded(newMethodType))) {
+    if (!newMethodType || !isFunctionOrOverloaded(newMethodType)) {
         return { returnType: convertToInstance(type) };
     }
 
@@ -780,7 +781,7 @@ function createFunctionFromMetaclassCall(
     }
 
     const callType = evaluator.getTypeOfMember(callInfo);
-    if (!isFunction(callType) && !isOverloaded(callType)) {
+    if (!isFunctionOrOverloaded(callType)) {
         return undefined;
     }
 

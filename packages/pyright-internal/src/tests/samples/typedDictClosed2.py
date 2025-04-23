@@ -24,13 +24,6 @@ def func2(**kwargs: Unpack[Movie2]) -> None: ...
 
 func2(name="")
 
-# It's not clear whether this is allowed from the spec,
-# but based on a reading of PEP 692, extra (non-specified)
-# items should not be allowed as explicit keyword arguments.
-# This is consistent with the original TypedDict PEP
-# that disallows extra items to be present in a literal dict
-# expression that is assigned to a TypedDict type.
-# We'll therefore assume this should generate an error.
 func2(name="", foo=1)
 
 # This should generate an error.

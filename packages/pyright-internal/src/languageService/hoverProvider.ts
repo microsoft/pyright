@@ -30,9 +30,8 @@ import {
     getTypeAliasInfo,
     isAnyOrUnknown,
     isClassInstance,
-    isFunction,
+    isFunctionOrOverloaded,
     isModule,
-    isOverloaded,
     isParamSpec,
     isTypeVar,
 } from '../analyzer/types';
@@ -557,7 +556,7 @@ export class HoverProvider {
             return false;
         }
 
-        if (result.methodType && (isFunction(result.methodType) || isOverloaded(result.methodType))) {
+        if (result.methodType && isFunctionOrOverloaded(result.methodType)) {
             this._addResultsPart(
                 parts,
                 getConstructorTooltip(node.d.value, result.methodType, this._evaluator, this._functionSignatureDisplay),

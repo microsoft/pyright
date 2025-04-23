@@ -136,3 +136,18 @@ def func9[T: H](x: type[T], y: H) -> T:
         reveal_type(y, expected_text="H*")
         return y
     return x(y)
+
+
+class I:
+    pass
+
+
+class J:
+    pass
+
+
+def func10[T: I | J](items: list[I | J], kind: type[T]) -> T | None:
+    for i in items:
+        if type(i) is kind:
+            reveal_type(i, expected_text="I* | J*")
+            return i

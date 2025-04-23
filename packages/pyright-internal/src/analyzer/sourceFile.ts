@@ -232,12 +232,6 @@ export class SourceFile {
     // "py.typed" file.
     private readonly _isThirdPartyPyTypedPresent: boolean;
 
-    // Indicates that the file is a submodule within a stub
-    // package or a py.typed package and is named such that it
-    // is "private" or contained within a subdirectory that
-    // is named such that it is "private".
-    private readonly _isModulePrivate: boolean;
-
     private readonly _editMode: SourceFileEditMode;
 
     // Settings that control which diagnostics should be output. The rules
@@ -261,7 +255,6 @@ export class SourceFile {
         moduleName: string,
         isThirdPartyImport: boolean,
         isThirdPartyPyTypedPresent: boolean,
-        isModulePrivate: boolean,
         editMode: SourceFileEditMode,
         console?: ConsoleInterface,
         logTracker?: LogTracker,
@@ -278,7 +271,6 @@ export class SourceFile {
         this._isStubFile = uri.hasExtension('.pyi');
         this._isThirdPartyImport = isThirdPartyImport;
         this._isThirdPartyPyTypedPresent = isThirdPartyPyTypedPresent;
-        this._isModulePrivate = isModulePrivate;
         const fileName = uri.fileName;
         this._isTypingStubFile =
             this._isStubFile && (this._uri.pathEndsWith('stdlib/typing.pyi') || fileName === 'typing_extensions.pyi');
@@ -1353,7 +1345,6 @@ export class SourceFile {
             isTypeshedStubFile: this._isTypeshedStubFile,
             isBuiltInStubFile: this._isBuiltInStubFile,
             isInPyTypedPackage: this._isThirdPartyPyTypedPresent,
-            isModulePrivate: this._isModulePrivate,
             ipythonMode: this._ipythonMode,
             accessedSymbolSet: new Set<number>(),
         };

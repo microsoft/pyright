@@ -73,3 +73,7 @@ ClassC.x
 del ClassC.x
 ClassC.x
 del ClassC.x
+
+
+def func1(a: type[ClassA]):
+    print(a.x)

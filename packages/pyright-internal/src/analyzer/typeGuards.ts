@@ -28,7 +28,7 @@ import { Declaration, DeclarationType } from './declaration';
 import { transformTypeForEnumMember } from './enums';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
-import { getScopeForNode } from './scopeUtils';
+import { getScopeForNode, isScopeContainedWithin } from './scopeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { getTypedDictMembersForClass } from './typedDicts';
 import { AssignTypeFlags, EvalFlags, TypeEvaluator } from './typeEvaluatorTypes';
@@ -46,6 +46,7 @@ import {
     isClass,
     isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isModule,
     isNever,
@@ -165,7 +166,11 @@ export function getTypeNarrowingCallback(
                     leftExpression = leftExpression.d.name;
                 }
 
-                if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
+                if (
+                    ParseTreeUtils.isMatchingExpression(reference, leftExpression, (ref, expr) =>
+                        isNameSameScope(evaluator, ref, expr)
+                    )
+                ) {
                     return (type: Type) => {
                         return { type: narrowTypeForIsNone(evaluator, type, adjIsPositiveTest), isIncomplete: false };
                     };
@@ -173,7 +178,9 @@ export function getTypeNarrowingCallback(
 
                 if (
                     leftExpression.nodeType === ParseNodeType.Index &&
-                    ParseTreeUtils.isMatchingExpression(reference, leftExpression.d.leftExpr) &&
+                    ParseTreeUtils.isMatchingExpression(reference, leftExpression.d.leftExpr, (ref, expr) =>
+                        isNameSameScope(evaluator, ref, expr)
+                    ) &&
                     leftExpression.d.items.length === 1 &&
                     !leftExpression.d.trailingComma &&
                     leftExpression.d.items[0].d.argCategory === ArgCategory.Simple &&
@@ -203,7 +210,11 @@ export function getTypeNarrowingCallback(
                     leftExpression = leftExpression.d.name;
                 }
 
-                if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
+                if (
+                    ParseTreeUtils.isMatchingExpression(reference, leftExpression, (ref, expr) =>
+                        isNameSameScope(evaluator, ref, expr)
+                    )
+                ) {
                     return (type: Type) => {
                         return {
                             type: narrowTypeForIsEllipsis(evaluator, testExpression, type, adjIsPositiveTest),
@@ -220,21 +231,39 @@ export function getTypeNarrowingCallback(
                     testExpression.d.leftExpr.d.args[0].d.argCategory === ArgCategory.Simple
                 ) {
                     const arg0Expr = testExpression.d.leftExpr.d.args[0].d.valueExpr;
-                    if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
+                    if (
+                        ParseTreeUtils.isMatchingExpression(reference, arg0Expr, (ref, expr) =>
+                            isNameSameScope(evaluator, ref, expr)
+                        )
+                    ) {
                         const callType = evaluator.getTypeOfExpression(
                             testExpression.d.leftExpr.d.leftExpr,
                             EvalFlags.CallBaseDefaults
                         ).type;
 
                         if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type')) {
-                            const classTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
-                            const classType = evaluator.makeTopLevelTypeVarsConcrete(classTypeResult.type);
+                            const rhsResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
+                            const classTypes: ClassType[] = [];
+                            let isClassType = true;
 
-                            if (isInstantiableClass(classType)) {
+                            evaluator.mapSubtypesExpandTypeVars(
+                                rhsResult.type,
+                                /* options */ undefined,
+                                (expandedSubtype) => {
+                                    if (isInstantiableClass(expandedSubtype)) {
+                                        classTypes.push(expandedSubtype);
+                                    } else {
+                                        isClassType = false;
+                                    }
+                                    return undefined;
+                                }
+                            );
+
+                            if (isClassType && classTypes.length > 0) {
                                 return (type: Type) => {
                                     return {
-                                        type: narrowTypeForTypeIs(evaluator, type, classType, adjIsPositiveTest),
-                                        isIncomplete: !!classTypeResult.isIncomplete,
+                                        type: narrowTypeForTypeIs(evaluator, type, classTypes, adjIsPositiveTest),
+                                        isIncomplete: !!rhsResult.isIncomplete,
                                     };
                                 };
                             }
@@ -244,7 +273,11 @@ export function getTypeNarrowingCallback(
             }
 
             if (isOrIsNotOperator) {
-                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr)) {
+                if (
+                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr, (ref, expr) =>
+                        isNameSameScope(evaluator, ref, expr)
+                    )
+                ) {
                     const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                     const rightType = rightTypeResult.type;
 
@@ -281,7 +314,9 @@ export function getTypeNarrowingCallback(
                     testExpression.d.leftExpr.d.items.length === 1 &&
                     !testExpression.d.leftExpr.d.trailingComma &&
                     testExpression.d.leftExpr.d.items[0].d.argCategory === ArgCategory.Simple &&
-                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr)
+                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr, (ref, expr) =>
+                        isNameSameScope(evaluator, ref, expr)
+                    )
                 ) {
                     const indexTypeResult = evaluator.getTypeOfExpression(
                         testExpression.d.leftExpr.d.items[0].d.valueExpr
@@ -343,7 +378,11 @@ export function getTypeNarrowingCallback(
                 const adjIsPositiveTest =
                     testExpression.d.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
 
-                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr)) {
+                if (
+                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr, (ref, expr) =>
+                        isNameSameScope(evaluator, ref, expr)
+                    )
+                ) {
                     const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                     const rightType = rightTypeResult.type;
 
@@ -369,7 +408,9 @@ export function getTypeNarrowingCallback(
                     testExpression.d.leftExpr.d.items.length === 1 &&
                     !testExpression.d.leftExpr.d.trailingComma &&
                     testExpression.d.leftExpr.d.items[0].d.argCategory === ArgCategory.Simple &&
-                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr)
+                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr, (ref, expr) =>
+                        isNameSameScope(evaluator, ref, expr)
+                    )
                 ) {
                     const indexTypeResult = evaluator.getTypeOfExpression(
                         testExpression.d.leftExpr.d.items[0].d.valueExpr
@@ -418,7 +459,9 @@ export function getTypeNarrowingCallback(
             if (
                 equalsOrNotEqualsOperator &&
                 testExpression.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr)
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr, (ref, expr) =>
+                    isNameSameScope(evaluator, ref, expr)
+                )
             ) {
                 const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                 const rightType = rightTypeResult.type;
@@ -446,7 +489,9 @@ export function getTypeNarrowingCallback(
             // an enum or bool literal
             if (
                 testExpression.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr)
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr, (ref, expr) =>
+                    isNameSameScope(evaluator, ref, expr)
+                )
             ) {
                 const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                 const rightType = rightTypeResult.type;
@@ -476,7 +521,9 @@ export function getTypeNarrowingCallback(
             // These are commonly-used patterns used in control flow.
             if (
                 testExpression.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr) &&
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr, (ref, expr) =>
+                    isNameSameScope(evaluator, ref, expr)
+                ) &&
                 testExpression.d.rightExpr.nodeType === ParseNodeType.Constant &&
                 testExpression.d.rightExpr.d.constType === KeywordType.None
             ) {
@@ -503,7 +550,11 @@ export function getTypeNarrowingCallback(
         ) {
             const arg0Expr = testExpression.d.leftExpr.d.args[0].d.valueExpr;
 
-            if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
+            if (
+                ParseTreeUtils.isMatchingExpression(reference, arg0Expr, (ref, expr) =>
+                    isNameSameScope(evaluator, ref, expr)
+                )
+            ) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.d.leftExpr.d.leftExpr,
                     EvalFlags.CallBaseDefaults
@@ -561,7 +612,11 @@ export function getTypeNarrowingCallback(
 
         if (testExpression.d.operator === OperatorType.In || testExpression.d.operator === OperatorType.NotIn) {
             // Look for "x in y" or "x not in y" where y is one of several built-in types.
-            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr)) {
+            if (
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr, (ref, expr) =>
+                    isNameSameScope(evaluator, ref, expr)
+                )
+            ) {
                 const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                 const rightType = rightTypeResult.type;
                 const adjIsPositiveTest =
@@ -575,7 +630,11 @@ export function getTypeNarrowingCallback(
                 };
             }
 
-            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.rightExpr)) {
+            if (
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.rightExpr, (ref, expr) =>
+                    isNameSameScope(evaluator, ref, expr)
+                )
+            ) {
                 // Look for <string literal> in y where y is a union that contains
                 // one or more TypedDicts.
                 const leftTypeResult = evaluator.getTypeOfExpression(testExpression.d.leftExpr);
@@ -609,7 +668,11 @@ export function getTypeNarrowingCallback(
             const arg0Expr = testExpression.d.args[0].d.valueExpr;
             const arg1Expr = testExpression.d.args[1].d.valueExpr;
 
-            if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
+            if (
+                ParseTreeUtils.isMatchingExpression(reference, arg0Expr, (ref, expr) =>
+                    isNameSameScope(evaluator, ref, expr)
+                )
+            ) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.d.leftExpr,
                     EvalFlags.CallBaseDefaults
@@ -655,7 +718,11 @@ export function getTypeNarrowingCallback(
 
         // Look for "bool(X)"
         if (testExpression.d.args.length === 1 && !testExpression.d.args[0].d.name) {
-            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.args[0].d.valueExpr)) {
+            if (
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.args[0].d.valueExpr, (ref, expr) =>
+                    isNameSameScope(evaluator, ref, expr)
+                )
+            ) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.d.leftExpr,
                     EvalFlags.CallBaseDefaults
@@ -676,7 +743,11 @@ export function getTypeNarrowingCallback(
         // Look for a TypeGuard function.
         if (testExpression.d.args.length >= 1) {
             const arg0Expr = testExpression.d.args[0].d.valueExpr;
-            if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
+            if (
+                ParseTreeUtils.isMatchingExpression(reference, arg0Expr, (ref, expr) =>
+                    isNameSameScope(evaluator, ref, expr)
+                )
+            ) {
                 // Does this look like it's a custom type guard function?
                 let isPossiblyTypeGuard = false;
 
@@ -739,7 +810,11 @@ export function getTypeNarrowingCallback(
         }
     }
 
-    if (ParseTreeUtils.isMatchingExpression(reference, testExpression)) {
+    if (
+        ParseTreeUtils.isMatchingExpression(reference, testExpression, (ref, expr) =>
+            isNameSameScope(evaluator, ref, expr)
+        )
+    ) {
         return (type: Type) => {
             return {
                 type: narrowTypeForTruthiness(evaluator, type, isPositiveTest),
@@ -1829,7 +1904,7 @@ function narrowTypeForInstance(
                 );
             }
 
-            if (isFunction(subtype) || isOverloaded(subtype)) {
+            if (isFunctionOrOverloaded(subtype)) {
                 return combineTypes(filterFunctionType(subtype, unexpandedSubtype));
             }
 
@@ -2375,46 +2450,64 @@ function narrowTypeForDiscriminatedFieldNoneComparison(
 }
 
 // Attempts to narrow a type based on a "type(x) is y" or "type(x) is not y" check.
-function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: ClassType, isPositiveTest: boolean) {
-    return evaluator.mapSubtypesExpandTypeVars(
-        type,
-        /* options */ undefined,
-        (subtype: Type, unexpandedSubtype: Type) => {
-            if (isClassInstance(subtype)) {
-                const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
-                if (isPositiveTest) {
-                    if (matches) {
-                        if (ClassType.isSameGenericClass(ClassType.cloneAsInstantiable(subtype), classType)) {
-                            return addConditionToType(subtype, getTypeCondition(classType));
+function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: ClassType[], isPositiveTest: boolean) {
+    // We currently don't support narrowing in the negative direction
+    // when there are more than one class types.
+    if (!isPositiveTest && classTypes.length > 1) {
+        return type;
+    }
+
+    const typesToCombine = classTypes.map((classType) => {
+        return evaluator.mapSubtypesExpandTypeVars(
+            type,
+            /* options */ undefined,
+            (subtype: Type, unexpandedSubtype: Type) => {
+                if (isClassInstance(subtype)) {
+                    const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
+                    if (isPositiveTest) {
+                        if (matches) {
+                            if (ClassType.isSameGenericClass(ClassType.cloneAsInstantiable(subtype), classType)) {
+                                return addConditionToType(subtype, getTypeCondition(classType));
+                            }
+
+                            return addConditionToType(ClassType.cloneAsInstance(classType), subtype.props?.condition);
                         }
 
-                        return addConditionToType(ClassType.cloneAsInstance(classType), subtype.props?.condition);
+                        if (!classType.priv.includeSubclasses) {
+                            return undefined;
+                        }
+
+                        if (!isTypeVar(unexpandedSubtype) || !TypeVarType.isSelf(unexpandedSubtype)) {
+                            return addConditionToType(subtype, classType.props?.condition);
+                        }
                     }
 
                     if (!classType.priv.includeSubclasses) {
-                        return undefined;
-                    }
-                } else if (!classType.priv.includeSubclasses) {
-                    // If the class if marked final and it matches, then
-                    // we can eliminate it in the negative case.
-                    if (matches && ClassType.isFinal(subtype)) {
-                        return undefined;
-                    }
+                        // If the class if marked final and it matches, then
+                        // we can eliminate it in the negative case.
+                        if (matches && ClassType.isFinal(subtype)) {
+                            return undefined;
+                        }
 
-                    // We can't eliminate the subtype in the negative
-                    // case because it could be a subclass of the type,
-                    // in which case `type(x) is y` would fail.
-                    return subtype;
+                        // We can't eliminate the subtype in the negative
+                        // case because it could be a subclass of the type,
+                        // in which case `type(x) is y` would fail.
+                        return subtype;
+                    }
                 }
-            } else if (isAnyOrUnknown(subtype)) {
-                return isPositiveTest
-                    ? ClassType.cloneAsInstance(addConditionToType(classType, getTypeCondition(subtype)))
-                    : subtype;
-            }
 
-            return unexpandedSubtype;
-        }
-    );
+                if (isAnyOrUnknown(subtype)) {
+                    return isPositiveTest
+                        ? ClassType.cloneAsInstance(addConditionToType(classType, getTypeCondition(subtype)))
+                        : subtype;
+                }
+
+                return unexpandedSubtype;
+            }
+        );
+    });
+
+    return combineTypes(typesToCombine);
 }
 
 // Attempts to narrow a type based on a comparison with a class using "is" or
@@ -2622,4 +2715,26 @@ export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassTy
     }
 
     return undefined;
+}
+
+// Determines whether the expression name node is in the same scope or
+// an outer scope from the reference name node. This allows isMatchingExpression
+// to determine whether two name nodes are referring to the same symbol.
+function isNameSameScope(evaluator: TypeEvaluator, reference: NameNode, expression: NameNode): boolean {
+    const refSymbol = evaluator.lookUpSymbolRecursive(reference, reference.d.value, /* honorCodeFlow */ false);
+    const exprSymbol = evaluator.lookUpSymbolRecursive(expression, expression.d.value, /* honorCodeFlow */ false);
+
+    if (!refSymbol || !exprSymbol) {
+        // This shouldn't happen, but just to be safe...
+        return true;
+    }
+
+    const refScope = refSymbol.scope;
+    const exprScope = exprSymbol.scope;
+
+    if (refScope === exprScope) {
+        return true;
+    }
+
+    return isScopeContainedWithin(refScope, exprScope);
 }

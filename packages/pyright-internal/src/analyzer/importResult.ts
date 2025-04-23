@@ -99,10 +99,6 @@ export interface ImportResult {
     // from .py here.
     nonStubImportResult?: ImportResult | undefined;
 
-    // Are the target module or its containing directories named in a
-    // manner that indicates the module should be treated as private?
-    isModulePrivate: boolean;
-
     // Is there a "py.typed" file (as described in PEP 561) present in
     // the package that was used to resolve the import?
     pyTypedInfo?: PyTypedInfo | undefined;
