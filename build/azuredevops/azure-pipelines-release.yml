@@ -305,11 +305,13 @@ extends:
 
             steps:
               - script: |
-                  dir $(Build.StagingDirectory)/dist
+                  dir
                 displayName: 'List files in dist folder'
+                workingDirectory: $(Build.StagingDirectory)/dist
               - script: |
-                  dir $(Build.StagingDirectory)/dist/$(ARTIFACT_NAME_PACKAGE)
+                  dir
                 displayName: 'List files in dist/$(ARTIFACT_NAME_PACKAGE) folder'
+                workingDirectory: $(Build.StagingDirectory)/dist/$(ARTIFACT_NAME_PACKAGE)
               # - template: MicroBuild.Publish.yml@MicroBuildTemplate
               #   parameters:
               #     intent: PackageDistribution
