@@ -153,6 +153,10 @@ extends:
         jobs:
           - job: build_npm
             displayName: Build NPM
+            pool:
+              name: VSEngSS-MicroBuild2022-1ES
+              os: windows
+              image: server2022-microbuildVS2022-1es
             templateContext:
               outputs:
                 - output: pipelineArtifact
@@ -180,7 +184,7 @@ extends:
                 displayName: npm pack
                 workingDirectory: packages/pyright
 
-              - script: mv pyright-*.tgz ${{ variables.PACKAGE_NAME }}
+              - script: ren pyright-*.tgz ${{ variables.PACKAGE_NAME }}
                 displayName: Remove version from package name
                 workingDirectory: packages/pyright
 
