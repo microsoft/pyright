@@ -212,6 +212,7 @@ extends:
                   targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)
             steps:
               - checkout: none
+              # Next step fails the build if https://github.com/microsoft/pyright/issues/10350 repros.
               - script: |
                   mkdir pyrightTest
                   cd pyrightTest
