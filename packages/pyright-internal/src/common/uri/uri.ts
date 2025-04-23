@@ -169,6 +169,29 @@ export namespace Uri {
         get<T>(key: ServiceKey<T>): T;
     }
 
+    export function maybeUri(value: string) {
+        const windows = /^[a-zA-Z]:\\?/;
+        const uri = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/?\/?/;
+
+        return uri.test(value) && !windows.test(value);
+    }
+
+    export function create(value: string, serviceProvider: IServiceProvider, checkRelative?: boolean): Uri;
+    export function create(
+        value: string,
+        caseSensitivityDetector: CaseSensitivityDetector,
+        checkRelative?: boolean
+    ): Uri;
+    export function create(value: string, arg: IServiceProvider | CaseSensitivityDetector, checkRelative = false): Uri {
+        arg = CaseSensitivityDetector.is(arg) ? arg : arg.get(ServiceKeys.caseSensitivityDetector);
+
+        if (maybeUri(value)) {
+            return parse(value, arg);
+        }
+
+        return file(value, arg, checkRelative);
+    }
+
     export function file(path: string, serviceProvider: IServiceProvider, checkRelative?: boolean): Uri;
     export function file(path: string, caseSensitivityDetector: CaseSensitivityDetector, checkRelative?: boolean): Uri;
     export function file(path: string, arg: IServiceProvider | CaseSensitivityDetector, checkRelative = false): Uri {
@@ -193,10 +216,10 @@ export namespace Uri {
         );
     }
 
-    export function parse(value: string | undefined, serviceProvider: IServiceProvider): Uri;
-    export function parse(value: string | undefined, caseSensitivityDetector: CaseSensitivityDetector): Uri;
-    export function parse(value: string | undefined, arg: IServiceProvider | CaseSensitivityDetector): Uri {
-        if (!value) {
+    export function parse(uriStr: string | undefined, serviceProvider: IServiceProvider): Uri;
+    export function parse(uriStr: string | undefined, caseSensitivityDetector: CaseSensitivityDetector): Uri;
+    export function parse(uriStr: string | undefined, arg: IServiceProvider | CaseSensitivityDetector): Uri {
+        if (!uriStr) {
             return Uri.empty();
         }
 
@@ -204,7 +227,7 @@ export namespace Uri {
 
         // Normalize the value here. This gets rid of '..' and '.' in the path. It also removes any
         // '/' on the end of the path.
-        const normalized = normalizeUri(value);
+        const normalized = normalizeUri(uriStr);
         if (normalized.uri.scheme === FileUriSchema) {
             return FileUri.createFileUri(
                 getFilePath(normalized.uri),

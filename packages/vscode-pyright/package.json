@@ -14,7 +14,7 @@
         "url": "https://github.com/Microsoft/pyright"
     },
     "engines": {
-        "vscode": "^1.91.0"
+        "vscode": "^1.99.0"
     },
     "keywords": [
         "python"
@@ -1589,7 +1589,7 @@
     },
     "devDependencies": {
         "@types/node": "^22.10.5",
-        "@types/vscode": "^1.90.0",
+        "@types/vscode": "^1.99.0",
         "@vscode/vsce": "^2.32.0",
         "copy-webpack-plugin": "^11.0.0",
         "esbuild-loader": "^3.2.0",

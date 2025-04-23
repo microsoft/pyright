@@ -550,11 +550,12 @@ function getTypeCategoryString(typeCategory: TypeCategory, type: any) {
     }
 }
 
-class TreeDumper extends ParseTreeWalker {
+export class TreeDumper extends ParseTreeWalker {
     private _indentation = '';
     private _output = '';
+    private _range: TextRange | undefined;
 
-    constructor(private _uri: Uri, private _lines: TextRangeCollection<TextRange>) {
+    constructor(private _uri: Uri, private _lines: TextRangeCollection<TextRange>, range?: TextRange) {
         super();
     }
 
@@ -563,6 +564,9 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override walk(node: ParseNode): void {
+        if (!this._isNodeInRange(node)) {
+            return;
+        }
         const childrenToWalk = this.visitNode(node);
         if (childrenToWalk.length > 0) {
             this._indentation += '  ';
@@ -998,6 +1002,14 @@ class TreeDumper extends ParseTreeWalker {
         return `[${node.id}] '${this._uri.toString()}:${pos.line + 1}:${pos.character + 1}' => ${printParseNodeType(
             node.nodeType
         )} ${getTextSpanString(node, this._lines)} =>`;
+    }
+
+    private _isNodeInRange(node: ParseNode) {
+        if (this._range === undefined) {
+            return true;
+        }
+
+        return TextRange.overlapsRange(this._range, node);
     }
 }
 
