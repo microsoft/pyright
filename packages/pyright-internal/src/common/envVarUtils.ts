@@ -23,7 +23,7 @@ export function resolvePathWithEnvVariables(
 
     const expanded = expandPathVariables(path, rootUri ?? Uri.empty(), workspaces);
     const caseDetector = workspace.service.serviceProvider.get(ServiceKeys.caseSensitivityDetector);
-    if (maybeUri(expanded)) {
+    if (Uri.maybeUri(expanded)) {
         // If path is expanded to uri, no need to resolve it against the workspace root.
         return Uri.parse(normalizeSlashes(expanded, '/'), caseDetector);
     }
@@ -90,11 +90,4 @@ export function expandPathVariables(path: string, rootPath: Uri, workspaces: Wor
     }
 
     return path;
-}
-
-function maybeUri(value: string) {
-    const windows = /^[a-zA-Z]:\\?/;
-    const uri = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/?\/?/;
-
-    return uri.test(value) && !windows.test(value);
 }
