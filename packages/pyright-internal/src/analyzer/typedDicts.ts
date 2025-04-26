@@ -1537,7 +1537,7 @@ export function getTypeOfIndexedTypedDict(
             // Look up the entry in the typed dict to get its type.
             const entryName = subtype.priv.literalValue as string;
             const entry = entries.knownItems.get(entryName) ?? entries.extraItems;
-            if (!entry) {
+            if (!entry || isNever(entry.valueType)) {
                 diag.addMessage(
                     LocAddendum.keyUndefined().format({
                         name: entryName,
