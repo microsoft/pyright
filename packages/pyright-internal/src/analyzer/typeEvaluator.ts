@@ -6229,7 +6229,7 @@ export function createTypeEvaluator(
             type,
             (subtype) => {
                 const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-                const isClassMember = !memberInfo || memberInfo.isClassMember;
+                const isClassMember = !memberInfo || (memberInfo.isClassMember && !memberInfo.isSlotsMember);
                 let resultType: Type;
 
                 if (isClass(concreteSubtype) && isClassMember && errorNode) {
