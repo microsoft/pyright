@@ -8884,38 +8884,40 @@ export function createTypeEvaluator(
 
             let reportError = false;
 
-            if (isAnyOrUnknown(secondArgConcreteType)) {
-                // Ignore unknown or any types.
-            } else if (isClassInstance(secondArgConcreteType)) {
-                if (isInstantiableClass(concreteTargetClassType)) {
-                    if (
-                        !derivesFromClassRecursive(
-                            ClassType.cloneAsInstantiable(secondArgConcreteType),
-                            concreteTargetClassType,
-                            /* ignoreUnknown */ true
-                        )
-                    ) {
-                        reportError = true;
+            doForEachSubtype(secondArgConcreteType, (secondArgSubtype) => {
+                if (isAnyOrUnknown(secondArgSubtype)) {
+                    // Ignore unknown or any types.
+                } else if (isClassInstance(secondArgSubtype)) {
+                    if (isInstantiableClass(concreteTargetClassType)) {
+                        if (
+                            !derivesFromClassRecursive(
+                                ClassType.cloneAsInstantiable(secondArgSubtype),
+                                concreteTargetClassType,
+                                /* ignoreUnknown */ true
+                            )
+                        ) {
+                            reportError = true;
+                        }
                     }
-                }
-                bindToType = secondArgConcreteType;
-            } else if (isInstantiableClass(secondArgConcreteType)) {
-                if (isInstantiableClass(concreteTargetClassType)) {
-                    if (
-                        !ClassType.isBuiltIn(concreteTargetClassType, 'type') &&
-                        !derivesFromClassRecursive(
-                            secondArgConcreteType,
-                            concreteTargetClassType,
-                            /* ignoreUnknown */ true
-                        )
-                    ) {
-                        reportError = true;
+                    bindToType = secondArgSubtype;
+                } else if (isInstantiableClass(secondArgSubtype)) {
+                    if (isInstantiableClass(concreteTargetClassType)) {
+                        if (
+                            !ClassType.isBuiltIn(concreteTargetClassType, 'type') &&
+                            !derivesFromClassRecursive(
+                                secondArgSubtype,
+                                concreteTargetClassType,
+                                /* ignoreUnknown */ true
+                            )
+                        ) {
+                            reportError = true;
+                        }
                     }
+                    bindToType = secondArgSubtype;
+                } else {
+                    reportError = true;
                 }
-                bindToType = secondArgConcreteType;
-            } else {
-                reportError = true;
-            }
+            });
 
             if (reportError) {
                 addDiagnostic(

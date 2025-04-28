@@ -88,3 +88,13 @@ d3 = DChild3()
 class E:
     def __new__(cls) -> "E":
         return super(type, cls).__new__(cls)
+
+
+class F: ...
+
+
+class FChild1(F): ...
+
+
+def func1(cls: type[F | FChild1]):
+    super(F, cls)
