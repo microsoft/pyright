@@ -521,29 +521,29 @@ export function assignProperty(
                 destAccessType = applySolvedTypeVars(destAccessType, selfSolution) as FunctionType;
             }
 
-            const boundDestAccessType = evaluator.bindFunctionToClassOrObject(
-                destObjectToBind,
-                destAccessType,
-                /* memberClass */ undefined,
-                /* treatConstructorAsClassMethod */ undefined,
-                /* firstParamType */ undefined,
-                diag?.createAddendum(),
-                recursionCount
-            );
+            const boundDestAccessType =
+                evaluator.bindFunctionToClassOrObject(
+                    destObjectToBind,
+                    destAccessType,
+                    /* memberClass */ undefined,
+                    /* treatConstructorAsClassMethod */ undefined,
+                    /* firstParamType */ undefined,
+                    diag?.createAddendum(),
+                    recursionCount
+                ) ?? destAccessType;
 
-            const boundSrcAccessType = evaluator.bindFunctionToClassOrObject(
-                srcObjectToBind,
-                srcAccessType,
-                /* memberClass */ undefined,
-                /* treatConstructorAsClassMethod */ undefined,
-                /* firstParamType */ undefined,
-                diag?.createAddendum(),
-                recursionCount
-            );
+            const boundSrcAccessType =
+                evaluator.bindFunctionToClassOrObject(
+                    srcObjectToBind,
+                    srcAccessType,
+                    /* memberClass */ undefined,
+                    /* treatConstructorAsClassMethod */ undefined,
+                    /* firstParamType */ undefined,
+                    diag?.createAddendum(),
+                    recursionCount
+                ) ?? srcAccessType;
 
             if (
-                !boundDestAccessType ||
-                !boundSrcAccessType ||
                 !evaluator.assignType(
                     boundDestAccessType,
                     boundSrcAccessType,
