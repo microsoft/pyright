@@ -120,7 +120,7 @@ class FileBasedCancellationTokenSource implements AbstractCancellationTokenSourc
     }
 }
 
-function getCancellationFolderPath(folderName: string) {
+export function getCancellationFolderPath(folderName: string) {
     return path.join(os.tmpdir(), 'python-languageserver-cancellation', folderName);
 }
 
