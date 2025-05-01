@@ -33,6 +33,12 @@ export const enum SymbolFlags {
     // Indicates that the symbol is an instance member of a class.
     InstanceMember = 1 << 3,
 
+    // Indicates that the symbol is specified in the __slots__
+    // declaration of a class. Such symbols act like instance members
+    // in some respects but are actually implemented as class members
+    // using descriptor objects.
+    SlotsMember = 1 << 4,
+
     // Indicates that the symbol is considered "private" to the
     // class or module and should not be accessed outside or overridden.
     PrivateMember = 1 << 5,
@@ -152,6 +158,14 @@ export class Symbol {
 
     isInstanceMember() {
         return !!(this._flags & SymbolFlags.InstanceMember);
+    }
+
+    setIsSlotsMember() {
+        this._flags |= SymbolFlags.ClassMember | SymbolFlags.InstanceMember | SymbolFlags.SlotsMember;
+    }
+
+    isSlotsMember() {
+        return !!(this._flags & SymbolFlags.SlotsMember);
     }
 
     setIsClassVar() {

@@ -35,9 +35,9 @@ extends:
           justificationForDisabling: 'Running a scan on the Pyright-Build azure-pipelines.yml'
       sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
     pool:
-      pool:
-      name: VSEngSS-MicroBuild2022-1ES
-      os: windows
+      name: AzurePipelines-EO
+      image: 1ESPT-Ubuntu22.04
+      os: linux
     customBuildTags:
       - ES365AIMigrationTooling
     stages:
@@ -46,6 +46,9 @@ extends:
           - job: build_vsix
             displayName: Build VSIX
             timeoutInMinutes: 60
+            pool:
+              name: VSEngSS-MicroBuild2022-1ES # use windows for codesigning to make things easier https://dev.azure.com/devdiv/DevDiv/_wiki/wikis/DevDiv.wiki/650/MicroBuild-Signing
+              os: windows
             templateContext:
               mb:
                 signing:
@@ -177,7 +180,7 @@ extends:
                 displayName: npm pack
                 workingDirectory: packages/pyright
 
-              - script: ren pyright-*.tgz ${{ variables.PACKAGE_NAME }}
+              - script: mv pyright-*.tgz ${{ variables.PACKAGE_NAME }}
                 displayName: Remove version from package name
                 workingDirectory: packages/pyright
 
@@ -209,6 +212,14 @@ extends:
                   targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)
             steps:
               - checkout: none
+              # Next step fails the build if https://github.com/microsoft/pyright/issues/10350 repros.
+              - script: |
+                  mkdir pyrightTest
+                  cd pyrightTest
+                  yarn
+                  yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
+                  node_modules/.bin/pyright --version
+                displayName: Validate npm package
               - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
                 displayName: 'Create GitHub Release'
                 inputs:
@@ -274,32 +285,32 @@ extends:
                     $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
                     vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
 
-      # - stage: PublishToNpm
-      #   dependsOn: WaitForValidation
-      #   jobs:
-      #     - job: publish_package
-      #       displayName: Publish package to NPM
+      - stage: PublishToNpm
+        dependsOn: WaitForValidation
+        jobs:
+          - job: publish_package
+            displayName: Publish package to NPM
 
-      #       pool:
-      #         name: VSEngSS-MicroBuild2022-1ES # This pool is required to have the certs needed to publish using ESRP.
-      #         os: windows
-      #         image: server2022-microbuildVS2022-1es
+            pool:
+              name: VSEngSS-MicroBuild2022-1ES # This pool is required to have the certs needed to publish using ESRP.
+              os: windows
+              image: server2022-microbuildVS2022-1es
 
-      #       templateContext:
-      #         type: releaseJob
-      #         isProduction: true
-      #         inputs:
-      #           - input: pipelineArtifact
-      #             artifactName: $(ARTIFACT_NAME_PACKAGE)
-      #             targetPath: $(Build.StagingDirectory)/dist
+            templateContext:
+              type: releaseJob
+              isProduction: true
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_PACKAGE)
+                  targetPath: $(Build.StagingDirectory)/dist
 
-      #       steps:
-      #         - template: MicroBuild.Publish.yml@MicroBuildTemplate
-      #           parameters:
-      #             intent: PackageDistribution
-      #             contentType: npm
-      #             contentSource: Folder
-      #             folderLocation: $(Build.StagingDirectory)/dist
-      #             waitForReleaseCompletion: true
-      #             owners: erikd@microsoft.com
-      #             approvers: grwheele@microsoft.com
+            steps:
+              - template: MicroBuild.Publish.yml@MicroBuildTemplate
+                parameters:
+                  intent: PackageDistribution
+                  contentType: npm
+                  contentSource: Folder
+                  folderLocation: $(Build.StagingDirectory)/dist
+                  waitForReleaseCompletion: true
+                  owners: erikd@microsoft.com
+                  approvers: grwheele@microsoft.com

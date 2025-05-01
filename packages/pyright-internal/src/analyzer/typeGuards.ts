@@ -2227,6 +2227,15 @@ function narrowTypeForTypedDictKey(
 
                 if (isPositiveTest) {
                     if (!tdEntry) {
+                        // If there is no TD entry for this key and no "extra items" defined,
+                        // we have to assume that the TypedDict may contain extra items, so
+                        // narrowing it isn't possible in this case.
+                        return subtype;
+                    }
+
+                    if (isNever(tdEntry.valueType)) {
+                        // If the entry is typed as Never or the "extra items" is typed as Never,
+                        // then this key cannot be present in the TypedDict, and we can eliminate it.
                         return undefined;
                     }
 

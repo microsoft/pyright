@@ -2445,8 +2445,16 @@ export class Binder extends ParseTreeWalker {
             }
 
             let symbol = this._currentScope.lookUpSymbol(slotName);
-            if (!symbol) {
-                symbol = this._currentScope.addSymbol(slotName, SymbolFlags.InitiallyUnbound | SymbolFlags.ClassMember);
+            if (symbol) {
+                symbol.setIsSlotsMember();
+            } else {
+                symbol = this._currentScope.addSymbol(
+                    slotName,
+                    SymbolFlags.InitiallyUnbound |
+                        SymbolFlags.ClassMember |
+                        SymbolFlags.InstanceMember |
+                        SymbolFlags.SlotsMember
+                );
                 const honorPrivateNaming = this._fileInfo.diagnosticRuleSet.reportPrivateUsage !== 'none';
                 if (isPrivateOrProtectedName(slotName) && honorPrivateNaming) {
                     symbol.setIsPrivateMember();
