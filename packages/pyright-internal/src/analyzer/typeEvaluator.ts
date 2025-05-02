@@ -17484,10 +17484,7 @@ export function createTypeEvaluator(
                         // from ABCMeta. We'll exclude built-in protocol classes because these are known
                         // not to contain any abstract methods and getAbstractMethods causes problems
                         // because of dependencies on some of these built-in protocol classes.
-                        if (
-                            ClassType.supportsAbstractMethods(argType) ||
-                            (ClassType.isProtocolClass(argType) && !ClassType.isBuiltIn(argType))
-                        ) {
+                        if (ClassType.supportsAbstractMethods(argType) || ClassType.isProtocolClass(argType)) {
                             classType.shared.flags |= ClassTypeFlags.SupportsAbstractMethods;
                         }
 

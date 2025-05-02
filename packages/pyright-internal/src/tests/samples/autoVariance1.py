@@ -2,7 +2,7 @@
 # autovariance.
 
 from dataclasses import dataclass
-from typing import Final, Iterator, Sequence
+from typing import Final, Iterator, Sequence, overload
 
 
 class ShouldBeCovariant1[T]:
@@ -18,7 +18,12 @@ vco1_2: ShouldBeCovariant1[int] = ShouldBeCovariant1[float]()
 
 
 class ShouldBeCovariant2[T](Sequence[T]):
-    pass
+    def __len__(self) -> int: ...
+    @overload
+    def __getitem__(self, index: int) -> T: ...
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[T]: ...
+    def __getitem__(self, index: int | slice) -> T | Sequence[T]: ...
 
 
 vco2_1: ShouldBeCovariant2[float] = ShouldBeCovariant2[int]()

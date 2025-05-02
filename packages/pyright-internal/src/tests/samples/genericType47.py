@@ -3,7 +3,7 @@
 # pyright: strict
 
 
-from typing import Collection, Generic, Iterable, TypeVar
+from typing import Collection, Generic, Iterable, Iterator, TypeVar
 
 A = TypeVar("A")
 T = TypeVar("T")
@@ -12,6 +12,15 @@ T = TypeVar("T")
 class ClassA(Collection[T]):
     def __init__(self, value: Iterable[T]) -> None:
         self.values = tuple(value)
+
+    def __contains__(self, item: object) -> bool:
+        return True
+
+    def __iter__(self) -> Iterator[T]:
+        return iter(self.values)
+
+    def __len__(self) -> int:
+        return len(self.values)
 
 
 class ClassB(Generic[T]):
