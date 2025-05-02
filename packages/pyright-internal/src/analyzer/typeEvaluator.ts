@@ -17481,9 +17481,7 @@ export function createTypeEvaluator(
 
                         // Determine if the class is abstract. Protocol classes support abstract methods
                         // because they are constructed by the _ProtocolMeta metaclass, which derives
-                        // from ABCMeta. We'll exclude built-in protocol classes because these are known
-                        // not to contain any abstract methods and getAbstractMethods causes problems
-                        // because of dependencies on some of these built-in protocol classes.
+                        // from ABCMeta.
                         if (ClassType.supportsAbstractMethods(argType) || ClassType.isProtocolClass(argType)) {
                             classType.shared.flags |= ClassTypeFlags.SupportsAbstractMethods;
                         }
