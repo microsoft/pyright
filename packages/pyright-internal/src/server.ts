@@ -15,6 +15,7 @@ import {
     WorkDoneProgressServerReporter,
 } from 'vscode-languageserver';
 
+import { Commands } from './commands/commands';
 import { AnalysisResults } from './analyzer/analysis';
 import { CacheManager } from './analyzer/cacheManager';
 import { ImportResolver } from './analyzer/importResolver';
@@ -84,6 +85,7 @@ export class PyrightServer extends LanguageServerBase {
                 serviceProvider,
                 fileWatcherHandler: fileWatcherProvider,
                 maxAnalysisTimeInForeground,
+                supportedCommands: [Commands.orderImports, Commands.createTypeStub, Commands.restartServer, Commands.dumpFileDebugInfo],
                 supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
             },
             connection
