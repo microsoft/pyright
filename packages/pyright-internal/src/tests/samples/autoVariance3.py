@@ -1,6 +1,6 @@
 # This sample tests variance inference for traditional type variables.
 
-from typing import Generic, Iterator, Sequence
+from typing import Generic, Iterator, Sequence, overload
 from typing_extensions import TypeVar  # pyright: ignore[reportMissingModuleSource]
 from dataclasses import dataclass
 
@@ -30,7 +30,12 @@ vco1_2: ShouldBeCovariant1[int] = ShouldBeCovariant1[float]()
 
 
 class ShouldBeCovariant2(Sequence[T]):
-    pass
+    def __len__(self) -> int: ...
+    @overload
+    def __getitem__(self, index: int) -> T: ...
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[T]: ...
+    def __getitem__(self, index: int | slice) -> T | Sequence[T]: ...
 
 
 vco2_1: ShouldBeCovariant2[float] = ShouldBeCovariant2[int]()
