@@ -279,3 +279,13 @@ def func15(x: Base15[T]):
 
         reveal_type(x, expected_text="Child15")
         reveal_type(x.value, expected_text="int")
+
+
+def func16(x: Any):
+    if isinstance(x, (int, int)):
+        reveal_type(x, expected_text="int")
+
+
+def func17(x: Any):
+    if isinstance(x, (Union[int, int])):
+        reveal_type(x, expected_text="int")
