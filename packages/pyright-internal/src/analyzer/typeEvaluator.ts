@@ -22185,7 +22185,9 @@ export function createTypeEvaluator(
                     const classTypeInfo = getTypeOfClass(classNode);
                     return {
                         type: classTypeInfo
-                            ? synthesizeTypeVarForSelfCls(classTypeInfo.classType, /* isClsParam */ true)
+                            ? TypeVarType.cloneAsBound(
+                                  synthesizeTypeVarForSelfCls(classTypeInfo.classType, /* isClsParam */ true)
+                              )
                             : UnknownType.create(),
                     };
                 }
