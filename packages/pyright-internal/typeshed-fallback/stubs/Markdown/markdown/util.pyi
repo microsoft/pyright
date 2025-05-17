@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Iterator
 from re import Pattern
 from typing import Final, Generic, TypedDict, TypeVar, overload
@@ -18,7 +19,13 @@ HTML_PLACEHOLDER_RE: Final[Pattern[str]]
 TAG_PLACEHOLDER: Final[str]
 RTL_BIDI_RANGES: Final[tuple[tuple[str, str], tuple[str, str]]]
 
-def get_installed_extensions(): ...
+if sys.version_info >= (3, 10):
+    from importlib import metadata
+    def get_installed_extensions() -> metadata.EntryPoints: ...
+
+else:
+    def get_installed_extensions(): ...
+
 def deprecated(message: str, stacklevel: int = 2): ...
 @overload
 def parseBoolValue(value: str) -> bool: ...

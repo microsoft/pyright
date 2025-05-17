@@ -2,6 +2,8 @@ from networkx.classes.graph import Graph, _Edge, _Node
 from networkx.utils.backends import _dispatchable
 from numpy.random import RandomState
 
+__all__ = ["betweenness_centrality", "edge_betweenness_centrality"]
+
 @_dispatchable
 def betweenness_centrality(
     G: Graph[_Node],

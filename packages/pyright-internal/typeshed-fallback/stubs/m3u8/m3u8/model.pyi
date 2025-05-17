@@ -177,12 +177,12 @@ class PartialSegment(BasePathMixin):
         uri: str | None,
         duration: float | None,
         program_date_time: dt.datetime | None = None,
-        current_program_date_time: Incomplete | None = None,
-        byterange: Incomplete | None = None,
-        independent: Incomplete | None = None,
-        gap: Incomplete | None = None,
+        current_program_date_time=None,
+        byterange=None,
+        independent=None,
+        gap=None,
         dateranges: list[Mapping[str, Incomplete]] | None = None,
-        gap_tag: Incomplete | None = None,
+        gap_tag=None,
     ) -> None: ...
     def dumps(self, last_segment) -> str: ...
 

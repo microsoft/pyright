@@ -1,7 +1,8 @@
+from _typeshed import Unused
 from collections.abc import Callable, Sequence
 from enum import Enum
 from typing import Any, Literal, NamedTuple, TypeVar, overload
-from typing_extensions import Self, deprecated
+from typing_extensions import Self, TypeAlias, deprecated
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
@@ -46,7 +47,8 @@ class _X448_CURVE(NamedTuple):
     pubkey: UnimplementedOKPCurveKey
     privkey: UnimplementedOKPCurveKey
 
-JWKTypesRegistry: dict[str, str]
+_JWKKeyTypeSupported: TypeAlias = Literal["oct", "RSA", "EC", "OKP"]
+JWKTypesRegistry: dict[_JWKKeyTypeSupported, str]
 
 class ParmType(Enum):
     name = "A string with a name"  # pyright: ignore[reportAssignmentType]
@@ -63,8 +65,12 @@ class JWKParameter(NamedTuple):
 JWKValuesRegistry: dict[str, dict[str, JWKParameter]]
 JWKParamsRegistry: dict[str, JWKParameter]
 JWKEllipticCurveRegistry: dict[str, str]
-JWKUseRegistry: dict[str, str]
-JWKOperationsRegistry: dict[str, str]
+_JWKUseSupported: TypeAlias = Literal["sig", "enc"]
+JWKUseRegistry: dict[_JWKUseSupported, str]
+_JWKOperationSupported: TypeAlias = Literal[
+    "sign", "verify", "encrypt", "decrypt", "wrapKey", "unwrapKey", "deriveKey", "deriveBits"
+]
+JWKOperationsRegistry: dict[_JWKOperationSupported, str]
 JWKpycaCurveMap: dict[str, str]
 IANANamedInformationHashAlgorithmRegistry: dict[
     str,
@@ -98,9 +104,26 @@ class InvalidJWKValue(JWException): ...
 
 class JWK(dict[str, Any]):
     def __init__(self, **kwargs) -> None: ...
+    # `kty` and the other keyword arguments are passed as `params` to the called generator
+    # function. The possible arguments depend on the value of `kty`.
+    # TODO: Add overloads for the individual `kty` values.
     @classmethod
-    def generate(cls, **kwargs) -> Self: ...
-    def generate_key(self, **params) -> None: ...
+    @overload
+    def generate(
+        cls,
+        *,
+        kty: Literal["RSA"],
+        public_exponent: int | None = None,
+        size: int | None = None,
+        kid: str | None = None,
+        alg: str | None = None,
+        use: _JWKUseSupported | None = None,
+        key_ops: list[_JWKOperationSupported] | None = None,
+    ) -> Self: ...
+    @classmethod
+    @overload
+    def generate(cls, *, kty: _JWKKeyTypeSupported, **kwargs) -> Self: ...
+    def generate_key(self, *, kty: _JWKKeyTypeSupported, **kwargs) -> None: ...
     def import_key(self, **kwargs) -> None: ...
     @classmethod
     def from_json(cls, key) -> Self: ...
@@ -179,7 +202,10 @@ class JWK(dict[str, Any]):
         ),
     ) -> None: ...
     def import_from_pem(self, data: bytes, password: bytes | None = None, kid: str | None = None) -> None: ...
-    def export_to_pem(self, private_key: bool = False, password: bool = False) -> bytes: ...
+    @overload
+    def export_to_pem(self, private_key: Literal[False] = False, password: Unused = False) -> bytes: ...
+    @overload
+    def export_to_pem(self, private_key: Literal[True], password: bytes | None) -> bytes: ...
     @classmethod
     def from_pyca(
         cls,

@@ -23,6 +23,7 @@ from .enums import (
     EncryptionMethod,
     FileAttachmentAnnotationName,
     MethodReturnValue,
+    OutputIntentSubType,
     PageLabelStyle,
     PageLayout,
     PageMode,
@@ -53,7 +54,7 @@ from .image_datastructures import (
     VectorImageInfo as VectorImageInfo,
     _TextAlign,
 )
-from .output import OutputProducer, PDFPage
+from .output import OutputProducer, PDFICCProfile, PDFPage
 from .recorder import FPDFRecorder
 from .structure_tree import StructureTreeBuilder
 from .syntax import DestinationXYZ
@@ -77,7 +78,35 @@ __all__ = [
 _Orientation: TypeAlias = Literal["", "portrait", "p", "P", "landscape", "l", "L"]
 _Format: TypeAlias = Literal["", "a3", "A3", "a4", "A4", "a5", "A5", "letter", "Letter", "legal", "Legal"]
 _FontStyle: TypeAlias = Literal["", "B", "I", "BI"]
-_FontStyles: TypeAlias = Literal["", "B", "I", "U", "BU", "UB", "BI", "IB", "IU", "UI", "BIU", "BUI", "IBU", "IUB", "UBI", "UIB"]
+_FontStyles: TypeAlias = Literal[
+    "",
+    "B",
+    "I",
+    "U",
+    "S",
+    "BU",
+    "UB",
+    "BI",
+    "IB",
+    "IU",
+    "UI",
+    "BS",
+    "SB",
+    "IS",
+    "SI",
+    "BIU",
+    "BUI",
+    "IBU",
+    "IUB",
+    "UBI",
+    "UIB",
+    "BIS",
+    "BSI",
+    "IBS",
+    "ISB",
+    "SBI",
+    "SIB",
+]
 
 FPDF_VERSION: Final[str]
 PAGE_FORMATS: dict[_Format, tuple[float, float]]
@@ -88,12 +117,14 @@ class ToCPlaceholder(NamedTuple):
     y: int
     page_orientation: str
     pages: int = 1
+    reset_page_indices: bool = True
 
 def get_page_format(format: _Format | tuple[float, float], k: float | None = None) -> tuple[float, float]: ...
 
 class FPDF(GraphicsStateMixin):
     MARKDOWN_BOLD_MARKER: ClassVar[str]
     MARKDOWN_ITALICS_MARKER: ClassVar[str]
+    MARKDOWN_STRIKETHROUGH_MARKER: ClassVar[str]
     MARKDOWN_UNDERLINE_MARKER: ClassVar[str]
     MARKDOWN_ESCAPE_CHARACTER: ClassVar[str]
     MARKDOWN_LINK_REGEX: ClassVar[Pattern[str]]
@@ -145,7 +176,6 @@ class FPDF(GraphicsStateMixin):
     compress: bool
     pdf_version: str
     creation_date: datetime.datetime
-    graphics_style_names_per_page_number: dict[int, set[str]]
 
     buffer: bytearray | None
 
@@ -179,6 +209,19 @@ class FPDF(GraphicsStateMixin):
     def is_ttf_font(self) -> bool: ...
     @property
     def page_mode(self) -> PageMode: ...
+    @page_mode.setter
+    def page_mode(self, page_mode: PageMode) -> None: ...
+    @property
+    def output_intents(self): ...
+    def add_output_intent(
+        self,
+        subtype: OutputIntentSubType,
+        output_condition_identifier: str | None = None,
+        output_condition: str | None = None,
+        registry_name: str | None = None,
+        dest_output_profile: PDFICCProfile | None = None,
+        info: str | None = None,
+    ) -> None: ...
     @property
     def epw(self) -> float: ...
     @property
@@ -255,11 +298,11 @@ class FPDF(GraphicsStateMixin):
     def get_string_width(self, s: str, normalized: bool = False, markdown: bool = False) -> float: ...
     def set_line_width(self, width: float) -> None: ...
     def set_page_background(self, background) -> None: ...
-    def drawing_context(self, debug_stream: Incomplete | None = None) -> _GeneratorContextManager[DrawingContext]: ...
+    def drawing_context(self, debug_stream=None) -> _GeneratorContextManager[DrawingContext]: ...
     def new_path(
-        self, x: float = 0, y: float = 0, paint_rule: PathPaintRule = ..., debug_stream: Incomplete | None = None
+        self, x: float = 0, y: float = 0, paint_rule: PathPaintRule = ..., debug_stream=None
     ) -> _GeneratorContextManager[PaintedPath]: ...
-    def draw_path(self, path: PaintedPath, debug_stream: Incomplete | None = None) -> None: ...
+    def draw_path(self, path: PaintedPath, debug_stream=None) -> None: ...
     def set_dash_pattern(self, dash: float = 0, gap: float = 0, phase: float = 0) -> None: ...
     def line(self, x1: float, y1: float, x2: float, y2: float) -> None: ...
     def polyline(
@@ -336,6 +379,7 @@ class FPDF(GraphicsStateMixin):
         closed: bool = False,
         style: RenderStyle | Literal["D", "F", "DF", "FD"] | None = None,
     ) -> None: ...
+    def use_pattern(self, shading) -> _GeneratorContextManager[None]: ...
     def add_font(
         self,
         family: str | None = None,
@@ -343,7 +387,7 @@ class FPDF(GraphicsStateMixin):
         fname: str | PurePath | None = None,
         uni: bool | Literal["DEPRECATED"] = "DEPRECATED",
     ) -> None: ...
-    def set_font(self, family: str | None = None, style: _FontStyles = "", size: int = 0) -> None: ...
+    def set_font(self, family: str | None = None, style: _FontStyles | TextEmphasis = "", size: int = 0) -> None: ...
     def set_font_size(self, size: float) -> None: ...
     def set_char_spacing(self, spacing: float) -> None: ...
     def set_stretching(self, stretching: float) -> None: ...
@@ -461,14 +505,14 @@ class FPDF(GraphicsStateMixin):
     def local_context(
         self,
         *,
-        font_family: Incomplete | None = None,
-        font_style: Incomplete | None = None,
-        font_size_pt: Incomplete | None = None,
-        line_width: Incomplete | None = None,
-        draw_color: Incomplete | None = None,
-        fill_color: Incomplete | None = None,
-        text_color: Incomplete | None = None,
-        dash_pattern: Incomplete | None = None,
+        font_family=None,
+        font_style=None,
+        font_size_pt=None,
+        line_width=None,
+        draw_color=None,
+        fill_color=None,
+        text_color=None,
+        dash_pattern=None,
         font_size=...,  # semi-deprecated, prefer font_size_pt
         char_vpos=...,
         char_spacing=...,
@@ -618,7 +662,11 @@ class FPDF(GraphicsStateMixin):
     def unbreakable(self) -> _GeneratorContextManager[FPDFRecorder]: ...
     def offset_rendering(self) -> _GeneratorContextManager[FPDFRecorder]: ...
     def insert_toc_placeholder(
-        self, render_toc_function: Callable[[FPDF, list[OutlineSection]], object], pages: int = 1, allow_extra_pages: bool = False
+        self,
+        render_toc_function: Callable[[FPDF, list[OutlineSection]], object],
+        pages: int = 1,
+        allow_extra_pages: bool = False,
+        reset_page_indices: bool = True,
     ) -> None: ...
     def set_section_title_styles(
         self,

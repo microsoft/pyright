@@ -1,6 +1,6 @@
 import sys
 import types
-from _typeshed import Incomplete, ReadableBuffer, WriteableBuffer
+from _typeshed import ReadableBuffer, WriteableBuffer
 from collections.abc import Callable, Hashable
 from typing import Any, Literal, TypeVar, overload
 from typing_extensions import TypeAlias
@@ -36,7 +36,7 @@ class FFI:
     def sizeof(self, cdecl: str | CData) -> int: ...
     def alignof(self, cdecl: str | CData) -> int: ...
     def offsetof(self, cdecl: str | CData, *fields_or_indexes: str | int) -> int: ...
-    def new(self, cdecl: str | CType, init: Incomplete | None = None) -> CData: ...
+    def new(self, cdecl: str | CType, init=None) -> CData: ...
     def new_allocator(
         self,
         alloc: Callable[[int], CData] | None = None,

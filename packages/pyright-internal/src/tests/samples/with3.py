@@ -66,13 +66,6 @@ def test4() -> None:
     return 1
 
 
-# This should generate an error because AsyncExitStack
-# may swallow exceptions.
-async def test5() -> str:
-    async with AsyncExitStack():
-        return "from exit stack"
-
-
 def no_return() -> Never:
     raise Exception()
 
@@ -85,4 +78,4 @@ def test6():
         val = 2
 
     assert val is not None
-    reveal_type(val, expected_text="Literal[1]")
+    reveal_type(val, expected_text="Literal[1, 2]")

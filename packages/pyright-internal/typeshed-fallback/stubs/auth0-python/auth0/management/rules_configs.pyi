@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 
-from ..rest import RestClient as RestClient, RestClientOptions as RestClientOptions
-from ..types import TimeoutType as TimeoutType
+from ..rest import RestClientOptions
+from ..types import TimeoutType
 
 class RulesConfigs:
     domain: Incomplete

@@ -37,11 +37,12 @@ if sys.version_info < (3, 11):
 elif sys.version_info < (3, 13):
     Resource: TypeAlias = str
 
-if sys.version_info >= (3, 13):
+if sys.version_info >= (3, 12):
     from importlib.resources._common import Anchor as Anchor
 
     __all__ += ["Anchor"]
 
+if sys.version_info >= (3, 13):
     from importlib.resources._functional import (
         contents as contents,
         is_resource as is_resource,

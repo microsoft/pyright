@@ -1,6 +1,17 @@
-from _typeshed import Incomplete
-from typing import Any
+from _typeshed import Unused
+from collections.abc import Callable
 
+from oauthlib.common import Request
+
+from ..grant_types import (
+    AuthorizationCodeGrant,
+    ClientCredentialsGrant,
+    ImplicitGrant,
+    RefreshTokenGrant,
+    ResourceOwnerPasswordCredentialsGrant,
+)
+from ..request_validator import RequestValidator
+from ..tokens import BearerToken
 from .authorization import AuthorizationEndpoint
 from .introspect import IntrospectEndpoint
 from .resource import ResourceEndpoint
@@ -8,68 +19,63 @@ from .revocation import RevocationEndpoint
 from .token import TokenEndpoint
 
 class Server(AuthorizationEndpoint, IntrospectEndpoint, TokenEndpoint, ResourceEndpoint, RevocationEndpoint):
-    auth_grant: Any
-    implicit_grant: Any
-    password_grant: Any
-    credentials_grant: Any
-    refresh_grant: Any
-    bearer: Any
+    auth_grant: AuthorizationCodeGrant
+    implicit_grant: ImplicitGrant
+    password_grant: ResourceOwnerPasswordCredentialsGrant
+    credentials_grant: ClientCredentialsGrant
+    refresh_grant: RefreshTokenGrant
+    bearer: BearerToken
     def __init__(
         self,
-        request_validator,
-        token_expires_in: Incomplete | None = None,
-        token_generator: Incomplete | None = None,
-        refresh_token_generator: Incomplete | None = None,
-        *args,
-        **kwargs,
+        request_validator: RequestValidator,
+        token_expires_in: int | Callable[[Request], int] | None = None,
+        token_generator: Callable[[Request], str] | None = None,
+        refresh_token_generator: Callable[[Request], str] | None = None,
+        *args: Unused,
     ) -> None: ...
 
 class WebApplicationServer(AuthorizationEndpoint, IntrospectEndpoint, TokenEndpoint, ResourceEndpoint, RevocationEndpoint):
-    auth_grant: Any
-    refresh_grant: Any
-    bearer: Any
+    auth_grant: AuthorizationCodeGrant
+    refresh_grant: RefreshTokenGrant
+    bearer: BearerToken
     def __init__(
         self,
-        request_validator,
-        token_generator: Incomplete | None = None,
-        token_expires_in: Incomplete | None = None,
-        refresh_token_generator: Incomplete | None = None,
-        **kwargs,
+        request_validator: RequestValidator,
+        token_generator: Callable[[Request], str] | None = None,
+        token_expires_in: int | Callable[[Request], int] | None = None,
+        refresh_token_generator: Callable[[Request], str] | None = None,
     ) -> None: ...
 
 class MobileApplicationServer(AuthorizationEndpoint, IntrospectEndpoint, ResourceEndpoint, RevocationEndpoint):
-    implicit_grant: Any
-    bearer: Any
+    implicit_grant: ImplicitGrant
+    bearer: BearerToken
     def __init__(
         self,
-        request_validator,
-        token_generator: Incomplete | None = None,
-        token_expires_in: Incomplete | None = None,
-        refresh_token_generator: Incomplete | None = None,
-        **kwargs,
+        request_validator: RequestValidator,
+        token_generator: Callable[[Request], str] | None = None,
+        token_expires_in: int | Callable[[Request], int] | None = None,
+        refresh_token_generator: Callable[[Request], str] | None = None,
     ) -> None: ...
 
 class LegacyApplicationServer(TokenEndpoint, IntrospectEndpoint, ResourceEndpoint, RevocationEndpoint):
-    password_grant: Any
-    refresh_grant: Any
-    bearer: Any
+    password_grant: ResourceOwnerPasswordCredentialsGrant
+    refresh_grant: RefreshTokenGrant
+    bearer: BearerToken
     def __init__(
         self,
-        request_validator,
-        token_generator: Incomplete | None = None,
-        token_expires_in: Incomplete | None = None,
-        refresh_token_generator: Incomplete | None = None,
-        **kwargs,
+        request_validator: RequestValidator,
+        token_generator: Callable[[Request], str] | None = None,
+        token_expires_in: int | Callable[[Request], int] | None = None,
+        refresh_token_generator: Callable[[Request], str] | None = None,
     ) -> None: ...
 
 class BackendApplicationServer(TokenEndpoint, IntrospectEndpoint, ResourceEndpoint, RevocationEndpoint):
-    credentials_grant: Any
-    bearer: Any
+    credentials_grant: ClientCredentialsGrant
+    bearer: BearerToken
     def __init__(
         self,
-        request_validator,
-        token_generator: Incomplete | None = None,
-        token_expires_in: Incomplete | None = None,
-        refresh_token_generator: Incomplete | None = None,
-        **kwargs,
+        request_validator: RequestValidator,
+        token_generator: Callable[[Request], str] | None = None,
+        token_expires_in: int | Callable[[Request], int] | None = None,
+        refresh_token_generator: Callable[[Request], str] | None = None,
     ) -> None: ...

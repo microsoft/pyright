@@ -4,6 +4,8 @@ from collections.abc import Generator
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["network_simplex"]
+
 class _DataEssentialsAndFunctions:
     node_list: Incomplete
     node_indices: Incomplete

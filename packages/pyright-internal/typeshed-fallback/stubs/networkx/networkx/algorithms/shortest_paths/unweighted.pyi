@@ -4,6 +4,17 @@ from collections.abc import Generator
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = [
+    "bidirectional_shortest_path",
+    "single_source_shortest_path",
+    "single_source_shortest_path_length",
+    "single_target_shortest_path",
+    "single_target_shortest_path_length",
+    "all_pairs_shortest_path",
+    "all_pairs_shortest_path_length",
+    "predecessor",
+]
+
 @_dispatchable
 def single_source_shortest_path_length(G: Graph[_Node], source: _Node, cutoff: int | None = None): ...
 @_dispatchable
@@ -11,14 +22,14 @@ def single_target_shortest_path_length(G: Graph[_Node], target: _Node, cutoff: i
 @_dispatchable
 def all_pairs_shortest_path_length(G: Graph[_Node], cutoff: int | None = None) -> Generator[Incomplete, None, None]: ...
 @_dispatchable
-def bidirectional_shortest_path(G: Graph[_Node], source: str, target: str): ...
+def bidirectional_shortest_path(G: Graph[_Node], source: _Node, target: _Node): ...
 @_dispatchable
-def single_source_shortest_path(G: Graph[_Node], source: str, cutoff: int | None = None): ...
+def single_source_shortest_path(G: Graph[_Node], source: _Node, cutoff: int | None = None): ...
 @_dispatchable
-def single_target_shortest_path(G: Graph[_Node], target: str, cutoff: int | None = None): ...
+def single_target_shortest_path(G: Graph[_Node], target: _Node, cutoff: int | None = None): ...
 @_dispatchable
 def all_pairs_shortest_path(G: Graph[_Node], cutoff: int | None = None) -> Generator[Incomplete, None, None]: ...
 @_dispatchable
 def predecessor(
-    G: Graph[_Node], source: str, target: str | None = None, cutoff: int | None = None, return_seen: bool | None = None
+    G: Graph[_Node], source: _Node, target: _Node | None = None, cutoff: int | None = None, return_seen: bool | None = None
 ): ...

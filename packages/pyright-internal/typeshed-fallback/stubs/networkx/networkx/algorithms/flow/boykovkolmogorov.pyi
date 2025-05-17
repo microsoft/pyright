@@ -1,6 +1,8 @@
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["boykov_kolmogorov"]
+
 @_dispatchable
 def boykov_kolmogorov(
     G: Graph[_Node],

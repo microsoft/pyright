@@ -3,7 +3,7 @@ from _typeshed import Incomplete
 class BaseApp:
     client_cls: Incomplete
     OAUTH_APP_CONFIG: Incomplete
-    def request(self, method, url, token: Incomplete | None = None, **kwargs): ...
+    def request(self, method, url, token=None, **kwargs): ...
     def get(self, url, **kwargs): ...
     def post(self, url, **kwargs): ...
     def patch(self, url, **kwargs): ...
@@ -29,26 +29,26 @@ class OAuth1Base:
     def __init__(
         self,
         framework,
-        name: Incomplete | None = None,
-        fetch_token: Incomplete | None = None,
-        client_id: Incomplete | None = None,
-        client_secret: Incomplete | None = None,
-        request_token_url: Incomplete | None = None,
-        request_token_params: Incomplete | None = None,
-        access_token_url: Incomplete | None = None,
-        access_token_params: Incomplete | None = None,
-        authorize_url: Incomplete | None = None,
-        authorize_params: Incomplete | None = None,
-        api_base_url: Incomplete | None = None,
-        client_kwargs: Incomplete | None = None,
-        user_agent: Incomplete | None = None,
+        name=None,
+        fetch_token=None,
+        client_id=None,
+        client_secret=None,
+        request_token_url=None,
+        request_token_params=None,
+        access_token_url=None,
+        access_token_params=None,
+        authorize_url=None,
+        authorize_params=None,
+        api_base_url=None,
+        client_kwargs=None,
+        user_agent=None,
         **kwargs,
     ) -> None: ...
 
 class OAuth1Mixin(_RequestMixin, OAuth1Base):
-    def request(self, method, url, token: Incomplete | None = None, **kwargs): ...
-    def create_authorization_url(self, redirect_uri: Incomplete | None = None, **kwargs): ...
-    def fetch_access_token(self, request_token: Incomplete | None = None, **kwargs): ...
+    def request(self, method, url, token=None, **kwargs): ...
+    def create_authorization_url(self, redirect_uri=None, **kwargs): ...
+    def fetch_access_token(self, request_token=None, **kwargs): ...
 
 class OAuth2Base:
     client_cls: Incomplete
@@ -68,26 +68,26 @@ class OAuth2Base:
     def __init__(
         self,
         framework,
-        name: Incomplete | None = None,
-        fetch_token: Incomplete | None = None,
-        update_token: Incomplete | None = None,
-        client_id: Incomplete | None = None,
-        client_secret: Incomplete | None = None,
-        access_token_url: Incomplete | None = None,
-        access_token_params: Incomplete | None = None,
-        authorize_url: Incomplete | None = None,
-        authorize_params: Incomplete | None = None,
-        api_base_url: Incomplete | None = None,
-        client_kwargs: Incomplete | None = None,
-        server_metadata_url: Incomplete | None = None,
-        compliance_fix: Incomplete | None = None,
-        client_auth_methods: Incomplete | None = None,
-        user_agent: Incomplete | None = None,
+        name=None,
+        fetch_token=None,
+        update_token=None,
+        client_id=None,
+        client_secret=None,
+        access_token_url=None,
+        access_token_params=None,
+        authorize_url=None,
+        authorize_params=None,
+        api_base_url=None,
+        client_kwargs=None,
+        server_metadata_url=None,
+        compliance_fix=None,
+        client_auth_methods=None,
+        user_agent=None,
         **kwargs,
     ) -> None: ...
 
 class OAuth2Mixin(_RequestMixin, OAuth2Base):
-    def request(self, method, url, token: Incomplete | None = None, **kwargs): ...
+    def request(self, method, url, token=None, **kwargs): ...
     def load_server_metadata(self): ...
-    def create_authorization_url(self, redirect_uri: Incomplete | None = None, **kwargs): ...
-    def fetch_access_token(self, redirect_uri: Incomplete | None = None, **kwargs): ...
+    def create_authorization_url(self, redirect_uri=None, **kwargs): ...
+    def fetch_access_token(self, redirect_uri=None, **kwargs): ...

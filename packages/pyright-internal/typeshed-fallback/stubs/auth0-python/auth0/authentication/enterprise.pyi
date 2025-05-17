@@ -1,4 +1,4 @@
-from .base import AuthenticationBase as AuthenticationBase
+from .base import AuthenticationBase
 
 class Enterprise(AuthenticationBase):
     def saml_metadata(self): ...

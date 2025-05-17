@@ -58,8 +58,12 @@ class Version(google.protobuf.message.Message):
         patch: builtins.int | None = ...,
         suffix: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["major", b"major", "minor", b"minor", "patch", b"patch", "suffix", b"suffix"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["major", b"major", "minor", b"minor", "patch", b"patch", "suffix", b"suffix"]) -> None: ...
+    def HasField(
+        self, field_name: typing.Literal["major", b"major", "minor", b"minor", "patch", b"patch", "suffix", b"suffix"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self, field_name: typing.Literal["major", b"major", "minor", b"minor", "patch", b"patch", "suffix", b"suffix"]
+    ) -> None: ...
 
 global___Version = Version
 
@@ -84,7 +88,9 @@ class CodeGeneratorRequest(google.protobuf.message.Message):
         """
 
     @property
-    def proto_file(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[google.protobuf.descriptor_pb2.FileDescriptorProto]:
+    def proto_file(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[google.protobuf.descriptor_pb2.FileDescriptorProto]:
         """FileDescriptorProtos for all files in files_to_generate and everything
         they import.  The files will appear in topological order, so each file
         appears before any file that imports it.
@@ -107,7 +113,9 @@ class CodeGeneratorRequest(google.protobuf.message.Message):
         """
 
     @property
-    def source_file_descriptors(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[google.protobuf.descriptor_pb2.FileDescriptorProto]:
+    def source_file_descriptors(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[google.protobuf.descriptor_pb2.FileDescriptorProto]:
         """File descriptors with all options, including source-retention options.
         These descriptors are only provided for the files listed in
         files_to_generate.
@@ -126,8 +134,24 @@ class CodeGeneratorRequest(google.protobuf.message.Message):
         source_file_descriptors: collections.abc.Iterable[google.protobuf.descriptor_pb2.FileDescriptorProto] | None = ...,
         compiler_version: global___Version | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["compiler_version", b"compiler_version", "parameter", b"parameter"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["compiler_version", b"compiler_version", "file_to_generate", b"file_to_generate", "parameter", b"parameter", "proto_file", b"proto_file", "source_file_descriptors", b"source_file_descriptors"]) -> None: ...
+    def HasField(
+        self, field_name: typing.Literal["compiler_version", b"compiler_version", "parameter", b"parameter"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing.Literal[
+            "compiler_version",
+            b"compiler_version",
+            "file_to_generate",
+            b"file_to_generate",
+            "parameter",
+            b"parameter",
+            "proto_file",
+            b"proto_file",
+            "source_file_descriptors",
+            b"source_file_descriptors",
+        ],
+    ) -> None: ...
 
 global___CodeGeneratorRequest = CodeGeneratorRequest
 
@@ -141,7 +165,9 @@ class CodeGeneratorResponse(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _FeatureEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[CodeGeneratorResponse._Feature.ValueType], builtins.type):
+    class _FeatureEnumTypeWrapper(
+        google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[CodeGeneratorResponse._Feature.ValueType], builtins.type
+    ):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         FEATURE_NONE: CodeGeneratorResponse._Feature.ValueType  # 0
         FEATURE_PROTO3_OPTIONAL: CodeGeneratorResponse._Feature.ValueType  # 1
@@ -233,8 +259,32 @@ class CodeGeneratorResponse(google.protobuf.message.Message):
             content: builtins.str | None = ...,
             generated_code_info: google.protobuf.descriptor_pb2.GeneratedCodeInfo | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing.Literal["content", b"content", "generated_code_info", b"generated_code_info", "insertion_point", b"insertion_point", "name", b"name"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["content", b"content", "generated_code_info", b"generated_code_info", "insertion_point", b"insertion_point", "name", b"name"]) -> None: ...
+        def HasField(
+            self,
+            field_name: typing.Literal[
+                "content",
+                b"content",
+                "generated_code_info",
+                b"generated_code_info",
+                "insertion_point",
+                b"insertion_point",
+                "name",
+                b"name",
+            ],
+        ) -> builtins.bool: ...
+        def ClearField(
+            self,
+            field_name: typing.Literal[
+                "content",
+                b"content",
+                "generated_code_info",
+                b"generated_code_info",
+                "insertion_point",
+                b"insertion_point",
+                "name",
+                b"name",
+            ],
+        ) -> None: ...
 
     ERROR_FIELD_NUMBER: builtins.int
     SUPPORTED_FEATURES_FIELD_NUMBER: builtins.int
@@ -268,7 +318,9 @@ class CodeGeneratorResponse(google.protobuf.message.Message):
     effect for plugins that have FEATURE_SUPPORTS_EDITIONS set.
     """
     @property
-    def file(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___CodeGeneratorResponse.File]: ...
+    def file(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___CodeGeneratorResponse.File]: ...
     def __init__(
         self,
         *,
@@ -278,7 +330,33 @@ class CodeGeneratorResponse(google.protobuf.message.Message):
         maximum_edition: builtins.int | None = ...,
         file: collections.abc.Iterable[global___CodeGeneratorResponse.File] | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["error", b"error", "maximum_edition", b"maximum_edition", "minimum_edition", b"minimum_edition", "supported_features", b"supported_features"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["error", b"error", "file", b"file", "maximum_edition", b"maximum_edition", "minimum_edition", b"minimum_edition", "supported_features", b"supported_features"]) -> None: ...
+    def HasField(
+        self,
+        field_name: typing.Literal[
+            "error",
+            b"error",
+            "maximum_edition",
+            b"maximum_edition",
+            "minimum_edition",
+            b"minimum_edition",
+            "supported_features",
+            b"supported_features",
+        ],
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing.Literal[
+            "error",
+            b"error",
+            "file",
+            b"file",
+            "maximum_edition",
+            b"maximum_edition",
+            "minimum_edition",
+            b"minimum_edition",
+            "supported_features",
+            b"supported_features",
+        ],
+    ) -> None: ...
 
 global___CodeGeneratorResponse = CodeGeneratorResponse

@@ -1,6 +1,8 @@
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["preflow_push"]
+
 @_dispatchable
 def preflow_push(
     G: Graph[_Node],

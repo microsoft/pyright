@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from typing import Literal
 
 from reportlab.pdfgen.canvas import Canvas
@@ -27,8 +26,8 @@ class Frame:
         topPadding: float = 6,
         id: str | None = None,
         showBoundary: int = 0,
-        overlapAttachedSpace: Incomplete | None = None,
-        _debug: Incomplete | None = None,
+        overlapAttachedSpace=None,
+        _debug=None,
     ) -> None: ...
     def add(self, flowable: Flowable, canv: Canvas, trySplit: int = 0) -> Literal[0, 1]: ...
     def split(self, flowable: Flowable, canv: Canvas) -> list[Flowable]: ...

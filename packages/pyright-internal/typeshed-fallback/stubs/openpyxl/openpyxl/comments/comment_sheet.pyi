@@ -93,7 +93,7 @@ class CommentRecord(Serialisable):
         self,
         ref: str = "",
         authorId: ConvertibleToInt = 0,
-        guid: Incomplete | None = None,
+        guid=None,
         shapeId: ConvertibleToInt | None = 0,
         text: Text | None = None,
         commentPr: Properties | None = None,
@@ -113,12 +113,12 @@ class CommentSheet(Serialisable):
     extLst: Typed[ExtensionList, Literal[True]]
     mime_type: str
     __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, authors: AuthorList, commentList: Incomplete | None = None, extLst: Unused = None) -> None: ...
+    def __init__(self, authors: AuthorList, commentList=None, extLst: Unused = None) -> None: ...
     def to_tree(self) -> Element: ...  # type: ignore[override]
     @property
     def comments(self) -> Generator[tuple[str, Comment], None, None]: ...
     @classmethod
     def from_comments(cls, comments): ...
-    def write_shapes(self, vml: Incomplete | None = None): ...
+    def write_shapes(self, vml=None): ...
     @property
     def path(self) -> str: ...

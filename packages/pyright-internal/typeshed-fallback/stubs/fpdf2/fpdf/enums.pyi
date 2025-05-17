@@ -56,6 +56,7 @@ class TextEmphasis(CoerciveIntFlag):
     B = 1
     I = 2
     U = 4
+    S = 8
 
     @property
     def style(self) -> str: ...
@@ -296,6 +297,11 @@ class TextDirection(CoerciveEnum):
     TTB = "TTB"
     BTT = "BTT"
 
+class OutputIntentSubType(CoerciveEnum):
+    PDFX = "GTS_PDFX"
+    PDFA = "GTS_PDFA1"
+    ISOPDF = "ISO_PDFE1"
+
 class PageLabelStyle(CoerciveEnum):
     NUMBER = "D"
     UPPER_ROMAN = "R"
@@ -322,3 +328,13 @@ class PageOrientation(CoerciveEnum):
 
     @classmethod
     def coerce(cls, value: Self | str) -> Self: ...  # type: ignore[override]
+
+class PDFResourceType(Enum):
+    EXT_G_STATE = "ExtGState"
+    COLOR_SPACE = "ColorSpace"
+    PATTERN = "Pattern"
+    SHADDING = "Shading"
+    X_OBJECT = "XObject"
+    FONT = "Font"
+    PROC_SET = "ProcSet"
+    PROPERTIES = "Properties"

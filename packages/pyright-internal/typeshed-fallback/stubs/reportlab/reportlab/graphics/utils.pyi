@@ -1,5 +1,3 @@
-from _typeshed import Incomplete
-
 class RenderPMError(Exception): ...
 
 def setFont(gs, fontName, fontSize) -> None: ...
@@ -13,7 +11,7 @@ def text2Path(
     anchor: str = "start",
     truncate: int = 1,
     pathReverse: int = 0,
-    gs: Incomplete | None = None,
+    gs=None,
     **kwds,
 ): ...
 

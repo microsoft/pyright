@@ -6,6 +6,15 @@ from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 from numpy.random import RandomState
 
+__all__ = [
+    "traveling_salesman_problem",
+    "christofides",
+    "asadpour_atsp",
+    "greedy_tsp",
+    "simulated_annealing_tsp",
+    "threshold_accepting_tsp",
+]
+
 @_dispatchable
 def christofides(G: Graph[_Node], weight: str | None = "weight", tree: Graph[_Node] | None = None): ...
 @_dispatchable

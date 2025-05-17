@@ -1,4 +1,6 @@
 import logging
+from collections.abc import Generator
+from typing import ClassVar, Final
 
 from flask import Response
 
@@ -6,19 +8,20 @@ from .input_fields import FieldId
 
 logger: logging.Logger | None
 
-HTML_HEAD: str
-HTML_TAIL: str
+HTML_HEAD: Final[str]
+HTML_TAIL: Final[str]
 
 class Executor:
-    RAW_CMD_PATH: str
+    RAW_CMD_PATH: ClassVar[str]
+    returncode: int | None
 
     def __init__(self) -> None: ...
     def exec(self, command_path: str) -> Response: ...
     def _exec_raw(self, command: list[str]) -> Response: ...  # undocumented
     def _exec_html(self, command_path: str) -> Response: ...  # undocumented
-    def _run_script_and_generate_stream(self) -> None: ...  # undocumented
+    def _run_script_and_generate_stream(self) -> Generator[str]: ...  # undocumented
     def _create_cmd_header(self, commands: list[CmdPart]) -> str: ...  # undocumented
-    def _create_result_footer(self) -> str: ...  # undocumented
+    def _create_result_footer(self) -> Generator[str]: ...  # undocumented
 
 def _get_download_link(field_info: FieldFileInfo) -> str: ...  # undocumented
 
@@ -30,6 +33,7 @@ class CommandLineRaw:
     def after_script_executed(self) -> None: ...
 
 class CommandLineForm:
+    command_line_bulder: FormToCommandLineBuilder
     def __init__(self, script_file_path: str, commands: list[str]) -> None: ...
     def append(self, part: str, secret: bool = False) -> None: ...
     def get_commandline(self, obfuscate: bool = False) -> list[str]: ...
@@ -49,6 +53,11 @@ class FormToCommandLineBuilder:
     def _process_option(self, field_info: FieldInfo) -> None: ...
 
 class FieldInfo:
+    param: FieldId
+    key: str
+    is_file: bool
+    cmd_opt: str
+    generate_download_link: bool
     @staticmethod
     def factory(key: str) -> FieldInfo: ...
     def __init__(self, param: FieldId) -> None: ...
@@ -58,6 +67,10 @@ class FieldInfo:
     def __eq__(self, other: object) -> bool: ...
 
 class FieldFileInfo(FieldInfo):
+    mode: str
+    generate_download_link: bool
+    link_name: str
+    file_path: str
     def __init__(self, fimeta: FieldId) -> None: ...
     def before_script_execute(self) -> None: ...
     @classmethod
@@ -65,6 +78,7 @@ class FieldFileInfo(FieldInfo):
     def save(self) -> None: ...
 
 class FieldOutFileInfo(FieldFileInfo):
+    file_suffix: str
     def __init__(self, fimeta: FieldId) -> None: ...
     def save(self) -> None: ...
 

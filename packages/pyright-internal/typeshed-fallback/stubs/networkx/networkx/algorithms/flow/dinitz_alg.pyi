@@ -1,6 +1,8 @@
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["dinitz"]
+
 @_dispatchable
 def dinitz(
     G: Graph[_Node],

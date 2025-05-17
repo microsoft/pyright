@@ -9,7 +9,6 @@ have_rtld: bool
 use_stubs: bool
 libtype: str
 
-def if_dl(s): ...
 def get_abi3_suffix(): ...
 
 class build_ext(_build_ext):
@@ -39,14 +38,14 @@ def link_shared_object(
     self,
     objects,
     output_libname,
-    output_dir: Incomplete | None = None,
-    libraries: Incomplete | None = None,
-    library_dirs: Incomplete | None = None,
-    runtime_library_dirs: Incomplete | None = None,
-    export_symbols: Incomplete | None = None,
+    output_dir=None,
+    libraries=None,
+    library_dirs=None,
+    runtime_library_dirs=None,
+    export_symbols=None,
     debug: bool = False,
-    extra_preargs: Incomplete | None = None,
-    extra_postargs: Incomplete | None = None,
-    build_temp: Incomplete | None = None,
-    target_lang: Incomplete | None = None,
+    extra_preargs=None,
+    extra_postargs=None,
+    build_temp=None,
+    target_lang=None,
 ) -> None: ...

@@ -1,10 +1,10 @@
-from _typeshed import Incomplete, SupportsItems, SupportsRead, Unused
+from _typeshed import SupportsItems, SupportsRead, Unused
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from typing import Any, TypedDict
 from typing_extensions import Self, TypeAlias
 
 from . import adapters, auth as _auth, compat, cookies, exceptions, hooks, models, status_codes, utils
-from .models import Response
+from .models import _JSON, Response
 from .structures import CaseInsensitiveDict as CaseInsensitiveDict
 
 _BaseAdapter: TypeAlias = adapters.BaseAdapter
@@ -44,10 +44,10 @@ class SessionRedirectMixin:
         resp,
         req,
         stream: bool = False,
-        timeout: Incomplete | None = None,
+        timeout=None,
         verify: bool = True,
-        cert: Incomplete | None = None,
-        proxies: Incomplete | None = None,
+        cert=None,
+        proxies=None,
         yield_requests: bool = False,
         **adapter_kwargs,
     ): ...
@@ -151,7 +151,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = None,
         verify: _Verify | None = None,
         cert: _Cert | None = None,
-        json: Incomplete | None = None,
+        json: _JSON | None = None,
     ) -> Response: ...
     def get(
         self,
@@ -170,7 +170,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Incomplete | None = ...,
+        json: _JSON | None = None,
     ) -> Response: ...
     def options(
         self,
@@ -189,7 +189,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Incomplete | None = ...,
+        json: _JSON | None = None,
     ) -> Response: ...
     def head(
         self,
@@ -208,13 +208,13 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Incomplete | None = ...,
+        json: _JSON | None = None,
     ) -> Response: ...
     def post(
         self,
         url: str | bytes,
         data: _Data | None = None,
-        json: Incomplete | None = None,
+        json: _JSON | None = None,
         *,
         params: _Params | None = ...,
         headers: _HeadersUpdateMapping | None = ...,
@@ -246,7 +246,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Incomplete | None = ...,
+        json: _JSON | None = None,
     ) -> Response: ...
     def patch(
         self,
@@ -265,7 +265,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Incomplete | None = ...,
+        json: _JSON | None = None,
     ) -> Response: ...
     def delete(
         self,
@@ -284,7 +284,7 @@ class Session(SessionRedirectMixin):
         stream: bool | None = ...,
         verify: _Verify | None = ...,
         cert: _Cert | None = ...,
-        json: Incomplete | None = ...,
+        json: _JSON | None = None,
     ) -> Response: ...
     def send(
         self,

@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from typing import Final
+from typing import Final, Literal
 
 __version__: Final[str]
 
@@ -27,7 +27,7 @@ longTableOptimize: Final[int]
 autoConvertEncoding: Final[int]
 _FUZZ: Final[float]
 wrapA85: Final[int]
-fsEncodings: Final[Incomplete]
+fsEncodings: Final[tuple[Literal["utf8"], Literal["cp1252"], Literal["cp430"]]]
 odbc_driver: Final[str]
 platypus_link_underline: Final[int]
 canvas_basefontname: Final[str]
@@ -40,7 +40,6 @@ ttfAsciiReadable: Final[int]
 pdfMultiLine: Final[int]
 pdfComments: Final[int]
 debug: Final[int]
-rtlSupport: Final[int]
 listWrapOnFakeWidth: Final[int]
 underlineWidth: Final[str]
 underlineOffset: Final[str]
@@ -51,7 +50,7 @@ strikeGap: Final[str]
 decimalSymbol: Final[str]
 errorOnDuplicatePageLabelPage: Final[int]
 autoGenerateMissingTTFName: Final[int]
-allowTTFSubsetting: Final[Incomplete]
+allowTTFSubsetting: Final[list[str]]
 spaceShrinkage: Final[float]
 hyphenationLang: Final[str]
 uriWasteReduce: Final[int]
@@ -61,16 +60,16 @@ reserveTTFNotdef: Final[int]
 documentLang: Final[Incomplete]
 encryptionStrength: Final[int]
 trustedHosts: Final[Incomplete]
-trustedSchemes: Final[Incomplete]
+trustedSchemes: Final[list[str]]
 renderPMBackend: Final[str]
 xmlParser: Final[str]
 textPaths: Final[str]
 toColorCanUse: Final[str]
 defCWRF: Final[float]
-T1SearchPath: Final[Incomplete]
-TTFSearchPath: Final[Incomplete]
-CMapSearchPath: Final[Incomplete]
-shapedFontGlob: Final[Incomplete | None]
+unShapedFontGlob: list[str] | None
+T1SearchPath: Final[tuple[str, ...]]
+TTFSearchPath: Final[tuple[str, ...]]
+CMapSearchPath: Final[tuple[str, ...]]
 
 __all__ = (
     "allowTableBoundsErrors",
@@ -108,7 +107,6 @@ __all__ = (
     "pdfMultiLine",
     "pdfComments",
     "debug",
-    "rtlSupport",
     "listWrapOnFakeWidth",
     "T1SearchPath",
     "TTFSearchPath",
@@ -138,5 +136,5 @@ __all__ = (
     "textPaths",
     "toColorCanUse",
     "defCWRF",
-    "shapedFontGlob",
+    "unShapedFontGlob",
 )

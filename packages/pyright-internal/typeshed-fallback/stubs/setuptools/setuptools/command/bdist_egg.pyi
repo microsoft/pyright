@@ -17,7 +17,7 @@ class bdist_egg(Command):
     user_options: ClassVar[list[tuple[str, str | None, str]]]
     boolean_options: ClassVar[list[str]]
     bdist_dir: Incomplete
-    plat_name: Incomplete
+    plat_name: str
     keep_temp: bool
     dist_dir: Incomplete
     skip_build: bool

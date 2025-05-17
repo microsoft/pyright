@@ -3,6 +3,8 @@ from _typeshed import Incomplete, SupportsGetItem
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["katz_centrality", "katz_centrality_numpy"]
+
 @_dispatchable
 def katz_centrality(
     G: Graph[_Node],

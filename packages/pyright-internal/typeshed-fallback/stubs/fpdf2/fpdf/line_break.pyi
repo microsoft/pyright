@@ -43,7 +43,9 @@ class Fragment:
     @property
     def text_mode(self): ...
     @property
-    def underline(self): ...
+    def underline(self) -> bool: ...
+    @property
+    def strikethrough(self) -> bool: ...
     @property
     def draw_color(self): ...
     @property
@@ -90,6 +92,7 @@ class TextLine(NamedTuple):
     max_width: float
     trailing_nl: bool = False
     trailing_form_feed: bool = False
+    indent: float = 0
     def get_ordered_fragments(self) -> tuple[Fragment, ...]: ...
 
 class SpaceHint(NamedTuple):
@@ -114,13 +117,14 @@ class HyphenHint(NamedTuple):
 
 class CurrentLine:
     max_width: float
-    print_sh: Incomplete
+    print_sh: bool
+    indent: float
     fragments: list[Fragment]
     height: int
     number_of_spaces: int
     space_break_hint: Incomplete
     hyphen_break_hint: Incomplete
-    def __init__(self, max_width: float, print_sh: bool = False) -> None: ...
+    def __init__(self, max_width: float, print_sh: bool = False, indent: float = 0) -> None: ...
     @property
     def width(self) -> float: ...
     def add_character(
@@ -150,6 +154,7 @@ class MultiLineBreak:
     fragment_index: int
     character_index: int
     idx_last_forced_break: int | None
+    first_line_indent: float
     def __init__(
         self,
         fragments: Sequence[Fragment],
@@ -160,5 +165,6 @@ class MultiLineBreak:
         wrapmode: WrapMode = ...,
         line_height: float = 1.0,
         skip_leading_spaces: bool = False,
+        first_line_indent: float = 0,
     ) -> None: ...
     def get_line(self) -> TextLine: ...
