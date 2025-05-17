@@ -1,7 +1,8 @@
 # This sample tests old-style (pre-await) awaitable generators.
 
 import asyncio
-from typing import Any, AwaitableGenerator
+from typing import Any
+from _typeshed._type_checker_internals import AwaitableGenerator
 
 
 @asyncio.coroutine

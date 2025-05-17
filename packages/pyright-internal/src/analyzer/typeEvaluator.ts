@@ -1016,7 +1016,7 @@ export function createTypeEvaluator(
 
             prefetched.objectClass = getBuiltInType(node, 'object');
             prefetched.typeClass = getBuiltInType(node, 'type');
-            prefetched.functionClass = getBuiltInType(node, 'function');
+            prefetched.functionClass = getTypesType(node, 'FunctionType') ?? getBuiltInType(node, 'function');
 
             prefetched.unionTypeClass = getTypesType(node, 'UnionType');
             if (prefetched.unionTypeClass && isClass(prefetched.unionTypeClass)) {
@@ -1035,7 +1035,8 @@ export function createTypeEvaluator(
             prefetched.dictClass = getBuiltInType(node, 'dict');
             prefetched.moduleTypeClass = getTypingType(node, 'ModuleType');
             prefetched.typedDictClass = getTypingType(node, 'TypedDict');
-            prefetched.typedDictPrivateClass = getTypingType(node, '_TypedDict');
+            prefetched.typedDictPrivateClass =
+                getTypeCheckerInternalsType(node, 'TypedDictFallback') ?? getTypingType(node, '_TypedDict');
             prefetched.awaitableClass = getTypingType(node, 'Awaitable');
             prefetched.mappingClass = getTypingType(node, 'Mapping');
 
@@ -3223,6 +3224,10 @@ export function createTypeEvaluator(
         return (
             getTypeOfModule(node, symbolName, ['typing']) ?? getTypeOfModule(node, symbolName, ['typing_extensions'])
         );
+    }
+
+    function getTypeCheckerInternalsType(node: ParseNode, symbolName: string): Type | undefined {
+        return getTypeOfModule(node, symbolName, ['_typeshed', '_type_checker_internals']);
     }
 
     function getTypesType(node: ParseNode, symbolName: string): Type | undefined {
@@ -5995,7 +6000,7 @@ export function createTypeEvaluator(
         if (!type) {
             const isFunctionRule =
                 isFunctionOrOverloaded(baseType) ||
-                (isClassInstance(baseType) && ClassType.isBuiltIn(baseType, 'function'));
+                (isClassInstance(baseType) && ClassType.isBuiltIn(baseType, ['function', 'FunctionType']));
 
             if (!baseTypeResult.isIncomplete) {
                 let diagMessage = LocMessage.memberAccess();
@@ -16647,7 +16652,10 @@ export function createTypeEvaluator(
                 // The _TypedDict class is marked as abstract, but the
                 // methods that are abstract are overridden and shouldn't
                 // cause the TypedDict to be marked as abstract.
-                if (isInstantiableClass(baseClass) && ClassType.isBuiltIn(baseClass, '_TypedDict')) {
+                if (
+                    isInstantiableClass(baseClass) &&
+                    ClassType.isBuiltIn(baseClass, ['_TypedDict', 'TypedDictFallback'])
+                ) {
                     baseClass = ClassType.cloneWithNewFlags(
                         baseClass,
                         baseClass.shared.flags &
@@ -17958,7 +17966,7 @@ export function createTypeEvaluator(
                     if (
                         isClass(baseClass) &&
                         !ClassType.isTypedDictClass(baseClass) &&
-                        !ClassType.isBuiltIn(baseClass, ['_TypedDict', 'Generic'])
+                        !ClassType.isBuiltIn(baseClass, ['_TypedDict', 'TypedDictFallback', 'Generic'])
                     ) {
                         foundInvalidBaseClass = true;
                         diag.addMessage(LocAddendum.typedDictBaseClass().format({ type: baseClass.shared.name }));
@@ -19581,10 +19589,10 @@ export function createTypeEvaluator(
 
                         // Inferred yield types need to be wrapped in a Generator or
                         // AwaitableGenerator to produce the final result.
-                        const generatorType = getTypingType(
-                            node,
-                            useAwaitableGenerator ? 'AwaitableGenerator' : 'Generator'
-                        );
+                        const generatorType = useAwaitableGenerator
+                            ? getTypeCheckerInternalsType(node, 'AwaitableGenerator') ??
+                              getTypingType(node, 'AwaitableGenerator')
+                            : getTypingType(node, 'Generator');
 
                         if (generatorType && isInstantiableClass(generatorType)) {
                             const typeArgs: Type[] = [];
@@ -28564,7 +28572,8 @@ export function createTypeEvaluator(
         getTypeClassType,
         getBuiltInObject,
         getTypingType,
-        assignTypeArgs: assignTypeArgs,
+        getTypeCheckerInternalsType,
+        assignTypeArgs,
         reportMissingTypeArgs,
         inferReturnTypeIfNecessary,
         inferVarianceForClass,
