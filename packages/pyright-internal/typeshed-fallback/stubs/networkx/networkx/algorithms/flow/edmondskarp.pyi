@@ -1,6 +1,8 @@
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["edmonds_karp"]
+
 @_dispatchable
 def edmonds_karp(
     G: Graph[_Node],

@@ -54,12 +54,12 @@ class BearerToken(TokenBase):
     request_validator: RequestValidator | None
     token_generator: Callable[[Request], str]
     refresh_token_generator: Callable[[Request], str]
-    expires_in: int
+    expires_in: int | Callable[[Request], int]
     def __init__(
         self,
         request_validator: RequestValidator | None = None,
         token_generator: Callable[[Request], str] | None = None,
-        expires_in: int | None = None,
+        expires_in: int | Callable[[Request], int] | None = None,
         refresh_token_generator: Callable[[Request], str] | None = None,
     ) -> None: ...
     def create_token(self, request: Request, refresh_token: bool = False, **kwargs) -> OAuth2Token: ...

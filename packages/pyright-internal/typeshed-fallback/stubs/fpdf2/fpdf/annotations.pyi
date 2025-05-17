@@ -48,7 +48,7 @@ class AnnotationMixin:
         ink_list: tuple[int, ...] = (),
         file_spec: str | None = None,
         field_type: str | None = None,
-        value: Incomplete | None = None,
+        value=None,
         default_appearance: str | None = None,
     ) -> None: ...
 

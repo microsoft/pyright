@@ -1,5 +1,7 @@
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["karate_club_graph", "davis_southern_women_graph", "florentine_families_graph", "les_miserables_graph"]
+
 @_dispatchable
 def karate_club_graph(): ...
 @_dispatchable

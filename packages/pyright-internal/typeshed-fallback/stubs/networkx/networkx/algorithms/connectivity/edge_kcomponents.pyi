@@ -4,6 +4,8 @@ from collections.abc import Generator
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["k_edge_components", "k_edge_subgraphs", "bridge_components", "EdgeComponentAuxGraph"]
+
 @_dispatchable
 def k_edge_components(G: Graph[_Node], k: int): ...
 @_dispatchable

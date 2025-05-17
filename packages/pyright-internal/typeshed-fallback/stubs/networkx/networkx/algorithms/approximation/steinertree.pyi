@@ -4,6 +4,8 @@ from collections.abc import Iterable
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["metric_closure", "steiner_tree"]
+
 @_dispatchable
 def metric_closure(G: Graph[_Node], weight="weight"): ...
 @_dispatchable

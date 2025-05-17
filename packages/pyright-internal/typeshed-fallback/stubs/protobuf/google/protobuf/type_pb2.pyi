@@ -122,7 +122,25 @@ class Type(google.protobuf.message.Message):
         edition: builtins.str | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["source_context", b"source_context"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["edition", b"edition", "fields", b"fields", "name", b"name", "oneofs", b"oneofs", "options", b"options", "source_context", b"source_context", "syntax", b"syntax"]) -> None: ...
+    def ClearField(
+        self,
+        field_name: typing.Literal[
+            "edition",
+            b"edition",
+            "fields",
+            b"fields",
+            "name",
+            b"name",
+            "oneofs",
+            b"oneofs",
+            "options",
+            b"options",
+            "source_context",
+            b"source_context",
+            "syntax",
+            b"syntax",
+        ],
+    ) -> None: ...
 
 global___Type = Type
 
@@ -223,7 +241,9 @@ class Field(google.protobuf.message.Message):
         ValueType = typing.NewType("ValueType", builtins.int)
         V: typing_extensions.TypeAlias = ValueType
 
-    class _CardinalityEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Field._Cardinality.ValueType], builtins.type):
+    class _CardinalityEnumTypeWrapper(
+        google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Field._Cardinality.ValueType], builtins.type
+    ):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         CARDINALITY_UNKNOWN: Field._Cardinality.ValueType  # 0
         """For fields with unknown cardinality."""
@@ -296,7 +316,31 @@ class Field(google.protobuf.message.Message):
         json_name: builtins.str | None = ...,
         default_value: builtins.str | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["cardinality", b"cardinality", "default_value", b"default_value", "json_name", b"json_name", "kind", b"kind", "name", b"name", "number", b"number", "oneof_index", b"oneof_index", "options", b"options", "packed", b"packed", "type_url", b"type_url"]) -> None: ...
+    def ClearField(
+        self,
+        field_name: typing.Literal[
+            "cardinality",
+            b"cardinality",
+            "default_value",
+            b"default_value",
+            "json_name",
+            b"json_name",
+            "kind",
+            b"kind",
+            "name",
+            b"name",
+            "number",
+            b"number",
+            "oneof_index",
+            b"oneof_index",
+            "options",
+            b"options",
+            "packed",
+            b"packed",
+            "type_url",
+            b"type_url",
+        ],
+    ) -> None: ...
 
 global___Field = Field
 
@@ -341,7 +385,23 @@ class Enum(google.protobuf.message.Message):
         edition: builtins.str | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["source_context", b"source_context"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["edition", b"edition", "enumvalue", b"enumvalue", "name", b"name", "options", b"options", "source_context", b"source_context", "syntax", b"syntax"]) -> None: ...
+    def ClearField(
+        self,
+        field_name: typing.Literal[
+            "edition",
+            b"edition",
+            "enumvalue",
+            b"enumvalue",
+            "name",
+            b"name",
+            "options",
+            b"options",
+            "source_context",
+            b"source_context",
+            "syntax",
+            b"syntax",
+        ],
+    ) -> None: ...
 
 global___Enum = Enum
 
@@ -397,12 +457,7 @@ class Option(google.protobuf.message.Message):
         value using the google.protobuf.Int32Value type.
         """
 
-    def __init__(
-        self,
-        *,
-        name: builtins.str | None = ...,
-        value: google.protobuf.any_pb2.Any | None = ...,
-    ) -> None: ...
+    def __init__(self, *, name: builtins.str | None = ..., value: google.protobuf.any_pb2.Any | None = ...) -> None: ...
     def HasField(self, field_name: typing.Literal["value", b"value"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing.Literal["name", b"name", "value", b"value"]) -> None: ...
 

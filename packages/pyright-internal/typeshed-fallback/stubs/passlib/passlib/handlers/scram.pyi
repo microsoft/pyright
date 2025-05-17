@@ -23,8 +23,8 @@ class scram(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler): 
     @classmethod
     def from_string(cls, hash): ...
     @classmethod
-    def using(cls, default_algs: Incomplete | None = None, algs: Incomplete | None = None, **kwds): ...  # type: ignore[override]
-    def __init__(self, algs: Incomplete | None = None, **kwds) -> None: ...
+    def using(cls, default_algs=None, algs=None, **kwds): ...  # type: ignore[override]
+    def __init__(self, algs=None, **kwds) -> None: ...
     @classmethod
     def verify(cls, secret, hash, full: bool = False): ...  # type: ignore[override]
 

@@ -2,6 +2,8 @@ from collections.abc import Sequence
 from typing import Any
 from typing_extensions import Self
 
+from google._upb._message import Descriptor as _upb_Descriptor
+
 from .descriptor import Descriptor, FieldDescriptor
 from .internal.extension_dict import _ExtensionDict, _ExtensionFieldDescriptor
 
@@ -10,7 +12,7 @@ class DecodeError(Error): ...
 class EncodeError(Error): ...
 
 class Message:
-    DESCRIPTOR: Descriptor
+    DESCRIPTOR: Descriptor | _upb_Descriptor
     def __deepcopy__(self, memo: Any = None) -> Self: ...
     def __eq__(self, other_msg): ...
     def __ne__(self, other_msg): ...

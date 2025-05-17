@@ -86,7 +86,7 @@ def recompile(
     preamble: str | None,
     tmpdir: str = ".",
     call_c_compiler: bool = True,
-    c_file: Incomplete | None = None,
+    c_file=None,
     source_extension: str = ".c",
     extradir: StrPath | None = None,
     compiler_verbose: int = 1,

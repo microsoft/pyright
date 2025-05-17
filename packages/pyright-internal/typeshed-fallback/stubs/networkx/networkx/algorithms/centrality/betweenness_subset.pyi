@@ -3,6 +3,8 @@ from collections.abc import Iterable
 from networkx.classes.graph import Graph, _Edge, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["betweenness_centrality_subset", "edge_betweenness_centrality_subset"]
+
 @_dispatchable
 def betweenness_centrality_subset(
     G: Graph[_Node],

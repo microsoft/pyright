@@ -253,11 +253,7 @@ class FieldMask(google.protobuf.message.Message, google.protobuf.internal.well_k
     def paths(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         """The set of field mask paths."""
 
-    def __init__(
-        self,
-        *,
-        paths: collections.abc.Iterable[builtins.str] | None = ...,
-    ) -> None: ...
+    def __init__(self, *, paths: collections.abc.Iterable[builtins.str] | None = ...) -> None: ...
     def ClearField(self, field_name: typing.Literal["paths", b"paths"]) -> None: ...
 
 global___FieldMask = FieldMask

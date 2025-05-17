@@ -2,6 +2,18 @@ from _typeshed import Incomplete
 
 from networkx.utils.backends import _dispatchable
 
+__all__ = [
+    "categorical_node_match",
+    "categorical_edge_match",
+    "categorical_multiedge_match",
+    "numerical_node_match",
+    "numerical_edge_match",
+    "numerical_multiedge_match",
+    "generic_node_match",
+    "generic_edge_match",
+    "generic_multiedge_match",
+]
+
 @_dispatchable
 def categorical_node_match(attr, default): ...
 

@@ -5,6 +5,25 @@ from networkx.classes.digraph import DiGraph
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = [
+    "descendants",
+    "ancestors",
+    "topological_sort",
+    "lexicographical_topological_sort",
+    "all_topological_sorts",
+    "topological_generations",
+    "is_directed_acyclic_graph",
+    "is_aperiodic",
+    "transitive_closure",
+    "transitive_closure_dag",
+    "transitive_reduction",
+    "antichains",
+    "dag_longest_path",
+    "dag_longest_path_length",
+    "dag_to_branching",
+    "compute_v_structures",
+]
+
 @_dispatchable
 def descendants(G: Graph[_Node], source) -> set[_Node]: ...
 @_dispatchable
@@ -42,3 +61,5 @@ def dag_longest_path(
 def dag_longest_path_length(G: DiGraph[_Node], weight: str | None = "weight", default_weight: int | None = 1) -> int: ...
 @_dispatchable
 def dag_to_branching(G: Graph[_Node]) -> Graph[_Node]: ...
+@_dispatchable
+def compute_v_structures(G) -> Generator[tuple[Incomplete, Incomplete, Incomplete]]: ...

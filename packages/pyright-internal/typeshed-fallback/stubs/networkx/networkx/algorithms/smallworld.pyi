@@ -2,6 +2,8 @@ from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 from numpy.random import RandomState
 
+__all__ = ["random_reference", "lattice_reference", "sigma", "omega"]
+
 @_dispatchable
 def random_reference(G: Graph[_Node], niter: int = 1, connectivity: bool = True, seed: int | RandomState | None = None): ...
 @_dispatchable

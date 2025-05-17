@@ -10,16 +10,16 @@ class OAuth1Client:
         self,
         session,
         client_id,
-        client_secret: Incomplete | None = None,
-        token: Incomplete | None = None,
-        token_secret: Incomplete | None = None,
-        redirect_uri: Incomplete | None = None,
-        rsa_key: Incomplete | None = None,
-        verifier: Incomplete | None = None,
+        client_secret=None,
+        token=None,
+        token_secret=None,
+        redirect_uri=None,
+        rsa_key=None,
+        verifier=None,
         signature_method="HMAC-SHA1",
         signature_type="HEADER",
         force_include_body: bool = False,
-        realm: Incomplete | None = None,
+        realm=None,
         **kwargs,
     ) -> None: ...
     @property
@@ -30,9 +30,9 @@ class OAuth1Client:
     def token(self): ...
     @token.setter
     def token(self, token) -> None: ...
-    def create_authorization_url(self, url, request_token: Incomplete | None = None, **kwargs): ...
+    def create_authorization_url(self, url, request_token=None, **kwargs): ...
     def fetch_request_token(self, url, **kwargs): ...
-    def fetch_access_token(self, url, verifier: Incomplete | None = None, **kwargs): ...
+    def fetch_access_token(self, url, verifier=None, **kwargs): ...
     def parse_authorization_response(self, url): ...
     def parse_response_token(self, status_code, text): ...
     @staticmethod

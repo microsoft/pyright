@@ -4,6 +4,8 @@ from collections.abc import Iterable
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["biadjacency_matrix", "from_biadjacency_matrix"]
+
 @_dispatchable
 def biadjacency_matrix(
     G: Graph[_Node],

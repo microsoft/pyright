@@ -1,25 +1,25 @@
 from _typeshed import Incomplete
 from collections.abc import Mapping
+from typing import Final
 
 import requests
-from auth0.exceptions import Auth0Error as Auth0Error, RateLimitError as RateLimitError
-from auth0.rest_async import RequestsResponse as RequestsResponse
-from auth0.types import RequestData as RequestData, TimeoutType as TimeoutType
+from auth0.rest_async import RequestsResponse
+from auth0.types import RequestData, TimeoutType
 
-UNKNOWN_ERROR: str
+UNKNOWN_ERROR: Final[str]
 
 class RestClientOptions:
-    telemetry: Incomplete
-    timeout: Incomplete
-    retries: Incomplete
+    telemetry: bool
+    timeout: TimeoutType
+    retries: int
     def __init__(self, telemetry: bool = True, timeout: TimeoutType = 5.0, retries: int = 3) -> None: ...
 
 class RestClient:
-    options: Incomplete
-    jwt: Incomplete
-    base_headers: Incomplete
-    telemetry: Incomplete
-    timeout: Incomplete
+    options: RestClientOptions
+    jwt: str | None
+    base_headers: dict[str, str]
+    telemetry: bool
+    timeout: TimeoutType
     def __init__(
         self, jwt: str | None, telemetry: bool = True, timeout: TimeoutType = 5.0, options: RestClientOptions | None = None
     ) -> None: ...

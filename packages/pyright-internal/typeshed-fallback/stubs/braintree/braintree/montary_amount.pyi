@@ -1,7 +1,7 @@
-from _typeshed import Incomplete
+from decimal import Decimal
 
 from braintree.attribute_getter import AttributeGetter
 
 class MontaryAmount(AttributeGetter):
-    value: Incomplete
+    value: Decimal
     def __init__(self, attributes) -> None: ...

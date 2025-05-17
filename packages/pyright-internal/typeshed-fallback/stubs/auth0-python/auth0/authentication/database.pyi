@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 
-from .base import AuthenticationBase as AuthenticationBase
+from .base import AuthenticationBase
 
 class Database(AuthenticationBase):
     def signup(

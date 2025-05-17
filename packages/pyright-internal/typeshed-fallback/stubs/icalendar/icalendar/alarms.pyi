@@ -2,22 +2,16 @@ import datetime
 from typing_extensions import TypeAlias
 
 from .cal import Alarm, Event, Todo
+from .error import (
+    ComponentEndMissing as ComponentEndMissing,
+    ComponentStartMissing as ComponentStartMissing,
+    IncompleteAlarmInformation as IncompleteAlarmInformation,
+    LocalTimezoneMissing as LocalTimezoneMissing,
+)
 
-__all__ = [
-    "Alarms",
-    "AlarmTime",
-    "IncompleteAlarmInformation",
-    "ComponentEndMissing",
-    "ComponentStartMissing",
-    "LocalTimezoneMissing",
-]
+__all__ = ["Alarms", "AlarmTime", "IncompleteAlarmInformation", "ComponentEndMissing", "ComponentStartMissing"]
 
 Parent: TypeAlias = Event | Todo
-
-class IncompleteAlarmInformation(ValueError): ...
-class ComponentStartMissing(IncompleteAlarmInformation): ...
-class ComponentEndMissing(IncompleteAlarmInformation): ...
-class LocalTimezoneMissing(IncompleteAlarmInformation): ...
 
 class AlarmTime:
     def __init__(
