@@ -15,14 +15,14 @@
 //// async def a1[|/*marker6*/|]():
 ////     pass
 ////
-//// def method(p[|/*marker7*/|]):
+//// def method(x[|/*marker7*/|]):
 ////     pass
-//// def method(p:[|/*marker8*/|]):
+//// def method(x:[|/*marker8*/|]):
 ////     pass
 ////
-//// def method(p, p2[|/*marker9*/|]):
+//// def method(x, x2[|/*marker9*/|]):
 ////     pass
-//// def method(p, p2:[|/*marker10*/|]):
+//// def method(x, x2:[|/*marker10*/|]):
 ////     pass
 
 // @filename: test1.py
@@ -32,14 +32,14 @@
 ////     def a2[|/*marker12*/|]():
 ////         pass
 ////
-////     def method(p[|/*marker13*/|]):
+////     def method(x[|/*marker13*/|]):
 ////         pass
-////     def method(p:[|/*marker14*/|]):
+////     def method(x:[|/*marker14*/|]):
 ////         pass
 ////
-////     def method(p, p2[|/*marker15*/|]):
+////     def method(x, x2[|/*marker15*/|]):
 ////         pass
-////     def method(p, p2:[|/*marker16*/|]):
+////     def method(x, x2:[|/*marker16*/|]):
 ////         pass
 
 {
