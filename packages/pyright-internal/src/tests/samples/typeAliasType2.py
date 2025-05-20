@@ -12,14 +12,14 @@ T = TypeVar("T", bound=str)
 P = ParamSpec("P")
 Ts = TypeVarTuple("Ts")
 
-TA1 = TypeAliasType("TA1", T1 | list[TA1[T1]], type_params=(T1,))
+TA1 = TypeAliasType("TA1", "T1 | list[TA1[T1]]", type_params=(T1,))
 
 x1: TA1[int] = 1
 x2: TA1[int] = [1]
 
 TA2 = TypeAliasType(
     "TA2",
-    Callable[P, T] | list[S] | list[TA2[S, T, P]] | tuple[*Ts],
+    "Callable[P, T] | list[S] | list[TA2[S, T, P]] | tuple[*Ts]",
     type_params=(S, T, P, Ts),
 )
 
@@ -38,15 +38,17 @@ x6: TA2[int, str, [int, str], *tuple[int, str, int]]
 TA3 = TypeAliasType("TA3", TA3)
 
 # This should generate an error because it is unresolvable.
-TA4 = TypeAliasType("TA4", T | TA4[str], type_params=(T,))
+TA4 = TypeAliasType("TA4", "T | TA4[str]", type_params=(T,))
 
-TA5 = TypeAliasType("TA5", T | list[TA5[T]], type_params=(T,))
+TA5 = TypeAliasType("TA5", "T | list[TA5[T]]", type_params=(T,))
 
 # This should generate an error because it is unresolvable.
-TA6 = TypeAliasType("TA6", TA7)
-TA7 = TypeAliasType("TA7", TA6)
+TA6 = TypeAliasType("TA6", "TA7")
+TA7 = TypeAliasType("TA7", "TA6")
 
-JSONNode = TypeAliasType("JSONNode", list[JSONNode] | dict[str, JSONNode] | str | float)
+JSONNode = TypeAliasType(
+    "JSONNode", "list[JSONNode] | dict[str, JSONNode] | str | float"
+)
 
 
 class A(Generic[T1]):
@@ -72,3 +74,8 @@ class B:
 
 
 b1: B.TA9[int]
+
+
+# This should generate an error because TA9 refers to itself
+# and is not quoted.
+TA9 = TypeAliasType("TA9", list[TA9])
