@@ -4023,7 +4023,7 @@ export function createTypeEvaluator(
     // If the type includes promotion types, expand these to their constituent types.
     function expandPromotionTypes(node: ParseNode, type: Type, excludeBytes = false): Type {
         return mapSubtypes(type, (subtype) => {
-            if (!isClass(subtype) || !subtype.priv.includePromotions) {
+            if (!isClass(subtype) || !subtype.priv.includePromotions || subtype.priv.literalValue !== undefined) {
                 return subtype;
             }
 
