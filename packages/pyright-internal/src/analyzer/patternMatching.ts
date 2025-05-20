@@ -808,6 +808,11 @@ function narrowTypeBasedOnClassPattern(
                     return subjectSubtypeExpanded;
                 }
 
+                // Handle literal types specially.
+                if (isClassInstance(subjectSubtypeExpanded) && isLiteralType(subjectSubtypeExpanded)) {
+                    return undefined;
+                }
+
                 if (pattern.d.args.length === 0) {
                     if (isClass(classInstance) && isClass(subjectSubtypeExpanded)) {
                         // We know that this match will always succeed, so we can
