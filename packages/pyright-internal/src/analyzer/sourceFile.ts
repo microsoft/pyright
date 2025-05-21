@@ -677,7 +677,7 @@ export class SourceFile {
                     configOptions,
                     this._uri,
                     fileContents!,
-                    this._ipythonMode,
+                    this._ipythonMode !== IPythonMode.None,
                     diagSink
                 );
 
@@ -1448,7 +1448,7 @@ export class SourceFile {
         configOptions: ConfigOptions,
         fileUri: Uri,
         fileContents: string,
-        ipythonMode: IPythonMode,
+        useNotebookMode: boolean,
         diagSink: DiagnosticSink
     ): ParseFileResults {
         // Use the configuration options to determine the environment zin which
@@ -1456,7 +1456,7 @@ export class SourceFile {
         const execEnvironment = configOptions.findExecEnvironment(fileUri);
 
         const parseOptions = new ParseOptions();
-        parseOptions.ipythonMode = ipythonMode;
+        parseOptions.useNotebookMode = useNotebookMode;
         if (fileUri.pathEndsWith('pyi')) {
             parseOptions.isStubFile = true;
         }

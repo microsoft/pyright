@@ -46,7 +46,7 @@ import {
 } from '../parser/parseNodes';
 import { OperatorTypeNameMap, ParseNodeTypeNameMap } from '../parser/parseNodeUtils';
 import { ParseFileResults } from '../parser/parser';
-import { TokenizerOutput } from '../parser/tokenizer';
+import { Tokenizer, TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
 import { ParseTreeWalker, getChildNodes } from './parseTreeWalker';
@@ -1864,7 +1864,7 @@ export function getTokenIndexAtLeft(
             continue;
         }
 
-        if (!includeWhitespace && isWhitespace(token)) {
+        if (!includeWhitespace && Tokenizer.isWhitespace(token)) {
             continue;
         }
 
@@ -1917,10 +1917,6 @@ export function getTokenAfter(tokens: TextRangeCollection<Token>, position: numb
     }
 
     return tokens.getItemAt(index);
-}
-
-export function isWhitespace(token: Token) {
-    return token.type === TokenType.NewLine || token.type === TokenType.Indent || token.type === TokenType.Dedent;
 }
 
 export function getTokenAtIndex(tokens: TextRangeCollection<Token>, index: number) {
@@ -2382,7 +2378,7 @@ export function getFullStatementRange(
 
 export function isBlankLine(tokenizerOutput: TokenizerOutput, text: string, line: number) {
     const span = tokenizerOutput.lines.getItemAt(line);
-    return containsOnlyWhitespace(text, span);
+    return containsOnlyWhitespace(text, span.start, TextRange.getEnd(span));
 }
 
 export function isUnannotatedFunction(node: FunctionNode) {
@@ -2700,7 +2696,7 @@ export function getPreviousNonWhitespaceToken(tokens: TextRangeCollection<Token>
 
     while (tokenIndex >= 0) {
         const token = tokens.getItemAt(tokenIndex);
-        if (!isWhitespace(token)) {
+        if (!Tokenizer.isWhitespace(token)) {
             return token;
         }
 
@@ -2711,7 +2707,7 @@ export function getPreviousNonWhitespaceToken(tokens: TextRangeCollection<Token>
 }
 
 export function getNextNonWhitespaceToken(tokens: TextRangeCollection<Token>, offset: number): Token | undefined {
-    return getNextMatchingToken(tokens, offset, (token) => !isWhitespace(token));
+    return getNextMatchingToken(tokens, offset, (token) => !Tokenizer.isWhitespace(token));
 }
 
 export function getNextMatchingToken(

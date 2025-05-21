@@ -11,7 +11,6 @@
  * into an abstract syntax tree (AST).
  */
 
-import { IPythonMode } from '../analyzer/sourceFile';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
@@ -166,7 +165,7 @@ export class ParseOptions {
     pythonVersion: PythonVersion;
     reportInvalidStringEscapeSequence: boolean;
     skipFunctionAndClassBody: boolean;
-    ipythonMode: IPythonMode;
+    useNotebookMode: boolean;
     reportErrorsForParsedStringContents: boolean;
 
     constructor() {
@@ -174,7 +173,7 @@ export class ParseOptions {
         this.pythonVersion = latestStablePythonVersion;
         this.reportInvalidStringEscapeSequence = false;
         this.skipFunctionAndClassBody = false;
-        this.ipythonMode = IPythonMode.None;
+        this.useNotebookMode = false;
         this.reportErrorsForParsedStringContents = false;
     }
 }
@@ -399,7 +398,7 @@ export class Parser {
             textOffset,
             textLength,
             initialParenDepth,
-            this._parseOptions.ipythonMode
+            this._parseOptions.useNotebookMode
         );
         this._tokenIndex = 0;
     }

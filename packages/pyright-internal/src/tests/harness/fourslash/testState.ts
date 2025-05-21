@@ -41,16 +41,18 @@ import { ConsoleInterface, ConsoleWithLogLevel, NullConsole } from '../../../com
 import { Comparison, isNumber, isString } from '../../../common/core';
 import * as debug from '../../../common/debug';
 import { DiagnosticCategory } from '../../../common/diagnostic';
+import { DocumentRange } from '../../../common/docRange';
 import { PyrightDocStringService } from '../../../common/docStringService';
 import { FileEditAction } from '../../../common/editAction';
 import { ReadOnlyFileSystem } from '../../../common/fileSystem';
+import { Host } from '../../../common/host';
 import { LanguageServerInterface } from '../../../common/languageServerInterface';
 import { getFileExtension, normalizePath, normalizeSlashes } from '../../../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../../../common/positionUtils';
 import { ServiceProvider } from '../../../common/serviceProvider';
 import { createServiceProvider } from '../../../common/serviceProviderExtensions';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
-import { DocumentRange, Position, Range as PositionRange, TextRange, rangesAreEqual } from '../../../common/textRange';
+import { Position, Range as PositionRange, TextRange, rangesAreEqual } from '../../../common/textRange';
 import { TextRangeCollection } from '../../../common/textRangeCollection';
 import { Uri } from '../../../common/uri/uri';
 import { UriEx, getFileSpec } from '../../../common/uri/uriUtils';
@@ -72,6 +74,7 @@ import { SignatureHelpProvider } from '../../../languageService/signatureHelpPro
 import { ParseNode } from '../../../parser/parseNodes';
 import { ParseFileResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
+import { PartialStubService } from '../../../partialStubService';
 import { PyrightFileSystem } from '../../../pyrightFileSystem';
 import { NormalWorkspace, WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
@@ -98,8 +101,6 @@ import {
     getRangeByMarkerName,
 } from './testStateUtils';
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
-import { Host } from '../../../common/host';
-import { PartialStubService } from '../../../partialStubService';
 
 export interface TextChange {
     span: TextRange;
