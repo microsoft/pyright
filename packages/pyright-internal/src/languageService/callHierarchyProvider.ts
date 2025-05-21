@@ -120,7 +120,7 @@ export class CallHierarchyProvider {
                 : this._program.getSourceFileInfoList();
         for (const curSourceFileInfo of sourceFiles) {
             if (isUserCode(curSourceFileInfo) || curSourceFileInfo.isOpenByClient) {
-                const filePath = curSourceFileInfo.sourceFile.getUri();
+                const filePath = curSourceFileInfo.uri;
                 const itemsToAdd = this._getIncomingCallsForDeclaration(filePath, symbolName, targetDecl);
 
                 if (itemsToAdd) {

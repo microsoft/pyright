@@ -87,7 +87,7 @@ export class AnalyzerServiceExecutor {
     }
 }
 
-function getEffectiveCommandLineOptions(
+export function getEffectiveCommandLineOptions(
     workspaceRootUri: Uri | undefined,
     serverSettings: ServerSettings,
     trackFiles: boolean,

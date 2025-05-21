@@ -601,6 +601,9 @@ export class TestState {
             }
 
             const result = resultPerFile.get(file)!;
+            if (!result.parseResults) {
+                this.raiseError(`parse results not found for ${file}`);
+            }
             resultPerFile.delete(file);
 
             for (const [category, expected] of rangesPerCategory.entries()) {
@@ -700,12 +703,10 @@ export class TestState {
         // calling `analyze` should have parse and bind all or open user files. make sure that's true at least for open files.
         for (const info of this.program.getOpened()) {
             if (!info.sourceFile.getModuleSymbolTable()) {
-                this.console.error(
-                    `Module symbol missing?: ${info.sourceFile.getUri()}, bound: ${!info.sourceFile.isBindingRequired}`
-                );
+                this.console.error(`Module symbol missing?: ${info.uri}, bound: ${!info.sourceFile.isBindingRequired}`);
 
                 // Make sure it is bound.
-                this.program.getBoundSourceFile(info.sourceFile.getUri());
+                this.program.getBoundSourceFile(info.uri);
             }
         }
 
@@ -1983,6 +1984,13 @@ export class TestState {
             if (sourceFile) {
                 const diagnostics = sourceFile.getDiagnostics(this.configOptions) || [];
                 const fileUri = sourceFile.getUri();
+                if (sourceFile.isParseRequired()) {
+                    sourceFile.parse(
+                        this.program.configOptions,
+                        this.program.importResolver,
+                        sourceFile.getFileContent()
+                    );
+                }
                 const value = {
                     fileUri,
                     parseResults: sourceFile.getParseResults(),

@@ -140,23 +140,23 @@ export function applyWorkspaceEdit(program: EditableProgram, edits: WorkspaceEdi
 
 export function applyDocumentChanges(program: EditableProgram, fileInfo: SourceFileInfo, edits: TextEdit[]) {
     if (!fileInfo.isOpenByClient) {
-        const fileContent = fileInfo.sourceFile.getFileContent();
-        program.setFileOpened(fileInfo.sourceFile.getUri(), 0, fileContent ?? '', {
+        const fileContent = fileInfo.contents;
+        program.setFileOpened(fileInfo.uri, 0, fileContent ?? '', {
             isTracked: fileInfo.isTracked,
-            ipythonMode: fileInfo.sourceFile.getIPythonMode(),
-            chainedFileUri: fileInfo.chainedSourceFile?.sourceFile.getUri(),
+            ipythonMode: fileInfo.ipythonMode,
+            chainedFileUri: fileInfo.chainedSourceFile?.uri,
         });
     }
 
-    const version = fileInfo.sourceFile.getClientVersion() ?? 0;
-    const fileUri = fileInfo.sourceFile.getUri();
+    const version = fileInfo.clientVersion ?? 0;
+    const fileUri = fileInfo.uri;
     const filePath = fileUri.getFilePath();
-    const sourceDoc = TextDocument.create(filePath, 'python', version, fileInfo.sourceFile.getOpenFileContents() ?? '');
+    const sourceDoc = TextDocument.create(filePath, 'python', version, fileInfo.contents ?? '');
 
     program.setFileOpened(fileUri, version + 1, TextDocument.applyEdits(sourceDoc, edits), {
         isTracked: fileInfo.isTracked,
-        ipythonMode: fileInfo.sourceFile.getIPythonMode(),
-        chainedFileUri: fileInfo.chainedSourceFile?.sourceFile.getUri(),
+        ipythonMode: fileInfo.ipythonMode,
+        chainedFileUri: fileInfo.chainedSourceFile?.uri,
     });
 }
 

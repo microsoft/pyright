@@ -800,6 +800,7 @@ export class CompletionProvider {
     protected createAutoImporter(completionMap: CompletionMap, lazyEdit: boolean) {
         const currentFile = this.program.getSourceFileInfo(this.fileUri);
         const moduleSymbolMap = buildModuleSymbolsMap(
+            this.program,
             this.program.getSourceFileInfoList().filter((s) => s !== currentFile)
         );
 
