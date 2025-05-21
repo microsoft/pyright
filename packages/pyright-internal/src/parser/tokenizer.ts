@@ -10,8 +10,6 @@
  * Converts a Python program text stream into a stream of tokens.
  */
 
-import { isWhitespace } from '../analyzer/parseTreeUtils';
-import { IPythonMode } from '../analyzer/sourceFile';
 import { Char } from '../common/charCodes';
 import { cloneStr } from '../common/core';
 import { TextRange } from '../common/textRange';
@@ -244,15 +242,15 @@ export class Tokenizer {
     private _singleQuoteCount = 0;
     private _doubleQuoteCount = 0;
 
-    // ipython mode
-    private _ipythonMode = IPythonMode.None;
+    // Assume Jupyter notebook tokenization rules?
+    private _useNotebookMode = false;
 
     tokenize(
         text: string,
         start?: number,
         length?: number,
         initialParenDepth = 0,
-        ipythonMode = IPythonMode.None
+        useNotebookMode = false
     ): TokenizerOutput {
         if (start === undefined) {
             start = 0;
@@ -275,7 +273,7 @@ export class Tokenizer {
         this._parenDepth = initialParenDepth;
         this._lineRanges = [];
         this._indentAmounts = [];
-        this._ipythonMode = ipythonMode;
+        this._useNotebookMode = useNotebookMode;
 
         const end = start + length;
 
@@ -375,6 +373,10 @@ export class Tokenizer {
         return _operatorInfo[operatorType];
     }
 
+    static isWhitespace(token: Token) {
+        return token.type === TokenType.NewLine || token.type === TokenType.Indent || token.type === TokenType.Dedent;
+    }
+
     static isPythonKeyword(name: string, includeSoftKeywords = false): boolean {
         const keyword = _keywords.get(name);
         if (!keyword) {
@@ -460,7 +462,7 @@ export class Tokenizer {
             return true;
         }
 
-        if (this._ipythonMode) {
+        if (this._useNotebookMode) {
             const kind = this._getIPythonMagicsKind();
             if (kind === 'line') {
                 this._handleIPythonMagics(
@@ -1243,7 +1245,7 @@ export class Tokenizer {
         }
 
         const prevToken = this._tokens.length > 0 ? this._tokens[this._tokens.length - 1] : undefined;
-        if (prevToken !== undefined && !isWhitespace(prevToken)) {
+        if (prevToken !== undefined && !Tokenizer.isWhitespace(prevToken)) {
             return undefined;
         }
 

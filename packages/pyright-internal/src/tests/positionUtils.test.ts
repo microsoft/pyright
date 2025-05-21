@@ -51,7 +51,7 @@ test('getLineEndOffset with mixed style ending', () => {
     verifyLineEnding(code, 2, 5);
 });
 
-test('End of file position and offest conversion', () => {
+test('End of file position and offset conversion', () => {
     const code = 'hello\n';
 
     const t = new Tokenizer();
