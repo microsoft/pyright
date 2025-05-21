@@ -7,11 +7,12 @@
  */
 
 import { SourceFile } from './sourceFile';
+import * as extensibility from '../common/extensibility';
 
 // Tracks information about each source file in a program,
 // including the reason it was added to the program and any
 // dependencies that it has on other files in the program.
-export class SourceFileInfo {
+export class SourceFileInfo implements extensibility.SourceFileInfo {
     private _writableData: WriteableData;
     private _preEditData?: WriteableData;
 
@@ -62,6 +63,33 @@ export class SourceFileInfo {
     get isOpenByClient() {
         return this._writableData.isOpenByClient;
     }
+    get uri() {
+        return this.sourceFile.getUri();
+    }
+
+    get contents() {
+        return this.sourceFile.getFileContent() ?? '';
+    }
+
+    get ipythonMode() {
+        return this.sourceFile.getIPythonMode();
+    }
+
+    get isStubFile() {
+        return this.sourceFile.isStubFile();
+    }
+
+    get isTypingStubFile() {
+        return this.sourceFile.isTypingStubFile();
+    }
+
+    get hasTypeAnnotations() {
+        const parseResults = this.sourceFile.getParserOutput();
+        if (parseResults) {
+            return parseResults.hasTypeAnnotations;
+        }
+        return false;
+    }
 
     get imports(): readonly SourceFileInfo[] {
         return this._writableData.imports;
@@ -77,6 +105,10 @@ export class SourceFileInfo {
 
     get shadowedBy(): readonly SourceFileInfo[] {
         return this._writableData.shadowedBy;
+    }
+
+    get clientVersion() {
+        return this.sourceFile.getClientVersion();
     }
 
     set diagnosticsVersion(value: number | undefined) {

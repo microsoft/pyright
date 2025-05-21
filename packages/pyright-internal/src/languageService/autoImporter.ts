@@ -116,7 +116,7 @@ export type AutoImportResultMap = Map<string, AutoImportResult[]>;
 
 // Build a map of all modules within this program and the module-
 // level scope that contains the symbol table for the module.
-export function buildModuleSymbolsMap(files: readonly SourceFileInfo[]): ModuleSymbolMap {
+export function buildModuleSymbolsMap(program: ProgramView, files: readonly SourceFileInfo[]): ModuleSymbolMap {
     const moduleSymbolMap = new Map<string, ModuleSymbolTable>();
 
     files.forEach((file) => {
@@ -126,8 +126,8 @@ export function buildModuleSymbolsMap(files: readonly SourceFileInfo[]): ModuleS
             return;
         }
 
-        const uri = file.sourceFile.getUri();
-        const symbolTable = file.sourceFile.getModuleSymbolTable();
+        const uri = file.uri;
+        const symbolTable = program.getModuleSymbolTable(uri);
         if (!symbolTable) {
             return;
         }

@@ -582,6 +582,8 @@ export class SourceFile {
             this._writableData.tokenizerOutput ?? this._tokenizeContents(this._writableData.parsedFileContents);
 
         return {
+            contentHash:
+                this._writableData.lastFileContentHash || StringUtils.hashString(this._writableData.parsedFileContents),
             parserOutput: this._writableData.parserOutput,
             tokenizerOutput,
             text: this._writableData.parsedFileContents,

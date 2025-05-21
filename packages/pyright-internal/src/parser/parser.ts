@@ -31,6 +31,7 @@ import {
     pythonVersion3_8,
     pythonVersion3_9,
 } from '../common/pythonVersion';
+import { hashString } from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
@@ -189,6 +190,7 @@ export interface ParserOutput {
 
 export interface ParseFileResults {
     text: string;
+    contentHash: number;
     parserOutput: ParserOutput;
     tokenizerOutput: TokenizerOutput;
 }
@@ -285,6 +287,7 @@ export class Parser {
         assert(this._tokenizerOutput !== undefined);
         return {
             text: fileContents,
+            contentHash: hashString(fileContents),
             parserOutput: {
                 parseTree: moduleNode,
                 importedModules: this._importedModules,

@@ -1120,45 +1120,48 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         // Send a progress message to the client.
         this.incrementAnalysisProgress();
 
-        // Reanalyze the file if it's not up to date.
-        if (params.previousResultId !== diagnosticsVersion.toString() && sourceFile) {
-            let diagnosticsVersionAfter = UncomputedDiagnosticsVersion - 1; // Just has to be different
-            let serverDiagnostics: AnalyzerDiagnostic[] = [];
+        try {
+            // Reanalyze the file if it's not up to date.
+            if (params.previousResultId !== diagnosticsVersion.toString() && sourceFile) {
+                let diagnosticsVersionAfter = UncomputedDiagnosticsVersion - 1; // Just has to be different
+                let serverDiagnostics: AnalyzerDiagnostic[] = [];
 
-            // Loop until we analyze the same version that we started with.
-            while (diagnosticsVersion !== diagnosticsVersionAfter && !token.isCancellationRequested && sourceFile) {
-                // Reset the version we're analyzing
-                sourceFile = workspace.service.getSourceFile(uri);
-                diagnosticsVersion = sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
+                // Loop until we analyze the same version that we started with.
+                while (diagnosticsVersion !== diagnosticsVersionAfter && !token.isCancellationRequested && sourceFile) {
+                    // Reset the version we're analyzing
+                    sourceFile = workspace.service.getSourceFile(uri);
+                    diagnosticsVersion = sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
 
-                // Then reanalyze the file (this should go to the background thread so this thread can handle other requests).
-                if (sourceFile) {
-                    serverDiagnostics = await workspace.service.analyzeFileAndGetDiagnostics(uri, token);
+                    // Then reanalyze the file (this should go to the background thread so this thread can handle other requests).
+                    if (sourceFile) {
+                        serverDiagnostics = await workspace.service.analyzeFileAndGetDiagnostics(uri, token);
+                    }
+
+                    // If any text edits came in, make sure we reanalyze the file. Diagnostics version should be reset to zero
+                    // if a text edit comes in.
+                    const sourceFileAfter = workspace.service.getSourceFile(uri);
+                    diagnosticsVersionAfter = sourceFileAfter?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
                 }
 
-                // If any text edits came in, make sure we reanalyze the file. Diagnostics version should be reset to zero
-                // if a text edit comes in.
-                const sourceFileAfter = workspace.service.getSourceFile(uri);
-                diagnosticsVersionAfter = sourceFileAfter?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
+                // Then convert the diagnostics to the LSP format.
+                const lspDiagnostics = this._convertDiagnostics(workspace.service.fs, serverDiagnostics).filter(
+                    (d) => d !== undefined
+                ) as Diagnostic[];
+
+                result.resultId =
+                    diagnosticsVersionAfter === UncomputedDiagnosticsVersion
+                        ? undefined
+                        : diagnosticsVersionAfter.toString();
+                result.items = lspDiagnostics;
+            } else {
+                (result as any).kind = 'unchanged';
+                result.resultId =
+                    diagnosticsVersion === UncomputedDiagnosticsVersion ? undefined : diagnosticsVersion.toString();
+                delete (result as any).items;
             }
-
-            // Then convert the diagnostics to the LSP format.
-            const lspDiagnostics = this._convertDiagnostics(workspace.service.fs, serverDiagnostics).filter(
-                (d) => d !== undefined
-            ) as Diagnostic[];
-
-            result.resultId =
-                diagnosticsVersionAfter === UncomputedDiagnosticsVersion
-                    ? undefined
-                    : diagnosticsVersionAfter.toString();
-            result.items = lspDiagnostics;
-        } else {
-            (result as any).kind = 'unchanged';
-            result.resultId =
-                diagnosticsVersion === UncomputedDiagnosticsVersion ? undefined : diagnosticsVersion.toString();
-            delete (result as any).items;
+        } finally {
+            this.decrementAnalysisProgress();
         }
-        this.decrementAnalysisProgress();
 
         return result;
     }

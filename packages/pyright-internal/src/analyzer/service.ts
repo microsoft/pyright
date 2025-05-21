@@ -241,11 +241,11 @@ export class AnalyzerService {
             const version = fileInfo.sourceFile.getClientVersion();
             if (version !== undefined) {
                 service.setFileOpened(
-                    fileInfo.sourceFile.getUri(),
+                    fileInfo.uri,
                     version,
                     fileInfo.sourceFile.getOpenFileContents()!,
-                    fileInfo.sourceFile.getIPythonMode(),
-                    fileInfo.chainedSourceFile?.sourceFile.getUri()
+                    fileInfo.ipythonMode,
+                    fileInfo.chainedSourceFile?.uri
                 );
             }
         }
@@ -311,15 +311,15 @@ export class AnalyzerService {
     }
 
     getUserFiles() {
-        return this._program.getUserFiles().map((i) => i.sourceFile.getUri());
+        return this._program.getUserFiles().map((i) => i.uri);
     }
 
     getOpenFiles() {
-        return this._program.getOpened().map((i) => i.sourceFile.getUri());
+        return this._program.getOpened().map((i) => i.uri);
     }
 
     getOwnedFiles() {
-        return this._program.getOwnedFiles().map((i) => i.sourceFile.getUri());
+        return this._program.getOwnedFiles().map((i) => i.uri);
     }
 
     setFileOpened(
@@ -1277,7 +1277,7 @@ export class AnalyzerService {
         // files in file system but only exist in memory (ex, virtual workspace)
         this._backgroundAnalysisProgram.program
             .getOpened()
-            .map((o) => o.sourceFile.getUri())
+            .map((o) => o.uri)
             .filter((f) => matchFileSpecs(this._program.configOptions, f))
             .forEach((f) => fileMap.set(f.key, f));
 

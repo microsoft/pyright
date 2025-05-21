@@ -204,7 +204,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         });
 
         const sourceFileInfo = program.getSourceFileInfo(fileUri);
-        if (sourceFileInfo && sourceFileInfo.sourceFile.getIPythonMode() === IPythonMode.CellDocs) {
+        if (sourceFileInfo && sourceFileInfo.ipythonMode === IPythonMode.CellDocs) {
             // Add declarations from chained source files
             let builtinsScope = fileInfo.builtinsScope;
             while (builtinsScope && builtinsScope.type === ScopeType.Module) {
@@ -216,7 +216,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             // Add declarations from files that implicitly import the target file.
             const implicitlyImportedBy = collectImportedByCells(program, sourceFileInfo);
             implicitlyImportedBy.forEach((implicitImport) => {
-                const parseTree = program.getParseResults(implicitImport.sourceFile.getUri())?.parserOutput.parseTree;
+                const parseTree = program.getParseResults(implicitImport.uri)?.parserOutput.parseTree;
                 if (parseTree) {
                     const scope = AnalyzerNodeInfo.getScope(parseTree);
                     const symbol = scope?.lookUpSymbol(node.d.value);

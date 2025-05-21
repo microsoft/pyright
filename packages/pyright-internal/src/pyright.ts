@@ -617,7 +617,7 @@ async function runMultiThreaded(
 
         if (nextFileToAnalyze) {
             // Tell the worker to analyze the next file.
-            const fileUri = nextFileToAnalyze.sourceFile.getUri().toString();
+            const fileUri = nextFileToAnalyze.uri.toString();
 
             sendMessageToWorker(worker, 'analyzeFile', fileUri);
 

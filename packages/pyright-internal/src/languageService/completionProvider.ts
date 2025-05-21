@@ -800,6 +800,7 @@ export class CompletionProvider {
     protected createAutoImporter(completionMap: CompletionMap, lazyEdit: boolean) {
         const currentFile = this.program.getSourceFileInfo(this.fileUri);
         const moduleSymbolMap = buildModuleSymbolsMap(
+            this.program,
             this.program.getSourceFileInfoList().filter((s) => s !== currentFile)
         );
 
@@ -1150,7 +1151,7 @@ export class CompletionProvider {
         const textOnLine = this._fileContents.substr(lineTextRange.start, lineTextRange.length);
         const priorText = textOnLine.substr(0, this.position.character);
         const postText = textOnLine.substr(this.position.character);
-        const priorWordIndex = priorText.search(/\w+$/);
+        const priorWordIndex = priorText.search(/[\p{L}\p{N}\p{Pc}\p{Mn}\p{Mc}]+$/u);
         const priorWord = priorWordIndex >= 0 ? priorText.substr(priorWordIndex) : '';
 
         // Don't offer completions if we're within a comment.
