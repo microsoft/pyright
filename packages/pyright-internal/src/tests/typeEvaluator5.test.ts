@@ -86,7 +86,7 @@ test('AutoVariance1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['autoVariance1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 16);
+    TestUtils.validateResults(analysisResults, 17);
 });
 
 test('AutoVariance2', () => {
@@ -335,7 +335,7 @@ test('TypeAliasType1', () => {
 
 test('TypeAliasType2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasType2.py']);
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('TypedDictReadOnly1', () => {

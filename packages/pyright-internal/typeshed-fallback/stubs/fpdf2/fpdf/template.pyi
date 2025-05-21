@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from os import PathLike
 from typing import Any
 
@@ -11,7 +10,7 @@ class FlexTemplate:
     splitting_pdf: Any
     handlers: Any
     texts: Any
-    def __init__(self, pdf, elements: Incomplete | None = None) -> None: ...
+    def __init__(self, pdf, elements=None) -> None: ...
     elements: Any
     keys: Any
     def load_elements(self, elements) -> None: ...
@@ -29,8 +28,8 @@ class FlexTemplate:
 class Template(FlexTemplate):
     def __init__(
         self,
-        infile: Incomplete | None = None,
-        elements: Incomplete | None = None,
+        infile=None,
+        elements=None,
         format: str = "A4",
         orientation: str = "portrait",
         unit: str = "mm",
@@ -41,4 +40,4 @@ class Template(FlexTemplate):
         keywords: str = "",
     ) -> None: ...
     def add_page(self) -> None: ...
-    def render(self, outfile: Incomplete | None = None, dest: Incomplete | None = None) -> None: ...  # type: ignore[override]
+    def render(self, outfile=None, dest=None) -> None: ...  # type: ignore[override]

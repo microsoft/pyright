@@ -8,13 +8,13 @@ class OAuth2Error(AuthlibHTTPError):
     redirect_fragment: Incomplete
     def __init__(
         self,
-        description: Incomplete | None = None,
-        uri: Incomplete | None = None,
-        status_code: Incomplete | None = None,
-        state: Incomplete | None = None,
-        redirect_uri: Incomplete | None = None,
+        description=None,
+        uri=None,
+        status_code=None,
+        state=None,
+        redirect_uri=None,
         redirect_fragment: bool = False,
-        error: Incomplete | None = None,
+        error=None,
     ) -> None: ...
     def get_body(self): ...
-    def __call__(self, uri: Incomplete | None = None): ...
+    def __call__(self, uri=None): ...

@@ -5,6 +5,16 @@ from typing import overload
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = [
+    "shortest_path",
+    "all_shortest_paths",
+    "single_source_all_shortest_paths",
+    "all_pairs_all_shortest_paths",
+    "shortest_path_length",
+    "average_shortest_path_length",
+    "has_path",
+]
+
 @_dispatchable
 def has_path(G: Graph[_Node], source: _Node, target: _Node) -> bool: ...
 @overload
@@ -51,3 +61,11 @@ def all_shortest_paths(
     weight: str | Callable[..., Incomplete] | None = None,
     method: str | None = "dijkstra",
 ) -> Generator[list[_Node], None, None]: ...
+@_dispatchable
+def single_source_all_shortest_paths(
+    G, source, weight=None, method="dijkstra"
+) -> Generator[tuple[Incomplete, list[list[Incomplete]]]]: ...
+@_dispatchable
+def all_pairs_all_shortest_paths(
+    G, weight=None, method="dijkstra"
+) -> Generator[tuple[Incomplete, dict[Incomplete, Incomplete]]]: ...

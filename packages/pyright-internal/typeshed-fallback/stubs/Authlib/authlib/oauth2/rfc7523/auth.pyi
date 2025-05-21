@@ -6,13 +6,7 @@ class ClientSecretJWT:
     token_endpoint: Incomplete
     claims: Incomplete
     headers: Incomplete
-    def __init__(
-        self,
-        token_endpoint: Incomplete | None = None,
-        claims: Incomplete | None = None,
-        headers: Incomplete | None = None,
-        alg: Incomplete | None = None,
-    ) -> None: ...
+    def __init__(self, token_endpoint=None, claims=None, headers=None, alg=None) -> None: ...
     def sign(self, auth, token_endpoint): ...
     def __call__(self, auth, method, uri, headers, body): ...
 

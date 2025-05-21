@@ -4,6 +4,13 @@ from collections.abc import Iterable
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = [
+    "degree_pearson_correlation_coefficient",
+    "degree_assortativity_coefficient",
+    "attribute_assortativity_coefficient",
+    "numeric_assortativity_coefficient",
+]
+
 @_dispatchable
 def degree_assortativity_coefficient(
     G: Graph[_Node], x: str = "out", y: str = "in", weight: str | None = None, nodes: Iterable[Incomplete] | None = None

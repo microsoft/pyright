@@ -27,17 +27,17 @@ class OAuth2Client:
     def __init__(
         self,
         session,
-        client_id: Incomplete | None = None,
-        client_secret: Incomplete | None = None,
-        token_endpoint_auth_method: Incomplete | None = None,
-        revocation_endpoint_auth_method: Incomplete | None = None,
-        scope: Incomplete | None = None,
-        state: Incomplete | None = None,
-        redirect_uri: Incomplete | None = None,
-        code_challenge_method: Incomplete | None = None,
-        token: Incomplete | None = None,
+        client_id=None,
+        client_secret=None,
+        token_endpoint_auth_method=None,
+        revocation_endpoint_auth_method=None,
+        scope=None,
+        state=None,
+        redirect_uri=None,
+        code_challenge_method=None,
+        token=None,
         token_placement: str = "header",
-        update_token: Incomplete | None = None,
+        update_token=None,
         leeway: int = 60,
         **metadata,
     ) -> None: ...
@@ -47,50 +47,14 @@ class OAuth2Client:
     def token(self): ...
     @token.setter
     def token(self, token) -> None: ...
-    def create_authorization_url(
-        self, url, state: Incomplete | None = None, code_verifier: Incomplete | None = None, **kwargs
-    ): ...
+    def create_authorization_url(self, url, state=None, code_verifier=None, **kwargs): ...
     def fetch_token(
-        self,
-        url: Incomplete | None = None,
-        body: str = "",
-        method: str = "POST",
-        headers: Incomplete | None = None,
-        auth: Incomplete | None = None,
-        grant_type: Incomplete | None = None,
-        state: Incomplete | None = None,
-        **kwargs,
+        self, url=None, body: str = "", method: str = "POST", headers=None, auth=None, grant_type=None, state=None, **kwargs
     ): ...
-    def token_from_fragment(self, authorization_response, state: Incomplete | None = None): ...
-    def refresh_token(
-        self,
-        url: Incomplete | None = None,
-        refresh_token: Incomplete | None = None,
-        body: str = "",
-        auth: Incomplete | None = None,
-        headers: Incomplete | None = None,
-        **kwargs,
-    ): ...
-    def ensure_active_token(self, token: Incomplete | None = None): ...
-    def revoke_token(
-        self,
-        url,
-        token: Incomplete | None = None,
-        token_type_hint: Incomplete | None = None,
-        body: Incomplete | None = None,
-        auth: Incomplete | None = None,
-        headers: Incomplete | None = None,
-        **kwargs,
-    ): ...
-    def introspect_token(
-        self,
-        url,
-        token: Incomplete | None = None,
-        token_type_hint: Incomplete | None = None,
-        body: Incomplete | None = None,
-        auth: Incomplete | None = None,
-        headers: Incomplete | None = None,
-        **kwargs,
-    ): ...
+    def token_from_fragment(self, authorization_response, state=None): ...
+    def refresh_token(self, url=None, refresh_token=None, body: str = "", auth=None, headers=None, **kwargs): ...
+    def ensure_active_token(self, token=None): ...
+    def revoke_token(self, url, token=None, token_type_hint=None, body=None, auth=None, headers=None, **kwargs): ...
+    def introspect_token(self, url, token=None, token_type_hint=None, body=None, auth=None, headers=None, **kwargs): ...
     def register_compliance_hook(self, hook_type, hook) -> None: ...
     def parse_response_token(self, resp): ...

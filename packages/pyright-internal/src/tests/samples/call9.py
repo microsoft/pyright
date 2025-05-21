@@ -2,10 +2,15 @@
 # is used in a call. The type checker should verify that the
 # type supports a SupportsKeyAndGetItem protocol.
 
-from typing import Any, Generic, TypeVar, Mapping, KeysView
+from typing import Any, Generic, Iterator, TypeVar, Mapping, KeysView
 
 
-class MyMapping(Mapping[str, Any]): ...
+class MyMapping(Mapping[str, Any]):
+    def __getitem__(self, __key: str) -> Any: ...
+
+    def __iter__(self) -> Iterator[str]: ...
+
+    def __len__(self) -> int: ...
 
 
 class StrRecord:

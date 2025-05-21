@@ -41,26 +41,19 @@ class Client:
         self,
         client_key: str,
         client_secret: str | None = None,
-        resource_owner_key: Incomplete | None = None,
-        resource_owner_secret: Incomplete | None = None,
-        callback_uri: Incomplete | None = None,
+        resource_owner_key=None,
+        resource_owner_secret=None,
+        callback_uri=None,
         signature_method="HMAC-SHA1",
         signature_type="AUTH_HEADER",
-        rsa_key: Incomplete | None = None,
-        verifier: Incomplete | None = None,
-        realm: Incomplete | None = None,
+        rsa_key=None,
+        verifier=None,
+        realm=None,
         encoding: str = "utf-8",
-        decoding: Incomplete | None = None,
-        nonce: Incomplete | None = None,
-        timestamp: Incomplete | None = None,
+        decoding=None,
+        nonce=None,
+        timestamp=None,
     ): ...
     def get_oauth_signature(self, request): ...
     def get_oauth_params(self, request): ...
-    def sign(
-        self,
-        uri,
-        http_method: str = "GET",
-        body: str | None = None,
-        headers: dict[str, str] | None = None,
-        realm: Incomplete | None = None,
-    ): ...
+    def sign(self, uri, http_method: str = "GET", body: str | None = None, headers: dict[str, str] | None = None, realm=None): ...

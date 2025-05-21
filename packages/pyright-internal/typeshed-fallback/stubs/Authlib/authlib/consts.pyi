@@ -1,6 +1,6 @@
 from typing import Final
 
-name: Final[str]
+name: Final = "Authlib"
 version: Final[str]
 author: Final[str]
 homepage: Final[str]

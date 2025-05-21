@@ -131,10 +131,8 @@ export interface TypeAliasSharedInfo {
 
     typeVarScopeId: TypeVarScopeId;
 
-    // Indicates whether the type alias was declared with the
-    // "type" syntax introduced in PEP 695 or was created by a direct
-    // call to the TypeAliasType constructor.
-    isPep695Syntax: boolean;
+    // Is the type alias a PEP 695 TypeAliasType instance?
+    isTypeAliasType: boolean;
 
     // Type parameters, if type alias is generic
     typeParams: TypeVarType[] | undefined;

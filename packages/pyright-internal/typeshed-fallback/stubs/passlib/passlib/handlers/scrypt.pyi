@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from typing import ClassVar
 
 import passlib.utils.handlers as uh
@@ -18,13 +17,13 @@ class scrypt(uh.ParallelismMixin, uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum
     parallelism: int
     block_size: int
     @classmethod
-    def using(cls, block_size: Incomplete | None = None, **kwds): ...  # type: ignore[override]
+    def using(cls, block_size=None, **kwds): ...  # type: ignore[override]
     @classmethod
     def from_string(cls, hash): ...
     @classmethod
     def parse(cls, hash): ...
     def to_string(self): ...
-    def __init__(self, block_size: Incomplete | None = None, **kwds) -> None: ...
+    def __init__(self, block_size=None, **kwds) -> None: ...
     @classmethod
     def get_backend(cls): ...
     @classmethod

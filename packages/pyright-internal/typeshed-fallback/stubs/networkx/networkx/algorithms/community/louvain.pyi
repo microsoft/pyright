@@ -5,6 +5,8 @@ from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 from numpy.random import RandomState
 
+__all__ = ["louvain_communities", "louvain_partitions"]
+
 @_dispatchable
 def louvain_communities(
     G: Graph[_Node],

@@ -106,7 +106,7 @@ class EvilProto1(Protocol):
 EvilProto1.__call__
 
 
-# This should generate two errors and not hang.
+# This should generate an error and not hang.
 p: EvilProto1 = curry(lambda a, b: a(b(a)))
 
 

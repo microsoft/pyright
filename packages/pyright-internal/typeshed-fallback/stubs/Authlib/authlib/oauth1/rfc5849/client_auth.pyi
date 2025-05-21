@@ -21,15 +21,15 @@ class ClientAuth:
     def __init__(
         self,
         client_id,
-        client_secret: Incomplete | None = None,
-        token: Incomplete | None = None,
-        token_secret: Incomplete | None = None,
-        redirect_uri: Incomplete | None = None,
-        rsa_key: Incomplete | None = None,
-        verifier: Incomplete | None = None,
+        client_secret=None,
+        token=None,
+        token_secret=None,
+        redirect_uri=None,
+        rsa_key=None,
+        verifier=None,
         signature_method="HMAC-SHA1",
         signature_type="HEADER",
-        realm: Incomplete | None = None,
+        realm=None,
         force_include_body: bool = False,
     ) -> None: ...
     def get_oauth_signature(self, method, uri, headers, body): ...

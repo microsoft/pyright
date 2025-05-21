@@ -866,7 +866,7 @@ function createUnionType(
     let newUnion = combineTypes([adjustedLeftType, adjustedRightType], { skipElideRedundantLiterals: true });
 
     const unionClass = evaluator.getUnionClassType();
-    if (unionClass && isInstantiableClass(unionClass)) {
+    if (unionClass && isInstantiableClass(unionClass) && (flags & EvalFlags.IsinstanceArg) === 0) {
         newUnion = TypeBase.cloneAsSpecialForm(newUnion, ClassType.cloneAsInstance(unionClass));
     }
 

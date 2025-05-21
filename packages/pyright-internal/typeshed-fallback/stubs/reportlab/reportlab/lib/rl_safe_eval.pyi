@@ -23,7 +23,7 @@ def copy_locations(new_node, old_node) -> None: ...
 class UntrustedAstTransformer(ast.NodeTransformer):
     names_seen: Incomplete
     nameIsAllowed: Incomplete
-    def __init__(self, names_seen: Incomplete | None = None, nameIsAllowed: Incomplete | None = None) -> None: ...
+    def __init__(self, names_seen=None, nameIsAllowed=None) -> None: ...
     @property
     def tmpName(self): ...
     def error(self, node, msg) -> NoReturn: ...
@@ -160,7 +160,7 @@ class __rl_SafeIter__:
 
 __rl_safe_builtins__: Incomplete
 
-def safer_globals(g: Incomplete | None = None): ...
+def safer_globals(g=None): ...
 
 math_log10 = math.log10
 __rl_undef__: Incomplete
@@ -176,12 +176,7 @@ class __RL_SAFE_ENV__:
     real_bi: Incomplete
     bi_replace: Incomplete
     __rl_builtins__: Incomplete
-    def __init__(
-        self,
-        timeout: Incomplete | None = None,
-        allowed_magic_methods: Incomplete | None = None,
-        allowed_magic_names: Incomplete | None = None,
-    ) -> None: ...
+    def __init__(self, timeout=None, allowed_magic_methods=None, allowed_magic_names=None) -> None: ...
     def __rl_type__(self, *args): ...
     def __rl_check__(self) -> None: ...
     def __rl_sd__(self, obj): ...
@@ -217,45 +212,23 @@ class __RL_SAFE_ENV__:
     def __rl_args_iter__(self, *args): ...
     def __rl_list__(self, it): ...
     def __rl_compile__(
-        self,
-        src,
-        fname: str = "<string>",
-        mode: str = "eval",
-        flags: int = 0,
-        inherit: bool = True,
-        visit: Incomplete | None = None,
+        self, src, fname: str = "<string>", mode: str = "eval", flags: int = 0, inherit: bool = True, visit=None
     ): ...
     __rl_limit__: Incomplete
     def __rl_safe_eval__(
-        self,
-        expr,
-        g,
-        l,
-        mode,
-        timeout: Incomplete | None = None,
-        allowed_magic_methods: Incomplete | None = None,
-        __frame_depth__: int = 3,
-        allowed_magic_names: Incomplete | None = None,
+        self, expr, g, l, mode, timeout=None, allowed_magic_methods=None, __frame_depth__: int = 3, allowed_magic_names=None
     ): ...
 
 class __rl_safe_eval__:
     mode: str
     env: Incomplete
     def __init__(self) -> None: ...
-    def __call__(
-        self,
-        expr,
-        g: Incomplete | None = None,
-        l: Incomplete | None = None,
-        timeout: Incomplete | None = None,
-        allowed_magic_methods: Incomplete | None = None,
-        allowed_magic_names: Incomplete | None = None,
-    ): ...
+    def __call__(self, expr, g=None, l=None, timeout=None, allowed_magic_methods=None, allowed_magic_names=None): ...
 
 class __rl_safe_exec__(__rl_safe_eval__):
     mode: str
 
-def rl_extended_literal_eval(expr, safe_callables: Incomplete | None = None, safe_names: Incomplete | None = None): ...
+def rl_extended_literal_eval(expr, safe_callables=None, safe_names=None): ...
 
 rl_safe_exec: __rl_safe_exec__
 rl_safe_eval: __rl_safe_eval__

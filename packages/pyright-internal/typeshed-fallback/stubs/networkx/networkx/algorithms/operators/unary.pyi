@@ -6,6 +6,8 @@ from networkx.utils.backends import _dispatchable
 
 _G = TypeVar("_G", bound=Graph[Hashable])
 
+__all__ = ["complement", "reverse"]
+
 @_dispatchable
 def complement(G: Graph[_Node]): ...
 @_dispatchable

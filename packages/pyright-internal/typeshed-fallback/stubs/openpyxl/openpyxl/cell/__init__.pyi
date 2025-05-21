@@ -10,7 +10,7 @@ from .cell import Cell as Cell, MergedCell as MergedCell, WriteOnlyCell as Write
 from .read_only import ReadOnlyCell as ReadOnlyCell
 
 _TimeTypes: TypeAlias = datetime | date | time | timedelta
-_CellValue: TypeAlias = (  # noqa: Y047 # Used in other modules
+_CellGetValue: TypeAlias = (  # noqa: Y047 # Used in other modules
     # if numpy is installed also numpy bool and number types
     bool
     | float
@@ -20,7 +20,9 @@ _CellValue: TypeAlias = (  # noqa: Y047 # Used in other modules
     | _TimeTypes
     | DataTableFormula
     | ArrayFormula
+    | None
 )
-_AnyCellValue: TypeAlias = Any  # Any of _CellValue # noqa: Y047 # Used in other modules
+_AnyCellValue: TypeAlias = Any  # AnyOf _CellGetValue # noqa: Y047 # Used in other modules
+_CellSetValue: TypeAlias = _CellGetValue | bytes  # noqa: Y047 # Used in other modules
 
 _CellOrMergedCell: TypeAlias = Cell | MergedCell  # noqa: Y047 # Used in other modules

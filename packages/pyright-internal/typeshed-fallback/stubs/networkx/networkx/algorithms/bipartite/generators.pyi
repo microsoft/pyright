@@ -5,6 +5,17 @@ from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 from numpy.random import RandomState
 
+__all__ = [
+    "configuration_model",
+    "havel_hakimi_graph",
+    "reverse_havel_hakimi_graph",
+    "alternating_havel_hakimi_graph",
+    "preferential_attachment_graph",
+    "random_graph",
+    "gnmk_random_graph",
+    "complete_bipartite_graph",
+]
+
 @_dispatchable
 def complete_bipartite_graph(n1, n2, create_using: Graph[_Node] | None = None): ...
 @_dispatchable

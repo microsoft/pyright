@@ -4,6 +4,8 @@ from typing import overload
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["bridges", "has_bridges", "local_bridges"]
+
 @_dispatchable
 def bridges(G: Graph[_Node], root: _Node | None = None) -> Generator[_Node, None, None]: ...
 @_dispatchable

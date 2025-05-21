@@ -2259,7 +2259,9 @@ export class Checker extends ParseTreeWalker {
         ) {
             // Handle the old-style (pre-await) generator case
             // if the return type explicitly uses AwaitableGenerator.
-            generatorType = this._evaluator.getTypingType(node, 'AwaitableGenerator');
+            generatorType =
+                this._evaluator.getTypeCheckerInternalsType(node, 'AwaitableGenerator') ??
+                this._evaluator.getTypingType(node, 'AwaitableGenerator');
         } else {
             generatorType = this._evaluator.getTypingType(node, node.d.isAsync ? 'AsyncGenerator' : 'Generator');
         }
@@ -6757,7 +6759,7 @@ export class Checker extends ParseTreeWalker {
                 // Special-case overrides of methods in '_TypedDict', since
                 // TypedDict attributes aren't manifest as attributes but rather
                 // as named keys.
-                if (ClassType.isBuiltIn(baseClass, '_TypedDict')) {
+                if (ClassType.isBuiltIn(baseClass, ['_TypedDict', 'TypedDictFallback'])) {
                     return;
                 }
 
@@ -7499,7 +7501,9 @@ export class Checker extends ParseTreeWalker {
         ) {
             // Handle the old-style (pre-await) generator case
             // if the return type explicitly uses AwaitableGenerator.
-            generatorType = this._evaluator.getTypingType(node, 'AwaitableGenerator');
+            generatorType =
+                this._evaluator.getTypeCheckerInternalsType(node, 'AwaitableGenerator') ??
+                this._evaluator.getTypingType(node, 'AwaitableGenerator');
         } else {
             generatorType = this._evaluator.getTypingType(
                 node,

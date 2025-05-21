@@ -1016,7 +1016,7 @@ export function createTypeEvaluator(
 
             prefetched.objectClass = getBuiltInType(node, 'object');
             prefetched.typeClass = getBuiltInType(node, 'type');
-            prefetched.functionClass = getBuiltInType(node, 'function');
+            prefetched.functionClass = getTypesType(node, 'FunctionType') ?? getBuiltInType(node, 'function');
 
             prefetched.unionTypeClass = getTypesType(node, 'UnionType');
             if (prefetched.unionTypeClass && isClass(prefetched.unionTypeClass)) {
@@ -1035,7 +1035,8 @@ export function createTypeEvaluator(
             prefetched.dictClass = getBuiltInType(node, 'dict');
             prefetched.moduleTypeClass = getTypingType(node, 'ModuleType');
             prefetched.typedDictClass = getTypingType(node, 'TypedDict');
-            prefetched.typedDictPrivateClass = getTypingType(node, '_TypedDict');
+            prefetched.typedDictPrivateClass =
+                getTypeCheckerInternalsType(node, 'TypedDictFallback') ?? getTypingType(node, '_TypedDict');
             prefetched.awaitableClass = getTypingType(node, 'Awaitable');
             prefetched.mappingClass = getTypingType(node, 'Mapping');
 
@@ -3225,6 +3226,10 @@ export function createTypeEvaluator(
         );
     }
 
+    function getTypeCheckerInternalsType(node: ParseNode, symbolName: string): Type | undefined {
+        return getTypeOfModule(node, symbolName, ['_typeshed', '_type_checker_internals']);
+    }
+
     function getTypesType(node: ParseNode, symbolName: string): Type | undefined {
         return getTypeOfModule(node, symbolName, ['types']);
     }
@@ -4018,7 +4023,7 @@ export function createTypeEvaluator(
     // If the type includes promotion types, expand these to their constituent types.
     function expandPromotionTypes(node: ParseNode, type: Type, excludeBytes = false): Type {
         return mapSubtypes(type, (subtype) => {
-            if (!isClass(subtype) || !subtype.priv.includePromotions) {
+            if (!isClass(subtype) || !subtype.priv.includePromotions || subtype.priv.literalValue !== undefined) {
                 return subtype;
             }
 
@@ -4968,7 +4973,7 @@ export function createTypeEvaluator(
         // Isinstance treats traditional (non-PEP 695) type aliases that are unions
         // as tuples of classes rather than unions.
         if ((flags & EvalFlags.IsinstanceArg) !== 0) {
-            if (isUnion(type) && type.props?.typeAliasInfo && !type.props.typeAliasInfo.shared.isPep695Syntax) {
+            if (isUnion(type) && type.props?.typeAliasInfo && !type.props.typeAliasInfo.shared.isTypeAliasType) {
                 return type;
             }
         }
@@ -5995,7 +6000,7 @@ export function createTypeEvaluator(
         if (!type) {
             const isFunctionRule =
                 isFunctionOrOverloaded(baseType) ||
-                (isClassInstance(baseType) && ClassType.isBuiltIn(baseType, 'function'));
+                (isClassInstance(baseType) && ClassType.isBuiltIn(baseType, ['function', 'FunctionType']));
 
             if (!baseTypeResult.isIncomplete) {
                 let diagMessage = LocMessage.memberAccess();
@@ -6229,7 +6234,7 @@ export function createTypeEvaluator(
             type,
             (subtype) => {
                 const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-                const isClassMember = !memberInfo || memberInfo.isClassMember;
+                const isClassMember = !memberInfo || (memberInfo.isClassMember && !memberInfo.isSlotsMember);
                 let resultType: Type;
 
                 if (isClass(concreteSubtype) && isClassMember && errorNode) {
@@ -8884,38 +8889,40 @@ export function createTypeEvaluator(
 
             let reportError = false;
 
-            if (isAnyOrUnknown(secondArgConcreteType)) {
-                // Ignore unknown or any types.
-            } else if (isClassInstance(secondArgConcreteType)) {
-                if (isInstantiableClass(concreteTargetClassType)) {
-                    if (
-                        !derivesFromClassRecursive(
-                            ClassType.cloneAsInstantiable(secondArgConcreteType),
-                            concreteTargetClassType,
-                            /* ignoreUnknown */ true
-                        )
-                    ) {
-                        reportError = true;
+            doForEachSubtype(secondArgConcreteType, (secondArgSubtype) => {
+                if (isAnyOrUnknown(secondArgSubtype)) {
+                    // Ignore unknown or any types.
+                } else if (isClassInstance(secondArgSubtype)) {
+                    if (isInstantiableClass(concreteTargetClassType)) {
+                        if (
+                            !derivesFromClassRecursive(
+                                ClassType.cloneAsInstantiable(secondArgSubtype),
+                                concreteTargetClassType,
+                                /* ignoreUnknown */ true
+                            )
+                        ) {
+                            reportError = true;
+                        }
                     }
-                }
-                bindToType = secondArgConcreteType;
-            } else if (isInstantiableClass(secondArgConcreteType)) {
-                if (isInstantiableClass(concreteTargetClassType)) {
-                    if (
-                        !ClassType.isBuiltIn(concreteTargetClassType, 'type') &&
-                        !derivesFromClassRecursive(
-                            secondArgConcreteType,
-                            concreteTargetClassType,
-                            /* ignoreUnknown */ true
-                        )
-                    ) {
-                        reportError = true;
+                    bindToType = secondArgSubtype;
+                } else if (isInstantiableClass(secondArgSubtype)) {
+                    if (isInstantiableClass(concreteTargetClassType)) {
+                        if (
+                            !ClassType.isBuiltIn(concreteTargetClassType, 'type') &&
+                            !derivesFromClassRecursive(
+                                secondArgSubtype,
+                                concreteTargetClassType,
+                                /* ignoreUnknown */ true
+                            )
+                        ) {
+                            reportError = true;
+                        }
                     }
+                    bindToType = secondArgSubtype;
+                } else {
+                    reportError = true;
                 }
-                bindToType = secondArgConcreteType;
-            } else {
-                reportError = true;
-            }
+            });
 
             if (reportError) {
                 addDiagnostic(
@@ -13359,7 +13366,7 @@ export function createTypeEvaluator(
             nameNode,
             nameNode,
             valueExpr,
-            /* isPep695Syntax */ true,
+            /* isPep695Syntax */ false,
             /* typeParamNodes */ undefined,
             () => typeParams
         );
@@ -16538,7 +16545,7 @@ export function createTypeEvaluator(
             );
         }
 
-        if (!sharedInfo.isPep695Syntax && !isPep695TypeVarType) {
+        if (!sharedInfo.isTypeAliasType && !isPep695TypeVarType) {
             const boundTypeVars = typeParams.filter(
                 (typeVar) =>
                     typeVar.priv.scopeId !== sharedInfo.typeVarScopeId &&
@@ -16569,7 +16576,7 @@ export function createTypeEvaluator(
 
         // All PEP 695 type aliases are special forms because they are
         // TypeAliasType objects at runtime.
-        if (sharedInfo.isPep695Syntax || isPep695TypeVarType) {
+        if (sharedInfo.isTypeAliasType || isPep695TypeVarType) {
             const typeAliasTypeClass = getTypingType(errorNode, 'TypeAliasType');
             if (typeAliasTypeClass && isInstantiableClass(typeAliasTypeClass)) {
                 typeAlias = TypeBase.cloneAsSpecialForm(typeAlias, ClassType.cloneAsInstance(typeAliasTypeClass));
@@ -16645,7 +16652,10 @@ export function createTypeEvaluator(
                 // The _TypedDict class is marked as abstract, but the
                 // methods that are abstract are overridden and shouldn't
                 // cause the TypedDict to be marked as abstract.
-                if (isInstantiableClass(baseClass) && ClassType.isBuiltIn(baseClass, '_TypedDict')) {
+                if (
+                    isInstantiableClass(baseClass) &&
+                    ClassType.isBuiltIn(baseClass, ['_TypedDict', 'TypedDictFallback'])
+                ) {
                     baseClass = ClassType.cloneWithNewFlags(
                         baseClass,
                         baseClass.shared.flags &
@@ -16912,7 +16922,7 @@ export function createTypeEvaluator(
             }
 
             if (typeAliasNameNode) {
-                typeAliasPlaceholder = synthesizeTypeAliasPlaceholder(typeAliasNameNode, /* isPep695Syntax */ false);
+                typeAliasPlaceholder = synthesizeTypeAliasPlaceholder(typeAliasNameNode);
 
                 writeTypeCache(node, { type: typeAliasPlaceholder }, /* flags */ undefined);
                 writeTypeCache(node.d.leftExpr, { type: typeAliasPlaceholder }, /* flags */ undefined);
@@ -17005,7 +17015,7 @@ export function createTypeEvaluator(
 
     // Synthesize a TypeVar that acts as a placeholder for a type alias. This allows
     // the type alias definition to refer to itself.
-    function synthesizeTypeAliasPlaceholder(nameNode: NameNode, isPep695Syntax: boolean): TypeVarType {
+    function synthesizeTypeAliasPlaceholder(nameNode: NameNode, isTypeAliasType: boolean = false): TypeVarType {
         const placeholder = TypeVarType.createInstantiable(`__type_alias_${nameNode.d.value}`);
         placeholder.shared.isSynthesized = true;
         const typeVarScopeId = ParseTreeUtils.getScopeIdForNode(nameNode);
@@ -17017,7 +17027,7 @@ export function createTypeEvaluator(
             moduleName: fileInfo.moduleName,
             fileUri: fileInfo.fileUri,
             typeVarScopeId,
-            isPep695Syntax,
+            isTypeAliasType,
             typeParams: undefined,
             computedVariance: undefined,
         };
@@ -17062,7 +17072,7 @@ export function createTypeEvaluator(
 
         // Synthesize a type variable that represents the type alias while we're
         // evaluating it. This allows us to handle recursive definitions.
-        const typeAliasTypeVar = synthesizeTypeAliasPlaceholder(nameNode, isPep695Syntax);
+        const typeAliasTypeVar = synthesizeTypeAliasPlaceholder(nameNode, /* isTypeAliasType */ true);
 
         // Write the type to the type cache to support recursive type alias definitions.
         writeTypeCache(nameNode, { type: typeAliasTypeVar }, /* flags */ undefined);
@@ -17080,10 +17090,23 @@ export function createTypeEvaluator(
             typeAliasTypeVar.shared.recursiveAlias.typeParams = typeParams ?? [];
         }
 
-        const aliasTypeResult = getTypeOfExpressionExpectingType(valueNode, {
-            forwardRefs: true,
-            typeExpression: true,
-        });
+        let aliasTypeResult: TypeResult;
+        if (isPep695Syntax) {
+            aliasTypeResult = getTypeOfExpressionExpectingType(valueNode, {
+                forwardRefs: true,
+                typeExpression: true,
+            });
+        } else {
+            const flags =
+                EvalFlags.InstantiableType |
+                EvalFlags.TypeExpression |
+                EvalFlags.StrLiteralAsType |
+                EvalFlags.NoParamSpec |
+                EvalFlags.NoTypeVarTuple |
+                EvalFlags.NoClassVar;
+            aliasTypeResult = getTypeOfExpression(valueNode, flags);
+        }
+
         let isIncomplete = false;
         let aliasType = aliasTypeResult.type;
         if (aliasTypeResult.isIncomplete) {
@@ -17479,13 +17502,8 @@ export function createTypeEvaluator(
 
                         // Determine if the class is abstract. Protocol classes support abstract methods
                         // because they are constructed by the _ProtocolMeta metaclass, which derives
-                        // from ABCMeta. We'll exclude built-in protocol classes because these are known
-                        // not to contain any abstract methods and getAbstractMethods causes problems
-                        // because of dependencies on some of these built-in protocol classes.
-                        if (
-                            ClassType.supportsAbstractMethods(argType) ||
-                            (ClassType.isProtocolClass(argType) && !ClassType.isBuiltIn(argType))
-                        ) {
+                        // from ABCMeta.
+                        if (ClassType.supportsAbstractMethods(argType) || ClassType.isProtocolClass(argType)) {
                             classType.shared.flags |= ClassTypeFlags.SupportsAbstractMethods;
                         }
 
@@ -17961,7 +17979,7 @@ export function createTypeEvaluator(
                     if (
                         isClass(baseClass) &&
                         !ClassType.isTypedDictClass(baseClass) &&
-                        !ClassType.isBuiltIn(baseClass, ['_TypedDict', 'Generic'])
+                        !ClassType.isBuiltIn(baseClass, ['_TypedDict', 'TypedDictFallback', 'Generic'])
                     ) {
                         foundInvalidBaseClass = true;
                         diag.addMessage(LocAddendum.typedDictBaseClass().format({ type: baseClass.shared.name }));
@@ -19584,10 +19602,10 @@ export function createTypeEvaluator(
 
                         // Inferred yield types need to be wrapped in a Generator or
                         // AwaitableGenerator to produce the final result.
-                        const generatorType = getTypingType(
-                            node,
-                            useAwaitableGenerator ? 'AwaitableGenerator' : 'Generator'
-                        );
+                        const generatorType = useAwaitableGenerator
+                            ? getTypeCheckerInternalsType(node, 'AwaitableGenerator') ??
+                              getTypingType(node, 'AwaitableGenerator')
+                            : getTypingType(node, 'Generator');
 
                         if (generatorType && isInstantiableClass(generatorType)) {
                             const typeArgs: Type[] = [];
@@ -22188,7 +22206,9 @@ export function createTypeEvaluator(
                     const classTypeInfo = getTypeOfClass(classNode);
                     return {
                         type: classTypeInfo
-                            ? synthesizeTypeVarForSelfCls(classTypeInfo.classType, /* isClsParam */ true)
+                            ? TypeVarType.cloneAsBound(
+                                  synthesizeTypeVarForSelfCls(classTypeInfo.classType, /* isClsParam */ true)
+                              )
                             : UnknownType.create(),
                     };
                 }
@@ -22716,10 +22736,7 @@ export function createTypeEvaluator(
                 // in the event that its inferred type is instantiable or explicitly Any
                 // (but not an ellipsis).
                 if (isLegalImplicitTypeAliasType(inferredType)) {
-                    const typeAliasTypeVar = synthesizeTypeAliasPlaceholder(
-                        resolvedDecl.typeAliasName,
-                        /* isPep695Syntax */ false
-                    );
+                    const typeAliasTypeVar = synthesizeTypeAliasPlaceholder(resolvedDecl.typeAliasName);
 
                     inferredType = transformTypeForTypeAlias(
                         inferredType,
@@ -28565,7 +28582,8 @@ export function createTypeEvaluator(
         getTypeClassType,
         getBuiltInObject,
         getTypingType,
-        assignTypeArgs: assignTypeArgs,
+        getTypeCheckerInternalsType,
+        assignTypeArgs,
         reportMissingTypeArgs,
         inferReturnTypeIfNecessary,
         inferVarianceForClass,

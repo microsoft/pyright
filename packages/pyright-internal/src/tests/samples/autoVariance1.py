@@ -2,7 +2,7 @@
 # autovariance.
 
 from dataclasses import dataclass
-from typing import Iterator, Sequence
+from typing import Final, Iterator, Sequence, overload
 
 
 class ShouldBeCovariant1[T]:
@@ -18,7 +18,12 @@ vco1_2: ShouldBeCovariant1[int] = ShouldBeCovariant1[float]()
 
 
 class ShouldBeCovariant2[T](Sequence[T]):
-    pass
+    def __len__(self) -> int: ...
+    @overload
+    def __getitem__(self, index: int) -> T: ...
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[T]: ...
+    def __getitem__(self, index: int | slice) -> T | Sequence[T]: ...
 
 
 vco2_1: ShouldBeCovariant2[float] = ShouldBeCovariant2[int]()
@@ -57,6 +62,19 @@ class ShouldBeCovariant5[T]:
 vo5_1: ShouldBeCovariant5[float] = ShouldBeCovariant5[int](1)
 # This should generate an error based on variance.
 vo5_2: ShouldBeCovariant5[int] = ShouldBeCovariant5[float](1)
+
+
+class ShouldBeCovariant6[T]:
+    def f1[T2: int](self: "ShouldBeCovariant6[T2]") -> T2: ...
+
+    @property
+    def f2[T2: int](self: "ShouldBeCovariant6[T2]") -> T2: ...
+
+
+# This should generate an error based on variance.
+vo6_1: ShouldBeCovariant6[int] = ShouldBeCovariant6[float]()
+
+vo6_2: ShouldBeCovariant6[float] = ShouldBeCovariant6[int]()
 
 
 class ShouldBeInvariant1[T]:

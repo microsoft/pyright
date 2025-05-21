@@ -5,6 +5,17 @@ from typing import overload
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = [
+    "find_cliques",
+    "find_cliques_recursive",
+    "make_max_clique_graph",
+    "make_clique_bipartite",
+    "node_clique_number",
+    "number_of_cliques",
+    "enumerate_all_cliques",
+    "max_weight_clique",
+]
+
 @_dispatchable
 def enumerate_all_cliques(G: Graph[_Node]) -> Generator[list[_Node], None, None]: ...
 @_dispatchable
@@ -23,3 +34,6 @@ def node_clique_number(
 ) -> dict[_Node, int]: ...
 @overload
 def node_clique_number(G: Graph[_Node], nodes=None, cliques: Iterable[Incomplete] | None = None, separate_nodes=False) -> int: ...
+def number_of_cliques(G, nodes=None, cliques=None) -> int | dict[Incomplete, Incomplete]: ...
+@_dispatchable
+def max_weight_clique(G, weight="weight") -> tuple[Incomplete, Incomplete]: ...

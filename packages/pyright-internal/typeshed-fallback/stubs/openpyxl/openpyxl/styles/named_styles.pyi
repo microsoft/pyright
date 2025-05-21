@@ -31,7 +31,7 @@ class NamedStyle(Serialisable):
         fill: Fill | None = None,
         border: Border | None = None,
         alignment: Alignment | None = None,
-        number_format: Incomplete | None = None,
+        number_format=None,
         protection: Protection | None = None,
         builtinId: ConvertibleToInt | None = None,
         hidden: _ConvertibleToBool | None = False,

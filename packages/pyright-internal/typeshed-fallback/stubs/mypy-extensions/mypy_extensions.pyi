@@ -3,7 +3,7 @@ from _collections_abc import dict_items, dict_keys, dict_values
 from _typeshed import IdentityFunction, Unused
 from collections.abc import Mapping
 from typing import Any, ClassVar, Generic, TypeVar, overload, type_check_only
-from typing_extensions import Never, Self
+from typing_extensions import Never, Self, deprecated
 
 _T = TypeVar("_T")
 _U = TypeVar("_U")
@@ -11,6 +11,7 @@ _U = TypeVar("_U")
 # Internal mypy fallback type for all typed dicts (does not exist at runtime)
 # N.B. Keep this mostly in sync with typing(_extensions)._TypedDict
 @type_check_only
+@deprecated("Use typing._TypedDict instead")
 class _TypedDict(Mapping[str, object], metaclass=abc.ABCMeta):
     __total__: ClassVar[bool]
     # Unlike typing(_extensions).TypedDict,
@@ -37,6 +38,7 @@ class _TypedDict(Mapping[str, object], metaclass=abc.ABCMeta):
     # supposedly incompatible definitions of `__or__` and `__ior__`:
     def __ior__(self, value: Self, /) -> Self: ...  # type: ignore[misc]
 
+@deprecated("Use typing.TypedDict or typing_extensions.TypedDict instead")
 def TypedDict(typename: str, fields: dict[str, type[Any]], total: bool = ...) -> type[dict[str, Any]]: ...
 @overload
 def Arg(type: _T, name: str | None = ...) -> _T: ...
@@ -65,6 +67,7 @@ def KwArg() -> Any: ...
 
 # Return type that indicates a function does not return.
 # Deprecated: Use typing.NoReturn instead.
+@deprecated("Use typing.NoReturn or typing.Never instead")
 class NoReturn: ...
 
 # This is consistent with implementation. Usage intends for this as

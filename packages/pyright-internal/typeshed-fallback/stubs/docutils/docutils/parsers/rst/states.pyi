@@ -33,7 +33,7 @@ class RSTState(StateWS[list[str]]):
         node,
         match_titles: bool = False,
         state_machine_class: type[StateMachine[list[str]]] | None = None,
-        state_machine_kwargs: Incomplete | None = None,
+        state_machine_kwargs=None,
     ): ...
     def nested_list_parse(
         self,
@@ -42,11 +42,11 @@ class RSTState(StateWS[list[str]]):
         node,
         initial_state,
         blank_finish,
-        blank_finish_state: Incomplete | None = None,
+        blank_finish_state=None,
         extra_settings={},
         match_titles: bool = False,
-        state_machine_class: Incomplete | None = None,
-        state_machine_kwargs: Incomplete | None = None,
+        state_machine_class=None,
+        state_machine_kwargs=None,
     ): ...
     def section(self, title: str, source, style, lineno: int, messages) -> None: ...
     def check_subsection(self, source, style, lineno: int): ...
@@ -141,4 +141,4 @@ class Inliner:
     def implicit_inline(self, text: str, lineno: int) -> list[nodes.Text]: ...
     dispatch: dict[str, Callable[[Match[str], int], tuple[str, list[nodes.problematic], str, list[nodes.system_message]]]] = ...
 
-def __getattr__(name: str) -> Incomplete: ...
+def __getattr__(name: str): ...  # incomplete module

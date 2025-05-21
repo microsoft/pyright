@@ -123,7 +123,25 @@ class Api(google.protobuf.message.Message):
         syntax: google.protobuf.type_pb2.Syntax.ValueType | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["source_context", b"source_context"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["methods", b"methods", "mixins", b"mixins", "name", b"name", "options", b"options", "source_context", b"source_context", "syntax", b"syntax", "version", b"version"]) -> None: ...
+    def ClearField(
+        self,
+        field_name: typing.Literal[
+            "methods",
+            b"methods",
+            "mixins",
+            b"mixins",
+            "name",
+            b"name",
+            "options",
+            b"options",
+            "source_context",
+            b"source_context",
+            "syntax",
+            b"syntax",
+            "version",
+            b"version",
+        ],
+    ) -> None: ...
 
 global___Api = Api
 
@@ -167,7 +185,25 @@ class Method(google.protobuf.message.Message):
         options: collections.abc.Iterable[google.protobuf.type_pb2.Option] | None = ...,
         syntax: google.protobuf.type_pb2.Syntax.ValueType | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["name", b"name", "options", b"options", "request_streaming", b"request_streaming", "request_type_url", b"request_type_url", "response_streaming", b"response_streaming", "response_type_url", b"response_type_url", "syntax", b"syntax"]) -> None: ...
+    def ClearField(
+        self,
+        field_name: typing.Literal[
+            "name",
+            b"name",
+            "options",
+            b"options",
+            "request_streaming",
+            b"request_streaming",
+            "request_type_url",
+            b"request_type_url",
+            "response_streaming",
+            b"response_streaming",
+            "response_type_url",
+            b"response_type_url",
+            "syntax",
+            b"syntax",
+        ],
+    ) -> None: ...
 
 global___Method = Method
 
@@ -263,12 +299,7 @@ class Mixin(google.protobuf.message.Message):
     """If non-empty specifies a path under which inherited HTTP paths
     are rooted.
     """
-    def __init__(
-        self,
-        *,
-        name: builtins.str | None = ...,
-        root: builtins.str | None = ...,
-    ) -> None: ...
+    def __init__(self, *, name: builtins.str | None = ..., root: builtins.str | None = ...) -> None: ...
     def ClearField(self, field_name: typing.Literal["name", b"name", "root", b"root"]) -> None: ...
 
 global___Mixin = Mixin

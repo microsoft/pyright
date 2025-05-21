@@ -1,8 +1,8 @@
 from _typeshed import Incomplete
 from builtins import list as _list
 
-from ..rest import RestClient as RestClient, RestClientOptions as RestClientOptions
-from ..types import TimeoutType as TimeoutType
+from ..rest import RestClientOptions
+from ..types import TimeoutType
 
 class Users:
     domain: Incomplete
@@ -115,3 +115,5 @@ class Users:
     async def delete_authentication_methods_async(self, user_id: str): ...
     def delete_authentication_method_by_id(self, user_id: str, authentication_method_id: str): ...
     async def delete_authentication_method_by_id_async(self, user_id: str, authentication_method_id: str): ...
+    def list_tokensets(self, id: str, page: int = 0, per_page: int = 25, include_totals: bool = True): ...
+    def delete_tokenset_by_id(self, user_id: str, tokenset_id: str): ...

@@ -1,15 +1,17 @@
 from _typeshed import Incomplete
-from collections.abc import Generator, Iterable
+from collections.abc import Collection, Generator
 
 from networkx.classes.digraph import DiGraph
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 from numpy.random import RandomState
 
+__all__ = ["triadic_census", "is_triad", "all_triplets", "all_triads", "triads_by_type", "triad_type", "random_triad"]
+
 @_dispatchable
-def triadic_census(G: DiGraph[_Node], nodelist: Iterable[Incomplete] | None = None): ...
+def triadic_census(G: DiGraph[_Node], nodelist: Collection[_Node] | None = None): ...
 @_dispatchable
-def is_triad(G: Graph[_Node]): ...
+def is_triad(G: Graph[_Node]) -> bool: ...
 @_dispatchable
 def all_triplets(G: DiGraph[_Node]): ...
 @_dispatchable

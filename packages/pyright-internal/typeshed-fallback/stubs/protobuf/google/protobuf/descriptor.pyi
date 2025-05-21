@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from typing import Any
 
 from .descriptor_pb2 import (
@@ -71,17 +70,17 @@ class Descriptor(_NestedDescriptorBase):
         nested_types: list[FieldDescriptor],
         enum_types: list[EnumDescriptor],
         extensions: list[FieldDescriptor],
-        options: Incomplete | None = None,
-        serialized_options: Incomplete | None = None,
+        options=None,
+        serialized_options=None,
         is_extendable: bool | None = True,
-        extension_ranges: Incomplete | None = None,
+        extension_ranges=None,
         oneofs: list[OneofDescriptor] | None = None,
         file: FileDescriptor | None = None,
-        serialized_start: Incomplete | None = None,
-        serialized_end: Incomplete | None = None,
+        serialized_start=None,
+        serialized_end=None,
         syntax: str | None = None,
         is_map_entry=False,
-        create_key: Incomplete | None = None,
+        create_key=None,
     ): ...
     def EnumValueName(self, enum, value): ...
     def CopyToProto(self, proto): ...
@@ -264,11 +263,11 @@ class ServiceDescriptor(_NestedDescriptorBase):
         index: int,
         methods: list[MethodDescriptor],
         options: ServiceOptions | None = None,
-        serialized_options: Incomplete | None = None,
+        serialized_options=None,
         file: FileDescriptor | None = None,
-        serialized_start: Incomplete | None = None,
-        serialized_end: Incomplete | None = None,
-        create_key: Incomplete | None = None,
+        serialized_start=None,
+        serialized_end=None,
+        create_key=None,
     ): ...
     def FindMethodByName(self, name): ...
     def CopyToProto(self, proto): ...

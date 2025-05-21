@@ -20,7 +20,7 @@ class BaseGrant:
     def client(self): ...
     def generate_token(
         self,
-        user: Incomplete | None = None,
+        user=None,
         scope: str | None = None,
         grant_type: str | None = None,
         expires_in: int | None = None,

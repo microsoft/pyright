@@ -1,20 +1,19 @@
 from _typeshed import Incomplete
+from typing import Final
 
-from auth0.rest import RestClient as RestClient, RestClientOptions as RestClientOptions
-from auth0.types import RequestData as RequestData
+from auth0.rest import RestClient
+from auth0.types import RequestData
 
-from .client_authentication import add_client_authentication as add_client_authentication
-
-UNKNOWN_ERROR: str
+UNKNOWN_ERROR: Final[str]
 
 class AuthenticationBase:
-    domain: Incomplete
-    client_id: Incomplete
-    client_secret: Incomplete
-    client_assertion_signing_key: Incomplete
-    client_assertion_signing_alg: Incomplete
-    protocol: Incomplete
-    client: Incomplete
+    domain: str
+    client_id: str
+    client_secret: str | None
+    client_assertion_signing_key: str | None
+    client_assertion_signing_alg: str | None
+    protocol: str
+    client: RestClient
     def __init__(
         self,
         domain: str,

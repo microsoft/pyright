@@ -155,13 +155,7 @@ class Connection(Class):
         reply_text: Incomplete
         class_id: Incomplete
         method_id: Incomplete
-        def __init__(
-            self,
-            reply_code: Incomplete | None = None,
-            reply_text: _str = "",
-            class_id: Incomplete | None = None,
-            method_id: Incomplete | None = None,
-        ) -> None: ...
+        def __init__(self, reply_code=None, reply_text: _str = "", class_id=None, method_id=None) -> None: ...
         @property
         def synchronous(self) -> Literal[True]: ...
         def decode(self, encoded: bytes, offset: int = 0) -> Self: ...
@@ -256,13 +250,7 @@ class Channel(Class):
         reply_text: Incomplete
         class_id: Incomplete
         method_id: Incomplete
-        def __init__(
-            self,
-            reply_code: Incomplete | None = None,
-            reply_text: _str = "",
-            class_id: Incomplete | None = None,
-            method_id: Incomplete | None = None,
-        ) -> None: ...
+        def __init__(self, reply_code=None, reply_text: _str = "", class_id=None, method_id=None) -> None: ...
         @property
         def synchronous(self) -> Literal[True]: ...
         def decode(self, encoded: bytes, offset: int = 0) -> Self: ...
@@ -327,14 +315,14 @@ class Exchange(Class):
         def __init__(
             self,
             ticket: int = 0,
-            exchange: Incomplete | None = None,
+            exchange=None,
             type=...,
             passive: bool = False,
             durable: bool = False,
             auto_delete: bool = False,
             internal: bool = False,
             nowait: bool = False,
-            arguments: Incomplete | None = None,
+            arguments=None,
         ) -> None: ...
         @property
         def synchronous(self) -> Literal[True]: ...
@@ -355,9 +343,7 @@ class Exchange(Class):
         exchange: Incomplete
         if_unused: Incomplete
         nowait: bool
-        def __init__(
-            self, ticket: int = 0, exchange: Incomplete | None = None, if_unused: bool = False, nowait: bool = False
-        ) -> None: ...
+        def __init__(self, ticket: int = 0, exchange=None, if_unused: bool = False, nowait: bool = False) -> None: ...
         @property
         def synchronous(self) -> Literal[True]: ...
         def decode(self, encoded: bytes, offset: int = 0) -> Self: ...
@@ -380,13 +366,7 @@ class Exchange(Class):
         nowait: bool
         arguments: Incomplete | None
         def __init__(
-            self,
-            ticket: int = 0,
-            destination: Incomplete | None = None,
-            source: Incomplete | None = None,
-            routing_key: _str = "",
-            nowait: bool = False,
-            arguments: Incomplete | None = None,
+            self, ticket: int = 0, destination=None, source=None, routing_key: _str = "", nowait: bool = False, arguments=None
         ) -> None: ...
         @property
         def synchronous(self) -> Literal[True]: ...
@@ -410,13 +390,7 @@ class Exchange(Class):
         nowait: bool
         arguments: Incomplete
         def __init__(
-            self,
-            ticket: int = 0,
-            destination: Incomplete | None = None,
-            source: Incomplete | None = None,
-            routing_key: _str = "",
-            nowait: bool = False,
-            arguments: Incomplete | None = None,
+            self, ticket: int = 0, destination=None, source=None, routing_key: _str = "", nowait: bool = False, arguments=None
         ) -> None: ...
         @property
         def synchronous(self) -> Literal[True]: ...
@@ -453,7 +427,7 @@ class Queue(Class):
             exclusive: bool = False,
             auto_delete: bool = False,
             nowait: bool = False,
-            arguments: Incomplete | None = None,
+            arguments=None,
         ) -> None: ...
         @property
         def synchronous(self) -> Literal[True]: ...
@@ -480,13 +454,7 @@ class Queue(Class):
         nowait: bool
         arguments: Incomplete
         def __init__(
-            self,
-            ticket: int = 0,
-            queue: _str = "",
-            exchange: Incomplete | None = None,
-            routing_key: _str = "",
-            nowait: bool = False,
-            arguments: Incomplete | None = None,
+            self, ticket: int = 0, queue: _str = "", exchange=None, routing_key: _str = "", nowait: bool = False, arguments=None
         ) -> None: ...
         @property
         def synchronous(self) -> Literal[True]: ...
@@ -515,7 +483,7 @@ class Queue(Class):
     class PurgeOk(Method):
         INDEX: ClassVar[int]
         message_count: Incomplete
-        def __init__(self, message_count: Incomplete | None = None) -> None: ...
+        def __init__(self, message_count=None) -> None: ...
         @property
         def synchronous(self) -> Literal[False]: ...
         def decode(self, encoded: bytes, offset: int = 0) -> Self: ...
@@ -539,7 +507,7 @@ class Queue(Class):
     class DeleteOk(Method):
         INDEX: ClassVar[int]
         message_count: Incomplete
-        def __init__(self, message_count: Incomplete | None = None) -> None: ...
+        def __init__(self, message_count=None) -> None: ...
         @property
         def synchronous(self) -> Literal[False]: ...
         def decode(self, encoded: bytes, offset: int = 0) -> Self: ...
@@ -552,14 +520,7 @@ class Queue(Class):
         exchange: Incomplete
         routing_key: Incomplete
         arguments: Incomplete
-        def __init__(
-            self,
-            ticket: int = 0,
-            queue: _str = "",
-            exchange: Incomplete | None = None,
-            routing_key: _str = "",
-            arguments: Incomplete | None = None,
-        ) -> None: ...
+        def __init__(self, ticket: int = 0, queue: _str = "", exchange=None, routing_key: _str = "", arguments=None) -> None: ...
         @property
         def synchronous(self) -> Literal[True]: ...
         def decode(self, encoded: bytes, offset: int = 0) -> Self: ...
@@ -614,7 +575,7 @@ class Basic(Class):
             no_ack: bool = False,
             exclusive: bool = False,
             nowait: bool = False,
-            arguments: Incomplete | None = None,
+            arguments=None,
         ) -> None: ...
         @property
         def synchronous(self) -> Literal[True]: ...
@@ -624,7 +585,7 @@ class Basic(Class):
     class ConsumeOk(Method):
         INDEX: ClassVar[int]
         consumer_tag: Incomplete
-        def __init__(self, consumer_tag: Incomplete | None = None) -> None: ...
+        def __init__(self, consumer_tag=None) -> None: ...
         @property
         def synchronous(self) -> Literal[False]: ...
         def decode(self, encoded: bytes, offset: int = 0) -> Self: ...
@@ -634,7 +595,7 @@ class Basic(Class):
         INDEX: ClassVar[int]
         consumer_tag: Incomplete
         nowait: bool
-        def __init__(self, consumer_tag: Incomplete | None = None, nowait: bool = False) -> None: ...
+        def __init__(self, consumer_tag=None, nowait: bool = False) -> None: ...
         @property
         def synchronous(self) -> Literal[True]: ...
         def decode(self, encoded: bytes, offset: int = 0) -> Self: ...
@@ -643,7 +604,7 @@ class Basic(Class):
     class CancelOk(Method):
         INDEX: ClassVar[int]
         consumer_tag: Incomplete
-        def __init__(self, consumer_tag: Incomplete | None = None) -> None: ...
+        def __init__(self, consumer_tag=None) -> None: ...
         @property
         def synchronous(self) -> Literal[False]: ...
         def decode(self, encoded: bytes, offset: int = 0) -> Self: ...
@@ -670,13 +631,7 @@ class Basic(Class):
         reply_text: Incomplete
         exchange: Incomplete
         routing_key: Incomplete
-        def __init__(
-            self,
-            reply_code: Incomplete | None = None,
-            reply_text: _str = "",
-            exchange: Incomplete | None = None,
-            routing_key: Incomplete | None = None,
-        ) -> None: ...
+        def __init__(self, reply_code=None, reply_text: _str = "", exchange=None, routing_key=None) -> None: ...
         @property
         def synchronous(self) -> Literal[False]: ...
         def decode(self, encoded: bytes, offset: int = 0) -> Self: ...
@@ -690,12 +645,7 @@ class Basic(Class):
         exchange: Incomplete
         routing_key: Incomplete
         def __init__(
-            self,
-            consumer_tag: Incomplete | None = None,
-            delivery_tag: Incomplete | None = None,
-            redelivered: bool = False,
-            exchange: Incomplete | None = None,
-            routing_key: Incomplete | None = None,
+            self, consumer_tag=None, delivery_tag=None, redelivered: bool = False, exchange=None, routing_key=None
         ) -> None: ...
         @property
         def synchronous(self) -> Literal[False]: ...
@@ -721,12 +671,7 @@ class Basic(Class):
         routing_key: Incomplete
         message_count: Incomplete
         def __init__(
-            self,
-            delivery_tag: Incomplete | None = None,
-            redelivered: bool = False,
-            exchange: Incomplete | None = None,
-            routing_key: Incomplete | None = None,
-            message_count: Incomplete | None = None,
+            self, delivery_tag=None, redelivered: bool = False, exchange=None, routing_key=None, message_count=None
         ) -> None: ...
         @property
         def synchronous(self) -> Literal[False]: ...
@@ -756,7 +701,7 @@ class Basic(Class):
         INDEX: ClassVar[int]
         delivery_tag: Incomplete
         requeue: bool
-        def __init__(self, delivery_tag: Incomplete | None = None, requeue: bool = True) -> None: ...
+        def __init__(self, delivery_tag=None, requeue: bool = True) -> None: ...
         @property
         def synchronous(self) -> Literal[False]: ...
         def decode(self, encoded: bytes, offset: int = 0) -> Self: ...
@@ -907,12 +852,12 @@ class BasicProperties(Properties):
         content_encoding: _str | None = None,
         headers: _ArgumentMapping | None = None,
         delivery_mode: DeliveryMode | Literal[1, 2] | None = None,
-        priority: Incomplete | None = None,
+        priority=None,
         correlation_id: _str | None = None,
         reply_to: _str | None = None,
         expiration: _str | None = None,
         message_id: _str | None = None,
-        timestamp: Incomplete | None = None,
+        timestamp=None,
         type: _str | None = None,
         user_id: _str | None = None,
         app_id: _str | None = None,

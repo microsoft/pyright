@@ -3,7 +3,7 @@
 # "X == .." and "X != ...".
 
 import types
-from typing import TypeVar
+from typing import Any, TypeVar
 
 _T = TypeVar("_T", str, types.EllipsisType)
 
@@ -41,3 +41,10 @@ def func5(val: object):
         reveal_type(val, expected_text="EllipsisType")
     else:
         reveal_type(val, expected_text="object")
+
+
+def func6(val: Any | types.EllipsisType):
+    if val is not ...:
+        reveal_type(val, expected_text="Any")
+    else:
+        reveal_type(val, expected_text="EllipsisType")

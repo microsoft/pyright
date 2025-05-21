@@ -2,7 +2,7 @@
 # handle various class definition cases.
 
 
-from typing import Any, TypeVar
+from typing import Any, Self, TypeVar
 
 
 T = TypeVar("T")
@@ -38,8 +38,9 @@ class F(E):
 
 
 class G(E, metaclass=type):
-    def my_method(self):
+    def my_method(self) -> Self:
         reveal_type(__class__, expected_text="type[Self@G]")
+        return __class__()
 
 
 # This should generate an error because only one metaclass is supported.

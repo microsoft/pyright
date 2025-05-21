@@ -940,7 +940,7 @@ export class PackageTypeVerifier {
                             knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                         } else if (isPartlyUnknown(typeArg)) {
                             const diag = new DiagnosticAddendum();
-                            diag.addMessage(`Type is ${this._program.printType(typeArg)}`);
+                            diag.addMessage(`Type is ${(this._program.printType(typeArg), { expandTypeAlias: true })}`);
                             this._addSymbolError(
                                 symbolInfo,
                                 `Type argument ${index + 1} for class "${
@@ -1045,7 +1045,9 @@ export class PackageTypeVerifier {
                     );
 
                     if (paramKnownStatus !== TypeKnownStatus.Known) {
-                        extraInfo.addMessage(`Parameter type is "${this._program.printType(paramType)}"`);
+                        extraInfo.addMessage(
+                            `Parameter type is "${this._program.printType(paramType, { expandTypeAlias: true })}"`
+                        );
 
                         if (symbolInfo) {
                             this._addSymbolError(
@@ -1089,7 +1091,11 @@ export class PackageTypeVerifier {
                 );
 
                 if (returnTypeKnownStatus !== TypeKnownStatus.Known) {
-                    extraInfo.addMessage(`Return type is "${this._program.printType(type.shared.declaredReturnType)}"`);
+                    extraInfo.addMessage(
+                        `Return type is "${this._program.printType(type.shared.declaredReturnType, {
+                            expandTypeAlias: true,
+                        })}"`
+                    );
 
                     if (symbolInfo) {
                         this._addSymbolError(

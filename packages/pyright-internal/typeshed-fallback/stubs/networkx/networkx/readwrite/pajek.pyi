@@ -3,6 +3,8 @@ from collections.abc import Generator
 
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["read_pajek", "parse_pajek", "generate_pajek", "write_pajek"]
+
 def generate_pajek(G) -> Generator[Incomplete, None, None]: ...
 def write_pajek(G, path, encoding: str = "UTF-8") -> None: ...
 @_dispatchable

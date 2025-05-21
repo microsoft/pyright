@@ -3,7 +3,7 @@ from _typeshed import Incomplete, MaybeNone, Unused
 from collections.abc import Callable, Iterator
 from json import JSONDecoder
 from typing import Any
-from typing_extensions import Self
+from typing_extensions import Self, TypeAlias
 
 from urllib3 import exceptions as urllib3_exceptions, fields, filepost, util
 from urllib3.response import HTTPResponse
@@ -12,6 +12,8 @@ from . import auth, cookies, exceptions, hooks, status_codes, utils
 from .adapters import HTTPAdapter
 from .cookies import RequestsCookieJar
 from .structures import CaseInsensitiveDict as CaseInsensitiveDict
+
+_JSON: TypeAlias = Any  # any object that can be serialized to JSON
 
 default_hooks = hooks.default_hooks
 HTTPBasicAuth = auth.HTTPBasicAuth
@@ -63,7 +65,7 @@ class Request(RequestHooksMixin):
     headers: Incomplete
     files: Incomplete
     data: Incomplete
-    json: Incomplete
+    json: _JSON | None
     params: Incomplete
     auth: Incomplete
     cookies: Incomplete
@@ -78,7 +80,7 @@ class Request(RequestHooksMixin):
         auth=None,
         cookies=None,
         hooks=None,
-        json=None,
+        json: _JSON | None = None,
     ) -> None: ...
     def prepare(self) -> PreparedRequest: ...
 

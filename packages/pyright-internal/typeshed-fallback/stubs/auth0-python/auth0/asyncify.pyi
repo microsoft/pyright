@@ -1,6 +1,6 @@
-from auth0.authentication import Users as Users
-from auth0.authentication.base import AuthenticationBase as AuthenticationBase
-from auth0.rest import RestClientOptions as RestClientOptions
-from auth0.rest_async import AsyncRestClient as AsyncRestClient
+from typing import TypeVar
 
-def asyncify(cls): ...
+_T = TypeVar("_T")
+
+# See note in stubs/auth0-python/@tests/stubtest_allowlist.txt about _async methods
+def asyncify(cls: type[_T]) -> type[_T]: ...

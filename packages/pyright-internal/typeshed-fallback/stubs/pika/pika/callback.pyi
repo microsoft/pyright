@@ -26,7 +26,7 @@ class CallbackManager:
         callback: Callable[[Incomplete], Incomplete],
         one_shot: bool = True,
         only_caller: object | None = None,
-        arguments: Incomplete | None = None,
+        arguments=None,
     ) -> tuple[str | int, str | object]: ...
     def clear(self) -> None: ...
     def cleanup(self, prefix: str | int) -> bool: ...
@@ -37,6 +37,6 @@ class CallbackManager:
         prefix: str | int,
         key: str | object,
         callback_value: Callable[[Incomplete], Incomplete] | None = None,
-        arguments: Incomplete | None = None,
+        arguments=None,
     ) -> Literal[True]: ...
     def remove_all(self, prefix: str | int, key: str | object) -> None: ...

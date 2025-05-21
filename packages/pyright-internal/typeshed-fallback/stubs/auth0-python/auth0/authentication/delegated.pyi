@@ -1,4 +1,4 @@
-from .base import AuthenticationBase as AuthenticationBase
+from .base import AuthenticationBase
 
 class Delegated(AuthenticationBase):
     def get_token(

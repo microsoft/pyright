@@ -635,6 +635,12 @@ test('Slots3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Slots4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['slots4.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Parameters1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

@@ -3,6 +3,8 @@ from _typeshed import Incomplete, SupportsGetItem
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = ["eigenvector_centrality", "eigenvector_centrality_numpy"]
+
 @_dispatchable
 def eigenvector_centrality(
     G: Graph[_Node],

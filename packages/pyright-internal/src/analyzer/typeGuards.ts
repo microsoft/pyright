@@ -1156,40 +1156,61 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, node: ExpressionNode,
         return transformPossibleRecursiveTypeAlias(subtype);
     });
 
+    let resultIncludesEllipsisSubtype = false;
+
     const ellipsisType =
         evaluator.getBuiltInObject(node, 'EllipsisType') ??
         evaluator.getBuiltInObject(node, 'ellipsis') ??
         AnyType.create();
 
-    return evaluator.mapSubtypesExpandTypeVars(expandedType, /* options */ undefined, (subtype, unexpandedSubtype) => {
-        if (isAnyOrUnknown(subtype)) {
-            // We need to assume that "Any" is always both None and not None,
-            // so it matches regardless of whether the test is positive or negative.
-            return subtype;
+    const isEllipsisInstance = (subtype: Type) => {
+        return isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['EllipsisType', 'ellipsis']);
+    };
+
+    const result = evaluator.mapSubtypesExpandTypeVars(
+        expandedType,
+        /* options */ undefined,
+        (subtype, unexpandedSubtype) => {
+            if (isAnyOrUnknown(subtype)) {
+                // We need to assume that "Any" is always both ellipsis and not ellipsis,
+                // so it matches regardless of whether the test is positive or negative.
+                return subtype;
+            }
+
+            // If this is a TypeVar that isn't constrained, use the unexpanded
+            // TypeVar. For all other cases (including constrained TypeVars),
+            // use the expanded subtype.
+            const adjustedSubtype =
+                isTypeVar(unexpandedSubtype) && !TypeVarType.hasConstraints(unexpandedSubtype)
+                    ? unexpandedSubtype
+                    : subtype;
+
+            // Is it an exact match for ellipsis?
+            if (isEllipsisInstance(subtype)) {
+                resultIncludesEllipsisSubtype = true;
+                return isPositiveTest ? adjustedSubtype : undefined;
+            }
+
+            // Is it potentially ellipsis?
+            if (evaluator.assignType(subtype, ellipsisType)) {
+                resultIncludesEllipsisSubtype = true;
+                return isPositiveTest ? addConditionToType(ellipsisType, subtype.props?.condition) : adjustedSubtype;
+            }
+
+            return isPositiveTest ? undefined : adjustedSubtype;
         }
+    );
 
-        // If this is a TypeVar that isn't constrained, use the unexpanded
-        // TypeVar. For all other cases (including constrained TypeVars),
-        // use the expanded subtype.
-        const adjustedSubtype =
-            isTypeVar(unexpandedSubtype) && !TypeVarType.hasConstraints(unexpandedSubtype)
-                ? unexpandedSubtype
-                : subtype;
+    // If this is a positive test and the result is a union that includes ellipsis,
+    // we can eliminate all the non-ellipsis subtypes include Any or Unknown. If some
+    // of the subtypes are ellipsis types with conditions, retain those.
+    if (isPositiveTest && resultIncludesEllipsisSubtype) {
+        return mapSubtypes(result, (subtype) => {
+            return isEllipsisInstance(subtype) ? subtype : undefined;
+        });
+    }
 
-        // See if it's a match for object.
-        if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
-            return isPositiveTest ? addConditionToType(ellipsisType, subtype.props?.condition) : adjustedSubtype;
-        }
-
-        const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['EllipsisType', 'ellipsis']);
-
-        // See if it's a match for "...".
-        if (isEllipsis === isPositiveTest) {
-            return subtype;
-        }
-
-        return undefined;
-    });
+    return result;
 }
 
 // The "isinstance" and "issubclass" calls support two forms - a simple form
@@ -2227,6 +2248,15 @@ function narrowTypeForTypedDictKey(
 
                 if (isPositiveTest) {
                     if (!tdEntry) {
+                        // If there is no TD entry for this key and no "extra items" defined,
+                        // we have to assume that the TypedDict may contain extra items, so
+                        // narrowing it isn't possible in this case.
+                        return subtype;
+                    }
+
+                    if (isNever(tdEntry.valueType)) {
+                        // If the entry is typed as Never or the "extra items" is typed as Never,
+                        // then this key cannot be present in the TypedDict, and we can eliminate it.
                         return undefined;
                     }
 

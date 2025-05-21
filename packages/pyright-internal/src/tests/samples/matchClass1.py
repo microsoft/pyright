@@ -96,10 +96,6 @@ def test_subclass(value_to_match: ClassD):
 
 def test_literal(value_to_match: Literal[3]):
     match value_to_match:
-        case int() as a1:
-            reveal_type(a1, expected_text="Literal[3]")
-            reveal_type(value_to_match, expected_text="Literal[3]")
-
         case float() as a2:
             reveal_type(a2, expected_text="Never")
             reveal_type(value_to_match, expected_text="Never")
@@ -108,15 +104,40 @@ def test_literal(value_to_match: Literal[3]):
             reveal_type(a3, expected_text="Never")
             reveal_type(value_to_match, expected_text="Never")
 
+        case int() as a1:
+            reveal_type(a1, expected_text="Literal[3]")
+            reveal_type(value_to_match, expected_text="Literal[3]")
+
+
+def test_literal2(value_to_match: Literal[0, "1", b"2"]) -> None:
+    match value_to_match:
+        case float() as a2:
+            reveal_type(a2, expected_text="Never")
+            reveal_type(value_to_match, expected_text="Never")
+
+        case str() as a3:
+            reveal_type(a3, expected_text="Literal['1']")
+            reveal_type(value_to_match, expected_text="Literal['1']")
+
+        case int() as a1:
+            reveal_type(a1, expected_text="Literal[0]")
+            reveal_type(value_to_match, expected_text="Literal[0]")
+
+        case x:
+            reveal_type(x, expected_text='Literal[b"2"]')
+            reveal_type(value_to_match, expected_text='Literal[b"2"]')
+
 
 def test_literal_string(value_to_match: LiteralString) -> None:
     match value_to_match:
         case "a" as a1:
             reveal_type(value_to_match, expected_text="Literal['a']")
             reveal_type(a1, expected_text="Literal['a']")
+
         case str() as a2:
             reveal_type(value_to_match, expected_text="LiteralString")
             reveal_type(a2, expected_text="LiteralString")
+
         case a3:
             reveal_type(value_to_match, expected_text="Never")
             reveal_type(a3, expected_text="Never")

@@ -5,6 +5,16 @@ from networkx.classes.digraph import DiGraph
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 
+__all__ = [
+    "cycle_basis",
+    "simple_cycles",
+    "recursive_simple_cycles",
+    "find_cycle",
+    "minimum_cycle_basis",
+    "chordless_cycles",
+    "girth",
+]
+
 @_dispatchable
 def cycle_basis(G: Graph[_Node], root: _Node | None = None): ...
 @_dispatchable
@@ -24,3 +34,5 @@ def recursive_simple_cycles(G: DiGraph[_Node]): ...
 def find_cycle(G: Graph[_Node], source=None, orientation=None): ...
 @_dispatchable
 def minimum_cycle_basis(G: Graph[_Node], weight: str | None = None): ...
+@_dispatchable
+def girth(G) -> float | int: ...
