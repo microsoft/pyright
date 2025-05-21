@@ -738,7 +738,7 @@ export class SourceMapper {
     }
 
     private _getBoundSourceFilesFromStubFile(stubFileUri: Uri, stubToShadow?: Uri, originated?: Uri): SourceFile[] {
-        const paths = this._getSourcePathsFromStub(stubFileUri, originated ?? this._fromFile?.sourceFile.getUri());
+        const paths = this._getSourcePathsFromStub(stubFileUri, originated ?? this._fromFile?.uri);
         return paths.map((fp) => this._fileBinder(stubToShadow ?? stubFileUri, fp)).filter(isDefined);
     }
 
@@ -779,7 +779,7 @@ export class SourceMapper {
                 stubFileUri,
                 (p) => {
                     const boundSourceInfo = this._boundSourceGetter(p);
-                    return boundSourceInfo ? boundSourceInfo.importedBy.map((info) => info.sourceFile.getUri()) : [];
+                    return boundSourceInfo ? boundSourceInfo.importedBy.map((info) => info.uri) : [];
                 },
                 this._cancelToken
             ).filter((p) => this._isStubThatShouldBeMappedToImplementation(p));

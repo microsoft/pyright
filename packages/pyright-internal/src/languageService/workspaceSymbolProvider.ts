@@ -140,7 +140,7 @@ export class WorkspaceSymbolProvider {
                 continue;
             }
 
-            const symbolList = this.getSymbolsForDocument(program, sourceFileInfo.sourceFile.getUri());
+            const symbolList = this.getSymbolsForDocument(program, sourceFileInfo.uri);
             if (symbolList.length > 0) {
                 this._reporter(symbolList);
             }

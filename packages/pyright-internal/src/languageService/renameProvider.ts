@@ -91,13 +91,13 @@ export class RenameProvider {
                     // from accidentally changing third party library or type stub.
                     if (isUserCode(curSourceFileInfo)) {
                         // Make sure searching symbol name exists in the file.
-                        const content = curSourceFileInfo.sourceFile.getFileContent() ?? '';
+                        const content = curSourceFileInfo.contents ?? '';
                         if (!referencesResult.symbolNames.some((s) => content.search(s) >= 0)) {
                             continue;
                         }
 
                         referenceProvider.addReferencesToResult(
-                            curSourceFileInfo.sourceFile.getUri(),
+                            curSourceFileInfo.uri,
                             /* includeDeclaration */ true,
                             referencesResult
                         );

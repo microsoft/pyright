@@ -376,12 +376,12 @@ test('service runEditMode', () => {
             const openFile = p.getSourceFileInfo(openUri);
             assert(openFile);
             assert(openFile.isOpenByClient);
-            assert.strictEqual(value, openFile.sourceFile.getFileContent());
+            assert.strictEqual(value, openFile.contents);
 
             const closedFile = p.getSourceFileInfo(closedUri);
             assert(closedFile);
             assert(closedFile.isOpenByClient);
-            assert.strictEqual(value, closedFile.sourceFile.getFileContent());
+            assert.strictEqual(value, closedFile.contents);
         }, CancellationToken.None);
 
         const interim = state.workspace.service.test_program.getSourceFileInfo(newFileUri);
@@ -391,13 +391,13 @@ test('service runEditMode', () => {
         assert(openFile);
         assert(openFile.isOpenByClient);
 
-        assert.strictEqual('', openFile.sourceFile.getFileContent()?.trim());
+        assert.strictEqual('', openFile.contents?.trim());
 
         const closedFile = state.workspace.service.test_program.getSourceFileInfo(closedUri);
         assert(closedFile);
         assert(!closedFile.isOpenByClient);
 
-        const content = closedFile.sourceFile.getFileContent() ?? '';
+        const content = closedFile.contents ?? '';
         assert.strictEqual('', content.trim());
     }
 });

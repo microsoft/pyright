@@ -48,12 +48,18 @@ export interface SourceFileInfo {
     // one can mess up program state by calling some methods on it directly.
     // For example, calling sourceFile.parse() directly will mess up
     // dependency graph maintained by the program.
-    readonly sourceFile: SourceFile;
+    readonly uri: Uri;
+    readonly contents: string;
+    readonly ipythonMode: IPythonMode;
 
     // Information about the source file
     readonly isTypeshedFile: boolean;
     readonly isThirdPartyImport: boolean;
     readonly isThirdPartyPyTypedPresent: boolean;
+    readonly isTypingStubFile: boolean;
+    readonly hasTypeAnnotations: boolean;
+    readonly diagnosticsVersion: number | undefined;
+    readonly clientVersion: number | undefined;
 
     readonly chainedSourceFile?: SourceFileInfo | undefined;
 
@@ -82,6 +88,7 @@ export interface ProgramView {
     getParserOutput(fileUri: Uri): ParserOutput | undefined;
     getParseResults(fileUri: Uri): ParseFileResults | undefined;
     getSourceFileInfo(fileUri: Uri): SourceFileInfo | undefined;
+    getModuleSymbolTable(fileUri: Uri): SymbolTable | undefined;
     getChainedUri(fileUri: Uri): Uri | undefined;
     getSourceMapper(fileUri: Uri, token: CancellationToken, mapCompiled?: boolean, preferStubs?: boolean): SourceMapper;
 
