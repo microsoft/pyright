@@ -337,6 +337,10 @@ export class SourceFile {
         return this._isTypingStubFile;
     }
 
+    isTypeshedStubFile() {
+        return this._isTypeshedStubFile;
+    }
+
     isThirdPartyPyTypedPresent() {
         return this._isThirdPartyPyTypedPresent;
     }
