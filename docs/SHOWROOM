@@ -1,0 +1,1729 @@
+import os
+import sqlite3
+import hashlib
+import pandas as pd
+from tkinter import *
+from tkinter import ttk, messagebox, filedialog
+from tkinter.font import Font
+
+class DataCenterApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("سیستم مدیریت اطلاعات مجتمع اداری")
+        self.root.geometry("1200x700")
+
+        # امنیت دیتابیس
+        self.db_name = "encrypted_data_center.db"
+        self.create_secure_database()
+
+        # تنظیم فونت
+        self.custom_font = Font(family="Tahoma", size=9)  # کاهش اندازه فونت
+        self.title_font = Font(family="Tahoma", size=12, weight="bold")
+        self.header_font = Font(family="Tahoma", size=9, weight="bold")
+
+        # متغیرهای کاربر
+        self.current_user = None
+        self.logged_in = False
+
+        # ایجاد رابط کاربری
+        self.create_login_ui()
+
+        # منوی همبرگری (در ابتدا مخفی)
+        self.hamburger_menu_frame = None
+        self.hamburger_menu_visible = False
+
+    def create_secure_database(self):
+        """ایجاد دیتابیس امن با رمزنگاری"""
+        # بررسی فایل دیتابیس معیوب
+        if os.path.exists(self.db_name):
+            try:
+                conn = sqlite3.connect(self.db_name)
+                conn.close()
+            except sqlite3.DatabaseError:
+                os.remove(self.db_name)  # حذف فایل معیوب
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        # ایجاد جدول کاربران
+        cursor.execute(
+            """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            is_admin INTEGER DEFAULT 0
+        )
+        """
+        )
+
+        # ایجاد جدول اتاق‌ها
+        cursor.execute(
+            """
+        CREATE TABLE IF NOT EXISTS rooms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            room_number TEXT UNIQUE NOT NULL,
+            switch_numbers TEXT,
+            port_numbers TEXT,
+            data_center_number TEXT,
+            corridor TEXT,
+            floor TEXT
+        )
+        """
+        )
+
+        # ایجاد جدول دیتاسنترها
+        cursor.execute(
+            """
+        CREATE TABLE IF NOT EXISTS datacenters (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            dc_number TEXT UNIQUE NOT NULL,
+            location TEXT,
+            description TEXT
+        )
+        """
+        )
+
+        # ایجاد کاربر ادمین پیش‌فرض اگر وجود نداشته باشد
+        cursor.execute("SELECT * FROM users WHERE username='admin'")
+        if not cursor.fetchone():
+            hashed_password = self.hash_password("admin123")
+            cursor.execute(
+                "INSERT INTO users (username, password, is_admin) VALUES (?, ?, 1)",
+                ("admin", hashed_password),
+            )
+
+        conn.commit()
+        conn.close()
+
+    def hash_password(self, password):
+        """رمزنگاری پسورد"""
+        return hashlib.sha256(password.encode()).hexdigest()
+
+    def create_login_ui(self):
+        """ایجاد رابط کاربری ورود"""
+        self.clear_window()
+
+        login_frame = Frame(self.root, padx=20, pady=20)
+        login_frame.pack(expand=True)
+
+        Label(login_frame, text="ورود به سیستم", font=self.title_font).grid(
+            row=0, column=0, columnspan=2, pady=10
+        )
+
+        Label(login_frame, text="نام کاربری:", font=self.custom_font).grid(
+            row=1, column=1, sticky=E, padx=5, pady=5
+        )
+        self.username_entry = Entry(login_frame, font=self.custom_font, width=20)
+        self.username_entry.grid(row=1, column=0, padx=5, pady=5)
+
+        Label(login_frame, text="رمز عبور:", font=self.custom_font).grid(
+            row=2, column=1, sticky=E, padx=5, pady=5
+        )
+        self.password_entry = Entry(
+            login_frame, show="*", font=self.custom_font, width=20
+        )
+        self.password_entry.grid(row=2, column=0, padx=5, pady=5)
+
+        Button(
+            login_frame,
+            text="LOGIN",
+            command=self.login,
+            font=self.custom_font,
+            bg="#4CAF50",
+            fg="white",
+            padx=3,
+            pady=2,
+        ).grid(row=3, column=0, columnspan=2, pady=10, sticky="columnconfigure")
+
+        self.username_entry.focus_set()
+
+    def login(self):
+        """عملیات ورود به سیستم"""
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+
+        if not username or not password:
+            messagebox.showerror("خطا", "لطفاً نام کاربری و رمز عبور را وارد کنید")
+            return
+
+        hashed_password = self.hash_password(password)
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT * FROM users WHERE username=? AND password=?",
+            (username, hashed_password),
+        )
+        user = cursor.fetchone()
+        conn.close()
+
+        if user:
+            self.current_user = {
+                "id": user[0],
+                "username": user[1],
+                "is_admin": bool(user[3]),
+            }
+            self.logged_in = True
+            self.create_main_ui()
+        else:
+            messagebox.showerror("خطا", "نام کاربری یا رمز عبور اشتباه است")
+
+    def logout(self):
+        """عملیات خروج از سیستم"""
+        self.current_user = None
+        self.logged_in = False
+        self.create_login_ui()
+
+    def create_main_ui(self):
+        """ایجاد رابط کاربری اصلی"""
+        self.clear_window()
+
+        # نوار بالایی
+        top_bar = Frame(self.root, bg="#333", height=50)
+        top_bar.pack(fill=X)
+
+        # دکمه منوی همبرگری
+        hamburger_btn = Button(
+            top_bar,
+            text="☰",
+            command=self.toggle_hamburger_menu,
+            font=self.title_font,
+            bg="#333",
+            fg="white",
+            bd=0,
+        )
+        hamburger_btn.pack(side=RIGHT, padx=10, pady=5)
+
+        # عنوان سیستم
+        Label(
+            top_bar,
+            text="سیستم مدیریت دیتاسنتر",
+            font=self.title_font,
+            bg="#333",
+            fg="white",
+        ).pack(side=RIGHT, padx=20)
+
+        # اطلاعات کاربر
+        user_info = Frame(top_bar, bg="#333")
+        user_info.pack(side=LEFT, padx=10)
+
+        Label(
+            user_info,
+            text=f"کاربر: {self.current_user['username']}",
+            font=self.custom_font,
+            bg="#333",
+            fg="white",
+        ).pack(side=LEFT, padx=5)
+
+        Button(
+            user_info,
+            text="خروج",
+            command=self.logout,
+            font=self.custom_font,
+            bg="#f44336",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).pack(side=LEFT, padx=5)
+
+        # منوی همبرگری (در ابتدا مخفی)
+        self.create_hamburger_menu()
+
+        # محتوای اصلی
+        self.main_content = Frame(self.root)
+        self.main_content.pack(fill=BOTH, expand=True)
+
+        # نمایش صفحه پیش‌فرض
+        self.show_dashboard()
+
+    def create_hamburger_menu(self):
+        """ایجاد منوی همبرگری"""
+        if self.hamburger_menu_frame:
+            self.hamburger_menu_frame.destroy()
+
+        self.hamburger_menu_frame = Frame(
+            self.root, bg="#333", width=200, relief="raised", borderwidth=2
+        )
+
+        menu_items = [
+            ("داشبورد", self.show_dashboard),
+            ("ورود اطلاعات", self.show_data_entry),
+            ("جستجوی اطلاعات", self.show_search),
+            ("جستجوی دیتاسنتر و سوییچ‌ها", self.show_dc_switch_search),
+            ("حذف همه اطلاعات", self.delete_all_data),
+            ("تغییر کاربر", self.change_user),
+            ("پشتیبان‌گیری", self.backup_database),
+            ("بازیابی", self.restore_database),
+        ]
+
+        for i, (text, command) in enumerate(menu_items):
+            btn = Button(
+                self.hamburger_menu_frame,
+                text=text,
+                command=command,
+                font=self.custom_font,
+                bg="#333",
+                fg="white",
+                bd=0,
+                anchor="w",
+                padx=10,
+            )
+            btn.pack(fill=X, pady=2)
+
+    def toggle_hamburger_menu(self):
+        """نمایش/مخفی کردن منوی همبرگری"""
+        if self.hamburger_menu_visible:
+            self.hamburger_menu_frame.place_forget()
+        else:
+            self.hamburger_menu_frame.place(
+                x=950, y=50, width=200, height=400
+            )  # بالا-راست
+            self.hamburger_menu_frame.lift()
+
+        self.hamburger_menu_visible = not self.hamburger_menu_visible
+
+    def show_dashboard(self):
+        """نمایش داشبورد"""
+        self.toggle_hamburger_menu()
+        self.clear_main_content()
+
+        Label(self.main_content, text="داشبورد سیستم", font=self.title_font).pack(
+            pady=20
+        )
+
+        stats_frame = Frame(self.main_content)
+        stats_frame.pack(pady=10)
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT COUNT(*) FROM rooms")
+        rooms_count = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM datacenters")
+        dcs_count = cursor.fetchone()[0]
+
+        conn.close()
+
+        Label(
+            stats_frame, text=f"تعداد اتاق‌ها: {rooms_count}", font=self.custom_font
+        ).grid(row=0, column=0, padx=20)
+        Label(
+            stats_frame, text=f"تعداد دیتاسنترها: {dcs_count}", font=self.custom_font
+        ).grid(row=0, column=1, padx=20)
+
+    def show_data_entry(self):
+        """نمایش صفحه ورود اطلاعات"""
+        self.toggle_hamburger_menu()
+        self.clear_main_content()
+
+        notebook = ttk.Notebook(self.main_content)
+        notebook.pack(fill=BOTH, expand=True, padx=10, pady=10)
+
+        room_frame = Frame(notebook)
+        notebook.add(room_frame, text="ورود اطلاعات اتاق")
+        self.create_room_entry_form(room_frame)
+
+        dc_frame = Frame(notebook)
+        notebook.add(dc_frame, text="ورود اطلاعات دیتاسنتر")
+        self.create_dc_entry_form(dc_frame)
+
+        edit_frame = Frame(notebook)
+        notebook.add(edit_frame, text="ویرایش اطلاعات")
+        self.create_edit_form(edit_frame)
+
+        excel_frame = Frame(notebook)
+        notebook.add(excel_frame, text="مدیریت فایل اکسل")
+        self.create_excel_management_form(excel_frame)
+
+    def create_room_entry_form(self, parent):
+        """فرم ورود اطلاعات اتاق"""
+        form_frame = Frame(parent, padx=10, pady=10)
+        form_frame.pack(fill=BOTH, expand=True)
+
+        Label(form_frame, text="ورود اطلاعات اتاق جدید", font=self.title_font).grid(
+            row=0, column=0, columnspan=2, pady=10
+        )
+
+        # اعتبارسنجی برای محدود کردن طول ورودی
+        vcmd = (self.root.register(self.validate_number_input), "%P", "%W")
+
+        Label(form_frame, text="شماره اتاق:", font=self.custom_font).grid(
+            row=1, column=1, sticky=E, padx=5, pady=5
+        )
+        self.room_number_entry = Entry(
+            form_frame,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.room_number_entry.grid(row=1, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(
+            form_frame, text="شماره سوییچ‌ها (با کاما جدا شود):", font=self.custom_font
+        ).grid(row=2, column=1, sticky=E, padx=5, pady=5)
+        self.switch_numbers_entry = Entry(form_frame, font=self.custom_font, width=30)
+        self.switch_numbers_entry.grid(row=2, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(
+            form_frame, text="شماره پورت‌ها (با کاما جدا شود):", font=self.custom_font
+        ).grid(row=3, column=1, sticky=E, padx=5, pady=5)
+        self.port_numbers_entry = Entry(form_frame, font=self.custom_font, width=30)
+        self.port_numbers_entry.grid(row=3, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="شماره دیتاسنتر:", font=self.custom_font).grid(
+            row=4, column=1, sticky=E, padx=5, pady=5
+        )
+        self.room_dc_number_entry = Entry(
+            form_frame,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.room_dc_number_entry.grid(row=4, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="راهرو:", font=self.custom_font).grid(
+            row=5, column=1, sticky=E, padx=5, pady=5
+        )
+        self.corridor_entry = Entry(
+            form_frame,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.corridor_entry.grid(row=5, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="طبقه:", font=self.custom_font).grid(
+            row=6, column=1, sticky=E, padx=5, pady=5
+        )
+        self.floor_entry = Entry(
+            form_frame,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.floor_entry.grid(row=6, column=0, sticky=EW, padx=5, pady=5)
+
+        Button(
+            form_frame,
+            text="ذخیره اطلاعات اتاق",
+            command=self.save_room_data,
+            font=self.custom_font,
+            bg="#2196F3",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).grid(row=7, column=0, columnspan=2, pady=10, sticky=EW)
+
+        form_frame.grid_columnconfigure(0, weight=1)
+
+    def validate_number_input(self, new_value, widget_name):
+        """اعتبارسنجی ورودی عددی"""
+        if new_value == "":
+            return True
+        if len(new_value) > 4:  # محدودیت طول برای اعداد
+            return False
+        return new_value.isdigit()
+
+    def create_dc_entry_form(self, parent):
+        """فرم ورود اطلاعات دیتاسنتر"""
+        form_frame = Frame(parent, padx=10, pady=10)
+        form_frame.pack(fill=BOTH, expand=True)
+
+        Label(form_frame, text="ورود اطلاعات دیتاسنتر جدید", font=self.title_font).grid(
+            row=0, column=0, columnspan=2, pady=10
+        )
+
+        vcmd = (self.root.register(self.validate_number_input), "%P", "%W")
+
+        Label(form_frame, text="شماره دیتاسنتر:", font=self.custom_font).grid(
+            row=1, column=1, sticky=E, padx=5, pady=5
+        )
+        self.dc_number_entry = Entry(
+            form_frame,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.dc_number_entry.grid(row=1, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="موقعیت:", font=self.custom_font).grid(
+            row=2, column=1, sticky=E, padx=5, pady=5
+        )
+        self.location_entry = Entry(form_frame, font=self.custom_font, width=30)
+        self.location_entry.grid(row=2, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="توضیحات:", font=self.custom_font).grid(
+            row=3, column=1, sticky=E, padx=5, pady=5
+        )
+        self.description_entry = Entry(form_frame, font=self.custom_font, width=30)
+        self.description_entry.grid(row=3, column=0, sticky=EW, padx=5, pady=5)
+
+        Button(
+            form_frame,
+            text="ذخیره اطلاعات دیتاسنتر",
+            command=self.save_dc_data,
+            font=self.custom_font,
+            bg="#2196F3",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).grid(row=4, column=0, columnspan=2, pady=10, sticky=EW)
+
+        form_frame.grid_columnconfigure(0, weight=1)
+
+    def create_edit_form(self, parent):
+        """فرم ویرایش اطلاعات"""
+        notebook = ttk.Notebook(parent)
+        notebook.pack(fill=BOTH, expand=True)
+
+        edit_room_frame = Frame(notebook)
+        notebook.add(edit_room_frame, text="ویرایش اتاق")
+        self.create_room_edit_form(edit_room_frame)
+
+        edit_dc_frame = Frame(notebook)
+        notebook.add(edit_dc_frame, text="ویرایش دیتاسنتر")
+        self.create_dc_edit_form(edit_dc_frame)
+
+    def create_room_edit_form(self, parent):
+        """فرم ویرایش اطلاعات اتاق"""
+        form_frame = Frame(parent, padx=10, pady=10)
+        form_frame.pack(fill=BOTH, expand=True)
+
+        Label(form_frame, text="ویرایش اطلاعات اتاق", font=self.title_font).grid(
+            row=0, column=0, columnspan=2, pady=10
+        )
+
+        Label(form_frame, text="شماره اتاق برای جستجو:", font=self.custom_font).grid(
+            row=1, column=1, sticky=E, padx=5, pady=5
+        )
+        self.edit_room_search_entry = Entry(form_frame, font=self.custom_font, width=10)
+        self.edit_room_search_entry.grid(row=1, column=0, sticky=EW, padx=5, pady=5)
+
+        Button(
+            form_frame,
+            text="جستجو",
+            command=self.search_room_for_edit,
+            font=self.custom_font,
+            bg="#FF9800",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).grid(row=2, column=0, columnspan=2, pady=5, sticky=EW)
+
+        self.room_edit_result_frame = Frame(form_frame)
+        self.room_edit_result_frame.grid(
+            row=3, column=0, columnspan=2, sticky=EW, pady=10
+        )
+
+        form_frame.grid_columnconfigure(0, weight=1)
+
+    def create_dc_edit_form(self, parent):
+        """فرم ویرایش اطلاعات دیتاسنتر"""
+        form_frame = Frame(parent, padx=10, pady=10)
+        form_frame.pack(fill=BOTH, expand=True)
+
+        Label(form_frame, text="ویرایش اطلاعات دیتاسنتر", font=self.title_font).grid(
+            row=0, column=0, columnspan=2, pady=10
+        )
+
+        Label(
+            form_frame, text="شماره دیتاسنتر برای جستجو:", font=self.custom_font
+        ).grid(row=1, column=1, sticky=E, padx=5, pady=5)
+        self.edit_dc_search_entry = Entry(form_frame, font=self.custom_font, width=10)
+        self.edit_dc_search_entry.grid(row=1, column=0, sticky=EW, padx=5, pady=5)
+
+        Button(
+            form_frame,
+            text="جستجو",
+            command=self.search_dc_for_edit,
+            font=self.custom_font,
+            bg="#FF9800",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).grid(row=2, column=0, columnspan=2, pady=5, sticky=EW)
+
+        self.dc_edit_result_frame = Frame(form_frame)
+        self.dc_edit_result_frame.grid(
+            row=3, column=0, columnspan=2, sticky=EW, pady=10
+        )
+
+        form_frame.grid_columnconfigure(0, weight=1)
+
+    def create_excel_management_form(self, parent):
+        """فرم مدیریت فایل اکسل"""
+        form_frame = Frame(parent, padx=10, pady=10)
+        form_frame.pack(fill=BOTH, expand=True)
+
+        Label(form_frame, text="مدیریت فایل اکسل", font=self.title_font).grid(
+            row=0, column=0, columnspan=2, pady=10
+        )
+
+        Button(
+            form_frame,
+            text="دانلود نمونه فایل اکسل",
+            command=self.download_sample_excel,
+            font=self.custom_font,
+            bg="#607D8B",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).grid(row=1, column=0, columnspan=2, pady=10, sticky=EW)
+
+        Button(
+            form_frame,
+            text="آپلود فایل اکسل",
+            command=self.upload_excel_file,
+            font=self.custom_font,
+            bg="#009688",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).grid(row=2, column=0, columnspan=2, pady=10, sticky=EW)
+
+        form_frame.grid_columnconfigure(0, weight=1)
+
+    def show_search(self):
+        """نمایش صفحه جستجوی اطلاعات"""
+        self.toggle_hamburger_menu()
+        self.clear_main_content()
+
+        notebook = ttk.Notebook(self.main_content)
+        notebook.pack(fill=BOTH, expand=True, padx=10, pady=10)
+
+        room_search_frame = Frame(notebook)
+        notebook.add(room_search_frame, text="جستجوی اتاق")
+        self.create_room_search_form(room_search_frame)
+
+        dc_search_frame = Frame(notebook)
+        notebook.add(dc_search_frame, text="جستجوی دیتاسنتر")
+        self.create_dc_search_form(dc_search_frame)
+
+    def show_dc_switch_search(self):
+        """نمایش صفحه جستجوی دیتاسنتر و سوییچ‌ها"""
+        self.toggle_hamburger_menu()
+        self.clear_main_content()
+
+        form_frame = Frame(self.main_content, padx=10, pady=10)
+        form_frame.pack(fill=BOTH, expand=True)
+
+        self.create_dc_switch_search_form(form_frame)
+
+    def create_room_search_form(self, parent):
+        """فرم جستجوی اتاق"""
+        form_frame = Frame(parent, padx=10, pady=10)
+        form_frame.pack(fill=BOTH, expand=True)
+
+        Label(form_frame, text="جستجوی اطلاعات اتاق", font=self.title_font).grid(
+            row=0, column=0, columnspan=2, pady=10
+        )
+
+        vcmd = (self.root.register(self.validate_number_input), "%P", "%W")
+
+        Label(form_frame, text="شماره اتاق:", font=self.custom_font).grid(
+            row=1, column=1, sticky=E, padx=5, pady=5
+        )
+        self.search_room_number_entry = Entry(
+            form_frame,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.search_room_number_entry.grid(row=1, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="شماره سوییچ:", font=self.custom_font).grid(
+            row=2, column=1, sticky=E, padx=5, pady=5
+        )
+        self.search_switch_entry = Entry(form_frame, font=self.custom_font, width=30)
+        self.search_switch_entry.grid(row=2, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="شماره پورت:", font=self.custom_font).grid(
+            row=3, column=1, sticky=E, padx=5, pady=5
+        )
+        self.search_port_entry = Entry(form_frame, font=self.custom_font, width=30)
+        self.search_port_entry.grid(row=3, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="شماره دیتاسنتر:", font=self.custom_font).grid(
+            row=4, column=1, sticky=E, padx=5, pady=5
+        )
+        self.search_room_dc_entry = Entry(
+            form_frame,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.search_room_dc_entry.grid(row=4, column=0, sticky=EW, padx=5, pady=5)
+
+        Button(
+            form_frame,
+            text="جستجو",
+            command=self.search_rooms,
+            font=self.custom_font,
+            bg="#FF9800",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).grid(row=5, column=0, columnspan=2, pady=10, sticky=EW)
+
+        self.room_search_result_frame = Frame(form_frame)
+        self.room_search_result_frame.grid(
+            row=6, column=0, columnspan=2, sticky=NSEW, pady=10
+        )
+
+        form_frame.grid_columnconfigure(0, weight=1)
+        form_frame.grid_rowconfigure(6, weight=1)
+
+    def create_dc_search_form(self, parent):
+        """فرم جستجوی دیتاسنتر"""
+        form_frame = Frame(parent, padx=10, pady=10)
+        form_frame.pack(fill=BOTH, expand=True)
+
+        Label(form_frame, text="جستجوی اطلاعات دیتاسنتر", font=self.title_font).grid(
+            row=0, column=0, columnspan=2, pady=10
+        )
+
+        vcmd = (self.root.register(self.validate_number_input), "%P", "%W")
+
+        Label(form_frame, text="شماره دیتاسنتر:", font=self.custom_font).grid(
+            row=1, column=1, sticky=E, padx=5, pady=5
+        )
+        self.search_dc_number_entry = Entry(
+            form_frame,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.search_dc_number_entry.grid(row=1, column=0, sticky=EW, padx=5, pady=5)
+
+        Button(
+            form_frame,
+            text="جستجو",
+            command=self.search_datacenters,
+            font=self.custom_font,
+            bg="#FF9800",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).grid(row=2, column=0, columnspan=2, pady=10, sticky=EW)
+
+        self.dc_search_result_frame = Frame(form_frame)
+        self.dc_search_result_frame.grid(
+            row=3, column=0, columnspan=2, sticky=NSEW, pady=10
+        )
+
+        form_frame.grid_columnconfigure(0, weight=1)
+        form_frame.grid_rowconfigure(3, weight=1)
+
+    def create_dc_switch_search_form(self, parent):
+        """فرم جستجوی دیتاسنتر و سوییچ‌ها"""
+        Label(parent, text="جستجوی دیتاسنتر و سوییچ‌ها", font=self.title_font).grid(
+            row=0, column=0, columnspan=2, pady=10
+        )
+
+        vcmd = (self.root.register(self.validate_number_input), "%P", "%W")
+
+        Label(parent, text="شماره دیتاسنتر:", font=self.custom_font).grid(
+            row=1, column=1, sticky=E, padx=5, pady=5
+        )
+        self.dc_switch_search_entry = Entry(
+            parent,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.dc_switch_search_entry.grid(row=1, column=0, sticky=EW, padx=5, pady=5)
+
+        Button(
+            parent,
+            text="جستجو",
+            command=self.search_dc_switches,
+            font=self.custom_font,
+            bg="#FF9800",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).grid(row=2, column=0, columnspan=2, pady=10, sticky=EW)
+
+        self.dc_switch_result_frame = Frame(parent)
+        self.dc_switch_result_frame.grid(
+            row=3, column=0, columnspan=2, sticky=NSEW, pady=10
+        )
+
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(3, weight=1)
+
+    def delete_all_data(self):
+        """حذف تمام اطلاعات"""
+        self.toggle_hamburger_menu()
+
+        if messagebox.askyesno(
+            "تأیید حذف",
+            "آیا مطمئن هستید که می‌خواهید تمام اطلاعات اتاق‌ها و دیتاسنترها را حذف کنید؟ این عملیات قابل بازگشت نیست.",
+        ):
+            try:
+                conn = sqlite3.connect(self.db_name)
+                cursor = conn.cursor()
+
+                cursor.execute("DELETE FROM rooms")
+                cursor.execute("DELETE FROM datacenters")
+
+                conn.commit()
+                messagebox.showinfo("موفقیت", "تمام اطلاعات با موفقیت حذف شد")
+
+            except Exception as e:
+                messagebox.showerror("خطا", f"خطا در حذف اطلاعات:\n{str(e)}")
+            finally:
+                conn.close()
+
+    def change_user(self):
+        """تغییر کاربر"""
+        self.toggle_hamburger_menu()
+        self.logout()
+
+    def backup_database(self):
+        """پشتیبان‌گیری از دیتابیس"""
+        self.toggle_hamburger_menu()
+
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".db",
+            filetypes=[("Database files", "*.db"), ("All files", "*.*")],
+            title="ذخیره فایل پشتیبان",
+        )
+
+        if file_path:
+            try:
+                conn = sqlite3.connect(self.db_name)
+                backup_conn = sqlite3.connect(file_path)
+
+                with backup_conn:
+                    conn.backup(backup_conn)
+
+                conn.close()
+                backup_conn.close()
+
+                messagebox.showinfo("موفقیت", "پشتیبان با موفقیت ذخیره شد")
+            except Exception as e:
+                messagebox.showerror("خطا", f"خطا در ایجاد پشتیبان:\n{str(e)}")
+
+    def restore_database(self):
+        """بازیابی دیتابیس"""
+        self.toggle_hamburger_menu()
+
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Database files", "*.db"), ("All files", "*.*")],
+            title="انتخاب فایل پشتیبان",
+        )
+
+        if file_path:
+            try:
+                if hasattr(self, "conn"):
+                    self.conn.close()
+
+                import shutil
+
+                shutil.copyfile(file_path, self.db_name)
+
+                messagebox.showinfo(
+                    "موفقیت",
+                    "دیتابیس با موفقیت بازیابی شد. لطفاً برنامه را مجدداً راه‌اندازی کنید.",
+                )
+                self.root.destroy()
+            except Exception as e:
+                messagebox.showerror("خطا", f"خطا در بازیابی دیتابیس:\n{str(e)}")
+
+    def save_room_data(self):
+        """ذخیره اطلاعات اتاق"""
+        room_number = self.room_number_entry.get()
+        switch_numbers = self.switch_numbers_entry.get()
+        port_numbers = self.port_numbers_entry.get()
+        dc_number = self.room_dc_number_entry.get()
+        corridor = self.corridor_entry.get()
+        floor = self.floor_entry.get()
+
+        if not room_number:
+            messagebox.showerror("خطا", "لطفاً شماره اتاق را وارد کنید")
+            return
+
+        try:
+            room_num = int(room_number)
+            floor_num = int(floor) if floor else 0
+            corridor_num = int(corridor) if corridor else 0
+            dc_num = int(dc_number) if dc_number else 0
+        except ValueError:
+            messagebox.showerror(
+                "خطا", "شماره اتاق، طبقه، راهرو و دیتاسنتر باید عددی باشند"
+            )
+            return
+
+        if not (1 <= floor_num <= 6):
+            messagebox.showerror("خطا", "شماره طبقه باید بین 1 تا 6 باشد")
+            return
+        if not (1 <= corridor_num <= 7):
+            messagebox.showerror("خطا", "شماره راهرو باید بین 1 تا 7 باشد")
+            return
+        if dc_number and not (1 <= dc_num <= 9):
+            messagebox.showerror("خطا", "شماره دیتاسنتر باید بین 1 تا 9 باشد")
+            return
+
+        thousand_digit = (room_num // 1000) % 10
+        hundred_digit = (room_num // 100) % 10
+        if thousand_digit != floor_num or hundred_digit != corridor_num:
+            messagebox.showerror(
+                "خطا",
+                f"شماره اتاق {room_number} باید با طبقه {thousand_digit} و راهرو {hundred_digit} مطابقت داشته باشد",
+            )
+            return
+
+        switches = [s.strip() for s in switch_numbers.split(",") if s.strip()]
+        ports = [p.strip() for p in port_numbers.split(",") if p.strip()]
+
+        if len(switches) > 10 or len(ports) > 10:
+            messagebox.showerror(
+                "خطا", "حداکثر 10 شماره سوییچ و 10 شماره پورت قابل تعریف است"
+            )
+            return
+
+        if len(switches) != len(ports):
+            messagebox.showerror("خطا", "تعداد سوییچ‌ها و پورت‌ها باید برابر باشد")
+            return
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        try:
+            for switch, port in zip(switches, ports):
+                cursor.execute(
+                    "SELECT room_number, switch_numbers, port_numbers FROM rooms"
+                )
+                for row in cursor.fetchall():
+                    existing_switches = [
+                        s.strip() for s in row[1].split(",") if s.strip()
+                    ]
+                    existing_ports = [p.strip() for p in row[2].split(",") if p.strip()]
+                    if switch in existing_switches and port in existing_ports:
+                        messagebox.showerror(
+                            "خطا",
+                            f"سوییچ {switch} و پورت {port} تکراری است و متعلق به اتاق {row[0]} می‌باشد",
+                        )
+                        return
+
+            cursor.execute(
+                """
+            INSERT INTO rooms (room_number, switch_numbers, port_numbers, data_center_number, corridor, floor)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+                (room_number, switch_numbers, port_numbers, dc_number, corridor, floor),
+            )
+
+            conn.commit()
+            messagebox.showinfo("موفقیت", "اطلاعات اتاق با موفقیت ذخیره شد")
+
+            self.room_number_entry.delete(0, END)
+            self.switch_numbers_entry.delete(0, END)
+            self.port_numbers_entry.delete(0, END)
+            self.room_dc_number_entry.delete(0, END)
+            self.corridor_entry.delete(0, END)
+            self.floor_entry.delete(0, END)
+
+        except sqlite3.IntegrityError:
+            messagebox.showerror("خطا", "شماره اتاق تکراری است")
+        finally:
+            conn.close()
+
+    def save_dc_data(self):
+        """ذخیره اطلاعات دیتاسنتر"""
+        dc_number = self.dc_number_entry.get()
+        location = self.location_entry.get()
+        description = self.description_entry.get()
+
+        if not dc_number:
+            messagebox.showerror("خطا", "لطفاً شماره دیتاسنتر را وارد کنید")
+            return
+
+        try:
+            dc_num = int(dc_number)
+            if not (1 <= dc_num <= 9):
+                messagebox.showerror("خطا", "شماره دیتاسنتر باید بین 1 تا 9 باشد")
+                return
+        except ValueError:
+            messagebox.showerror("خطا", "شماره دیتاسنتر باید عددی باشد")
+            return
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute(
+                """
+            INSERT INTO datacenters (dc_number, location, description)
+            VALUES (?, ?, ?)
+            """,
+                (dc_number, location, description),
+            )
+
+            conn.commit()
+            messagebox.showinfo("موفقیت", "اطلاعات دیتاسنتر با موفقیت ذخیره شد")
+
+            self.dc_number_entry.delete(0, END)
+            self.location_entry.delete(0, END)
+            self.description_entry.delete(0, END)
+
+        except sqlite3.IntegrityError:
+            messagebox.showerror("خطا", "شماره دیتاسنتر تکراری است")
+        finally:
+            conn.close()
+
+    def search_room_for_edit(self):
+        """جستجوی اتاق برای ویرایش"""
+        room_number = self.edit_room_search_entry.get()
+
+        if not room_number:
+            messagebox.showerror("خطا", "لطفاً شماره اتاق را وارد کنید")
+            return
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM rooms WHERE room_number=?", (room_number,))
+        room_data = cursor.fetchone()
+        conn.close()
+
+        if not room_data:
+            messagebox.showerror("خطا", "اتاقی با این شماره یافت نشد")
+            return
+
+        self.show_room_edit_form(room_data)
+
+    def show_room_edit_form(self, room_data):
+        """نمایش فرم ویرایش اطلاعات اتاق"""
+        for widget in self.room_edit_result_frame.winfo_children():
+            widget.destroy()
+
+        form_frame = Frame(self.room_edit_result_frame)
+        form_frame.pack(fill=BOTH, expand=True)
+
+        vcmd = (self.root.register(self.validate_number_input), "%P", "%W")
+
+        Label(form_frame, text="شماره اتاق:", font=self.custom_font).grid(
+            row=0, column=1, sticky=E, padx=5, pady=5
+        )
+        Label(form_frame, text=room_data[1], font=self.custom_font).grid(
+            row=0, column=0, sticky=W, padx=5, pady=5
+        )
+
+        Label(form_frame, text="شماره سوییچ‌ها:", font=self.custom_font).grid(
+            row=1, column=1, sticky=E, padx=5, pady=5
+        )
+        self.edit_switch_entry = Entry(form_frame, font=self.custom_font, width=30)
+        self.edit_switch_entry.insert(0, room_data[2])
+        self.edit_switch_entry.grid(row=1, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="شماره پورت‌ها:", font=self.custom_font).grid(
+            row=2, column=1, sticky=E, padx=5, pady=5
+        )
+        self.edit_port_entry = Entry(form_frame, font=self.custom_font, width=30)
+        self.edit_port_entry.insert(0, room_data[3])
+        self.edit_port_entry.grid(row=2, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="شماره دیتاسنتر:", font=self.custom_font).grid(
+            row=3, column=1, sticky=E, padx=5, pady=5
+        )
+        self.edit_room_dc_entry = Entry(
+            form_frame,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.edit_room_dc_entry.insert(0, room_data[4])
+        self.edit_room_dc_entry.grid(row=3, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="راهرو:", font=self.custom_font).grid(
+            row=4, column=1, sticky=E, padx=5, pady=5
+        )
+        self.edit_corridor_entry = Entry(
+            form_frame,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.edit_corridor_entry.insert(0, room_data[5])
+        self.edit_corridor_entry.grid(row=4, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="طبقه:", font=self.custom_font).grid(
+            row=5, column=1, sticky=E, padx=5, pady=5
+        )
+        self.edit_floor_entry = Entry(
+            form_frame,
+            font=self.custom_font,
+            width=10,
+            validate="key",
+            validatecommand=vcmd,
+        )
+        self.edit_floor_entry.insert(0, room_data[6])
+        self.edit_floor_entry.grid(row=5, column=0, sticky=EW, padx=5, pady=5)
+
+        Button(
+            form_frame,
+            text="ذخیره تغییرات",
+            command=lambda: self.update_room_data(room_data[0]),
+            font=self.custom_font,
+            bg="#4CAF50",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).grid(row=6, column=0, columnspan=2, pady=10, sticky=EW)
+
+        form_frame.grid_columnconfigure(0, weight=1)
+
+    def update_room_data(self, room_id):
+        """به‌روزرسانی اطلاعات اتاق"""
+        switch_numbers = self.edit_switch_entry.get()
+        port_numbers = self.edit_port_entry.get()
+        dc_number = self.edit_room_dc_entry.get()
+        corridor = self.edit_corridor_entry.get()
+        floor = self.edit_floor_entry.get()
+
+        try:
+            floor_num = int(floor) if floor else 0
+            corridor_num = int(corridor) if corridor else 0
+            dc_num = int(dc_number) if dc_number else 0
+        except ValueError:
+            messagebox.showerror("خطا", "طبقه، راهرو و دیتاسنتر باید عددی باشند")
+            return
+
+        if not (1 <= floor_num <= 6):
+            messagebox.showerror("خطا", "شماره طبقه باید بین 1 تا 6 باشد")
+            return
+        if not (1 <= corridor_num <= 7):
+            messagebox.showerror("خطا", "شماره راهرو باید بین 1 تا 7 باشد")
+            return
+        if dc_number and not (1 <= dc_num <= 9):
+            messagebox.showerror("خطا", "شماره دیتاسنتر باید بین 1 تا 9 باشد")
+            return
+
+        switches = [s.strip() for s in switch_numbers.split(",") if s.strip()]
+        ports = [p.strip() for p in port_numbers.split(",") if p.strip()]
+
+        if len(switches) > 10 or len(ports) > 10:
+            messagebox.showerror(
+                "خطا", "حداکثر 10 شماره سوییچ و 10 شماره پورت قابل تعریف است"
+            )
+            return
+
+        if len(switches) != len(ports):
+            messagebox.showerror("خطا", "تعداد سوییچ‌ها و پورت‌ها باید برابر باشد")
+            return
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        try:
+            for switch, port in zip(switches, ports):
+                cursor.execute(
+                    "SELECT room_number, switch_numbers, port_numbers FROM rooms WHERE id != ?",
+                    (room_id,),
+                )
+                for row in cursor.fetchall():
+                    existing_switches = [
+                        s.strip() for s in row[1].split(",") if s.strip()
+                    ]
+                    existing_ports = [p.strip() for p in row[2].split(",") if p.strip()]
+                    if switch in existing_switches and port in existing_ports:
+                        messagebox.showerror(
+                            "خطا",
+                            f"سوییچ {switch} و پورت {port} تکراری است و متعلق به اتاق {row[0]} می‌باشد",
+                        )
+                        return
+
+            cursor.execute(
+                """
+            UPDATE rooms 
+            SET switch_numbers=?, port_numbers=?, data_center_number=?, corridor=?, floor=?
+            WHERE id=?
+            """,
+                (switch_numbers, port_numbers, dc_number, corridor, floor, room_id),
+            )
+
+            conn.commit()
+            messagebox.showinfo("موفقیت", "اطلاعات اتاق با موفقیت به‌روزرسانی شد")
+
+        except Exception as e:
+            messagebox.showerror("خطا", f"خطا در به‌روزرسانی اطلاعات:\n{str(e)}")
+        finally:
+            conn.close()
+
+    def search_dc_for_edit(self):
+        """جستجوی دیتاسنتر برای ویرایش"""
+        dc_number = self.edit_dc_search_entry.get()
+
+        if not dc_number:
+            messagebox.showerror("خطا", "لطفاً شماره دیتاسنتر را وارد کنید")
+            return
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM datacenters WHERE dc_number=?", (dc_number,))
+        dc_data = cursor.fetchone()
+        conn.close()
+
+        if not dc_data:
+            messagebox.showerror("خطا", "دیتاسنتری با این شماره یافت نشد")
+            return
+
+        self.show_dc_edit_form(dc_data)
+
+    def show_dc_edit_form(self, dc_data):
+        """نمایش فرم ویرایش اطلاعات دیتاسنتر"""
+        for widget in self.dc_edit_result_frame.winfo_children():
+            widget.destroy()
+
+        form_frame = Frame(self.dc_edit_result_frame)
+        form_frame.pack(fill=BOTH, expand=True)
+
+        Label(form_frame, text="شماره دیتاسنتر:", font=self.custom_font).grid(
+            row=0, column=1, sticky=E, padx=5, pady=5
+        )
+        Label(form_frame, text=dc_data[1], font=self.custom_font).grid(
+            row=0, column=0, sticky=W, padx=5, pady=5
+        )
+
+        Label(form_frame, text="موقعیت:", font=self.custom_font).grid(
+            row=1, column=1, sticky=E, padx=5, pady=5
+        )
+        self.edit_dc_location_entry = Entry(form_frame, font=self.custom_font, width=30)
+        self.edit_dc_location_entry.insert(0, dc_data[2])
+        self.edit_dc_location_entry.grid(row=1, column=0, sticky=EW, padx=5, pady=5)
+
+        Label(form_frame, text="توضیحات:", font=self.custom_font).grid(
+            row=2, column=1, sticky=E, padx=5, pady=5
+        )
+        self.edit_dc_desc_entry = Entry(form_frame, font=self.custom_font, width=30)
+        self.edit_dc_desc_entry.insert(0, dc_data[3])
+        self.edit_dc_desc_entry.grid(row=2, column=0, sticky=EW, padx=5, pady=5)
+
+        Button(
+            form_frame,
+            text="ذخیره تغییرات",
+            command=lambda: self.update_dc_data(dc_data[0]),
+            font=self.custom_font,
+            bg="#4CAF50",
+            fg="white",
+            padx=5,
+            pady=2,
+        ).grid(row=3, column=0, columnspan=2, pady=10, sticky=EW)
+
+        form_frame.grid_columnconfigure(0, weight=1)
+
+    def update_dc_data(self, dc_id):
+        """به‌روزرسانی اطلاعات دیتاسنتر"""
+        location = self.edit_dc_location_entry.get()
+        description = self.edit_dc_desc_entry.get()
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute(
+                """
+            UPDATE datacenters 
+            SET location=?, description=?
+            WHERE id=?
+            """,
+                (location, description, dc_id),
+            )
+
+            conn.commit()
+            messagebox.showinfo("موفقیت", "اطلاعات دیتاسنتر با موفقیت به‌روزرسانی شد")
+
+        except Exception as e:
+            messagebox.showerror("خطا", f"خطا در به‌روزرسانی اطلاعات:\n{str(e)}")
+        finally:
+            conn.close()
+
+    def search_rooms(self):
+        """جستجوی اتاق‌ها"""
+        room_number = self.search_room_number_entry.get()
+        switch_number = self.search_switch_entry.get()
+        port_number = self.search_port_entry.get()
+        dc_number = self.search_room_dc_entry.get()
+
+        conditions = []
+        params = []
+
+        if room_number:
+            conditions.append("room_number LIKE ?")
+            params.append(f"%{room_number}%")
+
+        if switch_number:
+            conditions.append("switch_numbers LIKE ?")
+            params.append(f"%{switch_number}%")
+
+        if port_number:
+            conditions.append("port_numbers LIKE ?")
+            params.append(f"%{port_number}%")
+
+        if dc_number:
+            conditions.append("data_center_number LIKE ?")
+            params.append(f"%{dc_number}%")
+
+        query = "SELECT * FROM rooms"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        conn.close()
+
+        self.display_room_search_results(results)
+
+    def display_room_search_results(self, results):
+        """نمایش نتایج جستجوی اتاق"""
+        for widget in self.room_search_result_frame.winfo_children():
+            widget.destroy()
+
+        if not results:
+            Label(
+                self.room_search_result_frame,
+                text="هیچ نتیجه‌ای یافت نشد",
+                font=self.custom_font,
+            ).pack()
+            return
+
+        tree = ttk.Treeview(
+            self.room_search_result_frame,
+            columns=("room", "switches", "ports", "dc", "corridor", "floor"),
+            show="headings",
+        )
+
+        tree.heading("room", text="شماره اتاق")
+        tree.heading("switches", text="شماره سوییچ‌ها")
+        tree.heading("ports", text="شماره پورت‌ها")
+        tree.heading("dc", text="شماره دیتاسنتر")
+        tree.heading("corridor", text="راهرو")
+        tree.heading("floor", text="طبقه")
+
+        tree.column("room", width=100)
+        tree.column("switches", width=150)
+        tree.column("ports", width=150)
+        tree.column("dc", width=100)
+        tree.column("corridor", width=80)
+        tree.column("floor", width=80)
+
+        for row in results:
+            tree.insert(
+                "", END, values=(row[1], row[2], row[3], row[4], row[5], row[6])
+            )
+
+        scrollbar = ttk.Scrollbar(
+            self.room_search_result_frame, orient=VERTICAL, command=tree.yview
+        )
+        tree.configure(yscroll=scrollbar.set)
+
+        tree.pack(side=LEFT, fill=BOTH, expand=True)
+        scrollbar.pack(side=RIGHT, fill=Y)
+
+    def search_datacenters(self):
+        """جستجوی دیتاسنترها"""
+        dc_number = self.search_dc_number_entry.get()
+
+        query = "SELECT * FROM datacenters"
+        params = []
+
+        if dc_number:
+            query += " WHERE dc_number LIKE ?"
+            params.append(f"%{dc_number}%")
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        conn.close()
+
+        self.display_dc_search_results(results)
+
+    def display_dc_search_results(self, results):
+        """نمایش نتایج جستجوی دیتاسنتر"""
+        for widget in self.dc_search_result_frame.winfo_children():
+            widget.destroy()
+
+        if not results:
+            Label(
+                self.dc_search_result_frame,
+                text="هیچ نتیجه‌ای یافت نشد",
+                font=self.custom_font,
+            ).pack()
+            return
+
+        tree = ttk.Treeview(
+            self.dc_search_result_frame,
+            columns=("dc", "location", "description"),
+            show="headings",
+        )
+
+        tree.heading("dc", text="شماره دیتاسنتر")
+        tree.heading("location", text="موقعیت")
+        tree.heading("description", text="توضیحات")
+
+        tree.column("dc", width=150)
+        tree.column("location", width=200)
+        tree.column("description", width=300)
+
+        for row in results:
+            tree.insert("", END, values=(row[1], row[2], row[3]))
+
+        def on_item_selected(event):
+            selected_item = tree.focus()
+            if selected_item:
+                dc_number = tree.item(selected_item)["values"][0]
+                self.show_rooms_for_dc(dc_number)
+
+        tree.bind("<<TreeviewSelect>>", on_item_selected)
+
+        scrollbar = ttk.Scrollbar(
+            self.dc_search_result_frame, orient=VERTICAL, command=tree.yview
+        )
+        tree.configure(yscroll=scrollbar.set)
+
+        tree.pack(side=LEFT, fill=BOTH, expand=True)
+        scrollbar.pack(side=RIGHT, fill=Y)
+
+        if hasattr(self, "dc_rooms_frame"):
+            self.dc_rooms_frame.destroy()
+        self.dc_rooms_frame = Frame(self.dc_search_result_frame)
+        self.dc_rooms_frame.pack(fill=BOTH, expand=True, pady=10)
+
+    def search_dc_switches(self):
+        """جستجوی دیتاسنتر و سوییچ‌ها"""
+        dc_number = self.dc_switch_search_entry.get()
+
+        if not dc_number:
+            messagebox.showerror("خطا", "لطفاً شماره دیتاسنتر را وارد کنید")
+            return
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT room_number, switch_numbers, corridor, floor FROM rooms WHERE data_center_number=?",
+            (dc_number,),
+        )
+        results = cursor.fetchall()
+        conn.close()
+
+        self.display_dc_switch_results(results, dc_number)
+
+    def display_dc_switch_results(self, results, dc_number):
+        """نمایش نتایج جستجوی دیتاسنتر و سوییچ‌ها"""
+        for widget in self.dc_switch_result_frame.winfo_children():
+            widget.destroy()
+
+        if not results:
+            Label(
+                self.dc_switch_result_frame,
+                text=f"هیچ اتاقی برای دیتاسنتر {dc_number} یافت نشد",
+                font=self.custom_font,
+            ).pack()
+            return
+
+        tree = ttk.Treeview(
+            self.dc_switch_result_frame,
+            columns=("room", "switches", "corridor", "floor"),
+            show="headings",
+        )
+
+        tree.heading("room", text="شماره اتاق")
+        tree.heading("switches", text="شماره سوییچ‌ها")
+        tree.heading("corridor", text="راهرو")
+        tree.heading("floor", text="طبقه")
+
+        tree.column("room", width=150)
+        tree.column("switches", width=200)
+        tree.column("corridor", width=100)
+        tree.column("floor", width=100)
+
+        for row in results:
+            tree.insert("", END, values=(row[0], row[1], row[2], row[3]))
+
+        scrollbar = ttk.Scrollbar(
+            self.dc_switch_result_frame, orient=VERTICAL, command=tree.yview
+        )
+        tree.configure(yscroll=scrollbar.set)
+
+        tree.pack(side=LEFT, fill=BOTH, expand=True)
+        scrollbar.pack(side=RIGHT, fill=Y)
+
+    def show_rooms_for_dc(self, dc_number):
+        """نمایش اتاق‌های مربوط به یک دیتاسنتر"""
+        for widget in self.dc_rooms_frame.winfo_children():
+            widget.destroy()
+
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT room_number, corridor, floor FROM rooms WHERE data_center_number=?",
+            (dc_number,),
+        )
+        rooms = cursor.fetchall()
+        conn.close()
+
+        if not rooms:
+            Label(
+                self.dc_rooms_frame,
+                text="هیچ اتاقی برای این دیتاسنتر ثبت نشده است",
+                font=self.custom_font,
+            ).pack()
+            return
+
+        Label(
+            self.dc_rooms_frame,
+            text=f"اتاق‌های مربوط به دیتاسنتر {dc_number}:",
+            font=self.header_font,
+        ).pack(anchor=W)
+
+        tree = ttk.Treeview(
+            self.dc_rooms_frame, columns=("room", "corridor", "floor"), show="headings"
+        )
+
+        tree.heading("room", text="شماره اتاق")
+        tree.heading("corridor", text="راهرو")
+        tree.heading("floor", text="طبقه")
+
+        tree.column("room", width=150)
+        tree.column("corridor", width=100)
+        tree.column("floor", width=100)
+
+        for room in rooms:
+            tree.insert("", END, values=room)
+
+        scrollbar = ttk.Scrollbar(
+            self.dc_rooms_frame, orient=VERTICAL, command=tree.yview
+        )
+        tree.configure(yscroll=scrollbar.set)
+
+        tree.pack(side=LEFT, fill=BOTH, expand=True)
+        scrollbar.pack(side=RIGHT, fill=Y)
+
+    def download_sample_excel(self):
+        """دانلود نمونه فایل اکسل"""
+        try:
+            sample_data = {
+                "شماره اتاق": ["123", "234"],
+                "شماره سوییچ‌ها": ["SW1,SW2", "SW3,SW4"],
+                "شماره پورت‌ها": ["P1,P2", "P3,P4"],
+                "شماره دیتاسنتر": ["1", "2"],
+                "راهرو": ["2", "3"],
+                "طبقه": ["1", "2"],
+            }
+
+            df = pd.DataFrame(sample_data)
+
+            file_path = filedialog.asksaveasfilename(
+                initialfile="sample_rooms.xlsx",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                title="ذخیره نمونه فایل اکسل",
+            )
+
+            if file_path:
+                df.to_excel(file_path, index=False)
+                messagebox.showinfo("موفقیت", "نمونه فایل اکسل با موفقیت ذخیره شد")
+        except Exception as e:
+            messagebox.showerror("خطا", f"خطا در ایجاد نمونه فایل:\n{str(e)}")
+
+    def upload_excel_file(self):
+        """آپلود فایل اکسل و وارد کردن داده‌ها به دیتابیس"""
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")],
+            title="انتخاب فایل اکسل",
+        )
+
+        if not file_path:
+            return
+
+        try:
+            df = pd.read_excel(file_path)
+
+            required_columns = [
+                "شماره اتاق",
+                "شماره سوییچ‌ها",
+                "شماره پورت‌ها",
+                "شماره دیتاسنتر",
+                "راهرو",
+                "طبقه",
+            ]
+            for col in required_columns:
+                if col not in df.columns:
+                    raise ValueError(f"ستون '{col}' در فایل اکسل وجود ندارد")
+
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+
+            success_count = 0
+            error_count = 0
+            errors = []
+
+            for _, row in df.iterrows():
+                try:
+                    room_number = str(row["شماره اتاق"])
+                    floor = str(row["طبقه"])
+                    corridor = str(row["راهرو"])
+                    dc_number = str(row["شماره دیتاسنتر"])
+
+                    try:
+                        room_num = int(room_number)
+                        floor_num = int(floor) if floor else 0
+                        corridor_num = int(corridor) if corridor else 0
+                        dc_num = int(dc_number) if dc_number else 0
+                    except ValueError:
+                        errors.append(
+                            f"اتاق {room_number}: شماره اتاق، طبقه، راهرو یا دیتاسنتر باید عددی باشند"
+                        )
+                        error_count += 1
+                        continue
+
+                    if not (1 <= floor_num <= 6):
+                        errors.append(
+                            f"اتاق {room_number}: شماره طبقه باید بین 1 تا 6 باشد"
+                        )
+                        error_count += 1
+                        continue
+                    if not (1 <= corridor_num <= 7):
+                        errors.append(
+                            f"اتاق {room_number}: شماره راهرو باید بین 1 تا 7 باشد"
+                        )
+                        error_count += 1
+                        continue
+                    if dc_number and not (1 <= dc_num <= 9):
+                        errors.append(
+                            f"اتاق {room_number}: شماره دیتاسنتر باید بین 1 تا 9 باشد"
+                        )
+                        error_count += 1
+                        continue
+
+                    thousand_digit = (room_num // 1000) % 10
+                    hundred_digit = (room_num // 100) % 10
+                    if thousand_digit != floor_num or hundred_digit != corridor_num:
+                        errors.append(
+                            f"اتاق {room_number}: باید با طبقه {thousand_digit} و راهرو {hundred_digit} مطابقت داشته باشد"
+                        )
+                        error_count += 1
+                        continue
+
+                    switches = [
+                        s.strip()
+                        for s in str(row["شماره سوییچ‌ها"]).split(",")
+                        if s.strip()
+                    ]
+                    ports = [
+                        p.strip()
+                        for p in str(row["شماره پورت‌ها"]).split(",")
+                        if p.strip()
+                    ]
+
+                    if len(switches) > 10 or len(ports) > 10:
+                        errors.append(
+                            f"اتاق {room_number}: تعداد سوییچ یا پورت بیشتر از 10 است"
+                        )
+                        error_count += 1
+                        continue
+
+                    if len(switches) != len(ports):
+                        errors.append(
+                            f"اتاق {room_number}: تعداد سوییچ‌ها و پورت‌ها برابر نیست"
+                        )
+                        error_count += 1
+                        continue
+
+                    for switch, port in zip(switches, ports):
+                        cursor.execute(
+                            "SELECT room_number, switch_numbers, port_numbers FROM rooms"
+                        )
+                        for db_row in cursor.fetchall():
+                            existing_switches = [
+                                s.strip() for s in db_row[1].split(",") if s.strip()
+                            ]
+                            existing_ports = [
+                                p.strip() for p in db_row[2].split(",") if p.strip()
+                            ]
+                            if switch in existing_switches and port in existing_ports:
+                                errors.append(
+                                    f"اتاق {room_number}: سوییچ {switch} و پورت {port} تکراری است (اتاق {db_row[0]})"
+                                )
+                                error_count += 1
+                                continue
+
+                    cursor.execute(
+                        """
+                    INSERT OR IGNORE INTO rooms (room_number, switch_numbers, port_numbers, data_center_number, corridor, floor)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            room_number,
+                            str(row["شماره سوییچ‌ها"]),
+                            str(row["شماره پورت‌ها"]),
+                            dc_number,
+                            corridor,
+                            floor,
+                        ),
+                    )
+
+                    if cursor.rowcount > 0:
+                        success_count += 1
+                    else:
+                        errors.append(f"اتاق {room_number}: شماره اتاق تکراری است")
+                        error_count += 1
+
+                except Exception as e:
+                    errors.append(f"اتاق {room_number}: {str(e)}")
+                    error_count += 1
+
+            conn.commit()
+            conn.close()
+
+            result_message = f"عملیات وارد کردن داده‌ها تکمیل شد:\n\nموفق: {success_count}\nناموفق: {error_count}"
+
+            if errors:
+                result_message += "\n\nخطاها:\n" + "\n".join(errors[:10])
+                if len(errors) > 10:
+                    result_message += f"\nو {len(errors)-10} خطای دیگر..."
+
+            messagebox.showinfo("نتایج وارد کردن داده‌ها", result_message)
+
+        except Exception as e:
+            messagebox.showerror("خطا", f"خطا در پردازش فایل اکسل:\n{str(e)}")
+
+    def clear_window(self):
+        """پاک کردن تمام ویجت‌های پنجره اصلی"""
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+    def clear_main_content(self):
+        """پاک کردن محتوای اصلی"""
+        if hasattr(self, "main_content"):
+            for widget in self.main_content.winfo_children():
+                widget.destroy()
+
+if __name__ == "__main__":
+    root = Tk()
+    app = DataCenterApp(root)
+    root.mainloop()
