@@ -7,6 +7,8 @@ from types import ModuleType, TracebackType
 from typing import Any, Generic, NoReturn, Protocol, TypeVar, type_check_only
 from typing_extensions import Self, TypeAlias
 
+from . import aio as aio
+
 __version__: str
 
 # This class encodes an uninhabited type, requiring use of explicit casts or ignores

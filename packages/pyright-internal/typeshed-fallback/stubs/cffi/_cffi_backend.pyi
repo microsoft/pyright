@@ -127,7 +127,7 @@ class FFI:
 
     def __init__(
         self,
-        module_name: bytes = ...,
+        module_name: str = ...,
         _version: int = ...,
         _types: bytes = ...,
         _globals: tuple[bytes | int, ...] = ...,
@@ -157,7 +157,7 @@ class FFI:
         error: Any = ...,
         onerror: Callable[[Exception, Any, Any], None] | None = ...,
     ) -> Callable[..., _T]: ...
-    def cast(self, cdecl: str | CType, value: CData) -> CData: ...
+    def cast(self, cdecl: str | CType, value: CData | int) -> CData: ...
     def def_extern(
         self, name: str = ..., error: Any = ..., onerror: Callable[[Exception, Any, types.TracebackType], Any] = ...
     ) -> Callable[[Callable[..., _T]], Callable[..., _T]]: ...

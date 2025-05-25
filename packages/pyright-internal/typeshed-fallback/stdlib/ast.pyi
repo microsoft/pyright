@@ -1429,15 +1429,19 @@ class keyword(AST):
         def __replace__(self, *, arg: str | None = ..., value: expr = ..., **kwargs: Unpack[_Attributes]) -> Self: ...
 
 class alias(AST):
-    lineno: int
-    col_offset: int
-    end_lineno: int | None
-    end_col_offset: int | None
-    if sys.version_info >= (3, 10):
-        __match_args__ = ("name", "asname")
     name: str
     asname: str | None
-    def __init__(self, name: str, asname: str | None = None, **kwargs: Unpack[_Attributes]) -> None: ...
+    if sys.version_info >= (3, 10):
+        lineno: int
+        col_offset: int
+        end_lineno: int | None
+        end_col_offset: int | None
+    if sys.version_info >= (3, 10):
+        __match_args__ = ("name", "asname")
+    if sys.version_info >= (3, 10):
+        def __init__(self, name: str, asname: str | None = None, **kwargs: Unpack[_Attributes]) -> None: ...
+    else:
+        def __init__(self, name: str, asname: str | None = None) -> None: ...
 
     if sys.version_info >= (3, 14):
         def __replace__(self, *, name: str = ..., asname: str | None = ..., **kwargs: Unpack[_Attributes]) -> Self: ...

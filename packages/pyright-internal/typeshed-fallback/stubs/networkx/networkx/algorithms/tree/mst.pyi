@@ -1,8 +1,8 @@
 from _typeshed import Incomplete
-from collections.abc import Iterator
+from collections.abc import Callable, Generator, Iterator
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
+from typing import Final, Literal
 
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
@@ -24,6 +24,15 @@ class EdgePartition(Enum):
     OPEN = 0
     INCLUDED = 1
     EXCLUDED = 2
+
+@_dispatchable
+def boruvka_mst_edges(G: Graph[_Node], minimum=True, weight="weight", keys=False, data=True, ignore_nan=False): ...
+@_dispatchable
+def kruskal_mst_edges(G: Graph[_Node], minimum, weight="weight", keys=True, data=True, ignore_nan=False, partition=None): ...
+@_dispatchable
+def prim_mst_edges(G: Graph[_Node], minimum, weight="weight", keys=True, data=True, ignore_nan=False): ...
+
+ALGORITHMS: Final[dict[str, Callable[..., Generator[Incomplete, Incomplete, Incomplete]]]]
 
 @_dispatchable
 def minimum_spanning_edges(
