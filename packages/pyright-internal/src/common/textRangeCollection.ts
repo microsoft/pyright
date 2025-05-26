@@ -11,6 +11,7 @@
  * for indexing and fast lookups within this list.
  */
 
+import { fail } from './debug';
 import { TextRange } from './textRange';
 
 export class TextRangeCollection<T extends TextRange> {
@@ -43,7 +44,7 @@ export class TextRangeCollection<T extends TextRange> {
 
     getItemAt(index: number): T {
         if (index < 0 || index >= this._items.length) {
-            throw new Error('index is out of range');
+            fail('index is out of range');
         }
         return this._items[index];
     }
@@ -65,7 +66,7 @@ export class TextRangeCollection<T extends TextRange> {
         let max = this.count - 1;
 
         while (min < max) {
-            const mid = Math.floor(min + (max - min) / 2);
+            const mid = min + ((max - min) >> 1);
             const item = this._items[mid];
 
             // Is the position past the start of this item but before

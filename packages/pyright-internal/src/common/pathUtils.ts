@@ -11,9 +11,11 @@ import * as path from 'path';
 
 import { Char } from './charCodes';
 import { some } from './collectionUtils';
-import { GetCanonicalFileName, identity } from './core';
+import { identity } from './core';
 import * as debug from './debug';
 import { equateStringsCaseInsensitive, equateStringsCaseSensitive } from './stringUtils';
+
+export type GetCanonicalFileName = (fileName: string) => string;
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This

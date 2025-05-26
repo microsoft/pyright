@@ -47,8 +47,6 @@ export function equateValues<T>(a: T, b: T) {
     return a === b;
 }
 
-export type GetCanonicalFileName = (fileName: string) => string;
-
 export function compareComparableValues(a: string | undefined, b: string | undefined): Comparison;
 export function compareComparableValues(a: number | undefined, b: number | undefined): Comparison;
 export function compareComparableValues(a: string | number | undefined, b: string | number | undefined) {

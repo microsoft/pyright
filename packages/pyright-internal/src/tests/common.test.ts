@@ -6,7 +6,7 @@
 
 import * as assert from 'assert';
 
-import { doesRangeContain, doRangesOverlap, Range, rangesAreEqual, TextRange } from '../common/textRange';
+import { doRangesOverlap, isPositionInRange, Range, rangesAreEqual, TextRange } from '../common/textRange';
 
 test('textRange create', () => {
     assert.throws(() => TextRange.create(-1, 1), Error);
@@ -69,12 +69,12 @@ test('textRange contain', () => {
         },
     };
 
-    assert.equal(doesRangeContain(textRangeOne, { line: 0, character: 0 }), false);
-    assert.equal(doesRangeContain(textRangeOne, { line: 0, character: 5 }), true);
-    assert.equal(doesRangeContain(textRangeOne, { line: 5, character: 0 }), true);
-    assert.equal(doesRangeContain(textRangeOne, { line: 10, character: 0 }), true);
-    assert.equal(doesRangeContain(textRangeOne, { line: 10, character: 1 }), true);
-    assert.equal(doesRangeContain(textRangeOne, { line: 10, character: 2 }), false);
+    assert.equal(isPositionInRange(textRangeOne, { line: 0, character: 0 }), false);
+    assert.equal(isPositionInRange(textRangeOne, { line: 0, character: 5 }), true);
+    assert.equal(isPositionInRange(textRangeOne, { line: 5, character: 0 }), true);
+    assert.equal(isPositionInRange(textRangeOne, { line: 10, character: 0 }), true);
+    assert.equal(isPositionInRange(textRangeOne, { line: 10, character: 1 }), true);
+    assert.equal(isPositionInRange(textRangeOne, { line: 10, character: 2 }), false);
 });
 
 test('textRange equal', () => {

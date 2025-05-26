@@ -35,7 +35,7 @@ import { appendArray, getOrAdd, removeArrayElements } from './collectionUtils';
 import * as debug from './debug';
 import { FileEditAction } from './editAction';
 import { convertOffsetToPosition, convertTextRangeToRange } from './positionUtils';
-import { doesRangeContain, doRangesIntersect, extendRange, Range, TextRange } from './textRange';
+import { doRangesIntersect, extendRange, isRangeInRange, Range, TextRange } from './textRange';
 import { Uri } from './uri/uri';
 
 export class TextEditTracker {
@@ -64,10 +64,9 @@ export class TextEditTracker {
             // first deleting existing edits and expanding the current edit's range
             // to cover all existing edits.
             this._removeEdits(edits, overlappingEdits);
-            extendRange(
-                range,
-                overlappingEdits.map((d) => d.range)
-            );
+            overlappingEdits.forEach((e) => {
+                extendRange(range, e.range);
+            });
         }
 
         edits.push({ fileUri: fileUri, range, replacementText });
@@ -308,7 +307,7 @@ export class TextEditTracker {
             return overlappingEdits.filter(
                 (e) =>
                     e.replacementText === replacementText &&
-                    (doesRangeContain(range, e.range) || doesRangeContain(e.range, range))
+                    (isRangeInRange(range, e.range) || isRangeInRange(e.range, range))
             );
         }
 
@@ -318,7 +317,7 @@ export class TextEditTracker {
             (e) =>
                 e.replacementText === '' ||
                 (e.replacementText === replacementText &&
-                    (doesRangeContain(range, e.range) || doesRangeContain(e.range, range)))
+                    (isRangeInRange(range, e.range) || isRangeInRange(e.range, range)))
         );
     }
 

@@ -210,6 +210,12 @@ interface FStringContext {
     activeReplacementField?: FStringReplacementFieldContext;
 }
 
+enum MagicsKind {
+    None,
+    Line,
+    Cell,
+}
+
 export class Tokenizer {
     private _cs = new CharacterStream('');
     private _tokens: Token[] = [];
@@ -468,14 +474,14 @@ export class Tokenizer {
 
         if (this._useNotebookMode) {
             const kind = this._getIPythonMagicsKind();
-            if (kind === 'line') {
+            if (kind === MagicsKind.Line) {
                 this._handleIPythonMagics(
                     this._cs.currentChar === Char.Percent ? CommentType.IPythonMagic : CommentType.IPythonShellEscape
                 );
                 return true;
             }
 
-            if (kind === 'cell') {
+            if (kind === MagicsKind.Cell) {
                 this._handleIPythonMagics(
                     this._cs.currentChar === Char.Percent
                         ? CommentType.IPythonCellMagic
@@ -736,15 +742,15 @@ export class Tokenizer {
                     this._cs.moveNext();
                     break;
 
-                default:
-                    // Non-blank line. Set the current indent level.
-                    this._setIndent(startOffset, tab1Spaces, tab8Spaces, isSpacePresent, isTabPresent);
-                    return;
-
                 case Char.Hash:
                 case Char.LineFeed:
                 case Char.CarriageReturn:
                     // Blank line -- no need to adjust indentation.
+                    return;
+
+                default:
+                    // Non-blank line. Set the current indent level.
+                    this._setIndent(startOffset, tab1Spaces, tab8Spaces, isSpacePresent, isTabPresent);
                     return;
             }
         }
@@ -1243,34 +1249,31 @@ export class Tokenizer {
         return prevComments;
     }
 
-    private _getIPythonMagicsKind(): 'line' | 'cell' | undefined {
-        if (!isMagicChar(this._cs.currentChar)) {
-            return undefined;
+    private _getIPythonMagicsKind(): MagicsKind {
+        const curChar = this._cs.currentChar;
+        if (curChar !== Char.Percent && curChar !== Char.ExclamationMark) {
+            return MagicsKind.None;
         }
 
         const prevToken = this._tokens.length > 0 ? this._tokens[this._tokens.length - 1] : undefined;
         if (prevToken !== undefined && !Tokenizer.isWhitespace(prevToken)) {
-            return undefined;
+            return MagicsKind.None;
         }
 
-        if (this._cs.nextChar === this._cs.currentChar) {
+        if (this._cs.nextChar === curChar) {
             // Eat up next magic char.
             this._cs.moveNext();
-            return 'cell';
+            return MagicsKind.Cell;
         }
 
-        return 'line';
-
-        function isMagicChar(ch: number) {
-            return ch === Char.Percent || ch === Char.ExclamationMark;
-        }
+        return MagicsKind.Line;
     }
 
     private _handleIPythonMagics(type: CommentType): void {
         const start = this._cs.position + 1;
 
         let begin = start;
-        do {
+        while (true) {
             this._cs.skipToEol();
 
             if (type === CommentType.IPythonMagic || type === CommentType.IPythonShellEscape) {
@@ -1287,7 +1290,11 @@ export class Tokenizer {
 
             this._cs.moveNext();
             begin = this._cs.position + 1;
-        } while (!this._cs.isEndOfStream());
+
+            if (this._cs.isEndOfStream()) {
+                break;
+            }
+        }
 
         const length = this._cs.position - start;
         const comment = Comment.create(start, length, this._cs.getText().slice(start, start + length), type);
