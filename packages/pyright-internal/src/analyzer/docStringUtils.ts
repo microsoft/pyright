@@ -9,9 +9,12 @@
  * (https://www.python.org/dev/peps/pep-0257/).
  */
 
+const docStringCrRegEx = /\r/g;
+const docStringTabRegEx = /\t/g;
+
 export function cleanAndSplitDocString(rawString: string): string[] {
     // Remove carriage returns and replace tabs.
-    const unescaped = rawString.replace(/\r/g, '').replace(/\t/g, '        ');
+    const unescaped = rawString.replace(docStringCrRegEx, '').replace(docStringTabRegEx, '        ');
 
     // Split into lines.
     const lines = unescaped.split('\n');

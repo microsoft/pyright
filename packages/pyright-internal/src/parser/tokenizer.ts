@@ -141,6 +141,10 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
 const _byteOrderMarker = 0xfeff;
 
 const defaultTabSize = 8;
+const magicsRegEx = /\\\s*$/;
+const typeIgnoreCommentRegEx = /((^|#)\s*)type:\s*ignore(\s*\[([\s\w-,]*)\]|\s|$)/;
+const pyrightIgnoreCommentRegEx = /((^|#)\s*)pyright:\s*ignore(\s*\[([\s\w-,]*)\]|\s|$)/;
+const underscoreRegEx = /_/g;
 
 export interface TokenizerOutput {
     // List of all tokens.
@@ -954,7 +958,7 @@ export class Tokenizer {
 
             if (radix > 0) {
                 const text = this._cs.getText().slice(start, this._cs.position);
-                const simpleIntText = text.replace(/_/g, '');
+                const simpleIntText = text.replace(underscoreRegEx, '');
                 let intValue: number | bigint = parseInt(simpleIntText.slice(leadingChars), radix);
 
                 if (!isNaN(intValue)) {
@@ -1007,7 +1011,7 @@ export class Tokenizer {
 
         if (isDecimalInteger) {
             let text = this._cs.getText().slice(start, this._cs.position);
-            const simpleIntText = text.replace(/_/g, '');
+            const simpleIntText = text.replace(underscoreRegEx, '');
             let intValue: number | bigint = parseInt(simpleIntText, 10);
 
             if (!isNaN(intValue)) {
@@ -1276,7 +1280,7 @@ export class Tokenizer {
                 // is it multiline magics?
                 // %magic command \
                 //        next arguments
-                if (!value.match(/\\\s*$/)) {
+                if (!value.match(magicsRegEx)) {
                     break;
                 }
             }
@@ -1297,7 +1301,7 @@ export class Tokenizer {
         const length = this._cs.position - start;
         const comment = Comment.create(start, length, this._cs.getText().slice(start, start + length));
 
-        const typeIgnoreRegexMatch = comment.value.match(/((^|#)\s*)type:\s*ignore(\s*\[([\s\w-,]*)\]|\s|$)/);
+        const typeIgnoreRegexMatch = comment.value.match(typeIgnoreCommentRegEx);
         if (typeIgnoreRegexMatch) {
             const commentStart = start + (typeIgnoreRegexMatch.index ?? 0);
             const textRange: TextRange = {
@@ -1316,7 +1320,7 @@ export class Tokenizer {
             }
         }
 
-        const pyrightIgnoreRegexMatch = comment.value.match(/((^|#)\s*)pyright:\s*ignore(\s*\[([\s\w-,]*)\]|\s|$)/);
+        const pyrightIgnoreRegexMatch = comment.value.match(pyrightIgnoreCommentRegEx);
         if (pyrightIgnoreRegexMatch) {
             const commentStart = start + (pyrightIgnoreRegexMatch.index ?? 0);
             const textRange: TextRange = {

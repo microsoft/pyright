@@ -19,6 +19,8 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol } from './symbol';
 import { OverloadedType, Type, TypeBase, TypeCategory } from './types';
 
+const separatorRegExp = /[\\/]/g;
+
 export type PrintableType = ParseNode | Declaration | Symbol | Type | undefined;
 
 export interface TracePrinter {
@@ -36,7 +38,6 @@ export function createTracePrinter(roots: Uri[], includeRoots: boolean = false):
     // ex) d:/root/.env/lib/site-packages, d:/root/.env
     roots = roots.sort((a, b) => a.key.localeCompare(b.key)).reverse();
 
-    const separatorRegExp = /[\\/]/g;
     function printFileOrModuleName(fileUriOrModule: Uri | AbsoluteModuleDescriptor | undefined) {
         if (fileUriOrModule) {
             if (Uri.is(fileUriOrModule)) {

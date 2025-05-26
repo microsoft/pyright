@@ -8,16 +8,16 @@
 
 import type { Dirent } from 'fs';
 
+import { CaseSensitivityDetector } from '../caseSensitivityDetector';
 import { FileSystem, ReadOnlyFileSystem, Stats } from '../fileSystem';
 import {
     getRegexEscapedSeparator,
     isDirectoryWildcardPatternPresent,
     stripTrailingDirectorySeparator,
 } from '../pathUtils';
-import { Uri } from './uri';
 import { ServiceKeys } from '../serviceKeys';
-import { CaseSensitivityDetector } from '../caseSensitivityDetector';
 import { ServiceProvider } from '../serviceProvider';
+import { Uri } from './uri';
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -36,6 +36,7 @@ export interface FileSpec {
 }
 
 const _includeFileRegex = /\.pyi?$/;
+const _wildcardRegex = /[*?]/;
 
 export namespace FileSpec {
     export function is(value: any): value is FileSpec {
@@ -264,7 +265,7 @@ export function getWildcardRoot(root: Uri, fileSpec: string): Uri {
         if (component === '**') {
             break;
         } else {
-            if (/[*?]/.test(component)) {
+            if (_wildcardRegex.test(component)) {
                 break;
             }
 
