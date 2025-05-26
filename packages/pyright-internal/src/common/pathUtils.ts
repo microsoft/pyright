@@ -32,6 +32,7 @@ export interface FileSpec {
 }
 
 const _includeFileRegex = /\.pyi?$/;
+const _wildcardRootRegex = /[*?]/;
 
 export namespace FileSpec {
     export function is(value: any): value is FileSpec {
@@ -166,10 +167,10 @@ export function getRelativePath(dirPath: string, relativeTo: string) {
     return relativePath;
 }
 
+const separatorRegExp = /[\\/]/g;
 const getInvalidSeparator = (sep: string) => (sep === '/' ? '\\' : '/');
 export function normalizeSlashes(pathString: string, sep = path.sep): string {
     if (pathString.includes(getInvalidSeparator(sep))) {
-        const separatorRegExp = /[\\/]/g;
         return pathString.replace(separatorRegExp, sep);
     }
 
@@ -583,7 +584,7 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
         if (component === '**') {
             break;
         } else {
-            if (component.match(/[*?]/)) {
+            if (component.match(_wildcardRootRegex)) {
                 break;
             }
 

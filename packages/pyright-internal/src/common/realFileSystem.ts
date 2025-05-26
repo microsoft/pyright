@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as tmp from 'tmp';
 import { isMainThread } from 'worker_threads';
 
+import { Disposable } from 'vscode-jsonrpc';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface, NullConsole } from './console';
 import { randomBytesHex } from './crypto';
@@ -26,7 +27,6 @@ import { combinePaths, getRootLength } from './pathUtils';
 import { FileUri, FileUriSchema } from './uri/fileUri';
 import { Uri } from './uri/uri';
 import { getRootUri } from './uri/uriUtils';
-import { Disposable } from 'vscode-jsonrpc';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -48,6 +48,8 @@ export function createFromRealFileSystem(
 const DOT_ZIP = `.zip`;
 const DOT_EGG = `.egg`;
 const DOT_JAR = `.jar`;
+
+const zipPathRegEx = /[^\\/]\.(?:egg|zip|jar)[\\/]/;
 
 // Exactly the same as ZipOpenFS's getArchivePart, but supporting .egg files.
 // https://github.com/yarnpkg/berry/blob/64a16b3603ef2ccb741d3c44f109c9cfc14ba8dd/packages/yarnpkg-fslib/sources/ZipOpenFS.ts#L23
@@ -464,7 +466,7 @@ export class RealFileSystem implements FileSystem {
 
     isInZip(uri: Uri): boolean {
         const path = uri.getFilePath();
-        return /[^\\/]\.(?:egg|zip|jar)[\\/]/.test(path) && yarnFS.isZip(path);
+        return zipPathRegEx.test(path) && yarnFS.isZip(path);
     }
 }
 
