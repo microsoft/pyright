@@ -42,7 +42,7 @@ const _surrogateCharMap: { [code: number]: CharCategoryMap } = {};
 // We do lazy initialization of this map because it's rarely used.
 let _identifierCharMapInitialized = false;
 
-export function isIdentifierStartChar(char: number, nextChar?: number) {
+export function isIdentifierStartChar(char: number, nextChar?: number): boolean {
     if (char < _identifierCharFastTableSize) {
         return _identifierCharFastTable[char] === CharCategory.StartIdentifierChar;
     }
@@ -63,7 +63,7 @@ export function isIdentifierStartChar(char: number, nextChar?: number) {
     return charCategory === CharCategory.StartIdentifierChar;
 }
 
-export function isIdentifierChar(char: number, nextChar?: number) {
+export function isIdentifierChar(char: number, nextChar?: number): boolean {
     if (char < _identifierCharFastTableSize) {
         return (
             _identifierCharFastTable[char] === CharCategory.StartIdentifierChar ||
@@ -77,17 +77,17 @@ export function isIdentifierChar(char: number, nextChar?: number) {
         _identifierCharMapInitialized = true;
     }
 
+    let charCategory: CharCategory;
     if (nextChar !== undefined) {
-        return _lookUpSurrogate(char, nextChar);
+        charCategory = _lookUpSurrogate(char, nextChar);
+    } else {
+        charCategory = _identifierCharMap[char];
     }
 
-    return (
-        _identifierCharMap[char] === CharCategory.StartIdentifierChar ||
-        _identifierCharMap[char] === CharCategory.IdentifierChar
-    );
+    return charCategory === CharCategory.StartIdentifierChar || charCategory === CharCategory.IdentifierChar;
 }
 
-export function isSurrogateChar(char: number) {
+export function isSurrogateChar(char: number): boolean {
     if (char < _identifierCharFastTableSize) {
         return false;
     }
@@ -129,7 +129,7 @@ export function isBinary(ch: number): boolean {
     return ch === Char._0 || ch === Char._1 || ch === Char.Underscore;
 }
 
-function _lookUpSurrogate(char: number, nextChar: number) {
+function _lookUpSurrogate(char: number, nextChar: number): CharCategory {
     if (_identifierCharMap[char] !== CharCategory.SurrogateChar) {
         return CharCategory.NotIdentifierChar;
     }
@@ -197,7 +197,7 @@ function _buildIdentifierLookupTableFromUnicodeRangeTable(
     fastTableOnly: boolean,
     fastTable: CharCategoryMap,
     fullTable: CharCategoryMap
-) {
+): void {
     for (let entryIndex = 0; entryIndex < table.length; entryIndex++) {
         const entry = table[entryIndex];
         let rangeStart: number;
@@ -227,7 +227,7 @@ function _buildIdentifierLookupTableFromUnicodeRangeTable(
 function _buildIdentifierLookupTableFromSurrogateRangeTable(
     surrogateTable: unicode.UnicodeSurrogateRangeTable,
     category: CharCategory
-) {
+): void {
     for (const surrogateChar in surrogateTable) {
         if (!_surrogateCharMap[surrogateChar]) {
             _surrogateCharMap[surrogateChar] = {};
@@ -245,7 +245,7 @@ function _buildIdentifierLookupTableFromSurrogateRangeTable(
 }
 
 // Build a lookup table for to speed up tokenization of identifiers.
-function _buildIdentifierLookupTable(fastTableOnly: boolean) {
+function _buildIdentifierLookupTable(fastTableOnly: boolean): void {
     _identifierCharFastTable.fill(CharCategory.NotIdentifierChar);
 
     _identifierCharRanges.forEach((table) => {
