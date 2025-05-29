@@ -23494,7 +23494,6 @@ export function createTypeEvaluator(
         }
         const functionNode = type.shared.declaration.node;
         
-        // Check if call-site return type inference is enabled
         if (!AnalyzerNodeInfo.getFileInfo(functionNode).diagnosticRuleSet.enableCallSiteReturnTypeInference) {
             return undefined;
         }

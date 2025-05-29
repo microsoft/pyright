@@ -81,6 +81,15 @@ test('CallSite3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('CallSiteInferenceConfig', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    
+    // Test with call-site inference disabled
+    configOptions.diagnosticRuleSet.enableCallSiteReturnTypeInference = false;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSiteInferenceConfig1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('FString1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
