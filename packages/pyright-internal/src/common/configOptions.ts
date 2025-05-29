@@ -138,6 +138,9 @@ export interface DiagnosticRuleSet {
     // No longer treat bytearray and memoryview as subclasses of bytes?
     disableBytesTypePromotions: boolean;
 
+    // Enable expensive call-site return type inference?
+    enableCallSiteReturnTypeInference: boolean;
+
     // Report general type issues?
     reportGeneralTypeIssues: DiagnosticLevel;
 
@@ -414,6 +417,7 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
         DiagnosticRule.enableExperimentalFeatures,
         DiagnosticRule.deprecateTypingAliases,
         DiagnosticRule.disableBytesTypePromotions,
+        DiagnosticRule.enableCallSiteReturnTypeInference,
     ];
 
     if (includeNonOverridable) {
@@ -538,6 +542,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: false,
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
+        enableCallSiteReturnTypeInference: true,
         reportGeneralTypeIssues: 'none',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -641,6 +646,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: true,
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
+        enableCallSiteReturnTypeInference: true,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -744,7 +750,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: true,
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
-        reportGeneralTypeIssues: 'error',
+        enableCallSiteReturnTypeInference: true,        reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'error',
         reportMissingImports: 'error',
@@ -847,6 +853,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: true, // Not overridden by strict mode
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
+        enableCallSiteReturnTypeInference: true,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'error',

@@ -99,6 +99,11 @@
       "title": "Treat typing-specific aliases to standard types as deprecated",
       "default": false
     },
+    "enableCallSiteReturnTypeInference": {
+      "type": "boolean",
+      "title": "Enable expensive call-site return type inference",
+      "default": true
+    },
     "reportGeneralTypeIssues": {
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of general type issues",
@@ -618,6 +623,9 @@
     "deprecateTypingAliases": {
       "$ref": "#/definitions/deprecateTypingAliases"
     },
+    "enableCallSiteReturnTypeInference": {
+      "$ref": "#/definitions/enableCallSiteReturnTypeInference"
+    },
     "reportGeneralTypeIssues": {
       "$ref": "#/definitions/reportGeneralTypeIssues"
     },
@@ -935,6 +943,9 @@
           },
           "deprecateTypingAliases": {
             "$ref": "#/definitions/deprecateTypingAliases"
+          },
+          "enableCallSiteReturnTypeInference": {
+            "$ref": "#/definitions/enableCallSiteReturnTypeInference"
           },
           "reportGeneralTypeIssues": {
             "$ref": "#/definitions/reportGeneralTypeIssues"

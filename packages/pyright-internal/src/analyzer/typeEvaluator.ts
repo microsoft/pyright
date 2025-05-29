@@ -23493,6 +23493,12 @@ export function createTypeEvaluator(
             return undefined;
         }
         const functionNode = type.shared.declaration.node;
+        
+        // Check if call-site return type inference is enabled
+        if (!AnalyzerNodeInfo.getFileInfo(functionNode).diagnosticRuleSet.enableCallSiteReturnTypeInference) {
+            return undefined;
+        }
+        
         const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
 
         if (codeFlowComplexity >= maxReturnCallSiteTypeInferenceCodeFlowComplexity) {
