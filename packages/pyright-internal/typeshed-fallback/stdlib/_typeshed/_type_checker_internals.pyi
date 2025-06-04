@@ -8,7 +8,7 @@ from _collections_abc import dict_items, dict_keys, dict_values
 from abc import ABCMeta
 from collections.abc import Awaitable, Generator, Iterable, Mapping
 from typing import Any, ClassVar, Generic, TypeVar, overload
-from typing_extensions import Never
+from typing_extensions import Never, override
 
 _T = TypeVar("_T")
 
@@ -37,8 +37,11 @@ class TypedDictFallback(Mapping[str, object], metaclass=ABCMeta):
     def pop(self, k: Never, default: _T = ...) -> object: ...  # pyright: ignore[reportInvalidTypeVarUse]
     def update(self, m: typing_extensions.Self, /) -> None: ...
     def __delitem__(self, k: Never) -> None: ...
+    @override
     def items(self) -> dict_items[str, object]: ...
+    @override
     def keys(self) -> dict_keys[str, object]: ...
+    @override
     def values(self) -> dict_values[str, object]: ...
     @overload
     def __or__(self, value: typing_extensions.Self, /) -> typing_extensions.Self: ...
