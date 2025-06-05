@@ -160,6 +160,9 @@ interface SubscriptListResult {
     trailingComma: boolean;
 }
 
+const commentRegEx = /^(\s*#\s*type:\s*)([^\r\n]*)/;
+const ignoreCommentRegEx = /^ignore(\s|\[|$)/;
+
 export class ParseOptions {
     isStubFile: boolean;
     pythonVersion: PythonVersion;
@@ -4760,7 +4763,6 @@ export class Parser {
         }
 
         const interTokenContents = this._fileContents!.slice(curToken.start + curToken.length, nextToken.start);
-        const commentRegEx = /^(\s*#\s*type:\s*)([^\r\n]*)/;
         const match = interTokenContents.match(commentRegEx);
         if (!match) {
             return undefined;
@@ -4773,7 +4775,7 @@ export class Parser {
         // expression because mypy supports ignore comments of the
         // form ignore[errorCode, ...]. We'll treat these as regular
         // ignore statements (as though no errorCodes were included).
-        if (typeString.trim().match(/^ignore(\s|\[|$)/)) {
+        if (typeString.trim().match(ignoreCommentRegEx)) {
             return undefined;
         }
 

@@ -8,10 +8,12 @@
 
 import { some } from '../collectionUtils';
 import { getRootLength, getShortenedFileName } from '../pathUtils';
-import { Uri } from './uri';
 import { cacheProperty } from './memoization';
+import { Uri } from './uri';
 
 export type JsonObjType = any;
+
+const backslashRegEx = /\\/g;
 
 export abstract class BaseUri implements Uri {
     protected constructor(private readonly _key: string) {}
@@ -245,7 +247,7 @@ export abstract class BaseUri implements Uri {
 
     protected normalizeSlashes(path: string): string {
         if (path.includes('\\')) {
-            return path.replace(/\\/g, '/');
+            return path.replace(backslashRegEx, '/');
         }
         return path;
     }

@@ -120,6 +120,9 @@ export interface Uri {
     toJsonObj(): any;
 }
 
+const _dosPathRegex = /^\/[a-zA-Z]:\//;
+const _win32NormalizationRegex = /\//g;
+
 // Returns just the fsPath path portion of a vscode URI.
 function getFilePath(uri: URI): string {
     let filePath: string | undefined;
@@ -136,14 +139,14 @@ function getFilePath(uri: URI): string {
 
     // If this is a DOS-style path with a drive letter, remove
     // the leading slash.
-    if (filePath.match(/^\/[a-zA-Z]:\//)) {
+    if (filePath.match(_dosPathRegex)) {
         filePath = filePath.slice(1);
     }
 
     // vscode.URI normalizes the path to use the correct path separators.
     // We need to do the same.
     if (process?.platform === 'win32') {
-        filePath = filePath.replace(/\//g, '\\');
+        filePath = filePath.replace(_win32NormalizationRegex, '\\');
     }
 
     return filePath;
@@ -164,16 +167,16 @@ function normalizeUri(uri: string | URI): { uri: URI; str: string } {
     return { uri: finalURI, str: finalString };
 }
 
+const windowsUriRegEx = /^[a-zA-Z]:\\?/;
+const uriRegEx = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/?\/?/;
+
 export namespace Uri {
     export interface IServiceProvider {
         get<T>(key: ServiceKey<T>): T;
     }
 
     export function maybeUri(value: string) {
-        const windows = /^[a-zA-Z]:\\?/;
-        const uri = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/?\/?/;
-
-        return uri.test(value) && !windows.test(value);
+        return uriRegEx.test(value) && !windowsUriRegEx.test(value);
     }
 
     export function create(value: string, serviceProvider: IServiceProvider, checkRelative?: boolean): Uri;

@@ -48,7 +48,7 @@ export const enum Char {
     ExclamationMark = 0x21,
     DoubleQuote = 0x22,
     Hash = 0x23,
-    $ = 0x24,
+    Dollar = 0x24,
     Percent = 0x25,
     Ampersand = 0x26,
     SingleQuote = 0x27,
