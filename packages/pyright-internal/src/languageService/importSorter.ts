@@ -153,6 +153,7 @@ export class ImportSorter {
 
     private _formatImportFromNode(node: ImportFromNode, moduleName: string): string {
         const symbols = node.d.imports
+            .slice(0)
             .sort((a, b) => this._compareSymbols(a, b))
             .map((symbol) => {
                 let symbolText = symbol.d.name.d.value;
