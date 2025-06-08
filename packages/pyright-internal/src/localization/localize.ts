@@ -372,6 +372,7 @@ export namespace Localizer {
             new ParameterizedString<{ funcName: string; fieldType: string; fieldName: string }>(
                 getRawString('Diagnostic.dataClassConverterOverloads')
             );
+        export const dataClassDefaultValueMutable = () => getRawString('Diagnostic.dataClassDefaultValueMutable');
         export const dataClassFieldInheritedDefault = () =>
             new ParameterizedString<{ fieldName: string }>(getRawString('Diagnostic.dataClassFieldInheritedDefault'));
         export const dataClassFieldWithDefault = () => getRawString('Diagnostic.dataClassFieldWithDefault');
