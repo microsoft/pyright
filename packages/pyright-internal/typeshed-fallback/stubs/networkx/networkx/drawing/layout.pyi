@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
 
-import numpy
+from networkx.utils.backends import _dispatchable
+from numpy.random import RandomState
 
 __all__ = [
     "bipartite_layout",
@@ -21,10 +22,18 @@ __all__ = [
     "arf_layout",
 ]
 
-def random_layout(G, center=None, dim: int = 2, seed=None): ...
-def circular_layout(G, scale: float = 1, center=None, dim: int = 2): ...
-def shell_layout(G, nlist=None, rotate=None, scale: float = 1, center=None, dim: int = 2): ...
-def bipartite_layout(G, nodes, align: str = "vertical", scale: float = 1, center=None, aspect_ratio: float = ...): ...
+def random_layout(G, center=None, dim: int = 2, seed: int | RandomState | None = None, store_pos_as: str | None = None): ...
+def circular_layout(G, scale: float = 1, center=None, dim: int = 2, store_pos_as: str | None = None): ...
+def shell_layout(G, nlist=None, rotate=None, scale: float = 1, center=None, dim: int = 2, store_pos_as: str | None = None): ...
+def bipartite_layout(
+    G,
+    nodes=None,
+    align: str = "vertical",
+    scale: float = 1,
+    center=None,
+    aspect_ratio: float = ...,
+    store_pos_as: str | None = None,
+): ...
 def spring_layout(
     G,
     k=None,
@@ -36,16 +45,32 @@ def spring_layout(
     scale: float = 1,
     center=None,
     dim: int = 2,
-    seed=None,
+    seed: int | RandomState | None = None,
+    store_pos_as: str | None = None,
+    *,
+    method: str = "auto",
+    gravity: float = 1.0,
 ): ...
 
 fruchterman_reingold_layout = spring_layout
 
-def kamada_kawai_layout(G, dist=None, pos=None, weight: str = "weight", scale: float = 1, center=None, dim: int = 2): ...
-def spectral_layout(G, weight: str = "weight", scale: float = 1, center=None, dim: int = 2): ...
-def planar_layout(G, scale: float = 1, center=None, dim: int = 2): ...
-def spiral_layout(G, scale: float = 1, center=None, dim: int = 2, resolution: float = 0.35, equidistant: bool = False): ...
-def multipartite_layout(G, subset_key: str = "subset", align: str = "vertical", scale: float = 1, center=None): ...
+def kamada_kawai_layout(
+    G, dist=None, pos=None, weight: str = "weight", scale: float = 1, center=None, dim: int = 2, store_pos_as: str | None = None
+): ...
+def spectral_layout(G, weight: str = "weight", scale: float = 1, center=None, dim: int = 2, store_pos_as: str | None = None): ...
+def planar_layout(G, scale: float = 1, center=None, dim: int = 2, store_pos_as: str | None = None): ...
+def spiral_layout(
+    G,
+    scale: float = 1,
+    center=None,
+    dim: int = 2,
+    resolution: float = 0.35,
+    equidistant: bool = False,
+    store_pos_as: str | None = None,
+): ...
+def multipartite_layout(
+    G, subset_key: str = "subset", align: str = "vertical", scale: float = 1, center=None, store_pos_as: str | None = None
+): ...
 def arf_layout(
     G,
     pos=None,
@@ -55,8 +80,10 @@ def arf_layout(
     dt: float = 0.001,
     max_iter: int = 1000,
     *,
-    seed: int | numpy.random.RandomState | None = None,
+    seed: int | RandomState | None = None,
+    store_pos_as: str | None = None,
 ): ...
+@_dispatchable
 def forceatlas2_layout(
     G,
     pos=None,
@@ -64,7 +91,7 @@ def forceatlas2_layout(
     max_iter=100,
     jitter_tolerance=1.0,
     scaling_ratio=2.0,
-    gravity=1.0,
+    gravity: float = 1.0,
     distributed_action=False,
     strong_gravity=False,
     node_mass=None,
@@ -72,9 +99,12 @@ def forceatlas2_layout(
     weight=None,
     dissuade_hubs=False,
     linlog=False,
-    seed=None,
-    dim=2,
+    seed: int | RandomState | None = None,
+    dim: int = 2,
+    store_pos_as: str | None = None,
 ) -> dict[Incomplete, Incomplete]: ...
 def rescale_layout(pos, scale: float = 1): ...
 def rescale_layout_dict(pos, scale: float = 1): ...
-def bfs_layout(G, start, *, align="vertical", scale=1, center=None) -> dict[Incomplete, Incomplete]: ...
+def bfs_layout(
+    G, start, *, align="vertical", scale=1, center=None, store_pos_as: str | None = None
+) -> dict[Incomplete, Incomplete]: ...

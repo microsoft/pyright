@@ -1,4 +1,5 @@
 from typing import Any, ClassVar
+from typing_extensions import deprecated
 
 import passlib.utils.handlers as uh
 from passlib.ifc import DisabledHash
@@ -43,8 +44,10 @@ class plaintext(uh.MinimalHandler):
     def hash(cls, secret: str | bytes, encoding=None): ...  # type: ignore[override]
     @classmethod
     def verify(cls, secret: str | bytes, hash: str | bytes, encoding: str | None = None): ...  # type: ignore[override]
+    @deprecated("Deprecated since Passlib 1.7, will be removed in 2.0")
     @classmethod
-    def genconfig(cls): ...
+    def genconfig(cls): ...  # type: ignore[override]
+    @deprecated("Deprecated since Passlib 1.7, will be removed in 2.0")
     @classmethod
     def genhash(cls, secret, config, encoding: str | None = None): ...  # type: ignore[override]
 

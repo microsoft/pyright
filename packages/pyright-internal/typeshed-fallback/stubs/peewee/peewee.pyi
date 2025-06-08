@@ -1103,7 +1103,7 @@ class Field(ColumnBase):
     accessor_class: Incomplete
     auto_increment: bool
     default_index_type: Incomplete
-    field_type: str
+    field_type: ClassVar[str]
     unpack: bool
     null: Incomplete
     index: Incomplete
@@ -1154,43 +1154,32 @@ class Field(ColumnBase):
     def ddl_datatype(self, ctx): ...
     def ddl(self, ctx): ...
 
-class AnyField(Field):
-    field_type: str
+class AnyField(Field): ...
 
 class IntegerField(Field):
-    field_type: str
     def adapt(self, value): ...
 
-class BigIntegerField(IntegerField):
-    field_type: str
-
-class SmallIntegerField(IntegerField):
-    field_type: str
+class BigIntegerField(IntegerField): ...
+class SmallIntegerField(IntegerField): ...
 
 class AutoField(IntegerField):
     auto_increment: bool
-    field_type: str
     def __init__(self, *args, **kwargs) -> None: ...
 
-class BigAutoField(AutoField):
-    field_type: str
+class BigAutoField(AutoField): ...
 
 class IdentityField(AutoField):
-    field_type: str
     def __init__(self, generate_always: bool = ..., **kwargs) -> None: ...
 
 class PrimaryKeyField(AutoField):
     def __init__(self, *args, **kwargs) -> None: ...
 
 class FloatField(Field):
-    field_type: str
     def adapt(self, value): ...
 
-class DoubleField(FloatField):
-    field_type: str
+class DoubleField(FloatField): ...
 
 class DecimalField(Field):
-    field_type: str
     max_digits: Incomplete
     decimal_places: Incomplete
     auto_round: Incomplete
@@ -1214,20 +1203,16 @@ class _StringField(Field):
     def __radd__(self, other): ...
 
 class CharField(_StringField):
-    field_type: str
     max_length: Incomplete
     def __init__(self, max_length: int = ..., *args, **kwargs) -> None: ...
     def get_modifiers(self): ...
 
 class FixedCharField(CharField):
-    field_type: str
     def python_value(self, value): ...
 
-class TextField(_StringField):
-    field_type: str
+class TextField(_StringField): ...
 
 class BlobField(Field):
-    field_type: str
     def bind(self, model, name, set_attribute: bool = ...): ...
     def db_value(self, value): ...
 
@@ -1264,12 +1249,10 @@ class BigBitField(BlobField):
     def db_value(self, value): ...
 
 class UUIDField(Field):
-    field_type: str
     def db_value(self, value): ...
     def python_value(self, value): ...
 
 class BinaryUUIDField(BlobField):
-    field_type: str
     def db_value(self, value): ...
     def python_value(self, value): ...
 
@@ -1278,7 +1261,6 @@ class _BaseFormattedField(Field):
     def __init__(self, formats: Incomplete | None = ..., *args, **kwargs) -> None: ...
 
 class DateTimeField(_BaseFormattedField):
-    field_type: str
     formats: Incomplete
     def adapt(self, value): ...
     def to_timestamp(self): ...
@@ -1297,7 +1279,6 @@ class DateTimeField(_BaseFormattedField):
     def second(self): ...
 
 class DateField(_BaseFormattedField):
-    field_type: str
     formats: Incomplete
     def adapt(self, value): ...
     def to_timestamp(self): ...
@@ -1310,7 +1291,6 @@ class DateField(_BaseFormattedField):
     def day(self): ...
 
 class TimeField(_BaseFormattedField):
-    field_type: str
     formats: Incomplete
     def adapt(self, value): ...
     @property
@@ -1350,7 +1330,6 @@ class IPField(BigIntegerField):
     def python_value(self, val): ...
 
 class BooleanField(Field):
-    field_type: str
     adapt: Incomplete
 
 class BareField(Field):
@@ -1391,7 +1370,7 @@ class ForeignKeyField(Field):
         **kwargs,
     ) -> None: ...
     @property
-    def field_type(self): ...
+    def field_type(self): ...  # type: ignore[override]
     def get_modifiers(self): ...
     def adapt(self, value): ...
     def db_value(self, value): ...

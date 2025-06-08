@@ -1,6 +1,8 @@
+from _typeshed import Incomplete
 from abc import abstractmethod
 from typing import Any
 
+from dateparser.conf import Settings
 from dateparser.parser import _parser
 
 class CalendarBase:
@@ -20,4 +22,4 @@ class non_gregorian_parser(_parser):
     @abstractmethod
     def handle_two_digit_year(self, year: int) -> int: ...
     @classmethod
-    def parse(cls, datestring, settings): ...
+    def parse(cls, datestring: str, settings: Settings) -> tuple[Incomplete, Incomplete]: ...  # type: ignore[override]

@@ -81,3 +81,4 @@ class PlanarEmbedding(DiGraph[_Node]):
     def traverse_face(
         self, v: _Node, w: _Node, mark_half_edges: MutableSet[tuple[_Node, _Node]] | None = None
     ) -> list[_Node]: ...
+    def to_undirected(self, reciprocal: bool = False, as_view: bool = False) -> Graph[_Node]: ...  # type: ignore[override]

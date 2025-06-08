@@ -1,9 +1,0 @@
-version = "1.15.*"
-upstream_repository = "https://github.com/libgit2/pygit2"
-requires = ["types-cffi"]
-obsolete_since = "1.16.0" # Released on 2024-10-11
-
-[tool.stubtest]
-platforms = ["darwin", "linux", "win32"]
-# Does not build on any platform on Python 3.13 as of 2025-03-17.
-skip = true

@@ -1095,20 +1095,28 @@ if sys.version_info >= (3, 14):
             **kwargs: Unpack[_Attributes],
         ) -> Self: ...
 
+if sys.version_info >= (3, 10):
+    from types import EllipsisType
+
+    _ConstantValue: typing_extensions.TypeAlias = str | bytes | bool | int | float | complex | None | EllipsisType
+else:
+    # Rely on builtins.ellipsis
+    _ConstantValue: typing_extensions.TypeAlias = str | bytes | bool | int | float | complex | None | ellipsis  # noqa: F821
+
 class Constant(expr):
     if sys.version_info >= (3, 10):
         __match_args__ = ("value", "kind")
-    value: Any  # None, str, bytes, bool, int, float, complex, Ellipsis
+    value: _ConstantValue
     kind: str | None
     if sys.version_info < (3, 14):
         # Aliases for value, for backwards compatibility
-        s: Any
-        n: int | float | complex
+        s: _ConstantValue
+        n: _ConstantValue
 
-    def __init__(self, value: Any, kind: str | None = None, **kwargs: Unpack[_Attributes]) -> None: ...
+    def __init__(self, value: _ConstantValue, kind: str | None = None, **kwargs: Unpack[_Attributes]) -> None: ...
 
     if sys.version_info >= (3, 14):
-        def __replace__(self, *, value: Any = ..., kind: str | None = ..., **kwargs: Unpack[_Attributes]) -> Self: ...
+        def __replace__(self, *, value: _ConstantValue = ..., kind: str | None = ..., **kwargs: Unpack[_Attributes]) -> Self: ...
 
 class Attribute(expr):
     if sys.version_info >= (3, 10):

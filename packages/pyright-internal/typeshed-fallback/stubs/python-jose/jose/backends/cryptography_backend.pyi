@@ -1,8 +1,7 @@
 from typing import Any, ClassVar
 
+from . import get_random_bytes as get_random_bytes
 from .base import Key
-
-def get_random_bytes(num_bytes: int) -> bytes: ...
 
 # Enable when we can use stubs from installed dependencies:
 # from cryptography.hazmat import backends

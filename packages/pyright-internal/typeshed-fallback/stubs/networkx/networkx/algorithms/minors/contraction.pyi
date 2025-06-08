@@ -20,9 +20,18 @@ def quotient_graph(
     create_using: Graph[_Node] | None = None,
 ): ...
 @_dispatchable
-def contracted_nodes(G: Graph[_Node], u, v, self_loops: bool = True, copy: bool = True): ...
+def contracted_nodes(
+    G: Graph[_Node], u, v, self_loops: bool = True, copy: bool = True, *, store_contraction_as: str | None = "contraction"
+): ...
 
 identified_nodes = contracted_nodes
 
 @_dispatchable
-def contracted_edge(G: Graph[_Node], edge: tuple[Incomplete], self_loops: bool = True, copy: bool = True): ...
+def contracted_edge(
+    G: Graph[_Node],
+    edge: tuple[Incomplete],
+    self_loops: bool = True,
+    copy: bool = True,
+    *,
+    store_contraction_as: str | None = "contraction",
+): ...

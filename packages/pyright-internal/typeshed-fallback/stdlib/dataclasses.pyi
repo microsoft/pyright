@@ -353,7 +353,7 @@ def is_dataclass(obj: object) -> TypeIs[DataclassInstance | type[DataclassInstan
 
 class FrozenInstanceError(AttributeError): ...
 
-class InitVar(Generic[_T], metaclass=type):
+class InitVar(Generic[_T]):
     type: Type[_T]
     def __init__(self, type: Type[_T]) -> None: ...
     @overload

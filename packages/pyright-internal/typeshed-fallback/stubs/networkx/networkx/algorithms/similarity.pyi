@@ -104,4 +104,6 @@ def generate_random_paths(
     index_map: SupportsGetItem[Incomplete, Incomplete] | None = None,
     weight: str | None = "weight",
     seed: int | RandomState | None = None,
-) -> Generator[Incomplete, None, None]: ...
+    *,
+    source: _Node | None = None,
+) -> Generator[list[Incomplete]]: ...

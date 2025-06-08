@@ -2,7 +2,15 @@ from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
 from numpy.random import RandomState
 
-__all__ = ["hamiltonian_path", "is_reachable", "is_strongly_connected", "is_tournament", "random_tournament", "score_sequence"]
+__all__ = [
+    "hamiltonian_path",
+    "is_reachable",
+    "is_strongly_connected",
+    "is_tournament",
+    "random_tournament",
+    "score_sequence",
+    "tournament_matrix",
+]
 
 @_dispatchable
 def is_tournament(G: Graph[_Node]) -> bool: ...
@@ -10,6 +18,8 @@ def is_tournament(G: Graph[_Node]) -> bool: ...
 def hamiltonian_path(G: Graph[_Node]): ...
 @_dispatchable
 def random_tournament(n: int, seed: int | RandomState | None = None): ...
+@_dispatchable
+def tournament_matrix(G: Graph[_Node]): ...
 @_dispatchable
 def score_sequence(G: Graph[_Node]): ...
 @_dispatchable
