@@ -877,10 +877,15 @@ export function getTypedDictMembersForClass(
         });
     }
 
-    return {
-        knownItems: entries,
-        extraItems: classType.shared.typedDictEntries?.extraItems,
-    };
+    let extraItems = classType.shared.typedDictEntries?.extraItems;
+    if (extraItems) {
+        extraItems = {
+            ...extraItems,
+            valueType: applySolvedTypeVars(extraItems.valueType, solution),
+        };
+    }
+
+    return { knownItems: entries, extraItems };
 }
 
 // If the TypedDict class is consistent with Mapping[str, T] where T
