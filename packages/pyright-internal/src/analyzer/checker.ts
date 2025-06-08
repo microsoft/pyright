@@ -129,6 +129,7 @@ import {
     TypeResult,
 } from './typeEvaluatorTypes';
 import {
+    enumerateLiteralsForType,
     getElementTypeForContainerNarrowing,
     getIsInstanceClassTypes,
     narrowTypeForContainerElementType,
@@ -2140,8 +2141,8 @@ export class Checker extends ParseTreeWalker {
             rightExpression = rightExpression.d.leftExpr;
         }
 
-        const leftType = this._evaluator.getType(node.d.leftExpr);
-        const rightType = this._evaluator.getType(rightExpression);
+        let leftType = this._evaluator.getType(node.d.leftExpr);
+        let rightType = this._evaluator.getType(rightExpression);
 
         if (!leftType || !rightType) {
             return;
@@ -2157,6 +2158,44 @@ export class Checker extends ParseTreeWalker {
                 : LocMessage.comparisonAlwaysTrue();
         };
 
+        const replaceEnumTypeWithLiteralValue = (type: Type) => {
+            return mapSubtypes(type, (subtype) => {
+                if (
+                    !isClassInstance(subtype) ||
+                    !ClassType.isEnumClass(subtype) ||
+                    !subtype.shared.mro.some(
+                        (base) => isClass(base) && ClassType.isBuiltIn(base, ['int', 'str', 'bytes'])
+                    )
+                ) {
+                    return subtype;
+                }
+
+                // If this is an enum literal, replace it with its literal value.
+                if (subtype.priv.literalValue instanceof EnumLiteral) {
+                    return subtype.priv.literalValue.itemType;
+                }
+
+                // If this is an enum class, replace it with the type of its members.
+                const literalValues = enumerateLiteralsForType(this._evaluator, subtype);
+                if (literalValues && literalValues.length > 0) {
+                    return combineTypes(
+                        literalValues.map((literalClass) => {
+                            const literalValue = literalClass.priv.literalValue;
+                            assert(literalValue instanceof EnumLiteral);
+                            return literalValue.itemType;
+                        })
+                    );
+                }
+
+                return subtype;
+            });
+        };
+
+        // Handle enum literals that are assignable to another (non-Enum) literal.
+        // This can happen for IntEnum and StrEnum members.
+        leftType = replaceEnumTypeWithLiteralValue(leftType);
+        rightType = replaceEnumTypeWithLiteralValue(rightType);
+
         // Check for the special case where the LHS and RHS are both literals.
         if (isLiteralTypeOrUnion(rightType) && isLiteralTypeOrUnion(leftType)) {
             if (
@@ -2169,13 +2208,13 @@ export class Checker extends ParseTreeWalker {
                 let isPossiblyTrue = false;
 
                 doForEachSubtype(leftType, (leftSubtype) => {
-                    if (this._evaluator.assignType(rightType, leftSubtype)) {
+                    if (this._evaluator.assignType(rightType!, leftSubtype)) {
                         isPossiblyTrue = true;
                     }
                 });
 
                 doForEachSubtype(rightType, (rightSubtype) => {
-                    if (this._evaluator.assignType(leftType, rightSubtype)) {
+                    if (this._evaluator.assignType(leftType!, rightSubtype)) {
                         isPossiblyTrue = true;
                     }
                 });
@@ -2199,7 +2238,7 @@ export class Checker extends ParseTreeWalker {
                     return;
                 }
 
-                this._evaluator.mapSubtypesExpandTypeVars(rightType, {}, (rightSubtype) => {
+                this._evaluator.mapSubtypesExpandTypeVars(rightType!, {}, (rightSubtype) => {
                     if (isComparable) {
                         return;
                     }

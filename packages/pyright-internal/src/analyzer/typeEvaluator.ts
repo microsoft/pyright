@@ -24903,21 +24903,6 @@ export function createTypeEvaluator(
                     );
                 }
 
-                // Handle enum literals that are assignable to another (non-Enum) literal.
-                // This can happen for IntEnum and StrEnum members.
-                if (
-                    ClassType.isEnumClass(concreteSrcType) &&
-                    concreteSrcType.priv.literalValue instanceof EnumLiteral &&
-                    concreteSrcType.shared.mro.some(
-                        (base) => isClass(base) && ClassType.isBuiltIn(base, ['int', 'str', 'bytes'])
-                    ) &&
-                    isClassInstance(concreteSrcType.priv.literalValue.itemType) &&
-                    isLiteralType(concreteSrcType.priv.literalValue.itemType) &&
-                    assignType(destType, concreteSrcType.priv.literalValue.itemType)
-                ) {
-                    return true;
-                }
-
                 if (
                     destType.priv.literalValue !== undefined &&
                     ClassType.isSameGenericClass(destType, concreteSrcType)

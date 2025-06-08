@@ -2,6 +2,7 @@
 # when applied to functions that appear within a conditional expression.
 
 
+from enum import Enum
 from typing import Any, Callable, Coroutine, Protocol
 from dataclasses import dataclass
 
@@ -140,3 +141,18 @@ def func11(a: A, b: SupportsBool, c: object):
 
 def func12(a: object, b: Callable[..., int]) -> bool:
     return a is b
+
+
+class IntVal(int, Enum):
+    one = 1
+    two = 2
+    three = 3
+
+
+def func13(x: IntVal):
+    if x == 1:
+        pass
+
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if x == 4:
+        pass
