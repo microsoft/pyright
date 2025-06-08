@@ -414,7 +414,7 @@ test('ParamType1', () => {
 test('Python2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['python2.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('InconsistentSpaceTab1', () => {

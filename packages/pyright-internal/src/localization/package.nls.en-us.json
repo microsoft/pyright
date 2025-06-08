@@ -372,6 +372,8 @@
         },
         "exceptionTypeNotClass": "\"{type}\" is not a valid exception class",
         "exceptionTypeNotInstantiable": "Constructor for exception type \"{type}\" requires one or more arguments",
+        "exceptWithAsRequiresParens": "Multiple exception types must be parenthesized when using \"as\"",
+        "exceptRequiresParens": "Multiple exception types must be parenthesized prior to Python 3.14",
         "expectedAfterDecorator": "Expected function or class declaration after decorator",
         "expectedArrow": "Expected \"->\" followed by return type annotation",
         "expectedAsAfterException": {
