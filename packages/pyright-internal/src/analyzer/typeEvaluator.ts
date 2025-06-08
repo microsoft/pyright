@@ -5717,6 +5717,17 @@ export function createTypeEvaluator(
             case TypeCategory.Class: {
                 let typeResult: TypeResult | undefined;
 
+                // If this is a class-like function created via NewType, treat
+                // it like a function for purposes of member accesses.
+                if (
+                    ClassType.isNewTypeClass(baseType) &&
+                    !baseType.priv.includeSubclasses &&
+                    prefetched?.functionClass &&
+                    isClass(prefetched.functionClass)
+                ) {
+                    baseType = ClassType.cloneAsInstance(prefetched.functionClass);
+                }
+
                 const enumMemberResult = getTypeOfEnumMember(
                     evaluatorInterface,
                     node,
@@ -10279,6 +10290,19 @@ export function createTypeEvaluator(
                         }
 
                         if (isClass(subtype)) {
+                            // Specifically handle the case where the subtype is a class-like
+                            // object created by calling NewType. At runtime, it's actually
+                            // a FunctionType object.
+                            if (
+                                isClassInstance(subtype) &&
+                                ClassType.isNewTypeClass(subtype) &&
+                                !subtype.priv.includeSubclasses
+                            ) {
+                                if (prefetched?.functionClass) {
+                                    return prefetched.functionClass;
+                                }
+                            }
+
                             return convertToInstantiable(stripLiteralValue(subtype));
                         }
 
@@ -13512,12 +13536,7 @@ export function createTypeEvaluator(
             const initType = FunctionType.createSynthesizedInstance('__init__');
             FunctionType.addParam(
                 initType,
-                FunctionParam.create(
-                    ParamCategory.Simple,
-                    ClassType.cloneAsInstance(classType),
-                    FunctionParamFlags.TypeDeclared,
-                    'self'
-                )
+                FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
             );
             FunctionType.addParam(
                 initType,
@@ -13538,7 +13557,7 @@ export function createTypeEvaluator(
             const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
             FunctionType.addParam(
                 newType,
-                FunctionParam.create(ParamCategory.Simple, classType, FunctionParamFlags.TypeDeclared, 'cls')
+                FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'cls')
             );
             FunctionType.addDefaultParams(newType);
             newType.shared.declaredReturnType = ClassType.cloneAsInstance(classType);
@@ -24436,6 +24455,15 @@ export function createTypeEvaluator(
                 } else {
                     srcType = specialForm;
                 }
+            }
+        }
+
+        // If the source is a class-like type created by a call to NewType, treat it
+        // as a FunctionClass instance rather than an instantiable class for
+        // purposes of assignability. This reflects its actual runtime type.
+        if (isInstantiableClass(srcType) && ClassType.isNewTypeClass(srcType) && !srcType.priv.includeSubclasses) {
+            if (prefetched?.functionClass && isInstantiableClass(prefetched?.functionClass)) {
+                srcType = ClassType.cloneAsInstance(prefetched.functionClass);
             }
         }
 
