@@ -17749,8 +17749,8 @@ export function createTypeEvaluator(
                 );
             } else if (variadics.length > 0) {
                 // Make sure a TypeVar with a default doesn't come after a TypeVarTuple.
-                const firstVariadicIndex = classType.shared.typeParams.findIndex((param) => isTypeVarTuple(param));
-                const typeVarWithDefaultIndex = classType.shared.typeParams.findIndex(
+                const firstVariadicIndex = typeParams.findIndex((param) => isTypeVarTuple(param));
+                const typeVarWithDefaultIndex = typeParams.findIndex(
                     (param, index) =>
                         index > firstVariadicIndex && !isParamSpec(param) && param.shared.isDefaultExplicit
                 );
