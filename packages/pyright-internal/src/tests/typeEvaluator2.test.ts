@@ -266,7 +266,7 @@ test('MissingSuper1', () => {
 test('NewType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType1.py']);
 
-    TestUtils.validateResults(analysisResults, 11);
+    TestUtils.validateResults(analysisResults, 13);
 });
 
 test('NewType2', () => {
@@ -297,6 +297,12 @@ test('NewType6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType6.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('NewType7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType7.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('isInstance1', () => {
