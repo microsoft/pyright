@@ -1889,22 +1889,36 @@ export class Parser {
 
             let typeExpr: ExpressionNode | undefined;
             let symbolName: IdentifierToken | undefined;
+            let isAsKeywordAllowed = true;
+
             if (this._peekTokenType() !== TokenType.Colon) {
-                typeExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
+                const listResult = this._parseExpressionListGeneric(() =>
+                    this._parseTestExpression(/* allowAssignmentExpression */ true)
+                );
+                if (listResult.parseError) {
+                    typeExpr = listResult.parseError;
+                } else {
+                    typeExpr = this._makeExpressionOrTuple(listResult, /* enclosedInParens */ false);
+
+                    // Python 3.14 allows more than one exception type to be provided in
+                    // an except clause.
+                    if (listResult.list.length > 1) {
+                        if (PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_14)) {
+                            this._addSyntaxError(LocMessage.exceptRequiresParens(), typeExpr);
+                        }
+
+                        isAsKeywordAllowed = false;
+                    }
+                }
 
                 if (this._consumeTokenIfKeyword(KeywordType.As)) {
+                    if (!isAsKeywordAllowed) {
+                        this._addSyntaxError(LocMessage.exceptWithAsRequiresParens(), typeExpr);
+                    }
+
                     symbolName = this._getTokenIfIdentifier();
                     if (!symbolName) {
                         this._addSyntaxError(LocMessage.expectedNameAfterAs(), this._peekToken());
-                    }
-                } else {
-                    // Handle the python 2.x syntax in a graceful manner.
-                    const peekToken = this._peekToken();
-                    if (this._consumeTokenIfType(TokenType.Comma)) {
-                        this._addSyntaxError(LocMessage.expectedAsAfterException(), peekToken);
-
-                        // Parse the expression expected in python 2.x, but discard it.
-                        this._parseTestExpression(/* allowAssignmentExpression */ false);
                     }
                 }
             } else if (isExceptGroup) {

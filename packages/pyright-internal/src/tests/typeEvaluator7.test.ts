@@ -14,6 +14,7 @@ import {
     pythonVersion3_11,
     pythonVersion3_12,
     pythonVersion3_13,
+    pythonVersion3_14,
     pythonVersion3_8,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -998,6 +999,18 @@ test('TryExcept10', () => {
 test('TryExcept11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept11.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TryExcept12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tryExcept12.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 3);
+
+    configOptions.defaultPythonVersion = pythonVersion3_14;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tryExcept12.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 1);
 });
 
 test('exceptionGroup1', () => {
