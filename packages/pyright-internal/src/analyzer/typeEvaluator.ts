@@ -2795,7 +2795,7 @@ export function createTypeEvaluator(
             case ParseNodeType.MemberAccess: {
                 const baseType = getTypeOfExpression(expression.d.leftExpr, EvalFlags.MemberAccessBaseDefaults).type;
                 const baseTypeConcrete = makeTopLevelTypeVarsConcrete(baseType);
-                let classMemberInfo: ClassMember | undefined;
+                const memberName = expression.d.member.d.value;
 
                 // Normally, baseTypeConcrete will not be a composite type (a union),
                 // but this can occur. In this case, it's not clear how to handle this
@@ -2805,29 +2805,42 @@ export function createTypeEvaluator(
                     baseTypeConcrete,
                     (baseSubtype) => {
                         if (isClassInstance(baseSubtype)) {
-                            classMemberInfo = lookUpObjectMember(
+                            const classMemberInfo = lookUpObjectMember(
                                 baseSubtype,
-                                expression.d.member.d.value,
+                                memberName,
                                 MemberAccessFlags.DeclaredTypesOnly
                             );
+
                             classOrObjectBase = baseSubtype;
                             memberAccessClass = classMemberInfo?.classType;
+                            symbol = classMemberInfo?.symbol;
+                            useDescriptorSetterType = true;
 
                             // If this is an instance member (e.g. a dataclass field), don't
                             // bind it to the object if it's a function.
-                            if (classMemberInfo?.isInstanceMember) {
-                                bindFunction = false;
-                            }
-
-                            useDescriptorSetterType = true;
+                            bindFunction = !classMemberInfo?.isInstanceMember;
                         } else if (isInstantiableClass(baseSubtype)) {
-                            classMemberInfo = lookUpClassMember(
+                            const classMemberInfo = lookUpClassMember(
                                 baseSubtype,
-                                expression.d.member.d.value,
+                                memberName,
                                 MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
                             );
+
                             classOrObjectBase = baseSubtype;
                             memberAccessClass = classMemberInfo?.classType;
+                            symbol = classMemberInfo?.symbol;
+                            useDescriptorSetterType = false;
+                            bindFunction = false;
+                        } else if (isModule(baseSubtype)) {
+                            classOrObjectBase = undefined;
+                            memberAccessClass = undefined;
+                            symbol = ModuleType.getField(baseSubtype, memberName);
+                            if (symbol && !symbol.hasTypedDeclarations()) {
+                                // Do not use inferred types for the declared type.
+                                symbol = undefined;
+                            }
+                            useDescriptorSetterType = false;
+                            bindFunction = false;
                         }
                     },
                     /* sortSubtypes */ true
@@ -2835,10 +2848,6 @@ export function createTypeEvaluator(
 
                 if (isTypeVar(baseType)) {
                     selfType = baseType;
-                }
-
-                if (classMemberInfo) {
-                    symbol = classMemberInfo.symbol;
                 }
                 break;
             }
