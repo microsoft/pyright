@@ -1396,6 +1396,8 @@ export class Tokenizer {
                 case Char.B:
                 case Char.u:
                 case Char.U:
+                case Char.t:
+                case Char.T:
                     // Single-char prefix like u"" or r""
                     return 1;
                 default:
@@ -1411,6 +1413,8 @@ export class Tokenizer {
             switch (prefix) {
                 case 'rf':
                 case 'fr':
+                case 'rt':
+                case 'tr':
                 case 'br':
                 case 'rb':
                     return 2;
@@ -1442,6 +1446,10 @@ export class Tokenizer {
                 case 'f':
                     flags |= StringTokenFlags.Format;
                     break;
+
+                case 't':
+                    flags |= StringTokenFlags.Template;
+                    break;
             }
         }
 
@@ -1463,7 +1471,7 @@ export class Tokenizer {
     private _handleString(flags: StringTokenFlags, stringPrefixLength: number): void {
         const start = this._cs.position - stringPrefixLength;
 
-        if (flags & StringTokenFlags.Format) {
+        if (flags & (StringTokenFlags.Format | StringTokenFlags.Template)) {
             if (flags & StringTokenFlags.Triplicate) {
                 this._cs.advance(3);
             } else {
@@ -1521,7 +1529,8 @@ export class Tokenizer {
                         (StringTokenFlags.Bytes |
                             StringTokenFlags.Unicode |
                             StringTokenFlags.Raw |
-                            StringTokenFlags.Format)) ===
+                            StringTokenFlags.Format |
+                            StringTokenFlags.Template)) ===
                     0
                 ) {
                     const quoteTypeMask =
@@ -1603,7 +1612,7 @@ export class Tokenizer {
     private _skipToEndOfStringLiteral(flags: StringTokenFlags, inFormatSpecifier = false): StringScannerOutput {
         const quoteChar = flags & StringTokenFlags.SingleQuote ? Char.SingleQuote : Char.DoubleQuote;
         const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
-        const isFString = (flags & StringTokenFlags.Format) !== 0;
+        const isFString = (flags & (StringTokenFlags.Format | StringTokenFlags.Template)) !== 0;
         let isInNamedUnicodeEscape = false;
         const start = this._cs.position;
         let escapedValueLength = 0;

@@ -1040,6 +1040,7 @@ export function createTypeEvaluator(
                 getTypeCheckerInternalsType(node, 'TypedDictFallback') ?? getTypingType(node, '_TypedDict');
             prefetched.awaitableClass = getTypingType(node, 'Awaitable');
             prefetched.mappingClass = getTypingType(node, 'Mapping');
+            prefetched.templateClass = getTypeOfModule(node, 'Template', ['string', 'templatelib']);
 
             prefetched.supportsKeysAndGetItemClass = getTypeshedType(node, 'SupportsKeysAndGetItem');
             if (!prefetched.supportsKeysAndGetItemClass) {
@@ -1635,8 +1636,10 @@ export function createTypeEvaluator(
         const isBytes = firstBytesIndex >= 0;
         let isLiteralString = true;
         let isIncomplete = false;
+        let isTemplate = false;
 
         node.d.strings.forEach((expr) => {
+            // Handle implicit concatenation.
             const typeResult = getTypeOfString(expr);
 
             if (typeResult.isIncomplete) {
@@ -1644,11 +1647,16 @@ export function createTypeEvaluator(
             }
 
             let isExprLiteralString = false;
+
             if (isClassInstance(typeResult.type)) {
                 if (ClassType.isBuiltIn(typeResult.type, 'str') && typeResult.type.priv.literalValue !== undefined) {
                     isExprLiteralString = true;
                 } else if (ClassType.isBuiltIn(typeResult?.type, 'LiteralString')) {
                     isExprLiteralString = true;
+                }
+
+                if (typeResult.type.shared.name === 'Template') {
+                    isTemplate = true;
                 }
             }
 
@@ -1657,8 +1665,14 @@ export function createTypeEvaluator(
             }
         });
 
-        // Don't create a literal type if it's an f-string.
-        if (node.d.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
+        if (isTemplate) {
+            const templateType =
+                prefetched?.templateClass && isInstantiableClass(prefetched?.templateClass)
+                    ? ClassType.cloneAsInstance(prefetched.templateClass)
+                    : UnknownType.create();
+
+            typeResult = { type: templateType, isIncomplete };
+        } else if (node.d.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
             if (isLiteralString) {
                 const literalStringType = getTypingType(node, 'LiteralString');
                 if (literalStringType && isInstantiableClass(literalStringType)) {
@@ -1697,7 +1711,11 @@ export function createTypeEvaluator(
         const stringNode = node.d.strings[0];
         const tokenFlags = stringNode.d.token.flags;
         const disallowedTokenFlags =
-            StringTokenFlags.Bytes | StringTokenFlags.Raw | StringTokenFlags.Format | StringTokenFlags.Triplicate;
+            StringTokenFlags.Bytes |
+            StringTokenFlags.Raw |
+            StringTokenFlags.Format |
+            StringTokenFlags.Template |
+            StringTokenFlags.Triplicate;
         const maxTypeFormStringLength = 256;
 
         if (
@@ -1756,6 +1774,13 @@ export function createTypeEvaluator(
                 return { type: UnknownType.create() };
             }
 
+            if (tokenFlags & StringTokenFlags.Template) {
+                if (reportTypeErrors) {
+                    addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.annotationTemplateString(), node);
+                }
+                return { type: UnknownType.create() };
+            }
+
             // We didn't know at parse time that this string node was going
             // to be evaluated as a forward-referenced type. We need
             // to re-invoke the parser at this stage.
@@ -1782,8 +1807,13 @@ export function createTypeEvaluator(
         let typeResult: TypeResult | undefined;
         let isIncomplete = false;
 
-        // Don't create a literal type if it's an f-string.
-        if (node.nodeType === ParseNodeType.FormatString) {
+        if (node.nodeType === ParseNodeType.String) {
+            typeResult = {
+                type: cloneBuiltinObjectWithLiteral(node, isBytes ? 'bytes' : 'str', node.d.value),
+                isIncomplete,
+            };
+        } else {
+            const isTemplateString = (node.d.token.flags & StringTokenFlags.Template) !== 0;
             let isLiteralString = true;
 
             // If all of the format expressions are of type LiteralString, then
@@ -1814,7 +1844,14 @@ export function createTypeEvaluator(
                 });
             });
 
-            if (!isBytes && isLiteralString) {
+            if (isTemplateString) {
+                const templateType =
+                    prefetched?.templateClass && isInstantiableClass(prefetched?.templateClass)
+                        ? ClassType.cloneAsInstance(prefetched.templateClass)
+                        : UnknownType.create();
+
+                typeResult = { type: templateType, isIncomplete };
+            } else if (!isBytes && isLiteralString) {
                 const literalStringType = getTypingType(node, 'LiteralString');
                 if (literalStringType && isInstantiableClass(literalStringType)) {
                     typeResult = { type: ClassType.cloneAsInstance(literalStringType), isIncomplete };
@@ -1831,11 +1868,6 @@ export function createTypeEvaluator(
                     typeResult.type = ClassType.cloneRemoveTypePromotions(typeResult.type);
                 }
             }
-        } else {
-            typeResult = {
-                type: cloneBuiltinObjectWithLiteral(node, isBytes ? 'bytes' : 'str', node.d.value),
-                isIncomplete,
-            };
         }
 
         return typeResult;

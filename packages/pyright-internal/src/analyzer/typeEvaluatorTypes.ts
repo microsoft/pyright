@@ -220,6 +220,7 @@ export interface PrefetchedTypes {
     typedDictPrivateClass: Type;
     supportsKeysAndGetItemClass: Type;
     mappingClass: Type;
+    templateClass: Type;
 }
 
 export interface TypeResult<T extends Type = Type> {
