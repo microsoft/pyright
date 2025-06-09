@@ -86,6 +86,7 @@ import {
     isNoneInstance,
     isNoneTypeClass,
     isProperty,
+    isSentinelLiteral,
     isTupleClass,
     isTupleGradualForm,
     isUnboundedTupleClass,
@@ -2671,11 +2672,14 @@ function narrowTypeForLiteralComparison(
                     return literalValueMatches ? subtype : undefined;
                 }
 
-                const isEnumOrBool = ClassType.isEnumClass(literalType) || ClassType.isBuiltIn(literalType, 'bool');
+                const isSingleton =
+                    ClassType.isEnumClass(literalType) ||
+                    isSentinelLiteral(subtype) ||
+                    ClassType.isBuiltIn(literalType, 'bool');
 
                 // For negative tests, we can eliminate the literal value if it doesn't match,
-                // but only for equality tests or for 'is' tests that involve enums or bools.
-                return literalValueMatches && (isEnumOrBool || !isIsOperator) ? undefined : subtype;
+                // but only for equality tests or for 'is' tests that involve enums, bools, or sentinels.
+                return literalValueMatches && (isSingleton || !isIsOperator) ? undefined : subtype;
             }
 
             if (isPositiveTest) {
