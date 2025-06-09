@@ -1744,6 +1744,7 @@ export namespace StringNode {
     }
 }
 
+// Used for both f-strings and t-strings
 export interface FormatStringNode extends ParseNodeBase<ParseNodeType.FormatString> {
     d: {
         token: FStringStartToken;

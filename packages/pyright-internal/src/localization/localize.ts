@@ -220,6 +220,7 @@ export namespace Localizer {
         export const annotationRawString = () => getRawString('Diagnostic.annotationRawString');
         export const annotationSpansStrings = () => getRawString('Diagnostic.annotationSpansStrings');
         export const annotationStringEscape = () => getRawString('Diagnostic.annotationStringEscape');
+        export const annotationTemplateString = () => getRawString('Diagnostic.annotationTemplateString');
         export const argAssignment = () =>
             new ParameterizedString<{ argType: string; paramType: string }>(getRawString('Diagnostic.argAssignment'));
         export const argAssignmentFunction = () =>
@@ -552,6 +553,7 @@ export namespace Localizer {
         export const formatStringNestedFormatSpecifier = () =>
             getRawString('Diagnostic.formatStringNestedFormatSpecifier');
         export const formatStringNestedQuote = () => getRawString('Diagnostic.formatStringNestedQuote');
+        export const formatStringTemplate = () => getRawString('Diagnostic.formatStringTemplate');
         export const formatStringUnicode = () => getRawString('Diagnostic.formatStringUnicode');
         export const formatStringUnterminated = () => getRawString('Diagnostic.formatStringUnterminated');
         export const functionDecoratorTypeUnknown = () => getRawString('Diagnostic.functionDecoratorTypeUnknown');
@@ -943,6 +945,9 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.symbolIsPossiblyUnbound'));
         export const symbolOverridden = () =>
             new ParameterizedString<{ name: string; className: string }>(getRawString('Diagnostic.symbolOverridden'));
+        export const templateStringBytes = () => getRawString('Diagnostic.templateStringBytes');
+        export const templateStringIllegal = () => getRawString('Diagnostic.templateStringIllegal');
+        export const templateStringUnicode = () => getRawString('Diagnostic.templateStringUnicode');
         export const ternaryNotAllowed = () => getRawString('Diagnostic.ternaryNotAllowed');
         export const totalOrderingMissingMethod = () => getRawString('Diagnostic.totalOrderingMissingMethod');
         export const trailingCommaInFromImport = () => getRawString('Diagnostic.trailingCommaInFromImport');

@@ -36,6 +36,10 @@
         "annotationRawString": "Type expressions cannot use raw string literals",
         "annotationSpansStrings": "Type expressions cannot span multiple string literals",
         "annotationStringEscape": "Type expressions cannot contain escape characters",
+        "annotationTemplateString": {
+            "message": "Type expressions cannot use template string literals (t-strings)",
+            "comment": "'t-string' is the common English slang for a Python template string"
+        },
         "argAssignment": "Argument of type \"{argType}\" cannot be assigned to parameter of type \"{paramType}\"",
         "argAssignmentFunction": "Argument of type \"{argType}\" cannot be assigned to parameter of type \"{paramType}\" in function \"{functionName}\"",
         "argAssignmentParam": "Argument of type \"{argType}\" cannot be assigned to parameter \"{paramName}\" of type \"{paramType}\"",
@@ -556,6 +560,10 @@
         "formatStringNestedQuote": {
             "message": "Strings nested within an f-string cannot use the same quote character as the f-string prior to Python 3.12",
             "comment": "'f-string' is the common English slang for a Python format string"
+        },
+        "formatStringTemplate": {
+            "message": "Format string literals (f-strings) cannot also be template strings (t-strings)",
+            "comment": "'f-string' is the common English slang for a Python format string, 't-string' is the common English slang for a Python template string"
         },
         "formatStringUnicode": {
             "message": "Format string literals (f-strings) cannot be unicode",
@@ -1255,6 +1263,18 @@
         "symbolIsUnbound": "\"{name}\" is unbound",
         "symbolIsUndefined": "\"{name}\" is not defined",
         "symbolOverridden": "\"{name}\" overrides symbol of same name in class \"{className}\"",
+        "templateStringBytes": {
+            "message": "Template string literals (t-strings) cannot be binary",
+            "comment": "'t-string' is the common English slang for a Python template string"
+        },
+        "templateStringIllegal": {
+            "message": "Template string literals (t-strings) require Python 3.14 or newer",
+            "comment": "'t-string' is the common English slang for a Python template string"
+        },
+        "templateStringUnicode": {
+            "message": "Template string literals (t-strings) cannot be unicode",
+            "comment": "'t-string' is the common English slang for a Python template string"
+        },
         "ternaryNotAllowed": "Ternary expression not allowed in type expression",
         "totalOrderingMissingMethod": {
             "message": "Class must define one of \"__lt__\", \"__le__\", \"__gt__\", or \"__ge__\" to use total_ordering",

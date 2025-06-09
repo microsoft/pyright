@@ -4755,6 +4755,24 @@ export class Parser {
             if (stringToken.flags & StringTokenFlags.Unicode) {
                 this._addSyntaxError(LocMessage.formatStringUnicode(), stringToken);
             }
+
+            if (stringToken.flags & StringTokenFlags.Template) {
+                this._addSyntaxError(LocMessage.formatStringTemplate(), stringToken);
+            }
+        }
+
+        if (stringToken.flags & StringTokenFlags.Template) {
+            if (PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_14)) {
+                this._addSyntaxError(LocMessage.templateStringIllegal(), stringToken);
+            }
+
+            if (stringToken.flags & StringTokenFlags.Bytes) {
+                this._addSyntaxError(LocMessage.templateStringBytes(), stringToken);
+            }
+
+            if (stringToken.flags & StringTokenFlags.Unicode) {
+                this._addSyntaxError(LocMessage.templateStringUnicode(), stringToken);
+            }
         }
     }
 
@@ -5114,7 +5132,11 @@ export class Parser {
                         this._addSyntaxError(LocMessage.annotationStringEscape(), stringNode);
                     }
                 } else if (
-                    (stringToken.flags & (StringTokenFlags.Raw | StringTokenFlags.Bytes | StringTokenFlags.Format)) ===
+                    (stringToken.flags &
+                        (StringTokenFlags.Raw |
+                            StringTokenFlags.Bytes |
+                            StringTokenFlags.Format |
+                            StringTokenFlags.Template)) ===
                     0
                 ) {
                     const parser = new Parser();

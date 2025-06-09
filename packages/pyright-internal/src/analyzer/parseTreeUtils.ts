@@ -308,6 +308,10 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 exprString += 'f';
             }
 
+            if (node.d.token.flags & StringTokenFlags.Template) {
+                exprString += 't';
+            }
+
             let escapedString = node.d.token.escapedValue;
             if ((flags & PrintExpressionFlags.DoNotLimitStringLength) === 0) {
                 const maxStringLength = 32;
@@ -2675,7 +2679,7 @@ export function isSimpleDefault(node: ExpressionNode): boolean {
             return true;
 
         case ParseNodeType.String:
-            return (node.d.token.flags & StringTokenFlags.Format) === 0;
+            return (node.d.token.flags & (StringTokenFlags.Format | StringTokenFlags.Template)) === 0;
 
         case ParseNodeType.StringList:
             return node.d.strings.every(isSimpleDefault);

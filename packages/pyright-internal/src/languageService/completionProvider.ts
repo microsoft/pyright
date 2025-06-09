@@ -2674,7 +2674,7 @@ export class CompletionProvider {
         // permitted. For example, f"..{typedDict[|<= here ]}", we need to use
         // single quotes. Note that this doesn't account for deeper nested
         // f-strings.
-        if (this._stringLiteralContainer.flags & StringTokenFlags.Format) {
+        if (this._stringLiteralContainer.flags & (StringTokenFlags.Format | StringTokenFlags.Template)) {
             quoteCharacter =
                 this._stringLiteralContainer.flags & StringTokenFlags.SingleQuote ? doubleQuote : singleQuote;
         }
