@@ -20,6 +20,7 @@ import {
     CaseNode,
     ClassNode,
     DecoratorNode,
+    ExecutionScopeNode,
     ExpressionNode,
     FunctionNode,
     MatchNode,
@@ -868,6 +869,8 @@ export interface TypeEvaluator {
     ) => T;
     isSpeculativeModeInUse: (node: ParseNode | undefined) => boolean;
     setTypeResultForNode: (node: ParseNode, typeResult: TypeResult, flags?: EvalFlags) => void;
+
+    dropCodeFlowAnalyzer: (node: ExecutionScopeNode) => void;
 
     checkForCancellation: () => void;
     printControlFlowGraph: (

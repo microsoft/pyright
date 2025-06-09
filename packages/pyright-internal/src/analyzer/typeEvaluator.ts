@@ -20864,6 +20864,13 @@ export function createTypeEvaluator(
         return undefined;
     }
 
+    // Call this function once an execution scope has been fully analyzed
+    // and all diagnostics generated. This frees up the code flow analyzer
+    // and any cached information it has accumulated.
+    function dropCodeFlowAnalyzer(node: ExecutionScopeNode) {
+        codeFlowAnalyzerCache.delete(node.id);
+    }
+
     function getCodeFlowAnalyzerForNode(
         node: ExecutionScopeNode,
         typeAtStart: TypeResult | undefined
@@ -28621,6 +28628,7 @@ export function createTypeEvaluator(
         useSpeculativeMode,
         isSpeculativeModeInUse,
         setTypeResultForNode,
+        dropCodeFlowAnalyzer,
         checkForCancellation,
         printControlFlowGraph,
     };

@@ -285,6 +285,10 @@ export class Checker extends ParseTreeWalker {
         this._reportUnusedMultipartImports();
 
         this._reportDuplicateImports();
+
+        // We don't need the cached code flow analyzer for this execution
+        // scope any more, so drop it to free up memory.
+        this._evaluator.dropCodeFlowAnalyzer(this._moduleNode);
     }
 
     override walk(node: ParseNode) {
@@ -746,6 +750,10 @@ export class Checker extends ParseTreeWalker {
             this._validateOverloadAttributeConsistency(node, functionTypeResult.decoratedType);
         }
 
+        // We don't need the cached code flow analyzer for this execution
+        // scope any more, so drop it to free up memory.
+        this._evaluator.dropCodeFlowAnalyzer(node);
+
         return false;
     }
 
@@ -796,6 +804,10 @@ export class Checker extends ParseTreeWalker {
         }
 
         this._scopedNodes.push(node);
+
+        // We don't need the cached code flow analyzer for this execution
+        // scope any more, so drop it to free up memory.
+        this._evaluator.dropCodeFlowAnalyzer(node);
 
         return false;
     }
@@ -1625,6 +1637,11 @@ export class Checker extends ParseTreeWalker {
 
     override visitTypeParameterList(node: TypeParameterListNode): boolean {
         this._typeParamLists.push(node);
+
+        // We don't need the cached code flow analyzer for this execution
+        // scope any more, so drop it to free up memory.
+        this._evaluator.dropCodeFlowAnalyzer(node);
+
         return true;
     }
 
