@@ -1190,6 +1190,18 @@
             "message": "\"Self\" cannot be used in a function with a `self` or `cls` parameter that has a type annotation other than \"Self\"",
             "comment": "{Locked='Self','self','cls'}"
         },
+        "sentinelBadName": {
+            "message": "The first argument to Sentinel must be a string literal",
+            "comment": "{Locked='Sentinel'}"
+        },
+        "sentinelParamCount": {
+            "message": "Sentinel requires one positional argument",
+            "comment": "{Locked='Sentinel'}"
+        },
+        "sentinelNameMismatch": {
+            "message": "Sentinel must be assigned to a variable with the same name",
+            "comment": "{Locked='Sentinel'}"
+        },
         "setterGetterTypeMismatch": {
             "message": "Property setter value type is not assignable to the getter return type",
             "comment": ["{Locked='setter','getter'}", "{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]

@@ -908,6 +908,9 @@ export namespace Localizer {
         export const selfTypeContext = () => getRawString('Diagnostic.selfTypeContext');
         export const selfTypeMetaclass = () => getRawString('Diagnostic.selfTypeMetaclass');
         export const selfTypeWithTypedSelfOrCls = () => getRawString('Diagnostic.selfTypeWithTypedSelfOrCls');
+        export const sentinelBadName = () => getRawString('Diagnostic.sentinelBadName');
+        export const sentinelNameMismatch = () => getRawString('Diagnostic.sentinelNameMismatch');
+        export const sentinelParamCount = () => getRawString('Diagnostic.sentinelParamCount');
         export const setterGetterTypeMismatch = () => getRawString('Diagnostic.setterGetterTypeMismatch');
         export const starPatternInAsPattern = () => getRawString('Diagnostic.starPatternInAsPattern');
         export const starPatternInOrPattern = () => getRawString('Diagnostic.starPatternInOrPattern');

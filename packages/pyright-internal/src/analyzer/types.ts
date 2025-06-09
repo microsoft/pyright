@@ -97,7 +97,15 @@ export class EnumLiteral {
     }
 }
 
-export type LiteralValue = number | bigint | boolean | string | EnumLiteral;
+export class SentinelLiteral {
+    constructor(public classFullName: string, public className: string) {}
+
+    getName() {
+        return this.className;
+    }
+}
+
+export type LiteralValue = number | bigint | boolean | string | EnumLiteral | SentinelLiteral;
 
 export type TypeSourceId = number;
 
@@ -1048,6 +1056,13 @@ export namespace ClassType {
         if (type1.priv.literalValue instanceof EnumLiteral) {
             if (type2.priv.literalValue instanceof EnumLiteral) {
                 return type1.priv.literalValue.itemName === type2.priv.literalValue.itemName;
+            }
+            return false;
+        }
+
+        if (type1.priv.literalValue instanceof SentinelLiteral) {
+            if (type2.priv.literalValue instanceof SentinelLiteral) {
+                return type1.priv.literalValue.classFullName === type2.priv.literalValue.classFullName;
             }
             return false;
         }

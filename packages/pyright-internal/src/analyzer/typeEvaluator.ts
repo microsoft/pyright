@@ -168,6 +168,7 @@ import { assignProperty } from './properties';
 import { assignClassToProtocol, assignModuleToProtocol } from './protocols';
 import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
+import { createSentinelType } from './sentinel';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags, SynthesizedTypeInfo } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
@@ -265,6 +266,7 @@ import {
     ParamSpecType,
     removeFromUnion,
     removeUnbound,
+    SentinelLiteral,
     TupleTypeArg,
     Type,
     TypeAliasInfo,
@@ -333,6 +335,7 @@ import {
     isOptionalType,
     isPartlyUnknown,
     isProperty,
+    isSentinelLiteral,
     isTupleClass,
     isTupleIndexUnambiguous,
     isTypeAliasPlaceholder,
@@ -1989,6 +1992,11 @@ export function createTypeEvaluator(
                     return false;
                 }
 
+                // Sentinels are always truthy.
+                if (isSentinelLiteral(type)) {
+                    return false;
+                }
+
                 // Handle tuples specially.
                 if (isTupleClass(type) && type.priv.tupleTypeArgs) {
                     return isUnboundedTupleClass(type) || type.priv.tupleTypeArgs.length === 0;
@@ -2179,6 +2187,11 @@ export function createTypeEvaluator(
                     return isLiteralFalsy ? subtype : undefined;
                 }
 
+                // If the object is a sentinel, we can eliminate it.
+                if (isSentinelLiteral(concreteSubtype)) {
+                    return undefined;
+                }
+
                 // If the object is a bool, make it "false", since
                 // "true" is a truthy value.
                 if (ClassType.isBuiltIn(concreteSubtype, 'bool')) {
@@ -2219,6 +2232,8 @@ export function createTypeEvaluator(
 
                     if (concreteSubtype.priv.literalValue instanceof EnumLiteral) {
                         isLiteralTruthy = !canBeFalsy(concreteSubtype);
+                    } else if (concreteSubtype.priv.literalValue instanceof SentinelLiteral) {
+                        isLiteralTruthy = true;
                     } else {
                         isLiteralTruthy = !!concreteSubtype.priv.literalValue;
                     }
@@ -4878,6 +4893,13 @@ export function createTypeEvaluator(
             }
         }
 
+        // If we're expecting a type expression and got a sentinel literal instance,
+        // treat it as its instantiable counterpart. This is similar to how None
+        // is treated in a type expression context.
+        if ((flags & EvalFlags.InstantiableType) !== 0 && isClassInstance(type) && isSentinelLiteral(type)) {
+            type = ClassType.cloneAsInstantiable(type);
+        }
+
         type = convertSpecialFormToRuntimeValue(type, flags);
 
         if ((flags & EvalFlags.TypeExpression) === 0) {
@@ -4962,6 +4984,10 @@ export function createTypeEvaluator(
 
         // Exempts class types that are created by calling NewType, NamedTuple, etc.
         if (isClass(type) && !type.priv.includeSubclasses && ClassType.isValidTypeAliasClass(type)) {
+            return true;
+        }
+
+        if (isSentinelLiteral(type)) {
             return true;
         }
 
@@ -10421,6 +10447,13 @@ export function createTypeEvaluator(
 
             if (className === 'NewType') {
                 return { returnType: createNewType(errorNode, argList) };
+            }
+
+            // Handle the Sentinel call specially.
+            if (className === 'Sentinel') {
+                if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
+                    return { returnType: createSentinelType(evaluatorInterface, errorNode, argList) };
+                }
             }
 
             if (ClassType.isSpecialFormClass(expandedCallType)) {
@@ -19303,12 +19336,13 @@ export function createTypeEvaluator(
 
         let inferredParamType: Type | undefined;
 
-        // Is the default value a "None" or an instance of some private class (one
-        // whose name starts with an underscore)? If so, we will assume that the
-        // value is a singleton sentinel. The actual supported type is going to be
-        // a union of this type and Unknown.
+        // Is the default value a "None", a sentinel, or an instance of some private
+        // class (one whose name starts with an underscore)? If so, we will assume
+        // that the value is a singleton sentinel. The actual supported type is
+        // going to be a union of this type and Unknown.
         if (
             isNoneInstance(defaultValueType) ||
+            isSentinelLiteral(defaultValueType) ||
             (isClassInstance(defaultValueType) && isPrivateOrProtectedName(defaultValueType.shared.name))
         ) {
             inferredParamType = combineTypes([defaultValueType, UnknownType.create()]);

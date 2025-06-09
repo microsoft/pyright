@@ -968,3 +968,11 @@ test('SolverUnknown1', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('Sentinel1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 5);
+});
