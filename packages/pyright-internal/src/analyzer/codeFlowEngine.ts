@@ -1485,7 +1485,7 @@ export function getCodeFlowEngine(
 
         // Protect against infinite recursion.
         if (isReachableRecursionSet.has(flowNode.id)) {
-            return Reachability.UnreachableByAnalysis;
+            return Reachability.Reachable;
         }
         isReachableRecursionSet.add(flowNode.id);
 
