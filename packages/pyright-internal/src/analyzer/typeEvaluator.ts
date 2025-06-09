@@ -51,6 +51,7 @@ import {
     DictionaryNode,
     ErrorExpressionCategory,
     ExceptNode,
+    ExecutionScopeNode,
     ExpressionNode,
     FormatStringNode,
     ForNode,
@@ -3321,7 +3322,8 @@ export function createTypeEvaluator(
             return reachability;
         }
 
-        if (!isFlowNodeReachableUsingNeverNarrowing(node, returnFlowNode)) {
+        const executionScopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+        if (!isFlowNodeReachableUsingNeverNarrowing(executionScopeNode, returnFlowNode)) {
             return Reachability.UnreachableByAnalysis;
         }
 
@@ -3330,8 +3332,8 @@ export function createTypeEvaluator(
 
     // Although isFlowNodeReachable indicates that the node is reachable, it
     // may not be reachable if we apply "never narrowing".
-    function isFlowNodeReachableUsingNeverNarrowing(node: ParseNode, flowNode: FlowNode) {
-        const analyzer = getCodeFlowAnalyzerForNode(node.id, /* typeAtStart */ undefined);
+    function isFlowNodeReachableUsingNeverNarrowing(node: ExecutionScopeNode, flowNode: FlowNode) {
+        const analyzer = getCodeFlowAnalyzerForNode(node, /* typeAtStart */ undefined);
 
         if (checkCodeFlowTooComplex(node)) {
             return true;
@@ -20862,8 +20864,11 @@ export function createTypeEvaluator(
         return undefined;
     }
 
-    function getCodeFlowAnalyzerForNode(nodeId: number, typeAtStart: TypeResult | undefined): CodeFlowAnalyzer {
-        let entries = codeFlowAnalyzerCache.get(nodeId);
+    function getCodeFlowAnalyzerForNode(
+        node: ExecutionScopeNode,
+        typeAtStart: TypeResult | undefined
+    ): CodeFlowAnalyzer {
+        let entries = codeFlowAnalyzerCache.get(node.id);
 
         if (entries) {
             const cachedEntry = entries.find((entry) => {
@@ -20889,7 +20894,7 @@ export function createTypeEvaluator(
             entries.push({ typeAtStart, codeFlowAnalyzer: analyzer });
         } else {
             entries = [{ typeAtStart, codeFlowAnalyzer: analyzer }];
-            codeFlowAnalyzerCache.set(nodeId, entries);
+            codeFlowAnalyzerCache.set(node.id, entries);
         }
 
         return analyzer;
@@ -20937,7 +20942,7 @@ export function createTypeEvaluator(
             // a temporary analyzer that we'll use only for this context.
             analyzer = getCodeFlowAnalyzerForReturnTypeInferenceContext();
         } else {
-            analyzer = getCodeFlowAnalyzerForNode(executionNode.id, options?.typeAtStart);
+            analyzer = getCodeFlowAnalyzerForNode(executionNode, options?.typeAtStart);
         }
 
         const flowNode = AnalyzerNodeInfo.getFlowNode(startNode ?? reference);
