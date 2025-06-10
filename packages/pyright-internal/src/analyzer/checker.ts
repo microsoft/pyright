@@ -384,8 +384,6 @@ export class Checker extends ParseTreeWalker {
 
             this._validateDataClassPostInit(classTypeResult.classType);
 
-            this._validateDataClassDefaults(classTypeResult.classType);
-
             this._validateEnumMembers(classTypeResult.classType, node);
 
             if (ClassType.isTypedDictClass(classTypeResult.classType)) {
@@ -5147,30 +5145,6 @@ export class Checker extends ParseTreeWalker {
                         );
                     }
                 }
-            }
-        });
-    }
-
-    // If a class is a dataclass, verify that any default values for its
-    // fields are not list, dict, or set instances. These are disallowed
-    // at runtime.
-    private _validateDataClassDefaults(classType: ClassType) {
-        if (!ClassType.isDataClass(classType)) {
-            return;
-        }
-
-        classType.shared.dataClassEntries?.forEach((entry) => {
-            if (!entry.defaultExpr) {
-                return;
-            }
-
-            const typeResult = this._evaluator.getTypeOfExpression(entry.defaultExpr);
-            if (isClassInstance(typeResult.type) && ClassType.isBuiltIn(typeResult.type, ['list', 'dict', 'set'])) {
-                this._evaluator.addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    LocMessage.dataClassDefaultValueMutable(),
-                    entry.defaultExpr
-                );
             }
         });
     }

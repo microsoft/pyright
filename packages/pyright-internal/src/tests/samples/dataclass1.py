@@ -1,7 +1,7 @@
 # This sample tests the handling of the @dataclass decorator.
 
 from dataclasses import dataclass, InitVar, field
-from typing import Any, Callable, Generic, Literal, Sequence, TypeVar
+from typing import Callable, Generic, Literal, Sequence, TypeVar
 
 
 @dataclass
@@ -116,7 +116,7 @@ v8_2 = DC8[str]()
 
 @dataclass
 class DC9(Generic[T1]):
-    x: Sequence[Literal["a", "b"]] = ("a",)
+    x: Sequence[Literal["a", "b"]] = ["a"]
 
 
 @dataclass
@@ -126,22 +126,3 @@ class DC10[T]:
 
 
 DC10(a=int)
-
-
-@dataclass
-class DC11:
-    # This should generate an error because lists are not allowed
-    # as default values.
-    a: list[int] = []
-
-    # This should generate an error because sets are not allowed
-    # as default values.
-    b: set[int] = set[int]()
-
-    # This should generate an error because dicts are not allowed
-    # as default values.
-    c: dict[str, str] = {}
-
-    # This should generate an error because lists are not allowed
-    # as default values.
-    d: Any = field(default=[])
