@@ -2905,6 +2905,37 @@ export function createTypeEvaluator(
                 }
                 break;
             }
+
+            case ParseNodeType.Tuple: {
+                // If this is a tuple expression with at least one item and no
+                // unpacked items, and all of the items have declared types,
+                // we can assume a declared type for the resulting tuple. This
+                // is needed to enable bidirectional type inference when assigning
+                // to an unpacked tuple.
+                if (
+                    expression.d.items.length > 0 &&
+                    !expression.d.items.some((item) => item.nodeType === ParseNodeType.Unpack)
+                ) {
+                    const itemTypes: Type[] = [];
+                    expression.d.items.forEach((expr) => {
+                        const itemType = getDeclaredTypeForExpression(expr, usage);
+                        if (itemType) {
+                            itemTypes.push(itemType);
+                        }
+                    });
+
+                    if (itemTypes.length === expression.d.items.length) {
+                        // If all items have a declared type, return a tuple of those types.
+                        return makeTupleObject(
+                            evaluatorInterface,
+                            itemTypes.map((t) => {
+                                return { type: t, isUnbounded: false };
+                            })
+                        );
+                    }
+                }
+                break;
+            }
         }
 
         if (symbol) {
