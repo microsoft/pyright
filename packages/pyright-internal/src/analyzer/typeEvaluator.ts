@@ -244,6 +244,7 @@ import {
     isFunction,
     isFunctionOrOverloaded,
     isInstantiableClass,
+    isMethodType,
     isModule,
     isNever,
     isOverloaded,
@@ -1021,6 +1022,7 @@ export function createTypeEvaluator(
             prefetched.objectClass = getBuiltInType(node, 'object');
             prefetched.typeClass = getBuiltInType(node, 'type');
             prefetched.functionClass = getTypesType(node, 'FunctionType') ?? getBuiltInType(node, 'function');
+            prefetched.methodClass = getTypesType(node, 'MethodType');
 
             prefetched.unionTypeClass = getTypesType(node, 'UnionType');
             if (prefetched.unionTypeClass && isClass(prefetched.unionTypeClass)) {
@@ -6065,9 +6067,11 @@ export function createTypeEvaluator(
 
             case TypeCategory.Function:
             case TypeCategory.Overloaded: {
-                if (memberName === '__self__') {
-                    // The "__self__" member is not currently defined in the "function"
-                    // class, so we'll special-case it here.
+                const hasSelf = isMethodType(baseType);
+
+                if (memberName === '__self__' && hasSelf) {
+                    // Handle "__self__" specially because MethodType defines
+                    // it simply as "object". We can do better here.
                     let functionType: FunctionType | undefined;
 
                     if (isFunction(baseType)) {
@@ -6079,21 +6083,12 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    if (
-                        functionType &&
-                        functionType.priv.preBoundFlags !== undefined &&
-                        (functionType.priv.preBoundFlags & FunctionTypeFlags.StaticMethod) === 0
-                    ) {
-                        type = functionType.priv.boundToType;
-                    }
+                    type = functionType?.priv.boundToType;
                 } else {
+                    const altType = hasSelf ? prefetched?.methodClass : prefetched?.functionClass;
                     type = getTypeOfMemberAccessWithBaseType(
                         node,
-                        {
-                            type: prefetched?.functionClass
-                                ? convertToInstance(prefetched.functionClass)
-                                : UnknownType.create(),
-                        },
+                        { type: altType ? convertToInstance(altType) : UnknownType.create() },
                         usage,
                         flags
                     ).type;
@@ -25099,16 +25094,10 @@ export function createTypeEvaluator(
                     return assignType(destCallbackType, concreteSrcType, diag, constraints, flags, recursionCount);
                 }
 
-                // All functions are considered instances of "builtins.function".
-                if (prefetched?.functionClass) {
-                    return assignType(
-                        destType,
-                        convertToInstance(prefetched.functionClass),
-                        diag,
-                        constraints,
-                        flags,
-                        recursionCount
-                    );
+                // All functions are considered instances of "types.FunctionType" or "types.MethodType".
+                const altClass = isMethodType(concreteSrcType) ? prefetched?.methodClass : prefetched?.functionClass;
+                if (altClass) {
+                    return assignType(destType, convertToInstance(altClass), diag, constraints, flags, recursionCount);
                 }
             } else if (isModule(concreteSrcType)) {
                 // Is the destination the built-in "ModuleType"?

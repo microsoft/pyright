@@ -3267,6 +3267,32 @@ export function isFunctionOrOverloaded(type: Type): type is FunctionType | Overl
     return type.category === TypeCategory.Function || type.category === TypeCategory.Overloaded;
 }
 
+export function isMethodType(type: FunctionType | OverloadedType): boolean {
+    let funcType: FunctionType | undefined;
+
+    if (isFunction(type)) {
+        funcType = type;
+    } else {
+        if (type.priv._overloads.length === 0) {
+            return false;
+        }
+        funcType = type.priv._overloads[0];
+    }
+
+    // __new__ methods are never really bound at runtime.
+    if (
+        funcType.priv.preBoundFlags !== undefined &&
+        (funcType.priv.preBoundFlags & FunctionTypeFlags.ConstructorMethod) !== 0
+    ) {
+        return false;
+    }
+
+    // If the function type has a stripped first parameter type, it was
+    // bound to class or object and is therefore a MethodType rather
+    // a FunctionType.
+    return !!funcType.priv.strippedFirstParamType;
+}
+
 export function getTypeAliasInfo(type: Type) {
     if (type.props?.typeAliasInfo) {
         return type.props.typeAliasInfo;

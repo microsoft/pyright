@@ -210,6 +210,7 @@ export interface PrefetchedTypes {
     unionTypeClass: Type;
     awaitableClass: Type;
     functionClass: Type;
+    methodClass: Type;
     tupleClass: Type;
     boolClass: Type;
     intClass: Type;

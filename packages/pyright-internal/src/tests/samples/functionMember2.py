@@ -4,6 +4,9 @@
 # pyright: reportFunctionMemberAccess=error
 
 
+from typing import Protocol
+
+
 def func1(a: int) -> str: ...
 
 
@@ -39,3 +42,20 @@ s5 = A().method3.__self__
 
 # This should generate an error because method3 is static.
 s6 = A.method3.__self__
+
+
+class HasSelf(Protocol):
+    @property
+    def __self__(self, /) -> object: ...
+
+
+f1: HasSelf
+f1 = A.method2
+f1 = A().method1
+f1 = A().method2
+
+# These three should generate an error because they are not
+# MethodTypes but are instead FunctionTypes.
+f1 = A.method1
+f1 = A.method3
+f1 = A().method3

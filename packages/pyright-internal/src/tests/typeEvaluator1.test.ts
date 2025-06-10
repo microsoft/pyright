@@ -987,7 +987,7 @@ test('FunctionMember1', () => {
 test('FunctionMember2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionMember2.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('Annotations1', () => {
