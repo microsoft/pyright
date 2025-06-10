@@ -229,6 +229,12 @@ export function isProtocolUnsafeOverlap(evaluator: TypeEvaluator, protocol: Clas
     return isUnsafeOverlap;
 }
 
+function makeProtocolCompatibilityCacheClassKey(classType: ClassType): string {
+    // Create a unique key based on the full name of the class and its type source ID,
+    // which is derived from the character offset of the class in the source file.
+    return `${classType.shared.fullName}.${classType.shared.typeSourceId}`;
+}
+
 // Looks up the protocol compatibility in the cache. If it's not found,
 // return undefined.
 function getProtocolCompatibility(
@@ -238,7 +244,12 @@ function getProtocolCompatibility(
     constraints: ConstraintTracker | undefined
 ): ProtocolCompatibility | undefined {
     const map = srcType.shared.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
-    const entries = map?.get(destType.shared.fullName);
+    if (!map) {
+        return undefined;
+    }
+
+    const classKey = makeProtocolCompatibilityCacheClassKey(destType);
+    const entries = map.get(classKey);
     if (entries === undefined) {
         return undefined;
     }
@@ -284,10 +295,11 @@ function setProtocolCompatibility(
         srcType.shared.protocolCompatibility = map;
     }
 
-    let entries = map.get(destType.shared.fullName);
+    const classKey = makeProtocolCompatibilityCacheClassKey(destType);
+    let entries = map.get(classKey);
     if (!entries) {
         entries = [];
-        map.set(destType.shared.fullName, entries);
+        map.set(classKey, entries);
     }
 
     // See if the srcType is always incompatible regardless of how it
