@@ -21,7 +21,12 @@ class TD3(TypedDict, total=False):
 
 def f1(p: TD1 | TD2):
     if "b" in p:
-        reveal_type(p, expected_text="TD1 | TD2")
+        # This should technically be TD1 | TD2, but the
+        # current narrowing logic implements a not-entirely-safe
+        # narrowing behavior. We can fix this once PEP 728
+        # is accepted.
+        reveal_type(p, expected_text="TD1")
+        # reveal_type(p, expected_text="TD1 | TD2")
     else:
         reveal_type(p, expected_text="TD2")
 
@@ -30,12 +35,22 @@ def f2(p: TD1 | TD2):
     if "b" not in p:
         reveal_type(p, expected_text="TD2")
     else:
-        reveal_type(p, expected_text="TD1 | TD2")
+        # This should technically be TD1 | TD2, but the
+        # current narrowing logic implements a not-entirely-safe
+        # narrowing behavior. We can fix this once PEP 728
+        # is accepted.
+        reveal_type(p, expected_text="TD1")
+        # reveal_type(p, expected_text="TD1 | TD2")
 
 
 def f3(p: TD1 | TD3):
     if "d" in p:
-        reveal_type(p, expected_text="TD1 | TD3")
+        # This should technically be TD1 | TD3, but the
+        # current narrowing logic implements a not-entirely-safe
+        # narrowing behavior. We can fix this once PEP 728
+        # is accepted.
+        reveal_type(p, expected_text="TD3")
+        # reveal_type(p, expected_text="TD1 | TD3")
     else:
         reveal_type(p, expected_text="TD1 | TD3")
 
@@ -44,7 +59,12 @@ def f4(p: TD1 | TD3):
     if "d" not in p:
         reveal_type(p, expected_text="TD1 | TD3")
     else:
-        reveal_type(p, expected_text="TD1 | TD3")
+        # This should technically be TD1 | TD3, but the
+        # current narrowing logic implements a not-entirely-safe
+        # narrowing behavior. We can fix this once PEP 728
+        # is accepted.
+        reveal_type(p, expected_text="TD3")
+        # reveal_type(p, expected_text="TD1 | TD3")
 
 
 def f5(p: TD1 | TD3):
@@ -61,13 +81,23 @@ def f6(p: TD1 | TD2 | TD3):
     v2 = p.get("a")
 
     if "c" in p:
-        # This should generate an error for TD1 and TD3
+        # This should technicall generate two errors for TD1 and TD3
         v3 = p["c"]
-        reveal_type(v3, expected_text="Unknown | str")
+        # This should technically be Unknown | str, but the
+        # current narrowing logic implements a not-entirely-safe
+        # narrowing behavior. We can fix this once PEP 728
+        # is accepted.
+        reveal_type(v3, expected_text="str")
+        # reveal_type(v3, expected_text="Unknown | str")
 
     if "a" in p and "d" in p:
         v4 = p["a"]
-        reveal_type(v4, expected_text="str | int")
+        # This should technically be str | int, but the
+        # current narrowing logic implements a not-entirely-safe
+        # narrowing behavior. We can fix this once PEP 728
+        # is accepted.
+        reveal_type(v4, expected_text="int")
+        # reveal_type(v4, expected_text="str | int")
 
         # This should generate an error for TD1 and TD2
         v5 = p["d"]

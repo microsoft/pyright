@@ -2248,18 +2248,28 @@ function narrowTypeForTypedDictKey(
                 const tdEntry = entries.knownItems.get(literalKey.priv.literalValue as string) ?? entries.extraItems;
 
                 if (isPositiveTest) {
+                    // The code that is commented out below implements the behavior that is technically
+                    // correct, but until we PEP 728 is ratified and we have a way to express "extra items"
+                    // and closed TypedDicts, we'll preserve the older (less correct) behavior to enable
+                    // narrowing of TypedDicts based on checks for specific keys.
+                    // TODO - remove this behavior once PEP 728 is accepted and the feature is no
+                    // longer experimental.
                     if (!tdEntry) {
-                        // If there is no TD entry for this key and no "extra items" defined,
-                        // we have to assume that the TypedDict may contain extra items, so
-                        // narrowing it isn't possible in this case.
-                        return subtype;
-                    }
-
-                    if (isNever(tdEntry.valueType)) {
-                        // If the entry is typed as Never or the "extra items" is typed as Never,
-                        // then this key cannot be present in the TypedDict, and we can eliminate it.
                         return undefined;
                     }
+
+                    // if (!tdEntry) {
+                    //     // If there is no TD entry for this key and no "extra items" defined,
+                    //     // we have to assume that the TypedDict may contain extra items, so
+                    //     // narrowing it isn't possible in this case.
+                    //     return subtype;
+                    // }
+
+                    // if (isNever(tdEntry.valueType)) {
+                    //     // If the entry is typed as Never or the "extra items" is typed as Never,
+                    //     // then this key cannot be present in the TypedDict, and we can eliminate it.
+                    //     return undefined;
+                    // }
 
                     // If the entry is currently not required and not marked provided, we can mark
                     // it as provided after this guard expression confirms it is.
