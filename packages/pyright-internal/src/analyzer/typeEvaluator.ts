@@ -17357,7 +17357,7 @@ export function createTypeEvaluator(
             fileInfo.moduleName,
             fileInfo.fileUri,
             classFlags,
-            /* typeSourceId */ 0,
+            ParseTreeUtils.getTypeSourceId(node),
             /* declaredMetaclass */ undefined,
             /* effectiveMetaclass */ undefined,
             ParseTreeUtils.getDocString(node.d.suite.d.statements)
