@@ -58,7 +58,7 @@ The following settings determine how different types should be evaluated.
 
 - <a name="deprecateTypingAliases"></a> **deprecateTypingAliases** [boolean]: PEP 585 indicates that aliases to types in standard collections that were introduced solely to support generics are deprecated as of Python 3.9. This switch controls whether these are treated as deprecated. This applies only when pythonVersion is 3.9 or newer. The default value for this setting is `false` but may be switched to `true` in the future.
 
-- <a name="enableReachabilityAnalysis"></a> **enableReachabilityAnalysis** [boolean]: If enabled, code that is determined to be unreachable by type analysis is reported using a tagged hint. This setting does not affect code that is determined to be unreachable regardless of type analysis; such code is always reported as unreachable. This setting also has no effect when using the command-line version of pyright because it never emits tagged hints for unreachable code.
+- <a name="enableReachabilityAnalysis"></a> **enableReachabilityAnalysis** [boolean]: If enabled, code that is determined to be unreachable by type analysis is reported using a tagged hint. This setting does not affect code that is determined to be unreachable independent of type analysis; such code is always reported as unreachable using a tagged hint. This setting also has no effect when using the command-line version of pyright because it never emits tagged hints for unreachable code.
 
 - <a name="enableExperimentalFeatures"></a> **enableExperimentalFeatures** [boolean]: Enables a set of experimental (mostly undocumented) features that correspond to proposed or exploratory changes to the Python typing standard. These features will likely change or be removed, so they should not be used except for experimentation purposes. The default value for this setting is `false`.
 
@@ -232,6 +232,8 @@ The following settings allow more fine grained control over the **typeCheckingMo
 - <a name="reportUnnecessaryTypeIgnoreComment"></a> **reportUnnecessaryTypeIgnoreComment** [boolean or string, optional]: Generate or suppress diagnostics for a `# type: ignore` or `# pyright: ignore` comment that would have no effect if removed. The default value for this setting is `"none"`.
 
 - <a name="reportMatchNotExhaustive"></a> **reportMatchNotExhaustive** [boolean or string, optional]: Generate or suppress diagnostics for a `match` statement that does not provide cases that exhaustively match against all potential types of the target expression. The default value for this setting is `"none"`.
+
+- <a name="reportUnreachable"></a> **reportUnreachable** [boolean or string, optional]: Generate or suppress diagnostics for code that is determined to be structurally unreachable or unreachable by type analysis. The default value for this setting is `"none"`.
 
 - <a name="reportImplicitOverride"></a> **reportImplicitOverride** [boolean or string, optional]: Generate or suppress diagnostics for overridden methods in a class that are missing an explicit `@override` decorator. The default value for this setting is `"none"`.
 
@@ -439,6 +441,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportShadowedImports                     | "none"     | "none"     | "none"     | "none"     |
 | reportUninitializedInstanceVariable       | "none"     | "none"     | "none"     | "none"     |
 | reportUnnecessaryTypeIgnoreComment        | "none"     | "none"     | "none"     | "none"     |
+| reportUnreachable                         | "none"     | "none"     | "none"     | "none"     |
 | reportUnusedCallResult                    | "none"     | "none"     | "none"     | "none"     |
 
 ## Overriding settings (in VS Code)

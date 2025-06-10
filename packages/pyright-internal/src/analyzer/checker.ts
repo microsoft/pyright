@@ -2846,7 +2846,23 @@ export class Checker extends ParseTreeWalker {
                     const start = statement.start;
                     const lastStatement = statements[statements.length - 1];
                     const end = TextRange.getEnd(lastStatement);
-                    this._evaluator.addUnreachableCode(statement, reachability, { start, length: end - start });
+                    const textRange: TextRange = { start, length: end - start };
+
+                    if (
+                        reachability === Reachability.UnreachableByAnalysis ||
+                        reachability === Reachability.UnreachableStructural
+                    ) {
+                        this._evaluator.addDiagnosticForTextRange(
+                            this._fileInfo,
+                            DiagnosticRule.reportUnreachable,
+                            reachability === Reachability.UnreachableStructural
+                                ? LocMessage.unreachableCodeStructure()
+                                : LocMessage.unreachableCodeType(),
+                            statement.nodeType === ParseNodeType.Error ? statement : statement.d.firstToken
+                        );
+                    }
+
+                    this._evaluator.addUnreachableCode(statement, reachability, textRange);
 
                     reportedUnreachable = true;
                 }
@@ -7682,6 +7698,14 @@ export class Checker extends ParseTreeWalker {
                         LocMessage.unreachableExcept() + diagAddendum.getString(),
                         except.d.typeExpr
                     );
+
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportUnreachable,
+                        LocMessage.unreachableCodeType(),
+                        except.d.exceptSuite,
+                        except.d.exceptToken
+                    );
+
                     this._evaluator.addUnreachableCode(
                         except,
                         Reachability.UnreachableByAnalysis,

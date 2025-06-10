@@ -1723,7 +1723,8 @@
             "message": "Unable to match unpacked TypedDict argument to parameters",
             "comment": "{Locked='TypedDict'}"
         },
-        "unreachableCode": "Code is unreachable",
+        "unreachableCodeCondition": "Code is not analyzed because condition is statically evaluated as false",
+        "unreachableCodeStructure": "Code is structurally unreachable",
         "unreachableCodeType": "Type analysis indicates code is unreachable",
         "unreachableExcept": {
             "message": "Except clause is unreachable because exception is already handled",

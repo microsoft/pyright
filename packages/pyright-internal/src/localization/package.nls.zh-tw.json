@@ -635,7 +635,6 @@
         "unpackedSubscriptIllegal": "下標中的解壓縮運算子需要 Python 3.11 或更新版本",
         "unpackedTypeVarTupleExpected": "預期為解壓縮的 TypeVarTuple; 使用 Unpack[{name1}] 或 *{name2}",
         "unpackedTypedDictArgument": "無法比對解壓縮的 TypedDict 引數與參數",
-        "unreachableCode": "無法連線到程式碼",
         "unreachableCodeType": "類型分析指出程式碼無法連線",
         "unreachableExcept": "無法連接 Except 子句，因為例外已處理",
         "unsupportedDunderAllOperation": "不支援 \"__all__\" 上的作業，因此匯出的符號清單可能不正確",

@@ -494,6 +494,11 @@
       "title": "Controls reporting of 'match' statements that do not exhaustively match all possible values",
       "default": "none"
     },
+    "reportUnreachable": {
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of code that is determined by type analysis to be unreachable",
+      "default": "none"
+    },
     "reportShadowedImports": {
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of shadowed imports of stdlib modules",
@@ -855,6 +860,9 @@
     "reportMatchNotExhaustive": {
       "$ref": "#/definitions/reportMatchNotExhaustive"
     },
+    "reportUnreachable": {
+      "$ref": "#/definitions/reportUnreachable"
+    },
     "reportShadowedImports": {
       "$ref": "#/definitions/reportShadowedImports"
     },
@@ -1172,6 +1180,9 @@
           },
           "reportMatchNotExhaustive": {
             "$ref": "#/definitions/reportMatchNotExhaustive"
+          },
+          "reportUnreachable": {
+            "$ref": "#/definitions/reportUnreachable"
           },
           "reportShadowedImports": {
             "$ref": "#/definitions/reportShadowedImports"

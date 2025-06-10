@@ -635,7 +635,6 @@
         "unpackedSubscriptIllegal": "Operator rozpakowywania w indeksie dolnym wymaga języka Python w wersji 3.11 lub nowszej",
         "unpackedTypeVarTupleExpected": "Oczekiwano nierozpakowanego typu TypeVarTuple; użyj Unpack[{name1}] lub *{name2}",
         "unpackedTypedDictArgument": "Nie można dopasować nierozpakowanego argumentu TypedDict do parametrów",
-        "unreachableCode": "Kod jest nieosiągalny",
         "unreachableCodeType": "Analiza typów wskazuje, że kod jest nieosiągalny",
         "unreachableExcept": "Klauzula Except jest nieosiągalna, ponieważ wyjątek jest już obsługiwany",
         "unsupportedDunderAllOperation": "Operacja na elemencie „__all__” nie jest obsługiwana, więc wyeksportowana lista symboli może być nieprawidłowa",

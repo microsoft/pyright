@@ -492,7 +492,7 @@ export function getCodeFlowEngine(
                         );
                     }
 
-                    if (curFlowNode.flags & FlowFlags.Unreachable) {
+                    if (curFlowNode.flags & (FlowFlags.UnreachableStaticCondition | FlowFlags.UnreachableStructural)) {
                         // We can get here if there are nodes in a compound logical expression
                         // (e.g. "False and x") that are never executed but are evaluated.
                         return setCacheEntry(curFlowNode, NeverType.createNever(), /* isIncomplete */ false);
@@ -1302,14 +1302,18 @@ export function getCodeFlowEngine(
                 // If we've already visited this node, we can assume
                 // it wasn't reachable.
                 if (visitedFlowNodeSet.has(curFlowNode.id)) {
-                    return cacheReachabilityResult(Reachability.UnreachableAlways);
+                    return cacheReachabilityResult(Reachability.UnreachableStructural);
                 }
 
                 // Note that we've been here before.
                 visitedFlowNodeSet.add(curFlowNode.id);
 
-                if (curFlowNode.flags & FlowFlags.Unreachable) {
-                    return cacheReachabilityResult(Reachability.UnreachableAlways);
+                if (curFlowNode.flags & FlowFlags.UnreachableStructural) {
+                    return cacheReachabilityResult(Reachability.UnreachableStructural);
+                }
+
+                if (curFlowNode.flags & FlowFlags.UnreachableStaticCondition) {
+                    return cacheReachabilityResult(Reachability.UnreachableStaticCondition);
                 }
 
                 if (curFlowNode === sourceFlowNode) {
@@ -1430,16 +1434,23 @@ export function getCodeFlowEngine(
 
                     const labelNode = curFlowNode as FlowLabel;
                     let unreachableByType = false;
+                    let unreachableByStaticCondition = false;
                     for (const antecedent of labelNode.antecedents) {
                         const reachability = getFlowNodeReachabilityRecursive(antecedent, recursionCount);
                         if (reachability === Reachability.Reachable) {
                             return cacheReachabilityResult(reachability);
                         } else if (reachability === Reachability.UnreachableByAnalysis) {
                             unreachableByType = true;
+                        } else if (reachability === Reachability.UnreachableStaticCondition) {
+                            unreachableByStaticCondition = true;
                         }
                     }
                     return cacheReachabilityResult(
-                        unreachableByType ? Reachability.UnreachableByAnalysis : Reachability.UnreachableAlways
+                        unreachableByType
+                            ? Reachability.UnreachableByAnalysis
+                            : unreachableByStaticCondition
+                            ? Reachability.UnreachableStaticCondition
+                            : Reachability.UnreachableStructural
                     );
                 }
 
@@ -1526,7 +1537,10 @@ export function getCodeFlowEngine(
                     return startingConstraints;
                 }
 
-                if (curFlowNode.flags & (FlowFlags.Unreachable | FlowFlags.Start)) {
+                if (
+                    curFlowNode.flags &
+                    (FlowFlags.UnreachableStaticCondition | FlowFlags.UnreachableStructural | FlowFlags.Start)
+                ) {
                     return startingConstraints;
                 }
 

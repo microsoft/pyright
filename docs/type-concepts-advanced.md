@@ -601,9 +601,9 @@ If one of these conditional expressions evaluates statically to false, pyright d
 
 
 ### Reachability
-Pyright performs “reachability analysis” to determine whether statements will be executed at runtime.
+Pyright performs “reachability analysis” to determine whether statements will be executed at runtime and whether it should analyze and report errors in code.
 
-Reachability analysis is based on both non-type and type information. Non-type information includes statements that unconditionally affect code flow such as `continue`, `raise` and `return`. It also includes conditional statements (`if`, `elif`, or `while`) where the conditional expression is one of these [supported expression forms](type-concepts-advanced#static-conditional-evaluation). Type analysis is not performed on code determined to be unreachable using non-type information. Therefore, language server features like completion suggestions are not available for this code.
+Reachability analysis is based on both non-type and type information. Non-type information includes statements that affect code structure such as `continue`, `raise` and `return`. It also includes conditional statements (`if`, `elif`, or `while`) where the conditional expression is one of these [supported expression forms](type-concepts-advanced#static-conditional-evaluation). Type analysis is not performed on code determined to be unreachable using non-type information. Therefore, language server features like completion suggestions are not available for this code.
 
 Here are some examples of code determined to be unreachable using non-type information.
 

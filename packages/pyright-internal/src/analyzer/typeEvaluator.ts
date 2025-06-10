@@ -3355,7 +3355,7 @@ export function createTypeEvaluator(
             if (node.parent) {
                 return getNodeReachability(node.parent, sourceNode);
             }
-            return Reachability.UnreachableAlways;
+            return Reachability.UnreachableStructural;
         }
 
         const sourceFlowNode = sourceNode ? AnalyzerNodeInfo.getFlowNode(sourceNode) : undefined;
@@ -3366,7 +3366,7 @@ export function createTypeEvaluator(
     function getAfterNodeReachability(node: ParseNode): Reachability {
         const returnFlowNode = AnalyzerNodeInfo.getAfterFlowNode(node);
         if (!returnFlowNode) {
-            return Reachability.UnreachableAlways;
+            return Reachability.UnreachableStructural;
         }
 
         if (checkCodeFlowTooComplex(node)) {
@@ -3427,13 +3427,6 @@ export function createTypeEvaluator(
         return addDiagnosticWithSuppressionCheck('information', message, node, range);
     }
 
-    function addUnusedCode(node: ParseNode, textRange: TextRange) {
-        if (!isDiagnosticSuppressedForNode(node)) {
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-            fileInfo.diagnosticSink.addUnusedCodeWithTextRange(LocMessage.unreachableCode(), textRange);
-        }
-    }
-
     function addUnreachableCode(node: ParseNode, reachability: Reachability, textRange: TextRange) {
         if (reachability === Reachability.Reachable) {
             return;
@@ -3443,10 +3436,16 @@ export function createTypeEvaluator(
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             const reportTypeReachability = fileInfo.diagnosticRuleSet.enableReachabilityAnalysis;
 
-            if (reachability === Reachability.UnreachableAlways || reportTypeReachability) {
+            if (
+                reachability === Reachability.UnreachableStructural ||
+                reachability === Reachability.UnreachableStaticCondition ||
+                reportTypeReachability
+            ) {
                 fileInfo.diagnosticSink.addUnreachableCodeWithTextRange(
-                    reachability === Reachability.UnreachableAlways
-                        ? LocMessage.unreachableCode()
+                    reachability === Reachability.UnreachableStructural
+                        ? LocMessage.unreachableCodeStructure()
+                        : reachability === Reachability.UnreachableStaticCondition
+                        ? LocMessage.unreachableCodeCondition()
                         : LocMessage.unreachableCodeType(),
                     textRange
                 );
@@ -28683,7 +28682,6 @@ export function createTypeEvaluator(
         isFinalVariableDeclaration,
         isExplicitTypeAliasDeclaration,
         addInformation,
-        addUnusedCode,
         addUnreachableCode,
         addDeprecated,
         addDiagnostic,

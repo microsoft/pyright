@@ -635,7 +635,6 @@
         "unpackedSubscriptIllegal": "O operador Unpack no subscrito requer o Python 3.11 ou mais recente",
         "unpackedTypeVarTupleExpected": "Esperava-se TypeVarTuple desempacotada. Use Unpack[{name1}] ou *{name2}",
         "unpackedTypedDictArgument": "Não é possível corresponder o argumento TypedDict desempacotado aos parâmetros",
-        "unreachableCode": "O código está inacessível.",
         "unreachableCodeType": "A análise de tipo indica que o código está inacessível",
         "unreachableExcept": "A cláusula Except está inacessível porque a exceção já foi tratada",
         "unsupportedDunderAllOperation": "A operação em \"__all__\" não é compatível, portanto, a lista de símbolos exportada pode estar incorreta",

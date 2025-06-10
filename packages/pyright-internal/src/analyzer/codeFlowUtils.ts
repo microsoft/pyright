@@ -253,7 +253,8 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
         if (flags & FlowFlags.TrueCondition) return 'True';
         if (flags & FlowFlags.FalseCondition) return 'False';
         if (flags & FlowFlags.Call) return 'Call';
-        if (flags & FlowFlags.Unreachable) return 'Unreachable';
+        if (flags & FlowFlags.UnreachableStaticCondition) return 'UnreachableStaticCondition';
+        if (flags & FlowFlags.UnreachableStructural) return 'UnreachableStructural';
         if (flags & FlowFlags.WildcardImport) return 'Wildcard';
         if (flags & FlowFlags.PreFinallyGate) return 'PreFinal';
         if (flags & FlowFlags.PostFinally) return 'PostFinal';
