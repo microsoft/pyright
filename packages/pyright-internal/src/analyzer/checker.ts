@@ -6746,28 +6746,28 @@ export class Checker extends ParseTreeWalker {
             baseType = makeTypeVarsBound(baseType, [childClassType.shared.typeVarScopeId]);
         }
 
-        if (isFunctionOrOverloaded(baseType)) {
-            const diagAddendum = new DiagnosticAddendum();
+        // Determine whether this is an attempt to override a method marked @final.
+        if (this._isFinalFunction(memberName, baseClassAndSymbol.symbol, baseType)) {
+            const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
+            if (decl && decl.type === DeclarationType.Function) {
+                const diag = this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportIncompatibleMethodOverride,
+                    LocMessage.finalMethodOverride().format({
+                        name: memberName,
+                        className: baseClass.shared.name,
+                    }),
+                    decl.node.d.name
+                );
 
-            // Determine whether this is an attempt to override a method marked @final.
-            if (this._isFinalFunction(memberName, baseType)) {
-                const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
-                if (decl && decl.type === DeclarationType.Function) {
-                    const diag = this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportIncompatibleMethodOverride,
-                        LocMessage.finalMethodOverride().format({
-                            name: memberName,
-                            className: baseClass.shared.name,
-                        }),
-                        decl.node.d.name
-                    );
-
-                    const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
-                    if (diag && origDecl) {
-                        diag.addRelatedInfo(LocAddendum.finalMethod(), origDecl.uri, origDecl.range);
-                    }
+                const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
+                if (diag && origDecl) {
+                    diag.addRelatedInfo(LocAddendum.finalMethod(), origDecl.uri, origDecl.range);
                 }
             }
+        }
+
+        if (isFunctionOrOverloaded(baseType)) {
+            const diagAddendum = new DiagnosticAddendum();
 
             // Don't check certain magic functions or private symbols.
             // Also, skip this check if the class is a TypedDict. The methods for a TypedDict
@@ -7066,29 +7066,30 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    private _isFinalFunction(name: string, type: Type) {
+    private _isFinalFunction(name: string, symbol: Symbol, type: Type) {
         if (SymbolNameUtils.isPrivateName(name)) {
             return false;
         }
 
-        if (isFunction(type) && FunctionType.isFinal(type)) {
-            return true;
-        }
+        // Was this declared with a "def" statement?
+        const defDecls: FunctionNode[] = [];
+        symbol.getDeclarations().forEach((decl) => {
+            if (decl.type === DeclarationType.Function && decl.node.nodeType === ParseNodeType.Function) {
+                defDecls.push(decl.node);
+            }
+        });
 
-        if (isOverloaded(type)) {
-            const overloads = OverloadedType.getOverloads(type);
-            const impl = OverloadedType.getImplementation(type);
-
-            if (overloads.some((overload) => FunctionType.isFinal(overload))) {
-                return true;
+        // Locate all final function declarations.
+        const finalDefDecls = defDecls.filter((decl) => {
+            const undecoratedFuncType = this._evaluator.getTypeOfFunction(decl)?.functionType;
+            if (!undecoratedFuncType) {
+                return false;
             }
 
-            if (impl && isFunction(impl) && FunctionType.isFinal(impl)) {
-                return true;
-            }
-        }
+            return FunctionType.isFinal(undecoratedFuncType);
+        });
 
-        return false;
+        return finalDefDecls.length > 0;
     }
 
     private _validatePropertyOverride(
@@ -7151,18 +7152,6 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     return;
-                } else if (this._isFinalFunction(methodName, baseClassPropMethod)) {
-                    const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
-                    if (decl && decl.type === DeclarationType.Function) {
-                        this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportIncompatibleMethodOverride,
-                            LocMessage.finalMethodOverride().format({
-                                name: memberName,
-                                className: baseClassType.shared.name,
-                            }),
-                            decl.node.d.name
-                        );
-                    }
                 }
 
                 const subclassMethodType = partiallySpecializeType(
