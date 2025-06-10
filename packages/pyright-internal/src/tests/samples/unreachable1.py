@@ -75,7 +75,8 @@ def func6(foo: Foo):
 def func7(foo: Foo):
     foo.method5()
 
-    # This should be marked as unreachable
+    # This should be marked as unreachable.
+    # If reportUnreachable is enabled, it should generate a diagnostic.
     return 3
 
 
@@ -87,6 +88,7 @@ def func9():
     func8()
 
     # This should be marked unreachable.
+    # If reportUnreachable is enabled, it should generate a diagnostic.
     return 3
 
 
@@ -108,6 +110,7 @@ def func10():
 
     return
     # This should be marked unreachable.
+    # If reportUnreachable is enabled, it should generate a diagnostic.
     b = e.errno
 
 
@@ -116,6 +119,7 @@ def func11(obj: str) -> list:
         return []
     else:
         # This should be marked as unreachable.
+        # If reportUnreachable is enabled, it should generate a diagnostic.
         return obj
 
 
@@ -124,4 +128,5 @@ def func12(obj: str) -> list:
         return []
 
     # This should be marked as unreachable.
+    # If reportUnreachable is enabled, it should generate a diagnostic.
     return obj

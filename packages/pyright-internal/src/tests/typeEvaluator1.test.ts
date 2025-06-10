@@ -26,9 +26,18 @@ import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
 test('Unreachable1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unreachable1.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
 
-    TestUtils.validateResults(analysisResults, 0, 0, 2, 1, 6);
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['unreachable1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0, 0, 2, 1, 6);
+
+    configOptions.diagnosticRuleSet.reportUnreachable = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['unreachable1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 5, 0, 2, 1, 6);
+
+    configOptions.diagnosticRuleSet.reportUnreachable = 'warning';
+    const analysisResults3 = TestUtils.typeAnalyzeSampleFiles(['unreachable1.py'], configOptions);
+    TestUtils.validateResults(analysisResults3, 0, 5, 2, 1, 6);
 });
 
 test('Builtins1', () => {

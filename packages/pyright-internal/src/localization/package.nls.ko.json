@@ -635,7 +635,6 @@
         "unpackedSubscriptIllegal": "아래 첨자의 압축 풀기 연산자에는 Python 3.11 이상이 필요합니다.",
         "unpackedTypeVarTupleExpected": "압축 해제된 TypeVarTuple이 필요합니다. Unpack[{name1}] 또는 *{name2} 사용",
         "unpackedTypedDictArgument": "압축되지 않은 TypedDict 인수를 매개 변수와 일치시킬 수 없습니다.",
-        "unreachableCode": "코드에 접근할 수 없습니다.",
         "unreachableCodeType": "형식 분석을 통해 코드에 연결할 수 없음을 나타냅니다.",
         "unreachableExcept": "예외가 이미 처리되었으므로 Except 절에 연결할 수 없습니다.",
         "unsupportedDunderAllOperation": "\"__all__\"에 대한 작업이 지원되지 않으므로 내보낸 기호 목록이 잘못되었을 수 있습니다.",

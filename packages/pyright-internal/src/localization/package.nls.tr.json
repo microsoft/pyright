@@ -635,7 +635,6 @@
         "unpackedSubscriptIllegal": "Alt simgede açma işleci için Python 3.11 veya daha yeni bir sürümü gerekiyor",
         "unpackedTypeVarTupleExpected": "Paketlenmemiş TypeVarTuple bekleniyordu; Unpack[{name1}] veya *{name2} kullanın",
         "unpackedTypedDictArgument": "Paketlenmemiş TypedDict bağımsız değişkeni parametrelerle eşlenemiyor",
-        "unreachableCode": "Koda ulaşılamıyor",
         "unreachableCodeType": "Tür analizi koda erişilemediğini gösteriyor",
         "unreachableExcept": "Except clause is unreachable because exception is already handled",
         "unsupportedDunderAllOperation": "\"__all__\" üzerinde işlem desteklenmiyor, bu nedenle dışarı aktarılan sembol listesi yanlış olabilir",

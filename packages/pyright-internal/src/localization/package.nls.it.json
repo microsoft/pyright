@@ -635,7 +635,6 @@
         "unpackedSubscriptIllegal": "L'operatore di decompressione nel pedice richiede Python 3.11 o versione successiva",
         "unpackedTypeVarTupleExpected": "Previsto TypeVarTuple decompresso; usa Unpack[{name1}] o *{name2}",
         "unpackedTypedDictArgument": "Impossibile trovare una corrispondenza tra l'argomento TypedDict non compresso e i parametri",
-        "unreachableCode": "Il codice non è raggiungibile",
         "unreachableCodeType": "L’analisi dei tipi indica che il codice non è raggiungibile.",
         "unreachableExcept": "La clausola Except non è raggiungibile perché l'eccezione è già gestita",
         "unsupportedDunderAllOperation": "L'operazione su \"__all__\" non è supportata, di conseguenza l'elenco dei simboli esportati potrebbe non essere corretto",

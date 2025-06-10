@@ -33,14 +33,15 @@ import {
 import { OperatorType } from '../parser/tokenizerTypes';
 
 export enum FlowFlags {
-    Unreachable = 1 << 0, // Unreachable code
-    Start = 1 << 1, // Entry point
-    BranchLabel = 1 << 2, // Junction for forward control flow
-    LoopLabel = 1 << 3, // Junction for backward control flow
-    Assignment = 1 << 4, // Assignment statement
-    Unbind = 1 << 5, // Used with assignment to indicate target should be unbound
-    WildcardImport = 1 << 6, // For "from X import *" statements
-    TrueCondition = 1 << 7, // Condition known to be true
+    UnreachableStructural = 1 << 0, // Code that is structurally unreachable (e.g. following a return statement)
+    UnreachableStaticCondition = 1 << 1, // code that is unreachable due to a condition that the binder evaluates to False
+    Start = 1 << 2, // Entry point
+    BranchLabel = 1 << 3, // Junction for forward control flow
+    LoopLabel = 1 << 4, // Junction for backward control flow
+    Assignment = 1 << 5, // Assignment statement
+    Unbind = 1 << 6, // Used with assignment to indicate target should be unbound
+    WildcardImport = 1 << 7, // For "from X import *" statements
+    TrueCondition = 1 << 8, // Condition known to be true
     FalseCondition = 1 << 9, // Condition known to be false
     Call = 1 << 10, // Call node
     PreFinallyGate = 1 << 11, // Injected edge that links pre-finally label and pre-try flow

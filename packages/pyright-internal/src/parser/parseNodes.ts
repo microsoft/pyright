@@ -213,6 +213,7 @@ export namespace SuiteNode {
 
 export interface IfNode extends ParseNodeBase<ParseNodeType.If> {
     d: {
+        firstToken: Token;
         testExpr: ExpressionNode;
         ifSuite: SuiteNode;
         elseSuite: SuiteNode | IfNode | undefined;
@@ -229,6 +230,7 @@ export namespace IfNode {
             parent: undefined,
             a: undefined,
             d: {
+                firstToken: ifOrElifToken,
                 testExpr,
                 ifSuite: ifSuite,
                 elseSuite: elseSuite,
@@ -251,6 +253,7 @@ export namespace IfNode {
 
 export interface WhileNode extends ParseNodeBase<ParseNodeType.While> {
     d: {
+        firstToken: Token;
         testExpr: ExpressionNode;
         whileSuite: SuiteNode;
         elseSuite?: SuiteNode | undefined;
@@ -267,6 +270,7 @@ export namespace WhileNode {
             parent: undefined,
             a: undefined,
             d: {
+                firstToken: whileToken,
                 testExpr,
                 whileSuite,
             },
@@ -283,6 +287,7 @@ export namespace WhileNode {
 
 export interface ForNode extends ParseNodeBase<ParseNodeType.For> {
     d: {
+        firstToken: Token;
         isAsync?: boolean;
         asyncToken?: Token;
         targetExpr: ExpressionNode;
@@ -308,6 +313,7 @@ export namespace ForNode {
             parent: undefined,
             a: undefined,
             d: {
+                firstToken: forToken,
                 targetExpr,
                 iterableExpr,
                 forSuite,
@@ -388,6 +394,7 @@ export namespace ComprehensionIfNode {
 
 export interface TryNode extends ParseNodeBase<ParseNodeType.Try> {
     d: {
+        firstToken: Token;
         trySuite: SuiteNode;
         exceptClauses: ExceptNode[];
         elseSuite?: SuiteNode | undefined;
@@ -405,6 +412,7 @@ export namespace TryNode {
             parent: undefined,
             a: undefined,
             d: {
+                firstToken: tryToken,
                 trySuite: trySuite,
                 exceptClauses: [],
             },
@@ -424,6 +432,7 @@ export interface ExceptNode extends ParseNodeBase<ParseNodeType.Except> {
         name?: NameNode | undefined;
         exceptSuite: SuiteNode;
         isExceptGroup: boolean;
+        exceptToken: Token;
     };
 }
 
@@ -439,6 +448,7 @@ export namespace ExceptNode {
             d: {
                 exceptSuite: exceptSuite,
                 isExceptGroup: isExceptGroup,
+                exceptToken,
             },
         };
 
@@ -452,6 +462,7 @@ export namespace ExceptNode {
 
 export interface FunctionNode extends ParseNodeBase<ParseNodeType.Function> {
     d: {
+        firstToken: Token;
         decorators: DecoratorNode[];
         isAsync: boolean;
         name: NameNode;
@@ -473,6 +484,7 @@ export namespace FunctionNode {
             parent: undefined,
             a: undefined,
             d: {
+                firstToken: defToken,
                 decorators: [],
                 isAsync: false,
                 name: name,
@@ -537,6 +549,7 @@ export namespace ParameterNode {
 
 export interface ClassNode extends ParseNodeBase<ParseNodeType.Class> {
     d: {
+        firstToken: Token;
         decorators: DecoratorNode[];
         name: NameNode;
         typeParams: TypeParameterListNode | undefined;
@@ -555,6 +568,7 @@ export namespace ClassNode {
             parent: undefined,
             a: undefined,
             d: {
+                firstToken: classToken,
                 decorators: [],
                 name: name,
                 typeParams,
@@ -587,6 +601,12 @@ export namespace ClassNode {
             parent: undefined,
             a: undefined,
             d: {
+                firstToken: {
+                    type: TokenType.Keyword,
+                    start: 0,
+                    length: 0,
+                    comments: [],
+                },
                 decorators,
                 name: {
                     start: decorators[0].start,
@@ -634,6 +654,7 @@ export namespace ClassNode {
 
 export interface WithNode extends ParseNodeBase<ParseNodeType.With> {
     d: {
+        firstToken: Token;
         isAsync?: boolean;
         asyncToken?: Token;
         withItems: WithItemNode[];
@@ -652,6 +673,7 @@ export namespace WithNode {
             parent: undefined,
             a: undefined,
             d: {
+                firstToken: withToken,
                 withItems: [],
                 suite: suite,
             },
@@ -718,6 +740,7 @@ export namespace DecoratorNode {
 
 export interface StatementListNode extends ParseNodeBase<ParseNodeType.StatementList> {
     d: {
+        firstToken: Token;
         statements: ParseNode[];
     };
 }
@@ -731,7 +754,7 @@ export namespace StatementListNode {
             id: _nextNodeId++,
             parent: undefined,
             a: undefined,
-            d: { statements: [] },
+            d: { firstToken: atToken, statements: [] },
         };
 
         return node;
@@ -1103,6 +1126,7 @@ export namespace TypeParameterListNode {
 
 export interface TypeAliasNode extends ParseNodeBase<ParseNodeType.TypeAlias> {
     d: {
+        firstToken: Token;
         name: NameNode;
         typeParams?: TypeParameterListNode;
         expr: ExpressionNode;
@@ -1124,6 +1148,7 @@ export namespace TypeAliasNode {
             parent: undefined,
             a: undefined,
             d: {
+                firstToken: typeToken,
                 name,
                 typeParams,
                 expr,
@@ -2340,13 +2365,14 @@ export namespace RaiseNode {
 
 export interface MatchNode extends ParseNodeBase<ParseNodeType.Match> {
     d: {
+        firstToken: Token;
         expr: ExpressionNode;
         cases: CaseNode[];
     };
 }
 
 export namespace MatchNode {
-    export function create(matchToken: TextRange, expr: ExpressionNode) {
+    export function create(matchToken: Token, expr: ExpressionNode) {
         const node: MatchNode = {
             start: matchToken.start,
             length: matchToken.length,
@@ -2355,6 +2381,7 @@ export namespace MatchNode {
             parent: undefined,
             a: undefined,
             d: {
+                firstToken: matchToken,
                 expr,
                 cases: [],
             },
