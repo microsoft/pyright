@@ -637,9 +637,10 @@ export class CompletionProvider {
             ? this.evaluator.resolveAliasDeclaration(primaryDecl, /* resolveLocalNames */ true) ?? primaryDecl
             : undefined;
 
-        const autoImportText = detail.autoImportSource
-            ? this.getAutoImportText(name, detail.autoImportSource, detail.autoImportAlias)
-            : undefined;
+        const autoImportText =
+            detail.autoImportSource && this.program.configOptions.autoImportCompletions
+                ? this.getAutoImportText(name, detail.autoImportSource, detail.autoImportAlias)
+                : undefined;
 
         // Are we resolving a completion item? If so, see if this symbol
         // is the one that we're trying to match.
@@ -868,17 +869,23 @@ export class CompletionProvider {
                 this.addNameToCompletions(
                     result.alias ?? result.name,
                     result.kind ?? CompletionItemKind.Module,
-                    priorWord,
+                    this.program.configOptions.autoImportCompletions ? priorWord : result.alias ?? result.name,
                     completionMap,
-                    {
-                        extraCommitChars: true,
-                        autoImportText: this.getAutoImportText(result.name, result.source, result.alias),
-                        edits: {
-                            textEdit: this.createReplaceEdits(priorWord, /* node */ undefined, result.insertionText),
-                            additionalTextEdits: result.edits,
-                        },
-                        funcParensDisabled: parensDisabled,
-                    }
+                    this.program.configOptions.autoImportCompletions
+                        ? {
+                              extraCommitChars: true,
+                              autoImportText: this.getAutoImportText(result.name, result.source, result.alias),
+                              edits: {
+                                  textEdit: this.createReplaceEdits(
+                                      priorWord,
+                                      /* node */ undefined,
+                                      result.insertionText
+                                  ),
+                                  additionalTextEdits: result.edits,
+                              },
+                              funcParensDisabled: parensDisabled,
+                          }
+                        : undefined
                 );
             }
         }
