@@ -126,6 +126,32 @@ export class SourceMapper {
         return result;
     }
 
+    getSourcePathsFromStub(stubFileUri: Uri, fromFile: Uri | undefined): Uri[] {
+        // Attempt our stubFileUri to see if we can resolve it as a source file path
+        let results = this._importResolver.getSourceFilesFromStub(stubFileUri, this._execEnv, this._mapCompiled);
+        if (results.length > 0) {
+            return results;
+        }
+
+        // If that didn't work, try looking through the graph up to our fromFile.
+        // One of them should be able to resolve to an actual file.
+        const stubFileImportTree = this._getStubFileImportTree(stubFileUri, fromFile);
+
+        // Go through the items in this tree until we find at least one path.
+        for (let i = 0; i < stubFileImportTree.length; i++) {
+            results = this._importResolver.getSourceFilesFromStub(
+                stubFileImportTree[i],
+                this._execEnv,
+                this._mapCompiled
+            );
+            if (results.length > 0) {
+                return results;
+            }
+        }
+
+        return [];
+    }
+
     private _findSpecialBuiltInClassDeclarations(
         stubDecl: SpecialBuiltInClassDeclaration,
         recursiveDeclCache = new Set<string>()
@@ -738,34 +764,8 @@ export class SourceMapper {
     }
 
     private _getBoundSourceFilesFromStubFile(stubFileUri: Uri, stubToShadow?: Uri, originated?: Uri): SourceFile[] {
-        const paths = this._getSourcePathsFromStub(stubFileUri, originated ?? this._fromFile?.uri);
+        const paths = this.getSourcePathsFromStub(stubFileUri, originated ?? this._fromFile?.uri);
         return paths.map((fp) => this._fileBinder(stubToShadow ?? stubFileUri, fp)).filter(isDefined);
-    }
-
-    private _getSourcePathsFromStub(stubFileUri: Uri, fromFile: Uri | undefined): Uri[] {
-        // Attempt our stubFileUri to see if we can resolve it as a source file path
-        let results = this._importResolver.getSourceFilesFromStub(stubFileUri, this._execEnv, this._mapCompiled);
-        if (results.length > 0) {
-            return results;
-        }
-
-        // If that didn't work, try looking through the graph up to our fromFile.
-        // One of them should be able to resolve to an actual file.
-        const stubFileImportTree = this._getStubFileImportTree(stubFileUri, fromFile);
-
-        // Go through the items in this tree until we find at least one path.
-        for (let i = 0; i < stubFileImportTree.length; i++) {
-            results = this._importResolver.getSourceFilesFromStub(
-                stubFileImportTree[i],
-                this._execEnv,
-                this._mapCompiled
-            );
-            if (results.length > 0) {
-                return results;
-            }
-        }
-
-        return [];
     }
 
     private _getStubFileImportTree(stubFileUri: Uri, fromFile: Uri | undefined): Uri[] {

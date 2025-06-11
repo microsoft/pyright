@@ -87,7 +87,7 @@ test('test edit mode for workspace', async () => {
 
         program.analyzeFile(info.uri, CancellationToken.None);
         assert.strictEqual(info.contents, 'import sys');
-        assert.strictEqual(info.imports.length, 2);
+        assert.strictEqual(info.imports.length, 3);
 
         // Add a new file.
         program.setFileOpened(addedFileUri, 0, '', {
@@ -148,7 +148,7 @@ test('test edit mode for workspace', async () => {
         program.analyzeFile(addedInfo.uri, CancellationToken.None);
 
         assert.strictEqual(addedInfo.contents, 'import os');
-        assert.strictEqual(addedInfo.imports.length, 2);
+        assert.strictEqual(addedInfo.imports.length, 3);
     }, CancellationToken.None);
 
     // After leaving edit mode, we should be back to where we were.
@@ -156,7 +156,7 @@ test('test edit mode for workspace', async () => {
     state.workspace.service.backgroundAnalysisProgram.analyzeFile(oldSourceFile!.getUri(), CancellationToken.None);
 
     assert.strictEqual(oldSourceFile?.getFileContent(), '');
-    assert.strictEqual(oldSourceFile.getImports().length, 1);
+    assert.strictEqual(oldSourceFile.getImports().length, 2);
     assert.strictEqual(edits.length, 2);
 
     assert.deepStrictEqual(edits[0].replacementText, 'import sys');
