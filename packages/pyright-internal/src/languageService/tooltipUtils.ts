@@ -225,7 +225,7 @@ export function getOverloadedDocStringsFromType(
     );
 }
 
-function getDocumentationPartForTypeAlias(
+export function getDocumentationPartForTypeAlias(
     sourceMapper: SourceMapper,
     resolvedDecl: Declaration | undefined,
     evaluator: TypeEvaluator,
@@ -263,7 +263,7 @@ function getDocumentationPartForTypeAlias(
     return undefined;
 }
 
-function getDocumentationPartForType(
+export function getDocumentationPartForType(
     sourceMapper: SourceMapper,
     type: Type,
     resolvedDecl: Declaration | undefined,

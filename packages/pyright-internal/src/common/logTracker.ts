@@ -37,7 +37,21 @@ export class LogTracker {
         return level ?? LogLevel.Error;
     }
 
-    log<T>(title: string, callback: (state: LogState) => T, minimalDuration = -1, logParsingPerf = false) {
+    log<T>(title: string, callback: (state: LogState) => T): T;
+    log<T>(title: string, callback: (state: LogState) => Promise<T>): Promise<T>;
+    log<T>(title: string, callback: (state: LogState) => T, minimalDuration: number, logParsingPerf: boolean): T;
+    log<T>(
+        title: string,
+        callback: (state: LogState) => Promise<T>,
+        minimalDuration: number,
+        logParsingPerf: boolean
+    ): Promise<T>;
+    log<T>(
+        title: string,
+        callback: (state: LogState) => T | Promise<T>,
+        minimalDuration = -1,
+        logParsingPerf = false
+    ): T | Promise<T> {
         // If no console is given, don't do anything.
         if (this._console === undefined) {
             return callback(this._dummyState);
@@ -58,39 +72,57 @@ export class LogTracker {
         const state = new State();
 
         try {
-            return callback(state);
-        } finally {
-            const msDuration = state.duration;
-            this._indentation = current;
+            const maybePromise = callback(state);
+            if (maybePromise instanceof Promise) {
+                return maybePromise
+                    .then((result) => {
+                        this._onComplete(state, current, title, minimalDuration, logParsingPerf);
+                        return result;
+                    })
+                    .catch((err) => {
+                        this._onComplete(state, current, title, minimalDuration, logParsingPerf);
+                        throw err;
+                    });
+            }
+            this._onComplete(state, current, title, minimalDuration, logParsingPerf);
+            return maybePromise;
+        } catch (err) {
+            this._onComplete(state, current, title, minimalDuration, logParsingPerf);
+            throw err;
+        }
+    }
 
-            // if we already printed our header (by nested calls), then it can't be skipped.
-            if (this._previousTitles.length > 0 && (state.isSuppressed() || msDuration <= minimalDuration)) {
-                // Get rid of myself so we don't even show header.
-                this._previousTitles.pop();
-            } else {
-                this._printPreviousTitles();
+    private _onComplete(state: State, current: string, title: string, minimalDuration = -1, logParsingPerf = false) {
+        const msDuration = state.duration;
+        this._indentation = current;
 
-                let output = `[${this.prefix}] ${this._indentation}${title}${state.get()} (${msDuration}ms)`;
+        // if we already printed our header (by nested calls), then it can't be skipped.
+        if (this._previousTitles.length > 0 && (state.isSuppressed() || msDuration <= minimalDuration)) {
+            // Get rid of myself so we don't even show header.
+            this._previousTitles.pop();
+        } else {
+            this._printPreviousTitles();
 
-                // Report parsing related perf info only if they occurred.
-                if (
-                    logParsingPerf &&
-                    state.fileReadTotal +
-                        state.tokenizeTotal +
-                        state.parsingTotal +
-                        state.resolveImportsTotal +
-                        state.bindingTotal >
-                        0
-                ) {
-                    output += ` [f:${state.fileReadTotal}, t:${state.tokenizeTotal}, p:${state.parsingTotal}, i:${state.resolveImportsTotal}, b:${state.bindingTotal}]`;
-                }
+            let output = `[${this.prefix}] ${this._indentation}${title}${state.get()} (${msDuration}ms)`;
 
-                this._console.log(output);
+            // Report parsing related perf info only if they occurred.
+            if (
+                logParsingPerf &&
+                state.fileReadTotal +
+                    state.tokenizeTotal +
+                    state.parsingTotal +
+                    state.resolveImportsTotal +
+                    state.bindingTotal >
+                    0
+            ) {
+                output += ` [f:${state.fileReadTotal}, t:${state.tokenizeTotal}, p:${state.parsingTotal}, i:${state.resolveImportsTotal}, b:${state.bindingTotal}]`;
+            }
 
-                // If the operation took really long, log it as "info" so it is more visible.
-                if (msDuration >= durationThresholdForInfoInMs) {
-                    this._console.info(`[${this.prefix}] Long operation: ${title} (${msDuration}ms)`);
-                }
+            this._console?.log(output);
+
+            // If the operation took really long, log it as "info" so it is more visible.
+            if (msDuration >= durationThresholdForInfoInMs) {
+                this._console?.info(`[${this.prefix}] Long operation: ${title} (${msDuration}ms)`);
             }
         }
     }
