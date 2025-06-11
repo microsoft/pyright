@@ -292,6 +292,7 @@ export class SourceFile {
                 this._uri.pathEndsWith('stdlib/abc.pyi') ||
                 this._uri.pathEndsWith('stdlib/enum.pyi') ||
                 this._uri.pathEndsWith('stdlib/queue.pyi') ||
+                this._uri.pathEndsWith('stdlib/string/templatelib.pyi') ||
                 this._uri.pathEndsWith('stdlib/types.pyi') ||
                 this._uri.pathEndsWith('stdlib/warnings.pyi')
             ) {
@@ -335,6 +336,14 @@ export class SourceFile {
 
     isTypingStubFile() {
         return this._isTypingStubFile;
+    }
+
+    isTypeshedStubFile() {
+        return this._isTypeshedStubFile;
+    }
+
+    isBuiltInStubFile() {
+        return this._isBuiltInStubFile;
     }
 
     isThirdPartyPyTypedPresent() {
