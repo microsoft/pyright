@@ -118,6 +118,7 @@ from networkx.algorithms.structuralholes import *
 from networkx.algorithms.summarization import *
 from networkx.algorithms.swap import *
 from networkx.algorithms.time_dependent import *
+from networkx.algorithms.tournament import is_tournament as is_tournament
 from networkx.algorithms.traversal import *
 from networkx.algorithms.tree.branchings import (
     ArborescenceIterator as ArborescenceIterator,

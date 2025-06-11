@@ -59,6 +59,10 @@ class CreditCard(Resource):
     Prepaid: type[CardTypeIndicator]
     ProductId: type[CardTypeIndicator]
     PrepaidReloadable: type[CardTypeIndicator]
+    Business: type[CardTypeIndicator]
+    Consumer: type[CardTypeIndicator]
+    Corporate: type[CardTypeIndicator]
+    Purchase: type[CardTypeIndicator]
     @staticmethod
     def create(params: dict[str, Incomplete] | None = None) -> SuccessfulResult | ErrorResult | None: ...
     @staticmethod

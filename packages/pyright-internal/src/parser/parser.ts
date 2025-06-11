@@ -11,7 +11,6 @@
  * into an abstract syntax tree (AST).
  */
 
-import { IPythonMode } from '../analyzer/sourceFile';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
@@ -161,12 +160,15 @@ interface SubscriptListResult {
     trailingComma: boolean;
 }
 
+const commentRegEx = /^(\s*#\s*type:\s*)([^\r\n]*)/;
+const ignoreCommentRegEx = /^ignore(\s|\[|$)/;
+
 export class ParseOptions {
     isStubFile: boolean;
     pythonVersion: PythonVersion;
     reportInvalidStringEscapeSequence: boolean;
     skipFunctionAndClassBody: boolean;
-    ipythonMode: IPythonMode;
+    useNotebookMode: boolean;
     reportErrorsForParsedStringContents: boolean;
 
     constructor() {
@@ -174,7 +176,7 @@ export class ParseOptions {
         this.pythonVersion = latestStablePythonVersion;
         this.reportInvalidStringEscapeSequence = false;
         this.skipFunctionAndClassBody = false;
-        this.ipythonMode = IPythonMode.None;
+        this.useNotebookMode = false;
         this.reportErrorsForParsedStringContents = false;
     }
 }
@@ -399,7 +401,7 @@ export class Parser {
             textOffset,
             textLength,
             initialParenDepth,
-            this._parseOptions.ipythonMode
+            this._parseOptions.useNotebookMode
         );
         this._tokenIndex = 0;
     }
@@ -1887,22 +1889,36 @@ export class Parser {
 
             let typeExpr: ExpressionNode | undefined;
             let symbolName: IdentifierToken | undefined;
+            let isAsKeywordAllowed = true;
+
             if (this._peekTokenType() !== TokenType.Colon) {
-                typeExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
+                const listResult = this._parseExpressionListGeneric(() =>
+                    this._parseTestExpression(/* allowAssignmentExpression */ true)
+                );
+                if (listResult.parseError) {
+                    typeExpr = listResult.parseError;
+                } else {
+                    typeExpr = this._makeExpressionOrTuple(listResult, /* enclosedInParens */ false);
+
+                    // Python 3.14 allows more than one exception type to be provided in
+                    // an except clause.
+                    if (listResult.list.length > 1) {
+                        if (PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_14)) {
+                            this._addSyntaxError(LocMessage.exceptRequiresParens(), typeExpr);
+                        }
+
+                        isAsKeywordAllowed = false;
+                    }
+                }
 
                 if (this._consumeTokenIfKeyword(KeywordType.As)) {
+                    if (!isAsKeywordAllowed) {
+                        this._addSyntaxError(LocMessage.exceptWithAsRequiresParens(), typeExpr);
+                    }
+
                     symbolName = this._getTokenIfIdentifier();
                     if (!symbolName) {
                         this._addSyntaxError(LocMessage.expectedNameAfterAs(), this._peekToken());
-                    }
-                } else {
-                    // Handle the python 2.x syntax in a graceful manner.
-                    const peekToken = this._peekToken();
-                    if (this._consumeTokenIfType(TokenType.Comma)) {
-                        this._addSyntaxError(LocMessage.expectedAsAfterException(), peekToken);
-
-                        // Parse the expression expected in python 2.x, but discard it.
-                        this._parseTestExpression(/* allowAssignmentExpression */ false);
                     }
                 }
             } else if (isExceptGroup) {
@@ -4739,6 +4755,24 @@ export class Parser {
             if (stringToken.flags & StringTokenFlags.Unicode) {
                 this._addSyntaxError(LocMessage.formatStringUnicode(), stringToken);
             }
+
+            if (stringToken.flags & StringTokenFlags.Template) {
+                this._addSyntaxError(LocMessage.formatStringTemplate(), stringToken);
+            }
+        }
+
+        if (stringToken.flags & StringTokenFlags.Template) {
+            if (PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_14)) {
+                this._addSyntaxError(LocMessage.templateStringIllegal(), stringToken);
+            }
+
+            if (stringToken.flags & StringTokenFlags.Bytes) {
+                this._addSyntaxError(LocMessage.templateStringBytes(), stringToken);
+            }
+
+            if (stringToken.flags & StringTokenFlags.Unicode) {
+                this._addSyntaxError(LocMessage.templateStringUnicode(), stringToken);
+            }
         }
     }
 
@@ -4761,7 +4795,6 @@ export class Parser {
         }
 
         const interTokenContents = this._fileContents!.slice(curToken.start + curToken.length, nextToken.start);
-        const commentRegEx = /^(\s*#\s*type:\s*)([^\r\n]*)/;
         const match = interTokenContents.match(commentRegEx);
         if (!match) {
             return undefined;
@@ -4774,7 +4807,7 @@ export class Parser {
         // expression because mypy supports ignore comments of the
         // form ignore[errorCode, ...]. We'll treat these as regular
         // ignore statements (as though no errorCodes were included).
-        if (typeString.trim().match(/^ignore(\s|\[|$)/)) {
+        if (typeString.trim().match(ignoreCommentRegEx)) {
             return undefined;
         }
 
@@ -5099,7 +5132,11 @@ export class Parser {
                         this._addSyntaxError(LocMessage.annotationStringEscape(), stringNode);
                     }
                 } else if (
-                    (stringToken.flags & (StringTokenFlags.Raw | StringTokenFlags.Bytes | StringTokenFlags.Format)) ===
+                    (stringToken.flags &
+                        (StringTokenFlags.Raw |
+                            StringTokenFlags.Bytes |
+                            StringTokenFlags.Format |
+                            StringTokenFlags.Template)) ===
                     0
                 ) {
                     const parser = new Parser();

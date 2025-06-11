@@ -118,7 +118,7 @@ class VTimezone(VCalendarComponentBehavior):
     description: str
     sortFirst: Incomplete
     @classmethod
-    def validate(cls, obj, raiseException, *args): ...
+    def validate(cls, obj, raiseException: bool, *args) -> bool: ...  # type: ignore[override]
     @staticmethod
     def transformToNative(obj): ...
     @staticmethod
@@ -134,13 +134,13 @@ class VEvent(RecurringBehavior):
     sortFirst: Incomplete
     description: str
     @classmethod
-    def validate(cls, obj, raiseException, *args): ...
+    def validate(cls, obj, raiseException: bool, *args) -> bool: ...  # type: ignore[override]
 
 class VTodo(RecurringBehavior):
     name: str
     description: str
     @classmethod
-    def validate(cls, obj, raiseException, *args): ...
+    def validate(cls, obj, raiseException: bool, *args) -> bool: ...  # type: ignore[override]
 
 class VJournal(RecurringBehavior):
     name: str
@@ -156,21 +156,21 @@ class VAlarm(VCalendarComponentBehavior):
     @staticmethod
     def generateImplicitParameters(obj) -> None: ...
     @classmethod
-    def validate(cls, obj, raiseException, *args): ...
+    def validate(cls, obj, raiseException: bool, *args) -> bool: ...  # type: ignore[override]
 
 class VAvailability(VCalendarComponentBehavior):
     name: str
     description: str
     sortFirst: Incomplete
     @classmethod
-    def validate(cls, obj, raiseException, *args): ...
+    def validate(cls, obj, raiseException: bool, *args) -> bool: ...  # type: ignore[override]
 
 class Available(RecurringBehavior):
     name: str
     sortFirst: Incomplete
     description: str
     @classmethod
-    def validate(cls, obj, raiseException, *args): ...
+    def validate(cls, obj, raiseException: bool, *args) -> bool: ...  # type: ignore[override]
 
 class Duration(Behavior):
     name: str

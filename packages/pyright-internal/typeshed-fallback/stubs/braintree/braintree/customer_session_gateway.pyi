@@ -13,5 +13,5 @@ class CustomerSessionGateway:
         self, update_customer_session_input: UpdateCustomerSessionInput
     ) -> SuccessfulResult | ErrorResult: ...
     def get_customer_recommendations(
-        self, customer_recommendations_input: CustomerRecommendationsInput
+        self, get_customer_recommendations_input: CustomerRecommendationsInput
     ) -> SuccessfulResult | ErrorResult: ...

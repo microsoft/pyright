@@ -1,5 +1,6 @@
-from _typeshed import Incomplete
-from collections.abc import Callable
+from _typeshed import Incomplete, SupportsLenAndGetItem
+from collections.abc import Callable, Mapping
+from typing import Any, TypeVar
 
 from networkx.classes.digraph import DiGraph
 from networkx.classes.graph import Graph, _Node
@@ -15,6 +16,10 @@ __all__ = [
     "threshold_accepting_tsp",
 ]
 
+_SupportsLenAndGetItemT = TypeVar("_SupportsLenAndGetItemT", bound=SupportsLenAndGetItem[Any])
+
+def swap_two_nodes(soln: _SupportsLenAndGetItemT, seed) -> _SupportsLenAndGetItemT: ...
+def move_one_node(soln: _SupportsLenAndGetItemT, seed) -> _SupportsLenAndGetItemT: ...
 @_dispatchable
 def christofides(G: Graph[_Node], weight: str | None = "weight", tree: Graph[_Node] | None = None): ...
 @_dispatchable
@@ -30,6 +35,10 @@ def traveling_salesman_problem(
 def asadpour_atsp(
     G: DiGraph[_Node], weight: str | None = "weight", seed: int | RandomState | None = None, source: str | None = None
 ): ...
+@_dispatchable
+def held_karp_ascent(G: Graph[_Node], weight="weight"): ...
+@_dispatchable
+def spanning_tree_distribution(G: Graph[_Node], z: Mapping[Incomplete, Incomplete]) -> dict[Incomplete, Incomplete]: ...
 @_dispatchable
 def greedy_tsp(G: Graph[_Node], weight: str | None = "weight", source=None): ...
 @_dispatchable

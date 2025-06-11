@@ -166,11 +166,12 @@ export const enum StringTokenFlags {
     Unicode = 1 << 4,
     Bytes = 1 << 5,
     Format = 1 << 6,
+    Template = 1 << 7,
 
     // Other conditions
-    ReplacementFieldStart = 1 << 7,
-    ReplacementFieldEnd = 1 << 8,
-    NamedUnicodeEscape = 1 << 9,
+    ReplacementFieldStart = 1 << 8,
+    ReplacementFieldEnd = 1 << 9,
+    NamedUnicodeEscape = 1 << 10,
 
     // Error conditions
     Unterminated = 1 << 16,

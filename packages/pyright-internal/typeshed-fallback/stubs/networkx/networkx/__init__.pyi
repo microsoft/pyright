@@ -1,3 +1,5 @@
+from typing import Final
+
 from networkx.algorithms import *
 from networkx.classes import *
 from networkx.classes import filters as filters
@@ -24,3 +26,5 @@ from . import (
     relabel as relabel,
     utils as utils,
 )
+
+__version__: Final[str]

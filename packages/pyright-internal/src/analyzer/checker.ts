@@ -129,6 +129,7 @@ import {
     TypeResult,
 } from './typeEvaluatorTypes';
 import {
+    enumerateLiteralsForType,
     getElementTypeForContainerNarrowing,
     getIsInstanceClassTypes,
     narrowTypeForContainerElementType,
@@ -2140,8 +2141,8 @@ export class Checker extends ParseTreeWalker {
             rightExpression = rightExpression.d.leftExpr;
         }
 
-        const leftType = this._evaluator.getType(node.d.leftExpr);
-        const rightType = this._evaluator.getType(rightExpression);
+        let leftType = this._evaluator.getType(node.d.leftExpr);
+        let rightType = this._evaluator.getType(rightExpression);
 
         if (!leftType || !rightType) {
             return;
@@ -2157,6 +2158,44 @@ export class Checker extends ParseTreeWalker {
                 : LocMessage.comparisonAlwaysTrue();
         };
 
+        const replaceEnumTypeWithLiteralValue = (type: Type) => {
+            return mapSubtypes(type, (subtype) => {
+                if (
+                    !isClassInstance(subtype) ||
+                    !ClassType.isEnumClass(subtype) ||
+                    !subtype.shared.mro.some(
+                        (base) => isClass(base) && ClassType.isBuiltIn(base, ['int', 'str', 'bytes'])
+                    )
+                ) {
+                    return subtype;
+                }
+
+                // If this is an enum literal, replace it with its literal value.
+                if (subtype.priv.literalValue instanceof EnumLiteral) {
+                    return subtype.priv.literalValue.itemType;
+                }
+
+                // If this is an enum class, replace it with the type of its members.
+                const literalValues = enumerateLiteralsForType(this._evaluator, subtype);
+                if (literalValues && literalValues.length > 0) {
+                    return combineTypes(
+                        literalValues.map((literalClass) => {
+                            const literalValue = literalClass.priv.literalValue;
+                            assert(literalValue instanceof EnumLiteral);
+                            return literalValue.itemType;
+                        })
+                    );
+                }
+
+                return subtype;
+            });
+        };
+
+        // Handle enum literals that are assignable to another (non-Enum) literal.
+        // This can happen for IntEnum and StrEnum members.
+        leftType = replaceEnumTypeWithLiteralValue(leftType);
+        rightType = replaceEnumTypeWithLiteralValue(rightType);
+
         // Check for the special case where the LHS and RHS are both literals.
         if (isLiteralTypeOrUnion(rightType) && isLiteralTypeOrUnion(leftType)) {
             if (
@@ -2169,13 +2208,13 @@ export class Checker extends ParseTreeWalker {
                 let isPossiblyTrue = false;
 
                 doForEachSubtype(leftType, (leftSubtype) => {
-                    if (this._evaluator.assignType(rightType, leftSubtype)) {
+                    if (this._evaluator.assignType(rightType!, leftSubtype)) {
                         isPossiblyTrue = true;
                     }
                 });
 
                 doForEachSubtype(rightType, (rightSubtype) => {
-                    if (this._evaluator.assignType(leftType, rightSubtype)) {
+                    if (this._evaluator.assignType(leftType!, rightSubtype)) {
                         isPossiblyTrue = true;
                     }
                 });
@@ -2199,7 +2238,7 @@ export class Checker extends ParseTreeWalker {
                     return;
                 }
 
-                this._evaluator.mapSubtypesExpandTypeVars(rightType, {}, (rightSubtype) => {
+                this._evaluator.mapSubtypesExpandTypeVars(rightType!, {}, (rightSubtype) => {
                     if (isComparable) {
                         return;
                     }
@@ -2805,7 +2844,23 @@ export class Checker extends ParseTreeWalker {
                     const start = statement.start;
                     const lastStatement = statements[statements.length - 1];
                     const end = TextRange.getEnd(lastStatement);
-                    this._evaluator.addUnreachableCode(statement, reachability, { start, length: end - start });
+                    const textRange: TextRange = { start, length: end - start };
+
+                    if (
+                        reachability === Reachability.UnreachableByAnalysis ||
+                        reachability === Reachability.UnreachableStructural
+                    ) {
+                        this._evaluator.addDiagnosticForTextRange(
+                            this._fileInfo,
+                            DiagnosticRule.reportUnreachable,
+                            reachability === Reachability.UnreachableStructural
+                                ? LocMessage.unreachableCodeStructure()
+                                : LocMessage.unreachableCodeType(),
+                            statement.nodeType === ParseNodeType.Error ? statement : statement.d.firstToken
+                        );
+                    }
+
+                    this._evaluator.addUnreachableCode(statement, reachability, textRange);
 
                     reportedUnreachable = true;
                 }
@@ -6681,28 +6736,28 @@ export class Checker extends ParseTreeWalker {
             baseType = makeTypeVarsBound(baseType, [childClassType.shared.typeVarScopeId]);
         }
 
-        if (isFunctionOrOverloaded(baseType)) {
-            const diagAddendum = new DiagnosticAddendum();
+        // Determine whether this is an attempt to override a method marked @final.
+        if (this._isFinalFunction(memberName, baseClassAndSymbol.symbol, baseType)) {
+            const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
+            if (decl && decl.type === DeclarationType.Function) {
+                const diag = this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportIncompatibleMethodOverride,
+                    LocMessage.finalMethodOverride().format({
+                        name: memberName,
+                        className: baseClass.shared.name,
+                    }),
+                    decl.node.d.name
+                );
 
-            // Determine whether this is an attempt to override a method marked @final.
-            if (this._isFinalFunction(memberName, baseType)) {
-                const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
-                if (decl && decl.type === DeclarationType.Function) {
-                    const diag = this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportIncompatibleMethodOverride,
-                        LocMessage.finalMethodOverride().format({
-                            name: memberName,
-                            className: baseClass.shared.name,
-                        }),
-                        decl.node.d.name
-                    );
-
-                    const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
-                    if (diag && origDecl) {
-                        diag.addRelatedInfo(LocAddendum.finalMethod(), origDecl.uri, origDecl.range);
-                    }
+                const origDecl = getLastTypedDeclarationForSymbol(baseClassAndSymbol.symbol);
+                if (diag && origDecl) {
+                    diag.addRelatedInfo(LocAddendum.finalMethod(), origDecl.uri, origDecl.range);
                 }
             }
+        }
+
+        if (isFunctionOrOverloaded(baseType)) {
+            const diagAddendum = new DiagnosticAddendum();
 
             // Don't check certain magic functions or private symbols.
             // Also, skip this check if the class is a TypedDict. The methods for a TypedDict
@@ -7001,29 +7056,30 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    private _isFinalFunction(name: string, type: Type) {
+    private _isFinalFunction(name: string, symbol: Symbol, type: Type) {
         if (SymbolNameUtils.isPrivateName(name)) {
             return false;
         }
 
-        if (isFunction(type) && FunctionType.isFinal(type)) {
-            return true;
-        }
+        // Was this declared with a "def" statement?
+        const defDecls: FunctionNode[] = [];
+        symbol.getDeclarations().forEach((decl) => {
+            if (decl.type === DeclarationType.Function && decl.node.nodeType === ParseNodeType.Function) {
+                defDecls.push(decl.node);
+            }
+        });
 
-        if (isOverloaded(type)) {
-            const overloads = OverloadedType.getOverloads(type);
-            const impl = OverloadedType.getImplementation(type);
-
-            if (overloads.some((overload) => FunctionType.isFinal(overload))) {
-                return true;
+        // Locate all final function declarations.
+        const finalDefDecls = defDecls.filter((decl) => {
+            const undecoratedFuncType = this._evaluator.getTypeOfFunction(decl)?.functionType;
+            if (!undecoratedFuncType) {
+                return false;
             }
 
-            if (impl && isFunction(impl) && FunctionType.isFinal(impl)) {
-                return true;
-            }
-        }
+            return FunctionType.isFinal(undecoratedFuncType);
+        });
 
-        return false;
+        return finalDefDecls.length > 0;
     }
 
     private _validatePropertyOverride(
@@ -7086,18 +7142,6 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     return;
-                } else if (this._isFinalFunction(methodName, baseClassPropMethod)) {
-                    const decl = getLastTypedDeclarationForSymbol(overrideSymbol);
-                    if (decl && decl.type === DeclarationType.Function) {
-                        this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportIncompatibleMethodOverride,
-                            LocMessage.finalMethodOverride().format({
-                                name: memberName,
-                                className: baseClassType.shared.name,
-                            }),
-                            decl.node.d.name
-                        );
-                    }
                 }
 
                 const subclassMethodType = partiallySpecializeType(
@@ -7628,6 +7672,14 @@ export class Checker extends ParseTreeWalker {
                         LocMessage.unreachableExcept() + diagAddendum.getString(),
                         except.d.typeExpr
                     );
+
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportUnreachable,
+                        LocMessage.unreachableCodeType(),
+                        except.d.exceptSuite,
+                        except.d.exceptToken
+                    );
+
                     this._evaluator.addUnreachableCode(
                         except,
                         Reachability.UnreachableByAnalysis,

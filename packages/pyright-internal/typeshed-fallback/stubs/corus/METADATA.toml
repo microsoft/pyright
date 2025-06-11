@@ -1,6 +1,0 @@
-version = "0.10.*"
-upstream_repository = "https://github.com/natasha/corus"
-
-[tool.stubtest]
-# As of version 0.10.0, corus doesn't support Python 3.13.
-skip = true

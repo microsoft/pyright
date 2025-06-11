@@ -10,8 +10,6 @@
  * Converts a Python program text stream into a stream of tokens.
  */
 
-import { isWhitespace } from '../analyzer/parseTreeUtils';
-import { IPythonMode } from '../analyzer/sourceFile';
 import { Char } from '../common/charCodes';
 import { cloneStr } from '../common/core';
 import { TextRange } from '../common/textRange';
@@ -143,6 +141,10 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
 const _byteOrderMarker = 0xfeff;
 
 const defaultTabSize = 8;
+const magicsRegEx = /\\\s*$/;
+const typeIgnoreCommentRegEx = /((^|#)\s*)type:\s*ignore(\s*\[([\s\w-,]*)\]|\s|$)/;
+const pyrightIgnoreCommentRegEx = /((^|#)\s*)pyright:\s*ignore(\s*\[([\s\w-,]*)\]|\s|$)/;
+const underscoreRegEx = /_/g;
 
 export interface TokenizerOutput {
     // List of all tokens.
@@ -208,6 +210,12 @@ interface FStringContext {
     activeReplacementField?: FStringReplacementFieldContext;
 }
 
+enum MagicsKind {
+    None,
+    Line,
+    Cell,
+}
+
 export class Tokenizer {
     private _cs = new CharacterStream('');
     private _tokens: Token[] = [];
@@ -244,15 +252,15 @@ export class Tokenizer {
     private _singleQuoteCount = 0;
     private _doubleQuoteCount = 0;
 
-    // ipython mode
-    private _ipythonMode = IPythonMode.None;
+    // Assume Jupyter notebook tokenization rules?
+    private _useNotebookMode = false;
 
     tokenize(
         text: string,
         start?: number,
         length?: number,
         initialParenDepth = 0,
-        ipythonMode = IPythonMode.None
+        useNotebookMode = false
     ): TokenizerOutput {
         if (start === undefined) {
             start = 0;
@@ -275,7 +283,7 @@ export class Tokenizer {
         this._parenDepth = initialParenDepth;
         this._lineRanges = [];
         this._indentAmounts = [];
-        this._ipythonMode = ipythonMode;
+        this._useNotebookMode = useNotebookMode;
 
         const end = start + length;
 
@@ -375,6 +383,10 @@ export class Tokenizer {
         return _operatorInfo[operatorType];
     }
 
+    static isWhitespace(token: Token) {
+        return token.type === TokenType.NewLine || token.type === TokenType.Indent || token.type === TokenType.Dedent;
+    }
+
     static isPythonKeyword(name: string, includeSoftKeywords = false): boolean {
         const keyword = _keywords.get(name);
         if (!keyword) {
@@ -460,16 +472,16 @@ export class Tokenizer {
             return true;
         }
 
-        if (this._ipythonMode) {
+        if (this._useNotebookMode) {
             const kind = this._getIPythonMagicsKind();
-            if (kind === 'line') {
+            if (kind === MagicsKind.Line) {
                 this._handleIPythonMagics(
                     this._cs.currentChar === Char.Percent ? CommentType.IPythonMagic : CommentType.IPythonShellEscape
                 );
                 return true;
             }
 
-            if (kind === 'cell') {
+            if (kind === MagicsKind.Cell) {
                 this._handleIPythonMagics(
                     this._cs.currentChar === Char.Percent
                         ? CommentType.IPythonCellMagic
@@ -730,15 +742,15 @@ export class Tokenizer {
                     this._cs.moveNext();
                     break;
 
-                default:
-                    // Non-blank line. Set the current indent level.
-                    this._setIndent(startOffset, tab1Spaces, tab8Spaces, isSpacePresent, isTabPresent);
-                    return;
-
                 case Char.Hash:
                 case Char.LineFeed:
                 case Char.CarriageReturn:
                     // Blank line -- no need to adjust indentation.
+                    return;
+
+                default:
+                    // Non-blank line. Set the current indent level.
+                    this._setIndent(startOffset, tab1Spaces, tab8Spaces, isSpacePresent, isTabPresent);
                     return;
             }
         }
@@ -952,7 +964,7 @@ export class Tokenizer {
 
             if (radix > 0) {
                 const text = this._cs.getText().slice(start, this._cs.position);
-                const simpleIntText = text.replace(/_/g, '');
+                const simpleIntText = text.replace(underscoreRegEx, '');
                 let intValue: number | bigint = parseInt(simpleIntText.slice(leadingChars), radix);
 
                 if (!isNaN(intValue)) {
@@ -1005,7 +1017,7 @@ export class Tokenizer {
 
         if (isDecimalInteger) {
             let text = this._cs.getText().slice(start, this._cs.position);
-            const simpleIntText = text.replace(/_/g, '');
+            const simpleIntText = text.replace(underscoreRegEx, '');
             let intValue: number | bigint = parseInt(simpleIntText, 10);
 
             if (!isNaN(intValue)) {
@@ -1237,34 +1249,31 @@ export class Tokenizer {
         return prevComments;
     }
 
-    private _getIPythonMagicsKind(): 'line' | 'cell' | undefined {
-        if (!isMagicChar(this._cs.currentChar)) {
-            return undefined;
+    private _getIPythonMagicsKind(): MagicsKind {
+        const curChar = this._cs.currentChar;
+        if (curChar !== Char.Percent && curChar !== Char.ExclamationMark) {
+            return MagicsKind.None;
         }
 
         const prevToken = this._tokens.length > 0 ? this._tokens[this._tokens.length - 1] : undefined;
-        if (prevToken !== undefined && !isWhitespace(prevToken)) {
-            return undefined;
+        if (prevToken !== undefined && !Tokenizer.isWhitespace(prevToken)) {
+            return MagicsKind.None;
         }
 
-        if (this._cs.nextChar === this._cs.currentChar) {
+        if (this._cs.nextChar === curChar) {
             // Eat up next magic char.
             this._cs.moveNext();
-            return 'cell';
+            return MagicsKind.Cell;
         }
 
-        return 'line';
-
-        function isMagicChar(ch: number) {
-            return ch === Char.Percent || ch === Char.ExclamationMark;
-        }
+        return MagicsKind.Line;
     }
 
     private _handleIPythonMagics(type: CommentType): void {
         const start = this._cs.position + 1;
 
         let begin = start;
-        do {
+        while (true) {
             this._cs.skipToEol();
 
             if (type === CommentType.IPythonMagic || type === CommentType.IPythonShellEscape) {
@@ -1274,14 +1283,18 @@ export class Tokenizer {
                 // is it multiline magics?
                 // %magic command \
                 //        next arguments
-                if (!value.match(/\\\s*$/)) {
+                if (!value.match(magicsRegEx)) {
                     break;
                 }
             }
 
             this._cs.moveNext();
             begin = this._cs.position + 1;
-        } while (!this._cs.isEndOfStream());
+
+            if (this._cs.isEndOfStream()) {
+                break;
+            }
+        }
 
         const length = this._cs.position - start;
         const comment = Comment.create(start, length, this._cs.getText().slice(start, start + length), type);
@@ -1295,7 +1308,7 @@ export class Tokenizer {
         const length = this._cs.position - start;
         const comment = Comment.create(start, length, this._cs.getText().slice(start, start + length));
 
-        const typeIgnoreRegexMatch = comment.value.match(/((^|#)\s*)type:\s*ignore(\s*\[([\s\w-,]*)\]|\s|$)/);
+        const typeIgnoreRegexMatch = comment.value.match(typeIgnoreCommentRegEx);
         if (typeIgnoreRegexMatch) {
             const commentStart = start + (typeIgnoreRegexMatch.index ?? 0);
             const textRange: TextRange = {
@@ -1314,7 +1327,7 @@ export class Tokenizer {
             }
         }
 
-        const pyrightIgnoreRegexMatch = comment.value.match(/((^|#)\s*)pyright:\s*ignore(\s*\[([\s\w-,]*)\]|\s|$)/);
+        const pyrightIgnoreRegexMatch = comment.value.match(pyrightIgnoreCommentRegEx);
         if (pyrightIgnoreRegexMatch) {
             const commentStart = start + (pyrightIgnoreRegexMatch.index ?? 0);
             const textRange: TextRange = {
@@ -1383,6 +1396,8 @@ export class Tokenizer {
                 case Char.B:
                 case Char.u:
                 case Char.U:
+                case Char.t:
+                case Char.T:
                     // Single-char prefix like u"" or r""
                     return 1;
                 default:
@@ -1398,6 +1413,8 @@ export class Tokenizer {
             switch (prefix) {
                 case 'rf':
                 case 'fr':
+                case 'rt':
+                case 'tr':
                 case 'br':
                 case 'rb':
                     return 2;
@@ -1429,6 +1446,10 @@ export class Tokenizer {
                 case 'f':
                     flags |= StringTokenFlags.Format;
                     break;
+
+                case 't':
+                    flags |= StringTokenFlags.Template;
+                    break;
             }
         }
 
@@ -1450,7 +1471,7 @@ export class Tokenizer {
     private _handleString(flags: StringTokenFlags, stringPrefixLength: number): void {
         const start = this._cs.position - stringPrefixLength;
 
-        if (flags & StringTokenFlags.Format) {
+        if (flags & (StringTokenFlags.Format | StringTokenFlags.Template)) {
             if (flags & StringTokenFlags.Triplicate) {
                 this._cs.advance(3);
             } else {
@@ -1508,7 +1529,8 @@ export class Tokenizer {
                         (StringTokenFlags.Bytes |
                             StringTokenFlags.Unicode |
                             StringTokenFlags.Raw |
-                            StringTokenFlags.Format)) ===
+                            StringTokenFlags.Format |
+                            StringTokenFlags.Template)) ===
                     0
                 ) {
                     const quoteTypeMask =
@@ -1590,7 +1612,7 @@ export class Tokenizer {
     private _skipToEndOfStringLiteral(flags: StringTokenFlags, inFormatSpecifier = false): StringScannerOutput {
         const quoteChar = flags & StringTokenFlags.SingleQuote ? Char.SingleQuote : Char.DoubleQuote;
         const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
-        const isFString = (flags & StringTokenFlags.Format) !== 0;
+        const isFString = (flags & (StringTokenFlags.Format | StringTokenFlags.Template)) !== 0;
         let isInNamedUnicodeEscape = false;
         const start = this._cs.position;
         let escapedValueLength = 0;

@@ -7,10 +7,10 @@
  * Simple utility functions used by the type printer.
  */
 
-export function printStringLiteral(value: string, quotation = '"'): string {
-    const singleTickRegEx = /'/g;
-    const escapedDoubleQuoteRegEx = /\\"/g;
+const singleTickRegEx = /'/g;
+const escapedDoubleQuoteRegEx = /\\"/g;
 
+export function printStringLiteral(value: string, quotation = '"'): string {
     // JSON.stringify will perform proper escaping for " case.
     // So, we only need to do our own escaping for ' case.
     let literalStr = JSON.stringify(value).toString();

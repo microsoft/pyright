@@ -7,7 +7,7 @@
  * Specifies the range of text within a larger string.
  */
 
-import { Uri } from './uri/uri';
+import { fail } from './debug';
 
 export interface TextRange {
     readonly start: number;
@@ -17,20 +17,20 @@ export interface TextRange {
 export namespace TextRange {
     export function create(start: number, length: number): TextRange {
         if (start < 0) {
-            throw new Error('start must be non-negative');
+            fail('start must be non-negative');
         }
         if (length < 0) {
-            throw new Error('length must be non-negative');
+            fail('length must be non-negative');
         }
         return { start, length };
     }
 
     export function fromBounds(start: number, end: number): TextRange {
         if (start < 0) {
-            throw new Error('start must be non-negative');
+            fail('start must be non-negative');
         }
         if (start > end) {
-            throw new Error('end must be greater than or equal to start');
+            fail('end must be greater than or equal to start');
         }
         return create(start, end - start);
     }
@@ -55,31 +55,23 @@ export namespace TextRange {
         return overlaps(range, other.start) || overlaps(other, range.start);
     }
 
-    export function extend(range: TextRange, extension: TextRange | TextRange[] | undefined): TextRange {
+    export function extend(range: TextRange, extension: TextRange): TextRange {
         let result = range;
 
-        if (extension) {
-            if (Array.isArray(extension)) {
-                extension.forEach((r) => {
-                    result = extend(result, r);
-                });
-            } else {
-                if (extension.start < result.start) {
-                    result = {
-                        start: extension.start,
-                        length: result.length + result.start - extension.start,
-                    };
-                }
+        if (extension.start < result.start) {
+            result = {
+                start: extension.start,
+                length: result.length + result.start - extension.start,
+            };
+        }
 
-                const extensionEnd = getEnd(extension);
-                const resultEnd = getEnd(result);
-                if (extensionEnd > resultEnd) {
-                    result = {
-                        start: result.start,
-                        length: result.length + extensionEnd - resultEnd,
-                    };
-                }
-            }
+        const extensionEnd = getEnd(extension);
+        const resultEnd = getEnd(result);
+        if (extensionEnd > resultEnd) {
+            result = {
+                start: result.start,
+                length: result.length + extensionEnd - resultEnd,
+            };
         }
 
         return result;
@@ -90,7 +82,7 @@ export namespace TextRange {
             return undefined;
         }
 
-        let combinedRange = { start: ranges[0].start, length: ranges[0].length };
+        let combinedRange: TextRange = { start: ranges[0].start, length: ranges[0].length };
         for (let i = 1; i < ranges.length; i++) {
             combinedRange = extend(combinedRange, ranges[i]);
         }
@@ -105,11 +97,6 @@ export interface Position {
 }
 
 export namespace Position {
-    export function is(value: any): value is Position {
-        const candidate = value as Position;
-        return candidate && candidate.line !== void 0 && candidate.character !== void 0;
-    }
-
     export function print(value: Position): string {
         return `(${value.line}:${value.character})`;
     }
@@ -121,22 +108,12 @@ export interface Range {
 }
 
 export namespace Range {
-    export function is(value: any): value is Range {
-        const candidate = value as Range;
-        return candidate && candidate.start !== void 0 && candidate.end !== void 0;
-    }
-
     export function print(value: Range): string {
         return `${Position.print(value.start)}-${Position.print(value.end)}`;
     }
 }
 
 // Represents a range within a particular document.
-export interface DocumentRange {
-    uri: Uri;
-    range: Range;
-}
-
 export function comparePositions(a: Position, b: Position) {
     if (a.line < b.line) {
         return -1;
@@ -175,12 +152,12 @@ export function doRangesIntersect(a: Range, b: Range) {
     return true;
 }
 
-export function doesRangeContain(range: Range, positionOrRange: Position | Range): boolean {
-    if (Position.is(positionOrRange)) {
-        return comparePositions(range.start, positionOrRange) <= 0 && comparePositions(range.end, positionOrRange) >= 0;
-    }
+export function isPositionInRange(range: Range, position: Position): boolean {
+    return comparePositions(range.start, position) <= 0 && comparePositions(range.end, position) >= 0;
+}
 
-    return doesRangeContain(range, positionOrRange.start) && doesRangeContain(range, positionOrRange.end);
+export function isRangeInRange(range: Range, containedRange: Range): boolean {
+    return isPositionInRange(range, containedRange.start) && isPositionInRange(range, containedRange.end);
 }
 
 export function positionsAreEqual(a: Position, b: Position) {
@@ -206,21 +183,13 @@ export function isEmptyRange(range: Range) {
     return isEmptyPosition(range.start) && isEmptyPosition(range.end);
 }
 
-export function extendRange(range: Range, extension: Range | Range[] | undefined) {
-    if (extension) {
-        if (Array.isArray(extension)) {
-            extension.forEach((r) => {
-                extendRange(range, r);
-            });
-        } else {
-            if (comparePositions(extension.start, range.start) < 0) {
-                range.start = extension.start;
-            }
+export function extendRange(range: Range, extension: Range) {
+    if (comparePositions(extension.start, range.start) < 0) {
+        range.start = extension.start;
+    }
 
-            if (comparePositions(extension.end, range.end) > 0) {
-                range.end = extension.end;
-            }
-        }
+    if (comparePositions(extension.end, range.end) > 0) {
+        range.end = extension.end;
     }
 }
 

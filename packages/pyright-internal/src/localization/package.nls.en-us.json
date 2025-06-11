@@ -36,6 +36,10 @@
         "annotationRawString": "Type expressions cannot use raw string literals",
         "annotationSpansStrings": "Type expressions cannot span multiple string literals",
         "annotationStringEscape": "Type expressions cannot contain escape characters",
+        "annotationTemplateString": {
+            "message": "Type expressions cannot use template string literals (t-strings)",
+            "comment": "'t-string' is the common English slang for a Python template string"
+        },
         "argAssignment": "Argument of type \"{argType}\" cannot be assigned to parameter of type \"{paramType}\"",
         "argAssignmentFunction": "Argument of type \"{argType}\" cannot be assigned to parameter of type \"{paramType}\" in function \"{functionName}\"",
         "argAssignmentParam": "Argument of type \"{argType}\" cannot be assigned to parameter \"{paramName}\" of type \"{paramType}\"",
@@ -371,6 +375,8 @@
         },
         "exceptionTypeNotClass": "\"{type}\" is not a valid exception class",
         "exceptionTypeNotInstantiable": "Constructor for exception type \"{type}\" requires one or more arguments",
+        "exceptWithAsRequiresParens": "Multiple exception types must be parenthesized when using \"as\"",
+        "exceptRequiresParens": "Multiple exception types must be parenthesized prior to Python 3.14",
         "expectedAfterDecorator": "Expected function or class declaration after decorator",
         "expectedArrow": "Expected \"->\" followed by return type annotation",
         "expectedAsAfterException": {
@@ -553,6 +559,10 @@
         "formatStringNestedQuote": {
             "message": "Strings nested within an f-string cannot use the same quote character as the f-string prior to Python 3.12",
             "comment": "'f-string' is the common English slang for a Python format string"
+        },
+        "formatStringTemplate": {
+            "message": "Format string literals (f-strings) cannot also be template strings (t-strings)",
+            "comment": "'f-string' is the common English slang for a Python format string, 't-string' is the common English slang for a Python template string"
         },
         "formatStringUnicode": {
             "message": "Format string literals (f-strings) cannot be unicode",
@@ -1179,6 +1189,18 @@
             "message": "\"Self\" cannot be used in a function with a `self` or `cls` parameter that has a type annotation other than \"Self\"",
             "comment": "{Locked='Self','self','cls'}"
         },
+        "sentinelBadName": {
+            "message": "The first argument to Sentinel must be a string literal",
+            "comment": "{Locked='Sentinel'}"
+        },
+        "sentinelParamCount": {
+            "message": "Sentinel requires one positional argument",
+            "comment": "{Locked='Sentinel'}"
+        },
+        "sentinelNameMismatch": {
+            "message": "Sentinel must be assigned to a variable with the same name",
+            "comment": "{Locked='Sentinel'}"
+        },
         "setterGetterTypeMismatch": {
             "message": "Property setter value type is not assignable to the getter return type",
             "comment": ["{Locked='setter','getter'}", "{StrContains=i'property'}", "'property' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
@@ -1252,6 +1274,18 @@
         "symbolIsUnbound": "\"{name}\" is unbound",
         "symbolIsUndefined": "\"{name}\" is not defined",
         "symbolOverridden": "\"{name}\" overrides symbol of same name in class \"{className}\"",
+        "templateStringBytes": {
+            "message": "Template string literals (t-strings) cannot be binary",
+            "comment": "'t-string' is the common English slang for a Python template string"
+        },
+        "templateStringIllegal": {
+            "message": "Template string literals (t-strings) require Python 3.14 or newer",
+            "comment": "'t-string' is the common English slang for a Python template string"
+        },
+        "templateStringUnicode": {
+            "message": "Template string literals (t-strings) cannot be unicode",
+            "comment": "'t-string' is the common English slang for a Python template string"
+        },
         "ternaryNotAllowed": "Ternary expression not allowed in type expression",
         "totalOrderingMissingMethod": {
             "message": "Class must define one of \"__lt__\", \"__le__\", \"__gt__\", or \"__ge__\" to use total_ordering",
@@ -1688,7 +1722,8 @@
             "message": "Unable to match unpacked TypedDict argument to parameters",
             "comment": "{Locked='TypedDict'}"
         },
-        "unreachableCode": "Code is unreachable",
+        "unreachableCodeCondition": "Code is not analyzed because condition is statically evaluated as false",
+        "unreachableCodeStructure": "Code is structurally unreachable",
         "unreachableCodeType": "Type analysis indicates code is unreachable",
         "unreachableExcept": {
             "message": "Except clause is unreachable because exception is already handled",

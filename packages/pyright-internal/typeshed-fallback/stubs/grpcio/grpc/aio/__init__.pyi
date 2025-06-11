@@ -74,11 +74,8 @@ def server(
 
 # Channel Object:
 
-# XXX: The docs suggest these type signatures for aio, but not for non-async,
-# and it's unclear why;
-# https://grpc.github.io/grpc/python/grpc_asyncio.html#grpc.aio.Channel.stream_stream
-_RequestSerializer: TypeAlias = Callable[[Any], bytes]
-_ResponseDeserializer: TypeAlias = Callable[[bytes], Any]
+_Serializer: TypeAlias = Callable[[_T], bytes]
+_Deserializer: TypeAlias = Callable[[bytes], _T]
 
 class Channel(abc.ABC):
     @abc.abstractmethod
@@ -91,30 +88,30 @@ class Channel(abc.ABC):
     def stream_stream(
         self,
         method: str,
-        request_serializer: _RequestSerializer | None = None,
-        response_deserializer: _ResponseDeserializer | None = None,
-    ) -> StreamStreamMultiCallable[Any, Any]: ...
+        request_serializer: _Serializer[_TRequest] | None = None,
+        response_deserializer: _Deserializer[_TResponse] | None = None,
+    ) -> StreamStreamMultiCallable[_TRequest, _TResponse]: ...
     @abc.abstractmethod
     def stream_unary(
         self,
         method: str,
-        request_serializer: _RequestSerializer | None = None,
-        response_deserializer: _ResponseDeserializer | None = None,
-    ) -> StreamUnaryMultiCallable[Any, Any]: ...
+        request_serializer: _Serializer[_TRequest] | None = None,
+        response_deserializer: _Deserializer[_TResponse] | None = None,
+    ) -> StreamUnaryMultiCallable[_TRequest, _TResponse]: ...
     @abc.abstractmethod
     def unary_stream(
         self,
         method: str,
-        request_serializer: _RequestSerializer | None = None,
-        response_deserializer: _ResponseDeserializer | None = None,
-    ) -> UnaryStreamMultiCallable[Any, Any]: ...
+        request_serializer: _Serializer[_TRequest] | None = None,
+        response_deserializer: _Deserializer[_TResponse] | None = None,
+    ) -> UnaryStreamMultiCallable[_TRequest, _TResponse]: ...
     @abc.abstractmethod
     def unary_unary(
         self,
         method: str,
-        request_serializer: _RequestSerializer | None = None,
-        response_deserializer: _ResponseDeserializer | None = None,
-    ) -> UnaryUnaryMultiCallable[Any, Any]: ...
+        request_serializer: _Serializer[_TRequest] | None = None,
+        response_deserializer: _Deserializer[_TResponse] | None = None,
+    ) -> UnaryUnaryMultiCallable[_TRequest, _TResponse]: ...
     @abc.abstractmethod
     async def __aenter__(self) -> Self: ...
     @abc.abstractmethod
@@ -299,8 +296,8 @@ class InterceptedUnaryUnaryCall(_InterceptedCall[_TRequest, _TResponse], metacla
         wait_for_ready: bool | None,
         channel: Channel,
         method: bytes,
-        request_serializer: _RequestSerializer,
-        response_deserializer: _ResponseDeserializer,
+        request_serializer: _Serializer[_TRequest],
+        response_deserializer: _Deserializer[_TResponse],
         loop: asyncio.AbstractEventLoop,
     ) -> None: ...
 
@@ -314,8 +311,8 @@ class InterceptedUnaryUnaryCall(_InterceptedCall[_TRequest, _TResponse], metacla
         credentials: CallCredentials | None,
         wait_for_ready: bool | None,
         request: _TRequest,
-        request_serializer: _RequestSerializer,
-        response_deserializer: _ResponseDeserializer,
+        request_serializer: _Serializer[_TRequest],
+        response_deserializer: _Deserializer[_TResponse],
     ) -> UnaryUnaryCall[_TRequest, _TResponse]: ...
     def time_remaining(self) -> float | None: ...
 

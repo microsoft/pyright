@@ -58,6 +58,7 @@ def q_join(lst: Iterable[str], sep: str = ",", always_quote: bool = False) -> st
 
 class Parameters(CaselessDict[str]):
     always_quoted: ClassVar[tuple[str, ...]]
+    quote_also: ClassVar[dict[str, str]]
     def params(self) -> dict_keys[str, str]: ...
     def to_ical(self, sorted: bool = True) -> bytes: ...
     @classmethod

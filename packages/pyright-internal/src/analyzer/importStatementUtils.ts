@@ -38,6 +38,9 @@ import { ImportResult, ImportType } from './importResult';
 import { getTokenAfter, getTokenAt } from './parseTreeUtils';
 import * as SymbolNameUtils from './symbolNameUtils';
 
+const underscoreRegEx = /_/g;
+const indentTextRegEx = /^\s*$/;
+
 export interface ImportStatement {
     node: ImportNode | ImportFromNode;
     subnode?: ImportAsNode;
@@ -238,8 +241,8 @@ function _compareImportNames(name1: string, name2: string) {
     // This can't be reproduced by a normal string compare in TypeScript, since '_' > 'A'.
     // Replace all '_' with '=' which guarantees '=' < 'A'.
     // Safe to do as '=' is an invalid char in Python names.
-    const name1toCompare = name1.replace(/_/g, '=');
-    const name2toCompare = name2.replace(/_/g, '=');
+    const name1toCompare = name1.replace(underscoreRegEx, '=');
+    const name2toCompare = name2.replace(underscoreRegEx, '=');
     return compareStringsCaseSensitive(name1toCompare, name2toCompare);
 }
 
@@ -293,7 +296,7 @@ function _getTextEditsForAutoImportSymbolAddition(
             indentText = parseFileResults.text.substr(firstSymbolLineRange.start, firstSymbolPos.character);
 
             // Is the indent text composed of whitespace only?
-            if (/^\s*$/.test(indentText)) {
+            if (indentTextRegEx.test(indentText)) {
                 useOnePerLineFormatting = true;
             }
         }

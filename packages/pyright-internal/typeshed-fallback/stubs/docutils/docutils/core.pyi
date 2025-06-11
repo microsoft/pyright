@@ -1,5 +1,6 @@
 from _typeshed import Incomplete
 
+from docutils import SettingsSpec
 from docutils.writers import _WriterParts
 
 __docformat__: str
@@ -29,7 +30,14 @@ class Publisher:
     def set_writer(self, writer_name) -> None: ...
     def set_components(self, reader_name, parser_name, writer_name) -> None: ...
     def setup_option_parser(self, usage=None, description=None, settings_spec=None, config_section=None, **defaults): ...
-    def get_settings(self, usage=None, description=None, settings_spec=None, config_section=None, **defaults): ...
+    def get_settings(
+        self,
+        usage: str | None = None,
+        description: str | None = None,
+        settings_spec: SettingsSpec | None = None,
+        config_section: str | None = None,
+        **defaults,
+    ): ...
     def process_programmatic_settings(self, settings_spec, settings_overrides, config_section) -> None: ...
     def process_command_line(
         self, argv=None, usage=None, description=None, settings_spec=None, config_section=None, **defaults

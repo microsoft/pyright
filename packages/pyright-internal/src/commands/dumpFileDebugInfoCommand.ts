@@ -1365,6 +1365,7 @@ const StringTokenFlagsStrings: [StringTokenFlags, string][] = [
     [StringTokenFlags.Bytes, 'Bytes'],
     [StringTokenFlags.DoubleQuote, 'DoubleQuote'],
     [StringTokenFlags.Format, 'Format'],
+    [StringTokenFlags.Template, 'Template'],
     [StringTokenFlags.Raw, 'Raw'],
     [StringTokenFlags.SingleQuote, 'SingleQuote'],
     [StringTokenFlags.Triplicate, 'Triplicate'],

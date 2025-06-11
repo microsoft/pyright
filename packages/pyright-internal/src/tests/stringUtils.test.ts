@@ -9,22 +9,6 @@ import * as assert from 'assert';
 import * as core from '../common/core';
 import * as utils from '../common/stringUtils';
 
-test('stringUtils computeCompletionSimilarity', () => {
-    assert.equal(utils.computeCompletionSimilarity('', 'abcd'), 1);
-
-    assert.equal(utils.computeCompletionSimilarity('abcd', 'abcd'), 1);
-    assert.equal(utils.computeCompletionSimilarity('abc', 'abcd'), 1);
-
-    assert.equal(utils.computeCompletionSimilarity('ABCD', 'abcd'), 0.75);
-    assert.equal(utils.computeCompletionSimilarity('ABC', 'abcd'), 0.75);
-
-    assert.equal(utils.computeCompletionSimilarity('abce', 'abcd'), 0.375);
-    assert.equal(utils.computeCompletionSimilarity('abcde', 'abcd'), 0.4);
-    assert.equal(utils.computeCompletionSimilarity('azcde', 'abcd'), 0.3);
-    assert.equal(utils.computeCompletionSimilarity('acde', 'abcd'), 0.25);
-    assert.equal(utils.computeCompletionSimilarity('zbcd', 'abcd'), 0.375);
-});
-
 test('stringUtils isPatternInSymbol', () => {
     assert.equal(utils.isPatternInSymbol('', 'abcd'), true);
 

@@ -1,5 +1,6 @@
-from _typeshed import SupportsGetItem
+from _typeshed import Incomplete, SupportsGetItem
 from collections.abc import Generator
+from typing import NamedTuple
 
 from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatchable
@@ -18,3 +19,29 @@ def k_edge_augmentation(
     weight: str | None = None,
     partial: bool = False,
 ) -> Generator[tuple[_Node, _Node], None, None]: ...
+@_dispatchable
+def partial_k_edge_augmentation(G: Graph[_Node], k, avail, weight: str | None = None): ...
+@_dispatchable
+def one_edge_augmentation(G: Graph[_Node], avail=None, weight: str | None = None, partial: bool = False): ...
+@_dispatchable
+def bridge_augmentation(G: Graph[_Node], avail=None, weight: str | None = None): ...
+
+class MetaEdge(NamedTuple):
+    meta_uv: Incomplete
+    uv: Incomplete
+    w: Incomplete
+
+@_dispatchable
+def unconstrained_one_edge_augmentation(G: Graph[_Node]): ...
+@_dispatchable
+def weighted_one_edge_augmentation(G: Graph[_Node], avail, weight: str | None = None, partial: bool = False): ...
+@_dispatchable
+def unconstrained_bridge_augmentation(G: Graph[_Node]): ...
+@_dispatchable
+def weighted_bridge_augmentation(G: Graph[_Node], avail, weight: str | None = None): ...
+@_dispatchable
+def collapse(G: Graph[_Node], grouped_nodes): ...
+@_dispatchable
+def complement_edges(G: Graph[_Node]): ...
+@_dispatchable
+def greedy_k_edge_augmentation(G: Graph[_Node], k, avail=None, weight: str | None = None, seed=None): ...

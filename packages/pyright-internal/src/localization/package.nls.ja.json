@@ -635,7 +635,6 @@
         "unpackedSubscriptIllegal": "下付き文字の Unpack 演算子には Python 3.11 以降が必要です",
         "unpackedTypeVarTupleExpected": "アンパックされた TypeVarTuple が必要です。Unpack[{name1}] または *{name2} を使用してください",
         "unpackedTypedDictArgument": "アンパックされた TypedDict 引数をパラメーターと一致させることはできません",
-        "unreachableCode": "コードに到達できません",
         "unreachableCodeType": "型分析はコードに到達不能であることを示します",
         "unreachableExcept": "例外が既に処理されているため、Except 句に到達できません",
         "unsupportedDunderAllOperation": "\"__all__\" に対する操作はサポートされていないため、エクスポートされたシンボル リストが正しくない可能性があります",

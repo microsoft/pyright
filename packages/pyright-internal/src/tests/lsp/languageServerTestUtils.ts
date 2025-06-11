@@ -58,7 +58,6 @@ import {
     WorkDoneProgressCreateRequest,
 } from 'vscode-languageserver/node';
 import { PythonPathResult } from '../../analyzer/pythonPathUtils';
-import { IPythonMode } from '../../analyzer/sourceFile';
 import { deserialize } from '../../backgroundThreadBase';
 import { PythonPlatform } from '../../common/configOptions';
 import { toBoolean } from '../../common/core';
@@ -245,10 +244,10 @@ export function updateSettingsMap(info: PyrightServerInfo, settings: { item: Con
     settingsMap.set(info, [...settings, ...current]);
 }
 
-export function getParseResults(fileContents: string, isStubFile = false, ipythonMode: IPythonMode = 0) {
+export function getParseResults(fileContents: string, isStubFile = false, useNotebookMode = false) {
     const diagSink = new DiagnosticSink();
     const parseOptions = new ParseOptions();
-    parseOptions.ipythonMode = ipythonMode;
+    parseOptions.useNotebookMode = useNotebookMode;
     parseOptions.isStubFile = isStubFile;
     parseOptions.pythonVersion = pythonVersion3_10;
     parseOptions.skipFunctionAndClassBody = false;

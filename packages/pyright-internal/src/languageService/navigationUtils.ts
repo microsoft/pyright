@@ -6,8 +6,8 @@
  * Helper functions for navigating files.
  */
 import { Location } from 'vscode-languageserver-types';
+import { DocumentRange } from '../common/docRange';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
-import { DocumentRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { convertUriToLspUriString } from '../common/uri/uriUtils';
 

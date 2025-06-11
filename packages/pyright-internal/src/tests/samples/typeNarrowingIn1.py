@@ -141,7 +141,12 @@ T1 = TypeVar("T1", TD1, TD2)
 
 def func12(v: T1):
     if "x" in v:
-        reveal_type(v, expected_text="TD1* | TD2*")
+        # This should technically be TD1* | TD2*, but the
+        # current narrowing logic implements a not-entirely-safe
+        # narrowing behavior. We can fix this once PEP 728
+        # is accepted.
+        reveal_type(v, expected_text="TD1*")
+        # reveal_type(v, expected_text="TD1* | TD2*")
     else:
         reveal_type(v, expected_text="TD2*")
 

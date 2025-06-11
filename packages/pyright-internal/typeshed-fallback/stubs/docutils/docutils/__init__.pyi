@@ -26,7 +26,7 @@ class ApplicationError(Exception): ...
 class DataError(ApplicationError): ...
 
 class SettingsSpec:
-    settings_spec: ClassVar[tuple[Any, ...]]
+    settings_spec: ClassVar[tuple[Any, ...]]  # Mixed tuple structure; uses Any for flexibility in nested option definitions
     settings_defaults: ClassVar[dict[Any, Any] | None]
     settings_default_overrides: ClassVar[dict[Any, Any] | None]
     relative_path_settings: ClassVar[tuple[Any, ...]]

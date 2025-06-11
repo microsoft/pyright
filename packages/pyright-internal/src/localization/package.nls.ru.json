@@ -635,7 +635,6 @@
         "unpackedSubscriptIllegal": "Оператор распаковки в операции взятия подстроки можно использовать в Python версии не ниже 3.11",
         "unpackedTypeVarTupleExpected": "Ожидается распакованный TypeVarTuple; используйте Unpack[{name1}] или *{name2}",
         "unpackedTypedDictArgument": "Не удалось сопоставить распакованный аргумент TypedDict с параметрами",
-        "unreachableCode": "Код недоступен",
         "unreachableCodeType": "Анализ типа показывает, что код недоступен",
         "unreachableExcept": "Предложение Except недоступно, так как исключение уже обработано",
         "unsupportedDunderAllOperation": "Операция на \"__all__\" не поддерживается, поэтому список экспортируемых символов может быть неправильным",

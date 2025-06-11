@@ -13,7 +13,8 @@ exec 3 + 4
 
 try:
     bar = 3
-# This should generate an error.
+# This should generate one error on Python 3.14 and newer
+# and two errors on older versions.
 except NameError, 'error caused':
     pass
 

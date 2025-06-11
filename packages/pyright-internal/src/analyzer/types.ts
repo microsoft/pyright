@@ -97,7 +97,15 @@ export class EnumLiteral {
     }
 }
 
-export type LiteralValue = number | bigint | boolean | string | EnumLiteral;
+export class SentinelLiteral {
+    constructor(public classFullName: string, public className: string) {}
+
+    getName() {
+        return this.className;
+    }
+}
+
+export type LiteralValue = number | bigint | boolean | string | EnumLiteral | SentinelLiteral;
 
 export type TypeSourceId = number;
 
@@ -1048,6 +1056,13 @@ export namespace ClassType {
         if (type1.priv.literalValue instanceof EnumLiteral) {
             if (type2.priv.literalValue instanceof EnumLiteral) {
                 return type1.priv.literalValue.itemName === type2.priv.literalValue.itemName;
+            }
+            return false;
+        }
+
+        if (type1.priv.literalValue instanceof SentinelLiteral) {
+            if (type2.priv.literalValue instanceof SentinelLiteral) {
+                return type1.priv.literalValue.classFullName === type2.priv.literalValue.classFullName;
             }
             return false;
         }
@@ -3250,6 +3265,32 @@ export function isOverloaded(type: Type): type is OverloadedType {
 
 export function isFunctionOrOverloaded(type: Type): type is FunctionType | OverloadedType {
     return type.category === TypeCategory.Function || type.category === TypeCategory.Overloaded;
+}
+
+export function isMethodType(type: FunctionType | OverloadedType): boolean {
+    let funcType: FunctionType | undefined;
+
+    if (isFunction(type)) {
+        funcType = type;
+    } else {
+        if (type.priv._overloads.length === 0) {
+            return false;
+        }
+        funcType = type.priv._overloads[0];
+    }
+
+    // __new__ methods are never really bound at runtime.
+    if (
+        funcType.priv.preBoundFlags !== undefined &&
+        (funcType.priv.preBoundFlags & FunctionTypeFlags.ConstructorMethod) !== 0
+    ) {
+        return false;
+    }
+
+    // If the function type has a stripped first parameter type, it was
+    // bound to class or object and is therefore a MethodType rather
+    // a FunctionType.
+    return !!funcType.priv.strippedFirstParamType;
 }
 
 export function getTypeAliasInfo(type: Type) {

@@ -635,7 +635,6 @@
         "unpackedSubscriptIllegal": "Operátor rozbalení v dolním indexu vyžaduje Python 3.11 nebo novější",
         "unpackedTypeVarTupleExpected": "Byl očekáván rozbalený typ TypeVarTuple; použijte Unpack[{name1}] nebo *{name2}",
         "unpackedTypedDictArgument": "Nepovedlo se spárovat nebalený argument TypedDict s parametry",
-        "unreachableCode": "Kód je nedostupný",
         "unreachableCodeType": "Analýza typů indikuje, že kód není dostupný.",
         "unreachableExcept": "Klauzule Except je nedosažitelná, protože výjimka je již zpracována",
         "unsupportedDunderAllOperation": "Operace s __all__ se nepodporuje, takže exportovaný seznam symbolů nemusí být správný",

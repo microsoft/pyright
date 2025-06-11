@@ -5,6 +5,8 @@ from networkx.algorithms.community.divisive import *
 from networkx.algorithms.community.kclique import *
 from networkx.algorithms.community.kernighan_lin import *
 from networkx.algorithms.community.label_propagation import *
+from networkx.algorithms.community.leiden import *
+from networkx.algorithms.community.local import *
 from networkx.algorithms.community.louvain import *
 from networkx.algorithms.community.lukes import *
 from networkx.algorithms.community.modularity_max import *

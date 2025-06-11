@@ -635,7 +635,6 @@
         "unpackedSubscriptIllegal": "L’opérateur de décompression en indice requiert Python 3.11 ou version ultérieure",
         "unpackedTypeVarTupleExpected": "TypeVarTuple décompressé attendu ; utiliser Unpack[{name1}] ou *{name2}",
         "unpackedTypedDictArgument": "Impossible de faire correspondre l’argument TypedDict décompressé aux paramètres",
-        "unreachableCode": "Le code est inaccessible",
         "unreachableCodeType": "L’analyse de type indique que le code est inaccessible",
         "unreachableExcept": "La clause Except est inaccessible, car l’exception est déjà gérée",
         "unsupportedDunderAllOperation": "L’opération sur « __all__ » n’est pas prise en charge. Par conséquent, la liste de symboles exportée peut être incorrecte",

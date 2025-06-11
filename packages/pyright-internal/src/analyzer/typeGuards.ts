@@ -86,6 +86,7 @@ import {
     isNoneInstance,
     isNoneTypeClass,
     isProperty,
+    isSentinelLiteral,
     isTupleClass,
     isTupleGradualForm,
     isUnboundedTupleClass,
@@ -2247,18 +2248,28 @@ function narrowTypeForTypedDictKey(
                 const tdEntry = entries.knownItems.get(literalKey.priv.literalValue as string) ?? entries.extraItems;
 
                 if (isPositiveTest) {
+                    // The code that is commented out below implements the behavior that is technically
+                    // correct, but until we PEP 728 is ratified and we have a way to express "extra items"
+                    // and closed TypedDicts, we'll preserve the older (less correct) behavior to enable
+                    // narrowing of TypedDicts based on checks for specific keys.
+                    // TODO - remove this behavior once PEP 728 is accepted and the feature is no
+                    // longer experimental.
                     if (!tdEntry) {
-                        // If there is no TD entry for this key and no "extra items" defined,
-                        // we have to assume that the TypedDict may contain extra items, so
-                        // narrowing it isn't possible in this case.
-                        return subtype;
-                    }
-
-                    if (isNever(tdEntry.valueType)) {
-                        // If the entry is typed as Never or the "extra items" is typed as Never,
-                        // then this key cannot be present in the TypedDict, and we can eliminate it.
                         return undefined;
                     }
+
+                    // if (!tdEntry) {
+                    //     // If there is no TD entry for this key and no "extra items" defined,
+                    //     // we have to assume that the TypedDict may contain extra items, so
+                    //     // narrowing it isn't possible in this case.
+                    //     return subtype;
+                    // }
+
+                    // if (isNever(tdEntry.valueType)) {
+                    //     // If the entry is typed as Never or the "extra items" is typed as Never,
+                    //     // then this key cannot be present in the TypedDict, and we can eliminate it.
+                    //     return undefined;
+                    // }
 
                     // If the entry is currently not required and not marked provided, we can mark
                     // it as provided after this guard expression confirms it is.
@@ -2671,11 +2682,14 @@ function narrowTypeForLiteralComparison(
                     return literalValueMatches ? subtype : undefined;
                 }
 
-                const isEnumOrBool = ClassType.isEnumClass(literalType) || ClassType.isBuiltIn(literalType, 'bool');
+                const isSingleton =
+                    ClassType.isEnumClass(literalType) ||
+                    isSentinelLiteral(subtype) ||
+                    ClassType.isBuiltIn(literalType, 'bool');
 
                 // For negative tests, we can eliminate the literal value if it doesn't match,
-                // but only for equality tests or for 'is' tests that involve enums or bools.
-                return literalValueMatches && (isEnumOrBool || !isIsOperator) ? undefined : subtype;
+                // but only for equality tests or for 'is' tests that involve enums, bools, or sentinels.
+                return literalValueMatches && (isSingleton || !isIsOperator) ? undefined : subtype;
             }
 
             if (isPositiveTest) {

@@ -22,11 +22,12 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
 import { assertNever } from '../common/debug';
+import { DocumentRange } from '../common/docRange';
 import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/extensibility';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceKeys';
-import { DocumentRange, Position, Range, TextRange, doesRangeContain } from '../common/textRange';
+import { isRangeInRange, Position, Range, TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
@@ -291,7 +292,7 @@ export class ReferencesProvider {
                 this.addReferencesToResult(declFileInfo.uri, includeDeclaration, tempResult);
                 for (const result of tempResult.results) {
                     // Include declarations only. And throw away any references
-                    if (result.location.uri.equals(decl.uri) && doesRangeContain(decl.range, result.location.range)) {
+                    if (result.location.uri.equals(decl.uri) && isRangeInRange(decl.range, result.location.range)) {
                         referencesResult.addResults(result);
                     }
                 }

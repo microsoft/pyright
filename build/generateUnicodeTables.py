@@ -69,7 +69,7 @@ def parseFile(filePath: str) -> list[Character]:
 # characters. Contiguous means that the character codes are sequential with
 # no gaps and the characters all have the same category. For character codes
 # greater than 0xFFFF, contiguous means that the high surrogate is the same
-# and the low surrogate values are sequential with no gaps. So, two charcter
+# and the low surrogate values are sequential with no gaps. So, two character
 # codes might be sequential numerically but have different high surrogates,
 # and therefore would not be members of the same range.
 def getSurrogateRanges(chars: list[Character]) -> list[CharacterRange]:

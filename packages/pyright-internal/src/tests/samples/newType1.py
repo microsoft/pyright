@@ -68,13 +68,13 @@ NewTypeBad9 = NewType("NewTypeBad9Not", int)
 
 
 def func2(x: MyString):
-    # This should generate an error because isinstance can't be used
-    # with a NewType.
+    # This should generate two errors because isinstance can't be used
+    # with a NewType and it violates the isinstance siganture.
     if isinstance(x, MyString):
         pass
 
-    # This should generate an error because issubclass can't be used
-    # with a NewType.
+    # This should generate two errors because issubclass can't be used
+    # with a NewType and it violates the issubclass signature.
     if issubclass(type(x), (MyString, int)):
         pass
 

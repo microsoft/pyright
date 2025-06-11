@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import Final
 
 from networkx.classes.digraph import DiGraph
 from networkx.classes.graph import _Node
@@ -18,6 +19,11 @@ __all__ = [
     "ArborescenceIterator",
 ]
 
+KINDS: Final[set[str]]
+STYLES: Final[dict[str, str]]
+INF: Final[float]
+
+def random_string(L=15, seed=None): ...
 @_dispatchable
 def branching_weight(G: DiGraph[_Node], attr: str = "weight", default: float = 1): ...
 @_dispatchable

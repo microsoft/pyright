@@ -51,6 +51,7 @@ import {
     DictionaryNode,
     ErrorExpressionCategory,
     ExceptNode,
+    ExecutionScopeNode,
     ExpressionNode,
     FormatStringNode,
     ForNode,
@@ -167,6 +168,7 @@ import { assignProperty } from './properties';
 import { assignClassToProtocol, assignModuleToProtocol } from './protocols';
 import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
+import { createSentinelType } from './sentinel';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags, SynthesizedTypeInfo } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
@@ -242,6 +244,7 @@ import {
     isFunction,
     isFunctionOrOverloaded,
     isInstantiableClass,
+    isMethodType,
     isModule,
     isNever,
     isOverloaded,
@@ -264,6 +267,7 @@ import {
     ParamSpecType,
     removeFromUnion,
     removeUnbound,
+    SentinelLiteral,
     TupleTypeArg,
     Type,
     TypeAliasInfo,
@@ -332,6 +336,7 @@ import {
     isOptionalType,
     isPartlyUnknown,
     isProperty,
+    isSentinelLiteral,
     isTupleClass,
     isTupleIndexUnambiguous,
     isTypeAliasPlaceholder,
@@ -1017,6 +1022,7 @@ export function createTypeEvaluator(
             prefetched.objectClass = getBuiltInType(node, 'object');
             prefetched.typeClass = getBuiltInType(node, 'type');
             prefetched.functionClass = getTypesType(node, 'FunctionType') ?? getBuiltInType(node, 'function');
+            prefetched.methodClass = getTypesType(node, 'MethodType');
 
             prefetched.unionTypeClass = getTypesType(node, 'UnionType');
             if (prefetched.unionTypeClass && isClass(prefetched.unionTypeClass)) {
@@ -1039,6 +1045,7 @@ export function createTypeEvaluator(
                 getTypeCheckerInternalsType(node, 'TypedDictFallback') ?? getTypingType(node, '_TypedDict');
             prefetched.awaitableClass = getTypingType(node, 'Awaitable');
             prefetched.mappingClass = getTypingType(node, 'Mapping');
+            prefetched.templateClass = getTypeOfModule(node, 'Template', ['string', 'templatelib']);
 
             prefetched.supportsKeysAndGetItemClass = getTypeshedType(node, 'SupportsKeysAndGetItem');
             if (!prefetched.supportsKeysAndGetItemClass) {
@@ -1634,8 +1641,10 @@ export function createTypeEvaluator(
         const isBytes = firstBytesIndex >= 0;
         let isLiteralString = true;
         let isIncomplete = false;
+        let isTemplate = false;
 
         node.d.strings.forEach((expr) => {
+            // Handle implicit concatenation.
             const typeResult = getTypeOfString(expr);
 
             if (typeResult.isIncomplete) {
@@ -1643,11 +1652,16 @@ export function createTypeEvaluator(
             }
 
             let isExprLiteralString = false;
+
             if (isClassInstance(typeResult.type)) {
                 if (ClassType.isBuiltIn(typeResult.type, 'str') && typeResult.type.priv.literalValue !== undefined) {
                     isExprLiteralString = true;
                 } else if (ClassType.isBuiltIn(typeResult?.type, 'LiteralString')) {
                     isExprLiteralString = true;
+                }
+
+                if (typeResult.type.shared.name === 'Template') {
+                    isTemplate = true;
                 }
             }
 
@@ -1656,8 +1670,14 @@ export function createTypeEvaluator(
             }
         });
 
-        // Don't create a literal type if it's an f-string.
-        if (node.d.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
+        if (isTemplate) {
+            const templateType =
+                prefetched?.templateClass && isInstantiableClass(prefetched?.templateClass)
+                    ? ClassType.cloneAsInstance(prefetched.templateClass)
+                    : UnknownType.create();
+
+            typeResult = { type: templateType, isIncomplete };
+        } else if (node.d.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
             if (isLiteralString) {
                 const literalStringType = getTypingType(node, 'LiteralString');
                 if (literalStringType && isInstantiableClass(literalStringType)) {
@@ -1696,7 +1716,11 @@ export function createTypeEvaluator(
         const stringNode = node.d.strings[0];
         const tokenFlags = stringNode.d.token.flags;
         const disallowedTokenFlags =
-            StringTokenFlags.Bytes | StringTokenFlags.Raw | StringTokenFlags.Format | StringTokenFlags.Triplicate;
+            StringTokenFlags.Bytes |
+            StringTokenFlags.Raw |
+            StringTokenFlags.Format |
+            StringTokenFlags.Template |
+            StringTokenFlags.Triplicate;
         const maxTypeFormStringLength = 256;
 
         if (
@@ -1755,6 +1779,13 @@ export function createTypeEvaluator(
                 return { type: UnknownType.create() };
             }
 
+            if (tokenFlags & StringTokenFlags.Template) {
+                if (reportTypeErrors) {
+                    addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.annotationTemplateString(), node);
+                }
+                return { type: UnknownType.create() };
+            }
+
             // We didn't know at parse time that this string node was going
             // to be evaluated as a forward-referenced type. We need
             // to re-invoke the parser at this stage.
@@ -1781,8 +1812,13 @@ export function createTypeEvaluator(
         let typeResult: TypeResult | undefined;
         let isIncomplete = false;
 
-        // Don't create a literal type if it's an f-string.
-        if (node.nodeType === ParseNodeType.FormatString) {
+        if (node.nodeType === ParseNodeType.String) {
+            typeResult = {
+                type: cloneBuiltinObjectWithLiteral(node, isBytes ? 'bytes' : 'str', node.d.value),
+                isIncomplete,
+            };
+        } else {
+            const isTemplateString = (node.d.token.flags & StringTokenFlags.Template) !== 0;
             let isLiteralString = true;
 
             // If all of the format expressions are of type LiteralString, then
@@ -1813,7 +1849,14 @@ export function createTypeEvaluator(
                 });
             });
 
-            if (!isBytes && isLiteralString) {
+            if (isTemplateString) {
+                const templateType =
+                    prefetched?.templateClass && isInstantiableClass(prefetched?.templateClass)
+                        ? ClassType.cloneAsInstance(prefetched.templateClass)
+                        : UnknownType.create();
+
+                typeResult = { type: templateType, isIncomplete };
+            } else if (!isBytes && isLiteralString) {
                 const literalStringType = getTypingType(node, 'LiteralString');
                 if (literalStringType && isInstantiableClass(literalStringType)) {
                     typeResult = { type: ClassType.cloneAsInstance(literalStringType), isIncomplete };
@@ -1830,11 +1873,6 @@ export function createTypeEvaluator(
                     typeResult.type = ClassType.cloneRemoveTypePromotions(typeResult.type);
                 }
             }
-        } else {
-            typeResult = {
-                type: cloneBuiltinObjectWithLiteral(node, isBytes ? 'bytes' : 'str', node.d.value),
-                isIncomplete,
-            };
         }
 
         return typeResult;
@@ -1953,6 +1991,11 @@ export function createTypeEvaluator(
 
             case TypeCategory.Class: {
                 if (TypeBase.isInstantiable(type)) {
+                    return false;
+                }
+
+                // Sentinels are always truthy.
+                if (isSentinelLiteral(type)) {
                     return false;
                 }
 
@@ -2146,6 +2189,11 @@ export function createTypeEvaluator(
                     return isLiteralFalsy ? subtype : undefined;
                 }
 
+                // If the object is a sentinel, we can eliminate it.
+                if (isSentinelLiteral(concreteSubtype)) {
+                    return undefined;
+                }
+
                 // If the object is a bool, make it "false", since
                 // "true" is a truthy value.
                 if (ClassType.isBuiltIn(concreteSubtype, 'bool')) {
@@ -2186,6 +2234,8 @@ export function createTypeEvaluator(
 
                     if (concreteSubtype.priv.literalValue instanceof EnumLiteral) {
                         isLiteralTruthy = !canBeFalsy(concreteSubtype);
+                    } else if (concreteSubtype.priv.literalValue instanceof SentinelLiteral) {
+                        isLiteralTruthy = true;
                     } else {
                         isLiteralTruthy = !!concreteSubtype.priv.literalValue;
                     }
@@ -2747,7 +2797,7 @@ export function createTypeEvaluator(
             case ParseNodeType.MemberAccess: {
                 const baseType = getTypeOfExpression(expression.d.leftExpr, EvalFlags.MemberAccessBaseDefaults).type;
                 const baseTypeConcrete = makeTopLevelTypeVarsConcrete(baseType);
-                let classMemberInfo: ClassMember | undefined;
+                const memberName = expression.d.member.d.value;
 
                 // Normally, baseTypeConcrete will not be a composite type (a union),
                 // but this can occur. In this case, it's not clear how to handle this
@@ -2757,29 +2807,42 @@ export function createTypeEvaluator(
                     baseTypeConcrete,
                     (baseSubtype) => {
                         if (isClassInstance(baseSubtype)) {
-                            classMemberInfo = lookUpObjectMember(
+                            const classMemberInfo = lookUpObjectMember(
                                 baseSubtype,
-                                expression.d.member.d.value,
+                                memberName,
                                 MemberAccessFlags.DeclaredTypesOnly
                             );
+
                             classOrObjectBase = baseSubtype;
                             memberAccessClass = classMemberInfo?.classType;
+                            symbol = classMemberInfo?.symbol;
+                            useDescriptorSetterType = true;
 
                             // If this is an instance member (e.g. a dataclass field), don't
                             // bind it to the object if it's a function.
-                            if (classMemberInfo?.isInstanceMember) {
-                                bindFunction = false;
-                            }
-
-                            useDescriptorSetterType = true;
+                            bindFunction = !classMemberInfo?.isInstanceMember;
                         } else if (isInstantiableClass(baseSubtype)) {
-                            classMemberInfo = lookUpClassMember(
+                            const classMemberInfo = lookUpClassMember(
                                 baseSubtype,
-                                expression.d.member.d.value,
+                                memberName,
                                 MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
                             );
+
                             classOrObjectBase = baseSubtype;
                             memberAccessClass = classMemberInfo?.classType;
+                            symbol = classMemberInfo?.symbol;
+                            useDescriptorSetterType = false;
+                            bindFunction = true;
+                        } else if (isModule(baseSubtype)) {
+                            classOrObjectBase = undefined;
+                            memberAccessClass = undefined;
+                            symbol = ModuleType.getField(baseSubtype, memberName);
+                            if (symbol && !symbol.hasTypedDeclarations()) {
+                                // Do not use inferred types for the declared type.
+                                symbol = undefined;
+                            }
+                            useDescriptorSetterType = false;
+                            bindFunction = false;
                         }
                     },
                     /* sortSubtypes */ true
@@ -2787,10 +2850,6 @@ export function createTypeEvaluator(
 
                 if (isTypeVar(baseType)) {
                     selfType = baseType;
-                }
-
-                if (classMemberInfo) {
-                    symbol = classMemberInfo.symbol;
                 }
                 break;
             }
@@ -2844,6 +2903,37 @@ export function createTypeEvaluator(
                         if (!isAnyOrUnknown(paramType)) {
                             return paramType;
                         }
+                    }
+                }
+                break;
+            }
+
+            case ParseNodeType.Tuple: {
+                // If this is a tuple expression with at least one item and no
+                // unpacked items, and all of the items have declared types,
+                // we can assume a declared type for the resulting tuple. This
+                // is needed to enable bidirectional type inference when assigning
+                // to an unpacked tuple.
+                if (
+                    expression.d.items.length > 0 &&
+                    !expression.d.items.some((item) => item.nodeType === ParseNodeType.Unpack)
+                ) {
+                    const itemTypes: Type[] = [];
+                    expression.d.items.forEach((expr) => {
+                        const itemType = getDeclaredTypeForExpression(expr, usage);
+                        if (itemType) {
+                            itemTypes.push(itemType);
+                        }
+                    });
+
+                    if (itemTypes.length === expression.d.items.length) {
+                        // If all items have a declared type, return a tuple of those types.
+                        return makeTupleObject(
+                            evaluatorInterface,
+                            itemTypes.map((t) => {
+                                return { type: t, isUnbounded: false };
+                            })
+                        );
                     }
                 }
                 break;
@@ -3298,7 +3388,7 @@ export function createTypeEvaluator(
             if (node.parent) {
                 return getNodeReachability(node.parent, sourceNode);
             }
-            return Reachability.UnreachableAlways;
+            return Reachability.UnreachableStructural;
         }
 
         const sourceFlowNode = sourceNode ? AnalyzerNodeInfo.getFlowNode(sourceNode) : undefined;
@@ -3309,7 +3399,7 @@ export function createTypeEvaluator(
     function getAfterNodeReachability(node: ParseNode): Reachability {
         const returnFlowNode = AnalyzerNodeInfo.getAfterFlowNode(node);
         if (!returnFlowNode) {
-            return Reachability.UnreachableAlways;
+            return Reachability.UnreachableStructural;
         }
 
         if (checkCodeFlowTooComplex(node)) {
@@ -3321,7 +3411,8 @@ export function createTypeEvaluator(
             return reachability;
         }
 
-        if (!isFlowNodeReachableUsingNeverNarrowing(node, returnFlowNode)) {
+        const executionScopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+        if (!isFlowNodeReachableUsingNeverNarrowing(executionScopeNode, returnFlowNode)) {
             return Reachability.UnreachableByAnalysis;
         }
 
@@ -3330,8 +3421,8 @@ export function createTypeEvaluator(
 
     // Although isFlowNodeReachable indicates that the node is reachable, it
     // may not be reachable if we apply "never narrowing".
-    function isFlowNodeReachableUsingNeverNarrowing(node: ParseNode, flowNode: FlowNode) {
-        const analyzer = getCodeFlowAnalyzerForNode(node.id, /* typeAtStart */ undefined);
+    function isFlowNodeReachableUsingNeverNarrowing(node: ExecutionScopeNode, flowNode: FlowNode) {
+        const analyzer = getCodeFlowAnalyzerForNode(node, /* typeAtStart */ undefined);
 
         if (checkCodeFlowTooComplex(node)) {
             return true;
@@ -3369,13 +3460,6 @@ export function createTypeEvaluator(
         return addDiagnosticWithSuppressionCheck('information', message, node, range);
     }
 
-    function addUnusedCode(node: ParseNode, textRange: TextRange) {
-        if (!isDiagnosticSuppressedForNode(node)) {
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-            fileInfo.diagnosticSink.addUnusedCodeWithTextRange(LocMessage.unreachableCode(), textRange);
-        }
-    }
-
     function addUnreachableCode(node: ParseNode, reachability: Reachability, textRange: TextRange) {
         if (reachability === Reachability.Reachable) {
             return;
@@ -3385,10 +3469,16 @@ export function createTypeEvaluator(
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             const reportTypeReachability = fileInfo.diagnosticRuleSet.enableReachabilityAnalysis;
 
-            if (reachability === Reachability.UnreachableAlways || reportTypeReachability) {
+            if (
+                reachability === Reachability.UnreachableStructural ||
+                reachability === Reachability.UnreachableStaticCondition ||
+                reportTypeReachability
+            ) {
                 fileInfo.diagnosticSink.addUnreachableCodeWithTextRange(
-                    reachability === Reachability.UnreachableAlways
-                        ? LocMessage.unreachableCode()
+                    reachability === Reachability.UnreachableStructural
+                        ? LocMessage.unreachableCodeStructure()
+                        : reachability === Reachability.UnreachableStaticCondition
+                        ? LocMessage.unreachableCodeCondition()
                         : LocMessage.unreachableCodeType(),
                     textRange
                 );
@@ -4844,6 +4934,13 @@ export function createTypeEvaluator(
             }
         }
 
+        // If we're expecting a type expression and got a sentinel literal instance,
+        // treat it as its instantiable counterpart. This is similar to how None
+        // is treated in a type expression context.
+        if ((flags & EvalFlags.InstantiableType) !== 0 && isClassInstance(type) && isSentinelLiteral(type)) {
+            type = ClassType.cloneAsInstantiable(type);
+        }
+
         type = convertSpecialFormToRuntimeValue(type, flags);
 
         if ((flags & EvalFlags.TypeExpression) === 0) {
@@ -4928,6 +5025,10 @@ export function createTypeEvaluator(
 
         // Exempts class types that are created by calling NewType, NamedTuple, etc.
         if (isClass(type) && !type.priv.includeSubclasses && ClassType.isValidTypeAliasClass(type)) {
+            return true;
+        }
+
+        if (isSentinelLiteral(type)) {
             return true;
         }
 
@@ -5717,6 +5818,17 @@ export function createTypeEvaluator(
             case TypeCategory.Class: {
                 let typeResult: TypeResult | undefined;
 
+                // If this is a class-like function created via NewType, treat
+                // it like a function for purposes of member accesses.
+                if (
+                    ClassType.isNewTypeClass(baseType) &&
+                    !baseType.priv.includeSubclasses &&
+                    prefetched?.functionClass &&
+                    isClass(prefetched.functionClass)
+                ) {
+                    baseType = ClassType.cloneAsInstance(prefetched.functionClass);
+                }
+
                 const enumMemberResult = getTypeOfEnumMember(
                     evaluatorInterface,
                     node,
@@ -5955,9 +6067,11 @@ export function createTypeEvaluator(
 
             case TypeCategory.Function:
             case TypeCategory.Overloaded: {
-                if (memberName === '__self__') {
-                    // The "__self__" member is not currently defined in the "function"
-                    // class, so we'll special-case it here.
+                const hasSelf = isMethodType(baseType);
+
+                if (memberName === '__self__' && hasSelf) {
+                    // Handle "__self__" specially because MethodType defines
+                    // it simply as "object". We can do better here.
                     let functionType: FunctionType | undefined;
 
                     if (isFunction(baseType)) {
@@ -5969,21 +6083,12 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    if (
-                        functionType &&
-                        functionType.priv.preBoundFlags !== undefined &&
-                        (functionType.priv.preBoundFlags & FunctionTypeFlags.StaticMethod) === 0
-                    ) {
-                        type = functionType.priv.boundToType;
-                    }
+                    type = functionType?.priv.boundToType;
                 } else {
+                    const altType = hasSelf ? prefetched?.methodClass : prefetched?.functionClass;
                     type = getTypeOfMemberAccessWithBaseType(
                         node,
-                        {
-                            type: prefetched?.functionClass
-                                ? convertToInstance(prefetched.functionClass)
-                                : UnknownType.create(),
-                        },
+                        { type: altType ? convertToInstance(altType) : UnknownType.create() },
                         usage,
                         flags
                     ).type;
@@ -10279,6 +10384,19 @@ export function createTypeEvaluator(
                         }
 
                         if (isClass(subtype)) {
+                            // Specifically handle the case where the subtype is a class-like
+                            // object created by calling NewType. At runtime, it's actually
+                            // a FunctionType object.
+                            if (
+                                isClassInstance(subtype) &&
+                                ClassType.isNewTypeClass(subtype) &&
+                                !subtype.priv.includeSubclasses
+                            ) {
+                                if (prefetched?.functionClass) {
+                                    return prefetched.functionClass;
+                                }
+                            }
+
                             return convertToInstantiable(stripLiteralValue(subtype));
                         }
 
@@ -10363,6 +10481,13 @@ export function createTypeEvaluator(
 
             if (className === 'NewType') {
                 return { returnType: createNewType(errorNode, argList) };
+            }
+
+            // Handle the Sentinel call specially.
+            if (className === 'Sentinel') {
+                if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
+                    return { returnType: createSentinelType(evaluatorInterface, errorNode, argList) };
+                }
             }
 
             if (ClassType.isSpecialFormClass(expandedCallType)) {
@@ -13512,12 +13637,7 @@ export function createTypeEvaluator(
             const initType = FunctionType.createSynthesizedInstance('__init__');
             FunctionType.addParam(
                 initType,
-                FunctionParam.create(
-                    ParamCategory.Simple,
-                    ClassType.cloneAsInstance(classType),
-                    FunctionParamFlags.TypeDeclared,
-                    'self'
-                )
+                FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
             );
             FunctionType.addParam(
                 initType,
@@ -13538,7 +13658,7 @@ export function createTypeEvaluator(
             const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
             FunctionType.addParam(
                 newType,
-                FunctionParam.create(ParamCategory.Simple, classType, FunctionParamFlags.TypeDeclared, 'cls')
+                FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'cls')
             );
             FunctionType.addDefaultParams(newType);
             newType.shared.declaredReturnType = ClassType.cloneAsInstance(classType);
@@ -17263,7 +17383,7 @@ export function createTypeEvaluator(
             fileInfo.moduleName,
             fileInfo.fileUri,
             classFlags,
-            /* typeSourceId */ 0,
+            ParseTreeUtils.getTypeSourceId(node),
             /* declaredMetaclass */ undefined,
             /* effectiveMetaclass */ undefined,
             ParseTreeUtils.getDocString(node.d.suite.d.statements)
@@ -17730,8 +17850,8 @@ export function createTypeEvaluator(
                 );
             } else if (variadics.length > 0) {
                 // Make sure a TypeVar with a default doesn't come after a TypeVarTuple.
-                const firstVariadicIndex = classType.shared.typeParams.findIndex((param) => isTypeVarTuple(param));
-                const typeVarWithDefaultIndex = classType.shared.typeParams.findIndex(
+                const firstVariadicIndex = typeParams.findIndex((param) => isTypeVarTuple(param));
+                const typeVarWithDefaultIndex = typeParams.findIndex(
                     (param, index) =>
                         index > firstVariadicIndex && !isParamSpec(param) && param.shared.isDefaultExplicit
                 );
@@ -19250,12 +19370,13 @@ export function createTypeEvaluator(
 
         let inferredParamType: Type | undefined;
 
-        // Is the default value a "None" or an instance of some private class (one
-        // whose name starts with an underscore)? If so, we will assume that the
-        // value is a singleton sentinel. The actual supported type is going to be
-        // a union of this type and Unknown.
+        // Is the default value a "None", a sentinel, or an instance of some private
+        // class (one whose name starts with an underscore)? If so, we will assume
+        // that the value is a singleton sentinel. The actual supported type is
+        // going to be a union of this type and Unknown.
         if (
             isNoneInstance(defaultValueType) ||
+            isSentinelLiteral(defaultValueType) ||
             (isClassInstance(defaultValueType) && isPrivateOrProtectedName(defaultValueType.shared.name))
         ) {
             inferredParamType = combineTypes([defaultValueType, UnknownType.create()]);
@@ -20843,8 +20964,11 @@ export function createTypeEvaluator(
         return undefined;
     }
 
-    function getCodeFlowAnalyzerForNode(nodeId: number, typeAtStart: TypeResult | undefined): CodeFlowAnalyzer {
-        let entries = codeFlowAnalyzerCache.get(nodeId);
+    function getCodeFlowAnalyzerForNode(
+        node: ExecutionScopeNode,
+        typeAtStart: TypeResult | undefined
+    ): CodeFlowAnalyzer {
+        let entries = codeFlowAnalyzerCache.get(node.id);
 
         if (entries) {
             const cachedEntry = entries.find((entry) => {
@@ -20870,7 +20994,7 @@ export function createTypeEvaluator(
             entries.push({ typeAtStart, codeFlowAnalyzer: analyzer });
         } else {
             entries = [{ typeAtStart, codeFlowAnalyzer: analyzer }];
-            codeFlowAnalyzerCache.set(nodeId, entries);
+            codeFlowAnalyzerCache.set(node.id, entries);
         }
 
         return analyzer;
@@ -20918,7 +21042,7 @@ export function createTypeEvaluator(
             // a temporary analyzer that we'll use only for this context.
             analyzer = getCodeFlowAnalyzerForReturnTypeInferenceContext();
         } else {
-            analyzer = getCodeFlowAnalyzerForNode(executionNode.id, options?.typeAtStart);
+            analyzer = getCodeFlowAnalyzerForNode(executionNode, options?.typeAtStart);
         }
 
         const flowNode = AnalyzerNodeInfo.getFlowNode(startNode ?? reference);
@@ -23729,7 +23853,6 @@ export function createTypeEvaluator(
             errorNode &&
             selfClass &&
             isClass(selfClass) &&
-            !selfClass.priv.includeSubclasses &&
             member.isInstanceMember &&
             isClass(member.unspecializedClassType) &&
             (flags & MemberAccessFlags.DisallowGenericInstanceVariableAccess) !== 0 &&
@@ -24440,6 +24563,15 @@ export function createTypeEvaluator(
             }
         }
 
+        // If the source is a class-like type created by a call to NewType, treat it
+        // as a FunctionClass instance rather than an instantiable class for
+        // purposes of assignability. This reflects its actual runtime type.
+        if (isInstantiableClass(srcType) && ClassType.isNewTypeClass(srcType) && !srcType.priv.includeSubclasses) {
+            if (prefetched?.functionClass && isInstantiableClass(prefetched?.functionClass)) {
+                srcType = ClassType.cloneAsInstance(prefetched.functionClass);
+            }
+        }
+
         if (recursionCount > maxTypeRecursionCount) {
             return true;
         }
@@ -24904,21 +25036,6 @@ export function createTypeEvaluator(
                     );
                 }
 
-                // Handle enum literals that are assignable to another (non-Enum) literal.
-                // This can happen for IntEnum and StrEnum members.
-                if (
-                    ClassType.isEnumClass(concreteSrcType) &&
-                    concreteSrcType.priv.literalValue instanceof EnumLiteral &&
-                    concreteSrcType.shared.mro.some(
-                        (base) => isClass(base) && ClassType.isBuiltIn(base, ['int', 'str', 'bytes'])
-                    ) &&
-                    isClassInstance(concreteSrcType.priv.literalValue.itemType) &&
-                    isLiteralType(concreteSrcType.priv.literalValue.itemType) &&
-                    assignType(destType, concreteSrcType.priv.literalValue.itemType)
-                ) {
-                    return true;
-                }
-
                 if (
                     destType.priv.literalValue !== undefined &&
                     ClassType.isSameGenericClass(destType, concreteSrcType)
@@ -24977,16 +25094,10 @@ export function createTypeEvaluator(
                     return assignType(destCallbackType, concreteSrcType, diag, constraints, flags, recursionCount);
                 }
 
-                // All functions are considered instances of "builtins.function".
-                if (prefetched?.functionClass) {
-                    return assignType(
-                        destType,
-                        convertToInstance(prefetched.functionClass),
-                        diag,
-                        constraints,
-                        flags,
-                        recursionCount
-                    );
+                // All functions are considered instances of "types.FunctionType" or "types.MethodType".
+                const altClass = isMethodType(concreteSrcType) ? prefetched?.methodClass : prefetched?.functionClass;
+                if (altClass) {
+                    return assignType(destType, convertToInstance(altClass), diag, constraints, flags, recursionCount);
                 }
             } else if (isModule(concreteSrcType)) {
                 // Is the destination the built-in "ModuleType"?
@@ -26954,14 +27065,17 @@ export function createTypeEvaluator(
             }
         }
 
-        // If we're checking for full overlapping overloads and the source is
-        // a gradual form, the dest must also be a gradual form.
-        if (
-            (flags & AssignTypeFlags.OverloadOverlap) !== 0 &&
-            FunctionType.isGradualCallableForm(srcType) &&
-            !FunctionType.isGradualCallableForm(destType)
-        ) {
-            canAssign = false;
+        if ((flags & AssignTypeFlags.OverloadOverlap) !== 0) {
+            // If we're checking for full overlapping overloads and the source is
+            // a gradual form, the dest must also be a gradual form.
+            if (FunctionType.isGradualCallableForm(srcType) && !FunctionType.isGradualCallableForm(destType)) {
+                canAssign = false;
+            }
+
+            // If the src contains a ParamSpec the dest must also.
+            if (srcParamSpec && !destParamSpec) {
+                canAssign = false;
+            }
         }
 
         // If the source and the dest are using the same ParamSpec, any additional
@@ -28591,7 +28705,6 @@ export function createTypeEvaluator(
         isFinalVariableDeclaration,
         isExplicitTypeAliasDeclaration,
         addInformation,
-        addUnusedCode,
         addUnreachableCode,
         addDeprecated,
         addDiagnostic,

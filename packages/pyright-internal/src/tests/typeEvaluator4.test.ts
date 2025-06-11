@@ -14,6 +14,7 @@ import {
     pythonVersion3_11,
     pythonVersion3_12,
     pythonVersion3_13,
+    pythonVersion3_14,
     pythonVersion3_7,
     pythonVersion3_8,
     pythonVersion3_9,
@@ -120,6 +121,26 @@ test('FString5', () => {
     configOptions.defaultPythonVersion = pythonVersion3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['fstring5.py'], configOptions);
     TestUtils.validateResults(analysisResults38, 0);
+});
+
+test('TString1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tstring1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 11);
+
+    configOptions.defaultPythonVersion = pythonVersion3_14;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tstring1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 8);
+});
+
+test('TString2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_14;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tstring2.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 1);
 });
 
 test('MemberAccess1', () => {

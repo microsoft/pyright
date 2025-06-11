@@ -635,7 +635,6 @@
         "unpackedSubscriptIllegal": "Das Entpacken des Operators im Tiefstellungsskript erfordert Python 3.11 oder höher.",
         "unpackedTypeVarTupleExpected": "Nicht gepackter TypeVarTuple erwartet; verwenden Sie Unpack[{name1}] oder *{name2}",
         "unpackedTypedDictArgument": "Das entpackte TypedDict-Argument kann nicht mit Parametern abgelichen werden.",
-        "unreachableCode": "Der Code ist nicht erreichbar.",
         "unreachableCodeType": "Typanalyse weist darauf hin, dass Code nicht erreichbar ist",
         "unreachableExcept": "Die except-Klausel ist nicht erreichbar, weil die Ausnahme bereits behandelt wird.",
         "unsupportedDunderAllOperation": "Der Vorgang für \"__all__\" wird nicht unterstützt, daher ist die exportierte Symbolliste möglicherweise falsch.",

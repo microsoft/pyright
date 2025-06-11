@@ -220,6 +220,7 @@ export namespace Localizer {
         export const annotationRawString = () => getRawString('Diagnostic.annotationRawString');
         export const annotationSpansStrings = () => getRawString('Diagnostic.annotationSpansStrings');
         export const annotationStringEscape = () => getRawString('Diagnostic.annotationStringEscape');
+        export const annotationTemplateString = () => getRawString('Diagnostic.annotationTemplateString');
         export const argAssignment = () =>
             new ParameterizedString<{ argType: string; paramType: string }>(getRawString('Diagnostic.argAssignment'));
         export const argAssignmentFunction = () =>
@@ -468,6 +469,8 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.exceptionTypeNotClass'));
         export const exceptionTypeNotInstantiable = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.exceptionTypeNotInstantiable'));
+        export const exceptRequiresParens = () => getRawString('Diagnostic.exceptRequiresParens');
+        export const exceptWithAsRequiresParens = () => getRawString('Diagnostic.exceptWithAsRequiresParens');
         export const expectedAfterDecorator = () => getRawString('Diagnostic.expectedAfterDecorator');
         export const expectedArrow = () => getRawString('Diagnostic.expectedArrow');
         export const expectedAsAfterException = () => getRawString('Diagnostic.expectedAsAfterException');
@@ -549,6 +552,7 @@ export namespace Localizer {
         export const formatStringNestedFormatSpecifier = () =>
             getRawString('Diagnostic.formatStringNestedFormatSpecifier');
         export const formatStringNestedQuote = () => getRawString('Diagnostic.formatStringNestedQuote');
+        export const formatStringTemplate = () => getRawString('Diagnostic.formatStringTemplate');
         export const formatStringUnicode = () => getRawString('Diagnostic.formatStringUnicode');
         export const formatStringUnterminated = () => getRawString('Diagnostic.formatStringUnterminated');
         export const functionDecoratorTypeUnknown = () => getRawString('Diagnostic.functionDecoratorTypeUnknown');
@@ -903,6 +907,9 @@ export namespace Localizer {
         export const selfTypeContext = () => getRawString('Diagnostic.selfTypeContext');
         export const selfTypeMetaclass = () => getRawString('Diagnostic.selfTypeMetaclass');
         export const selfTypeWithTypedSelfOrCls = () => getRawString('Diagnostic.selfTypeWithTypedSelfOrCls');
+        export const sentinelBadName = () => getRawString('Diagnostic.sentinelBadName');
+        export const sentinelNameMismatch = () => getRawString('Diagnostic.sentinelNameMismatch');
+        export const sentinelParamCount = () => getRawString('Diagnostic.sentinelParamCount');
         export const setterGetterTypeMismatch = () => getRawString('Diagnostic.setterGetterTypeMismatch');
         export const starPatternInAsPattern = () => getRawString('Diagnostic.starPatternInAsPattern');
         export const starPatternInOrPattern = () => getRawString('Diagnostic.starPatternInOrPattern');
@@ -940,6 +947,9 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.symbolIsPossiblyUnbound'));
         export const symbolOverridden = () =>
             new ParameterizedString<{ name: string; className: string }>(getRawString('Diagnostic.symbolOverridden'));
+        export const templateStringBytes = () => getRawString('Diagnostic.templateStringBytes');
+        export const templateStringIllegal = () => getRawString('Diagnostic.templateStringIllegal');
+        export const templateStringUnicode = () => getRawString('Diagnostic.templateStringUnicode');
         export const ternaryNotAllowed = () => getRawString('Diagnostic.ternaryNotAllowed');
         export const totalOrderingMissingMethod = () => getRawString('Diagnostic.totalOrderingMissingMethod');
         export const trailingCommaInFromImport = () => getRawString('Diagnostic.trailingCommaInFromImport');
@@ -1198,7 +1208,8 @@ export namespace Localizer {
         export const unpackNotAllowed = () => getRawString('Diagnostic.unpackNotAllowed');
         export const unpackOperatorNotAllowed = () => getRawString('Diagnostic.unpackOperatorNotAllowed');
         export const unpackTuplesIllegal = () => getRawString('Diagnostic.unpackTuplesIllegal');
-        export const unreachableCode = () => getRawString('Diagnostic.unreachableCode');
+        export const unreachableCodeCondition = () => getRawString('Diagnostic.unreachableCodeCondition');
+        export const unreachableCodeStructure = () => getRawString('Diagnostic.unreachableCodeStructure');
         export const unreachableCodeType = () => getRawString('Diagnostic.unreachableCodeType');
         export const unreachableExcept = () => getRawString('Diagnostic.unreachableExcept');
         export const unsupportedDunderAllOperation = () => getRawString('Diagnostic.unsupportedDunderAllOperation');

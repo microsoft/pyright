@@ -9,10 +9,10 @@ class IntEnum1(IntEnum):
     MEMBER_2 = 2
 
 
-i1: Literal[1] = IntEnum1.MEMBER_1
+i1: Literal[1] = IntEnum1.MEMBER_1.value
 
 # This should generate an error.
-i2: Literal[1] = IntEnum1.MEMBER_2
+i2: Literal[1] = IntEnum1.MEMBER_2.value
 
 
 class StrEnum1(StrEnum):
@@ -20,12 +20,12 @@ class StrEnum1(StrEnum):
     MEMBER_2 = "b"
 
 
-s1: Literal["a"] = StrEnum1.MEMBER_1
+s1: Literal["a"] = StrEnum1.MEMBER_1.value
 
 # This should generate an error.
-s2: Literal["b"] = StrEnum1.MEMBER_1
+s2: Literal["b"] = StrEnum1.MEMBER_1.value
 
-s3: LiteralString = StrEnum1.MEMBER_1
+s3: LiteralString = StrEnum1.MEMBER_1.value
 
 
 class BytesEnum(bytes, ReprEnum):
@@ -33,7 +33,7 @@ class BytesEnum(bytes, ReprEnum):
     MEMBER_2 = b"2"
 
 
-b1: Literal[b"1"] = BytesEnum.MEMBER_1
+b1: Literal[b"1"] = BytesEnum.MEMBER_1.value
 
 # This should generate an error.
-b2: Literal[b"2"] = BytesEnum.MEMBER_1
+b2: Literal[b"2"] = BytesEnum.MEMBER_1.value
