@@ -1657,6 +1657,7 @@ export class Program {
         if (!this._isFileNeeded(fileToParse, skipFileNeededCheck) || !fileToParse.sourceFile.isParseRequired()) {
             return;
         }
+        this._console.info(`[Copilot Debug] Program._parseFile: Parsing ${fileToParse.uri.toString()}`);
 
         // SourceFile.parse should only be called here in the program, as calling it
         // elsewhere could break the entire dependency graph maintained by the program.

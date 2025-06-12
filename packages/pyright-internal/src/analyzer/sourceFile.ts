@@ -643,6 +643,9 @@ export class SourceFile {
                 logState.suppress();
                 return false;
             }
+            this._console.info(
+                `[SourceFile.parse] --- Preparing to parse content for file: ${this._uri.toUserVisibleString()} ---`
+            ); // Your new log line
 
             const diagSink = this.createDiagnosticSink();
             let fileContents = this.getOpenFileContents();
@@ -820,6 +823,7 @@ export class SourceFile {
         assert(this.isBindingRequired(), 'Bind called unnecessarily');
         assert(!this._writableData.isBindingInProgress, 'Bind called while binding in progress');
         assert(this._writableData.parserOutput !== undefined, 'Parse results not available');
+        this._console.info(`[SourceFile.bind] *** Starting binding for file: ${this._uri.toUserVisibleString()} ***`); // Your new log line
 
         return this._logTracker.log(`binding: ${this._getPathForLogging(this._uri)}`, () => {
             try {
@@ -901,6 +905,9 @@ export class SourceFile {
         assert(!this._writableData.isBindingInProgress, 'Check called while binding in progress');
         assert(this.isCheckingRequired(), 'Check called unnecessarily');
         assert(this._writableData.parserOutput !== undefined, 'Parse results not available');
+        this._console.info(
+            `[SourceFile.check] +++ Starting type check for file: ${this._uri.toUserVisibleString()} +++`
+        ); // Your new log line
 
         return this._logTracker.log(`checking: ${this._getPathForLogging(this._uri)}`, () => {
             try {
@@ -1456,6 +1463,7 @@ export class SourceFile {
         // Use the configuration options to determine the environment zin which
         // this source file will be executed.
         const execEnvironment = configOptions.findExecEnvironment(fileUri);
+        this._console.info(`[Program._parseFile] === Attempting to process file: ${fileUri.toUserVisibleString()} ===`);
 
         const parseOptions = new ParseOptions();
         parseOptions.useNotebookMode = useNotebookMode;

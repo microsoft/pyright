@@ -155,6 +155,13 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor
     ): ImportResult {
+        this.serviceProvider
+            .console()
+            .info(
+                `[ImportResolver] Attempting to resolve import: '${
+                    moduleDescriptor.nameParts
+                }' from file: ${sourceFileUri.toUserVisibleString()}`
+            );
         // Wrap internal call to resolveImportInternal() to prevent calling any
         // child class version of resolveImport().
         return this.resolveImportInternal(sourceFileUri, execEnv, moduleDescriptor);
@@ -616,7 +623,19 @@ export class ImportResolver {
             const console = this.serviceProvider.console();
             localImportFailureInfo.forEach((diag) => console.log(diag));
         }
-
+        if (importResult.isImportFound) {
+            this.serviceProvider
+                .console()
+                .info(
+                    `[Copilot Debug] ImportResolver.resolveImportInternal: Resolved '${importName}' to ${importResult.resolvedUris
+                        .map((u) => u.toString())
+                        .join(', ')} (isStubFile: ${importResult.isStubFile}, importType: ${importResult.importType})`
+                );
+        } else {
+            this.serviceProvider
+                .console()
+                .info(`[Copilot Debug] ImportResolver.resolveImportInternal: Failed to resolve '${importName}'`);
+        }
         return importResult;
     }
 

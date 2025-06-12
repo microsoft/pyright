@@ -1,0 +1,258 @@
+Loading configuration file at /home/kuggix/pyright/packages/pyright/pyrightconfig.json
+Auto-excluding **/node_modules
+Auto-excluding **/__pycache__
+Auto-excluding **/.*
+Assuming Python version 3.12.9.final.0
+Execution environment: python
+  Extra paths:
+    /home/kuggix/pyright/packages/pyright/src
+  Python version: 3.12.9.final.0
+  Python platform: Linux
+  Search paths:
+    /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib
+    /home/kuggix/pyright/packages/pyright
+    /home/kuggix/pyright/packages/pyright/src
+    /home/kuggix/pyright/packages/pyright/typings
+    /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stubs/...
+    /opt/ros/humble/lib/python3.10/site-packages
+    /opt/ros/humble/local/lib/python3.10/dist-packages
+    /home/kuggix/miniconda3/envs/jac/lib/python3.12
+    /home/kuggix/miniconda3/envs/jac/lib/python3.12/lib-dynload
+    /home/kuggix/miniconda3/envs/jac/lib/python3.12/site-packages
+    /home/kuggix/jaseci/jac
+Found 1 source file
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/your_python_file.py
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/your_python_file.py ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/your_python_file.py ===
+[ImportResolver] Attempting to resolve import: '__builtins__' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[Copilot Debug] ImportResolver.resolveImportInternal: Failed to resolve '__builtins__'
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[ImportResolver] Attempting to resolve import: 'concurrent,futures' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: '_ast' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: '_sitebuiltins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: '_collections_abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: 'collections,abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: 'io' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: 'os' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: 'typing_extensions' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/builtins.pyi ***
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/your_python_file.py ***
+[SourceFile.check] +++ Starting type check for file: /home/kuggix/pyright/packages/pyright/your_python_file.py +++
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,importlib' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[ImportResolver] Attempting to resolve import: 'collections,abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[ImportResolver] Attempting to resolve import: 'importlib,machinery' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[ImportResolver] Attempting to resolve import: 'typing_extensions' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/types.pyi ***
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 'collections' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 'typing_extensions' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: '_collections_abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 'abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 're' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 'typing_extensions' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 'annotationlib' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 'contextlib' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 'contextlib' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[ImportResolver] Attempting to resolve import: 'annotationlib' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing.pyi ***
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'collections,abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'dataclasses' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'os' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'typing_extensions' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'enum' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'enum' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'annotationlib' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/__init__.pyi ***
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi
+[ImportResolver] Attempting to resolve import: 'collections,abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi
+[ImportResolver] Attempting to resolve import: 'typing_extensions' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/abc.pyi ***
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi
+[ImportResolver] Attempting to resolve import: 'typing_extensions' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi
+[ImportResolver] Attempting to resolve import: '_collections_abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi
+[ImportResolver] Attempting to resolve import: 'abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi
+[ImportResolver] Attempting to resolve import: 'collections,abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi
+[ImportResolver] Attempting to resolve import: 'typing_extensions' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_typeshed/_type_checker_internals.pyi ***
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/collections/abc.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/collections/abc.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/collections/abc.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/collections/abc.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/collections/abc.pyi
+[ImportResolver] Attempting to resolve import: '_collections_abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/collections/abc.pyi
+[ImportResolver] Attempting to resolve import: '_collections_abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/collections/abc.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/collections/abc.pyi ***
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_collections_abc.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_collections_abc.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_collections_abc.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_collections_abc.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_collections_abc.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_collections_abc.pyi
+[ImportResolver] Attempting to resolve import: 'abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_collections_abc.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_collections_abc.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_collections_abc.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_collections_abc.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/_collections_abc.pyi ***
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[ImportResolver] Attempting to resolve import: 'string,templatelib' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[Copilot Debug] ImportResolver.resolveImportInternal: Failed to resolve 'string.templatelib'
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/your_python_file.py
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/__init__.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/__init__.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/__init__.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/__init__.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/__init__.pyi
+[ImportResolver] Attempting to resolve import: '_base' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'process' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'thread' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/__init__.pyi
+[ImportResolver] Attempting to resolve import: 'interpreter' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/__init__.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/__init__.pyi ***
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[ImportResolver] Attempting to resolve import: 'queue' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[ImportResolver] Attempting to resolve import: 'collections,abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[ImportResolver] Attempting to resolve import: 'threading' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[ImportResolver] Attempting to resolve import: 'typing_extensions' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[ImportResolver] Attempting to resolve import: 'weakref' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[ImportResolver] Attempting to resolve import: '_base' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/thread.pyi ***
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[ImportResolver] Attempting to resolve import: 'threading' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[ImportResolver] Attempting to resolve import: 'collections,abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[ImportResolver] Attempting to resolve import: 'logging' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[ImportResolver] Attempting to resolve import: 'typing_extensions' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/concurrent/futures/_base.pyi ***
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'enum' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: '_collections_abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'collections,abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'contextlib' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 're' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'collections,abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'io' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'warnings' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[ImportResolver] Attempting to resolve import: 'annotationlib' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/typing_extensions.pyi ***
+[Copilot Debug] Program._parseFile: Parsing file:///home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[SourceFile.parse] --- Preparing to parse content for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi ---
+[Program._parseFile] === Attempting to process file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi ===
+[ImportResolver] Attempting to resolve import: 'builtins' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed,_type_checker_internals' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[ImportResolver] Attempting to resolve import: '_thread' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[ImportResolver] Attempting to resolve import: 'sys' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[ImportResolver] Attempting to resolve import: '_thread' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[ImportResolver] Attempting to resolve import: '_typeshed' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[ImportResolver] Attempting to resolve import: 'collections,abc' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[ImportResolver] Attempting to resolve import: 'contextvars' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[ImportResolver] Attempting to resolve import: 'types' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[ImportResolver] Attempting to resolve import: 'typing' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[ImportResolver] Attempting to resolve import: 'typing_extensions' from file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi
+[SourceFile.bind] *** Starting binding for file: /home/kuggix/pyright/packages/pyright/dist/typeshed-fallback/stdlib/threading.pyi ***
+pyright 1.1.402
+/home/kuggix/pyright/packages/pyright/your_python_file.py
+  /home/kuggix/pyright/packages/pyright/your_python_file.py:68:13 - error: Type of "append" is partially unknown
+    Type of "append" is "(object: Unknown, /) -> None" (reportUnknownMemberType)
+  /home/kuggix/pyright/packages/pyright/your_python_file.py:69:12 - error: Return type, "list[Unknown]", is partially unknown (reportUnknownVariableType)
+2 errors, 0 warnings, 0 informations 
+Completed in 0.365sec
