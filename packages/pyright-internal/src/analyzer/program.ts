@@ -348,7 +348,7 @@ export class Program {
         );
         sourceFileInfo = new SourceFileInfo(
             sourceFile,
-            /* isTypeshedFile */ false,
+            sourceFile.isTypingStubFile() || sourceFile.isTypeshedStubFile() || sourceFile.isBuiltInStubFile(),
             isThirdPartyImport,
             isInPyTypedPackage,
             this._editModeTracker,
