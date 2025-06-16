@@ -3966,8 +3966,7 @@ export class Parser {
     }
 
     // argument: ( test [comp_for] |
-    //             name '=' test |
-    //             name '=' |
+    //             test '=' test |
     //             '**' test |
     //             '*' test )
     private _parseArgument(): ArgumentNode {
@@ -3981,38 +3980,17 @@ export class Parser {
         }
 
         let valueExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
-        let nameNode: NameNode | undefined;
-        let isNameSameAsValue = false;
-        let assignmentToken: Token | undefined;
+        let nameIdentifier: IdentifierToken | undefined;
 
         if (argType === ArgCategory.Simple) {
-            const nextToken = this._peekToken();
-
             if (this._consumeTokenIfOperator(OperatorType.Assign)) {
-                assignmentToken = nextToken;
                 const nameExpr = valueExpr;
+                valueExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
 
-                if (
-                    nameExpr.nodeType === ParseNodeType.Name &&
-                    (this._peekTokenType() === TokenType.Comma || this._peekTokenType() === TokenType.CloseParenthesis)
-                ) {
-                    nameNode = NameNode.create(nameExpr.d.token);
-
-                    if (PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_14)) {
-                        this._addSyntaxError(LocMessage.keywordArgShortcutIllegal(), assignmentToken);
-                        valueExpr = ErrorNode.create(assignmentToken, ErrorExpressionCategory.MissingKeywordArgValue);
-                    } else {
-                        valueExpr = NameNode.create(nameExpr.d.token);
-                        isNameSameAsValue = true;
-                    }
+                if (nameExpr.nodeType === ParseNodeType.Name) {
+                    nameIdentifier = nameExpr.d.token;
                 } else {
-                    valueExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
-
-                    if (nameExpr.nodeType === ParseNodeType.Name) {
-                        nameNode = NameNode.create(nameExpr.d.token);
-                    } else {
-                        this._addSyntaxError(LocMessage.expectedParamName(), nameExpr);
-                    }
+                    this._addSyntaxError(LocMessage.expectedParamName(), nameExpr);
                 }
             } else {
                 const comprehension = this._tryParseComprehension(valueExpr, /* isGenerator */ true);
@@ -4023,14 +4001,9 @@ export class Parser {
         }
 
         const argNode = ArgumentNode.create(firstToken, valueExpr, argType);
-        if (nameNode) {
-            argNode.d.name = nameNode;
-            argNode.d.isNameSameAsValue = isNameSameAsValue;
+        if (nameIdentifier) {
+            argNode.d.name = NameNode.create(nameIdentifier);
             argNode.d.name.parent = argNode;
-
-            if (assignmentToken) {
-                extendRange(argNode, assignmentToken);
-            }
         }
 
         return argNode;

@@ -284,7 +284,6 @@
         "isSubclassInvalidType": "Le deuxième argument de « issubclass » doit être une classe ou un tuple de classes",
         "keyValueInSet": "Les paires clé/valeur ne sont pas autorisées dans un set",
         "keywordArgInTypeArgument": "Les arguments de mot-clé ne peuvent pas être utilisés dans les listes d'arguments de type",
-        "keywordArgShortcutIllegal": "Le raccourci d’argument de mot clé nécessite Python 3.14 ou une version plus récente",
         "keywordOnlyAfterArgs": "Séparateur d’arguments mot clé uniquement non autorisé après le paramètre « * »",
         "keywordParameterMissing": "Un ou plusieurs paramètres de mot-clé doivent suivre le paramètre \"*\"",
         "keywordSubscriptIllegal": "Les arguments de mot-clé dans les indices ne sont pas pris en charge",

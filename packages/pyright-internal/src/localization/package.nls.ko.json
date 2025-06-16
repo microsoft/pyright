@@ -284,7 +284,6 @@
         "isSubclassInvalidType": "\"issubclass\"에 대한 두 번째 인수는 클래스 또는 클래스의 tuple이어야 합니다.",
         "keyValueInSet": "set 내에서 키/값 쌍을 사용할 수 없습니다.",
         "keywordArgInTypeArgument": "키워드 인수는 형식 인수 목록에서 사용할 수 없습니다.",
-        "keywordArgShortcutIllegal": "키워드 인수 바로 가기에는 Python 3.14 이상 필요",
         "keywordOnlyAfterArgs": "키워드 전용 인수 구분 기호는 \"*\" 매개 변수 뒤에 사용할 수 없습니다.",
         "keywordParameterMissing": "하나 이상의 키워드 매개 변수는 ’*‘ 매개 변수 뒤에 와야 합니다.",
         "keywordSubscriptIllegal": "아래 첨자 내의 키워드 인수는 지원되지 않습니다.",

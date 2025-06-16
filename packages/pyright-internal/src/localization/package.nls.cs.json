@@ -284,7 +284,6 @@
         "isSubclassInvalidType": "Druhý argument pro issubclass musí být třída nebo řazená kolekce členů (tuple) tříd.",
         "keyValueInSet": "Páry klíč-hodnota nejsou v rámci sady (set) povoleny.",
         "keywordArgInTypeArgument": "Argumenty klíčových slov nelze použít v seznamech argumentů typu",
-        "keywordArgShortcutIllegal": "Zástupce argumentu klíčového slova vyžaduje Python 3.14 nebo novější.",
         "keywordOnlyAfterArgs": "Oddělovač argumentů jen pro klíčová slova není povolený za parametrem *",
         "keywordParameterMissing": "Jeden nebo více parametrů klíčového slova musí následovat za parametrem „*“",
         "keywordSubscriptIllegal": "Argumenty klíčových slov v dolních indexech nejsou podporovány",

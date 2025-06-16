@@ -284,7 +284,6 @@
         "isSubclassInvalidType": "Il secondo argomento di \"issubclass\" deve essere una classe o una tuple di classi",
         "keyValueInSet": "Le coppie chiave-valore non sono consentite all'interno di un set",
         "keywordArgInTypeArgument": "Gli argomenti delle parole chiave non possono essere usati negli elenchi di argomenti tipo",
-        "keywordArgShortcutIllegal": "Il collegamento all'argomento della parola chiave richiede Python 3.14 o versione successiva",
         "keywordOnlyAfterArgs": "Separatore di argomenti solo parola chiave non consentito dopo il parametro \"*\"",
         "keywordParameterMissing": "Uno o più parametri di parole chiave devono seguire il parametro \"*\"",
         "keywordSubscriptIllegal": "Gli argomenti delle parole chiave all'interno di pedici non sono supportati",

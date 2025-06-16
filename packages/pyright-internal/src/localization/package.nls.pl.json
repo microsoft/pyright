@@ -284,7 +284,6 @@
         "isSubclassInvalidType": "Drugi argument „issubclass” musi być klasą lub tuple",
         "keyValueInSet": "Pary klucz/wartość nie są dozwolone w set",
         "keywordArgInTypeArgument": "Argumentów słów kluczowych nie można używać na listach argumentów typu",
-        "keywordArgShortcutIllegal": "Skrót do argumentu słowa kluczowego wymaga języka Python 3.14 lub nowszego",
         "keywordOnlyAfterArgs": "Separator argumentów tylko ze słowami kluczowymi jest niedozwolony po parametrze „*”",
         "keywordParameterMissing": "Co najmniej jeden parametr słowa kluczowego musi występować po parametrze „*”",
         "keywordSubscriptIllegal": "Argumenty słów kluczowych w indeksach podrzędnych nie są obsługiwane",

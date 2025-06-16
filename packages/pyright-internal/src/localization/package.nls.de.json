@@ -284,7 +284,6 @@
         "isSubclassInvalidType": "Das zweite Argument für \"issubclass\" muss eine Klasse oder tuple von Klassen sein.",
         "keyValueInSet": "Schlüssel-Wert-Paare sind innerhalb einer Menge „set“ nicht zulässig.",
         "keywordArgInTypeArgument": "Schlüsselwortargumente können nicht in Typargumentlisten verwendet werden.",
-        "keywordArgShortcutIllegal": "Die Tastenkombination für Schlüsselwortargumente erfordert Python 3.14 oder höher.",
         "keywordOnlyAfterArgs": "Schlüsselworttrennzeichen ist nach dem Parameter \"*\" nicht zulässig.",
         "keywordParameterMissing": "Mindestens ein Schlüsselwortparameter muss dem Parameter \"*\" folgen.",
         "keywordSubscriptIllegal": "Schlüsselwortargumente innerhalb von Tiefskripts werden nicht unterstützt.",

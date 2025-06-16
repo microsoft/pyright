@@ -2003,9 +2003,6 @@ export interface ArgumentNode extends ParseNodeBase<ParseNodeType.Argument> {
         argCategory: ArgCategory;
         name: NameNode | undefined;
         valueExpr: ExpressionNode;
-
-        // Is this an argument of the form "x=" as introduced in PEP 736?
-        isNameSameAsValue: boolean;
     };
 }
 
@@ -2022,7 +2019,6 @@ export namespace ArgumentNode {
                 argCategory,
                 name: undefined,
                 valueExpr,
-                isNameSameAsValue: false,
             },
         };
 
