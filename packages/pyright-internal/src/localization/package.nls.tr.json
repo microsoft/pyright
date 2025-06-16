@@ -284,7 +284,6 @@
         "isSubclassInvalidType": "Second argument to \"issubclass\" must be a class or tuple of classes",
         "keyValueInSet": "Key/value pairs are not allowed within a set",
         "keywordArgInTypeArgument": "Anahtar sözcük bağımsız değişkenleri tür bağımsız değişken listelerinde kullanılamaz",
-        "keywordArgShortcutIllegal": "Anahtar sözcük bağımsız değişkeni kısayolu için Python 3.14 veya daha yenisini gereklidir.",
         "keywordOnlyAfterArgs": "\"*\" parametresinden sonra keyword-only bağımsız değişken ayırıcısı kullanılamaz",
         "keywordParameterMissing": "Bir veya daha fazla anahtar sözcük parametresi \"*\" parametresini izlemeli",
         "keywordSubscriptIllegal": "Alt simge içindeki anahtar sözcük bağımsız değişkenleri desteklenmiyor",

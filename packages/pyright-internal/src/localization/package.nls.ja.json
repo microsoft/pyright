@@ -284,7 +284,6 @@
         "isSubclassInvalidType": "\"issubclass\" の 2 番目の引数は、クラスまたはクラスの tuple である必要があります",
         "keyValueInSet": "キーと値のペアは set 内では使用できません",
         "keywordArgInTypeArgument": "キーワード引数は型引数リストでは使用できません",
-        "keywordArgShortcutIllegal": "キーワード引数のショートカットには Python 3.14 以降が必要です",
         "keywordOnlyAfterArgs": "キーワードのみの引数の区切り記号は、\"*\" パラメーターの後には使用できません",
         "keywordParameterMissing": "1 つ以上のキーワード パラメーターが \"*\" パラメーターの後に続く必要があります",
         "keywordSubscriptIllegal": "添字内のキーワード引数はサポートされていません",

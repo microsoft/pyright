@@ -284,7 +284,6 @@
         "isSubclassInvalidType": "El segundo argumento de \"issubclass\" debe ser una clase o tuple de clases",
         "keyValueInSet": "No se permiten pares de clave/valor dentro de un set",
         "keywordArgInTypeArgument": "No se pueden usar argumentos de palabra clave en listas de argumentos de tipo",
-        "keywordArgShortcutIllegal": "El acceso directo del argumento de palabra clave requiere Python 3.14 o posterior",
         "keywordOnlyAfterArgs": "No se permite el separador de argumentos por palabra clave después del parámetro \"*\".",
         "keywordParameterMissing": "Uno o varios parámetros de palabra clave deben seguir el parámetro \"*\"",
         "keywordSubscriptIllegal": "No se admiten argumentos de palabra clave dentro de subíndices",

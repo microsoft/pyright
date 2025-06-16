@@ -699,7 +699,6 @@
             "comment": "{Locked='set'}"
         },
         "keywordArgInTypeArgument": "Keyword arguments cannot be used in type argument lists",
-        "keywordArgShortcutIllegal": "Keyword argument shortcut requires Python 3.14 or newer",
         "keywordOnlyAfterArgs": "Keyword-only argument separator not allowed after \"*\" parameter",
         "keywordParameterMissing": "One or more keyword parameters must follow \"*\" parameter",
         "keywordSubscriptIllegal": "Keyword arguments within subscripts are not supported",

@@ -284,7 +284,6 @@
         "isSubclassInvalidType": "\"issubclass\" 的第二個引數必須是類別的類別或 tuple",
         "keyValueInSet": "set 內不允許金鑰/值組",
         "keywordArgInTypeArgument": "關鍵字引數無法用於型別引數清單",
-        "keywordArgShortcutIllegal": "關鍵字引數快速鍵需要 Python 3.14 或更新版本",
         "keywordOnlyAfterArgs": "\"*\" 參數之後不允許僅限關鍵字的引數分隔符號",
         "keywordParameterMissing": "一或多個關鍵字參數必須接在 \"*\" 參數後面",
         "keywordSubscriptIllegal": "不支援下標內的關鍵字引數",

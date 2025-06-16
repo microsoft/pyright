@@ -284,7 +284,6 @@
         "isSubclassInvalidType": "O segundo argumento para \"issubclass\" deve ser uma classe ou tuple de classes",
         "keyValueInSet": "Pares chave/valor não são permitidos em um set",
         "keywordArgInTypeArgument": "Argumentos de palavra-chave não podem ser usados em listas de argumentos de tipo",
-        "keywordArgShortcutIllegal": "O atalho do argumento de palavra-chave requer Python 3.14 ou mais recente",
         "keywordOnlyAfterArgs": "Separador de argumento somente palavra-chave não permitido após o parâmetro \"*\"",
         "keywordParameterMissing": "Um ou mais parâmetros de palavra-chave devem seguir o parâmetro \"*\"",
         "keywordSubscriptIllegal": "Não há suporte para argumentos de palavra-chave em subscritos",
