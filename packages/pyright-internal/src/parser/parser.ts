@@ -195,6 +195,7 @@ export interface ParseFileResults {
     contentHash: number;
     parserOutput: ParserOutput;
     tokenizerOutput: TokenizerOutput;
+    lines: TextRangeCollection<TextRange>;
 }
 
 export interface ParseExpressionTextResults<T extends ParseNode> {
@@ -299,6 +300,7 @@ export class Parser {
                 hasTypeAnnotations: this._hasTypeAnnotations,
             },
             tokenizerOutput: this._tokenizerOutput!,
+            lines: this._tokenizerOutput!.lines,
         };
     }
 

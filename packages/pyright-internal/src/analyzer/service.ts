@@ -55,7 +55,7 @@ import {
     InvalidatedReason,
 } from './backgroundAnalysisProgram';
 import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor } from './importResolver';
-import { MaxAnalysisTime, Program } from './program';
+import { ChangedRange, MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import {
     findConfigFile,
@@ -349,11 +349,18 @@ export class AnalyzerService {
         this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    updateOpenFileContents(uri: Uri, version: number | null, contents: string, ipythonMode = IPythonMode.None) {
+    updateOpenFileContents(
+        uri: Uri,
+        version: number | null,
+        contents: string,
+        ipythonMode = IPythonMode.None,
+        changedRange?: ChangedRange
+    ) {
         this._backgroundAnalysisProgram.updateOpenFileContents(uri, version, contents, {
             isTracked: this.isTracked(uri),
             ipythonMode,
             chainedFileUri: undefined,
+            changedRange,
         });
         this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }

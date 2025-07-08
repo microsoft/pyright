@@ -70,7 +70,12 @@ export function applyFileEditActions(state: TestState, fileEditActions: FileEdit
 
     for (const [editFileName, editsPerFile] of editsPerFileMap) {
         const result = _applyEdits(state, editFileName, editsPerFile);
-        state.testFS.writeFileSync(Uri.file(editFileName, state.serviceProvider), result.text, 'utf8');
+
+        const uri = Uri.file(editFileName, state.serviceProvider);
+        state.testFS.writeFileSync(uri, result.text, 'utf8');
+
+        // Mimic file change notification. in future, we should properly set up file change notification on test FS.
+        state.program.getSourceFileInfo(uri)?.sourceFile.markDirty();
 
         // Update open file content if the file is in opened state.
         if (result.version) {
@@ -97,6 +102,7 @@ export function applyFileEditActions(state: TestState, fileEditActions: FileEdit
             case 'create': {
                 state.testFS.mkdirpSync(fileOperation.fileUri.getDirectory().getFilePath());
                 state.testFS.writeFileSync(fileOperation.fileUri, '');
+                state.program.getSourceFileInfo(fileOperation.fileUri)?.sourceFile.markDirty();
                 break;
             }
             case 'rename': {
@@ -156,12 +162,9 @@ export function verifyReferencesAtPosition(
     assert(sourceFile);
 
     const node = findNodeByOffset(sourceFile.getParseResults()!.parserOutput.parseTree, position);
-    const decls = DocumentSymbolCollector.getDeclarationsForNode(
-        program,
-        node as NameNode,
-        /* resolveLocalName */ true,
-        CancellationToken.None
-    );
+    const decls = DocumentSymbolCollector.getDeclarationsForNode(program, node as NameNode, CancellationToken.None, {
+        resolveLocalNames: true,
+    });
 
     const rangesByFile = createMapFromItems(ranges, (r) => r.fileName);
     for (const rangeFileName of rangesByFile.keys()) {

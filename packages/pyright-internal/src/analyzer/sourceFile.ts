@@ -83,6 +83,10 @@ class WriteableData {
     // change, this is incremented.
     fileContentsVersion = 0;
 
+    // Number that is incremented every time semantic of the file
+    // might have changed.
+    semanticVersion = 0;
+
     // Length and hash of the file the last time it was read from disk.
     lastFileContentLength: number | undefined = undefined;
     lastFileContentHash: number | undefined = undefined;
@@ -181,7 +185,8 @@ class WriteableData {
  pyrightIgnoreLines=${this.pyrightIgnoreLines?.size},
  checkTime=${this.checkTime},
  clientDocumentContents=${this.clientDocumentContents?.length},
- parseResults=${this.parserOutput?.parseTree.length}`;
+ parseResults=${this.parserOutput?.parseTree.length},
+ semanticVersion=${this.semanticVersion}, `;
     }
 }
 
@@ -330,6 +335,10 @@ export class SourceFile {
         return this._writableData.diagnosticVersion;
     }
 
+    getParseDiagnostics(): Diagnostic[] {
+        return this._writableData.parseDiagnostics;
+    }
+
     isStubFile() {
         return this._isStubFile;
     }
@@ -446,6 +455,7 @@ export class SourceFile {
 
     markDirty(): void {
         this._writableData.fileContentsVersion++;
+        this._writableData.semanticVersion++;
         this._writableData.noCircularDependencyConfirmed = false;
         this._writableData.isCheckingNeeded = true;
         this._writableData.isBindingNeeded = true;
@@ -457,6 +467,7 @@ export class SourceFile {
 
     markReanalysisRequired(forceRebinding: boolean): void {
         // Keep the parse info, but reset the analysis to the beginning.
+        this._writableData.semanticVersion++;
         this._writableData.isCheckingNeeded = true;
         this._writableData.noCircularDependencyConfirmed = false;
 
@@ -486,6 +497,10 @@ export class SourceFile {
         return this._writableData.clientDocumentVersion;
     }
 
+    getSemanticVersion() {
+        return this._writableData.semanticVersion;
+    }
+
     getRange() {
         return { start: { line: 0, character: 0 }, end: { line: this._writableData.lineCount ?? 0, character: 0 } };
     }
@@ -499,6 +514,11 @@ export class SourceFile {
         const openFileContent = this.getOpenFileContents();
         if (openFileContent !== undefined) {
             return openFileContent;
+        }
+
+        // Ensure that the content used here is identical to the content obtained from the parse results.
+        if (!this.isParseRequired() && this._writableData.parsedFileContents !== undefined) {
+            return this._writableData.parsedFileContents;
         }
 
         // Otherwise, get content from file system.
@@ -590,15 +610,24 @@ export class SourceFile {
 
         // If we've cached the tokenizer output, use the cached version.
         // Otherwise re-tokenize the contents on demand.
-        const tokenizerOutput =
-            this._writableData.tokenizerOutput ?? this._tokenizeContents(this._writableData.parsedFileContents);
+        const tokenizeContents = this._tokenizeContents.bind(this);
+        const parsedFileContents = this._writableData.parsedFileContents;
+        const contentHash =
+            this._writableData.lastFileContentHash || StringUtils.hashString(this._writableData.parsedFileContents);
+        let tokenizerOutput: TokenizerOutput | undefined = this._writableData.tokenizerOutput;
 
         return {
-            contentHash:
-                this._writableData.lastFileContentHash || StringUtils.hashString(this._writableData.parsedFileContents),
+            contentHash,
             parserOutput: this._writableData.parserOutput,
-            tokenizerOutput,
+            get tokenizerOutput(): TokenizerOutput {
+                // Lazily tokenize the file contents only when accessed for the first time.
+                if (!tokenizerOutput) {
+                    tokenizerOutput = tokenizeContents(parsedFileContents, contentHash);
+                }
+                return tokenizerOutput!;
+            },
             text: this._writableData.parsedFileContents,
+            lines: this._writableData.tokenizerLines!,
         };
     }
 
@@ -836,13 +865,7 @@ export class SourceFile {
                 timingStats.bindTime.timeOperation(() => {
                     this._cleanParseTreeIfRequired();
 
-                    const fileInfo = this._buildFileInfo(
-                        configOptions,
-                        this._writableData.parsedFileContents!,
-                        importLookup,
-                        builtinsScope,
-                        futureImports
-                    );
+                    const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope, futureImports);
                     AnalyzerNodeInfo.setFileInfo(this._writableData.parserOutput!.parseTree, fileInfo);
 
                     const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
@@ -1332,7 +1355,6 @@ export class SourceFile {
 
     private _buildFileInfo(
         configOptions: ConfigOptions,
-        fileContents: string,
         importLookup: ImportLookup,
         builtinsScope: Scope | undefined,
         futureImports: Set<string>
@@ -1479,12 +1501,16 @@ export class SourceFile {
         return parser.parseSourceFile(fileContents, parseOptions, diagSink);
     }
 
-    private _tokenizeContents(fileContents: string): TokenizerOutput {
+    private _tokenizeContents(fileContents: string, contentHash: number): TokenizerOutput {
         const tokenizer = new Tokenizer();
         const output = tokenizer.tokenize(fileContents);
 
-        // If the file is currently open, cache the tokenizer results.
-        if (this._writableData.clientDocumentContents !== undefined) {
+        // When the file is open, cache the tokenizer results.
+        // Because the tokenizer is lazy, ensure that the state remains unchanged before caching its output.
+        if (
+            this._writableData.clientDocumentContents !== undefined &&
+            this._writableData.lastFileContentHash === contentHash
+        ) {
             this._writableData.tokenizerOutput = output;
 
             // Replace the existing tokenizerLines with the newly-returned
