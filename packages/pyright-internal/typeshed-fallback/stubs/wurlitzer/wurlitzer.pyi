@@ -5,6 +5,7 @@ import io
 import logging
 from _typeshed import SupportsWrite
 from contextlib import _GeneratorContextManager
+from threading import Thread
 from types import TracebackType
 from typing import Any, Final, Literal, Protocol, TextIO, TypeVar, overload
 from typing_extensions import Self, TypeAlias
@@ -29,6 +30,10 @@ _InteractiveShell: TypeAlias = Any
 class Wurlitzer:
     flush_interval: float
     encoding: str | None
+    thread: Thread | None
+    handle: tuple[
+        _LogPipe | SupportsWrite[str] | SupportsWrite[bytes] | None, _LogPipe | SupportsWrite[str] | SupportsWrite[bytes] | None
+    ]
 
     def __init__(
         self,
@@ -37,7 +42,11 @@ class Wurlitzer:
         encoding: str | None = ...,
         bufsize: int | None = ...,
     ) -> None: ...
-    def __enter__(self): ...
+    def __enter__(
+        self,
+    ) -> tuple[
+        _LogPipe | SupportsWrite[str] | SupportsWrite[bytes] | None, _LogPipe | SupportsWrite[str] | SupportsWrite[bytes] | None
+    ]: ...
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None
     ) -> None: ...

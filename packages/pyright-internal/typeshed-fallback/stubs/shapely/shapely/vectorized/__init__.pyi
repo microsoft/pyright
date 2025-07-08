@@ -8,7 +8,7 @@ from ..lib import Geometry
 from ..prepared import PreparedGeometry
 
 @overload
-def contains(geometry: Geometry | PreparedGeometry[Geometry], x: float, y: float) -> bool: ...
+def contains(geometry: Geometry | PreparedGeometry[Geometry], x: float, y: float) -> np.bool_: ...
 @overload
 def contains(
     geometry: Geometry | PreparedGeometry[Geometry], x: ArrayLikeSeq[float], y: ArrayLike[float]
@@ -20,9 +20,9 @@ def contains(
 @overload
 def contains(
     geometry: Geometry | PreparedGeometry[Geometry], x: ArrayLike[float], y: ArrayLike[float]
-) -> bool | NDArray[np.bool_]: ...
+) -> np.bool_ | NDArray[np.bool_]: ...
 @overload
-def touches(geometry: Geometry | PreparedGeometry[Geometry], x: float, y: float) -> bool: ...
+def touches(geometry: Geometry | PreparedGeometry[Geometry], x: float, y: float) -> np.bool_: ...
 @overload
 def touches(
     geometry: Geometry | PreparedGeometry[Geometry], x: ArrayLikeSeq[float], y: ArrayLike[float]
@@ -34,4 +34,4 @@ def touches(
 @overload
 def touches(
     geometry: Geometry | PreparedGeometry[Geometry], x: ArrayLike[float], y: ArrayLike[float]
-) -> bool | NDArray[np.bool_]: ...
+) -> np.bool_ | NDArray[np.bool_]: ...

@@ -188,7 +188,7 @@ class croniter(Generic[_R_co]):
     @overload
     def get_next(
         self, ret_type: type[_R2_co], start_time: float | datetime.datetime | None = None, update_current: bool = True
-    ) -> _R_co: ...
+    ) -> _R2_co: ...
     @overload
     def get_next(
         self, ret_type: None = None, start_time: float | datetime.datetime | None = None, update_current: bool = True
