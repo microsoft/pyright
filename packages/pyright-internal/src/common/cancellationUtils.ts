@@ -52,8 +52,8 @@ export class OperationCanceledException extends ResponseError<void> {
     // in an invalid state.
     isTypeCacheInvalid = false;
 
-    constructor() {
-        super(LSPErrorCodes.RequestCancelled, 'request cancelled');
+    constructor(message?: string | undefined) {
+        super(LSPErrorCodes.RequestCancelled, message || 'request cancelled');
     }
 
     static is(e: any): e is OperationCanceledException {

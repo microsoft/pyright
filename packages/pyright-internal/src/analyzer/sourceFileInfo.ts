@@ -111,6 +111,10 @@ export class SourceFileInfo implements extensibility.SourceFileInfo {
         return this.sourceFile.getClientVersion();
     }
 
+    get semanticVersion() {
+        return this.sourceFile.getSemanticVersion();
+    }
+
     set diagnosticsVersion(value: number | undefined) {
         this._cachePreEditState();
         this._writableData.diagnosticsVersion = value;

@@ -541,8 +541,8 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         const declarations = DocumentSymbolCollector.getDeclarationsForNode(
             this._program,
             node,
-            /* resolveLocalName */ true,
-            this._cancellationToken
+            this._cancellationToken,
+            { resolveLocalNames: true }
         );
 
         const results = [...declarations];

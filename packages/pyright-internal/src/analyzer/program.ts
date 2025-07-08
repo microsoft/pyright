@@ -26,7 +26,7 @@ import { convertRangeToTextRange } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
 import '../common/serviceProviderExtensions';
-import { Range, doRangesIntersect } from '../common/textRange';
+import { Range, TextRange, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import { makeDirectories } from '../common/uri/uriUtils';
@@ -77,10 +77,16 @@ interface UpdateImportInfo {
 
 export type PreCheckCallback = (parserOutput: ParserOutput, evaluator: TypeEvaluator) => void;
 
+export interface ChangedRange {
+    range: TextRange;
+    delta: number;
+}
+
 export interface OpenFileOptions {
     isTracked: boolean;
     ipythonMode: IPythonMode;
     chainedFileUri: Uri | undefined;
+    changedRange?: ChangedRange;
 }
 
 // Track edit mode related information.
@@ -132,7 +138,7 @@ export class Program {
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
     private _evaluator: TypeEvaluator | undefined;
-
+    private _disposed = false;
     private _parsedFileCount = 0;
     private _preCheckCallback: PreCheckCallback | undefined;
     private _editModeTracker = new EditModeTracker();
@@ -189,8 +195,13 @@ export class Program {
         return this._importResolver.fileSystem;
     }
 
+    get isDisposed() {
+        return this._disposed;
+    }
+
     dispose() {
         this._cacheManager.unregisterCacheOwner(this);
+        this._disposed = true;
     }
 
     enterEditMode() {
@@ -743,6 +754,14 @@ export class Program {
         )?.sourceFile.getParseResults();
     }
 
+    getParseDiagnostics(fileUri: Uri): Diagnostic[] | undefined {
+        return this.getBoundSourceFileInfo(
+            fileUri,
+            /* content */ undefined,
+            /* force */ true
+        )?.sourceFile.getParseDiagnostics();
+    }
+
     handleMemoryHighUsage() {
         this._handleMemoryHighUsage();
     }
@@ -1024,6 +1043,23 @@ export class Program {
         this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => l.onClearCache?.());
     }
 
+    bindShadowFile(stubFileUri: Uri, shadowFile: Uri): SourceFile | undefined {
+        let stubFileInfo = this.getSourceFileInfo(stubFileUri);
+        if (!stubFileInfo) {
+            // make sure uri exits before adding interimFile
+            if (!this.fileSystem.existsSync(stubFileUri)) {
+                return undefined;
+            }
+
+            // Special case for import statement like "import X.Y". The SourceFile
+            // for X might not be in memory since import `X.Y` only brings in Y.
+            stubFileInfo = this.addInterimFile(stubFileUri);
+        }
+
+        this._addShadowedFile(stubFileInfo, shadowFile);
+        return this.getBoundSourceFile(shadowFile);
+    }
+
     private _handleMemoryHighUsage() {
         const cacheUsage = this._cacheManager.getCacheUsage();
         const usedHeapRatio = this._cacheManager.getUsedHeapRatio(
@@ -1229,22 +1265,7 @@ export class Program {
             this._importResolver,
             execEnv,
             this._evaluator!,
-            (stubFileUri: Uri, implFileUri: Uri) => {
-                let stubFileInfo = this.getSourceFileInfo(stubFileUri);
-                if (!stubFileInfo) {
-                    // make sure uri exits before adding interimFile
-                    if (!this.fileSystem.existsSync(stubFileUri)) {
-                        return undefined;
-                    }
-
-                    // Special case for import statement like "import X.Y". The SourceFile
-                    // for X might not be in memory since import `X.Y` only brings in Y.
-                    stubFileInfo = this.addInterimFile(stubFileUri);
-                }
-
-                this._addShadowedFile(stubFileInfo, implFileUri);
-                return this.getBoundSourceFile(implFileUri);
-            },
+            (stubFileUri: Uri, implFileUri: Uri) => this.bindShadowFile(stubFileUri, implFileUri),
             (f) => {
                 let fileInfo = this.getBoundSourceFileInfo(f);
                 if (!fileInfo) {

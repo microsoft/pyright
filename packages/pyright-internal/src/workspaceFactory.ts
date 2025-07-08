@@ -100,7 +100,19 @@ export function renameWorkspace(workspace: Workspace, name: string) {
 
 export type CreateServiceFunction = (name: string, workspaceRoot: Uri | undefined, kinds: string[]) => AnalyzerService;
 
-export class WorkspaceFactory {
+export interface IWorkspaceFactory {
+    handleInitialize(params: InitializeParams): void;
+    handleWorkspaceFoldersChanged(params: WorkspaceFoldersChangeEvent, workspaces: lspWorkspaceFolder[] | null): void;
+    items(): AllWorkspace[];
+    clear(): void;
+    hasMultipleWorkspaces(kind?: string): boolean;
+    getContainingWorkspace(filePath: Uri, pythonPath?: Uri): NormalWorkspace | undefined;
+    getNonDefaultWorkspaces(kind?: string): NormalWorkspace[];
+    getWorkspaceForFile(uri: Uri, pythonPath: Uri | undefined): Promise<Workspace>;
+    getContainingWorkspacesForFile(filePath: Uri): Promise<Workspace[]>;
+}
+
+export class WorkspaceFactory implements IWorkspaceFactory {
     private _defaultWorkspacePath = '<default>';
     private _map = new Map<string, AllWorkspace>();
     private _id = WorkspaceFactoryIdCounter++;

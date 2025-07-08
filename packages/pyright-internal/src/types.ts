@@ -29,7 +29,7 @@ export interface ClientCapabilities {
     supportsUnnecessaryDiagnosticTag: boolean;
     supportsTaskItemDiagnosticTag: boolean;
     completionItemResolveSupportsAdditionalTextEdits: boolean;
-    usingPullDiagnostics: boolean;
+    supportsPullDiagnostics: boolean;
     requiresPullRelatedInformationCapability: boolean;
 }
 

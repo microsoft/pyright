@@ -150,7 +150,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         startingNode?: ParseNode,
         options?: DocumentSymbolCollectorOptions
     ): CollectionResult[] {
-        const declarations = this.getDeclarationsForNode(program, node, /* resolveLocalName */ true, cancellationToken);
+        const declarations = this.getDeclarationsForNode(program, node, cancellationToken, { resolveLocalNames: true });
 
         startingNode = startingNode ?? getModuleNode(node);
         if (!startingNode) {
@@ -172,8 +172,11 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     static getDeclarationsForNode(
         program: ProgramView,
         node: NameNode,
-        resolveLocalName: boolean,
-        token: CancellationToken
+        token: CancellationToken,
+        options?: {
+            resolveLocalNames?: boolean;
+            findImplementations?: boolean;
+        }
     ): Declaration[] {
         throwIfCancellationRequested(token);
 
@@ -186,10 +189,13 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         const fileUri = fileInfo.fileUri;
 
+        const resolveLocalNames = options?.resolveLocalNames ?? true;
+        const findImplementations = options?.findImplementations ?? true;
+
         const resolvedDeclarations: Declaration[] = [];
-        const sourceMapper = program.getSourceMapper(fileUri, token);
+        const sourceMapper = findImplementations ? program.getSourceMapper(fileUri, token) : undefined;
         declarations.forEach((decl) => {
-            const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
+            const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalNames);
             if (resolvedDecl) {
                 addDeclarationIfUnique(resolvedDeclarations, resolvedDecl);
                 if (sourceMapper && isStubFile(resolvedDecl.uri)) {
@@ -232,7 +238,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 ?.getDeclarations()
                 .filter((d) => !isAliasDeclaration(d))
                 .forEach((decl) => {
-                    const resolvedDecl = evaluator!.resolveAliasDeclaration(decl, resolveLocalName);
+                    const resolvedDecl = evaluator!.resolveAliasDeclaration(decl, resolveLocalNames);
                     if (resolvedDecl) {
                         addDeclarationIfUnique(declarations, resolvedDecl);
                     }

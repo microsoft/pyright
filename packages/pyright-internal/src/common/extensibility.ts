@@ -59,6 +59,7 @@ export interface SourceFileInfo {
     readonly isTypingStubFile: boolean;
     readonly hasTypeAnnotations: boolean;
     readonly diagnosticsVersion: number | undefined;
+    readonly semanticVersion: number;
     readonly clientVersion: number | undefined;
 
     readonly chainedSourceFile?: SourceFileInfo | undefined;
@@ -94,7 +95,8 @@ export interface ProgramView {
 
     // Consider getDiagnosticsForRange to call `analyzeFile` automatically if the file is not analyzed.
     analyzeFile(fileUri: Uri, token: CancellationToken): boolean;
-    getDiagnosticsForRange(fileUri: Uri, range: Range): Diagnostic[];
+    getDiagnosticsForRange(fileUri: Uri, range: Range): readonly Diagnostic[];
+    getParseDiagnostics(fileUri: Uri): readonly Diagnostic[] | undefined;
 
     // See whether we can get rid of these methods
     handleMemoryHighUsage(): void;
