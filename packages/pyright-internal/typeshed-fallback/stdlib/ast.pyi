@@ -1096,8 +1096,16 @@ class Constant(expr):
     kind: str | None
     if sys.version_info < (3, 14):
         # Aliases for value, for backwards compatibility
-        s: _ConstantValue
-        n: _ConstantValue
+        @deprecated("Will be removed in Python 3.14; use value instead")
+        @property
+        def n(self) -> _ConstantValue: ...
+        @n.setter
+        def n(self, value: _ConstantValue) -> None: ...
+        @deprecated("Will be removed in Python 3.14; use value instead")
+        @property
+        def s(self) -> _ConstantValue: ...
+        @s.setter
+        def s(self, value: _ConstantValue) -> None: ...
 
     def __init__(self, value: _ConstantValue, kind: str | None = None, **kwargs: Unpack[_Attributes]) -> None: ...
 
@@ -1696,27 +1704,23 @@ class _ABC(type):
 if sys.version_info < (3, 14):
     @deprecated("Replaced by ast.Constant; removed in Python 3.14")
     class Num(Constant, metaclass=_ABC):
-        value: int | float | complex
-        # Aliases for value, for backwards compatibility
-        n: int | float | complex
+        def __new__(cls, n: complex, **kwargs: Unpack[_Attributes]) -> Constant: ...  # type: ignore[misc]  # pyright: ignore[reportInconsistentConstructor]
 
     @deprecated("Replaced by ast.Constant; removed in Python 3.14")
     class Str(Constant, metaclass=_ABC):
-        value: str
-        # Aliases for value, for backwards compatibility
-        s: str
+        def __new__(cls, s: str, **kwargs: Unpack[_Attributes]) -> Constant: ...  # type: ignore[misc]  # pyright: ignore[reportInconsistentConstructor]
 
     @deprecated("Replaced by ast.Constant; removed in Python 3.14")
     class Bytes(Constant, metaclass=_ABC):
-        value: bytes
-        # Aliases for value, for backwards compatibility
-        s: bytes
+        def __new__(cls, s: bytes, **kwargs: Unpack[_Attributes]) -> Constant: ...  # type: ignore[misc]  # pyright: ignore[reportInconsistentConstructor]
 
     @deprecated("Replaced by ast.Constant; removed in Python 3.14")
-    class NameConstant(Constant, metaclass=_ABC): ...
+    class NameConstant(Constant, metaclass=_ABC):
+        def __new__(cls, value: _ConstantValue, kind: str | None, **kwargs: Unpack[_Attributes]) -> Constant: ...  # type: ignore[misc]  # pyright: ignore[reportInconsistentConstructor]
 
     @deprecated("Replaced by ast.Constant; removed in Python 3.14")
-    class Ellipsis(Constant, metaclass=_ABC): ...
+    class Ellipsis(Constant, metaclass=_ABC):
+        def __new__(cls, **kwargs: Unpack[_Attributes]) -> Constant: ...  # type: ignore[misc]  # pyright: ignore[reportInconsistentConstructor]
 
 # everything below here is defined in ast.py
 
