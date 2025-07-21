@@ -4035,16 +4035,15 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
                 const solution = new ConstraintSolution();
 
                 // Create new type variables with the same scope but with
-                // different (unique) names.
+                // different (unique) names. We need to handle all type parameters
+                // to fix ParamSpec self-application issues like id(id).
                 sourceType.shared.typeParams.forEach((typeParam) => {
-                    if (typeParam.priv.scopeType === TypeVarScopeType.Function) {
-                        const replacement: Type = TypeVarType.cloneForNewName(
-                            typeParam,
-                            `${typeParam.shared.name}(${offsetIndex})`
-                        );
+                    const replacement: Type = TypeVarType.cloneForNewName(
+                        typeParam,
+                        `${typeParam.shared.name}(${offsetIndex})`
+                    );
 
-                        solution.setType(typeParam, replacement);
-                    }
+                    solution.setType(typeParam, replacement);
                 });
 
                 updatedSourceType = applySolvedTypeVars(sourceType, solution);
