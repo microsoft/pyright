@@ -1436,3 +1436,47 @@ test('import statements with implicit import', async () => {
         },
     });
 });
+
+test('overloaded Literal[...] suggestions in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import overload, Literal
+////
+//// @overload
+//// def example(p: Literal["A"]): ...
+//// @overload
+//// def example(p: Literal["B"]): ...
+//// @overload
+//// def example(p: Literal["C"]): ...
+//// def example(p):
+////     pass
+////
+//// example([|"/*marker*/"|])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"A"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"A"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"B"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"B"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"C"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"C"' },
+                },
+            ],
+        },
+    });
+});
