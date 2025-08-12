@@ -559,7 +559,11 @@ export class AnalyzerService {
             // the source file enumeration process.
             if (this._sourceEnumerator) {
                 let fileMap: Map<string, Uri>;
-                const maxSourceEnumeratorTime = 1000;
+
+                // Use the "noOpenFilesTimeInMs" limit if it's provided. Otherwise
+                // do all enumeration in one shot. The latter is used for the CLI
+                // and other environments where the user is not blocked on the operation.
+                const maxSourceEnumeratorTime = this.options.maxAnalysisTime?.noOpenFilesTimeInMs ?? 0;
 
                 if (this._executionRootUri.isEmpty()) {
                     // No user files for default workspace.
