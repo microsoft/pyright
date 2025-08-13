@@ -528,6 +528,11 @@ test('UninitializedVariable2', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('UninitializedVariable3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['uninitializedVariable3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('DeprecatedAlias1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
