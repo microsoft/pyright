@@ -555,49 +555,14 @@ export class AnalyzerService {
                 this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
             }
 
-            // If we have an active source enumerator, call it to continue
-            // the source file enumeration process.
-            if (this._sourceEnumerator) {
-                let fileMap: Map<string, Uri>;
-
-                // Use the "noOpenFilesTimeInMs" limit if it's provided. Otherwise
-                // do all enumeration in one shot. The latter is used for the CLI
-                // and other environments where the user is not blocked on the operation.
-                const maxSourceEnumeratorTime = this.options.maxAnalysisTime?.noOpenFilesTimeInMs ?? 0;
-
-                if (this._executionRootUri.isEmpty()) {
-                    // No user files for default workspace.
-                    fileMap = new Map<string, Uri>();
-                } else {
-                    const enumerator = this._sourceEnumerator;
-                    const enumResults = timingStats.findFilesTime.timeOperation(() =>
-                        enumerator.enumerate(maxSourceEnumeratorTime)
-                    );
-
-                    if (!enumResults.isComplete) {
-                        this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
-                        return;
-                    }
-
-                    // Update the config options to include the auto-excluded directories.
-                    const excludes = this.options.configOptions?.exclude;
-                    if (enumResults.autoExcludedDirs && excludes) {
-                        enumResults.autoExcludedDirs.forEach((excludedDir) => {
-                            if (!FileSpec.isInPath(excludedDir, excludes)) {
-                                excludes.push(getFileSpec(this._configOptions.projectRoot, `${excludedDir}/**`));
-                            }
-                        });
-                        this._backgroundAnalysisProgram.setConfigOptions(this._configOptions);
-                    }
-
-                    fileMap = enumResults.matches;
-                }
-
-                const fileList = this._getTrackedFileList(fileMap);
-                this._backgroundAnalysisProgram.setTrackedFiles(fileList);
-
-                // Source file enumeration is complete. Proceed with analysis.
-                this._sourceEnumerator = undefined;
+            // Continue to enumerate sources if we haven't finished doing so.
+            // Use the "noOpenFilesTimeInMs" limit if it's provided. Otherwise
+            // do all enumeration in one shot. The latter is used for the CLI
+            // and other environments where the user is not blocked on the operation.
+            const maxSourceEnumeratorTime = this.options.maxAnalysisTime?.noOpenFilesTimeInMs ?? 0;
+            if (!this.enumerateSourceFiles(maxSourceEnumeratorTime)) {
+                this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+                return;
             }
 
             // Recreate the cancellation token every time we start analysis.
@@ -607,6 +572,52 @@ export class AnalyzerService {
             // start the analysis.
             this.runAnalysis(this._backgroundAnalysisCancellationSource.token);
         }, timeUntilNextAnalysisInMs);
+    }
+
+    // Attempts to make progress on source file enumeration if there is an active
+    // source enumerator associated with the service. Returns true if complete.
+    protected enumerateSourceFiles(maxSourceEnumeratorTime: number): boolean {
+        // If there is no active source enumerator, we're done.
+        if (!this._sourceEnumerator) {
+            return true;
+        }
+
+        let fileMap: Map<string, Uri>;
+
+        if (this._executionRootUri.isEmpty()) {
+            // No user files for default workspace.
+            fileMap = new Map<string, Uri>();
+        } else {
+            const enumerator = this._sourceEnumerator;
+            const enumResults = timingStats.findFilesTime.timeOperation(() =>
+                enumerator.enumerate(maxSourceEnumeratorTime)
+            );
+
+            if (!enumResults.isComplete) {
+                return false;
+            }
+
+            // Update the config options to include the auto-excluded directories.
+            const excludes = this.options.configOptions?.exclude;
+            if (enumResults.autoExcludedDirs && excludes) {
+                enumResults.autoExcludedDirs.forEach((excludedDir) => {
+                    if (!FileSpec.isInPath(excludedDir, excludes)) {
+                        excludes.push(getFileSpec(this._configOptions.projectRoot, `${excludedDir}/**`));
+                    }
+                });
+                this._backgroundAnalysisProgram.setConfigOptions(this._configOptions);
+            }
+
+            fileMap = enumResults.matches;
+
+            const fileList = this._getTrackedFileList(fileMap);
+            this._backgroundAnalysisProgram.setTrackedFiles(fileList);
+
+            // Source file enumeration is complete. Proceed with analysis.
+            this._sourceEnumerator = undefined;
+        }
+
+        return true;
     }
 
     protected applyConfigOptions(host: Host) {
