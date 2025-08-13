@@ -101,6 +101,10 @@ def func7():
                 # continue is not allowed in an except* block.
                 continue
 
+            while 1 < 2:
+                # This is allowed because it's within a nested loop.
+                break
+
             # This should generate an error because
             # return is not allowed in an except* block.
             return
