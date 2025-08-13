@@ -1,10 +1,10 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, StrPath
 from typing import Final
 from typing_extensions import deprecated
 
 from docutils import SettingsSpec
 from docutils.frontend import OptionParser
-from docutils.io import FileInput, Input, Output, StringInput
+from docutils.io import FileInput, Input, Output
 from docutils.parsers import Parser
 from docutils.readers import Reader
 from docutils.utils import SystemMessage
@@ -63,9 +63,9 @@ class Publisher:
         config_section=None,
         **defaults,
     ) -> None: ...
-    def set_io(self, source_path=None, destination_path=None) -> None: ...
-    def set_source(self, source=None, source_path=None) -> None: ...
-    def set_destination(self, destination=None, destination_path=None) -> None: ...
+    def set_io(self, source_path: StrPath | None = None, destination_path: StrPath | None = None) -> None: ...
+    def set_source(self, source=None, source_path: StrPath | None = None) -> None: ...
+    def set_destination(self, destination=None, destination_path: StrPath | None = None) -> None: ...
     def apply_transforms(self) -> None: ...
     def publish(
         self,
@@ -104,9 +104,9 @@ def publish_cmdline(
 ): ...
 def publish_file(
     source=None,
-    source_path: FileInput | StringInput | None = None,
+    source_path: StrPath | None = None,
     destination=None,
-    destination_path: FileInput | StringInput | None = None,
+    destination_path: StrPath | None = None,
     reader=None,
     reader_name: str = "standalone",
     parser=None,
@@ -121,8 +121,8 @@ def publish_file(
 ): ...
 def publish_string(
     source,
-    source_path: FileInput | StringInput | None = None,
-    destination_path: FileInput | StringInput | None = None,
+    source_path: StrPath | None = None,
+    destination_path: StrPath | None = None,
     reader=None,
     reader_name: str = "standalone",
     parser=None,
@@ -137,9 +137,9 @@ def publish_string(
 ): ...
 def publish_parts(
     source,
-    source_path: FileInput | StringInput | None = None,
+    source_path: StrPath | None = None,
     source_class=...,
-    destination_path: FileInput | StringInput | None = None,
+    destination_path: StrPath | None = None,
     reader=None,
     reader_name: str = "standalone",
     parser=None,
@@ -154,7 +154,7 @@ def publish_parts(
 ) -> _WriterParts: ...
 def publish_doctree(
     source,
-    source_path: FileInput | StringInput | None = None,
+    source_path: StrPath | None = None,
     source_class=...,
     reader=None,
     reader_name: str = "standalone",
@@ -168,7 +168,7 @@ def publish_doctree(
 ): ...
 def publish_from_doctree(
     document,
-    destination_path: FileInput | StringInput | None = None,
+    destination_path: StrPath | None = None,
     writer=None,
     writer_name: str = "pseudoxml",
     settings=None,
@@ -198,10 +198,10 @@ def publish_cmdline_to_binary(
 def publish_programmatically(
     source_class: type[FileInput],
     source,
-    source_path: FileInput | StringInput,
+    source_path: StrPath | None,
     destination_class,
     destination,
-    destination_path: FileInput | StringInput,
+    destination_path: StrPath | None,
     reader,
     reader_name: str,
     parser,

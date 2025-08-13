@@ -1,9 +1,10 @@
 from _typeshed import Incomplete, SupportsRead
 from codecs import CodecInfo
-from typing import Protocol, overload
+from typing import Protocol, overload, type_check_only
 from typing_extensions import TypeAlias
 
 # Is actually webencodings.Encoding
+@type_check_only
 class _Encoding(Protocol):
     name: str
     codec_info: CodecInfo

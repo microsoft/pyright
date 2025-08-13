@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequence
-from typing import Any, Protocol, SupportsIndex, TypeVar, overload
+from typing import Any, Protocol, SupportsIndex, TypeVar, overload, type_check_only
 from typing_extensions import Self
 
 from google.protobuf.descriptor import Descriptor
@@ -12,6 +12,7 @@ _K = TypeVar("_K", bound=bool | int | str)
 _ScalarV = TypeVar("_ScalarV", bound=bool | int | float | str | bytes)
 _MessageV = TypeVar("_MessageV", bound=Message)
 
+@type_check_only
 class _ValueChecker(Protocol[_T]):
     def CheckValue(self, proposed_value: _T) -> _T: ...
     def DefaultValue(self) -> _T: ...

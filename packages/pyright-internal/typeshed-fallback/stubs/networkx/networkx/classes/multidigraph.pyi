@@ -15,7 +15,8 @@ class MultiDiGraph(MultiGraph[_Node], DiGraph[_Node]):
     @cached_property
     def pred(self) -> MultiAdjacencyView[_Node, _Node, dict[str, Incomplete]]: ...
     @cached_property
-    def edges(self) -> OutMultiEdgeView[_Node]: ...
+    def edges(self) -> OutMultiEdgeView[_Node]: ...  # type: ignore[override]
+    # Returns: OutMultiEdgeView
     @cached_property
     def out_edges(self) -> OutMultiEdgeView[_Node]: ...
     @cached_property
