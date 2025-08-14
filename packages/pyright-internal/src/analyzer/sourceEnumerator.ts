@@ -44,7 +44,7 @@ export class SourceEnumerator {
         private _fs: FileSystem,
         private _console: ConsoleInterface
     ) {
-        this._includesToExplore = include.slice(0);
+        this._includesToExplore = include.slice(0).reverse();
 
         this._console.log(`Searching for source files`);
     }
@@ -104,13 +104,13 @@ export class SourceEnumerator {
 
     // Performs the next enumeration action. Returns true if complete.
     private _doNext(): boolean {
-        const dirToExplore = this._dirsToExplore.shift();
+        const dirToExplore = this._dirsToExplore.pop();
         if (dirToExplore) {
             this._exploreDir(dirToExplore);
             return false;
         }
 
-        const includeToExplore = this._includesToExplore.shift();
+        const includeToExplore = this._includesToExplore.pop();
         if (includeToExplore) {
             this._exploreInclude(includeToExplore);
             return false;
@@ -149,7 +149,7 @@ export class SourceEnumerator {
             }
         }
 
-        for (const subDir of directories) {
+        for (const subDir of directories.slice().reverse()) {
             if (subDir.matchesRegex(dir.includeRegExp) || dir.hasDirectoryWildcard) {
                 if (!FileSpec.isInPath(subDir, this._excludes)) {
                     this._dirsToExplore.push({
