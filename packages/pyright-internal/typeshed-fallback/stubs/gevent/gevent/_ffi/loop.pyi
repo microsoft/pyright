@@ -2,7 +2,7 @@ import sys
 from _typeshed import FileDescriptor
 from collections.abc import Callable, Sequence
 from types import TracebackType
-from typing import Protocol
+from typing import Protocol, type_check_only
 from typing_extensions import TypeAlias, TypeVarTuple, Unpack
 
 from gevent._types import _AsyncWatcher, _Callback, _ChildWatcher, _IoWatcher, _StatWatcher, _TimerWatcher, _Watcher
@@ -12,6 +12,7 @@ _ErrorHandlerFunc: TypeAlias = Callable[
     [object | None, type[BaseException] | None, BaseException | None, TracebackType | None], object
 ]
 
+@type_check_only
 class _SupportsHandleError(Protocol):
     handle_error: _ErrorHandlerFunc
 

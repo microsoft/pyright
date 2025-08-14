@@ -51,6 +51,8 @@ class FormulaConfig:
     symbolfunctions: ClassVar[dict[str, str]]
     textfunctions: ClassVar[dict[str, str]]
     unmodified: ClassVar[dict[str, list[str]]]
+    key: str
+    value: str
 
 class CommandLineParser:
     options: Incomplete

@@ -5,7 +5,7 @@ from http.client import HTTPMessage
 from io import BufferedIOBase, BufferedReader
 from logging import Logger
 from types import TracebackType
-from typing import Any, ClassVar, Literal, Protocol, TypeVar, overload
+from typing import Any, ClassVar, Literal, Protocol, TypeVar, overload, type_check_only
 from typing_extensions import Self
 
 from gevent.baseserver import _Spawner
@@ -17,6 +17,7 @@ __all__ = ["WSGIServer", "WSGIHandler", "LoggingLogAdapter", "Environ", "SecureE
 
 _T = TypeVar("_T")
 
+@type_check_only
 class _LogOutputStream(SupportsWrite[str], Protocol):
     def writelines(self, lines: Iterable[str], /) -> None: ...
     def flush(self) -> None: ...

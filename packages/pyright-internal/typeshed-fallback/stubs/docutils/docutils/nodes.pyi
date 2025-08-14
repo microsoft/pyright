@@ -3,7 +3,7 @@ import xml.dom.minidom
 from abc import abstractmethod
 from collections import Counter
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
-from typing import Any, ClassVar, Literal, Protocol, SupportsIndex, TypeVar, overload
+from typing import Any, ClassVar, Final, Literal, Protocol, SupportsIndex, TypeVar, overload, type_check_only
 from typing_extensions import Self, TypeAlias
 
 from docutils.frontend import Values
@@ -12,8 +12,11 @@ from docutils.utils import Reporter
 
 _N = TypeVar("_N", bound=Node)
 
+@type_check_only
 class _DomModule(Protocol):
     Document: type[xml.dom.minidom.Document]
+
+__docformat__: Final = "reStructuredText"
 
 # Functional Node Base Classes
 
