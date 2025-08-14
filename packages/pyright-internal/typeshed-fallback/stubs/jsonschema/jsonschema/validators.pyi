@@ -1,7 +1,7 @@
 from _typeshed import Incomplete, SupportsKeysAndGetItem
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager
-from typing import Any, ClassVar, overload
+from typing import Any, ClassVar, overload, type_check_only
 from typing_extensions import TypeAlias, deprecated
 
 from referencing.jsonschema import Schema, SchemaRegistry
@@ -20,6 +20,7 @@ _ValidatorCallback: TypeAlias = Callable[[Any, Any, _JsonValue, _JsonObject], It
 
 # This class does not exist at runtime. Compatible classes are created at
 # runtime by create().
+@type_check_only
 class _Validator:
     VALIDATORS: ClassVar[dict[Incomplete, Incomplete]]
     META_SCHEMA: ClassVar[dict[Incomplete, Incomplete]]

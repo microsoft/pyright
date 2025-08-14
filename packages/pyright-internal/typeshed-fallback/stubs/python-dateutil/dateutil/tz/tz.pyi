@@ -1,6 +1,6 @@
 import sys
 from datetime import datetime, timedelta, tzinfo
-from typing import ClassVar, Literal, Protocol, TypeVar
+from typing import ClassVar, Literal, Protocol, TypeVar, type_check_only
 
 from ..relativedelta import relativedelta
 from ._common import _tzinfo, enfold as enfold, tzrangebase
@@ -68,6 +68,7 @@ class _ttinfo:
     __hash__: ClassVar[None]  # type: ignore[assignment]
     def __ne__(self, other): ...
 
+@type_check_only
 class _TZFileReader(Protocol):
     # optional attribute:
     # name: str
@@ -106,6 +107,7 @@ class tzstr(tzrange):
     @classmethod
     def instance(cls, name, offset) -> tzoffset: ...
 
+@type_check_only
 class _ICalReader(Protocol):
     # optional attribute:
     # name: str
@@ -123,6 +125,8 @@ def datetime_exists(dt: datetime, tz: tzinfo | None = None) -> bool: ...
 def datetime_ambiguous(dt: datetime, tz: tzinfo | None = None) -> bool: ...
 def resolve_imaginary(dt: datetime) -> datetime: ...
 
+# Singleton type defined locally in a function. Calls itself "GettzFunc".
+@type_check_only
 class _GetTZ:
     def __call__(self, name: str | None = ...) -> tzinfo | None: ...
     def nocache(self, name: str | None) -> tzinfo | None: ...

@@ -4,13 +4,14 @@ from collections.abc import Mapping
 from logging import _ExcInfoType
 from socket import _RetAddress, socket
 from threading import Thread
-from typing import Final, Protocol
+from typing import Final, Protocol, type_check_only
 
 from paramiko.channel import Channel
 from paramiko.message import Message, _LikeBytes
 from paramiko.pkey import PKey
 from paramiko.transport import Transport
 
+@type_check_only
 class _AgentProxy(Protocol):
     def connect(self) -> None: ...
     def close(self) -> None: ...
