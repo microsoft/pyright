@@ -1,4 +1,4 @@
-from typing import Any, Generic, TypedDict, TypeVar, type_check_only
+from typing import Any, Final, Generic, TypedDict, TypeVar, type_check_only
 from typing_extensions import Required
 
 from docutils import Component, nodes
@@ -6,6 +6,8 @@ from docutils.io import Output
 from docutils.languages import LanguageImporter
 
 _S = TypeVar("_S")
+
+__docformat__: Final = "reStructuredText"
 
 # It would probably be better to specialize writers for subclasses,
 # but this gives us all possible Writer items w/o instance checks
@@ -67,13 +69,13 @@ class _WriterParts(TypedDict, total=False):
 class Writer(Component, Generic[_S]):
     parts: _WriterParts
     language: LanguageImporter | None = None
-    def __init__(self) -> None: ...
     document: nodes.document | None = None
     destination: Output | None = None
     output: _S | None = None
-    def assemble_parts(self) -> None: ...
-    def translate(self) -> None: ...
+    def __init__(self) -> None: ...
     def write(self, document: nodes.document, destination: Output) -> str | bytes | None: ...
+    def translate(self) -> None: ...
+    def assemble_parts(self) -> None: ...
 
 class UnfilteredWriter(Writer[_S]): ...
 

@@ -7,7 +7,7 @@ from collections.abc import Callable, Generator, Iterable, Iterator
 from datetime import datetime
 from logging import Logger
 from types import TracebackType
-from typing import Any, Literal, Protocol, SupportsIndex, TypeVar, overload, type_check_only
+from typing import Any, Final, Literal, Protocol, SupportsIndex, TypeVar, overload, type_check_only
 from typing_extensions import Self, TypeAlias
 
 from croniter.croniter import croniter
@@ -28,22 +28,24 @@ class _Options(Protocol):
     locale_code: str | None
     def __init__(self) -> None: ...
 
-__pkgname__: str
-ITEMREX: re.Pattern[str]
-SPECREX: re.Pattern[str]
-DEVNULL: str
-WEEK_ENUM: list[str]
-MONTH_ENUM: list[str | None]
-SPECIALS: dict[str, str]
-SPECIAL_IGNORE: list[str]
-S_INFO: list[dict[str, str | int | list[str] | list[str | None]]]
-WINOS: bool
-POSIX: bool
-SYSTEMV: bool
-ZERO_PAD: bool
+__pkgname__: Final[str]
+__version__: Final[str]
+ITEMREX: Final[re.Pattern[str]]
+SPECREX: Final[re.Pattern[str]]
+DEVNULL: Final[str]
+WEEK_ENUM: Final[list[str]]
+MONTH_ENUM: Final[list[str | None]]
+SPECIALS_CONVERSION: Final[bool]
+SPECIALS: Final[dict[str, str]]
+SPECIAL_IGNORE: Final[list[str]]
+S_INFO: Final[list[dict[str, str | int | list[str] | list[str | None]]]]
+WINOS: Final[bool]
+POSIX: Final[bool]
+SYSTEMV: Final[bool]
+ZERO_PAD: Final[bool]
 LOG: Logger
-CRON_COMMAND: str
-SHELL: str
+CRON_COMMAND: Final[str]
+SHELL: Final[str]
 current_user: Callable[[], str | None]
 
 class Process:
@@ -95,7 +97,7 @@ class CronTab:
     # work for `CronItem` subclasses, which might define other kwargs.
     def run_pending(self, *, now: datetime | None = ..., **kwargs: Any) -> Iterator[str]: ...
     def run_scheduler(self, timeout: int = -1, cadence: int = 60, warp: bool = False) -> Iterator[str]: ...
-    def render(self, errors: bool = ..., specials: bool | None = ...) -> str: ...
+    def render(self, errors: bool = ...) -> str: ...
     def new(
         self,
         command: str = ...,
@@ -147,7 +149,7 @@ class CronItem:
     def enable(self, enabled: bool = ...) -> bool: ...
     def is_enabled(self) -> bool: ...
     def is_valid(self) -> bool: ...
-    def render(self, specials: bool = ...) -> str: ...
+    def render(self) -> str: ...
     def every_reboot(self) -> None: ...
     def every(self, unit: int = ...) -> Every: ...
     def setall(self, *args: Any) -> None: ...
@@ -224,7 +226,7 @@ class CronSlices(list[CronSlice]):
     def is_valid(cls, *args: Any) -> bool: ...
     def setall(self, *slices: str) -> None: ...
     def clean_render(self) -> str: ...
-    def render(self, specials: bool = ...) -> str: ...
+    def render(self) -> str: ...
     def clear(self) -> None: ...
     def frequency(self, year: int | None = ...) -> int: ...
     def frequency_per_year(self, year: int | None = ...) -> int: ...

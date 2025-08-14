@@ -3,7 +3,7 @@ from _typeshed.wsgi import WSGIEnvironment
 from collections.abc import Collection, ItemsView, Iterator, KeysView, MutableMapping, ValuesView
 from datetime import date, datetime, timedelta
 from time import _TimeTuple, struct_time
-from typing import Any, Literal, Protocol, TypeVar, overload
+from typing import Any, Literal, Protocol, TypeVar, overload, type_check_only
 from typing_extensions import TypeAlias
 
 from webob._types import AsymmetricProperty
@@ -26,6 +26,7 @@ _T = TypeVar("_T")
 # valid spellings, but it seems more natural to support these two spellings
 _SameSitePolicy: TypeAlias = Literal["Strict", "Lax", "None", "strict", "lax", "none"]
 
+@type_check_only
 class _Serializer(Protocol):
     def dumps(self, appstruct: Any, /) -> bytes: ...
     def loads(self, bstruct: bytes, /) -> Any: ...
