@@ -339,96 +339,62 @@ test('TypeAliasType2', () => {
 });
 
 test('TypedDictReadOnly1', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly1.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly1.py']);
     TestUtils.validateResults(analysisResults, 4);
 });
 
 test('TypedDictReadOnly2', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly2.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly2.py']);
     TestUtils.validateResults(analysisResults, 17);
 });
 
 test('TypedDictClosed1', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed1.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed1.py']);
     TestUtils.validateResults(analysisResults, 7);
 });
 
 test('TypedDictClosed2', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed2.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed2.py']);
     TestUtils.validateResults(analysisResults, 4);
 });
 
 test('TypedDictClosed3', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed3.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed3.py']);
     TestUtils.validateResults(analysisResults, 10);
 });
 
 test('TypedDictClosed4', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed4.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed4.py']);
     TestUtils.validateResults(analysisResults, 5);
 });
 
 test('TypedDictClosed5', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed5.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed5.py']);
     TestUtils.validateResults(analysisResults, 1);
 });
 
 test('TypedDictClosed6', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed6.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed6.py']);
     TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypedDictClosed7', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed7.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed7.py']);
     TestUtils.validateResults(analysisResults, 6);
 });
 
 test('TypedDictClosed8', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed8.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed8.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypedDictClosed9', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed9.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed9.py']);
     TestUtils.validateResults(analysisResults, 1);
 });
 
 test('TypedDictClosed10', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed10.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed10.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 

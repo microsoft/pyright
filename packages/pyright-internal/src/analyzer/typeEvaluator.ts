@@ -17707,10 +17707,7 @@ export function createTypeEvaluator(
                             );
                         } else if (arg.d.name.d.value === 'total' && !constArgValue) {
                             classType.shared.flags |= ClassTypeFlags.CanOmitDictValues;
-                        } else if (
-                            arg.d.name.d.value === 'closed' &&
-                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures
-                        ) {
+                        } else if (arg.d.name.d.value === 'closed') {
                             if (constArgValue) {
                                 classType.shared.flags |=
                                     ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
@@ -17734,10 +17731,7 @@ export function createTypeEvaluator(
 
                             sawClosedOrExtraItems = true;
                         }
-                    } else if (
-                        arg.d.name.d.value === 'extra_items' &&
-                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures
-                    ) {
+                    } else if (arg.d.name.d.value === 'extra_items') {
                         // Record a reference to the expression but don't evaluate it yet.
                         // It may refer to the class itself.
                         classType.shared.typedDictExtraItemsExpr = arg.d.valueExpr;
