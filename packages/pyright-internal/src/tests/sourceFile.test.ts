@@ -23,7 +23,7 @@ test('Empty', () => {
     const tempFile = new RealTempFile();
     const fs = createFromRealFileSystem(tempFile);
     const serviceProvider = createServiceProvider(tempFile, fs);
-    const sourceFile = new SourceFile(serviceProvider, Uri.file(filePath, serviceProvider), '', false, false, {
+    const sourceFile = new SourceFile(serviceProvider, Uri.file(filePath, serviceProvider), () => '', false, false, {
         isEditMode: false,
     });
     const configOptions = new ConfigOptions(Uri.file(process.cwd(), serviceProvider));
