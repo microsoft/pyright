@@ -35,7 +35,7 @@ Pyright supports [configuration files](configuration.md) that provide granular c
 * [PEP 698](https://www.python.org/dev/peps/pep-0698/) override decorator for static typing
 * [PEP 702](https://www.python.org/dev/peps/pep-0702/) marking deprecations
 * [PEP 705](https://www.python.org/dev/peps/pep-0705/) TypedDict: read-only items
-* [PEP 728](https://www.python.org/dev/peps/pep-0728/) (experimental) TypedDict with typed extra items
+* [PEP 728](https://www.python.org/dev/peps/pep-0728/) TypedDict with typed extra items
 * [PEP 742](https://www.python.org/dev/peps/pep-0742/) narrowing types with TypeIs
 * [PEP 746](https://www.python.org/dev/peps/pep-0746/) (experimental) type checking annotated metadata
 * [PEP 747](https://www.python.org/dev/peps/pep-0747/) (experimental) annotating type forms
