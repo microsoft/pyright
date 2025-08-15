@@ -115,7 +115,7 @@ const DefaultSourceFileFactory: ISourceFileFactory = {
     createSourceFile(
         serviceProvider: ServiceProvider,
         fileUri: Uri,
-        moduleName: string,
+        moduleNameGetter: (file: Uri) => string,
         isThirdPartyImport: boolean,
         isThirdPartyPyTypedPresent: boolean,
         editMode: SourceFileEditMode,
@@ -126,7 +126,7 @@ const DefaultSourceFileFactory: ISourceFileFactory = {
         return new SourceFile(
             serviceProvider,
             fileUri,
-            moduleName,
+            moduleNameGetter,
             isThirdPartyImport,
             isThirdPartyPyTypedPresent,
             editMode,
