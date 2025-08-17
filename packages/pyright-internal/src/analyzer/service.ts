@@ -505,6 +505,52 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.restart();
     }
 
+    // Attempts to make progress on source file enumeration if there is an active
+    // source enumerator associated with the service. Returns true if complete.
+    enumerateSourceFiles(maxSourceEnumeratorTime: number): boolean {
+        // If there is no active source enumerator, we're done.
+        if (!this._sourceEnumerator) {
+            return true;
+        }
+
+        let fileMap: Map<string, Uri>;
+
+        if (this._executionRootUri.isEmpty()) {
+            // No user files for default workspace.
+            fileMap = new Map<string, Uri>();
+        } else {
+            const enumerator = this._sourceEnumerator;
+            const enumResults = timingStats.findFilesTime.timeOperation(() =>
+                enumerator.enumerate(maxSourceEnumeratorTime)
+            );
+
+            if (!enumResults.isComplete) {
+                return false;
+            }
+
+            // Update the config options to include the auto-excluded directories.
+            const excludes = this.options.configOptions?.exclude;
+            if (enumResults.autoExcludedDirs && excludes) {
+                enumResults.autoExcludedDirs.forEach((excludedDir) => {
+                    if (!FileSpec.isInPath(excludedDir, excludes)) {
+                        excludes.push(getFileSpec(this._configOptions.projectRoot, `${excludedDir}/**`));
+                    }
+                });
+                this._backgroundAnalysisProgram.setConfigOptions(this._configOptions);
+            }
+
+            fileMap = enumResults.matches;
+
+            const fileList = this._getTrackedFileList(fileMap);
+            this._backgroundAnalysisProgram.setTrackedFiles(fileList);
+
+            // Source file enumeration is complete. Proceed with analysis.
+            this._sourceEnumerator = undefined;
+        }
+
+        return true;
+    }
+
     protected runAnalysis(token: CancellationToken) {
         // In pull diagnostics mode, the service doesn't perform analysis on its own.
         // Instead the client deliberately asks for diagnostics on a file-by-file basis.
@@ -572,52 +618,6 @@ export class AnalyzerService {
             // start the analysis.
             this.runAnalysis(this._backgroundAnalysisCancellationSource.token);
         }, timeUntilNextAnalysisInMs);
-    }
-
-    // Attempts to make progress on source file enumeration if there is an active
-    // source enumerator associated with the service. Returns true if complete.
-    protected enumerateSourceFiles(maxSourceEnumeratorTime: number): boolean {
-        // If there is no active source enumerator, we're done.
-        if (!this._sourceEnumerator) {
-            return true;
-        }
-
-        let fileMap: Map<string, Uri>;
-
-        if (this._executionRootUri.isEmpty()) {
-            // No user files for default workspace.
-            fileMap = new Map<string, Uri>();
-        } else {
-            const enumerator = this._sourceEnumerator;
-            const enumResults = timingStats.findFilesTime.timeOperation(() =>
-                enumerator.enumerate(maxSourceEnumeratorTime)
-            );
-
-            if (!enumResults.isComplete) {
-                return false;
-            }
-
-            // Update the config options to include the auto-excluded directories.
-            const excludes = this.options.configOptions?.exclude;
-            if (enumResults.autoExcludedDirs && excludes) {
-                enumResults.autoExcludedDirs.forEach((excludedDir) => {
-                    if (!FileSpec.isInPath(excludedDir, excludes)) {
-                        excludes.push(getFileSpec(this._configOptions.projectRoot, `${excludedDir}/**`));
-                    }
-                });
-                this._backgroundAnalysisProgram.setConfigOptions(this._configOptions);
-            }
-
-            fileMap = enumResults.matches;
-
-            const fileList = this._getTrackedFileList(fileMap);
-            this._backgroundAnalysisProgram.setTrackedFiles(fileList);
-
-            // Source file enumeration is complete. Proceed with analysis.
-            this._sourceEnumerator = undefined;
-        }
-
-        return true;
     }
 
     protected applyConfigOptions(host: Host) {
