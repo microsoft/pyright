@@ -813,9 +813,7 @@ export class ImportResolver {
         }
 
         const newImportResult = Object.assign({}, importResult);
-        if (filteredImplicitImports.size > 0) {
-            newImportResult.filteredImplicitImports = filteredImplicitImports;
-        }
+        newImportResult.filteredImplicitImports = filteredImplicitImports;
         return newImportResult;
     }
 
