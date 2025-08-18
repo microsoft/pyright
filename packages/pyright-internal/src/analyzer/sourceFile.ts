@@ -455,6 +455,7 @@ export class SourceFile {
         this._writableData.parsedFileContents = undefined;
         this._writableData.moduleSymbolTable = undefined;
         this._writableData.isBindingNeeded = true;
+        this._writableData.imports = [];
     }
 
     markDirty(): void {

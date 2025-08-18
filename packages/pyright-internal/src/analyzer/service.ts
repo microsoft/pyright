@@ -1407,7 +1407,7 @@ export class AnalyzerService {
                 }
 
                 // Add the implicit import paths.
-                importResult.filteredImplicitImports.forEach((implicitImport) => {
+                importResult.filteredImplicitImports?.forEach((implicitImport) => {
                     if (ImportResolver.isSupportedImportSourceFile(implicitImport.uri)) {
                         filesToImport.push(implicitImport.uri);
                     }
