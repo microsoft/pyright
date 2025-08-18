@@ -6,8 +6,11 @@
  * Decorators used to memoize the result of a function call.
  */
 
-// Cache for static method results.
+// Cache for static method results with LRU eviction.
 const staticCache = new Map<string, any>();
+
+// Max number of static method values that are cached.
+const maxStaticCacheEntries = 256;
 
 // Caches the results of a getter property.
 export function cacheProperty() {
@@ -56,14 +59,26 @@ export function cacheStaticFunc() {
         const originalMethod = descriptor.value;
         descriptor.value = function (...args: any) {
             const key = `${functionName}+${args?.map((a: any) => a?.toString()).join(',')}`;
-            let cachedResult: any;
-            if (!staticCache.has(key)) {
-                cachedResult = originalMethod.apply(this, args);
-                staticCache.set(key, cachedResult);
-            } else {
-                cachedResult = staticCache.get(key);
+            if (staticCache.has(key)) {
+                // Promote to most-recently used by re-inserting.
+                const value = staticCache.get(key);
+                staticCache.delete(key);
+                staticCache.set(key, value);
+                return value;
             }
-            return cachedResult;
+
+            // Miss: compute and insert, evict LRU if over capacity.
+            const result = originalMethod.apply(this, args);
+
+            if (staticCache.size >= maxStaticCacheEntries) {
+                // Remove least-recently used (the first key in insertion order).
+                const lruKey = staticCache.keys().next().value as string | undefined;
+                if (lruKey !== undefined) {
+                    staticCache.delete(lruKey);
+                }
+            }
+            staticCache.set(key, result);
+            return result;
         };
         return descriptor;
     };

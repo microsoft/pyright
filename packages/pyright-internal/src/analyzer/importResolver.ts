@@ -442,8 +442,6 @@ export class ImportResolver {
             this._cachedPythonSearchPaths = { paths: Array.from(new Set(paths)), failureInfo: info };
         }
 
-        // Make sure we cache the logs as well so we can find out why search path failed.
-        importFailureInfo.push(...this._cachedPythonSearchPaths.failureInfo);
         return this._cachedPythonSearchPaths.paths;
     }
 
@@ -791,15 +789,15 @@ export class ImportResolver {
     ): ImportResult {
         if (importedSymbols === undefined) {
             const newImportResult = Object.assign({}, importResult);
-            newImportResult.filteredImplicitImports = new Map<string, ImplicitImport>();
+            newImportResult.filteredImplicitImports = undefined;
             return newImportResult;
         }
 
-        if (importedSymbols.size === 0) {
+        if (importedSymbols === undefined || importedSymbols.size === 0) {
             return importResult;
         }
 
-        if (importResult.implicitImports.size === 0) {
+        if (importResult.implicitImports === undefined || importResult.implicitImports.size === 0) {
             return importResult;
         }
 
@@ -815,7 +813,9 @@ export class ImportResolver {
         }
 
         const newImportResult = Object.assign({}, importResult);
-        newImportResult.filteredImplicitImports = filteredImplicitImports;
+        if (filteredImplicitImports.size > 0) {
+            newImportResult.filteredImplicitImports = filteredImplicitImports;
+        }
         return newImportResult;
     }
 
@@ -823,7 +823,7 @@ export class ImportResolver {
         importingModuleName: string,
         dirPath: Uri,
         exclusions: Uri[]
-    ): Map<string, ImplicitImport> {
+    ): Map<string, ImplicitImport> | undefined {
         const implicitImportMap = new Map<string, ImplicitImport>();
 
         // Enumerate all of the files and directories in the path, expanding links.
@@ -911,7 +911,7 @@ export class ImportResolver {
             }
         }
 
-        return implicitImportMap;
+        return implicitImportMap.size > 0 ? implicitImportMap : undefined;
     }
 
     private _resolveImportStrict(
@@ -935,8 +935,8 @@ export class ImportResolver {
             importType: ImportType.Local,
             isStubFile: false,
             isNativeLib: false,
-            implicitImports: new Map<string, ImplicitImport>(),
-            filteredImplicitImports: new Map<string, ImplicitImport>(),
+            implicitImports: undefined,
+            filteredImplicitImports: undefined,
             nonStubImportResult: undefined,
         };
 
@@ -1352,7 +1352,7 @@ export class ImportResolver {
         let isStubPackage = false;
         let isStubFile = false;
         let isNativeLib = false;
-        let implicitImports = new Map<string, ImplicitImport>();
+        let implicitImports: Map<string, ImplicitImport> | undefined;
         let packageDirectory: Uri | undefined;
         let pyTypedInfo: PyTypedInfo | undefined;
 
@@ -1553,13 +1553,13 @@ export class ImportResolver {
     // are all satisfied by submodules (as listed in the implicit imports).
     private _isNamespacePackageResolved(
         moduleDescriptor: ImportedModuleDescriptor,
-        implicitImports: Map<string, ImplicitImport>
+        implicitImports: Map<string, ImplicitImport> | undefined
     ) {
         if (moduleDescriptor.importedSymbols) {
-            if (!Array.from(moduleDescriptor.importedSymbols.keys()).some((symbol) => implicitImports.has(symbol))) {
+            if (!Array.from(moduleDescriptor.importedSymbols.keys()).some((symbol) => implicitImports?.has(symbol))) {
                 return false;
             }
-        } else if (implicitImports.size === 0) {
+        } else if (!implicitImports || implicitImports.size === 0) {
             return false;
         }
         return true;
@@ -2377,8 +2377,8 @@ export class ImportResolver {
                 importType: ImportType.Local,
                 isStubFile: false,
                 isNativeLib: false,
-                implicitImports: [],
-                filteredImplicitImports: [],
+                implicitImports: undefined,
+                filteredImplicitImports: undefined,
                 nonStubImportResult: undefined,
             };
         }

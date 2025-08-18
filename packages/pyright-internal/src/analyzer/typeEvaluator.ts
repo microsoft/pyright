@@ -643,7 +643,6 @@ export function createTypeEvaluator(
     wrapWithLogger: LogWrapper
 ): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
-    const asymmetricAccessorAssignmentCache = new Set<number>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: SuppressedNodeStackEntry[] = [];
     const assignClassToSelfStack: AssignClassToSelfInfo[] = [];
@@ -653,6 +652,7 @@ export function createTypeEvaluator(
     let typeCache = new Map<number, TypeCacheEntry>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     let expectedTypeCache = new Map<number, Type>();
+    let asymmetricAccessorAssignmentCache = new Set<number>();
     let deferredClassCompletions: DeferredClassCompletion[] = [];
     let cancellationToken: CancellationToken | undefined;
     let printExpressionSpaceCount = 0;
@@ -708,6 +708,7 @@ export function createTypeEvaluator(
         typeCache = new Map<number, TypeCacheEntry>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
         expectedTypeCache = new Map<number, Type>();
+        asymmetricAccessorAssignmentCache = new Set<number>();
     }
 
     function readTypeCacheEntry(node: ParseNode) {

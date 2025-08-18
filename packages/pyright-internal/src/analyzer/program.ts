@@ -1339,6 +1339,7 @@ export class Program {
                 thirdPartyImportAllowed = true;
             } else if (
                 importResult.isNamespacePackage &&
+                importResult.filteredImplicitImports &&
                 Array.from(importResult.filteredImplicitImports.values()).some(
                     (implicitImport) => !!implicitImport.pyTypedInfo
                 )
@@ -1434,7 +1435,7 @@ export class Program {
                     }
                 }
 
-                importResult.filteredImplicitImports.forEach((implicitImport) => {
+                importResult.filteredImplicitImports?.forEach((implicitImport) => {
                     if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
                         if (!implicitImport.isNativeLib) {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
