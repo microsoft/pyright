@@ -21,15 +21,15 @@ import { ConfigOptions } from '../../../common/configOptions';
 import { ConsoleInterface } from '../../../common/console';
 import * as debug from '../../../common/debug';
 import { FileSystem } from '../../../common/fileSystem';
-import { ServiceProvider } from '../../../common/serviceProvider';
-import { Range } from '../../../common/textRange';
-import { Uri } from '../../../common/uri/uri';
 import {
     LanguageServerInterface,
     MessageAction,
     ServerSettings,
     WindowInterface,
 } from '../../../common/languageServerInterface';
+import { ServiceProvider } from '../../../common/serviceProvider';
+import { Range } from '../../../common/textRange';
+import { Uri } from '../../../common/uri/uri';
 import { CodeActionProvider } from '../../../languageService/codeActionProvider';
 import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';

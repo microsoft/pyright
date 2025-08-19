@@ -51,6 +51,7 @@ import {
     BackgroundAnalysisProgramFactory,
     InvalidatedReason,
 } from './backgroundAnalysisProgram';
+import { ImportLogger } from './importLogger';
 import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor } from './importResolver';
 import { ChangedRange, MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
@@ -956,18 +957,16 @@ export class AnalyzerService {
                         } subdirectory not found in venv path ${configOptions.venvPath.toUserVisibleString()}.`
                     );
                 } else {
-                    const importFailureInfo: string[] = [];
-                    if (findPythonSearchPaths(this.fs, configOptions, host, importFailureInfo) === undefined) {
+                    const importLogger = configOptions.verboseOutput ? new ImportLogger() : undefined;
+                    if (findPythonSearchPaths(this.fs, configOptions, host, importLogger) === undefined) {
                         this._console.error(
                             `site-packages directory cannot be located for venvPath ` +
                                 `${configOptions.venvPath.toUserVisibleString()} and venv ${configOptions.venv}.`
                         );
 
-                        if (configOptions.verboseOutput) {
-                            importFailureInfo.forEach((diag) => {
-                                this._console.error(`  ${diag}`);
-                            });
-                        }
+                        importLogger?.getLogs().forEach((diag) => {
+                            this._console.error(`  ${diag}`);
+                        });
                     }
                 }
             }
@@ -1632,12 +1631,11 @@ export class AnalyzerService {
         }
 
         // Watch the library paths for package install/uninstall.
-        const importFailureInfo: string[] = [];
         this._librarySearchUrisToWatch = findPythonSearchPaths(
             this.fs,
             this._backgroundAnalysisProgram.configOptions,
             this._backgroundAnalysisProgram.host,
-            importFailureInfo,
+            /* importLogger */ undefined,
             /* includeWatchPathsOnly */ true,
             this._executionRootUri
         );
