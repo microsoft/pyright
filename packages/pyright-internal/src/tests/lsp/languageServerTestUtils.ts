@@ -57,6 +57,7 @@ import {
     WorkDoneProgressCancelNotification,
     WorkDoneProgressCreateRequest,
 } from 'vscode-languageserver/node';
+import { ImportLogger } from '../../analyzer/importLogger';
 import { PythonPathResult } from '../../analyzer/pythonPathUtils';
 import { deserialize } from '../../backgroundThreadBase';
 import { PythonPlatform } from '../../common/configOptions';
@@ -1061,15 +1062,15 @@ export class TestHost extends LimitedAccessHost {
         return HostKind.FullAccess;
     }
 
-    override getPythonVersion(pythonPath?: Uri, logInfo?: string[]): PythonVersion | undefined {
+    override getPythonVersion(pythonPath?: Uri, importLogger?: ImportLogger): PythonVersion | undefined {
         return this._options.version;
     }
 
-    override getPythonPlatform(logInfo?: string[]): PythonPlatform | undefined {
+    override getPythonPlatform(importLogger?: ImportLogger): PythonPlatform | undefined {
         return this._options.platform;
     }
 
-    override getPythonSearchPaths(pythonPath?: Uri, logInfo?: string[]): PythonPathResult {
+    override getPythonSearchPaths(pythonPath?: Uri, importLogger?: ImportLogger): PythonPathResult {
         return {
             paths: this._options.searchPaths,
             prefix: Uri.empty(),

@@ -8,6 +8,7 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
+import { ImportLogger } from '../analyzer/importLogger';
 import { PythonPathResult } from '../analyzer/pythonPathUtils';
 import { PythonPlatform } from './configOptions';
 import { PythonVersion } from './pythonVersion';
@@ -26,9 +27,9 @@ export interface ScriptOutput {
 
 export interface Host {
     readonly kind: HostKind;
-    getPythonSearchPaths(pythonPath?: Uri, logInfo?: string[]): PythonPathResult;
-    getPythonVersion(pythonPath?: Uri, logInfo?: string[]): PythonVersion | undefined;
-    getPythonPlatform(logInfo?: string[]): PythonPlatform | undefined;
+    getPythonSearchPaths(pythonPath?: Uri, failureLogger?: ImportLogger): PythonPathResult;
+    getPythonVersion(pythonPath?: Uri, failureLogger?: ImportLogger): PythonVersion | undefined;
+    getPythonPlatform(failureLogger?: ImportLogger): PythonPlatform | undefined;
     runScript(
         pythonPath: Uri | undefined,
         script: Uri,
@@ -43,8 +44,8 @@ export class NoAccessHost implements Host {
         return HostKind.NoAccess;
     }
 
-    getPythonSearchPaths(pythonPath?: Uri, logInfo?: string[]): PythonPathResult {
-        logInfo?.push('No access to python executable.');
+    getPythonSearchPaths(pythonPath?: Uri, failureLogger?: ImportLogger): PythonPathResult {
+        failureLogger?.log('No access to python executable.');
 
         return {
             paths: [],
@@ -52,11 +53,11 @@ export class NoAccessHost implements Host {
         };
     }
 
-    getPythonVersion(pythonPath?: Uri, logInfo?: string[]): PythonVersion | undefined {
+    getPythonVersion(pythonPath?: Uri, failureLogger?: ImportLogger): PythonVersion | undefined {
         return undefined;
     }
 
-    getPythonPlatform(logInfo?: string[]): PythonPlatform | undefined {
+    getPythonPlatform(failureLogger?: ImportLogger): PythonPlatform | undefined {
         return undefined;
     }
 
