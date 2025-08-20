@@ -22,6 +22,10 @@ export const enum HostKind {
 export interface ScriptOutput {
     stdout: string;
     stderr: string;
+
+    // Optional output that contains both stdout and stderr interleaved in choronological order.
+    output?: string;
+    exitCode?: number;
 }
 
 export interface Host {
@@ -32,6 +36,13 @@ export interface Host {
     runScript(
         pythonPath: Uri | undefined,
         script: Uri,
+        args: string[],
+        cwd: Uri,
+        token: CancellationToken
+    ): Promise<ScriptOutput>;
+    runSnippet(
+        pythonPath: Uri | undefined,
+        code: string,
         args: string[],
         cwd: Uri,
         token: CancellationToken
@@ -63,6 +74,16 @@ export class NoAccessHost implements Host {
     async runScript(
         pythonPath: Uri | undefined,
         scriptPath: Uri,
+        args: string[],
+        cwd: Uri,
+        token: CancellationToken
+    ): Promise<ScriptOutput> {
+        return { stdout: '', stderr: '' };
+    }
+
+    async runSnippet(
+        pythonPath: Uri | undefined,
+        code: string,
         args: string[],
         cwd: Uri,
         token: CancellationToken
