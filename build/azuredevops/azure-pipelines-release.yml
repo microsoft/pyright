@@ -286,9 +286,9 @@ extends:
                     vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
 
       - stage: PublishToNpm
-        dependsOn: 
-        - WaitForValidation
-        - PublishToMarketplace
+        dependsOn:
+          - WaitForValidation
+          - PublishToMarketplace
         jobs:
           - job: publish_package
             displayName: Publish package to NPM
