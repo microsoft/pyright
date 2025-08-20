@@ -1,3 +1,4 @@
+from _typeshed import StrPath
 from pathlib import Path
 from re import Match, Pattern
 from typing import ClassVar, Final
@@ -6,6 +7,8 @@ from docutils.parsers.rst import Directive
 from docutils.parsers.rst.states import SpecializedBody
 
 __docformat__: Final = "reStructuredText"
+
+def adapt_path(path: str, source: StrPath = "", root_prefix: StrPath = "/") -> str: ...
 
 class Include(Directive):
     standard_include_path: Path

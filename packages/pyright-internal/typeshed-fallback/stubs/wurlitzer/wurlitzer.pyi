@@ -7,7 +7,7 @@ from _typeshed import SupportsWrite
 from contextlib import _GeneratorContextManager
 from threading import Thread
 from types import TracebackType
-from typing import Any, Final, Literal, Protocol, TextIO, TypeVar, overload
+from typing import Any, Final, Literal, Protocol, TextIO, TypeVar, overload, type_check_only
 from typing_extensions import Self, TypeAlias
 
 STDOUT: Final = 2
@@ -18,6 +18,7 @@ _T_contra = TypeVar("_T_contra", contravariant=True)
 _StreamOutT = TypeVar("_StreamOutT", bound=_Stream[str] | _Stream[bytes])
 _StreamErrT = TypeVar("_StreamErrT", bound=_Stream[str] | _Stream[bytes])
 
+@type_check_only
 class _Stream(SupportsWrite[_T_contra], Protocol):
     def seek(self, offset: int, whence: int = ..., /) -> int: ...
 

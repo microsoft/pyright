@@ -206,8 +206,11 @@ export class SourceFile {
     // identify this file.
     private readonly _fileId: string;
 
+    // Getter to lazily compute the module name from the file URI.
+    private _moduleNameGetter: (file: Uri) => string;
+
     // Period-delimited import path for the module.
-    private _moduleName: string;
+    private _cachedModuleName: string | undefined;
 
     // True if file is a type-hint (.pyi) file versus a python
     // (.py) file.
@@ -257,7 +260,7 @@ export class SourceFile {
     constructor(
         readonly serviceProvider: ServiceProvider,
         uri: Uri,
-        moduleName: string,
+        moduleNameGetter: (file: Uri) => string,
         isThirdPartyImport: boolean,
         isThirdPartyPyTypedPresent: boolean,
         editMode: SourceFileEditMode,
@@ -272,7 +275,7 @@ export class SourceFile {
         this._editMode = editMode;
         this._uri = uri;
         this._fileId = this._makeFileId(uri);
-        this._moduleName = moduleName;
+        this._moduleNameGetter = moduleNameGetter;
         this._isStubFile = uri.hasExtension('.pyi');
         this._isThirdPartyImport = isThirdPartyImport;
         this._isThirdPartyPyTypedPresent = isThirdPartyPyTypedPresent;
@@ -319,16 +322,17 @@ export class SourceFile {
     }
 
     getModuleName(): string {
-        if (this._moduleName) {
-            return this._moduleName;
+        if (!this._cachedModuleName) {
+            // Call the module name getter. If it returns '' (which can happen if the file is not part
+            // of the project), fall back to the file name.)
+            return this._moduleNameGetter(this._uri) || stripFileExtension(this._uri.fileName);
         }
 
-        // Synthesize a module name using the file path.
-        return stripFileExtension(this._uri.fileName);
+        return this._cachedModuleName;
     }
 
-    setModuleName(name: string) {
-        this._moduleName = name;
+    clearCachedModuleName() {
+        this._cachedModuleName = undefined;
     }
 
     getDiagnosticVersion(): number {
@@ -451,6 +455,7 @@ export class SourceFile {
         this._writableData.parsedFileContents = undefined;
         this._writableData.moduleSymbolTable = undefined;
         this._writableData.isBindingNeeded = true;
+        this._writableData.imports = [];
     }
 
     markDirty(): void {

@@ -22,6 +22,7 @@ import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import { Uri } from '../common/uri/uri';
 import { getFileSystemEntriesFromDirEntries, isDirectory, isFile, tryRealpath, tryStat } from '../common/uri/uriUtils';
 import { Tokenizer } from '../parser/tokenizer';
+import { ImportLogger } from './importLogger';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
 import { ImportPath, ParentDirectoryCache } from './parentDirectoryCache';
@@ -95,7 +96,7 @@ export const supportedFileExtensions = [...supportedSourceFileExtensions, ...sup
 const allowPartialResolutionForThirdPartyPackages = false;
 
 export class ImportResolver {
-    private _cachedPythonSearchPaths: { paths: Uri[]; failureInfo: string[] } | undefined;
+    private _cachedPythonSearchPaths: { paths: Uri[]; failureInfo?: ImportLogger } | undefined;
     private _cachedImportResults = new Map<string | undefined, CachedImportResults>();
     private _cachedModuleNameResults = new Map<string, Map<string, ModuleImportInfo>>();
     private _cachedTypeshedRoot: Uri | undefined;
@@ -112,7 +113,7 @@ export class ImportResolver {
     protected readonly cachedParentImportResults: ParentDirectoryCache;
 
     constructor(readonly serviceProvider: ServiceProvider, private _configOptions: ConfigOptions, readonly host: Host) {
-        this.cachedParentImportResults = new ParentDirectoryCache(() => this.getPythonSearchPaths([]));
+        this.cachedParentImportResults = new ParentDirectoryCache(() => this.getPythonSearchPaths());
     }
 
     get fileSystem() {
@@ -322,18 +323,16 @@ export class ImportResolver {
     }
 
     getTypeshedStdLibPath(execEnv: ExecutionEnvironment) {
-        const unused: string[] = [];
         return this._getStdlibTypeshedPath(
             this._configOptions.typeshedPath,
             execEnv.pythonVersion,
             execEnv.pythonPlatform,
-            unused
+            /* logger */ undefined
         );
     }
 
     getTypeshedThirdPartyPath(execEnv: ExecutionEnvironment) {
-        const unused: string[] = [];
-        return this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath, unused);
+        return this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath);
     }
 
     isStdlibModule(module: ImportedModuleDescriptor, execEnv: ExecutionEnvironment): boolean {
@@ -345,14 +344,12 @@ export class ImportResolver {
     }
 
     getImportRoots(execEnv: ExecutionEnvironment, forLogging = false) {
-        const importFailureInfo: string[] = [];
         const roots = [];
 
         const stdTypeshed = this._getStdlibTypeshedPath(
             this._configOptions.typeshedPath,
             execEnv.pythonVersion,
-            execEnv.pythonPlatform,
-            importFailureInfo
+            execEnv.pythonPlatform
         );
         if (stdTypeshed) {
             roots.push(stdTypeshed);
@@ -373,21 +370,21 @@ export class ImportResolver {
             // There's one path for each third party package, which blows up logging.
             // Just get the root directly and show it with `...` to indicate that this
             // is where the third party folder is in the roots.
-            const thirdPartyRoot = this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath, importFailureInfo);
+            const thirdPartyRoot = this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath);
             if (thirdPartyRoot) {
                 roots.push(thirdPartyRoot.resolvePaths('...'));
             }
         } else {
-            const thirdPartyPaths = this._getThirdPartyTypeshedPackageRoots(importFailureInfo);
+            const thirdPartyPaths = this._getThirdPartyTypeshedPackageRoots();
             appendArray(roots, thirdPartyPaths);
         }
 
-        const typeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);
+        const typeshedPathEx = this.getTypeshedPathEx(execEnv);
         if (typeshedPathEx) {
             roots.push(typeshedPathEx);
         }
 
-        const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
+        const pythonSearchPaths = this.getPythonSearchPaths();
         if (pythonSearchPaths.length > 0) {
             appendArray(roots, pythonSearchPaths);
         }
@@ -405,9 +402,8 @@ export class ImportResolver {
         }
 
         const ps = this.partialStubs;
-        const ignored: string[] = [];
         const paths: Uri[] = [];
-        const typeshedPathEx = this.getTypeshedPathEx(execEnv, ignored);
+        const typeshedPathEx = this.getTypeshedPathEx(execEnv);
 
         // Add paths to search stub packages.
         addPaths(this._configOptions.stubPath);
@@ -415,7 +411,7 @@ export class ImportResolver {
         execEnv.extraPaths.forEach((p) => addPaths(p));
         addPaths(typeshedPathEx);
 
-        this.getPythonSearchPaths(ignored).forEach((p) => addPaths(p));
+        this.getPythonSearchPaths().forEach((p) => addPaths(p));
 
         this.partialStubs.processPartialStubPackages(paths, this.getImportRoots(execEnv), typeshedPathEx);
         this._invalidateFileSystemCache();
@@ -430,20 +426,18 @@ export class ImportResolver {
         }
     }
 
-    getPythonSearchPaths(importFailureInfo: string[]): Uri[] {
+    getPythonSearchPaths(importLogger?: ImportLogger): Uri[] {
         // Find the site packages for the configured virtual environment.
         if (!this._cachedPythonSearchPaths) {
-            const info: string[] = [];
             const paths = (
-                PythonPathUtils.findPythonSearchPaths(this.fileSystem, this._configOptions, this.host, info) || []
+                PythonPathUtils.findPythonSearchPaths(this.fileSystem, this._configOptions, this.host, importLogger) ||
+                []
             ).map((p) => this.fileSystem.realCasePath(p));
 
             // Remove duplicates (yes, it happens).
-            this._cachedPythonSearchPaths = { paths: Array.from(new Set(paths)), failureInfo: info };
+            this._cachedPythonSearchPaths = { paths: Array.from(new Set(paths)), failureInfo: importLogger };
         }
 
-        // Make sure we cache the logs as well so we can find out why search path failed.
-        importFailureInfo.push(...this._cachedPythonSearchPaths.failureInfo);
         return this._cachedPythonSearchPaths.paths;
     }
 
@@ -452,12 +446,11 @@ export class ImportResolver {
         pythonVersion: PythonVersion,
         pythonPlatform: string | undefined
     ): Uri[] {
-        const unused: string[] = [];
         const typeshedStdlibPath = this._getStdlibTypeshedPath(
             customTypeshedPath,
             pythonVersion,
             pythonPlatform,
-            unused
+            /* importLogger */ undefined
         );
         const excludes: Uri[] = [];
 
@@ -466,7 +459,7 @@ export class ImportResolver {
         }
 
         if (!this._cachedTypeshedStdLibModuleVersionInfo) {
-            this._cachedTypeshedStdLibModuleVersionInfo = this._readTypeshedStdLibVersions(customTypeshedPath, []);
+            this._cachedTypeshedStdLibModuleVersionInfo = this._readTypeshedStdLibVersions(customTypeshedPath);
         }
 
         this._cachedTypeshedStdLibModuleVersionInfo.forEach((versionInfo, moduleName) => {
@@ -511,7 +504,7 @@ export class ImportResolver {
 
     // Intended to be overridden by subclasses to provide additional stub
     // path capabilities. Return undefined if no extra stub path were found.
-    getTypeshedPathEx(execEnv: ExecutionEnvironment, importFailureInfo: string[]): Uri | undefined {
+    getTypeshedPathEx(execEnv: ExecutionEnvironment, importLogger?: ImportLogger): Uri | undefined {
         return undefined;
     }
 
@@ -541,14 +534,7 @@ export class ImportResolver {
         moduleDescriptor: ImportedModuleDescriptor
     ): ImportResult {
         const importName = formatImportName(moduleDescriptor);
-        const importFailureInfo: string[] = [];
-        const importResult = this._resolveImportStrict(
-            importName,
-            sourceFileUri,
-            execEnv,
-            moduleDescriptor,
-            importFailureInfo
-        );
+        const importResult = this._resolveImportStrict(importName, sourceFileUri, execEnv, moduleDescriptor);
 
         if (importResult.isImportFound || moduleDescriptor.leadingDots > 0) {
             return importResult;
@@ -571,7 +557,9 @@ export class ImportResolver {
             return importResult;
         }
 
-        const localImportFailureInfo: string[] = [`Attempting to resolve using local imports: ${importName}`];
+        const importLogger = this._configOptions.verboseOutput ? new ImportLogger() : undefined;
+        importLogger?.log(`Attempting to resolve using local imports: ${importName}`);
+
         const importPath: ImportPath = { importPath: undefined };
 
         // Going up the given folder one by one until we can resolve the import.
@@ -583,7 +571,7 @@ export class ImportResolver {
                 execEnv,
                 moduleDescriptor,
                 importName,
-                localImportFailureInfo,
+                importLogger,
                 /* allowPartial */ undefined,
                 /* allowNativeLib */ undefined,
                 /* useStubPackage */ false,
@@ -612,9 +600,9 @@ export class ImportResolver {
             this.cachedParentImportResults.checked(current, importName, importPath);
         }
 
-        if (this._configOptions.verboseOutput) {
+        if (importLogger) {
             const console = this.serviceProvider.console();
-            localImportFailureInfo.forEach((diag) => console.log(diag));
+            importLogger.getLogs().forEach((diag) => console.log(diag));
         }
 
         return importResult;
@@ -702,7 +690,7 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor,
         importName: string,
-        importFailureInfo: string[],
+        importLogger: ImportLogger | undefined,
         allowPartial = false,
         allowNativeLib = false,
         useStubPackage = false,
@@ -718,7 +706,7 @@ export class ImportResolver {
                 execEnv,
                 moduleDescriptor,
                 importName,
-                importFailureInfo,
+                importLogger,
                 allowPartial,
                 /* allowNativeLib */ false,
                 /* useStubPackage */ true,
@@ -741,7 +729,7 @@ export class ImportResolver {
             execEnv,
             moduleDescriptor,
             importName,
-            importFailureInfo,
+            importLogger,
             allowPartial,
             allowNativeLib,
             /* useStubPackage */ false,
@@ -758,7 +746,7 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor,
         importName: string,
-        importFailureInfo: string[] = [],
+        importLogger?: ImportLogger,
         allowPyi = true
     ): ImportResult | undefined {
         return undefined;
@@ -770,7 +758,7 @@ export class ImportResolver {
     protected resolveNativeImportEx(
         libraryFileUri: Uri,
         importName: string,
-        importFailureInfo: string[] = []
+        importLogger?: ImportLogger
     ): Uri | undefined {
         return undefined;
     }
@@ -791,15 +779,15 @@ export class ImportResolver {
     ): ImportResult {
         if (importedSymbols === undefined) {
             const newImportResult = Object.assign({}, importResult);
-            newImportResult.filteredImplicitImports = new Map<string, ImplicitImport>();
+            newImportResult.filteredImplicitImports = undefined;
             return newImportResult;
         }
 
-        if (importedSymbols.size === 0) {
+        if (importedSymbols === undefined || importedSymbols.size === 0) {
             return importResult;
         }
 
-        if (importResult.implicitImports.size === 0) {
+        if (importResult.implicitImports === undefined || importResult.implicitImports.size === 0) {
             return importResult;
         }
 
@@ -823,7 +811,7 @@ export class ImportResolver {
         importingModuleName: string,
         dirPath: Uri,
         exclusions: Uri[]
-    ): Map<string, ImplicitImport> {
+    ): Map<string, ImplicitImport> | undefined {
         const implicitImportMap = new Map<string, ImplicitImport>();
 
         // Enumerate all of the files and directories in the path, expanding links.
@@ -869,8 +857,7 @@ export class ImportResolver {
                         const nativeLibPath = filePath;
                         const nativeStubPath = this.resolveNativeImportEx(
                             nativeLibPath,
-                            `${importingModuleName}.${strippedFileName}`,
-                            []
+                            `${importingModuleName}.${strippedFileName}`
                         );
                         if (nativeStubPath) {
                             implicitImport.uri = nativeStubPath;
@@ -911,7 +898,7 @@ export class ImportResolver {
             }
         }
 
-        return implicitImportMap;
+        return implicitImportMap.size > 0 ? implicitImportMap : undefined;
     }
 
     private _resolveImportStrict(
@@ -919,7 +906,7 @@ export class ImportResolver {
         sourceFileUri: Uri,
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor,
-        importFailureInfo: string[]
+        importLogger?: ImportLogger
     ) {
         const fromUserFile = matchFileSpecs(this._configOptions, sourceFileUri);
         const notFoundResult: ImportResult = {
@@ -930,13 +917,13 @@ export class ImportResolver {
             isNamespacePackage: false,
             isInitFilePresent: false,
             isStubPackage: false,
-            importFailureInfo,
+            importFailureInfo: importLogger?.getLogs(),
             resolvedUris: [],
             importType: ImportType.Local,
             isStubFile: false,
             isNativeLib: false,
-            implicitImports: new Map<string, ImplicitImport>(),
-            filteredImplicitImports: new Map<string, ImplicitImport>(),
+            implicitImports: undefined,
+            filteredImplicitImports: undefined,
             nonStubImportResult: undefined,
         };
 
@@ -961,7 +948,7 @@ export class ImportResolver {
                 execEnv,
                 moduleDescriptor,
                 importName,
-                importFailureInfo
+                importLogger
             );
 
             if (relativeImport) {
@@ -1045,7 +1032,6 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor
     ): Map<string, Uri> {
-        const importFailureInfo: string[] = [];
         const suggestions = new Map<string, Uri>();
 
         // Is it a relative import?
@@ -1093,7 +1079,7 @@ export class ImportResolver {
             this._getCompletionSuggestionsTypeshedPath(sourceFileUri, execEnv, moduleDescriptor, false, suggestions);
 
             // Look for the import in the list of third-party packages.
-            const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
+            const pythonSearchPaths = this.getPythonSearchPaths();
             for (const searchPath of pythonSearchPaths) {
                 this._getCompletionSuggestionsAbsolute(
                     sourceFileUri,
@@ -1120,8 +1106,6 @@ export class ImportResolver {
         let isThirdPartyPyTypedPresent = false;
         let isTypeshedFile = false;
 
-        const importFailureInfo: string[] = [];
-
         // If we cannot find a fully-qualified module name with legal characters,
         // look for one with invalid characters (e.g. "-"). This is important to
         // differentiate between different modules in a project in case they
@@ -1132,8 +1116,7 @@ export class ImportResolver {
         const stdLibTypeshedPath = this._getStdlibTypeshedPath(
             this._configOptions.typeshedPath,
             execEnv.pythonVersion,
-            execEnv.pythonPlatform,
-            importFailureInfo
+            execEnv.pythonPlatform
         );
 
         if (stdLibTypeshedPath) {
@@ -1150,8 +1133,7 @@ export class ImportResolver {
                         moduleDescriptor,
                         this._configOptions.typeshedPath,
                         execEnv.pythonVersion,
-                        execEnv.pythonPlatform,
-                        []
+                        execEnv.pythonPlatform
                     )
                 ) {
                     return {
@@ -1221,10 +1203,7 @@ export class ImportResolver {
         }
 
         // Check for a typeshed file.
-        const thirdPartyTypeshedPath = this._getThirdPartyTypeshedPath(
-            this._configOptions.typeshedPath,
-            importFailureInfo
-        );
+        const thirdPartyTypeshedPath = this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath);
 
         if (thirdPartyTypeshedPath) {
             const candidateModuleName = getModuleNameFromPath(
@@ -1242,7 +1221,7 @@ export class ImportResolver {
             }
         }
 
-        const thirdPartyTypeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);
+        const thirdPartyTypeshedPathEx = this.getTypeshedPathEx(execEnv);
         if (thirdPartyTypeshedPathEx) {
             const candidateModuleName = getModuleNameFromPath(thirdPartyTypeshedPathEx, fileUri);
 
@@ -1256,7 +1235,7 @@ export class ImportResolver {
         }
 
         // Look for the import in the list of third-party packages.
-        const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
+        const pythonSearchPaths = this.getPythonSearchPaths();
 
         for (const searchPath of pythonSearchPaths) {
             const candidateModuleNameInfo = _getModuleNameInfoFromPath(searchPath, fileUri);
@@ -1330,7 +1309,7 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor,
         importName: string,
-        importFailureInfo: string[],
+        importLogger: ImportLogger | undefined,
         allowPartial: boolean,
         allowNativeLib: boolean,
         useStubPackage: boolean,
@@ -1338,9 +1317,9 @@ export class ImportResolver {
         lookForPyTyped: boolean
     ): ImportResult {
         if (useStubPackage) {
-            importFailureInfo.push(`Attempting to resolve stub package using root path '${rootPath}'`);
+            importLogger?.log(`Attempting to resolve stub package using root path '${rootPath}'`);
         } else {
-            importFailureInfo.push(`Attempting to resolve using root path '${rootPath}'`);
+            importLogger?.log(`Attempting to resolve using root path '${rootPath}'`);
         }
 
         // Starting at the specified path, walk the file system to find the
@@ -1352,7 +1331,7 @@ export class ImportResolver {
         let isStubPackage = false;
         let isStubFile = false;
         let isNativeLib = false;
-        let implicitImports = new Map<string, ImplicitImport>();
+        let implicitImports: Map<string, ImplicitImport> | undefined;
         let packageDirectory: Uri | undefined;
         let pyTypedInfo: PyTypedInfo | undefined;
 
@@ -1362,14 +1341,14 @@ export class ImportResolver {
             const pyiFilePath = dirPath.initPyiUri;
 
             if (allowPyi && this.fileExistsCached(pyiFilePath)) {
-                importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
+                importLogger?.log(`Resolved import with file '${pyiFilePath}'`);
                 resolvedPaths.push(pyiFilePath);
                 isStubFile = true;
             } else if (this.fileExistsCached(pyFilePath)) {
-                importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
+                importLogger?.log(`Resolved import with file '${pyFilePath}'`);
                 resolvedPaths.push(pyFilePath);
             } else {
-                importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
+                importLogger?.log(`Partially resolved import with directory '${dirPath}'`);
                 resolvedPaths.push(Uri.empty());
                 isNamespacePackage = true;
             }
@@ -1399,14 +1378,14 @@ export class ImportResolver {
                     isInitFilePresent = false;
 
                     if (allowPyi && this.fileExistsCached(pyiFilePath)) {
-                        importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
+                        importLogger?.log(`Resolved import with file '${pyiFilePath}'`);
                         resolvedPaths.push(pyiFilePath);
                         if (isLastPart) {
                             isStubFile = true;
                         }
                         isInitFilePresent = true;
                     } else if (this.fileExistsCached(pyFilePath)) {
-                        importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
+                        importLogger?.log(`Resolved import with file '${pyFilePath}'`);
                         resolvedPaths.push(pyFilePath);
                         isInitFilePresent = true;
                     }
@@ -1438,13 +1417,13 @@ export class ImportResolver {
                 const fileDirectory = dirPath.getDirectory();
 
                 if (allowPyi && this.fileExistsCached(pyiFilePath)) {
-                    importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
+                    importLogger?.log(`Resolved import with file '${pyiFilePath}'`);
                     resolvedPaths.push(pyiFilePath);
                     if (isLastPart) {
                         isStubFile = true;
                     }
                 } else if (this.fileExistsCached(pyFilePath)) {
-                    importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
+                    importLogger?.log(`Resolved import with file '${pyFilePath}'`);
                     resolvedPaths.push(pyFilePath);
                 } else if (
                     allowNativeLib &&
@@ -1454,12 +1433,12 @@ export class ImportResolver {
                         execEnv,
                         importName,
                         moduleDescriptor,
-                        importFailureInfo,
+                        importLogger,
                         resolvedPaths
                     )
                 ) {
                     isNativeLib = true;
-                    importFailureInfo.push(`Did not find file '${pyiFilePath}' or '${pyFilePath}'`);
+                    importLogger?.log(`Did not find file '${pyiFilePath}' or '${pyFilePath}'`);
                 } else if (foundDirectory) {
                     if (!isLastPart) {
                         // We are not at the last part, and we found a directory,
@@ -1471,7 +1450,7 @@ export class ImportResolver {
                         continue;
                     }
 
-                    importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
+                    importLogger?.log(`Partially resolved import with directory '${dirPath}'`);
                     resolvedPaths.push(Uri.empty());
 
                     if (isLastPart) {
@@ -1503,7 +1482,7 @@ export class ImportResolver {
             isStubPackage,
             isImportFound: importFound,
             isPartlyResolved,
-            importFailureInfo,
+            importFailureInfo: importLogger?.getLogs(),
             importType: ImportType.Local,
             resolvedUris: resolvedPaths,
             searchPath: rootPath,
@@ -1553,13 +1532,13 @@ export class ImportResolver {
     // are all satisfied by submodules (as listed in the implicit imports).
     private _isNamespacePackageResolved(
         moduleDescriptor: ImportedModuleDescriptor,
-        implicitImports: Map<string, ImplicitImport>
+        implicitImports: Map<string, ImplicitImport> | undefined
     ) {
         if (moduleDescriptor.importedSymbols) {
-            if (!Array.from(moduleDescriptor.importedSymbols.keys()).some((symbol) => implicitImports.has(symbol))) {
+            if (!Array.from(moduleDescriptor.importedSymbols.keys()).some((symbol) => implicitImports?.has(symbol))) {
                 return false;
             }
-        } else if (implicitImports.size === 0) {
+        } else if (!implicitImports || implicitImports.size === 0) {
             return false;
         }
         return true;
@@ -1572,18 +1551,18 @@ export class ImportResolver {
         allowPyi: boolean
     ): ImportResult | undefined {
         const importName = formatImportName(moduleDescriptor);
-        const importFailureInfo: string[] = [];
+        const importLogger = this._configOptions.verboseOutput ? new ImportLogger() : undefined;
 
         // Check for a local stub file using stubPath.
         if (allowPyi && this._configOptions.stubPath) {
-            importFailureInfo.push(`Looking in stubPath '${this._configOptions.stubPath}'`);
+            importLogger?.log(`Looking in stubPath '${this._configOptions.stubPath}'`);
             const typingsImport = this.resolveAbsoluteImport(
                 sourceFileUri,
                 this._configOptions.stubPath,
                 execEnv,
                 moduleDescriptor,
                 importName,
-                importFailureInfo,
+                importLogger,
                 /* allowPartial */ undefined,
                 /* allowNativeLib */ false,
                 /* useStubPackage */ true,
@@ -1617,7 +1596,7 @@ export class ImportResolver {
 
         // Look for it in the root directory of the execution environment.
         if (execEnv.root) {
-            importFailureInfo.push(`Looking in root directory of execution environment ` + `'${execEnv.root}'`);
+            importLogger?.log(`Looking in root directory of execution environment ` + `'${execEnv.root}'`);
 
             localImport = this.resolveAbsoluteImport(
                 sourceFileUri,
@@ -1625,7 +1604,7 @@ export class ImportResolver {
                 execEnv,
                 moduleDescriptor,
                 importName,
-                importFailureInfo,
+                importLogger,
                 /* allowPartial */ undefined,
                 /* allowNativeLib */ true,
                 /* useStubPackage */ true,
@@ -1636,14 +1615,14 @@ export class ImportResolver {
         }
 
         for (const extraPath of execEnv.extraPaths) {
-            importFailureInfo.push(`Looking in extraPath '${extraPath}'`);
+            importLogger?.log(`Looking in extraPath '${extraPath}'`);
             localImport = this.resolveAbsoluteImport(
                 sourceFileUri,
                 extraPath,
                 execEnv,
                 moduleDescriptor,
                 importName,
-                importFailureInfo,
+                importLogger,
                 /* allowPartial */ undefined,
                 /* allowNativeLib */ true,
                 /* useStubPackage */ true,
@@ -1655,13 +1634,13 @@ export class ImportResolver {
 
         // Check for a stdlib typeshed file.
         if (allowPyi && moduleDescriptor.nameParts.length > 0) {
-            importFailureInfo.push(`Looking for typeshed stdlib path`);
+            importLogger?.log(`Looking for typeshed stdlib path`);
             const typeshedStdlibImport = this._findTypeshedPath(
                 execEnv,
                 moduleDescriptor,
                 importName,
                 /* isStdLib */ true,
-                importFailureInfo
+                importLogger
             );
 
             if (typeshedStdlibImport) {
@@ -1671,10 +1650,10 @@ export class ImportResolver {
         }
 
         // Look for the import in the list of third-party packages.
-        const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
+        const pythonSearchPaths = this.getPythonSearchPaths(importLogger);
         if (pythonSearchPaths.length > 0) {
             for (const searchPath of pythonSearchPaths) {
-                importFailureInfo.push(`Looking in python search path '${searchPath}'`);
+                importLogger?.log(`Looking in python search path '${searchPath}'`);
 
                 const thirdPartyImport = this.resolveAbsoluteImport(
                     sourceFileUri,
@@ -1682,7 +1661,7 @@ export class ImportResolver {
                     execEnv,
                     moduleDescriptor,
                     importName,
-                    importFailureInfo,
+                    importLogger,
                     /* allowPartial */ allowPartialResolutionForThirdPartyPackages,
                     /* allowNativeLib */ true,
                     /* useStubPackage */ true,
@@ -1697,13 +1676,13 @@ export class ImportResolver {
                 }
             }
         } else {
-            importFailureInfo.push('No python interpreter search path');
+            importLogger?.log('No python interpreter search path');
         }
 
         // If a library is fully py.typed, then we have found the best match,
         // unless the execution environment is typeshed itself, in which case
         // we don't want to favor py.typed libraries. Use the typeshed lookup below.
-        if (execEnv.root !== this._getTypeshedRoot(this._configOptions.typeshedPath, importFailureInfo)) {
+        if (execEnv.root !== this._getTypeshedRoot(this._configOptions.typeshedPath, importLogger)) {
             if (bestResultSoFar?.pyTypedInfo && !bestResultSoFar.isPartlyResolved) {
                 return bestResultSoFar;
             }
@@ -1715,7 +1694,7 @@ export class ImportResolver {
             execEnv,
             moduleDescriptor,
             importName,
-            importFailureInfo,
+            importLogger,
             allowPyi
         );
 
@@ -1725,13 +1704,13 @@ export class ImportResolver {
 
         // Check for a third-party typeshed file.
         if (allowPyi && moduleDescriptor.nameParts.length > 0) {
-            importFailureInfo.push(`Looking for typeshed third-party path`);
+            importLogger?.log(`Looking for typeshed third-party path`);
             const typeshedImport = this._findTypeshedPath(
                 execEnv,
                 moduleDescriptor,
                 importName,
                 /* isStdLib */ false,
-                importFailureInfo
+                importLogger
             );
 
             if (typeshedImport) {
@@ -1852,9 +1831,9 @@ export class ImportResolver {
         moduleDescriptor: ImportedModuleDescriptor,
         importName: string,
         isStdLib: boolean,
-        importFailureInfo: string[]
+        importLogger?: ImportLogger
     ): ImportResult | undefined {
-        importFailureInfo.push(
+        importLogger?.log(
             `Looking for typeshed ${
                 isStdLib ? PythonPathUtils.stdLibFolderName : PythonPathUtils.thirdPartyFolderName
             } path`
@@ -1866,7 +1845,7 @@ export class ImportResolver {
                 this._configOptions.typeshedPath,
                 execEnv.pythonVersion,
                 execEnv.pythonPlatform,
-                importFailureInfo,
+                importLogger,
                 moduleDescriptor
             );
 
@@ -1874,7 +1853,7 @@ export class ImportResolver {
                 typeshedPaths = [path];
             }
         } else {
-            typeshedPaths = this._getThirdPartyTypeshedPackagePaths(moduleDescriptor, importFailureInfo);
+            typeshedPaths = this._getThirdPartyTypeshedPackagePaths(moduleDescriptor, importLogger);
         }
 
         if (typeshedPaths) {
@@ -1886,7 +1865,7 @@ export class ImportResolver {
                         execEnv,
                         moduleDescriptor,
                         importName,
-                        importFailureInfo
+                        importLogger
                     );
 
                     if (importInfo.isImportFound) {
@@ -1905,7 +1884,7 @@ export class ImportResolver {
             }
         }
 
-        importFailureInfo.push(`Typeshed path not found`);
+        importLogger?.log(`Typeshed path not found`);
         return undefined;
     }
 
@@ -1928,8 +1907,7 @@ export class ImportResolver {
                                     createImportedModuleDescriptor(stripped),
                                     root,
                                     executionEnvironment.pythonVersion,
-                                    executionEnvironment.pythonPlatform,
-                                    []
+                                    executionEnvironment.pythonPlatform
                                 )
                             ) {
                                 cache.add(prefix ? `${prefix}.${stripped}` : stripped);
@@ -1996,15 +1974,13 @@ export class ImportResolver {
         isStdLib: boolean,
         suggestions: Map<string, Uri>
     ) {
-        const importFailureInfo: string[] = [];
-
         let typeshedPaths: Uri[] | undefined;
         if (isStdLib) {
             const path = this._getStdlibTypeshedPath(
                 this._configOptions.typeshedPath,
                 execEnv.pythonVersion,
                 execEnv.pythonPlatform,
-                importFailureInfo,
+                /* importLogger */ undefined,
                 moduleDescriptor
             );
             if (path) {
@@ -2013,11 +1989,11 @@ export class ImportResolver {
         } else {
             typeshedPaths = this._getThirdPartyTypeshedPackagePaths(
                 moduleDescriptor,
-                importFailureInfo,
+                /* importLogger */ undefined,
                 /* includeMatchOnly */ false
             );
 
-            const typeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);
+            const typeshedPathEx = this.getTypeshedPathEx(execEnv);
             if (typeshedPathEx) {
                 typeshedPaths = typeshedPaths ?? [];
                 typeshedPaths.push(typeshedPathEx);
@@ -2048,10 +2024,10 @@ export class ImportResolver {
         customTypeshedPath: Uri | undefined,
         pythonVersion: PythonVersion,
         pythonPlatform: string | undefined,
-        importFailureInfo: string[],
+        importLogger?: ImportLogger,
         moduleDescriptor?: ImportedModuleDescriptor
     ) {
-        const subdirectory = this._getTypeshedSubdirectory(/* isStdLib */ true, customTypeshedPath, importFailureInfo);
+        const subdirectory = this._getTypeshedSubdirectory(/* isStdLib */ true, customTypeshedPath, importLogger);
         if (
             subdirectory &&
             moduleDescriptor &&
@@ -2060,7 +2036,7 @@ export class ImportResolver {
                 customTypeshedPath,
                 pythonVersion,
                 pythonPlatform,
-                importFailureInfo
+                importLogger
             )
         ) {
             return undefined;
@@ -2069,8 +2045,8 @@ export class ImportResolver {
         return subdirectory;
     }
 
-    private _getThirdPartyTypeshedPath(customTypeshedPath: Uri | undefined, importFailureInfo: string[]) {
-        return this._getTypeshedSubdirectory(/* isStdLib */ false, customTypeshedPath, importFailureInfo);
+    private _getThirdPartyTypeshedPath(customTypeshedPath: Uri | undefined, importLogger?: ImportLogger) {
+        return this._getTypeshedSubdirectory(/* isStdLib */ false, customTypeshedPath, importLogger);
     }
 
     private _isStdlibTypeshedStubValidForVersion(
@@ -2078,12 +2054,12 @@ export class ImportResolver {
         customTypeshedPath: Uri | undefined,
         pythonVersion: PythonVersion,
         pythonPlatform: string | undefined,
-        importFailureInfo: string[]
+        importLogger?: ImportLogger
     ) {
         if (!this._cachedTypeshedStdLibModuleVersionInfo) {
             this._cachedTypeshedStdLibModuleVersionInfo = this._readTypeshedStdLibVersions(
                 customTypeshedPath,
-                importFailureInfo
+                importLogger
             );
         }
 
@@ -2125,16 +2101,12 @@ export class ImportResolver {
 
     private _readTypeshedStdLibVersions(
         customTypeshedPath: Uri | undefined,
-        importFailureInfo: string[]
+        importLogger?: ImportLogger
     ): Map<string, SupportedVersionInfo> {
         const versionRangeMap = new Map<string, SupportedVersionInfo>();
 
         // Read the VERSIONS file from typeshed.
-        const typeshedStdLibPath = this._getTypeshedSubdirectory(
-            /* isStdLib */ true,
-            customTypeshedPath,
-            importFailureInfo
-        );
+        const typeshedStdLibPath = this._getTypeshedSubdirectory(/* isStdLib */ true, customTypeshedPath, importLogger);
 
         if (typeshedStdLibPath) {
             const versionsFilePath = typeshedStdLibPath.combinePaths('VERSIONS');
@@ -2218,10 +2190,10 @@ export class ImportResolver {
                         });
                     });
                 } else {
-                    importFailureInfo.push(`Typeshed stdlib VERSIONS file is unexpectedly large`);
+                    importLogger?.log(`Typeshed stdlib VERSIONS file is unexpectedly large`);
                 }
             } catch (e: any) {
-                importFailureInfo.push(`Could not read typeshed stdlib VERSIONS file: '${JSON.stringify(e)}'`);
+                importLogger?.log(`Could not read typeshed stdlib VERSIONS file: '${JSON.stringify(e)}'`);
             }
         }
 
@@ -2230,10 +2202,10 @@ export class ImportResolver {
 
     private _getThirdPartyTypeshedPackagePaths(
         moduleDescriptor: ImportedModuleDescriptor,
-        importFailureInfo: string[],
+        importLogger?: ImportLogger,
         includeMatchOnly = true
     ): Uri[] | undefined {
-        const typeshedPath = this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath, importFailureInfo);
+        const typeshedPath = this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath, importLogger);
 
         if (!this._cachedTypeshedThirdPartyPackagePaths) {
             this._buildTypeshedThirdPartyPackageMap(typeshedPath);
@@ -2253,8 +2225,8 @@ export class ImportResolver {
         return [];
     }
 
-    private _getThirdPartyTypeshedPackageRoots(importFailureInfo: string[]) {
-        const typeshedPath = this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath, importFailureInfo);
+    private _getThirdPartyTypeshedPackageRoots(importLogger?: ImportLogger) {
+        const typeshedPath = this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath, importLogger);
 
         if (!this._cachedTypeshedThirdPartyPackagePaths) {
             this._buildTypeshedThirdPartyPackageMap(typeshedPath);
@@ -2263,7 +2235,7 @@ export class ImportResolver {
         return this._cachedTypeshedThirdPartyPackageRoots!;
     }
 
-    private _getTypeshedRoot(customTypeshedPath: Uri | undefined, importFailureInfo: string[]) {
+    private _getTypeshedRoot(customTypeshedPath: Uri | undefined, importLogger?: ImportLogger) {
         if (this._cachedTypeshedRoot === undefined) {
             let typeshedPath = undefined;
 
@@ -2289,7 +2261,7 @@ export class ImportResolver {
     private _getTypeshedSubdirectory(
         isStdLib: boolean,
         customTypeshedPath: Uri | undefined,
-        importFailureInfo: string[]
+        importLogger?: ImportLogger
     ) {
         // See if we have it cached.
         if (isStdLib) {
@@ -2302,7 +2274,7 @@ export class ImportResolver {
             }
         }
 
-        let typeshedPath = this._getTypeshedRoot(customTypeshedPath, importFailureInfo);
+        let typeshedPath = this._getTypeshedRoot(customTypeshedPath, importLogger);
         if (typeshedPath === undefined) {
             return undefined;
         }
@@ -2327,14 +2299,14 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor,
         importName: string,
-        importFailureInfo: string[]
+        importLogger?: ImportLogger
     ): ImportResult | undefined {
-        importFailureInfo.push('Attempting to resolve relative import');
+        importLogger?.log('Attempting to resolve relative import');
 
         // Determine which search path this file is part of.
         const directory = getDirectoryLeadingDotsPointsTo(sourceFileUri.getDirectory(), moduleDescriptor.leadingDots);
         if (!directory) {
-            importFailureInfo.push(`Invalid relative path '${importName}'`);
+            importLogger?.log(`Invalid relative path '${importName}'`);
             return undefined;
         }
 
@@ -2345,7 +2317,7 @@ export class ImportResolver {
             execEnv,
             moduleDescriptor,
             importName,
-            importFailureInfo,
+            importLogger,
             /* allowPartial */ false,
             /* allowNativeLib */ true
         );
@@ -2360,7 +2332,7 @@ export class ImportResolver {
                 execEnv,
                 moduleDescriptor,
                 importName,
-                importFailureInfo,
+                importLogger,
                 /* allowPartial */ false,
                 /* allowNativeLib */ true,
                 /* useStubPackage */ false,
@@ -2372,13 +2344,13 @@ export class ImportResolver {
                 isPartlyResolved: false,
                 isNamespacePackage: false,
                 isStubPackage: false,
-                importFailureInfo,
+                importLogger,
                 resolvedUris: [],
                 importType: ImportType.Local,
                 isStubFile: false,
                 isNativeLib: false,
-                implicitImports: [],
-                filteredImplicitImports: [],
+                implicitImports: undefined,
+                filteredImplicitImports: undefined,
                 nonStubImportResult: undefined,
             };
         }
@@ -2598,15 +2570,7 @@ export class ImportResolver {
         let importResult: ImportResult | undefined;
         if (strictOnly) {
             const importName = formatImportName(moduleDescriptor);
-            const importFailureInfo: string[] = [];
-
-            importResult = this._resolveImportStrict(
-                importName,
-                sourceFileUri,
-                execEnv,
-                moduleDescriptor,
-                importFailureInfo
-            );
+            importResult = this._resolveImportStrict(importName, sourceFileUri, execEnv, moduleDescriptor);
         } else {
             importResult = this.resolveImportInternal(sourceFileUri, execEnv, moduleDescriptor);
         }
@@ -2655,7 +2619,7 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         importName: string,
         moduleDescriptor: ImportedModuleDescriptor,
-        importFailureInfo: string[],
+        importLogger: ImportLogger | undefined,
         resolvedPaths: Uri[]
     ): boolean {
         let isNativeLib = false;
@@ -2672,12 +2636,12 @@ export class ImportResolver {
                     execEnv,
                     importName,
                     moduleDescriptor,
-                    importFailureInfo,
+                    importLogger,
                     resolvedPaths
                 );
 
                 if (isNativeLib) {
-                    importFailureInfo.push(`Resolved with native lib '${nativeLibPath.toUserVisibleString()}'`);
+                    importLogger?.log(`Resolved with native lib '${nativeLibPath.toUserVisibleString()}'`);
                 }
             }
         }
@@ -2690,7 +2654,7 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         importName: string,
         moduleDescriptor: ImportedModuleDescriptor,
-        importFailureInfo: string[],
+        importLogger: ImportLogger | undefined,
         resolvedPaths: Uri[]
     ): boolean {
         let moduleFullName = importName;
@@ -2701,14 +2665,14 @@ export class ImportResolver {
             moduleFullName = info.moduleName.length > 0 ? info.moduleName : moduleFullName;
         }
 
-        const compiledStubPath = this.resolveNativeImportEx(nativeLibPath, moduleFullName, importFailureInfo);
+        const compiledStubPath = this.resolveNativeImportEx(nativeLibPath, moduleFullName, importLogger);
         if (compiledStubPath) {
-            importFailureInfo.push(`Resolved native import ${importName} with stub '${compiledStubPath}'`);
+            importLogger?.log(`Resolved native import ${importName} with stub '${compiledStubPath}'`);
             resolvedPaths.push(compiledStubPath);
             return false; // Resolved to a stub.
         }
 
-        importFailureInfo.push(`Resolved import with file '${nativeLibPath}'`);
+        importLogger?.log(`Resolved import with file '${nativeLibPath}'`);
         resolvedPaths.push(nativeLibPath);
         return true;
     }

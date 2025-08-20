@@ -1,7 +1,7 @@
 from _typeshed import SupportsKeysAndGetItem
 from _typeshed.wsgi import WSGIEnvironment
 from collections.abc import Collection, Iterable, Iterator, MutableMapping
-from typing import Literal, Protocol, TypeVar, overload
+from typing import Literal, Protocol, TypeVar, overload, type_check_only
 from typing_extensions import Self
 
 from webob.compat import cgi_FieldStorage, cgi_FieldStorage as _FieldStorageWithFile
@@ -14,6 +14,7 @@ _VT = TypeVar("_VT")
 _KT_co = TypeVar("_KT_co", covariant=True)
 _VT_co = TypeVar("_VT_co", covariant=True)
 
+@type_check_only
 class _SupportsItemsWithIterableResult(Protocol[_KT_co, _VT_co]):
     def items(self) -> Iterable[tuple[_KT_co, _VT_co]]: ...
 

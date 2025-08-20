@@ -8,14 +8,14 @@ from .lib import Geometry
 
 __all__ = [
     "area",
-    "distance",
     "bounds",
-    "total_bounds",
-    "length",
-    "hausdorff_distance",
+    "distance",
     "frechet_distance",
-    "minimum_clearance",
+    "hausdorff_distance",
+    "length",
     "minimum_bounding_radius",
+    "minimum_clearance",
+    "total_bounds",
 ]
 
 @overload

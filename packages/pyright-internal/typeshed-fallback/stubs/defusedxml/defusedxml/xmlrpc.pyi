@@ -1,9 +1,9 @@
 import gzip
 from _typeshed import ReadableBuffer
-from typing import Final, Protocol, runtime_checkable
+from typing import Final, Protocol, type_check_only
 from xmlrpc.client import ExpatParser, Unmarshaller
 
-@runtime_checkable
+@type_check_only
 class _Readable(Protocol):
     def read(self, size: int | None = -1) -> bytes: ...
 

@@ -2826,7 +2826,7 @@ export class CompletionProvider {
         priorWord: string,
         completionMap: CompletionMap
     ) {
-        importInfo.implicitImports.forEach((implImport) => {
+        importInfo.implicitImports?.forEach((implImport) => {
             if (!importFromNode.d.imports.find((imp) => imp.d.name.d.value === implImport.name)) {
                 this.addNameToCompletions(implImport.name, CompletionItemKind.Module, priorWord, completionMap, {
                     moduleUri: implImport.uri,

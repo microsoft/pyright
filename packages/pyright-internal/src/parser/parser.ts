@@ -1478,6 +1478,8 @@ export class Parser {
 
     private _parseLoopSuite(): SuiteNode {
         const wasInLoop = this._isInLoop;
+        const wasInExceptionGroup = this._isInExceptionGroup;
+        this._isInExceptionGroup = false;
         this._isInLoop = true;
 
         // Record the fact that we are no longer in a finally block
@@ -1496,6 +1498,7 @@ export class Parser {
 
         this._isInLoop = wasInLoop;
         this._isInFinallyLoop = wasInFinallyLoop;
+        this._isInExceptionGroup = wasInExceptionGroup;
 
         if (typeComment) {
             suite.d.typeComment = typeComment;

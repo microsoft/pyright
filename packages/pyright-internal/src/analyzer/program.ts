@@ -336,13 +336,11 @@ export class Program {
 
     addTrackedFile(fileUri: Uri, isThirdPartyImport = false, isInPyTypedPackage = false): SourceFile {
         let sourceFileInfo = this.getSourceFileInfo(fileUri);
-        const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
-        const importName = moduleImportInfo.moduleName;
 
         if (sourceFileInfo) {
             // The module name may have changed based on updates to the
-            // search paths, so update it here.
-            sourceFileInfo.sourceFile.setModuleName(importName);
+            // search paths. Clear any cached module name so it is recomputed.
+            sourceFileInfo.sourceFile.clearCachedModuleName();
             sourceFileInfo.isTracked = true;
             return sourceFileInfo.sourceFile;
         }
@@ -350,7 +348,7 @@ export class Program {
         const sourceFile = this._sourceFileFactory.createSourceFile(
             this.serviceProvider,
             fileUri,
-            importName,
+            (uri) => this._getModuleName(uri),
             isThirdPartyImport,
             isInPyTypedPackage,
             this._editModeTracker,
@@ -378,7 +376,7 @@ export class Program {
             const sourceFile = this._sourceFileFactory.createSourceFile(
                 this.serviceProvider,
                 fileUri,
-                moduleImportInfo.moduleName,
+                (uri) => this._getModuleName(uri),
                 /* isThirdPartyImport */ false,
                 moduleImportInfo.isThirdPartyPyTypedPresent,
                 this._editModeTracker,
@@ -1341,6 +1339,7 @@ export class Program {
                 thirdPartyImportAllowed = true;
             } else if (
                 importResult.isNamespacePackage &&
+                importResult.filteredImplicitImports &&
                 Array.from(importResult.filteredImplicitImports.values()).some(
                     (implicitImport) => !!implicitImport.pyTypedInfo
                 )
@@ -1436,7 +1435,7 @@ export class Program {
                     }
                 }
 
-                importResult.filteredImplicitImports.forEach((implicitImport) => {
+                importResult.filteredImplicitImports?.forEach((implicitImport) => {
                     if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
                         if (!implicitImport.isNativeLib) {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
@@ -1506,11 +1505,10 @@ export class Program {
                 // of the program.
                 let importedFileInfo = this.getSourceFileInfo(importInfo.path);
                 if (!importedFileInfo) {
-                    const moduleImportInfo = this._getModuleImportInfoForFile(importInfo.path);
                     const sourceFile = this._sourceFileFactory.createSourceFile(
                         this.serviceProvider,
                         importInfo.path,
-                        moduleImportInfo.moduleName,
+                        (uri) => this._getModuleName(uri),
                         importInfo.isThirdPartyImport,
                         importInfo.isPyTypedPresent,
                         this._editModeTracker,
@@ -1582,6 +1580,11 @@ export class Program {
         this._sourceFileMap.set(fileUri.key, fileInfo);
     }
 
+    private _getModuleName(fileUri: Uri): string {
+        const moduleInfo = this._getModuleImportInfoForFile(fileUri);
+        return moduleInfo.moduleName;
+    }
+
     private _getModuleImportInfoForFile(fileUri: Uri) {
         // We allow illegal module names (e.g. names that include "-" in them)
         // because we want a unique name for each module even if it cannot be
@@ -1622,11 +1625,10 @@ export class Program {
     }
 
     private _createInterimFileInfo(fileUri: Uri) {
-        const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
         const sourceFile = this._sourceFileFactory.createSourceFile(
             this.serviceProvider,
             fileUri,
-            moduleImportInfo.moduleName,
+            (uri) => this._getModuleName(uri),
             /* isThirdPartyImport */ false,
             /* isInPyTypedPackage */ false,
             this._editModeTracker,

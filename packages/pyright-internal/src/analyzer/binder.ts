@@ -400,7 +400,7 @@ export class Binder extends ParseTreeWalker {
             if (importResult.isNamespacePackage && node.parent?.nodeType === ParseNodeType.ImportFrom) {
                 if (
                     node.parent.d.imports.every((importAs) => {
-                        const implicitImport = importResult.filteredImplicitImports.get(importAs.d.name.d.value);
+                        const implicitImport = importResult.filteredImplicitImports?.get(importAs.d.name.d.value);
                         return !!implicitImport?.pyTypedInfo;
                     })
                 ) {
@@ -4168,7 +4168,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _addImplicitImportsToLoaderActions(importResult: ImportResult, loaderActions: ModuleLoaderActions) {
-        importResult.filteredImplicitImports.forEach((implicitImport) => {
+        importResult.filteredImplicitImports?.forEach((implicitImport) => {
             const existingLoaderAction = loaderActions.implicitImports
                 ? loaderActions.implicitImports.get(implicitImport.name)
                 : undefined;

@@ -15,6 +15,7 @@ import * as pathConsts from '../common/pathConsts';
 import { PythonVersion } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import { getFileSystemEntries, isDirectory, tryStat } from '../common/uri/uriUtils';
+import { ImportLogger } from './importLogger';
 
 export interface PythonPathResult {
     paths: Uri[];
@@ -53,11 +54,11 @@ export function findPythonSearchPaths(
     fs: FileSystem,
     configOptions: ConfigOptions,
     host: Host,
-    importFailureInfo: string[],
+    importLogger?: ImportLogger | undefined,
     includeWatchPathsOnly?: boolean | undefined,
     workspaceRoot?: Uri | undefined
 ): Uri[] {
-    importFailureInfo.push('Finding python search paths');
+    importLogger?.log('Finding python search paths');
 
     if (configOptions.venvPath !== undefined && configOptions.venv) {
         const venvDir = configOptions.venv;
@@ -71,7 +72,7 @@ export function findPythonSearchPaths(
                 fs,
                 venvPath.combinePaths(libPath),
                 configOptions.defaultPythonVersion,
-                importFailureInfo
+                importLogger
             );
             if (sitePackagesPath) {
                 addPathIfUnique(foundPaths, sitePackagesPath);
@@ -88,20 +89,18 @@ export function findPythonSearchPaths(
         });
 
         if (foundPaths.length > 0) {
-            importFailureInfo.push(`Found the following '${pathConsts.sitePackages}' dirs`);
+            importLogger?.log(`Found the following '${pathConsts.sitePackages}' dirs`);
             foundPaths.forEach((path) => {
-                importFailureInfo.push(`  ${path}`);
+                importLogger?.log(`  ${path}`);
             });
             return foundPaths;
         }
 
-        importFailureInfo.push(
-            `Did not find any '${pathConsts.sitePackages}' dirs. Falling back on python interpreter.`
-        );
+        importLogger?.log(`Did not find any '${pathConsts.sitePackages}' dirs. Falling back on python interpreter.`);
     }
 
     // Fall back on the python interpreter.
-    const pathResult = host.getPythonSearchPaths(configOptions.pythonPath, importFailureInfo);
+    const pathResult = host.getPythonSearchPaths(configOptions.pythonPath, importLogger);
     if (includeWatchPathsOnly && workspaceRoot && !workspaceRoot.isEmpty()) {
         const paths = pathResult.paths
             .filter((p) => !p.startsWith(workspaceRoot) || p.startsWith(pathResult.prefix))
@@ -122,21 +121,21 @@ function findSitePackagesPath(
     fs: FileSystem,
     libPath: Uri,
     pythonVersion: PythonVersion | undefined,
-    importFailureInfo: string[]
+    importLogger?: ImportLogger | undefined
 ): Uri | undefined {
     if (fs.existsSync(libPath)) {
-        importFailureInfo.push(`Found path '${libPath}'; looking for ${pathConsts.sitePackages}`);
+        importLogger?.log(`Found path '${libPath}'; looking for ${pathConsts.sitePackages}`);
     } else {
-        importFailureInfo.push(`Did not find '${libPath}'`);
+        importLogger?.log(`Did not find '${libPath}'`);
         return undefined;
     }
 
     const sitePackagesPath = libPath.combinePaths(pathConsts.sitePackages);
     if (fs.existsSync(sitePackagesPath)) {
-        importFailureInfo.push(`Found path '${sitePackagesPath}'`);
+        importLogger?.log(`Found path '${sitePackagesPath}'`);
         return sitePackagesPath;
     } else {
-        importFailureInfo.push(`Did not find '${sitePackagesPath}', so looking for python subdirectory`);
+        importLogger?.log(`Did not find '${sitePackagesPath}', so looking for python subdirectory`);
     }
 
     // We didn't find a site-packages directory directly in the lib
@@ -160,7 +159,7 @@ function findSitePackagesPath(
         );
         if (preferredDir) {
             const dirPath = preferredDir.combinePaths(pathConsts.sitePackages);
-            importFailureInfo.push(`Found path '${dirPath}'`);
+            importLogger?.log(`Found path '${dirPath}'`);
             return dirPath;
         }
     }
@@ -170,7 +169,7 @@ function findSitePackagesPath(
     // only one.
     if (candidateDirs.length > 0) {
         const dirPath = candidateDirs[0].combinePaths(pathConsts.sitePackages);
-        importFailureInfo.push(`Found path '${dirPath}'`);
+        importLogger?.log(`Found path '${dirPath}'`);
         return dirPath;
     }
 

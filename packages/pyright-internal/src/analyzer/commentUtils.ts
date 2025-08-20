@@ -45,9 +45,11 @@ export function getFileLevelDirectives(
     diagnostics: CommentDiagnostic[]
 ): DiagnosticRuleSet {
     let ruleSet = cloneDiagnosticRuleSet(defaultRuleSet);
+    let isModified = false;
 
     if (useStrict) {
         _applyStrictRules(ruleSet);
+        isModified = true;
     }
 
     for (let i = 0; i < tokens.count; i++) {
@@ -65,11 +67,13 @@ export function getFileLevelDirectives(
                 };
 
                 ruleSet = _parsePyrightComment(value, textRange, isCommentOnOwnLine, ruleSet, diagnostics);
+                isModified = true;
             }
         }
     }
 
-    return ruleSet;
+    // If we didn't make any modifications, use the default rule set to save memory.
+    return isModified ? ruleSet : defaultRuleSet;
 }
 
 function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
