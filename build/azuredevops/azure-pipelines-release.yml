@@ -67,9 +67,9 @@ extends:
                 fetchTags: false
                 persistCredentials: True
               - task: NodeTool@0
-                displayName: Use Node 18.x
+                displayName: Use Node 22.x
                 inputs:
-                  versionSpec: 18.x
+                  versionSpec: 22.x
               - template: /build/templates/npmAuthenticate.yml@self
               - task: CmdLine@2
                 displayName: npm install
@@ -167,9 +167,9 @@ extends:
                 fetchTags: false
                 persistCredentials: True
               - task: NodeTool@0
-                displayName: Use Node 18.x
+                displayName: Use Node 22.x
                 inputs:
-                  versionSpec: 18.x
+                  versionSpec: 22.x
               - template: /build/templates/npmAuthenticate.yml@self
               - task: CmdLine@2
                 displayName: npm install
@@ -259,7 +259,7 @@ extends:
               - checkout: none
               - task: NodeTool@0
                 inputs:
-                  versionSpec: 18.x
+                  versionSpec: 22.x
               - task: DownloadPipelineArtifact@2
                 displayName: 'Download Artifacts from Validation Job'
                 inputs:
@@ -286,7 +286,9 @@ extends:
                     vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
 
       - stage: PublishToNpm
-        dependsOn: WaitForValidation
+        dependsOn:
+          - WaitForValidation
+          - PublishToMarketplace
         jobs:
           - job: publish_package
             displayName: Publish package to NPM
