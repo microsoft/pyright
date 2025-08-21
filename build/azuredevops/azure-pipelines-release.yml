@@ -54,6 +54,7 @@ extends:
                 signing:
                   enabled: true
                   signType: 'real'
+                  signWithProd: true
               outputs:
                 - output: pipelineArtifact
                   displayName: 'publish vsix artifact'
@@ -314,5 +315,5 @@ extends:
                   contentSource: Folder
                   folderLocation: $(Build.StagingDirectory)/dist
                   waitForReleaseCompletion: true
-                  owners: rchiodo@microsoft.com
+                  owners: bschnurr@microsoft.com
                   approvers: grwheele@microsoft.com
