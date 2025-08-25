@@ -3022,6 +3022,12 @@ export function createTypeEvaluator(
                         specializedType.priv.typeArgs &&
                         specializedType.priv.typeArgs.length > 0
                     ) {
+                        // For CoroutineType, the return type is the third type argument (index 2)
+                        // CoroutineType[YieldT, SendT, ReturnT] where ReturnT is what we want
+                        if (ClassType.isBuiltIn(specializedType, ['Coroutine', 'CoroutineType']) && 
+                            specializedType.priv.typeArgs.length >= 3) {
+                            return specializedType.priv.typeArgs[2];
+                        }
                         return specializedType.priv.typeArgs[0];
                     }
 
@@ -9917,7 +9923,7 @@ export function createTypeEvaluator(
 
         let returnType = mapSubtypesExpandTypeVars(
             callTypeResult.type,
-            { sortSubtypes: true },
+            { sortSubtypes: false },
             (expandedSubtype, unexpandedSubtype, isLastIteration) => {
                 return useSpeculativeMode(
                     isLastIteration ? undefined : getSpeculativeNodeForCall(errorNode),
@@ -26079,7 +26085,13 @@ export function createTypeEvaluator(
                                     constraintsScore = Number.POSITIVE_INFINITY;
                                 }
 
-                                if (bestConstraintsScore === undefined || bestConstraintsScore <= constraintsScore) {
+                                // Prefer earlier union members when scores are equal or very close
+                                // to maintain consistent behavior with union declaration order
+                                const isScoreSignificantlyBetter = bestConstraintsScore !== undefined && 
+                                    constraintsScore > bestConstraintsScore + 0.01;
+                                const isFirstMatch = bestConstraintsScore === undefined;
+                                
+                                if (isFirstMatch || isScoreSignificantlyBetter) {
                                     // We found a typeVar mapping with a higher score than before.
                                     bestConstraintsScore = constraintsScore;
                                     bestConstraints = constraintsClone;
@@ -26087,7 +26099,7 @@ export function createTypeEvaluator(
                             }
                         }
                     },
-                    /* sortSubtypes */ true
+                    /* sortSubtypes */ false
                 );
 
                 // If we saw more than one "naked" type vars that have no
