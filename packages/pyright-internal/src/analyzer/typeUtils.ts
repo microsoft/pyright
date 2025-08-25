@@ -3745,7 +3745,9 @@ export class TypeVarTransformer {
                 } else {
                     const newTypeArgType = this.apply(typeParams[0], recursionCount);
                     newTupleTypeArgs = [{ type: newTypeArgType, isUnbounded: true }];
-                    specializationNeeded = true;
+                    if (newTypeArgType !== typeParams[0] || !!classType.priv.typeArgs) {
+                        specializationNeeded = true;
+                    }
                     isTypeArgExplicit = false;
                 }
             }
