@@ -36,6 +36,9 @@ def func1(a: Literal[1, 2], b: Literal[0, 4], c: Literal[3, 4]):
     c1 = ~c1
     reveal_type(c1, expected_text="Literal[-3, -2, 1, 2, 5, 6]")
 
+    # Verify bitwise invert for a large int literal that doesn't fit in JS 32-bit
+    reveal_type(~2147483648, expected_text="Literal[-2147483649]")
+
     c1 = (-5 & 1) ^ (4 | 2)
     reveal_type(c1, expected_text="Literal[7]")
 
