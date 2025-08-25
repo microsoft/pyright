@@ -1616,7 +1616,7 @@ export class Tokenizer {
         let isInNamedUnicodeEscape = false;
         const start = this._cs.position;
         let escapedValueLength = 0;
-        const getEscapedValue = () => cloneStr(this._cs.getText().slice(start, start + escapedValueLength));
+        const getEscapedValue = () => this._cs.getText().slice(start, start + escapedValueLength);
 
         while (true) {
             if (this._cs.isEndOfStream()) {
