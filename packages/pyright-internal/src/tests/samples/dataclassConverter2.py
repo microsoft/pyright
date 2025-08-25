@@ -1,7 +1,6 @@
 # This sample tests assignment of dataclass fields that use
 # the converter parameter described in PEP 712.
 
-from dataclasses import dataclass, field
 from typing import Any, Callable, dataclass_transform
 
 
