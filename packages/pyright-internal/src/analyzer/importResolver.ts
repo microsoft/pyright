@@ -943,7 +943,7 @@ export class ImportResolver {
             }
         }
 
-        return false;
+        return isPotentialMatch('__init__');
     }
 
     private _resolveImportStrict(
