@@ -2436,9 +2436,11 @@ export class ImportResolver {
             const entriesInDir = this.readdirEntriesCached(dirPath);
             const filesInDir: Dirent<string>[] = [];
 
-            // Add any symbolic links that point to files.
+            // Add any files or symbolic links that point to files.
             entriesInDir.entries.forEach((f) => {
-                if (f.isSymbolicLink() && tryStat(this.fileSystem, dirPath.combinePaths(f.name))?.isFile()) {
+                if (f.isFile()) {
+                    filesInDir.push(f);
+                } else if (f.isSymbolicLink() && tryStat(this.fileSystem, dirPath.combinePaths(f.name))?.isFile()) {
                     filesInDir.push(f);
                 }
             });
