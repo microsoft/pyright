@@ -535,6 +535,12 @@ export class ImportResolver {
                     ? stripFileExtension(entry.name, /* multiDotExtension */ true)
                     : entry.name;
                 newCachedDir.resolvableNames.add(resolvableName);
+
+                if (entry.isDirectory() && entry.name.endsWith(stubsSuffix)) {
+                    newCachedDir.resolvableNames.add(
+                        resolvableName.substring(0, resolvableName.length - stubsSuffix.length)
+                    );
+                }
             });
         } catch {
             // Swallow error
