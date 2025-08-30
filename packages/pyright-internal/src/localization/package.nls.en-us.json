@@ -1537,6 +1537,10 @@
             "message": "Base class \"{name}\" is a closed TypedDict; extra items are not allowed",
             "comment": "{Locked='closed','TypedDict'}"
         },
+        "typedDictClosedFalseNonOpenBase": {
+            "message": "Base class \"{name}\" is not an open TypedDict; closed=False is not allowed",
+            "comment": "{Locked='TypedDict','closed'}"
+        },
         "typedDictDelete": {
             "message": "Could not delete item in TypedDict",
             "comment": "{Locked='TypedDict'}"

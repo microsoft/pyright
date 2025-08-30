@@ -17720,6 +17720,24 @@ export function createTypeEvaluator(
                                         classType.shared.typedDictExtraItemsExpr
                                     );
                                 }
+                            } else {
+                                // PEP 728: A class that subclasses from a non-open TypedDict
+                                // cannot specify closed=False.
+                                const nonOpenBase = classType.shared.baseClasses.find(
+                                    (base) =>
+                                        isInstantiableClass(base) &&
+                                        ClassType.isTypedDictClass(base) &&
+                                        ClassType.isTypedDictEffectivelyClosed(base)
+                                );
+                                if (nonOpenBase) {
+                                    addDiagnostic(
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        LocMessage.typedDictClosedFalseNonOpenBase().format({
+                                            name: (nonOpenBase as ClassType).shared.name,
+                                        }),
+                                        arg.d.valueExpr
+                                    );
+                                }
                             }
 
                             if (sawClosedOrExtraItems) {
