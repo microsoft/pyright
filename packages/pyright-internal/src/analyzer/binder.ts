@@ -372,7 +372,7 @@ export class Binder extends ParseTreeWalker {
             return true;
         }
 
-        if (!importResult.isImportFound) {
+        if (!importResult.isImportFound && importResult.importName) {
             this._addDiagnostic(
                 DiagnosticRule.reportMissingImports,
                 LocMessage.importResolveFailure().format({

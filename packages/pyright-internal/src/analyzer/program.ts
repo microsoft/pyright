@@ -693,7 +693,7 @@ export class Program {
     analyzeFile(fileUri: Uri, token: CancellationToken = CancellationToken.None): boolean {
         return this._runEvaluatorWithCancellationToken(token, () => {
             const sourceFileInfo = this.getSourceFileInfo(fileUri);
-            if (sourceFileInfo && this._checkTypes(sourceFileInfo, token)) {
+            if (sourceFileInfo && this._checkTypes(sourceFileInfo, token, { skipFileNeededCheck: true })) {
                 return true;
             }
             return false;
@@ -1927,7 +1927,11 @@ export class Program {
         return false;
     }
 
-    private _checkTypes(fileToCheck: SourceFileInfo, token: CancellationToken, chainedByList?: SourceFileInfo[]) {
+    private _checkTypes(
+        fileToCheck: SourceFileInfo,
+        token: CancellationToken,
+        options?: { chainedByList?: SourceFileInfo[]; skipFileNeededCheck?: boolean }
+    ) {
         return this._logTracker.log(`analyzing: ${fileToCheck.uri}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting
@@ -1942,7 +1946,7 @@ export class Program {
                 return false;
             }
 
-            if (!this._shouldCheckFile(fileToCheck)) {
+            if (!options?.skipFileNeededCheck && !this._shouldCheckFile(fileToCheck)) {
                 logState.suppress();
                 return false;
             }
@@ -1961,7 +1965,7 @@ export class Program {
             if (!this._disableChecker) {
                 // For ipython, make sure we check all its dependent files first since
                 // their results can affect this file's result.
-                const dependentFiles = this._checkDependentFiles(fileToCheck, chainedByList, token);
+                const dependentFiles = this._checkDependentFiles(fileToCheck, options?.chainedByList, token);
 
                 if (this._preCheckCallback) {
                     const parseResults = fileToCheck.sourceFile.getParserOutput();
@@ -2050,7 +2054,7 @@ export class Program {
             const handle = this._cacheManager.pauseTracking();
             try {
                 for (let i = chainedByList.length - 1; i >= startIndex; i--) {
-                    this._checkTypes(chainedByList[i], token, chainedByList);
+                    this._checkTypes(chainedByList[i], token, { chainedByList });
                 }
             } finally {
                 handle.dispose();

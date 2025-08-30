@@ -360,7 +360,7 @@ test('TypedDictClosed2', () => {
 
 test('TypedDictClosed3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed3.py']);
-    TestUtils.validateResults(analysisResults, 10);
+    TestUtils.validateResults(analysisResults, 12);
 });
 
 test('TypedDictClosed4', () => {

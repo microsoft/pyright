@@ -84,6 +84,15 @@ interface SupportedVersionInfo {
     supportedPlatforms?: string[];
 }
 
+interface CachedDir {
+    entries: Map<string, Dirent>;
+
+    // A set of names in this directory (either subdirectories or
+    // file names without extensions) that could potentially resolve
+    // a module import. This is useful for quickly checking whether a full search should be done.
+    resolvableNames: Set<string>;
+}
+
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
 export const supportedSourceFileExtensions = ['.py', '.pyi'];
 export const supportedFileExtensions = [...supportedSourceFileExtensions, ...supportedNativeLibExtensions];
@@ -105,7 +114,7 @@ export class ImportResolver {
     private _cachedTypeshedThirdPartyPath: Uri | undefined;
     private _cachedTypeshedThirdPartyPackagePaths: Map<string, Uri[]> | undefined;
     private _cachedTypeshedThirdPartyPackageRoots: Uri[] | undefined;
-    private _cachedEntriesForPath = new Map<string, Dirent[]>();
+    private _cachedEntriesForPath = new Map<string, CachedDir>();
     private _cachedFilesForPath = new Map<string, Uri[]>();
     private _cachedDirExistenceForRoot = new Map<string, boolean>();
     private _stdlibModules: Set<string> | undefined;
@@ -508,22 +517,38 @@ export class ImportResolver {
         return undefined;
     }
 
-    protected readdirEntriesCached(uri: Uri): Dirent[] {
+    protected readdirEntriesCached(uri: Uri): CachedDir {
         const cachedValue = this._cachedEntriesForPath.get(uri.key);
         if (cachedValue) {
             return cachedValue;
         }
 
-        let newCacheValue: Dirent[];
+        const newCachedDir: CachedDir = {
+            entries: new Map<string, Dirent>(),
+            resolvableNames: new Set(),
+        };
         try {
-            newCacheValue = this.fileSystem.readdirEntriesSync(uri);
+            const entries = this.fileSystem.readdirEntriesSync(uri);
+            entries.forEach((entry) => {
+                newCachedDir.entries.set(entry.name, entry);
+                const resolvableName = entry.isFile()
+                    ? stripFileExtension(entry.name, /* multiDotExtension */ true)
+                    : entry.name;
+                newCachedDir.resolvableNames.add(resolvableName);
+
+                if (entry.isDirectory() && entry.name.endsWith(stubsSuffix)) {
+                    newCachedDir.resolvableNames.add(
+                        resolvableName.substring(0, resolvableName.length - stubsSuffix.length)
+                    );
+                }
+            });
         } catch {
-            newCacheValue = [];
+            // Swallow error
         }
 
-        // Populate cache for next time.
-        this._cachedEntriesForPath.set(uri.key, newCacheValue);
-        return newCacheValue;
+        // Populate cache.
+        this._cachedEntriesForPath.set(uri.key, newCachedDir);
+        return newCachedDir;
     }
 
     // Resolves the import and returns the path if it exists, otherwise
@@ -580,7 +605,7 @@ export class ImportResolver {
 
             this.cachedParentImportResults.checked(current!, importName, importPath);
 
-            if (result.isImportFound) {
+            if (result?.isImportFound) {
                 // This will make cache to point to actual path that contains the module we found
                 importPath.importPath = current;
 
@@ -614,9 +639,8 @@ export class ImportResolver {
             // Started at root, so this can't be a file.
             return false;
         }
-        const fileName = uri.fileName;
-        const entries = this.readdirEntriesCached(directory);
-        const entry = entries.find((entry) => entry.name === fileName);
+        const cachedDir = this.readdirEntriesCached(directory);
+        const entry = cachedDir.entries.get(uri.fileName);
         if (entry?.isFile()) {
             return true;
         }
@@ -646,9 +670,8 @@ export class ImportResolver {
 
         // Otherwise not a root, so read the entries we have cached to see if
         // the directory exists or not.
-        const directoryName = uri.fileName;
-        const entries = this.readdirEntriesCached(parent);
-        const entry = entries.find((entry) => entry.name === directoryName);
+        const cachedDir = this.readdirEntriesCached(parent);
+        const entry = cachedDir.entries.get(uri.fileName);
         if (entry?.isDirectory()) {
             return true;
         }
@@ -696,7 +719,13 @@ export class ImportResolver {
         useStubPackage = false,
         allowPyi = true,
         lookForPyTyped = false
-    ): ImportResult {
+    ): ImportResult | undefined {
+        // Before we do additional work, see if this directory can possibly
+        // resolve this import.
+        if (!this._isPossibleImportDir(rootPath, moduleDescriptor)) {
+            return undefined;
+        }
+
         if (allowPyi && useStubPackage) {
             // Look for packaged stubs first. PEP 561 indicates that package authors can ship
             // their stubs separately from their package implementation by appending the string
@@ -816,7 +845,7 @@ export class ImportResolver {
 
         // Enumerate all of the files and directories in the path, expanding links.
         const entries = getFileSystemEntriesFromDirEntries(
-            this.readdirEntriesCached(dirPath),
+            this.readdirEntriesCached(dirPath).entries.values(),
             this.fileSystem,
             dirPath
         );
@@ -899,6 +928,28 @@ export class ImportResolver {
         }
 
         return implicitImportMap.size > 0 ? implicitImportMap : undefined;
+    }
+
+    private _isPossibleImportDir(rootPath: Uri, moduleDescriptor: ImportedModuleDescriptor): boolean {
+        const cachedDir = this.readdirEntriesCached(rootPath);
+
+        const isPotentialMatch = (name: string): boolean => {
+            return cachedDir.resolvableNames.has(name);
+        };
+
+        if (moduleDescriptor.nameParts.length > 0) {
+            return isPotentialMatch(moduleDescriptor.nameParts[0]);
+        }
+
+        if (moduleDescriptor.importedSymbols) {
+            for (const key of moduleDescriptor.importedSymbols) {
+                if (isPotentialMatch(key)) {
+                    return true;
+                }
+            }
+        }
+
+        return isPotentialMatch('__init__');
     }
 
     private _resolveImportStrict(
@@ -1570,7 +1621,7 @@ export class ImportResolver {
                 /* lookForPyTyped */ false
             );
 
-            if (typingsImport.isImportFound) {
+            if (typingsImport?.isImportFound) {
                 // We will treat typings files as "local" rather than "third party".
                 typingsImport.importType = ImportType.Local;
                 typingsImport.isLocalTypingsFile = true;
@@ -1868,7 +1919,7 @@ export class ImportResolver {
                         importLogger
                     );
 
-                    if (importInfo.isImportFound) {
+                    if (importInfo?.isImportFound) {
                         let importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
 
                         // Handle 'typing_extensions' as a special case because it's
@@ -1894,7 +1945,7 @@ export class ImportResolver {
 
         if (stdlibRoot) {
             const readDir = (root: Uri, prefix: string | undefined) => {
-                this.readdirEntriesCached(root).forEach((entry) => {
+                this.readdirEntriesCached(root).entries.forEach((entry) => {
                     if (entry.isDirectory()) {
                         const dirRoot = root.combinePaths(entry.name);
                         readDir(dirRoot, prefix ? `${prefix}.${entry.name}` : entry.name);
@@ -1931,11 +1982,11 @@ export class ImportResolver {
         this._cachedTypeshedThirdPartyPackagePaths = new Map<string, Uri[]>();
 
         if (thirdPartyDir) {
-            this.readdirEntriesCached(thirdPartyDir).forEach((outerEntry) => {
+            this.readdirEntriesCached(thirdPartyDir).entries.forEach((outerEntry) => {
                 if (outerEntry.isDirectory()) {
                     const innerDirPath = thirdPartyDir.combinePaths(outerEntry.name);
 
-                    this.readdirEntriesCached(innerDirPath).forEach((innerEntry) => {
+                    this.readdirEntriesCached(innerDirPath).entries.forEach((innerEntry) => {
                         if (innerEntry.name === '@python2') {
                             return;
                         }
@@ -2337,14 +2388,14 @@ export class ImportResolver {
                 /* allowNativeLib */ true,
                 /* useStubPackage */ false,
                 /* allowPyi */ false
-            ) || {
+            ) ?? {
                 importName,
                 isRelative: true,
                 isImportFound: false,
                 isPartlyResolved: false,
                 isNamespacePackage: false,
                 isStubPackage: false,
-                importLogger,
+                isInitFilePresent: false,
                 resolvedUris: [],
                 importType: ImportType.Local,
                 isStubFile: false,
@@ -2383,11 +2434,13 @@ export class ImportResolver {
         let newCacheValue: Uri[] = [];
         try {
             const entriesInDir = this.readdirEntriesCached(dirPath);
-            const filesInDir = entriesInDir.filter((f) => f.isFile());
+            const filesInDir: Dirent<string>[] = [];
 
-            // Add any symbolic links that point to files.
-            entriesInDir.forEach((f) => {
-                if (f.isSymbolicLink() && tryStat(this.fileSystem, dirPath.combinePaths(f.name))?.isFile()) {
+            // Add any files or symbolic links that point to files.
+            entriesInDir.entries.forEach((f) => {
+                if (f.isFile()) {
+                    filesInDir.push(f);
+                } else if (f.isSymbolicLink() && tryStat(this.fileSystem, dirPath.combinePaths(f.name))?.isFile()) {
                     filesInDir.push(f);
                 }
             });
@@ -2475,7 +2528,7 @@ export class ImportResolver {
     ) {
         // Enumerate all of the files and directories in the path, expanding links.
         const entries = getFileSystemEntriesFromDirEntries(
-            this.readdirEntriesCached(currentPath),
+            this.readdirEntriesCached(currentPath).entries.values(),
             this.fileSystem,
             currentPath
         );

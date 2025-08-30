@@ -188,6 +188,7 @@ export interface ParserOutput {
     containsWildcardImport: boolean;
     typingSymbolAliases: Map<string, string>;
     hasTypeAnnotations: boolean;
+    lines: TextRangeCollection<TextRange>;
 }
 
 export interface ParseFileResults {
@@ -195,7 +196,6 @@ export interface ParseFileResults {
     contentHash: number;
     parserOutput: ParserOutput;
     tokenizerOutput: TokenizerOutput;
-    lines: TextRangeCollection<TextRange>;
 }
 
 export interface ParseExpressionTextResults<T extends ParseNode> {
@@ -298,9 +298,9 @@ export class Parser {
                 containsWildcardImport: this._containsWildcardImport,
                 typingSymbolAliases: this._typingSymbolAliases,
                 hasTypeAnnotations: this._hasTypeAnnotations,
+                lines: this._tokenizerOutput!.lines,
             },
             tokenizerOutput: this._tokenizerOutput!,
-            lines: this._tokenizerOutput!.lines,
         };
     }
 
