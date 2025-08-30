@@ -23188,7 +23188,9 @@ export function createTypeEvaluator(
                     const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode);
                     const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
                     if (usageScope === declScope) {
-                        return;
+                        if (!isFlowPathBetweenNodes(decl.node, usageNode)) {
+                            return;
+                        }
                     }
                 }
             }
