@@ -27772,7 +27772,10 @@ export function createTypeEvaluator(
                 for (let i = positionalParamCount; i < baseParamDetails.positionParamCount; i++) {
                     const baseParamInfo = baseParamDetails.params[i];
 
-                    if (baseParamInfo.kind === ParamKind.Standard && baseParamInfo.param.category === ParamCategory.Simple) {
+                    if (
+                        baseParamInfo.kind === ParamKind.Standard &&
+                        baseParamInfo.param.category === ParamCategory.Simple
+                    ) {
                         const baseName = baseParamInfo.param.name;
 
                         // See if the override defines a parameter with the same name that can be used as a keyword
