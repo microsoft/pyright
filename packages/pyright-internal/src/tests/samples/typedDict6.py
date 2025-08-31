@@ -81,3 +81,17 @@ movie12: Movie12 = {"title": "Two Towers", "predecessor": {"title": "Fellowship"
 # This should generate an error because the name doesn't match.
 # the arguments are missing.
 Movie13 = TypedDict("NotMovie13", {"name": str, "year": int})
+
+
+# This should generate an error because CustomType1 is a forward reference
+# and is not quoted.
+Movie14 = TypedDict("Movie14", {"title": CustomType1, "year": "CustomType2"})
+
+# This should generate an error because CustomType2 is a forward reference
+# and is not quoted.
+Movie15 = TypedDict("Movie15", title="CustomType1", year=CustomType2)
+
+
+class CustomType1: ...
+class CustomType2: ...
+
