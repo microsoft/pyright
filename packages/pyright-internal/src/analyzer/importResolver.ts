@@ -14,7 +14,7 @@ import { appendArray, flatten, getMapValues, getOrAdd } from '../common/collecti
 import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/configOptions';
 import { Host } from '../common/host';
 import { stubsSuffix } from '../common/pathConsts';
-import { stripFileExtension } from '../common/pathUtils';
+import { getFileExtension, stripFileExtension } from '../common/pathUtils';
 import { PythonVersion, pythonVersion3_0 } from '../common/pythonVersion';
 import { ServiceProvider } from '../common/serviceProvider';
 import * as StringUtils from '../common/stringUtils';
@@ -2799,23 +2799,30 @@ function _getModuleNameInfoFromPath(
     fileUri: Uri,
     stripTopContainerDir = false
 ): ModuleNameInfoFromPath | undefined {
-    let fileUriWithoutExtension = fileUri.stripExtension();
-
-    // If module is native, strip platform part, such as 'cp36-win_amd64' in 'mtrand.cp36-win_amd64'.
-    if (_isNativeModuleFileExtension(fileUri.lastExtension)) {
-        fileUriWithoutExtension = fileUriWithoutExtension.stripExtension();
-    }
-
-    if (!fileUriWithoutExtension.startsWith(containerPath)) {
+    if (!fileUri.startsWith(containerPath)) {
         return undefined;
     }
 
-    // Strip off the '/__init__' if it's present.
-    if (fileUriWithoutExtension.pathEndsWith('__init__')) {
-        fileUriWithoutExtension = fileUriWithoutExtension.getDirectory();
+    const parts = Array.from(containerPath.getRelativePathComponents(fileUri));
+    if (parts.length > 0) {
+        const origLastPart = parts[parts.length - 1];
+
+        // Strip the file extension from the last part.
+        let newLastPart = stripFileExtension(origLastPart);
+
+        // If module is native, strip platform part, such as 'cp36-win_amd64' in 'mtrand.cp36-win_amd64'.
+        if (_isNativeModuleFileExtension(getFileExtension(origLastPart))) {
+            newLastPart = stripFileExtension(newLastPart);
+        }
+
+        parts[parts.length - 1] = newLastPart;
+
+        // Strip off the '/__init__' if it's present.
+        if (newLastPart === '__init__') {
+            parts.pop();
+        }
     }
 
-    const parts = Array.from(containerPath.getRelativePathComponents(fileUriWithoutExtension));
     if (stripTopContainerDir) {
         if (parts.length === 0) {
             return undefined;
