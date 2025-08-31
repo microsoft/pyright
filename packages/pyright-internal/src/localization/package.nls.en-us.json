@@ -1607,6 +1607,7 @@
             "message": "Expected \"def\", \"with\" or \"for\" to follow \"async\"",
             "comment": "{Locked='def','with','for','async'}"
         },
+        "unexpectedEof": "Unexpected EOF",
         "unexpectedExprToken": "Unexpected token at end of expression",
         "unexpectedIndent": "Unexpected indentation",
         "unexpectedUnindent": "Unindent not expected",
