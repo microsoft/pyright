@@ -27763,16 +27763,69 @@ export function createTypeEvaluator(
             }
 
             // Check for positional (named) parameters in the base method that
-            // do not exist in the override.
+            // are not matched positionally in the override. These base parameters
+            // are positional-or-keyword, so ensure the override still supports
+            // the name either explicitly as a named parameter (standard or keyword-only)
+            // or implicitly via **kwargs. If the override provides *args, positional
+            // calls are already validated above; here we focus on name compatibility.
             if (enforceParamNames && overrideParamDetails.kwargsIndex === undefined) {
                 for (let i = positionalParamCount; i < baseParamDetails.positionParamCount; i++) {
-                    const baseParam = baseParamDetails.params[i];
+                    const baseParamInfo = baseParamDetails.params[i];
 
-                    if (baseParam.kind === ParamKind.Standard && baseParam.param.category === ParamCategory.Simple) {
+                    if (baseParamInfo.kind === ParamKind.Standard && baseParamInfo.param.category === ParamCategory.Simple) {
+                        const baseName = baseParamInfo.param.name;
+
+                        // See if the override defines a parameter with the same name that can be used as a keyword
+                        // (i.e. not positional-only). This allows a base positional-or-keyword parameter to become
+                        // keyword-only in the override without violating substitutability.
+                        const matchingOverride = overrideParamDetails.params.find(
+                            (p) =>
+                                p.param.category === ParamCategory.Simple &&
+                                !!p.param.name &&
+                                p.param.name === baseName &&
+                                p.kind !== ParamKind.Positional
+                        );
+
+                        if (matchingOverride) {
+                            // Validate type compatibility for the renamed/moved parameter.
+                            if (
+                                !assignType(
+                                    matchingOverride.type,
+                                    baseParamInfo.type,
+                                    diag?.createAddendum(),
+                                    constraints,
+                                    AssignTypeFlags.Default
+                                )
+                            ) {
+                                diag?.addMessage(
+                                    LocAddendum.overrideParamType().format({
+                                        index: i + 1,
+                                        baseType: printType(baseParamInfo.type),
+                                        overrideType: printType(matchingOverride.type),
+                                    })
+                                );
+                                canOverride = false;
+                            }
+
+                            // If the base param has a default but the override's corresponding named
+                            // parameter doesn't, this is incompatible.
+                            if (baseParamInfo.defaultType && !matchingOverride.defaultType) {
+                                diag?.addMessage(
+                                    LocAddendum.overrideParamNoDefault().format({
+                                        index: i + 1,
+                                    })
+                                );
+                                canOverride = false;
+                            }
+
+                            continue;
+                        }
+
+                        // No matching named parameter found in override and no **kwargs to catch it.
                         diag?.addMessage(
                             LocAddendum.overrideParamNamePositionOnly().format({
                                 index: i + 1,
-                                baseName: baseParam.param.name || '*',
+                                baseName: baseParamInfo.param.name || '*',
                             })
                         );
                         canOverride = false;
