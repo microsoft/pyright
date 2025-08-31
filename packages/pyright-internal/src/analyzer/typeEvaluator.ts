@@ -27885,6 +27885,28 @@ export function createTypeEvaluator(
                             );
                             canOverride = false;
                         }
+                    } else {
+                        // Base has a **kwargs; ensure the added keyword-only parameter's
+                        // type is compatible with the base's **kwargs value type.
+                        const baseKwargsType = baseParamDetails.params[baseParamDetails.kwargsIndex].type;
+                        if (
+                            !assignType(
+                                paramInfo.type,
+                                baseKwargsType,
+                                diag?.createAddendum(),
+                                constraints,
+                                AssignTypeFlags.Default
+                            )
+                        ) {
+                            diag?.addMessage(
+                                LocAddendum.overrideParamKeywordType().format({
+                                    name: paramInfo.param.name ?? '?',
+                                    baseType: printType(baseKwargsType),
+                                    overrideType: printType(paramInfo.type),
+                                })
+                            );
+                            canOverride = false;
+                        }
                     }
                 }
             });
