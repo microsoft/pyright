@@ -862,10 +862,8 @@ export function isUnionableType(subtypes: Type[]): boolean {
     }
 
     // All subtypes need to be instantiable. Some types (like Any
-    // and None) are both instances and instantiable. It's OK to
-    // include some of these, but at least one subtype needs to
-    // be definitively instantiable (not an instance).
-    return (typeFlags & TypeFlags.Instantiable) !== 0 && (typeFlags & TypeFlags.Instance) === 0;
+    // and Never) are considered both instances and instantiable.
+    return (typeFlags & TypeFlags.Instantiable) !== 0;
 }
 
 export function derivesFromAnyOrUnknown(type: Type): boolean {
