@@ -846,24 +846,21 @@ export function preserveUnknown(type1: Type, type2: Type): AnyType | UnknownType
     }
 }
 
-// Determines whether the specified type is a type that can be
-// combined with other types for a union.
-export function isUnionableType(subtypes: Type[]): boolean {
-    // If all of the subtypes are TypeForm types, we know that they
-    // are unionable.
-    if (subtypes.every((t) => t.props?.typeForm !== undefined)) {
+// Determines whether the two types will produce a union using the "|" operator.
+export function isUnionable(leftType: Type, rightType: Type): boolean {
+    // If the type of LHS is Any (but is not actually the Any symbol), we
+    // can't determine whether "|" will produce a union.
+    if (isAnyOrUnknown(leftType) && !leftType.props?.specialForm) {
+        return false;
+    }
+
+    // If the subtypes are TypeForm types, we know that they are unionable.
+    if (leftType.props?.typeForm && rightType.props?.typeForm) {
         return true;
     }
 
-    let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
-
-    for (const subtype of subtypes) {
-        typeFlags &= subtype.flags;
-    }
-
-    // All subtypes need to be instantiable. Some types (like Any
-    // and Never) are considered both instances and instantiable.
-    return (typeFlags & TypeFlags.Instantiable) !== 0;
+    // Are both types instantiable?
+    return (leftType.flags & rightType.flags & TypeFlags.Instantiable) !== 0;
 }
 
 export function derivesFromAnyOrUnknown(type: Type): boolean {

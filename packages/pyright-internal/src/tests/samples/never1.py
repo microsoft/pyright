@@ -51,8 +51,9 @@ def func4():
     assert_never1()
 
 
-def func5(x: Any | Never):
+def func5(x: Any | Never, y: Never | Any):
     reveal_type(x, expected_text="Any")
+    reveal_type(y, expected_text="Any")
 
 
 reveal_type(assert_never1, expected_text="(val: Never) -> NoReturn")
