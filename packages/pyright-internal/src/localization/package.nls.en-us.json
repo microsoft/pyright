@@ -1970,7 +1970,7 @@
             "comment": "{Locked='__new__'}"
         },
         "newTypeClassNotAllowed": {
-            "message": "Class created with NewType cannot be used with instance and class checks",
+            "message": "Type created with NewType cannot be used with instance and class checks",
             "comment": "{Locked='NewType'}"
         },
         "noOverloadAssignable": "No overloaded function matches type \"{type}\"",
