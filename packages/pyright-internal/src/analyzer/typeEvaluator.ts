@@ -365,6 +365,7 @@ import {
     specializeForBaseClass,
     specializeTupleClass,
     specializeWithDefaultTypeArgs,
+    specializeWithUnknownTypeArgs,
     stripTypeForm,
     stripTypeFormRecursive,
     synthesizeTypeVarForSelfCls,
@@ -22338,14 +22339,12 @@ export function createTypeEvaluator(
                     return { type: AnyType.create() };
                 }
 
-                if (declaration.intrinsicType === 'type[self]') {
+                if (declaration.intrinsicType === '__class__') {
                     const classNode = ParseTreeUtils.getEnclosingClass(declaration.node) as ClassNode;
                     const classTypeInfo = getTypeOfClass(classNode);
                     return {
                         type: classTypeInfo
-                            ? TypeVarType.cloneAsBound(
-                                  synthesizeTypeVarForSelfCls(classTypeInfo.classType, /* isClsParam */ true)
-                              )
+                            ? specializeWithUnknownTypeArgs(classTypeInfo.classType, getTupleClassType())
                             : UnknownType.create(),
                     };
                 }
@@ -22374,7 +22373,7 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    if (declaration.intrinsicType === 'Dict[str, Any]') {
+                    if (declaration.intrinsicType === 'dict[str, Any]') {
                         const dictType = getBuiltInType(declaration.node, 'dict');
                         if (isInstantiableClass(dictType)) {
                             return {
