@@ -11,6 +11,7 @@
  * into an abstract syntax tree (AST).
  */
 
+import { Char } from '../common/charCodes';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
@@ -188,6 +189,7 @@ export interface ParserOutput {
     containsWildcardImport: boolean;
     typingSymbolAliases: Map<string, string>;
     hasTypeAnnotations: boolean;
+    lines: TextRangeCollection<TextRange>;
 }
 
 export interface ParseFileResults {
@@ -195,7 +197,6 @@ export interface ParseFileResults {
     contentHash: number;
     parserOutput: ParserOutput;
     tokenizerOutput: TokenizerOutput;
-    lines: TextRangeCollection<TextRange>;
 }
 
 export interface ParseExpressionTextResults<T extends ParseNode> {
@@ -298,9 +299,9 @@ export class Parser {
                 containsWildcardImport: this._containsWildcardImport,
                 typingSymbolAliases: this._typingSymbolAliases,
                 hasTypeAnnotations: this._hasTypeAnnotations,
+                lines: this._tokenizerOutput!.lines,
             },
             tokenizerOutput: this._tokenizerOutput!,
-            lines: this._tokenizerOutput!.lines,
         };
     }
 
@@ -3016,11 +3017,24 @@ export class Parser {
 
                 const firstCharCode = text.charCodeAt(0);
 
-                // Remove any non-printable characters.
-                this._addSyntaxError(
-                    LocMessage.invalidTokenChars().format({ text: `\\u${firstCharCode.toString(16)}` }),
-                    invalidToken
-                );
+                // If the invalid token is a line-continuation backslash at the end of the file,
+                // report a clearer error message consistent with Python: "Unexpected EOF".
+                const nextTok = this._peekToken();
+                const nextNextTok = this._peekToken(1);
+                const isBackslash = firstCharCode === Char.Backslash;
+                const isAtEofLineContinuation =
+                    isBackslash && nextTok.type === TokenType.NewLine && nextNextTok.type === TokenType.EndOfStream;
+
+                if (isAtEofLineContinuation) {
+                    this._addSyntaxError(LocMessage.unexpectedEof(), invalidToken);
+                } else {
+                    // Remove any non-printable characters.
+                    this._addSyntaxError(
+                        LocMessage.invalidTokenChars().format({ text: `\\u${firstCharCode.toString(16)}` }),
+                        invalidToken
+                    );
+                }
+
                 this._consumeTokensUntilType([TokenType.NewLine]);
                 break;
             }

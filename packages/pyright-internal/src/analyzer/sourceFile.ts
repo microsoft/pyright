@@ -110,8 +110,9 @@ class WriteableData {
 
     moduleSymbolTable: SymbolTable | undefined;
 
-    // Reentrancy check for binding.
+    // Reentrancy check for binding and checking.
     isBindingInProgress = false;
+    isCheckingInProgress = false;
 
     // Diagnostics generated during different phases of analysis.
     parseDiagnostics: Diagnostic[] = [];
@@ -162,6 +163,7 @@ class WriteableData {
  noCircularDependencyConfirmed=${this.noCircularDependencyConfirmed}, 
  isBindingNeeded=${this.isBindingNeeded},
  isBindingInProgress=${this.isBindingInProgress},
+ isCheckingInProgress=${this.isCheckingInProgress},
  isCheckingNeeded=${this.isCheckingNeeded},
  isFileDeleted=${this.isFileDeleted},
  hitMaxImportDepth=${this.hitMaxImportDepth},
@@ -447,6 +449,12 @@ export class SourceFile {
     // in cases where memory is low. When info is needed, the file
     // will be re-parsed and rebound.
     dropParseAndBindInfo(): void {
+        // If we are actively binding or checking this file, we can't
+        // safely drop parse and binding info.
+        if (this._writableData.isBindingInProgress || this._writableData.isCheckingInProgress) {
+            return;
+        }
+
         this._fireFileDirtyEvent();
 
         this._writableData.parserOutput = undefined;
@@ -632,7 +640,6 @@ export class SourceFile {
                 return tokenizerOutput!;
             },
             text: this._writableData.parsedFileContents,
-            lines: this._writableData.tokenizerLines!,
         };
     }
 
@@ -799,6 +806,7 @@ export class SourceFile {
 
                 // Create dummy parse results.
                 this._writableData.parsedFileContents = '';
+                this._writableData.tokenizerLines = new TextRangeCollection<TextRange>([]);
 
                 this._writableData.parserOutput = {
                     parseTree: ModuleNode.create({ start: 0, length: 0 }),
@@ -807,9 +815,8 @@ export class SourceFile {
                     containsWildcardImport: false,
                     typingSymbolAliases: new Map<string, string>(),
                     hasTypeAnnotations: false,
+                    lines: this._writableData.tokenizerLines,
                 };
-
-                this._writableData.tokenizerLines = new TextRangeCollection<TextRange>([]);
 
                 this._writableData.tokenizerOutput = {
                     tokens: new TextRangeCollection<Token>([]),
@@ -936,6 +943,7 @@ export class SourceFile {
         assert(!this.isParseRequired(), `Check called before parsing: state=${this._writableData.debugPrint()}`);
         assert(!this.isBindingRequired(), `Check called before binding: state=${this._writableData.debugPrint()}`);
         assert(!this._writableData.isBindingInProgress, 'Check called while binding in progress');
+        assert(!this._writableData.isCheckingInProgress, 'Check called while checking in progress');
         assert(this.isCheckingRequired(), 'Check called unnecessarily');
         assert(this._writableData.parserOutput !== undefined, 'Parse results not available');
 
@@ -950,6 +958,7 @@ export class SourceFile {
                         sourceMapper,
                         dependentFiles
                     );
+                    this._writableData.isCheckingInProgress = true;
                     checker.check();
                     this._writableData.isCheckingNeeded = false;
 
@@ -987,6 +996,8 @@ export class SourceFile {
 
                 throw e;
             } finally {
+                this._writableData.isCheckingInProgress = false;
+
                 // Clear any circular dependencies associated with this file.
                 // These will be detected by the program module and associated
                 // with the source file right before it is finalized.

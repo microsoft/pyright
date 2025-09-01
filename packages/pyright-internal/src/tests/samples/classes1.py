@@ -37,9 +37,9 @@ class F(E):
     pass
 
 
-class G(E, metaclass=type):
-    def my_method(self) -> Self:
-        reveal_type(__class__, expected_text="type[Self@G]")
+class G[T](E, metaclass=type):
+    def my_method(self) -> "G":
+        reveal_type(__class__, expected_text="type[G[Unknown]]")
         return __class__()
 
 

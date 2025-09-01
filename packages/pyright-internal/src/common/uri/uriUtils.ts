@@ -166,11 +166,12 @@ export function getFileSystemEntries(fs: ReadOnlyFileSystem, uri: Uri): FileSyst
 
 // Sorts the entires into files and directories, including any symbolic links.
 export function getFileSystemEntriesFromDirEntries(
-    dirEntries: Dirent[],
+    dirEntries: Iterable<Dirent>,
     fs: ReadOnlyFileSystem,
     uri: Uri
 ): FileSystemEntries {
-    const entries = dirEntries.sort((a, b) => {
+    const entries = Array.isArray(dirEntries) ? dirEntries.slice() : Array.from(dirEntries);
+    entries.sort((a, b) => {
         if (a.name < b.name) {
             return -1;
         } else if (a.name > b.name) {

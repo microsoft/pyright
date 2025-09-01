@@ -150,7 +150,7 @@ export class FullAccessHost extends LimitedAccessHost {
         throwIfCancellationRequested(token);
 
         // What to do about conda here?
-        return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+        return new Promise<ScriptOutput>((resolve, reject) => {
             let stdout = '';
             let stderr = '';
             const commandLineArgs = ['-I', script.getFilePath(), ...args];
@@ -174,13 +174,82 @@ export class FullAccessHost extends LimitedAccessHost {
                     tokenWatch.dispose();
                     reject(e);
                 });
-                child.on('exit', () => {
+                child.on('close', (code) => {
                     tokenWatch.dispose();
-                    resolve({ stdout, stderr });
+                    resolve({ stdout, stderr, exitCode: code ?? undefined });
                 });
             } else {
                 tokenWatch.dispose();
                 reject(new Error(`Cannot start python interpreter with script ${script}`));
+            }
+        });
+    }
+
+    override runSnippet(
+        pythonPath: Uri | undefined,
+        code: string,
+        args: string[],
+        cwd: Uri,
+        token: CancellationToken
+    ): Promise<ScriptOutput> {
+        // If it is already cancelled, don't bother to run snippet.
+        throwIfCancellationRequested(token);
+
+        // What to do about conda here?
+        return new Promise<ScriptOutput>((resolve, reject) => {
+            const commandLineArgs = ['-c', code, ...args];
+
+            const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
+                child_process.spawn(p, commandLineArgs, {
+                    cwd: cwd.getFilePath(),
+                    stdio: ['pipe', 'pipe', 'pipe'],
+                    shell: this.shouldUseShellToRunInterpreter(p),
+                })
+            );
+            const tokenWatch = onCancellationRequested(token, () => {
+                if (child) {
+                    terminateChild(child);
+                }
+                reject(new OperationCanceledException());
+            });
+            if (child) {
+                let stdout = '';
+                let stderr = '';
+                let output = '';
+
+                // Interleave stdout and stderr by capturing them with timestamps
+                const outputLines: Array<{ timestamp: number; type: 'stdout' | 'stderr'; data: string }> = [];
+
+                child.stdout?.on('data', (data) => {
+                    const text = data.toString();
+                    stdout += text;
+                    outputLines.push({ timestamp: Date.now(), type: 'stdout', data: text });
+                });
+
+                child.stderr?.on('data', (data) => {
+                    const text = data.toString();
+                    stderr += text;
+                    outputLines.push({ timestamp: Date.now(), type: 'stderr', data: text });
+                });
+
+                child.on('error', (error) => {
+                    reject(new Error(`Failed to start Python process: ${error.message}`));
+                });
+
+                child.on('close', (code) => {
+                    tokenWatch.dispose();
+
+                    // Sort by timestamp to get proper interleaving
+                    outputLines.sort((a, b) => a.timestamp - b.timestamp);
+
+                    // Combine output in chronological order
+                    output = outputLines.map((line) => line.data).join('');
+
+                    resolve({ stdout, stderr, output, exitCode: code ?? undefined });
+                });
+            } else {
+                tokenWatch.dispose();
+                reject(new Error(`Cannot start python interpreter with the given code snippet.`));
             }
         });
     }
