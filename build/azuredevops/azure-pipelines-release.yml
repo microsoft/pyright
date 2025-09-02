@@ -54,6 +54,7 @@ extends:
                 signing:
                   enabled: true
                   signType: 'real'
+                  signWithProd: true
               outputs:
                 - output: pipelineArtifact
                   displayName: 'publish vsix artifact'
