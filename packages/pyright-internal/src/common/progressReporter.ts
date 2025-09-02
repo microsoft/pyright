@@ -9,7 +9,7 @@
 
 export interface ProgressReporter {
     isEnabled(data: any): boolean;
-    isDisplayingProgess(): boolean;
+    isDisplayingProgress(): boolean;
     begin(): void;
     report(message: string): void;
     end(): void;
@@ -21,7 +21,7 @@ export class ProgressReportTracker implements ProgressReporter {
 
     constructor(private _reporter: ProgressReporter) {}
 
-    isDisplayingProgess(): boolean {
+    isDisplayingProgress(): boolean {
         return this._isDisplayingProgress;
     }
 
