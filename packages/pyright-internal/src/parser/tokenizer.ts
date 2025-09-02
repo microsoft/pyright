@@ -514,12 +514,14 @@ export class Tokenizer {
 
             case Char.Backslash: {
                 if (this._cs.nextChar === Char.CarriageReturn) {
-                    if (this._cs.lookAhead(2) === Char.LineFeed) {
-                        this._cs.advance(3);
-                    } else {
-                        this._cs.advance(2);
+                    const advance = this._cs.lookAhead(2) === Char.LineFeed ? 3 : 2;
+
+                    // If a line continuation (\\ + CR[LF]) appears at EOF, it's an error.
+                    if (this._cs.position + advance >= this._cs.length) {
+                        return this._handleInvalid();
                     }
 
+                    this._cs.advance(advance);
                     this._addLineRange();
 
                     if (this._tokens.length > 0 && this._tokens[this._tokens.length - 1].type === TokenType.NewLine) {
@@ -529,7 +531,14 @@ export class Tokenizer {
                 }
 
                 if (this._cs.nextChar === Char.LineFeed) {
-                    this._cs.advance(2);
+                    const advance = 2;
+
+                    // If a line continuation (\\ + LF) appears at EOF, it's an error.
+                    if (this._cs.position + advance >= this._cs.length) {
+                        return this._handleInvalid();
+                    }
+
+                    this._cs.advance(advance);
                     this._addLineRange();
 
                     if (this._tokens.length > 0 && this._tokens[this._tokens.length - 1].type === TokenType.NewLine) {

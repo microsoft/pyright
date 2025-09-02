@@ -120,3 +120,20 @@ class MovieNotRequiredYear(MovieBase):
 
 class MovieWithYear(MovieBase):
     year: NotRequired[int | None]
+
+
+class ParentNonOpen5(TypedDict, closed=True):
+    pass
+
+# This should generate an error because a subclass of
+# a closed TypedDict cannot be open.
+class ChildNotClosed5(ParentNonOpen5, closed=False):
+    pass
+
+class ParentNonOpen6(TypedDict, extra_items=str):
+    pass
+
+# This should generate an error because a subclass of
+# a closed TypedDict cannot be open.
+class ChildNotClosed6(ParentNonOpen6, closed=False):
+    pass
