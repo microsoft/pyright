@@ -14,6 +14,7 @@ import { getFileInfo } from './analyzerNodeInfo';
 import { getClassFullName, getTypeSourceId } from './parseTreeUtils';
 import { Arg, TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassType, ClassTypeFlags, SentinelLiteral, Type, TypeBase } from './types';
+import { computeMroLinearization } from './typeUtils';
 
 export function createSentinelType(
     evaluator: TypeEvaluator,
@@ -71,6 +72,8 @@ export function createSentinelType(
         evaluator.getTypeClassType()
     );
 
+    classType.shared.baseClasses.push(evaluator.getObjectType());
+    computeMroLinearization(classType);
     classType = ClassType.cloneWithLiteral(classType, new SentinelLiteral(fullClassName, className));
 
     let instanceType = ClassType.cloneAsInstance(classType);

@@ -1016,6 +1016,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; type: string }>(getRawString('Diagnostic.typedDictClosedExtras'));
         export const typedDictClosedNoExtras = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictClosedNoExtras'));
+        export const typedDictClosedFalseNonOpenBase = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictClosedFalseNonOpenBase'));
         export const typedDictDelete = () => getRawString('Diagnostic.typedDictDelete');
         export const typedDictEmptyName = () => getRawString('Diagnostic.typedDictEmptyName');
         export const typedDictEntryName = () => getRawString('Diagnostic.typedDictEntryName');
@@ -1151,6 +1153,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unannotatedFunctionSkipped'));
         export const unaryOperationNotAllowed = () => getRawString('Diagnostic.unaryOperationNotAllowed');
         export const unexpectedAsyncToken = () => getRawString('Diagnostic.unexpectedAsyncToken');
+        export const unexpectedEof = () => getRawString('Diagnostic.unexpectedEof');
         export const unexpectedExprToken = () => getRawString('Diagnostic.unexpectedExprToken');
         export const unexpectedIndent = () => getRawString('Diagnostic.unexpectedIndent');
         export const unexpectedUnindent = () => getRawString('Diagnostic.unexpectedUnindent');

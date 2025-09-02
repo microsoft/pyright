@@ -4417,6 +4417,11 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Skip this for keyword argument names.
+        if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.d.name === node) {
+            return;
+        }
+
         if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
             const type = this._evaluator.getType(node);
 

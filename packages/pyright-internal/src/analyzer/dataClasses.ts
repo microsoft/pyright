@@ -688,7 +688,8 @@ export function synthesizeDataClassMethods(
         }
     }
 
-    // Synthesize the __match_args__ class variable if it doesn't exist.
+    // Synthesize the __match_args__ class variable if it doesn't exist
+    // and match_args behavior is not explicitly disabled.
     const strType = evaluator.getBuiltInType(node, 'str');
     const tupleClassType = evaluator.getBuiltInType(node, 'tuple');
     if (
@@ -696,7 +697,8 @@ export function synthesizeDataClassMethods(
         isInstantiableClass(tupleClassType) &&
         strType &&
         isInstantiableClass(strType) &&
-        !symbolTable.has('__match_args__')
+        !symbolTable.has('__match_args__') &&
+        (classType.shared.dataClassBehaviors?.matchArgs ?? true)
     ) {
         const matchArgsNames: string[] = [];
         fullDataClassEntries.forEach((entry) => {
@@ -1433,6 +1435,12 @@ function applyDataClassBehaviorOverrideValue(
         case 'kw_only':
             if (argValue !== undefined) {
                 behaviors.keywordOnly = argValue;
+            }
+            break;
+
+        case 'match_args':
+            if (argValue !== undefined) {
+                behaviors.matchArgs = argValue;
             }
             break;
 
