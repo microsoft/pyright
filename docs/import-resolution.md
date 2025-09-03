@@ -41,7 +41,7 @@ Pyright uses the following mechanisms (in priority order) to determine which Pyt
 3. As a fallback, use the default Python environment (i.e. the one that is invoked when typing `python` in the shell).
 
 ### Editable installs
-If you want to use static analysis tools with an editable install, you should configure the editable install to use `.pth` files that contain file paths rather than executable lines (prefixed with `import`) that install import hooks. Only setuptools is known to use import hooks by default, other build backend generally default to path-based `.pth` files.
+If you want to use static analysis tools with an editable install, you should configure the editable install to use `.pth` files that contain file paths rather than executable lines (prefixed with `import`) that install import hooks. Only setuptools is known to use import hooks by default, other build backends generally default to path-based `.pth` files.
 
 Import hooks can provide an editable installation that is a more accurate representation of your real installation. However, because resolving module locations using an import hook requires executing Python code, they are not usable by Pyright and other static analysis tools. Therefore, if your editable install is configured to use import hooks, Pyright will be unable to find the corresponding source files.
 
