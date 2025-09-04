@@ -6,8 +6,7 @@
         "filesToAnalyzeCount": "[94Ml3][นั้{çøµñt} fïlës tø æñælÿzëẤğ倪İЂҰक्र्นั้ढूँ]",
         "filesToAnalyzeOne": "[2zuMu][นั้1 fïlë tø æñælÿzëẤğ倪İЂҰक्นั้ढूँ]",
         "findingReferences": "[0UmwS][นั้Fïñðïñg rëfërëñçësẤğ倪İЂҰक्นั้ढूँ]",
-        "organizeImports": "[KhOyl][นั้Ørgæñïzë ÏmpørtsẤğ倪İЂҰนั้ढूँ]",
-        "renameShadowedFile": "[E02Ab][นั้Rëñæmë \"{ølðFïlë}\" tø \"{ñëwFïlë}\"Ấğ倪İЂҰक्र्तिृนั้ढूँ]"
+        "organizeImports": "[KhOyl][นั้Ørgæñïzë ÏmpørtsẤğ倪İЂҰนั้ढूँ]"
     },
     "Completion": {
         "autoImportDetail": "[WdNQG][นั้Æµtø-ïmpørtẤğ倪İนั้ढूँ]",
@@ -470,7 +469,6 @@
         "starPatternInOrPattern": "[y9LX3][นั้§tær pættërñ çæññøt þë ØRëð wïthïñ øthër pættërñsẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
         "starStarWildcardNotAllowed": "[Ll1UV][นั้** çæññøt þë µsëð wïth wïlðçærð \"_\"Ấğ倪İЂҰक्र्तिृまนั้ढूँ]",
         "staticClsSelfParam": "[mO4QU][นั้§tætïç mëthøðs shøµlð ñøt tækë æ \"self\" ør \"cls\" pæræmëtërẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्นั้ढूँ]",
-        "stdlibModuleOverridden": "[AV6K3][นั้\"{pæth}\" ïs øvërrïðïñg thë stdlib møðµlë \"{ñæmë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
         "stringNonAsciiBytes": "[dFNRn][นั้Ñøñ-ASCII çhæræçtër ñøt ælløwëð ïñ þÿtës strïñg lïtërælẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "stringNotSubscriptable": "[hKZT7][นั้§trïñg ëxprëssïøñ çæññøt þë sµþsçrïptëð ïñ tÿpë ëxprëssïøñ; ëñçløsë ëñtïrë ëxprëssïøñ ïñ qµøtësẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्นั้ढूँ]",
         "stringUnsupportedEscape": "[K2WsY][นั้Üñsµppørtëð ësçæpë sëqµëñçë ïñ strïñg lïtërælẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",

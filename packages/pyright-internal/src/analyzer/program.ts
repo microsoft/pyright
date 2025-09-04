@@ -652,7 +652,7 @@ export class Program {
 
                 // Check the open files.
                 for (const sourceFileInfo of openFiles) {
-                    if (this._checkTypes(sourceFileInfo, token)) {
+                    if (this._checkTypes(sourceFileInfo)) {
                         if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                             return true;
                         }
@@ -676,7 +676,7 @@ export class Program {
                         continue;
                     }
 
-                    if (this._checkTypes(sourceFileInfo, token)) {
+                    if (this._checkTypes(sourceFileInfo)) {
                         if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                             return true;
                         }
@@ -693,7 +693,7 @@ export class Program {
     analyzeFile(fileUri: Uri, token: CancellationToken = CancellationToken.None): boolean {
         return this._runEvaluatorWithCancellationToken(token, () => {
             const sourceFileInfo = this.getSourceFileInfo(fileUri);
-            if (sourceFileInfo && this._checkTypes(sourceFileInfo, token, { skipFileNeededCheck: true })) {
+            if (sourceFileInfo && this._checkTypes(sourceFileInfo, { skipFileNeededCheck: true })) {
                 return true;
             }
             return false;
@@ -1932,7 +1932,6 @@ export class Program {
 
     private _checkTypes(
         fileToCheck: SourceFileInfo,
-        token: CancellationToken,
         options?: { chainedByList?: SourceFileInfo[]; skipFileNeededCheck?: boolean }
     ) {
         // For very large programs, we may need to discard the evaluator and
@@ -1972,7 +1971,7 @@ export class Program {
             if (!this._disableChecker) {
                 // For ipython, make sure we check all its dependent files first since
                 // their results can affect this file's result.
-                const dependentFiles = this._checkDependentFiles(fileToCheck, options?.chainedByList, token);
+                const dependentFiles = this._checkDependentFiles(fileToCheck, options?.chainedByList);
 
                 if (this._preCheckCallback) {
                     const parseResults = fileToCheck.sourceFile.getParserOutput();
@@ -1982,13 +1981,11 @@ export class Program {
                 }
 
                 if (boundFile) {
-                    const execEnv = this._configOptions.findExecEnvironment(fileToCheck.uri);
                     fileToCheck.sourceFile.check(
                         this.configOptions,
                         this._lookUpImport,
                         this._importResolver,
                         this._evaluator!,
-                        this._createSourceMapper(execEnv, token, fileToCheck),
                         dependentFiles
                     );
                 }
@@ -2026,11 +2023,7 @@ export class Program {
         });
     }
 
-    private _checkDependentFiles(
-        fileToCheck: SourceFileInfo,
-        chainedByList: SourceFileInfo[] | undefined,
-        token: CancellationToken
-    ) {
+    private _checkDependentFiles(fileToCheck: SourceFileInfo, chainedByList: SourceFileInfo[] | undefined) {
         if (fileToCheck.ipythonMode !== IPythonMode.CellDocs) {
             return undefined;
         }
@@ -2057,7 +2050,7 @@ export class Program {
             const handle = this._cacheManager.pauseTracking();
             try {
                 for (let i = chainedByList.length - 1; i >= startIndex; i--) {
-                    this._checkTypes(chainedByList[i], token, { chainedByList });
+                    this._checkTypes(chainedByList[i], { chainedByList });
                 }
             } finally {
                 handle.dispose();
