@@ -394,9 +394,6 @@ export interface DiagnosticRuleSet {
     // Report code that is determined to be unreachable via type analysis.
     reportUnreachable: DiagnosticLevel;
 
-    // Report files that match stdlib modules.
-    reportShadowedImports: DiagnosticLevel;
-
     // Report missing @override decorator.
     reportImplicitOverride: DiagnosticLevel;
 }
@@ -515,7 +512,6 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
         DiagnosticRule.reportMatchNotExhaustive,
         DiagnosticRule.reportUnreachable,
-        DiagnosticRule.reportShadowedImports,
         DiagnosticRule.reportImplicitOverride,
     ];
 }
@@ -623,7 +619,6 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
         reportUnreachable: 'none',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
     };
 
@@ -727,7 +722,6 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
         reportUnreachable: 'none',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
     };
 
@@ -831,7 +825,6 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
         reportUnreachable: 'none',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
     };
 
@@ -935,7 +928,6 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'error',
         reportUnreachable: 'none',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
     };
 

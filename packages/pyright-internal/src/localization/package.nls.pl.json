@@ -6,8 +6,7 @@
         "filesToAnalyzeCount": "Pliki do przeanalizowania: {count}",
         "filesToAnalyzeOne": "1 plik do analizy",
         "findingReferences": "Znajdowanie odwołań",
-        "organizeImports": "Organizuj dyrektywy Import",
-        "renameShadowedFile": "Zmień nazwę „{oldFile}” na „{newFile}”"
+        "organizeImports": "Organizuj dyrektywy Import"
     },
     "Completion": {
         "autoImportDetail": "Automatyczne importowanie",
@@ -470,7 +469,6 @@
         "starPatternInOrPattern": "Wzór gwiazdy nie może mieć wartości ORed w ramach innych wzorów",
         "starStarWildcardNotAllowed": "Symbolu ** nie można używać z symbolem wieloznacznym „_”",
         "staticClsSelfParam": "Metody statyczne nie powinny przyjmować parametru „self” ani „cls”.",
-        "stdlibModuleOverridden": "Ścieżka „{path}” zastępuje moduł stdlib „{name}”",
         "stringNonAsciiBytes": "Znak inny niż ASCII jest niedozwolony w literale ciągu bajtów",
         "stringNotSubscriptable": "Wyrażenie ciągu nie może być indeksowane w wyrażeniu typu; ujmij całe wyrażenie w cudzysłowy",
         "stringUnsupportedEscape": "Nieobsługiwana sekwencja ucieczki w literale ciągu",

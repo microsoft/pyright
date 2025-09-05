@@ -12,8 +12,7 @@
         "filesToAnalyzeCount": "{count} files to analyze",
         "filesToAnalyzeOne": "1 file to analyze",
         "findingReferences": "Finding references",
-        "organizeImports": "Organize Imports",
-        "renameShadowedFile": "Rename \"{oldFile}\" to \"{newFile}\""
+        "organizeImports": "Organize Imports"
     },
     "Completion": {
         "autoImportDetail": "Auto-import",
@@ -1225,10 +1224,6 @@
         "staticClsSelfParam": {
             "message": "Static methods should not take a \"self\" or \"cls\" parameter",
             "comment": "{Locked='self','cls'}"
-        },
-        "stdlibModuleOverridden": {
-            "message": "\"{path}\" is overriding the stdlib module \"{name}\"",
-            "comment": "{Locked='stdlib'}"
         },
         "stringNonAsciiBytes": {
             "message": "Non-ASCII character not allowed in bytes string literal",

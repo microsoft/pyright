@@ -44,7 +44,6 @@ import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { Scope } from './scope';
-import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
@@ -937,7 +936,6 @@ export class SourceFile {
         importLookup: ImportLookup,
         importResolver: ImportResolver,
         evaluator: TypeEvaluator,
-        sourceMapper: SourceMapper,
         dependentFiles?: ParserOutput[]
     ) {
         assert(!this.isParseRequired(), `Check called before parsing: state=${this._writableData.debugPrint()}`);
@@ -955,7 +953,6 @@ export class SourceFile {
                         importResolver,
                         evaluator,
                         this._writableData.parserOutput!,
-                        sourceMapper,
                         dependentFiles
                     );
                     this._writableData.isCheckingInProgress = true;

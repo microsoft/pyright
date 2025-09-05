@@ -6,8 +6,7 @@
         "filesToAnalyzeCount": "{count} Dateien zu analysieren",
         "filesToAnalyzeOne": "1 zu analysierende Datei",
         "findingReferences": "Verweise werden gesucht",
-        "organizeImports": "Import-Direktiven organisieren",
-        "renameShadowedFile": "\"{oldFile}\" in \"{newFile}\" umbenennen"
+        "organizeImports": "Import-Direktiven organisieren"
     },
     "Completion": {
         "autoImportDetail": "Autoimport",
@@ -470,7 +469,6 @@
         "starPatternInOrPattern": "Das Sternmuster kann in anderen Mustern nicht ORed sein.",
         "starStarWildcardNotAllowed": "** kann nicht zusammen mit Platzhalter \"_\" verwendet werden",
         "staticClsSelfParam": "Statische Methoden dürfen keinen \"self\"- oder \"cls\"-Parameter annehmen.",
-        "stdlibModuleOverridden": "\"{path}\" überschreibt das stdlib-Modul \"{name}\"",
         "stringNonAsciiBytes": "Ein Nicht-ASCII-Zeichen ist im Zeichenfolgenliteral in Bytes nicht zulässig.",
         "stringNotSubscriptable": "Der Zeichenfolgenausdruck kann im Typausdruck nicht tiefgestellt werden; schließen Sie den samten Ausdruck in Anführungszeichen ein",
         "stringUnsupportedEscape": "Nicht unterstützte Escapesequenz im Zeichenfolgenliteral.",

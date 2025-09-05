@@ -6,8 +6,7 @@
         "filesToAnalyzeCount": "analiz edilecek {count} dosya var",
         "filesToAnalyzeOne": "Analiz edilecek 1 dosya",
         "findingReferences": "Başvurular bulunuyor",
-        "organizeImports": "İçeri Aktarmaları Düzenle",
-        "renameShadowedFile": "\"{oldFile}\" dosyasını \"{newFile}\" olarak yeniden adlandır"
+        "organizeImports": "İçeri Aktarmaları Düzenle"
     },
     "Completion": {
         "autoImportDetail": "Otomatik içeri aktarma",
@@ -470,7 +469,6 @@
         "starPatternInOrPattern": "Yıldız deseni diğer desenlerde ORed olamaz",
         "starStarWildcardNotAllowed": "\"_\" joker karakteriyle ** kullanılamaz",
         "staticClsSelfParam": "Static metotları \"self\" veya \"cls\" parametresi almamalıdır",
-        "stdlibModuleOverridden": "\"{path}\", \"{name}\" stdlib modülünü geçersiz kılıyor",
         "stringNonAsciiBytes": "ASCII olmayan karaktere bayt sabit değerli dizesinde izin verilmez",
         "stringNotSubscriptable": "Tür ifadesinde dize ifadesi alt simge olarak belirtilemez; ifadenin tamamını tırnak içine alın",
         "stringUnsupportedEscape": "Dize sabit değerinde desteklenmeyen kaçış dizisi",

@@ -6,8 +6,7 @@
         "filesToAnalyzeCount": "Počet souborů k analýze: {count}",
         "filesToAnalyzeOne": "1 soubor k analýze",
         "findingReferences": "Hledají se odkazy",
-        "organizeImports": "Uspořádat direktivy Import",
-        "renameShadowedFile": "Přejmenovat „{oldFile}“ na „{newFile}“"
+        "organizeImports": "Uspořádat direktivy Import"
     },
     "Completion": {
         "autoImportDetail": "Automatický import",
@@ -470,7 +469,6 @@
         "starPatternInOrPattern": "Vzor hvězdy nemůže být ORed v jiných vzorech",
         "starStarWildcardNotAllowed": "** není možné použít se zástupným znakem _",
         "staticClsSelfParam": "Statické metody by neměly přijímat parametr self nebo cls",
-        "stdlibModuleOverridden": "„{path}“ přepisuje modul stdlib „{name}“",
         "stringNonAsciiBytes": "Znak jiný než ASCII není povolený v bajtech řetězcového literálu",
         "stringNotSubscriptable": "Řetězcový výraz není možné ve výrazu typu zadat jako dolní index. Uzavřete celý výraz do uvozovek.",
         "stringUnsupportedEscape": "Nepodporovaná řídicí sekvence v řetězcovém literálu",

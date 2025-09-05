@@ -6,8 +6,7 @@
         "filesToAnalyzeCount": "要分析的 {count} 個檔案",
         "filesToAnalyzeOne": "1 個要分析的檔案",
         "findingReferences": "尋找參考",
-        "organizeImports": "整理匯入",
-        "renameShadowedFile": "將 \"{oldFile}\" 重新命名為 \"{newFile}\""
+        "organizeImports": "整理匯入"
     },
     "Completion": {
         "autoImportDetail": "自動匯入",
@@ -470,7 +469,6 @@
         "starPatternInOrPattern": "星形模式不能在其他模式內使用 OR",
         "starStarWildcardNotAllowed": "** 不能與萬用字元 \"_\" 搭配使用",
         "staticClsSelfParam": "靜態方法不應採用 \"self\" 或 \"cls\" 參數",
-        "stdlibModuleOverridden": "\"{path}\" 正在覆寫 stdlib 模組 \"{name}\"",
         "stringNonAsciiBytes": "位元組字串常值中不允許非 ASCII 字元",
         "stringNotSubscriptable": "字串運算式不能在類型運算式中下標; 以引號括住整個運算式",
         "stringUnsupportedEscape": "字串常值中不支援的逸出序列",

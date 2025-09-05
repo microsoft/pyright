@@ -6,8 +6,7 @@
         "filesToAnalyzeCount": "{count} файлов для анализа",
         "filesToAnalyzeOne": "1 файл для анализа",
         "findingReferences": "Производится поиск ссылок",
-        "organizeImports": "Упорядочение импорта",
-        "renameShadowedFile": "Переименовать \"{oldFile}\" в \"{newFile}\""
+        "organizeImports": "Упорядочение импорта"
     },
     "Completion": {
         "autoImportDetail": "Автоматический импорт",
@@ -470,7 +469,6 @@
         "starPatternInOrPattern": "Шаблон \"звездочка\" не может быть аргументом операции OR в других шаблонах",
         "starStarWildcardNotAllowed": "** нельзя использовать с символом подстановки \"_\"",
         "staticClsSelfParam": "Статические методы не принимают в качестве параметра \"self\" и \"cls\"",
-        "stdlibModuleOverridden": "\"{path}\" переопределяет модуль stdlib \"{name}\"",
         "stringNonAsciiBytes": "Символы, отличные от ASCII, не допускаются в строковом литерале байтов",
         "stringNotSubscriptable": "От строкового выражения нельзя взять подстроку в выражении типа; заключите все выражение в кавычки",
         "stringUnsupportedEscape": "Неподдерживаемая escape-последовательность в строковом литерале",
