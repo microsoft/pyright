@@ -5493,6 +5493,7 @@ export function createTypeEvaluator(
                         match.priv.scopeName,
                         match.priv.scopeType
                     );
+                    type.shared.declaredVariance = match.shared.declaredVariance;
                     return {
                         type,
                         scopeNode,
