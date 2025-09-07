@@ -2351,7 +2351,7 @@ export class CompletionProvider {
                 : isExpressionNode(parentAndChild.child)
                 ? parentAndChild.child
                 : undefined;
-        
+
         const offset = convertPositionToOffset(this.position, this.parseResults.tokenizerOutput.lines)!;
         const inCallArg = !!getCallNodeAndActiveParamIndex(parseNode, offset, this.parseResults.tokenizerOutput.tokens);
 
@@ -2365,7 +2365,7 @@ export class CompletionProvider {
                     postText,
                     completionMap
                 );
-                
+
                 if (!inCallArg) {
                     return true;
                 }
