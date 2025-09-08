@@ -90,6 +90,8 @@ export interface AnalyzerServiceOptions {
     fileSystem?: FileSystem;
     usingPullDiagnostics?: boolean;
     onInvalidated?: (reason: InvalidatedReason) => void;
+    // Optional callback fired once when initial source file enumeration completes.
+    onSourceEnumerationComplete?: () => void;
 }
 
 interface ConfigFileContents {
@@ -547,6 +549,17 @@ export class AnalyzerService {
 
             // Source file enumeration is complete. Proceed with analysis.
             this._sourceEnumerator = undefined;
+
+            if (this.options.onSourceEnumerationComplete) {
+                try {
+                    this.options.onSourceEnumerationComplete();
+                } catch (e) {
+                    // Swallow exceptions to avoid impacting normal analysis.
+                    this._console.error(
+                        `onSourceEnumerationComplete callback failed: ${(e as Error)?.message ?? String(e)}`
+                    );
+                }
+            }
         }
 
         return true;
@@ -1339,7 +1352,7 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.program
             .getOpened()
             .map((o) => o.uri)
-            .filter((f) => matchFileSpecs(this._program.configOptions, f))
+            .filter((f) => f.isUntitled() || matchFileSpecs(this._program.configOptions, f))
             .forEach((f) => fileMap.set(f.key, f));
 
         const fileList = Array.from(fileMap.values());

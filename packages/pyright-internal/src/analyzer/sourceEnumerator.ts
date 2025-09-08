@@ -127,7 +127,7 @@ export class SourceEnumerator {
         }
 
         if (this._seenDirs.has(realDirPath.key)) {
-            this._console.warn(`Skipping recursive symlink "${dir.uri}" -> "${realDirPath}"`);
+            this._console.info(`Skipping recursive symlink "${dir.uri}" -> "${realDirPath}"`);
             return;
         }
         this._seenDirs.add(realDirPath.key);
