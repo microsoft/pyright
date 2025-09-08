@@ -6,8 +6,7 @@
         "filesToAnalyzeCount": "{count} arquivos a serem analisados",
         "filesToAnalyzeOne": "1 arquivo a ser analisado",
         "findingReferences": "Localizando referências",
-        "organizeImports": "Organizar as importações",
-        "renameShadowedFile": "Renomear \"{oldFile}\" para \"{newFile}\""
+        "organizeImports": "Organizar as importações"
     },
     "Completion": {
         "autoImportDetail": "Importação automática",
@@ -470,7 +469,6 @@
         "starPatternInOrPattern": "O padrão de estrela não pode ser ORed em outros padrões",
         "starStarWildcardNotAllowed": "** não pode ser usado com curinga \"_\"",
         "staticClsSelfParam": "Os métodos estáticos não devem usar um parâmetro \"self\" ou \"cls\"",
-        "stdlibModuleOverridden": "\"{path}\" está substituindo o módulo stdlib \"{name}\"",
         "stringNonAsciiBytes": "Caractere não ASCII não permitido em literal de cadeia de caracteres de bytes",
         "stringNotSubscriptable": "A expressão de cadeia de caracteres não pode ser subscrita na expressão de tipo. Coloque toda a expressão entre aspas",
         "stringUnsupportedEscape": "Sequência de escape sem suporte no literal de cadeia de caracteres",

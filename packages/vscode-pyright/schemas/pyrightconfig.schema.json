@@ -499,11 +499,6 @@
       "title": "Controls reporting of code that is determined by type analysis to be unreachable",
       "default": "none"
     },
-    "reportShadowedImports": {
-      "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of shadowed imports of stdlib modules",
-      "default": "none"
-    },
     "reportImplicitOverride": {
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting overridden methods that are missing an `@override` decorator",
@@ -863,9 +858,6 @@
     "reportUnreachable": {
       "$ref": "#/definitions/reportUnreachable"
     },
-    "reportShadowedImports": {
-      "$ref": "#/definitions/reportShadowedImports"
-    },
     "reportImplicitOverride": {
       "$ref": "#/definitions/reportImplicitOverride"
     },
@@ -1183,9 +1175,6 @@
           },
           "reportUnreachable": {
             "$ref": "#/definitions/reportUnreachable"
-          },
-          "reportShadowedImports": {
-            "$ref": "#/definitions/reportShadowedImports"
           },
           "reportImplicitOverride": {
             "$ref": "#/definitions/reportImplicitOverride"

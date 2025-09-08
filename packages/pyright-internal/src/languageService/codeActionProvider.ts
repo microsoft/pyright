@@ -11,11 +11,9 @@ import { CancellationToken, CodeAction, CodeActionKind } from 'vscode-languagese
 import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { createCommand } from '../common/commandUtils';
-import { ActionKind, CreateTypeStubFileAction, RenameShadowedFileAction } from '../common/diagnostic';
-import { FileEditActions } from '../common/editAction';
+import { CreateTypeStubFileAction } from '../common/diagnostic';
 import { Range } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
-import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { Localizer } from '../localization/localize';
 import { Workspace } from '../workspaceFactory';
 
@@ -71,35 +69,6 @@ export class CodeActionProvider {
                     CodeActionKind.QuickFix
                 );
                 codeActions.push(createTypeStubAction);
-            }
-        }
-
-        const renameShadowed = diags.find((d) => {
-            const actions = d.getActions();
-            return actions && actions.find((a) => a.action === ActionKind.RenameShadowedFileAction);
-        });
-        if (renameShadowed) {
-            const action = renameShadowed
-                .getActions()!
-                .find((a) => a.action === ActionKind.RenameShadowedFileAction) as RenameShadowedFileAction;
-            if (action) {
-                const title = Localizer.CodeAction.renameShadowedFile().format({
-                    oldFile: action.oldUri.getShortenedFileName(),
-                    newFile: action.newUri.getShortenedFileName(),
-                });
-                const editActions: FileEditActions = {
-                    edits: [],
-                    fileOperations: [
-                        {
-                            kind: 'rename',
-                            oldFileUri: action.oldUri,
-                            newFileUri: action.newUri,
-                        },
-                    ],
-                };
-                const workspaceEdit = convertToWorkspaceEdit(workspace.service.fs, editActions);
-                const renameAction = CodeAction.create(title, workspaceEdit, CodeActionKind.QuickFix);
-                codeActions.push(renameAction);
             }
         }
 
