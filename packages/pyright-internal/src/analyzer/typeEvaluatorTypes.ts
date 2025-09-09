@@ -884,6 +884,8 @@ export interface TypeEvaluator {
     isSpeculativeModeInUse: (node: ParseNode | undefined) => boolean;
     setTypeResultForNode: (node: ParseNode, typeResult: TypeResult, flags?: EvalFlags) => void;
 
+    getMaxCodeComplexity: () => number;
+
     checkForCancellation: () => void;
     printControlFlowGraph: (
         flowNode: FlowNode,

@@ -890,6 +890,12 @@
       "title": "Output verbose logging",
       "default": false
     },
+    "maxCodeComplexity": {
+      "type": "integer",
+      "title": "Maximum code complexity for type evaluation",
+      "default": 768,
+      "minimum": 768
+    },
     "executionEnvironments": {
       "type": "array",
       "title": "Analysis settings to use for specified subdirectories of code",

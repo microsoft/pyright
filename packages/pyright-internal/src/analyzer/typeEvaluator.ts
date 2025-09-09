@@ -593,18 +593,13 @@ const verifyTypeCacheEvaluatorFlags = false;
 // This debugging option prints each expression and its evaluated type.
 const printExpressionTypes = false;
 
-// The following number is chosen somewhat arbitrarily. We need to cut
-// off code flow analysis at some point for code flow graphs that are too
-// complex. Otherwise we risk overflowing the stack or incurring extremely
-// long analysis times. This number has been tuned empirically.
-export const maxCodeComplexity = 768;
-
 export interface EvaluatorOptions {
     printTypeFlags: TypePrinter.PrintTypeFlags;
     logCalls: boolean;
     minimumLoggingThreshold: number;
     evaluateUnknownImportsAsAny: boolean;
     verifyTypeCacheEvaluatorFlags: boolean;
+    maxCodeComplexity: number;
 }
 
 // Describes a "deferred class completion" that is run when a class type is
@@ -643,6 +638,7 @@ export function createTypeEvaluator(
     evaluatorOptions: EvaluatorOptions,
     wrapWithLogger: LogWrapper
 ): TypeEvaluator {
+    const maxCodeComplexity = evaluatorOptions.maxCodeComplexity;
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: SuppressedNodeStackEntry[] = [];
@@ -805,6 +801,10 @@ export function createTypeEvaluator(
 
     function setTypeResultForNode(node: ParseNode, typeResult: TypeResult, flags = EvalFlags.None) {
         writeTypeCache(node, typeResult, flags);
+    }
+
+    function getMaxCodeComplexity(): number {
+        return maxCodeComplexity;
     }
 
     function setAsymmetricDescriptorAssignment(node: ParseNode) {
@@ -28755,6 +28755,9 @@ export function createTypeEvaluator(
         useSpeculativeMode,
         isSpeculativeModeInUse,
         setTypeResultForNode,
+
+        getMaxCodeComplexity,
+
         checkForCancellation,
         printControlFlowGraph,
     };

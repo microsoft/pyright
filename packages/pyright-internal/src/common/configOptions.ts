@@ -1014,6 +1014,13 @@ export class ConfigOptions {
     // Minimum threshold for type eval logging
     typeEvaluationTimeThreshold = 50;
 
+    // Maximum code complexity for type evaluation
+    // The following number is chosen somewhat arbitrarily. We need to cut
+    // off code flow analysis at some point for code flow graphs that are too
+    // complex. Otherwise we risk overflowing the stack or incurring extremely
+    // long analysis times. This number has been tuned empirically.
+    maxCodeComplexity = 768;
+
     // Was this config initialized from JSON (pyrightconfig/pyproject)?
     initializedFromJson = false;
 
@@ -1445,6 +1452,15 @@ export class ConfigOptions {
                 console.error(`Config "typeEvaluationTimeThreshold" field must be a number.`);
             } else {
                 this.typeEvaluationTimeThreshold = configObj.typeEvaluationTimeThreshold;
+            }
+        }
+
+        // Read the "maxCodeComplexity" setting.
+        if (configObj.maxCodeComplexity !== undefined) {
+            if (typeof configObj.maxCodeComplexity !== 'number') {
+                console.error(`Config "maxCodeComplexity" field must be a number.`);
+            } else {
+                this.maxCodeComplexity = configObj.maxCodeComplexity;
             }
         }
 
