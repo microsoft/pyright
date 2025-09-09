@@ -477,6 +477,117 @@ describe(`config test'}`, () => {
         assert(fileList.filter((f) => f.equals(untitled)));
     });
 
+    test.each([
+        ['pyrightconfig.json', '{"extends": "base.json"}'],
+        ['pyproject.toml', '[tool.pyright]\nextends = "base.json"\n'],
+    ])('maxCodeComplexity loads through %s and extends', (fileName, contents) => {
+        const fs = new TestFileSystem(/* ignoreCase */ true, {
+            cwd: normalizeSlashes('/'),
+            files: {
+                [normalizeSlashes(`/src/${fileName}`)]: contents,
+                [normalizeSlashes('/src/base.json')]: '{"maxCodeComplexity": 1536}',
+                [normalizeSlashes('/src/sample.py')]: '',
+            },
+        });
+        const console = new NullConsole();
+        const error = jest.spyOn(console, 'error');
+        const service = new AnalyzerService('<default>', createServiceProvider(fs, console, tempFile), {
+            console,
+            hostFactory: () => new TestAccessHost(),
+            shouldRunAnalysis: () => false,
+        });
+        try {
+            const options = service.test_getConfigOptions(new CommandLineOptions('/src', false));
+            assert.strictEqual(options.maxCodeComplexity, 1536);
+            expect(error).not.toHaveBeenCalled();
+        } finally {
+            service.dispose();
+        }
+    });
+
+    test.each([768, 1536])('maxCodeComplexity accepts %s and survives serialization', (value) => {
+        const service = createAnalyzer();
+        const console = new NullConsole();
+        const error = jest.spyOn(console, 'error');
+        const config = new ConfigOptions(Uri.empty());
+        try {
+            assert.strictEqual(config.maxCodeComplexity, 768);
+            config.initializeFromJson(
+                { maxCodeComplexity: value },
+                Uri.empty(),
+                createServiceProvider(service.fs, console),
+                new TestAccessHost()
+            );
+            assert.strictEqual(config.maxCodeComplexity, value);
+            assert.strictEqual(deserialize<ConfigOptions>(serialize(config)).maxCodeComplexity, value);
+            expect(error).not.toHaveBeenCalled();
+        } finally {
+            service.dispose();
+        }
+    });
+
+    test.each([null, '1536', true, 767, -1, 768.5, NaN, Infinity])(
+        'maxCodeComplexity rejects %s and preserves the inherited value',
+        (value) => {
+            const service = createAnalyzer();
+            const console = new NullConsole();
+            const error = jest.spyOn(console, 'error');
+            const config = new ConfigOptions(Uri.empty());
+            config.maxCodeComplexity = 1536;
+            try {
+                config.initializeFromJson(
+                    { maxCodeComplexity: value },
+                    Uri.empty(),
+                    createServiceProvider(service.fs, console),
+                    new TestAccessHost()
+                );
+                assert.strictEqual(config.maxCodeComplexity, 1536);
+                expect(error).toHaveBeenCalledTimes(1);
+                expect(error).toHaveBeenCalledWith(
+                    'Config "maxCodeComplexity" field must be an integer greater than or equal to 768.'
+                );
+            } finally {
+                service.dispose();
+            }
+        }
+    );
+
+    test.each(['module', 'function'])('maxCodeComplexity controls %s analysis after config changes', (scope) => {
+        const service = createAnalyzer();
+        const fileUri = Uri.file(combinePaths(process.cwd(), 'complexity.py'), service.serviceProvider);
+        const statements = Array.from({ length: 800 }, () => 'if flag:\n    value = 1\n').join('');
+        const body = 'flag = bool()\nvalue: int | str = ""\n' + statements + 'reveal_type(value)\n';
+        const contents = scope === 'module' ? body : 'def f():\n' + body.replace(/^(.+)/gm, '    $1');
+        const config = new ConfigOptions(Uri.empty());
+        const program = service.test_program;
+        try {
+            program.setConfigOptions(config);
+            program.setTrackedFiles([fileUri]);
+            program.setFileOpened(fileUri, 1, contents);
+            const analyze = () => {
+                while (program.analyze()) {
+                    // Run analysis to completion.
+                }
+                return program.getSourceFile(fileUri)!.getDiagnostics(config)!;
+            };
+            const complexityErrors = () => analyze().filter((diag) => diag.message.includes('too complex'));
+            assert.ok(complexityErrors().length > 0);
+
+            config.maxCodeComplexity = 1536;
+            program.setConfigOptions(config);
+            program.markAllFilesDirty(true);
+            assert.strictEqual(complexityErrors().length, 0);
+            assert.ok(analyze().some((diag) => diag.message.includes('Type of "value" is')));
+
+            config.maxCodeComplexity = 768;
+            program.setConfigOptions(config);
+            program.markAllFilesDirty(true);
+            assert.ok(complexityErrors().length > 0);
+        } finally {
+            service.dispose();
+        }
+    });
+
     test('verify config fileSpecs after cloning', () => {
         const fs = new TestFileSystem(/* ignoreCase */ true);
         const configFile = {
