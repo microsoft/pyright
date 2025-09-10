@@ -8,12 +8,12 @@ import assert from 'assert';
 
 import { CancellationToken } from 'vscode-jsonrpc';
 import { IPythonMode } from '../analyzer/sourceFile';
-import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
-import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
-import { Uri } from '../common/uri/uri';
 import { CommandLineOptions } from '../common/commandLineOptions';
-import { parseTestData } from './harness/fourslash/fourSlashParser';
+import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
+import { Uri } from '../common/uri/uri';
 import { UriEx } from '../common/uri/uriUtils';
+import { parseTestData } from './harness/fourslash/fourSlashParser';
+import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 
 test('random library file changed', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
@@ -400,6 +400,51 @@ test('service runEditMode', () => {
         const content = closedFile.contents ?? '';
         assert.strictEqual('', content.trim());
     }
+});
+
+test('file changes cause semantic update', () => {
+    const code = `
+// @filename: open.py
+//// import closed
+//// /*open*/
+
+// @filename: closed.py
+//// /*closed*/
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const open = state.getMarkerByName('open');
+    const closed = state.getMarkerByName('closed');
+    const openUri = open.fileUri;
+    const closedUri = closed.fileUri;
+    const openContents = state.testFS.readFileSync(openUri, 'utf-8');
+    const options = {
+        isTracked: true,
+        ipythonMode: IPythonMode.None,
+        chainedFileUri: undefined,
+    };
+
+    // Setup the file watcher for the project
+    const cmdOptions = new CommandLineOptions(state.workspace.rootUri, false);
+    cmdOptions.languageServerSettings.watchForSourceChanges = true;
+    state.workspace.service.setOptions(cmdOptions);
+
+    // Changing the closed file should update the semantic version of the open file as it is
+    // imported by it.
+    const p = state.workspace.service.test_program;
+    p.setFileOpened(openUri, 0, openContents, options);
+    // Do a parse so that imports are processed but not a full analysis as that would load
+    // the closed file into memory.
+    p.getParseResults(openUri);
+    const openFile = p.getSourceFileInfo(openUri);
+    assert(openFile);
+    assert(openFile.isOpenByClient);
+    assert.strictEqual(openContents, openFile.contents);
+    assert.strictEqual(openFile.imports.length, 3);
+    const oldSemanticVersion = openFile.semanticVersion;
+    state.testFS.writeFileSync(closedUri, 'print("changed")');
+    state.testFS.fireFileWatcherEvent(closedUri.toString(), 'change');
+    assert.strictEqual(openFile.semanticVersion, oldSemanticVersion + 1);
 });
 
 function testSourceFileWatchChange(code: string, expected = true, isFile = true) {
