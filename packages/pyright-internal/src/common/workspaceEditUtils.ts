@@ -249,7 +249,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
                     value.map((v) => ({
                         range: v.range,
                         newText: v.replacementText,
-                        annotationId: defaultAnnotationId,
+                        annotationId: changeAnnotations !== undefined ? defaultAnnotationId : undefined,
                     }))
                 )
             )
