@@ -313,6 +313,39 @@ describe('Import tests with fake venv', () => {
             assert(moduleImportInfo.isThirdPartyPyTypedPresent);
             assert(!moduleImportInfo.isLocalTypingsFile);
         });
+
+        test('import found in symlinked file', () => {
+            const files = [
+                {
+                    path: combinePaths('/', 'external', 'file2.py'),
+                    content: 'def f(): pass',
+                },
+                {
+                    path: combinePaths('/', 'src', 'file1.py'),
+                    content: 'import file2',
+                },
+            ];
+
+            const result = getImportResult(
+                files,
+                ['file2'],
+                (c) => {
+                    c.defaultExtraPaths = [UriEx.file(combinePaths('/', 'external_symlinked'))];
+                },
+                (importResolver, uri, configOptions) => {
+                    const fs = importResolver.serviceProvider.fs() as PyrightFileSystem;
+                    const testFs = (fs as any).realFS as TestFileSystem;
+                    testFs.mkdirSync(UriEx.file(combinePaths('/', 'external_symlinked')));
+                    testFs.symlinkSync(
+                        combinePaths('/', 'external', 'file2.py'),
+                        combinePaths('/', 'external_symlinked', 'file2.py')
+                    );
+                }
+            );
+
+            assert(result.isImportFound);
+        });
+
     }
 
     describe('Import tests that can run with or without a true venv', () => {
@@ -768,37 +801,6 @@ describe('Import tests with fake venv', () => {
             assert(!moduleImportInfo.isLocalTypingsFile);
         });
 
-        test('import found in symlinked file', () => {
-            const files = [
-                {
-                    path: combinePaths('/', 'external', 'file2.py'),
-                    content: 'def f(): pass',
-                },
-                {
-                    path: combinePaths('/', 'src', 'file1.py'),
-                    content: 'import file2',
-                },
-            ];
-
-            const result = getImportResult(
-                files,
-                ['file2'],
-                (c) => {
-                    c.defaultExtraPaths = [UriEx.file(combinePaths('/', 'external_symlinked'))];
-                },
-                (importResolver, uri, configOptions) => {
-                    const fs = importResolver.serviceProvider.fs() as PyrightFileSystem;
-                    const testFs = (fs as any).realFS as TestFileSystem;
-                    testFs.mkdirSync(UriEx.file(combinePaths('/', 'external_symlinked')));
-                    testFs.symlinkSync(
-                        combinePaths('/', 'external', 'file2.py'),
-                        combinePaths('/', 'external_symlinked', 'file2.py')
-                    );
-                }
-            );
-
-            assert(result.isImportFound);
-        });
     });
 
     if (usingTrueVenv()) {
