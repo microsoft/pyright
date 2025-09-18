@@ -533,10 +533,10 @@ export class ImportResolver {
                 newCachedDir.entries.set(entry.name, entry);
                 let isFile = entry.isFile();
                 let isDirectory = entry.isDirectory();
-                if ((!isFile || !isDirectory) && entry.isSymbolicLink()) {
+                if (entry.isSymbolicLink()) {
                     const stat = tryStat(this.fileSystem, uri.combinePaths(entry.name));
-                    isFile = isFile || stat?.isFile() === true;
-                    isDirectory = isDirectory || stat?.isDirectory() === true;
+                    isFile = !!stat?.isFile();
+                    isDirectory = !!stat?.isDirectory();
                 }
                 const resolvableName = isFile
                     ? stripFileExtension(entry.name, /* multiDotExtension */ true)
