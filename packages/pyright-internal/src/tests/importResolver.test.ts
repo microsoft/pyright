@@ -780,20 +780,22 @@ describe('Import tests with fake venv', () => {
                 },
             ];
 
-            const result = getImportResult(files, ["file2"], (c) => {
-                c.defaultExtraPaths = [
-                    UriEx.file(combinePaths('/', 'external_symlinked')),
-                ];
-
-            }, (importResolver, uri, configOptions) => {
-                const fs = importResolver.serviceProvider.fs() as PyrightFileSystem;
-                const testFs = (fs as any).realFS as TestFileSystem;
-                testFs.mkdirSync(UriEx.file(combinePaths('/', 'external_symlinked')));
-                testFs.symlinkSync(
-                    combinePaths('/', 'external', 'file2.py'),
-                    combinePaths('/', 'external_symlinked', 'file2.py')
-                );
-            });
+            const result = getImportResult(
+                files,
+                ['file2'],
+                (c) => {
+                    c.defaultExtraPaths = [UriEx.file(combinePaths('/', 'external_symlinked'))];
+                },
+                (importResolver, uri, configOptions) => {
+                    const fs = importResolver.serviceProvider.fs() as PyrightFileSystem;
+                    const testFs = (fs as any).realFS as TestFileSystem;
+                    testFs.mkdirSync(UriEx.file(combinePaths('/', 'external_symlinked')));
+                    testFs.symlinkSync(
+                        combinePaths('/', 'external', 'file2.py'),
+                        combinePaths('/', 'external_symlinked', 'file2.py')
+                    );
+                }
+            );
 
             assert(result.isImportFound);
         });

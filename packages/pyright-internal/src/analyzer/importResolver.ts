@@ -535,8 +535,10 @@ export class ImportResolver {
                     entry.isFile() ||
                     (entry.isSymbolicLink() && tryStat(this.fileSystem, uri.combinePaths(entry.name))?.isFile());
                 const isDirectory =
-                    !isFile && (entry.isDirectory() ||
-                    (entry.isSymbolicLink() && tryStat(this.fileSystem, uri.combinePaths(entry.name))?.isDirectory()));
+                    !isFile &&
+                    (entry.isDirectory() ||
+                        (entry.isSymbolicLink() &&
+                            tryStat(this.fileSystem, uri.combinePaths(entry.name))?.isDirectory()));
                 const resolvableName = isFile
                     ? stripFileExtension(entry.name, /* multiDotExtension */ true)
                     : entry.name;
