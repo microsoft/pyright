@@ -345,7 +345,6 @@ describe('Import tests with fake venv', () => {
 
             assert(result.isImportFound);
         });
-
     }
 
     describe('Import tests that can run with or without a true venv', () => {
@@ -800,7 +799,6 @@ describe('Import tests with fake venv', () => {
             assert(!moduleImportInfo.isThirdPartyPyTypedPresent);
             assert(!moduleImportInfo.isLocalTypingsFile);
         });
-
     });
 
     if (usingTrueVenv()) {
