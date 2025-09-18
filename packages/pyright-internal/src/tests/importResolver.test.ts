@@ -7,6 +7,7 @@
 import assert from 'assert';
 
 import { Dirent, ReadStream, WriteStream } from 'fs';
+import { Disposable } from 'vscode-jsonrpc';
 import { ImportResolver } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import { ConfigOptions } from '../common/configOptions';
@@ -22,11 +23,10 @@ import { ServiceProvider } from '../common/serviceProvider';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
 import { UriEx } from '../common/uri/uriUtils';
+import { PartialStubService } from '../partialStubService';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
-import { Disposable } from 'vscode-jsonrpc';
-import { PartialStubService } from '../partialStubService';
 
 const libraryRoot = combinePaths(normalizeSlashes('/'), lib, sitePackages);
 
@@ -767,6 +767,36 @@ describe('Import tests with fake venv', () => {
             assert(!moduleImportInfo.isThirdPartyPyTypedPresent);
             assert(!moduleImportInfo.isLocalTypingsFile);
         });
+
+        test('import found in symlinked file', () => {
+            const files = [
+                {
+                    path: combinePaths('/', 'external', 'file2.py'),
+                    content: 'def f(): pass',
+                },
+                {
+                    path: combinePaths('/', 'src', 'file1.py'),
+                    content: 'import file2',
+                },
+            ];
+
+            const result = getImportResult(files, ["file2"], (c) => {
+                c.defaultExtraPaths = [
+                    UriEx.file(combinePaths('/', 'external_symlinked')),
+                ];
+
+            }, (importResolver, uri, configOptions) => {
+                const fs = importResolver.serviceProvider.fs() as PyrightFileSystem;
+                const testFs = (fs as any).realFS as TestFileSystem;
+                testFs.mkdirSync(UriEx.file(combinePaths('/', 'external_symlinked')));
+                testFs.symlinkSync(
+                    combinePaths('/', 'external', 'file2.py'),
+                    combinePaths('/', 'external_symlinked', 'file2.py')
+                );
+            });
+
+            assert(result.isImportFound);
+        });
     });
 
     if (usingTrueVenv()) {
@@ -791,9 +821,14 @@ describe('Import tests with fake venv', () => {
     function getImportResult(
         files: { path: string; content: string }[],
         nameParts: string[],
-        setup?: (c: ConfigOptions) => void
+        setup?: (c: ConfigOptions) => void,
+        preImport?: (importResolver: ImportResolver, uri: Uri, configOptions: ConfigOptions) => void
     ) {
         const { importResolver, uri, configOptions } = setupImportResolver(files, setup);
+
+        if (preImport) {
+            preImport(importResolver, uri, configOptions);
+        }
 
         const importResult = importResolver.resolveImport(uri, configOptions.findExecEnvironment(uri), {
             leadingDots: 0,
