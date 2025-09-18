@@ -531,8 +531,12 @@ export class ImportResolver {
             const entries = this.fileSystem.readdirEntriesSync(uri);
             entries.forEach((entry) => {
                 newCachedDir.entries.set(entry.name, entry);
-                const isFile = entry.isFile() || (entry.isSymbolicLink() && tryStat(this.fileSystem, uri.combinePaths(entry.name))?.isFile());
-                const isDirectory = entry.isDirectory() || (entry.isSymbolicLink() && tryStat(this.fileSystem, uri.combinePaths(entry.name))?.isDirectory());
+                const isFile =
+                    entry.isFile() ||
+                    (entry.isSymbolicLink() && tryStat(this.fileSystem, uri.combinePaths(entry.name))?.isFile());
+                const isDirectory =
+                    entry.isDirectory() ||
+                    (entry.isSymbolicLink() && tryStat(this.fileSystem, uri.combinePaths(entry.name))?.isDirectory());
                 const resolvableName = isFile
                     ? stripFileExtension(entry.name, /* multiDotExtension */ true)
                     : entry.name;
