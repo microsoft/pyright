@@ -531,7 +531,7 @@ export class ImportResolver {
             const entries = this.fileSystem.readdirEntriesSync(uri);
             entries.forEach((entry) => {
                 newCachedDir.entries.set(entry.name, entry);
-                const resolvableName = entry.isFile()
+                const resolvableName = entry.isFile() || (entry.isSymbolicLink() && tryStat(this.fileSystem, uri.combinePaths(entry.name))?.isFile())
                     ? stripFileExtension(entry.name, /* multiDotExtension */ true)
                     : entry.name;
                 newCachedDir.resolvableNames.add(resolvableName);
