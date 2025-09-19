@@ -237,8 +237,6 @@ The following settings allow more fine grained control over the **typeCheckingMo
 
 - <a name="reportImplicitOverride"></a> **reportImplicitOverride** [boolean or string, optional]: Generate or suppress diagnostics for overridden methods in a class that are missing an explicit `@override` decorator. The default value for this setting is `"none"`.
 
-- <a name="reportShadowedImports"></a> **reportShadowedImports** [boolean or string, optional]: Generate or suppress diagnostics for files that are overriding a module in the stdlib. The default value for this setting is `"none"`.
-
 ## Execution Environment Options
 Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with different import search paths or a different version of the python interpreter than the rest of the source base.
 
@@ -438,7 +436,6 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportImportCycles                        | "none"     | "none"     | "none"     | "none"     |
 | reportMissingSuperCall                    | "none"     | "none"     | "none"     | "none"     |
 | reportPropertyTypeMismatch                | "none"     | "none"     | "none"     | "none"     |
-| reportShadowedImports                     | "none"     | "none"     | "none"     | "none"     |
 | reportUninitializedInstanceVariable       | "none"     | "none"     | "none"     | "none"     |
 | reportUnnecessaryTypeIgnoreComment        | "none"     | "none"     | "none"     | "none"     |
 | reportUnreachable                         | "none"     | "none"     | "none"     | "none"     |

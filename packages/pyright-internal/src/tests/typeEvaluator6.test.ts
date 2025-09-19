@@ -94,11 +94,6 @@ test('OverloadCall10', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('OverloadCall11', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall11.py']);
-    TestUtils.validateResults(analysisResults, 0);
-});
-
 test('OverloadOverride1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverride1.py']);
     TestUtils.validateResults(analysisResults, 1);
@@ -487,7 +482,7 @@ test('MatchClass1', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('MatchClass2', () => {

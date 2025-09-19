@@ -206,10 +206,7 @@ export function createTypedDictType(
                     );
                 } else if (arg.name.d.value === 'total' && arg.valueExpression.d.constType === KeywordType.False) {
                     classType.shared.flags |= ClassTypeFlags.CanOmitDictValues;
-                } else if (
-                    arg.name.d.value === 'closed' &&
-                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures
-                ) {
+                } else if (arg.name.d.value === 'closed') {
                     if (arg.valueExpression.d.constType === KeywordType.True) {
                         classType.shared.flags |=
                             ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
@@ -225,10 +222,7 @@ export function createTypedDictType(
 
                     sawClosedOrExtraItems = true;
                 }
-            } else if (
-                arg.name?.d.value === 'extra_items' &&
-                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures
-            ) {
+            } else if (arg.name?.d.value === 'extra_items') {
                 classType.shared.typedDictExtraItemsExpr = arg.valueExpression;
                 classType.shared.flags |= ClassTypeFlags.TypedDictEffectivelyClosed;
 

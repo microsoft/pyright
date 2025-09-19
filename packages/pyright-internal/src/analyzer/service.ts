@@ -39,21 +39,19 @@ import {
     FileSpec,
     deduplicateFolders,
     getFileSpec,
-    getFileSystemEntries,
     hasPythonExtension,
     isDirectory,
     isFile,
     makeDirectories,
-    tryRealpath,
     tryStat,
 } from '../common/uri/uriUtils';
-import { Localizer } from '../localization/localize';
 import { AnalysisCompleteCallback } from './analysis';
 import {
     BackgroundAnalysisProgram,
     BackgroundAnalysisProgramFactory,
     InvalidatedReason,
 } from './backgroundAnalysisProgram';
+import { ImportLogger } from './importLogger';
 import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor } from './importResolver';
 import { ChangedRange, MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
@@ -63,6 +61,7 @@ import {
     findPyprojectTomlFile,
     findPyprojectTomlFileHereOrUp,
 } from './serviceUtils';
+import { SourceEnumerator } from './sourceEnumerator';
 import { IPythonMode } from './sourceFile';
 
 // How long since the last user activity should we wait until running
@@ -91,6 +90,8 @@ export interface AnalyzerServiceOptions {
     fileSystem?: FileSystem;
     usingPullDiagnostics?: boolean;
     onInvalidated?: (reason: InvalidatedReason) => void;
+    // Optional callback fired once when initial source file enumeration completes.
+    onSourceEnumerationComplete?: () => void;
 }
 
 interface ConfigFileContents {
@@ -128,6 +129,7 @@ export class AnalyzerService {
     private _requireTrackedFileUpdate = true;
     private _lastUserInteractionTime = 0;
     private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
+    private _sourceEnumerator: SourceEnumerator | undefined;
 
     private _disposed = false;
     private _pendingLibraryChanges: RefreshOptions = { changesOnly: true };
@@ -448,7 +450,16 @@ export class AnalyzerService {
     }
 
     test_getFileNamesFromFileSpecs(): Uri[] {
-        return this._getFileNamesFromFileSpecs();
+        const enumerator = new SourceEnumerator(
+            this._configOptions.include,
+            this._configOptions.exclude,
+            !!this._configOptions.autoExcludeVenv,
+            this.fs,
+            this._console
+        );
+
+        const results = enumerator.enumerate(0);
+        return this._getTrackedFileList(results.matches);
     }
 
     test_shouldHandleSourceFileWatchChanges(uri: Uri, isFile: boolean) {
@@ -495,6 +506,63 @@ export class AnalyzerService {
         this.applyConfigOptions(this._hostFactory());
 
         this._backgroundAnalysisProgram.restart();
+    }
+
+    // Attempts to make progress on source file enumeration if there is an active
+    // source enumerator associated with the service. Returns true if complete.
+    enumerateSourceFiles(maxSourceEnumeratorTime: number): boolean {
+        // If there is no active source enumerator, we're done.
+        if (!this._sourceEnumerator) {
+            return true;
+        }
+
+        let fileMap: Map<string, Uri>;
+
+        if (this._executionRootUri.isEmpty()) {
+            // No user files for default workspace.
+            fileMap = new Map<string, Uri>();
+        } else {
+            const enumerator = this._sourceEnumerator;
+            const enumResults = timingStats.findFilesTime.timeOperation(() =>
+                enumerator.enumerate(maxSourceEnumeratorTime)
+            );
+
+            if (!enumResults.isComplete) {
+                return false;
+            }
+
+            // Update the config options to include the auto-excluded directories.
+            const excludes = this.options.configOptions?.exclude;
+            if (enumResults.autoExcludedDirs && excludes) {
+                enumResults.autoExcludedDirs.forEach((excludedDir) => {
+                    if (!FileSpec.isInPath(excludedDir, excludes)) {
+                        excludes.push(getFileSpec(this._configOptions.projectRoot, `${excludedDir}/**`));
+                    }
+                });
+                this._backgroundAnalysisProgram.setConfigOptions(this._configOptions);
+            }
+
+            fileMap = enumResults.matches;
+
+            const fileList = this._getTrackedFileList(fileMap);
+            this._backgroundAnalysisProgram.setTrackedFiles(fileList);
+
+            // Source file enumeration is complete. Proceed with analysis.
+            this._sourceEnumerator = undefined;
+
+            if (this.options.onSourceEnumerationComplete) {
+                try {
+                    this.options.onSourceEnumerationComplete();
+                } catch (e) {
+                    // Swallow exceptions to avoid impacting normal analysis.
+                    this._console.error(
+                        `onSourceEnumerationComplete callback failed: ${(e as Error)?.message ?? String(e)}`
+                    );
+                }
+            }
+        }
+
+        return true;
     }
 
     protected runAnalysis(token: CancellationToken) {
@@ -545,6 +613,16 @@ export class AnalyzerService {
 
             if (this._requireTrackedFileUpdate) {
                 this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
+            }
+
+            // Continue to enumerate sources if we haven't finished doing so.
+            // Use the "noOpenFilesTimeInMs" limit if it's provided. Otherwise
+            // do all enumeration in one shot. The latter is used for the CLI
+            // and other environments where the user is not blocked on the operation.
+            const maxSourceEnumeratorTime = this.options.maxAnalysisTime?.noOpenFilesTimeInMs ?? 0;
+            if (!this.enumerateSourceFiles(maxSourceEnumeratorTime)) {
+                this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+                return;
             }
 
             // Recreate the cancellation token every time we start analysis.
@@ -892,18 +970,16 @@ export class AnalyzerService {
                         } subdirectory not found in venv path ${configOptions.venvPath.toUserVisibleString()}.`
                     );
                 } else {
-                    const importFailureInfo: string[] = [];
-                    if (findPythonSearchPaths(this.fs, configOptions, host, importFailureInfo) === undefined) {
+                    const importLogger = configOptions.verboseOutput ? new ImportLogger() : undefined;
+                    if (findPythonSearchPaths(this.fs, configOptions, host, importLogger) === undefined) {
                         this._console.error(
                             `site-packages directory cannot be located for venvPath ` +
                                 `${configOptions.venvPath.toUserVisibleString()} and venv ${configOptions.venv}.`
                         );
 
-                        if (configOptions.verboseOutput) {
-                            importFailureInfo.forEach((diag) => {
-                                this._console.error(`  ${diag}`);
-                            });
-                        }
+                        importLogger?.getLogs().forEach((diag) => {
+                            this._console.error(`  ${diag}`);
+                        });
                     }
                 }
             }
@@ -1267,28 +1343,20 @@ export class AnalyzerService {
         return undefined;
     }
 
-    private _getFileNamesFromFileSpecs(): Uri[] {
-        // Use a map to generate a list of unique files.
-        const fileMap = new Map<string, Uri>();
-
-        // Scan all matching files from file system.
-        timingStats.findFilesTime.timeOperation(() => {
-            const matchedFiles = this._matchFiles(this._configOptions.include, this._configOptions.exclude);
-
-            for (const file of matchedFiles) {
-                fileMap.set(file.key, file);
-            }
-        });
-
+    // Given a file map returned by the source enumerator, this function
+    // adds any open files that match the include file spec and returns a
+    // final deduped file list.
+    private _getTrackedFileList(fileMap: Map<string, Uri>): Uri[] {
         // And scan all matching open files. We need to do this since some of files are not backed by
         // files in file system but only exist in memory (ex, virtual workspace)
         this._backgroundAnalysisProgram.program
             .getOpened()
             .map((o) => o.uri)
-            .filter((f) => matchFileSpecs(this._program.configOptions, f))
+            .filter((f) => f.isUntitled() || matchFileSpecs(this._program.configOptions, f))
             .forEach((f) => fileMap.set(f.key, f));
 
-        return Array.from(fileMap.values());
+        const fileList = Array.from(fileMap.values());
+        return fileList;
     }
 
     // If markFilesDirtyUnconditionally is true, we need to reparse
@@ -1351,7 +1419,7 @@ export class AnalyzerService {
                 }
 
                 // Add the implicit import paths.
-                importResult.filteredImplicitImports.forEach((implicitImport) => {
+                importResult.filteredImplicitImports?.forEach((implicitImport) => {
                     if (ImportResolver.isSupportedImportSourceFile(implicitImport.uri)) {
                         filesToImport.push(implicitImport.uri);
                     }
@@ -1362,152 +1430,22 @@ export class AnalyzerService {
             } else {
                 this._console.error(`Import '${this._typeStubTargetImportName}' not found`);
             }
+
+            this._requireTrackedFileUpdate = false;
         } else if (!this.options.skipScanningUserFiles) {
-            let fileList: Uri[] = [];
-            this._console.log(`Searching for source files`);
-            fileList = this._getFileNamesFromFileSpecs();
+            // Allocate a new source enumerator. We'll call this
+            // repeatedly until all source files are found.
+            this._sourceEnumerator = new SourceEnumerator(
+                this._configOptions.include,
+                this._configOptions.exclude,
+                !!this._configOptions.autoExcludeVenv,
+                this.fs,
+                this._console
+            );
 
-            // getFileNamesFromFileSpecs might have updated configOptions, resync options.
-            this._backgroundAnalysisProgram.setConfigOptions(this._configOptions);
-            this._backgroundAnalysisProgram.setTrackedFiles(fileList);
             this._backgroundAnalysisProgram.markAllFilesDirty(markFilesDirtyUnconditionally);
-
-            if (fileList.length === 0) {
-                this._console.info(`No source files found.`);
-            } else {
-                this._console.info(`Found ${fileList.length} ` + `source ${fileList.length === 1 ? 'file' : 'files'}`);
-            }
+            this._requireTrackedFileUpdate = false;
         }
-
-        this._requireTrackedFileUpdate = false;
-    }
-
-    private _tryShowLongOperationMessageBox() {
-        const windowService = this.serviceProvider.tryGet(ServiceKeys.windowService);
-        if (!windowService) {
-            return;
-        }
-
-        const message = Localizer.Service.longOperation();
-        const action = windowService.createGoToOutputAction();
-        windowService.showInformationMessage(message, action);
-    }
-
-    private _matchFiles(include: FileSpec[], exclude: FileSpec[]): Uri[] {
-        if (this._executionRootUri.isEmpty()) {
-            // No user files for default workspace.
-            return [];
-        }
-
-        const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg'], ['conda-meta']];
-        const results: Uri[] = [];
-        const startTime = Date.now();
-        const longOperationLimitInSec = 10;
-        const nFilesToSuggestSubfolder = 50;
-
-        let loggedLongOperationError = false;
-        let nFilesVisited = 0;
-
-        const visitDirectoryUnchecked = (absolutePath: Uri, includeRegExp: RegExp, hasDirectoryWildcard: boolean) => {
-            if (!loggedLongOperationError) {
-                const secondsSinceStart = (Date.now() - startTime) * 0.001;
-
-                // If this is taking a long time, log an error to help the user
-                // diagnose and mitigate the problem.
-                if (secondsSinceStart >= longOperationLimitInSec && nFilesVisited >= nFilesToSuggestSubfolder) {
-                    this._console.error(
-                        `Enumeration of workspace source files is taking longer than ${longOperationLimitInSec} seconds.\n` +
-                            'This may be because:\n' +
-                            '* You have opened your home directory or entire hard drive as a workspace\n' +
-                            '* Your workspace contains a very large number of directories and files\n' +
-                            '* Your workspace contains a symlink to a directory with many files\n' +
-                            '* Your workspace is remote, and file enumeration is slow\n' +
-                            'To reduce this time, open a workspace directory with fewer files ' +
-                            'or add a pyrightconfig.json configuration file with an "exclude" section to exclude ' +
-                            'subdirectories from your workspace. For more details, refer to ' +
-                            'https://github.com/microsoft/pyright/blob/main/docs/configuration.md.'
-                    );
-
-                    // Show it in message box if it is supported.
-                    this._tryShowLongOperationMessageBox();
-
-                    loggedLongOperationError = true;
-                }
-            }
-
-            if (this._configOptions.autoExcludeVenv) {
-                if (envMarkers.some((f) => this.fs.existsSync(absolutePath.resolvePaths(...f)))) {
-                    // Save auto exclude paths in the configOptions once we found them.
-                    if (!FileSpec.isInPath(absolutePath, exclude)) {
-                        exclude.push(getFileSpec(this._configOptions.projectRoot, `${absolutePath}/**`));
-                    }
-
-                    this._console.info(`Auto-excluding ${absolutePath.toUserVisibleString()}`);
-                    return;
-                }
-            }
-
-            const { files, directories } = getFileSystemEntries(this.fs, absolutePath);
-
-            for (const filePath of files) {
-                if (FileSpec.matchIncludeFileSpec(includeRegExp, exclude, filePath)) {
-                    nFilesVisited++;
-                    results.push(filePath);
-                }
-            }
-
-            for (const dirPath of directories) {
-                if (dirPath.matchesRegex(includeRegExp) || hasDirectoryWildcard) {
-                    if (!FileSpec.isInPath(dirPath, exclude)) {
-                        visitDirectory(dirPath, includeRegExp, hasDirectoryWildcard);
-                    }
-                }
-            }
-        };
-
-        const seenDirs = new Set<string>();
-        const visitDirectory = (absolutePath: Uri, includeRegExp: RegExp, hasDirectoryWildcard: boolean) => {
-            const realDirPath = tryRealpath(this.fs, absolutePath);
-            if (!realDirPath) {
-                this._console.warn(`Skipping broken link "${absolutePath}"`);
-                return;
-            }
-
-            if (seenDirs.has(realDirPath.key)) {
-                this._console.warn(`Skipping recursive symlink "${absolutePath}" -> "${realDirPath}"`);
-                return;
-            }
-            seenDirs.add(realDirPath.key);
-
-            try {
-                visitDirectoryUnchecked(absolutePath, includeRegExp, hasDirectoryWildcard);
-            } finally {
-                seenDirs.delete(realDirPath.key);
-            }
-        };
-
-        include.forEach((includeSpec) => {
-            if (!FileSpec.isInPath(includeSpec.wildcardRoot, exclude)) {
-                let foundFileSpec = false;
-
-                const stat = tryStat(this.fs, includeSpec.wildcardRoot);
-                if (stat?.isFile()) {
-                    results.push(includeSpec.wildcardRoot);
-                    foundFileSpec = true;
-                } else if (stat?.isDirectory()) {
-                    visitDirectory(includeSpec.wildcardRoot, includeSpec.regExp, includeSpec.hasDirectoryWildcard);
-                    foundFileSpec = true;
-                }
-
-                if (!foundFileSpec) {
-                    this._console.error(
-                        `File or directory "${includeSpec.wildcardRoot.toUserVisibleString()}" does not exist.`
-                    );
-                }
-            }
-        });
-
-        return results;
     }
 
     private _removeSourceFileWatchers() {
@@ -1706,12 +1644,11 @@ export class AnalyzerService {
         }
 
         // Watch the library paths for package install/uninstall.
-        const importFailureInfo: string[] = [];
         this._librarySearchUrisToWatch = findPythonSearchPaths(
             this.fs,
             this._backgroundAnalysisProgram.configOptions,
             this._backgroundAnalysisProgram.host,
-            importFailureInfo,
+            /* importLogger */ undefined,
             /* includeWatchPathsOnly */ true,
             this._executionRootUri
         );

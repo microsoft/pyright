@@ -41,15 +41,26 @@ Pyright uses the following mechanisms (in priority order) to determine which Pyt
 3. As a fallback, use the default Python environment (i.e. the one that is invoked when typing `python` in the shell).
 
 ### Editable installs
-
-If you want to use static analysis tools with an editable install, you should configure the editable install to use `.pth` files that contain file paths rather than executable lines (prefixed with `import`) that install import hooks. See your package manager’s documentation for details on how to do this. We have provided some basic information for common package managers below.
+If you want to use static analysis tools with an editable install, you should configure the editable install to use `.pth` files that contain file paths rather than executable lines (prefixed with `import`) that install import hooks.
 
 Import hooks can provide an editable installation that is a more accurate representation of your real installation. However, because resolving module locations using an import hook requires executing Python code, they are not usable by Pyright and other static analysis tools. Therefore, if your editable install is configured to use import hooks, Pyright will be unable to find the corresponding source files.
 
-#### pip / setuptools
-`pip` (`setuptools`) supports two ways to avoid import hooks:
+Notably, setuptools uses import hooks by default. For setuptools-based editable installs to be usable with Pyright, setuptools needs to be configured to use path-based `.pth` files through the build frontend.
+
+#### pip with setuptools
+`pip` with `setuptools` supports two ways to avoid import hooks:
 - [compat mode](https://setuptools.pypa.io/en/latest/userguide/development_mode.html#legacy-behavior)
 - [strict mode](https://setuptools.pypa.io/en/latest/userguide/development_mode.html#strict-editable-installs)
+
+#### uv with setuptools
+When using uv with setuptools, uv can be [configured](https://docs.astral.sh/uv/reference/settings/#config-settings) to avoid import hooks:
+
+```toml
+[tool.uv]
+config-settings = { editable_mode = "compat" }
+```
+
+The `uv_build` backend always uses path-based `.pth` files.
 
 #### Hatch / Hatchling
 [Hatchling](https://hatch.pypa.io/latest/config/build/#dev-mode) uses path-based `.pth` files by

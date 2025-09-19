@@ -88,12 +88,12 @@ export interface ImportResult {
     // List of files within the final resolved path that are implicitly
     // imported as part of the package - used for both traditional and
     // namespace packages.
-    implicitImports: Map<string, ImplicitImport>;
+    implicitImports?: Map<string, ImplicitImport>;
 
     // Implicit imports that have been filtered to include only
     // those symbols that are explicitly imported in a "from x import y"
     // statement.
-    filteredImplicitImports: Map<string, ImplicitImport>;
+    filteredImplicitImports?: Map<string, ImplicitImport>;
 
     // If resolved from a type hint (.pyi), then store the import result
     // from .py here.

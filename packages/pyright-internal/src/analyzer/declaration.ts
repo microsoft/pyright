@@ -52,8 +52,8 @@ export type IntrinsicType =
     | 'str | None'
     | 'int'
     | 'MutableSequence[str]'
-    | 'type[self]'
-    | 'Dict[str, Any]';
+    | '__class__'
+    | 'dict[str, Any]';
 
 export interface DeclarationBase {
     // Category of this symbol (function, variable, etc.).

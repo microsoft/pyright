@@ -9,13 +9,13 @@ import { ConsoleInterface } from '../common/console';
 import { LogTracker } from '../common/logTracker';
 import { ServiceProvider } from '../common/serviceProvider';
 import { Uri } from '../common/uri/uri';
-import { SourceFileEditMode, IPythonMode, SourceFile } from './sourceFile';
+import { IPythonMode, SourceFile, SourceFileEditMode } from './sourceFile';
 
 export interface ISourceFileFactory {
     createSourceFile(
         serviceProvider: ServiceProvider,
         fileUri: Uri,
-        moduleName: string,
+        moduleNameGetter: (file: Uri) => string,
         isThirdPartyImport: boolean,
         isThirdPartyPyTypedPresent: boolean,
         editMode: SourceFileEditMode,

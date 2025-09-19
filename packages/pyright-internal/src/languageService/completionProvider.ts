@@ -2832,7 +2832,7 @@ export class CompletionProvider {
         priorWord: string,
         completionMap: CompletionMap
     ) {
-        importInfo.implicitImports.forEach((implImport) => {
+        importInfo.implicitImports?.forEach((implImport) => {
             if (!importFromNode.d.imports.find((imp) => imp.d.name.d.value === implImport.name)) {
                 this.addNameToCompletions(implImport.name, CompletionItemKind.Module, priorWord, completionMap, {
                     moduleUri: implImport.uri,
@@ -3087,7 +3087,7 @@ export class CompletionProvider {
 
         switch (resolvedDeclaration.type) {
             case DeclarationType.Intrinsic:
-                return resolvedDeclaration.intrinsicType === 'type[self]'
+                return resolvedDeclaration.intrinsicType === '__class__'
                     ? CompletionItemKind.Class
                     : CompletionItemKind.Variable;
 

@@ -281,6 +281,19 @@ def func5(subj: object):
             reveal_type(subj, expected_text="Dataclass2")
 
 
+@dataclass(match_args=False)
+class DataclassNoMatchArgs:
+    a: int
+    b: int
+
+
+def func5b(subj: object):
+    match subj:
+        # This should generate an error because match_args is False.
+        case DataclassNoMatchArgs(1, 2):
+            pass
+
+
 # Test the auto-generation of __match_args__ for named tuples.
 NT1 = NamedTuple("NT1", [("val1", int), ("val2", complex)])
 NT2 = NamedTuple("NT2", [("val1", int), ("val2", str), ("val3", float)])

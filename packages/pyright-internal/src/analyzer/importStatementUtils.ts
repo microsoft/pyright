@@ -678,10 +678,12 @@ function _processImportFromNode(
     if (includeImplicitImports && importResult) {
         localImports.implicitImports = localImports.implicitImports ?? new Map<string, ImportFromAsNode>();
 
-        for (const implicitImport of importResult.implicitImports.values()) {
-            const importFromAs = node.d.imports.find((i) => i.d.name.d.value === implicitImport.name);
-            if (importFromAs) {
-                localImports.implicitImports.set(implicitImport.uri.key, importFromAs);
+        if (importResult.implicitImports) {
+            for (const implicitImport of importResult.implicitImports.values()) {
+                const importFromAs = node.d.imports.find((i) => i.d.name.d.value === implicitImport.name);
+                if (importFromAs) {
+                    localImports.implicitImports.set(implicitImport.uri.key, importFromAs);
+                }
             }
         }
     }

@@ -9,6 +9,7 @@
 
 import { isAbsolute } from 'path';
 
+import { ImportLogger } from '../analyzer/importLogger';
 import { getPathsFromPthFiles } from '../analyzer/pythonPathUtils';
 import * as pathConsts from '../common/pathConsts';
 import { appendArray } from './collectionUtils';
@@ -393,9 +394,6 @@ export interface DiagnosticRuleSet {
     // Report code that is determined to be unreachable via type analysis.
     reportUnreachable: DiagnosticLevel;
 
-    // Report files that match stdlib modules.
-    reportShadowedImports: DiagnosticLevel;
-
     // Report missing @override decorator.
     reportImplicitOverride: DiagnosticLevel;
 }
@@ -514,7 +512,6 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
         DiagnosticRule.reportMatchNotExhaustive,
         DiagnosticRule.reportUnreachable,
-        DiagnosticRule.reportShadowedImports,
         DiagnosticRule.reportImplicitOverride,
     ];
 }
@@ -622,7 +619,6 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
         reportUnreachable: 'none',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
     };
 
@@ -726,7 +722,6 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
         reportUnreachable: 'none',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
     };
 
@@ -830,7 +825,6 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
         reportUnreachable: 'none',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
     };
 
@@ -934,7 +928,6 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'error',
         reportUnreachable: 'none',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
     };
 
@@ -1502,13 +1495,13 @@ export class ConfigOptions {
             return;
         }
 
-        const importFailureInfo: string[] = [];
-        this.defaultPythonVersion = host.getPythonVersion(this.pythonPath, importFailureInfo);
+        const importLogger = new ImportLogger();
+        this.defaultPythonVersion = host.getPythonVersion(this.pythonPath, importLogger);
         if (this.defaultPythonVersion !== undefined) {
             console.info(`Assuming Python version ${PythonVersion.toString(this.defaultPythonVersion)}`);
         }
 
-        for (const log of importFailureInfo) {
+        for (const log of importLogger.getLogs()) {
             console.info(log);
         }
     }

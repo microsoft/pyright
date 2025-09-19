@@ -6,8 +6,7 @@
         "filesToAnalyzeCount": "分析する {count} 個のファイル",
         "filesToAnalyzeOne": "分析する 1 つのファイル",
         "findingReferences": "参照を検索しています",
-        "organizeImports": "インポートを整理",
-        "renameShadowedFile": "\"{oldFile}\" の名前を \"{newFile}\" に変更します"
+        "organizeImports": "インポートを整理"
     },
     "Completion": {
         "autoImportDetail": "自動インポート",
@@ -470,7 +469,6 @@
         "starPatternInOrPattern": "スター パターンを他のパターン内で OR 化することはできません",
         "starStarWildcardNotAllowed": "** はワイルドカード \"_\" と共に使用できません",
         "staticClsSelfParam": "静的メソッドに \"self\" または \"cls\" パラメーターを指定することはできません",
-        "stdlibModuleOverridden": "\"{path}\" は stdlib モジュール \"{name}\" をオーバーライドしています",
         "stringNonAsciiBytes": "非 ASCII 文字はバイト文字列リテラルでは使用できません",
         "stringNotSubscriptable": "型式では文字列式を添字にすることはできません。式全体を引用符で囲んでください",
         "stringUnsupportedEscape": "文字列リテラルでサポートされていないエスケープ シーケンス",

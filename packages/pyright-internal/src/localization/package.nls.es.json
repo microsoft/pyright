@@ -6,8 +6,7 @@
         "filesToAnalyzeCount": "{count} archivos para analizar",
         "filesToAnalyzeOne": "1 archivo para analizar",
         "findingReferences": "Buscando referencias",
-        "organizeImports": "Organizar Importaciones",
-        "renameShadowedFile": "Cambie el nombre de \"{oldFile}\" a \"{newFile}\""
+        "organizeImports": "Organizar Importaciones"
     },
     "Completion": {
         "autoImportDetail": "Importación automática",
@@ -470,7 +469,6 @@
         "starPatternInOrPattern": "El patrón de estrella no puede unirse a otros patrones",
         "starStarWildcardNotAllowed": "** no puede utilizarse con el comodín \"_\".",
         "staticClsSelfParam": "Los métodos estáticos no deben tomar un parámetro \"self\" o \"cls\".",
-        "stdlibModuleOverridden": "\"{path}\" está reemplazando el módulo stdlib \"{name}\"",
         "stringNonAsciiBytes": "Carácter no ASCII no permitido en el literal de cadena de bytes",
         "stringNotSubscriptable": "La expresión de cadena no puede ir entre comillas en la expresión de tipo; encierre toda la expresión entre comillas.",
         "stringUnsupportedEscape": "Secuencia de escape no admitida en el literal de cadena",

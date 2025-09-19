@@ -365,6 +365,7 @@ import {
     specializeForBaseClass,
     specializeTupleClass,
     specializeWithDefaultTypeArgs,
+    specializeWithUnknownTypeArgs,
     stripTypeForm,
     stripTypeFormRecursive,
     synthesizeTypeVarForSelfCls,
@@ -643,7 +644,6 @@ export function createTypeEvaluator(
     wrapWithLogger: LogWrapper
 ): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
-    const asymmetricAccessorAssignmentCache = new Set<number>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: SuppressedNodeStackEntry[] = [];
     const assignClassToSelfStack: AssignClassToSelfInfo[] = [];
@@ -653,6 +653,7 @@ export function createTypeEvaluator(
     let typeCache = new Map<number, TypeCacheEntry>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     let expectedTypeCache = new Map<number, Type>();
+    let asymmetricAccessorAssignmentCache = new Set<number>();
     let deferredClassCompletions: DeferredClassCompletion[] = [];
     let cancellationToken: CancellationToken | undefined;
     let printExpressionSpaceCount = 0;
@@ -708,6 +709,7 @@ export function createTypeEvaluator(
         typeCache = new Map<number, TypeCacheEntry>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
         expectedTypeCache = new Map<number, Type>();
+        asymmetricAccessorAssignmentCache = new Set<number>();
     }
 
     function readTypeCacheEntry(node: ParseNode) {
@@ -5491,6 +5493,7 @@ export function createTypeEvaluator(
                         match.priv.scopeName,
                         match.priv.scopeType
                     );
+                    type.shared.declaredVariance = match.shared.declaredVariance;
                     return {
                         type,
                         scopeNode,
@@ -17707,10 +17710,7 @@ export function createTypeEvaluator(
                             );
                         } else if (arg.d.name.d.value === 'total' && !constArgValue) {
                             classType.shared.flags |= ClassTypeFlags.CanOmitDictValues;
-                        } else if (
-                            arg.d.name.d.value === 'closed' &&
-                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures
-                        ) {
+                        } else if (arg.d.name.d.value === 'closed') {
                             if (constArgValue) {
                                 classType.shared.flags |=
                                     ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
@@ -17720,6 +17720,24 @@ export function createTypeEvaluator(
                                         DiagnosticRule.reportGeneralTypeIssues,
                                         LocMessage.typedDictExtraItemsClosed(),
                                         classType.shared.typedDictExtraItemsExpr
+                                    );
+                                }
+                            } else {
+                                // PEP 728: A class that subclasses from a non-open TypedDict
+                                // cannot specify closed=False.
+                                const nonOpenBase = classType.shared.baseClasses.find(
+                                    (base) =>
+                                        isInstantiableClass(base) &&
+                                        ClassType.isTypedDictClass(base) &&
+                                        ClassType.isTypedDictEffectivelyClosed(base)
+                                );
+                                if (nonOpenBase) {
+                                    addDiagnostic(
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        LocMessage.typedDictClosedFalseNonOpenBase().format({
+                                            name: (nonOpenBase as ClassType).shared.name,
+                                        }),
+                                        arg.d.valueExpr
                                     );
                                 }
                             }
@@ -17734,10 +17752,7 @@ export function createTypeEvaluator(
 
                             sawClosedOrExtraItems = true;
                         }
-                    } else if (
-                        arg.d.name.d.value === 'extra_items' &&
-                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures
-                    ) {
+                    } else if (arg.d.name.d.value === 'extra_items') {
                         // Record a reference to the expression but don't evaluate it yet.
                         // It may refer to the class itself.
                         classType.shared.typedDictExtraItemsExpr = arg.d.valueExpr;
@@ -21683,7 +21698,7 @@ export function createTypeEvaluator(
         }
 
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        if (isAnnotationEvaluationPostponed(fileInfo) || options?.forwardRefs) {
+        if ((isAnnotationEvaluationPostponed(fileInfo) || options?.forwardRefs) && !options?.runtimeTypeExpression) {
             flags |= EvalFlags.ForwardRefs;
         } else if (options?.parsesStringLiteral) {
             flags |= EvalFlags.ParsesStringLiteral;
@@ -22325,14 +22340,12 @@ export function createTypeEvaluator(
                     return { type: AnyType.create() };
                 }
 
-                if (declaration.intrinsicType === 'type[self]') {
+                if (declaration.intrinsicType === '__class__') {
                     const classNode = ParseTreeUtils.getEnclosingClass(declaration.node) as ClassNode;
                     const classTypeInfo = getTypeOfClass(classNode);
                     return {
                         type: classTypeInfo
-                            ? TypeVarType.cloneAsBound(
-                                  synthesizeTypeVarForSelfCls(classTypeInfo.classType, /* isClsParam */ true)
-                              )
+                            ? specializeWithUnknownTypeArgs(classTypeInfo.classType, getTupleClassType())
                             : UnknownType.create(),
                     };
                 }
@@ -22361,7 +22374,7 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    if (declaration.intrinsicType === 'Dict[str, Any]') {
+                    if (declaration.intrinsicType === 'dict[str, Any]') {
                         const dictType = getBuiltInType(declaration.node, 'dict');
                         if (isInstantiableClass(dictType)) {
                             return {
@@ -22447,6 +22460,7 @@ export function createTypeEvaluator(
                                 allowFinal: true,
                                 allowRequired: true,
                                 allowReadOnly: true,
+                                runtimeTypeExpression: true,
                             }).type
                         );
                     } else {
@@ -23175,7 +23189,9 @@ export function createTypeEvaluator(
                     const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode);
                     const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
                     if (usageScope === declScope) {
-                        return;
+                        if (!isFlowPathBetweenNodes(decl.node, usageNode)) {
+                            return;
+                        }
                     }
                 }
             }
@@ -25221,7 +25237,7 @@ export function createTypeEvaluator(
 
                 overloads.forEach((overload) => {
                     const overloadScopeId = getTypeVarScopeId(overload) ?? '';
-                    const constraintsClone = constraints?.cloneWithSignature([overloadScopeId]);
+                    const constraintsClone = constraints?.cloneWithSignature(overloadScopeId);
 
                     if (assignType(destType, overload, /* diag */ undefined, constraintsClone, flags, recursionCount)) {
                         filteredOverloads.push(overload);
@@ -27866,6 +27882,28 @@ export function createTypeEvaluator(
                             diag?.addMessage(
                                 LocAddendum.overrideParamNameExtra().format({
                                     name: paramInfo.param.name ?? '?',
+                                })
+                            );
+                            canOverride = false;
+                        }
+                    } else {
+                        // Base has a **kwargs; ensure the added keyword-only parameter's
+                        // type is compatible with the base's **kwargs value type.
+                        const baseKwargsType = baseParamDetails.params[baseParamDetails.kwargsIndex].type;
+                        if (
+                            !assignType(
+                                paramInfo.type,
+                                baseKwargsType,
+                                diag?.createAddendum(),
+                                constraints,
+                                AssignTypeFlags.Default
+                            )
+                        ) {
+                            diag?.addMessage(
+                                LocAddendum.overrideParamKeywordType().format({
+                                    name: paramInfo.param.name ?? '?',
+                                    baseType: printType(baseKwargsType),
+                                    overrideType: printType(paramInfo.type),
                                 })
                             );
                             canOverride = false;

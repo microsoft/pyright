@@ -2,8 +2,7 @@ from _typeshed import ReadableBuffer
 from collections.abc import Iterable
 from typing import Final, SupportsBytes, SupportsIndex
 
-from . import connections, constants, converters, cursors
-from .connections import Connection as Connection
+from . import connections as connections, constants as constants, converters as converters, cursors as cursors
 from .constants import FIELD_TYPE as FIELD_TYPE
 from .err import (
     DatabaseError as DatabaseError,
@@ -58,9 +57,9 @@ def thread_safe() -> bool: ...
 
 NULL: str
 
-# pymysql/__init__.py says "Connect = connect = Connection = connections.Connection"
-Connect = Connection
-connect = Connection
+Connect = connections.Connection
+connect = connections.Connection
+Connection = connections.Connection
 
 __all__ = [
     "BINARY",

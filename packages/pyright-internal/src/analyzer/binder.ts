@@ -294,8 +294,8 @@ export class Binder extends ParseTreeWalker {
                 this._addImplicitSymbolToCurrentScope('__path__', node, 'MutableSequence[str]');
                 this._addImplicitSymbolToCurrentScope('__file__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__cached__', node, 'str');
-                this._addImplicitSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');
-                this._addImplicitSymbolToCurrentScope('__annotations__', node, 'Dict[str, Any]');
+                this._addImplicitSymbolToCurrentScope('__annotations__', node, 'dict[str, Any]');
+                this._addImplicitSymbolToCurrentScope('__dict__', node, 'dict[str, Any]');
                 this._addImplicitSymbolToCurrentScope('__builtins__', node, 'Any');
                 this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
 
@@ -372,7 +372,7 @@ export class Binder extends ParseTreeWalker {
             return true;
         }
 
-        if (!importResult.isImportFound) {
+        if (!importResult.isImportFound && importResult.importName) {
             this._addDiagnostic(
                 DiagnosticRule.reportMissingImports,
                 LocMessage.importResolveFailure().format({
@@ -400,7 +400,7 @@ export class Binder extends ParseTreeWalker {
             if (importResult.isNamespacePackage && node.parent?.nodeType === ParseNodeType.ImportFrom) {
                 if (
                     node.parent.d.imports.every((importAs) => {
-                        const implicitImport = importResult.filteredImplicitImports.get(importAs.d.name.d.value);
+                        const implicitImport = importResult.filteredImplicitImports?.get(importAs.d.name.d.value);
                         return !!implicitImport?.pyTypedInfo;
                     })
                 ) {
@@ -554,7 +554,7 @@ export class Binder extends ParseTreeWalker {
                 const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
                 if (enclosingClass) {
                     // Add the implicit "__class__" symbol described in PEP 3135.
-                    this._addImplicitSymbolToCurrentScope('__class__', node, 'type[self]');
+                    this._addImplicitSymbolToCurrentScope('__class__', node, '__class__');
                 }
 
                 this._deferBinding(() => {
@@ -4168,7 +4168,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _addImplicitImportsToLoaderActions(importResult: ImportResult, loaderActions: ModuleLoaderActions) {
-        importResult.filteredImplicitImports.forEach((implicitImport) => {
+        importResult.filteredImplicitImports?.forEach((implicitImport) => {
             const existingLoaderAction = loaderActions.implicitImports
                 ? loaderActions.implicitImports.get(implicitImport.name)
                 : undefined;

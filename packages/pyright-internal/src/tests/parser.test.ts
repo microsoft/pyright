@@ -155,3 +155,15 @@ test('FinallyExit1', () => {
     TestUtils.parseSampleFile('finallyExit1.py', diagSink2, execEnvironment);
     assert.strictEqual(diagSink2.getErrors().length, 5);
 });
+
+test('TrailingBackslashCRAtEOF', () => {
+    // A file that ends with a line-continuation backslash followed by a CR
+    // should produce a syntax error.
+    const code = '"""Comment"""\n\n\\\r';
+
+    const diagSink = new DiagnosticSink();
+    TestUtils.parseText(code, diagSink);
+    const errors = diagSink.getErrors();
+    assert.strictEqual(errors.length > 0, true);
+    assert.ok(errors.some((e) => e.message.includes('Unexpected EOF')));
+});

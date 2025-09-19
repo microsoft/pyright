@@ -1634,6 +1634,14 @@ export function getProtocolSymbolsRecursive(
     classFlags = ClassTypeFlags.ProtocolClass,
     recursionCount = 0
 ) {
+    // Special-case the NamedTuple class because it's not really
+    // a separate class at runtime. The typeshed stubs model it
+    // this way, and we don't want it to be treated as a protocol
+    // or abstract class.
+    if (ClassType.isBuiltIn(classType, 'NamedTuple')) {
+        return;
+    }
+
     if (recursionCount > maxTypeRecursionCount) {
         return;
     }
@@ -1644,22 +1652,24 @@ export function getProtocolSymbolsRecursive(
         }
     });
 
-    ClassType.getSymbolTable(classType).forEach((symbol, name) => {
-        if (!symbol.isIgnoredForProtocolMatch()) {
-            symbolMap.set(name, {
-                symbol,
-                classType,
-                unspecializedClassType: classType,
-                isInstanceMember: symbol.isInstanceMember(),
-                isClassMember: symbol.isClassMember(),
-                isSlotsMember: symbol.isSlotsMember(),
-                isClassVar: isEffectivelyClassVar(symbol, /* isDataclass */ false),
-                isReadOnly: false,
-                isTypeDeclared: symbol.hasTypedDeclarations(),
-                skippedUndeclaredType: false,
-            });
-        }
-    });
+    if ((classType.shared.flags & classFlags) !== 0) {
+        ClassType.getSymbolTable(classType).forEach((symbol, name) => {
+            if (!symbol.isIgnoredForProtocolMatch()) {
+                symbolMap.set(name, {
+                    symbol,
+                    classType,
+                    unspecializedClassType: classType,
+                    isInstanceMember: symbol.isInstanceMember(),
+                    isClassMember: symbol.isClassMember(),
+                    isSlotsMember: symbol.isSlotsMember(),
+                    isClassVar: isEffectivelyClassVar(symbol, /* isDataclass */ false),
+                    isReadOnly: false,
+                    isTypeDeclared: symbol.hasTypedDeclarations(),
+                    skippedUndeclaredType: false,
+                });
+            }
+        });
+    }
 }
 
 // Determines the maximum depth of a tuple, list, set or dictionary.
@@ -3735,7 +3745,14 @@ export class TypeVarTransformer {
                 } else {
                     const newTypeArgType = this.apply(typeParams[0], recursionCount);
                     newTupleTypeArgs = [{ type: newTypeArgType, isUnbounded: true }];
-                    specializationNeeded = true;
+
+                    // If this is the literal "tuple" class (as opposed to a type that
+                    // represents all subtypes of tuple), don't specialize
+                    // if the type arg is the same as the type param. This is the same
+                    // thing we do with non-tuple classes below.
+                    if (newTypeArgType !== typeParams[0] || classType.priv.includeSubclasses) {
+                        specializationNeeded = true;
+                    }
                     isTypeArgExplicit = false;
                 }
             }

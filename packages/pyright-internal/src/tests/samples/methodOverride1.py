@@ -146,6 +146,8 @@ class ParentClass:
 
     def __my_method47__(self, x: int) -> None: ...
 
+    def my_method48(self, /, **kwargs: object) -> None: ...
+
 
 T_ChildClass = TypeVar("T_ChildClass", bound="ChildClass")
 
@@ -310,6 +312,10 @@ class ChildClass(ParentClass):
 
     # This should generate an error because of a type mismatch.
     def __my_method47__(self, y: str) -> None: ...
+
+    # This should generate an error because the keyword-only parameter "x: int"
+    # is not compatible with the base method's "**kwargs: object".
+    def my_method48(self, /, *, x: int = 3, **kwargs: object) -> None: ...
 
 
 class A:

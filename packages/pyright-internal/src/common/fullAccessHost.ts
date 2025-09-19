@@ -9,18 +9,19 @@
 import * as child_process from 'child_process';
 import { CancellationToken } from 'vscode-languageserver';
 
+import { ImportLogger } from '../analyzer/importLogger';
 import { PythonPathResult } from '../analyzer/pythonPathUtils';
 import { OperationCanceledException, onCancellationRequested, throwIfCancellationRequested } from './cancellationUtils';
 import { PythonPlatform } from './configOptions';
 import { assertNever } from './debug';
 import { HostKind, NoAccessHost, ScriptOutput } from './host';
 import { getAnyExtensionFromPath, normalizePath } from './pathUtils';
+import { terminateChild } from './processUtils';
 import { PythonVersion } from './pythonVersion';
 import { ServiceKeys } from './serviceKeys';
 import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 import { isDirectory } from './uri/uriUtils';
-import { terminateChild } from './processUtils';
 
 // preventLocalImports removes the working directory from sys.path.
 // The -c flag adds it automatically, which can allow some stdlib
@@ -50,7 +51,7 @@ export class LimitedAccessHost extends NoAccessHost {
         return HostKind.LimitedAccess;
     }
 
-    override getPythonPlatform(logInfo?: string[]): PythonPlatform | undefined {
+    override getPythonPlatform(importLogger?: ImportLogger): PythonPlatform | undefined {
         if (process.platform === 'darwin') {
             return PythonPlatform.Darwin;
         } else if (process.platform === 'linux') {
@@ -85,10 +86,9 @@ export class FullAccessHost extends LimitedAccessHost {
         }
     }
 
-    override getPythonSearchPaths(pythonPath?: Uri, logInfo?: string[]): PythonPathResult {
-        const importFailureInfo = logInfo ?? [];
+    override getPythonSearchPaths(pythonPath?: Uri, importLogger?: ImportLogger): PythonPathResult {
         let result = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
-            this._getSearchPathResultFromInterpreter(p, importFailureInfo)
+            this._getSearchPathResultFromInterpreter(p, importLogger)
         );
 
         if (!result) {
@@ -98,17 +98,15 @@ export class FullAccessHost extends LimitedAccessHost {
             };
         }
 
-        importFailureInfo.push(`Received ${result.paths.length} paths from interpreter`);
+        importLogger?.log(`Received ${result.paths.length} paths from interpreter`);
         result.paths.forEach((path) => {
-            importFailureInfo.push(`  ${path}`);
+            importLogger?.log(`  ${path}`);
         });
 
         return result;
     }
 
-    override getPythonVersion(pythonPath?: Uri, logInfo?: string[]): PythonVersion | undefined {
-        const importFailureInfo = logInfo ?? [];
-
+    override getPythonVersion(pythonPath?: Uri, importLogger?: ImportLogger): PythonVersion | undefined {
         try {
             const execOutput = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
                 this._executeCodeInInterpreter(p, ['-I'], extractVersion)
@@ -117,7 +115,7 @@ export class FullAccessHost extends LimitedAccessHost {
             const versionJson: any[] = JSON.parse(execOutput!);
 
             if (!Array.isArray(versionJson) || versionJson.length < 5) {
-                importFailureInfo.push(`Python version ${execOutput} from interpreter is unexpected format`);
+                importLogger?.log(`Python version ${execOutput} from interpreter is unexpected format`);
                 return undefined;
             }
 
@@ -130,13 +128,13 @@ export class FullAccessHost extends LimitedAccessHost {
             );
 
             if (version === undefined) {
-                importFailureInfo.push(`Python version ${execOutput} from interpreter is unsupported`);
+                importLogger?.log(`Python version ${execOutput} from interpreter is unsupported`);
                 return undefined;
             }
 
             return version;
         } catch {
-            importFailureInfo.push('Unable to get Python version from interpreter');
+            importLogger?.log('Unable to get Python version from interpreter');
             return undefined;
         }
     }
@@ -152,7 +150,7 @@ export class FullAccessHost extends LimitedAccessHost {
         throwIfCancellationRequested(token);
 
         // What to do about conda here?
-        return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+        return new Promise<ScriptOutput>((resolve, reject) => {
             let stdout = '';
             let stderr = '';
             const commandLineArgs = ['-I', script.getFilePath(), ...args];
@@ -176,13 +174,82 @@ export class FullAccessHost extends LimitedAccessHost {
                     tokenWatch.dispose();
                     reject(e);
                 });
-                child.on('exit', () => {
+                child.on('close', (code) => {
                     tokenWatch.dispose();
-                    resolve({ stdout, stderr });
+                    resolve({ stdout, stderr, exitCode: code ?? undefined });
                 });
             } else {
                 tokenWatch.dispose();
                 reject(new Error(`Cannot start python interpreter with script ${script}`));
+            }
+        });
+    }
+
+    override runSnippet(
+        pythonPath: Uri | undefined,
+        code: string,
+        args: string[],
+        cwd: Uri,
+        token: CancellationToken
+    ): Promise<ScriptOutput> {
+        // If it is already cancelled, don't bother to run snippet.
+        throwIfCancellationRequested(token);
+
+        // What to do about conda here?
+        return new Promise<ScriptOutput>((resolve, reject) => {
+            const commandLineArgs = ['-c', code, ...args];
+
+            const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
+                child_process.spawn(p, commandLineArgs, {
+                    cwd: cwd.getFilePath(),
+                    stdio: ['pipe', 'pipe', 'pipe'],
+                    shell: this.shouldUseShellToRunInterpreter(p),
+                })
+            );
+            const tokenWatch = onCancellationRequested(token, () => {
+                if (child) {
+                    terminateChild(child);
+                }
+                reject(new OperationCanceledException());
+            });
+            if (child) {
+                let stdout = '';
+                let stderr = '';
+                let output = '';
+
+                // Interleave stdout and stderr by capturing them with timestamps
+                const outputLines: Array<{ timestamp: number; type: 'stdout' | 'stderr'; data: string }> = [];
+
+                child.stdout?.on('data', (data) => {
+                    const text = data.toString();
+                    stdout += text;
+                    outputLines.push({ timestamp: Date.now(), type: 'stdout', data: text });
+                });
+
+                child.stderr?.on('data', (data) => {
+                    const text = data.toString();
+                    stderr += text;
+                    outputLines.push({ timestamp: Date.now(), type: 'stderr', data: text });
+                });
+
+                child.on('error', (error) => {
+                    reject(new Error(`Failed to start Python process: ${error.message}`));
+                });
+
+                child.on('close', (code) => {
+                    tokenWatch.dispose();
+
+                    // Sort by timestamp to get proper interleaving
+                    outputLines.sort((a, b) => a.timestamp - b.timestamp);
+
+                    // Combine output in chronological order
+                    output = outputLines.map((line) => line.data).join('');
+
+                    resolve({ stdout, stderr, output, exitCode: code ?? undefined });
+                });
+            } else {
+                tokenWatch.dispose();
+                reject(new Error(`Cannot start python interpreter with the given code snippet.`));
             }
         });
     }
@@ -248,7 +315,7 @@ export class FullAccessHost extends LimitedAccessHost {
 
     private _getSearchPathResultFromInterpreter(
         interpreterPath: string,
-        importFailureInfo: string[]
+        importLogger?: ImportLogger
     ): PythonPathResult | undefined {
         const result: PythonPathResult = {
             paths: [],
@@ -256,7 +323,7 @@ export class FullAccessHost extends LimitedAccessHost {
         };
 
         try {
-            importFailureInfo.push(`Executing interpreter: '${interpreterPath}'`);
+            importLogger?.log(`Executing interpreter: '${interpreterPath}'`);
             const execOutput = this._executeCodeInInterpreter(interpreterPath, [], extractSys);
             const caseDetector = this.serviceProvider.get(ServiceKeys.caseSensitivityDetector);
 
@@ -275,7 +342,7 @@ export class FullAccessHost extends LimitedAccessHost {
                         ) {
                             result.paths.push(normalizedUri);
                         } else {
-                            importFailureInfo.push(`Skipping '${normalizedPath}' because it is not a valid directory`);
+                            importLogger?.log(`Skipping '${normalizedPath}' because it is not a valid directory`);
                         }
                     }
                 }
@@ -283,10 +350,10 @@ export class FullAccessHost extends LimitedAccessHost {
                 result.prefix = Uri.file(execSplit.prefix, caseDetector);
 
                 if (result.paths.length === 0) {
-                    importFailureInfo.push(`Found no valid directories`);
+                    importLogger?.log(`Found no valid directories`);
                 }
             } catch (err) {
-                importFailureInfo.push(`Could not parse output: '${execOutput}'`);
+                importLogger?.log(`Could not parse output: '${execOutput}'`);
                 throw err;
             }
         } catch {

@@ -545,6 +545,7 @@ async function runSingleThreaded(
 
     // This will trigger the analyzer.
     service.setOptions(options);
+    service.enumerateSourceFiles(0);
 
     return await exitStatus.promise;
 }
@@ -568,6 +569,7 @@ async function runMultiThreaded(
 
     // This will trigger discovery of files in the project.
     service.setOptions(options);
+    service.enumerateSourceFiles(0);
     const program = service.backgroundAnalysisProgram.program;
 
     // Get the list of "tracked" source files -- those that will be type checked.
@@ -1283,7 +1285,7 @@ function reportDiagnosticsAsText(
     console.info(
         `${errorCount.toString()} ${errorCount === 1 ? 'error' : 'errors'}, ` +
             `${warningCount.toString()} ${warningCount === 1 ? 'warning' : 'warnings'}, ` +
-            `${informationCount.toString()} ${informationCount === 1 ? 'information' : 'informations'} `
+            `${informationCount.toString()} ${informationCount === 1 ? 'information' : 'informations'}`
     );
 
     return {

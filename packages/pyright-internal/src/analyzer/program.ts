@@ -336,13 +336,11 @@ export class Program {
 
     addTrackedFile(fileUri: Uri, isThirdPartyImport = false, isInPyTypedPackage = false): SourceFile {
         let sourceFileInfo = this.getSourceFileInfo(fileUri);
-        const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
-        const importName = moduleImportInfo.moduleName;
 
         if (sourceFileInfo) {
             // The module name may have changed based on updates to the
-            // search paths, so update it here.
-            sourceFileInfo.sourceFile.setModuleName(importName);
+            // search paths. Clear any cached module name so it is recomputed.
+            sourceFileInfo.sourceFile.clearCachedModuleName();
             sourceFileInfo.isTracked = true;
             return sourceFileInfo.sourceFile;
         }
@@ -350,7 +348,7 @@ export class Program {
         const sourceFile = this._sourceFileFactory.createSourceFile(
             this.serviceProvider,
             fileUri,
-            importName,
+            (uri) => this._getModuleName(uri),
             isThirdPartyImport,
             isInPyTypedPackage,
             this._editModeTracker,
@@ -378,7 +376,7 @@ export class Program {
             const sourceFile = this._sourceFileFactory.createSourceFile(
                 this.serviceProvider,
                 fileUri,
-                moduleImportInfo.moduleName,
+                (uri) => this._getModuleName(uri),
                 /* isThirdPartyImport */ false,
                 moduleImportInfo.isThirdPartyPyTypedPresent,
                 this._editModeTracker,
@@ -654,7 +652,7 @@ export class Program {
 
                 // Check the open files.
                 for (const sourceFileInfo of openFiles) {
-                    if (this._checkTypes(sourceFileInfo, token)) {
+                    if (this._checkTypes(sourceFileInfo)) {
                         if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                             return true;
                         }
@@ -678,7 +676,7 @@ export class Program {
                         continue;
                     }
 
-                    if (this._checkTypes(sourceFileInfo, token)) {
+                    if (this._checkTypes(sourceFileInfo)) {
                         if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                             return true;
                         }
@@ -695,7 +693,7 @@ export class Program {
     analyzeFile(fileUri: Uri, token: CancellationToken = CancellationToken.None): boolean {
         return this._runEvaluatorWithCancellationToken(token, () => {
             const sourceFileInfo = this.getSourceFileInfo(fileUri);
-            if (sourceFileInfo && this._checkTypes(sourceFileInfo, token)) {
+            if (sourceFileInfo && this._checkTypes(sourceFileInfo, { skipFileNeededCheck: true })) {
                 return true;
             }
             return false;
@@ -1066,20 +1064,20 @@ export class Program {
             this._configOptions.verboseOutput ? this._console : undefined
         );
 
+        const heapRatioHighWaterMark = 0.9;
+
         // If the total cache has exceeded 75%, determine whether we should empty
-        // the cache. If the usedHeapRatio has exceeded 90%, we should definitely
-        // empty the cache. This can happen before the cacheUsage maxes out because
+        // the cache. If the usedHeapRatio has exceeded our high-water mark, we should
+        // definitely empty the cache. This can happen before the cacheUsage maxes out because
         // we might be on the background thread and a bunch of the cacheUsage is on the main
         // thread.
-        if (cacheUsage > 0.75 || usedHeapRatio > 0.9) {
+        if (cacheUsage > 0.75 || usedHeapRatio > heapRatioHighWaterMark) {
             // The type cache uses a Map, which has an absolute limit of 2^24 entries
-            // before it will fail. If we cross the 95% mark, we'll empty the cache.
+            // before it will fail. If we cross the 90% mark, we'll empty the cache.
             const absoluteMaxCacheEntryCount = (1 << 24) * 0.9;
             const typeCacheEntryCount = this._evaluator!.getTypeCacheEntryCount();
 
-            // If we use more than 90% of the heap size limit, avoid a crash
-            // by emptying the type cache.
-            if (typeCacheEntryCount > absoluteMaxCacheEntryCount || usedHeapRatio > 0.9) {
+            if (typeCacheEntryCount > absoluteMaxCacheEntryCount || usedHeapRatio > heapRatioHighWaterMark) {
                 this._cacheManager.emptyCache(this._console);
             }
         }
@@ -1341,6 +1339,7 @@ export class Program {
                 thirdPartyImportAllowed = true;
             } else if (
                 importResult.isNamespacePackage &&
+                importResult.filteredImplicitImports &&
                 Array.from(importResult.filteredImplicitImports.values()).some(
                     (implicitImport) => !!implicitImport.pyTypedInfo
                 )
@@ -1436,7 +1435,7 @@ export class Program {
                     }
                 }
 
-                importResult.filteredImplicitImports.forEach((implicitImport) => {
+                importResult.filteredImplicitImports?.forEach((implicitImport) => {
                     if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
                         if (!implicitImport.isNativeLib) {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
@@ -1506,11 +1505,10 @@ export class Program {
                 // of the program.
                 let importedFileInfo = this.getSourceFileInfo(importInfo.path);
                 if (!importedFileInfo) {
-                    const moduleImportInfo = this._getModuleImportInfoForFile(importInfo.path);
                     const sourceFile = this._sourceFileFactory.createSourceFile(
                         this.serviceProvider,
                         importInfo.path,
-                        moduleImportInfo.moduleName,
+                        (uri) => this._getModuleName(uri),
                         importInfo.isThirdPartyImport,
                         importInfo.isPyTypedPresent,
                         this._editModeTracker,
@@ -1582,6 +1580,11 @@ export class Program {
         this._sourceFileMap.set(fileUri.key, fileInfo);
     }
 
+    private _getModuleName(fileUri: Uri): string {
+        const moduleInfo = this._getModuleImportInfoForFile(fileUri);
+        return moduleInfo.moduleName;
+    }
+
     private _getModuleImportInfoForFile(fileUri: Uri) {
         // We allow illegal module names (e.g. names that include "-" in them)
         // because we want a unique name for each module even if it cannot be
@@ -1622,11 +1625,10 @@ export class Program {
     }
 
     private _createInterimFileInfo(fileUri: Uri) {
-        const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
         const sourceFile = this._sourceFileFactory.createSourceFile(
             this.serviceProvider,
             fileUri,
-            moduleImportInfo.moduleName,
+            (uri) => this._getModuleName(uri),
             /* isThirdPartyImport */ false,
             /* isInPyTypedPackage */ false,
             this._editModeTracker,
@@ -1881,6 +1883,9 @@ export class Program {
         }
 
         if (sourceFileInfo.sourceFile.isBindingRequired()) {
+            // If we're running low on memory, free up some space.
+            this._handleMemoryHighUsage();
+
             // Bind the file if it's not already bound. Don't count this time
             // against the type checker.
             timingStats.typeCheckerTime.subtractFromTime(() => {
@@ -1925,7 +1930,14 @@ export class Program {
         return false;
     }
 
-    private _checkTypes(fileToCheck: SourceFileInfo, token: CancellationToken, chainedByList?: SourceFileInfo[]) {
+    private _checkTypes(
+        fileToCheck: SourceFileInfo,
+        options?: { chainedByList?: SourceFileInfo[]; skipFileNeededCheck?: boolean }
+    ) {
+        // For very large programs, we may need to discard the evaluator and
+        // its cached types to avoid running out of heap space.
+        this._handleMemoryHighUsage();
+
         return this._logTracker.log(`analyzing: ${fileToCheck.uri}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting
@@ -1940,7 +1952,7 @@ export class Program {
                 return false;
             }
 
-            if (!this._shouldCheckFile(fileToCheck)) {
+            if (!options?.skipFileNeededCheck && !this._shouldCheckFile(fileToCheck)) {
                 logState.suppress();
                 return false;
             }
@@ -1959,7 +1971,7 @@ export class Program {
             if (!this._disableChecker) {
                 // For ipython, make sure we check all its dependent files first since
                 // their results can affect this file's result.
-                const dependentFiles = this._checkDependentFiles(fileToCheck, chainedByList, token);
+                const dependentFiles = this._checkDependentFiles(fileToCheck, options?.chainedByList);
 
                 if (this._preCheckCallback) {
                     const parseResults = fileToCheck.sourceFile.getParserOutput();
@@ -1969,21 +1981,15 @@ export class Program {
                 }
 
                 if (boundFile) {
-                    const execEnv = this._configOptions.findExecEnvironment(fileToCheck.uri);
                     fileToCheck.sourceFile.check(
                         this.configOptions,
                         this._lookUpImport,
                         this._importResolver,
                         this._evaluator!,
-                        this._createSourceMapper(execEnv, token, fileToCheck),
                         dependentFiles
                     );
                 }
             }
-
-            // For very large programs, we may need to discard the evaluator and
-            // its cached types to avoid running out of heap space.
-            this._handleMemoryHighUsage();
 
             // Detect import cycles that involve the file.
             if (this._configOptions.diagnosticRuleSet.reportImportCycles !== 'none') {
@@ -2017,11 +2023,7 @@ export class Program {
         });
     }
 
-    private _checkDependentFiles(
-        fileToCheck: SourceFileInfo,
-        chainedByList: SourceFileInfo[] | undefined,
-        token: CancellationToken
-    ) {
+    private _checkDependentFiles(fileToCheck: SourceFileInfo, chainedByList: SourceFileInfo[] | undefined) {
         if (fileToCheck.ipythonMode !== IPythonMode.CellDocs) {
             return undefined;
         }
@@ -2048,7 +2050,7 @@ export class Program {
             const handle = this._cacheManager.pauseTracking();
             try {
                 for (let i = chainedByList.length - 1; i >= startIndex; i--) {
-                    this._checkTypes(chainedByList[i], token, chainedByList);
+                    this._checkTypes(chainedByList[i], { chainedByList });
                 }
             } finally {
                 handle.dispose();

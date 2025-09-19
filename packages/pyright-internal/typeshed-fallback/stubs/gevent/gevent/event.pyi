@@ -1,5 +1,5 @@
 from types import TracebackType
-from typing import Generic, Literal, Protocol, TypeVar, overload
+from typing import Generic, Literal, Protocol, TypeVar, overload, type_check_only
 from typing_extensions import TypeAlias
 
 from gevent._abstract_linkable import AbstractLinkable
@@ -11,6 +11,7 @@ _T_co = TypeVar("_T_co", covariant=True)
 _ExcInfo: TypeAlias = tuple[type[BaseException], BaseException, TracebackType | None]
 _OptExcInfo: TypeAlias = _ExcInfo | tuple[None, None, None]
 
+@type_check_only
 class _ValueSource(Protocol[_T_co]):
     def successful(self) -> bool: ...
     @property

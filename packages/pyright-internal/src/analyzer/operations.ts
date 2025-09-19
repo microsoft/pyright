@@ -937,9 +937,18 @@ function calcLiteralForUnaryOp(operator: OperatorType, operandType: Type): Type 
                 return ClassType.cloneWithLiteral(classSubtype, -(classSubtype.priv.literalValue as number | bigint));
             });
         } else if (operator === OperatorType.BitwiseInvert) {
+            // Python defines bitwise invert (~x) as -(x + 1). Use BigInt math
+            // to avoid JavaScript's 32-bit truncation when using the ~ operator
+            // on Number values.
             type = mapSubtypes(operandType, (subtype) => {
                 const classSubtype = subtype as ClassType;
-                return ClassType.cloneWithLiteral(classSubtype, ~(classSubtype.priv.literalValue as number | bigint));
+                const literalValue = classSubtype.priv.literalValue as number | bigint;
+                const bigVal = typeof literalValue === 'bigint' ? literalValue : BigInt(literalValue as number);
+                let newValue: number | bigint = -(bigVal + BigInt(1));
+                if (newValue >= BigInt(Number.MIN_SAFE_INTEGER) && newValue <= BigInt(Number.MAX_SAFE_INTEGER)) {
+                    newValue = Number(newValue);
+                }
+                return ClassType.cloneWithLiteral(classSubtype, newValue);
             });
         }
     } else if (literalClassName === 'bool') {

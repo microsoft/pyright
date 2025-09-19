@@ -1339,7 +1339,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                   });
 
         // Update progress.
-        if (!this._progressReporter.isDisplayingProgess()) {
+        if (!this._progressReporter.isDisplayingProgress()) {
             this._progressReporter.begin();
         }
         this._progressReporter.report(progressMessage);

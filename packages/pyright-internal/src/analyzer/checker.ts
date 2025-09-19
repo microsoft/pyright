@@ -12,18 +12,15 @@
  * cannot (or should not be) performed lazily.
  */
 
-import { CancellationToken } from 'vscode-languageserver';
-
 import { Commands } from '../commands/commands';
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
-import { ActionKind, Diagnostic, DiagnosticAddendum, RenameShadowedFileAction } from '../common/diagnostic';
+import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { PythonVersion, pythonVersion3_12, pythonVersion3_5, pythonVersion3_6 } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
-import { DefinitionProvider } from '../languageService/definitionProvider';
 import { LocAddendum, LocMessage } from '../localization/localize';
 import {
     ArgCategory,
@@ -101,7 +98,7 @@ import { Declaration, DeclarationType, isAliasDeclaration, isVariableDeclaration
 import { getNameNodeForDeclaration } from './declarationUtils';
 import { deprecatedAliases, deprecatedSpecialForms } from './deprecatedSymbols';
 import { getEnumDeclaredValueType, isEnumClassWithMembers, transformTypeForEnumMember } from './enums';
-import { ImportResolver, ImportedModuleDescriptor, createImportedModuleDescriptor } from './importResolver';
+import { ImportResolver, createImportedModuleDescriptor } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
 import { getParamListDetails } from './parameterUtils';
@@ -112,7 +109,7 @@ import { isMethodOnlyProtocol, isProtocolUnsafeOverlap } from './protocols';
 import { Scope, ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
-import { SourceMapper, isStubFile } from './sourceMapper';
+import { isStubFile } from './sourceMapper';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
@@ -236,7 +233,6 @@ export class Checker extends ParseTreeWalker {
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
         parseResults: ParserOutput,
-        private _sourceMapper: SourceMapper,
         private _dependentFiles?: ParserOutput[]
     ) {
         super();
@@ -247,8 +243,6 @@ export class Checker extends ParseTreeWalker {
 
     check() {
         this._scopedNodes.push(this._moduleNode);
-
-        this._conditionallyReportShadowedModule();
 
         // Report code complexity issues for the module.
         const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(this._moduleNode);
@@ -1507,7 +1501,6 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitImportAs(node: ImportAsNode): boolean {
-        this._conditionallyReportShadowedImport(node);
         this._evaluator.evaluateTypesForStatement(node);
 
         const nameParts = node.d.module.d.nameParts;
@@ -1533,8 +1526,6 @@ export class Checker extends ParseTreeWalker {
                 );
             }
         }
-
-        this._conditionallyReportShadowedImport(node);
 
         if (!node.d.isWildcardImport) {
             node.d.imports.forEach((importAs) => {
@@ -4417,6 +4408,11 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Skip this for keyword argument names.
+        if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.d.name === node) {
+            return;
+        }
+
         if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
             const type = this._evaluator.getType(node);
 
@@ -4437,114 +4433,6 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
             }
-        }
-    }
-
-    private _conditionallyReportShadowedModule() {
-        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
-            return;
-        }
-        // Check the module we're in.
-        const moduleName = this._fileInfo.moduleName;
-        const desc: ImportedModuleDescriptor = {
-            nameParts: moduleName.split('.'),
-            leadingDots: 0,
-            importedSymbols: new Set<string>(),
-        };
-        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
-        if (
-            stdlibPath &&
-            this._importResolver.isStdlibModule(desc, this._fileInfo.executionEnvironment) &&
-            this._sourceMapper.isUserCode(this._fileInfo.fileUri)
-        ) {
-            // This means the user has a module that is overwriting the stdlib module.
-            const diag = this._evaluator.addDiagnosticForTextRange(
-                this._fileInfo,
-                DiagnosticRule.reportShadowedImports,
-                LocMessage.stdlibModuleOverridden().format({
-                    name: moduleName,
-                    path: this._fileInfo.fileUri.toUserVisibleString(),
-                }),
-                this._moduleNode
-            );
-
-            // Add a quick action that renames the file.
-            if (diag) {
-                const renameAction: RenameShadowedFileAction = {
-                    action: ActionKind.RenameShadowedFileAction,
-                    oldUri: this._fileInfo.fileUri,
-                    newUri: this._sourceMapper.getNextFileName(this._fileInfo.fileUri),
-                };
-                diag.addAction(renameAction);
-            }
-        }
-    }
-
-    private _conditionallyReportShadowedImport(node: ImportAsNode | ImportFromAsNode | ImportFromNode) {
-        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
-            return;
-        }
-
-        // Skip this check for relative imports.
-        const nodeModule =
-            node.nodeType === ParseNodeType.ImportFromAs
-                ? node.parent?.nodeType === ParseNodeType.ImportFrom
-                    ? node.parent?.d.module
-                    : undefined
-                : node.d.module;
-        if (nodeModule?.d.leadingDots) {
-            return;
-        }
-
-        // Otherwise use the name to determine if a match for a stdlib module.
-        const namePartNodes =
-            node.nodeType === ParseNodeType.ImportAs
-                ? node.d.module.d.nameParts
-                : node.nodeType === ParseNodeType.ImportFromAs
-                ? [node.d.name]
-                : node.d.module.d.nameParts;
-        const nameParts = namePartNodes.map((n) => n.d.value);
-        const module: ImportedModuleDescriptor = {
-            nameParts,
-            leadingDots: 0,
-            importedSymbols: new Set<string>(),
-        };
-
-        // Make sure the module is a potential stdlib one so we don't spend the time
-        // searching for the definition.
-        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
-        if (stdlibPath && this._importResolver.isStdlibModule(module, this._fileInfo.executionEnvironment)) {
-            // If the definition for this name is in 'user' module, it is overwriting the stdlib module.
-            const definitions = DefinitionProvider.getDefinitionsForNode(
-                this._sourceMapper,
-                this._evaluator,
-                namePartNodes[namePartNodes.length - 1],
-                namePartNodes[namePartNodes.length - 1].start,
-                CancellationToken.None
-            );
-            const paths = definitions ? definitions.map((d) => d.uri) : [];
-            paths.forEach((p) => {
-                if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
-                    // This means the user has a module that is overwriting the stdlib module.
-                    const diag = this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportShadowedImports,
-                        LocMessage.stdlibModuleOverridden().format({
-                            name: nameParts.join('.'),
-                            path: p.toUserVisibleString(),
-                        }),
-                        node
-                    );
-                    // Add a quick action that renames the file.
-                    if (diag) {
-                        const renameAction: RenameShadowedFileAction = {
-                            action: ActionKind.RenameShadowedFileAction,
-                            oldUri: p,
-                            newUri: this._sourceMapper.getNextFileName(p),
-                        };
-                        diag.addAction(renameAction);
-                    }
-                }
-            });
         }
     }
 

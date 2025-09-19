@@ -44,7 +44,6 @@ import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { Scope } from './scope';
-import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
@@ -110,8 +109,9 @@ class WriteableData {
 
     moduleSymbolTable: SymbolTable | undefined;
 
-    // Reentrancy check for binding.
+    // Reentrancy check for binding and checking.
     isBindingInProgress = false;
+    isCheckingInProgress = false;
 
     // Diagnostics generated during different phases of analysis.
     parseDiagnostics: Diagnostic[] = [];
@@ -162,6 +162,7 @@ class WriteableData {
  noCircularDependencyConfirmed=${this.noCircularDependencyConfirmed}, 
  isBindingNeeded=${this.isBindingNeeded},
  isBindingInProgress=${this.isBindingInProgress},
+ isCheckingInProgress=${this.isCheckingInProgress},
  isCheckingNeeded=${this.isCheckingNeeded},
  isFileDeleted=${this.isFileDeleted},
  hitMaxImportDepth=${this.hitMaxImportDepth},
@@ -206,8 +207,11 @@ export class SourceFile {
     // identify this file.
     private readonly _fileId: string;
 
+    // Getter to lazily compute the module name from the file URI.
+    private _moduleNameGetter: (file: Uri) => string;
+
     // Period-delimited import path for the module.
-    private _moduleName: string;
+    private _cachedModuleName: string | undefined;
 
     // True if file is a type-hint (.pyi) file versus a python
     // (.py) file.
@@ -257,7 +261,7 @@ export class SourceFile {
     constructor(
         readonly serviceProvider: ServiceProvider,
         uri: Uri,
-        moduleName: string,
+        moduleNameGetter: (file: Uri) => string,
         isThirdPartyImport: boolean,
         isThirdPartyPyTypedPresent: boolean,
         editMode: SourceFileEditMode,
@@ -272,7 +276,7 @@ export class SourceFile {
         this._editMode = editMode;
         this._uri = uri;
         this._fileId = this._makeFileId(uri);
-        this._moduleName = moduleName;
+        this._moduleNameGetter = moduleNameGetter;
         this._isStubFile = uri.hasExtension('.pyi');
         this._isThirdPartyImport = isThirdPartyImport;
         this._isThirdPartyPyTypedPresent = isThirdPartyPyTypedPresent;
@@ -319,16 +323,17 @@ export class SourceFile {
     }
 
     getModuleName(): string {
-        if (this._moduleName) {
-            return this._moduleName;
+        if (!this._cachedModuleName) {
+            // Call the module name getter. If it returns '' (which can happen if the file is not part
+            // of the project), fall back to the file name.)
+            return this._moduleNameGetter(this._uri) || stripFileExtension(this._uri.fileName);
         }
 
-        // Synthesize a module name using the file path.
-        return stripFileExtension(this._uri.fileName);
+        return this._cachedModuleName;
     }
 
-    setModuleName(name: string) {
-        this._moduleName = name;
+    clearCachedModuleName() {
+        this._cachedModuleName = undefined;
     }
 
     getDiagnosticVersion(): number {
@@ -409,9 +414,10 @@ export class SourceFile {
             return false;
         }
 
-        // If the file was never read previously, no need to check for a change.
+        // If the file was never read previously we can't tell if the file has changed or not so
+        // we'll assume that it has. Otherwise, we may fail to analyze a file that was changed.
         if (this._writableData.lastFileContentLength === undefined) {
-            return false;
+            return true;
         }
 
         // Read in the latest file contents and see if the hash matches
@@ -443,6 +449,12 @@ export class SourceFile {
     // in cases where memory is low. When info is needed, the file
     // will be re-parsed and rebound.
     dropParseAndBindInfo(): void {
+        // If we are actively binding or checking this file, we can't
+        // safely drop parse and binding info.
+        if (this._writableData.isBindingInProgress || this._writableData.isCheckingInProgress) {
+            return;
+        }
+
         this._fireFileDirtyEvent();
 
         this._writableData.parserOutput = undefined;
@@ -451,6 +463,7 @@ export class SourceFile {
         this._writableData.parsedFileContents = undefined;
         this._writableData.moduleSymbolTable = undefined;
         this._writableData.isBindingNeeded = true;
+        this._writableData.imports = [];
     }
 
     markDirty(): void {
@@ -627,7 +640,6 @@ export class SourceFile {
                 return tokenizerOutput!;
             },
             text: this._writableData.parsedFileContents,
-            lines: this._writableData.tokenizerLines!,
         };
     }
 
@@ -794,6 +806,7 @@ export class SourceFile {
 
                 // Create dummy parse results.
                 this._writableData.parsedFileContents = '';
+                this._writableData.tokenizerLines = new TextRangeCollection<TextRange>([]);
 
                 this._writableData.parserOutput = {
                     parseTree: ModuleNode.create({ start: 0, length: 0 }),
@@ -802,9 +815,8 @@ export class SourceFile {
                     containsWildcardImport: false,
                     typingSymbolAliases: new Map<string, string>(),
                     hasTypeAnnotations: false,
+                    lines: this._writableData.tokenizerLines,
                 };
-
-                this._writableData.tokenizerLines = new TextRangeCollection<TextRange>([]);
 
                 this._writableData.tokenizerOutput = {
                     tokens: new TextRangeCollection<Token>([]),
@@ -925,12 +937,12 @@ export class SourceFile {
         importLookup: ImportLookup,
         importResolver: ImportResolver,
         evaluator: TypeEvaluator,
-        sourceMapper: SourceMapper,
         dependentFiles?: ParserOutput[]
     ) {
         assert(!this.isParseRequired(), `Check called before parsing: state=${this._writableData.debugPrint()}`);
         assert(!this.isBindingRequired(), `Check called before binding: state=${this._writableData.debugPrint()}`);
         assert(!this._writableData.isBindingInProgress, 'Check called while binding in progress');
+        assert(!this._writableData.isCheckingInProgress, 'Check called while checking in progress');
         assert(this.isCheckingRequired(), 'Check called unnecessarily');
         assert(this._writableData.parserOutput !== undefined, 'Parse results not available');
 
@@ -942,9 +954,9 @@ export class SourceFile {
                         importResolver,
                         evaluator,
                         this._writableData.parserOutput!,
-                        sourceMapper,
                         dependentFiles
                     );
+                    this._writableData.isCheckingInProgress = true;
                     checker.check();
                     this._writableData.isCheckingNeeded = false;
 
@@ -982,6 +994,8 @@ export class SourceFile {
 
                 throw e;
             } finally {
+                this._writableData.isCheckingInProgress = false;
+
                 // Clear any circular dependencies associated with this file.
                 // These will be detected by the program module and associated
                 // with the source file right before it is finalized.

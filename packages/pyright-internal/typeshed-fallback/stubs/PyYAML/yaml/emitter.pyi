@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Any, NoReturn, Protocol, TypeVar
+from typing import Any, NoReturn, Protocol, TypeVar, type_check_only
 
 from yaml.error import YAMLError
 
@@ -7,6 +7,7 @@ from .events import Event
 
 _T_contra = TypeVar("_T_contra", str, bytes, contravariant=True)
 
+@type_check_only
 class _WriteStream(Protocol[_T_contra]):
     def write(self, data: _T_contra, /) -> object: ...
     # Optional fields:
