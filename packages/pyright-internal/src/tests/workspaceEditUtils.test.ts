@@ -7,14 +7,14 @@
  */
 
 import * as assert from 'assert';
-import { TextDocumentEdit, WorkspaceEdit } from 'vscode-languageserver-types';
+import { CreateFile, DeleteFile, RenameFile, TextDocumentEdit, WorkspaceEdit } from 'vscode-languageserver-types';
 
 import { CancellationToken } from 'vscode-languageserver';
 import { AnalyzerService } from '../analyzer/service';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { combinePaths, getDirectoryPath } from '../common/pathUtils';
 import { Uri } from '../common/uri/uri';
-import { applyWorkspaceEdit, generateWorkspaceEdit } from '../common/workspaceEditUtils';
+import { applyWorkspaceEdit, convertToWorkspaceEdit, generateWorkspaceEdit } from '../common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecutor';
 import { TestLanguageService } from './harness/fourslash/testLanguageService';
 import { TestState, parseAndGetTestState } from './harness/fourslash/testState';
@@ -313,6 +313,127 @@ test('test generateWorkspaceEdits', async () => {
         },
         actualEdits
     );
+});
+
+test('convertToWorkspaceEdit omits annotationId when changeAnnotations not provided', () => {
+    const code = `
+// @filename: a.py
+//// [|/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const renameTarget = Uri.file(
+        combinePaths(getDirectoryPath(range.fileName), 'a_renamed.py'),
+        state.serviceProvider
+    );
+    const deleteTarget = Uri.file(combinePaths(getDirectoryPath(range.fileName), 'c.py'), state.serviceProvider);
+
+    const editActions = {
+        edits: [
+            {
+                fileUri: range.fileUri,
+                range: state.convertPositionRange(range),
+                replacementText: 'x',
+            },
+        ],
+        fileOperations: [
+            {
+                kind: 'create' as const,
+                fileUri: Uri.file(combinePaths(getDirectoryPath(range.fileName), 'b.py'), state.serviceProvider),
+            },
+            {
+                kind: 'rename' as const,
+                oldFileUri: range.fileUri,
+                newFileUri: renameTarget,
+            },
+            {
+                kind: 'delete' as const,
+                fileUri: deleteTarget,
+            },
+        ],
+    };
+
+    const ws = convertToWorkspaceEdit(state.workspace.service.fs, editActions);
+    // No top-level changeAnnotations
+    assert.strictEqual(ws.changeAnnotations, undefined);
+    // No annotationId on text edits
+    const tde = ws.documentChanges!.find((d) => TextDocumentEdit.is(d)) as TextDocumentEdit;
+    const anyEdit = tde.edits[0] as any;
+    assert.strictEqual(anyEdit.annotationId, undefined);
+    // No annotationId on create op
+    const createOp = ws.documentChanges!.find((d) => (d as any).kind === 'create') as CreateFile;
+    assert.strictEqual(createOp.annotationId, undefined);
+    // No annotationId on rename op
+    const renameOp = ws.documentChanges!.find((d) => (d as any).kind === 'rename') as RenameFile;
+    assert.strictEqual(renameOp.annotationId, undefined);
+    // No annotationId on delete op
+    const deleteOp = ws.documentChanges!.find((d) => (d as any).kind === 'delete') as DeleteFile;
+    assert.strictEqual(deleteOp.annotationId, undefined);
+});
+
+test('convertToWorkspaceEdit includes annotationId when changeAnnotations provided', () => {
+    const code = `
+// @filename: a.py
+//// [|/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const renameTarget = Uri.file(
+        combinePaths(getDirectoryPath(range.fileName), 'a_renamed.py'),
+        state.serviceProvider
+    );
+    const deleteTarget = Uri.file(combinePaths(getDirectoryPath(range.fileName), 'c.py'), state.serviceProvider);
+
+    const editActions = {
+        edits: [
+            {
+                fileUri: range.fileUri,
+                range: state.convertPositionRange(range),
+                replacementText: 'x',
+            },
+        ],
+        fileOperations: [
+            {
+                kind: 'create' as const,
+                fileUri: Uri.file(combinePaths(getDirectoryPath(range.fileName), 'b.py'), state.serviceProvider),
+            },
+            {
+                kind: 'rename' as const,
+                oldFileUri: range.fileUri,
+                newFileUri: renameTarget,
+            },
+            {
+                kind: 'delete' as const,
+                fileUri: deleteTarget,
+            },
+        ],
+    };
+
+    const changeAnnotations = {
+        default: { label: 'label', description: 'desc', needsConfirmation: false },
+    };
+
+    const ws = convertToWorkspaceEdit(state.workspace.service.fs, editActions, changeAnnotations, 'default');
+    // Top-level annotations present
+    assert.ok(ws.changeAnnotations);
+    assert.ok(ws.changeAnnotations!['default']);
+    // Text edits carry annotationId
+    const tde = ws.documentChanges!.find((d) => TextDocumentEdit.is(d)) as TextDocumentEdit;
+    const anyEdit = tde.edits[0] as any;
+    assert.strictEqual(anyEdit.annotationId, 'default');
+    // Create op carries annotationId
+    const createOp = ws.documentChanges!.find((d) => (d as any).kind === 'create') as CreateFile;
+    assert.strictEqual(createOp.annotationId, 'default');
+    // Rename op carries annotationId
+    const renameOp = ws.documentChanges!.find((d) => (d as any).kind === 'rename') as RenameFile;
+    assert.strictEqual(renameOp.annotationId, 'default');
+    // Delete op carries annotationId
+    const deleteOp = ws.documentChanges!.find((d) => (d as any).kind === 'delete') as DeleteFile;
+    assert.strictEqual(deleteOp.annotationId, 'default');
 });
 
 function applyWorkspaceEditToService(service: AnalyzerService, edits: WorkspaceEdit, filesChanged: Map<string, Uri>) {
