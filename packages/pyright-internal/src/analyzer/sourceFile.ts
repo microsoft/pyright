@@ -44,7 +44,6 @@ import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { Scope } from './scope';
-import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
@@ -415,9 +414,10 @@ export class SourceFile {
             return false;
         }
 
-        // If the file was never read previously, no need to check for a change.
+        // If the file was never read previously we can't tell if the file has changed or not so
+        // we'll assume that it has. Otherwise, we may fail to analyze a file that was changed.
         if (this._writableData.lastFileContentLength === undefined) {
-            return false;
+            return true;
         }
 
         // Read in the latest file contents and see if the hash matches
@@ -937,7 +937,6 @@ export class SourceFile {
         importLookup: ImportLookup,
         importResolver: ImportResolver,
         evaluator: TypeEvaluator,
-        sourceMapper: SourceMapper,
         dependentFiles?: ParserOutput[]
     ) {
         assert(!this.isParseRequired(), `Check called before parsing: state=${this._writableData.debugPrint()}`);
@@ -955,7 +954,6 @@ export class SourceFile {
                         importResolver,
                         evaluator,
                         this._writableData.parserOutput!,
-                        sourceMapper,
                         dependentFiles
                     );
                     this._writableData.isCheckingInProgress = true;

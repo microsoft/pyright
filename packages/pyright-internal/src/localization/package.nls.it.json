@@ -6,8 +6,7 @@
         "filesToAnalyzeCount": "{count} file da analizzare",
         "filesToAnalyzeOne": "1 file da analizzare",
         "findingReferences": "Ricerca dei riferimenti in corso",
-        "organizeImports": "Organizza importazioni",
-        "renameShadowedFile": "Rinomina \"{oldFile}\" in \"{newFile}\""
+        "organizeImports": "Organizza importazioni"
     },
     "Completion": {
         "autoImportDetail": "Importazione automatica",
@@ -470,7 +469,6 @@
         "starPatternInOrPattern": "Il modello a stella non può essere ORed all'interno di altri modelli",
         "starStarWildcardNotAllowed": "** non può essere usato con il carattere jolly \"_\"",
         "staticClsSelfParam": "I metodi statici non devono accettare un parametro \"self\" o \"cls\"",
-        "stdlibModuleOverridden": "\"{path}\" sta eseguendo l'override del modulo stdlib \"{name}\"",
         "stringNonAsciiBytes": "Carattere non ASCII non consentito nel valore letterale stringa dei byte",
         "stringNotSubscriptable": "L'espressione stringa non può essere in pedice nell'espressione di tipo. Racchiudere l'intera espressione tra virgolette",
         "stringUnsupportedEscape": "Sequenza di escape non supportata nel valore letterale stringa",

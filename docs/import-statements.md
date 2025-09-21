@@ -17,7 +17,7 @@ Pyright models two loader side effects that are considered safe and are commonly
 
 1. If an import statement targets a multi-part module name and does not use an alias, all modules within the multi-part module name are assumed to be loaded. For example, the statement `import a.b.c` is treated as though it is three back-to-back import statements: `import a`, `import a.b` and `import a.b.c`. This allows for subsequent use of all symbols in `a`, `a.b`, and `a.b.c`. If an alias is used (e.g. `import a.b.c as abc`), this is assumed to load only module `c`. A subsequent `import a` would not provide access to `a.b` or `a.b.c`.
 
-2. If an `__init__.py` file includes an import statement of the form `from .a import b`, the local variable `a` is assigned a reference to submodule `a`. This statement form is treated as though it is two back-to-back import statements: `from . import a` followed by `from .a import b`.
+2. If an `__init__.py` file includes an import statement of the form `from . import a`, the local variable `a` is assigned a reference to submodule `a`. Similarly, if an `__init__.py` file includes an import statement of the form `from .a import b`, the local variable `a` is assigned a reference to submodule `a`. This statement form is treated as though it is two back-to-back import statements: `from . import a` followed by `from .a import b`.
 
 
 ### Unsupported Loader Side Effects
