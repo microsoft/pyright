@@ -227,7 +227,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
                     CreateFile.create(
                         convertUriToLspUriString(fs, operation.fileUri),
                         /* options */ undefined,
-                        defaultAnnotationId
+                        changeAnnotations !== undefined ? defaultAnnotationId : undefined
                     )
                 );
                 break;
@@ -249,7 +249,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
                     value.map((v) => ({
                         range: v.range,
                         newText: v.replacementText,
-                        annotationId: defaultAnnotationId,
+                        annotationId: changeAnnotations !== undefined ? defaultAnnotationId : undefined,
                     }))
                 )
             )
@@ -266,7 +266,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
                         convertUriToLspUriString(fs, operation.oldFileUri),
                         convertUriToLspUriString(fs, operation.newFileUri),
                         /* options */ undefined,
-                        defaultAnnotationId
+                        changeAnnotations !== undefined ? defaultAnnotationId : undefined
                     )
                 );
                 break;
@@ -275,7 +275,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
                     DeleteFile.create(
                         convertUriToLspUriString(fs, operation.fileUri),
                         /* options */ undefined,
-                        defaultAnnotationId
+                        changeAnnotations !== undefined ? defaultAnnotationId : undefined
                     )
                 );
                 break;
