@@ -315,11 +315,11 @@ test('test generateWorkspaceEdits', async () => {
     );
 });
 
-test('convertToWorkspaceEdit omits annotationId when changeAnnotations not provided', () => {
+test('test convertToWorkspaceEdit omits annotationId without changeAnnotations', () => {
     const code = `
 // @filename: a.py
 //// [|/*marker*/|]
-    `;
+        `;
 
     const state = parseAndGetTestState(code).state;
     const range = state.getRangeByMarkerName('marker')!;
@@ -356,28 +356,23 @@ test('convertToWorkspaceEdit omits annotationId when changeAnnotations not provi
     };
 
     const ws = convertToWorkspaceEdit(state.workspace.service.fs, editActions);
-    // No top-level changeAnnotations
     assert.strictEqual(ws.changeAnnotations, undefined);
-    // No annotationId on text edits
     const tde = ws.documentChanges!.find((d) => TextDocumentEdit.is(d)) as TextDocumentEdit;
     const anyEdit = tde.edits[0] as any;
     assert.strictEqual(anyEdit.annotationId, undefined);
-    // No annotationId on create op
     const createOp = ws.documentChanges!.find((d) => (d as any).kind === 'create') as CreateFile;
     assert.strictEqual(createOp.annotationId, undefined);
-    // No annotationId on rename op
     const renameOp = ws.documentChanges!.find((d) => (d as any).kind === 'rename') as RenameFile;
     assert.strictEqual(renameOp.annotationId, undefined);
-    // No annotationId on delete op
     const deleteOp = ws.documentChanges!.find((d) => (d as any).kind === 'delete') as DeleteFile;
     assert.strictEqual(deleteOp.annotationId, undefined);
 });
 
-test('convertToWorkspaceEdit includes annotationId when changeAnnotations provided', () => {
+test('test convertToWorkspaceEdit includes annotationId with changeAnnotations', () => {
     const code = `
 // @filename: a.py
 //// [|/*marker*/|]
-    `;
+        `;
 
     const state = parseAndGetTestState(code).state;
     const range = state.getRangeByMarkerName('marker')!;
@@ -418,20 +413,15 @@ test('convertToWorkspaceEdit includes annotationId when changeAnnotations provid
     };
 
     const ws = convertToWorkspaceEdit(state.workspace.service.fs, editActions, changeAnnotations, 'default');
-    // Top-level annotations present
     assert.ok(ws.changeAnnotations);
     assert.ok(ws.changeAnnotations!['default']);
-    // Text edits carry annotationId
     const tde = ws.documentChanges!.find((d) => TextDocumentEdit.is(d)) as TextDocumentEdit;
     const anyEdit = tde.edits[0] as any;
     assert.strictEqual(anyEdit.annotationId, 'default');
-    // Create op carries annotationId
     const createOp = ws.documentChanges!.find((d) => (d as any).kind === 'create') as CreateFile;
     assert.strictEqual(createOp.annotationId, 'default');
-    // Rename op carries annotationId
     const renameOp = ws.documentChanges!.find((d) => (d as any).kind === 'rename') as RenameFile;
     assert.strictEqual(renameOp.annotationId, 'default');
-    // Delete op carries annotationId
     const deleteOp = ws.documentChanges!.find((d) => (d as any).kind === 'delete') as DeleteFile;
     assert.strictEqual(deleteOp.annotationId, 'default');
 });
