@@ -1788,6 +1788,8 @@ export class TestState {
             configOptions.functionSignatureDisplay === SignatureDisplayType.compact;
         }
 
+        configOptions.applyGitIgnore(this.fs);
+
         return configOptions;
     }
 

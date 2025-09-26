@@ -196,6 +196,89 @@ test('excluded but still part of program', () => {
     );
 });
 
+test('excluded by gitignore', () => {
+    const code = `
+// @filename: ../.gitignore
+//// **/excluded.py
+
+// @filename: included.py
+//// # empty
+
+// @filename: excluded.py
+//// [|/*marker*/|]
+    `;
+
+    testSourceFileWatchChange(code, /* expected */ false);
+});
+
+test('excluded by gitignore 2', () => {
+    const code = `
+// @filename: ../.gitignore
+//// projectRoot/excluded.py
+
+// @filename: included.py
+//// # empty
+
+// @filename: excluded.py
+//// [|/*marker*/|]
+    `;
+
+    testSourceFileWatchChange(code, /* expected */ false);
+});
+
+test('excluded by gitignore 3', () => {
+    const code = `
+// @filename: ../.gitignore
+//// **/foo/exclud*.py
+
+// @filename: included.py
+//// # empty
+
+// @filename: foo/excluded.py
+//// [|/*marker*/|]
+    `;
+
+    testSourceFileWatchChange(code, /* expected */ false);
+});
+
+test('included by gitignore', () => {
+    const code = `
+// @filename: ../.gitignore
+//// !**/excluded.py
+
+// @filename: included.py
+//// # empty
+
+// @filename: ../excluded.py
+//// [|/*marker*/|]
+    `;
+
+    testSourceFileWatchChange(code, /* expected */ true);
+});
+
+test('excluded by .gitignore but still part of program', () => {
+    const code = `
+// @filename: ../.gitignore
+//// **/excluded.py
+
+// @filename: included.py
+//// from . import excluded
+
+// @filename: excluded.py
+//// [|/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const marker = state.getMarkerByName('marker');
+
+    while (state.workspace.service.test_program.analyze());
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(marker.fileUri, /* isFile */ true),
+        true
+    );
+});
+
 test('random folder changed', () => {
     const code = `
 // @filename: notUsed.py

@@ -1463,6 +1463,29 @@ export class ConfigOptions {
         }
     }
 
+    applyGitIgnore(fs: FileSystem) {
+        // If there is a .gitignore file in the project root, add those entries to the
+        // exclude list.
+        const gitignorePath = this.projectRoot.resolvePaths('.gitignore');
+        if (fs.existsSync(gitignorePath)) {
+            const ignoreEntries = fs.readFileSync(gitignorePath, 'utf-8').split(/\r?\n/);
+            ignoreEntries.forEach((entry) => {
+                const trimmed = entry.trim();
+                // Skip empty lines and comments.
+                if (trimmed === '' || trimmed.startsWith('#')) {
+                    return;
+                }
+
+                // If the line starts with !, it's an include instead.
+                if (trimmed.startsWith('!')) {
+                    this.include.push(getFileSpec(this.projectRoot, trimmed.substring(1).trim()));
+                } else {
+                    this.exclude.push(getFileSpec(this.projectRoot, trimmed));
+                }
+            });
+        }
+    }
+
     static resolveExtends(configObj: any, configDirUri: Uri): Uri | undefined {
         if (configObj.extends !== undefined) {
             if (typeof configObj.extends !== 'string') {

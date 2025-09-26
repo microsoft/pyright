@@ -897,6 +897,9 @@ export class AnalyzerService {
             }
         }
 
+        // Apply the gitignore file if available.
+        configOptions.applyGitIgnore(this.fs);
+
         if (!configOptions.defaultExtraPaths) {
             configOptions.ensureDefaultExtraPaths(
                 this.fs,
