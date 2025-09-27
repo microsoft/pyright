@@ -278,9 +278,10 @@ function applyPartialTransformToFunction(
                     argumentErrors = true;
                 }
             } else {
-                const paramType = FunctionType.getParamType(origFunctionType, argIndex);
+                const paramInfo = paramListDetails.params[argIndex];
+                const paramType = paramInfo.type;
                 const diag = new DiagnosticAddendum();
-                const paramName = paramListDetails.params[argIndex].param.name ?? '';
+                const paramName = paramInfo.param.name ?? '';
 
                 const argTypeResult = evaluator.getTypeOfExpression(
                     arg.valueExpression,
