@@ -1,7 +1,10 @@
+from _typeshed import StrPath
+from pathlib import Path
 from typing import Any, Final, Generic, TypedDict, TypeVar, type_check_only
 from typing_extensions import Required
 
 from docutils import Component, nodes
+from docutils.frontend import Values
 from docutils.io import Output
 from docutils.languages import LanguageImporter
 
@@ -78,5 +81,12 @@ class Writer(Component, Generic[_S]):
     def assemble_parts(self) -> None: ...
 
 class UnfilteredWriter(Writer[_S]): ...
+
+class DoctreeTranslator(nodes.NodeVisitor):
+    settings: Values
+    def __init__(self, document: nodes.document) -> None: ...
+    def uri2path(self, uri: str, output_path: StrPath | None = None) -> Path: ...
+
+WRITER_ALIASES: Final[dict[str, str]]
 
 def get_writer_class(writer_name: str) -> type[Writer[Any]]: ...

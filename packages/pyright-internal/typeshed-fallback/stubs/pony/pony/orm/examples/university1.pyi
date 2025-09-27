@@ -6,18 +6,21 @@ from pony.orm.core import Database, Entity
 db: Database
 
 class Department(Entity):
+    __slots__ = ()
     number: Incomplete
     name: Incomplete
     groups: Incomplete
     courses: Incomplete
 
 class Group(Entity):
+    __slots__ = ()
     number: Incomplete
     major: Incomplete
     dept: Incomplete
     students: Incomplete
 
 class Course(Entity):
+    __slots__ = ()
     name: Incomplete
     semester: Incomplete
     lect_hours: Incomplete
@@ -27,6 +30,7 @@ class Course(Entity):
     students: Incomplete
 
 class Student(Entity):
+    __slots__ = ()
     id: Incomplete
     name: Incomplete
     dob: Incomplete

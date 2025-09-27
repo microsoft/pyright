@@ -59,6 +59,7 @@ class IndexedSet(MutableSet[Any]):
 def complement(wrapped: Iterable[Any]) -> _ComplementSet: ...
 
 class _ComplementSet:
+    __slots__ = ("_included", "_excluded")
     def __init__(
         self, included: set[Any] | frozenset[Any] | None = None, excluded: set[Any] | frozenset[Any] | None = None
     ) -> None: ...

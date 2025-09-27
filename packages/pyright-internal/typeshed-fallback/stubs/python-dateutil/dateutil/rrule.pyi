@@ -112,6 +112,23 @@ class rrule(rrulebase):
 _RRule: TypeAlias = rrule
 
 class _iterinfo:
+    __slots__ = [
+        "rrule",
+        "lastyear",
+        "lastmonth",
+        "yearlen",
+        "nextyearlen",
+        "yearordinal",
+        "yearweekday",
+        "mmask",
+        "mrange",
+        "mdaymask",
+        "nmdaymask",
+        "wdaymask",
+        "wnomask",
+        "nwdaymask",
+        "eastermask",
+    ]
     rrule: _RRule
     def __init__(self, rrule: _RRule) -> None: ...
     yearlen: int | None

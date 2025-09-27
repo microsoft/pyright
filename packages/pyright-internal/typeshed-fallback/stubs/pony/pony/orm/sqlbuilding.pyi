@@ -7,6 +7,7 @@ from typing import ClassVar
 class AstError(Exception): ...
 
 class Param:
+    __slots__ = ("style", "id", "paramkey", "converter", "optimistic")
     style: Incomplete
     id: Incomplete
     paramkey: Incomplete
@@ -16,12 +17,14 @@ class Param:
     def eval(param, values): ...
 
 class CompositeParam(Param):
+    __slots__ = ("items", "func")
     items: Iterable[Param | Value]
     func: Incomplete
     def __init__(param, paramstyle, paramkey, items: Iterable[Param | Value], func) -> None: ...
     def eval(param, values): ...
 
 class Value:
+    __slots__ = ("paramstyle", "value")
     paramstyle: Incomplete
     value: Incomplete
     def __init__(self, paramstyle, value) -> None: ...

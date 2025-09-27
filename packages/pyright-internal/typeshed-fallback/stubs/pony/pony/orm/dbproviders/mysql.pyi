@@ -20,7 +20,8 @@ class MySQLSchema(dbschema.DBSchema):
 class MySQLTranslator(SQLTranslator):
     dialect: ClassVar[str]
 
-class MySQLValue(Value): ...
+class MySQLValue(Value):
+    __slots__: list[str] = []
 
 class MySQLBuilder(SQLBuilder):
     dialect: ClassVar[str]

@@ -17,16 +17,14 @@ class _SupportsOpen(Protocol[_ModeT_contra, _FileT_co]):
 
 @_dispatchable
 def from_agraph(
-    A: AGraph, create_using: Graph[_Node] | type[Graph[_Node]] | None = None
-) -> Graph[_Node]: ...  # type of node cannot be known statically
+    A: AGraph, create_using: Graph[str] | type[Graph[str]] | None = None  # TODO: add overloads on `create_using`
+) -> Graph[str]: ...
 def to_agraph(N: Graph[_Node]) -> AGraph: ...
 def write_dot(
     G: Graph[_Node], path: str | IO[str] | IO[bytes] | _SupportsOpen[OpenTextModeWriting, IO[str] | IO[bytes]]
 ) -> None: ...
 @_dispatchable
-def read_dot(
-    path: str | IO[str] | IO[bytes] | _SupportsOpen[OpenTextModeReading, IO[str] | IO[bytes]],
-) -> Graph[Any]: ...  # type of node cannot be known statically
+def read_dot(path: str | IO[str] | IO[bytes] | _SupportsOpen[OpenTextModeReading, IO[str] | IO[bytes]]) -> Graph[str]: ...
 def graphviz_layout(
     G: Graph[_Node], prog: str = "neato", root: str | None = None, args: str = ""
 ) -> dict[_Node, tuple[float, float]]: ...

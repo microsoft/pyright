@@ -51,7 +51,7 @@ class Watch:
         self,
         *,
         callback: Callable[[FrameType, WatchElement, tuple[str, str, int | None]], None] = ...,
-        pdb: Literal[True] = ...,
+        pdb: Literal[True] = True,
         file: str | SupportsWrite[str] = ...,
         stack_limit: int | None = 5,
         custom_printer: Callable[[Any], None] = ...,  # User-defined printing callback

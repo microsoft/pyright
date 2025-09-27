@@ -21,7 +21,7 @@ _ValidatorCallback: TypeAlias = Callable[[Any, Any, _JsonValue, _JsonObject], It
 # This class does not exist at runtime. Compatible classes are created at
 # runtime by create().
 @type_check_only
-class _Validator:
+class _Validator(Validator):
     VALIDATORS: ClassVar[dict[Incomplete, Incomplete]]
     META_SCHEMA: ClassVar[dict[Incomplete, Incomplete]]
     TYPE_CHECKER: ClassVar[Incomplete]
@@ -32,12 +32,11 @@ class _Validator:
     format_checker: FormatChecker | None
     def __init__(
         self,
-        schema: Schema,
-        resolver=None,
+        schema: Mapping[Incomplete, Incomplete] | bool,
+        resolver: Any = None,  # deprecated
         format_checker: FormatChecker | None = None,
         *,
         registry: SchemaRegistry = ...,
-        _resolver=None,
     ) -> None: ...
     @classmethod
     def check_schema(cls, schema: Schema, format_checker: FormatChecker | Unset = ...) -> None: ...
@@ -77,12 +76,23 @@ def create(
 def extend(validator, validators=(), version=None, type_checker=None, format_checker=None): ...
 
 # At runtime these are fields that are assigned the return values of create() calls.
-class Draft3Validator(_Validator): ...
-class Draft4Validator(_Validator): ...
-class Draft6Validator(_Validator): ...
-class Draft7Validator(_Validator): ...
-class Draft201909Validator(_Validator): ...
-class Draft202012Validator(_Validator): ...
+class Draft3Validator(_Validator):
+    __slots__ = ("_validators", "schema", "_ref_resolver", "format_checker", "_registry", "_resolver", "__weakref__")
+
+class Draft4Validator(_Validator):
+    __slots__ = ("_validators", "schema", "_ref_resolver", "format_checker", "_registry", "_resolver", "__weakref__")
+
+class Draft6Validator(_Validator):
+    __slots__ = ("_validators", "schema", "_ref_resolver", "format_checker", "_registry", "_resolver", "__weakref__")
+
+class Draft7Validator(_Validator):
+    __slots__ = ("_validators", "schema", "_ref_resolver", "format_checker", "_registry", "_resolver", "__weakref__")
+
+class Draft201909Validator(_Validator):
+    __slots__ = ("_validators", "schema", "_ref_resolver", "format_checker", "_registry", "_resolver", "__weakref__")
+
+class Draft202012Validator(_Validator):
+    __slots__ = ("_validators", "schema", "_ref_resolver", "format_checker", "_registry", "_resolver", "__weakref__")
 
 _Handler: TypeAlias = Callable[[str], Incomplete]
 

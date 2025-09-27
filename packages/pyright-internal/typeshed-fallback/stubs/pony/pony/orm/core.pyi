@@ -245,6 +245,18 @@ def commit() -> None: ...
 def rollback() -> None: ...
 
 class DBSessionContextManager:
+    __slots__ = (
+        "retry",
+        "retry_exceptions",
+        "allowed_exceptions",
+        "immediate",
+        "ddl",
+        "serializable",
+        "strict",
+        "optimistic",
+        "sql_debug",
+        "show_values",
+    )
     retry: int
     ddl: bool
     serializable: bool
@@ -451,6 +463,51 @@ class DescWrapper:
 attr_id_counter: itertools.count[int]
 
 class Attribute:
+    __slots__ = (
+        "nullable",
+        "is_required",
+        "is_discriminator",
+        "is_unique",
+        "is_part_of_unique_index",
+        "is_pk",
+        "is_collection",
+        "is_relation",
+        "is_basic",
+        "is_string",
+        "is_volatile",
+        "is_implicit",
+        "id",
+        "pk_offset",
+        "pk_columns_offset",
+        "py_type",
+        "sql_type",
+        "entity",
+        "name",
+        "lazy",
+        "lazy_sql_cache",
+        "args",
+        "auto",
+        "default",
+        "reverse",
+        "composite_keys",
+        "column",
+        "columns",
+        "col_paths",
+        "_columns_checked",
+        "converters",
+        "kwargs",
+        "cascade_delete",
+        "index",
+        "reverse_index",
+        "original_default",
+        "sql_default",
+        "py_check",
+        "hidden",
+        "optimistic",
+        "fk_name",
+        "type_has_empty_value",
+        "interleave",
+    )
     nullable: bool | None
     is_required: bool
     is_discriminator: bool
@@ -515,12 +572,15 @@ class Attribute:
     def desc(attr) -> DescWrapper: ...
     def describe(attr) -> str: ...
 
-class Optional(Attribute): ...
+class Optional(Attribute):
+    __slots__: list[str] = []
 
 class Required(Attribute):
+    __slots__: list[str] = []
     def validate(attr, val, obj=None, entity=None, from_db: bool = False): ...
 
 class Discriminator(Required):
+    __slots__ = ["code2cls"]
     code2cls: dict[Incomplete, Incomplete]
     def __init__(attr, py_type, *args, **kwargs) -> None: ...
     @staticmethod
@@ -534,6 +594,7 @@ class Discriminator(Required):
     def update_reverse(attr, obj, old_val, new_val, undo_funcs) -> None: ...
 
 class Index:
+    __slots__ = ("entity", "attrs", "is_pk", "is_unique")
     entity: Incomplete
     attrs: list[Incomplete]
     is_pk: bool
@@ -544,9 +605,24 @@ def composite_index(*attrs) -> None: ...
 def composite_key(*attrs) -> None: ...
 
 class PrimaryKey(Required):
+    __slots__: list[str] = []
     def __new__(cls, *args, **kwargs): ...
 
 class Collection(Attribute):
+    __slots__ = (
+        "table",
+        "wrapper_class",
+        "symmetric",
+        "reverse_column",
+        "reverse_columns",
+        "nplus1_threshold",
+        "cached_load_sql",
+        "cached_add_m2m_sql",
+        "cached_remove_m2m_sql",
+        "cached_count_sql",
+        "cached_empty_sql",
+        "reverse_fk_name",
+    )
     table: str | list[str] | tuple[str, ...] | None
     wrapper_class: Incomplete
     symmetric: bool
@@ -568,6 +644,7 @@ class Collection(Attribute):
     def set(attr, obj, val, fromdb: bool = False) -> None: ...
 
 class SetData(set[Incomplete]):
+    __slots__ = ("is_fully_loaded", "added", "removed", "absent", "count")
     is_fully_loaded: bool
     added: Incomplete
     removed: Incomplete
@@ -580,6 +657,7 @@ def construct_batchload_criteria_list(
 ): ...
 
 class Set(Collection):
+    __slots__: list[str] = []
     def validate(attr, val, obj=None, entity=None, from_db: bool = False): ...
     def prefetch_load_all(attr, objects): ...
     def load(attr, obj, items=None): ...
@@ -606,6 +684,7 @@ class SetIterator:
     __next__ = next
 
 class SetInstance:
+    __slots__ = ("_obj_", "_attr_", "_attrnames_")
     def __init__(wrapper, obj, attr) -> None: ...
     def __reduce__(wrapper): ...
     def copy(wrapper): ...
@@ -637,6 +716,7 @@ class SetInstance:
 def unpickle_multiset(obj, attrnames, items): ...
 
 class Multiset:
+    __slots__ = ["_obj_", "_attrnames_", "_items_"]
     def __init__(multiset, obj, attrnames, items) -> None: ...
     def __reduce__(multiset): ...
     def distinct(multiset): ...
@@ -695,6 +775,18 @@ class EntityProxy:
     def __ne__(self, other) -> bool: ...
 
 class Entity(metaclass=EntityMeta):
+    __slots__ = (
+        "_session_cache_",
+        "_status_",
+        "_pkval_",
+        "_newid_",
+        "_dbvals_",
+        "_vals_",
+        "_rbits_",
+        "_wbits_",
+        "_save_pos_",
+        "__weakref__",
+    )
     def __reduce__(obj): ...
     def __init__(obj, *args, **kwargs) -> None: ...
     def get_pk(obj): ...
@@ -774,6 +866,7 @@ class Query:
     def to_json(query, include=(), exclude=(), converter=None, with_schema: bool = True, schema_hash=None): ...
 
 class QueryResultIterator:
+    __slots__ = ("_query_result", "_position")
     def __init__(self, query_result) -> None: ...
     def next(self): ...
     __next__ = next
@@ -782,6 +875,7 @@ class QueryResultIterator:
 def make_query_result_method_error_stub(name: str, title: str | None = None) -> Callable[..., NoReturn]: ...
 
 class QueryResult:
+    __slots__ = ("_query", "_limit", "_offset", "_items", "_expr_type", "_col_names")
     def __init__(self, query, limit, offset, lazy) -> None: ...
     def __iter__(self): ...
     def __len__(self) -> int: ...

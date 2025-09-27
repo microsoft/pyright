@@ -43,10 +43,14 @@ class StripClassesAndElements(Transform):
 
 class SmartQuotes(Transform):
     default_priority: ClassVar[int]
-    nodes_to_skip: ClassVar[tuple[type[nodes.Node], ...]]
+    nodes_to_skip: ClassVar[tuple[type[nodes.Node | nodes.Special], ...]]
     literal_nodes: ClassVar[tuple[type[nodes.Node | nodes.Body], ...]]
     smartquotes_action: ClassVar[str]
     unsupported_languages: set[str]
     def __init__(self, document: nodes.document, startnode: nodes.Node | None) -> None: ...
     def get_tokens(self, txtnodes: Iterable[nodes.Node]) -> Generator[tuple[Literal["literal", "plain"], str]]: ...
+    def apply(self) -> None: ...
+
+class Validate(Transform):
+    default_priority: ClassVar[int]
     def apply(self) -> None: ...

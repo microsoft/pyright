@@ -1,9 +1,10 @@
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from django import forms
 from django.db.models import Q, QuerySet
 from django.forms import Field
+from django_stubs_ext import StrOrPromise
 
 from .fields import (
     BaseCSVField,
@@ -12,6 +13,7 @@ from .fields import (
     DateTimeRangeField,
     IsoDateTimeField,
     IsoDateTimeRangeField,
+    Lookup,
     LookupChoiceField,
     ModelChoiceField,
     ModelMultipleChoiceField,
@@ -65,7 +67,7 @@ class Filter:
         field_name: str | None = None,
         lookup_expr: str | None = None,
         *,
-        label: str | None = None,
+        label: StrOrPromise | None = None,
         method: Callable[..., Any] | str | None = None,  # Filter methods can return various types
         distinct: bool = False,
         exclude: bool = False,
@@ -73,7 +75,7 @@ class Filter:
     ) -> None: ...
     def get_method(self, qs: QuerySet[Any]) -> Callable[..., QuerySet[Any]]: ...  # Returns QuerySet filtering methods
     method: Callable[..., Any] | str | None  # Custom filter methods return various types
-    label: str | None  # Filter label for display
+    label: StrOrPromise | None  # Filter label for display
     @property
     def field(self) -> Field: ...
     def filter(self, qs: QuerySet[Any], value: Any) -> QuerySet[Any]: ...  # Filter value can be any user input type
@@ -87,7 +89,19 @@ class BooleanFilter(Filter):
 class ChoiceFilter(Filter):
     field_class: type[Any]  # Base class for choice-based filters
     null_value: Any  # Null value can be any type (None, empty string, etc.)
-    def __init__(self, *args: Any, **kwargs: Any) -> None: ...  # Uses kwargs for null_value config
+    def __init__(
+        self,
+        field_name: str | None = None,
+        lookup_expr: str | None = None,
+        *,
+        null_value: Any = ...,  # Null value can be any type (None, empty string, etc.)
+        # Inherited from Filter
+        label: StrOrPromise | None = None,
+        method: Callable[..., Any] | str | None = None,  # Filter methods can return various types
+        distinct: bool = False,
+        exclude: bool = False,
+        **kwargs: Any,  # Field kwargs stored as extra (required, help_text, etc.)
+    ) -> None: ...
     def filter(self, qs: QuerySet[Any], value: Any) -> QuerySet[Any]: ...
 
 class TypedChoiceFilter(Filter):
@@ -101,7 +115,20 @@ class MultipleChoiceFilter(Filter):
     always_filter: bool
     conjoined: bool
     null_value: Any  # Multiple choice null values vary by implementation
-    def __init__(self, *args: Any, **kwargs: Any) -> None: ...  # Uses kwargs for distinct, conjoined, null_value config
+    def __init__(
+        self,
+        field_name: str | None = None,
+        lookup_expr: str | None = None,
+        *,
+        distinct: bool = True,  # Overrides distinct default
+        conjoined: bool = False,
+        null_value: Any = ...,  # Multiple choice null values vary by implementation
+        # Inherited from Filter
+        label: StrOrPromise | None = None,
+        method: Callable[..., Any] | str | None = None,  # Filter methods can return various types
+        exclude: bool = False,
+        **kwargs: Any,  # Field kwargs stored as extra (required, help_text, etc.)
+    ) -> None: ...
     def is_noop(self, qs: QuerySet[Any], value: Any) -> bool: ...  # Value can be any filter input
     def filter(self, qs: QuerySet[Any], value: Any) -> QuerySet[Any]: ...
     def get_filter_predicate(self, v: Any) -> Q: ...  # Predicate value can be any filter input type
@@ -126,7 +153,7 @@ class DurationFilter(Filter):
 
 class QuerySetRequestMixin:
     queryset: QuerySet[Any] | None
-    def __init__(self, *args: Any, **kwargs: Any) -> None: ...  # Uses kwargs for queryset config
+    def __init__(self, *, queryset: QuerySet[Any] | None) -> None: ...
     def get_request(self) -> Any: ...  # Request can be HttpRequest or other request types
     def get_queryset(self, request: Any) -> QuerySet[Any]: ...  # Request parameter accepts various request types
     @property
@@ -134,10 +161,42 @@ class QuerySetRequestMixin:
 
 class ModelChoiceFilter(QuerySetRequestMixin, ChoiceFilter):
     field_class: type[ModelChoiceField]  # More specific than parent ChoiceField
-    def __init__(self, *args: Any, **kwargs: Any) -> None: ...  # Uses kwargs for empty_label config
+    def __init__(
+        self,
+        field_name: str | None = None,
+        lookup_expr: str | None = None,
+        *,
+        # Inherited from QuerySetRequestMixin
+        queryset: QuerySet[Any] | None = None,
+        # Inherited from ChoiceFilter
+        null_value: Any = ...,  # Null value can be any type (None, empty string, etc.)
+        # Inherited from Filter
+        label: StrOrPromise | None = None,
+        method: Callable[..., Any] | str | None = None,  # Filter methods can return various types
+        distinct: bool = False,
+        exclude: bool = False,
+        **kwargs: Any,  # Field kwargs stored as extra (required, help_text, etc.)
+    ) -> None: ...
 
 class ModelMultipleChoiceFilter(QuerySetRequestMixin, MultipleChoiceFilter):
     field_class: type[ModelMultipleChoiceField]  # More specific than parent MultipleChoiceField
+    def __init__(
+        self,
+        field_name: str | None = None,
+        lookup_expr: str | None = None,
+        *,
+        # Inherited from QuerySetRequestMixin
+        queryset: QuerySet[Any] | None = None,
+        # Inherited from MultipleChoiceFilter
+        distinct: bool = True,  # Overrides distinct default
+        conjoined: bool = False,
+        null_value: Any = ...,  # Multiple choice null values vary by implementation
+        # Inherited from Filter
+        label: StrOrPromise | None = None,
+        method: Callable[..., Any] | str | None = None,  # Filter methods can return various types
+        exclude: bool = False,
+        **kwargs: Any,  # Field kwargs stored as extra (required, help_text, etc.)
+    ) -> None: ...
 
 class NumberFilter(Filter):
     field_class: type[forms.DecimalField]
@@ -159,7 +218,20 @@ class DateRangeFilter(ChoiceFilter):
     choices: list[tuple[str, str]] | None
     filters: dict[str, Filter] | None
     def __init__(
-        self, choices: list[tuple[str, str]] | None = None, filters: dict[str, Filter] | None = None, *args: Any, **kwargs: Any
+        self,
+        choices: list[tuple[str, str]] | None = None,
+        filters: dict[str, Filter] | None = None,
+        field_name: str | None = None,
+        lookup_expr: str | None = None,
+        *,
+        # Inherited from ChoiceFilter
+        null_value: Any = ...,  # Null value can be any type (None, empty string, etc.)
+        # Inherited from Filter
+        label: StrOrPromise | None = None,
+        method: Callable[..., Any] | str | None = None,  # Filter methods can return various types
+        distinct: bool = False,
+        exclude: bool = False,
+        **kwargs: Any,  # Field kwargs stored as extra (required, help_text, etc.)
     ) -> None: ...  # Uses args/kwargs for choice and filter configuration
     def filter(self, qs: QuerySet[Any], value: Any) -> QuerySet[Any]: ...
 
@@ -186,45 +258,67 @@ class AllValuesMultipleFilter(MultipleChoiceFilter):
 class BaseCSVFilter(Filter):
     base_field_class: type[BaseCSVField] = ...
     field_class: type[Any]  # Base class for CSV-based filters
-    def __init__(self, *args: Any, **kwargs: Any) -> None: ...  # Uses kwargs for help_text and widget config
 
-class BaseInFilter(BaseCSVFilter):
-    def __init__(self, *args: Any, **kwargs: Any) -> None: ...  # Sets lookup_expr and passes through
+class BaseInFilter(BaseCSVFilter): ...
 
 class BaseRangeFilter(BaseCSVFilter):
     base_field_class: type[BaseRangeField] = ...
-    def __init__(self, *args: Any, **kwargs: Any) -> None: ...  # Sets lookup_expr and passes through
 
 class LookupChoiceFilter(Filter):
     field_class: type[forms.CharField]
     outer_class: type[LookupChoiceField] = ...
-    empty_label: str | None
-    lookup_choices: list[tuple[str, str]] | None
+    empty_label: StrOrPromise | None
+    lookup_choices: list[tuple[str, StrOrPromise]] | None
     def __init__(
         self,
         field_name: str | None = None,
-        lookup_choices: list[tuple[str, str]] | None = None,
+        lookup_choices: list[tuple[str, StrOrPromise]] | None = None,
         field_class: type[Field] | None = None,
-        **kwargs: Any,  # Handles empty_label and other field config
+        *,
+        empty_label: StrOrPromise = ...,
+        # Inherited from Filter
+        label: StrOrPromise | None = None,
+        method: Callable[..., Any] | str | None = None,  # Filter methods can return various types
+        distinct: bool = False,
+        exclude: bool = False,
+        **kwargs: Any,  # Field kwargs stored as extra (required, help_text, etc.)
     ) -> None: ...
     @classmethod
-    def normalize_lookup(cls, lookup: Any) -> tuple[Any, str]: ...
-    def get_lookup_choices(self) -> list[tuple[str, str]]: ...
+    def normalize_lookup(cls, lookup: str | tuple[str, StrOrPromise]) -> tuple[str, StrOrPromise]: ...
+    def get_lookup_choices(self) -> list[tuple[str, StrOrPromise]]: ...
     @property
     def field(self) -> Field: ...
     lookup_expr: str
-    def filter(self, qs: QuerySet[Any], lookup: Any) -> QuerySet[Any]: ...
+    def filter(self, qs: QuerySet[Any], lookup: Lookup) -> QuerySet[Any]: ...
 
 class OrderingFilter(BaseCSVFilter, ChoiceFilter):
-    field_class: type[BaseCSVField]  # Inherits CSV field behavior for comma-separated ordering
+    # Inherits CSV field behavior for comma-separated ordering.
+    # BaseCSVFilter constructs a custom ConcreteCSVField class that derives
+    # from BaseCSVField.
+    field_class: type[BaseCSVField]
     descending_fmt: str
     param_map: dict[str, str] | None
-    def __init__(self, *args: Any, **kwargs: Any) -> None: ...  # Uses kwargs for fields and field_labels config
+    def __init__(
+        self,
+        field_name: str | None = None,
+        lookup_expr: str | None = None,
+        *,
+        fields: dict[str, str] | Iterable[tuple[str, str]] = ...,
+        field_labels: dict[str, StrOrPromise] = ...,
+        # Inherited from ChoiceFilter
+        null_value: Any = ...,  # Null value can be any type (None, empty string, etc.)
+        # Inherited from Filter
+        label: StrOrPromise | None = None,
+        method: Callable[..., Any] | str | None = None,  # Filter methods can return various types
+        distinct: bool = False,
+        exclude: bool = False,
+        **kwargs: Any,  # Field kwargs stored as extra (required, help_text, etc.)
+    ) -> None: ...
     def get_ordering_value(self, param: str) -> str: ...
     def filter(self, qs: QuerySet[Any], value: Any) -> QuerySet[Any]: ...
     @classmethod
     def normalize_fields(cls, fields: Any) -> list[str]: ...
-    def build_choices(self, fields: Any, labels: dict[str, str] | None) -> list[tuple[str, str]]: ...
+    def build_choices(self, fields: Any, labels: dict[str, StrOrPromise] | None) -> list[tuple[str, str]]: ...
 
 class FilterMethod:
     f: Filter

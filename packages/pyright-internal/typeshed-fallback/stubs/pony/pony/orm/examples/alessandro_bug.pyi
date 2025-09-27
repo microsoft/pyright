@@ -6,6 +6,7 @@ from pony.orm.core import Database, Entity
 database: Database
 
 class User(Entity):
+    __slots__ = ()
     user_id: PrimaryKey
     owned_pokemons: Incomplete
     is_admin: Incomplete
@@ -20,6 +21,7 @@ class User(Entity):
     def set_favorite_color(self, color: tuple[Incomplete, ...]): ...
 
 class Pokemon(Entity):
+    __slots__ = ()
     name: Incomplete
     pokemon_id: Incomplete
     sprite: Incomplete
@@ -32,6 +34,7 @@ class Pokemon(Entity):
     def caught_by(self, user: User): ...
 
 class Chat(Entity):
+    __slots__ = ()
     chat_id: Incomplete
     active: Incomplete
     def activate(self) -> None: ...

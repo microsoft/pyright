@@ -31,6 +31,7 @@ class JOIN_STYLE:
     bevel: Literal[BufferJoinStyle.bevel]
 
 class BaseGeometry(Geometry):
+    __slots__: list[str] = []
     @deprecated(
         "Directly calling 'BaseGeometry()' is deprecated. To create an empty geometry, "
         "use one of the subclasses instead, for example 'GeometryCollection()'."
@@ -264,6 +265,7 @@ class BaseGeometry(Geometry):
 _GeoT_co = TypeVar("_GeoT_co", bound=Geometry, default=BaseGeometry, covariant=True)
 
 class BaseMultipartGeometry(BaseGeometry, Generic[_GeoT_co]):
+    __slots__: list[str] = []
     @property
     def coords(self) -> NoReturn: ...
     @property

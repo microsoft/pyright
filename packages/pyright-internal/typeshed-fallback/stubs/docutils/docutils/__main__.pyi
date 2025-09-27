@@ -1,6 +1,8 @@
-from typing import ClassVar
+from typing import ClassVar, Final
 
 import docutils
+
+__docformat__: Final = "reStructuredText"
 
 class CliSettingsSpec(docutils.SettingsSpec):
     config_section: ClassVar[str]

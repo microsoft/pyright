@@ -69,7 +69,7 @@ async def remove(
     path: StrOrBytesPath, *, dir_fd: int | None = None, loop: AbstractEventLoop | None = ..., executor: Executor | None = ...
 ) -> None: ...
 async def unlink(
-    path: StrOrBytesPath, *, dir_fd: int | None = ..., loop: AbstractEventLoop | None = ..., executor: Executor | None = ...
+    path: StrOrBytesPath, *, dir_fd: int | None = None, loop: AbstractEventLoop | None = ..., executor: Executor | None = ...
 ) -> None: ...
 async def mkdir(
     path: StrOrBytesPath,
@@ -91,23 +91,23 @@ async def link(
     src: StrOrBytesPath,
     dst: StrOrBytesPath,
     *,
-    src_dir_fd: int | None = ...,
-    dst_dir_fd: int | None = ...,
-    follow_symlinks: bool = ...,
+    src_dir_fd: int | None = None,
+    dst_dir_fd: int | None = None,
+    follow_symlinks: bool = True,
     loop: AbstractEventLoop | None = ...,
     executor: Executor | None = ...,
 ) -> None: ...
 async def symlink(
     src: StrOrBytesPath,
     dst: StrOrBytesPath,
-    target_is_directory: bool = ...,
+    target_is_directory: bool = False,
     *,
-    dir_fd: int | None = ...,
+    dir_fd: int | None = None,
     loop: AbstractEventLoop | None = ...,
     executor: Executor | None = ...,
 ) -> None: ...
 async def readlink(
-    path: AnyStr, *, dir_fd: int | None = ..., loop: AbstractEventLoop | None = ..., executor: Executor | None = ...
+    path: AnyStr, *, dir_fd: int | None = None, loop: AbstractEventLoop | None = ..., executor: Executor | None = ...
 ) -> AnyStr: ...
 async def rmdir(
     path: StrOrBytesPath, *, dir_fd: int | None = None, loop: AbstractEventLoop | None = ..., executor: Executor | None = ...
@@ -157,9 +157,9 @@ if sys.platform != "win32":
         in_fd: int,
         offset: int,
         count: int,
-        headers: Sequence[ReadableBuffer] = ...,
-        trailers: Sequence[ReadableBuffer] = ...,
-        flags: int = ...,
+        headers: Sequence[ReadableBuffer] = (),
+        trailers: Sequence[ReadableBuffer] = (),
+        flags: int = 0,
         *,
         loop: AbstractEventLoop | None = ...,
         executor: Executor | None = ...,

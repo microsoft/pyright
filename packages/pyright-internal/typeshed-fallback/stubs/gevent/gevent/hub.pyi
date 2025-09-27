@@ -105,6 +105,7 @@ class Hub(WaitOperationsGreenlet):
     threadpool: _DefaultReturnProperty[ThreadPool]
 
 class linkproxy:
+    __slots__ = ["callback", "obj"]
     callback: Callable[[object], object]
     obj: object
     def __init__(self, callback: Callable[[_T], object], obj: _T) -> None: ...

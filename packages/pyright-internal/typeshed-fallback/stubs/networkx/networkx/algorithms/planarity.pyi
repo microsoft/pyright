@@ -34,6 +34,26 @@ class ConflictPair:
     def lowest(self, planarity_state): ...
 
 class LRPlanarity:
+    __slots__ = [
+        "G",
+        "roots",
+        "height",
+        "lowpt",
+        "lowpt2",
+        "nesting_depth",
+        "parent_edge",
+        "DG",
+        "adjs",
+        "ordered_adjs",
+        "ref",
+        "side",
+        "S",
+        "stack_bottom",
+        "lowpt_edge",
+        "left_ref",
+        "right_ref",
+        "embedding",
+    ]
     G: Incomplete
     roots: Incomplete
     height: Incomplete
