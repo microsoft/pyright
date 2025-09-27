@@ -5,6 +5,7 @@ from pony.orm.core import Database, Entity
 db: Database
 
 class Numbers(Entity):
+    __slots__ = ()
     id: Incomplete
     int8: Incomplete
     int16: Incomplete

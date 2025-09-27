@@ -108,6 +108,7 @@ def parse(
 
 class _tzparser:
     class _result(_resultbase):
+        __slots__ = ["stdabbr", "stdoffset", "dstabbr", "dstoffset", "start", "end"]
         stdabbr: str | None
         stdoffset: int | None
         dstabbr: str | None
@@ -116,6 +117,7 @@ class _tzparser:
         end: _attr
 
         class _attr(_resultbase):
+            __slots__ = ["month", "week", "weekday", "yday", "jyday", "day", "time"]
             month: int | None
             week: int | None
             weekday: int | None

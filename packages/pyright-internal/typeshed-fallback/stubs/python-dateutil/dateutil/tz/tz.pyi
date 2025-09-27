@@ -56,6 +56,7 @@ class tzlocal(_tzinfo):
     __reduce__ = object.__reduce__
 
 class _ttinfo:
+    __slots__ = ["offset", "delta", "isdst", "abbr", "isstd", "isgmt", "dstoffset"]
     offset: float
     delta: timedelta
     isdst: bool

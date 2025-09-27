@@ -1,2 +1,2 @@
-version = "0.21.*"
+version = "0.22.2"
 upstream_repository = "https://sourceforge.net/p/docutils/code"

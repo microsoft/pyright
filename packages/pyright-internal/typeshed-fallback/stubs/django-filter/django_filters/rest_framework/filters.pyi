@@ -1,5 +1,3 @@
-from typing import Any
-
 from ..filters import (
     AllValuesFilter,
     AllValuesMultipleFilter,
@@ -67,5 +65,4 @@ __all__ = [
 ]
 
 # REST framework specific BooleanFilter that uses BooleanWidget by default
-class BooleanFilter(_BaseBooleanFilter):
-    def __init__(self, *args: Any, **kwargs: Any) -> None: ...  # Accepts any filter initialization params
+class BooleanFilter(_BaseBooleanFilter): ...

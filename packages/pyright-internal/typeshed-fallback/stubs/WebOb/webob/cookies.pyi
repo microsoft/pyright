@@ -60,6 +60,7 @@ class Cookie(dict[bytes, Morsel]):
     def __str__(self, full: bool = True) -> str: ...
 
 class Morsel(dict[bytes, bytes | bool | None]):
+    __slots__ = ("name", "value")
     name: bytes
     value: bytes
     def __init__(self, name: str | bytes, value: str | bytes) -> None: ...

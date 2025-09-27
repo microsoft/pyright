@@ -72,7 +72,7 @@ class InMemoryChannelLayer(BaseChannelLayer):
         expiry: int = 60,
         group_expiry: int = 86400,
         capacity: int = 100,
-        channel_capacity: _ChannelCapacityDict | None = ...,
+        channel_capacity: _ChannelCapacityDict | None = None,
     ) -> None: ...
 
     extensions: list[str]
@@ -86,6 +86,6 @@ class InMemoryChannelLayer(BaseChannelLayer):
     async def group_discard(self, group: str, channel: str) -> None: ...
     async def group_send(self, group: str, message: dict[str, Any]) -> None: ...
 
-def get_channel_layer(alias: str = ...) -> BaseChannelLayer | None: ...
+def get_channel_layer(alias: str = "default") -> BaseChannelLayer | None: ...
 
 channel_layers: ChannelLayerManager

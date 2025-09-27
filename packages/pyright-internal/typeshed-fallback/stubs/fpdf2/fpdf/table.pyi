@@ -105,6 +105,7 @@ class Row:
 
 @dataclass
 class Cell:
+    __slots__ = ("text", "align", "v_align", "style", "img", "img_fill_width", "colspan", "rowspan", "padding", "link", "border")
     text: str
     align: str | Align | None
     v_align: str | VAlign | None

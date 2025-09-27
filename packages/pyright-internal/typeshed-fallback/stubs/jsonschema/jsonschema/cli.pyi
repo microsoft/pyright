@@ -9,6 +9,7 @@ class _CannotLoadFile(Exception): ...
 
 @deprecated("The jsonschema CLI is deprecated and will be removed in a future version. Please use check-jsonschema instead.")
 class _Outputter:
+    __slots__ = ("_formatter", "_stdout", "_stderr", "__weakref__")
     _formatter: _PlainFormatter | _PrettyFormatter
     _stdout: SupportsWrite[str]
     _stderr: SupportsWrite[str]
@@ -28,6 +29,7 @@ class _Outputter:
 
 @deprecated("The jsonschema CLI is deprecated and will be removed in a future version. Please use check-jsonschema instead.")
 class _PrettyFormatter:
+    __slots__ = ("__weakref__",)
     _ERROR_MSG: str
     _SUCCESS_MSG: str
 
@@ -39,6 +41,7 @@ class _PrettyFormatter:
 
 @deprecated("The jsonschema CLI is deprecated and will be removed in a future version. Please use check-jsonschema instead.")
 class _PlainFormatter:
+    __slots__ = ("_error_format", "__weakref__")
     _error_format: str
 
     def __init__(self, error_format: str) -> None: ...

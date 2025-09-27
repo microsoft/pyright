@@ -1,6 +1,8 @@
-from typing import ClassVar
+from typing import ClassVar, Final
 
 from docutils import writers
+
+__docformat__: Final = "reStructuredText"
 
 class Writer(writers.UnfilteredWriter[str]):
     supported: ClassVar[tuple[str, ...]]

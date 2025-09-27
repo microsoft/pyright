@@ -57,6 +57,7 @@ class _Pluralizer(Protocol):
     ) -> str: ...
 
 class TranslationString(str):
+    __slots__ = ("domain", "context", "default", "mapping")
     domain: str | None
     context: str | None
     default: str

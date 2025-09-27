@@ -4,6 +4,7 @@ __all__ = ["MinHeap", "PairingHeap", "BinaryHeap"]
 
 class MinHeap:
     class _Item:
+        __slots__ = ("key", "value")
         key: Incomplete
         value: Incomplete
         def __init__(self, key, value) -> None: ...
@@ -20,6 +21,7 @@ class MinHeap:
 
 class PairingHeap(MinHeap):
     class _Node(MinHeap._Item):
+        __slots__ = ("left", "next", "prev", "parent")
         left: Incomplete
         next: Incomplete
         prev: Incomplete

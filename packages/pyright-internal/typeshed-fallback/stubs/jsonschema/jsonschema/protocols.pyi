@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 from collections.abc import Iterator, Mapping, Sequence
-from typing import ClassVar, Protocol
+from typing import Any, ClassVar, Protocol
 from typing_extensions import TypeAlias
 
 import referencing.jsonschema
@@ -15,12 +15,14 @@ class Validator(Protocol):
     VALIDATORS: ClassVar[dict[Incomplete, Incomplete]]
     TYPE_CHECKER: ClassVar[TypeChecker]
     FORMAT_CHECKER: ClassVar[FormatChecker]
-    schema: dict[Incomplete, Incomplete] | bool
+    schema: referencing.jsonschema.Schema
     def __init__(
         self,
-        schema: dict[Incomplete, Incomplete] | bool,
-        registry: referencing.jsonschema.SchemaRegistry,
+        schema: Mapping[Incomplete, Incomplete] | bool,
+        resolver: Any = None,  # deprecated
         format_checker: FormatChecker | None = None,
+        *,
+        registry: referencing.jsonschema.SchemaRegistry = ...,
     ) -> None: ...
     @classmethod
     def check_schema(cls, schema: dict[Incomplete, Incomplete]) -> None: ...

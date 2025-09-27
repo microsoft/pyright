@@ -248,14 +248,14 @@ class ServicerContext(Generic[_TRequest, _TResponse], metaclass=abc.ABCMeta):
 # Client-Side Interceptor:
 
 class ClientCallDetails(abc.ABC):
-    def __init__(
-        self,
+    def __new__(
+        _cls,
         method: str,
         timeout: float | None,
         metadata: Metadata | None,
         credentials: CallCredentials | None,
         wait_for_ready: bool | None,
-    ) -> None: ...
+    ) -> Self: ...
 
     method: str
     timeout: float | None

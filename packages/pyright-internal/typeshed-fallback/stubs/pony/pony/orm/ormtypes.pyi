@@ -11,6 +11,7 @@ class LongStr(str):
 LongUnicode = LongStr
 
 class SetType:
+    __slots__ = "item_type"
     def __deepcopy__(self, memo) -> Self: ...
     item_type: Incomplete
     def __init__(self, item_type) -> None: ...
@@ -19,6 +20,7 @@ class SetType:
     def __hash__(self) -> int: ...
 
 class FuncType:
+    __slots__ = "func"
     def __deepcopy__(self, memo) -> Self: ...
     func: Incomplete
     def __init__(self, func) -> None: ...
@@ -27,6 +29,7 @@ class FuncType:
     def __hash__(self) -> int: ...
 
 class MethodType:
+    __slots__ = ("obj", "func")
     def __deepcopy__(self, memo) -> Self: ...
     obj: Incomplete
     func: Incomplete

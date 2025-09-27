@@ -5,6 +5,7 @@ from pony.orm.core import Database, Entity
 db: Database
 
 class Customer(Entity):
+    __slots__ = ()
     email: Incomplete
     password: Incomplete
     name: Incomplete
@@ -14,6 +15,7 @@ class Customer(Entity):
     orders: Incomplete
 
 class Product(Entity):
+    __slots__ = ()
     id: Incomplete
     name: Incomplete
     categories: Incomplete
@@ -25,17 +27,20 @@ class Product(Entity):
     order_items: Incomplete
 
 class CartItem(Entity):
+    __slots__ = ()
     quantity: Incomplete
     customer: Incomplete
     product: Incomplete
 
 class OrderItem(Entity):
+    __slots__ = ()
     quantity: Incomplete
     price: Incomplete
     order: Incomplete
     product: Incomplete
 
 class Order(Entity):
+    __slots__ = ()
     id: Incomplete
     state: Incomplete
     date_created: Incomplete
@@ -46,6 +51,7 @@ class Order(Entity):
     items: Incomplete
 
 class Category(Entity):
+    __slots__ = ()
     name: Incomplete
     products: Incomplete
 

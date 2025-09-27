@@ -1,6 +1,6 @@
 from _typeshed import Incomplete, SupportsLenAndGetItem
-from collections.abc import Callable, Mapping
-from typing import Any, TypeVar
+from collections.abc import Callable, Iterable, Mapping
+from typing import Any, Literal, TypeVar
 
 from networkx.classes.digraph import DiGraph
 from networkx.classes.graph import Graph, _Node
@@ -57,7 +57,7 @@ def simulated_annealing_tsp(
 @_dispatchable
 def threshold_accepting_tsp(
     G: Graph[_Node],
-    init_cycle,
+    init_cycle: Literal["greedy"] | Iterable[Incomplete],
     weight: str | None = "weight",
     source=None,
     threshold: int | None = 1,
