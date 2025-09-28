@@ -5908,7 +5908,16 @@ export function createTypeEvaluator(
             }
 
             case TypeCategory.Module: {
-                const symbol = ModuleType.getField(baseType, memberName);
+                let symbol = ModuleType.getField(baseType, memberName);
+
+                // If the symbol isn't found in the module's symbol table,
+                // see if it's defined in the `ModuleType` class. This is
+                // needed for modules that are synthesized for namespace
+                // packages.
+                if (!symbol && prefetched?.moduleTypeClass && isInstantiableClass(prefetched.moduleTypeClass)) {
+                    symbol = ClassType.getSymbolTable(prefetched.moduleTypeClass).get(memberName);
+                }
+
                 if (symbol && !symbol.isExternallyHidden()) {
                     if (usage.method === 'get') {
                         setSymbolAccessed(fileInfo, symbol, node.d.member);
