@@ -964,6 +964,11 @@ test('Subscript3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Subscript4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['subscript4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Decorator1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator1.py']);
 

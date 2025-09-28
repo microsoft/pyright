@@ -8135,23 +8135,90 @@ export function createTypeEvaluator(
         } else {
             // Package up all of the positionals into a tuple.
             const tupleTypeArgs: TupleTypeArg[] = [];
-            positionalArgs.forEach((arg) => {
-                const typeResult = getTypeOfExpression(arg.d.valueExpr);
-                tupleTypeArgs.push({ type: typeResult.type, isUnbounded: false });
-                if (typeResult.isIncomplete) {
-                    isPositionalIndexTypeIncomplete = true;
+
+            const getDeterministicTupleEntries = (type: Type): TupleTypeArg[] | undefined => {
+                let aggregatedArgs: TupleTypeArg[] | undefined;
+                let isDeterministic = true;
+
+                doForEachSubtype(type, (subtype) => {
+                    if (!isDeterministic) {
+                        return;
+                    }
+
+                    const tupleType = getSpecializedTupleType(subtype);
+                    const tupleTypeArgs = tupleType?.priv.tupleTypeArgs;
+
+                    if (
+                        !tupleTypeArgs ||
+                        tupleTypeArgs.some((entry) => entry.isUnbounded || isTypeVarTuple(entry.type))
+                    ) {
+                        isDeterministic = false;
+                        return;
+                    }
+
+                    if (!aggregatedArgs) {
+                        aggregatedArgs = tupleTypeArgs.map((entry) => ({ type: entry.type, isUnbounded: false }));
+                        return;
+                    }
+
+                    if (aggregatedArgs.length !== tupleTypeArgs.length) {
+                        isDeterministic = false;
+                        return;
+                    }
+
+                    for (let i = 0; i < aggregatedArgs.length; i++) {
+                        aggregatedArgs[i] = {
+                            type: combineTypes([aggregatedArgs[i].type, tupleTypeArgs[i].type]),
+                            isUnbounded: false,
+                        };
+                    }
+                });
+
+                if (!isDeterministic || !aggregatedArgs) {
+                    return undefined;
+                }
+
+                return aggregatedArgs;
+            };
+
+            node.d.items.forEach((arg) => {
+                if (arg.d.argCategory === ArgCategory.Simple) {
+                    const typeResult = getTypeOfExpression(arg.d.valueExpr);
+                    tupleTypeArgs.push({ type: typeResult.type, isUnbounded: false });
+                    if (typeResult.isIncomplete) {
+                        isPositionalIndexTypeIncomplete = true;
+                    }
+                    return;
+                }
+
+                if (arg.d.argCategory === ArgCategory.UnpackedList) {
+                    const typeResult = getTypeOfExpression(arg.d.valueExpr);
+                    if (typeResult.isIncomplete) {
+                        isPositionalIndexTypeIncomplete = true;
+                    }
+
+                    const deterministicEntries = getDeterministicTupleEntries(typeResult.type);
+                    if (deterministicEntries) {
+                        appendArray(tupleTypeArgs, deterministicEntries);
+                        return;
+                    }
+
+                    const iterableType =
+                        getTypeOfIterator(typeResult, /* isAsync */ false, arg.d.valueExpr)?.type ??
+                        UnknownType.create();
+                    tupleTypeArgs.push({ type: iterableType, isUnbounded: true });
                 }
             });
 
-            unpackedListArgs.forEach((arg) => {
-                const typeResult = getTypeOfExpression(arg.d.valueExpr);
-                if (typeResult.isIncomplete) {
-                    isPositionalIndexTypeIncomplete = true;
-                }
-                const iterableType =
-                    getTypeOfIterator(typeResult, /* isAsync */ false, arg.d.valueExpr)?.type ?? UnknownType.create();
-                tupleTypeArgs.push({ type: iterableType, isUnbounded: true });
-            });
+            const unboundedCount = tupleTypeArgs.filter((typeArg) => typeArg.isUnbounded).length;
+            if (unboundedCount > 1) {
+                const firstUnboundedIndex = tupleTypeArgs.findIndex((typeArg) => typeArg.isUnbounded);
+                const removedEntries = tupleTypeArgs.splice(firstUnboundedIndex);
+                tupleTypeArgs.push({
+                    type: combineTypes(removedEntries.map((entry) => entry.type)),
+                    isUnbounded: true,
+                });
+            }
 
             positionalIndexType = makeTupleObject(evaluatorInterface, tupleTypeArgs);
         }
