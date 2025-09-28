@@ -8119,12 +8119,8 @@ export function createTypeEvaluator(
             }
         }
 
-        // Follow PEP 637 rules for positional and keyword arguments.
-        const positionalArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.Simple && !item.d.name);
+        const positionalArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.Simple);
         const unpackedListArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.UnpackedList);
-
-        const keywordArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.Simple && !!item.d.name);
-        const unpackedDictArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.UnpackedDictionary);
 
         let positionalIndexType: Type;
         let isPositionalIndexTypeIncomplete = false;
@@ -8136,9 +8132,6 @@ export function createTypeEvaluator(
             if (typeResult.isIncomplete) {
                 isPositionalIndexTypeIncomplete = true;
             }
-        } else if (positionalArgs.length === 0 && unpackedListArgs.length === 0) {
-            // Handle the case where there are no positionals provided but there are keywords.
-            positionalIndexType = makeTupleObject(evaluatorInterface, []);
         } else {
             // Package up all of the positionals into a tuple.
             const tupleTypeArgs: TupleTypeArg[] = [];
@@ -8191,23 +8184,6 @@ export function createTypeEvaluator(
                 },
             });
         }
-
-        keywordArgs.forEach((arg) => {
-            argList.push({
-                argCategory: ArgCategory.Simple,
-                valueExpression: arg.d.valueExpr,
-                node: arg,
-                name: arg.d.name,
-            });
-        });
-
-        unpackedDictArgs.forEach((arg) => {
-            argList.push({
-                argCategory: ArgCategory.UnpackedDictionary,
-                valueExpression: arg.d.valueExpr,
-                node: arg,
-            });
-        });
 
         const callResult = validateCallArgs(
             node,

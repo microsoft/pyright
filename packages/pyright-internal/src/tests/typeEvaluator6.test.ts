@@ -9,13 +9,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
-import {
-    pythonVersion3_10,
-    pythonVersion3_11,
-    pythonVersion3_12,
-    pythonVersion3_8,
-    pythonVersion3_9,
-} from '../common/pythonVersion';
+import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -966,22 +960,7 @@ test('Subscript2', () => {
 });
 
 test('Subscript3', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-
-    // Analyze with Python 3.9 settings.
-    configOptions.defaultPythonVersion = pythonVersion3_9;
-    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['subscript3.py'], configOptions);
-    TestUtils.validateResults(analysisResults39, 37);
-
-    // Analyze with Python 3.10 settings.
-    // These are disabled because PEP 637 was rejected.
-    // configOptions.defaultPythonVersion = pythonVersion3_10;
-    // const analysisResults310 = TestUtils.typeAnalyzeSampleFiles(['subscript3.py'], configOptions);
-    // TestUtils.validateResults(analysisResults310, 11);
-});
-
-test('Subscript4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['subscript4.py']);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['subscript3.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
