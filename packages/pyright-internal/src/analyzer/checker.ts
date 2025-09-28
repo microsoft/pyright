@@ -2143,6 +2143,10 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        if (isModule(leftType) || isModule(rightType)) {
+            return;
+        }
+
         const getMessage = () => {
             return node.d.operator === OperatorType.Equals || node.d.operator === OperatorType.Is
                 ? LocMessage.comparisonAlwaysFalse()
