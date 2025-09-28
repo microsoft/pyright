@@ -307,6 +307,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.classNotRuntimeSubscriptable'));
         export const classPatternBuiltInArgPositional = () =>
             getRawString('Diagnostic.classPatternBuiltInArgPositional');
+        export const classPatternNewType = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.classPatternNewType'));
         export const classPatternPositionalArgCount = () =>
             new ParameterizedString<{ type: string; expected: number; received: number }>(
                 getRawString('Diagnostic.classPatternPositionalArgCount')

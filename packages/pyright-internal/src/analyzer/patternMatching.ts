@@ -1980,6 +1980,12 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
                 pattern.d.className
             );
         }
+    } else if (ClassType.isNewTypeClass(exprType)) {
+        evaluator.addDiagnostic(
+            DiagnosticRule.reportGeneralTypeIssues,
+            LocMessage.classPatternNewType().format({ type: evaluator.printType(exprType) }),
+            pattern.d.className
+        );
     } else {
         const isBuiltIn = isClassSpecialCaseForClassPattern(exprType);
 
