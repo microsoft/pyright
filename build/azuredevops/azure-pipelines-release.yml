@@ -246,7 +246,7 @@ extends:
               - task: ManualValidation@0
                 timeoutInMinutes: 120 # task times out in 2 hours
                 inputs:
-                  notifyUsers: 'plseng@microsoft.com,eric@traut.com'
+                  notifyUsers: 'plseng@microsoft.com,eric@traut.com,rchiodo@microsoft.com,bschnurr@microsoft.com,graham.wheeler@microsoft.com'
                   instructions: 'In the next 2 hours please test the latest draft release of Pyright, then Publish the release in GitHub.'
                   onTimeout: 'reject' # require sign-off
 
