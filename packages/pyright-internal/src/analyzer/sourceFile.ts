@@ -415,9 +415,10 @@ export class SourceFile {
             return false;
         }
 
-        // If the file was never read previously, no need to check for a change.
+        // If the file was never read previously, then we can't tell if it has changed or not.
+        // Return true to indicate that we should re-read it.
         if (this._writableData.lastFileContentLength === undefined) {
-            return false;
+            return true;
         }
 
         // Read in the latest file contents and see if the hash matches

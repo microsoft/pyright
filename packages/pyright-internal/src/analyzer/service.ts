@@ -88,10 +88,10 @@ export interface AnalyzerServiceOptions {
     serviceId?: string;
     skipScanningUserFiles?: boolean;
     fileSystem?: FileSystem;
-    usingPullDiagnostics?: boolean;
     onInvalidated?: (reason: InvalidatedReason) => void;
     // Optional callback fired once when initial source file enumeration completes.
     onSourceEnumerationComplete?: () => void;
+    shouldRunAnalysis: () => boolean;
 }
 
 interface ConfigFileContents {
@@ -214,6 +214,10 @@ export class AnalyzerService {
         return this.options.serviceId!;
     }
 
+    get checkOnlyOpenFiles() {
+        return !!this._commandLineOptions?.languageServerSettings.checkOnlyOpenFiles;
+    }
+
     setServiceName(instanceName: string) {
         this._instanceName = instanceName;
     }
@@ -230,7 +234,6 @@ export class AnalyzerService {
             backgroundAnalysis,
             skipScanningUserFiles: true,
             fileSystem,
-            usingPullDiagnostics: this.options.usingPullDiagnostics,
         });
 
         // Cloned service will use whatever user files the service currently has.
@@ -492,6 +495,11 @@ export class AnalyzerService {
         );
     }
 
+    invalidateAndScheduleReanalysis(reason: InvalidatedReason) {
+        this.invalidateAndForceReanalysis(reason);
+        this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
+    }
+
     invalidateAndForceReanalysis(reason: InvalidatedReason) {
         if (this.options.onInvalidated) {
             this.options.onInvalidated(reason);
@@ -566,13 +574,17 @@ export class AnalyzerService {
     }
 
     protected runAnalysis(token: CancellationToken) {
-        // In pull diagnostics mode, the service doesn't perform analysis on its own.
-        // Instead the client deliberately asks for diagnostics on a file-by-file basis.
-        if (!this.options.usingPullDiagnostics) {
+        // Double check we're allowed to run analysis now. We might be in pull mode or
+        // we might not have a workspace response callback. The creation of the workspace
+        // callback will cause this to rerun, so no need to start polling.
+        if (this.options.shouldRunAnalysis()) {
             const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(token);
             if (moreToAnalyze) {
                 this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
             }
+        } else if (this.options.onInvalidated) {
+            // Just cause a refresh.
+            this.options.onInvalidated(InvalidatedReason.Reanalyzed);
         }
     }
 

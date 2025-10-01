@@ -190,14 +190,15 @@ export class FullAccessHost extends LimitedAccessHost {
         code: string,
         args: string[],
         cwd: Uri,
-        token: CancellationToken
+        token: CancellationToken,
+        forceIsolated: boolean = false
     ): Promise<ScriptOutput> {
         // If it is already cancelled, don't bother to run snippet.
         throwIfCancellationRequested(token);
 
         // What to do about conda here?
         return new Promise<ScriptOutput>((resolve, reject) => {
-            const commandLineArgs = ['-c', code, ...args];
+            const commandLineArgs = forceIsolated ? ['-I', '-c', code, ...args] : ['-c', code, ...args];
 
             const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
                 child_process.spawn(p, commandLineArgs, {

@@ -1732,6 +1732,7 @@ export class TestState {
             configOptions,
             fileSystem: this.fs,
             libraryReanalysisTimeProvider: () => 0,
+            shouldRunAnalysis: () => true,
         });
 
         // directly set files to track rather than using fileSpec from config
