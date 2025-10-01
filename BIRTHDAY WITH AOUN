@@ -1,0 +1,18 @@
+from moviepy.editor import TextClip, CompositeVideoClip, ColorClip
+
+# Video duration aur size
+duration = 10  # seconds
+width, height = 720, 480
+
+# Background color
+background = ColorClip(size=(width, height), color=(255, 192, 203), duration=duration)  # pink background
+
+# Birthday text
+text = TextClip("Happy Birthday, Aoun!", fontsize=50, color='white', font='Arial-Bold')
+text = text.set_position('center').set_duration(duration)
+
+# Combine background and text
+video = CompositeVideoClip([background, text])
+
+# Save video
+video.write_videofile("birthday_video.mp4", fps=24)
