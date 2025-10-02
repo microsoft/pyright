@@ -1117,8 +1117,8 @@
             "comment": "{Locked='pyright','true','false','error','warning','information','none'}"
         },
         "pyrightCommentUnknownDirective": {
-            "message": "\"{directive}\" is an unknown directive for pyright comment; expected \"strict\" or \"basic\"",
-            "comment": "{Locked='pyright','strict','basic'}"
+            "message": "\"{directive}\" is an unknown directive for pyright comment; expected \"strict\", \"standard\", or \"basic\"",
+            "comment": "{Locked='pyright','strict','standard','basic'}"
         },
         "readOnlyArgCount": {
             "message": "Expected a single type argument after \"ReadOnly\"",
