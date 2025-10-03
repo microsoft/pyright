@@ -62,7 +62,7 @@ export function isEnumClassWithMembers(evaluator: TypeEvaluator, classType: Clas
 
     // Determine whether the enum class defines a member.
     const symbolTable = ClassType.getSymbolTable(classType);
-    for (const [name, symbol] of symbolTable) {
+    for (const name of symbolTable.keys()) {
         const symbolType = transformTypeForEnumMember(evaluator, classType, name);
         if (
             symbolType &&
