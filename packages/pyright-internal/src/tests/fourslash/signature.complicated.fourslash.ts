@@ -3,7 +3,7 @@
 // @filename: complicated.py
 //// from typing import Any, Optional, Type, Union, TypedDict, Unpack, NotRequired
 ////
-//// class Movie(TypedDict):
+//// class Movie(TypedDict, extra_items: int):
 ////     key1: str
 ////     key2: NotRequired[int]
 ////
@@ -54,8 +54,8 @@
 
     const xTypedDictSignatures = [
         {
-            label: '(a: int, b: int, *, key1: str, key2: int = ...) -> None',
-            parameters: ['a: int', 'b: int', '*', 'key1: str', 'key2: int = ...'],
+            label: '(a: int, b: int, *, key1: str, key2: int = ..., **kwargs: int) -> None',
+            parameters: ['a: int', 'b: int', '*', 'key1: str', 'key2: int = ...', '**kwargs: int'],
         },
     ];
 

@@ -2729,6 +2729,20 @@ export function createTypeEvaluator(
             );
         });
 
+        const extraItemsType = kwargsType.shared.typedDictEntries?.extraItems?.valueType;
+
+        if (extraItemsType && !isNever(extraItemsType)) {
+            FunctionType.addParam(
+                newFunction,
+                FunctionParam.create(
+                    ParamCategory.KwargsDict,
+                    extraItemsType,
+                    FunctionParamFlags.TypeDeclared,
+                    'kwargs',
+                )
+            );
+        }
+
         return newFunction;
     }
 
