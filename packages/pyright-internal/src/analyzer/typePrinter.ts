@@ -1163,6 +1163,20 @@ function printFunctionPartsInternal(
                 );
                 paramTypeStrings.push(`${k}: ${valueTypeString}`);
             });
+
+            const extraItemsType = paramType.shared.typedDictEntries?.extraItems?.valueType;
+            if (extraItemsType && !isNever(extraItemsType)) {
+                const valueTypeString = printTypeInternal(
+                    extraItemsType,
+                    printTypeFlags,
+                    returnTypeCallback,
+                    uniqueNameMap,
+                    recursionTypes,
+                    recursionCount
+                );
+                paramTypeStrings.push(`**kwargs: ${valueTypeString}`);
+            }
+
             return;
         }
 

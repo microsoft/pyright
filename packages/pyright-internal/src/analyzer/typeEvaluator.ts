@@ -2738,7 +2738,7 @@ export function createTypeEvaluator(
                     ParamCategory.KwargsDict,
                     extraItemsType,
                     FunctionParamFlags.TypeDeclared,
-                    'kwargs',
+                    'kwargs'
                 )
             );
         }

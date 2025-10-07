@@ -3,7 +3,7 @@
 // @filename: complicated.py
 //// from typing import Any, Optional, Type, Union, TypedDict, Unpack, NotRequired
 ////
-//// class Movie(TypedDict, extra_items: int):
+//// class Movie(TypedDict, extra_items=int):
 ////     key1: str
 ////     key2: NotRequired[int]
 ////
