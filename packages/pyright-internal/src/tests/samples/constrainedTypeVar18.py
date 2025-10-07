@@ -5,22 +5,22 @@
 
 from typing import Generic, TypeVar, Awaitable
 
-T = TypeVar("T")
+T1 = TypeVar("T1")
 
 
 class Async:
-    def fn(self, returnable: T) -> Awaitable[T]: ...
+    def fn(self, returnable: T1) -> Awaitable[T1]: ...
 
 
 class Sync:
-    def fn(self, returnable: T) -> T: ...
+    def fn(self, returnable: T1) -> T1: ...
 
 
-T = TypeVar("T", Async, Sync)
+T2 = TypeVar("T2", Async, Sync)
 
 
-class A(Generic[T]):
-    def __init__(self, client: T):
+class A(Generic[T2]):
+    def __init__(self, client: T2):
         self._client = client
 
     def method1(self):

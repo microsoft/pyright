@@ -9,7 +9,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
-import { pythonVersion3_10, pythonVersion3_9 } from '../common/pythonVersion';
+import { pythonVersion3_10, pythonVersion3_13, pythonVersion3_9 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -348,7 +348,12 @@ test('isInstance6', () => {
 });
 
 test('Unbound1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound1.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    // This test requires 3.13 or older because 3.14 uses deferred
+    // type annotation evaluation.
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 1);
 });

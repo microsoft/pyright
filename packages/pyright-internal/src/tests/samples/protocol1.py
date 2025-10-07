@@ -129,7 +129,7 @@ def func1():
 
 # This should generate an error because Protocol isn't
 # allowed in a TypeVar bound.
-T = TypeVar("T", bound=Protocol | int)
+T2 = TypeVar("T2", bound=Protocol | int)
 
 
 # This should generate an error because int is not a TypeVar
