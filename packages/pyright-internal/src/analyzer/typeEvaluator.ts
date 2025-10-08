@@ -28,6 +28,7 @@ import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positi
 import {
     PythonVersion,
     pythonVersion3_13,
+    pythonVersion3_14,
     pythonVersion3_6,
     pythonVersion3_7,
     pythonVersion3_9,
@@ -1021,6 +1022,8 @@ export function createTypeEvaluator(
             // so don't re-enter this block once we start executing it.
             prefetched = {};
 
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+
             prefetched.objectClass = getBuiltInType(node, 'object');
             prefetched.typeClass = getBuiltInType(node, 'type');
             prefetched.functionClass = getTypesType(node, 'FunctionType') ?? getBuiltInType(node, 'function');
@@ -1047,7 +1050,15 @@ export function createTypeEvaluator(
                 getTypeCheckerInternalsType(node, 'TypedDictFallback') ?? getTypingType(node, '_TypedDict');
             prefetched.awaitableClass = getTypingType(node, 'Awaitable');
             prefetched.mappingClass = getTypingType(node, 'Mapping');
-            prefetched.templateClass = getTypeOfModule(node, 'Template', ['string', 'templatelib']);
+
+            // Don't attempt to resolve the string.templatelib if pyright is configured for
+            // Python 3.13 or older. Doing so will either fail to resolve (if running on Python 3.13
+            // or older) or resolve to the templatelib.py source file (if running on Python 3.14).
+            if (PythonVersion.isGreaterOrEqualTo(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_14)) {
+                prefetched.templateClass = getTypeOfModule(node, 'Template', ['string', 'templatelib']);
+            } else {
+                prefetched.templateClass = UnknownType.create();
+            }
 
             prefetched.supportsKeysAndGetItemClass = getTypeshedType(node, 'SupportsKeysAndGetItem');
             if (!prefetched.supportsKeysAndGetItemClass) {
