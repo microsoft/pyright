@@ -116,6 +116,8 @@ export interface PyrightServerInfo {
     getInitializeParams(): InitializeParams;
     dispose(): Promise<void>;
     convertPathToUri(path: string): Uri;
+    workspaceDiagnosticsPartialResultToken?: string;
+    pendingWorkspaceDiagnostics?: Promise<any>;
 }
 
 export class TestHostOptions {
@@ -288,20 +290,53 @@ export async function getOpenFiles(info: PyrightServerInfo, projectRoot?: Uri): 
     return deserialize(result.files);
 }
 
-async function waitForPushDiagnostics(info: PyrightServerInfo, timeout = 10000) {
-    const deferred = createDeferred<void>();
-    const disposable = info.diagnosticsEvent((params) => {
-        if (params.diagnostics.length > 0) {
-            deferred.resolve();
-        }
-    });
-    const timer = setTimeout(() => deferred.reject('Timed out waiting for diagnostics'), timeout);
-    try {
-        await deferred.promise;
-    } finally {
-        clearTimeout(timer);
-        disposable.dispose();
+export async function waitForPushDiagnostics(
+    info: PyrightServerInfo,
+    clearFirst: boolean,
+    numberOfFiles = 1,
+    timeout = 10000
+): Promise<PublishDiagnosticsParams[]> {
+    if (clearFirst) {
+        info.diagnostics = [];
     }
+
+    // We may already have the necessary diagnostics.
+    const currentCount = info.diagnostics.filter((d) => d.diagnostics.length > 0).length;
+    if (currentCount >= numberOfFiles) {
+        return info.diagnostics;
+    }
+
+    // Otherwise we have to get called back with the diagnostics. Swallow any errors (timeouts, etc.)
+    // and just return what we currently have so callers can choose how strict to be.
+    let eventCount = currentCount;
+    try {
+        await waitForEvent(
+            info.diagnosticsEvent,
+            'diagnostics',
+            (params) => {
+                if (params.diagnostics.length > 0) {
+                    eventCount++;
+                    if (eventCount >= numberOfFiles) {
+                        return true;
+                    }
+                }
+
+                return false;
+            },
+            timeout
+        );
+    } catch (e: any) {
+        try {
+            console.log?.(
+                `waitForPushDiagnostics: ignoring error while waiting for diagnostics: ${
+                    e?.message || e
+                }. Had ${eventCount} of ${numberOfFiles} events`
+            );
+        } catch {
+            /* ignore logging issues */
+        }
+    }
+
     return info.diagnostics;
 }
 
@@ -354,11 +389,7 @@ export function convertDiagnosticReport(
 async function waitForPullDiagnostics(info: PyrightServerInfo): Promise<PublishDiagnosticsParams[]> {
     const openFiles = await getOpenFiles(info);
     if (openFiles.length <= 0) {
-        const results = await info.connection.sendRequest(WorkspaceDiagnosticRequest.type, {
-            identifier: 'Pylance',
-            previousResultIds: [],
-        });
-        return convertDiagnosticReport(undefined, results);
+        return waitForPushDiagnostics(info, false);
     } else {
         const results: PublishDiagnosticsParams[] = [];
         for (const openFile of openFiles) {
@@ -378,7 +409,7 @@ export async function waitForDiagnostics(info: PyrightServerInfo, timeout = 2000
         // Timeout doesn't apply on pull because we can actually ask for them.
         return waitForPullDiagnostics(info);
     }
-    return waitForPushDiagnostics(info, timeout);
+    return waitForPushDiagnostics(info, false, undefined, timeout);
 }
 
 interface ProgressPart {}
@@ -417,6 +448,24 @@ class TestProgressPart implements ProgressPart {
     sendCancel() {
         this._context.sendNotification(WorkDoneProgressCancelNotification.type, { token: this._token });
     }
+}
+
+export async function waitForPromise(promise: Promise<any>, timeout = 10000, message?: string): Promise<any> {
+    return await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error(message || `Timed out waiting for promise`));
+        }, timeout);
+
+        promise
+            .then((result) => {
+                clearTimeout(timer);
+                resolve(result);
+            })
+            .catch((error) => {
+                clearTimeout(timer);
+                reject(error);
+            });
+    });
 }
 
 export async function runPyrightServer(
@@ -470,6 +519,7 @@ export async function runPyrightServer(
     const diagnosticsEmitter = new Emitter<PublishDiagnosticsParams>();
     const workspaceEditsEmitter = new Emitter<ApplyWorkspaceEditParams>();
     const diagnosticsMode = extraSettings?.find((s) => s.item.section === 'python.analysis')?.value?.diagnosticMode;
+    const partialResultToken = `4fb5ab8a-37a6-4c16-a290-03cfc892ea7e`; // Doesn't need to be different, just a random guid
 
     // Setup the server info.
     const info: PyrightServerInfo = {
@@ -484,26 +534,28 @@ export async function runPyrightServer(
         testData,
         testName: testServerData.testName,
         telemetry: [],
-        supportsPullDiagnostics: (supportPullDiagnostics && diagnosticsMode !== 'workspace') ?? false,
+        supportsPullDiagnostics: !!supportPullDiagnostics,
         projectRoots: testServerData.projectRoots,
         diagnostics: [],
         diagnosticsEvent: diagnosticsEmitter.event,
         workspaceEdits: [],
         workspaceEditsEvent: workspaceEditsEmitter.event,
-        getInitializeParams: () =>
-            getInitializeParams(testServerData.projectRoots, !!supportPullDiagnostics, diagnosticsMode),
+        getInitializeParams: () => getInitializeParams(testServerData.projectRoots, !!supportPullDiagnostics),
         convertPathToUri: (path: string) => UriEx.file(path, !ignoreCase),
         dispose: async () => {
             // Send shutdown. This should disconnect the dispatcher and kill the server.
             if (serverWorker) {
                 await connection.sendRequest(ShutdownRequest.type, undefined);
             }
+            // Shutdown of the server should resolve any pending workspace diagnostics requests.
+            await stopWorkspaceDiagnostics(info, 'shutdown');
 
             // Now we can dispose the connection.
             disposables.forEach((d) => d.dispose());
 
             logToDisk(`Finished test ${testServerData.testName}`, testServerData.logFile);
         },
+        workspaceDiagnosticsPartialResultToken: supportPullDiagnostics ? partialResultToken : undefined,
     };
     info.disposables.push(
         info.connection.onNotification(CustomLSP.Notifications.TestStartServerResponse, (p) => {
@@ -511,6 +563,18 @@ export async function runPyrightServer(
         }),
         info.connection.onRequest(RegistrationRequest.type, (p) => {
             info.registrations.push(...p.registrations);
+
+            // If this is a DocumentDiagnostic registration, we may need to start workspace diagnostics.
+            const documentDiagnosticRegistration = p.registrations.find(
+                (r) => r.method === DocumentDiagnosticRequest.type.method
+            );
+            if (documentDiagnosticRegistration) {
+                if (documentDiagnosticRegistration.registerOptions.workspaceDiagnostics) {
+                    startWorkspaceDiagnostics(info, 'registration');
+                } else {
+                    stopWorkspaceDiagnostics(info, 'registration');
+                }
+            }
         }),
         info.connection.onNotification(CustomLSP.Notifications.TestSignal, (p: CustomLSP.TestSignal) => {
             info.signals.get(p.kind)!.resolve(true);
@@ -558,6 +622,15 @@ export async function runPyrightServer(
         }),
         info.connection.onNotification(TelemetryEventNotification.type, (p) => {
             info.telemetry.push(p);
+        }),
+        info.connection.onProgress(WorkspaceDiagnosticRequest.partialResult, partialResultToken, (progress) => {
+            const converted = convertDiagnosticReport(undefined, progress);
+            // Replace any current diagnostics with their new set
+            for (const p of converted) {
+                info.diagnostics = info.diagnostics.filter((d) => d.uri !== p.uri);
+                info.diagnostics.push(p);
+                diagnosticsEmitter.fire(p);
+            }
         })
     );
     info.disposables.push(
@@ -617,6 +690,37 @@ export async function runPyrightServer(
     return info;
 }
 
+function startWorkspaceDiagnostics(info: PyrightServerInfo, extraMessage: string) {
+    if (!info.pendingWorkspaceDiagnostics) {
+        info.logs.push({ message: `Starting workspace diagnostics request: ${extraMessage}`, type: 4 });
+        info.pendingWorkspaceDiagnostics = info.connection
+            .sendRequest(WorkspaceDiagnosticRequest.type, {
+                identifier: 'Pylance',
+                previousResultIds: [],
+                partialResultToken: info.workspaceDiagnosticsPartialResultToken,
+            })
+            .then(() => {
+                info.logs.push({ message: 'Workspace diagnostics request completed', type: 4 });
+            });
+    }
+}
+
+async function stopWorkspaceDiagnostics(info: PyrightServerInfo, extraMessage: string) {
+    if (info.pendingWorkspaceDiagnostics) {
+        const pending = info.pendingWorkspaceDiagnostics;
+        info.pendingWorkspaceDiagnostics = undefined;
+        try {
+            await waitForPromise(
+                pending,
+                5000,
+                `Timed out waiting for stopping workspace diagnostics during ${extraMessage}`
+            );
+        } catch {
+            // Ignore errors. We're trying to stop it.
+        }
+    }
+}
+
 export async function initializeLanguageServer(info: PyrightServerInfo) {
     const params = info.getInitializeParams();
 
@@ -640,6 +744,10 @@ export async function initializeLanguageServer(info: PyrightServerInfo) {
         await info.signals.get(CustomLSP.TestSignalKinds.Initialization)!.promise;
     }
 
+    // Start the polling for workspace diagnostics as done by the VS Code LSP client.
+    if (result.capabilities.diagnosticProvider?.workspaceDiagnostics) {
+        startWorkspaceDiagnostics(info, 'initialize');
+    }
     return result;
 }
 
@@ -677,11 +785,7 @@ export async function hover(info: PyrightServerInfo, markerName: string) {
     return hoverResult;
 }
 
-export function getInitializeParams(
-    projectRoots: Uri[],
-    supportsPullDiagnostics: boolean,
-    diagnosticMode: string | undefined = undefined
-) {
+export function getInitializeParams(projectRoots: Uri[], supportsPullDiagnostics: boolean) {
     // cloned vscode "1.71.0-insider"'s initialize params.
     const workspaceFolders = projectRoots
         ? projectRoots.map((root, i) => ({ name: root.fileName, uri: projectRoots[i].toString() }))
@@ -1034,7 +1138,6 @@ export function getInitializeParams(
         },
         initializationOptions: {
             autoFormatStrings: true,
-            diagnosticMode: diagnosticMode ?? 'openFilesOnly',
             disablePullDiagnostics: !supportsPullDiagnostics,
         },
         workspaceFolders,

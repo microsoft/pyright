@@ -269,6 +269,7 @@ function createServiceWithChainedSourceFiles(basePath: Uri, code: string) {
         importResolverFactory: AnalyzerService.createImportResolver,
         configOptions: new ConfigOptions(basePath),
         fileSystem: fs,
+        shouldRunAnalysis: () => true,
     });
 
     const data = parseTestData(basePath.getFilePath(), code, '');

@@ -216,6 +216,7 @@ function createWorkspace(rootUri: Uri | undefined) {
             hostFactory: () => new TestAccessHost(),
             importResolverFactory: AnalyzerService.createImportResolver,
             configOptions: new ConfigOptions(Uri.empty()),
+            shouldRunAnalysis: () => true,
         }),
         disableLanguageServices: false,
         disableTaggedHints: false,
