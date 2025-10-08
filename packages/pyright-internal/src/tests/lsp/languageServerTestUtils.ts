@@ -518,7 +518,6 @@ export async function runPyrightServer(
     const serverStarted = createDeferred<string>();
     const diagnosticsEmitter = new Emitter<PublishDiagnosticsParams>();
     const workspaceEditsEmitter = new Emitter<ApplyWorkspaceEditParams>();
-    const diagnosticsMode = extraSettings?.find((s) => s.item.section === 'python.analysis')?.value?.diagnosticMode;
     const partialResultToken = `4fb5ab8a-37a6-4c16-a290-03cfc892ea7e`; // Doesn't need to be different, just a random guid
 
     // Setup the server info.
