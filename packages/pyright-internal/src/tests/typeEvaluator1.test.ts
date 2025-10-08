@@ -16,6 +16,7 @@ import { ConfigOptions } from '../common/configOptions';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
+    pythonVersion3_13,
     pythonVersion3_7,
     pythonVersion3_8,
     pythonVersion3_9,
@@ -977,7 +978,12 @@ test('FunctionMember2', () => {
 });
 
 test('Annotations1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    // This test requires 3.13 or older because 3.14 uses deferred
+    // type annotation evaluation.
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 21);
 });

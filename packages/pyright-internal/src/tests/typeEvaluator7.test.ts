@@ -931,7 +931,12 @@ test('Annotated2', () => {
 });
 
 test('Circular1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circular1.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    // This test requires 3.13 or older because 3.14 uses deferred
+    // type annotation evaluation.
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circular1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 2);
 });
