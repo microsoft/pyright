@@ -69,7 +69,8 @@ import {
     TextDocumentSyncKind,
     WorkDoneProgressReporter,
     WorkspaceDiagnosticParams,
-    WorkspaceDocumentDiagnosticReport,
+    WorkspaceDiagnosticReport,
+    WorkspaceDiagnosticReportPartialResult,
     WorkspaceEdit,
     WorkspaceFoldersChangeEvent,
     WorkspaceSymbol,
@@ -82,7 +83,7 @@ import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgro
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, LibraryReanalysisTimeProvider, getNextServiceId } from './analyzer/service';
-import { IPythonMode, SourceFile } from './analyzer/sourceFile';
+import { IPythonMode } from './analyzer/sourceFile';
 import type { IBackgroundAnalysis } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
 import { CancelAfter } from './common/cancellationUtils';
@@ -136,8 +137,32 @@ import {
     Workspace,
     WorkspaceFactory,
 } from './workspaceFactory';
+import { PullDiagnosticsDynamicFeature } from './languageService/pullDiagnosticsDynamicFeature';
 
 const UncomputedDiagnosticsVersion = -1;
+
+export function wrapProgressReporter(reporter: WorkDoneProgressReporter): ProgressReporter {
+    let isDisplayingProgress = false;
+    return {
+        isDisplayingProgress: () => {
+            return isDisplayingProgress;
+        },
+        isEnabled: () => {
+            return true;
+        },
+        begin: () => {
+            isDisplayingProgress = true;
+            reporter.begin('', /* percentage */ undefined, /* message */ undefined, /* cancellable */ false);
+        },
+        report: (message) => {
+            reporter.report(message);
+        },
+        end: () => {
+            isDisplayingProgress = false;
+            reporter.done();
+        },
+    };
+}
 
 export abstract class LanguageServerBase implements LanguageServerInterface, Disposable {
     // We support running only one "find all reference" at a time.
@@ -153,6 +178,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     private _initialized = false;
     private _workspaceFoldersChangedDisposable: Disposable | undefined;
+    private _workspaceDiagnosticsReporter: ResultProgressReporter<WorkspaceDiagnosticReportPartialResult> | undefined;
+    private _workspaceDiagnosticsProgressReporter: ProgressReporter | undefined;
+    private _workspaceDiagnosticsResolve: ((value: WorkspaceDiagnosticReport) => void) | undefined;
 
     protected client: ClientCapabilities = {
         hasConfigurationCapability: false,
@@ -278,11 +306,19 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             libraryReanalysisTimeProvider,
             serviceId,
             fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
-            usingPullDiagnostics: this.client.supportsPullDiagnostics,
             onInvalidated: (reason) => {
-                if (this.client.supportsPullDiagnostics) {
-                    this.connection.sendRequest(DiagnosticRefreshRequest.type);
+                // If we're in openFilesOnly mode and the client supports pull diagnostics, request a refresh. In
+                // workspace mode we just use the 'push' notification to respond to the workspace diagnostics
+                if (this.client.supportsPullDiagnostics && service.checkOnlyOpenFiles) {
+                    void this.connection.sendRequest(DiagnosticRefreshRequest.type);
                 }
+            },
+            shouldRunAnalysis: () => {
+                // We should run analysis if:
+                // The client doesn't support pull diagnostics (meaning we have to run analysis ourselves)
+                // or
+                // We have a workspace partial result callback (meaning in pull mode, we're waiting for workspace results)
+                return !this.client.supportsPullDiagnostics || this._workspaceDiagnosticsReporter !== undefined;
             },
         });
 
@@ -349,6 +385,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
 
             this.dynamicFeatures.update(serverSettings);
+
+            // If the workspace mode has changed, we may need to resolve the workspace diagnostics promise.
+            if (serverSettings.openFilesOnly && this._workspaceDiagnosticsResolve) {
+                this._workspaceDiagnosticsResolve({ items: [] });
+                this._workspaceDiagnosticsResolve = undefined;
+            }
 
             // Then use the updated settings to restart the service.
             this.updateOptionsAndRestartService(workspace, serverSettings);
@@ -510,8 +552,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.connection.onDidChangeWatchedFiles((params) => this.onDidChangeWatchedFiles(params));
 
         this.connection.languages.diagnostics.on(async (params, token) => this.onDiagnostics(params, token));
-        this.connection.languages.diagnostics.onWorkspace(async (params, token) =>
-            this.onWorkspaceDiagnostics(params, token)
+        this.connection.languages.diagnostics.onWorkspace(async (params, token, progress, reporter) =>
+            this.onWorkspaceDiagnostics(params, token, progress, reporter)
         );
         this.connection.onExecuteCommand(async (params, token, reporter) =>
             this.onExecuteCommand(params, token, reporter)
@@ -575,11 +617,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             );
         this.client.supportsPullDiagnostics =
             !!capabilities.textDocument?.diagnostic?.dynamicRegistration &&
-            initializationOptions?.diagnosticMode !== 'workspace' &&
             initializationOptions?.disablePullDiagnostics !== true;
         this.client.requiresPullRelatedInformationCapability =
             !!capabilities.textDocument?.diagnostic?.relatedInformation &&
-            initializationOptions?.diagnosticMode !== 'workspace' &&
             initializationOptions?.disablePullDiagnostics !== true;
 
         // Create a service instance for each of the workspace folders.
@@ -641,12 +681,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         };
 
         if (this.client.supportsPullDiagnostics) {
-            result.capabilities.diagnosticProvider = {
-                identifier: 'pyright',
-                documentSelector: null,
-                interFileDependencies: true,
-                workspaceDiagnostics: false, // Workspace wide are not pull diagnostics.
-            };
+            this.addDynamicFeature(new PullDiagnosticsDynamicFeature(this.connection, this.serverOptions.productName));
         }
 
         return result;
@@ -1177,23 +1212,33 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         return result;
     }
 
-    protected async onWorkspaceDiagnostics(params: WorkspaceDiagnosticParams, token: CancellationToken) {
-        const workspaces = await this.getWorkspaces();
-        const promises: Promise<WorkspaceDocumentDiagnosticReport>[] = [];
-        workspaces.forEach((workspace) => {
-            if (!workspace.disableLanguageServices) {
-                const files = workspace.service.getOwnedFiles();
-                files.forEach((file) => {
-                    const sourceFile = workspace.service.getSourceFile(file)!;
-                    if (canNavigateToFile(workspace.service.fs, sourceFile.getUri())) {
-                        promises.push(this._getWorkspaceDocumentDiagnostics(params, sourceFile, workspace, token));
-                    }
-                });
-            }
+    protected async onWorkspaceDiagnostics(
+        params: WorkspaceDiagnosticParams,
+        token: CancellationToken,
+        workDoneProgress: WorkDoneProgressReporter,
+        resultReporter?: ResultProgressReporter<WorkspaceDiagnosticReportPartialResult>
+    ) {
+        // Resolve any pending workspace diagnostics. We only allow one at a time.
+        this._workspaceDiagnosticsResolve?.({ items: [] });
+        this._workspaceDiagnosticsResolve = undefined;
+
+        // Save the progress reporters and force a refresh of analysis.
+        this._workspaceDiagnosticsProgressReporter = !isNullProgressReporter(workDoneProgress)
+            ? wrapProgressReporter(workDoneProgress)
+            : undefined;
+        this._workspaceDiagnosticsReporter = resultReporter;
+        this.workspaceFactory.getNonDefaultWorkspaces().forEach((workspace) => {
+            workspace.service.invalidateAndScheduleReanalysis(InvalidatedReason.Reanalyzed);
         });
-        return {
-            items: await Promise.all(promises),
-        };
+
+        return new Promise<WorkspaceDiagnosticReport>((resolve, reject) => {
+            // We never resolve as this should be a continually occurring process. Scheduling analysis
+            // should cause a new workspace diagnostic to be generated.
+
+            // Save the resolve callback to be used during shutdown so that tests don't crash
+            // on the unresolved promise for the workspace diagnostics.
+            this._workspaceDiagnosticsResolve = resolve;
+        });
     }
 
     protected onDidChangeWatchedFiles(params: DidChangeWatchedFilesParams) {
@@ -1262,6 +1307,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected onShutdown(token: CancellationToken) {
         // Shutdown remaining workspaces.
+        this._workspaceDiagnosticsResolve?.({ items: [] });
         this.workspaceFactory.clear();
 
         // Stop tracking all open files.
@@ -1286,11 +1332,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected onAnalysisCompletedHandler(fs: FileSystem, results: AnalysisResults): void {
-        // If we're in pull mode, disregard any 'tracking' results. They're not necessary.
-        if (this.client.supportsPullDiagnostics && results.reason === 'tracking') {
-            return;
-        }
-
         // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
             if (!this.canNavigateToFile(fileDiag.fileUri, fs)) {
@@ -1300,17 +1341,18 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             this.sendDiagnostics(this.convertDiagnostics(fs, fileDiag));
         });
 
-        if (!this._progressReporter.isEnabled(results)) {
+        const reporter = this.getAnalysisProgressReporter();
+        if (!reporter.isEnabled(results)) {
             // Make sure to disable progress bar if it is currently active.
             // This can happen if a user changes typeCheckingMode in the middle
             // of analysis.
             // end() is noop if there is no active progress bar.
-            this._progressReporter.end();
+            reporter.end();
             return;
         }
 
         // Update progress.
-        this.sendProgressMessage(results.requiringAnalysisCount.files);
+        this.sendProgressMessage(results.requiringAnalysisCount.files, results.requiringAnalysisCount.cells);
     }
 
     protected incrementAnalysisProgress() {
@@ -1326,9 +1368,17 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.sendProgressMessage(this._progressReportCounter);
     }
 
-    protected sendProgressMessage(fileCount: number) {
+    protected getAnalysisProgressReporter(): ProgressReporter {
+        if (this._workspaceDiagnosticsProgressReporter) {
+            return this._workspaceDiagnosticsProgressReporter;
+        }
+        return this._progressReporter;
+    }
+
+    protected sendProgressMessage(fileCount: number, cellCount?: number) {
+        const reporter = this.getAnalysisProgressReporter();
         if (fileCount <= 0) {
-            this._progressReporter.end();
+            reporter.end();
             return;
         }
         const progressMessage =
@@ -1339,10 +1389,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                   });
 
         // Update progress.
-        if (!this._progressReporter.isDisplayingProgress()) {
-            this._progressReporter.begin();
+        if (!reporter.isDisplayingProgress()) {
+            reporter.begin();
         }
-        this._progressReporter.report(progressMessage);
+        reporter.report(progressMessage);
     }
 
     protected onWorkspaceCreated(workspace: Workspace) {
@@ -1442,7 +1492,16 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             } else {
                 this.documentsWithDiagnostics.add(param.uri);
             }
-            this.connection.sendDiagnostics(param);
+            // If we're waiting for a pending workspace diagnostic, send a partial result.
+            if (this._workspaceDiagnosticsReporter) {
+                // Skip storing previous result ids, just send new results every time.
+                this._workspaceDiagnosticsReporter.report({
+                    items: [{ ...param, kind: 'full', version: param.version || null, items: param.diagnostics }],
+                });
+            } else {
+                // Otherwise send a publish diagnostic notification.
+                this.connection.sendDiagnostics(param);
+            }
         }
     }
 
@@ -1465,33 +1524,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         return MarkupKind.PlainText;
     }
-    private async _getWorkspaceDocumentDiagnostics(
-        params: WorkspaceDiagnosticParams,
-        sourceFile: SourceFile,
-        workspace: Workspace,
-        token: CancellationToken
-    ) {
-        const originalUri = workspace.service.fs.getOriginalUri(sourceFile.getUri());
-        const result: WorkspaceDocumentDiagnosticReport = {
-            uri: originalUri.toString(),
-            version: sourceFile.getClientVersion() ?? null,
-            kind: 'full',
-            items: [],
-        };
-        const previousId = params.previousResultIds.find((x) => x.uri === originalUri.toString());
-        const documentResult = await this.onDiagnostics(
-            { previousResultId: previousId?.value, textDocument: { uri: result.uri } },
-            token
-        );
-        if (documentResult.kind === 'full') {
-            result.items = documentResult.items;
-        } else {
-            (result as any).kind = documentResult.kind;
-            delete (result as any).items;
-        }
-        return result;
-    }
-
     private _convertDiagnostics(fs: FileSystem, diags: AnalyzerDiagnostic[]): Diagnostic[] {
         const convertedDiags: Diagnostic[] = [];
 
@@ -1501,12 +1533,19 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             const code = this.getDiagCode(diag, rule);
             const vsDiag = Diagnostic.create(diag.range, diag.message, severity, code, this.serverOptions.productName);
 
+            // Save all of the actions in the data.
+            const actions = diag.getActions();
+            if (actions?.length) {
+                vsDiag.data = { ...vsDiag.data, actions: actions };
+            }
+
             if (
                 diag.category === DiagnosticCategory.UnusedCode ||
                 diag.category === DiagnosticCategory.UnreachableCode
             ) {
                 vsDiag.tags = [DiagnosticTag.Unnecessary];
                 vsDiag.severity = DiagnosticSeverity.Hint;
+                vsDiag.data = { ...vsDiag.data, category: diag.category, rule: rule };
 
                 // If the client doesn't support "unnecessary" tags, don't report unused code.
                 if (!this.client.supportsUnnecessaryDiagnosticTag) {

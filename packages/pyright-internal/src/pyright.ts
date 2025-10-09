@@ -420,6 +420,7 @@ async function processArgs(): Promise<ExitStatus> {
         hostFactory: () => new FullAccessHost(serviceProvider),
         // Refresh service 2 seconds after the last library file change is detected.
         libraryReanalysisTimeProvider: () => 2 * 1000,
+        shouldRunAnalysis: () => true,
     });
 
     if ('threads' in args) {
@@ -792,6 +793,7 @@ function runWorkerMessageLoop(workerNum: number, tempFolderName: string) {
                     hostFactory: () => new FullAccessHost(serviceProvider!),
                     // Refresh service 2 seconds after the last library file change is detected.
                     libraryReanalysisTimeProvider: () => 2 * 1000,
+                    shouldRunAnalysis: () => true,
                 });
 
                 service.setCompletionCallback((results) => {

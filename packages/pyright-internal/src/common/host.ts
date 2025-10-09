@@ -46,7 +46,8 @@ export interface Host {
         code: string,
         args: string[],
         cwd: Uri,
-        token: CancellationToken
+        token: CancellationToken,
+        forceIsolated?: boolean
     ): Promise<ScriptOutput>;
 }
 

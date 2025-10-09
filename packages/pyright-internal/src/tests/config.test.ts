@@ -607,6 +607,10 @@ describe(`config test'}`, () => {
         const serviceProvider = createServiceProvider(fs, cons, tempFile);
         const host = new TestAccessHost();
         host.getPythonVersion = () => pythonVersion3_13;
-        return new AnalyzerService('<default>', serviceProvider, { console: cons, hostFactory: () => host });
+        return new AnalyzerService('<default>', serviceProvider, {
+            console: cons,
+            hostFactory: () => host,
+            shouldRunAnalysis: () => true,
+        });
     }
 });

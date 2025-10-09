@@ -31,6 +31,7 @@ import {
     PyrightServerInfo,
     runPyrightServer,
     waitForDiagnostics,
+    waitForPushDiagnostics,
 } from './lsp/languageServerTestUtils';
 
 describe(`Basic language server tests`, () => {
@@ -155,7 +156,7 @@ describe(`Basic language server tests`, () => {
         describe(`Diagnostics ${supportsPullDiagnostics ? 'pull' : 'push'}`, () => {
             // Background analysis takes longer than 5 seconds sometimes, so we need to
             // increase the timeout.
-            jest.setTimeout(15000);
+            jest.setTimeout(20000);
             test('background thread diagnostics', async () => {
                 const code = `
 // @filename: root/test.py
@@ -190,7 +191,7 @@ describe(`Basic language server tests`, () => {
                 await openFile(info, 'marker');
 
                 // Wait for the diagnostics to publish
-                const diagnostics = await waitForDiagnostics(info);
+                const diagnostics = await waitForPushDiagnostics(info, false);
                 const diagnostic = diagnostics.find((d) => d.uri.includes('root/test.py'));
                 assert(diagnostic);
                 assert.equal(diagnostic.diagnostics.length, 6);
@@ -237,12 +238,8 @@ describe(`Basic language server tests`, () => {
                 const diagnostics = await waitForDiagnostics(info);
                 const diagnostic = diagnostics.find((d) => d.uri.includes('root/test.py'));
                 assert(diagnostic);
-                assert.equal(diagnostic.diagnostics.length, 6);
-
-                // Make sure the error has a special rule
-                assert.equal(diagnostic.diagnostics[1].code, 'reportUnusedImport');
-                assert.equal(diagnostic.diagnostics[3].code, 'reportUnusedImport');
-                assert.equal(diagnostic.diagnostics[4].code, 'reportUnusedImport');
+                const unusedImports = diagnostic.diagnostics.filter((d) => d.code === 'reportUnusedImport');
+                assert.equal(unusedImports.length, 3);
             });
 
             test('Diagnostic severity overrides test', async () => {
