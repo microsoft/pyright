@@ -2317,6 +2317,8 @@ export class Parser {
         // "dry run" to determine whether the entire list of "with items"
         // is enclosed in parentheses.
         let isParenthesizedWithItemList = false;
+        let isParenthesizedDisallowed = false;
+
         if (possibleParen.type === TokenType.OpenParenthesis) {
             const openParenTokenIndex = this._tokenIndex;
 
@@ -2337,7 +2339,11 @@ export class Parser {
                     this._peekToken().type === TokenType.CloseParenthesis &&
                     this._peekToken(1).type === TokenType.Colon
                 ) {
-                    isParenthesizedWithItemList = withItemList.length !== 1 || withItemList[0].d.target !== undefined;
+                    isParenthesizedWithItemList = true;
+
+                    // Some forms of parenthesized context with statements were not
+                    // allowed prior to Python 3.9. Is this such a form?
+                    isParenthesizedDisallowed = withItemList.length !== 1 || withItemList[0].d.target !== undefined;
                 }
 
                 this._tokenIndex = openParenTokenIndex;
@@ -2347,7 +2353,7 @@ export class Parser {
 
         if (isParenthesizedWithItemList) {
             this._consumeTokenIfType(TokenType.OpenParenthesis);
-            if (PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_9)) {
+            if (isParenthesizedDisallowed && PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_9)) {
                 this._addSyntaxError(LocMessage.parenthesizedContextManagerIllegal(), possibleParen);
             }
         }
