@@ -719,6 +719,14 @@ test('Self11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Self12', () => {
+    const [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['self12.py']);
+
+    assert.equal(analysisResult.errors.length, 2);
+    assert.equal(analysisResult.errors[0].message, 'Parameter "self" must not have a default value');
+    assert.equal(analysisResult.errors[1].message, 'Parameter "cls" must not have a default value');
+});
+
 test('UnusedVariable1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

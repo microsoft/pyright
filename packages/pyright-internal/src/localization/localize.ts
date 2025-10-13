@@ -329,6 +329,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; classType: string }>(
                 getRawString('Diagnostic.clsSelfParamTypeMismatch')
             );
+        export const clsSelfParamDefaultNotAllowed = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.clsSelfParamDefaultNotAllowed'));
         export const codeTooComplexToAnalyze = () => getRawString('Diagnostic.codeTooComplexToAnalyze');
         export const collectionAliasInstantiation = () =>
             new ParameterizedString<{ type: string; alias: string }>(

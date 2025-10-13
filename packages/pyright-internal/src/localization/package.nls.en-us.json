@@ -173,6 +173,7 @@
             "comment": "{Locked='ClassVar'}"
         },
         "clsSelfParamTypeMismatch": "Type of parameter \"{name}\" must be a supertype of its class \"{classType}\"",
+        "clsSelfParamDefaultNotAllowed": "Parameter \"{name}\" must not have a default value",
         "codeTooComplexToAnalyze": "Code is too complex to analyze; reduce complexity by refactoring into subroutines or reducing conditional code paths",
         "collectionAliasInstantiation": "Type \"{type}\" cannot be instantiated, use \"{alias}\" instead",
         "comparisonAlwaysFalse": {

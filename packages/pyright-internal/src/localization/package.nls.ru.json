@@ -85,6 +85,7 @@
         "classVarTooManyArgs": "Ожидается только один аргумент типа после \"ClassVar\"",
         "classVarWithTypeVar": "Тип \"ClassVar\" не может включать переменные типа",
         "clsSelfParamTypeMismatch": "Тип параметра \"{name}\" должен быть супертипом своего класса \"{classType}\"",
+        "clsSelfParamDefaultNotAllowed": "Параметр \"{name}\" не может иметь значение по умолчанию",
         "codeTooComplexToAnalyze": "Код слишком сложен для анализа; уменьшите сложность, разбив его на фрагменты (вложенные процедуры) или сократите количество условных конструкций",
         "collectionAliasInstantiation": "Тип \"{type}\" не может быть создан, вместо этого используйте \"{alias}\"",
         "comparisonAlwaysFalse": "Условие всегда будет оцениваться как False, поскольку типы \"{leftType}\" и \"{rightType}\" не перекрываются",
