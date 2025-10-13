@@ -707,18 +707,35 @@ function narrowTypeBasedOnLiteralPattern(
 
     return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (expandedSubtype, unexpandedSubtype) => {
         if (evaluator.assignType(expandedSubtype, literalType)) {
-            return literalType;
+            // We have to be careful here because the runtime uses an equality
+            // check, but the expandedSubtype could be a superclass that is not
+            // the literal type. For example, the expanded subtype might be float
+            // and the literal type is Literal[3]. A value of 3.0 will match this
+            // pattern, but we cannot narrow it to Literal[3] in this case.
+            if (
+                !isClassInstance(literalType) ||
+                !isLiteralType(literalType) ||
+                isTypeSame(evaluator.stripLiteralValue(expandedSubtype), evaluator.stripLiteralValue(literalType))
+            ) {
+                return literalType;
+            }
+
+            return expandedSubtype;
         }
 
         // See if the subtype is a subclass of the literal's class. For example,
         // if it's a literal str, see if the subtype is subclass of str.
-        if (
-            isClassInstance(literalType) &&
-            isLiteralType(literalType) &&
-            isClassInstance(expandedSubtype) &&
-            !isLiteralType(expandedSubtype)
-        ) {
-            if (evaluator.assignType(ClassType.cloneWithLiteral(literalType, /* value */ undefined), expandedSubtype)) {
+        if (isClassInstance(literalType) && isClassInstance(expandedSubtype)) {
+            if (isLiteralType(literalType) && !isLiteralType(expandedSubtype)) {
+                if (
+                    evaluator.assignType(
+                        ClassType.cloneWithLiteral(literalType, /* value */ undefined),
+                        expandedSubtype
+                    )
+                ) {
+                    return expandedSubtype;
+                }
+            } else if (evaluator.assignType(literalType, expandedSubtype)) {
                 return expandedSubtype;
             }
         }
