@@ -258,7 +258,7 @@ def test_union(
             reveal_type(e1, expected_text="complex | float | Any")
             reveal_type(
                 value_to_match,
-                expected_text="tuple[Literal[3], complex] | tuple[Literal[3], float] | Sequence[Any]",
+                expected_text="tuple[complex, complex] | tuple[float, float] | Sequence[Any]",
             )
 
         case "hi", *f1:
@@ -267,11 +267,12 @@ def test_union(
 
         case *g1, 3j:
             reveal_type(
-                g1, expected_text="list[complex] | list[int | str | float] | list[Any]"
+                g1,
+                expected_text="list[complex] | list[int | str | float] | list[float] | list[Any]",
             )
             reveal_type(
                 value_to_match,
-                expected_text="tuple[complex, complex] | Tuple[int, str, float, complex] | Sequence[Any]",
+                expected_text="tuple[complex, complex] | Tuple[int, str, float, complex] | Tuple[float, ...] | Sequence[Any]",
             )
 
         case *h1, "hi":
@@ -369,8 +370,8 @@ def test_object1(seq: object):
             reveal_type(seq, expected_text="Sequence[Unknown]")
 
         case [1, "hi", True] as h1:
-            reveal_type(h1, expected_text="Sequence[int | str | bool]")
-            reveal_type(seq, expected_text="Sequence[int | str | bool]")
+            reveal_type(h1, expected_text="Sequence[Unknown]")
+            reveal_type(seq, expected_text="Sequence[Unknown]")
 
         case [1, i1] as i2:
             reveal_type(i1, expected_text="Unknown")
