@@ -1563,6 +1563,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; type: string }>(
                 getRawString('DiagnosticAddendum.typedDictClosedExtraTypeMismatch')
             );
+        export const typedDictClosedFieldNotReadOnly = () =>
+            new ParameterizedString<{ name: string }>(
+                getRawString('DiagnosticAddendum.typedDictClosedFieldNotReadOnly')
+            );
         export const typedDictClosedFieldNotRequired = () =>
             new ParameterizedString<{ name: string }>(
                 getRawString('DiagnosticAddendum.typedDictClosedFieldNotRequired')
