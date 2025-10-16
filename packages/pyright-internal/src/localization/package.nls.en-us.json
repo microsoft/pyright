@@ -2114,6 +2114,10 @@
         },
         "typedDictClosedExtraNotAllowed": "Cannot add item \"{name}\"",
         "typedDictClosedExtraTypeMismatch": "Cannot add item \"{name}\" with type \"{type}\"",
+        "typedDictClosedFieldNotReadOnly": {
+            "message": "Cannot add item \"{name}\" because it must be ReadOnly",
+            "comment": "{Locked='ReadOnly'}"
+        },
         "typedDictClosedFieldNotRequired": {
             "message": "Cannot add item \"{name}\" because it must be NotRequired",
             "comment": "{Locked='NotRequired'}"

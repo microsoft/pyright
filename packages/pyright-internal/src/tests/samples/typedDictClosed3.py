@@ -125,15 +125,28 @@ class MovieWithYear(MovieBase):
 class ParentNonOpen5(TypedDict, closed=True):
     pass
 
+
 # This should generate an error because a subclass of
 # a closed TypedDict cannot be open.
 class ChildNotClosed5(ParentNonOpen5, closed=False):
     pass
 
+
 class ParentNonOpen6(TypedDict, extra_items=str):
     pass
+
 
 # This should generate an error because a subclass of
 # a closed TypedDict cannot be open.
 class ChildNotClosed6(ParentNonOpen6, closed=False):
     pass
+
+
+class ParentNonOpen7(TypedDict, extra_items=str):
+    pass
+
+
+# This should generate an error because added fields
+# cannot be ReadOnly.
+class ChildNotClosed7(ParentNonOpen7):
+    a: NotRequired[ReadOnly[str]]
