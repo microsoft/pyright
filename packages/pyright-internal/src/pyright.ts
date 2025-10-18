@@ -496,7 +496,7 @@ async function runSingleThreaded(
             }
         }
 
-        if (args.createstub && results.requiringAnalysisCount.files === 0) {
+        if (args.createstub) {
             try {
                 service.writeTypeStub(cancellationNone);
                 service.dispose();
