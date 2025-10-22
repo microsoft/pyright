@@ -12,6 +12,7 @@ import * as debug from './debug';
 
 abstract class InternalKey {
     abstract readonly kind: 'singleton' | 'group';
+    abstract readonly id: string;
 }
 
 /**
@@ -20,6 +21,9 @@ abstract class InternalKey {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class ServiceKey<T> extends InternalKey {
     readonly kind = 'singleton';
+    constructor(readonly id: string) {
+        super();
+    }
 }
 
 /**
@@ -28,12 +32,15 @@ export class ServiceKey<T> extends InternalKey {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class GroupServiceKey<T> extends InternalKey {
     readonly kind = 'group';
+    constructor(readonly id: string) {
+        super();
+    }
 }
 
 export type AllServiceKeys<T> = ServiceKey<T> | GroupServiceKey<T>;
 
 export class ServiceProvider {
-    private _container = new Map<InternalKey, any>();
+    private _container = new Map<string, any>();
 
     add<T>(key: ServiceKey<T>, value: T | undefined): void;
     add<T>(key: GroupServiceKey<T>, value: T): void;
@@ -45,7 +52,7 @@ export class ServiceProvider {
 
         if (key.kind === 'singleton') {
             if (value !== undefined) {
-                this._container.set(key, value);
+                this._container.set(key.id, value);
             } else {
                 this.remove(key);
             }
@@ -64,7 +71,7 @@ export class ServiceProvider {
         }
 
         if (key.kind === 'singleton') {
-            this._container.delete(key);
+            this._container.delete(key.id);
             return;
         }
 
@@ -74,7 +81,7 @@ export class ServiceProvider {
     tryGet<T>(key: ServiceKey<T>): T | undefined;
     tryGet<T>(key: GroupServiceKey<T>): readonly T[] | undefined;
     tryGet<T>(key: AllServiceKeys<T>): T | readonly T[] | undefined {
-        return this._container.get(key);
+        return this._container.get(key.id);
     }
 
     get<T>(key: ServiceKey<T>): T;
@@ -91,7 +98,7 @@ export class ServiceProvider {
     clone() {
         const serviceProvider = new ServiceProvider();
         this._container.forEach((value, key) => {
-            if (key.kind === 'group') {
+            if (Array.isArray(value)) {
                 serviceProvider._container.set(key, [...(value ?? [])]);
             } else if (value.clone !== undefined) {
                 serviceProvider._container.set(key, value.clone());
@@ -115,7 +122,7 @@ export class ServiceProvider {
         // Explicitly cast to remove `readonly`
         const services = this.tryGet(key) as T[] | undefined;
         if (services === undefined) {
-            this._container.set(key, [newValue]);
+            this._container.set(key.id, [newValue]);
             return;
         }
 
