@@ -3,7 +3,7 @@ from _typeshed import ConvertibleToInt
 from collections.abc import Callable, Container
 from ssl import SSLContext, _SSLMethod
 from typing import Annotated, Any, ClassVar, overload
-from typing_extensions import TypeAlias, override
+from typing_extensions import TypeAlias
 
 from gunicorn.arbiter import Arbiter
 from gunicorn.glogging import Logger as GLogger
@@ -90,7 +90,6 @@ class Config:
 
     def __init__(self, usage: str | None = None, prog: str | None = None) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
-    @override
     def __setattr__(self, name: str, value: Any) -> None: ...
     def set(self, name: str, value: _ConfigValueType) -> None: ...
     def get_cmd_args_from_env(self) -> list[str]: ...
