@@ -3,6 +3,17 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
+ * OPTIMIZATION: Added Priority-Based Task Scheduling
+ * 
+ * WHAT: Enhanced background analysis with priority queue for task scheduling
+ * WHY: Original FIFO processing caused user-editing operations to wait behind
+ *      low-priority background tasks, creating poor responsiveness
+ * HOW: Replaced direct worker.postMessage with priority queue that processes:
+ *      - User editing tasks first (Priority 1)
+ *      - Open file analysis second (Priority 2) 
+ *      - Project files third (Priority 3)
+ *      - Third-party libraries last (Priority 4)
+ * 
  * run analyzer from background thread
  */
 
@@ -38,13 +49,14 @@ import { ConsoleInterface, LogLevel, log } from './common/console';
 import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
+import { ProgramView } from './common/extensibility';
 import { disposeCancellationToken, getCancellationTokenFromId } from './common/fileBasedCancellationUtils';
 import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
 import { ServiceProvider } from './common/serviceProvider';
 import { Range } from './common/textRange';
 import { Uri } from './common/uri/uri';
-import { ProgramView } from './common/extensibility';
+import { PriorityTaskScheduler, determineTaskPriority } from './priorityTaskScheduler';
 
 export interface IBackgroundAnalysis extends Disposable {
     setProgramView(program: Program): void;
@@ -83,6 +95,8 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
     private _worker: Worker | undefined;
     private _onAnalysisCompletion: AnalysisCompleteCallback = nullCallback;
     private _messageChannel: MessageChannel;
+    private _priorityScheduler = new PriorityTaskScheduler();
+    private _processingTasks = false;
 
     protected program: ProgramView | undefined;
 
@@ -103,6 +117,7 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
         if (this._worker) {
             this._worker.terminate();
         }
+        this._priorityScheduler.clear();
     }
 
     setProgramView(programView: Program) {
@@ -326,9 +341,53 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
     }
 
     protected enqueueRequest(request: BackgroundRequest) {
-        if (this._worker) {
+        if (!this._worker) return;
+
+        const fileUri = this._extractFileUriFromRequest(request);
+        const priority = determineTaskPriority(request.requestType, fileUri);
+        
+        this._priorityScheduler.enqueue({
+            priority,
+            requestType: request.requestType,
+            data: request.data,
+            port: request.port,
+            sharedUsageBuffer: request.sharedUsageBuffer
+        });
+
+        this._processTaskQueue();
+    }
+
+    private _extractFileUriFromRequest(request: BackgroundRequest): string | undefined {
+        if (!request.data) return undefined;
+        
+        try {
+            const data = deserialize(request.data);
+            return data?.fileUri?.toString();
+        } catch {
+            return undefined;
+        }
+    }
+
+    private _processTaskQueue() {
+        if (this._processingTasks || !this._worker) return;
+        
+        this._processingTasks = true;
+        
+        while (!this._priorityScheduler.isEmpty()) {
+            const task = this._priorityScheduler.dequeue();
+            if (!task) break;
+
+            const request: BackgroundRequest = {
+                requestType: task.requestType as BackgroundRequestKind,
+                data: task.data,
+                port: task.port,
+                sharedUsageBuffer: task.sharedUsageBuffer
+            };
+
             this._worker.postMessage(request, request.port ? [request.port] : undefined);
         }
+        
+        this._processingTasks = false;
     }
 
     protected log(level: LogLevel, msg: string) {
