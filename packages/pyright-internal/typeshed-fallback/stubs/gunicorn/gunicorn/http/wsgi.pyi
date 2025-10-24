@@ -5,7 +5,6 @@ import socket
 from _typeshed import ReadableBuffer
 from collections.abc import Callable
 from typing import Any
-from typing_extensions import override
 
 from gunicorn.config import Config
 from gunicorn.http import Request
@@ -28,7 +27,6 @@ class WSGIErrorsWrapper(io.RawIOBase):
     streams: list[io.TextIOBase]
 
     def __init__(self, cfg: Config) -> None: ...
-    @override
     def write(self, data: ReadableBuffer) -> None: ...
 
 def base_environ(cfg: Config) -> _EnvironType: ...

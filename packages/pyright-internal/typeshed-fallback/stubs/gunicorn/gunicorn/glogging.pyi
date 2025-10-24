@@ -5,7 +5,7 @@ from datetime import timedelta
 from logging.config import _DictConfigArgs
 from socket import SocketKind
 from typing import Annotated, Any, ClassVar, Literal, TypedDict, type_check_only
-from typing_extensions import TypeAlias, override
+from typing_extensions import TypeAlias
 
 from gunicorn.http import Request
 from gunicorn.http.wsgi import Response
@@ -52,7 +52,6 @@ def loggers() -> list[logging.Logger]: ...
 
 class SafeAtoms(dict[str, Any]):
     def __init__(self, atoms: dict[str, Any]) -> None: ...
-    @override
     def __getitem__(self, k: str) -> str: ...
 
 _SyslogAddressType: TypeAlias = (

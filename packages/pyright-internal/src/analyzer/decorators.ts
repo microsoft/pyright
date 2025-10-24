@@ -325,6 +325,28 @@ export function applyClassDecorator(
         }
     }
 
+    const applyDataclassTransform = (): void => {
+        // Is this a dataclass decorator?
+        let dataclassBehaviors: DataClassBehaviors | undefined;
+        let callNode: CallNode | undefined;
+
+        if (decoratorNode.d.expr.nodeType === ParseNodeType.Call) {
+            callNode = decoratorNode.d.expr;
+            const decoratorCallType = evaluator.getTypeOfExpression(
+                callNode.d.leftExpr,
+                flags | EvalFlags.CallBaseDefaults
+            ).type;
+            dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorCallType);
+        } else {
+            const decoratorType = evaluator.getTypeOfExpression(decoratorNode.d.expr, flags).type;
+            dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorType);
+        }
+
+        if (dataclassBehaviors) {
+            applyDataClassDecorator(evaluator, decoratorNode, originalClassType, dataclassBehaviors, callNode);
+        }
+    };
+
     if (isOverloaded(decoratorType)) {
         const dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorType);
         if (dataclassBehaviors) {
@@ -361,31 +383,14 @@ export function applyClassDecorator(
             return inputClassType;
         }
 
-        // Is this a dataclass decorator?
-        let dataclassBehaviors: DataClassBehaviors | undefined;
-        let callNode: CallNode | undefined;
-
-        if (decoratorNode.d.expr.nodeType === ParseNodeType.Call) {
-            callNode = decoratorNode.d.expr;
-            const decoratorCallType = evaluator.getTypeOfExpression(
-                callNode.d.leftExpr,
-                flags | EvalFlags.CallBaseDefaults
-            ).type;
-            dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorCallType);
-        } else {
-            const decoratorType = evaluator.getTypeOfExpression(decoratorNode.d.expr, flags).type;
-            dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorType);
-        }
-
-        if (dataclassBehaviors) {
-            applyDataClassDecorator(evaluator, decoratorNode, originalClassType, dataclassBehaviors, callNode);
-            return inputClassType;
-        }
+        applyDataclassTransform();
     } else if (isClassInstance(decoratorType)) {
         if (ClassType.isBuiltIn(decoratorType, 'deprecated')) {
             originalClassType.shared.deprecatedMessage = decoratorType.priv.deprecatedInstanceMessage;
             return inputClassType;
         }
+
+        applyDataclassTransform();
     }
 
     return getTypeOfDecorator(evaluator, decoratorNode, inputClassType);
