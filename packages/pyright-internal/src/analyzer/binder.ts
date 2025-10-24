@@ -17,7 +17,6 @@
  */
 
 import { Commands } from '../commands/commands';
-import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever, fail } from '../common/debug';
 import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
@@ -81,7 +80,7 @@ import {
     YieldNode,
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-import { AnalyzerFileInfo, ImportLookupResult } from './analyzerFileInfo';
+import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
@@ -119,6 +118,7 @@ import {
     VariableDeclaration,
 } from './declaration';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
+import { getWildcardImportNames } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { NameBindingType, Scope, ScopeType } from './scope';
@@ -1828,7 +1828,7 @@ export class Binder extends ParseTreeWalker {
 
                 const lookupInfo = this._fileInfo.importLookup(resolvedPath);
                 if (lookupInfo) {
-                    const wildcardNames = this._getWildcardImportNames(lookupInfo);
+                    const wildcardNames = getWildcardImportNames(lookupInfo);
 
                     if (isModuleInitFile) {
                         // If the symbol is going to be immediately replaced with a same-named
@@ -2753,27 +2753,6 @@ export class Binder extends ParseTreeWalker {
         if (!existingDecl) {
             symbol.addDeclaration(newDecl);
         }
-    }
-
-    private _getWildcardImportNames(lookupInfo: ImportLookupResult): string[] {
-        const namesToImport: string[] = [];
-
-        // If a dunder all symbol is defined, it takes precedence.
-        if (lookupInfo.dunderAllNames) {
-            if (!lookupInfo.usesUnsupportedDunderAllForm) {
-                return lookupInfo.dunderAllNames;
-            }
-
-            appendArray(namesToImport, lookupInfo.dunderAllNames);
-        }
-
-        lookupInfo.symbolTable.forEach((symbol, name) => {
-            if (!symbol.isExternallyHidden() && !name.startsWith('_')) {
-                namesToImport!.push(name);
-            }
-        });
-
-        return namesToImport;
     }
 
     private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
