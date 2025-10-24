@@ -12,7 +12,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { LocMessage } from '../localization/localize';
-import { ArgCategory, ExpressionNode, ParamCategory, ParseNodeType, StringListNode } from '../parser/parseNodes';
+import { ArgCategory, ExpressionNode, ParamCategory, ParseNodeType } from '../parser/parseNodes';
 import { Tokenizer } from '../parser/tokenizer';
 import { getFileInfo } from './analyzerNodeInfo';
 import { DeclarationType, VariableDeclaration } from './declaration';
@@ -170,6 +170,7 @@ export function createNamedTupleType(
                 entriesArg.valueExpression &&
                 entriesArg.valueExpression.nodeType === ParseNodeType.StringList
             ) {
+                const entryNameNode = entriesArg.valueExpression;
                 const entries = entriesArg.valueExpression.d.strings
                     .map((s) => s.d.value)
                     .join('')
@@ -179,23 +180,8 @@ export function createNamedTupleType(
                 entries.forEach((entryName, index) => {
                     entryName = entryName.trim();
                     if (entryName) {
-                        // Named tuples don't allow leading underscores in the field names.
-                        if (entryName.startsWith('_')) {
-                            evaluator.addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                LocMessage.namedTupleFieldUnderscore(),
-                                entriesArg.valueExpression!
-                            );
-                            return;
-                        }
-
-                        entryName = renameKeyword(
-                            evaluator,
-                            entryName,
-                            allowRename,
-                            entriesArg.valueExpression!,
-                            index
-                        );
+                        entryName = renameUnderscore(evaluator, entryName, allowRename, entryNameNode, index);
+                        entryName = renameKeyword(evaluator, entryName, allowRename, entryNameNode, index);
 
                         const entryType = UnknownType.create();
                         const paramInfo = FunctionParam.create(
@@ -214,15 +200,14 @@ export function createNamedTupleType(
                         // In this case it's just part of a string literal value.
                         // The definition provider won't necessarily take the
                         // user to the exact spot in the string, but it's close enough.
-                        const stringNode = entriesArg.valueExpression!;
                         const declaration: VariableDeclaration = {
                             type: DeclarationType.Variable,
-                            node: stringNode as StringListNode,
+                            node: entryNameNode,
                             isRuntimeTypeExpression: true,
                             uri: fileInfo.fileUri,
                             range: convertOffsetsToRange(
-                                stringNode.start,
-                                TextRange.getEnd(stringNode),
+                                entryNameNode.start,
+                                TextRange.getEnd(entryNameNode),
                                 fileInfo.lines
                             ),
                             moduleName: fileInfo.moduleName,
@@ -289,16 +274,7 @@ export function createNamedTupleType(
                                     entryNameNode
                                 );
                             } else {
-                                // Named tuples don't allow leading underscores in the field names.
-                                if (entryName.startsWith('_')) {
-                                    evaluator.addDiagnostic(
-                                        DiagnosticRule.reportGeneralTypeIssues,
-                                        LocMessage.namedTupleFieldUnderscore(),
-                                        entryNameNode
-                                    );
-                                    return;
-                                }
-
+                                entryName = renameUnderscore(evaluator, entryName, allowRename, entryNameNode, index);
                                 entryName = renameKeyword(evaluator, entryName, allowRename, entryNameNode, index);
                             }
                         } else {
@@ -511,5 +487,27 @@ function renameKeyword(
     }
 
     evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleNameKeyword(), errorNode);
+    return name;
+}
+
+function renameUnderscore(
+    evaluator: TypeEvaluator,
+    name: string,
+    allowRename: boolean,
+    errorNode: ExpressionNode,
+    index: number
+): string {
+    if (!name.startsWith('_')) {
+        // No rename necessary.
+        return name;
+    }
+
+    if (allowRename) {
+        // Rename based on index.
+        return `_${index}`;
+    }
+
+    evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleFieldUnderscore(), errorNode);
+
     return name;
 }

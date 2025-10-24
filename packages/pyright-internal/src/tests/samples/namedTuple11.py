@@ -17,3 +17,6 @@ class NT3(NamedTuple):
     # This should generate an error because a field name starting with an
     # underscore isn't allowed.
     _oops: int
+
+
+NT4 = namedtuple("NT4", "a, b, _c", rename=True)

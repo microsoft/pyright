@@ -34,7 +34,7 @@ def test_dict(value_to_match: dict[str | int, str | int]):
             reveal_type(b3, expected_text="dict[str | int, str | int]")
             reveal_type(value_to_match, expected_text="dict[str | int, str | int]")
 
-        case {3j: c1}:
+        case {None: c1}:
             reveal_type(c1, expected_text="Never")
             reveal_type(value_to_match, expected_text="Never")
 

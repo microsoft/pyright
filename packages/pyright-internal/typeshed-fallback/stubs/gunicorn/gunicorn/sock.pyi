@@ -3,7 +3,6 @@ import sys
 from collections.abc import Iterable
 from ssl import SSLContext, SSLSocket
 from typing import Any, ClassVar, Literal, SupportsIndex
-from typing_extensions import override
 
 from gunicorn.glogging import Logger as GLogger
 
@@ -19,7 +18,6 @@ class BaseSocket:
 class TCPSocket(BaseSocket):
     FAMILY: ClassVar[Literal[socket.AddressFamily.AF_INET, socket.AddressFamily.AF_INET6]]
 
-    @override
     def set_options(self, sock: socket.socket, bound: bool = False) -> socket.socket: ...
 
 class TCP6Socket(TCPSocket):
@@ -32,7 +30,6 @@ class UnixSocket(BaseSocket):
         FAMILY: ClassVar[Literal[0]]  # Stub for windows
 
     def __init__(self, addr: str, conf: Config, log: GLogger, fd: SupportsIndex | None = None) -> None: ...
-    @override
     def bind(self, sock: socket.socket) -> None: ...
 
 def create_sockets(conf: Config, log: GLogger, fds: Iterable[SupportsIndex] | None = None) -> list[BaseSocket]: ...

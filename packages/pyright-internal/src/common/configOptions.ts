@@ -1151,9 +1151,12 @@ export class ConfigOptions {
     initializeFromJson(configObj: any, configDirUri: Uri, serviceProvider: ServiceProvider, host: Host) {
         this.initializedFromJson = true;
         const console = serviceProvider.tryGet(ServiceKeys.console) ?? new NullConsole();
+        const configObjKeys = configObj && typeof configObj === 'object' ? Object.getOwnPropertyNames(configObj) : [];
+        const unusedConfigKeys = new Set<string>(configObjKeys);
 
         // Read the "include" entry.
         if (configObj.include !== undefined) {
+            unusedConfigKeys.delete('include');
             if (!Array.isArray(configObj.include)) {
                 console.error(`Config "include" entry must contain an array.`);
             } else {
@@ -1173,6 +1176,7 @@ export class ConfigOptions {
 
         // Read the "exclude" entry.
         if (configObj.exclude !== undefined) {
+            unusedConfigKeys.delete('exclude');
             if (!Array.isArray(configObj.exclude)) {
                 console.error(`Config "exclude" entry must contain an array.`);
             } else {
@@ -1192,6 +1196,7 @@ export class ConfigOptions {
 
         // Read the "ignore" entry.
         if (configObj.ignore !== undefined) {
+            unusedConfigKeys.delete('ignore');
             if (!Array.isArray(configObj.ignore)) {
                 console.error(`Config "ignore" entry must contain an array.`);
             } else {
@@ -1213,6 +1218,7 @@ export class ConfigOptions {
 
         // Read the "strict" entry.
         if (configObj.strict !== undefined) {
+            unusedConfigKeys.delete('strict');
             if (!Array.isArray(configObj.strict)) {
                 console.error(`Config "strict" entry must contain an array.`);
             } else {
@@ -1232,6 +1238,7 @@ export class ConfigOptions {
 
         // If there is a "typeCheckingMode", it can override the provided setting.
         if (configObj.typeCheckingMode !== undefined) {
+            unusedConfigKeys.delete('typeCheckingMode');
             if (
                 configObj.typeCheckingMode === 'off' ||
                 configObj.typeCheckingMode === 'basic' ||
@@ -1245,6 +1252,7 @@ export class ConfigOptions {
         }
 
         if (configObj.useLibraryCodeForTypes !== undefined) {
+            unusedConfigKeys.delete('useLibraryCodeForTypes');
             if (typeof configObj.useLibraryCodeForTypes === 'boolean') {
                 this.useLibraryCodeForTypes = configObj.useLibraryCodeForTypes;
             } else {
@@ -1255,6 +1263,7 @@ export class ConfigOptions {
         // Apply overrides from the config file for the boolean rules.
         const configRuleSet = { ...this.diagnosticRuleSet };
         getBooleanDiagnosticRules(/* includeNonOverridable */ true).forEach((ruleName) => {
+            unusedConfigKeys.delete(ruleName);
             (configRuleSet as any)[ruleName] = this._convertBoolean(
                 configObj[ruleName],
                 ruleName,
@@ -1264,6 +1273,7 @@ export class ConfigOptions {
 
         // Apply overrides from the config file for the diagnostic level rules.
         getDiagLevelDiagnosticRules().forEach((ruleName) => {
+            unusedConfigKeys.delete(ruleName);
             (configRuleSet as any)[ruleName] = this._convertDiagnosticLevel(
                 configObj[ruleName],
                 ruleName,
@@ -1274,6 +1284,7 @@ export class ConfigOptions {
 
         // Read the "venvPath".
         if (configObj.venvPath !== undefined) {
+            unusedConfigKeys.delete('venvPath');
             if (typeof configObj.venvPath !== 'string') {
                 console.error(`Config "venvPath" field must contain a string.`);
             } else {
@@ -1283,6 +1294,7 @@ export class ConfigOptions {
 
         // Read the "venv" name.
         if (configObj.venv !== undefined) {
+            unusedConfigKeys.delete('venv');
             if (typeof configObj.venv !== 'string') {
                 console.error(`Config "venv" field must contain a string.`);
             } else {
@@ -1293,6 +1305,7 @@ export class ConfigOptions {
         // Read the config "extraPaths".
         const configExtraPaths: Uri[] = [];
         if (configObj.extraPaths !== undefined) {
+            unusedConfigKeys.delete('extraPaths');
             if (!Array.isArray(configObj.extraPaths)) {
                 console.error(`Config "extraPaths" field must contain an array.`);
             } else {
@@ -1310,6 +1323,7 @@ export class ConfigOptions {
 
         // Read the default "pythonVersion".
         if (configObj.pythonVersion !== undefined) {
+            unusedConfigKeys.delete('pythonVersion');
             if (typeof configObj.pythonVersion === 'string') {
                 const version = PythonVersion.fromString(configObj.pythonVersion);
                 if (version) {
@@ -1324,6 +1338,7 @@ export class ConfigOptions {
 
         // Read the default "pythonPlatform".
         if (configObj.pythonPlatform !== undefined) {
+            unusedConfigKeys.delete('pythonPlatform');
             if (typeof configObj.pythonPlatform !== 'string') {
                 console.error(`Config "pythonPlatform" field must contain a string.`);
             } else {
@@ -1335,7 +1350,8 @@ export class ConfigOptions {
         // or supported. It was added specifically to improve initialization
         // performance for playgrounds or web-based environments where native
         // libraries will not be present.
-        if (configObj.skipNativeLibraries) {
+        if (configObj.skipNativeLibraries !== undefined) {
+            unusedConfigKeys.delete('skipNativeLibraries');
             if (typeof configObj.skipNativeLibraries === 'boolean') {
                 this.skipNativeLibraries = configObj.skipNativeLibraries;
             } else {
@@ -1345,6 +1361,7 @@ export class ConfigOptions {
 
         // Read the "typeshedPath" setting.
         if (configObj.typeshedPath !== undefined) {
+            unusedConfigKeys.delete('typeshedPath');
             if (typeof configObj.typeshedPath !== 'string') {
                 console.error(`Config "typeshedPath" field must contain a string.`);
             } else {
@@ -1358,6 +1375,7 @@ export class ConfigOptions {
 
         // Keep this for backward compatibility
         if (configObj.typingsPath !== undefined) {
+            unusedConfigKeys.delete('typingsPath');
             if (typeof configObj.typingsPath !== 'string') {
                 console.error(`Config "typingsPath" field must contain a string.`);
             } else {
@@ -1367,6 +1385,7 @@ export class ConfigOptions {
         }
 
         if (configObj.stubPath !== undefined) {
+            unusedConfigKeys.delete('stubPath');
             if (typeof configObj.stubPath !== 'string') {
                 console.error(`Config "stubPath" field must contain a string.`);
             } else {
@@ -1378,6 +1397,7 @@ export class ConfigOptions {
         // Don't initialize to a default value because we want the command-line "verbose"
         // switch to apply if this setting isn't specified in the config file.
         if (configObj.verboseOutput !== undefined) {
+            unusedConfigKeys.delete('verboseOutput');
             if (typeof configObj.verboseOutput !== 'boolean') {
                 console.error(`Config "verboseOutput" field must be true or false.`);
             } else {
@@ -1387,6 +1407,7 @@ export class ConfigOptions {
 
         // Read the "defineConstant" setting.
         if (configObj.defineConstant !== undefined) {
+            unusedConfigKeys.delete('defineConstant');
             if (typeof configObj.defineConstant !== 'object' || Array.isArray(configObj.defineConstant)) {
                 console.error(`Config "defineConstant" field must contain a map indexed by constant names.`);
             } else {
@@ -1405,6 +1426,7 @@ export class ConfigOptions {
 
         // Read the "useLibraryCodeForTypes" setting.
         if (configObj.useLibraryCodeForTypes !== undefined) {
+            unusedConfigKeys.delete('useLibraryCodeForTypes');
             if (typeof configObj.useLibraryCodeForTypes !== 'boolean') {
                 console.error(`Config "useLibraryCodeForTypes" field must be true or false.`);
             } else {
@@ -1414,6 +1436,7 @@ export class ConfigOptions {
 
         // Read the "autoImportCompletions" setting.
         if (configObj.autoImportCompletions !== undefined) {
+            unusedConfigKeys.delete('autoImportCompletions');
             if (typeof configObj.autoImportCompletions !== 'boolean') {
                 console.error(`Config "autoImportCompletions" field must be true or false.`);
             } else {
@@ -1423,6 +1446,7 @@ export class ConfigOptions {
 
         // Read the "indexing" setting.
         if (configObj.indexing !== undefined) {
+            unusedConfigKeys.delete('indexing');
             if (typeof configObj.indexing !== 'boolean') {
                 console.error(`Config "indexing" field must be true or false.`);
             } else {
@@ -1432,6 +1456,7 @@ export class ConfigOptions {
 
         // Read the "logTypeEvaluationTime" setting.
         if (configObj.logTypeEvaluationTime !== undefined) {
+            unusedConfigKeys.delete('logTypeEvaluationTime');
             if (typeof configObj.logTypeEvaluationTime !== 'boolean') {
                 console.error(`Config "logTypeEvaluationTime" field must be true or false.`);
             } else {
@@ -1441,6 +1466,7 @@ export class ConfigOptions {
 
         // Read the "typeEvaluationTimeThreshold" setting.
         if (configObj.typeEvaluationTimeThreshold !== undefined) {
+            unusedConfigKeys.delete('typeEvaluationTimeThreshold');
             if (typeof configObj.typeEvaluationTimeThreshold !== 'number') {
                 console.error(`Config "typeEvaluationTimeThreshold" field must be a number.`);
             } else {
@@ -1450,6 +1476,7 @@ export class ConfigOptions {
 
         // Read the "functionSignatureDisplay" setting.
         if (configObj.functionSignatureDisplay !== undefined) {
+            unusedConfigKeys.delete('functionSignatureDisplay');
             if (typeof configObj.functionSignatureDisplay !== 'string') {
                 console.error(`Config "functionSignatureDisplay" field must be true or false.`);
             } else {
@@ -1461,6 +1488,13 @@ export class ConfigOptions {
                 }
             }
         }
+
+        unusedConfigKeys.delete('executionEnvironments');
+        unusedConfigKeys.delete('extends');
+
+        Array.from(unusedConfigKeys).forEach((unknownKey) => {
+            console.error(`Config contains unrecognized setting "${unknownKey}".`);
+        });
     }
 
     static resolveExtends(configObj: any, configDirUri: Uri): Uri | undefined {
@@ -1626,6 +1660,9 @@ export class ConfigOptions {
         configExtraPaths: Uri[]
     ): ExecutionEnvironment | undefined {
         try {
+            const envObjKeys = envObj && typeof envObj === 'object' ? Object.getOwnPropertyNames(envObj) : [];
+            const unusedEnvKeys = new Set<string>(envObjKeys);
+
             const newExecEnv = new ExecutionEnvironment(
                 this._getEnvironmentName(),
                 configDirUri,
@@ -1636,6 +1673,7 @@ export class ConfigOptions {
             );
 
             // Validate the root.
+            unusedEnvKeys.delete('root');
             if (envObj.root && typeof envObj.root === 'string') {
                 newExecEnv.root = configDirUri.resolvePaths(envObj.root);
             } else {
@@ -1643,6 +1681,7 @@ export class ConfigOptions {
             }
 
             // Validate the extraPaths.
+            unusedEnvKeys.delete('extraPaths');
             if (envObj.extraPaths) {
                 if (!Array.isArray(envObj.extraPaths)) {
                     console.error(
@@ -1668,6 +1707,7 @@ export class ConfigOptions {
             }
 
             // Validate the pythonVersion.
+            unusedEnvKeys.delete('pythonVersion');
             if (envObj.pythonVersion) {
                 if (typeof envObj.pythonVersion === 'string') {
                     const version = PythonVersion.fromString(envObj.pythonVersion);
@@ -1682,6 +1722,7 @@ export class ConfigOptions {
             }
 
             // Validate the pythonPlatform.
+            unusedEnvKeys.delete('pythonPlatform');
             if (envObj.pythonPlatform) {
                 if (typeof envObj.pythonPlatform === 'string') {
                     newExecEnv.pythonPlatform = envObj.pythonPlatform;
@@ -1691,6 +1732,7 @@ export class ConfigOptions {
             }
 
             // Validate the name.
+            unusedEnvKeys.delete('name');
             if (envObj.name) {
                 if (typeof envObj.name === 'string') {
                     newExecEnv.name = envObj.name;
@@ -1701,6 +1743,7 @@ export class ConfigOptions {
 
             // Apply overrides from the config file for the boolean overrides.
             getBooleanDiagnosticRules(/* includeNonOverridable */ true).forEach((ruleName) => {
+                unusedEnvKeys.delete(ruleName);
                 (newExecEnv.diagnosticRuleSet as any)[ruleName] = this._convertBoolean(
                     envObj[ruleName],
                     ruleName,
@@ -1710,11 +1753,16 @@ export class ConfigOptions {
 
             // Apply overrides from the config file for the diagnostic level overrides.
             getDiagLevelDiagnosticRules().forEach((ruleName) => {
+                unusedEnvKeys.delete(ruleName);
                 (newExecEnv.diagnosticRuleSet as any)[ruleName] = this._convertDiagnosticLevel(
                     envObj[ruleName],
                     ruleName,
                     newExecEnv.diagnosticRuleSet[ruleName] as DiagnosticLevel
                 );
+            });
+
+            Array.from(unusedEnvKeys).forEach((unknownKey) => {
+                console.error(`Config executionEnvironments index ${index}: unrecognized setting "${unknownKey}".`);
             });
 
             return newExecEnv;
