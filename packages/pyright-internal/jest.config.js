@@ -18,6 +18,9 @@ module.exports = {
                     // inline const enums.
                     preserveConstEnums: false,
                 },
+                diagnostics: {
+                    ignoreCodes: [151002],
+                },
             },
         ],
     },

@@ -33,6 +33,7 @@ import {
 import { ParseFileResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { ImportLookupResult } from './analyzerFileInfo';
 import { ModuleNameAndType } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getTokenAfter, getTokenAt } from './parseTreeUtils';
@@ -978,4 +979,26 @@ export function haveSameParentModule(module1: string[], module2: string[]) {
     }
 
     return i === module1.length - 1;
+}
+
+// Helper function to get the list of names that would be imported by a wildcard import
+export function getWildcardImportNames(lookupInfo: ImportLookupResult): string[] {
+    const namesToImport: string[] = [];
+
+    // If a dunder all symbol is defined, it takes precedence.
+    if (lookupInfo.dunderAllNames) {
+        if (!lookupInfo.usesUnsupportedDunderAllForm) {
+            return lookupInfo.dunderAllNames;
+        }
+
+        appendArray(namesToImport, lookupInfo.dunderAllNames);
+    }
+
+    lookupInfo.symbolTable.forEach((symbol, name) => {
+        if (!symbol.isExternallyHidden() && !name.startsWith('_')) {
+            namesToImport!.push(name);
+        }
+    });
+
+    return namesToImport;
 }

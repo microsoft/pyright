@@ -26,13 +26,13 @@
         "fsevents": "~2.3.3"
     },
     "devDependencies": {
-        "@types/node": "^22.10.5",
-        "copy-webpack-plugin": "^11.0.0",
-        "esbuild-loader": "^3.2.0",
-        "shx": "^0.3.4",
-        "ts-loader": "^9.5.1",
+        "@types/node": "^22.18.12",
+        "copy-webpack-plugin": "^12.0.2",
+        "esbuild-loader": "^4.4.0",
+        "shx": "^0.4.0",
+        "ts-loader": "^9.5.4",
         "typescript": "~5.5.4",
-        "webpack": "^5.97.1",
+        "webpack": "^5.102.1",
         "webpack-cli": "^5.1.4"
     },
     "files": [
