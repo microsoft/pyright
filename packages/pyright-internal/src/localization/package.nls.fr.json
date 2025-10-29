@@ -824,6 +824,7 @@
         "typedDictClassNotAllowed": "Classe TypedDict non autorisée pour les vérifications d’instance ou de classe",
         "typedDictClosedExtraNotAllowed": "Impossible d’ajouter l’élément « {name} »",
         "typedDictClosedExtraTypeMismatch": "Impossible d’ajouter l’élément « {name} » avec le type « {type} »",
+        "typedDictClosedFieldNotReadOnly": "Cannot add item \"{name}\" because it must be ReadOnly",
         "typedDictClosedFieldNotRequired": "Impossible d’ajouter l’élément « {name} », car il doit être NotRequired",
         "typedDictExtraFieldNotAllowed": "« {name} » n’est pas présent dans « {type} »",
         "typedDictExtraFieldTypeMismatch": "Le type de « {name} » est incompatible avec le type « extra_items » dans « {type} »",

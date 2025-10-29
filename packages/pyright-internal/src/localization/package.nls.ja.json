@@ -824,6 +824,7 @@
         "typedDictClassNotAllowed": "TypedDict クラスはインスタンスまたはクラスのチェックには使用できません",
         "typedDictClosedExtraNotAllowed": "アイテム \"{name}\" を追加できません",
         "typedDictClosedExtraTypeMismatch": "型 \"{type}\" のアイテム \"{name}\" を追加できません",
+        "typedDictClosedFieldNotReadOnly": "Cannot add item \"{name}\" because it must be ReadOnly",
         "typedDictClosedFieldNotRequired": "アイテム \"{name}\" を追加できません。これは NotRequired である必要があるためです。",
         "typedDictExtraFieldNotAllowed": "\"{name}\" は \"{type}\" に存在しません",
         "typedDictExtraFieldTypeMismatch": "\"{name}\" の型は、\"{type}\" の \"extra_items\" 型と互換性がありません",

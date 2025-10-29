@@ -824,6 +824,7 @@
         "typedDictClassNotAllowed": "不允许对实例或类检查使用 TypedDict 类",
         "typedDictClosedExtraNotAllowed": "无法添加项“{name}”",
         "typedDictClosedExtraTypeMismatch": "无法添加类型为“{type}”的项“{name}”",
+        "typedDictClosedFieldNotReadOnly": "Cannot add item \"{name}\" because it must be ReadOnly",
         "typedDictClosedFieldNotRequired": "无法添加项“{name}”，因为它必须是 NotRequired",
         "typedDictExtraFieldNotAllowed": "“{type}”中不存在“{name}”",
         "typedDictExtraFieldTypeMismatch": "“{name}”的类型与“{type}”中的 “extra_items” 类型不兼容",

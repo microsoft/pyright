@@ -824,6 +824,7 @@
         "typedDictClassNotAllowed": "Třída TypedDict není povolená pro kontroly instancí nebo tříd.",
         "typedDictClosedExtraNotAllowed": "Do {name} nejde přidat položku.",
         "typedDictClosedExtraTypeMismatch": "Nelze přidat položku {name} s typem {type}.",
+        "typedDictClosedFieldNotReadOnly": "Cannot add item \"{name}\" because it must be ReadOnly",
         "typedDictClosedFieldNotRequired": "Nelze přidat položku {name}, protože musí být NotRequired.",
         "typedDictExtraFieldNotAllowed": "{name} není k dispozici v {type}",
         "typedDictExtraFieldTypeMismatch": "Typ {name} není kompatibilní s typem „extra_items“ v typu {type}.",
