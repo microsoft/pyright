@@ -824,6 +824,7 @@
         "typedDictClassNotAllowed": "Класс TypedDict не допускается для проверок экземпляров или классов",
         "typedDictClosedExtraNotAllowed": "Не удается добавить элемент \"{name}\"",
         "typedDictClosedExtraTypeMismatch": "Не удается добавить элемент \"{name}\" типа \"{type}\"",
+        "typedDictClosedFieldNotReadOnly": "Cannot add item \"{name}\" because it must be ReadOnly",
         "typedDictClosedFieldNotRequired": "Не удается добавить элемент \"{name}\", так как он должен быть помечен как NotRequired",
         "typedDictExtraFieldNotAllowed": "Элемент \"{name}\" отсутствует в типе \"{type}\"",
         "typedDictExtraFieldTypeMismatch": "Тип \"{name}\" несовместим с типом \"extra_items\" в \"{type}\"",

@@ -824,6 +824,7 @@
         "typedDictClassNotAllowed": "[Vgl7x][นั้TypedDict çlæss ñøt ælløwëð før ïñstæñçë ør çlæss çhëçksẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "typedDictClosedExtraNotAllowed": "[zT7Rm][นั้Çæññøt æðð ïtëm \"{ñæmë}\"Ấğ倪İЂҰक्र्นั้ढूँ]",
         "typedDictClosedExtraTypeMismatch": "[blC1e][นั้Çæññøt æðð ïtëm \"{ñæmë}\" wïth tÿpë \"{tÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪นั้ढूँ]",
+        "typedDictClosedFieldNotReadOnly": "[45ICT][นั้Çæññøt æðð ïtëm \"{ñæmë}\" þëçæµsë ït mµst þë ReadOnlyẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "typedDictClosedFieldNotRequired": "[6rtDR][นั้Çæññøt æðð ïtëm \"{ñæmë}\" þëçæµsë ït mµst þë NotRequiredẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "typedDictExtraFieldNotAllowed": "[kFDh9][นั้\"{ñæmë}\" ïs ñøt prësëñt ïñ \"{tÿpë}\"Ấğ倪İЂҰक्र्तिृまนั้ढूँ]",
         "typedDictExtraFieldTypeMismatch": "[DnAhM][นั้Tÿpë øf \"{ñæmë}\" ïs ïñçømpætïþlë wïth tÿpë øf \"extra_items\" ïñ \"{tÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまนั้ढूँ]",

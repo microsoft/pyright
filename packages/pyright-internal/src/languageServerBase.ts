@@ -414,6 +414,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         AnalyzerServiceExecutor.runWithOptions(workspace, serverSettings, { typeStubTargetImportName });
         workspace.searchPathsToWatch = workspace.service.librarySearchUrisToWatch ?? [];
     }
+    protected get workspaceDiagnosticsReporter() {
+        return this._workspaceDiagnosticsReporter;
+    }
 
     protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
 

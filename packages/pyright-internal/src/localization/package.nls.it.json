@@ -824,6 +824,7 @@
         "typedDictClassNotAllowed": "Classe TypedDict non consentita per i controlli di istanze o classi",
         "typedDictClosedExtraNotAllowed": "Non è possibile aggiungere l'elemento \"{name}\"",
         "typedDictClosedExtraTypeMismatch": "Non è possibile aggiungere l'elemento \"{name}\" con tipo \"{type}\"",
+        "typedDictClosedFieldNotReadOnly": "Cannot add item \"{name}\" because it must be ReadOnly",
         "typedDictClosedFieldNotRequired": "Non è possibile aggiungere l'elemento \"{name}\" perché deve essere NotRequired",
         "typedDictExtraFieldNotAllowed": "\"{name}\" non è presente in \"{type}\"",
         "typedDictExtraFieldTypeMismatch": "Il tipo di \"{name}\" non è compatibile con il tipo \"\"extra_items\" in \"{type}\"",
