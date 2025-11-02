@@ -824,6 +824,7 @@
         "typedDictClassNotAllowed": "執行個體或類別檢查不允許 TypedDict 類別",
         "typedDictClosedExtraNotAllowed": "無法新增項目 \"{name}\"",
         "typedDictClosedExtraTypeMismatch": "無法新增型別為 \"{type}\" 的項目 \"{name}\"",
+        "typedDictClosedFieldNotReadOnly": "Cannot add item \"{name}\" because it must be ReadOnly",
         "typedDictClosedFieldNotRequired": "無法新增項目 \"{name}\"，因為它必須是 NotRequired",
         "typedDictExtraFieldNotAllowed": "\"{name}\" 不存在於 \"{type}\"",
         "typedDictExtraFieldTypeMismatch": "\"{name}\" 的類型與 \"{type}\" 中 \"extra_items\" 的類型不相容",

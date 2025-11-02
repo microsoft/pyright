@@ -824,6 +824,7 @@
         "typedDictClassNotAllowed": "Örnek veya sınıf denetimleri için TypedDict sınıfına izin verilmiyor",
         "typedDictClosedExtraNotAllowed": "\"{name}\" öğesi eklenemiyor",
         "typedDictClosedExtraTypeMismatch": "\"{type}\" türündeki \"{name}\" öğesi eklenemiyor",
+        "typedDictClosedFieldNotReadOnly": "Cannot add item \"{name}\" because it must be ReadOnly",
         "typedDictClosedFieldNotRequired": "NotRequired olması gerektiğinden \"{name}\" öğesi eklenemiyor",
         "typedDictExtraFieldNotAllowed": "\"{name}\" öğesi \"{type}\" türünde mevcut değil",
         "typedDictExtraFieldTypeMismatch": "\"{name}\" türü, \"{type}\" altındaki \"extra_items\" türüyle uyumlu değil",
