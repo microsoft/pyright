@@ -627,6 +627,38 @@ def test_unbounded_tuple_6(subj: tuple[str, ...]):
             reveal_type(r, expected_text="tuple[str, ...]")
 
 
+def test_unbound_tuple_7(subj: tuple[str, Unpack[tuple[object, ...]], int]):
+    match subj:
+        case (*args,):
+            reveal_type(args, expected_text="list[str | object | int]")
+        case a:
+            reveal_type(a, expected_text="Never")
+
+    match subj:
+        case (*args, last):
+            reveal_type(args, expected_text="list[str | object]")
+            reveal_type(last, expected_text="int")
+        case a:
+            reveal_type(a, expected_text="Never")
+
+    match subj:
+        case (first, *args, last):
+            reveal_type(first, expected_text="str")
+            reveal_type(args, expected_text="list[object]")
+            reveal_type(last, expected_text="int")
+        case a:
+            reveal_type(a, expected_text="Never")
+
+    match subj:
+        case (first, second, *args, last):
+            reveal_type(first, expected_text="str")
+            reveal_type(second, expected_text="object")
+            reveal_type(args, expected_text="list[object]")
+            reveal_type(last, expected_text="int")
+        case a:
+            reveal_type(a, expected_text="tuple[str, *tuple[object, ...], int]")
+
+
 def test_variadic_tuple(subj: tuple[int, Unpack[Ts]]) -> tuple[Unpack[Ts]]:
     match subj:
         case _, *rest:
