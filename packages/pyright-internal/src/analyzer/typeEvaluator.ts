@@ -424,7 +424,7 @@ interface ScopedTypeVarResult {
 
 interface AliasMapEntry {
     alias: string;
-    module: 'builtins' | 'collections' | 'self';
+    module: 'builtins' | 'collections' | 'internals';
     implicitBaseClass?: string;
     isSpecialForm?: boolean;
     isIllegalInIsinstance?: boolean;
@@ -1045,9 +1045,9 @@ export function createTypeEvaluator(
             prefetched.strClass = getBuiltInType(node, 'str');
             prefetched.dictClass = getBuiltInType(node, 'dict');
             prefetched.moduleTypeClass = getTypingType(node, 'ModuleType');
-            prefetched.typedDictClass = getTypingType(node, 'TypedDict');
             prefetched.typedDictPrivateClass =
                 getTypeCheckerInternalsType(node, 'TypedDictFallback') ?? getTypingType(node, '_TypedDict');
+            prefetched.typedDictClass = getTypingType(node, 'TypedDict');
             prefetched.awaitableClass = getTypingType(node, 'Awaitable');
             prefetched.mappingClass = getTypingType(node, 'Mapping');
 
@@ -16845,11 +16845,12 @@ export function createTypeEvaluator(
         } else if (aliasMapEntry.module === 'collections') {
             // The typing.pyi file imports collections.
             baseClass = getTypeOfModule(node, baseClassName, ['collections']);
-        } else if (aliasMapEntry.module === 'self') {
-            const symbolWithScope = lookUpSymbolRecursive(node, baseClassName, /* honorCodeFlow */ false);
-            if (symbolWithScope) {
-                baseClass = getEffectiveTypeOfSymbol(symbolWithScope.symbol);
-                // The _TypedDict class is marked as abstract, but the
+        } else if (aliasMapEntry.module === 'internals') {
+            // Handle TypedDict specially.
+            assert(baseClassName === 'TypedDictFallback');
+            baseClass = prefetched?.typedDictPrivateClass;
+            if (baseClass) {
+                // The TypedDictFallback class is marked as abstract, but the
                 // methods that are abstract are overridden and shouldn't
                 // cause the TypedDict to be marked as abstract.
                 if (
@@ -16905,7 +16906,7 @@ export function createTypeEvaluator(
             ['ClassVar', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Final', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Literal', { alias: '', module: 'builtins', isSpecialForm: true }],
-            ['TypedDict', { alias: '_TypedDict', module: 'self' }],
+            ['TypedDict', { alias: 'TypedDictFallback', module: 'internals' }],
             ['Union', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Optional', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Annotated', { alias: '', module: 'builtins', isSpecialForm: true, isIllegalInIsinstance: true }],
