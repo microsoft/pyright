@@ -463,7 +463,7 @@ function validateNewMethod(
     }
 
     if (newReturnType) {
-        // Special-case the 'tuple' type specialization to use the homogenous
+        // Special-case the 'tuple' type specialization to use the homogeneous
         // arbitrary-length form.
         if (isClassInstance(newReturnType) && isTupleClass(newReturnType) && !newReturnType.priv.tupleTypeArgs) {
             if (newReturnType.priv.typeArgs && newReturnType.priv.typeArgs.length === 1) {
