@@ -12503,13 +12503,28 @@ export function createTypeEvaluator(
 
         if (matchResults.argumentErrors) {
             // Evaluate types of all args. This will ensure that referenced symbols are
-            // not reported as unaccessed.
-            argList.forEach((arg) => {
-                if (arg.valueExpression && !isSpeculativeModeInUse(arg.valueExpression)) {
-                    getTypeOfExpression(arg.valueExpression);
+            // not reported as unaccessed. Also pass the expected parameter type as
+            // inference context to enable proper completions even when there are errors.
+            matchResults.argParams.forEach((argParam) => {
+                if (argParam.argument.valueExpression && !isSpeculativeModeInUse(argParam.argument.valueExpression)) {
+                    getTypeOfExpression(
+                        argParam.argument.valueExpression,
+                        /* flags */ undefined,
+                        makeInferenceContext(argParam.paramType)
+                    );
                 }
             });
 
+            // Also evaluate any arguments that weren't matched to parameters
+            argList.forEach((arg) => {
+                if (arg.valueExpression && !isSpeculativeModeInUse(arg.valueExpression)) {
+                    // Check if this argument was already evaluated above
+                    const wasEvaluated = matchResults.argParams.some((argParam) => argParam.argument === arg);
+                    if (!wasEvaluated) {
+                        getTypeOfExpression(arg.valueExpression);
+                    }
+                }
+            });
             // Use a return type of Unknown but attach a "possible type" to it
             // so the completion provider can suggest better completions.
             const possibleType = FunctionType.getEffectiveReturnType(typeResult.type);
@@ -12786,7 +12801,10 @@ export function createTypeEvaluator(
             if (argParam.argType) {
                 argType = argParam.argType;
             } else {
-                const argTypeResult = getTypeOfArg(argParam.argument, /* inferenceContext */ undefined);
+                const argTypeResult = getTypeOfArg(
+                    argParam.argument,
+                    makeInferenceContext(argParam.paramType, isTypeIncomplete)
+                );
                 argType = argTypeResult.type;
                 if (argTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
