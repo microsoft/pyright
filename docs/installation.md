@@ -18,7 +18,7 @@ Emacs users can install [eglot](https://github.com/joaotavora/eglot) or [lsp-mod
 
 #### PyCharm
 PyCharm users can enable native Pyright support in the settings.
-For more information, refer to [PyCharm documentation](https://www.jetbrains.com/help/pycharm/2025.3/lsp-tools.html#pyright).
+For more information, refer to [PyCharm documentation](https://www.jetbrains.com/help/pycharm/lsp-tools.html#pyright).
 
 ### Command-line
 
