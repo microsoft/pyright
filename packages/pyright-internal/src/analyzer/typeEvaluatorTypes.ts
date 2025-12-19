@@ -23,6 +23,7 @@ import {
     ExpressionNode,
     FunctionNode,
     MatchNode,
+    MemberAccessNode,
     NameNode,
     ParamCategory,
     ParameterNode,
@@ -761,6 +762,12 @@ export interface TypeEvaluator {
     ) => FunctionType | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
+    getTypeOfMemberAccessWithBaseType(
+        node: MemberAccessNode,
+        baseTypeResult: TypeResult,
+        usage: EvaluatorUsage,
+        flags: EvalFlags
+    ): TypeResult;
     getTypeOfBoundMember(
         errorNode: ExpressionNode,
         objectType: ClassType,
