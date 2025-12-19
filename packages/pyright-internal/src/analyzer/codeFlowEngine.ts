@@ -564,7 +564,8 @@ export function getCodeFlowEngine(
                                         reference.nodeType === ParseNodeType.MemberAccess &&
                                         evaluator.isAsymmetricAccessorAssignment(targetNode)
                                     ) {
-                                        flowTypeResult = undefined;
+                                        // Setting an asymmetric accessor should just reset the type to the getter
+                                        flowTypeResult = evaluator.getAsymmetricAccessorOriginalType(targetNode);
                                     }
                                 }
 

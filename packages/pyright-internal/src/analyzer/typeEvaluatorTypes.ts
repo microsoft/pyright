@@ -696,6 +696,7 @@ export interface TypeEvaluator {
     getNodeReachability: (node: ParseNode, sourceNode?: ParseNode | undefined) => Reachability;
     getAfterNodeReachability: (node: ParseNode) => Reachability;
 
+    getAsymmetricAccessorOriginalType: (node: ParseNode) => TypeResult | undefined;
     isAsymmetricAccessorAssignment: (node: ParseNode) => boolean;
     suppressDiagnostics: (node: ParseNode, callback: () => void) => void;
     isSpecialFormClass: (classType: ClassType, flags: AssignTypeFlags) => boolean;

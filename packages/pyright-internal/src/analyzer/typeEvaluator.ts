@@ -654,7 +654,7 @@ export function createTypeEvaluator(
     let typeCache = new Map<number, TypeCacheEntry>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     let expectedTypeCache = new Map<number, Type>();
-    let asymmetricAccessorAssignmentCache = new Set<number>();
+    let asymmetricAccessorAssignmentCache = new Map<number, TypeResult>();
     let deferredClassCompletions: DeferredClassCompletion[] = [];
     let cancellationToken: CancellationToken | undefined;
     let printExpressionSpaceCount = 0;
@@ -710,7 +710,7 @@ export function createTypeEvaluator(
         typeCache = new Map<number, TypeCacheEntry>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
         expectedTypeCache = new Map<number, Type>();
-        asymmetricAccessorAssignmentCache = new Set<number>();
+        asymmetricAccessorAssignmentCache = new Map<number, TypeResult>();
     }
 
     function readTypeCacheEntry(node: ParseNode) {
@@ -808,12 +808,16 @@ export function createTypeEvaluator(
         writeTypeCache(node, typeResult, flags);
     }
 
-    function setAsymmetricDescriptorAssignment(node: ParseNode) {
+    function setAsymmetricDescriptorAssignment(node: ParseNode, typeResult: TypeResult) {
         if (isSpeculativeModeInUse(/* node */ undefined)) {
             return;
         }
 
-        asymmetricAccessorAssignmentCache.add(node.id);
+        asymmetricAccessorAssignmentCache.set(node.id, typeResult);
+    }
+
+    function getAsymmetricAccessorOriginalType(node: ParseNode) {
+        return asymmetricAccessorAssignmentCache.get(node.id);
     }
 
     function isAsymmetricAccessorAssignment(node: ParseNode) {
@@ -3845,7 +3849,13 @@ export function createTypeEvaluator(
         );
 
         if (setTypeResult.isAsymmetricAccessor) {
-            setAsymmetricDescriptorAssignment(target);
+            const getResult = getTypeOfMemberAccessWithBaseType(
+                target,
+                baseTypeResult,
+                { method: 'get' },
+                EvalFlags.None
+            );
+            setAsymmetricDescriptorAssignment(target, getResult);
         }
 
         const resultToCache: TypeResult = {
@@ -28776,6 +28786,7 @@ export function createTypeEvaluator(
         getNodeReachability,
         getAfterNodeReachability,
         isAsymmetricAccessorAssignment,
+        getAsymmetricAccessorOriginalType,
         suppressDiagnostics,
         isSpecialFormClass,
         getDeclInfoForStringNode,

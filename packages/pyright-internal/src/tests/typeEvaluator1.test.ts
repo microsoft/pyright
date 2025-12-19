@@ -573,6 +573,12 @@ test('TypeNarrowingLocalConst1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeNarrowingAsymmetricAccessorAfterSet', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingAsymmetricAccessorAfterSet.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ReturnTypes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['returnTypes1.py']);
 
