@@ -257,6 +257,116 @@ describe(`config test'}`, () => {
         assert.deepStrictEqual(configOptions.executionEnvironments, []);
     });
 
+    test('AutoSearchPathsOnWithExecutionEnvironmentRoots', () => {
+        const nullConsole = new NullConsole();
+        const service = createAnalyzer(nullConsole);
+        const cwd = Uri.file(
+            normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_multi_exec_env')),
+            service.serviceProvider
+        );
+        const commandLineOptions = new CommandLineOptions(cwd.getFilePath(), /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath = cwd.resolvePaths('pyrightconfig.json').getFilePath();
+        commandLineOptions.configSettings.autoSearchPaths = true;
+        service.setOptions(commandLineOptions);
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+        assert.strictEqual(configOptions.executionEnvironments.length, 2);
+
+        const expectedExtraPathsEnv1 = [service.fs.realCasePath(cwd.resolvePaths('env1', 'src'))];
+        const expectedExtraPathsEnv2 = [service.fs.realCasePath(cwd.resolvePaths('env2', 'src'))];
+
+        assert.deepStrictEqual(configOptions.executionEnvironments[0].extraPaths, expectedExtraPathsEnv1);
+        assert.deepStrictEqual(configOptions.executionEnvironments[1].extraPaths, expectedExtraPathsEnv2);
+    });
+
+    test('AutoSearchPathsOnWithExecutionEnvironmentRootsConfigExtraPathsEmptySuppresses', () => {
+        const nullConsole = new NullConsole();
+        const service = createAnalyzer(nullConsole);
+        const cwd = Uri.file(
+            normalizePath(
+                combinePaths(process.cwd(), 'src/tests/samples/project_src_multi_exec_env_config_extrapaths_empty')
+            ),
+            service.serviceProvider
+        );
+        const commandLineOptions = new CommandLineOptions(cwd.getFilePath(), /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath = cwd.resolvePaths('pyrightconfig.json').getFilePath();
+        commandLineOptions.configSettings.autoSearchPaths = true;
+        service.setOptions(commandLineOptions);
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+        assert.strictEqual(configOptions.executionEnvironments.length, 2);
+        assert.deepStrictEqual(configOptions.executionEnvironments[0].extraPaths, []);
+        assert.deepStrictEqual(configOptions.executionEnvironments[1].extraPaths, []);
+    });
+
+    test('AutoSearchPathsOnWithExecutionEnvironmentRootsEnvExtraPathsEmptySuppresses', () => {
+        const nullConsole = new NullConsole();
+        const service = createAnalyzer(nullConsole);
+        const cwd = Uri.file(
+            normalizePath(
+                combinePaths(process.cwd(), 'src/tests/samples/project_src_multi_exec_env_env_extrapaths_empty')
+            ),
+            service.serviceProvider
+        );
+        const commandLineOptions = new CommandLineOptions(cwd.getFilePath(), /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath = cwd.resolvePaths('pyrightconfig.json').getFilePath();
+        commandLineOptions.configSettings.autoSearchPaths = true;
+        service.setOptions(commandLineOptions);
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+        assert.strictEqual(configOptions.executionEnvironments.length, 2);
+        assert.deepStrictEqual(configOptions.executionEnvironments[0].extraPaths, []);
+        assert.deepStrictEqual(configOptions.executionEnvironments[1].extraPaths, []);
+    });
+
+    test('AutoSearchPathsOnWithExecutionEnvironmentRootsSrcIsPkgSuppresses', () => {
+        const nullConsole = new NullConsole();
+        const service = createAnalyzer(nullConsole);
+        const cwd = Uri.file(
+            normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_multi_exec_env_pkg_env1')),
+            service.serviceProvider
+        );
+        const commandLineOptions = new CommandLineOptions(cwd.getFilePath(), /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath = cwd.resolvePaths('pyrightconfig.json').getFilePath();
+        commandLineOptions.configSettings.autoSearchPaths = true;
+        service.setOptions(commandLineOptions);
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+        assert.strictEqual(configOptions.executionEnvironments.length, 2);
+
+        // env1/src is a package (has __init__.py), so it should not be added.
+        assert.deepStrictEqual(configOptions.executionEnvironments[0].extraPaths, []);
+
+        // env2/src should still be added.
+        const expectedExtraPathsEnv2 = [service.fs.realCasePath(cwd.resolvePaths('env2', 'src'))];
+        assert.deepStrictEqual(configOptions.executionEnvironments[1].extraPaths, expectedExtraPathsEnv2);
+    });
+
+    test('AutoSearchPathsOnWithExecutionEnvironmentRootDotDedupes', () => {
+        const nullConsole = new NullConsole();
+        const service = createAnalyzer(nullConsole);
+        const cwd = Uri.file(
+            normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_with_exec_env_root_dot')),
+            service.serviceProvider
+        );
+        const commandLineOptions = new CommandLineOptions(cwd.getFilePath(), /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath = cwd.resolvePaths('pyrightconfig.json').getFilePath();
+        commandLineOptions.configSettings.autoSearchPaths = true;
+        service.setOptions(commandLineOptions);
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+        assert.strictEqual(configOptions.executionEnvironments.length, 1);
+
+        // Project root auto-detection adds src, and the execution environment root '.' should not add it again.
+        const expectedExtraPaths = [service.fs.realCasePath(cwd.resolvePaths('src'))];
+        assert.deepStrictEqual(configOptions.executionEnvironments[0].extraPaths, expectedExtraPaths);
+    });
+
     test('AutoSearchPathsOnWithConfigExecEnv', () => {
         const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_with_config_extra_paths'));
         const nullConsole = new NullConsole();

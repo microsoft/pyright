@@ -872,7 +872,9 @@ export class AnalyzerService {
                 configOptions.setupExecutionEnvironments(
                     config.configFileJsonObj,
                     config.configFileDirUri,
-                    this.serviceProvider.console()
+                    this.serviceProvider.console(),
+                    this.fs,
+                    commandLineOptions.configSettings.autoSearchPaths ?? false
                 );
             }
         }

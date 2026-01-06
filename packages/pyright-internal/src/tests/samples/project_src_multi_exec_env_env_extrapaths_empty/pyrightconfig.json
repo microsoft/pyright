@@ -1,0 +1,12 @@
+{
+    "executionEnvironments": [
+        {
+            "root": "env1",
+            "extraPaths": []
+        },
+        {
+            "root": "env2",
+            "extraPaths": []
+        }
+    ]
+}

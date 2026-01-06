@@ -1544,10 +1544,9 @@ export class ConfigOptions {
         const paths: Uri[] = [];
 
         if (autoSearchPaths) {
-            // Auto-detect the common scenario where the sources are under the src folder
-            const srcPath = this.projectRoot.resolvePaths(pathConsts.src);
-            if (fs.existsSync(srcPath) && !fs.existsSync(srcPath.resolvePaths('__init__.py'))) {
-                paths.push(fs.realCasePath(srcPath));
+            const autoSrcPath = ConfigOptions._tryGetAutoDetectedSrcExtraPath(fs, this.projectRoot);
+            if (autoSrcPath) {
+                paths.push(autoSrcPath);
             }
         }
 
@@ -1588,7 +1587,13 @@ export class ConfigOptions {
         }
     }
 
-    setupExecutionEnvironments(configObj: any, configDirUri: Uri, console: ConsoleInterface) {
+    setupExecutionEnvironments(
+        configObj: any,
+        configDirUri: Uri,
+        console: ConsoleInterface,
+        fs: FileSystem,
+        autoSearchPaths: boolean
+    ) {
         // Read the "executionEnvironments" array. This should be done at the end
         // after we've established default values.
         if (configObj.executionEnvironments !== undefined) {
@@ -1596,6 +1601,8 @@ export class ConfigOptions {
                 console.error(`Config "executionEnvironments" field must contain an array.`);
             } else {
                 this.executionEnvironments = [];
+
+                const configExtraPathsSpecified = configObj.extraPaths !== undefined;
 
                 const execEnvironments = configObj.executionEnvironments as ExecutionEnvironment[];
 
@@ -1612,11 +1619,34 @@ export class ConfigOptions {
                     );
 
                     if (execEnv) {
+                        if (
+                            autoSearchPaths &&
+                            !configExtraPathsSpecified &&
+                            env.extraPaths === undefined &&
+                            execEnv.root
+                        ) {
+                            const autoSrcPath = ConfigOptions._tryGetAutoDetectedSrcExtraPath(fs, execEnv.root);
+                            if (autoSrcPath && !execEnv.extraPaths.some((p) => p.equals(autoSrcPath))) {
+                                execEnv.extraPaths.push(autoSrcPath);
+                            }
+                        }
+
                         this.executionEnvironments.push(execEnv);
                     }
                 });
             }
         }
+    }
+
+    private static _tryGetAutoDetectedSrcExtraPath(fs: FileSystem, root: Uri): Uri | undefined {
+        // Auto-detect the common scenario where the sources are under the src folder.
+        // Preserve the existing behavior: don't add src if it's a package (has __init__.py).
+        const srcPath = root.resolvePaths(pathConsts.src);
+        if (!fs.existsSync(srcPath) || fs.existsSync(srcPath.resolvePaths('__init__.py'))) {
+            return undefined;
+        }
+
+        return fs.realCasePath(srcPath);
     }
 
     private _getEnvironmentName(): string {
