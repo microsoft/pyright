@@ -81,14 +81,25 @@ def remove_directory_contents(dir_path: Path) -> None:
 
 
 def should_copy_file(file_path: Path) -> bool:
-    """Check if a file should be copied based on its extension."""
-    allowed_extensions = {".py", ".pyi"}
-    return file_path.suffix.lower() in allowed_extensions
+    """Check if a file should be copied based on its extension or name."""
+    allowed_extensions = {".pyi"}
+    allowed_names = {"VERSIONS"}
+    return file_path.suffix.lower() in allowed_extensions or file_path.name in allowed_names
+
+
+def is_in_excluded_folder(file_path: Path, base_folder: Path) -> bool:
+    """Check if the file is inside a folder that starts with '@'."""
+    rel_path = file_path.relative_to(base_folder)
+    for part in rel_path.parts:
+        if part.startswith("@"):
+            return True
+    return False
 
 
 def copy_tree_filtered(src_folder: Path, dst_folder: Path) -> None:
     """
-    Copy a directory tree, only including .py and .pyi files.
+    Copy a directory tree, only including .pyi and VERSIONS files.
+    Skips any folder starting with '@'.
     
     Args:
         src_folder: Source directory
@@ -96,6 +107,10 @@ def copy_tree_filtered(src_folder: Path, dst_folder: Path) -> None:
     """
     for src_path in src_folder.rglob("*"):
         if src_path.is_file() and should_copy_file(src_path):
+            # Skip files in folders starting with '@'
+            if is_in_excluded_folder(src_path, src_folder):
+                continue
+            
             # Calculate relative path and destination
             rel_path = src_path.relative_to(src_folder)
             dst_path = dst_folder / rel_path
@@ -110,7 +125,7 @@ def copy_tree_filtered(src_folder: Path, dst_folder: Path) -> None:
 def copy_typeshed_files(source_dir: Path, dest_dir: Path) -> None:
     """
     Copy the relevant typeshed files to the destination directory.
-    Only .py and .pyi files are copied.
+    Only .pyi and VERSIONS files are copied from folders.
     
     Args:
         source_dir: The cloned typeshed repository directory
@@ -128,7 +143,7 @@ def copy_typeshed_files(source_dir: Path, dest_dir: Path) -> None:
             print(f"Warning: Source folder {src_folder} does not exist, skipping...")
             continue
             
-        print(f"Copying {folder}/ (only .py and .pyi files)...")
+        print(f"Copying {folder}/ (only .pyi and VERSIONS files)...")
         
         # Remove existing folder contents
         remove_directory_contents(dst_folder)
@@ -195,8 +210,8 @@ def main() -> int:
             print(f"  2. Checkout commit: {args.commit}")
         else:
             print("  2. Use latest commit from main branch")
-        print("  3. Copy stdlib/ folder (only .py and .pyi files)")
-        print("  4. Copy stubs/ folder (only .py and .pyi files)")
+        print("  3. Copy stdlib/ folder (only .pyi and VERSIONS files)")
+        print("  4. Copy stubs/ folder (only .pyi and VERSIONS files)")
         print("  5. Copy LICENSE file")
         print("  6. Copy README.md file")
         print("  7. Update commit.txt with new commit hash")
