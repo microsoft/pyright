@@ -82,7 +82,7 @@ def remove_directory_contents(dir_path: Path) -> None:
 
 def should_copy_file(file_path: Path) -> bool:
     """Check if a file should be copied based on its extension or name."""
-    allowed_extensions = {".pyi"}
+    allowed_extensions = {".pyi", ".toml"}
     allowed_names = {"VERSIONS"}
     return file_path.suffix.lower() in allowed_extensions or file_path.name in allowed_names
 
