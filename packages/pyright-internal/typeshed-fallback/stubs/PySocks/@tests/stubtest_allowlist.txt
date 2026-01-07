@@ -1,3 +1,0 @@
-# Internal variables that were improperly leaked to the outside
-socks.method
-socks.name

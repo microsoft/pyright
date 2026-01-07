@@ -1,2 +1,0 @@
-# present but unimplemented
-pyscreeze.screenshotWindow

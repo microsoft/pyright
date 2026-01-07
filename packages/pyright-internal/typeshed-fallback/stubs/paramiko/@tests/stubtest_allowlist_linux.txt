@@ -1,3 +1,0 @@
-paramiko._winapi
-paramiko.win_openssh.*
-paramiko.win_pageant

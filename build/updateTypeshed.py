@@ -80,9 +80,37 @@ def remove_directory_contents(dir_path: Path) -> None:
     dir_path.mkdir(parents=True, exist_ok=True)
 
 
+def should_copy_file(file_path: Path) -> bool:
+    """Check if a file should be copied based on its extension."""
+    allowed_extensions = {".py", ".pyi"}
+    return file_path.suffix.lower() in allowed_extensions
+
+
+def copy_tree_filtered(src_folder: Path, dst_folder: Path) -> None:
+    """
+    Copy a directory tree, only including .py and .pyi files.
+    
+    Args:
+        src_folder: Source directory
+        dst_folder: Destination directory
+    """
+    for src_path in src_folder.rglob("*"):
+        if src_path.is_file() and should_copy_file(src_path):
+            # Calculate relative path and destination
+            rel_path = src_path.relative_to(src_folder)
+            dst_path = dst_folder / rel_path
+            
+            # Create parent directories if needed
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Copy the file
+            shutil.copy2(src_path, dst_path)
+
+
 def copy_typeshed_files(source_dir: Path, dest_dir: Path) -> None:
     """
     Copy the relevant typeshed files to the destination directory.
+    Only .py and .pyi files are copied.
     
     Args:
         source_dir: The cloned typeshed repository directory
@@ -91,10 +119,7 @@ def copy_typeshed_files(source_dir: Path, dest_dir: Path) -> None:
     # Folders to copy
     folders_to_copy = ["stdlib", "stubs"]
     
-    # Files to copy
-    files_to_copy = ["LICENSE", "README.md"]
-    
-    # Copy folders
+    # Copy folders (only .py and .pyi files)
     for folder in folders_to_copy:
         src_folder = source_dir / folder
         dst_folder = dest_dir / folder
@@ -103,13 +128,16 @@ def copy_typeshed_files(source_dir: Path, dest_dir: Path) -> None:
             print(f"Warning: Source folder {src_folder} does not exist, skipping...")
             continue
             
-        print(f"Copying {folder}/...")
+        print(f"Copying {folder}/ (only .py and .pyi files)...")
         
         # Remove existing folder contents
         remove_directory_contents(dst_folder)
         
-        # Copy the folder
-        shutil.copytree(src_folder, dst_folder, dirs_exist_ok=True)
+        # Copy the folder with filtering
+        copy_tree_filtered(src_folder, dst_folder)
+
+    # Files to copy
+    files_to_copy = ["LICENSE", "README.md"]
     
     # Copy files
     for file in files_to_copy:
@@ -167,8 +195,8 @@ def main() -> int:
             print(f"  2. Checkout commit: {args.commit}")
         else:
             print("  2. Use latest commit from main branch")
-        print("  3. Copy stdlib/ folder")
-        print("  4. Copy stubs/ folder")
+        print("  3. Copy stdlib/ folder (only .py and .pyi files)")
+        print("  4. Copy stubs/ folder (only .py and .pyi files)")
         print("  5. Copy LICENSE file")
         print("  6. Copy README.md file")
         print("  7. Update commit.txt with new commit hash")

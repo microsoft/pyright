@@ -1,2 +1,0 @@
-# Module can't be imported at runtime on non-win32 platforms
-PyInstaller.utils.win32.versioninfo

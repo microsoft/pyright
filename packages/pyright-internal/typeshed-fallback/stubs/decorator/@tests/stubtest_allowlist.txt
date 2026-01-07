@@ -1,5 +1,0 @@
-decorator.FunctionMaker.args
-decorator.FunctionMaker.kwonlyargs
-decorator.FunctionMaker.kwonlydefaults
-decorator.FunctionMaker.varargs
-decorator.FunctionMaker.varkw

@@ -1,3 +1,0 @@
-version = "2.4.*"
-upstream_repository = "https://github.com/hvac/hvac"
-requires = ["types-requests"]

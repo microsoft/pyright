@@ -1,1 +1,0 @@
-pyperclip.__main__

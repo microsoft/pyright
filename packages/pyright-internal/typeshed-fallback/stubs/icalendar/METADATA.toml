@@ -1,6 +1,0 @@
-version = "6.3.2"
-upstream_repository = "https://github.com/collective/icalendar"
-requires = ["types-python-dateutil", "types-pytz"]
-
-[tool.stubtest]
-stubtest_requirements = ["pytz"]

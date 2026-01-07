@@ -1,3 +1,0 @@
-version = "1.*"
-upstream_repository = "https://github.com/grpc/grpc"
-requires = ["types-grpcio"]

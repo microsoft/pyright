@@ -1,4 +1,0 @@
-shapely\.conftest
-shapely\.tests.*
-
-shapely\._typing  # stubs only module
