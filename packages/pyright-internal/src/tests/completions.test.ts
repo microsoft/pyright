@@ -916,11 +916,11 @@ test('completion MRU affects sort order', async () => {
     };
 
     const completionProviderTestAccess = CompletionProvider as unknown as {
-        _mostRecentCompletions: RecentCompletionInfo[];
+        mostRecentCompletions: RecentCompletionInfo[];
     };
 
     // Reset MRU list to keep the test deterministic.
-    completionProviderTestAccess._mostRecentCompletions = [];
+    completionProviderTestAccess.mostRecentCompletions = [];
 
     const code = `
 // @filename: test.py
@@ -974,7 +974,7 @@ test('completion MRU affects sort order', async () => {
     assert(trueDivide2.sortText.startsWith('09.9999.'));
 
     // Reset MRU list so it doesn't affect other tests.
-    completionProviderTestAccess._mostRecentCompletions = [];
+    completionProviderTestAccess.mostRecentCompletions = [];
 });
 
 test('override generic', async () => {
