@@ -1548,3 +1548,116 @@ test('overloaded Literal[...] suggestions in call arguments', async () => {
         },
     });
 });
+
+test('nested TypedDict completion with Unpack - without other fields', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Unpack, TypedDict
+//// 
+//// class InnerDict(TypedDict):
+////     a: int
+////     b: str
+//// 
+//// class OuterDict(TypedDict):
+////     inner: InnerDict
+////     field_1: str
+//// 
+//// def test_inner_dict(**kwargs: Unpack[OuterDict]):
+////     pass
+//// 
+//// test_inner_dict(inner={[|/*marker*/|]})
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: "'a'",
+                    textEdit: { range: state.getPositionRange('marker'), newText: "'a'" },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: "'b'",
+                    textEdit: { range: state.getPositionRange('marker'), newText: "'b'" },
+                },
+            ],
+        },
+    });
+});
+
+test('nested TypedDict completion with Unpack - with other fields', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Unpack, TypedDict
+//// 
+//// class InnerDict(TypedDict):
+////     a: int
+////     b: str
+//// 
+//// class OuterDict(TypedDict):
+////     inner: InnerDict
+////     field_1: str
+//// 
+//// def test_inner_dict(**kwargs: Unpack[OuterDict]):
+////     pass
+//// 
+//// test_inner_dict(field_1="test", inner={[|/*marker*/|]})
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"a"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"a"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"b"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"b"' },
+                },
+            ],
+        },
+    });
+});
+
+test('simple nested TypedDict completion - no Unpack', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// 
+//// class InnerDict(TypedDict):
+////     a: int
+////     b: str
+//// 
+//// def test_func(inner: InnerDict):
+////     pass
+//// 
+//// test_func(inner={[|/*marker*/|]})
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: "'a'",
+                    textEdit: { range: state.getPositionRange('marker'), newText: "'a'" },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: "'b'",
+                    textEdit: { range: state.getPositionRange('marker'), newText: "'b'" },
+                },
+            ],
+        },
+    });
+});

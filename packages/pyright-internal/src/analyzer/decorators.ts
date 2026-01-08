@@ -325,7 +325,7 @@ export function applyClassDecorator(
         }
     }
 
-    const applyDataclassTransform = (): void => {
+    const applyDataclassTransform = (): boolean => {
         // Is this a dataclass decorator?
         let dataclassBehaviors: DataClassBehaviors | undefined;
         let callNode: CallNode | undefined;
@@ -344,7 +344,10 @@ export function applyClassDecorator(
 
         if (dataclassBehaviors) {
             applyDataClassDecorator(evaluator, decoratorNode, originalClassType, dataclassBehaviors, callNode);
+            return true;
         }
+
+        return false;
     };
 
     if (isOverloaded(decoratorType)) {
@@ -383,14 +386,18 @@ export function applyClassDecorator(
             return inputClassType;
         }
 
-        applyDataclassTransform();
+        if (applyDataclassTransform()) {
+            return inputClassType;
+        }
     } else if (isClassInstance(decoratorType)) {
         if (ClassType.isBuiltIn(decoratorType, 'deprecated')) {
             originalClassType.shared.deprecatedMessage = decoratorType.priv.deprecatedInstanceMessage;
             return inputClassType;
         }
 
-        applyDataclassTransform();
+        if (applyDataclassTransform()) {
+            return inputClassType;
+        }
     }
 
     return getTypeOfDecorator(evaluator, decoratorNode, inputClassType);

@@ -17,7 +17,8 @@ Sublime text users can install the [LSP-pyright](https://github.com/sublimelsp/L
 Emacs users can install [eglot](https://github.com/joaotavora/eglot) or [lsp-mode](https://github.com/emacs-lsp/lsp-mode) with [lsp-pyright](https://github.com/emacs-lsp/lsp-pyright).
 
 #### PyCharm
-PyCharm users can install [pyright-for-pycharm](https://github.com/InSyncWithFoo/pyright-for-pycharm) if they're using community edition, or [pyright-langserver-for-pycharm](https://github.com/InSyncWithFoo/pyright-langserver-for-pycharm) if they're using professional edition. The later makes use of PyCharm's experimental [LSP API](https://plugins.jetbrains.com/docs/intellij/language-server-protocol.html).
+PyCharm users can enable native Pyright support in the settings.
+For more information, refer to [PyCharm documentation](https://www.jetbrains.com/help/pycharm/lsp-tools.html#pyright).
 
 ### Command-line
 
