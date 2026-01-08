@@ -29,6 +29,7 @@
 //// post: Post = {'author': {[|/*marker2*/'name'|]}}
 //// profile: Profile = {[|/*marker3*/'views'|]: 100}
 //// author: Author = {'name': 'Robert', [|/*marker4*/'age'|]: 67}
+//// author2: Author = Author([|/*marker8*/name|]='Robert', age=67)
 ////
 //// def foo(item: Post | Author) -> None:
 ////     ...
@@ -86,6 +87,14 @@
                 definitions: [],
             },
             marker7: {
+                definitions: rangeMap
+                    .get('name')!
+                    .filter((r) => !r.marker)
+                    .map((r) => {
+                        return { path: r.fileName, range: helper.convertPositionRange(r) };
+                    }),
+            },
+            marker8: {
                 definitions: rangeMap
                     .get('name')!
                     .filter((r) => !r.marker)

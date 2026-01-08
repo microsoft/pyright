@@ -256,6 +256,11 @@ export class Binder extends ParseTreeWalker {
     // hidden depending on whether they are listed in the __all__ list.
     private _potentialHiddenSymbols = new Map<string, Symbol>();
 
+    // Map of symbols imported via wildcard import in a py.typed (non-stub)
+    // module that should be treated as private if this module defines __all__
+    // and the symbol is not listed there.
+    private _potentialWildcardReexportSymbols = new Map<string, Symbol>();
+
     // Map of symbols at the module level that may be private depending
     // on whether they are listed in the __all__ list.
     private _potentialPrivateSymbols = new Map<string, Symbol>();
@@ -324,6 +329,15 @@ export class Binder extends ParseTreeWalker {
                 } else {
                     symbol.setPrivatePyTypedImport();
                 }
+            }
+        });
+
+        // Wildcard imports are considered a re-export form, but if this module defines
+        // __all__, that list determines the public interface and should restrict which
+        // wildcard-imported symbols are exposed.
+        this._potentialWildcardReexportSymbols.forEach((symbol, name) => {
+            if (this._dunderAllNames && !this._dunderAllNames.some((sym) => sym === name)) {
+                symbol.setPrivatePyTypedImport();
             }
         });
 
@@ -1847,6 +1861,18 @@ export class Binder extends ParseTreeWalker {
 
                         if (localSymbol) {
                             const importedSymbol = lookupInfo.symbolTable.get(name)!;
+
+                            if (
+                                (this._currentScope.type === ScopeType.Module ||
+                                    this._currentScope.type === ScopeType.Builtin) &&
+                                this._fileInfo.isInPyTypedPackage &&
+                                !this._fileInfo.isStubFile
+                            ) {
+                                // Wildcard imports are considered a re-export form. If this module
+                                // defines __all__, it determines the public interface, so we may
+                                // need to treat wildcard-imported names as private unless listed.
+                                this._potentialWildcardReexportSymbols.set(name, localSymbol);
+                            }
 
                             // Is the symbol in the target module's symbol table? If so,
                             // alias it.
@@ -3587,6 +3613,7 @@ export class Binder extends ParseTreeWalker {
             symbol.addDeclaration({
                 type: DeclarationType.Intrinsic,
                 node,
+                name: nameValue,
                 intrinsicType: type,
                 uri: this._fileInfo.fileUri,
                 range: getEmptyRange(),

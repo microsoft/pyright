@@ -909,6 +909,74 @@ test('auto import sort text', async () => {
     assert.strictEqual(items[1].labelDetails!.description, 'vendored');
 });
 
+test('completion MRU affects sort order', async () => {
+    type RecentCompletionInfo = {
+        label: string;
+        autoImportText: string;
+    };
+
+    const completionProviderTestAccess = CompletionProvider as unknown as {
+        _mostRecentCompletions: RecentCompletionInfo[];
+    };
+
+    // Reset MRU list to keep the test deterministic.
+    completionProviderTestAccess._mostRecentCompletions = [];
+
+    const code = `
+// @filename: test.py
+//// true_divide = 0
+//// truly = 0
+//// tru/*marker*/
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFiles(state.testData.files.map((f) => f.fileName));
+
+    while (state.workspace.service.test_program.analyze());
+
+    const filePath = marker.fileName;
+    const uri = Uri.file(filePath, state.serviceProvider);
+    const position = state.convertOffsetToPosition(filePath, marker.position);
+
+    const options: CompletionOptions = {
+        format: 'markdown',
+        snippet: false,
+        lazyEdit: false,
+    };
+
+    const provider1 = new CompletionProvider(state.program, uri, position, options, CancellationToken.None);
+    const result1 = provider1.getCompletions();
+    assert(result1);
+
+    const truly1 = result1.items.find((i) => i.label === 'truly');
+    const trueDivide1 = result1.items.find((i) => i.label === 'true_divide');
+    assert(truly1?.sortText);
+    assert(trueDivide1?.sortText);
+
+    // Not in MRU list yet: normal symbol category (09) and recent index (9999).
+    assert(truly1.sortText.startsWith('09.9999.'));
+    assert(trueDivide1.sortText.startsWith('09.9999.'));
+
+    provider1.resolveCompletionItem(truly1);
+
+    const provider2 = new CompletionProvider(state.program, uri, position, options, CancellationToken.None);
+    const result2 = provider2.getCompletions();
+    assert(result2);
+
+    const truly2 = result2.items.find((i) => i.label === 'truly');
+    const trueDivide2 = result2.items.find((i) => i.label === 'true_divide');
+    assert(truly2?.sortText);
+    assert(trueDivide2?.sortText);
+
+    // Now the selected item is in MRU: promoted to RecentKeywordOrSymbol category (05) with index (0000).
+    assert(truly2.sortText.startsWith('05.0000.'));
+    assert(trueDivide2.sortText.startsWith('09.9999.'));
+
+    // Reset MRU list so it doesn't affect other tests.
+    completionProviderTestAccess._mostRecentCompletions = [];
+});
+
 test('override generic', async () => {
     const code = `
 // @filename: test.py

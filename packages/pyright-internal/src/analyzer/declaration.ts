@@ -86,6 +86,7 @@ export interface DeclarationBase {
 
 export interface IntrinsicDeclaration extends DeclarationBase {
     type: DeclarationType.Intrinsic;
+    name: string;
     node: ModuleNode | FunctionNode | ClassNode;
     intrinsicType: IntrinsicType;
 }

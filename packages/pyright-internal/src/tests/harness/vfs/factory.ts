@@ -74,7 +74,7 @@ export function createFromFileSystem(
 ) {
     const typeshedPath = meta ? meta[GlobalMetadataOptionNames.typeshed] : undefined;
     if (typeshedPath) {
-        mountPaths.set(typeshedFolder.key, typeshedPath);
+        mountPaths.set(typeshedFolder.getFilePath(), typeshedPath);
     }
 
     const fs = getBuiltLocal(host, ignoreCase, cwd, mountPaths).shadow();
@@ -128,8 +128,11 @@ function getBuiltLocal(
     mountPaths: Map<string, string>
 ): TestFileSystem {
     // Ensure typeshed folder
-    if (!mountPaths.has(typeshedFolder.key)) {
-        mountPaths.set(typeshedFolder.key, resolvePaths(host.getWorkspaceRoot(), pathConsts.typeshedFallback));
+    if (!mountPaths.has(typeshedFolder.getFilePath())) {
+        mountPaths.set(
+            typeshedFolder.getFilePath(),
+            resolvePaths(host.getWorkspaceRoot(), pathConsts.typeshedFallback)
+        );
     }
 
     if (!canReuseCache(host, mountPaths)) {

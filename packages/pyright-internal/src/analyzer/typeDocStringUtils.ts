@@ -45,13 +45,13 @@ import {
     MemberAccessFlags,
 } from './typeUtils';
 
-const DefaultClassIteratorFlagsForFunctions =
+export const DefaultClassIteratorFlagsForFunctions =
     MemberAccessFlags.SkipObjectBaseClass |
     MemberAccessFlags.SkipInstanceMembers |
     MemberAccessFlags.SkipOriginalClass |
     MemberAccessFlags.DeclaredTypesOnly;
 
-function isInheritedFromBuiltin(type: FunctionType | OverloadedType, classType?: ClassType): boolean {
+export function isInheritedFromBuiltin(type: FunctionType | OverloadedType, classType?: ClassType): boolean {
     if (type.category === TypeCategory.Overloaded) {
         const overloads = OverloadedType.getOverloads(type);
         if (overloads.length === 0) {
@@ -121,7 +121,7 @@ export function getOverloadedDocStringsInherited(
     // with our current docstring traversal).
     if (!isInheritedFromBuiltin(type, classType)) {
         for (const resolvedDecl of resolvedDecls) {
-            docStrings = _getOverloadedDocStrings(type, resolvedDecl, sourceMapper);
+            docStrings = getOverloadedDocStrings(type, resolvedDecl, sourceMapper);
             if (docStrings && docStrings.length > 0) {
                 return docStrings;
             }
@@ -138,7 +138,7 @@ export function getOverloadedDocStringsInherited(
             const inheritedDecl = classMember.symbol.getDeclarations().slice(-1)[0];
             const declType = evaluator.getTypeForDeclaration(inheritedDecl)?.type;
             if (declType) {
-                docStrings = _getOverloadedDocStrings(declType, inheritedDecl, sourceMapper);
+                docStrings = getOverloadedDocStrings(declType, inheritedDecl, sourceMapper);
                 if (docStrings && docStrings.length > 0) {
                     break;
                 }
@@ -284,7 +284,7 @@ export function getVariableDocString(
     }
 }
 
-function _getOverloadedDocStrings(type: Type, resolvedDecl: Declaration | undefined, sourceMapper: SourceMapper) {
+export function getOverloadedDocStrings(type: Type, resolvedDecl: Declaration | undefined, sourceMapper: SourceMapper) {
     if (!isOverloaded(type)) {
         return undefined;
     }

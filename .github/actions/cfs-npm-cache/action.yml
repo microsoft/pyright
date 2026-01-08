@@ -6,14 +6,6 @@ on:
 runs:
   using: composite
   steps:
-    - name: Get npm cache directory
-      id: npm-cache
-      shell: bash
-      run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
-
-    - uses: actions/cache@v3
+    - uses: ./.github/actions/npm-cache-dir
       with:
-        path: ${{ steps.npm-cache.outputs.dir }}
-        key: ${{ runner.os }}-node-${{ hashFiles('**/.npmrc') }}-${{ hashFiles('**/package-lock.json') }}
-        # For security, only reuse caches with matching .npmrc files (ex. same registry URL)
-        restore-keys: ${{ runner.os }}-node-${{ hashFiles('**/.npmrc') }}
+        include-npmrc-hash: 'true'

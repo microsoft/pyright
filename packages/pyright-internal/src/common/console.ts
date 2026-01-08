@@ -11,6 +11,7 @@
 import { Disposable } from 'vscode-jsonrpc';
 import * as debug from './debug';
 import { addIfUnique, removeArrayElements } from './collectionUtils';
+import { isString } from './core';
 
 export enum LogLevel {
     Error = 'error',
@@ -147,13 +148,33 @@ export namespace Chainable {
     }
 }
 
-export class ConsoleWithLogLevel implements ConsoleInterface, Chainable, Disposable {
+export interface Clonable {
+    clone(name: string): ConsoleInterface;
+}
+
+export namespace Clonable {
+    export function is(value: any): value is Clonable {
+        return value && value.clone;
+    }
+}
+
+export interface SupportName {
+    readonly name: string;
+}
+
+export namespace SupportName {
+    export function is(value: any): value is SupportName {
+        return value && isString(value.name);
+    }
+}
+
+export class ConsoleWithLogLevel implements ConsoleInterface, Chainable, Clonable, SupportName, Disposable {
     private readonly _chains: ConsoleInterface[] = [];
 
     private _maxLevel = 2;
     private _disposed = false;
 
-    constructor(private _console: ConsoleInterface, private _name = '') {}
+    constructor(private _console: ConsoleInterface, readonly name = '') {}
 
     get level(): LogLevel {
         switch (this._maxLevel) {
@@ -183,6 +204,13 @@ export class ConsoleWithLogLevel implements ConsoleInterface, Chainable, Disposa
         this._disposed = true;
     }
 
+    clone(name: string): ConsoleWithLogLevel {
+        // For now, we won't support cloning chains.
+        const newConsole = new ConsoleWithLogLevel(this._console, name);
+        newConsole._maxLevel = this._maxLevel;
+        return newConsole;
+    }
+
     error(message: string) {
         this._log(LogLevel.Error, `${this._prefix}${message}`);
     }
@@ -208,7 +236,7 @@ export class ConsoleWithLogLevel implements ConsoleInterface, Chainable, Disposa
     }
 
     private get _prefix() {
-        return this._name ? `(${this._name}) ` : '';
+        return this.name ? `${this.name}: ` : '';
     }
 
     private _log(level: LogLevel, message: string): void {
