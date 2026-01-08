@@ -8,14 +8,21 @@
 
 import { MarkupKind } from 'vscode-languageserver-types';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
-import { extractParameterDocumentation } from '../analyzer/docStringUtils';
+import { extractAttributeDocumentation, extractParameterDocumentation } from '../analyzer/docStringUtils';
+import { Uri } from './uri/uri';
 
 export interface DocStringService {
     convertDocStringToPlainText(docString: string): string;
-    convertDocStringToMarkdown(docString: string, forceLiteral?: boolean): string;
+    convertDocStringToMarkdown(docString: string, forceLiteral?: boolean, sourceFileUri?: Uri): string;
     extractParameterDocumentation(
         functionDocString: string,
         paramName: string,
+        format?: MarkupKind,
+        forceLiteral?: boolean
+    ): string | undefined;
+    extractAttributeDocumentation(
+        classDocString: string,
+        attrName: string,
         format?: MarkupKind,
         forceLiteral?: boolean
     ): string | undefined;
@@ -27,7 +34,8 @@ export namespace DocStringService {
         return (
             !!value.convertDocStringToMarkdown &&
             !!value.convertDocStringToPlainText &&
-            !!value.extractParameterDocumentation
+            !!value.extractParameterDocumentation &&
+            !!value.extractAttributeDocumentation
         );
     }
 }
@@ -37,12 +45,16 @@ export class PyrightDocStringService implements DocStringService {
         return convertDocStringToPlainText(docString);
     }
 
-    convertDocStringToMarkdown(docString: string): string {
+    convertDocStringToMarkdown(docString: string, _forceLiteral?: boolean, _sourceFileUri?: Uri): string {
         return convertDocStringToMarkdown(docString);
     }
 
     extractParameterDocumentation(functionDocString: string, paramName: string): string | undefined {
         return extractParameterDocumentation(functionDocString, paramName);
+    }
+
+    extractAttributeDocumentation(classDocString: string, attrName: string): string | undefined {
+        return extractAttributeDocumentation(classDocString, attrName);
     }
 
     clone() {

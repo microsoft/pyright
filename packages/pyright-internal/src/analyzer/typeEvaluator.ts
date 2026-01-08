@@ -22384,6 +22384,25 @@ export function createTypeEvaluator(
                                     }
                                 }
                             }
+                        } else if (
+                            ClassType.isDataClass(baseType) ||
+                            ClassType.isTypedDictClass(baseType) ||
+                            ClassType.hasNamedTupleEntry(baseType, paramName)
+                        ) {
+                            // Some synthesized callables (notably TypedDict "constructors") don't have a
+                            // meaningful __init__ signature we can map keyword arguments to. In these cases,
+                            // treat the keyword as referring to the class entry so IDE features like
+                            // go-to-definition and rename can bind to the field declaration.
+                            const lookupResults = lookUpClassMember(baseType, paramName);
+
+                            if (lookupResults) {
+                                appendArray(decls, lookupResults.symbol.getDeclarations());
+
+                                const synthTypeInfo = lookupResults.symbol.getSynthesizedType();
+                                if (synthTypeInfo) {
+                                    synthesizedTypes.push(synthTypeInfo);
+                                }
+                            }
                         }
                     }
                 }

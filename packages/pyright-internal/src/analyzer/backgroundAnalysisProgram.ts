@@ -9,7 +9,7 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { IBackgroundAnalysis } from '../backgroundAnalysisBase';
+import { IBackgroundAnalysis, RefreshOptions } from '../backgroundAnalysisBase';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
@@ -41,16 +41,19 @@ export class BackgroundAnalysisProgram {
         private _importResolver: ImportResolver,
         private _backgroundAnalysis?: IBackgroundAnalysis,
         private readonly _maxAnalysisTime?: MaxAnalysisTime,
-        private readonly _disableChecker?: boolean
+        private readonly _disableChecker?: boolean,
+        program?: Program
     ) {
-        this._program = new Program(
-            this.importResolver,
-            this.configOptions,
-            this._serviceProvider,
-            undefined,
-            this._disableChecker,
-            serviceId
-        );
+        this._program =
+            program ??
+            new Program(
+                this.importResolver,
+                this.configOptions,
+                this._serviceProvider,
+                undefined,
+                this._disableChecker,
+                serviceId
+            );
         this._backgroundAnalysis?.setProgramView(this._program);
     }
 
@@ -218,15 +221,27 @@ export class BackgroundAnalysisProgram {
         return this._program.writeTypeStub(targetImportUri, targetIsSingleFile, stubUri, token);
     }
 
-    invalidateAndForceReanalysis(reason: InvalidatedReason) {
+    invalidateAndForceReanalysis(reason: InvalidatedReason, refreshOptions?: RefreshOptions) {
         this._backgroundAnalysis?.invalidateAndForceReanalysis(reason);
 
         // Make sure the import resolver doesn't have invalid
         // cached entries.
         this._importResolver.invalidateCache();
 
-        // Mark all files with one or more errors dirty.
-        this._program.markAllFilesDirty(/* evenIfContentsAreSame */ true);
+        // If we have specific changed file URIs and it's a content-only change, mark only those files dirty.
+        // Otherwise, mark all files with one or more errors dirty.
+        if (
+            refreshOptions?.changedFileUris &&
+            refreshOptions.changedFileUris.size > 0 &&
+            reason === InvalidatedReason.LibraryWatcherContentOnlyChanged
+        ) {
+            // Convert UriMap keys to array for markFilesDirty
+            const changedFileUris = Array.from(refreshOptions.changedFileUris.keys());
+            this.markFilesDirty(changedFileUris, /* evenIfContentsAreSame */ true);
+        } else {
+            // Mark all files with one or more errors dirty.
+            this._program.markAllFilesDirty(/* evenIfContentsAreSame */ true);
+        }
     }
 
     restart() {

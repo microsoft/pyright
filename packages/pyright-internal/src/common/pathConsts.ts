@@ -17,4 +17,5 @@ export const stubsSuffix = '-stubs';
 export const defaultStubsDirectory = 'typings';
 export const requirementsFileName = 'requirements.txt';
 export const pyprojectTomlName = 'pyproject.toml';
+export const dotPythonVersionName = '.python-version';
 export const configFileName = 'pyrightconfig.json';

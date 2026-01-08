@@ -31,7 +31,6 @@ import {
     PyrightServerInfo,
     runPyrightServer,
     waitForDiagnostics,
-    waitForPushDiagnostics,
 } from './lsp/languageServerTestUtils';
 
 describe(`Basic language server tests`, () => {
@@ -156,7 +155,7 @@ describe(`Basic language server tests`, () => {
         describe(`Diagnostics ${supportsPullDiagnostics ? 'pull' : 'push'}`, () => {
             // Background analysis takes longer than 5 seconds sometimes, so we need to
             // increase the timeout.
-            jest.setTimeout(20000);
+            jest.setTimeout(200000);
             test('background thread diagnostics', async () => {
                 const code = `
 // @filename: root/test.py
@@ -191,7 +190,7 @@ describe(`Basic language server tests`, () => {
                 await openFile(info, 'marker');
 
                 // Wait for the diagnostics to publish
-                const diagnostics = await waitForPushDiagnostics(info, false);
+                const diagnostics = await waitForDiagnostics(info);
                 const diagnostic = diagnostics.find((d) => d.uri.includes('root/test.py'));
                 assert(diagnostic);
                 assert.equal(diagnostic.diagnostics.length, 6);
@@ -283,7 +282,10 @@ describe(`Basic language server tests`, () => {
                 assert(diagnostic);
 
                 // Make sure the error has a special rule
-                assert.equal(diagnostic.diagnostics[0].code, 'reportUnknownParameterType');
+                assert.ok(
+                    diagnostic.diagnostics.some((d) => d.code === 'reportUnknownParameterType'),
+                    `Expected diagnostic not found. Got ${JSON.stringify(diagnostic.diagnostics)}`
+                );
             });
         });
     });

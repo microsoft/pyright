@@ -37,8 +37,93 @@ export const fileMetadataNames = [
 ];
 
 /** all the necessary information to set the right compiler settings */
-export interface CompilerSettings {
-    [name: string]: string;
+export interface CompilerSettings<T = string> {
+    [name: string]: T;
+}
+
+export const enum RawTokenKind {
+    Whitespace = 'whitespace',
+    NewLineCR = 'newlineCR',
+    NewLineLF = 'newlineLF',
+    Text = 'text',
+
+    // Line prefixes
+    TwoSlashPrefix = 'twoSlashPrefix',
+    FourSlashPrefix = 'fourSlashPrefix',
+
+    // Directive grammar (only when syntactically active)
+    DirectiveAt = 'directiveAt',
+    DirectiveName = 'directiveName',
+    DirectiveColon = 'directiveColon',
+    DirectiveValue = 'directiveValue',
+
+    // Range grammar (only when syntactically active inside a four-slash content line)
+    RangeStart = 'rangeStart',
+    RangeEnd = 'rangeEnd',
+
+    // Marker grammar (only when syntactically active inside a four-slash content line)
+    MarkerStart = 'markerStart',
+    MarkerName = 'markerName',
+    MarkerEnd = 'markerEnd',
+
+    // Object marker grammar (only when syntactically active inside a four-slash content line)
+    ObjectMarkerStart = 'objectMarkerStart',
+    ObjectMarkerText = 'objectMarkerText',
+    ObjectMarkerEnd = 'objectMarkerEnd',
+}
+
+export interface RawToken {
+    kind: RawTokenKind;
+    // Raw offsets into the original fourslash test string. End is exclusive.
+    start: number;
+    end: number;
+}
+
+export interface RawTokenRange {
+    // Token indices into FourSlashData.rawTokens. End is exclusive.
+    startToken: number;
+    endToken: number;
+}
+
+export interface RawContentMappingSegment {
+    // Raw offsets into the original fourslash test string. End is exclusive.
+    rawStart: number;
+    rawEnd: number;
+    // Offsets into FourSlashFile.content. End is exclusive.
+    contentStart: number;
+    contentEnd: number;
+}
+
+export interface RawContentMapping {
+    // Piecewise-linear mapping segments. Any offset outside all segments is unmapped.
+    segments: RawContentMappingSegment[];
+}
+
+export interface FourSlashFileRawData {
+    // Token ranges for the four-slash content lines that contributed to this file.
+    // Multiple ranges are used to keep consumption straightforward.
+    tokenRanges: RawTokenRange[];
+
+    // Mapping between raw offsets (original test string) and content offsets (FourSlashFile.content).
+    // Mapping is strict: offsets in stripped syntax (prefixes, directives, marker/range tokens, chomped spaces) are unmapped.
+    rawToContent?: RawContentMapping;
+    contentToRaw?: RawContentMapping;
+
+    // RawData for file options directives, keyed by option name.
+    fileOptionsRawData?: CompilerSettings<CompilerSettingRawData>;
+}
+
+export interface CompilerSettingRawData {
+    // Token range covering the full directive line (including // and any whitespace/newline tokens on that line).
+    directiveLine: RawTokenRange;
+    // Token range for the // prefix.
+    prefix: RawTokenRange;
+    // Token range for '@' + directive name.
+    name: RawTokenRange;
+    // Token range for ':' if present.
+    colon?: RawTokenRange | undefined;
+    // Token range for the directive value (may be empty).
+    value: RawTokenRange;
 }
 
 /** Represents a parsed source file with metadata */
@@ -50,6 +135,9 @@ export interface FourSlashFile {
     version: number;
     // File-specific options (name/value pairs)
     fileOptions: CompilerSettings;
+
+    // Optional raw parsing metadata used for semantic tokenization of the original test string.
+    rawData?: FourSlashFileRawData;
 }
 
 /** Represents a set of parsed source files and options */
@@ -57,6 +145,13 @@ export interface FourSlashData {
     // Global options (name/value pairs)
     globalOptions: CompilerSettings;
     files: FourSlashFile[];
+
+    // The original, unmodified fourslash test string.
+    rawText?: string;
+    // Lossless raw token stream that tiles rawText exactly.
+    rawTokens?: RawToken[];
+    // RawData for global options directives, keyed by option name.
+    globalOptionsRawData?: CompilerSettings<CompilerSettingRawData>;
 
     // A mapping from marker names to name/position pairs
     markerPositions: Map<string, Marker>;
@@ -79,6 +174,22 @@ export interface Marker {
     fileUri: Uri;
     position: number;
     data?: {};
+
+    // Optional raw token references for this marker in the original test string.
+    rawData?: MarkerRawData;
+}
+
+export interface MarkerRawData {
+    kind: 'slashStar' | 'object';
+
+    full: RawTokenRange;
+    start: RawTokenRange;
+    end: RawTokenRange;
+
+    // Present when kind === 'slashStar'.
+    name?: RawTokenRange | undefined;
+    // Present when kind === 'object'.
+    text?: RawTokenRange | undefined;
 }
 
 export interface Range {
@@ -87,6 +198,16 @@ export interface Range {
     marker?: Marker | undefined;
     pos: number;
     end: number;
+
+    // Optional raw token references for this range in the original test string.
+    rawData?: RangeRawData;
+}
+
+export interface RangeRawData {
+    full: RawTokenRange;
+    open: RawTokenRange;
+    selected: RawTokenRange;
+    close: RawTokenRange;
 }
 
 export interface MultiMap<T> extends Map<string, T[]> {

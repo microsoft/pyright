@@ -198,3 +198,16 @@ export namespace Disposable {
         return value && typeof value.dispose === 'function';
     }
 }
+
+export function isMap(obj: unknown): obj is Map<unknown, unknown> {
+    return typeof obj === 'object' && obj !== null && obj.constructor === Map;
+}
+
+export function isPromise(obj: unknown): obj is Promise<unknown> {
+    return (
+        typeof obj === 'object' &&
+        obj !== null &&
+        typeof (obj as any).then === 'function' &&
+        typeof (obj as any).catch === 'function'
+    );
+}
