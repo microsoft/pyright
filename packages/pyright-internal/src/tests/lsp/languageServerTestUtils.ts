@@ -231,7 +231,7 @@ export function createFileSystem(projectRoot: string, testData: FourSlashData, o
     if (vfsInfo.rawConfigJson) {
         files[combinePaths(vfsInfo.projectRoot, 'pyrightconfig.json')] = new vfs.File(
             JSON.stringify(vfsInfo.rawConfigJson),
-            { encoding: 'utf8', meta: { filename: 'pyrightconfig.json'} }
+            { encoding: 'utf8', meta: { filename: 'pyrightconfig.json' } }
         );
     }
     return createFromFileSystem(
