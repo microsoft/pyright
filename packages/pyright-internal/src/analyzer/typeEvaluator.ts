@@ -28824,6 +28824,7 @@ export function createTypeEvaluator(
         getBestOverloadForArgs,
         getBuiltInType,
         getTypeOfMember,
+        getTypeOfMemberAccessWithBaseType,
         getTypeOfBoundMember,
         getBoundMagicMethod,
         getTypeOfMagicMethodCall,

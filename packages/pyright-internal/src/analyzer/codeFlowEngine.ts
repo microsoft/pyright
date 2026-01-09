@@ -564,7 +564,19 @@ export function getCodeFlowEngine(
                                         reference.nodeType === ParseNodeType.MemberAccess &&
                                         evaluator.isAsymmetricAccessorAssignment(targetNode)
                                     ) {
-                                        flowTypeResult = undefined;
+                                        // For asymmetric accessor assignments, re-evaluate the getter type
+                                        // in the current context. Suppress diagnostics because any errors
+                                        // will have already been reported at the assignment site.
+                                        evaluator.suppressDiagnostics(reference, () => {
+                                            const baseTypeResult = evaluator.getTypeOfExpression(reference.d.leftExpr);
+
+                                            flowTypeResult = evaluator.getTypeOfMemberAccessWithBaseType(
+                                                reference,
+                                                baseTypeResult,
+                                                { method: 'get' },
+                                                EvalFlags.None
+                                            );
+                                        });
                                     }
                                 }
 
