@@ -35,6 +35,8 @@ export enum PythonPlatform {
     Darwin = 'Darwin',
     Windows = 'Windows',
     Linux = 'Linux',
+    iOS = 'iOS',
+    Android = 'Android',
 }
 
 export class ExecutionEnvironment {
