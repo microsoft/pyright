@@ -345,6 +345,10 @@ function _getExpectedPlatformNameFromPlatform(execEnv: ExecutionEnvironment): st
         return 'win32';
     } else if (execEnv.pythonPlatform === PythonPlatform.Linux) {
         return 'linux';
+    } else if (execEnv.pythonPlatform === PythonPlatform.iOS) {
+        return 'ios';
+    } else if (execEnv.pythonPlatform === PythonPlatform.Android) {
+        return 'android';
     }
 
     return undefined;
@@ -356,6 +360,10 @@ function _getExpectedOsNameFromPlatform(execEnv: ExecutionEnvironment): string |
     } else if (execEnv.pythonPlatform === PythonPlatform.Windows) {
         return 'nt';
     } else if (execEnv.pythonPlatform === PythonPlatform.Linux) {
+        return 'posix';
+    } else if (execEnv.pythonPlatform === PythonPlatform.iOS) {
+        return 'posix';
+    } else if (execEnv.pythonPlatform === PythonPlatform.Android) {
         return 'posix';
     }
 
