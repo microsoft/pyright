@@ -854,10 +854,10 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
 
     while (curNode) {
         if (curNode.nodeType === ParseNodeType.Parameter) {
-            if (prevNode === curNode.d.name) {
+            if (prevNode !== undefined && prevNode === curNode.d.name) {
                 // Note that we passed through a parameter name node.
                 isParamNameNode = true;
-            } else if (prevNode === curNode.d.defaultValue) {
+            } else if (prevNode !== undefined && prevNode === curNode.d.defaultValue) {
                 // Note that we passed through a parameter default value node.
                 isParamDefaultNode = true;
             }

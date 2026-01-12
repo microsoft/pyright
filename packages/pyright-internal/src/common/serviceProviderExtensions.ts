@@ -11,7 +11,7 @@ import { IPythonMode, SourceFile, SourceFileEditMode } from '../analyzer/sourceF
 import { PartialStubService, SupportPartialStubs } from '../partialStubService';
 import { CancellationProvider, DefaultCancellationProvider } from './cancellationUtils';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
-import { ConsoleInterface } from './console';
+import { ConsoleInterface, NullConsole } from './console';
 import { DocStringService, PyrightDocStringService } from './docStringService';
 import { FileSystem, TempFile } from './fileSystem';
 import { CommandService, WindowService } from './languageServerInterface';
@@ -79,6 +79,11 @@ ServiceProvider.prototype.fs = function () {
     return this.get(ServiceKeys.fs);
 };
 ServiceProvider.prototype.console = function () {
+    const cons = this.tryGet(ServiceKeys.console);
+    if (!cons && this.disposed) {
+        // During shutdown this can be undefined, so create a default console.
+        this.add(ServiceKeys.console, new NullConsole());
+    }
     return this.get(ServiceKeys.console);
 };
 ServiceProvider.prototype.partialStubs = function () {

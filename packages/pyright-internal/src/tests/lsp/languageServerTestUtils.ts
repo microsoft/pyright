@@ -118,6 +118,7 @@ export interface PyrightServerInfo {
     convertPathToUri(path: string): Uri;
     workspaceDiagnosticsPartialResultToken?: string;
     pendingWorkspaceDiagnostics?: Promise<any>;
+    queriedConfigSettings: Deferred<void>;
 }
 
 export class TestHostOptions {
@@ -224,10 +225,19 @@ export function createFileSystem(projectRoot: string, testData: FourSlashData, o
     }
 
     const vfsInfo = createVfsInfoFromFourSlashData(projectRoot, testData);
+
+    // If there's a pyrightconfig.json, add it to the list of files as well.
+    const files = vfsInfo.files;
+    if (vfsInfo.rawConfigJson) {
+        files[combinePaths(vfsInfo.projectRoot, 'pyrightconfig.json')] = new vfs.File(
+            JSON.stringify(vfsInfo.rawConfigJson),
+            { encoding: 'utf8', meta: { filename: 'pyrightconfig.json' } }
+        );
+    }
     return createFromFileSystem(
         optionalHost ?? host.HOST,
         vfsInfo.ignoreCase,
-        { cwd: vfsInfo.projectRoot, files: vfsInfo.files, meta: testData.globalOptions },
+        { cwd: vfsInfo.projectRoot, files, meta: testData.globalOptions },
         mountedPaths
     );
 }
@@ -555,6 +565,7 @@ export async function runPyrightServer(
             logToDisk(`Finished test ${testServerData.testName}`, testServerData.logFile);
         },
         workspaceDiagnosticsPartialResultToken: supportPullDiagnostics ? partialResultToken : undefined,
+        queriedConfigSettings: createDeferred<void>(),
     };
     info.disposables.push(
         info.connection.onNotification(CustomLSP.Notifications.TestStartServerResponse, (p) => {
@@ -642,6 +653,10 @@ export async function runPyrightServer(
                         (s.item.scopeUri === item.scopeUri || s.item.scopeUri === undefined) &&
                         s.item.section === item.section
                 );
+                if (setting) {
+                    // Indicate we queried at least one setting.
+                    info.queriedConfigSettings.resolve();
+                }
                 result.push(setting?.value);
             }
 
@@ -678,6 +693,15 @@ export async function runPyrightServer(
     if (callInitialize) {
         await initializeLanguageServer(info);
         logToDisk(`Initialized test ${testServerData.testName}`, testServerData.logFile);
+
+        // If added any extra settings, wait for the server to query them.
+        if (extraSettings && extraSettings.length > 0) {
+            await waitForPromise(
+                info.queriedConfigSettings.promise,
+                5000,
+                `Timed out waiting for server to query configuration settings for test ${testServerData.testName}`
+            );
+        }
     }
 
     if (lastServerFinished.name === testServerData.testName) {
@@ -756,7 +780,14 @@ export async function sleep(timeout: number): Promise<number> {
     });
 }
 
-export function openFile(info: PyrightServerInfo, markerName: string, text?: string) {
+export async function waitForTestSignal(info: PyrightServerInfo, signal: CustomLSP.TestSignalKinds, timeout = 10000) {
+    const result = await Promise.race([info.signals.get(signal)!.promise, sleep(timeout)]);
+    if (result === timeout) {
+        throw new Error(`Timed out waiting for signal ${signal}`);
+    }
+}
+
+export async function openFile(info: PyrightServerInfo, markerName: string, text?: string) {
     const marker = getMarkerByName(info.testData, markerName);
     const uri = marker.fileUri.toString();
 
@@ -765,6 +796,8 @@ export function openFile(info: PyrightServerInfo, markerName: string, text?: str
     info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
         textDocument: { uri, languageId: 'python', version: 1, text },
     });
+
+    await waitForTestSignal(info, CustomLSP.TestSignalKinds.DidOpenDocument);
 }
 
 export async function hover(info: PyrightServerInfo, markerName: string) {

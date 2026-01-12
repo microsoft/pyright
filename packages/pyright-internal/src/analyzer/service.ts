@@ -20,7 +20,7 @@ import {
 } from '../common/commandLineOptions';
 import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
-import { isString } from '../common/core';
+import { isPromise, isString } from '../common/core';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction } from '../common/editAction';
 import { EditableProgram, ProgramView } from '../common/extensibility';
@@ -35,6 +35,7 @@ import { ServiceProvider } from '../common/serviceProvider';
 import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
+import { UriMap } from '../common/uri/uriMap';
 import {
     FileSpec,
     deduplicateFolders,
@@ -258,16 +259,35 @@ export class AnalyzerService {
         return service;
     }
 
-    runEditMode(callback: (e: EditableProgram) => void, token: CancellationToken) {
+    runEditMode(callback: (e: EditableProgram) => void, token: CancellationToken): FileEditAction[];
+    runEditMode(callback: (e: EditableProgram) => Promise<void>, token: CancellationToken): Promise<FileEditAction[]>;
+    runEditMode(
+        callback: (e: EditableProgram) => void | Promise<void>,
+        token: CancellationToken
+    ): FileEditAction[] | Promise<FileEditAction[]> {
         let edits: FileEditAction[] = [];
         this._backgroundAnalysisProgram.enterEditMode();
         try {
-            this._program.runEditMode(callback, token);
-        } finally {
-            edits = this._backgroundAnalysisProgram.exitEditMode();
-        }
+            const result = this._program.runEditMode(callback, token);
+            if (!isPromise(result)) {
+                edits = this._backgroundAnalysisProgram.exitEditMode();
+                return token.isCancellationRequested ? [] : edits;
+            }
 
-        return token.isCancellationRequested ? [] : edits;
+            return result.then(
+                (r) => {
+                    edits = this._backgroundAnalysisProgram.exitEditMode();
+                    return token.isCancellationRequested ? [] : edits;
+                },
+                (e) => {
+                    this._backgroundAnalysisProgram.exitEditMode();
+                    throw e;
+                }
+            );
+        } catch (e) {
+            this._backgroundAnalysisProgram.exitEditMode();
+            throw e;
+        }
     }
 
     dispose() {
@@ -337,8 +357,12 @@ export class AnalyzerService {
         // Open the file. Notebook cells are always tracked as they aren't 3rd party library files.
         // This is how it's worked in the past since each notebook used to have its own
         // workspace and the workspace include setting marked all cells as tracked.
+        // In check-only-open-files mode, treat all opened documents as tracked even if they
+        // are not owned by this workspace. This ensures in-memory edits to dependency files
+        // (e.g. files imported via extraPaths in another workspace) invalidate the program
+        // and are reflected immediately in language features like hover/rename.
         this._backgroundAnalysisProgram.setFileOpened(uri, version, contents, {
-            isTracked: this.isTracked(uri) || ipythonMode !== IPythonMode.None,
+            isTracked: this.isTracked(uri) || this.checkOnlyOpenFiles || ipythonMode !== IPythonMode.None,
             ipythonMode,
             chainedFileUri: chainedFileUri,
         });
@@ -362,7 +386,7 @@ export class AnalyzerService {
         changedRange?: ChangedRange
     ) {
         this._backgroundAnalysisProgram.updateOpenFileContents(uri, version, contents, {
-            isTracked: this.isTracked(uri),
+            isTracked: this.isTracked(uri) || this.checkOnlyOpenFiles || ipythonMode !== IPythonMode.None,
             ipythonMode,
             chainedFileUri: undefined,
             changedRange,
@@ -500,12 +524,12 @@ export class AnalyzerService {
         this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    invalidateAndForceReanalysis(reason: InvalidatedReason) {
+    invalidateAndForceReanalysis(reason: InvalidatedReason, refreshOptions?: RefreshOptions) {
         if (this.options.onInvalidated) {
             this.options.onInvalidated(reason);
         }
 
-        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(reason);
+        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(reason, refreshOptions);
     }
 
     // Forces the service to stop all analysis, discard all its caches,
@@ -1700,7 +1724,7 @@ export class AnalyzerService {
 
                     // If file doesn't exist, it is delete.
                     const isChange = event === 'change' && this.fs.existsSync(uri);
-                    this._scheduleLibraryAnalysis(isChange);
+                    this._scheduleLibraryAnalysis(isChange, uri);
                 });
             } catch {
                 this._console.error(
@@ -1754,7 +1778,7 @@ export class AnalyzerService {
         }
     }
 
-    private _scheduleLibraryAnalysis(isChange: boolean) {
+    private _scheduleLibraryAnalysis(isChange: boolean, changedFileUri?: Uri) {
         if (this._disposed) {
             // Already disposed.
             return;
@@ -1772,24 +1796,39 @@ export class AnalyzerService {
         // Add pending library files/folders changes.
         this._pendingLibraryChanges.changesOnly = this._pendingLibraryChanges.changesOnly && isChange;
 
+        // Track the specific file that changed only if all accumulated changes are content-only.
+        // If any change is structural (add/delete), clear the map since all files need updating.
+        if (this._pendingLibraryChanges.changesOnly && changedFileUri) {
+            if (!this._pendingLibraryChanges.changedFileUris) {
+                this._pendingLibraryChanges.changedFileUris = new UriMap<boolean>();
+            }
+            // Add to map (automatically handles duplicates via O(1) lookup)
+            this._pendingLibraryChanges.changedFileUris.set(changedFileUri, true);
+        } else if (!this._pendingLibraryChanges.changesOnly) {
+            // Clear the map if we've encountered a structural change
+            this._pendingLibraryChanges.changedFileUris = undefined;
+        }
+
         // Wait for a little while, since library changes
         // tend to happen in big batches when packages
         // are installed or uninstalled.
         this._libraryReanalysisTimer = setTimeout(() => {
             this._clearLibraryReanalysisTimer();
 
-            // Invalidate import resolver, mark all files dirty unconditionally,
+            // Invalidate import resolver, mark files dirty (specific files if available),
             // and reanalyze.
             this.invalidateAndForceReanalysis(
                 this._pendingLibraryChanges.changesOnly
                     ? InvalidatedReason.LibraryWatcherContentOnlyChanged
-                    : InvalidatedReason.LibraryWatcherChanged
+                    : InvalidatedReason.LibraryWatcherChanged,
+                this._pendingLibraryChanges
             );
             this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
 
             // No more pending changes.
             reanalysisTimeProvider!.libraryReanalysisStarted?.();
             this._pendingLibraryChanges.changesOnly = true;
+            this._pendingLibraryChanges.changedFileUris = undefined;
         }, backOffTimeInMS);
     }
 

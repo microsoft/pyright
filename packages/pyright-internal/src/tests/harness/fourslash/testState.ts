@@ -1027,7 +1027,7 @@ export class TestState {
 
             const expectedCompletions = map[markerName].completions;
             const provider = this.getCompletionResults(this, marker, docFormat, abbrMap);
-            const results = provider.getCompletions();
+            const results = await provider.getCompletions();
             if (results) {
                 if (verifyMode === 'exact') {
                     if (results.items.length !== expectedCompletions.length) {

@@ -108,3 +108,45 @@ export function extractParameterDocumentation(functionDocString: string, paramNa
 
     return undefined;
 }
+
+export function extractAttributeDocumentation(classDocString: string, attrName: string): string | undefined {
+    if (!classDocString || !attrName) {
+        return undefined;
+    }
+
+    // Python documentation styles for attributes:
+    //
+    // 1. reST:
+    //      :ivar attr1: description
+    // 2. Google:
+    //      Attributes:
+    //          attr1: description
+    // 3. Google (with type):
+    //      Attributes:
+    //          attr1 (type): description
+
+    const docStringLines = cleanAndSplitDocString(classDocString);
+    for (const line of docStringLines) {
+        const trimmedLine = line.trim();
+
+        // Check for reST format
+        let attrOffset = trimmedLine.indexOf(':ivar ' + attrName);
+        if (attrOffset >= 0) {
+            return trimmedLine.substr(attrOffset + 6);
+        }
+
+        // Check for Google (variant 1) format
+        attrOffset = trimmedLine.indexOf(attrName + ': ');
+        if (attrOffset >= 0) {
+            return trimmedLine.substr(attrOffset);
+        }
+
+        // Check for Google (variant 2) format
+        attrOffset = trimmedLine.indexOf(attrName + ' (');
+        if (attrOffset >= 0) {
+            return trimmedLine.substr(attrOffset);
+        }
+    }
+
+    return undefined;
+}

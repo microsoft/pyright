@@ -8,6 +8,7 @@
 import {
     CancellationToken,
     Connection,
+    DidOpenTextDocumentParams,
     Disposable,
     Message,
     MessageReader,
@@ -27,6 +28,7 @@ import { parseTestData } from '../harness/fourslash/fourSlashParser';
 import * as PyrightTestHost from '../harness/testHost';
 import { clearCache } from '../harness/vfs/factory';
 
+import { IPythonMode } from '../../analyzer/sourceFile';
 import { BackgroundAnalysis, BackgroundAnalysisRunner } from '../../backgroundAnalysis';
 import { IBackgroundAnalysis } from '../../backgroundAnalysisBase';
 import { serialize } from '../../backgroundThreadBase';
@@ -133,6 +135,8 @@ function createTestHost(testServerData: CustomLSP.TestServerStartOptions) {
 }
 
 class TestServer extends PyrightServer {
+    private static _currentId = 0;
+    private _id = TestServer._currentId++;
     constructor(
         connection: Connection,
         fs: FileSystem,
@@ -168,6 +172,17 @@ class TestServer extends PyrightServer {
             return new BackgroundAnalysis(workspaceRoot, this.serverOptions.serviceProvider);
         }
         return undefined;
+    }
+
+    protected override async onDidOpenTextDocument(
+        params: DidOpenTextDocumentParams,
+        ipythonMode?: IPythonMode
+    ): Promise<void> {
+        await super.onDidOpenTextDocument(params, ipythonMode);
+        CustomLSP.sendNotification(this.connection, CustomLSP.Notifications.TestSignal, {
+            uri: params.textDocument.uri,
+            kind: CustomLSP.TestSignalKinds.DidOpenDocument,
+        });
     }
 }
 
@@ -331,7 +346,7 @@ class ServerStateManager {
             if (serverIndex >= 0) {
                 try {
                     instance.disposables[serverIndex].dispose();
-                    instance.disposables = instance.disposables.splice(serverIndex, 1);
+                    instance.disposables.splice(serverIndex, 1);
                 } catch (e) {
                     // Dispose failures don't matter.
                 }

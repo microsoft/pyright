@@ -41,7 +41,11 @@ export type AllServiceKeys<T> = ServiceKey<T> | GroupServiceKey<T>;
 
 export class ServiceProvider {
     private _container = new Map<string, any>();
+    private _disposed = false;
 
+    get disposed() {
+        return this._disposed;
+    }
     add<T>(key: ServiceKey<T>, value: T | undefined): void;
     add<T>(key: GroupServiceKey<T>, value: T): void;
     add<T>(key: AllServiceKeys<T>, value: T | undefined): void {
@@ -89,7 +93,7 @@ export class ServiceProvider {
     get<T>(key: AllServiceKeys<T>): T | readonly T[] {
         const value = key.kind === 'group' ? this.tryGet(key) : this.tryGet(key);
         if (value === undefined) {
-            throw new Error(`Global service provider not initialized for ${key.toString()}`);
+            throw new Error(`Global service provider not initialized for ${key.id}.`);
         }
 
         return value;
@@ -111,11 +115,30 @@ export class ServiceProvider {
     }
 
     dispose() {
+        if (this._disposed) {
+            return;
+        }
+        this._disposed = true;
         for (const service of this._container.values()) {
             if (Disposable.is(service)) {
                 service.dispose();
             }
         }
+
+        // Clear out everything except for some essential services,
+        // as those may be needed during shutdown.
+        const essentialList = ['fs', 'CaseSensitivityDetector', 'TempFile'];
+        const essentials = new Map<string, any>();
+        for (const key of essentialList) {
+            const service = this._container.get(key);
+            if (service) {
+                essentials.set(key, service);
+            }
+        }
+        this._container.clear();
+        essentials.forEach((value, key) => {
+            this._container.set(key, value);
+        });
     }
 
     private _addGroupService<T>(key: GroupServiceKey<T>, newValue: T | undefined) {

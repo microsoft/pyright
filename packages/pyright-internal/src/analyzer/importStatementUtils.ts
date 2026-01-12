@@ -645,7 +645,7 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements, fo
             subnode: importAsNode,
             importResult,
             resolvedPath,
-            moduleName: _formatModuleName(importAsNode.d.module),
+            moduleName: formatModuleName(importAsNode.d.module),
             followsNonImportStatement,
         };
 
@@ -693,7 +693,7 @@ function _processImportFromNode(
         node,
         importResult,
         resolvedPath,
-        moduleName: _formatModuleName(node.d.module),
+        moduleName: formatModuleName(node.d.module),
         followsNonImportStatement,
     };
 
@@ -715,7 +715,7 @@ function _processImportFromNode(
     }
 }
 
-function _formatModuleName(node: ModuleNameNode): string {
+export function formatModuleName(node: ModuleNameNode): string {
     let moduleName = '';
     for (let i = 0; i < node.d.leadingDots; i++) {
         moduleName = moduleName + '.';

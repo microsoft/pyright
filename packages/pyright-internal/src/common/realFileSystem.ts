@@ -26,7 +26,7 @@ import {
 import { combinePaths, getRootLength } from './pathUtils';
 import { FileUri, FileUriSchema } from './uri/fileUri';
 import { Uri } from './uri/uri';
-import { getRootUri } from './uri/uriUtils';
+import { getRootUri, UriEx } from './uri/uriUtils';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -124,14 +124,14 @@ function hasZipMagic(fs: FakeFS<PortablePath>, p: PortablePath): boolean {
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 //@ts-expect-error
 class EggZipOpenFS extends ZipOpenFS {
-    // Copied from the ZipOpenFS implementation.
-    private override readonly baseFs!: FakeFS<PortablePath>;
-    private override readonly filter!: RegExp | null;
-    private override isZip!: Set<PortablePath>;
-    private override notZip!: Set<PortablePath>;
-
     override findZip(p: PortablePath) {
-        if (this.filter && !this.filter.test(p)) return null;
+        // Access private fields from parent via any cast since they're not accessible in subclass
+        const baseFs = (this as any).baseFs as FakeFS<PortablePath>;
+        const filter = (this as any).filter as RegExp | null;
+        const isZip = (this as any).isZip as Set<PortablePath>;
+        const notZip = (this as any).notZip as Set<PortablePath>;
+
+        if (filter && !filter.test(p)) return null;
 
         let filePath = `` as PortablePath;
 
@@ -141,17 +141,17 @@ class EggZipOpenFS extends ZipOpenFS {
 
             filePath = this.pathUtils.join(filePath, archivePart);
 
-            if (this.isZip.has(filePath) === false) {
-                if (this.notZip.has(filePath)) continue;
+            if (isZip.has(filePath) === false) {
+                if (notZip.has(filePath)) continue;
 
                 try {
-                    if (!this.baseFs.lstatSync(filePath).isFile()) {
-                        this.notZip.add(filePath);
+                    if (!baseFs.lstatSync(filePath).isFile()) {
+                        notZip.add(filePath);
                         continue;
                     }
 
-                    if (!hasZipMagic(this.baseFs, filePath)) {
-                        this.notZip.add(filePath);
+                    if (!hasZipMagic(baseFs, filePath)) {
+                        notZip.add(filePath);
                         continue;
                     }
 
@@ -164,14 +164,14 @@ class EggZipOpenFS extends ZipOpenFS {
                         // eslint-disable-next-line @typescript-eslint/no-empty-function
                         this.getZipSync(filePath, () => {});
                     } catch {
-                        this.notZip.add(filePath);
+                        notZip.add(filePath);
                         continue;
                     }
                 } catch {
                     return null;
                 }
 
-                this.isZip.add(filePath);
+                isZip.add(filePath);
             }
 
             return {
@@ -505,7 +505,8 @@ export class WorkspaceFileWatcherProvider implements FileWatcherProvider, FileWa
         // to raise events both for source and library if .venv is inside of workspace root
         // for a file change. It is event handler's job to filter those out.
         this._fileWatchers.forEach((watcher) => {
-            if (watcher.workspacePaths.some((dirPath) => fileUri.getFilePath().startsWith(dirPath))) {
+            const dirUris = watcher.workspacePaths.map((d) => UriEx.file(d, fileUri.isCaseSensitive));
+            if (dirUris.some((dir) => fileUri.startsWith(dir))) {
                 watcher.eventHandler(eventType, fileUri.getFilePath());
             }
         });

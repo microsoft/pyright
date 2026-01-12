@@ -955,8 +955,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             return null;
         }
 
-        return workspace.service.run((program) => {
-            const completions = new CompletionProvider(
+        return await workspace.service.run(async (program) => {
+            const completions = await new CompletionProvider(
                 program,
                 uri,
                 params.position,

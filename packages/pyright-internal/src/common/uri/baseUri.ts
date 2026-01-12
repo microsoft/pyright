@@ -9,7 +9,7 @@
 import { some } from '../collectionUtils';
 import { getRootLength, getShortenedFileName } from '../pathUtils';
 import { cacheProperty } from './memoization';
-import { Uri } from './uri';
+import type { Uri } from './uriInterface';
 
 export type JsonObjType = any;
 

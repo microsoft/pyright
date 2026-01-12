@@ -44,6 +44,7 @@ import { LogTracker } from './common/logTracker';
 import { ServiceProvider } from './common/serviceProvider';
 import { Range } from './common/textRange';
 import { Uri } from './common/uri/uri';
+import { UriMap } from './common/uri/uriMap';
 import { ProgramView } from './common/extensibility';
 
 export interface IBackgroundAnalysis extends Disposable {
@@ -891,4 +892,7 @@ export interface BackgroundResponse {
 export interface RefreshOptions {
     // No files/folders are added or removed. only changes.
     changesOnly: boolean;
+    // Specific files that changed (if known). When provided, only these files should be marked dirty.
+    // Using UriMap for O(1) lookup instead of O(n) with array.
+    changedFileUris?: UriMap<boolean>;
 }

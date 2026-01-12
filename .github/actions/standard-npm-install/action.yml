@@ -8,18 +8,7 @@ on:
 runs:
   using: composite
   steps:
-    - name: Get npm cache directory
-      id: npm-cache
-      shell: bash
-      run: |
-        echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
-
-    - uses: actions/cache@v4
-      with:
-        path: ${{ steps.npm-cache.outputs.dir }}
-        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-
+    - uses: ./.github/actions/npm-cache-dir
 
     - name: Standard npm install
       shell: bash
