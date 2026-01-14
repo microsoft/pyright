@@ -44,7 +44,9 @@ export class PartialStubService implements SupportPartialStubs {
     // Disposables to cleanup moved directories
     private _movedDirectories: Disposable[] = [];
 
-    constructor(private _realFs: FileSystem) {}
+    constructor(private _realFs: FileSystem) {
+        // Empty
+    }
 
     isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean {
         return execEnv.root ? this.isPathScanned(execEnv.root) : false;
@@ -150,5 +152,29 @@ export class PartialStubService implements SupportPartialStubs {
         // If partial stub we found is from bundled stub and library installed is marked as py.typed
         // allow moving only if the package is marked as partially typed.
         return !packagePyTyped || packagePyTyped.isPartiallyTyped;
+    }
+}
+
+/**
+ * A no-op implementation of SupportPartialStubs for testing scenarios that don't require
+ * partial stub package resolution. This avoids the expensive file system scanning overhead
+ * of PartialStubService.processPartialStubPackages.
+ */
+export class NoOpPartialStubs implements SupportPartialStubs {
+    isPartialStubPackagesScanned(_execEnv: ExecutionEnvironment): boolean {
+        // Always report as already scanned to prevent actual scanning.
+        return true;
+    }
+
+    isPathScanned(_path: Uri): boolean {
+        return true;
+    }
+
+    processPartialStubPackages(_paths: Uri[], _roots: Uri[], _bundledStubPath?: Uri): void {
+        // No-op: skip all file system operations.
+    }
+
+    clearPartialStubs(): void {
+        // No-op.
     }
 }

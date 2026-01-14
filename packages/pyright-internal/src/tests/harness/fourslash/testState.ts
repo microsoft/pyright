@@ -74,7 +74,7 @@ import { SignatureHelpProvider } from '../../../languageService/signatureHelpPro
 import { ParseNode } from '../../../parser/parseNodes';
 import { ParseFileResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
-import { PartialStubService } from '../../../partialStubService';
+import { NoOpPartialStubs, PartialStubService } from '../../../partialStubService';
 import { PyrightFileSystem } from '../../../pyrightFileSystem';
 import { NormalWorkspace, WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
@@ -121,6 +121,22 @@ export interface HostSpecificFeatures {
     execute(ls: LanguageServerInterface, params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
 }
 
+export interface TestStateOptions {
+    mountPaths?: Map<string, string>;
+    hostSpecificFeatures?: HostSpecificFeatures;
+    testFS?: vfs.TestFileSystem;
+
+    // Setting delayFileInitialization to true enables derived class constructors to execute
+    // before any files are opened. When set to true, initializeFiles() must be called separately
+    // after construction completes.
+    delayFileInitialization?: boolean;
+
+    enablePartialStub?: boolean;
+
+    enableSharedImportResolverFileSystem?: boolean;
+    enableSharedTypeshedInfoProvider?: boolean;
+}
+
 // Make sure everything is in lower case since it has hard coded `isCaseSensitive`: true.
 const testAccessHost = new TestAccessHost(UriEx.file(vfs.MODULE_PATH), [libFolder, distlibFolder]);
 
@@ -147,17 +163,8 @@ export class TestState {
     // The file that's currently 'opened'
     activeFile!: FourSlashFile;
 
-    constructor(
-        projectRoot: string,
-        public testData: FourSlashData,
-        mountPaths?: Map<string, string>,
-        hostSpecificFeatures?: HostSpecificFeatures,
-        testFS?: vfs.TestFileSystem,
-        // Setting delayFileInitialization to true enables derived class constructors to execute
-        // before any files are opened. When set to true, initializeFiles() must be called separately
-        // after construction completes.
-        delayFileInitialization = false
-    ) {
+    constructor(projectRoot: string, public testData: FourSlashData, protected options?: TestStateOptions) {
+        const { mountPaths, hostSpecificFeatures, testFS, delayFileInitialization = false } = options ?? {};
         const vfsInfo = createVfsInfoFromFourSlashData(projectRoot, testData);
         this._vfsFiles = vfsInfo.files;
 
@@ -172,7 +179,7 @@ export class TestState {
 
         this.fs = new PyrightFileSystem(this.testFS);
         this.console = new ConsoleWithLogLevel(new NullConsole(), 'test');
-        const ps = new PartialStubService(this.fs);
+        const ps = options?.enablePartialStub ? new PartialStubService(this.fs) : new NoOpPartialStubs();
         this.serviceProvider = createServiceProvider(this.testFS, this.fs, this.console, ps);
 
         this._cancellationToken = new TestCancellationToken();
@@ -2109,16 +2116,10 @@ export function parseAndGetTestState(
     code: string,
     projectRoot = '/',
     anonymousFileName = 'unnamedFile.py',
-    testFS?: vfs.TestFileSystem
+    options?: TestStateOptions
 ) {
     const data = parseTestData(normalizeSlashes(projectRoot), code, anonymousFileName);
-    const state = new TestState(
-        normalizeSlashes('/'),
-        data,
-        /* mountPath */ undefined,
-        /* hostSpecificFeatures */ undefined,
-        testFS
-    );
+    const state = new TestState(normalizeSlashes('/'), data, options);
 
     return { data, state };
 }

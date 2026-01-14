@@ -8,7 +8,7 @@
 import { CacheManager } from '../analyzer/cacheManager';
 import { ISourceFileFactory } from '../analyzer/programTypes';
 import { IPythonMode, SourceFile, SourceFileEditMode } from '../analyzer/sourceFile';
-import { PartialStubService, SupportPartialStubs } from '../partialStubService';
+import { NoOpPartialStubs, SupportPartialStubs } from '../partialStubService';
 import { CancellationProvider, DefaultCancellationProvider } from './cancellationUtils';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface, NullConsole } from './console';
@@ -86,13 +86,15 @@ ServiceProvider.prototype.console = function () {
     }
     return this.get(ServiceKeys.console);
 };
+
 ServiceProvider.prototype.partialStubs = function () {
     const result = this.tryGet(ServiceKeys.partialStubs);
     if (!result) {
-        this.add(ServiceKeys.partialStubs, new PartialStubService(this.fs()));
+        this.add(ServiceKeys.partialStubs, new NoOpPartialStubs());
     }
     return this.get(ServiceKeys.partialStubs);
 };
+
 ServiceProvider.prototype.tmp = function () {
     return this.tryGet(ServiceKeys.tempFile);
 };

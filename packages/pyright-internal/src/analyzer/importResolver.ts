@@ -8,25 +8,27 @@
  * runtime rules of Python.
  */
 
-import type { Dirent } from 'fs';
-
 import { appendArray, flatten, getMapValues, getOrAdd } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/configOptions';
 import { Host } from '../common/host';
 import { stubsSuffix } from '../common/pathConsts';
 import { getFileExtension, stripFileExtension } from '../common/pathUtils';
-import { PythonVersion, pythonVersion3_0 } from '../common/pythonVersion';
+import { PythonVersion } from '../common/pythonVersion';
 import { ServiceProvider } from '../common/serviceProvider';
+import { ServiceKeys } from '../common/serviceKeys';
 import * as StringUtils from '../common/stringUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import { Uri } from '../common/uri/uri';
-import { getFileSystemEntriesFromDirEntries, isDirectory, isFile, tryRealpath, tryStat } from '../common/uri/uriUtils';
+import { getFileSystemEntriesFromDirEntries } from '../common/uri/uriUtils';
 import { Tokenizer } from '../parser/tokenizer';
 import { ImportLogger } from './importLogger';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
+import { createImportResolverFileSystem } from './importResolverFileSystem';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
+import type { ImportResolverFileSystem, TypeshedInfoProvider } from './importResolverTypes';
 import { ImportPath, ParentDirectoryCache } from './parentDirectoryCache';
 import { PyTypedInfo, getPyTypedInfoForPyTypedFile } from './pyTypedUtils';
+import { createDefaultTypeshedInfoProvider } from './typeshedInfoProvider';
 import * as PythonPathUtils from './pythonPathUtils';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { isDunderName } from './symbolNameUtils';
@@ -77,21 +79,6 @@ export function createImportedModuleDescriptor(moduleName: string): ImportedModu
 }
 
 type CachedImportResults = Map<string, ImportResult>;
-interface SupportedVersionInfo {
-    min: PythonVersion;
-    max?: PythonVersion | undefined;
-    unsupportedPlatforms?: string[];
-    supportedPlatforms?: string[];
-}
-
-interface CachedDir {
-    entries: Map<string, Dirent>;
-
-    // A set of names in this directory (either subdirectories or
-    // file names without extensions) that could potentially resolve
-    // a module import. This is useful for quickly checking whether a full search should be done.
-    resolvableNames: Set<string>;
-}
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
 export const supportedSourceFileExtensions = ['.py', '.pyi'];
@@ -108,21 +95,25 @@ export class ImportResolver {
     private _cachedPythonSearchPaths: { paths: Uri[]; failureInfo?: ImportLogger } | undefined;
     private _cachedImportResults = new Map<string | undefined, CachedImportResults>();
     private _cachedModuleNameResults = new Map<string, Map<string, ModuleImportInfo>>();
-    private _cachedTypeshedRoot: Uri | undefined;
-    private _cachedTypeshedStdLibPath: Uri | undefined;
-    private _cachedTypeshedStdLibModuleVersionInfo: Map<string, SupportedVersionInfo> | undefined;
-    private _cachedTypeshedThirdPartyPath: Uri | undefined;
-    private _cachedTypeshedThirdPartyPackagePaths: Map<string, Uri[]> | undefined;
-    private _cachedTypeshedThirdPartyPackageRoots: Uri[] | undefined;
-    private _cachedEntriesForPath = new Map<string, CachedDir>();
-    private _cachedFilesForPath = new Map<string, Uri[]>();
-    private _cachedDirExistenceForRoot = new Map<string, boolean>();
     private _stdlibModules: Set<string> | undefined;
+
+    private readonly _fileSystemCache: ImportResolverFileSystem;
+    private readonly _typeshedInfoProvider: TypeshedInfoProvider;
 
     protected readonly cachedParentImportResults: ParentDirectoryCache;
 
     constructor(readonly serviceProvider: ServiceProvider, private _configOptions: ConfigOptions, readonly host: Host) {
         this.cachedParentImportResults = new ParentDirectoryCache(() => this.getPythonSearchPaths());
+
+        // These are optionally provided via the ServiceProvider so callers/tests can share
+        // caching across ImportResolver/Typeshed operations and avoid re-walking the same
+        // filesystem paths when multiple resolvers are created.
+        this._fileSystemCache =
+            serviceProvider.tryGet(ServiceKeys.importResolverFileSystem) ??
+            createImportResolverFileSystem(this.fileSystem);
+        this._typeshedInfoProvider =
+            serviceProvider.tryGet(ServiceKeys.typeshedInfoProvider) ??
+            createDefaultTypeshedInfoProvider(this._fileSystemCache);
     }
 
     get fileSystem() {
@@ -467,11 +458,9 @@ export class ImportResolver {
             return excludes;
         }
 
-        if (!this._cachedTypeshedStdLibModuleVersionInfo) {
-            this._cachedTypeshedStdLibModuleVersionInfo = this._readTypeshedStdLibVersions(customTypeshedPath);
-        }
+        const versions = this._getTypeshedInfoProvider().getStdLibModuleVersionInfo(customTypeshedPath);
 
-        this._cachedTypeshedStdLibModuleVersionInfo.forEach((versionInfo, moduleName) => {
+        versions.forEach((versionInfo, moduleName) => {
             let shouldExcludeModule = false;
 
             if (versionInfo.max !== undefined && PythonVersion.isGreaterThan(pythonVersion, versionInfo.max)) {
@@ -515,47 +504,6 @@ export class ImportResolver {
     // path capabilities. Return undefined if no extra stub path were found.
     getTypeshedPathEx(execEnv: ExecutionEnvironment, importLogger?: ImportLogger): Uri | undefined {
         return undefined;
-    }
-
-    protected readdirEntriesCached(uri: Uri): CachedDir {
-        const cachedValue = this._cachedEntriesForPath.get(uri.key);
-        if (cachedValue) {
-            return cachedValue;
-        }
-
-        const newCachedDir: CachedDir = {
-            entries: new Map<string, Dirent>(),
-            resolvableNames: new Set(),
-        };
-        try {
-            const entries = this.fileSystem.readdirEntriesSync(uri);
-            entries.forEach((entry) => {
-                newCachedDir.entries.set(entry.name, entry);
-                let isFile = entry.isFile();
-                let isDirectory = entry.isDirectory();
-                if (entry.isSymbolicLink()) {
-                    const stat = tryStat(this.fileSystem, uri.combinePaths(entry.name));
-                    isFile = !!stat?.isFile();
-                    isDirectory = !!stat?.isDirectory();
-                }
-                const resolvableName = isFile
-                    ? stripFileExtension(entry.name, /* multiDotExtension */ true)
-                    : entry.name;
-                newCachedDir.resolvableNames.add(resolvableName);
-
-                if (isDirectory && entry.name.endsWith(stubsSuffix)) {
-                    newCachedDir.resolvableNames.add(
-                        resolvableName.substring(0, resolvableName.length - stubsSuffix.length)
-                    );
-                }
-            });
-        } catch {
-            // Swallow error
-        }
-
-        // Populate cache.
-        this._cachedEntriesForPath.set(uri.key, newCachedDir);
-        return newCachedDir;
     }
 
     // Resolves the import and returns the path if it exists, otherwise
@@ -641,56 +589,11 @@ export class ImportResolver {
     }
 
     protected fileExistsCached(uri: Uri): boolean {
-        const directory = uri.getDirectory();
-        if (directory.equals(uri)) {
-            // Started at root, so this can't be a file.
-            return false;
-        }
-        const cachedDir = this.readdirEntriesCached(directory);
-        const entry = cachedDir.entries.get(uri.fileName);
-        if (entry?.isFile()) {
-            return true;
-        }
-
-        if (entry?.isSymbolicLink()) {
-            const realPath = tryRealpath(this.fileSystem, uri);
-            if (realPath && this.fileSystem.existsSync(realPath) && isFile(this.fileSystem, realPath)) {
-                return true;
-            }
-        }
-
-        return false;
+        return this._fileSystemCache.fileExists(uri);
     }
 
     protected dirExistsCached(uri: Uri): boolean {
-        const parent = uri.getDirectory();
-        if (parent.equals(uri)) {
-            // Started at root. No entries to read, so have to check ourselves.
-            let cachedExistence = this._cachedDirExistenceForRoot.get(uri.key);
-            // Check if the value was in the cache or not. Undefined means it wasn't.
-            if (cachedExistence === undefined) {
-                cachedExistence = tryStat(this.fileSystem, uri)?.isDirectory() ?? false;
-                this._cachedDirExistenceForRoot.set(uri.key, cachedExistence);
-            }
-            return cachedExistence;
-        }
-
-        // Otherwise not a root, so read the entries we have cached to see if
-        // the directory exists or not.
-        const cachedDir = this.readdirEntriesCached(parent);
-        const entry = cachedDir.entries.get(uri.fileName);
-        if (entry?.isDirectory()) {
-            return true;
-        }
-
-        if (entry?.isSymbolicLink()) {
-            const realPath = tryRealpath(this.fileSystem, uri);
-            if (realPath && this.fileSystem.existsSync(realPath) && isDirectory(this.fileSystem, realPath)) {
-                return true;
-            }
-        }
-
-        return false;
+        return this._fileSystemCache.dirExists(uri);
     }
 
     protected addResultsToCache(
@@ -852,7 +755,7 @@ export class ImportResolver {
 
         // Enumerate all of the files and directories in the path, expanding links.
         const entries = getFileSystemEntriesFromDirEntries(
-            this.readdirEntriesCached(dirPath).entries.values(),
+            this._fileSystemCache.readdirEntriesSync(dirPath),
             this.fileSystem,
             dirPath
         );
@@ -938,10 +841,10 @@ export class ImportResolver {
     }
 
     private _isPossibleImportDir(rootPath: Uri, moduleDescriptor: ImportedModuleDescriptor): boolean {
-        const cachedDir = this.readdirEntriesCached(rootPath);
+        const resolvableNames = this._fileSystemCache.getResolvableNamesInDirectory(rootPath);
 
         const isPotentialMatch = (name: string): boolean => {
-            return cachedDir.resolvableNames.has(name);
+            return resolvableNames.has(name);
         };
 
         if (moduleDescriptor.nameParts.length > 0) {
@@ -1357,9 +1260,7 @@ export class ImportResolver {
     }
 
     private _invalidateFileSystemCache() {
-        this._cachedEntriesForPath.clear();
-        this._cachedFilesForPath.clear();
-        this._cachedDirExistenceForRoot.clear();
+        this._fileSystemCache.invalidateCache();
     }
 
     private _resolveAbsoluteImport(
@@ -1740,7 +1641,10 @@ export class ImportResolver {
         // If a library is fully py.typed, then we have found the best match,
         // unless the execution environment is typeshed itself, in which case
         // we don't want to favor py.typed libraries. Use the typeshed lookup below.
-        if (execEnv.root !== this._getTypeshedRoot(this._configOptions.typeshedPath, importLogger)) {
+        if (
+            execEnv.root !==
+            this._getTypeshedInfoProvider().getTypeshedRoot(this._configOptions.typeshedPath, importLogger)
+        ) {
             if (bestResultSoFar?.pyTypedInfo && !bestResultSoFar.isPartlyResolved) {
                 return bestResultSoFar;
             }
@@ -1897,7 +1801,7 @@ export class ImportResolver {
             } path`
         );
 
-        let typeshedPaths: Uri[] | undefined;
+        let typeshedPaths: readonly Uri[] | undefined;
         if (isStdLib) {
             const path = this._getStdlibTypeshedPath(
                 this._configOptions.typeshedPath,
@@ -1952,7 +1856,7 @@ export class ImportResolver {
 
         if (stdlibRoot) {
             const readDir = (root: Uri, prefix: string | undefined) => {
-                this.readdirEntriesCached(root).entries.forEach((entry) => {
+                this._fileSystemCache.readdirEntriesSync(root).forEach((entry) => {
                     if (entry.isDirectory()) {
                         const dirRoot = root.combinePaths(entry.name);
                         readDir(dirRoot, prefix ? `${prefix}.${entry.name}` : entry.name);
@@ -1985,46 +1889,6 @@ export class ImportResolver {
     // the pypi-registered name of the package and an inner directory contains
     // the name of the package as it is referenced by import statements. These
     // don't always match.
-    private _buildTypeshedThirdPartyPackageMap(thirdPartyDir: Uri | undefined) {
-        this._cachedTypeshedThirdPartyPackagePaths = new Map<string, Uri[]>();
-
-        if (thirdPartyDir) {
-            this.readdirEntriesCached(thirdPartyDir).entries.forEach((outerEntry) => {
-                if (outerEntry.isDirectory()) {
-                    const innerDirPath = thirdPartyDir.combinePaths(outerEntry.name);
-
-                    this.readdirEntriesCached(innerDirPath).entries.forEach((innerEntry) => {
-                        if (innerEntry.name === '@python2') {
-                            return;
-                        }
-
-                        if (innerEntry.isDirectory()) {
-                            const pathList = this._cachedTypeshedThirdPartyPackagePaths!.get(innerEntry.name);
-                            if (pathList) {
-                                pathList.push(innerDirPath);
-                            } else {
-                                this._cachedTypeshedThirdPartyPackagePaths!.set(innerEntry.name, [innerDirPath]);
-                            }
-                        } else if (innerEntry.isFile()) {
-                            if (innerEntry.name.endsWith('.pyi')) {
-                                const strippedFileName = stripFileExtension(innerEntry.name);
-                                const pathList = this._cachedTypeshedThirdPartyPackagePaths!.get(strippedFileName);
-                                if (pathList) {
-                                    pathList.push(innerDirPath);
-                                } else {
-                                    this._cachedTypeshedThirdPartyPackagePaths!.set(strippedFileName, [innerDirPath]);
-                                }
-                            }
-                        }
-                    });
-                }
-            });
-        }
-
-        const flattenPaths = Array.from(this._cachedTypeshedThirdPartyPackagePaths.values()).flatMap((v) => v);
-        this._cachedTypeshedThirdPartyPackageRoots = Array.from(new Set(flattenPaths)).sort();
-    }
-
     private _getCompletionSuggestionsTypeshedPath(
         sourceFileUri: Uri,
         execEnv: ExecutionEnvironment,
@@ -2032,7 +1896,8 @@ export class ImportResolver {
         isStdLib: boolean,
         suggestions: Map<string, Uri>
     ) {
-        let typeshedPaths: Uri[] | undefined;
+        let typeshedPaths: readonly Uri[] | undefined;
+        let typeshedPathEx: Uri | undefined;
         if (isStdLib) {
             const path = this._getStdlibTypeshedPath(
                 this._configOptions.typeshedPath,
@@ -2051,18 +1916,14 @@ export class ImportResolver {
                 /* includeMatchOnly */ false
             );
 
-            const typeshedPathEx = this.getTypeshedPathEx(execEnv);
-            if (typeshedPathEx) {
-                typeshedPaths = typeshedPaths ?? [];
-                typeshedPaths.push(typeshedPathEx);
-            }
+            typeshedPathEx = this.getTypeshedPathEx(execEnv);
         }
 
-        if (!typeshedPaths) {
+        if (!typeshedPaths && !typeshedPathEx) {
             return;
         }
 
-        typeshedPaths.forEach((typeshedPath) => {
+        (typeshedPaths ?? []).concat(typeshedPathEx ?? []).forEach((typeshedPath) => {
             if (this.dirExistsCached(typeshedPath)) {
                 this._getCompletionSuggestionsAbsolute(
                     sourceFileUri,
@@ -2085,7 +1946,11 @@ export class ImportResolver {
         importLogger?: ImportLogger,
         moduleDescriptor?: ImportedModuleDescriptor
     ) {
-        const subdirectory = this._getTypeshedSubdirectory(/* isStdLib */ true, customTypeshedPath, importLogger);
+        const subdirectory = this._getTypeshedInfoProvider().getTypeshedSubdirectory(
+            /* isStdLib */ true,
+            customTypeshedPath,
+            importLogger
+        );
         if (
             subdirectory &&
             moduleDescriptor &&
@@ -2104,7 +1969,11 @@ export class ImportResolver {
     }
 
     private _getThirdPartyTypeshedPath(customTypeshedPath: Uri | undefined, importLogger?: ImportLogger) {
-        return this._getTypeshedSubdirectory(/* isStdLib */ false, customTypeshedPath, importLogger);
+        return this._getTypeshedInfoProvider().getTypeshedSubdirectory(
+            /* isStdLib */ false,
+            customTypeshedPath,
+            importLogger
+        );
     }
 
     private _isStdlibTypeshedStubValidForVersion(
@@ -2114,18 +1983,13 @@ export class ImportResolver {
         pythonPlatform: string | undefined,
         importLogger?: ImportLogger
     ) {
-        if (!this._cachedTypeshedStdLibModuleVersionInfo) {
-            this._cachedTypeshedStdLibModuleVersionInfo = this._readTypeshedStdLibVersions(
-                customTypeshedPath,
-                importLogger
-            );
-        }
+        const versions = this._getTypeshedInfoProvider().getStdLibModuleVersionInfo(customTypeshedPath, importLogger);
 
         // Loop through the name parts to make sure the module and submodules
         // referenced in the import statement are valid for this version of Python.
         for (let namePartCount = 1; namePartCount <= moduleDescriptor.nameParts.length; namePartCount++) {
             const namePartsToConsider = moduleDescriptor.nameParts.slice(0, namePartCount);
-            const versionInfo = this._cachedTypeshedStdLibModuleVersionInfo.get(namePartsToConsider.join('.'));
+            const versionInfo = versions.get(namePartsToConsider.join('.'));
 
             if (versionInfo) {
                 if (PythonVersion.isLessThan(pythonVersion, versionInfo.min)) {
@@ -2157,199 +2021,38 @@ export class ImportResolver {
         return true;
     }
 
-    private _readTypeshedStdLibVersions(
-        customTypeshedPath: Uri | undefined,
-        importLogger?: ImportLogger
-    ): Map<string, SupportedVersionInfo> {
-        const versionRangeMap = new Map<string, SupportedVersionInfo>();
-
-        // Read the VERSIONS file from typeshed.
-        const typeshedStdLibPath = this._getTypeshedSubdirectory(/* isStdLib */ true, customTypeshedPath, importLogger);
-
-        if (typeshedStdLibPath) {
-            const versionsFilePath = typeshedStdLibPath.combinePaths('VERSIONS');
-            try {
-                const fileStats = this.fileSystem.statSync(versionsFilePath);
-                if (fileStats.size > 0 && fileStats.size < 256 * 1024) {
-                    const fileContents = this.fileSystem.readFileSync(versionsFilePath, 'utf8');
-                    fileContents.split(/\r?\n/).forEach((line) => {
-                        const commentSplit = line.split('#');
-
-                        // Platform-specific information can be specified after a semicolon.
-                        const semicolonSplit = commentSplit[0].split(';').map((s) => s.trim());
-
-                        // Version information is found after a colon.
-                        const colonSplit = semicolonSplit[0].split(':');
-                        if (colonSplit.length !== 2) {
-                            return;
-                        }
-
-                        const versionSplit = colonSplit[1].split('-');
-                        if (versionSplit.length > 2) {
-                            return;
-                        }
-
-                        const moduleName = colonSplit[0].trim();
-                        if (!moduleName) {
-                            return;
-                        }
-
-                        let minVersionString = versionSplit[0].trim();
-                        if (minVersionString.endsWith('+')) {
-                            // If the version ends in "+", strip it off.
-                            minVersionString = minVersionString.substr(0, minVersionString.length - 1);
-                        }
-                        let minVersion = PythonVersion.fromString(minVersionString);
-                        if (!minVersion) {
-                            minVersion = pythonVersion3_0;
-                        }
-
-                        let maxVersion: PythonVersion | undefined;
-                        if (versionSplit.length > 1) {
-                            maxVersion = PythonVersion.fromString(versionSplit[1].trim());
-                        }
-
-                        // A semicolon can be followed by a semicolon-delimited list of other
-                        // exclusions. The "platform" exclusion is a comma delimited list platforms
-                        // that are supported or not supported.
-                        let supportedPlatforms: string[] | undefined;
-                        let unsupportedPlatforms: string[] | undefined;
-                        const platformsHeader = 'platforms=';
-                        let platformExclusions = semicolonSplit.slice(1).find((s) => s.startsWith(platformsHeader));
-
-                        if (platformExclusions) {
-                            platformExclusions = platformExclusions.trim().substring(platformsHeader.length);
-                            const commaSplit = platformExclusions.split(',');
-                            for (let platform of commaSplit) {
-                                platform = platform.trim();
-                                let isUnsupported = false;
-
-                                // Remove the '!' from the start if it's an exclusion.
-                                if (platform.startsWith('!')) {
-                                    isUnsupported = true;
-                                    platform = platform.substring(1);
-                                }
-
-                                if (isUnsupported) {
-                                    unsupportedPlatforms = unsupportedPlatforms ?? [];
-                                    unsupportedPlatforms.push(platform);
-                                } else {
-                                    supportedPlatforms = supportedPlatforms ?? [];
-                                    supportedPlatforms.push(platform);
-                                }
-                            }
-                        }
-
-                        versionRangeMap.set(moduleName, {
-                            min: minVersion,
-                            max: maxVersion,
-                            supportedPlatforms,
-                            unsupportedPlatforms,
-                        });
-                    });
-                } else {
-                    importLogger?.log(`Typeshed stdlib VERSIONS file is unexpectedly large`);
-                }
-            } catch (e: any) {
-                importLogger?.log(`Could not read typeshed stdlib VERSIONS file: '${JSON.stringify(e)}'`);
-            }
-        }
-
-        return versionRangeMap;
-    }
-
     private _getThirdPartyTypeshedPackagePaths(
         moduleDescriptor: ImportedModuleDescriptor,
         importLogger?: ImportLogger,
         includeMatchOnly = true
-    ): Uri[] | undefined {
-        const typeshedPath = this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath, importLogger);
-
-        if (!this._cachedTypeshedThirdPartyPackagePaths) {
-            this._buildTypeshedThirdPartyPackageMap(typeshedPath);
-        }
+    ): readonly Uri[] | undefined {
+        const [packagePaths] = this._getTypeshedInfoProvider().getThirdPartyPackageMap(
+            this._configOptions.typeshedPath,
+            importLogger
+        );
 
         const firstNamePart = moduleDescriptor.nameParts.length > 0 ? moduleDescriptor.nameParts[0] : '';
         if (includeMatchOnly) {
-            return this._cachedTypeshedThirdPartyPackagePaths!.get(firstNamePart);
+            return packagePaths.get(firstNamePart);
         }
 
         if (firstNamePart) {
-            return flatten(
-                getMapValues(this._cachedTypeshedThirdPartyPackagePaths!, (k) => k.startsWith(firstNamePart))
-            );
+            return flatten(getMapValues(packagePaths, (k) => k.startsWith(firstNamePart)));
         }
 
         return [];
     }
 
     private _getThirdPartyTypeshedPackageRoots(importLogger?: ImportLogger) {
-        const typeshedPath = this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath, importLogger);
-
-        if (!this._cachedTypeshedThirdPartyPackagePaths) {
-            this._buildTypeshedThirdPartyPackageMap(typeshedPath);
-        }
-
-        return this._cachedTypeshedThirdPartyPackageRoots!;
+        const [, packageRoots] = this._getTypeshedInfoProvider().getThirdPartyPackageMap(
+            this._configOptions.typeshedPath,
+            importLogger
+        );
+        return packageRoots;
     }
 
-    private _getTypeshedRoot(customTypeshedPath: Uri | undefined, importLogger?: ImportLogger) {
-        if (this._cachedTypeshedRoot === undefined) {
-            let typeshedPath = undefined;
-
-            // Did the user specify a typeshed path? If not, we'll look in the
-            // python search paths, then in the typeshed-fallback directory.
-            if (customTypeshedPath) {
-                if (this.dirExistsCached(customTypeshedPath)) {
-                    typeshedPath = customTypeshedPath;
-                }
-            }
-
-            // If typeshed directory wasn't found in other locations, use the fallback.
-            if (!typeshedPath) {
-                typeshedPath = PythonPathUtils.getTypeShedFallbackPath(this.fileSystem) ?? Uri.empty();
-            }
-
-            this._cachedTypeshedRoot = typeshedPath;
-        }
-
-        return this._cachedTypeshedRoot.isEmpty() ? undefined : this._cachedTypeshedRoot;
-    }
-
-    private _getTypeshedSubdirectory(
-        isStdLib: boolean,
-        customTypeshedPath: Uri | undefined,
-        importLogger?: ImportLogger
-    ) {
-        // See if we have it cached.
-        if (isStdLib) {
-            if (this._cachedTypeshedStdLibPath !== undefined) {
-                return this._cachedTypeshedStdLibPath;
-            }
-        } else {
-            if (this._cachedTypeshedThirdPartyPath !== undefined) {
-                return this._cachedTypeshedThirdPartyPath;
-            }
-        }
-
-        let typeshedPath = this._getTypeshedRoot(customTypeshedPath, importLogger);
-        if (typeshedPath === undefined) {
-            return undefined;
-        }
-
-        typeshedPath = PythonPathUtils.getTypeshedSubdirectory(typeshedPath, isStdLib);
-        if (!this.dirExistsCached(typeshedPath)) {
-            return undefined;
-        }
-
-        // Cache the results.
-        if (isStdLib) {
-            this._cachedTypeshedStdLibPath = typeshedPath;
-        } else {
-            this._cachedTypeshedThirdPartyPath = typeshedPath;
-        }
-
-        return typeshedPath;
+    private _getTypeshedInfoProvider(): TypeshedInfoProvider {
+        return this._typeshedInfoProvider;
     }
 
     private _resolveRelativeImport(
@@ -2432,35 +2135,6 @@ export class ImportResolver {
         this._getCompletionSuggestionsAbsolute(sourceFileUri, execEnv, directory, moduleDescriptor, suggestions);
     }
 
-    private _getFilesInDirectory(dirPath: Uri): Uri[] {
-        const cachedValue = this._cachedFilesForPath.get(dirPath.key);
-        if (cachedValue) {
-            return cachedValue;
-        }
-
-        let newCacheValue: Uri[] = [];
-        try {
-            const entriesInDir = this.readdirEntriesCached(dirPath);
-            const filesInDir: Dirent<string>[] = [];
-
-            // Add any files or symbolic links that point to files.
-            entriesInDir.entries.forEach((f) => {
-                if (f.isFile()) {
-                    filesInDir.push(f);
-                } else if (f.isSymbolicLink() && tryStat(this.fileSystem, dirPath.combinePaths(f.name))?.isFile()) {
-                    filesInDir.push(f);
-                }
-            });
-
-            newCacheValue = filesInDir.map((f) => dirPath.combinePaths(f.name));
-        } catch {
-            newCacheValue = [];
-        }
-
-        this._cachedFilesForPath.set(dirPath.key, newCacheValue);
-        return newCacheValue;
-    }
-
     private _getCompletionSuggestionsAbsolute(
         sourceFileUri: Uri,
         execEnv: ExecutionEnvironment,
@@ -2535,7 +2209,7 @@ export class ImportResolver {
     ) {
         // Enumerate all of the files and directories in the path, expanding links.
         const entries = getFileSystemEntriesFromDirEntries(
-            this.readdirEntriesCached(currentPath).entries.values(),
+            this._fileSystemCache.readdirEntriesSync(currentPath).values(),
             this.fileSystem,
             currentPath
         );
@@ -2685,7 +2359,7 @@ export class ImportResolver {
         let isNativeLib = false;
 
         if (!execEnv.skipNativeLibraries && this.dirExistsCached(fileDirectory)) {
-            const filesInDir = this._getFilesInDirectory(fileDirectory);
+            const filesInDir = this._fileSystemCache.getFilesInDirectory(fileDirectory);
             const dirName = dirPath.fileName;
             const nativeLibPath = filesInDir.find((f) => this._isNativeModuleFileName(dirName, f));
 

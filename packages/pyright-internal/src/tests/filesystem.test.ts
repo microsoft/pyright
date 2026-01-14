@@ -205,6 +205,56 @@ test('createFromFileSystemWithMetadata', () => {
     assert(fs.existsSync(UriEx.file(factory.srcFolder)));
 });
 
+test('Mounted directory traversal is lazy for statSync', () => {
+    const cwd = UriEx.file(normalizeSlashes('/'));
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd: cwd.getFilePath() });
+
+    const calls = { readdirSync: 0, statSync: 0, readFileSync: 0 };
+    const sourceRoot = normalizeSlashes('/src');
+    const entries = ['a.pyi', 'b.pyi'];
+
+    const resolver: vfs.FileSystemResolver = {
+        readdirSync: (path) => {
+            calls.readdirSync++;
+            assert.equal(path, sourceRoot);
+            return [
+                { name: 'a.pyi', kind: 'file' as const },
+                { name: 'b.pyi', kind: 'file' as const },
+            ];
+        },
+        statSync: (path) => {
+            calls.statSync++;
+            if (path === sourceRoot) {
+                return { mode: vfs.S_IFDIR, size: 0 };
+            }
+            if (path === normalizeSlashes('/src/a.pyi') || path === normalizeSlashes('/src/b.pyi')) {
+                return { mode: vfs.S_IFREG, size: 1 };
+            }
+            const err: NodeJS.ErrnoException = new Error(`ENOENT: ${path}`);
+            err.code = 'ENOENT';
+            throw err;
+        },
+        readFileSync: (_path) => {
+            calls.readFileSync++;
+            return Buffer.from('x');
+        },
+    };
+
+    fs.mountSync(sourceRoot, normalizeSlashes('/mnt'), resolver);
+
+    // Path traversal to a single child should not force a full directory enumeration.
+    const stats = fs.statSync(UriEx.file(normalizeSlashes('/mnt/a.pyi')));
+    assert(stats.isFile());
+    assert.equal(calls.readdirSync, 0);
+    assert.equal(calls.statSync, 1);
+
+    // Full enumeration should still work when explicitly requested.
+    const listed = fs.readdirSync(UriEx.file(normalizeSlashes('/mnt')));
+    assert.deepEqual(listed.sort(), entries.slice().sort());
+    assert.equal(calls.readdirSync, 1);
+    assert.equal(calls.statSync, 1);
+});
+
 function countFile(files: vfs.FileSet): number {
     let count = 0;
     for (const value of Object.values(flatten(files))) {

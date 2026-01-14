@@ -25,7 +25,7 @@ export interface PythonPathResult {
 export const stdLibFolderName = 'stdlib';
 export const thirdPartyFolderName = 'stubs';
 
-export function getTypeShedFallbackPath(fs: FileSystem) {
+export function getTypeShedFallbackPath(fs: Pick<FileSystem, 'getModulePath' | 'existsSync' | 'realCasePath'>) {
     const moduleDirectory = fs.getModulePath();
     if (!moduleDirectory || moduleDirectory.isEmpty()) {
         return undefined;

@@ -188,9 +188,12 @@ function canReuseCache(host: TestHost, mountPaths: Map<string, string>): boolean
 
 function createResolver(host: TestHost): FileSystemResolver {
     return {
-        readdirSync(path: string): string[] {
+        readdirSync(path: string) {
             const { files, directories } = host.getAccessibleFileSystemEntries(path);
-            return directories.concat(files);
+            return [
+                ...directories.map((name) => ({ name, kind: 'directory' as const })),
+                ...files.map((entry) => ({ name: entry.name, kind: 'file' as const, size: entry.size })),
+            ];
         },
         statSync(path: string): { mode: number; size: number } {
             if (host.directoryExists(path)) {
