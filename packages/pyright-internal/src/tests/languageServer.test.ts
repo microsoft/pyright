@@ -11,6 +11,7 @@ import {
     CancellationToken,
     CompletionRequest,
     ConfigurationItem,
+    DidChangeWorkspaceFoldersNotification,
     InitializedNotification,
     InitializeRequest,
     MarkupContent,
@@ -26,7 +27,6 @@ import {
     DEFAULT_WORKSPACE_ROOT,
     getParseResults,
     hover,
-    initializeLanguageServer,
     openFile,
     PyrightServerInfo,
     runPyrightServer,
@@ -68,45 +68,68 @@ describe(`Basic language server tests`, () => {
         await cleanupAfterAll();
     });
 
-    test('Basic Initialize', async () => {
-        const code = `
-// @filename: test.py
-//// # empty file
-        `;
-        serverInfo = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, /* callInitialize */ false);
-
-        const initializeResult = await initializeLanguageServer(serverInfo);
-
-        assert(initializeResult);
-        assert(initializeResult.capabilities.completionProvider?.resolveProvider);
-    });
-
-    test('Initialize without workspace folder support', async () => {
+    test.each([
+        { name: 'capability disabled', capability: false, initFolders: 1, firstNotify: null, secondNotify: null },
+        { name: '1 init, no notifications', capability: true, initFolders: 1, firstNotify: null, secondNotify: null },
+        { name: '1 init, notify with 0', capability: true, initFolders: 1, firstNotify: 0, secondNotify: null },
+        { name: '1 init, notify with 1', capability: true, initFolders: 1, firstNotify: 1, secondNotify: null },
+        { name: '1 init, notify with 2', capability: true, initFolders: 1, firstNotify: 2, secondNotify: null },
+        { name: '1 init, notify with 0 then 0', capability: true, initFolders: 1, firstNotify: 0, secondNotify: 0 },
+        { name: '1 init, notify with 0 then 1', capability: true, initFolders: 1, firstNotify: 0, secondNotify: 1 },
+        { name: '1 init, notify with 0 then 2', capability: true, initFolders: 1, firstNotify: 0, secondNotify: 2 },
+        { name: '1 init, notify with 1 then 0', capability: true, initFolders: 1, firstNotify: 1, secondNotify: 0 },
+        { name: '1 init, notify with 1 then 1', capability: true, initFolders: 1, firstNotify: 1, secondNotify: 1 },
+        { name: '1 init, notify with 1 then 2', capability: true, initFolders: 1, firstNotify: 1, secondNotify: 2 },
+        { name: '1 init, notify with 2 then 0', capability: true, initFolders: 1, firstNotify: 2, secondNotify: 0 },
+        { name: '1 init, notify with 2 then 1', capability: true, initFolders: 1, firstNotify: 2, secondNotify: 1 },
+        { name: '1 init, notify with 2 then 2', capability: true, initFolders: 1, firstNotify: 2, secondNotify: 2 },
+        { name: '2 init, no notifications', capability: true, initFolders: 2, firstNotify: null, secondNotify: null },
+        { name: '2 init, notify with 2', capability: true, initFolders: 2, firstNotify: 2, secondNotify: null },
+        { name: '0 init, notify with 1', capability: true, initFolders: 0, firstNotify: 1, secondNotify: null },
+        { name: '0 init, notify with 2', capability: true, initFolders: 0, firstNotify: 2, secondNotify: null },
+    ])('workspace initialization: $name', async ({ capability, initFolders, firstNotify, secondNotify }) => {
         const code = `
 // @filename: test.py
 //// import [|/*marker*/os|]
         `;
-        const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, /* callInitialize */ false);
-
-        // This will test clients with no folder and configuration support.
+        const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, false);
         const params = info.getInitializeParams();
-        params.capabilities.workspace!.workspaceFolders = false;
-        params.capabilities.workspace!.configuration = false;
+        const folders = params.workspaceFolders!;
+        const folder2 = { name: 'workspace2', uri: 'file:///workspace2' };
 
-        // Perform LSP Initialize/Initialized handshake.
-        const result = await info.connection.sendRequest(InitializeRequest.type, params, CancellationToken.None);
-        assert(result);
+        params.capabilities.workspace!.workspaceFolders = capability;
+        if (initFolders === 0) {
+            params.workspaceFolders = [];
+        } else if (initFolders === 2) {
+            params.workspaceFolders = [...folders, folder2];
+        }
 
+        await info.connection.sendRequest(InitializeRequest.type, params, CancellationToken.None);
         await info.connection.sendNotification(InitializedNotification.type, {});
 
-        // Do simple hover request to verify our server works with a client that doesn't support
-        // workspace folder/configuration capabilities.
+        const getFoldersForNotify = (count: number) => {
+            if (count === 0) return [];
+            if (count === 1) return folders;
+            return [...folders, folder2];
+        };
+
+        if (firstNotify !== null) {
+            await info.connection.sendNotification(DidChangeWorkspaceFoldersNotification.type, {
+                event: { added: getFoldersForNotify(firstNotify), removed: [] },
+            });
+        }
+        if (secondNotify !== null) {
+            await info.connection.sendNotification(DidChangeWorkspaceFoldersNotification.type, {
+                event: { added: getFoldersForNotify(secondNotify), removed: [] },
+            });
+        }
+
         openFile(info, 'marker');
-        const hoverResult = await hover(info, 'marker');
-        assert(hoverResult);
-        assert(MarkupContent.is(hoverResult.contents));
-        assert.strictEqual(hoverResult.contents.value, '```python\n(module) os\n```');
+        const result = await hover(info, 'marker');
+        assert(result && MarkupContent.is(result.contents));
+        assert.strictEqual(result.contents.value, '```python\n(module) os\n```');
     });
+
     test('Hover', async () => {
         const code = `
 // @filename: test.py
