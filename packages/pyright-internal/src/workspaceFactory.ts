@@ -151,7 +151,11 @@ export class WorkspaceFactory implements IWorkspaceFactory {
         params.added.forEach((workspaceInfo) => {
             const uri = Uri.parse(workspaceInfo.uri, this._serviceProvider);
 
-            // Add the new workspace.
+            // Skip if workspace already exists (e.g., created during initialize)
+            if (this.getNonDefaultWorkspaces().some((w) => w.rootUri.equals(uri))) {
+                return;
+            }
+
             this._add(uri, workspaceInfo.name, [WellKnownWorkspaceKinds.Regular]);
         });
 
