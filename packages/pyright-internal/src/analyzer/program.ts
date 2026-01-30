@@ -360,12 +360,21 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
+        // Detect py.typed status if not explicitly provided. This ensures that
+        // files from py.typed packages are correctly marked even when added
+        // directly to check paths (e.g., via command line).
+        let effectiveIsInPyTypedPackage = isInPyTypedPackage;
+        if (!isInPyTypedPackage) {
+            const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
+            effectiveIsInPyTypedPackage = moduleImportInfo.isThirdPartyPyTypedPresent;
+        }
+
         const sourceFile = this._sourceFileFactory.createSourceFile(
             this.serviceProvider,
             fileUri,
             (uri) => this._getModuleName(uri),
             isThirdPartyImport,
-            isInPyTypedPackage,
+            effectiveIsInPyTypedPackage,
             this._editModeTracker,
             this._console,
             this._logTracker
@@ -374,7 +383,7 @@ export class Program {
             sourceFile,
             sourceFile.isTypingStubFile() || sourceFile.isTypeshedStubFile() || sourceFile.isBuiltInStubFile(),
             isThirdPartyImport,
-            isInPyTypedPackage,
+            effectiveIsInPyTypedPackage,
             this._editModeTracker,
             {
                 isTracked: true,
