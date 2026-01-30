@@ -1,0 +1,4 @@
+{
+    "include": ["subdir"],
+    "reportPrivateImportUsage": false
+}
