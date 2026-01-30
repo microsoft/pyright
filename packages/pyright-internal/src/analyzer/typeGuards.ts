@@ -2461,17 +2461,37 @@ function narrowTypeForDiscriminatedFieldNoneComparison(
         }
 
         if (memberInfo && memberInfo.isTypeDeclared) {
+            // Check the declared type before narrowing, since the member type
+            // below will be concretized and lose descriptor identity.
+            const declaredType = evaluator.getDeclaredTypeOfSymbol(memberInfo.symbol)?.type;
+            if (declaredType) {
+                let isDescriptorOrProperty = false;
+                doForEachSubtype(declaredType, (declaredSubtype) => {
+                    if (isProperty(declaredSubtype)) {
+                        isDescriptorOrProperty = true;
+                    } else if (isMaybeDescriptorInstance(declaredSubtype)) {
+                        isDescriptorOrProperty = true;
+                    } else if (isInstantiableClass(declaredSubtype)) {
+                        // Type annotations use instantiable form; check for __get__ since
+                        // isMaybeDescriptorInstance requires instance form.
+                        const getMember = lookUpClassMember(declaredSubtype, '__get__');
+                        if (getMember) {
+                            isDescriptorOrProperty = true;
+                        }
+                    }
+                });
+
+                if (isDescriptorOrProperty) {
+                    return subtype;
+                }
+            }
+
             const memberType = evaluator.makeTopLevelTypeVarsConcrete(evaluator.getTypeOfMember(memberInfo));
             let canNarrow = true;
 
             if (isPositiveTest) {
                 doForEachSubtype(memberType, (memberSubtype) => {
                     memberSubtype = evaluator.makeTopLevelTypeVarsConcrete(memberSubtype);
-
-                    // Don't attempt to narrow if the member is a descriptor or property.
-                    if (isProperty(memberSubtype) || isMaybeDescriptorInstance(memberSubtype)) {
-                        canNarrow = false;
-                    }
 
                     if (isAnyOrUnknown(memberSubtype) || isNoneInstance(memberSubtype) || isNever(memberSubtype)) {
                         canNarrow = false;
