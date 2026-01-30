@@ -50,6 +50,9 @@ export interface ImportResult {
     // directory resolved.
     isInitFilePresent: boolean;
 
+    // True if the import was shadowed by a regular package.
+    isShadowed?: boolean;
+
     // Did it resolve to a stub within a stub package?
     isStubPackage: boolean;
 
