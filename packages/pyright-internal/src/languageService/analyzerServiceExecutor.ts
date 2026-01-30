@@ -154,6 +154,8 @@ export function getEffectiveCommandLineOptions(
 
     commandLineOptions.configSettings.autoSearchPaths = serverSettings.autoSearchPaths;
     commandLineOptions.configSettings.extraPaths = serverSettings.extraPaths?.map((e) => e.getFilePath()) ?? [];
+    commandLineOptions.configSettings.namespaceOverridePaths =
+        serverSettings.namespaceOverridePaths?.map((e) => e.getFilePath()) ?? [];
     commandLineOptions.configSettings.diagnosticSeverityOverrides = serverSettings.diagnosticSeverityOverrides;
     commandLineOptions.configSettings.diagnosticBooleanOverrides = serverSettings.diagnosticBooleanOverrides;
 
