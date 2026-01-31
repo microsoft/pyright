@@ -34,6 +34,7 @@ import { Diagnostic, DiagnosticCategory, compareDiagnostics } from './common/dia
 import { FileDiagnostics } from './common/diagnosticSink';
 import { FullAccessHost } from './common/fullAccessHost';
 import { combinePaths, normalizePath } from './common/pathUtils';
+import { PersistentCacheFileSystem } from './common/persistentCache';
 import { PythonVersion } from './common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceKeys } from './common/serviceKeys';
@@ -390,9 +391,27 @@ async function processArgs(): Promise<ExitStatus> {
     // If using outputjson, redirect all console output to stderr so it doesn't mess
     // up the JSON output, which goes to stdout.
     const output = args.outputjson ? new StderrConsole(logLevel) : new StandardConsole(logLevel);
-    const fileSystem = new PyrightFileSystem(
-        createFromRealFileSystem(tempFile, output, new ChokidarFileWatcherProvider(output))
-    );
+    
+    // Check for cache environment variables
+    const cacheEnabled = process.env.PYRIGHT_CACHE !== 'false';
+    const cacheDir = process.env.PYRIGHT_CACHE_DIR || '.pyright_cache';
+    
+    // Create persistent cache filesystem or regular filesystem
+    let baseFileSystem;
+    if (cacheEnabled && !watch) { // Disable cache in watch mode for now
+        const caseSensitiveDetector = tempFile;
+        baseFileSystem = new PersistentCacheFileSystem(
+            caseSensitiveDetector,
+            output,
+            new ChokidarFileWatcherProvider(output),
+            cacheDir,
+            true
+        );
+    } else {
+        baseFileSystem = createFromRealFileSystem(tempFile, output, new ChokidarFileWatcherProvider(output));
+    }
+    
+    const fileSystem = new PyrightFileSystem(baseFileSystem);
 
     const serviceProvider = createServiceProvider(fileSystem, output, tempFile);
 
@@ -537,6 +556,15 @@ async function runSingleThreaded(
         }
 
         if (!watch) {
+            // Save cache metadata and stats before exit
+            if (baseFileSystem instanceof PersistentCacheFileSystem) {
+                baseFileSystem.saveMetadata();
+                const stats = baseFileSystem.getStats();
+                if (cacheEnabled) {
+                    output.log(`\n[Cache Stats] Hits: ${stats.cacheHits}, Misses: ${stats.cacheMisses}, Hit Rate: ${(stats.hitRate * 100).toFixed(1)}%`);
+                }
+            }
+            
             exitStatus.resolve(errorCount > 0 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors);
             return;
         } else if (!args.outputjson) {
@@ -665,6 +693,9 @@ async function runMultiThreaded(
                         output.info(`Completed in ${elapsedTime}sec`);
                     }
 
+                    // Save cache metadata and stats before exit (for multi-threaded mode)
+                    // Note: Multi-threaded mode currently doesn't use persistent cache, but this is here for completeness
+                    
                     exitStatus.resolve(errorCount > 0 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors);
                 }
             }

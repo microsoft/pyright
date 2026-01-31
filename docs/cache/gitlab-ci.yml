@@ -1,0 +1,54 @@
+typecheck:
+  stage: test
+  image: node:18
+
+  variables:
+    PYRIGHT_CACHE: 'true'
+    PYRIGHT_CACHE_DIR: '.pyright_cache'
+    PYTHON_VERSION: '3.11'
+
+  # Configure GitLab CI cache
+  cache:
+    key:
+      files:
+        - pyrightconfig.json
+        - pyproject.toml
+        - package-lock.json
+      prefix: pyright-v1-$CI_COMMIT_REF_SLUG
+    paths:
+      - .pyright_cache/
+    policy: pull-push
+
+  before_script:
+    # Install Python
+    - apt-get update && apt-get install -y python3 python3-pip
+    
+    # Install dependencies
+    - npm ci
+    - pip3 install -r requirements.txt
+    
+    # Validate cache if it exists
+    - |
+      if [ -d ".pyright_cache" ]; then
+        npm run pyright:cache:validate || npm run pyright:cache:clear
+      fi
+
+  script:
+    # Run pyright with caching
+    - npx pyright
+    
+    # Show cache statistics
+    - npm run pyright:cache:stats
+
+  after_script:
+    # Archive cache statistics as artifact
+    - |
+      if [ -f .pyright_cache/stats.json ]; then
+        echo "Cache statistics saved"
+      fi
+
+  artifacts:
+    when: always
+    paths:
+      - .pyright_cache/stats.json
+    expire_in: 1 week

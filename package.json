@@ -18,7 +18,11 @@
         "fix:eslint": "eslint --fix .",
         "check:prettier": "prettier -c .",
         "fix:prettier": "prettier --write .",
-        "typecheck": "npx lerna exec --stream --no-bail --ignore=pyright -- tsc --noEmit"
+        "typecheck": "npx lerna exec --stream --no-bail --ignore=pyright -- tsc --noEmit",
+        "pyright:cache:stats": "node scripts/pyright-cache-manager.js stats",
+        "pyright:cache:clear": "node scripts/pyright-cache-manager.js clear",
+        "pyright:cache:validate": "node scripts/pyright-cache-manager.js validate",
+        "pyright:cache:prune": "node scripts/pyright-cache-manager.js prune"
     },
     "devDependencies": {
         "@types/glob": "^8.1.0",

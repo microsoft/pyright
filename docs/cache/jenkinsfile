@@ -1,0 +1,83 @@
+pipeline {
+    agent any
+
+    environment {
+        PYRIGHT_CACHE = 'true'
+        PYRIGHT_CACHE_DIR = '.pyright_cache'
+        PYTHON_VERSION = '3.11'
+    }
+
+    stages {
+        stage('Setup') {
+            steps {
+                sh 'npm install'
+                sh 'pip install -r requirements.txt'
+            }
+        }
+
+        stage('Generate Cache Key') {
+            steps {
+                script {
+                    env.CACHE_KEY = sh(
+                        script: '''
+                            PYTHON_HASH=$(find . -name "*.py" -not -path "*/\\.*" -type f -exec sha256sum {} \\; | sort | sha256sum | cut -d' ' -f1)
+                            CONFIG_HASH=$(cat pyrightconfig.json 2>/dev/null | sha256sum | cut -d' ' -f1 || echo "none")
+                            echo "pyright-v1-${CONFIG_HASH:0:8}-${PYTHON_HASH:0:8}"
+                        ''',
+                        returnStdout: true
+                    ).trim()
+                    echo "Cache key: ${env.CACHE_KEY}"
+                }
+            }
+        }
+
+        stage('Restore Cache') {
+            steps {
+                script {
+                    // Using S3 or network storage for cache
+                    // Adjust this based on your Jenkins setup
+                    sh """
+                        aws s3 sync s3://your-cache-bucket/${env.CACHE_KEY}/ .pyright_cache/ || true
+                    """
+                }
+            }
+        }
+
+        stage('Validate Cache') {
+            steps {
+                sh '''
+                    if [ -d ".pyright_cache" ]; then
+                        npm run pyright:cache:validate || npm run pyright:cache:clear
+                    fi
+                '''
+            }
+        }
+
+        stage('Type Check') {
+            steps {
+                sh 'npx pyright'
+            }
+        }
+
+        stage('Save Cache') {
+            steps {
+                script {
+                    sh """
+                        aws s3 sync .pyright_cache/ s3://your-cache-bucket/${env.CACHE_KEY}/
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh '''
+                if [ -f .pyright_cache/stats.json ]; then
+                    echo "Cache Statistics:"
+                    npm run pyright:cache:stats
+                fi
+            '''
+        }
+    }
+}

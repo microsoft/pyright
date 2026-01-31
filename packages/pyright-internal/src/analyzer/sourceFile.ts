@@ -20,6 +20,7 @@ import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSin
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker, getPathForLogging } from '../common/logTracker';
 import { stripFileExtension } from '../common/pathUtils';
+import { PersistentCacheFileSystem } from '../common/persistentCache';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
@@ -694,6 +695,41 @@ export class SourceFile {
                 return false;
             }
 
+            // Try to load from persistent cache first
+            const fs = this.fileSystem;
+            if (fs instanceof PersistentCacheFileSystem) {
+                const cachedData = fs.getCachedData(this._uri.getFilePath());
+
+                if (cachedData && cachedData.parserOutput && cachedData.tokenizerLines) {
+                    try {
+                        // Restore cached parse results
+                        this._writableData.parserOutput = cachedData.parserOutput;
+                        this._writableData.tokenizerLines = cachedData.tokenizerLines;
+                        this._writableData.parsedFileContents = cachedData.parsedFileContents;
+                        this._writableData.typeIgnoreLines = cachedData.typeIgnoreLines;
+                        this._writableData.typeIgnoreAll = cachedData.typeIgnoreAll;
+                        this._writableData.pyrightIgnoreLines = cachedData.pyrightIgnoreLines;
+                        this._writableData.lineCount = cachedData.lineCount;
+                        this._writableData.imports = cachedData.imports;
+                        this._writableData.builtinsImport = cachedData.builtinsImport;
+                        this._writableData.parseDiagnostics = cachedData.parseDiagnostics;
+                        this._writableData.taskListDiagnostics = cachedData.taskListDiagnostics;
+                        this._writableData.commentDiagnostics = cachedData.commentDiagnostics;
+                        this._diagnosticRuleSet = cachedData.diagnosticRuleSet;
+                        
+                        // Update version tracking
+                        this._writableData.fileContentsVersion++;
+                        this._writableData.semanticVersion++;
+
+                        logState.add('cache hit');
+                        return true;
+                    } catch (e) {
+                        // If cache restoration fails, fall through to normal parsing
+                        this._console.warn(`[PyrightCache] Failed to restore cached data for ${this._uri.getFilePath()}: ${e}`);
+                    }
+                }
+            }
+
             const diagSink = this.createDiagnosticSink();
             let fileContents = this.getOpenFileContents();
             if (fileContents === undefined) {
@@ -792,6 +828,48 @@ export class SourceFile {
                         )
                     );
                 });
+
+                // After successful parse, cache the results
+                if (fs instanceof PersistentCacheFileSystem && this._writableData.parserOutput) {
+                    try {
+                        // Extract import file paths for dependency tracking
+                        const dependencies: string[] = [];
+                        if (this._writableData.imports) {
+                            for (const imp of this._writableData.imports) {
+                                if (imp && imp.resolvedUris) {
+                                    for (const uri of imp.resolvedUris) {
+                                        if (uri && uri !== undefined) {
+                                            dependencies.push(uri.getFilePath());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        fs.setCachedData(
+                            this._uri.getFilePath(),
+                            {
+                                parserOutput: this._writableData.parserOutput,
+                                tokenizerLines: this._writableData.tokenizerLines,
+                                parsedFileContents: this._writableData.parsedFileContents,
+                                typeIgnoreLines: this._writableData.typeIgnoreLines,
+                                typeIgnoreAll: this._writableData.typeIgnoreAll,
+                                pyrightIgnoreLines: this._writableData.pyrightIgnoreLines,
+                                lineCount: this._writableData.lineCount,
+                                imports: this._writableData.imports,
+                                builtinsImport: this._writableData.builtinsImport,
+                                parseDiagnostics: this._writableData.parseDiagnostics,
+                                taskListDiagnostics: this._writableData.taskListDiagnostics,
+                                commentDiagnostics: this._writableData.commentDiagnostics,
+                                diagnosticRuleSet: this._diagnosticRuleSet,
+                            },
+                            dependencies
+                        );
+                    } catch (e) {
+                        // Ignore cache write errors
+                        this._console.warn(`[PyrightCache] Failed to write cache for ${this._uri.getFilePath()}: ${e}`);
+                    }
+                }
             } catch (e: any) {
                 const message: string =
                     (e.stack ? e.stack.toString() : undefined) ||

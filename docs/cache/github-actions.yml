@@ -1,0 +1,85 @@
+name: Pyright Type Check with Persistent Cache
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      # Generate intelligent cache key
+      - name: Generate cache key
+        id: cache-key
+        run: |
+          # Hash Python files
+          PYTHON_HASH=$(find . -name "*.py" -not -path "*/\.*" -not -path "*/venv/*" -type f -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1)
+          # Hash config
+          CONFIG_HASH=$(cat pyrightconfig.json pyproject.toml 2>/dev/null | sha256sum | cut -d' ' -f1 || echo "no-config")
+          # Create key
+          CACHE_KEY="pyright-v1-${{ runner.os }}-${CONFIG_HASH:0:8}-${PYTHON_HASH:0:8}"
+          echo "key=${CACHE_KEY}" >> $GITHUB_OUTPUT
+          echo "Cache key: ${CACHE_KEY}"
+
+      # Restore pyright cache from previous runs
+      - name: Restore pyright cache
+        id: cache-restore
+        uses: actions/cache/restore@v3
+        with:
+          path: .pyright_cache
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: |
+            pyright-v1-${{ runner.os }}-
+
+      # Validate cache if it was restored
+      - name: Validate cache
+        if: steps.cache-restore.outputs.cache-hit == 'true'
+        run: |
+          npm run pyright:cache:validate || {
+            echo "Cache validation failed, clearing cache"
+            npm run pyright:cache:clear
+          }
+
+      # Run pyright with cache enabled
+      - name: Run pyright
+        env:
+          PYRIGHT_CACHE: 'true'
+          PYRIGHT_CACHE_DIR: '.pyright_cache'
+          PYTHON_VERSION: '3.11'
+        run: npx pyright
+
+      # Save cache only on main branch to avoid cache pollution
+      - name: Save pyright cache
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: actions/cache/save@v3
+        with:
+          path: .pyright_cache
+          key: ${{ steps.cache-key.outputs.key }}
+
+      # Display cache statistics
+      - name: Display cache statistics
+        if: always()
+        run: npm run pyright:cache:stats

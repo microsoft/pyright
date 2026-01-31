@@ -1,0 +1,71 @@
+version: 2.1
+
+executors:
+  python-node:
+    docker:
+      - image: cimg/python:3.11-node
+    working_directory: ~/project
+
+jobs:
+  typecheck:
+    executor: python-node
+
+    steps:
+      - checkout
+
+      # Generate cache key
+      - run:
+          name: Generate cache key
+          command: |
+            PYTHON_HASH=$(find . -name "*.py" -not -path "*/\.*" -type f -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1)
+            CONFIG_HASH=$(cat pyrightconfig.json 2>/dev/null | sha256sum | cut -d' ' -f1 || echo "none")
+            echo "pyright-v1-${CONFIG_HASH:0:8}-${PYTHON_HASH:0:8}" > /tmp/cache-key
+            cat /tmp/cache-key
+
+      # Restore cache
+      - restore_cache:
+          keys:
+            - pyright-cache-{{ checksum "/tmp/cache-key" }}
+            - pyright-cache-
+
+      # Validate cache
+      - run:
+          name: Validate cache
+          command: |
+            if [ -d ".pyright_cache" ]; then
+              npm run pyright:cache:validate || npm run pyright:cache:clear
+            fi
+
+      # Install dependencies
+      - run:
+          name: Install dependencies
+          command: |
+            npm install
+            pip install -r requirements.txt
+
+      # Run pyright
+      - run:
+          name: Run pyright
+          environment:
+            PYRIGHT_CACHE: 'true'
+            PYRIGHT_CACHE_DIR: '.pyright_cache'
+            PYTHON_VERSION: '3.11'
+          command: npx pyright
+
+      # Save cache
+      - save_cache:
+          key: pyright-cache-{{ checksum "/tmp/cache-key" }}
+          paths:
+            - .pyright_cache
+
+      # Display cache stats
+      - run:
+          name: Display cache statistics
+          when: always
+          command: npm run pyright:cache:stats
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - typecheck

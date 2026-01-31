@@ -120,6 +120,9 @@ junit.xml
 
 .webpack_cache/
 
+# Pyright persistent cache
+.pyright_cache/
+
 # OS files
 .DS_Store
 Thumbs.db
