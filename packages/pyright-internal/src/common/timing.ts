@@ -40,9 +40,9 @@ export class TimingStat {
             return callback(...args);
         } else {
             this.isTiming = true;
-            const duration = new Duration();
+            const startTime = Date.now();
             const result = callback(...args);
-            this.totalTime += duration.getDurationInMilliseconds();
+            this.totalTime += Date.now() - startTime;
             this.isTiming = false;
 
             return result;
@@ -52,9 +52,9 @@ export class TimingStat {
     subtractFromTime(callback: () => void) {
         if (this.isTiming) {
             this.isTiming = false;
-            const duration = new Duration();
+            const startTime = Date.now();
             callback();
-            this.totalTime -= duration.getDurationInMilliseconds();
+            this.totalTime -= Date.now() - startTime;
             this.isTiming = true;
         } else {
             callback();
