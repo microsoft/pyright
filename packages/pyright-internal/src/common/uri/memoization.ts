@@ -16,15 +16,13 @@ const maxStaticCacheEntries = 256;
 export function cacheProperty() {
     return function (target: any, functionName: string, descriptor: PropertyDescriptor) {
         const originalMethod = descriptor.get;
-        descriptor.get = function (this: any, ...args: any) {
+        descriptor.get = function (this: any) {
             // Call the function once to get the result.
-            const result = originalMethod!.apply(this, args);
+            const result = originalMethod!.call(this);
 
             // Then we replace the original function with one that just returns the result.
             Object.defineProperty(this, functionName, {
-                get() {
-                    return result;
-                },
+                value: result,
             });
             return result;
         };
@@ -37,9 +35,9 @@ export function cacheProperty() {
 export function cacheMethodWithNoArgs() {
     return function (target: any, functionName: string, descriptor: PropertyDescriptor) {
         const originalMethod = descriptor.value;
-        descriptor.value = function (this: any, ...args: any) {
+        descriptor.value = function (this: any) {
             // Call the function once to get the result.
-            const result = originalMethod.apply(this, args);
+            const result = originalMethod.call(this);
 
             // Then we replace the original function with one that just returns the result.
             this[functionName] = () => {
