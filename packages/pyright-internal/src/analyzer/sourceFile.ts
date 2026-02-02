@@ -626,7 +626,7 @@ export class SourceFile {
         const tokenizeContents = this._tokenizeContents.bind(this);
         const parsedFileContents = this._writableData.parsedFileContents;
         const contentHash =
-            this._writableData.lastFileContentHash || StringUtils.hashString(this._writableData.parsedFileContents);
+            this._writableData.lastFileContentHash ?? StringUtils.hashString(this._writableData.parsedFileContents);
         let tokenizerOutput: TokenizerOutput | undefined = this._writableData.tokenizerOutput;
 
         return {
@@ -1510,9 +1510,11 @@ export class SourceFile {
         parseOptions.pythonVersion = execEnvironment.pythonVersion;
         parseOptions.skipFunctionAndClassBody = configOptions.indexGenerationMode ?? false;
 
+        const contentHash = this._writableData.lastFileContentHash ?? StringUtils.hashString(fileContents);
+
         // Parse the token stream, building the abstract syntax tree.
         const parser = new Parser();
-        return parser.parseSourceFile(fileContents, parseOptions, diagSink);
+        return parser.parseSourceFile(fileContents, parseOptions, diagSink, contentHash);
     }
 
     private _tokenizeContents(fileContents: string, contentHash: number): TokenizerOutput {

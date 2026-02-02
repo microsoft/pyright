@@ -253,7 +253,12 @@ export class Parser {
     private _maxChildDepthMap = new Map<number, number>();
     private _hasTypeAnnotations = false;
 
-    parseSourceFile(fileContents: string, parseOptions: ParseOptions, diagSink: DiagnosticSink): ParseFileResults {
+    parseSourceFile(
+        fileContents: string,
+        parseOptions: ParseOptions,
+        diagSink: DiagnosticSink,
+        contentHash = hashString(fileContents)
+    ): ParseFileResults {
         this._hasTypeAnnotations = false;
         timingStats.tokenizeFileTime.timeOperation(() => {
             this._startNewParse(fileContents, 0, fileContents.length, parseOptions, diagSink);
@@ -291,7 +296,7 @@ export class Parser {
         assert(this._tokenizerOutput !== undefined);
         return {
             text: fileContents,
-            contentHash: hashString(fileContents),
+            contentHash,
             parserOutput: {
                 parseTree: moduleNode,
                 importedModules: this._importedModules,
