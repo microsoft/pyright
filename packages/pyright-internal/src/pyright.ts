@@ -560,6 +560,7 @@ async function runMultiThreaded(
     output: ConsoleInterface
 ) {
     const workers: ChildProcess[] = [];
+    const workersShutdown = new Set<ChildProcess>();
     const startTime = Date.now();
     const treatWarningsAsErrors = !!args.warnings;
     const exitStatus = createDeferred<ExitStatus>();
@@ -627,6 +628,7 @@ async function runMultiThreaded(
             pendingAnalysisCount++;
         } else {
             // Kill the worker since there's nothing left to do.
+            workersShutdown.add(worker);
             worker.kill();
 
             if (pendingAnalysisCount === 0) {
@@ -733,6 +735,15 @@ async function runMultiThreaded(
 
         worker.on('error', (err) => {
             output.error(`Failed to start child process: ${err}`);
+            exitStatus.resolve(ExitStatus.FatalError);
+        });
+
+        worker.on('exit', (code, signal) => {
+            if (workersShutdown.has(worker)) {
+                return;
+            }
+
+            output.error(`Worker process exited unexpectedly: exit code=${code}, signal=${signal}`);
             exitStatus.resolve(ExitStatus.FatalError);
         });
 
