@@ -259,6 +259,11 @@ test('TypeVarDefaultClass4', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeVarDefaultClass5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass5.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeVarDefaultTypeAlias1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultTypeAlias1.py']);
     TestUtils.validateResults(analysisResults, 0);

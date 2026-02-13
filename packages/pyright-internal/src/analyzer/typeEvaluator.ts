@@ -2340,16 +2340,40 @@ export function createTypeEvaluator(
         }
 
         // If this is an unspecialized generic class, specialize it using the default
-        // values for its type parameters.
+        // values for its type parameters. Skip this if we're suppressing the use
+        // of attribute access override, such as with dundered methods (like __call__).
         if (
             isInstantiableClass(objectType) &&
             !objectType.priv.includeSubclasses &&
             objectType.shared.typeParams.length > 0
         ) {
-            // Skip this if we're suppressing the use of attribute access override,
-            // such as with dundered methods (like __call__).
             if ((flags & MemberAccessFlags.SkipAttributeAccessOverride) === 0) {
-                objectType = specializeWithDefaultTypeArgs(objectType);
+                let skipDefaultSpecialization = false;
+
+                // For classmethods on classes with PEP 696 explicit defaults,
+                // defer specialization so TypeVars remain free for inference
+                // from arguments (defaults applied via constructorTypeVarScopeId).
+                if (
+                    !objectType.priv.typeArgs &&
+                    objectType.shared.typeParams.some((tp) => isTypeVar(tp) && tp.shared.isDefaultExplicit)
+                ) {
+                    const memberInfo = lookUpClassMember(objectType, memberName);
+                    if (memberInfo) {
+                        const memberType = getEffectiveTypeOfSymbol(memberInfo.symbol);
+                        if (isFunction(memberType) && FunctionType.isClassMethod(memberType)) {
+                            skipDefaultSpecialization = true;
+                        } else if (isOverloaded(memberType)) {
+                            const overloads = OverloadedType.getOverloads(memberType);
+                            if (overloads.length > 0 && FunctionType.isClassMethod(overloads[0])) {
+                                skipDefaultSpecialization = true;
+                            }
+                        }
+                    }
+                }
+
+                if (!skipDefaultSpecialization) {
+                    objectType = specializeWithDefaultTypeArgs(objectType);
+                }
             }
         }
 
