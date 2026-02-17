@@ -941,6 +941,14 @@ export class AnalyzerService {
             );
         }
 
+        if (!configOptions.defaultNamespaceOverridePaths && commandLineOptions.configSettings.namespaceOverridePaths) {
+            // Convert user-provided namespace override path strings into absolute Uris 
+            // relative to the execution root.
+            configOptions.defaultNamespaceOverridePaths = commandLineOptions.configSettings.namespaceOverridePaths.map(
+                (p) => executionRoot.combinePaths(p)
+            );
+        }
+
         if (configOptions.defaultPythonPlatform === undefined) {
             configOptions.defaultPythonPlatform = commandLineOptions.configSettings.pythonPlatform;
         }
