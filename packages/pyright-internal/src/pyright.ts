@@ -296,8 +296,13 @@ async function processArgs(): Promise<ExitStatus> {
     }
 
     if (args.pythonplatform) {
-        if (args.pythonplatform === 'Darwin' || args.pythonplatform === 'Linux' || args.pythonplatform === 'Windows' ||
-            args.pythonplatform === 'iOS' || args.pythonplatform === 'Android') {
+        if (
+            args.pythonplatform === 'Darwin' ||
+            args.pythonplatform === 'Linux' ||
+            args.pythonplatform === 'Windows' ||
+            args.pythonplatform === 'iOS' ||
+            args.pythonplatform === 'Android'
+        ) {
             options.configSettings.pythonPlatform = args.pythonplatform;
         } else {
             console.error(
