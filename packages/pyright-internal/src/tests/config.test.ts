@@ -12,7 +12,7 @@ import assert from 'assert';
 import { AnalyzerService } from '../analyzer/service';
 import { deserialize, serialize } from '../backgroundThreadBase';
 import { CommandLineOptions, DiagnosticSeverityOverrides } from '../common/commandLineOptions';
-import { ConfigOptions, ExecutionEnvironment, getStandardDiagnosticRuleSet } from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet, getStandardDiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../common/console';
 import { TaskListPriority } from '../common/diagnostic';
 import { combinePaths, normalizePath, normalizeSlashes } from '../common/pathUtils';
@@ -599,6 +599,43 @@ describe(`config test'}`, () => {
 
         const config = service.test_getConfigOptions(commandLineOptions);
         assert.deepStrictEqual(config.defaultPythonVersion, pythonVersion3_13);
+    });
+
+    test('Diagnostic rule overrides are preserved when positional args override include', () => {
+        const cwd = normalizePath(
+            combinePaths(process.cwd(), 'src/tests/samples/project_with_diag_overrides')
+        );
+        const service = createAnalyzer();
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        service.setOptions(commandLineOptions);
+
+        // Get config without include override - should have reportPrivateImportUsage: 'none'
+        // because the config sets it to false.
+        const configWithoutOverride = service.test_getConfigOptions(commandLineOptions);
+        assert.equal(configWithoutOverride.diagnosticRuleSet.reportPrivateImportUsage, 'none');
+
+        // The basic default would be 'error', verify our config overrides it.
+        const basicDefaults = getBasicDiagnosticRuleSet();
+        assert.equal(basicDefaults.reportPrivateImportUsage, 'error');
+
+        // Now simulate positional args overriding include (like `pyright --project config.json subdir`).
+        const commandLineOptionsWithOverride = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptionsWithOverride.configSettings.includeFileSpecsOverride = [
+            combinePaths(cwd, 'subdir'),
+        ];
+        service.setOptions(commandLineOptionsWithOverride);
+
+        const configWithOverride = service.test_getConfigOptions(commandLineOptionsWithOverride);
+
+        // The diagnostic rule overrides from the config file should still be applied
+        // even when positional args replace the include paths.
+        assert.equal(configWithOverride.diagnosticRuleSet.reportPrivateImportUsage, 'none');
+
+        // The execution environment for a file in the override path should also
+        // have the config's diagnostic rule overrides.
+        const fileUri = Uri.file(combinePaths(cwd, 'subdir', 'sample.py'), service.serviceProvider);
+        const execEnv = configWithOverride.findExecEnvironment(fileUri);
+        assert.equal(execEnv.diagnosticRuleSet.reportPrivateImportUsage, 'none');
     });
 
     function createAnalyzer(console?: ConsoleInterface) {
