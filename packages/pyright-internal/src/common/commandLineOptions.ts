@@ -64,8 +64,8 @@ export class CommandLineConfigOptions {
     // Name for the virtual environment.
     pythonEnvironmentName?: string | undefined;
 
-    // Python platform indicator (darwin, linux, win32)
-    pythonPlatform?: 'Darwin' | 'Linux' | 'Windows' | undefined;
+    // Python platform indicator (darwin, linux, win32, ios, android)
+    pythonPlatform?: 'Darwin' | 'Linux' | 'Windows' | 'iOS' | 'Android' | undefined;
 
     // Python version string (3.3, 3.4, etc.)
     pythonVersion?: PythonVersion | undefined;

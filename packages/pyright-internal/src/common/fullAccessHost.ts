@@ -58,6 +58,8 @@ export class LimitedAccessHost extends NoAccessHost {
             return PythonPlatform.Linux;
         } else if (process.platform === 'win32') {
             return PythonPlatform.Windows;
+        } else if (process.platform === 'android') {
+            return PythonPlatform.Android;
         }
 
         return undefined;

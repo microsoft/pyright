@@ -6,27 +6,27 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 
 | Flag                               | Description                                           |
 | :--------------------------------- | :---------------------------------------------------  |
-| --createstub `<IMPORT>`                 | Create type stub file(s) for import                  |
-| --dependencies                          | Emit import dependency information                   |
-| -h, --help                              | Show help message                                    |
-| --ignoreexternal                        | Ignore external imports for --verifytypes            |
-| --level <LEVEL>                         | Minimum diagnostic level (error or warning)          |
-| --outputjson                            | Output results in JSON format                        |
-| -p, --project `<FILE OR DIRECTORY>`     | Use the configuration file at this location          |
-| --pythonpath `<FILE>`                   | Path to the Python interpreter (2)                   |
-| --pythonplatform `<PLATFORM>`           | Analyze for platform (Darwin, Linux, Windows)        |
-| --pythonversion `<VERSION>`             | Analyze for version (3.3, 3.4, etc.)                 |
-| --skipunannotated                       | Skip type analysis of unannotated functions          |
-| --stats                                 | Print detailed performance stats                     |
-| -t, --typeshedpath `<DIRECTORY>`        | Use typeshed type stubs at this location (3)         |
-| --threads <optional N>                  | Use up to N threads to parallelize type checking (4) |
-| -v, --venvpath `<DIRECTORY>`            | Directory that contains virtual environments (5)     |
-| --verbose                               | Emit verbose diagnostics                             |
-| --verifytypes `<IMPORT>`                | Verify completeness of types in py.typed package     |
-| --version                               | Print pyright version and exit                       |
-| --warnings                              | Use exit code of 1 if warnings are reported          |
-| -w, --watch                             | Continue to run and watch for changes (6)            |
-| -                                       | Read file or directory list from stdin               |
+| --createstub `<IMPORT>`                 | Create type stub file(s) for import                         |
+| --dependencies                          | Emit import dependency information                          |
+| -h, --help                              | Show help message                                           |
+| --ignoreexternal                        | Ignore external imports for --verifytypes                   |
+| --level <LEVEL>                         | Minimum diagnostic level (error or warning)                 |
+| --outputjson                            | Output results in JSON format                               |
+| -p, --project `<FILE OR DIRECTORY>`     | Use the configuration file at this location                 |
+| --pythonpath `<FILE>`                   | Path to the Python interpreter (2)                          |
+| --pythonplatform `<PLATFORM>`           | Analyze for platform (Darwin, Linux, Windows, iOS, Android) |
+| --pythonversion `<VERSION>`             | Analyze for version (3.3, 3.4, etc.)                        |
+| --skipunannotated                       | Skip type analysis of unannotated functions                 |
+| --stats                                 | Print detailed performance stats                            |
+| -t, --typeshedpath `<DIRECTORY>`        | Use typeshed type stubs at this location (3)                |
+| --threads <optional N>                  | Use up to N threads to parallelize type checking (4)        |
+| -v, --venvpath `<DIRECTORY>`            | Directory that contains virtual environments (5)            |
+| --verbose                               | Emit verbose diagnostics                                    |
+| --verifytypes `<IMPORT>`                | Verify completeness of types in py.typed package            |
+| --version                               | Print pyright version and exit                              |
+| --warnings                              | Use exit code of 1 if warnings are reported                 |
+| -w, --watch                             | Continue to run and watch for changes (6)                   |
+| -                                       | Read file or directory list from stdin                      |
 
 (1) If specific files are specified on the command line, it overrides the files or directories specified in the pyrightconfig.json or pyproject.toml file.
 
