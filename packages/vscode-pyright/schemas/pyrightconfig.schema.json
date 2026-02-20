@@ -101,7 +101,7 @@
     },
     "noImplicitReexport": {
       "type": "boolean",
-      "title": "Require explicit re-export of imported symbols in py.typed packages (mirrors mypy's no_implicit_reexport)",
+      "title": "When true, imported symbols in py.typed packages require explicit re-export (via __all__ or 'as' alias). Set to false to allow plain imports as re-exports for public names.",
       "default": true
     },
     "reportGeneralTypeIssues": {

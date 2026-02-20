@@ -1500,6 +1500,12 @@
                         "Trace"
                     ]
                 },
+                "python.analysis.noImplicitReexport": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "When true, imported symbols in py.typed packages require explicit re-export (via __all__ or 'as' alias). Set to false to allow plain imports as re-exports for public names.",
+                    "scope": "resource"
+                },
                 "python.analysis.typeCheckingMode": {
                     "type": "string",
                     "default": "standard",
