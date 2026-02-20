@@ -12,7 +12,12 @@ import assert from 'assert';
 import { AnalyzerService } from '../analyzer/service';
 import { deserialize, serialize } from '../backgroundThreadBase';
 import { CommandLineOptions, DiagnosticSeverityOverrides } from '../common/commandLineOptions';
-import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet, getStandardDiagnosticRuleSet } from '../common/configOptions';
+import {
+    ConfigOptions,
+    ExecutionEnvironment,
+    getBasicDiagnosticRuleSet,
+    getStandardDiagnosticRuleSet,
+} from '../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../common/console';
 import { TaskListPriority } from '../common/diagnostic';
 import { combinePaths, normalizePath, normalizeSlashes } from '../common/pathUtils';
@@ -602,9 +607,7 @@ describe(`config test'}`, () => {
     });
 
     test('Diagnostic rule overrides are preserved when positional args override include', () => {
-        const cwd = normalizePath(
-            combinePaths(process.cwd(), 'src/tests/samples/project_with_diag_overrides')
-        );
+        const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_diag_overrides'));
         const service = createAnalyzer();
         const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
         service.setOptions(commandLineOptions);
@@ -620,9 +623,7 @@ describe(`config test'}`, () => {
 
         // Now simulate positional args overriding include (like `pyright --project config.json subdir`).
         const commandLineOptionsWithOverride = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
-        commandLineOptionsWithOverride.configSettings.includeFileSpecsOverride = [
-            combinePaths(cwd, 'subdir'),
-        ];
+        commandLineOptionsWithOverride.configSettings.includeFileSpecsOverride = [combinePaths(cwd, 'subdir')];
         service.setOptions(commandLineOptionsWithOverride);
 
         const configWithOverride = service.test_getConfigOptions(commandLineOptionsWithOverride);

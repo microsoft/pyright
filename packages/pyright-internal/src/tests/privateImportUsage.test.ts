@@ -276,7 +276,9 @@ describe('reportPrivateImportUsage with tracked library files', () => {
             assert.strictEqual(
                 privateImportErrors.length,
                 0,
-                `Expected 0 private import errors with reportPrivateImportUsage=none, got ${privateImportErrors.length}: ${privateImportErrors.map((e) => e.message).join(', ')}`
+                `Expected 0 private import errors with reportPrivateImportUsage=none, got ${
+                    privateImportErrors.length
+                }: ${privateImportErrors.map((e) => e.message).join(', ')}`
             );
 
             program.dispose();
@@ -326,7 +328,9 @@ describe('reportPrivateImportUsage with tracked library files', () => {
             assert.strictEqual(
                 privateImportErrors.length,
                 0,
-                `Expected 0 private import errors with config override and include override, got ${privateImportErrors.length}: ${privateImportErrors.map((e) => e.message).join(', ')}. ` +
+                `Expected 0 private import errors with config override and include override, got ${
+                    privateImportErrors.length
+                }: ${privateImportErrors.map((e) => e.message).join(', ')}. ` +
                     `This would indicate the bug where positional args cause config overrides to be ignored.`
             );
 
