@@ -5985,14 +5985,19 @@ export function createTypeEvaluator(
                     }
 
                     if (symbol.isPrivatePyTypedImport()) {
-                        addDiagnostic(
-                            DiagnosticRule.reportPrivateImportUsage,
-                            LocMessage.privateImportFromPyTypedModule().format({
-                                name: memberName,
-                                module: baseType.priv.moduleName,
-                            }),
-                            node.d.member
-                        );
+                        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                        const isImplicitReexportAllowed =
+                            !fileInfo.diagnosticRuleSet.noImplicitReexport && !memberName.startsWith('_');
+                        if (!isImplicitReexportAllowed) {
+                            addDiagnostic(
+                                DiagnosticRule.reportPrivateImportUsage,
+                                LocMessage.privateImportFromPyTypedModule().format({
+                                    name: memberName,
+                                    module: baseType.priv.moduleName,
+                                }),
+                                node.d.member
+                            );
+                        }
                     }
                 } else {
                     // Does the module export a top-level __getattr__ function?
@@ -20499,22 +20504,28 @@ export function createTypeEvaluator(
             }
 
             if (resolvedAliasInfo.privatePyTypedImporter) {
-                const diag = new DiagnosticAddendum();
-                if (resolvedAliasInfo.privatePyTypedImported) {
-                    diag.addMessage(
-                        LocAddendum.privateImportFromPyTypedSource().format({
-                            module: resolvedAliasInfo.privatePyTypedImported,
-                        })
+                const importedName = node.d.name.d.value;
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                const isImplicitReexportAllowed =
+                    !fileInfo.diagnosticRuleSet.noImplicitReexport && !importedName.startsWith('_');
+                if (!isImplicitReexportAllowed) {
+                    const diag = new DiagnosticAddendum();
+                    if (resolvedAliasInfo.privatePyTypedImported) {
+                        diag.addMessage(
+                            LocAddendum.privateImportFromPyTypedSource().format({
+                                module: resolvedAliasInfo.privatePyTypedImported,
+                            })
+                        );
+                    }
+                    addDiagnostic(
+                        DiagnosticRule.reportPrivateImportUsage,
+                        LocMessage.privateImportFromPyTypedModule().format({
+                            name: importedName,
+                            module: resolvedAliasInfo.privatePyTypedImporter,
+                        }) + diag.getString(),
+                        node.d.name
                     );
                 }
-                addDiagnostic(
-                    DiagnosticRule.reportPrivateImportUsage,
-                    LocMessage.privateImportFromPyTypedModule().format({
-                        name: node.d.name.d.value,
-                        module: resolvedAliasInfo.privatePyTypedImporter,
-                    }) + diag.getString(),
-                    node.d.name
-                );
             }
         }
 

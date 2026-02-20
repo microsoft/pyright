@@ -64,6 +64,8 @@ The following settings determine how different types should be evaluated.
 
 - <a name="disableBytesTypePromotions"></a> **disableBytesTypePromotions** [boolean]: Disables legacy behavior where `bytearray` and `memoryview` are considered subtypes of `bytes`. [PEP 688](https://peps.python.org/pep-0688/#no-special-meaning-for-bytes) deprecates this behavior, but this switch is provided to restore the older behavior. The default value for this setting is `true`.
 
+- <a name="noImplicitReexport"></a> **noImplicitReexport** [boolean]: PEP 484 indicates that imported symbols in `py.typed` packages are not considered re-exported unless they appear in `__all__` or use the redundant alias form (`from X import Y as Y`). When this setting is `false`, plain `from X import Y` imports are treated as valid re-exports for public names (those without a leading underscore), mirroring mypy's `no_implicit_reexport = false` behavior. Names with a leading underscore are always treated as private regardless of this setting. The default value for this setting is `true`.
+
 ## Type Check Diagnostics Settings
 The following settings control pyright’s diagnostic output (warnings or errors).
 
@@ -351,6 +353,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | :---------------------------------------- | :--------- | :--------- | :--------- | :--------- |
 | analyzeUnannotatedFunctions               | true       | true       | true       | true       |
 | disableBytesTypePromotions                | true       | true       | true       | true       |
+| noImplicitReexport                        | true       | true       | true       | true       |
 | strictParameterNoneValue                  | true       | true       | true       | true       |
 | enableTypeIgnoreComments                  | true       | true       | true       | true       |
 | enableReachabilityAnalysis                | false      | true       | true       | true       |

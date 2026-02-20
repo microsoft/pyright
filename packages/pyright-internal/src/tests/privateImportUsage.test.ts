@@ -193,7 +193,7 @@ describe('noImplicitReexport config option', () => {
         },
     ];
 
-    test.failing('public name implicit re-export should not error when noImplicitReexport=false', () => {
+    test('public name implicit re-export should not error when noImplicitReexport=false', () => {
         const sp = createServiceProviderFromFiles(files);
         const configOptions = new ConfigOptions(UriEx.file('/'));
         configOptions.diagnosticRuleSet.reportPrivateImportUsage = 'error';
