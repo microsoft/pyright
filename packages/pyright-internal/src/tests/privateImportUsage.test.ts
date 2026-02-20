@@ -167,3 +167,105 @@ describe('reportPrivateImportUsage with tracked library files', () => {
         sp.dispose();
     });
 });
+
+describe('noImplicitReexport config option', () => {
+    // pkg_a: py.typed library that re-exports PublicClass via plain import (no __all__, no `as` alias)
+    // pkg_b: consumer that imports PublicClass from pkg_a
+    const files = [
+        {
+            path: combinePaths(libraryRoot, 'pkg_a', '__init__.py'),
+            content: 'from ._impl import PublicClass\n_PrivateClass = object',
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_a', 'py.typed'),
+            content: '',
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_a', '_impl.py'),
+            content: 'class PublicClass: pass\nclass _PrivateClass: pass',
+        },
+        {
+            path: normalizeSlashes('/src/consumer.py'),
+            content: [
+                'from pkg_a import PublicClass', // public name — should be allowed with noImplicitReexport=false
+                'from pkg_a import _PrivateClass', // private name — should always error
+            ].join('\n'),
+        },
+    ];
+
+    test.failing('public name implicit re-export should not error when noImplicitReexport=false', () => {
+        const sp = createServiceProviderFromFiles(files);
+        const configOptions = new ConfigOptions(UriEx.file('/'));
+        configOptions.diagnosticRuleSet.reportPrivateImportUsage = 'error';
+        configOptions.diagnosticRuleSet.noImplicitReexport = false;
+
+        const importResolver = new ImportResolver(
+            sp,
+            configOptions,
+            new TestAccessHost(sp.fs().getModulePath(), [UriEx.file(libraryRoot)])
+        );
+        const program = new Program(importResolver, configOptions, sp);
+        const consumerUri = UriEx.file('/src/consumer.py');
+        program.setTrackedFiles([consumerUri]);
+        while (program.analyze()) {
+            // keep analyzing until complete
+        }
+
+        const sourceFile = program.getSourceFile(consumerUri);
+        assert(sourceFile, 'Source file should exist');
+        const diagnostics = sourceFile.getDiagnostics(configOptions) || [];
+        const errors = diagnostics.filter((d) => d.category === DiagnosticCategory.Error);
+
+        // PublicClass should not error; _PrivateClass should still error (1 total)
+        assert.strictEqual(
+            errors.length,
+            1,
+            `Expected 1 error (for _PrivateClass only), got ${errors.length}: ${errors
+                .map((e) => e.message)
+                .join(', ')}`
+        );
+        assert(
+            errors[0].message.includes('_PrivateClass'),
+            `The sole error should be about _PrivateClass, got: ${errors[0].message}`
+        );
+
+        program.dispose();
+        sp.dispose();
+    });
+
+    test('public name implicit re-export still errors when noImplicitReexport=true (default)', () => {
+        const sp = createServiceProviderFromFiles(files);
+        const configOptions = new ConfigOptions(UriEx.file('/'));
+        configOptions.diagnosticRuleSet.reportPrivateImportUsage = 'error';
+        configOptions.diagnosticRuleSet.noImplicitReexport = true;
+
+        const importResolver = new ImportResolver(
+            sp,
+            configOptions,
+            new TestAccessHost(sp.fs().getModulePath(), [UriEx.file(libraryRoot)])
+        );
+        const program = new Program(importResolver, configOptions, sp);
+        const consumerUri = UriEx.file('/src/consumer.py');
+        program.setTrackedFiles([consumerUri]);
+        while (program.analyze()) {
+            // keep analyzing until complete
+        }
+
+        const sourceFile = program.getSourceFile(consumerUri);
+        assert(sourceFile, 'Source file should exist');
+        const diagnostics = sourceFile.getDiagnostics(configOptions) || [];
+        const errors = diagnostics.filter((d) => d.category === DiagnosticCategory.Error);
+
+        // Both imports should error when noImplicitReexport=true
+        assert.strictEqual(
+            errors.length,
+            2,
+            `Expected 2 errors (PublicClass and _PrivateClass), got ${errors.length}: ${errors
+                .map((e) => e.message)
+                .join(', ')}`
+        );
+
+        program.dispose();
+        sp.dispose();
+    });
+});
