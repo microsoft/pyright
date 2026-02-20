@@ -379,6 +379,14 @@ export class Program {
             this._console,
             this._logTracker
         );
+
+        // Set the initial diagnostic rule set from the execution environment
+        // so the file has config-level overrides (e.g. reportPrivateImportUsage:
+        // false) from the start. Without this, files added via positional args
+        // (which override configOptions.include) would use the basic defaults
+        // until parse() runs.
+        const execEnv = this._configOptions.findExecEnvironment(fileUri);
+        sourceFile.setInitialDiagnosticRuleSet(execEnv.diagnosticRuleSet);
         sourceFileInfo = new SourceFileInfo(
             sourceFile,
             sourceFile.isTypingStubFile() || sourceFile.isTypeshedStubFile() || sourceFile.isBuiltInStubFile(),

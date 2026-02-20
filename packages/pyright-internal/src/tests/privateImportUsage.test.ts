@@ -166,4 +166,177 @@ describe('reportPrivateImportUsage with tracked library files', () => {
         program2.dispose();
         sp.dispose();
     });
+
+    test('config file reportPrivateImportUsage override should apply when includeFileSpecsOverride is set', () => {
+        // This tests the scenario where pyright is run with positional directory arguments
+        // (e.g., pyright --project pyrightconfig.json dir1) and the config file has
+        // reportPrivateImportUsage: false. The override should still be respected.
+
+        const files = [
+            // pkg_a in library (defines the original function)
+            {
+                path: combinePaths(libraryRoot, 'pkg_a', '__init__.py'),
+                content: '',
+            },
+            {
+                path: combinePaths(libraryRoot, 'pkg_a', 'py.typed'),
+                content: '',
+            },
+            {
+                path: combinePaths(libraryRoot, 'pkg_a', 'utils.py'),
+                content: 'def helper_func(): pass',
+            },
+            // pkg_b in library (re-imports without re-exporting)
+            {
+                path: combinePaths(libraryRoot, 'pkg_b', '__init__.py'),
+                content: '',
+            },
+            {
+                path: combinePaths(libraryRoot, 'pkg_b', 'py.typed'),
+                content: '',
+            },
+            {
+                path: combinePaths(libraryRoot, 'pkg_b', 'reexport.py'),
+                content: 'from pkg_a.utils import helper_func', // No __all__, not re-exported
+            },
+            // Consumer package - local source file that imports from pkg_b
+            {
+                path: normalizeSlashes('/src/consumer/__init__.py'),
+                content: '',
+            },
+            {
+                path: normalizeSlashes('/src/consumer/bad_import.py'),
+                content: 'from pkg_b.reexport import helper_func', // Would normally error
+            },
+        ];
+
+        const sp = createServiceProviderFromFiles(files);
+
+        // Test 1: With reportPrivateImportUsage = 'error' (default) -> should get error
+        {
+            const configOptions = new ConfigOptions(UriEx.file('/'));
+            configOptions.diagnosticRuleSet.reportPrivateImportUsage = 'error';
+
+            const importResolver = new ImportResolver(
+                sp,
+                configOptions,
+                new TestAccessHost(sp.fs().getModulePath(), [UriEx.file(libraryRoot)])
+            );
+
+            const program = new Program(importResolver, configOptions, sp);
+            const consumerUri = UriEx.file('/src/consumer/bad_import.py');
+            program.setTrackedFiles([consumerUri]);
+
+            while (program.analyze()) {
+                // Continue until complete
+            }
+
+            const sourceFile = program.getSourceFile(consumerUri);
+            assert(sourceFile, 'Source file should exist');
+            const diagnostics = sourceFile.getDiagnostics(configOptions) || [];
+            const errors = diagnostics.filter((d) => d.category === DiagnosticCategory.Error);
+
+            assert.strictEqual(
+                errors.length,
+                1,
+                `Expected 1 error with reportPrivateImportUsage=error, got ${errors.length}`
+            );
+
+            program.dispose();
+        }
+
+        // Test 2: With reportPrivateImportUsage = 'none' (simulating config override) -> should NOT get error
+        {
+            const configOptions = new ConfigOptions(UriEx.file('/'));
+            configOptions.diagnosticRuleSet.reportPrivateImportUsage = 'none';
+
+            const importResolver = new ImportResolver(
+                sp,
+                configOptions,
+                new TestAccessHost(sp.fs().getModulePath(), [UriEx.file(libraryRoot)])
+            );
+
+            const program = new Program(importResolver, configOptions, sp);
+            const consumerUri = UriEx.file('/src/consumer/bad_import.py');
+            program.setTrackedFiles([consumerUri]);
+
+            while (program.analyze()) {
+                // Continue until complete
+            }
+
+            const sourceFile = program.getSourceFile(consumerUri);
+            assert(sourceFile, 'Source file should exist');
+            const diagnostics = sourceFile.getDiagnostics(configOptions) || [];
+            const privateImportErrors = diagnostics.filter(
+                (d) =>
+                    d.category === DiagnosticCategory.Error &&
+                    (d.message.includes('not exported') || d.message.includes('helper_func'))
+            );
+
+            assert.strictEqual(
+                privateImportErrors.length,
+                0,
+                `Expected 0 private import errors with reportPrivateImportUsage=none, got ${
+                    privateImportErrors.length
+                }: ${privateImportErrors.map((e) => e.message).join(', ')}`
+            );
+
+            program.dispose();
+        }
+
+        // Test 3: With reportPrivateImportUsage = 'none' AND positional arg include override
+        // This simulates: pyright --project config.json consumer/
+        // where config.json has reportPrivateImportUsage: false
+        {
+            const configOptions = new ConfigOptions(UriEx.file('/'));
+            // Simulate the config file setting: first set standard mode defaults
+            configOptions.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet('standard');
+            // Then apply the config override (reportPrivateImportUsage: false -> 'none')
+            configOptions.diagnosticRuleSet.reportPrivateImportUsage = 'none';
+
+            // Simulate includeFileSpecsOverride by changing the include
+            // (In the real flow, this is done by _applyCommandLineOverrides)
+            configOptions.include = [];
+
+            const importResolver = new ImportResolver(
+                sp,
+                configOptions,
+                new TestAccessHost(sp.fs().getModulePath(), [UriEx.file(libraryRoot)])
+            );
+
+            const program = new Program(importResolver, configOptions, sp);
+            const consumerUri = UriEx.file('/src/consumer/bad_import.py');
+
+            // Track only the consumer file (simulating positional arg)
+            program.setTrackedFiles([consumerUri]);
+
+            while (program.analyze()) {
+                // Continue until complete
+            }
+
+            const sourceFile = program.getSourceFile(consumerUri);
+            assert(sourceFile, 'Source file should exist');
+            const diagnostics = sourceFile.getDiagnostics(configOptions) || [];
+            const privateImportErrors = diagnostics.filter(
+                (d) =>
+                    d.category === DiagnosticCategory.Error &&
+                    (d.message.includes('not exported') || d.message.includes('helper_func'))
+            );
+
+            // The config says reportPrivateImportUsage: false, so there should be no errors
+            // even when include is overridden by positional args.
+            assert.strictEqual(
+                privateImportErrors.length,
+                0,
+                `Expected 0 private import errors with config override and include override, got ${
+                    privateImportErrors.length
+                }: ${privateImportErrors.map((e) => e.message).join(', ')}. ` +
+                    `This would indicate the bug where positional args cause config overrides to be ignored.`
+            );
+
+            program.dispose();
+        }
+
+        sp.dispose();
+    });
 });
