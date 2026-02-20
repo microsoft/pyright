@@ -141,6 +141,10 @@ export interface DiagnosticRuleSet {
     // No longer treat bytearray and memoryview as subclasses of bytes?
     disableBytesTypePromotions: boolean;
 
+    // Treat plain `from X import Y` imports in py.typed packages as re-exports
+    // for public names? Mirrors mypy's no_implicit_reexport setting.
+    noImplicitReexport: boolean;
+
     // Report general type issues?
     reportGeneralTypeIssues: DiagnosticLevel;
 
@@ -417,6 +421,7 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
         DiagnosticRule.enableExperimentalFeatures,
         DiagnosticRule.deprecateTypingAliases,
         DiagnosticRule.disableBytesTypePromotions,
+        DiagnosticRule.noImplicitReexport,
     ];
 
     if (includeNonOverridable) {
@@ -541,6 +546,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: false,
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
+        noImplicitReexport: true,
         reportGeneralTypeIssues: 'none',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -644,6 +650,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: true,
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
+        noImplicitReexport: true,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
@@ -747,6 +754,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: true,
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
+        noImplicitReexport: true,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'error',
@@ -850,6 +858,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         enableReachabilityAnalysis: true, // Not overridden by strict mode
         deprecateTypingAliases: false,
         disableBytesTypePromotions: true,
+        noImplicitReexport: true,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'error',

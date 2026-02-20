@@ -99,6 +99,11 @@
       "title": "Treat typing-specific aliases to standard types as deprecated",
       "default": false
     },
+    "noImplicitReexport": {
+      "type": "boolean",
+      "title": "Require explicit re-export of imported symbols in py.typed packages (mirrors mypy's no_implicit_reexport)",
+      "default": true
+    },
     "reportGeneralTypeIssues": {
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of general type issues",
@@ -618,6 +623,9 @@
     "deprecateTypingAliases": {
       "$ref": "#/definitions/deprecateTypingAliases"
     },
+    "noImplicitReexport": {
+      "$ref": "#/definitions/noImplicitReexport"
+    },
     "reportGeneralTypeIssues": {
       "$ref": "#/definitions/reportGeneralTypeIssues"
     },
@@ -935,6 +943,9 @@
           },
           "deprecateTypingAliases": {
             "$ref": "#/definitions/deprecateTypingAliases"
+          },
+          "noImplicitReexport": {
+            "$ref": "#/definitions/noImplicitReexport"
           },
           "reportGeneralTypeIssues": {
             "$ref": "#/definitions/reportGeneralTypeIssues"
