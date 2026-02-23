@@ -1857,3 +1857,439 @@ test('Last empty line', () => {
     assert.equal(eofToken.type, TokenType.EndOfStream);
     assert.equal(eofToken.length, 0);
 });
+
+test('Strings: template string (t-string) single quoted', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize("t'hello {name}'");
+    // Tokens: FStringStart, FStringMiddle('hello '), OpenCurlyBrace, Identifier(name), CloseCurlyBrace, FStringEnd
+    assert.equal(results.tokens.count, 6 + _implicitTokenCount);
+
+    const startToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(startToken.type, TokenType.FStringStart);
+    assert.equal(startToken.flags & StringTokenFlags.Template, StringTokenFlags.Template);
+    assert.equal(startToken.flags & StringTokenFlags.SingleQuote, StringTokenFlags.SingleQuote);
+    assert.equal(startToken.prefixLength, 1);
+
+    const middleToken1 = results.tokens.getItemAt(1) as FStringMiddleToken;
+    assert.equal(middleToken1.type, TokenType.FStringMiddle);
+    assert.equal(middleToken1.escapedValue, 'hello ');
+
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.OpenCurlyBrace);
+
+    const identToken = results.tokens.getItemAt(3) as IdentifierToken;
+    assert.equal(identToken.type, TokenType.Identifier);
+    assert.equal(identToken.value, 'name');
+
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.CloseCurlyBrace);
+
+    const endToken = results.tokens.getItemAt(5) as FStringEndToken;
+    assert.equal(endToken.type, TokenType.FStringEnd);
+    assert.equal(endToken.flags & StringTokenFlags.Template, StringTokenFlags.Template);
+});
+
+test('Strings: template string (t-string) double quoted', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('T"value: {x}"');
+    // Tokens: FStringStart, FStringMiddle('value: '), OpenCurlyBrace, Identifier(x), CloseCurlyBrace, FStringEnd
+    assert.equal(results.tokens.count, 6 + _implicitTokenCount);
+
+    const startToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(startToken.type, TokenType.FStringStart);
+    assert.equal(startToken.flags & StringTokenFlags.Template, StringTokenFlags.Template);
+    assert.equal(startToken.flags & StringTokenFlags.DoubleQuote, StringTokenFlags.DoubleQuote);
+});
+
+test('Strings: raw template string (rt-string)', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('rt"path: {p}\\n"');
+    // Tokens: FStringStart, FStringMiddle('path: '), OpenCurlyBrace, Identifier(p), CloseCurlyBrace, FStringMiddle('\n'), FStringEnd
+    assert.equal(results.tokens.count, 7 + _implicitTokenCount);
+
+    const startToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(startToken.type, TokenType.FStringStart);
+    assert.equal(startToken.flags & StringTokenFlags.Template, StringTokenFlags.Template);
+    assert.equal(startToken.flags & StringTokenFlags.Raw, StringTokenFlags.Raw);
+    assert.equal(startToken.prefixLength, 2);
+});
+
+test('Strings: template raw string (tr-string)', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('TR"data: {d}\\t"');
+    // Tokens: FStringStart, FStringMiddle('data: '), OpenCurlyBrace, Identifier(d), CloseCurlyBrace, FStringMiddle('\t'), FStringEnd
+    assert.equal(results.tokens.count, 7 + _implicitTokenCount);
+
+    const startToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(startToken.type, TokenType.FStringStart);
+    assert.equal(startToken.flags & StringTokenFlags.Template, StringTokenFlags.Template);
+    assert.equal(startToken.flags & StringTokenFlags.Raw, StringTokenFlags.Raw);
+});
+
+test('Strings: multiline template string', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('t"""multi\nline {x}"""');
+
+    const startToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(startToken.type, TokenType.FStringStart);
+    assert.equal(startToken.flags & StringTokenFlags.Template, StringTokenFlags.Template);
+    assert.equal(startToken.flags & StringTokenFlags.Triplicate, StringTokenFlags.Triplicate);
+});
+
+test('Matrix multiply operator', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a @ b');
+    assert.equal(results.tokens.count, 3 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.Identifier);
+    const opToken = results.tokens.getItemAt(1) as OperatorToken;
+    assert.equal(opToken.type, TokenType.Operator);
+    assert.equal(opToken.operatorType, OperatorType.MatrixMultiply);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.Identifier);
+});
+
+test('Matrix multiply assignment operator', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a @= b');
+    assert.equal(results.tokens.count, 3 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.Identifier);
+    const opToken = results.tokens.getItemAt(1) as OperatorToken;
+    assert.equal(opToken.type, TokenType.Operator);
+    assert.equal(opToken.operatorType, OperatorType.MatrixMultiplyEqual);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.Identifier);
+});
+
+test('All keywords', () => {
+    const t = new Tokenizer();
+    const keywords = [
+        'and',
+        'as',
+        'assert',
+        'async',
+        'await',
+        'break',
+        'case',
+        'class',
+        'continue',
+        '__debug__',
+        'def',
+        'del',
+        'elif',
+        'else',
+        'except',
+        'finally',
+        'for',
+        'from',
+        'global',
+        'if',
+        'import',
+        'in',
+        'is',
+        'lambda',
+        'match',
+        'nonlocal',
+        'not',
+        'or',
+        'pass',
+        'raise',
+        'return',
+        'try',
+        'type',
+        'while',
+        'with',
+        'yield',
+        'False',
+        'None',
+        'True',
+    ];
+    const text = keywords.join(' ');
+    const results = t.tokenize(text);
+
+    // All should be keyword tokens (soft keywords like match/case/type are still keywords)
+    for (let i = 0; i < keywords.length; i++) {
+        const token = results.tokens.getItemAt(i);
+        assert.equal(token.type, TokenType.Keyword, `Expected keyword for "${keywords[i]}" at index ${i}`);
+    }
+});
+
+test('Soft keywords as identifiers', () => {
+    const t = new Tokenizer();
+    // Soft keywords (match, case, type) can be used as identifiers
+    const results = t.tokenize('match = 1\ncase = 2\ntype = 3');
+
+    // First 'match' - will be tokenized as keyword initially
+    // (context determines if it's a soft keyword)
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.Keyword);
+});
+
+test('Unicode identifiers', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('π = 3.14\nこんにちは = "hello"\n变量 = 42');
+
+    // Tokens: π, =, 3.14, NewLine, こんにちは, =, "hello", NewLine, 变量, =, 42, NewLine, EOF
+    const piToken = results.tokens.getItemAt(0) as IdentifierToken;
+    assert.equal(piToken.type, TokenType.Identifier);
+    assert.equal(piToken.value, 'π');
+
+    const japaneseToken = results.tokens.getItemAt(4) as IdentifierToken;
+    assert.equal(japaneseToken.type, TokenType.Identifier);
+    assert.equal(japaneseToken.value, 'こんにちは');
+
+    const chineseToken = results.tokens.getItemAt(8) as IdentifierToken;
+    assert.equal(chineseToken.type, TokenType.Identifier);
+    assert.equal(chineseToken.value, '变量');
+});
+
+test('Complex number literals', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('1j 2.5j 1e10j 0x1fj');
+
+    const token1 = results.tokens.getItemAt(0) as NumberToken;
+    assert.equal(token1.type, TokenType.Number);
+    assert.equal(token1.isImaginary, true);
+
+    const token2 = results.tokens.getItemAt(1) as NumberToken;
+    assert.equal(token2.type, TokenType.Number);
+    assert.equal(token2.isImaginary, true);
+
+    const token3 = results.tokens.getItemAt(2) as NumberToken;
+    assert.equal(token3.type, TokenType.Number);
+    assert.equal(token3.isImaginary, true);
+});
+
+test('Number with leading zeros', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('0 00 000 0.0 0e0');
+
+    for (let i = 0; i < 5; i++) {
+        assert.equal(results.tokens.getItemAt(i).type, TokenType.Number);
+    }
+});
+
+test('String with all escape sequences', () => {
+    const t = new Tokenizer();
+    // Test all standard escape sequences
+    const results = t.tokenize('"\\n\\r\\t\\\\\\\'\\"\\\\\\"');
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+});
+
+test('Continuation line in expression', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a = 1 + \\\n    2 + \\\n    3');
+
+    // Should have: a, =, 1, +, 2, +, 3 (continuation lines should be handled)
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.Operator);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.Number);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.Operator);
+    assert.equal(results.tokens.getItemAt(4).type, TokenType.Number);
+    assert.equal(results.tokens.getItemAt(5).type, TokenType.Operator);
+    assert.equal(results.tokens.getItemAt(6).type, TokenType.Number);
+});
+
+test('Mixed indent tabs and spaces', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('if True:\n  x = 1\n\ty = 2');
+
+    // Should still produce valid tokens even with mixed indentation
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.Keyword); // if
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.Keyword); // True
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.Colon);
+});
+
+test('Empty f-string', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('f""');
+
+    const startToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(startToken.type, TokenType.FStringStart);
+    assert.equal(startToken.flags & StringTokenFlags.Format, StringTokenFlags.Format);
+
+    const endToken = results.tokens.getItemAt(1) as FStringEndToken;
+    assert.equal(endToken.type, TokenType.FStringEnd);
+});
+
+test('Empty template string', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('t""');
+
+    const startToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(startToken.type, TokenType.FStringStart);
+    assert.equal(startToken.flags & StringTokenFlags.Template, StringTokenFlags.Template);
+
+    const endToken = results.tokens.getItemAt(1) as FStringEndToken;
+    assert.equal(endToken.type, TokenType.FStringEnd);
+});
+
+test('Deeply nested f-string', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('f"{f\'{f\\"{x}\\"}\'}"');
+
+    // Should handle nested f-strings with different quote styles
+    const startToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(startToken.type, TokenType.FStringStart);
+});
+
+test('F-string with expression containing colon', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('f"{d[\'key\']}"');
+
+    const startToken = results.tokens.getItemAt(0) as FStringStartToken;
+    assert.equal(startToken.type, TokenType.FStringStart);
+});
+
+test('Very long identifier', () => {
+    const t = new Tokenizer();
+    const longName = 'a'.repeat(1000);
+    const results = t.tokenize(longName);
+
+    const identToken = results.tokens.getItemAt(0) as IdentifierToken;
+    assert.equal(identToken.type, TokenType.Identifier);
+    assert.equal(identToken.value, longName);
+    assert.equal(identToken.length, 1000);
+});
+
+test('Very long string', () => {
+    const t = new Tokenizer();
+    const longContent = 'x'.repeat(10000);
+    const results = t.tokenize(`"${longContent}"`);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.escapedValue, longContent);
+});
+
+test('Very long number', () => {
+    const t = new Tokenizer();
+    const longNumber = '9'.repeat(100);
+    const results = t.tokenize(longNumber);
+
+    const numToken = results.tokens.getItemAt(0) as NumberToken;
+    assert.equal(numToken.type, TokenType.Number);
+    assert.equal(numToken.isInteger, true);
+});
+
+test('Special Unicode in string', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('"\\N{GREEK SMALL LETTER PI}"');
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags & StringTokenFlags.NamedUnicodeEscape, StringTokenFlags.NamedUnicodeEscape);
+});
+
+test('Multiple operators without spaces', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a+b-c*d/e//f%g**h');
+
+    // Should correctly tokenize all operators
+    const expectedTypes = [
+        TokenType.Identifier,
+        TokenType.Operator, // a +
+        TokenType.Identifier,
+        TokenType.Operator, // b -
+        TokenType.Identifier,
+        TokenType.Operator, // c *
+        TokenType.Identifier,
+        TokenType.Operator, // d /
+        TokenType.Identifier,
+        TokenType.Operator, // e //
+        TokenType.Identifier,
+        TokenType.Operator, // f %
+        TokenType.Identifier,
+        TokenType.Operator, // g **
+        TokenType.Identifier, // h
+    ];
+
+    for (let i = 0; i < expectedTypes.length; i++) {
+        assert.equal(results.tokens.getItemAt(i).type, expectedTypes[i], `Token ${i} type mismatch`);
+    }
+});
+
+test('Comparison operators chain', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a < b <= c == d != e >= f > g');
+
+    const operators = [
+        OperatorType.LessThan,
+        OperatorType.LessThanOrEqual,
+        OperatorType.Equals,
+        OperatorType.NotEquals,
+        OperatorType.GreaterThanOrEqual,
+        OperatorType.GreaterThan,
+    ];
+
+    let opIndex = 0;
+    for (let i = 0; i < results.tokens.count - _implicitTokenCount; i++) {
+        const token = results.tokens.getItemAt(i);
+        if (token.type === TokenType.Operator) {
+            assert.equal((token as OperatorToken).operatorType, operators[opIndex], `Operator ${opIndex} mismatch`);
+            opIndex++;
+        }
+    }
+    assert.equal(opIndex, operators.length, 'Not all operators were found');
+});
+
+test('Bitwise operators', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a & b | c ^ d ~ e << f >> g');
+
+    const expectedOperators = [
+        OperatorType.BitwiseAnd,
+        OperatorType.BitwiseOr,
+        OperatorType.BitwiseXor,
+        OperatorType.BitwiseInvert,
+        OperatorType.LeftShift,
+        OperatorType.RightShift,
+    ];
+
+    let opIndex = 0;
+    for (let i = 0; i < results.tokens.count - _implicitTokenCount; i++) {
+        const token = results.tokens.getItemAt(i);
+        if (token.type === TokenType.Operator) {
+            assert.equal(
+                (token as OperatorToken).operatorType,
+                expectedOperators[opIndex],
+                `Bitwise operator ${opIndex} mismatch`
+            );
+            opIndex++;
+        }
+    }
+});
+
+test('Assignment operators', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a = b += c -= d *= e /= f //= g %= h **= i &= j |= k ^= l <<= m >>= n @= o');
+
+    const expectedOperators = [
+        OperatorType.Assign,
+        OperatorType.AddEqual,
+        OperatorType.SubtractEqual,
+        OperatorType.MultiplyEqual,
+        OperatorType.DivideEqual,
+        OperatorType.FloorDivideEqual,
+        OperatorType.ModEqual,
+        OperatorType.PowerEqual,
+        OperatorType.BitwiseAndEqual,
+        OperatorType.BitwiseOrEqual,
+        OperatorType.BitwiseXorEqual,
+        OperatorType.LeftShiftEqual,
+        OperatorType.RightShiftEqual,
+        OperatorType.MatrixMultiplyEqual,
+    ];
+
+    let opIndex = 0;
+    for (let i = 0; i < results.tokens.count - _implicitTokenCount; i++) {
+        const token = results.tokens.getItemAt(i);
+        if (token.type === TokenType.Operator) {
+            assert.equal(
+                (token as OperatorToken).operatorType,
+                expectedOperators[opIndex],
+                `Assignment operator ${opIndex} mismatch`
+            );
+            opIndex++;
+        }
+    }
+    assert.equal(opIndex, expectedOperators.length, 'Not all assignment operators were found');
+});
