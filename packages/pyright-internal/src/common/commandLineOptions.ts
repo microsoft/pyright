@@ -88,6 +88,10 @@ export class CommandLineConfigOptions {
     // when user has not explicitly defined execution environments.
     extraPaths?: string[] | undefined;
 
+    // Namespace override paths to add to the default execution environment
+    // when user has not explicitly defined execution environments.
+    namespaceOverridePaths?: string[] | undefined;
+
     // Default type-checking rule set. Should be one of 'off',
     // 'basic', 'standard', or 'strict'.
     typeCheckingMode?: string | undefined;

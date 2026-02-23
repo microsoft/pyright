@@ -31,6 +31,7 @@ export interface ServerSettings {
     disableOrganizeImports?: boolean | undefined;
     autoSearchPaths?: boolean | undefined;
     extraPaths?: Uri[] | undefined;
+    namespaceOverridePaths?: Uri[] | undefined;
     watchForSourceChanges?: boolean | undefined;
     watchForLibraryChanges?: boolean | undefined;
     watchForConfigChanges?: boolean | undefined;

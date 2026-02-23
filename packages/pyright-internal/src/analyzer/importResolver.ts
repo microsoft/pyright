@@ -572,6 +572,12 @@ export class ImportResolver {
             return importResult;
         }
 
+        // If it was shadowed by a regular package, we should not proceed to local imports
+        // (parent directory resolution). This maintains standard shadowing behavior.
+        if (importResult.isShadowed) {
+            return importResult;
+        }
+
         // If the import is absolute and no other method works, try resolving the
         // absolute in the importing file's directory, then the parent directory,
         // and so on, until the import root is reached.
@@ -975,6 +981,7 @@ export class ImportResolver {
             isNamespacePackage: false,
             isInitFilePresent: false,
             isStubPackage: false,
+            isShadowed: false,
             importFailureInfo: importLogger?.getLogs(),
             resolvedUris: [],
             importType: ImportType.Local,
@@ -1356,6 +1363,14 @@ export class ImportResolver {
         };
     }
 
+    private _isNamespaceOverridePath(uri: Uri, execEnv: ExecutionEnvironment): boolean {
+        if (!execEnv.namespaceOverridePaths || execEnv.namespaceOverridePaths.length === 0) {
+            return false;
+        }
+
+        return execEnv.namespaceOverridePaths.some((path) => uri.equals(path));
+    }
+
     private _invalidateFileSystemCache() {
         this._cachedEntriesForPath.clear();
         this._cachedFilesForPath.clear();
@@ -1400,11 +1415,23 @@ export class ImportResolver {
 
             if (allowPyi && this.fileExistsCached(pyiFilePath)) {
                 importLogger?.log(`Resolved import with file '${pyiFilePath}'`);
-                resolvedPaths.push(pyiFilePath);
-                isStubFile = true;
+                if (this._isNamespaceOverridePath(dirPath, execEnv)) {
+                    importLogger?.log(`Treating as namespace package due to namespaceOverridePaths`);
+                    resolvedPaths.push(Uri.empty());
+                    isNamespacePackage = true;
+                } else {
+                    resolvedPaths.push(pyiFilePath);
+                    isStubFile = true;
+                }
             } else if (this.fileExistsCached(pyFilePath)) {
                 importLogger?.log(`Resolved import with file '${pyFilePath}'`);
-                resolvedPaths.push(pyFilePath);
+                if (this._isNamespaceOverridePath(dirPath, execEnv)) {
+                    importLogger?.log(`Treating as namespace package due to namespaceOverridePaths`);
+                    resolvedPaths.push(Uri.empty());
+                    isNamespacePackage = true;
+                } else {
+                    resolvedPaths.push(pyFilePath);
+                }
             } else {
                 importLogger?.log(`Partially resolved import with directory '${dirPath}'`);
                 resolvedPaths.push(Uri.empty());
@@ -1413,6 +1440,8 @@ export class ImportResolver {
 
             implicitImports = this.findImplicitImports(importName, dirPath, [pyFilePath, pyiFilePath]);
         } else {
+            let lastFoundDirectory: Uri | undefined;
+
             for (let i = 0; i < moduleDescriptor.nameParts.length; i++) {
                 const isFirstPart = i === 0;
                 const isLastPart = i === moduleDescriptor.nameParts.length - 1;
@@ -1429,6 +1458,7 @@ export class ImportResolver {
                     if (isFirstPart) {
                         packageDirectory = dirPath;
                     }
+                    lastFoundDirectory = dirPath;
 
                     // See if we can find an __init__.py[i] in this directory.
                     const pyFilePath = dirPath.initPyUri;
@@ -1437,15 +1467,23 @@ export class ImportResolver {
 
                     if (allowPyi && this.fileExistsCached(pyiFilePath)) {
                         importLogger?.log(`Resolved import with file '${pyiFilePath}'`);
-                        resolvedPaths.push(pyiFilePath);
-                        if (isLastPart) {
-                            isStubFile = true;
+                        if (this._isNamespaceOverridePath(dirPath, execEnv)) {
+                            importLogger?.log(`Treating as namespace package due to namespaceOverridePaths`);
+                        } else {
+                            resolvedPaths.push(pyiFilePath);
+                            if (isLastPart) {
+                                isStubFile = true;
+                            }
+                            isInitFilePresent = true;
                         }
-                        isInitFilePresent = true;
                     } else if (this.fileExistsCached(pyFilePath)) {
                         importLogger?.log(`Resolved import with file '${pyFilePath}'`);
-                        resolvedPaths.push(pyFilePath);
-                        isInitFilePresent = true;
+                        if (this._isNamespaceOverridePath(dirPath, execEnv)) {
+                            importLogger?.log(`Treating as namespace package due to namespaceOverridePaths`);
+                        } else {
+                            resolvedPaths.push(pyFilePath);
+                            isInitFilePresent = true;
+                        }
                     }
 
                     if (!pyTypedInfo && lookForPyTyped) {
@@ -1458,11 +1496,6 @@ export class ImportResolver {
                             // so continue to look for the next part.
                             continue;
                         }
-
-                        implicitImports = this.findImplicitImports(moduleDescriptor.nameParts.join('.'), dirPath, [
-                            pyFilePath,
-                            pyiFilePath,
-                        ]);
                         break;
                     }
                 }
@@ -1512,7 +1545,6 @@ export class ImportResolver {
                     resolvedPaths.push(Uri.empty());
 
                     if (isLastPart) {
-                        implicitImports = this.findImplicitImports(importName, dirPath, [pyFilePath, pyiFilePath]);
                         isNamespacePackage = true;
                     }
                 }
@@ -1521,6 +1553,17 @@ export class ImportResolver {
                     pyTypedInfo = this._getPyTypedInfo(fileDirectory);
                 }
                 break;
+            }
+
+            if (lastFoundDirectory && resolvedPaths.length > 0) {
+                const lastResolvedPath = resolvedPaths[resolvedPaths.length - 1];
+                if (lastResolvedPath.isEmpty() || lastResolvedPath.fileName.startsWith('__init__')) {
+                    const resolvedName = moduleDescriptor.nameParts.slice(0, resolvedPaths.length).join('.');
+                    implicitImports = this.findImplicitImports(resolvedName, lastFoundDirectory, [
+                        lastFoundDirectory.initPyUri,
+                        lastFoundDirectory.initPyiUri,
+                    ]);
+                }
             }
         }
 
@@ -1538,6 +1581,7 @@ export class ImportResolver {
             isNamespacePackage,
             isInitFilePresent,
             isStubPackage,
+            isShadowed: false,
             isImportFound: importFound,
             isPartlyResolved,
             importFailureInfo: importLogger?.getLogs(),
@@ -1669,7 +1713,13 @@ export class ImportResolver {
                 allowPyi,
                 /* lookForPyTyped */ false
             );
-            bestResultSoFar = localImport;
+            if (localImport) {
+                bestResultSoFar = localImport;
+                if ((localImport.isImportFound || localImport.isPartlyResolved) && !localImport.isNamespacePackage) {
+                    bestResultSoFar.isShadowed = true;
+                    return bestResultSoFar;
+                }
+            }
         }
 
         for (const extraPath of execEnv.extraPaths) {
@@ -1687,7 +1737,18 @@ export class ImportResolver {
                 allowPyi,
                 /* lookForPyTyped */ false
             );
-            bestResultSoFar = this._pickBestImport(bestResultSoFar, localImport, moduleDescriptor);
+            if (localImport) {
+                const wasShadowed = bestResultSoFar?.isShadowed;
+                bestResultSoFar = this._pickBestImport(bestResultSoFar, localImport, moduleDescriptor);
+                if (wasShadowed) {
+                    bestResultSoFar.isShadowed = true;
+                }
+
+                if ((localImport.isImportFound || localImport.isPartlyResolved) && !localImport.isNamespacePackage) {
+                    bestResultSoFar.isShadowed = true;
+                    break;
+                }
+            }
         }
 
         // Check for a stdlib typeshed file.
@@ -1730,7 +1791,19 @@ export class ImportResolver {
                 if (thirdPartyImport) {
                     thirdPartyImport.importType = ImportType.ThirdParty;
 
+                    const wasShadowed = bestResultSoFar?.isShadowed;
                     bestResultSoFar = this._pickBestImport(bestResultSoFar, thirdPartyImport, moduleDescriptor);
+                    if (wasShadowed) {
+                        bestResultSoFar.isShadowed = true;
+                    }
+
+                    if (
+                        (thirdPartyImport.isImportFound || thirdPartyImport.isPartlyResolved) &&
+                        !thirdPartyImport.isNamespacePackage
+                    ) {
+                        bestResultSoFar.isShadowed = true;
+                        break;
+                    }
                 }
             }
         } else {
@@ -1783,6 +1856,62 @@ export class ImportResolver {
     }
 
     private _pickBestImport(
+        bestImportSoFar: ImportResult | undefined,
+        newImport: ImportResult | undefined,
+        moduleDescriptor: ImportedModuleDescriptor
+    ): ImportResult {
+        if (!bestImportSoFar) {
+            return newImport!;
+        }
+
+        if (!newImport) {
+            return bestImportSoFar;
+        }
+
+        const best = this._pickBestImportInternal(bestImportSoFar, newImport, moduleDescriptor);
+        const other = best === bestImportSoFar ? newImport : bestImportSoFar;
+
+        if (
+            best &&
+            other &&
+            (best.isImportFound || best.isPartlyResolved) &&
+            (other.isImportFound || other.isPartlyResolved)
+        ) {
+            if (best.isNamespacePackage || other.isNamespacePackage) {
+                this._mergeImplicitImports(best, other);
+                if (other.isNamespacePackage) {
+                    best.isNamespacePackage = true;
+                }
+            }
+        }
+
+        return best!;
+    }
+
+    private _mergeImplicitImports(dest: ImportResult, src: ImportResult) {
+        if (!src.implicitImports || src.implicitImports.size === 0) {
+            return;
+        }
+
+        if (!dest.implicitImports) {
+            dest.implicitImports = new Map<string, ImplicitImport>();
+        } else if (dest.implicitImports === src.implicitImports) {
+            return;
+        }
+
+        src.implicitImports.forEach((implImport, name) => {
+            if (!dest.implicitImports!.has(name)) {
+                dest.implicitImports!.set(name, implImport);
+            } else {
+                const existing = dest.implicitImports!.get(name)!;
+                if (!existing.isStubFile && implImport.isStubFile) {
+                    dest.implicitImports!.set(name, implImport);
+                }
+            }
+        });
+    }
+
+    private _pickBestImportInternal(
         bestImportSoFar: ImportResult | undefined,
         newImport: ImportResult | undefined,
         moduleDescriptor: ImportedModuleDescriptor

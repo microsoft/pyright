@@ -32,6 +32,8 @@ The following settings control the *environment* in which Pyright will check for
 
 - **extraPaths** [array of strings, optional]: Additional search paths that will be used when searching for modules imported by files.
 
+- **namespaceOverridePaths** [array of strings, optional]: Paths that should be treated as "transparent" namespace packages. If an `__init__.py` file is found within one of these paths, it is ignored, and the import resolver continues to search other import roots for additional fragments of the package. This is useful in environments like Bazel where a single logical package may be split across multiple physical directories, some of which contain an `__init__.py` file. It can also be used for legacy `pkgutil` or `pkg_resources` namespaces where an `__init__.py` file is present but intended to allow merging with other directories.
+
 - **pythonVersion** [string, optional]: Specifies the version of Python that will be used to execute the source code. The version should be specified as a string in the format "M.m" where M is the major version and m is the minor (e.g. `"3.0"` or `"3.6"`). If a version is provided, pyright will generate errors if the source code makes use of language features that are not supported in that version. It will also tailor its use of type stub files, which conditionalizes type definitions based on the version. If no version is specified, pyright will use the version of the current python interpreter, if one is present.
 
 - **pythonPlatform** [string, optional]: Specifies the target platform that will be used to execute the source code. Should be one of `"Windows"`, `"Darwin"`, `"Linux"`, `"iOS"`, `"Android"`, or `"All"`. If specified, pyright will tailor its use of type stub files, which conditionalize type definitions based on the platform. If no platform is specified, pyright will use the current platform.
@@ -245,6 +247,8 @@ The following settings can be specified for each execution environment. Each sou
 - **root** [string, required]: Root path for the code that will execute within this execution environment.
 
 - **extraPaths** [array of strings, optional]: Additional search paths (in addition to the root path) that will be used when searching for modules imported by files within this execution environment. If specified, this overrides the default extraPaths setting when resolving imports for files within this execution environment. Note that each file’s execution environment mapping is independent, so if file A is in one execution environment and imports a second file B within a second execution environment, any imports from B will use the extraPaths in the second execution environment.
+
+- **namespaceOverridePaths** [array of strings, optional]: Paths that should be treated as "transparent" namespace packages. If specified, this overrides the default namespaceOverridePaths setting for files within this execution environment. This is useful in environments like Bazel or for legacy `pkgutil` or `pkg_resources` namespaces where an `__init__.py` file is present but intended to allow merging with other directories.
 
 - **pythonVersion** [string, optional]: The version of Python used for this execution environment. If not specified, the global `pythonVersion` setting is used instead.
 

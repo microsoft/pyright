@@ -140,6 +140,15 @@
                     "description": "Additional import search resolution paths",
                     "scope": "resource"
                 },
+                "python.analysis.namespaceOverridePaths": {
+                    "type": "array",
+                    "default": [],
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Paths that should be treated as \"transparent\" namespace packages.",
+                    "scope": "resource"
+                },
                 "python.analysis.stubPath": {
                     "type": "string",
                     "default": "typings",
