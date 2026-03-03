@@ -108,6 +108,7 @@ export class TestLanguageService implements LanguageServerInterface {
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
+            eagerDiagnosticInvalidation: false,
         };
     }
 

@@ -1545,6 +1545,12 @@
                     "description": "Disables the “Organize Imports” command.",
                     "scope": "resource"
                 },
+                "pyright.eagerDiagnosticInvalidation": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Clear diagnostics for a file immediately when its content changes, before reanalysis completes. Prevents stale diagnostics from persisting between edits. Intended for non-UI rapid-edit workflows such as agentic coding tools.",
+                    "scope": "resource"
+                },
                 "pyright.disablePullDiagnostics": {
                     "type": "boolean",
                     "default": false,

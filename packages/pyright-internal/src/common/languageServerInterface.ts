@@ -46,6 +46,7 @@ export interface ServerSettings {
     ignoreFileSpecs?: string[];
     taskListTokens?: TaskListToken[];
     functionSignatureDisplay?: SignatureDisplayType | undefined;
+    eagerDiagnosticInvalidation?: boolean | undefined;
 }
 
 export interface MessageAction {

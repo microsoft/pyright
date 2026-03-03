@@ -224,5 +224,6 @@ function createWorkspace(rootUri: Uri | undefined) {
         disableWorkspaceSymbol: false,
         isInitialized: createInitStatus(),
         searchPathsToWatch: [],
+        eagerDiagnosticInvalidation: false,
     };
 }

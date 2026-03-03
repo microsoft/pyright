@@ -398,6 +398,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
             workspace.disableTaggedHints = !!serverSettings.disableTaggedHints;
             workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
+            workspace.eagerDiagnosticInvalidation = !!serverSettings.eagerDiagnosticInvalidation;
         } finally {
             // Don't use workspace.isInitialized directly since it might have been
             // reset due to pending config change event.
@@ -1129,6 +1130,23 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         workspaces.forEach((w) => {
             w.service.updateOpenFileContents(uri, params.textDocument.version, newContents, ipythonMode);
         });
+
+        // Eagerly clear stale diagnostics for the changed file so clients don't
+        // display them between the edit and the next reanalysis cycle. Only send
+        // the empty notification if the file currently has diagnostics and at
+        // least one containing workspace has eagerDiagnosticInvalidation enabled.
+        if (
+            this.documentsWithDiagnostics.has(params.textDocument.uri) &&
+            workspaces.some((w) => w.eagerDiagnosticInvalidation)
+        ) {
+            this.sendDiagnostics([
+                {
+                    uri: params.textDocument.uri,
+                    version: params.textDocument.version,
+                    diagnostics: [],
+                },
+            ]);
+        }
     }
 
     protected async onDidCloseTextDocument(params: DidCloseTextDocumentParams) {

@@ -11,6 +11,7 @@ import {
     CancellationToken,
     CompletionRequest,
     ConfigurationItem,
+    DidChangeTextDocumentNotification,
     DidChangeWorkspaceFoldersNotification,
     InitializedNotification,
     InitializeRequest,
@@ -22,6 +23,7 @@ import { PythonVersion, pythonVersion3_10 } from '../common/pythonVersion';
 
 import { isArray } from '../common/core';
 import { normalizeSlashes } from '../common/pathUtils';
+import { getMarkerByName } from './harness/fourslash/testStateUtils';
 import {
     cleanupAfterAll,
     DEFAULT_WORKSPACE_ROOT,
@@ -31,6 +33,7 @@ import {
     PyrightServerInfo,
     runPyrightServer,
     waitForDiagnostics,
+    waitForEvent,
 } from './lsp/languageServerTestUtils';
 
 describe(`Basic language server tests`, () => {
@@ -172,6 +175,47 @@ describe(`Basic language server tests`, () => {
 
         const completionItem = completionResult.items.find((i) => i.label === 'path')!;
         assert(completionItem);
+    });
+
+    test('eager diagnostic invalidation clears diagnostics on didChange', async () => {
+        jest.setTimeout(60000);
+        const code = `
+// @filename: test.py
+//// x: int = [|/*marker*/"hello"|]
+        `;
+        const info = await runLanguageServer(
+            DEFAULT_WORKSPACE_ROOT,
+            code,
+            /* callInitialize */ true,
+            /* extraSettings */ undefined,
+            /* pythonVersion */ undefined,
+            /* supportsBackgroundThread */ false,
+            /* supportsPullDiagnostics */ false
+        );
+
+        await openFile(info, 'marker');
+
+        // Wait for initial diagnostics containing the type error.
+        const initialDiags = await waitForDiagnostics(info);
+        assert(initialDiags.some((d) => d.diagnostics.length > 0));
+
+        // Record baseline, then send didChange.
+        const baseline = info.diagnostics.length;
+        const marker = getMarkerByName(info.testData, 'marker');
+        info.connection.sendNotification(DidChangeTextDocumentNotification.type, {
+            textDocument: { uri: marker.fileUri.toString(), version: 2 },
+            contentChanges: [{ text: 'x: int = 42\n' }],
+        });
+
+        // The first publishDiagnostics after the change should be an empty
+        // clear, sent eagerly before re-analysis completes.
+        await waitForEvent(
+            info.diagnosticsEvent,
+            'eager clear',
+            () => info.diagnostics.length > baseline,
+            10000
+        );
+        assert.strictEqual(info.diagnostics[baseline].diagnostics.length, 0);
     });
 
     [false, true].forEach((supportsPullDiagnostics) => {
