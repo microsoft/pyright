@@ -8,6 +8,8 @@ The Pyright language server honors the following settings.
 
 **pyright.disableTaggedHints** [boolean]: Disables the use of hint diagnostics with special tags to tell the client to display text ranges in a "grayed out" manner (to indicate unreachable code or unreferenced symbols) or in a "strike through" manner (to indicate use of a deprecated feature).
 
+**pyright.eagerDiagnosticInvalidation** [boolean]: Immediately clears diagnostics for a file on edit, before reanalysis completes.
+
 **pyright.openFilesOnly** [boolean]: Determines whether pyright analyzes (and reports errors for) all files in the workspace, as indicated by the config file. If this option is set to true, pyright analyzes only open files. This setting is deprecated in favor of python.analysis.diagnosticMode. It will be removed at a future time.
 
 **pyright.useLibraryCodeForTypes** [boolean]: This setting is deprecated in favor of python.analysis.useLibraryCodeForTypes. It will be removed at a future time.

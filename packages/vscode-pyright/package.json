@@ -1548,7 +1548,7 @@
                 "pyright.eagerDiagnosticInvalidation": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Clear diagnostics for a file immediately when its content changes, before reanalysis completes. Prevents stale diagnostics from persisting between edits. Intended for non-UI rapid-edit workflows such as agentic coding tools.",
+                    "description": "Immediately clears diagnostics for a file on edit, before reanalysis completes.",
                     "scope": "resource"
                 },
                 "pyright.disablePullDiagnostics": {
