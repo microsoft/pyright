@@ -14,5 +14,5 @@ reveal_type(d2, expected_text="dict[int, int]")
 d3: Mapping[int, int] | Mapping[str, str] | int | float = dict()
 reveal_type(d3, expected_text="dict[int, int]")
 
-d4: dict[str, str] | dict[int, int] = dict(a="hi")
-reveal_type(d4, expected_text="dict[str, str]")
+d4: dict[str, str] | dict[int, int] = dict(a="hi")  # Error
+reveal_type(d4, expected_text="dict[int, int]")

@@ -7,7 +7,7 @@
 
 # pyright: strict
 
-from typing import Generic, Iterator, TypeVar
+from typing import Generic, Generator, TypeVar
 from contextlib import contextmanager
 
 _A = TypeVar("_A")
@@ -35,7 +35,7 @@ reveal_type(a1.value_b, expected_text="str")
 
 
 @contextmanager
-def func1(default: _A | None = None) -> Iterator[_A | str]:
+def func1(default: _A | None = None) -> Generator[_A | str, None, None]:
     yield ""
 
 

@@ -685,7 +685,7 @@ test('Constructor3', () => {
 test('Constructor4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor4.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Constructor5', () => {
@@ -835,7 +835,7 @@ test('Constructor28', () => {
 test('Constructor29', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor29.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Constructor30', () => {

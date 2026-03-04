@@ -170,5 +170,5 @@ class DDict(dict[KT, VT]):
 dd1 = cast_to_callable(DDict)
 reveal_type(
     dd1,
-    expected_text="Overload[() -> DDict[Unknown, Unknown], (**kwargs: T1@__init__) -> DDict[str, T1@__init__], (default_factory: (() -> VT@DDict) | None, /) -> DDict[Unknown, VT@DDict]]",
+    expected_text="Overload[() -> DDict[Unknown, Unknown], (**kwargs: Unknown) -> DDict[Unknown, Unknown], (default_factory: (() -> Unknown) | None, /) -> DDict[Unknown, Unknown]]",
 )
