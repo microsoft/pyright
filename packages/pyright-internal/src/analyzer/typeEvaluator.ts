@@ -26711,6 +26711,36 @@ export function createTypeEvaluator(
                 continue;
             }
 
+            // When checking overload overlap for explicitly annotated self/cls
+            // parameters, force invariant comparison if the self type contains
+            // auto-variance TypeVars (i.e. TypeVars whose variance is inferred
+            // from usage rather than explicitly declared). Inferred variance can
+            // be unstable — for example, changing based on whether a backing
+            // attribute is named with a private underscore prefix or not — which
+            // causes spurious reportOverlappingOverload false positives.
+            //
+            // Explicitly declared covariant/contravariant TypeVars are left
+            // unchanged so that genuine subtype-based overlaps are still detected.
+            const isOverloadSelfClsParamComparison =
+                (flags & AssignTypeFlags.OverloadOverlap) !== 0 &&
+                paramIndex === 0 &&
+                destType.shared.methodClass !== undefined &&
+                srcType.shared.methodClass !== undefined &&
+                (FunctionType.isInstanceMethod(destType) || FunctionType.isClassMethod(destType)) &&
+                (FunctionType.isInstanceMethod(srcType) || FunctionType.isClassMethod(srcType));
+
+            const hasExplicitSelfClsTypeAnnotations =
+                FunctionParam.isTypeDeclared(destParam.param) && FunctionParam.isTypeDeclared(srcParam.param);
+
+            const destSelfClsUsesAutoVariance =
+                isClassInstance(destParamType) &&
+                ClassType.getTypeParams(destParamType).some((p) => p.shared.declaredVariance === Variance.Auto);
+
+            const enforceInvariantSelfClsForOverlap =
+                isOverloadSelfClsParamComparison && hasExplicitSelfClsTypeAnnotations && destSelfClsUsesAutoVariance;
+
+            const paramAssignFlags = enforceInvariantSelfClsForOverlap ? flags | AssignTypeFlags.Invariant : flags;
+
             if (isUnpacked(srcParamType)) {
                 canAssign = false;
             } else if (
@@ -26720,7 +26750,7 @@ export function createTypeEvaluator(
                     paramIndex,
                     diag?.createAddendum(),
                     constraints,
-                    flags,
+                    paramAssignFlags,
                     recursionCount
                 )
             ) {

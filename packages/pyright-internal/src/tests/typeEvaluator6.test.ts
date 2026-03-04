@@ -115,6 +115,15 @@ test('OverloadOverlap1', () => {
     TestUtils.validateResults(analysisResults, 16);
 });
 
+test('OverloadOverlap2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeGuard1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard1.py']);
 
