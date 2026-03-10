@@ -606,6 +606,23 @@ describe(`config test'}`, () => {
         assert.deepStrictEqual(config.defaultPythonVersion, pythonVersion3_13);
     });
 
+    test('PyprojectTomlWithoutPyrightSectionFallsBackToAncestorConfig', () => {
+        const cwd = normalizePath(process.cwd());
+        const service = createAnalyzer();
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath = 'src/tests/samples/project_with_empty_pyproject_toml/subproject';
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+        // Should fall back to the ancestor pyproject.toml which sets pythonVersion to 3.9.
+        assert.strictEqual(configOptions.defaultPythonVersion!.toString(), pythonVersion3_9.toString());
+
+        // configFileSource should point to the ancestor pyproject.toml, not the subproject one.
+        assert.ok(
+            configOptions.configFileSource?.toString().endsWith('project_with_empty_pyproject_toml/pyproject.toml')
+        );
+    });
+
     test('Diagnostic rule overrides are preserved when positional args override include', () => {
         const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_diag_overrides'));
         const service = createAnalyzer();
