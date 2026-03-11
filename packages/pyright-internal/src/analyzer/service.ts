@@ -1268,7 +1268,12 @@ export class AnalyzerService {
                 const fallback =
                     findConfigFileHereOrUp(this.fs, parentDir) ?? findPyprojectTomlFileHereOrUp(this.fs, parentDir);
                 if (fallback) {
-                    return this._getExtendedConfigurations(fallback);
+                    return this._getExtendedConfigurations(
+                        fallback,
+                        // Provide the next pyprojectSearchDir, so we can continue
+                        // searching upward
+                        fallback.lastExtension.endsWith('.toml') ? fallback.getDirectory() : undefined
+                    );
                 }
             }
         }

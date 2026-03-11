@@ -623,6 +623,24 @@ describe(`config test'}`, () => {
         );
     });
 
+    test('PyprojectTomlWithoutPyrightSectionFallsBackThroughMultipleAncestors', () => {
+        const cwd = normalizePath(process.cwd());
+        const service = createAnalyzer();
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath =
+            'src/tests/samples/project_with_nested_empty_pyproject_toml/middle/subproject';
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+        // Should skip the empty pyproject.tomls and fall back to the root's [tool.pyright].
+        assert.strictEqual(configOptions.defaultPythonVersion!.toString(), pythonVersion3_9.toString());
+        assert.ok(
+            configOptions.configFileSource
+                ?.toString()
+                .endsWith('project_with_nested_empty_pyproject_toml/pyproject.toml')
+        );
+    });
+
     test('Diagnostic rule overrides are preserved when positional args override include', () => {
         const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_diag_overrides'));
         const service = createAnalyzer();
