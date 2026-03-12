@@ -40,6 +40,7 @@ import {
     isInstantiableClass,
     isNever,
     isOverloaded,
+    isPositionOnlySeparator,
     isTypeVar,
     isUnknown,
 } from './types';
@@ -1092,13 +1093,22 @@ function shouldSkipInitEvaluation(evaluator: TypeEvaluator, classType: ClassType
 }
 
 // Determine whether the __new__ method is the placeholder signature
-// of "def __new__(cls, *args, **kwargs) -> Self".
+// of "def __new__(cls, *args, **kwargs) -> Self" or
+// "def __new__(cls, /, *args, **kwargs) -> Self".
 function isDefaultNewMethod(newMethod?: Type): boolean {
     if (!newMethod || !isFunction(newMethod)) {
         return false;
     }
 
-    const params = newMethod.shared.parameters;
+    let params = newMethod.shared.parameters;
+
+    // After binding, cls is stripped. A positional-only separator may remain
+    // if the original signature was "def __new__(cls, /, *args, **kwargs)".
+    // Skip the separator when checking for the default pattern.
+    if (params.length > 0 && isPositionOnlySeparator(params[0])) {
+        params = params.slice(1);
+    }
+
     if (params.length !== 2) {
         return false;
     }
