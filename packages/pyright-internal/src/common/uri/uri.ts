@@ -31,7 +31,7 @@ export type SerializedType = [UriKinds, ...any[]];
 import type { Uri as UriInterface } from './uriInterface';
 export interface Uri extends UriInterface {}
 
-const _dosPathRegex = /^\/[a-zA-Z]:\//;
+const _dosPathRegex = /^\/[a-zA-Z](?::|%3[aA])\//;
 const _win32NormalizationRegex = /\//g;
 
 // Returns just the fsPath path portion of a vscode URI.
@@ -49,9 +49,11 @@ function getFilePath(uri: URI): string {
     }
 
     // If this is a DOS-style path with a drive letter, remove
-    // the leading slash.
+    // the leading slash and decode percent-encoded colons.
     if (filePath.match(_dosPathRegex)) {
         filePath = filePath.slice(1);
+        // Decode %3A/%3a back to ':' for Windows drive letters
+        filePath = filePath.replace(/^([a-zA-Z])%3[aA]/, '$1:');
     }
 
     // vscode.URI normalizes the path to use the correct path separators.
