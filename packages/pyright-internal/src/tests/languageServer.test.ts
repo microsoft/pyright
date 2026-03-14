@@ -11,6 +11,7 @@ import {
     CancellationToken,
     CompletionRequest,
     ConfigurationItem,
+    DidChangeTextDocumentNotification,
     DidChangeWorkspaceFoldersNotification,
     InitializedNotification,
     InitializeRequest,
@@ -31,6 +32,7 @@ import {
     PyrightServerInfo,
     runPyrightServer,
     waitForDiagnostics,
+    waitForEvent,
 } from './lsp/languageServerTestUtils';
 
 describe(`Basic language server tests`, () => {
@@ -310,6 +312,154 @@ describe(`Basic language server tests`, () => {
                     `Expected diagnostic not found. Got ${JSON.stringify(diagnostic.diagnostics)}`
                 );
             });
+        });
+    });
+
+    describe('clearDiagnosticsOnChange', () => {
+        jest.setTimeout(200000);
+
+        test('clears diagnostics immediately on didChange when enabled', async () => {
+            const code = `
+// @filename: root/test.py
+//// from math import cos, sin
+//// [|/*marker*/|]
+            `;
+            const settings = [
+                {
+                    item: {
+                        scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
+                        section: 'python.analysis',
+                    },
+                    value: {
+                        typeCheckingMode: 'strict',
+                        diagnosticMode: 'workspace',
+                    },
+                },
+                {
+                    item: {
+                        scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
+                        section: 'pyright',
+                    },
+                    value: {
+                        clearDiagnosticsOnChange: true,
+                    },
+                },
+            ];
+
+            const info = await runLanguageServer(
+                DEFAULT_WORKSPACE_ROOT,
+                code,
+                /* callInitialize */ true,
+                settings,
+                undefined,
+                /* supportsBackgroundThread */ false
+            );
+
+            await openFile(info, 'marker');
+
+            // Wait for initial diagnostics to appear (unused imports).
+            const initialDiagnostics = await waitForDiagnostics(info);
+            const fileDiagnostics = initialDiagnostics.find((d) => d.uri.includes('root/test.py'));
+            assert(fileDiagnostics, 'Expected diagnostics for test.py');
+            assert.ok(
+                fileDiagnostics.diagnostics.length > 0,
+                `Expected non-empty diagnostics but got: ${JSON.stringify(fileDiagnostics.diagnostics)}`
+            );
+
+            const marker = info.testData.markerPositions.get('marker')!;
+            const fileUri = marker.fileUri.toString();
+
+            // Send a textDocument/didChange notification for the file.
+            // With clearDiagnosticsOnChange enabled, diagnostics should be cleared immediately.
+            info.connection.sendNotification(DidChangeTextDocumentNotification.type, {
+                textDocument: { uri: fileUri, version: 2 },
+                contentChanges: [{ text: 'from math import cos, sin\n' }],
+            });
+
+            // Wait for an empty diagnostics notification for this file.
+            await waitForEvent(
+                info.diagnosticsEvent,
+                'empty diagnostics on change',
+                (p) => p.uri === fileUri && p.diagnostics.length === 0
+            );
+        });
+
+        test('does not clear diagnostics on didChange when disabled', async () => {
+            const code = `
+// @filename: root/test.py
+//// from math import cos, sin
+//// [|/*marker*/|]
+            `;
+            const settings = [
+                {
+                    item: {
+                        scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
+                        section: 'python.analysis',
+                    },
+                    value: {
+                        typeCheckingMode: 'strict',
+                        diagnosticMode: 'workspace',
+                    },
+                },
+            ];
+
+            const info = await runLanguageServer(
+                DEFAULT_WORKSPACE_ROOT,
+                code,
+                /* callInitialize */ true,
+                settings,
+                undefined,
+                /* supportsBackgroundThread */ false
+            );
+
+            await openFile(info, 'marker');
+
+            // Wait for initial diagnostics to appear.
+            const initialDiagnostics = await waitForDiagnostics(info);
+            const fileDiagnostics = initialDiagnostics.find((d) => d.uri.includes('root/test.py'));
+            assert(fileDiagnostics, 'Expected diagnostics for test.py');
+            assert.ok(
+                fileDiagnostics.diagnostics.length > 0,
+                `Expected non-empty diagnostics but got: ${JSON.stringify(fileDiagnostics.diagnostics)}`
+            );
+
+            const marker = info.testData.markerPositions.get('marker')!;
+            const fileUri = marker.fileUri.toString();
+
+            // Register a listener BEFORE sending didChange to track any empty-diagnostics events.
+            let sawEmptyDiagnosticsForFile = false;
+            const disposable = info.diagnosticsEvent((p) => {
+                if (p.uri === fileUri && p.diagnostics.length === 0) {
+                    sawEmptyDiagnosticsForFile = true;
+                }
+            });
+
+            try {
+                // Send a textDocument/didChange notification for the file.
+                info.connection.sendNotification(DidChangeTextDocumentNotification.type, {
+                    textDocument: { uri: fileUri, version: 2 },
+                    contentChanges: [{ text: 'from math import cos, sin\n' }],
+                });
+
+                // Wait for the full reanalysis cycle to complete by waiting for the next
+                // non-empty diagnostics event for this file. This is deterministic: once the
+                // analysis-cycle diagnostics arrive, all synchronous events (including any
+                // spurious empty-diagnostics publish) will have already fired.
+                await waitForEvent(
+                    info.diagnosticsEvent,
+                    'reanalysis diagnostics',
+                    (p) => p.uri === fileUri && p.diagnostics.length > 0
+                );
+            } finally {
+                disposable.dispose();
+            }
+
+            // After the full cycle, verify that no empty-diagnostics notification was published.
+            assert.strictEqual(
+                sawEmptyDiagnosticsForFile,
+                false,
+                `Expected no empty diagnostics when clearDiagnosticsOnChange is disabled`
+            );
         });
     });
 });

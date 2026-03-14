@@ -73,6 +73,7 @@ export class AnalyzerServiceExecutor {
             disableTaggedHints: true,
             disableOrganizeImports: true,
             disableWorkspaceSymbol: true,
+            clearDiagnosticsOnChange: false,
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
         };

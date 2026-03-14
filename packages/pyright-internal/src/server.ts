@@ -211,6 +211,7 @@ export class PyrightServer extends LanguageServerBase {
                 serverSettings.disableLanguageServices = !!pyrightSection.disableLanguageServices;
                 serverSettings.disableTaggedHints = !!pyrightSection.disableTaggedHints;
                 serverSettings.disableOrganizeImports = !!pyrightSection.disableOrganizeImports;
+                serverSettings.clearDiagnosticsOnChange = !!pyrightSection.clearDiagnosticsOnChange;
 
                 const typeCheckingMode = pyrightSection.typeCheckingMode;
                 if (typeCheckingMode && isString(typeCheckingMode)) {

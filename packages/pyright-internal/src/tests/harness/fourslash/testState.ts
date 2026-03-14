@@ -208,6 +208,7 @@ export class TestState {
             disableTaggedHints: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
+            clearDiagnosticsOnChange: false,
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
         };

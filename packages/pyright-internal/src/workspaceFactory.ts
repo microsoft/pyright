@@ -85,6 +85,7 @@ export interface Workspace extends WorkspaceFolder {
     disableTaggedHints: boolean;
     disableOrganizeImports: boolean;
     disableWorkspaceSymbol: boolean;
+    clearDiagnosticsOnChange: boolean;
     isInitialized: InitStatus;
     searchPathsToWatch: Uri[];
 }
@@ -288,6 +289,7 @@ export class WorkspaceFactory implements IWorkspaceFactory {
             disableTaggedHints: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
+            clearDiagnosticsOnChange: false,
             isInitialized: createInitStatus(),
             searchPathsToWatch: [],
         };
