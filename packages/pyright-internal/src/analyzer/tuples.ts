@@ -391,6 +391,8 @@ export function adjustTupleTypeArgs(
 
             if (srcTypeArgs.length > destTypeArgs.length) {
                 srcTypeArgs.splice(srcUnboundedIndex, 1);
+
+                // Invalidate the stale index after removal.
                 srcUnboundedIndex = -1;
             }
         } else if (destUnboundedOrVariadicIndex < 0) {
