@@ -1397,15 +1397,41 @@ export function isMaybeDescriptorInstance(type: Type, requireSetter = false): bo
         return false;
     }
 
-    if (!ClassType.getSymbolTable(type).has('__get__')) {
+    // Traverse MRO so descriptor subclasses are detected
+    const getMember = lookUpObjectMember(type, '__get__');
+    if (!getMember) {
         return false;
     }
 
-    if (requireSetter && !ClassType.getSymbolTable(type).has('__set__')) {
-        return false;
+    if (requireSetter) {
+        const setMember = lookUpObjectMember(type, '__set__');
+        if (!setMember) {
+            return false;
+        }
     }
 
     return true;
+}
+
+// Checks whether an instantiable class type (i.e. the class itself, not an instance of it)
+// is a descriptor class — one that defines __get__. This is the counterpart to
+// isMaybeDescriptorInstance: that function handles declared types in instance form
+// (ClassInstance), while this one handles declared types in instantiable form
+// (InstantiableClass), which occurs when a type annotation refers to the class object itself.
+// Unlike isMaybeDescriptorInstance, which uses lookUpObjectMember (which only produces
+// results for ClassInstance arguments), this function calls lookUpClassMember directly —
+// because lookUpObjectMember returns undefined for non-ClassInstance types, making it
+// unsuitable for the InstantiableClass argument this function receives.
+export function isMaybeDescriptorClass(type: Type): boolean {
+    if (isUnion(type)) {
+        return type.priv.subtypes.some((subtype) => isMaybeDescriptorClass(subtype));
+    }
+
+    if (!isInstantiableClass(type)) {
+        return false;
+    }
+
+    return !!lookUpClassMember(type, '__get__');
 }
 
 export function isTupleGradualForm(type: Type) {
