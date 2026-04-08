@@ -377,7 +377,7 @@ export function adjustTupleTypeArgs(
     const destUnboundedOrVariadicIndex = destTypeArgs.findIndex(
         (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
     );
-    const srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
+    let srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
     const srcVariadicIndex = srcTypeArgs.findIndex((t) => isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type));
 
     if (srcUnboundedIndex >= 0) {
@@ -391,6 +391,7 @@ export function adjustTupleTypeArgs(
 
             if (srcTypeArgs.length > destTypeArgs.length) {
                 srcTypeArgs.splice(srcUnboundedIndex, 1);
+                srcUnboundedIndex = -1;
             }
         } else if (destUnboundedOrVariadicIndex < 0) {
             // If the source contains an unbounded type but the dest does not, it's incompatible.
