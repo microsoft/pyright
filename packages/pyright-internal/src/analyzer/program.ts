@@ -360,21 +360,38 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
+        // Detect py.typed status if not explicitly provided. This ensures that
+        // files from py.typed packages are correctly marked even when added
+        // directly to check paths (e.g., via command line).
+        let effectiveIsInPyTypedPackage = isInPyTypedPackage;
+        if (!isInPyTypedPackage) {
+            const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
+            effectiveIsInPyTypedPackage = moduleImportInfo.isThirdPartyPyTypedPresent;
+        }
+
         const sourceFile = this._sourceFileFactory.createSourceFile(
             this.serviceProvider,
             fileUri,
             (uri) => this._getModuleName(uri),
             isThirdPartyImport,
-            isInPyTypedPackage,
+            effectiveIsInPyTypedPackage,
             this._editModeTracker,
             this._console,
             this._logTracker
         );
+
+        // Set the initial diagnostic rule set from the execution environment
+        // so the file has config-level overrides (e.g. reportPrivateImportUsage:
+        // false) from the start. Without this, files added via positional args
+        // (which override configOptions.include) would use the basic defaults
+        // until parse() runs.
+        const execEnv = this._configOptions.findExecEnvironment(fileUri);
+        sourceFile.setInitialDiagnosticRuleSet(execEnv.diagnosticRuleSet);
         sourceFileInfo = new SourceFileInfo(
             sourceFile,
             sourceFile.isTypingStubFile() || sourceFile.isTypeshedStubFile() || sourceFile.isBuiltInStubFile(),
             isThirdPartyImport,
-            isInPyTypedPackage,
+            effectiveIsInPyTypedPackage,
             this._editModeTracker,
             {
                 isTracked: true,

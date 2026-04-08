@@ -255,6 +255,11 @@ export class Tokenizer {
     // Assume Jupyter notebook tokenization rules?
     private _useNotebookMode = false;
 
+    // Intern identifier strings within a single tokenization pass. This reduces
+    // per-identifier allocations while still ensuring we don't retain substrings
+    // that reference the original source text.
+    private readonly _identifierInternedStrings = new Map<string, string>();
+
     tokenize(
         text: string,
         start?: number,
@@ -284,6 +289,7 @@ export class Tokenizer {
         this._lineRanges = [];
         this._indentAmounts = [];
         this._useNotebookMode = useNotebookMode;
+        this._identifierInternedStrings.clear();
 
         const end = start + length;
 
@@ -905,18 +911,26 @@ export class Tokenizer {
 
         if (this._cs.position > start) {
             const value = this._cs.getText().slice(start, this._cs.position);
-            if (_keywords.has(value)) {
+            const keywordType = _keywords.get(value);
+            if (keywordType !== undefined) {
                 this._tokens.push(
-                    KeywordToken.create(start, this._cs.position - start, _keywords.get(value)!, this._getComments())
+                    KeywordToken.create(start, this._cs.position - start, keywordType, this._getComments())
                 );
             } else {
+                const internedValue = this._identifierInternedStrings.get(value) ?? this._internIdentifierString(value);
                 this._tokens.push(
-                    IdentifierToken.create(start, this._cs.position - start, cloneStr(value), this._getComments())
+                    IdentifierToken.create(start, this._cs.position - start, internedValue, this._getComments())
                 );
             }
             return true;
         }
         return false;
+    }
+
+    private _internIdentifierString(value: string) {
+        const clonedValue = cloneStr(value);
+        this._identifierInternedStrings.set(clonedValue, clonedValue);
+        return clonedValue;
     }
 
     private _isPossibleNumber(): boolean {
