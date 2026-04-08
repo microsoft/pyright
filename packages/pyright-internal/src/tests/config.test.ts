@@ -12,7 +12,12 @@ import assert from 'assert';
 import { AnalyzerService } from '../analyzer/service';
 import { deserialize, serialize } from '../backgroundThreadBase';
 import { CommandLineOptions, DiagnosticSeverityOverrides } from '../common/commandLineOptions';
-import { ConfigOptions, ExecutionEnvironment, getStandardDiagnosticRuleSet } from '../common/configOptions';
+import {
+    ConfigOptions,
+    ExecutionEnvironment,
+    getBasicDiagnosticRuleSet,
+    getStandardDiagnosticRuleSet,
+} from '../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../common/console';
 import { TaskListPriority } from '../common/diagnostic';
 import { combinePaths, normalizePath, normalizeSlashes } from '../common/pathUtils';
@@ -599,6 +604,74 @@ describe(`config test'}`, () => {
 
         const config = service.test_getConfigOptions(commandLineOptions);
         assert.deepStrictEqual(config.defaultPythonVersion, pythonVersion3_13);
+    });
+
+    test('PyprojectTomlWithoutPyrightSectionFallsBackToAncestorConfig', () => {
+        const cwd = normalizePath(process.cwd());
+        const service = createAnalyzer();
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath = 'src/tests/samples/project_with_empty_pyproject_toml/subproject';
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+        // Should fall back to the ancestor pyproject.toml which sets pythonVersion to 3.9.
+        assert.strictEqual(configOptions.defaultPythonVersion!.toString(), pythonVersion3_9.toString());
+
+        // configFileSource should point to the ancestor pyproject.toml, not the subproject one.
+        assert.ok(
+            configOptions.configFileSource?.toString().endsWith('project_with_empty_pyproject_toml/pyproject.toml')
+        );
+    });
+
+    test('PyprojectTomlWithoutPyrightSectionFallsBackThroughMultipleAncestors', () => {
+        const cwd = normalizePath(process.cwd());
+        const service = createAnalyzer();
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath =
+            'src/tests/samples/project_with_nested_empty_pyproject_toml/middle/subproject';
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+        // Should skip the empty pyproject.tomls and fall back to the root's [tool.pyright].
+        assert.strictEqual(configOptions.defaultPythonVersion!.toString(), pythonVersion3_9.toString());
+        assert.ok(
+            configOptions.configFileSource
+                ?.toString()
+                .endsWith('project_with_nested_empty_pyproject_toml/pyproject.toml')
+        );
+    });
+
+    test('Diagnostic rule overrides are preserved when positional args override include', () => {
+        const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_diag_overrides'));
+        const service = createAnalyzer();
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        service.setOptions(commandLineOptions);
+
+        // Get config without include override - should have reportPrivateImportUsage: 'none'
+        // because the config sets it to false.
+        const configWithoutOverride = service.test_getConfigOptions(commandLineOptions);
+        assert.equal(configWithoutOverride.diagnosticRuleSet.reportPrivateImportUsage, 'none');
+
+        // The basic default would be 'error', verify our config overrides it.
+        const basicDefaults = getBasicDiagnosticRuleSet();
+        assert.equal(basicDefaults.reportPrivateImportUsage, 'error');
+
+        // Now simulate positional args overriding include (like `pyright --project config.json subdir`).
+        const commandLineOptionsWithOverride = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptionsWithOverride.configSettings.includeFileSpecsOverride = [combinePaths(cwd, 'subdir')];
+        service.setOptions(commandLineOptionsWithOverride);
+
+        const configWithOverride = service.test_getConfigOptions(commandLineOptionsWithOverride);
+
+        // The diagnostic rule overrides from the config file should still be applied
+        // even when positional args replace the include paths.
+        assert.equal(configWithOverride.diagnosticRuleSet.reportPrivateImportUsage, 'none');
+
+        // The execution environment for a file in the override path should also
+        // have the config's diagnostic rule overrides.
+        const fileUri = Uri.file(combinePaths(cwd, 'subdir', 'sample.py'), service.serviceProvider);
+        const execEnv = configWithOverride.findExecEnvironment(fileUri);
+        assert.equal(execEnv.diagnosticRuleSet.reportPrivateImportUsage, 'none');
     });
 
     function createAnalyzer(console?: ConsoleInterface) {

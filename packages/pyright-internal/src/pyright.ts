@@ -296,11 +296,17 @@ async function processArgs(): Promise<ExitStatus> {
     }
 
     if (args.pythonplatform) {
-        if (args.pythonplatform === 'Darwin' || args.pythonplatform === 'Linux' || args.pythonplatform === 'Windows') {
+        if (
+            args.pythonplatform === 'Darwin' ||
+            args.pythonplatform === 'Linux' ||
+            args.pythonplatform === 'Windows' ||
+            args.pythonplatform === 'iOS' ||
+            args.pythonplatform === 'Android'
+        ) {
             options.configSettings.pythonPlatform = args.pythonplatform;
         } else {
             console.error(
-                `'${args.pythonplatform}' is not a supported Python platform; specify Darwin, Linux, or Windows`
+                `'${args.pythonplatform}' is not a supported Python platform; specify Darwin, Linux, Windows, iOS, or Android.`
             );
             return ExitStatus.ParameterError;
         }
@@ -560,6 +566,7 @@ async function runMultiThreaded(
     output: ConsoleInterface
 ) {
     const workers: ChildProcess[] = [];
+    const workersShutdown = new Set<ChildProcess>();
     const startTime = Date.now();
     const treatWarningsAsErrors = !!args.warnings;
     const exitStatus = createDeferred<ExitStatus>();
@@ -627,6 +634,7 @@ async function runMultiThreaded(
             pendingAnalysisCount++;
         } else {
             // Kill the worker since there's nothing left to do.
+            workersShutdown.add(worker);
             worker.kill();
 
             if (pendingAnalysisCount === 0) {
@@ -733,6 +741,15 @@ async function runMultiThreaded(
 
         worker.on('error', (err) => {
             output.error(`Failed to start child process: ${err}`);
+            exitStatus.resolve(ExitStatus.FatalError);
+        });
+
+        worker.on('exit', (code, signal) => {
+            if (workersShutdown.has(worker)) {
+                return;
+            }
+
+            output.error(`Worker process exited unexpectedly: exit code=${code}, signal=${signal}`);
             exitStatus.resolve(ExitStatus.FatalError);
         });
 
@@ -1129,7 +1146,7 @@ function printUsage() {
             '  --level <LEVEL>                    Minimum diagnostic level (error or warning)\n' +
             '  --outputjson                       Output results in JSON format\n' +
             '  -p,--project <FILE OR DIRECTORY>   Use the configuration file at this location\n' +
-            '  --pythonplatform <PLATFORM>        Analyze for a specific platform (Darwin, Linux, Windows)\n' +
+            '  --pythonplatform <PLATFORM>        Analyze for a specific platform (Darwin, Linux, Windows, iOS, Android)\n' +
             '  --pythonpath <FILE>                Path to the Python interpreter\n' +
             '  --pythonversion <VERSION>          Analyze for a specific version (3.3, 3.4, etc.)\n' +
             '  --skipunannotated                  Skip analysis of functions with no type annotations\n' +

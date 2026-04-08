@@ -843,7 +843,10 @@ export class AnalyzerService {
         const configOptions = new ConfigOptions(projectRoot);
 
         // If we found a config file, load it and apply its settings.
-        const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
+        const configs = this._getExtendedConfigurations(
+            configFilePath ?? pyprojectFilePath,
+            !configFilePath ? pyprojectFilePath?.getDirectory() : undefined
+        );
         if (configs && configs.length > 0) {
             // With a pyrightconfig.json set, we want the typeCheckingMode to always be standard
             // as that's what the Pyright CLI will expect. Command line options (if not a language server) and
@@ -861,8 +864,8 @@ export class AnalyzerService {
                 );
             }
 
-            // Set the configFileSource since we have a config file.
-            configOptions.configFileSource = configFilePath ?? pyprojectFilePath;
+            // Set the configFileSource since we have a config file (set by `_getExtendedConfigurations`)
+            configOptions.configFileSource = this._primaryConfigFileUri;
 
             // When not in language server mode, command line options override config file options.
             if (!commandLineOptions.fromLanguageServer) {
@@ -1202,7 +1205,12 @@ export class AnalyzerService {
 
     // Loads the config JSON object from the specified config file along with any
     // chained config files specified in the "extends" property (recursively).
-    private _getExtendedConfigurations(primaryConfigFileUri: Uri | undefined): ConfigFileContents[] | undefined {
+    // If pyprojectSearchDir is provided and the primary file is a pyproject.toml with no
+    // [tool.pyright] section, falls back to searching ancestor dirs from pyprojectSearchDir.
+    private _getExtendedConfigurations(
+        primaryConfigFileUri: Uri | undefined,
+        pyprojectSearchDir?: Uri
+    ): ConfigFileContents[] | undefined {
         this._primaryConfigFileUri = primaryConfigFileUri;
         this._extendedConfigFileUris = [];
 
@@ -1250,6 +1258,24 @@ export class AnalyzerService {
             }
 
             curConfigFileUri = baseConfigUri;
+        }
+
+        // If a pyproject.toml was found but had no [tool.pyright] section, fall back to
+        // searching ancestor directories as if that pyproject.toml didn't exist.
+        if (configJsonObjs.length === 0 && pyprojectSearchDir) {
+            const parentDir = pyprojectSearchDir.getDirectory();
+            if (!parentDir.equals(pyprojectSearchDir)) {
+                const fallback =
+                    findConfigFileHereOrUp(this.fs, parentDir) ?? findPyprojectTomlFileHereOrUp(this.fs, parentDir);
+                if (fallback) {
+                    return this._getExtendedConfigurations(
+                        fallback,
+                        // Provide the next pyprojectSearchDir, so we can continue
+                        // searching upward
+                        fallback.lastExtension.endsWith('.toml') ? fallback.getDirectory() : undefined
+                    );
+                }
+            }
         }
 
         return configJsonObjs;
