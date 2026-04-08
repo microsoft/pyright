@@ -215,20 +215,19 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     private _findClosestMatch(uri: Uri, map: UriMap<MappedEntry>): MappedEntry | undefined {
         // Search through the map of directories to find the closest match. The
         // closest match is the longest path that is a parent of the uri.
-        let entry = map.get(uri);
-        if (!entry) {
-            let foundKey = undefined;
-            for (const [key, value] of map.entries()) {
-                if (uri.isChild(key)) {
-                    // Update the found key if it is a better match.
-                    if (!foundKey || foundKey.getPathLength() < key.getPathLength()) {
-                        foundKey = key;
-                        entry = value;
-                    }
-                }
+        while (true) {
+            const entry = map.get(uri);
+            if (entry) {
+                return entry;
             }
+
+            const parent = uri.getDirectory();
+            if (parent.equals(uri)) {
+                return undefined;
+            }
+
+            uri = parent;
         }
-        return entry;
     }
 
     private _getOriginalEntry(uri: Uri): MappedEntry | undefined {
