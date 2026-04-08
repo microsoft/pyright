@@ -23304,7 +23304,15 @@ export function createTypeEvaluator(
                     const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode);
                     const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
                     if (usageScope === declScope) {
-                        if (!isFlowPathBetweenNodes(decl.node, usageNode)) {
+                        // Skip declarations that appear after the usage in the source.
+                        // Such declarations can only be reached via loop back-edges, and
+                        // including them causes circular evaluation (producing Unknown).
+                        // Declarations that textually precede the usage are retained so
+                        // that order-independent type aliases resolve correctly.
+                        // Note: for the cases filtered out here (decl after usage in same
+                        // scope), the code-flow engine handles loop-carried narrowing when
+                        // it evaluates the type at the actual usage site.
+                        if (decl.node.start >= usageNode.start) {
                             return;
                         }
                     }
@@ -23511,6 +23519,11 @@ export function createTypeEvaluator(
                         const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
 
                         if (usageScope === declScope) {
+                            // For typed declarations we use the precise flow-graph reachability
+                            // check rather than a simple position comparison, because typed decls
+                            // (e.g. explicit annotations) can legitimately appear after the usage
+                            // in the source text (e.g. a class attribute annotated below a method
+                            // that references it) and must not be excluded by position alone.
                             if (!isFlowPathBetweenNodes(decl.node, usageNode, /* allowSelf */ false)) {
                                 return false;
                             }
