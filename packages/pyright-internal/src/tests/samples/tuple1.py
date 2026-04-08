@@ -305,3 +305,8 @@ def func32(a: tuple[int, int, *tuple[Any, ...]]) -> tuple[int, ...]:
 
 def func33(a: tuple[int, int, int, *tuple[Any, ...]]) -> tuple[int, ...]:
     return a
+
+
+def func34(a: tuple[int, int, *tuple[Any, ...]]) -> tuple[int]:
+    # This should generate an error.
+    return a
