@@ -23305,10 +23305,14 @@ export function createTypeEvaluator(
                     const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
                     if (usageScope === declScope) {
                         // Skip declarations that appear after the usage in the source.
-                        // Such declarations can only be reached via loop back-edges, and
-                        // including them causes circular evaluation (producing Unknown).
+                        // Such declarations are typically only reached via loop back-edges,
+                        // and including them causes circular evaluation (producing Unknown).
                         // Declarations that textually precede the usage are retained so
-                        // that order-independent type aliases resolve correctly.
+                        // that order-independent type aliases resolve correctly; for
+                        // branching constructs (if/else, try/except), a retained
+                        // declaration may be flow-unreachable at the usage site, but the
+                        // code-flow engine overrides the effective type for local
+                        // variables, so the narrowed type at the usage site is correct.
                         // Note: for the cases filtered out here (decl after usage in same
                         // scope), the code-flow engine handles loop-carried narrowing when
                         // it evaluates the type at the actual usage site.
