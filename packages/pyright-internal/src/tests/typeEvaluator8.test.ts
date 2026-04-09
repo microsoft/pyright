@@ -452,7 +452,7 @@ test('Optional2', () => {
 test('Tuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple1.py']);
 
-    TestUtils.validateResults(analysisResults, 26);
+    TestUtils.validateResults(analysisResults, 27);
 });
 
 test('Tuple2', () => {
@@ -751,6 +751,12 @@ test('Descriptor2', () => {
 
 test('Descriptor3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor3.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Descriptor4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor4.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
