@@ -1257,6 +1257,9 @@ export class Binder extends ParseTreeWalker {
             this._createAssignmentTargetFlowNodes(node.d.targetExpr, /* walkTargets */ true, /* unbound */ false);
         });
 
+        // Record antecedent count before the loop body to detect continue back-edges.
+        const preBodyAntecedentCount = preForLabel.antecedents.length;
+
         this._bindLoopStatement(preForLabel, postForLabel, () => {
             this.walk(node.d.forSuite);
             this._addAntecedent(preForLabel, this._currentFlowNode!);
@@ -1267,25 +1270,38 @@ export class Binder extends ParseTreeWalker {
             });
         });
 
-        // For guaranteed loops, add post-body exit path.
-        // If there's an unconditional break, _currentFlowNode is unreachable and this does nothing.
-        // For conditional breaks, _currentFlowNode remains reachable (the non-break path).
-        // If there's no break, this allows the else clause to be reached after loop completion.
-        // For all-continue bodies, _currentFlowNode is unreachable, so we need to temporarily
-        // make it reachable to bypass _addAntecedent's guard, but use preForLabel as the actual antecedent
-        // since it has accumulated the continue back-edges.
+        // For guaranteed loops, add post-body exit path to preElseLabel.
+        // When _currentFlowNode is reachable (normal completion or conditional break),
+        // use it directly — it carries the post-body type state.
+        // When _currentFlowNode is unreachable (all paths end with break/continue/return/raise),
+        // we must distinguish the cause:
+        //   - All break: preElseLabel gets nothing. Python's else doesn't run after break,
+        //     and break already sent the assigned-state to postForLabel.
+        //   - All continue: preForLabel accumulated continue back-edges. Use it as an
+        //     approximation for the loop-completion state feeding into else.
+        //   - All return/raise: preElseLabel gets nothing. Post-loop is unreachable.
+        //   - Mix with continue: if any continues occurred, use preForLabel for else path.
         if (isGuaranteedToExecute) {
             if (
                 this._currentFlowNode!.flags &
                 (FlowFlags.UnreachableStructural | FlowFlags.UnreachableStaticCondition)
             ) {
-                // All paths end with break/continue/return - use preForLabel which has the loop state
-                const savedFlowNode = this._currentFlowNode!;
-                this._currentFlowNode = preForLabel;
-                this._addAntecedent(preElseLabel, preForLabel);
-                this._currentFlowNode = savedFlowNode;
+                // Check if any continue statements added back-edges to preForLabel.
+                const hasContinueBackEdges = preForLabel.antecedents.length > preBodyAntecedentCount;
+
+                if (hasContinueBackEdges) {
+                    // Some paths continued — use preForLabel (with accumulated continue state)
+                    // as the else-clause antecedent.
+                    const savedFlowNode = this._currentFlowNode!;
+                    this._currentFlowNode = preForLabel;
+                    this._addAntecedent(preElseLabel, preForLabel);
+                    this._currentFlowNode = savedFlowNode;
+                }
+                // Otherwise (all break / all return / all raise): preElseLabel gets no
+                // antecedent. For break, the flow already reached postForLabel directly.
+                // For return/raise, post-loop code is unreachable.
             } else {
-                // Normal completion or conditional break - use current flow node
+                // Normal completion or conditional break — use current flow node.
                 this._addAntecedent(preElseLabel, this._currentFlowNode!);
             }
         }
