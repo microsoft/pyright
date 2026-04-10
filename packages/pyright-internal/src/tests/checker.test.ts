@@ -54,6 +54,13 @@ test('Private2', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Private3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportPrivateUsage = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['private6.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Constant1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
