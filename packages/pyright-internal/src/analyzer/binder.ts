@@ -1217,17 +1217,12 @@ export class Binder extends ParseTreeWalker {
             return (
                 expr.d.items.length > 0 &&
                 expr.d.items.every(
-                    (item) =>
-                        item.nodeType !== ParseNodeType.Unpack &&
-                        item.nodeType !== ParseNodeType.Comprehension
+                    (item) => item.nodeType !== ParseNodeType.Unpack && item.nodeType !== ParseNodeType.Comprehension
                 )
             );
         }
         if (expr.nodeType === ParseNodeType.Tuple) {
-            return (
-                expr.d.items.length > 0 &&
-                expr.d.items.every((item) => item.nodeType !== ParseNodeType.Unpack)
-            );
+            return expr.d.items.length > 0 && expr.d.items.every((item) => item.nodeType !== ParseNodeType.Unpack);
         }
         return false;
     }
