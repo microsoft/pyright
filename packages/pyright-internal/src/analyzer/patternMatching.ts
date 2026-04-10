@@ -1423,11 +1423,9 @@ function getSequencePatternInfo(
                     // If the tuple contains an indeterminate entry, expand or remove that
                     // entry to match the length of the pattern if possible.
                     let expandedIndeterminate = false;
-                    // Track when we remove an unbounded entry. When removedIndeterminate is true,
-                    // tupleIndeterminateIndex becomes -1, making isUnboundedTuple false in the
-                    // sequenceInfo entry. This is safe because isPotentialNoMatch=true (set below)
-                    // prevents incorrect elimination at the isDefiniteMatch check before the
-                    // isIndeterminateLength || isUnboundedTuple guard matters.
+                    // Track that the original tuple was variadic; this information is lost when
+                    // the unbounded entry is spliced out, and is needed to prevent incorrect
+                    // definite-match classification downstream.
                     let removedIndeterminate = false;
                     if (tupleIndeterminateIndex >= 0) {
                         tupleDeterminateEntryCount--;
@@ -1521,7 +1519,7 @@ function getSequencePatternInfo(
                             entryTypes: isDefiniteNoMatch ? [] : typeArgs.map((t) => t.type),
                             isIndeterminateLength: false,
                             isTuple: true,
-                            isUnboundedTuple: tupleIndeterminateIndex >= 0,
+                            isUnboundedTuple: removedIndeterminate || tupleIndeterminateIndex >= 0,
                             isDefiniteNoMatch,
                             isPotentialNoMatch,
                         });

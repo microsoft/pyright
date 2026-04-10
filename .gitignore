@@ -126,9 +126,3 @@ Thumbs.db
 
 # Potential venv
 .venv
-
-# Agent files
-serena/
-.beads/
-AGENTS.md
-
