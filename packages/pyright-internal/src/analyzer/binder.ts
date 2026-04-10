@@ -3546,15 +3546,17 @@ export class Binder extends ParseTreeWalker {
                             } else {
                                 this._potentialPrivateSymbols.set(name, symbol);
                             }
-                        } else if (this._fileInfo.isStubFile || this._fileInfo.isInPyTypedPackage) {
-                            if (this._currentScope.type === ScopeType.Builtin) {
-                                // Don't include private-named symbols in the builtin scope.
-                                symbol.setIsExternallyHidden();
-                            } else {
-                                this._potentialPrivateSymbols.set(name, symbol);
-                            }
+                        } else if (this._currentScope.type === ScopeType.Builtin) {
+                            // Don't include private-named symbols in the builtin scope.
+                            symbol.setIsExternallyHidden();
                         } else {
-                            symbol.setIsPrivateMember();
+                            // Defer the private/protected decision until __all__ has
+                            // been processed so an explicit __all__ entry can mark
+                            // the symbol public. Previously this path called
+                            // setIsPrivateMember() directly for non-stub,
+                            // non-py.typed source files, which meant __all__ was
+                            // honored only for stubs and py.typed packages.
+                            this._potentialPrivateSymbols.set(name, symbol);
                         }
                     }
                 }
