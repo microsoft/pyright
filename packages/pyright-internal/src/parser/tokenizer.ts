@@ -142,7 +142,11 @@ const _byteOrderMarker = 0xfeff;
 
 const defaultTabSize = 8;
 const magicsRegEx = /\\\s*$/;
-const typeIgnoreCommentRegEx = /((^|#)\s*)type:\s*ignore(\s*\[([\s\w-,]*)\]|\s|$)/;
+// The character class for type: ignore rule codes includes ':' so that
+// tool-namespaced codes such as "ty:unresolved-reference" are accepted.
+// pyright: ignore uses the original class since tool-namespaced codes
+// are not expected there.
+const typeIgnoreCommentRegEx = /((^|#)\s*)type:\s*ignore(\s*\[([\s\w:,-]*)\]|\s|$)/;
 const pyrightIgnoreCommentRegEx = /((^|#)\s*)pyright:\s*ignore(\s*\[([\s\w-,]*)\]|\s|$)/;
 const underscoreRegEx = /_/g;
 
