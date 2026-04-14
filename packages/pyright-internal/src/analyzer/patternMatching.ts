@@ -1423,9 +1423,9 @@ function getSequencePatternInfo(
                     // If the tuple contains an indeterminate entry, expand or remove that
                     // entry to match the length of the pattern if possible.
                     let expandedIndeterminate = false;
-                    // Track that the original tuple was variadic; this information is lost when
-                    // the unbounded entry is spliced out, and is needed to prevent incorrect
-                    // definite-match classification downstream.
+                    // Tracks whether the indeterminate entry was spliced out to contract the tuple
+                    // to fit a shorter pattern. This preserves "potential match" semantics after
+                    // the splice resets tupleIndeterminateIndex to -1.
                     let removedIndeterminate = false;
                     if (tupleIndeterminateIndex >= 0) {
                         tupleDeterminateEntryCount--;
@@ -1441,6 +1441,7 @@ function getSequencePatternInfo(
                             typeArgs.splice(tupleIndeterminateIndex, 1);
                             removedIndeterminate = true;
                             tupleIndeterminateIndex = -1;
+                            removedIndeterminate = true;
                         }
                     }
 
@@ -1477,7 +1478,7 @@ function getSequencePatternInfo(
 
                     if (typeArgs.length === patternEntryCount) {
                         let isDefiniteNoMatch = false;
-                        let isPotentialNoMatch = tupleIndeterminateIndex >= 0;
+                        let isPotentialNoMatch = tupleIndeterminateIndex >= 0 || removedIndeterminate;
 
                         // If we removed an unbounded entry to make the lengths match,
                         // this is a potential match (not definite) because the original
