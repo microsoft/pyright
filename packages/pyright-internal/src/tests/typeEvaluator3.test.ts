@@ -194,7 +194,10 @@ test('Coroutines4', () => {
 test('Loop1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop1.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    // With the change to treat non-empty list literals as guaranteed to execute,
+    // func2 no longer generates an error (data is definitely list[int]).
+    // func3 still generates 1 error (data is potentially None in while loop).
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Loop2', () => {

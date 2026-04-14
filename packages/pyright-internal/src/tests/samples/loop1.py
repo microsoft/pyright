@@ -16,11 +16,11 @@ def func2():
             reveal_type(data, expected_text="list[int]")
             func1(data)
     else:
-        reveal_type(data, expected_text="list[int] | None")
+        # With the change to treat non-empty list literals as guaranteed to execute,
+        # data is definitely list[int] here (not None) because the loop executes at least once.
+        reveal_type(data, expected_text="list[int]")
 
-        # This should generate an error because the
-        # type checker should be able to determine that
-        # data must contain None at this point.
+        # This should not generate an error because data is list[int]
         func1(data)
 
 

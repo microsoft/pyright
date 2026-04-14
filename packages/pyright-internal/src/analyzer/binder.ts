@@ -1209,6 +1209,24 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
+    // Helper method to determine if an expression is a non-empty list or tuple literal.
+    // This is a syntactic check, not a semantic one, so it's very fast.
+    // Guards against starred expressions ([*empty_list]) and comprehensions ([v for v in []]).
+    private _isNonEmptyListOrTupleLiteral(expr: ExpressionNode): boolean {
+        if (expr.nodeType === ParseNodeType.List) {
+            return (
+                expr.d.items.length > 0 &&
+                expr.d.items.every(
+                    (item) => item.nodeType !== ParseNodeType.Unpack && item.nodeType !== ParseNodeType.Comprehension
+                )
+            );
+        }
+        if (expr.nodeType === ParseNodeType.Tuple) {
+            return expr.d.items.length > 0 && expr.d.items.every((item) => item.nodeType !== ParseNodeType.Unpack);
+        }
+        return false;
+    }
+
     override visitFor(node: ForNode) {
         this._bindPossibleTupleNamedTarget(node.d.targetExpr);
         this._addInferredTypeAssignmentForVariable(node.d.targetExpr, node);
@@ -1219,12 +1237,23 @@ export class Binder extends ParseTreeWalker {
         const preElseLabel = this._createBranchLabel();
         const postForLabel = this._createBranchLabel();
 
+        // Determine if this loop is guaranteed to execute at least once
+        const isGuaranteedToExecute = this._isNonEmptyListOrTupleLiteral(node.d.iterableExpr);
+
         this._addAntecedent(preForLabel, this._currentFlowNode!);
         this._currentFlowNode = preForLabel;
-        this._addAntecedent(preElseLabel, this._currentFlowNode);
+
+        // Only add zero-iteration path for potentially-empty iterables
+        if (!isGuaranteedToExecute) {
+            this._addAntecedent(preElseLabel, this._currentFlowNode);
+        }
+
         const targetExpressions = this._trackCodeFlowExpressions(() => {
             this._createAssignmentTargetFlowNodes(node.d.targetExpr, /* walkTargets */ true, /* unbound */ false);
         });
+
+        // Record antecedent count before the loop body to detect continue back-edges.
+        const preBodyAntecedentCount = preForLabel.antecedents.length;
 
         this._bindLoopStatement(preForLabel, postForLabel, () => {
             this.walk(node.d.forSuite);
@@ -1235,6 +1264,42 @@ export class Binder extends ParseTreeWalker {
                 this._currentScopeCodeFlowExpressions?.add(value);
             });
         });
+
+        // For guaranteed loops, add post-body exit path to preElseLabel.
+        // When _currentFlowNode is reachable (normal completion or conditional break),
+        // use it directly — it carries the post-body type state.
+        // When _currentFlowNode is unreachable (all paths end with break/continue/return/raise),
+        // we must distinguish the cause:
+        //   - All break: preElseLabel gets nothing. Python's else doesn't run after break,
+        //     and break already sent the assigned-state to postForLabel.
+        //   - All continue: preForLabel accumulated continue back-edges. Use it as an
+        //     approximation for the loop-completion state feeding into else.
+        //   - All return/raise: preElseLabel gets nothing. Post-loop is unreachable.
+        //   - Mix with continue: if any continues occurred, use preForLabel for else path.
+        if (isGuaranteedToExecute) {
+            if (
+                this._currentFlowNode!.flags &
+                (FlowFlags.UnreachableStructural | FlowFlags.UnreachableStaticCondition)
+            ) {
+                // Check if any continue statements added back-edges to preForLabel.
+                const hasContinueBackEdges = preForLabel.antecedents.length > preBodyAntecedentCount;
+
+                if (hasContinueBackEdges) {
+                    // Some paths continued — use preForLabel (with accumulated continue state)
+                    // as the else-clause antecedent.
+                    const savedFlowNode = this._currentFlowNode!;
+                    this._currentFlowNode = preForLabel;
+                    this._addAntecedent(preElseLabel, preForLabel);
+                    this._currentFlowNode = savedFlowNode;
+                }
+                // Otherwise (all break / all return / all raise): preElseLabel gets no
+                // antecedent. For break, the flow already reached postForLabel directly.
+                // For return/raise, post-loop code is unreachable.
+            } else {
+                // Normal completion or conditional break — use current flow node.
+                this._addAntecedent(preElseLabel, this._currentFlowNode!);
+            }
+        }
 
         this._currentFlowNode = this._finishFlowLabel(preElseLabel);
         if (node.d.elseSuite) {
