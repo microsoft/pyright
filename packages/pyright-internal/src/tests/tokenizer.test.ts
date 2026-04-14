@@ -1815,6 +1815,33 @@ test('TypeIgnoreLine2', () => {
     assert.equal(results.tokens.contains(42), false);
 });
 
+// Regression test for https://github.com/microsoft/pyright/issues/11345.
+// type: ignore comments containing tool-namespaced codes (e.g. "ty:rule-name")
+// must be recognised as type: ignore comments.
+test('TypeIgnoreNamespacedCode', () => {
+    const t = new Tokenizer();
+    // Single namespaced code.
+    let results = t.tokenize('a = 1  # type: ignore[ty:unresolved-reference]');
+    assert.equal(results.typeIgnoreLines.size, 1);
+    assert(results.typeIgnoreLines.has(0));
+    const rules = results.typeIgnoreLines.get(0)!.rulesList;
+    assert(rules !== undefined);
+    assert.equal(rules.length, 1);
+    assert.equal(rules[0].text, 'ty:unresolved-reference');
+});
+
+test('TypeIgnoreMixedNamespacedCodes', () => {
+    const t = new Tokenizer();
+    // Mix of plain and namespaced codes.
+    let results = t.tokenize('a = 1  # type: ignore[name-defined, ty:unresolved-reference]');
+    assert.equal(results.typeIgnoreLines.size, 1);
+    const rules = results.typeIgnoreLines.get(0)!.rulesList;
+    assert(rules !== undefined);
+    assert.equal(rules.length, 2);
+    assert.equal(rules[0].text, 'name-defined');
+    assert.equal(rules[1].text, 'ty:unresolved-reference');
+});
+
 test('Constructor', () => {
     const t = new Tokenizer();
     const results = t.tokenize('def constructor');
