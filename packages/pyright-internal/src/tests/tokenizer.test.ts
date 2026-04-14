@@ -1821,7 +1821,7 @@ test('TypeIgnoreLine2', () => {
 test('TypeIgnoreNamespacedCode', () => {
     const t = new Tokenizer();
     // Single namespaced code.
-    let results = t.tokenize('a = 1  # type: ignore[ty:unresolved-reference]');
+    const results = t.tokenize('a = 1  # type: ignore[ty:unresolved-reference]');
     assert.equal(results.typeIgnoreLines.size, 1);
     assert(results.typeIgnoreLines.has(0));
     const rules = results.typeIgnoreLines.get(0)!.rulesList;
@@ -1833,7 +1833,7 @@ test('TypeIgnoreNamespacedCode', () => {
 test('TypeIgnoreMixedNamespacedCodes', () => {
     const t = new Tokenizer();
     // Mix of plain and namespaced codes.
-    let results = t.tokenize('a = 1  # type: ignore[name-defined, ty:unresolved-reference]');
+    const results = t.tokenize('a = 1  # type: ignore[name-defined, ty:unresolved-reference]');
     assert.equal(results.typeIgnoreLines.size, 1);
     const rules = results.typeIgnoreLines.get(0)!.rulesList;
     assert(rules !== undefined);
