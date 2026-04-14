@@ -195,6 +195,18 @@ test('CodeFlow9', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('CodeFlow10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlow10.py']);
+
+    TestUtils.validateResults(analysisResults, 0, 0, 2); /* 2 reveal_type infos */
+});
+
+test('CodeFlow11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlow11.py']);
+
+    TestUtils.validateResults(analysisResults, 4, 0, 4);
+});
+
 test('CapturedVariable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['capturedVariable1.py']);
 
