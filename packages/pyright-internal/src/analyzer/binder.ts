@@ -1209,24 +1209,6 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    // Helper method to determine if an expression is a non-empty list or tuple literal.
-    // This is a syntactic check, not a semantic one, so it's very fast.
-    // Guards against starred expressions ([*empty_list]) and comprehensions ([v for v in []]).
-    private _isNonEmptyListOrTupleLiteral(expr: ExpressionNode): boolean {
-        if (expr.nodeType === ParseNodeType.List) {
-            return (
-                expr.d.items.length > 0 &&
-                expr.d.items.every(
-                    (item) => item.nodeType !== ParseNodeType.Unpack && item.nodeType !== ParseNodeType.Comprehension
-                )
-            );
-        }
-        if (expr.nodeType === ParseNodeType.Tuple) {
-            return expr.d.items.length > 0 && expr.d.items.every((item) => item.nodeType !== ParseNodeType.Unpack);
-        }
-        return false;
-    }
-
     override visitFor(node: ForNode) {
         this._bindPossibleTupleNamedTarget(node.d.targetExpr);
         this._addInferredTypeAssignmentForVariable(node.d.targetExpr, node);
@@ -2500,6 +2482,24 @@ export class Binder extends ParseTreeWalker {
         }
 
         return true;
+    }
+
+    // Helper method to determine if an expression is a non-empty list or tuple literal.
+    // This is a syntactic check, not a semantic one, so it's very fast.
+    // Guards against starred expressions ([*empty_list]) and comprehensions ([v for v in []]).
+    private _isNonEmptyListOrTupleLiteral(expr: ExpressionNode): boolean {
+        if (expr.nodeType === ParseNodeType.List) {
+            return (
+                expr.d.items.length > 0 &&
+                expr.d.items.every(
+                    (item) => item.nodeType !== ParseNodeType.Unpack && item.nodeType !== ParseNodeType.Comprehension
+                )
+            );
+        }
+        if (expr.nodeType === ParseNodeType.Tuple) {
+            return expr.d.items.length > 0 && expr.d.items.every((item) => item.nodeType !== ParseNodeType.Unpack);
+        }
+        return false;
     }
 
     private _addTypingImportAliasesFromBuiltinsScope() {
