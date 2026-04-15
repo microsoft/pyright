@@ -364,6 +364,9 @@ function matchIgnoreDirective(
 ): IgnoreDirectiveMatch | undefined {
     // The directive can be preceded by optional `#` and whitespace, or
     // appear at the start of the range with optional whitespace.
+    // type: ignore allows tool-namespaced codes (e.g. "ty:rule-name") in brackets;
+    // pyright: ignore does not.
+    const allowColonInBracket = directive === 'type';
     let searchFrom = rangeStart;
 
     while (searchFrom < rangeEnd) {
@@ -467,6 +470,7 @@ function matchIgnoreDirective(
                     const bracketStart = pos;
                     while (pos < rangeEnd && text.charCodeAt(pos) !== Char.CloseBracket) {
                         // Only allow valid bracket content chars: \s, \w, -, ,
+                        // (plus ':' for type: ignore to support tool-namespaced codes)
                         const bc = text.charCodeAt(pos);
                         if (
                             (bc >= Char.a && bc <= Char.z) ||
@@ -476,7 +480,8 @@ function matchIgnoreDirective(
                             bc === Char.Hyphen ||
                             bc === Char.Comma ||
                             bc === Char.Space ||
-                            bc === Char.Tab
+                            bc === Char.Tab ||
+                            (allowColonInBracket && bc === Char.Colon)
                         ) {
                             pos++;
                         } else {
@@ -502,7 +507,8 @@ function matchIgnoreDirective(
                         bc === Char.Hyphen ||
                         bc === Char.Comma ||
                         bc === Char.Space ||
-                        bc === Char.Tab
+                        bc === Char.Tab ||
+                        (allowColonInBracket && bc === Char.Colon)
                     ) {
                         pos++;
                     } else {
