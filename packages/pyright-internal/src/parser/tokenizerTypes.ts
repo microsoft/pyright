@@ -193,15 +193,8 @@ export interface Comment extends TextRange {
 }
 
 export namespace Comment {
-    export function create(start: number, length: number, value: string, type = CommentType.Regular) {
-        const comment: Comment = {
-            type,
-            start,
-            length,
-            value,
-        };
-
-        return comment;
+    export function create(start: number, length: number, value: string, type = CommentType.Regular): Comment {
+        return { type, start, length, value };
     }
 }
 
@@ -215,15 +208,21 @@ export interface TokenBase extends TextRange {
 export interface Token extends TokenBase {}
 
 export namespace Token {
-    export function create(type: TokenType, start: number, length: number, comments: Comment[] | undefined) {
-        const token: Token = {
+    export function create(type: TokenType, start: number, length: number, comments: Comment[] | undefined): Token {
+        if (comments !== undefined) {
+            return {
+                start,
+                length,
+                type,
+                comments,
+            };
+        }
+
+        return {
             start,
             length,
             type,
-            comments,
         };
-
-        return token;
     }
 }
 
@@ -240,17 +239,25 @@ export namespace IndentToken {
         indentAmount: number,
         isIndentAmbiguous: boolean,
         comments: Comment[] | undefined
-    ) {
-        const token: IndentToken = {
+    ): IndentToken {
+        if (comments !== undefined) {
+            return {
+                start,
+                length,
+                type: TokenType.Indent,
+                isIndentAmbiguous,
+                comments,
+                indentAmount,
+            };
+        }
+
+        return {
             start,
             length,
             type: TokenType.Indent,
             isIndentAmbiguous,
-            comments,
             indentAmount,
         };
-
-        return token;
     }
 }
 
@@ -269,18 +276,27 @@ export namespace DedentToken {
         matchesIndent: boolean,
         isDedentAmbiguous: boolean,
         comments: Comment[] | undefined
-    ) {
-        const token: DedentToken = {
+    ): DedentToken {
+        if (comments !== undefined) {
+            return {
+                start,
+                length,
+                type: TokenType.Dedent,
+                comments,
+                indentAmount,
+                matchesIndent,
+                isDedentAmbiguous,
+            };
+        }
+
+        return {
             start,
             length,
             type: TokenType.Dedent,
-            comments,
             indentAmount,
             matchesIndent,
             isDedentAmbiguous,
         };
-
-        return token;
     }
 }
 
@@ -290,16 +306,28 @@ export interface NewLineToken extends Token {
 }
 
 export namespace NewLineToken {
-    export function create(start: number, length: number, newLineType: NewLineType, comments: Comment[] | undefined) {
-        const token: NewLineToken = {
+    export function create(
+        start: number,
+        length: number,
+        newLineType: NewLineType,
+        comments: Comment[] | undefined
+    ): NewLineToken {
+        if (comments !== undefined) {
+            return {
+                start,
+                length,
+                type: TokenType.NewLine,
+                comments,
+                newLineType,
+            };
+        }
+
+        return {
             start,
             length,
             type: TokenType.NewLine,
-            comments,
             newLineType,
         };
-
-        return token;
     }
 }
 
@@ -309,16 +337,28 @@ export interface KeywordToken extends Token {
 }
 
 export namespace KeywordToken {
-    export function create(start: number, length: number, keywordType: KeywordType, comments: Comment[] | undefined) {
-        const token: KeywordToken = {
+    export function create(
+        start: number,
+        length: number,
+        keywordType: KeywordType,
+        comments: Comment[] | undefined
+    ): KeywordToken {
+        if (comments !== undefined) {
+            return {
+                start,
+                length,
+                type: TokenType.Keyword,
+                comments,
+                keywordType,
+            };
+        }
+
+        return {
             start,
             length,
             type: TokenType.Keyword,
-            comments,
             keywordType,
         };
-
-        return token;
     }
 
     export function isSoftKeyword(token: KeywordToken) {
@@ -350,19 +390,30 @@ export namespace StringToken {
         escapedValue: string,
         prefixLength: number,
         comments: Comment[] | undefined
-    ) {
-        const token: StringToken = {
+    ): StringToken {
+        const quoteMarkLength = flags & StringTokenFlags.Triplicate ? 3 : 1;
+        if (comments !== undefined) {
+            return {
+                start,
+                length,
+                type: TokenType.String,
+                flags,
+                escapedValue,
+                prefixLength,
+                quoteMarkLength,
+                comments,
+            };
+        }
+
+        return {
             start,
             length,
             type: TokenType.String,
             flags,
             escapedValue,
             prefixLength,
-            quoteMarkLength: flags & StringTokenFlags.Triplicate ? 3 : 1,
-            comments,
+            quoteMarkLength,
         };
-
-        return token;
     }
 }
 
@@ -386,18 +437,28 @@ export namespace FStringStartToken {
         flags: StringTokenFlags,
         prefixLength: number,
         comments: Comment[] | undefined
-    ) {
-        const token: FStringStartToken = {
+    ): FStringStartToken {
+        const quoteMarkLength = flags & StringTokenFlags.Triplicate ? 3 : 1;
+        if (comments !== undefined) {
+            return {
+                start,
+                length,
+                type: TokenType.FStringStart,
+                flags,
+                prefixLength,
+                quoteMarkLength,
+                comments,
+            };
+        }
+
+        return {
             start,
             length,
             type: TokenType.FStringStart,
             flags,
             prefixLength,
-            quoteMarkLength: flags & StringTokenFlags.Triplicate ? 3 : 1,
-            comments,
+            quoteMarkLength,
         };
-
-        return token;
     }
 }
 
@@ -456,18 +517,27 @@ export namespace NumberToken {
         isInteger: boolean,
         isImaginary: boolean,
         comments: Comment[] | undefined
-    ) {
-        const token: NumberToken = {
+    ): NumberToken {
+        if (comments !== undefined) {
+            return {
+                start,
+                length,
+                type: TokenType.Number,
+                isInteger,
+                isImaginary,
+                value,
+                comments,
+            };
+        }
+
+        return {
             start,
             length,
             type: TokenType.Number,
             isInteger,
             isImaginary,
             value,
-            comments,
         };
-
-        return token;
     }
 }
 
@@ -477,16 +547,28 @@ export interface OperatorToken extends Token {
 }
 
 export namespace OperatorToken {
-    export function create(start: number, length: number, operatorType: OperatorType, comments: Comment[] | undefined) {
-        const token: OperatorToken = {
+    export function create(
+        start: number,
+        length: number,
+        operatorType: OperatorType,
+        comments: Comment[] | undefined
+    ): OperatorToken {
+        if (comments !== undefined) {
+            return {
+                start,
+                length,
+                type: TokenType.Operator,
+                operatorType,
+                comments,
+            };
+        }
+
+        return {
             start,
             length,
             type: TokenType.Operator,
             operatorType,
-            comments,
         };
-
-        return token;
     }
 }
 
@@ -496,18 +578,36 @@ export interface IdentifierToken extends Token {
 }
 
 export namespace IdentifierToken {
-    export function create(start: number, length: number, value: string, comments: Comment[] | undefined) {
+    export function create(
+        start: number,
+        length: number,
+        value: string,
+        comments: Comment[] | undefined
+    ): IdentifierToken {
         // Perform "NFKC normalization", as per the Python lexical spec.
-        const normalizedValue = value.normalize('NFKC');
+        let normalizedValue = value;
+        for (let i = 0; i < value.length; i++) {
+            if (value.charCodeAt(i) > 0x7f) {
+                normalizedValue = value.normalize('NFKC');
+                break;
+            }
+        }
 
-        const token: IdentifierToken = {
+        if (comments !== undefined) {
+            return {
+                start,
+                length,
+                type: TokenType.Identifier,
+                value: normalizedValue,
+                comments,
+            };
+        }
+
+        return {
             start,
             length,
             type: TokenType.Identifier,
             value: normalizedValue,
-            comments,
         };
-
-        return token;
     }
 }
