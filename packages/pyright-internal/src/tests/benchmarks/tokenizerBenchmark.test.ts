@@ -13,10 +13,10 @@
  *   src/tests/benchmarks/.generated/benchmark-results/tokenizer/
  */
 
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { execFileSync } from 'child_process';
 
 import { Tokenizer } from '../../parser/tokenizer';
 
@@ -123,13 +123,13 @@ function printResultTable(results: BenchmarkResult[]): void {
     for (const result of results) {
         const sizeKB = `${(result.fileSizeBytes / 1024).toFixed(1)}KB`;
         console.log(
-            `${result.corpus.padEnd(25)} ${sizeKB.padStart(8)} ${String(result.tokenCount).padStart(8)} ${result.medianMs
+            `${result.corpus.padEnd(25)} ${sizeKB.padStart(8)} ${String(result.tokenCount).padStart(
+                8
+            )} ${result.medianMs.toFixed(2).padStart(10)} ${result.minMs.toFixed(2).padStart(10)} ${result.maxMs
                 .toFixed(2)
-                .padStart(10)} ${result.minMs.toFixed(2).padStart(10)} ${result.maxMs.toFixed(2).padStart(10)} ${result.avgMs
+                .padStart(10)} ${result.avgMs.toFixed(2).padStart(10)} ${result.p95Ms
                 .toFixed(2)
-                .padStart(10)} ${result.p95Ms.toFixed(2).padStart(10)} ${Math.round(result.tokensPerSec)
-                .toLocaleString()
-                .padStart(12)}`
+                .padStart(10)} ${Math.round(result.tokensPerSec).toLocaleString().padStart(12)}`
         );
     }
     console.log('');
@@ -176,9 +176,7 @@ function runBenchmarkInFreshProcess(testName: string): BenchmarkResult {
             }
         );
 
-        const resultLine = output
-            .split(/\r?\n/)
-            .find((line) => line.startsWith(CHILD_RESULT_PREFIX));
+        const resultLine = output.split(/\r?\n/).find((line) => line.startsWith(CHILD_RESULT_PREFIX));
 
         if (!resultLine) {
             throw new Error(`Child benchmark for "${testName}" did not emit a result.\n${output}`);

@@ -491,6 +491,9 @@ function matchIgnoreDirective(
                     if (pos < rangeEnd && text.charCodeAt(pos) === Char.CloseBracket) {
                         bracketContent = text.slice(bracketStart, pos);
                         pos++; // skip ']'
+                    } else {
+                        searchFrom = directiveIdx + 1;
+                        continue;
                     }
                 }
             } else if (ch === Char.OpenBracket) {
@@ -518,6 +521,9 @@ function matchIgnoreDirective(
                 if (pos < rangeEnd && text.charCodeAt(pos) === Char.CloseBracket) {
                     bracketContent = text.slice(bracketStart, pos);
                     pos++; // skip ']'
+                } else {
+                    searchFrom = directiveIdx + 1;
+                    continue;
                 }
             } else {
                 // No space, no bracket — not a valid match

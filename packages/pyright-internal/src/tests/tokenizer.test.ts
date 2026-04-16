@@ -1838,6 +1838,12 @@ test('TypeIgnoreLine2', () => {
     assert.equal(results.tokens.contains(42), false);
 });
 
+test('TypeIgnoreLineMalformedBracket', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a = 3 # type: ignore[broken');
+    assert.equal(results.typeIgnoreLines.size, 0);
+});
+
 // Regression test for https://github.com/microsoft/pyright/issues/11345.
 // type: ignore comments containing tool-namespaced codes (e.g. "ty:rule-name")
 // must be recognised as type: ignore comments.
