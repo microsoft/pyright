@@ -236,6 +236,7 @@ const corpora: { name: string; file: string }[] = [
     { name: 'large_class', file: 'large_class.py' },
     { name: 'import_heavy', file: 'import_heavy.py' },
     { name: 'union_heavy', file: 'union_heavy.py' },
+    { name: 'repetitive_identifiers', file: 'repetitive_identifiers.py' },
 ];
 
 // --- Tests ---
