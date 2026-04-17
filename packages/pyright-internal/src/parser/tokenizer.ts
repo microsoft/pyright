@@ -352,6 +352,44 @@ interface IgnoreDirectiveMatch {
     index: number; // match position within the input string
 }
 
+// Parses a bracketed rule list starting at `pos` (which must point at '[').
+// Returns the bracket content (without brackets) and the position just past ']',
+// or undefined if the bracket is malformed (e.g. unclosed, or contains invalid chars
+// before a closing bracket is found).
+function parseIgnoreBracketContent(
+    text: string,
+    pos: number,
+    rangeEnd: number,
+    allowColon: boolean
+): { content: string; newPos: number } | undefined {
+    pos++; // skip '['
+    const bracketStart = pos;
+    while (pos < rangeEnd && text.charCodeAt(pos) !== Char.CloseBracket) {
+        // Only allow valid bracket content chars: \s, \w, -, ,
+        // (plus ':' for type: ignore to support tool-namespaced codes)
+        const bc = text.charCodeAt(pos);
+        if (
+            (bc >= Char.a && bc <= Char.z) ||
+            (bc >= Char.A && bc <= Char.Z) ||
+            (bc >= Char._0 && bc <= Char._9) ||
+            bc === Char.Underscore ||
+            bc === Char.Hyphen ||
+            bc === Char.Comma ||
+            bc === Char.Space ||
+            bc === Char.Tab ||
+            (allowColon && bc === Char.Colon)
+        ) {
+            pos++;
+        } else {
+            break;
+        }
+    }
+    if (pos < rangeEnd && text.charCodeAt(pos) === Char.CloseBracket) {
+        return { content: text.slice(bracketStart, pos), newPos: pos + 1 };
+    }
+    return undefined;
+}
+
 // Manual replacement for typeIgnoreCommentRegEx / pyrightIgnoreCommentRegEx.
 // Scans `text` within [rangeStart, rangeEnd) for `<directive>: ignore [rules]`
 // where directive is 'type' or 'pyright'.
@@ -370,27 +408,11 @@ function matchIgnoreDirective(
     let searchFrom = rangeStart;
 
     while (searchFrom < rangeEnd) {
-        // Find the next occurrence of the directive keyword, bounded by rangeEnd.
-        // Using a manual scan avoids indexOf scanning the entire source text
-        // when the directive doesn't appear in this comment range.
-        let directiveIdx = -1;
-        const scanLimit = rangeEnd - directive.length;
-        for (let i = searchFrom; i <= scanLimit; i++) {
-            if (text.charCodeAt(i) === directive.charCodeAt(0)) {
-                let found = true;
-                for (let d = 1; d < directive.length; d++) {
-                    if (text.charCodeAt(i + d) !== directive.charCodeAt(d)) {
-                        found = false;
-                        break;
-                    }
-                }
-                if (found) {
-                    directiveIdx = i;
-                    break;
-                }
-            }
-        }
-        if (directiveIdx < 0) {
+        // Find the next occurrence of the directive keyword. indexOf is a
+        // native, highly-optimized search (often SIMD-accelerated) and tends
+        // to outperform a hand-rolled char-by-char scan here.
+        const directiveIdx = text.indexOf(directive, searchFrom);
+        if (directiveIdx < 0 || directiveIdx + directive.length > rangeEnd) {
             return undefined;
         }
 
@@ -465,66 +487,23 @@ function matchIgnoreDirective(
                     pos++;
                 }
                 if (pos < rangeEnd && text.charCodeAt(pos) === Char.OpenBracket) {
-                    // Parse bracket content
-                    pos++; // skip '['
-                    const bracketStart = pos;
-                    while (pos < rangeEnd && text.charCodeAt(pos) !== Char.CloseBracket) {
-                        // Only allow valid bracket content chars: \s, \w, -, ,
-                        // (plus ':' for type: ignore to support tool-namespaced codes)
-                        const bc = text.charCodeAt(pos);
-                        if (
-                            (bc >= Char.a && bc <= Char.z) ||
-                            (bc >= Char.A && bc <= Char.Z) ||
-                            (bc >= Char._0 && bc <= Char._9) ||
-                            bc === Char.Underscore ||
-                            bc === Char.Hyphen ||
-                            bc === Char.Comma ||
-                            bc === Char.Space ||
-                            bc === Char.Tab ||
-                            (allowColonInBracket && bc === Char.Colon)
-                        ) {
-                            pos++;
-                        } else {
-                            break;
-                        }
-                    }
-                    if (pos < rangeEnd && text.charCodeAt(pos) === Char.CloseBracket) {
-                        bracketContent = text.slice(bracketStart, pos);
-                        pos++; // skip ']'
-                    } else {
+                    const parsed = parseIgnoreBracketContent(text, pos, rangeEnd, allowColonInBracket);
+                    if (parsed === undefined) {
                         searchFrom = directiveIdx + 1;
                         continue;
                     }
+                    bracketContent = parsed.content;
+                    pos = parsed.newPos;
                 }
             } else if (ch === Char.OpenBracket) {
                 // Bracket immediately after 'ignore'
-                pos++; // skip '['
-                const bracketStart = pos;
-                while (pos < rangeEnd && text.charCodeAt(pos) !== Char.CloseBracket) {
-                    const bc = text.charCodeAt(pos);
-                    if (
-                        (bc >= Char.a && bc <= Char.z) ||
-                        (bc >= Char.A && bc <= Char.Z) ||
-                        (bc >= Char._0 && bc <= Char._9) ||
-                        bc === Char.Underscore ||
-                        bc === Char.Hyphen ||
-                        bc === Char.Comma ||
-                        bc === Char.Space ||
-                        bc === Char.Tab ||
-                        (allowColonInBracket && bc === Char.Colon)
-                    ) {
-                        pos++;
-                    } else {
-                        break;
-                    }
-                }
-                if (pos < rangeEnd && text.charCodeAt(pos) === Char.CloseBracket) {
-                    bracketContent = text.slice(bracketStart, pos);
-                    pos++; // skip ']'
-                } else {
+                const parsed = parseIgnoreBracketContent(text, pos, rangeEnd, allowColonInBracket);
+                if (parsed === undefined) {
                     searchFrom = directiveIdx + 1;
                     continue;
                 }
+                bracketContent = parsed.content;
+                pos = parsed.newPos;
             } else {
                 // No space, no bracket — not a valid match
                 searchFrom = directiveIdx + 1;
@@ -1655,37 +1634,43 @@ export class Tokenizer {
         const sourceText = this._cs.getText();
         const end = start + length;
 
-        const typeIgnoreMatch = matchIgnoreDirective(sourceText, start, end, 'type');
-        if (typeIgnoreMatch) {
-            const commentStart = typeIgnoreMatch.index;
-            const textRange: TextRange = {
-                start: commentStart + typeIgnoreMatch.prefix.length,
-                length: typeIgnoreMatch.fullMatch.length - typeIgnoreMatch.prefix.length,
-            };
-            const ignoreComment: IgnoreComment = {
-                range: textRange,
-                rulesList: this._getIgnoreCommentRulesList(commentStart, typeIgnoreMatch),
-            };
+        // Fast pre-filter: any ignore directive must contain the substring 'ignore'.
+        // indexOf is a highly-optimized native call and lets us skip the full
+        // directive scan for the vast majority of comments (which are free-form text).
+        const ignoreIdx = sourceText.indexOf('ignore', start);
+        if (ignoreIdx >= 0 && ignoreIdx < end) {
+            const typeIgnoreMatch = matchIgnoreDirective(sourceText, start, end, 'type');
+            if (typeIgnoreMatch) {
+                const commentStart = typeIgnoreMatch.index;
+                const textRange: TextRange = {
+                    start: commentStart + typeIgnoreMatch.prefix.length,
+                    length: typeIgnoreMatch.fullMatch.length - typeIgnoreMatch.prefix.length,
+                };
+                const ignoreComment: IgnoreComment = {
+                    range: textRange,
+                    rulesList: this._getIgnoreCommentRulesList(commentStart, typeIgnoreMatch),
+                };
 
-            if (this._tokens.findIndex((t) => t.type !== TokenType.NewLine && t && t.type !== TokenType.Indent) < 0) {
-                this._typeIgnoreAll = ignoreComment;
-            } else {
-                this._typeIgnoreLines.set(this._lineRanges.length, ignoreComment);
+                if (this._tokens.findIndex((t) => t.type !== TokenType.NewLine && t && t.type !== TokenType.Indent) < 0) {
+                    this._typeIgnoreAll = ignoreComment;
+                } else {
+                    this._typeIgnoreLines.set(this._lineRanges.length, ignoreComment);
+                }
             }
-        }
 
-        const pyrightIgnoreMatch = matchIgnoreDirective(sourceText, start, end, 'pyright');
-        if (pyrightIgnoreMatch) {
-            const commentStart = pyrightIgnoreMatch.index;
-            const textRange: TextRange = {
-                start: commentStart + pyrightIgnoreMatch.prefix.length,
-                length: pyrightIgnoreMatch.fullMatch.length - pyrightIgnoreMatch.prefix.length,
-            };
-            const ignoreComment: IgnoreComment = {
-                range: textRange,
-                rulesList: this._getIgnoreCommentRulesList(commentStart, pyrightIgnoreMatch),
-            };
-            this._pyrightIgnoreLines.set(this._lineRanges.length, ignoreComment);
+            const pyrightIgnoreMatch = matchIgnoreDirective(sourceText, start, end, 'pyright');
+            if (pyrightIgnoreMatch) {
+                const commentStart = pyrightIgnoreMatch.index;
+                const textRange: TextRange = {
+                    start: commentStart + pyrightIgnoreMatch.prefix.length,
+                    length: pyrightIgnoreMatch.fullMatch.length - pyrightIgnoreMatch.prefix.length,
+                };
+                const ignoreComment: IgnoreComment = {
+                    range: textRange,
+                    rulesList: this._getIgnoreCommentRulesList(commentStart, pyrightIgnoreMatch),
+                };
+                this._pyrightIgnoreLines.set(this._lineRanges.length, ignoreComment);
+            }
         }
 
         const comment = Comment.create(start, length, sourceText.slice(start, end));

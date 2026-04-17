@@ -66,7 +66,7 @@ interface BenchmarkReport {
 
 // --- Helpers ---
 
-function calculateStats(times: number[]): {
+function calculateStats(times: ReadonlyArray<number>): {
     median: number;
     p95: number;
     min: number;
@@ -111,7 +111,7 @@ function writeReport(report: BenchmarkReport): void {
     console.log(`\nBenchmark results written to: ${outputPath}`);
 }
 
-function printResultTable(results: BenchmarkResult[]): void {
+function printResultTable(results: ReadonlyArray<BenchmarkResult>): void {
     console.log('\n=== Tokenizer Benchmark Results ===\n');
     console.log(
         `${'Corpus'.padEnd(25)} ${'Size'.padStart(8)} ${'Tokens'.padStart(8)} ${'Median'.padStart(10)} ${'Min'.padStart(

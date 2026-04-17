@@ -1844,6 +1844,15 @@ test('TypeIgnoreLineMalformedBracket', () => {
     assert.equal(results.typeIgnoreLines.size, 0);
 });
 
+// A space-separated unclosed bracket (e.g. `# type: ignore [broken`) is also
+// rejected entirely. The tokenizer does not fall back to treating the
+// directive as "ignore all" when the bracket list is present but malformed.
+test('TypeIgnoreLineMalformedBracketWithSpace', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a = 3 # type: ignore [broken');
+    assert.equal(results.typeIgnoreLines.size, 0);
+});
+
 // Regression test for https://github.com/microsoft/pyright/issues/11345.
 // type: ignore comments containing tool-namespaced codes (e.g. "ty:rule-name")
 // must be recognised as type: ignore comments.
