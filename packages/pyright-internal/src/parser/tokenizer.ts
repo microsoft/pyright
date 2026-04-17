@@ -663,6 +663,16 @@ export class Tokenizer {
     // Assume Jupyter notebook tokenization rules?
     private _useNotebookMode = false;
 
+    // Direct-mapped identifier intern cache. Indexed by a cheap hash of
+    // (firstChar, lastChar, length). On a hit (slot defined and string
+    // equals the current source range), reuse the cached string instead of
+    // re-allocating via detachSubstring. Collisions simply overwrite the
+    // slot — no chaining, O(1) lookup, no Map overhead. Sized as a power of
+    // two so the mask is a single AND.
+    private static readonly _identifierCacheSize = 2048;
+    private static readonly _identifierCacheMask = Tokenizer._identifierCacheSize - 1;
+    private _identifierCache: Array<string | undefined> = new Array(Tokenizer._identifierCacheSize);
+
     tokenize(
         text: string,
         start?: number,
@@ -692,6 +702,8 @@ export class Tokenizer {
         this._lineRanges = [];
         this._indentAmounts = [];
         this._useNotebookMode = useNotebookMode;
+        // Clear per-source identifier intern cache.
+        this._identifierCache.fill(undefined);
 
         const end = start + length;
 
@@ -1349,12 +1361,31 @@ export class Tokenizer {
             if (keywordType !== undefined) {
                 this._tokens.push(KeywordToken.create(start, length, keywordType, this._getComments()));
             } else {
-                const value = detachSubstring(text, start, end);
+                const value = this._internIdentifier(text, start, end, length);
                 this._tokens.push(IdentifierToken.create(start, length, value, this._getComments()));
             }
             return true;
         }
         return false;
+    }
+
+    // Per-tokenize identifier intern cache. Direct-mapped, so collisions
+    // simply replace the slot. Common identifiers (self, cls, True, None,
+    // str, int, dict, etc.) get deduplicated to a single string object,
+    // avoiding repeated detachSubstring allocations for the same name.
+    private _internIdentifier(text: string, start: number, end: number, length: number): string {
+        const firstChar = text.charCodeAt(start);
+        const lastChar = text.charCodeAt(end - 1);
+        // Hash mixes length, first and last char; multiplier values chosen
+        // to spread hits for common short identifiers across the table.
+        const hash = (firstChar * 31 + lastChar * 7 + length) & Tokenizer._identifierCacheMask;
+        const cached = this._identifierCache[hash];
+        if (cached !== undefined && cached.length === length && text.startsWith(cached, start)) {
+            return cached;
+        }
+        const value = detachSubstring(text, start, end);
+        this._identifierCache[hash] = value;
+        return value;
     }
 
     // Generic identifier-continue loop that handles unicode + surrogate pairs.
