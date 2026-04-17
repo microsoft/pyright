@@ -289,6 +289,31 @@ const _canStartString: boolean[] = (() => {
     return table;
 })();
 
+// ASCII identifier-continue table. Indexed by char code < 128; true if the
+// char can appear inside an identifier (letter, digit, underscore).
+// Building this at module load by querying isIdentifierChar lets the tight
+// identifier-swallow loop avoid function-call overhead entirely on the common
+// ASCII path. Non-ASCII chars fall back to the generic path.
+const _asciiIdentifierContinue: boolean[] = (() => {
+    const table = new Array<boolean>(128).fill(false);
+    for (let i = 0; i < 128; i++) {
+        if (isIdentifierChar(i)) {
+            table[i] = true;
+        }
+    }
+    return table;
+})();
+
+const _asciiIdentifierStart: boolean[] = (() => {
+    const table = new Array<boolean>(128).fill(false);
+    for (let i = 0; i < 128; i++) {
+        if (isIdentifierStartChar(i)) {
+            table[i] = true;
+        }
+    }
+    return table;
+})();
+
 // Create a detached copy of a source text range without going through Buffer.
 // Each charAt() for ASCII returns a V8-cached single-char string that does not
 // reference the parent. The concatenation chain becomes a ConsString independent
@@ -1266,33 +1291,59 @@ export class Tokenizer {
     }
 
     private _tryIdentifier(): boolean {
-        const swallowRemainingChars = () => {
-            while (true) {
-                if (isIdentifierChar(this._cs.currentChar)) {
-                    this._cs.moveNext();
-                } else if (isIdentifierChar(this._cs.currentChar, this._cs.nextChar)) {
-                    this._cs.moveNext();
-                    this._cs.moveNext();
+        const cs = this._cs;
+        const text = cs.getText();
+        const textLen = text.length;
+        const start = cs.position;
+
+        // Fast path for ASCII identifier start. Avoids the function call and
+        // surrogate logic for the common case (Python source is overwhelmingly
+        // ASCII identifiers).
+        const firstChar = cs.currentChar;
+        let pos = start;
+        if (firstChar < 128) {
+            if (!_asciiIdentifierStart[firstChar]) {
+                // Not an identifier start and not a surrogate candidate.
+                return false;
+            }
+            pos++;
+
+            // Tight loop: advance while we're still in ASCII identifier chars.
+            while (pos < textLen) {
+                const ch = text.charCodeAt(pos);
+                if (ch < 128 && _asciiIdentifierContinue[ch]) {
+                    pos++;
                 } else {
                     break;
                 }
             }
-        };
 
-        const start = this._cs.position;
-        if (isIdentifierStartChar(this._cs.currentChar)) {
-            this._cs.moveNext();
-            swallowRemainingChars();
-        } else if (isIdentifierStartChar(this._cs.currentChar, this._cs.nextChar)) {
-            this._cs.moveNext();
-            this._cs.moveNext();
-            swallowRemainingChars();
+            // If we hit a non-ASCII char, fall back to the generic loop to
+            // handle possible unicode identifier continue / surrogate pairs.
+            if (pos < textLen && text.charCodeAt(pos) >= 128) {
+                cs.advance(pos - start);
+                this._swallowNonAsciiIdentifierChars();
+                pos = cs.position;
+            } else {
+                cs.advance(pos - start);
+            }
+        } else {
+            // Non-ASCII start: use the generic path (supports surrogates).
+            if (isIdentifierStartChar(firstChar)) {
+                cs.moveNext();
+            } else if (isIdentifierStartChar(firstChar, cs.nextChar)) {
+                cs.moveNext();
+                cs.moveNext();
+            } else {
+                return false;
+            }
+            this._swallowNonAsciiIdentifierChars();
+            pos = cs.position;
         }
 
-        if (this._cs.position > start) {
-            const end = this._cs.position;
+        if (pos > start) {
+            const end = pos;
             const length = end - start;
-            const text = this._cs.getText();
             const keywordType = getKeywordTypeFromTextSlice(text, start, length);
 
             if (keywordType !== undefined) {
@@ -1304,6 +1355,21 @@ export class Tokenizer {
             return true;
         }
         return false;
+    }
+
+    // Generic identifier-continue loop that handles unicode + surrogate pairs.
+    // Falls back to this when the fast ASCII loop encounters a non-ASCII char.
+    private _swallowNonAsciiIdentifierChars(): void {
+        while (true) {
+            if (isIdentifierChar(this._cs.currentChar)) {
+                this._cs.moveNext();
+            } else if (isIdentifierChar(this._cs.currentChar, this._cs.nextChar)) {
+                this._cs.moveNext();
+                this._cs.moveNext();
+            } else {
+                break;
+            }
+        }
     }
 
     private _isPossibleNumber(): boolean {
