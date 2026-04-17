@@ -603,6 +603,10 @@ export class Tokenizer {
     private _lineRanges: TextRange[] = [];
     private _indentAmounts: IndentInfo[] = [];
     private _typeIgnoreAll: IgnoreComment | undefined;
+    // Cached answer to "are there any non-trivial tokens yet?" Once true it
+    // stays true, so the O(n) scan in _handleComment only runs while the token
+    // stream consists purely of NewLine / Indent tokens.
+    private _hasTokenBeforeIgnoreAll = false;
     private _typeIgnoreLines = new Map<number, IgnoreComment>();
     private _pyrightIgnoreLines = new Map<number, IgnoreComment>();
     private _comments: Comment[] | undefined;
@@ -1651,7 +1655,20 @@ export class Tokenizer {
                     rulesList: this._getIgnoreCommentRulesList(commentStart, typeIgnoreMatch),
                 };
 
-                if (this._tokens.findIndex((t) => t.type !== TokenType.NewLine && t && t.type !== TokenType.Indent) < 0) {
+                let isIgnoreAll = false;
+                if (!this._hasTokenBeforeIgnoreAll) {
+                    // Are there any tokens other than NewLine / Indent yet?
+                    const hasOther = this._tokens.some(
+                        (t) => t && t.type !== TokenType.NewLine && t.type !== TokenType.Indent
+                    );
+                    if (hasOther) {
+                        this._hasTokenBeforeIgnoreAll = true;
+                    } else {
+                        isIgnoreAll = true;
+                    }
+                }
+
+                if (isIgnoreAll) {
                     this._typeIgnoreAll = ignoreComment;
                 } else {
                     this._typeIgnoreLines.set(this._lineRanges.length, ignoreComment);
