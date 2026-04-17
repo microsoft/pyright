@@ -433,11 +433,31 @@ function matchIgnoreDirective(
     let searchFrom = rangeStart;
 
     while (searchFrom < rangeEnd) {
-        // Find the next occurrence of the directive keyword. indexOf is a
-        // native, highly-optimized search (often SIMD-accelerated) and tends
-        // to outperform a hand-rolled char-by-char scan here.
-        const directiveIdx = text.indexOf(directive, searchFrom);
-        if (directiveIdx < 0 || directiveIdx + directive.length > rangeEnd) {
+        // Find the next occurrence of the directive keyword, bounded by
+        // rangeEnd. A bounded hand-rolled scan is important here: native
+        // String.prototype.indexOf has no end bound and, when the keyword is
+        // absent from the current comment but present elsewhere in the file,
+        // can scan well past rangeEnd — producing O(n) behavior per comment
+        // and O(n^2) overall on comment-heavy files.
+        const firstCharCode = directive.charCodeAt(0);
+        let directiveIdx = -1;
+        const scanLimit = rangeEnd - directive.length;
+        for (let i = searchFrom; i <= scanLimit; i++) {
+            if (text.charCodeAt(i) === firstCharCode) {
+                let found = true;
+                for (let d = 1; d < directive.length; d++) {
+                    if (text.charCodeAt(i + d) !== directive.charCodeAt(d)) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) {
+                    directiveIdx = i;
+                    break;
+                }
+            }
+        }
+        if (directiveIdx < 0) {
             return undefined;
         }
 
