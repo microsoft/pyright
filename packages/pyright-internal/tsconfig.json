@@ -17,6 +17,5 @@
         "dist",
         "out",
         "debug.js",
-        "src/tests/benchmarks/runBenchmarkJest.js",
     ]
 }

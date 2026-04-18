@@ -15,7 +15,7 @@
         "webpack:testserver:watch": "npm run clean && rspack build --config ./src/tests/lsp/rspack.testserver.config.js --mode development --watch",
         "test": "npm run webpack:testserver && node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks",
         "test:norebuild": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks",
-        "test:benchmark": "node --max-old-space-size=8192 --expose-gc ./src/tests/benchmarks/runBenchmarkJest.js --forceExit --testTimeout=300000 --runInBand --detectOpenHandles src/tests/benchmarks",
+        "test:benchmark": "cross-env PYRIGHT_RUN_BENCHMARKS=1 node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testTimeout=300000 --runInBand --detectOpenHandles src/tests/benchmarks",
         "test:coverage": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks --reporters=jest-junit --reporters=default --coverage --coverageReporters=cobertura --coverageReporters=html --coverageReporters=json",
         "test:imports": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest importResolver.test --forceExit --runInBand"
     },
