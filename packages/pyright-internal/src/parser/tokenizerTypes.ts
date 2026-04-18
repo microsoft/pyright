@@ -209,19 +209,11 @@ export interface Token extends TokenBase {}
 
 export namespace Token {
     export function create(type: TokenType, start: number, length: number, comments: Comment[] | undefined): Token {
-        if (comments !== undefined) {
-            return {
-                start,
-                length,
-                type,
-                comments,
-            };
-        }
-
         return {
             start,
             length,
             type,
+            comments,
         };
     }
 }
