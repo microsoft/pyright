@@ -202,6 +202,10 @@ export interface TokenBase extends TextRange {
     readonly type: TokenType;
 
     // Comments prior to the token.
+    // Intentionally optional: most tokens have no comments, so omitting this
+    // property keeps V8 object size smaller for the common case. Each `create`
+    // factory returns a two-shape object (with vs. without `comments`) so that
+    // comment-free tokens skip the extra property slot entirely.
     readonly comments?: Comment[] | undefined;
 }
 
@@ -232,6 +236,8 @@ export namespace IndentToken {
         isIndentAmbiguous: boolean,
         comments: Comment[] | undefined
     ): IndentToken {
+        // Two-shape pattern: omit `comments` slot when unused to reduce
+        // per-token allocation size. ~95% of tokens carry no comments.
         if (comments !== undefined) {
             return {
                 start,
