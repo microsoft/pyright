@@ -680,7 +680,6 @@ test('hover return type remains stable after trivial edit for callable-returning
 
     const state = parseAndGetTestState(code).state;
     const markerA = state.getMarkerByName('markerA');
-    const markerB = state.getMarkerByName('markerB');
 
     state.openFile(markerA.fileName);
 

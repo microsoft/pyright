@@ -1795,7 +1795,7 @@ export class TestState {
         }
 
         if (configOptions.functionSignatureDisplay === undefined) {
-            configOptions.functionSignatureDisplay === SignatureDisplayType.compact;
+            configOptions.functionSignatureDisplay = SignatureDisplayType.compact;
         }
 
         return configOptions;
