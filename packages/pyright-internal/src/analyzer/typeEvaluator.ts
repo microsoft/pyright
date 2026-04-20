@@ -202,6 +202,7 @@ import {
     DeclaredSymbolTypeInfo,
     EffectiveTypeResult,
     EvalFlags,
+    ensureExpectedTypeCandidates,
     EvaluatorUsage,
     ExpectedTypeOptions,
     ExpectedTypeResult,
@@ -639,6 +640,11 @@ interface SuppressedNodeStackEntry {
     suppressedDiags: string[] | undefined;
 }
 
+interface ExpectedTypeCacheEntry {
+    type: Type;
+    candidates: Type[];
+}
+
 export function createTypeEvaluator(
     importLookup: ImportLookup,
     evaluatorOptions: EvaluatorOptions,
@@ -653,7 +659,7 @@ export function createTypeEvaluator(
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
     let typeCache = new Map<number, TypeCacheEntry>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
-    let expectedTypeCache = new Map<number, Type>();
+    let expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
     let asymmetricAccessorAssignmentCache = new Set<number>();
     let deferredClassCompletions: DeferredClassCompletion[] = [];
     let cancellationToken: CancellationToken | undefined;
@@ -709,7 +715,7 @@ export function createTypeEvaluator(
         codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
         typeCache = new Map<number, TypeCacheEntry>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
-        expectedTypeCache = new Map<number, Type>();
+        expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
         asymmetricAccessorAssignmentCache = new Set<number>();
     }
 
@@ -875,8 +881,13 @@ export function createTypeEvaluator(
     }
 
     function popSymbolResolution(symbol: Symbol) {
-        const poppedEntry = symbolResolutionStack.pop()!;
-        assert(poppedEntry.symbolId === symbol.id);
+        const poppedEntry = symbolResolutionStack.pop();
+        assert(
+            poppedEntry !== undefined && poppedEntry.symbolId === symbol.id,
+            `Symbol resolution stack mismatch: expected symbol ${symbol.id}, got ${
+                poppedEntry?.symbolId ?? 'empty stack'
+            }`
+        );
         return poppedEntry.isResultValid;
     }
 
@@ -1001,8 +1012,9 @@ export function createTypeEvaluator(
             const expectedType = expectedTypeCache.get(curNode.id);
             if (expectedType) {
                 return {
-                    type: expectedType,
+                    type: expectedType.type,
                     node: curNode,
+                    candidates: ensureExpectedTypeCandidates(expectedType.type, expectedType.candidates),
                 };
             }
 
@@ -1014,6 +1026,22 @@ export function createTypeEvaluator(
         }
 
         return undefined;
+    }
+
+    function addExpectedTypeCacheEntry(node: ParseNode, expectedType: Type) {
+        const cached = expectedTypeCache.get(node.id);
+        if (!cached) {
+            expectedTypeCache.set(node.id, {
+                type: expectedType,
+                candidates: [expectedType],
+            });
+            return;
+        }
+
+        cached.type = expectedType;
+        if (!cached.candidates.some((candidate) => isTypeSame(candidate, expectedType))) {
+            cached.candidates.push(expectedType);
+        }
     }
 
     function initializePrefetchedTypes(node: ParseNode) {
@@ -1202,7 +1230,7 @@ export function createTypeEvaluator(
             !isAnyOrUnknown(inferenceContext.expectedType) &&
             !isNever(inferenceContext.expectedType)
         ) {
-            expectedTypeCache.set(node.id, inferenceContext.expectedType);
+            addExpectedTypeCacheEntry(node, inferenceContext.expectedType);
 
             if (!typeResult.isIncomplete && !typeResult.expectedTypeDiagAddendum) {
                 const diag = new DiagnosticAddendum();
@@ -14031,7 +14059,18 @@ export function createTypeEvaluator(
             }
         }
 
-        const result = getTypeOfDictionaryInferred(node, flags, /* hasExpectedType */ !!inferenceContext?.expectedType);
+        // Don't force strict inference when the expected type is a TypeVar that
+        // couldn't constrain the dict's key/value structure. A TypeVar like _T
+        // from sorted(Iterable[_T], key=...) doesn't provide useful type
+        // information for dict inference, and forcing strict inference would
+        // widen heterogeneous value types into a union that can cause false
+        // positives (e.g., dict[str, Path | str | dict[Any, Any]] when the
+        // user meant each key to have a specific type).
+        // Note: bounded/constrained TypeVars with dict-like bounds are handled
+        // by getTypeOfDictionaryWithContext above (via makeTopLevelTypeVarsConcrete),
+        // so they don't reach this fallback.
+        const hasUsefulExpectedType = !!inferenceContext?.expectedType && !isTypeVar(inferenceContext.expectedType);
+        const result = getTypeOfDictionaryInferred(node, flags, /* hasExpectedType */ hasUsefulExpectedType);
         return { ...result, expectedTypeDiagAddendum };
     }
 
@@ -19759,6 +19798,14 @@ export function createTypeEvaluator(
                                         // Do not retain TypeForm types in inferred return types.
                                         returnType = stripTypeForm(returnType);
 
+                                        // If we're returning a function value (or overload), force
+                                        // lazy return-type inference before caching this function's
+                                        // inferred return. Without this, a partially evaluated
+                                        // function can leak a temporary Any return type (for example,
+                                        // immediately after an edit), and that Any then gets cached
+                                        // as though it were final for the enclosing function.
+                                        inferReturnTypeIfNecessary(returnType);
+
                                         inferredReturnTypes.push(returnType);
                                     } else {
                                         inferredReturnTypes.push(getNoneType());
@@ -21897,7 +21944,10 @@ export function createTypeEvaluator(
         const scopeNodeInfo = ParseTreeUtils.getEvaluationScopeNode(node);
         const scope = AnalyzerNodeInfo.getScope(scopeNodeInfo.node);
 
-        let symbolWithScope = scope?.lookUpSymbolRecursive(name, { useProxyScope: !!scopeNodeInfo.useProxyScope });
+        let symbolWithScope = scope?.lookUpSymbolRecursive(name, {
+            useProxyScope: !!scopeNodeInfo.useProxyScope,
+            useChainedModuleLevelScopes: !!scopeNodeInfo.useChainedModuleLevelScopes,
+        });
         const scopeType = scope?.type ?? ScopeType.Module;
 
         // Functions and list comprehensions don't allow access to implicitly
@@ -22180,6 +22230,56 @@ export function createTypeEvaluator(
         return undefined;
     }
 
+    function _shouldFallBackToClassEntryForKeywordArg(baseType: ClassType, paramName: string) {
+        return (
+            ClassType.isDataClass(baseType) ||
+            ClassType.isTypedDictClass(baseType) ||
+            ClassType.hasNamedTupleEntry(baseType, paramName)
+        );
+    }
+
+    function _addSymbolDeclInfo(
+        symbol: Symbol,
+        decls: Declaration[],
+        synthesizedTypes: SynthesizedTypeInfo[],
+        preferTypedDeclarations = false
+    ) {
+        const declCountBeforeAdd = decls.length;
+        const typedDecls = preferTypedDeclarations ? symbol.getTypedDeclarations() : undefined;
+        appendArray(decls, typedDecls?.length ? typedDecls : symbol.getDeclarations());
+
+        const synthTypeInfo = symbol.getSynthesizedType();
+        if (synthTypeInfo) {
+            synthesizedTypes.push(synthTypeInfo);
+
+            // Some module members are represented only by a synthesized module type,
+            // with no concrete declaration node to navigate to. Synthesize a matching
+            // alias declaration so definition/declaration/reference features can still
+            // bind to the submodule's file.
+            if (
+                decls.length === declCountBeforeAdd &&
+                isModule(synthTypeInfo.type) &&
+                !synthTypeInfo.type.priv.fileUri.isEmpty()
+            ) {
+                decls.push(synthesizeAliasDeclaration(synthTypeInfo.type.priv.fileUri));
+            }
+        }
+    }
+
+    function _addClassEntryDeclsForKeywordArgIfPresent(
+        baseType: ClassType,
+        paramName: string,
+        decls: Declaration[],
+        synthesizedTypes: SynthesizedTypeInfo[]
+    ) {
+        const lookupResults = lookUpClassMember(baseType, paramName);
+        if (!lookupResults) {
+            return;
+        }
+
+        _addSymbolDeclInfo(lookupResults.symbol, decls, synthesizedTypes);
+    }
+
     // In general, string nodes don't have any declarations associated with them, but
     // we need to handle the special case of string literals used as keys within a
     // dictionary expression where those keys are associated with a known TypedDict.
@@ -22200,12 +22300,7 @@ export function createTypeEvaluator(
                         const symbol = lookUpObjectMember(subtype, node.d.value)?.symbol;
 
                         if (symbol) {
-                            appendArray(decls, symbol.getDeclarations());
-
-                            const synthTypeInfo = symbol.getSynthesizedType();
-                            if (synthTypeInfo) {
-                                synthesizedTypes.push(synthTypeInfo);
-                            }
+                            _addSymbolDeclInfo(symbol, decls, synthesizedTypes);
                         }
                     }
                 }
@@ -22304,17 +22399,7 @@ export function createTypeEvaluator(
                         // By default, report only the declarations that have type annotations.
                         // If there are none, then report all of the unannotated declarations,
                         // which includes every assignment of that symbol.
-                        const typedDecls = symbol.getTypedDeclarations();
-                        if (typedDecls.length > 0) {
-                            appendArray(decls, typedDecls);
-                        } else {
-                            appendArray(decls, symbol.getDeclarations());
-                        }
-
-                        const synthTypeInfo = symbol.getSynthesizedType();
-                        if (synthTypeInfo) {
-                            synthesizedTypes.push(synthTypeInfo);
-                        }
+                        _addSymbolDeclInfo(symbol, decls, synthesizedTypes, /* preferTypedDeclarations */ true);
                     }
                 });
             }
@@ -22368,41 +22453,15 @@ export function createTypeEvaluator(
                             const paramDecl = getDeclarationFromKeywordParam(initMethodType, paramName);
                             if (paramDecl) {
                                 decls.push(paramDecl);
-                            } else if (
-                                ClassType.isDataClass(baseType) ||
-                                ClassType.isTypedDictClass(baseType) ||
-                                ClassType.hasNamedTupleEntry(baseType, paramName)
-                            ) {
-                                const lookupResults = lookUpClassMember(baseType, paramName);
-
-                                if (lookupResults) {
-                                    appendArray(decls, lookupResults.symbol.getDeclarations());
-
-                                    const synthTypeInfo = lookupResults.symbol.getSynthesizedType();
-                                    if (synthTypeInfo) {
-                                        synthesizedTypes.push(synthTypeInfo);
-                                    }
-                                }
+                            } else if (_shouldFallBackToClassEntryForKeywordArg(baseType, paramName)) {
+                                _addClassEntryDeclsForKeywordArgIfPresent(baseType, paramName, decls, synthesizedTypes);
                             }
-                        } else if (
-                            ClassType.isDataClass(baseType) ||
-                            ClassType.isTypedDictClass(baseType) ||
-                            ClassType.hasNamedTupleEntry(baseType, paramName)
-                        ) {
+                        } else if (_shouldFallBackToClassEntryForKeywordArg(baseType, paramName)) {
                             // Some synthesized callables (notably TypedDict "constructors") don't have a
                             // meaningful __init__ signature we can map keyword arguments to. In these cases,
                             // treat the keyword as referring to the class entry so IDE features like
                             // go-to-definition and rename can bind to the field declaration.
-                            const lookupResults = lookUpClassMember(baseType, paramName);
-
-                            if (lookupResults) {
-                                appendArray(decls, lookupResults.symbol.getDeclarations());
-
-                                const synthTypeInfo = lookupResults.symbol.getSynthesizedType();
-                                if (synthTypeInfo) {
-                                    synthesizedTypes.push(synthTypeInfo);
-                                }
-                            }
+                            _addClassEntryDeclsForKeywordArgIfPresent(baseType, paramName, decls, synthesizedTypes);
                         }
                     }
                 }
@@ -22436,12 +22495,7 @@ export function createTypeEvaluator(
             );
 
             if (symbolWithScope) {
-                appendArray(decls, symbolWithScope.symbol.getDeclarations());
-
-                const synthTypeInfo = symbolWithScope.symbol.getSynthesizedType();
-                if (synthTypeInfo) {
-                    synthesizedTypes.push(synthTypeInfo);
-                }
+                _addSymbolDeclInfo(symbolWithScope.symbol, decls, synthesizedTypes);
             }
         }
 
@@ -23386,12 +23440,14 @@ export function createTypeEvaluator(
 
         decls.forEach((decl) => {
             if (pushSymbolResolution(symbol, decl)) {
+                let symbolPopped = false;
                 try {
                     let type = getInferredTypeOfDeclaration(symbol, decl);
 
                     if (!popSymbolResolution(symbol)) {
                         isIncomplete = true;
                     }
+                    symbolPopped = true;
 
                     if (type) {
                         if (decl.type === DeclarationType.Variable) {
@@ -23429,8 +23485,10 @@ export function createTypeEvaluator(
                         isIncomplete = true;
                     }
                 } catch (e: any) {
-                    // Clean up the stack before rethrowing.
-                    popSymbolResolution(symbol);
+                    // Clean up the stack before rethrowing, but only if we haven't already popped.
+                    if (!symbolPopped) {
+                        popSymbolResolution(symbol);
+                    }
                     throw e;
                 }
             } else {

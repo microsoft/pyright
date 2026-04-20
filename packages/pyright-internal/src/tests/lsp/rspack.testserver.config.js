@@ -1,16 +1,11 @@
-/**
- * webpack.config-cli.js
- * Copyright: Microsoft 2018
- */
-
 const path = require('path');
-const CopyPlugin = require('copy-webpack-plugin');
+const rspack = require('@rspack/core');
 const { tsconfigResolveAliases } = require('../../../../../build/lib/webpack');
 
 const outPath = path.resolve(__dirname, '..', '..', '..', 'out');
 const typeshedFallback = path.resolve(__dirname, '..', '..', '..', 'typeshed-fallback');
 
-/**@type {(env: any, argv: { mode: 'production' | 'development' | 'none' }) => import('webpack').Configuration}*/
+/**@type {(env: any, argv: { mode: 'production' | 'development' | 'none' }) => import('@rspack/core').Configuration}*/
 module.exports = (_, { mode }) => {
     return {
         context: __dirname,
@@ -49,9 +44,6 @@ module.exports = (_, { mode }) => {
                     },
                 },
                 {
-                    // Transform pre-compiled JS files to use syntax available in Node 12+.
-                    // esbuild is fast, so let it run on all JS files rather than matching
-                    // only known-bad libs.
                     test: /\.js$/,
                     loader: 'esbuild-loader',
                     options: {
@@ -60,6 +52,6 @@ module.exports = (_, { mode }) => {
                 },
             ],
         },
-        plugins: [new CopyPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] })],
+        plugins: [new rspack.CopyRspackPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] })],
     };
 };

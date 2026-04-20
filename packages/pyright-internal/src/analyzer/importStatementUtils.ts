@@ -99,6 +99,11 @@ export function getImportGroup(statement: ImportStatement): ImportGroup {
 
         return ImportGroup.Local;
     } else {
+        // If we couldn't resolve the import, infer relative-ness from syntax.
+        if (statement.node.nodeType === ParseNodeType.ImportFrom && statement.node.d.module.d.leadingDots > 0) {
+            return ImportGroup.LocalRelative;
+        }
+
         return ImportGroup.Local;
     }
 }
@@ -568,6 +573,12 @@ function _getInsertionEditForAutoImportInsertion(
         if (insertionImport) {
             if (insertBefore) {
                 postChange = postChange + parseFileResults.tokenizerOutput.predominantEndOfLineSequence;
+
+                // If we're inserting before an import in a different group (e.g. inserting a built-in import
+                // before a local import), we need an extra newline to preserve the blank line between groups.
+                if (getImportGroup(insertionImport) !== importGroup) {
+                    postChange = postChange + parseFileResults.tokenizerOutput.predominantEndOfLineSequence;
+                }
             } else {
                 preChange = parseFileResults.tokenizerOutput.predominantEndOfLineSequence + preChange;
             }

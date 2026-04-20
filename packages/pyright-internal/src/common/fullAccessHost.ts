@@ -155,7 +155,8 @@ export class FullAccessHost extends LimitedAccessHost {
         return new Promise<ScriptOutput>((resolve, reject) => {
             let stdout = '';
             let stderr = '';
-            const commandLineArgs = ['-I', script.getFilePath(), ...args];
+            // -B: don't write .pyc files (prevents polluting source tree when -I strips PYTHONPYCACHEPREFIX)
+            const commandLineArgs = ['-B', '-I', script.getFilePath(), ...args];
 
             const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
                 child_process.spawn(p, commandLineArgs, {
@@ -200,7 +201,8 @@ export class FullAccessHost extends LimitedAccessHost {
 
         // What to do about conda here?
         return new Promise<ScriptOutput>((resolve, reject) => {
-            const commandLineArgs = forceIsolated ? ['-I', '-c', code, ...args] : ['-c', code, ...args];
+            // -B: don't write .pyc files (prevents polluting source tree when -I strips PYTHONPYCACHEPREFIX)
+            const commandLineArgs = forceIsolated ? ['-B', '-I', '-c', code, ...args] : ['-B', '-c', code, ...args];
 
             const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
                 child_process.spawn(p, commandLineArgs, {

@@ -1353,38 +1353,104 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
 
     private _getLinks(node: DirectoryInode) {
         if (!node.links) {
-            const links = new SortedMap<string, Inode>(this.stringComparer);
-            const { source, resolver } = node;
-            if (source && resolver) {
-                node.source = undefined;
-                node.resolver = undefined;
-                for (const name of resolver.readdirSync(source)) {
-                    const path = pathUtil.combinePaths(source, name);
-                    const stats = resolver.statSync(path);
-                    switch (stats.mode & S_IFMT) {
-                        case S_IFDIR: {
-                            const dir = this._mknod(node.dev, S_IFDIR, 0o777);
-                            dir.source = pathUtil.combinePaths(source, name);
-                            dir.resolver = resolver;
-                            this._addLink(node, links, name, dir);
-                            break;
-                        }
-                        case S_IFREG: {
-                            const file = this._mknod(node.dev, S_IFREG, 0o666);
-                            file.source = pathUtil.combinePaths(source, name);
-                            file.resolver = resolver;
-                            file.size = stats.size;
-                            this._addLink(node, links, name, file);
-                            break;
-                        }
-                    }
-                }
-            } else if (this._shadowRoot && node.shadowRoot) {
-                this._copyShadowLinks(this._shadowRoot._getLinks(node.shadowRoot), links);
-            }
-            node.links = links;
+            node.links = new SortedMap<string, Inode>(this.stringComparer);
         }
-        return node.links;
+
+        const links = node.links;
+        const { source, resolver } = node;
+
+        // If this directory is a mounted view of an external file system, populate links on-demand.
+        // We intentionally keep the mount metadata (source/resolver) until full enumeration is required
+        // (e.g. readdirSync). This allows path traversal (statSync/fileExists/etc.) to probe individual
+        // children without paying for a full directory scan.
+        if (source && resolver) {
+            node.source = undefined;
+            node.resolver = undefined;
+
+            for (const entry of resolver.readdirSync(source)) {
+                const name = entry.name;
+
+                // Avoid re-creating links that may have been materialized lazily.
+                if (links.has(name)) {
+                    continue;
+                }
+
+                const childPath = pathUtil.combinePaths(source, name);
+                if (entry.kind === 'directory') {
+                    const dir = this._mknod(node.dev, S_IFDIR, 0o777);
+                    dir.source = childPath;
+                    dir.resolver = resolver;
+                    this._addLink(node, links, name, dir);
+                } else if (entry.kind === 'file') {
+                    const file = this._mknod(node.dev, S_IFREG, 0o666);
+                    file.source = childPath;
+                    file.resolver = resolver;
+                    file.size = entry.size;
+                    this._addLink(node, links, name, file);
+                }
+            }
+        } else if (this._shadowRoot && node.shadowRoot && links.size === 0) {
+            this._copyShadowLinks(this._shadowRoot._getLinks(node.shadowRoot), links);
+        }
+
+        return links;
+    }
+
+    private _getLinksForWalk(node: DirectoryInode, nextBasename: string | undefined) {
+        const { source, resolver } = node;
+
+        // For mounted directories, avoid enumerating the full directory just to walk into a single child.
+        if (source && resolver) {
+            const links = node.links || (node.links = new SortedMap<string, Inode>(this.stringComparer));
+            if (nextBasename && nextBasename !== '.' && nextBasename !== '..') {
+                this._tryAddMountedChildLink(node, links, nextBasename);
+            }
+            return links;
+        }
+
+        return this._getLinks(node);
+    }
+
+    private _tryAddMountedChildLink(node: DirectoryInode, links: SortedMap<string, Inode>, name: string) {
+        if (links.has(name)) {
+            return;
+        }
+
+        const { source, resolver } = node;
+        if (!source || !resolver) {
+            return;
+        }
+
+        const childPath = pathUtil.combinePaths(source, name);
+
+        let stats: { mode: number; size: number };
+        try {
+            stats = resolver.statSync(childPath);
+        } catch (e: any) {
+            const message = typeof e?.message === 'string' ? e.message : undefined;
+            if (e?.code === 'ENOENT' || (message && message.startsWith('ENOENT'))) {
+                return;
+            }
+            throw e;
+        }
+
+        switch (stats.mode & S_IFMT) {
+            case S_IFDIR: {
+                const dir = this._mknod(node.dev, S_IFDIR, 0o777);
+                dir.source = childPath;
+                dir.resolver = resolver;
+                this._addLink(node, links, name, dir);
+                break;
+            }
+            case S_IFREG: {
+                const file = this._mknod(node.dev, S_IFREG, 0o666);
+                file.source = childPath;
+                file.resolver = resolver;
+                file.size = stats.size;
+                this._addLink(node, links, name, file);
+                break;
+            }
+        }
     }
 
     private _getShadow(root: DirectoryInode): DirectoryInode;
@@ -1518,7 +1584,7 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
                 continue;
             }
             if (isDirectory(node)) {
-                links = this._getLinks(node);
+                links = this._getLinksForWalk(node, components[step + 1]);
                 parent = node;
                 step++;
                 retry = false;
@@ -1647,8 +1713,14 @@ export interface Traversal {
 
 export interface FileSystemResolver {
     statSync(path: string): { mode: number; size: number };
-    readdirSync(path: string): string[];
+    readdirSync(path: string): ReadonlyArray<FileSystemResolverDirEntry>;
     readFileSync(path: string): Buffer;
+}
+
+export interface FileSystemResolverDirEntry {
+    name: string;
+    kind: 'file' | 'directory';
+    size?: number;
 }
 
 /**

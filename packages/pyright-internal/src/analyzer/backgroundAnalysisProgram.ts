@@ -20,6 +20,7 @@ import { Uri } from '../common/uri/uri';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { ImportResolver } from './importResolver';
 import { MaxAnalysisTime, OpenFileOptions, Program } from './program';
+import { TypeStubWriter } from './typeStubWriter';
 
 export enum InvalidatedReason {
     Reanalyzed,
@@ -130,9 +131,9 @@ export class BackgroundAnalysisProgram {
         this.markFilesDirty([uri], /* evenIfContentsAreSame */ true);
     }
 
-    setFileClosed(fileUri: Uri, isTracked?: boolean) {
-        this._backgroundAnalysis?.setFileClosed(fileUri, isTracked);
-        const diagnostics = this._program.setFileClosed(fileUri, isTracked);
+    setFileClosed(fileUri: Uri) {
+        this._backgroundAnalysis?.setFileClosed(fileUri);
+        const diagnostics = this._program.setFileClosed(fileUri);
         this._reportDiagnosticsForRemovedFiles(diagnostics);
     }
 
@@ -210,15 +211,14 @@ export class BackgroundAnalysisProgram {
             return this._backgroundAnalysis.writeTypeStub(targetImportUri, targetIsSingleFile, stubUri, token);
         }
 
-        analyzeProgram(
-            this._program,
-            /* maxTime */ undefined,
-            this._configOptions,
-            this._onAnalysisCompletion,
-            this._serviceProvider.console(),
+        return new TypeStubWriter(this._program).writeTypeStub(
+            {
+                targetImportPath: targetImportUri,
+                targetIsSingleFile,
+                outputPath: stubUri,
+            },
             token
         );
-        return this._program.writeTypeStub(targetImportUri, targetIsSingleFile, stubUri, token);
     }
 
     invalidateAndForceReanalysis(reason: InvalidatedReason, refreshOptions?: RefreshOptions) {

@@ -6,7 +6,7 @@ const ncu = require('npm-check-updates');
 const PQueue = require('p-queue').default;
 const path = require('path');
 const util = require('util');
-const glob = util.promisify(require('glob'));
+const { glob } = require('glob');
 const exec = util.promisify(require('child_process').exec);
 
 /** @type {(path: string, options?: import('fs').RmDirOptions & { force?: boolean }) => Promise<void> | undefined} */

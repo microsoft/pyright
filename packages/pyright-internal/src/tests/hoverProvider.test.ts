@@ -4,7 +4,11 @@
  * hoverProvider tests.
  */
 
-import { parseAndGetTestState } from './harness/fourslash/testState';
+import assert from 'assert';
+import { CancellationToken, MarkupContent } from 'vscode-languageserver';
+
+import { HoverProvider } from '../languageService/hoverProvider';
+import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 
 test('import tooltip - import statement', async () => {
     const code = `
@@ -99,6 +103,228 @@ test('import tooltip - import statement with stubs', async () => {
     state.verifyHover('markdown', {
         marker1: '```python\n(module) matplotlib\n```\n---\nmatplotlib',
         marker2: '```python\n(module) pyplot\n```\n---\npyplot',
+    });
+});
+
+test('method tooltip - docstring from implementation when stub uses non-exported name', async () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
+// @filename: test.py
+//// from mylib import foo
+//// foo.[|/*marker*/func|]()
+
+// @filename: mylib/__init__.py
+// @library: true
+//// from ._private import Foo as _Foo
+//// foo = _Foo()
+
+// @filename: mylib/_private.py
+// @library: true
+//// class Foo:
+////     """Some class documentation."""
+////
+////     def func(self) -> int:
+////         """Some function documentation."""
+////         return 1
+
+// @filename: mylib/__init__.pyi
+// @library: true
+//// class Foo:
+////     def func(self) -> int: ...
+////
+//// foo: Foo
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    state.verifyHover('markdown', {
+        marker: '```python\n(method) def func() -> int\n```\n---\nSome function documentation.',
+    });
+});
+
+test('function hover shows source default values for stub ellipsis defaults', async () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
+// @filename: test.py
+//// import mylib
+////
+//// mylib.[|/*marker*/f|](1)
+
+// @filename: mylib.pyi
+//// def f(a: int, b: str = ...) -> None: ...
+
+// @filename: mylib.py
+//// def f(a: int, b: int = 3) -> None:
+////     ...
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    state.verifyHover('markdown', {
+        marker: '```python\n(function) def f(a: int, b: str = 3) -> None\n```',
+    });
+});
+
+test('function hover substitutes multiple stub ellipsis defaults from source', async () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
+// @filename: test.py
+//// import mylib
+////
+//// mylib.[|/*marker*/f|]()
+
+// @filename: mylib.pyi
+//// def f(a: int = ..., b: str = ...) -> None: ...
+
+// @filename: mylib.py
+//// def f(a: int = 3, b: str = "hello") -> None:
+////     ...
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    state.verifyHover('markdown', {
+        marker: '```python\n(function) def f(a: int = 3, b: str = "hello") -> None\n```',
+    });
+});
+
+test('function hover shows concrete default values when provided by stub', async () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
+// @filename: test.py
+//// import mylib
+////
+//// mylib.[|/*marker*/f|]()
+
+// @filename: mylib.pyi
+//// def f(a: int = 3, b: str = "hello") -> None: ...
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    state.verifyHover('markdown', {
+        marker: '```python\n(function) def f(a: int = 3, b: str = "hello") -> None\n```',
+    });
+});
+
+test('function hover substitutes multiple stub ellipsis defaults for selected overload', async () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
+// @filename: test.py
+//// import mylib
+////
+//// mylib.[|/*marker*/f|](1)
+
+// @filename: mylib.pyi
+//// from typing import overload
+////
+//// @overload
+//// def f(a: int = ..., b: str = ...) -> None: ...
+////
+//// @overload
+//// def f(a: str = ..., b: str = ...) -> None: ...
+////
+//// def f(*args, **kwargs) -> None: ...
+
+// @filename: mylib.py
+//// def f(a: int = 3, b: str = "hello") -> None:
+////     ...
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    state.verifyHover('markdown', {
+        marker: '```python\n(function) def f(a: int = 3, b: str = "hello") -> None\n```',
+    });
+});
+
+test('function hover does not substitute unsafe long defaults for stub ellipsis defaults', async () => {
+    const longNumber = '9'.repeat(150);
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
+// @filename: test.py
+//// import mylib
+////
+//// mylib.[|/*marker*/f|](1)
+
+// @filename: mylib.pyi
+//// def f(a: int, b: str = ...) -> None: ...
+
+// @filename: mylib.py
+//// def f(a: int, b: int = ${longNumber}) -> None:
+////     ...
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    state.verifyHover('markdown', {
+        marker: '```python\n(function) def f(a: int, b: str = ...) -> None\n```',
+    });
+});
+
+test('function hover does not substitute unsafe multiline defaults for stub ellipsis defaults', async () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
+// @filename: test.py
+//// import mylib
+////
+//// mylib.[|/*marker*/f|](1)
+
+// @filename: mylib.pyi
+//// def f(a: int, b: str = ...) -> None: ...
+
+// @filename: mylib.py
+//// def f(a: int, b: int = """hello
+//// world""") -> None:
+////     ...
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    state.verifyHover('markdown', {
+        marker: '```python\n(function) def f(a: int, b: str = ...) -> None\n```',
     });
 });
 
@@ -438,3 +664,120 @@ test('hover on __call__ method', async () => {
         marker2: '```python\n(variable) def foo(a: int) -> int\n```',
     });
 });
+
+test('hover return type remains stable after trivial edit for callable-returning function', () => {
+    const code = `
+// @filename: test.py
+//// from collections.abc import Callable
+////
+//// def [|/*markerA*/a|][**P, R](f: Callable[P, R]):
+////     def [|/*markerB*/b|](*args: P.args, **kwargs: P.kwargs):
+////         return str(f(*args, **kwargs))
+////     return b
+////
+//// a
+`;
+
+    const state = parseAndGetTestState(code).state;
+    const markerA = state.getMarkerByName('markerA');
+    const markerB = state.getMarkerByName('markerB');
+
+    state.openFile(markerA.fileName);
+
+    // Baseline call with file fully checked.
+    state.program.analyzeFile(markerA.fileUri, CancellationToken.None);
+    const baselineA = getHoverText(state, 'markerA');
+    const baselineB = getHoverText(state, 'markerB');
+    assert.strictEqual(
+        getHoverSignatureLine(baselineA),
+        '(function) def a(f: (**P@a) -> R@a) -> ((**P@a) -> str)',
+        `unexpected baseline hover signature for a: ${baselineA}`
+    );
+    assert.strictEqual(
+        getHoverSignatureLine(baselineB),
+        '(function) def b(**P@a) -> str',
+        `unexpected baseline hover signature for b: ${baselineB}`
+    );
+
+    // Trivial edit: insert trailing whitespace after `return b`.
+    const file = state.testData.files.find((f) => f.fileUri.key === markerA.fileUri.key);
+    assert.ok(file, 'expected to find test file in state');
+    const fileText = file.content;
+    const target = 'return b\n';
+    const offset = fileText.indexOf(target);
+    assert.ok(offset >= 0, 'expected to find "return b" in test file');
+
+    state.openFile(file.fileName);
+    state.replace(offset + 'return b'.length, 0, ' ');
+
+    // Regression: do not force analysis here. Hover should remain stable.
+    const editedA = getHoverText(state, 'markerA');
+    const editedB = getHoverText(state, 'markerB');
+    assert.strictEqual(
+        editedA,
+        baselineA,
+        `expected hover for a to remain stable after edit: baseline=${baselineA}, edited=${editedA}`
+    );
+    assert.strictEqual(editedB, baselineB, `expected hover for b to remain stable after edit`);
+});
+
+test('hover on self-returning nested function does not recurse infinitely', () => {
+    const code = `
+// @filename: test.py
+//// def [|/*marker*/outer|]():
+////     def inner():
+////         return inner
+////     return inner
+////
+//// outer
+`;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    const hover = getHoverText(state, 'marker');
+    assert.strictEqual(hover, '```python\n(function) def outer() -> (() -> ...)\n```');
+});
+
+test('hover on mutually-recursive nested functions does not recurse infinitely', () => {
+    const code = `
+// @filename: test.py
+//// def [|/*marker*/outer|]():
+////     def left():
+////         return right
+////     def right():
+////         return left
+////     return left
+////
+//// outer
+`;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    const hover = getHoverText(state, 'marker');
+    assert.strictEqual(hover, '```python\n(function) def outer() -> (() -> (() -> ...))\n```');
+});
+
+function getHoverText(state: TestState, markerName: string): string {
+    const marker = state.getMarkerByName(markerName);
+    const position = state.convertOffsetToPosition(marker.fileName, marker.position);
+    const hover = new HoverProvider(
+        state.program,
+        marker.fileUri,
+        position,
+        'markdown',
+        CancellationToken.None
+    ).getHover();
+    assert.ok(hover, `expected hover result for marker ${markerName}`);
+    assert.ok(MarkupContent.is(hover.contents), `expected MarkupContent for marker ${markerName}`);
+    return hover.contents.value;
+}
+
+function getHoverSignatureLine(hover: string): string {
+    const lines = hover.split('\n');
+    assert.ok(lines.length >= 2, `unexpected hover format: ${hover}`);
+    return lines[1];
+}

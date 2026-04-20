@@ -25,7 +25,7 @@ export interface PythonPathResult {
 export const stdLibFolderName = 'stdlib';
 export const thirdPartyFolderName = 'stubs';
 
-export function getTypeShedFallbackPath(fs: FileSystem) {
+export function getTypeShedFallbackPath(fs: Pick<FileSystem, 'getModulePath' | 'existsSync' | 'realCasePath'>) {
     const moduleDirectory = fs.getModulePath();
     if (!moduleDirectory || moduleDirectory.isEmpty()) {
         return undefined;
@@ -93,7 +93,8 @@ export function findPythonSearchPaths(
             foundPaths.forEach((path) => {
                 importLogger?.log(`  ${path}`);
             });
-            return foundPaths;
+            // Filter out any non-directory paths before returning
+            return foundPaths.filter((p) => isDirectory(fs, p));
         }
 
         importLogger?.log(`Did not find any '${pathConsts.sitePackages}' dirs. Falling back on python interpreter.`);
@@ -109,6 +110,7 @@ export function findPythonSearchPaths(
         return paths;
     }
 
+    // Host already filters out non-directory paths
     return pathResult.paths.map((p) => fs.realCasePath(p));
 }
 

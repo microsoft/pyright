@@ -29,7 +29,7 @@ describe('fourslash tests', () => {
 
             // TODO: make these to use promise/async rather than callback token
             it('fourslash test ' + justName + ' run', (cb) => {
-                runFourSlashTest(MODULE_PATH, fn, cb);
+                runFourSlashTest(MODULE_PATH, fn, cb, { enablePartialStub: true });
             });
         });
     });

@@ -17,23 +17,24 @@
         "directory": "packages/pyright"
     },
     "scripts": {
-        "build": "webpack --mode production --progress",
+        "build": "rspack build -c rspack.config.js --mode production",
         "clean": "shx rm -rf ./dist ./out README.md LICENSE.txt",
         "prepack": "npm run clean && shx cp ../../README.md . && shx cp ../../LICENSE.txt . && npm run build",
-        "webpack": "webpack --mode development --progress"
+        "webpack": "rspack build -c rspack.config.js --mode development"
     },
     "optionalDependencies": {
         "fsevents": "~2.3.3"
     },
     "devDependencies": {
-        "@types/node": "^22.18.12",
+        "@rspack/cli": "^1.7.2",
+        "@rspack/core": "^1.7.2",
+        "@types/node": "^22.19.6",
         "copy-webpack-plugin": "^12.0.2",
-        "esbuild-loader": "^4.4.0",
+        "esbuild-loader": "^4.4.2",
         "shx": "^0.4.0",
         "ts-loader": "^9.5.4",
         "typescript": "~5.5.4",
-        "webpack": "^5.102.1",
-        "webpack-cli": "^5.1.4"
+        "webpack": "^5.104.1"
     },
     "files": [
         "/dist",

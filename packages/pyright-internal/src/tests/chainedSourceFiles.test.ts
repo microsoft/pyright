@@ -261,6 +261,207 @@ test('re ordering cells', async () => {
     assert.strictEqual(diagnostics.length, 1);
 });
 
+test('later chained-file globals resolved in function body', async () => {
+    const code = `
+// @filename: test1.py
+//// def use_x():
+////     [|/*marker*/return x + 1|]
+
+// @filename: test2.py
+//// x = 42
+    `;
+
+    const basePath = UriEx.file(normalizeSlashes('/'));
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    analyze(service.test_program);
+
+    const marker = data.markerPositions.get('marker')!;
+    const markerUri = marker.fileUri;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const parseResults = service.getParseResults(markerUri)!;
+    const diagnostics = await service.getDiagnosticsForRange(
+        markerUri,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    assert.strictEqual(diagnostics.length, 0);
+});
+
+test('later chained-file globals resolved in lambda body', async () => {
+    const code = `
+// @filename: test1.py
+//// [|/*marker*/f = lambda: x * 2|]
+
+// @filename: test2.py
+//// x = 10
+    `;
+
+    const basePath = UriEx.file(normalizeSlashes('/'));
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    analyze(service.test_program);
+
+    const marker = data.markerPositions.get('marker')!;
+    const markerUri = marker.fileUri;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const parseResults = service.getParseResults(markerUri)!;
+    const diagnostics = await service.getDiagnosticsForRange(
+        markerUri,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    assert.strictEqual(diagnostics.length, 0);
+});
+
+test('later chained-file globals resolved in class header', async () => {
+    const code = `
+// @filename: test1.py
+//// [|/*marker*/class MyClass(Base):|]
+////     pass
+
+// @filename: test2.py
+//// class Base:
+////     pass
+    `;
+
+    const basePath = UriEx.file(normalizeSlashes('/'));
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    analyze(service.test_program);
+
+    const marker = data.markerPositions.get('marker')!;
+    const markerUri = marker.fileUri;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const parseResults = service.getParseResults(markerUri)!;
+    const diagnostics = await service.getDiagnosticsForRange(
+        markerUri,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    assert.strictEqual(diagnostics.length, 0);
+});
+
+test('later chained-file globals resolved in comprehension inside function', async () => {
+    const code = `
+// @filename: test1.py
+//// def build_list():
+////     [|/*marker*/return [i * x for i in [1, 2, 3]]|]
+
+// @filename: test2.py
+//// x = 5
+    `;
+
+    const basePath = UriEx.file(normalizeSlashes('/'));
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    analyze(service.test_program);
+
+    const marker = data.markerPositions.get('marker')!;
+    const markerUri = marker.fileUri;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const parseResults = service.getParseResults(markerUri)!;
+    const diagnostics = await service.getDiagnosticsForRange(
+        markerUri,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    assert.strictEqual(diagnostics.length, 0);
+});
+
+test('later chained-file globals resolved in nested function', async () => {
+    const code = `
+// @filename: test1.py
+//// def outer():
+////     def inner():
+////         [|/*marker*/return x|]
+////     return inner
+
+// @filename: test2.py
+//// x = 99
+    `;
+
+    const basePath = UriEx.file(normalizeSlashes('/'));
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    analyze(service.test_program);
+
+    const marker = data.markerPositions.get('marker')!;
+    const markerUri = marker.fileUri;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const parseResults = service.getParseResults(markerUri)!;
+    const diagnostics = await service.getDiagnosticsForRange(
+        markerUri,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    assert.strictEqual(diagnostics.length, 0);
+});
+
+test('later chained-file globals not visible without chaining', async () => {
+    // Verify that the same code produces errors without chained files
+    // (i.e. our test scenarios actually catch a real bug).
+    const code = `
+// @filename: test1.py
+//// def use_x():
+////     [|/*marker*/return x + 1|]
+    `;
+
+    const basePath = UriEx.file(normalizeSlashes('/'));
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    analyze(service.test_program);
+
+    const marker = data.markerPositions.get('marker')!;
+    const markerUri = marker.fileUri;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const parseResults = service.getParseResults(markerUri)!;
+    const diagnostics = await service.getDiagnosticsForRange(
+        markerUri,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    // Should have an error because x is not defined anywhere
+    assert(diagnostics.length > 0);
+});
+
+test('later chained-file globals with multiple files and mixed scopes', async () => {
+    const code = `
+// @filename: test1.py
+//// def use_both():
+////     [|/*marker*/return x + y|]
+
+// @filename: test2.py
+//// x = 42
+
+// @filename: test3.py
+//// y = 100
+    `;
+
+    const basePath = UriEx.file(normalizeSlashes('/'));
+    const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
+    analyze(service.test_program);
+
+    const marker = data.markerPositions.get('marker')!;
+    const markerUri = marker.fileUri;
+    const range = data.ranges.find((r) => r.marker === marker)!;
+
+    const parseResults = service.getParseResults(markerUri)!;
+    const diagnostics = await service.getDiagnosticsForRange(
+        markerUri,
+        convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
+        CancellationToken.None
+    );
+
+    assert.strictEqual(diagnostics.length, 0);
+});
+
 function createServiceWithChainedSourceFiles(basePath: Uri, code: string) {
     const fs = createFromFileSystem(host.HOST, /*ignoreCase*/ false, { cwd: basePath.getFilePath() });
     const service = new AnalyzerService('test service', new ServiceProvider(), {

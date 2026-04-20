@@ -29,10 +29,10 @@ import '../common/serviceProviderExtensions';
 import { Range, TextRange, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
-import { makeDirectories } from '../common/uri/uriUtils';
 import { ParseFileResults, ParserOutput } from '../parser/parser';
 import { RequiringAnalysisCount } from './analysis';
 import { AbsoluteModuleDescriptor, ImportLookupResult, LookupImportOptions } from './analyzerFileInfo';
+import { CellChainIndex, CellChainIndexProvider } from './cellChainIndex';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
@@ -43,14 +43,13 @@ import { ISourceFileFactory } from './programTypes';
 import { Scope } from './scope';
 import { IPythonMode, SourceFile } from './sourceFile';
 import { SourceFileInfo } from './sourceFileInfo';
-import { createChainedByList, isUserCode, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
+import { isUserCode, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
 import { SourceMapper } from './sourceMapper';
 import { Symbol, SymbolTable } from './symbol';
 import { createTracePrinter } from './tracePrinter';
 import { PrintTypeOptions, TypeEvaluator } from './typeEvaluatorTypes';
 import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { getPrintTypeFlags } from './typePrinter';
-import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
 
 const _maxImportDepth = 256;
@@ -93,10 +92,10 @@ export interface ChangedRange {
 }
 
 export interface OpenFileOptions {
-    isTracked: boolean;
     ipythonMode: IPythonMode;
     chainedFileUri: Uri | undefined;
     changedRange?: ChangedRange;
+    isVirtual?: boolean;
 }
 
 // Track edit mode related information.
@@ -139,6 +138,10 @@ export class Program {
     private readonly _console: ConsoleInterface;
     private readonly _sourceFileList: SourceFileInfo[] = [];
     private readonly _sourceFileMap = new Map<string, SourceFileInfo>();
+    private readonly _cellChainIndex = new CellChainIndex(
+        () => this._sourceFileList,
+        (uri) => this.getSourceFileInfo(uri)
+    );
 
     private readonly _logTracker: LogTracker;
     private readonly _cacheManager: CacheManager;
@@ -210,6 +213,10 @@ export class Program {
     }
     get lookUpImport() {
         return this._lookUpImport;
+    }
+
+    get cellChainIndex(): CellChainIndexProvider {
+        return this._cellChainIndex;
     }
 
     dispose() {
@@ -302,11 +309,12 @@ export class Program {
                 newFileMap.set(path.key, path);
             });
 
-            // Files that are not in the tracked file list are
-            // marked as no longer tracked.
+            // Files that are not in the tracked file list are marked as no longer tracked,
+            // but only for non-virtual files that participate in source enumeration. Virtual
+            // documents (notebook cells, chat blocks, stubs) are managed by open/close lifecycle
+            // and should not be untracked by the disk-based refresh path.
             this._sourceFileList.forEach((oldFile) => {
-                const fileUri = oldFile.uri;
-                if (!newFileMap.has(fileUri.key)) {
+                if (!newFileMap.has(oldFile.uri.key) && !oldFile.isVirtual) {
                     oldFile.isTracked = false;
                 }
             });
@@ -417,6 +425,7 @@ export class Program {
                 options?.ipythonMode ?? IPythonMode.None
             );
             const chainedFilePath = options?.chainedFileUri;
+            const isVirtual = options?.isVirtual ?? false;
             sourceFileInfo = new SourceFileInfo(
                 sourceFile,
                 /* isTypeshedFile */ false,
@@ -424,7 +433,10 @@ export class Program {
                 /* isThirdPartyPyTypedPresent */ false,
                 this._editModeTracker,
                 {
-                    isTracked: options?.isTracked ?? false,
+                    // Tracking is determined internally: virtual files are always tracked,
+                    // otherwise check workspace config.
+                    isTracked: isVirtual || matchFileSpecs(this._configOptions, fileUri),
+                    isVirtual,
                     chainedSourceFile: chainedFilePath ? this.getSourceFileInfo(chainedFilePath) : undefined,
                     isOpenByClient: true,
                 }
@@ -441,6 +453,9 @@ export class Program {
         }
 
         verifyNoCyclesInChainedFiles(this, sourceFileInfo);
+        if (sourceFileInfo.ipythonMode === IPythonMode.CellDocs) {
+            this._cellChainIndex.invalidate();
+        }
         sourceFileInfo.sourceFile.setClientVersion(version, contents);
     }
 
@@ -458,16 +473,28 @@ export class Program {
         sourceFileInfo.chainedSourceFile = chainedFileUri ? this.getSourceFileInfo(chainedFileUri) : undefined;
         sourceFileInfo.sourceFile.markDirty();
         this._markFileDirtyRecursive(sourceFileInfo, new Set<string>());
+        this._cellChainIndex.invalidate();
 
         verifyNoCyclesInChainedFiles(this, sourceFileInfo);
     }
 
-    setFileClosed(fileUri: Uri, isTracked?: boolean): FileDiagnostics[] {
+    setFileClosed(fileUri: Uri): FileDiagnostics[] {
         const sourceFileInfo = this.getSourceFileInfo(fileUri);
         if (sourceFileInfo) {
             sourceFileInfo.isOpenByClient = false;
-            sourceFileInfo.isTracked = isTracked ?? sourceFileInfo.isTracked;
+
+            // Virtual documents (notebook cells, chat blocks, synthetic stubs) exist only
+            // while the client keeps them open. Once closed, they should become untracked
+            // so the regular cleanup path (_removeUnneededFiles) can evict them.
+            if (sourceFileInfo.isVirtual) {
+                sourceFileInfo.isTracked = false;
+            }
+
             sourceFileInfo.sourceFile.setClientVersion(null, '');
+
+            if (sourceFileInfo.ipythonMode === IPythonMode.CellDocs) {
+                this._cellChainIndex.invalidate();
+            }
 
             // There is no guarantee that content is saved before the file is closed.
             // We need to mark the file dirty so we can re-analyze next time.
@@ -876,50 +903,6 @@ export class Program {
         }
     }
 
-    writeTypeStub(targetImportPath: Uri, targetIsSingleFile: boolean, stubPath: Uri, token: CancellationToken) {
-        for (const sourceFileInfo of this._sourceFileList) {
-            throwIfCancellationRequested(token);
-
-            const fileUri = sourceFileInfo.uri;
-
-            // Generate type stubs only for the files within the target path,
-            // not any files that the target module happened to import.
-            const relativePath = targetImportPath.getRelativePath(fileUri);
-            if (relativePath !== undefined) {
-                let typeStubPath = stubPath.resolvePaths(relativePath);
-
-                // If the target is a single file implementation, as opposed to
-                // a package in a directory, transform the name of the type stub
-                // to __init__.pyi because we're placing it in a directory.
-                if (targetIsSingleFile) {
-                    typeStubPath = typeStubPath.getDirectory().initPyiUri;
-                } else {
-                    typeStubPath = typeStubPath.replaceExtension('.pyi');
-                }
-
-                const typeStubDir = typeStubPath.getDirectory();
-
-                try {
-                    makeDirectories(this.fileSystem, typeStubDir, stubPath);
-                } catch (e: any) {
-                    const errMsg = `Could not create directory for '${typeStubDir}'`;
-                    throw new Error(errMsg);
-                }
-
-                this._bindFile(sourceFileInfo);
-
-                this._runEvaluatorWithCancellationToken(token, () => {
-                    const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile, this._evaluator!);
-                    writer.write();
-                });
-
-                // This operation can consume significant memory, so check
-                // for situations where we need to discard the type cache.
-                this._handleMemoryHighUsage();
-            }
-        }
-    }
-
     getTypeOfSymbol(symbol: Symbol) {
         this._handleMemoryHighUsage();
 
@@ -1054,7 +1037,7 @@ export class Program {
             program.setFileOpened(fileInfo.uri, version, fileInfo.sourceFile.getOpenFileContents() ?? '', {
                 chainedFileUri: fileInfo.chainedSourceFile?.uri,
                 ipythonMode: fileInfo.ipythonMode,
-                isTracked: fileInfo.isTracked,
+                isVirtual: fileInfo.isVirtual,
             });
         }
 
@@ -1876,7 +1859,13 @@ export class Program {
         }
         fileToBind.effectiveFutureImports = futureImports.size > 0 ? futureImports : undefined;
 
-        fileToBind.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope, futureImports);
+        fileToBind.sourceFile.bind(
+            this._configOptions,
+            this._lookUpImport,
+            builtinsScope,
+            futureImports,
+            fileToBind.ipythonMode === IPythonMode.CellDocs ? this._cellChainIndex : undefined
+        );
         return true;
     }
 
@@ -2093,7 +2082,7 @@ export class Program {
         // If we don't have chainedByList, it means none of them are checked yet.
         const needToRunChecker = !chainedByList;
 
-        chainedByList = chainedByList ?? createChainedByList(this, fileToCheck);
+        chainedByList = chainedByList ?? this._cellChainIndex.getCellChainFiles(fileToCheck);
         const index = chainedByList.findIndex((v) => v === fileToCheck);
         if (index < 0) {
             return undefined;
@@ -2109,6 +2098,9 @@ export class Program {
             // And make sure we don't dump parse tree and etc while
             // calling checker. Otherwise, checkType can dump parse
             // tree required by outer check.
+            // Checking later cells in reverse order ensures their module scopes are available
+            // before an earlier CellDocs cell resolves nested or class-header names through the
+            // later-cell declaration fallback on its first diagnostics pass.
             const handle = this._cacheManager.pauseTracking();
             try {
                 for (let i = chainedByList.length - 1; i >= startIndex; i--) {
@@ -2279,7 +2271,9 @@ export class Program {
             this._markFileDirtyRecursive(dep, markSet, forceRebinding);
         });
 
-        // Change in the current file could impact checker result of chainedSourceFile such as unused symbols.
+        // Change in the current file could impact chained notebook cells beyond checker-only results.
+        // Later CellDocs module declarations participate in nested-scope name lookup for earlier cells,
+        // so those earlier cells need rebinding when a later cell changes.
         let reevaluationRequired = false;
         let chainedSourceFile = sourceFileInfo.chainedSourceFile;
         while (chainedSourceFile) {
@@ -2290,7 +2284,9 @@ export class Program {
             }
 
             reevaluationRequired = true;
-            chainedSourceFile.sourceFile.markReanalysisRequired(/* forceRebinding */ false);
+            chainedSourceFile.sourceFile.markReanalysisRequired(
+                /* forceRebinding */ sourceFileInfo.ipythonMode === IPythonMode.CellDocs
+            );
             chainedSourceFile = chainedSourceFile.chainedSourceFile;
         }
 

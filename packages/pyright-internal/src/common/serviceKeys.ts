@@ -8,6 +8,7 @@
 
 import { CacheManager } from '../analyzer/cacheManager';
 import { ISourceFileFactory } from '../analyzer/programTypes';
+import { ImportResolverFileSystem, TypeshedInfoProvider } from '../analyzer/importResolverTypes';
 import { SupportPartialStubs } from '../partialStubService';
 import { CancellationProvider } from './cancellationUtils';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
@@ -41,4 +42,6 @@ export namespace ServiceKeys {
     export const windowService = new ServiceKey<WindowService>('WindowService');
     export const commandService = new ServiceKey<CommandService>('CommandService');
     export const cancellationProvider = new ServiceKey<CancellationProvider>('CancellationProvider');
+    export const importResolverFileSystem = new ServiceKey<ImportResolverFileSystem>('ImportResolverFileSystem');
+    export const typeshedInfoProvider = new ServiceKey<TypeshedInfoProvider>('TypeshedInfoProvider');
 }

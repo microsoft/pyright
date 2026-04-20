@@ -476,6 +476,7 @@ export class SourceMapper {
         const decls = this._lookUpSymbolDeclarations(parentNode, className);
         if (decls.length === 0 && parentNode.nodeType === ParseNodeType.Module) {
             this._addDeclarationsFollowingWildcardImports(parentNode, className, result, recursiveDeclCache);
+            this._addDeclarationsFollowingImportAliases(parentNode, className, result, recursiveDeclCache);
         } else {
             for (const decl of decls) {
                 this._addClassOrFunctionDeclarations(decl, result, recursiveDeclCache);
@@ -737,6 +738,67 @@ export class SourceMapper {
                 }
             }
         }
+    }
+
+    private _addDeclarationsFollowingImportAliases(
+        moduleNode: ModuleNode,
+        symbolName: string,
+        result: ClassOrFunctionOrVariableDeclaration[],
+        recursiveDeclCache: Set<string>
+    ) {
+        // Symbol exists in a stub but doesn't exist in the corresponding python file.
+        // If the implementation module explicitly imports the symbol under a different
+        // local name (e.g. `from ._private import Foo as _Foo`), map the stub name to
+        // the resolved import target.
+        const fileInfo = ParseTreeUtils.getFileInfoFromNode(moduleNode);
+        const uniqueId = `@${fileInfo?.fileUri.key ?? '<unknown>'}/importAliases/${symbolName}`;
+        if (recursiveDeclCache.has(uniqueId)) {
+            return;
+        }
+
+        recursiveDeclCache.add(uniqueId);
+
+        const table = AnalyzerNodeInfo.getScope(moduleNode)?.symbolTable;
+        if (!table) {
+            recursiveDeclCache.delete(uniqueId);
+            return;
+        }
+
+        for (const symbol of table.values()) {
+            for (const decl of symbol.getDeclarations()) {
+                if (!isAliasDeclaration(decl) || decl.uri.isEmpty() || !decl.node) {
+                    continue;
+                }
+
+                // Ignore wildcard imports; those are handled by _addDeclarationsFollowingWildcardImports.
+                if (decl.node.nodeType === ParseNodeType.ImportFrom && decl.node.d.isWildcardImport) {
+                    continue;
+                }
+
+                if (
+                    decl.node.nodeType !== ParseNodeType.ImportAs &&
+                    decl.node.nodeType !== ParseNodeType.ImportFrom &&
+                    decl.node.nodeType !== ParseNodeType.ImportFromAs
+                ) {
+                    continue;
+                }
+
+                const adjustedDecl = this._handleSpecialBuiltInModule(decl);
+                const resolvedDecl = this._evaluator.resolveAliasDeclaration(
+                    adjustedDecl,
+                    /* resolveLocalNames */ true
+                );
+                if (!resolvedDecl || isAliasDeclaration(resolvedDecl)) {
+                    continue;
+                }
+
+                if (isClassDeclaration(resolvedDecl) && resolvedDecl.node.d.name.d.value === symbolName) {
+                    this._addClassOrFunctionDeclarations(resolvedDecl, result, recursiveDeclCache);
+                }
+            }
+        }
+
+        recursiveDeclCache.delete(uniqueId);
     }
 
     private _lookUpSymbolDeclarations(node: ParseNode | undefined, symbolName: string): Declaration[] {

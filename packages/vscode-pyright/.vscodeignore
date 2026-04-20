@@ -11,4 +11,7 @@ build/**
 
 tsconfig.*
 webpack.*
+rspack.*
+rspack-build.log
 .webpack_cache
+.rspack_cache

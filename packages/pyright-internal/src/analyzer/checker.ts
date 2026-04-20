@@ -2356,7 +2356,6 @@ export class Checker extends ParseTreeWalker {
 
         const nameWalker = new ParseTreeUtils.NameNodeWalker((nameNode, subscriptIndex, baseExpression) => {
             const nameType = this._evaluator.getType(nameNode);
-            ``;
             if (nameType && isTypeVar(nameType) && !TypeVarType.isSelf(nameType)) {
                 // Does this name refer to a TypeVar that is scoped to this function?
                 if (nameType.priv.scopeId === ParseTreeUtils.getScopeIdForNode(node)) {

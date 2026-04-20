@@ -181,6 +181,84 @@ test('getTextEditsForAutoImportInsertion - at the top after module doc string', 
     testInsertion(code, 'marker1', [{ alias: 's' }, { name: 'path', alias: 'p' }], 'sys', ImportType.BuiltIn);
 });
 
+test('getTextEditsForAutoImportInsertion - insert before different group adds blank line', () => {
+    const code = `
+// @filename: mypkg/__init__.py
+//// pass
+
+// @filename: test.py
+//// [|/*range1*/{|"r":"import sys!n!!n!"|}|]from mypkg import foo
+//// foo()/*marker1*/
+    `;
+
+    testInsertion(code, 'marker1', {}, 'sys', ImportType.BuiltIn);
+});
+
+test('getTextEditsForAutoImportInsertion - insert before unresolved import adds blank line', () => {
+    const code = `
+// @filename: test.py
+//// [|/*range1*/{|"r":"import sys!n!!n!"|}|]import unknownpkg
+//// unknownpkg./*marker1*/foo
+    `;
+
+    testInsertion(code, 'marker1', {}, 'sys', ImportType.BuiltIn);
+});
+
+test('getTextEditsForAutoImportInsertion - insert before same group does not add blank line (local)', () => {
+    const code = `
+// @filename: aaa/__init__.py
+//// pass
+
+// @filename: mypkg/__init__.py
+//// pass
+
+// @filename: test.py
+//// [|/*range1*/{|"r":"import aaa!n!"|}|]from mypkg import foo
+//// foo()/*marker1*/
+    `;
+
+    testInsertion(code, 'marker1', {}, 'aaa', ImportType.Local);
+});
+
+test('getTextEditsForAutoImportInsertion - insert before same group does not add blank line (built-in)', () => {
+    const code = `
+// @filename: test.py
+//// [|/*range1*/{|"r":"import sys!n!"|}|]import zlib
+//// zlib./*marker1*/crc32(b'')
+    `;
+
+    testInsertion(code, 'marker1', {}, 'sys', ImportType.BuiltIn);
+});
+
+test('getTextEditsForAutoImportInsertion - insert before local relative adds blank line', () => {
+    const code = `
+// @filename: mypkg/__init__.py
+//// pass
+
+// @filename: mypkg/test.py
+//// [|/*range1*/{|"r":"import sys!n!!n!"|}|]from . import foo
+//// foo()/*marker1*/
+    `;
+
+    testInsertion(code, 'marker1', {}, 'sys', ImportType.BuiltIn);
+});
+
+test('getTextEditsForAutoImportInsertion - insert third-party before local relative adds blank line', () => {
+    const code = `
+// @filename: mypkg/__init__.py
+//// pass
+
+// @filename: mypkg/foo.py
+//// bar = 1
+
+// @filename: mypkg/test.py
+//// [|/*range1*/{|"r":"import numpy!n!!n!"|}|]from .foo import bar
+//// bar/*marker1*/
+    `;
+
+    testInsertion(code, 'marker1', {}, 'numpy', ImportType.ThirdParty);
+});
+
 test('getTextEditsForAutoImportInsertions - mix of import and from import statements', () => {
     const code = `
 //// [|/*marker1*/{|"r":"import sys as s!n!from sys import path as p!n!!n!!n!"|}|]import os

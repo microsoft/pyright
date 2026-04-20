@@ -42,6 +42,7 @@ import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Binder } from './binder';
+import { CellChainIndexProvider } from './cellChainIndex';
 import { Checker } from './checker';
 import { CircularDependency } from './circularDependency';
 import * as CommentUtils from './commentUtils';
@@ -876,7 +877,8 @@ export class SourceFile {
         configOptions: ConfigOptions,
         importLookup: ImportLookup,
         builtinsScope: Scope | undefined,
-        futureImports: Set<string>
+        futureImports: Set<string>,
+        cellChainIndex: CellChainIndexProvider | undefined
     ) {
         assert(!this.isParseRequired(), 'Bind called before parsing');
         assert(this.isBindingRequired(), 'Bind called unnecessarily');
@@ -892,7 +894,7 @@ export class SourceFile {
                     const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope, futureImports);
                     AnalyzerNodeInfo.setFileInfo(this._writableData.parserOutput!.parseTree, fileInfo);
 
-                    const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
+                    const binder = new Binder(fileInfo, configOptions.indexGenerationMode, cellChainIndex);
                     this._writableData.isBindingInProgress = true;
                     binder.bindModule(this._writableData.parserOutput!.parseTree);
 

@@ -91,7 +91,6 @@ test('test edit mode for workspace', async () => {
 
         // Add a new file.
         program.setFileOpened(addedFileUri, 0, '', {
-            isTracked: true,
             ipythonMode: IPythonMode.None,
             chainedFileUri: undefined,
         });

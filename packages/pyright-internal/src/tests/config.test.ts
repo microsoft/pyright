@@ -353,6 +353,44 @@ describe(`config test'}`, () => {
         assert.ok(deserialized.findExecEnvironment(UriEx.file('foo/bar.py')));
     });
 
+    test('Config watcher reloads when pyproject.toml is created', () => {
+        const fs = new TestFileSystem(/* ignoreCase */ true);
+        const cons = new NullConsole();
+        const serviceProvider = createServiceProvider(fs, cons, tempFile);
+        const host = new TestAccessHost();
+        host.getPythonVersion = () => pythonVersion3_13;
+
+        const projectRootUri = Uri.file(combinePaths(process.cwd(), 'src'), serviceProvider);
+        fs.mkdirpSync(projectRootUri.getFilePath());
+        fs.writeFileSync(projectRootUri.combinePaths('test.py'), 'x = 1\n');
+
+        const service = new AnalyzerService('<default>', serviceProvider, {
+            console: cons,
+            hostFactory: () => host,
+            shouldRunAnalysis: () => false,
+        });
+
+        try {
+            const commandLineOptions = new CommandLineOptions(
+                projectRootUri.getFilePath(),
+                /* fromLanguageServer */ true
+            );
+            commandLineOptions.configSettings.typeCheckingMode = 'off';
+            commandLineOptions.languageServerSettings.watchForConfigChanges = true;
+
+            service.setOptions(commandLineOptions);
+            assert.equal(service.getConfigOptions().effectiveTypeCheckingMode, 'off');
+
+            const pyprojectFileUri = projectRootUri.combinePaths('pyproject.toml');
+            fs.writeFileSync(pyprojectFileUri, '[tool.pyright]\ntypeCheckingMode = "strict"\n');
+            fs.fireFileWatcherEvent(pyprojectFileUri.getFilePath(), 'add');
+
+            assert.equal(service.getConfigOptions().effectiveTypeCheckingMode, 'strict');
+        } finally {
+            service.dispose();
+        }
+    });
+
     test('extra paths on undefined execution root/default workspace', () => {
         const nullConsole = new NullConsole();
         const service = createAnalyzer(nullConsole);

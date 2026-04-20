@@ -12,10 +12,17 @@ import * as os from 'os';
 import * as path from 'path';
 
 import { expandPathVariables } from '../common/envVarUtils';
+import { FileSystem } from '../common/fileSystem';
 import { isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
 import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
 import { Uri } from '../common/uri/uri';
-import { UriEx, deduplicateFolders, getWildcardRegexPattern, getWildcardRoot } from '../common/uri/uriUtils';
+import {
+    UriEx,
+    deduplicateFolders,
+    getWildcardRegexPattern,
+    getWildcardRoot,
+    makeDirectories,
+} from '../common/uri/uriUtils';
 import * as vfs from './harness/vfs/filesystem';
 import { TestCaseSensitivityDetector } from './harness/testHost';
 
@@ -969,6 +976,45 @@ test('Web URIs dont exist', () => {
     const stat = fs.statSync(uri);
     assert(!stat.isFile());
     tempFile.dispose();
+});
+
+test('makeDirectories tolerates stale existsSync results for existing directories', () => {
+    const createdPaths = new Set<string>();
+    const mkdirCalls: { filePath: string; recursive: boolean }[] = [];
+    const fs = {
+        existsSync: () => false,
+        mkdirSync: (uri: Uri, options?: { recursive: boolean }) => {
+            const filePath = normalizeSlashes(uri.getFilePath());
+            const alreadyExists = createdPaths.has(filePath);
+
+            if (alreadyExists && !options?.recursive) {
+                throw new Error(`EEXIST: ${filePath}`);
+            }
+
+            mkdirCalls.push({ filePath, recursive: options?.recursive ?? false });
+            createdPaths.add(filePath);
+        },
+    } as unknown as FileSystem;
+
+    const root = UriEx.file('/root');
+    const nested = root.combinePaths('pkg-stubs', 'subdir');
+
+    makeDirectories(fs, nested, root);
+    makeDirectories(fs, nested, root);
+
+    const expectedPaths = [
+        normalizeSlashes('/root/pkg-stubs'),
+        normalizeSlashes('/root/pkg-stubs/subdir'),
+        normalizeSlashes('/root/pkg-stubs'),
+        normalizeSlashes('/root/pkg-stubs/subdir'),
+    ];
+
+    assert.deepStrictEqual(
+        mkdirCalls.map((call) => call.filePath),
+        expectedPaths
+    );
+    assert(mkdirCalls.every((call) => call.recursive));
+    assert(createdPaths.has(normalizeSlashes('/root/pkg-stubs/subdir')));
 });
 
 test('constant uri test', () => {

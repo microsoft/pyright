@@ -1508,6 +1508,27 @@ test('Floating point numbers with operators', () => {
     assert.equal(results.tokens.contains(19), false);
 });
 
+test('Floating point numbers with underscores', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('20_000.0 1_000.5 1_0.3e1_0');
+    assert.equal(results.tokens.count, 3 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.Number);
+    assert.equal((results.tokens.getItemAt(0) as NumberToken).value, 20000.0);
+    assert.equal((results.tokens.getItemAt(0) as NumberToken).isInteger, false);
+    assert.equal(results.tokens.getItemAt(0).length, 8);
+
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.Number);
+    assert.equal((results.tokens.getItemAt(1) as NumberToken).value, 1000.5);
+    assert.equal((results.tokens.getItemAt(1) as NumberToken).isInteger, false);
+    assert.equal(results.tokens.getItemAt(1).length, 7);
+
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.Number);
+    assert.equal((results.tokens.getItemAt(2) as NumberToken).value, 10.3e10);
+    assert.equal((results.tokens.getItemAt(2) as NumberToken).isInteger, false);
+    assert.equal(results.tokens.getItemAt(2).length, 9);
+});
+
 test('Imaginary numbers', () => {
     const t = new Tokenizer();
     const results = t.tokenize('88.9j/100.0J*4.0e-5j-2.0j,');

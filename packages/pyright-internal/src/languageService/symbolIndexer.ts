@@ -30,6 +30,9 @@ export interface IndexAliasData {
     readonly moduleUri: Uri;
     readonly kind: SymbolKind;
     readonly itemKind?: CompletionItemKind | undefined;
+    // Range of the original symbol's definition in moduleUri.
+    // Present when the alias was resolved during indexing.
+    readonly selectionRange?: Range | undefined;
 }
 
 export const enum IndexSymbolVisibilityFlags {

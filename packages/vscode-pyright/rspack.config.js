@@ -1,16 +1,11 @@
-/**
- * webpack.config-cli.js
- * Copyright: Microsoft 2018
- */
-
 const path = require('path');
-const CopyPlugin = require('copy-webpack-plugin');
-const { cacheConfig, monorepoResourceNameMapper, tsconfigResolveAliases } = require('../../build/lib/webpack');
+const rspack = require('@rspack/core');
+const { monorepoResourceNameMapper, tsconfigResolveAliases } = require('../../build/lib/webpack');
 
 const outPath = path.resolve(__dirname, 'dist');
 const typeshedFallback = path.resolve(__dirname, '..', 'pyright-internal', 'typeshed-fallback');
 
-/**@type {(env: any, argv: { mode: 'production' | 'development' | 'none' }) => import('webpack').Configuration}*/
+/**@type {(env: any, argv: { mode: 'production' | 'development' | 'none' }) => import('@rspack/core').Configuration}*/
 module.exports = (_, { mode }) => {
     return {
         context: __dirname,
@@ -28,7 +23,7 @@ module.exports = (_, { mode }) => {
             clean: true,
         },
         devtool: mode === 'development' ? 'source-map' : 'nosources-source-map',
-        cache: mode === 'development' ? cacheConfig(__dirname, __filename) : false,
+        cache: mode === 'development',
         stats: {
             all: false,
             errors: true,
@@ -55,6 +50,6 @@ module.exports = (_, { mode }) => {
                 },
             ],
         },
-        plugins: [new CopyPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] })],
+        plugins: [new rspack.CopyRspackPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] })],
     };
 };
