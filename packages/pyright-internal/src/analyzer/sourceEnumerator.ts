@@ -10,7 +10,7 @@
 import { ConsoleInterface } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
 import { Uri } from '../common/uri/uri';
-import { FileSpec, getFileSystemEntries, tryRealpath, tryStat } from '../common/uri/uriUtils';
+import { FileSpec, getFileSystemEntriesWithSymlinkedDirectories, tryRealpath, tryStat } from '../common/uri/uriUtils';
 
 export interface SourceEnumerateResult {
     matches: Map<string, Uri>;
@@ -36,6 +36,10 @@ export class SourceEnumerator {
     private _numFilesVisited = 0;
     private _loggedLongOperationError = false;
     private _seenDirs = new Set<string>();
+    // This tracks symlinked directory roots across the entire enumeration cycle,
+    // potentially spanning multiple include roots, so Pylance can later filter
+    // workspace indexing against the full discovered set.
+    private readonly _symlinkedDirectoryRoots = new Map<string, Uri>();
 
     constructor(
         include: FileSpec[],
@@ -47,6 +51,10 @@ export class SourceEnumerator {
         this._includesToExplore = include.slice(0).reverse();
 
         this._console.log(`Searching for source files`);
+    }
+
+    getSymlinkedDirectoryRoots(): Uri[] {
+        return Array.from(this._symlinkedDirectoryRoots.values());
     }
 
     // Enumerates as many files as possible within the specified
@@ -102,6 +110,22 @@ export class SourceEnumerator {
         };
     }
 
+    private _recordSymlinkedDirectoryRoot(root: Uri): void {
+        for (const existingRoot of this._symlinkedDirectoryRoots.values()) {
+            if (root.isChild(existingRoot)) {
+                return;
+            }
+        }
+
+        for (const [key, existingRoot] of this._symlinkedDirectoryRoots.entries()) {
+            if (existingRoot.isChild(root)) {
+                this._symlinkedDirectoryRoots.delete(key);
+            }
+        }
+
+        this._symlinkedDirectoryRoots.set(root.key, root);
+    }
+
     // Performs the next enumeration action. Returns true if complete.
     private _doNext(): boolean {
         const dirToExplore = this._dirsToExplore.pop();
@@ -126,6 +150,10 @@ export class SourceEnumerator {
             return;
         }
 
+        if (realDirPath.key !== dir.uri.key) {
+            this._recordSymlinkedDirectoryRoot(dir.uri);
+        }
+
         if (this._seenDirs.has(realDirPath.key)) {
             this._console.info(`Skipping recursive symlink "${dir.uri}" -> "${realDirPath}"`);
             return;
@@ -140,7 +168,14 @@ export class SourceEnumerator {
             }
         }
 
-        const { files, directories } = getFileSystemEntries(this._fs, dir.uri);
+        const { files, directories, symlinkedDirectories } = getFileSystemEntriesWithSymlinkedDirectories(
+            this._fs,
+            dir.uri
+        );
+
+        for (const symlinkedDir of symlinkedDirectories) {
+            this._recordSymlinkedDirectoryRoot(symlinkedDir);
+        }
 
         for (const file of files) {
             if (FileSpec.matchIncludeFileSpec(dir.includeRegExp, this._excludes, file)) {

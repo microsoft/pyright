@@ -17,7 +17,7 @@ import {
     getDeclarationsWithUsesLocalNameRemoved,
     synthesizeAliasDeclaration,
 } from '../analyzer/declarationUtils';
-import { getModuleNode, getStringNodeValueRange } from '../analyzer/parseTreeUtils';
+import { getEvaluationScopeNode, getModuleNode, getStringNodeValueRange } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { ScopeType } from '../analyzer/scope';
 import * as ScopeUtils from '../analyzer/scopeUtils';
@@ -210,7 +210,15 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         });
 
         const sourceFileInfo = program.getSourceFileInfo(fileUri);
-        if (sourceFileInfo && sourceFileInfo.ipythonMode === IPythonMode.CellDocs) {
+        // Notebook cells share module-level symbols across the synthetic cell files,
+        // but that widening should apply only when the seed declarations already come
+        // from module scope. Local parameters and other nested declarations should
+        // stay scoped to the current cell.
+        if (
+            sourceFileInfo &&
+            sourceFileInfo.ipythonMode === IPythonMode.CellDocs &&
+            shouldAppendCellDocsDeclarations(resolvedDeclarations)
+        ) {
             // Add declarations from chained source files
             let builtinsScope = fileInfo.builtinsScope;
             while (builtinsScope && builtinsScope.type === ScopeType.Module) {
@@ -243,6 +251,21 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                         addDeclarationIfUnique(declarations, resolvedDecl);
                     }
                 });
+        }
+
+        function shouldAppendCellDocsDeclarations(declarations: readonly Declaration[]) {
+            return declarations.some((decl) => isCellDocsModuleLevelDeclaration(decl));
+        }
+
+        function isCellDocsModuleLevelDeclaration(decl: Declaration) {
+            // Param and TypeParam must be excluded early: getEvaluationScopeNode on a
+            // ParameterNode walks up to the ModuleNode, which would misclassify
+            // top-level function parameters as module-level declarations.
+            if (decl.type === DeclarationType.Param || decl.type === DeclarationType.TypeParam || !decl.node) {
+                return false;
+            }
+
+            return getEvaluationScopeNode(decl.node).node.nodeType === ParseNodeType.Module;
         }
     }
 
@@ -299,6 +322,16 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
         if (this._dunderAllNameNodes.has(node)) {
             this._addResult(node);
+            return false;
+        }
+
+        // Allow symbol usage providers to contribute declarations for string literals that
+        // encode type names (e.g. Annotated["T", ...]) without special-casing StringList
+        // traversal logic.
+        if (this._symbolNames.has(node.d.value) && this._declarations.length > 0) {
+            if (!this._results.some((r) => r.node === node) && this._resultsContainsDeclaration(node, [])) {
+                this._addResult(node);
+            }
         }
 
         return false;
@@ -465,15 +498,19 @@ function _getDeclarationsForNonModuleNameNode(
     // to X.Y rather than X if import statement has an alias.
     // so, for such case, we put synthesized one so we can treat X in both statement same.
     for (const aliasDecl of decls.filter((d) => isAliasDeclaration(d) && !d.loadSymbolsFromPath)) {
-        const node = (aliasDecl as AliasDeclaration).node;
-        if (node.nodeType === ParseNodeType.ImportFromAs) {
+        const importNode = (aliasDecl as AliasDeclaration).node;
+        if (!importNode) {
+            continue;
+        }
+
+        if (importNode.nodeType === ParseNodeType.ImportFromAs) {
             // from ... import X case, decl in the submodule fallback has the path.
             continue;
         }
 
         appendArray(
             decls,
-            evaluator.getDeclInfoForNameNode(node.d.module.d.nameParts[0], skipUnreachableCode)?.decls || []
+            evaluator.getDeclInfoForNameNode(importNode.d.module.d.nameParts[0], skipUnreachableCode)?.decls || []
         );
     }
 

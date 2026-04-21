@@ -12,15 +12,10 @@ import { combinePaths } from '../../../common/pathUtils';
 import * as host from '../testHost';
 import { parseTestData } from './fourSlashParser';
 import { FourSlashData } from './fourSlashTypes';
-import { HostSpecificFeatures, TestState } from './testState';
+import { TestState, TestStateOptions } from './testState';
 import { Consts } from './testState.Consts';
 
-export type TestStateFactory = (
-    basePath: string,
-    testData: FourSlashData,
-    mountPaths?: Map<string, string>,
-    hostSpecificFeatures?: HostSpecificFeatures
-) => TestState;
+export type TestStateFactory = (basePath: string, testData: FourSlashData, options?: TestStateOptions) => TestState;
 
 /**
  * run given fourslash test file
@@ -32,12 +27,11 @@ export function runFourSlashTest(
     basePath: string,
     fileName: string,
     cb?: jest.DoneCallback,
-    mountPaths?: Map<string, string>,
-    hostSpecificFeatures?: HostSpecificFeatures,
+    stateOptions?: TestStateOptions,
     testStateFactory?: TestStateFactory
 ) {
     const content = host.HOST.readFile(fileName)!;
-    runFourSlashTestContent(basePath, fileName, content, cb, mountPaths, hostSpecificFeatures, testStateFactory);
+    runFourSlashTestContent(basePath, fileName, content, cb, stateOptions, testStateFactory);
 }
 
 /**
@@ -53,8 +47,7 @@ export function runFourSlashTestContent(
     fileName: string,
     content: string,
     cb?: jest.DoneCallback,
-    mountPaths?: Map<string, string>,
-    hostSpecificFeatures?: HostSpecificFeatures,
+    stateOptions?: TestStateOptions,
     testStateFactory?: TestStateFactory
 ) {
     // give file paths an absolute path for the virtual file system
@@ -65,8 +58,8 @@ export function runFourSlashTestContent(
     const testData = parseTestData(absoluteBasePath, content, absoluteFileName);
     const state =
         testStateFactory !== undefined
-            ? testStateFactory(absoluteBasePath, testData, mountPaths, hostSpecificFeatures)
-            : new TestState(absoluteBasePath, testData, mountPaths, hostSpecificFeatures);
+            ? testStateFactory(absoluteBasePath, testData, stateOptions)
+            : new TestState(absoluteBasePath, testData, stateOptions);
     const output = ts.transpileModule(content, {
         reportDiagnostics: true,
         compilerOptions: { target: ts.ScriptTarget.ES2019 },

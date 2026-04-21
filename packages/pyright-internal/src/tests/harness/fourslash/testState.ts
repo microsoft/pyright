@@ -74,7 +74,7 @@ import { SignatureHelpProvider } from '../../../languageService/signatureHelpPro
 import { ParseNode } from '../../../parser/parseNodes';
 import { ParseFileResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
-import { PartialStubService } from '../../../partialStubService';
+import { NoOpPartialStubs, PartialStubService } from '../../../partialStubService';
 import { PyrightFileSystem } from '../../../pyrightFileSystem';
 import { NormalWorkspace, WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
@@ -121,6 +121,22 @@ export interface HostSpecificFeatures {
     execute(ls: LanguageServerInterface, params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
 }
 
+export interface TestStateOptions {
+    mountPaths?: Map<string, string>;
+    hostSpecificFeatures?: HostSpecificFeatures;
+    testFS?: vfs.TestFileSystem;
+
+    // Setting delayFileInitialization to true enables derived class constructors to execute
+    // before any files are opened. When set to true, initializeFiles() must be called separately
+    // after construction completes.
+    delayFileInitialization?: boolean;
+
+    enablePartialStub?: boolean;
+
+    enableSharedImportResolverFileSystem?: boolean;
+    enableSharedTypeshedInfoProvider?: boolean;
+}
+
 // Make sure everything is in lower case since it has hard coded `isCaseSensitive`: true.
 const testAccessHost = new TestAccessHost(UriEx.file(vfs.MODULE_PATH), [libFolder, distlibFolder]);
 
@@ -147,17 +163,8 @@ export class TestState {
     // The file that's currently 'opened'
     activeFile!: FourSlashFile;
 
-    constructor(
-        projectRoot: string,
-        public testData: FourSlashData,
-        mountPaths?: Map<string, string>,
-        hostSpecificFeatures?: HostSpecificFeatures,
-        testFS?: vfs.TestFileSystem,
-        // Setting delayFileInitialization to true enables derived class constructors to execute
-        // before any files are opened. When set to true, initializeFiles() must be called separately
-        // after construction completes.
-        delayFileInitialization = false
-    ) {
+    constructor(projectRoot: string, public testData: FourSlashData, protected options?: TestStateOptions) {
+        const { mountPaths, hostSpecificFeatures, testFS, delayFileInitialization = false } = options ?? {};
         const vfsInfo = createVfsInfoFromFourSlashData(projectRoot, testData);
         this._vfsFiles = vfsInfo.files;
 
@@ -172,7 +179,7 @@ export class TestState {
 
         this.fs = new PyrightFileSystem(this.testFS);
         this.console = new ConsoleWithLogLevel(new NullConsole(), 'test');
-        const ps = new PartialStubService(this.fs);
+        const ps = options?.enablePartialStub ? new PartialStubService(this.fs) : new NoOpPartialStubs();
         this.serviceProvider = createServiceProvider(this.testFS, this.fs, this.console, ps);
 
         this._cancellationToken = new TestCancellationToken();
@@ -1384,20 +1391,13 @@ export class TestState {
         }
     }
 
-    fixupDefinitionsToMatchExpected(actual: DocumentRange[] | undefined): any {
-        return actual?.map((a) => {
-            const { uri, ...restOfActual } = a;
-            return {
-                ...restOfActual,
-                path: uri.getFilePath(),
-            };
-        });
-    }
-
     verifyFindDefinitions(
         map: {
             [marker: string]: {
-                definitions: DocumentRange[];
+                definitions: {
+                    path: string;
+                    range: PositionRange;
+                }[];
             };
         },
         filter: DefinitionFilter = DefinitionFilter.All
@@ -1423,7 +1423,7 @@ export class TestState {
             }
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            let actual = new DefinitionProvider(
+            const actual = new DefinitionProvider(
                 this.program,
                 uri,
                 position,
@@ -1432,11 +1432,12 @@ export class TestState {
             ).getDefinitions();
 
             assert.equal(actual?.length ?? 0, expected.length, `No definitions found for marker "${name}"`);
-            actual = this.fixupDefinitionsToMatchExpected(actual!);
 
             for (const r of expected) {
                 assert.equal(
-                    actual?.filter((d) => this._deepEqual(d, r)).length,
+                    actual?.filter(
+                        (d) => d.uri.equals(Uri.file(r.path, this.serviceProvider)) && this._deepEqual(d.range, r.range)
+                    ).length,
                     1,
                     `No match found for ${JSON.stringify(r)} from marker ${name}`
                 );
@@ -1446,7 +1447,10 @@ export class TestState {
 
     verifyFindTypeDefinitions(map: {
         [marker: string]: {
-            definitions: DocumentRange[];
+            definitions: {
+                path: string;
+                range: PositionRange;
+            }[];
         };
     }) {
         this.analyze();
@@ -1462,18 +1466,23 @@ export class TestState {
             const expected = map[name].definitions;
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            let actual = new TypeDefinitionProvider(
+            const actual = new TypeDefinitionProvider(
                 this.program,
                 Uri.file(fileName, this.serviceProvider),
                 position,
                 CancellationToken.None
             ).getDefinitions();
-            actual = this.fixupDefinitionsToMatchExpected(actual!);
 
             assert.strictEqual(actual?.length ?? 0, expected.length, name);
 
             for (const r of expected) {
-                assert.strictEqual(actual?.filter((d) => this._deepEqual(d, r)).length, 1, name);
+                assert.strictEqual(
+                    actual?.filter(
+                        (d) => d.uri.equals(Uri.file(r.path, this.serviceProvider)) && this._deepEqual(d.range, r.range)
+                    ).length,
+                    1,
+                    name
+                );
             }
         }
     }
@@ -1786,7 +1795,7 @@ export class TestState {
         }
 
         if (configOptions.functionSignatureDisplay === undefined) {
-            configOptions.functionSignatureDisplay === SignatureDisplayType.compact;
+            configOptions.functionSignatureDisplay = SignatureDisplayType.compact;
         }
 
         return configOptions;
@@ -2109,16 +2118,10 @@ export function parseAndGetTestState(
     code: string,
     projectRoot = '/',
     anonymousFileName = 'unnamedFile.py',
-    testFS?: vfs.TestFileSystem
+    options?: TestStateOptions
 ) {
     const data = parseTestData(normalizeSlashes(projectRoot), code, anonymousFileName);
-    const state = new TestState(
-        normalizeSlashes('/'),
-        data,
-        /* mountPath */ undefined,
-        /* hostSpecificFeatures */ undefined,
-        testFS
-    );
+    const state = new TestState(normalizeSlashes('/'), data, options);
 
     return { data, state };
 }

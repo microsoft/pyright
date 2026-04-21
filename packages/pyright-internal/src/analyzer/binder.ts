@@ -121,7 +121,15 @@ import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getWildcardImportNames } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
-import { NameBindingType, Scope, ScopeType } from './scope';
+import { CellChainIndexProvider } from './cellChainIndex';
+import {
+    ChainedModuleLevelLookupContext,
+    NameBindingType,
+    Scope,
+    ScopeChainedModuleLevelLookup,
+    ScopeType,
+    SymbolWithScope,
+} from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { Symbol, SymbolFlags, indeterminateSymbolId } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
@@ -269,7 +277,11 @@ export class Binder extends ParseTreeWalker {
     // the current function.
     private _codeFlowComplexity = 0;
 
-    constructor(fileInfo: AnalyzerFileInfo, private _moduleSymbolOnly = false) {
+    constructor(
+        fileInfo: AnalyzerFileInfo,
+        private _moduleSymbolOnly = false,
+        private readonly _cellChainIndex?: CellChainIndexProvider
+    ) {
         super();
 
         this._fileInfo = fileInfo;
@@ -279,6 +291,7 @@ export class Binder extends ParseTreeWalker {
         // We'll assume that if there is no builtins scope provided, we must be
         // binding the builtins module itself.
         const isBuiltInModule = this._fileInfo.builtinsScope === undefined;
+        const chainedModuleLevelScopeLookup = this._createCellChainModuleLevelLookup();
 
         this._addTypingImportAliasesFromBuiltinsScope();
 
@@ -286,6 +299,7 @@ export class Binder extends ParseTreeWalker {
             isBuiltInModule ? ScopeType.Builtin : ScopeType.Module,
             this._fileInfo.builtinsScope,
             /* proxyScope */ undefined,
+            chainedModuleLevelScopeLookup,
             () => {
                 AnalyzerNodeInfo.setScope(node, this._currentScope);
                 AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
@@ -320,10 +334,16 @@ export class Binder extends ParseTreeWalker {
         // Perform all analysis that was deferred during the first pass.
         this._bindDeferred();
 
-        // Use the __all__ list to determine whether any potential private
-        // symbols should be made externally hidden or private.
+        // Use the __all__ list to determine whether any potential private symbols should be
+        // made externally hidden or private. When __all__ uses an unsupported form (e.g.,
+        // dynamic construction like __all__ = _components + [...]), we can't determine
+        // membership statically; fall back to name-convention heuristics so that
+        // underscore-prefixed names are still treated as private while normally-named
+        // symbols avoid false positives.
+        const shouldProcess = (name: string) => !this._usesUnsupportedDunderAllForm || isPrivateOrProtectedName(name);
+
         this._potentialHiddenSymbols.forEach((symbol, name) => {
-            if (!this._dunderAllNames?.some((sym) => sym === name)) {
+            if (shouldProcess(name) && !this._dunderAllNames?.some((sym) => sym === name)) {
                 if (this._fileInfo.isStubFile) {
                     symbol.setIsExternallyHidden();
                 } else {
@@ -335,14 +355,21 @@ export class Binder extends ParseTreeWalker {
         // Wildcard imports are considered a re-export form, but if this module defines
         // __all__, that list determines the public interface and should restrict which
         // wildcard-imported symbols are exposed.
-        this._potentialWildcardReexportSymbols.forEach((symbol, name) => {
-            if (this._dunderAllNames && !this._dunderAllNames.some((sym) => sym === name)) {
-                symbol.setPrivatePyTypedImport();
-            }
-        });
+        if (this._dunderAllNames) {
+            const dunderAllNames = this._dunderAllNames;
+            this._potentialWildcardReexportSymbols.forEach((symbol, name) => {
+                if (shouldProcess(name) && !dunderAllNames.some((sym) => sym === name)) {
+                    symbol.setPrivatePyTypedImport();
+                }
+            });
+        }
 
+        // Single-underscore module-level names remain private even when __all__ uses an
+        // unsupported/computed form. Since every entry in _potentialPrivateSymbols already
+        // has an underscore prefix, shouldProcess always returns true here, preserving
+        // the behavior of upstream pyright test `Private3`.
         this._potentialPrivateSymbols.forEach((symbol, name) => {
-            if (!this._dunderAllNames?.some((sym) => sym === name)) {
+            if (shouldProcess(name) && !this._dunderAllNames?.some((sym) => sym === name)) {
                 symbol.setIsPrivateMember();
             }
         });
@@ -474,6 +501,7 @@ export class Binder extends ParseTreeWalker {
             ScopeType.Class,
             typeParamScope ?? this._getNonClassParentScope(),
             /* proxyScope */ undefined,
+            /* chainedModuleLevelScopeLookup */ undefined,
             () => {
                 AnalyzerNodeInfo.setScope(node, this._currentScope);
 
@@ -562,6 +590,7 @@ export class Binder extends ParseTreeWalker {
             ScopeType.Function,
             typeParamScope ?? this._getNonClassParentScope(),
             /* proxyScope */ undefined,
+            /* chainedModuleLevelScopeLookup */ undefined,
             () => {
                 AnalyzerNodeInfo.setScope(node, this._currentScope);
 
@@ -642,42 +671,48 @@ export class Binder extends ParseTreeWalker {
             }
         });
 
-        this._createNewScope(ScopeType.Function, this._getNonClassParentScope(), /* proxyScope */ undefined, () => {
-            AnalyzerNodeInfo.setScope(node, this._currentScope);
+        this._createNewScope(
+            ScopeType.Function,
+            this._getNonClassParentScope(),
+            /* proxyScope */ undefined,
+            /* chainedModuleLevelScopeLookup */ undefined,
+            () => {
+                AnalyzerNodeInfo.setScope(node, this._currentScope);
 
-            this._deferBinding(() => {
-                // Create a start node for the lambda.
-                this._currentFlowNode = this._createStartFlowNode();
+                this._deferBinding(() => {
+                    // Create a start node for the lambda.
+                    this._currentFlowNode = this._createStartFlowNode();
 
-                node.d.params.forEach((paramNode) => {
-                    if (paramNode.d.name) {
-                        const symbol = this._bindNameToScope(this._currentScope, paramNode.d.name);
-                        if (symbol) {
-                            const paramDeclaration: ParamDeclaration = {
-                                type: DeclarationType.Param,
-                                node: paramNode,
-                                uri: this._fileInfo.fileUri,
-                                range: convertTextRangeToRange(paramNode, this._fileInfo.lines),
-                                moduleName: this._fileInfo.moduleName,
-                                isInExceptSuite: this._isInExceptSuite,
-                            };
+                    node.d.params.forEach((paramNode) => {
+                        if (paramNode.d.name) {
+                            const symbol = this._bindNameToScope(this._currentScope, paramNode.d.name);
+                            if (symbol) {
+                                const paramDeclaration: ParamDeclaration = {
+                                    type: DeclarationType.Param,
+                                    node: paramNode,
+                                    uri: this._fileInfo.fileUri,
+                                    range: convertTextRangeToRange(paramNode, this._fileInfo.lines),
+                                    moduleName: this._fileInfo.moduleName,
+                                    isInExceptSuite: this._isInExceptSuite,
+                                };
 
-                            symbol.addDeclaration(paramDeclaration);
-                            AnalyzerNodeInfo.setDeclaration(paramNode.d.name, paramDeclaration);
+                                symbol.addDeclaration(paramDeclaration);
+                                AnalyzerNodeInfo.setDeclaration(paramNode.d.name, paramDeclaration);
+                            }
+
+                            this._createFlowAssignment(paramNode.d.name);
+                            this.walk(paramNode.d.name);
+                            AnalyzerNodeInfo.setFlowNode(paramNode, this._currentFlowNode!);
                         }
+                    });
 
-                        this._createFlowAssignment(paramNode.d.name);
-                        this.walk(paramNode.d.name);
-                        AnalyzerNodeInfo.setFlowNode(paramNode, this._currentFlowNode!);
-                    }
+                    // Walk the expression that make up the lambda body.
+                    this.walk(node.d.expr);
+
+                    AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
                 });
-
-                // Walk the expression that make up the lambda body.
-                this.walk(node.d.expr);
-
-                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
-            });
-        });
+            }
+        );
 
         // We'll walk the child nodes in a deferred manner.
         return false;
@@ -947,7 +982,11 @@ export class Binder extends ParseTreeWalker {
         this._createAssignmentTargetFlowNodes(node.d.leftExpr, /* walkTargets */ true, /* unbound */ false);
 
         // Is this an assignment to dunder all?
-        if (this._currentScope.type === ScopeType.Module) {
+        // Process __all__ for both Module and Builtin scope types. The Builtin scope type
+        // is used when binding without a builtins scope (e.g., in indexing scenarios where
+        // typeshed may not be available). We still want to extract __all__ information
+        // to properly filter wildcard imports.
+        if (this._currentScope.type === ScopeType.Module || this._currentScope.type === ScopeType.Builtin) {
             if (
                 (node.d.leftExpr.nodeType === ParseNodeType.Name && node.d.leftExpr.d.value === '__all__') ||
                 (node.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation &&
@@ -1924,19 +1963,23 @@ export class Binder extends ParseTreeWalker {
                             // Is the symbol in the target module's symbol table? If so,
                             // alias it.
                             if (importedSymbol) {
-                                const aliasDecl: AliasDeclaration = {
-                                    type: DeclarationType.Alias,
-                                    node,
-                                    uri: resolvedPath,
-                                    loadSymbolsFromPath: true,
-                                    range: getEmptyRange(), // Range is unknown for wildcard name import.
-                                    usesLocalName: false,
-                                    symbolName: name,
-                                    moduleName: this._fileInfo.moduleName,
-                                    isInExceptSuite: this._isInExceptSuite,
-                                };
-                                localSymbol.addDeclaration(aliasDecl);
-                                names.push(name);
+                                if (this._addWildcardImportedModuleAlias(node, localSymbol, importedSymbol)) {
+                                    names.push(name);
+                                } else {
+                                    const aliasDecl: AliasDeclaration = {
+                                        type: DeclarationType.Alias,
+                                        node,
+                                        uri: resolvedPath,
+                                        loadSymbolsFromPath: true,
+                                        range: getEmptyRange(), // Range is unknown for wildcard name import.
+                                        usesLocalName: false,
+                                        symbolName: name,
+                                        moduleName: this._fileInfo.moduleName,
+                                        isInExceptSuite: this._isInExceptSuite,
+                                    };
+                                    localSymbol.addDeclaration(aliasDecl);
+                                    names.push(name);
+                                }
                             } else {
                                 // The symbol wasn't in the target module's symbol table. It's probably
                                 // an implicitly-imported submodule referenced by __all__.
@@ -2274,6 +2317,7 @@ export class Binder extends ParseTreeWalker {
             ScopeType.Comprehension,
             this._getNonClassParentScope(),
             /* proxyScope */ undefined,
+            /* chainedModuleLevelScopeLookup */ undefined,
             () => {
                 AnalyzerNodeInfo.setScope(node, this._currentScope);
 
@@ -3718,10 +3762,11 @@ export class Binder extends ParseTreeWalker {
         scopeType: ScopeType,
         parentScope: Scope | undefined,
         proxyScope: Scope | undefined,
+        chainedModuleLevelScopeLookup: ScopeChainedModuleLevelLookup | undefined,
         callback: () => void
     ) {
         const prevScope = this._currentScope;
-        const newScope = new Scope(scopeType, parentScope, proxyScope);
+        const newScope = new Scope(scopeType, parentScope, proxyScope, chainedModuleLevelScopeLookup);
         this._currentScope = newScope;
 
         // If this scope is an execution scope, allocate a new reference map.
@@ -3739,6 +3784,60 @@ export class Binder extends ParseTreeWalker {
         this._currentScope = prevScope;
 
         return newScope;
+    }
+
+    // The chained module-level lookup is installed only on Module scope. This ensures it is
+    // consulted exactly once during recursive lookup — after the module's own symbol table
+    // but before ascending to builtins — when `useChainedModuleLevelScopes` is set by a nested
+    // evaluation context (function body, lambda, class header, or comprehension inside a
+    // function). Non-module scopes pass `undefined` so they never trigger a redundant search.
+    private _createCellChainModuleLevelLookup(): ScopeChainedModuleLevelLookup | undefined {
+        if (!this._cellChainIndex) {
+            return undefined;
+        }
+
+        const cellChainIndex = this._cellChainIndex;
+        const fileUri = this._fileInfo.fileUri;
+        // The callback preserves the caller's beyond-execution-scope
+        // state so that hits from later cells are correctly marked.
+        return (name: string, context?: ChainedModuleLevelLookupContext): SymbolWithScope | undefined => {
+            for (const moduleNode of cellChainIndex.getLaterModuleNodes(fileUri) ?? []) {
+                const moduleScope = AnalyzerNodeInfo.getScope(moduleNode);
+                if (!moduleScope) {
+                    continue;
+                }
+
+                const symbol = moduleScope.lookUpSymbol(name);
+                if (!symbol) {
+                    continue;
+                }
+
+                if (context?.isOutsideCallerModule && symbol.isExternallyHidden()) {
+                    continue;
+                }
+
+                // Skip symbols whose only declarations are attribute assignments
+                // (e.g. `self.x = ...`); these are instance-level, not module globals.
+                const decls = symbol.getDeclarations();
+                if (
+                    decls.length > 0 &&
+                    !decls.some((decl) => decl.type !== DeclarationType.Variable || !decl.isDefinedByMemberAccess)
+                ) {
+                    continue;
+                }
+
+                return {
+                    symbol,
+                    scope: moduleScope,
+                    isOutsideCallerModule: !!context?.isOutsideCallerModule,
+                    isBeyondExecutionScope: !!context?.isBeyondExecutionScope,
+                    usesNonlocalBinding: !!context?.usesNonlocalBinding,
+                    usesGlobalBinding: !!context?.usesGlobalBinding,
+                };
+            }
+
+            return undefined;
+        };
     }
 
     private _addInferredTypeAssignmentForVariable(
@@ -4254,6 +4353,130 @@ export class Binder extends ParseTreeWalker {
                     implicitImports: new Map<string, ModuleLoaderActions>(),
                 });
             }
+        });
+    }
+
+    private _addWildcardImportedModuleAlias(node: ImportFromNode, localSymbol: Symbol, importedSymbol: Symbol) {
+        const importedModuleAliasDecl = this._getMultipartModuleAliasDeclaration(importedSymbol);
+        if (!importedModuleAliasDecl) {
+            return false;
+        }
+
+        const existingModuleAliasDecl = this._getMultipartModuleAliasDeclaration(
+            localSymbol,
+            importedModuleAliasDecl.moduleName,
+            importedModuleAliasDecl.firstNamePart
+        );
+
+        if (existingModuleAliasDecl) {
+            this._mergeModuleLoaderActions(existingModuleAliasDecl, importedModuleAliasDecl);
+        } else {
+            localSymbol.addDeclaration(this._cloneMultipartModuleAliasDeclaration(node, importedModuleAliasDecl));
+        }
+
+        return true;
+    }
+
+    // Finds the latest alias declaration that represents the root of a multipart import
+    // chain, regardless of whether it originated from a direct import or wildcard merge.
+    private _getMultipartModuleAliasDeclaration(symbol: Symbol, moduleName?: string, firstNamePart?: string) {
+        const declarations = symbol.getDeclarations();
+
+        for (let index = declarations.length - 1; index >= 0; index--) {
+            const declaration = declarations[index];
+            if (declaration.type !== DeclarationType.Alias || declaration.symbolName || !declaration.firstNamePart) {
+                continue;
+            }
+
+            if (moduleName !== undefined && declaration.moduleName !== moduleName) {
+                continue;
+            }
+
+            if (firstNamePart !== undefined && declaration.firstNamePart !== firstNamePart) {
+                continue;
+            }
+
+            return declaration;
+        }
+
+        return undefined;
+    }
+
+    private _cloneMultipartModuleAliasDeclaration(
+        node: ImportFromNode,
+        declaration: AliasDeclaration
+    ): AliasDeclaration {
+        const clonedLoaderActions = this._cloneModuleLoaderActions(declaration);
+        const clonedDeclaration: AliasDeclaration = {
+            type: DeclarationType.Alias,
+            node,
+            uri: clonedLoaderActions.uri,
+            loadSymbolsFromPath: clonedLoaderActions.loadSymbolsFromPath,
+            range: getEmptyRange(),
+            usesLocalName: false,
+            moduleName: declaration.moduleName,
+            firstNamePart: declaration.firstNamePart,
+            isInExceptSuite: this._isInExceptSuite,
+            implicitImports: clonedLoaderActions.implicitImports,
+        };
+
+        if (clonedLoaderActions.isUnresolved) {
+            clonedDeclaration.isUnresolved = true;
+        }
+
+        if (declaration.isNativeLib) {
+            clonedDeclaration.isNativeLib = true;
+        }
+
+        return clonedDeclaration;
+    }
+
+    private _cloneModuleLoaderActions(loaderActions: ModuleLoaderActions): ModuleLoaderActions {
+        const clonedLoaderActions: ModuleLoaderActions = {
+            uri: loaderActions.uri,
+            loadSymbolsFromPath: loaderActions.loadSymbolsFromPath,
+        };
+
+        if (loaderActions.isUnresolved) {
+            clonedLoaderActions.isUnresolved = true;
+        }
+
+        if (loaderActions.implicitImports) {
+            clonedLoaderActions.implicitImports = new Map<string, ModuleLoaderActions>();
+            loaderActions.implicitImports.forEach((implicitImport, name) => {
+                clonedLoaderActions.implicitImports!.set(name, this._cloneModuleLoaderActions(implicitImport));
+            });
+        }
+
+        return clonedLoaderActions;
+    }
+
+    private _mergeModuleLoaderActions(target: ModuleLoaderActions, source: ModuleLoaderActions) {
+        if (!source.uri.isEmpty() && (target.uri.isEmpty() || !target.loadSymbolsFromPath)) {
+            target.uri = source.uri;
+        }
+
+        if (source.loadSymbolsFromPath) {
+            target.loadSymbolsFromPath = true;
+        }
+
+        if (!source.isUnresolved) {
+            delete target.isUnresolved;
+        }
+
+        source.implicitImports?.forEach((implicitImport, name) => {
+            let targetImplicitImport = target.implicitImports?.get(name);
+            if (!targetImplicitImport) {
+                if (!target.implicitImports) {
+                    target.implicitImports = new Map<string, ModuleLoaderActions>();
+                }
+
+                targetImplicitImport = this._cloneModuleLoaderActions(implicitImport);
+                target.implicitImports.set(name, targetImplicitImport);
+                return;
+            }
+
+            this._mergeModuleLoaderActions(targetImplicitImport, implicitImport);
         });
     }
 

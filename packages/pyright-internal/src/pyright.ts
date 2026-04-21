@@ -22,6 +22,7 @@ import { AnalysisResults } from './analyzer/analysis';
 import { PackageTypeReport, TypeKnownStatus } from './analyzer/packageTypeReport';
 import { PackageTypeVerifier } from './analyzer/packageTypeVerifier';
 import { AnalyzerService } from './analyzer/service';
+import { TypeStubWriter } from './analyzer/typeStubWriter';
 import { maxSourceFileSize } from './analyzer/sourceFile';
 import { SourceFileInfo } from './analyzer/sourceFileInfo';
 import { initializeDependencies } from './common/asyncInitialization';
@@ -504,8 +505,20 @@ async function runSingleThreaded(
 
         if (args.createstub) {
             try {
-                service.writeTypeStub(cancellationNone);
-                service.dispose();
+                try {
+                    const typeStubTargetInfo = service.getTypeStubTargetInfo();
+                    new TypeStubWriter(service.backgroundAnalysisProgram.program).writeTypeStub(
+                        {
+                            targetImportPath: typeStubTargetInfo.targetImportPath,
+                            targetIsSingleFile: typeStubTargetInfo.targetIsSingleFile,
+                            outputPath: typeStubTargetInfo.outputPath,
+                            stubPath: typeStubTargetInfo.stubPath,
+                        },
+                        cancellationNone
+                    );
+                } finally {
+                    service.dispose();
+                }
                 console.info(`Type stub was created for '${args.createstub}'`);
             } catch (err) {
                 let errMessage = '';

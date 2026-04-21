@@ -230,6 +230,50 @@ export class CancellationThrottle {
     }
 }
 
+/**
+ * A CancellationTokenSource whose token fires when *either* the parent token
+ * is cancelled *or* the specified timeout elapses — whichever comes first.
+ *
+ * Call `dispose()` (typically in a `finally` block) to clean up the timer and
+ * the underlying source.
+ */
+class TimeoutCancellationTokenSource implements AbstractCancellationTokenSource {
+    private readonly _timeoutSource = new CancellationTokenSource();
+    private readonly _timer: NodeJS.Timeout;
+    private readonly _combinedToken: CancellationToken;
+
+    constructor(parentToken: CancellationToken, timeoutMs: number) {
+        this._timer = setTimeout(() => this._timeoutSource.cancel(), timeoutMs);
+        this._combinedToken = createCombinedToken(parentToken, this._timeoutSource.token);
+    }
+
+    get token(): CancellationToken {
+        return this._combinedToken;
+    }
+
+    cancel(): void {
+        this._timeoutSource.cancel();
+    }
+
+    dispose(): void {
+        clearTimeout(this._timer);
+        this._timeoutSource.dispose();
+    }
+}
+
+/**
+ * Creates an `AbstractCancellationTokenSource` whose token fires when *either*
+ * the parent token is cancelled *or* the specified timeout elapses.
+ *
+ * Callers must call `.dispose()` when done (typically in a `finally` block).
+ */
+export function createCombinedTokenWithTimeout(
+    parentToken: CancellationToken,
+    timeoutMs: number
+): AbstractCancellationTokenSource {
+    return new TimeoutCancellationTokenSource(parentToken, timeoutMs);
+}
+
 export async function raceCancellation<T>(token?: CancellationToken, ...promises: Promise<T>[]): Promise<T> {
     if (!token) {
         return Promise.race(promises);

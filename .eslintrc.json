@@ -32,22 +32,35 @@
             "error",
             {
                 "classes": ["field", "constructor", ["public-get", "public-set"], "public-method", ["protected-get", "protected-set"], "protected-method", ["private-get", "private-set"], "private-method"],
-                "interfaces": []
+                "interfaces": [],
+                "typeLiterals": "never"
             }
         ],
         "@typescript-eslint/no-empty-interface": 0,
+        "@typescript-eslint/no-empty-object-type": 0,
         "@typescript-eslint/no-explicit-any": 0,
         "@typescript-eslint/no-namespace": 0,
         "@typescript-eslint/no-non-null-assertion": 0,
+        "@typescript-eslint/no-require-imports": 0,
         "@typescript-eslint/no-this-alias": 0,
+        "@typescript-eslint/no-unsafe-function-type": 0,
         "@typescript-eslint/explicit-member-accessibility": ["error", { "accessibility": "no-public" }],
         "@typescript-eslint/no-unused-vars": [
             "error",
             {
-                "args": "none"
+                "args": "none",
+                "caughtErrors": "none"
+            }
+        ],
+        "@typescript-eslint/no-unused-expressions": [
+            "error",
+            {
+                "allowShortCircuit": true,
+                "allowTernary": true
             }
         ],
         "@typescript-eslint/no-use-before-define": 0,
+        "@typescript-eslint/no-wrapper-object-types": 0,
         "@typescript-eslint/naming-convention": [
             "error",
             {

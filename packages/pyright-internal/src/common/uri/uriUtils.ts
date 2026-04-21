@@ -67,6 +67,10 @@ export interface FileSystemEntries {
     directories: Uri[];
 }
 
+export interface FileSystemEntriesWithSymlinkedDirectories extends FileSystemEntries {
+    symlinkedDirectories: Uri[];
+}
+
 export function forEachAncestorDirectory(
     directory: Uri,
     callback: (directory: Uri) => Uri | undefined
@@ -99,7 +103,7 @@ export function makeDirectories(fs: FileSystem, dir: Uri, startingFrom: Uri) {
     for (let i = relativeToComponents.length; i < pathComponents.length; i++) {
         curPath = curPath.combinePaths(pathComponents[i]);
         if (!fs.existsSync(curPath)) {
-            fs.mkdirSync(curPath);
+            fs.mkdirSync(curPath, { recursive: true });
         }
     }
 }
@@ -158,9 +162,25 @@ export function tryRealpath(fs: ReadOnlyFileSystem, uri: Uri): Uri | undefined {
 
 export function getFileSystemEntries(fs: ReadOnlyFileSystem, uri: Uri): FileSystemEntries {
     try {
-        return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(uri), fs, uri);
+        const { files, directories } = getFileSystemEntriesWithSymlinkedDirectoriesFromDirEntries(
+            fs.readdirEntriesSync(uri),
+            fs,
+            uri
+        );
+        return { files, directories };
     } catch (e: any) {
         return { files: [], directories: [] };
+    }
+}
+
+export function getFileSystemEntriesWithSymlinkedDirectories(
+    fs: ReadOnlyFileSystem,
+    uri: Uri
+): FileSystemEntriesWithSymlinkedDirectories {
+    try {
+        return getFileSystemEntriesWithSymlinkedDirectoriesFromDirEntries(fs.readdirEntriesSync(uri), fs, uri);
+    } catch (e: any) {
+        return { files: [], directories: [], symlinkedDirectories: [] };
     }
 }
 
@@ -170,6 +190,15 @@ export function getFileSystemEntriesFromDirEntries(
     fs: ReadOnlyFileSystem,
     uri: Uri
 ): FileSystemEntries {
+    const { files, directories } = getFileSystemEntriesWithSymlinkedDirectoriesFromDirEntries(dirEntries, fs, uri);
+    return { files, directories };
+}
+
+function getFileSystemEntriesWithSymlinkedDirectoriesFromDirEntries(
+    dirEntries: Iterable<Dirent>,
+    fs: ReadOnlyFileSystem,
+    uri: Uri
+): FileSystemEntriesWithSymlinkedDirectories {
     const entries = Array.isArray(dirEntries) ? dirEntries.slice() : Array.from(dirEntries);
     entries.sort((a, b) => {
         if (a.name < b.name) {
@@ -182,6 +211,7 @@ export function getFileSystemEntriesFromDirEntries(
     });
     const files: Uri[] = [];
     const directories: Uri[] = [];
+    const symlinkedDirectories: Uri[] = [];
     for (const entry of entries) {
         // This is necessary because on some file system node fails to exclude
         // "." and "..". See https://github.com/nodejs/node/issues/4002
@@ -200,10 +230,12 @@ export function getFileSystemEntriesFromDirEntries(
                 files.push(entryUri);
             } else if (stat?.isDirectory()) {
                 directories.push(entryUri);
+                symlinkedDirectories.push(entryUri);
             }
         }
     }
-    return { files, directories };
+
+    return { files, directories, symlinkedDirectories };
 }
 
 // Transforms a relative file spec (one that potentially contains

@@ -37,6 +37,7 @@ import {
 } from './codeFlowTypes';
 import { formatControlFlowGraph } from './codeFlowUtils';
 import { getBoundCallMethod, getBoundNewMethod } from './constructors';
+import { DeclarationType } from './declaration';
 import { isMatchingExpression, isPartialMatchingExpression, printExpression } from './parseTreeUtils';
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
@@ -2004,7 +2005,27 @@ export function getCodeFlowEngine(
         const symbolWithScope = evaluator.lookUpSymbolRecursive(flowNode.node, name, /* honorCodeFlow */ false);
         assert(symbolWithScope !== undefined);
         const decls = symbolWithScope!.symbol.getDeclarations();
-        const wildcardDecl = decls.find((decl) => decl.node === flowNode.node);
+
+        // Normally the wildcard import contributes its own alias declaration, so we can
+        // identify it by the import node directly. But wildcard-imported multipart modules
+        // may be merged into an existing alias declaration (for example, when
+        // `import mylib.a` is followed by `from x import *` and `x` imports `mylib.b`).
+        // In that case, fall back to the merged multipart alias so code flow preserves the
+        // imported module type instead of degrading the name to Unknown.
+        //
+        // First-match is safe here because the binder merges all multipart imports for the
+        // same base name into a single symbol whose module info carries the union of all
+        // submodule paths. Every surviving alias declaration for that symbol therefore
+        // carries equivalent module info after the merge.
+        const wildcardDecl =
+            decls.find((decl) => decl.node === flowNode.node) ??
+            decls.find(
+                (decl) =>
+                    decl.type === DeclarationType.Alias &&
+                    !decl.symbolName &&
+                    decl.firstNamePart === name &&
+                    decl.loadSymbolsFromPath
+            );
 
         if (!wildcardDecl) {
             return UnknownType.create();

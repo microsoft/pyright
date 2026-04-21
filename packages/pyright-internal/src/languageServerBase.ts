@@ -181,6 +181,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     private _workspaceDiagnosticsReporter: ResultProgressReporter<WorkspaceDiagnosticReportPartialResult> | undefined;
     private _workspaceDiagnosticsProgressReporter: ProgressReporter | undefined;
     private _workspaceDiagnosticsResolve: ((value: WorkspaceDiagnosticReport) => void) | undefined;
+    protected isDisposed = false;
 
     protected client: ClientCapabilities = {
         hasConfigurationCapability: false,
@@ -273,6 +274,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     dispose() {
+        this.isDisposed = true;
         this.workspaceFactory.clear();
         this.openFileMap.clear();
         this.dynamicFeatures.unregister();
@@ -307,6 +309,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             serviceId,
             fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
             onInvalidated: (reason) => {
+                // Don't send requests if the server is disposed.
+                if (this.isDisposed) {
+                    return;
+                }
                 // If we're in openFilesOnly mode and the client supports pull diagnostics, request a refresh. In
                 // workspace mode we just use the 'push' notification to respond to the workspace diagnostics
                 if (this.client.supportsPullDiagnostics && service.checkOnlyOpenFiles) {

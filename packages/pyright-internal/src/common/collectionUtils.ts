@@ -62,7 +62,7 @@ export function append<T>(to: T[] | undefined, value: T | undefined): T[] | unde
  * same as receiver.push(...elementsToPush) except that it doesn't risk overflowing
  * the stack if elementsToPush is very large.
  */
-export function appendArray<T>(to: T[], elementsToPush: T[]) {
+export function appendArray<T>(to: T[], elementsToPush: readonly T[]) {
     if (elementsToPush.length < 256) {
         to.push(...elementsToPush);
         return;
@@ -307,7 +307,7 @@ export function binarySearchKey<T, U>(
  *
  * @param array The array to flatten.
  */
-export function flatten<T>(array: (NonNullable<T>[] | NonNullable<T>)[]): T[] {
+export function flatten<T>(array: (readonly NonNullable<T>[] | NonNullable<T>)[]): T[] {
     const result: T[] = [];
     for (const v of array) {
         if (v) {
@@ -383,7 +383,7 @@ export function addIfUnique<T>(arr: T[], t: T, equalityComparer: EqualityCompare
     return arr;
 }
 
-export function getMapValues<K, V>(m: Map<K, V>, predicate: (k: K, v: V) => boolean): V[] {
+export function getMapValues<K, V>(m: ReadonlyMap<K, V>, predicate: (k: K, v: V) => boolean): V[] {
     const values: V[] = [];
     m.forEach((v, k) => {
         if (predicate(k, v)) {

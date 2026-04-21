@@ -1282,6 +1282,43 @@ test('default Enum member', async () => {
     });
 });
 
+test('str-backed Enum comparison suggests member values', async () => {
+    const code = `
+// @filename: test.py
+//// from enum import Enum
+////
+//// class Mode(str, Enum):
+////     Train = "train"
+////     Test = "test"
+////
+//// config: Mode = Mode("train")
+////
+//// if config == [|"/*marker*/"|]:
+////     pass
+`;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"train"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"train"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"test"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"test"' },
+                },
+            ],
+        },
+    });
+});
+
 test('TypeDict literal values', async () => {
     const code = `
 // @filename: test.py
@@ -1549,6 +1586,280 @@ test('overloaded Literal[...] suggestions in call arguments', async () => {
     });
 });
 
+test('collection literal suggestions in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Collection, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["nan"]] = ()) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str:
+////     return ''
+////
+//// dumps(None, allow=[[|"/*marker*/"|]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
+test('collection literal suggestions include all literal overload element candidates', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Collection, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["nan"]] = ()) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["inf"]] = ()) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str:
+////     return ''
+////
+//// dumps(None, allow=[[|"/*marker*/"|]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"inf"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"inf"' },
+                },
+            ],
+        },
+    });
+});
+
+test('collection literal suggestions exclude deeply nested containers in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Collection, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["nan"]] = ()) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str:
+////     return ''
+////
+//// dumps(None, allow=[[[[|"/*marker*/"|]]]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('excluded', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
+test('typing list literal suggestions in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, List, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: List[Literal["nan"]]) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: List[str]) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: List[str]) -> str:
+////     return ''
+////
+//// dumps(None, allow=[[|"/*marker*/"|]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
+test('mapping value literal suggestions include all overload candidates', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Literal, Mapping, overload
+////
+//// @overload
+//// def encode(obj: Any, *, mapping: Mapping[str, Literal["nan"]] = ...) -> str: ...
+//// @overload
+//// def encode(obj: Any, *, mapping: Mapping[str, Literal["inf"]] = ...) -> str: ...
+////
+//// def encode(obj: Any, *, mapping: Mapping[str, str] = ...) -> str:
+////     return ''
+////
+//// encode(None, mapping={"key": [|"/*marker*/"|]})
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"inf"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"inf"' },
+                },
+            ],
+        },
+    });
+});
+
+test('sequence literal suggestions in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Literal, Sequence, overload
+////
+//// @overload
+//// def encode(obj: Any, *, seq: Sequence[Literal["nan"]] = ...) -> str: ...
+//// @overload
+//// def encode(obj: Any, *, seq: Sequence[str] = ...) -> str: ...
+////
+//// def encode(obj: Any, *, seq: Sequence[str] = ...) -> str:
+////     return ''
+////
+//// encode(None, seq=[[|"/*marker*/"|]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
+test('collection literal suggestions include comprehensions in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Collection, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["nan"]] = ()) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str:
+////     return ''
+////
+//// dumps(None, allow=[[|"/*marker*/"|] for _ in range(1)])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
+test('collection literal suggestions exclude lambdas in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Collection, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["nan"]] = ()) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str:
+////     return ''
+////
+//// dumps(None, allow=[lambda: [|"/*marker*/"|]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('excluded', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
 test('nested TypedDict completion with Unpack - without other fields', async () => {
     const code = `
 // @filename: test.py
@@ -1656,6 +1967,54 @@ test('simple nested TypedDict completion - no Unpack', async () => {
                     kind: CompletionItemKind.Constant,
                     label: "'b'",
                     textEdit: { range: state.getPositionRange('marker'), newText: "'b'" },
+                },
+            ],
+        },
+    });
+});
+
+test('TypedDict subscript completion with Literal assignment target', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal, TypedDict, TypeAlias
+//// 
+//// SomeLiterals: TypeAlias = Literal["literal1", "literal2"]
+//// 
+//// class Settings(TypedDict):
+////     value: SomeLiterals
+//// 
+//// class Test:
+////     def __init__(self) -> None:
+////         self.settings: Settings = {"value": "literal1"}
+////     
+////     def meth(self, literal: SomeLiterals):
+////         literal = self.settings[[|/*marker*/|]]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"value"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"value"' },
+                },
+            ],
+        },
+    });
+
+    await state.verifyCompletion('excluded', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    label: '"literal1"',
+                    kind: CompletionItemKind.Constant,
+                },
+                {
+                    label: '"literal2"',
+                    kind: CompletionItemKind.Constant,
                 },
             ],
         },

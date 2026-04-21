@@ -108,30 +108,45 @@ function createHost(): TestHost {
 
     function getAccessibleFileSystemEntries(dirname: string): FileSystemEntries {
         try {
-            const entries: string[] = vfs
-                .readdirSync(Uri.file(dirname || '.', caseDetector))
-                .sort(useCaseSensitiveFileNames ? compareStringsCaseSensitive : compareStringsCaseInsensitive);
-            const files: string[] = [];
+            const fileEntries = vfs
+                .readdirEntriesSync(Uri.file(dirname || '.', caseDetector))
+                .sort((a, b) =>
+                    (useCaseSensitiveFileNames ? compareStringsCaseSensitive : compareStringsCaseInsensitive)(
+                        a.name,
+                        b.name
+                    )
+                );
+
+            const files: { name: string; size: number }[] = [];
             const directories: string[] = [];
-            for (const entry of entries) {
-                if (entry === '.' || entry === '..') {
+
+            for (const entry of fileEntries) {
+                if (entry.name === '.' || entry.name === '..') {
                     continue;
                 }
-                const name = combinePaths(dirname, entry);
-                try {
-                    const stat = vfs.statSync(Uri.file(name, caseDetector));
-                    if (!stat) {
-                        continue;
+
+                if (entry.isDirectory()) {
+                    directories.push(entry.name);
+                    continue;
+                }
+
+                if (entry.isFile()) {
+                    const name = combinePaths(dirname, entry.name);
+
+                    // Dirent doesn't include file size; get it only for files.
+                    try {
+                        const stat = vfs.statSync(Uri.file(name, caseDetector));
+                        if (!stat) {
+                            continue;
+                        }
+
+                        files.push({ name: entry.name, size: stat.size });
+                    } catch {
+                        /* ignore */
                     }
-                    if (stat.isFile()) {
-                        files.push(entry);
-                    } else if (stat.isDirectory()) {
-                        directories.push(entry);
-                    }
-                } catch {
-                    /* ignore */
                 }
             }
+
             return { files, directories };
         } catch (e: any) {
             return { files: [], directories: [] };

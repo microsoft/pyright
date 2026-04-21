@@ -398,12 +398,13 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        // If this isn't a name node, there are no references to be found.
-        if (node.nodeType !== ParseNodeType.Name) {
-            return undefined;
+        // If this is a name node, process it directly.
+        if (node.nodeType === ParseNodeType.Name) {
+            return this.getDeclarationForNode(program, fileUri, node, reporter, useCase, token);
         }
 
-        return this.getDeclarationForNode(program, fileUri, node, reporter, useCase, token);
+        // For other node types, there are no references to be found.
+        return undefined;
     }
 }
 

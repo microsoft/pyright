@@ -1577,9 +1577,9 @@
         "prepackage": "node ./build/renamePackage.js pyright",
         "package": "vsce package",
         "postpackage": "node ./build/renamePackage.js vscode-pyright",
-        "vscode:prepublish": "node ./build/checkPackage.js && npm run clean && webpack --mode production --progress",
-        "webpack": "webpack --mode development --progress",
-        "webpack-dev": "npm run clean && webpack --mode development --watch --progress"
+        "vscode:prepublish": "node ./build/checkPackage.js && npm run clean && rspack build -c rspack.config.js --mode production",
+        "webpack": "rspack build -c rspack.config.js --mode development",
+        "webpack-dev": "npm run clean && rspack build -c rspack.config.js --mode development --watch"
     },
     "dependencies": {
         "vscode-jsonrpc": "^9.0.0-next.8",
@@ -1588,15 +1588,17 @@
         "vscode-languageserver-protocol": "^3.17.6-next.13"
     },
     "devDependencies": {
-        "@types/node": "^22.18.12",
+        "@rspack/cli": "^1.7.2",
+        "@rspack/core": "^1.7.2",
+        "@types/node": "^22.19.6",
         "@types/vscode": "^1.101.0",
         "@vscode/vsce": "^2.32.0",
         "copy-webpack-plugin": "^12.0.2",
-        "esbuild-loader": "^4.4.0",
+        "esbuild-loader": "^4.4.2",
+        "form-data": "^4.0.4",
         "shx": "^0.4.0",
         "ts-loader": "^9.5.4",
         "typescript": "~5.5.4",
-        "webpack": "^5.102.1",
-        "webpack-cli": "^5.1.4"
+        "webpack": "^5.104.1"
     }
 }

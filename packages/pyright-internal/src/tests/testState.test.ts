@@ -142,6 +142,32 @@ test('stubPath configuration', () => {
     assert.equal(state.configOptions.stubPath?.getFilePath(), normalizeSlashes('/src/typestubs'));
 });
 
+test('pyrightconfig.json exists in VFS', () => {
+    // Regression test: pyrightconfig.json should be written to the virtual file system,
+    // not just parsed for config options.
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "stubPath": "my_stubs"
+//// }
+
+// @filename: test.py
+//// x = 1
+    `;
+
+    const state = parseAndGetTestState(code, factory.srcFolder).state;
+
+    // The pyrightconfig.json file should exist in the VFS
+    const configUri = Uri.file(
+        normalizeSlashes(combinePaths(factory.srcFolder, 'pyrightconfig.json')),
+        state.serviceProvider
+    );
+    assert(state.fs.existsSync(configUri), `pyrightconfig.json should exist in VFS at ${configUri.toString()}`);
+
+    // The config should also be parsed correctly
+    assert.equal(state.configOptions.stubPath?.getFilePath(), normalizeSlashes('/my_stubs'));
+});
+
 test('Duplicated stubPath configuration', () => {
     const code = `
 // @filename: pyrightconfig.json

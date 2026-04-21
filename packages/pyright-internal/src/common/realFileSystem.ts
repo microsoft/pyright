@@ -7,6 +7,7 @@
 import { FakeFS, NativePath, PortablePath, PosixFS, ppath, VirtualFS, ZipFS, ZipOpenFS } from '@yarnpkg/fslib';
 import { getLibzipSync } from '@yarnpkg/libzip';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as tmp from 'tmp';
 import { isMainThread } from 'worker_threads';
 
@@ -569,11 +570,62 @@ export class RealTempFile implements TempFile, CaseSensitivityDetector {
     }
 
     private _getTmpDir(): tmp.DirResult {
-        if (!this._tmpdir) {
-            this._tmpdir = tmp.dirSync({ prefix: 'pyright' });
+        if (this._tmpdir) {
+            return this._tmpdir;
         }
 
-        return this._tmpdir;
+        const osTempRoot = os.tmpdir();
+        const configuredTmpRoot = process.env.PYRIGHT_TMPDIR?.trim();
+
+        type TmpDirOutcome = {
+            tmpdir?: tmp.DirResult;
+            error?: unknown;
+        };
+
+        const createTmpDir = (options: tmp.DirOptions): TmpDirOutcome => {
+            try {
+                return { tmpdir: tmp.dirSync(options) };
+            } catch (e: unknown) {
+                return { error: e };
+            }
+        };
+
+        const createTmpDirInRoot = (root: string): TmpDirOutcome => {
+            try {
+                fs.mkdirSync(root, { recursive: true });
+            } catch (e: unknown) {
+                return { error: e };
+            }
+
+            return createTmpDir({ prefix: 'pyright', tmpdir: root });
+        };
+
+        // Highest priority: explicit override.
+        if (configuredTmpRoot) {
+            const configuredOutcome = createTmpDirInRoot(configuredTmpRoot);
+            if (configuredOutcome.tmpdir) {
+                this._tmpdir = configuredOutcome.tmpdir;
+                return this._tmpdir;
+            }
+        }
+
+        // Default behavior: let tmp/os decide.
+        const defaultOutcome = createTmpDir({ prefix: 'pyright' });
+        if (defaultOutcome.tmpdir) {
+            this._tmpdir = defaultOutcome.tmpdir;
+            return this._tmpdir;
+        }
+
+        const defaultError = defaultOutcome.error as NodeJS.ErrnoException | undefined;
+
+        const details = defaultError?.message ?? String(defaultOutcome.error);
+
+        throw new Error(
+            `Failed to create a temporary directory for Pyright. The OS temp directory root is "${osTempRoot}". ` +
+                `If that path doesn't exist or isn't writable, set PYRIGHT_TMPDIR or TMPDIR/TMP/TEMP for the VS Code server/extension host process ` +
+                `or ensure the env vars are inherited by the remote/server process. ` +
+                `Original error: ${details}`
+        );
     }
 
     private _isFileSystemCaseSensitiveInternal() {

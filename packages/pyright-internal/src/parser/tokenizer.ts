@@ -1080,7 +1080,7 @@ export class Tokenizer {
         ) {
             if (this._skipFloatingPointCandidate()) {
                 let text = this._cs.getText().slice(start, this._cs.position);
-                const value = parseFloat(text);
+                const value = parseFloat(text.replace(underscoreRegEx, ''));
                 if (!isNaN(value)) {
                     let isImaginary = false;
                     if (this._cs.currentChar === Char.j || this._cs.currentChar === Char.J) {

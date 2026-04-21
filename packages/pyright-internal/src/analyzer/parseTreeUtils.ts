@@ -66,6 +66,7 @@ export const enum PrintExpressionFlags {
 export interface EvaluationScopeInfo {
     node: EvaluationScopeNode;
     useProxyScope?: boolean;
+    useChainedModuleLevelScopes?: boolean;
 }
 
 // Returns the depth of the node as measured from the root
@@ -851,6 +852,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
     let curNode: ParseNode | undefined = node;
     let isParamNameNode = false;
     let isParamDefaultNode = false;
+    let useChainedModuleLevelScopes = false;
 
     while (curNode) {
         if (curNode.nodeType === ParseNodeType.Parameter) {
@@ -868,7 +870,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
         // the enclosing scope instead.
         switch (curNode.nodeType) {
             case ParseNodeType.TypeParameterList: {
-                return { node: curNode, useProxyScope: true };
+                return { node: curNode, useProxyScope: true, useChainedModuleLevelScopes };
             }
 
             case ParseNodeType.Function: {
@@ -901,7 +903,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
 
                 if (prevNode === curNode.d.suite) {
                     if (getScope(curNode) !== undefined) {
-                        return { node: curNode };
+                        return { node: curNode, useChainedModuleLevelScopes: true };
                     }
                 }
 
@@ -911,7 +913,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
                 if (curNode.d.typeParams) {
                     const scopeNode = curNode.d.typeParams;
                     if (getScope(scopeNode) !== undefined) {
-                        return { node: scopeNode, useProxyScope: true };
+                        return { node: scopeNode, useProxyScope: true, useChainedModuleLevelScopes };
                     }
                 }
                 break;
@@ -926,7 +928,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
                     }
                 } else if (!prevNode || prevNode === curNode.d.expr) {
                     if (getScope(curNode) !== undefined) {
-                        return { node: curNode };
+                        return { node: curNode, useChainedModuleLevelScopes: true };
                     }
                 }
                 break;
@@ -948,13 +950,18 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
                     }
                 }
 
+                // Class header expressions (bases, keyword args, type params) are
+                // evaluated in the enclosing scope. Enable chained lookup so that
+                // earlier-cell globals are visible in those positions.
+                useChainedModuleLevelScopes = true;
+
                 // All other nodes in the class are evaluated in the context
                 // of the type parameter scope if it's present. Otherwise,
                 // they are evaluated within the class' parent scope.
                 if (curNode.d.typeParams) {
                     const scopeNode = curNode.d.typeParams;
                     if (getScope(scopeNode) !== undefined) {
-                        return { node: scopeNode, useProxyScope: true };
+                        return { node: scopeNode, useProxyScope: true, useChainedModuleLevelScopes: true };
                     }
                 }
                 break;
@@ -970,7 +977,14 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
                         curNode.d.forIfNodes[0].d.iterableExpr === prevPrevNode;
 
                     if (!isFirstIterableExpr) {
-                        return { node: curNode };
+                        // Only enable chained scopes for comprehensions inside
+                        // functions/lambdas; module-level comprehensions already
+                        // see earlier-cell symbols through normal binding.
+                        return {
+                            node: curNode,
+                            useChainedModuleLevelScopes:
+                                !!getEnclosingFunction(curNode) || !!getEnclosingLambda(curNode),
+                        };
                     }
                 }
                 break;
@@ -988,7 +1002,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
 
             case ParseNodeType.Module: {
                 if (getScope(curNode) !== undefined) {
-                    return { node: curNode };
+                    return { node: curNode, useChainedModuleLevelScopes };
                 }
                 break;
             }
@@ -1789,6 +1803,13 @@ export function getCallNodeAndActiveParamIndex(
                 end = TextRange.getEnd(tok);
                 break;
             }
+        }
+
+        // If no terminating comma or close paren was found (e.g., an incomplete
+        // call with no closing parenthesis), extend end past the call boundary so
+        // the argument is still considered active at the cursor position.
+        if (end === TextRange.getEnd(arg)) {
+            end = endPosition + 1;
         }
 
         if (insertionOffset < end) {

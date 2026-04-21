@@ -77,9 +77,22 @@ export interface LookupSymbolOptions {
     isOutsideCallerModule?: boolean;
     isBeyondExecutionScope?: boolean;
     useProxyScope?: boolean;
+    useChainedModuleLevelScopes?: boolean;
     usesNonlocalBinding?: boolean;
     usesGlobalBinding?: boolean;
 }
+
+export interface ChainedModuleLevelLookupContext {
+    isOutsideCallerModule?: boolean;
+    isBeyondExecutionScope?: boolean;
+    usesNonlocalBinding?: boolean;
+    usesGlobalBinding?: boolean;
+}
+
+export type ScopeChainedModuleLevelLookup = (
+    name: string,
+    context?: ChainedModuleLevelLookupContext
+) => SymbolWithScope | undefined;
 
 export class Scope {
     // The scope type, as defined in the enumeration.
@@ -93,6 +106,10 @@ export class Scope {
     // in certain contexts. Used for TypeParam scopes.
     readonly proxy: Scope | undefined;
 
+    // An optional lookup for chained module-level scopes (notebook cells)
+    // consulted after the current scope is checked.
+    readonly chainedModuleLevelScopeLookup: ScopeChainedModuleLevelLookup | undefined;
+
     // Association between names and symbols.
     readonly symbolTable: SymbolTable = new Map<string, Symbol>();
 
@@ -104,10 +121,16 @@ export class Scope {
     // for class scopes).
     slotsNames: string[] | undefined;
 
-    constructor(type: ScopeType, parent?: Scope, proxy?: Scope) {
+    constructor(
+        type: ScopeType,
+        parent?: Scope,
+        proxy?: Scope,
+        chainedModuleLevelScopeLookup?: ScopeChainedModuleLevelLookup
+    ) {
         this.type = type;
         this.parent = parent;
         this.proxy = proxy;
+        this.chainedModuleLevelScopeLookup = chainedModuleLevelScopeLookup;
     }
 
     getGlobalScope(): GlobalScopeResult {
@@ -191,6 +214,19 @@ export class Scope {
             parentScope = this.parent;
         }
 
+        if (options?.useChainedModuleLevelScopes && this.chainedModuleLevelScopeLookup) {
+            const fallbackResult = this.chainedModuleLevelScopeLookup(name, {
+                isOutsideCallerModule: !!options?.isOutsideCallerModule,
+                isBeyondExecutionScope: isNextScopeBeyondExecutionScope,
+                usesNonlocalBinding: notLocalBinding === NameBindingType.Nonlocal || !!options?.usesNonlocalBinding,
+                usesGlobalBinding: notLocalBinding === NameBindingType.Global || !!options?.usesGlobalBinding,
+            });
+
+            if (fallbackResult) {
+                return fallbackResult;
+            }
+        }
+
         if (parentScope) {
             // If our recursion is about to take us outside the scope of the current
             // module (i.e. into a built-in scope), indicate as such with the second
@@ -198,6 +234,7 @@ export class Scope {
             return parentScope.lookUpSymbolRecursive(name, {
                 isOutsideCallerModule: !!options?.isOutsideCallerModule || this.type === ScopeType.Module,
                 isBeyondExecutionScope: isNextScopeBeyondExecutionScope,
+                useChainedModuleLevelScopes: !!options?.useChainedModuleLevelScopes,
                 usesNonlocalBinding: notLocalBinding === NameBindingType.Nonlocal || !!options?.usesNonlocalBinding,
                 usesGlobalBinding: notLocalBinding === NameBindingType.Global || !!options?.usesGlobalBinding,
             });

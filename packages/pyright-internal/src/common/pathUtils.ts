@@ -61,7 +61,10 @@ export namespace FileSpec {
 }
 
 export interface FileSystemEntries {
-    files: string[];
+    files: {
+        name: string;
+        size: number;
+    }[];
     directories: string[];
 }
 
