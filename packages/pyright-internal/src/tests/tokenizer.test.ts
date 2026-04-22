@@ -1697,7 +1697,8 @@ test('Lines1', () => {
 
 test('Comments1', () => {
     const t = new Tokenizer();
-    const results = t.tokenize('# hello\n# good bye\n\n\n""" test """ # another\n\n\npass');
+    const text = '# hello\n# good bye\n\n\n""" test """ # another\n\n\npass';
+    const results = t.tokenize(text);
     assert.equal(results.tokens.count, 4 + _implicitTokenCount);
 
     const token0 = results.tokens.getItemAt(0);
@@ -1732,7 +1733,8 @@ test('Comments1', () => {
 
 test('Comments2', () => {
     const t = new Tokenizer();
-    const results = t.tokenize('class A:\n    def func(self):\n        pass\n        # comment\n    ');
+    const text = 'class A:\n    def func(self):\n        pass\n        # comment\n    ';
+    const results = t.tokenize(text);
     assert.equal(results.tokens.count, 16 + _implicitTokenCount);
 
     const token17 = results.tokens.getItemAt(17);
@@ -1834,6 +1836,21 @@ test('TypeIgnoreLine2', () => {
 
     assert.equal(results.tokens.contains(41), true);
     assert.equal(results.tokens.contains(42), false);
+});
+
+test('TypeIgnoreLineMalformedBracket', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a = 3 # type: ignore[broken');
+    assert.equal(results.typeIgnoreLines.size, 0);
+});
+
+// A space-separated unclosed bracket (e.g. `# type: ignore [broken`) is also
+// rejected entirely. The tokenizer does not fall back to treating the
+// directive as "ignore all" when the bracket list is present but malformed.
+test('TypeIgnoreLineMalformedBracketWithSpace', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a = 3 # type: ignore [broken');
+    assert.equal(results.typeIgnoreLines.size, 0);
 });
 
 // Regression test for https://github.com/microsoft/pyright/issues/11345.

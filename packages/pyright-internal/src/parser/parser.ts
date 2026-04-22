@@ -232,6 +232,8 @@ const maxChildNodeDepth = 256;
 export class Parser {
     private _fileContents?: string;
     private _tokenizerOutput?: TokenizerOutput;
+    private _tokens?: TextRangeCollection<Token>;
+    private _tokenCount = 0;
     private _tokenIndex = 0;
     private _areErrorsSuppressed = false;
     private _parseOptions: ParseOptions = new ParseOptions();
@@ -406,6 +408,8 @@ export class Parser {
             initialParenDepth,
             this._parseOptions.useNotebookMode
         );
+        this._tokens = this._tokenizerOutput.tokens;
+        this._tokenCount = this._tokens.count;
         this._tokenIndex = 0;
     }
 
@@ -5259,7 +5263,7 @@ export class Parser {
     }
 
     private _getNextToken(): Token {
-        const token = this._tokenizerOutput!.tokens.getItemAt(this._tokenIndex);
+        const token = this._tokens!.getItemAt(this._tokenIndex);
         if (!this._atEof()) {
             this._tokenIndex++;
         }
@@ -5270,19 +5274,20 @@ export class Parser {
     private _atEof(): boolean {
         // Are we pointing at the last token in the stream (which is
         // assumed to be an end-of-stream token)?
-        return this._tokenIndex >= this._tokenizerOutput!.tokens.count - 1;
+        return this._tokenIndex >= this._tokenCount - 1;
     }
 
     private _peekToken(count = 0): Token {
-        if (this._tokenIndex + count < 0) {
-            return this._tokenizerOutput!.tokens.getItemAt(0);
+        const targetIndex = this._tokenIndex + count;
+        if (targetIndex < 0) {
+            return this._tokens!.getItemAt(0);
         }
 
-        if (this._tokenIndex + count >= this._tokenizerOutput!.tokens.count) {
-            return this._tokenizerOutput!.tokens.getItemAt(this._tokenizerOutput!.tokens.count - 1);
+        if (targetIndex >= this._tokenCount) {
+            return this._tokens!.getItemAt(this._tokenCount - 1);
         }
 
-        return this._tokenizerOutput!.tokens.getItemAt(this._tokenIndex + count);
+        return this._tokens!.getItemAt(targetIndex);
     }
 
     private _peekTokenType(): TokenType {

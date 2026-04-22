@@ -108,8 +108,30 @@ export class CharacterStream {
     }
 
     skipWhitespace(): void {
-        while (!this.isEndOfStream() && this.isAtWhiteSpace()) {
-            this.moveNext();
+        // Tight loop: advance _position/_currentChar directly while the
+        // current char is a space/tab/form-feed. Avoids the method-call
+        // overhead of moveNext() + isAtWhiteSpace() + isWhiteSpace() per
+        // iteration, which is one of the hottest paths in tokenization.
+        const text = this._text;
+        const len = text.length;
+        let pos = this._position;
+        while (pos < len) {
+            const ch = text.charCodeAt(pos);
+            if (ch === Char.Space || ch === Char.Tab || ch === Char.FormFeed) {
+                pos++;
+            } else {
+                break;
+            }
+        }
+        if (pos !== this._position) {
+            this._position = pos;
+            if (pos >= len) {
+                this._isEndOfStream = true;
+                this._position = len;
+                this._currentChar = 0;
+            } else {
+                this._currentChar = text.charCodeAt(pos);
+            }
         }
     }
 
