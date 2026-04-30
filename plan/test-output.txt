@@ -1,0 +1,529 @@
+$ (cd packages/pyright-internal && npm test)
+
+> pyright-internal@1.1.409 test
+> npm run webpack:testserver && node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks
+
+
+> pyright-internal@1.1.409 webpack:testserver
+> rspack build --config ./src/tests/lsp/rspack.testserver.config.js --mode development
+
+PublicPath: (none)
+Rspack compiled in 7.14 s
+ PASS  src/tests/uri.test.ts (11.131 s)
+ PASS  src/tests/importResolver.test.ts (18.003 s)
+ PASS  src/tests/tokenizer.test.ts (18.254 s)
+ PASS  src/tests/config.test.ts (18.493 s)
+ PASS  src/tests/completions.test.ts (32.887 s)
+ PASS  src/tests/typeEvaluator2.test.ts (39.097 s)
+ FAIL  src/tests/typeEvaluator1.test.ts (58.431 s)
+  ● Console
+
+    console.error
+         [67:6] Class definition for "Z" depends on itself
+
+      221 | function logDiagnostics(diags: Diagnostic[]) {
+      222 |     for (const diag of diags) {
+    > 223 |         console.error(`   [${diag.range.start.line + 1}:${diag.range.start.character + 1}] ${diag.message}`);
+          |                 ^
+      224 |     }
+      225 | }
+      226 |
+
+      at logDiagnostics (src/tests/testUtils.ts:223:17)
+      at Object.validateResults (src/tests/testUtils.ts:183:9)
+      at Object.<anonymous> (src/tests/typeEvaluator1.test.ts:833:15)
+
+    console.error
+         [18:2] Argument of type "float" cannot be assigned to parameter "c" of type "str" in function "__new__"
+        "float" is not assignable to "str"
+
+      221 | function logDiagnostics(diags: Diagnostic[]) {
+      222 |     for (const diag of diags) {
+    > 223 |         console.error(`   [${diag.range.start.line + 1}:${diag.range.start.character + 1}] ${diag.message}`);
+          |                 ^
+      224 |     }
+      225 | }
+      226 |
+
+      at logDiagnostics (src/tests/testUtils.ts:223:17)
+      at Object.validateResults (src/tests/testUtils.ts:183:9)
+      at Object.<anonymous> (src/tests/typeEvaluator1.test.ts:833:15)
+
+    console.error
+         [26:2] Argument missing for parameter "c"
+
+      221 | function logDiagnostics(diags: Diagnostic[]) {
+      222 |     for (const diag of diags) {
+    > 223 |         console.error(`   [${diag.range.start.line + 1}:${diag.range.start.character + 1}] ${diag.message}`);
+          |                 ^
+      224 |     }
+      225 | }
+      226 |
+
+      at logDiagnostics (src/tests/testUtils.ts:223:17)
+      at Object.validateResults (src/tests/testUtils.ts:183:9)
+      at Object.<anonymous> (src/tests/typeEvaluator1.test.ts:833:15)
+
+    console.error
+         [38:2] Expected 3 positional arguments
+
+      221 | function logDiagnostics(diags: Diagnostic[]) {
+      222 |     for (const diag of diags) {
+    > 223 |         console.error(`   [${diag.range.start.line + 1}:${diag.range.start.character + 1}] ${diag.message}`);
+          |                 ^
+      224 |     }
+      225 | }
+      226 |
+
+      at logDiagnostics (src/tests/testUtils.ts:223:17)
+      at Object.validateResults (src/tests/testUtils.ts:183:9)
+      at Object.<anonymous> (src/tests/typeEvaluator1.test.ts:833:15)
+
+    console.error
+         [49:5] Argument of type "int" cannot be assigned to parameter "b" of type "str" in function "__new__"
+        "int" is not assignable to "str"
+
+      221 | function logDiagnostics(diags: Diagnostic[]) {
+      222 |     for (const diag of diags) {
+    > 223 |         console.error(`   [${diag.range.start.line + 1}:${diag.range.start.character + 1}] ${diag.message}`);
+          |                 ^
+      224 |     }
+      225 | }
+      226 |
+
+      at logDiagnostics (src/tests/testUtils.ts:223:17)
+      at Object.validateResults (src/tests/testUtils.ts:183:9)
+      at Object.<anonymous> (src/tests/typeEvaluator1.test.ts:833:15)
+
+    console.error
+         [49:5] Argument of type "int" cannot be assigned to parameter "c" of type "str" in function "__new__"
+        "int" is not assignable to "str"
+
+      221 | function logDiagnostics(diags: Diagnostic[]) {
+      222 |     for (const diag of diags) {
+    > 223 |         console.error(`   [${diag.range.start.line + 1}:${diag.range.start.character + 1}] ${diag.message}`);
+          |                 ^
+      224 |     }
+      225 | }
+      226 |
+
+      at logDiagnostics (src/tests/testUtils.ts:223:17)
+      at Object.validateResults (src/tests/testUtils.ts:183:9)
+      at Object.<anonymous> (src/tests/typeEvaluator1.test.ts:833:15)
+
+  ● Call5
+
+    assert.fail(received, expected)
+
+    Message:
+      Expected 5 errors, got 6
+
+      182 |     if (results[0].errors.length !== errorCount) {
+      183 |         logDiagnostics(results[0].errors);
+    > 184 |         assert.fail(`Expected ${errorCount} errors, got ${results[0].errors.length}`);
+          |                ^
+      185 |     }
+      186 |
+      187 |     if (results[0].warnings.length !== warningCount) {
+
+      at Object.validateResults (src/tests/testUtils.ts:184:16)
+      at Object.<anonymous> (src/tests/typeEvaluator1.test.ts:833:15)
+
+ PASS  src/tests/docStringConversion.test.ts
+ PASS  src/tests/typeEvaluator7.test.ts (41.132 s)
+ PASS  src/tests/fourSlashParser.test.ts
+ PASS  src/tests/typeEvaluator8.test.ts (49.383 s)
+ PASS  src/tests/service.test.ts
+ PASS  src/tests/typeEvaluator6.test.ts (63.295 s)
+ PASS  src/tests/typeEvaluator3.test.ts (45.93 s)
+ PASS  src/tests/importStatementUtils.test.ts (5.676 s)
+ PASS  src/tests/checker.test.ts (32.616 s)
+ PASS  src/tests/testState.test.ts
+ PASS  src/tests/workspaceEditUtils.test.ts
+ PASS  src/tests/hoverProvider.test.ts (7.396 s)
+ PASS  src/tests/privateImportUsage.test.ts
+  ● Console
+
+    console.log
+      [FG] analyzing: file:///src/pkg_c/bad_import.py ...
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   parsing: file:///src/pkg_c/bad_import.py [fs read 0ms] (2ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   binding: file:///src/pkg_c/bad_import.py (1ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   checking: file:///src/pkg_c/bad_import.py ...
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     parsing: file:///lib/site-packages/pkg_b/reexport.py [fs read 0ms] (1ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     binding: file:///lib/site-packages/pkg_b/reexport.py (1ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     parsing: file:///lib/site-packages/pkg_a/utils.py [fs read 0ms] (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     binding: file:///lib/site-packages/pkg_a/utils.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]   checking: file:///src/pkg_c/bad_import.py (94ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG] analyzing: file:///src/pkg_c/bad_import.py (367ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG] analyzing: file:///src/pkg_c/bad_import.py ...
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   parsing: file:///src/pkg_c/bad_import.py [fs read 0ms] (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   binding: file:///src/pkg_c/bad_import.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   checking: file:///src/pkg_c/bad_import.py ...
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     parsing: file:///lib/site-packages/pkg_b/reexport.py [fs read 0ms] (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     binding: file:///lib/site-packages/pkg_b/reexport.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     parsing: file:///lib/site-packages/pkg_a/utils.py [fs read 1ms] (1ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     binding: file:///lib/site-packages/pkg_a/utils.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]   checking: file:///src/pkg_c/bad_import.py (15ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG] analyzing: file:///src/pkg_c/bad_import.py (21ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG] analyzing: file:///lib/site-packages/pkg_b/reexport.py ...
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   checking: file:///lib/site-packages/pkg_b/reexport.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG] analyzing: file:///lib/site-packages/pkg_b/reexport.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG] analyzing: file:///src/consumer/bad_import.py ...
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   parsing: file:///src/consumer/bad_import.py [fs read 0ms] (1ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   binding: file:///src/consumer/bad_import.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   checking: file:///src/consumer/bad_import.py ...
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     parsing: file:///lib/site-packages/pkg_b/reexport.py [fs read 0ms] (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     binding: file:///lib/site-packages/pkg_b/reexport.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     parsing: file:///lib/site-packages/pkg_a/utils.py [fs read 0ms] (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     binding: file:///lib/site-packages/pkg_a/utils.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]   checking: file:///src/consumer/bad_import.py (29ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG] analyzing: file:///src/consumer/bad_import.py (30ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG] analyzing: file:///src/consumer/bad_import.py ...
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   parsing: file:///src/consumer/bad_import.py [fs read 0ms] (1ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   binding: file:///src/consumer/bad_import.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   checking: file:///src/consumer/bad_import.py ...
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     parsing: file:///lib/site-packages/pkg_b/reexport.py [fs read 0ms] (1ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     binding: file:///lib/site-packages/pkg_b/reexport.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     parsing: file:///lib/site-packages/pkg_a/utils.py [fs read 0ms] (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     binding: file:///lib/site-packages/pkg_a/utils.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]   checking: file:///src/consumer/bad_import.py (3ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG] analyzing: file:///src/consumer/bad_import.py (4ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG] analyzing: file:///src/consumer/bad_import.py ...
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   parsing: file:///src/consumer/bad_import.py [fs read 0ms] (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   binding: file:///src/consumer/bad_import.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG]   checking: file:///src/consumer/bad_import.py ...
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     parsing: file:///lib/site-packages/pkg_b/reexport.py [fs read 1ms] (1ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     binding: file:///lib/site-packages/pkg_b/reexport.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     parsing: file:///lib/site-packages/pkg_a/utils.py [fs read 0ms] (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]     binding: file:///lib/site-packages/pkg_a/utils.py (0ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      [FG]   checking: file:///src/consumer/bad_import.py (25ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+    console.log
+      [FG] analyzing: file:///src/consumer/bad_import.py (27ms)
+
+      at StandardConsole.log (src/common/console.ts:85:21)
+
+ PASS  src/tests/chainedSourceFiles.test.ts
+ PASS  src/tests/parseTreeUtils.test.ts
+ PASS  src/tests/pathUtils.test.ts
+ PASS  src/tests/filesystem.test.ts
+ PASS  src/tests/ipythonMode.test.ts (5.555 s)
+ PASS  src/tests/envVarUtils.test.ts
+ PASS  src/tests/pyrightFileSystem.test.ts
+ PASS  src/tests/typePrinter.test.ts
+ PASS  src/tests/sourceMapperUtils.test.ts
+ PASS  src/tests/documentSymbolCollector.test.ts
+ PASS  src/tests/parser.test.ts
+ PASS  src/tests/zipfs.test.ts
+ PASS  src/tests/signatureHelp.test.ts (9.085 s)
+ PASS  src/tests/realTempFile.test.ts
+ PASS  src/tests/collectionUtils.test.ts
+ PASS  src/tests/diagnosticOverrides.test.ts
+ PASS  src/tests/textEditUtil.test.ts
+ PASS  src/tests/serialization.test.ts
+ PASS  src/tests/cacheManager.test.ts
+(node:48733) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 exit listeners added to [Worker]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(Use `node --trace-warnings ...` to show where the warning was created)
+ PASS  src/tests/sourceFile.test.ts
+ PASS  src/tests/symbolNameUtils.test.ts
+ PASS  src/tests/classDeclaration.test.ts
+ PASS  src/tests/debug.test.ts
+ PASS  src/tests/common.test.ts
+ PASS  src/tests/localizer.test.ts
+ PASS  src/tests/deferred.test.ts
+ PASS  src/tests/positionUtils.test.ts
+ PASS  src/tests/stringUtils.test.ts
+ PASS  src/tests/wildcardImportPackageMerge.test.ts
+ PASS  src/tests/logger.test.ts
+ PASS  src/tests/textRange.test.ts
+ PASS  src/tests/diagnostics.test.ts
+ PASS  src/tests/typeEvaluator5.test.ts (22.246 s)
+ PASS  src/tests/languageServer.test.ts (26.577 s)
+ PASS  src/tests/typeEvaluator4.test.ts (44.908 s)
+ PASS  src/tests/fourSlashRunner.test.ts (35.982 s)
+ PASS  src/tests/importResolverSupport.test.ts
+A worker process has failed to exit gracefully and has been force exited. This is likely caused by tests leaking due to improper teardown. Try running with --detectOpenHandles to find leaks. Active timers can also cause this, ensure that .unref() was called on them.
+
+Summary of all failing tests
+ FAIL  src/tests/typeEvaluator1.test.ts (58.431 s)
+  ● Call5
+
+    assert.fail(received, expected)
+
+    Message:
+      Expected 5 errors, got 6
+
+      182 |     if (results[0].errors.length !== errorCount) {
+      183 |         logDiagnostics(results[0].errors);
+    > 184 |         assert.fail(`Expected ${errorCount} errors, got ${results[0].errors.length}`);
+          |                ^
+      185 |     }
+      186 |
+      187 |     if (results[0].warnings.length !== warningCount) {
+
+      at Object.validateResults (src/tests/testUtils.ts:184:16)
+      at Object.<anonymous> (src/tests/typeEvaluator1.test.ts:833:15)
+
+
+Test Suites: 1 failed, 56 passed, 57 total
+Tests:       1 failed, 2430 passed, 2431 total
+Snapshots:   0 total
+Time:        143.122 s
+Ran all test suites.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

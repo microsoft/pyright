@@ -1311,7 +1311,7 @@ export function createTypeEvaluator(
                     expectingInstantiable = false;
                 }
 
-                typeResult = getTypeOfStringList(node, flags);
+                typeResult = getTypeOfStringList(node, flags, inferenceContext);
                 break;
             }
 
@@ -1653,7 +1653,11 @@ export function createTypeEvaluator(
         return typeResult;
     }
 
-    function getTypeOfStringList(node: StringListNode, flags: EvalFlags): TypeResult {
+    function getTypeOfStringList(
+        node: StringListNode,
+        flags: EvalFlags,
+        inferenceContext?: InferenceContext
+    ): TypeResult {
         let typeResult: TypeResult | undefined;
 
         if ((flags & EvalFlags.StrLiteralAsType) !== 0 && (flags & EvalFlags.TypeFormArg) === 0) {
@@ -1740,9 +1744,18 @@ export function createTypeEvaluator(
             };
         }
 
+        // Only attempt to interpret the string as a TypeForm forward reference when
+        // there's a signal that a TypeForm value is wanted in this context. Doing it
+        // unconditionally can trigger expensive (and recursion-prone) type lookups
+        // for plain string literals in non-type contexts.
+        const wantsTypeForm =
+            (flags & EvalFlags.TypeFormArg) !== 0 ||
+            (inferenceContext !== undefined && expectedTypeWantsTypeForm(inferenceContext.expectedType));
+
         if (
             node.d.strings.length !== 1 ||
-            node.d.strings[0].nodeType !== ParseNodeType.String
+            node.d.strings[0].nodeType !== ParseNodeType.String ||
+            !wantsTypeForm
         ) {
             return typeResult;
         }
@@ -25566,6 +25579,16 @@ export function createTypeEvaluator(
         });
 
         return isAssignable;
+    }
+
+    function expectedTypeWantsTypeForm(expectedType: Type): boolean {
+        let result = false;
+        doForEachSubtype(expectedType, (subtype) => {
+            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'TypeForm')) {
+                result = true;
+            }
+        });
+        return result;
     }
 
     // If the expected type is an explicit TypeForm type, see if the source
