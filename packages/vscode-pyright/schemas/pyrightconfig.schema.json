@@ -31,6 +31,16 @@
         "pattern": "^(.*)$"
       }
     },
+    "namespaceOverridePaths": {
+      "type": "array",
+      "title": "Paths that should be treated as namespace packages",
+      "items": {
+        "type": "string",
+        "title": "Path to a directory that should be treated as a namespace package",
+        "default": "",
+        "pattern": "^(.*)$"
+      }
+    },
     "pythonVersion": {
       "type": "string",
       "title": "Python version to assume during type analysis",
@@ -864,6 +874,9 @@
     "extraPaths": {
       "$ref": "#/definitions/extraPaths"
     },
+    "namespaceOverridePaths": {
+      "$ref": "#/definitions/namespaceOverridePaths"
+    },
     "pythonVersion": {
       "$ref": "#/definitions/pythonVersion"
     },
@@ -1181,6 +1194,9 @@
           },
           "extraPaths": {
             "$ref": "#/definitions/extraPaths"
+          },
+          "namespaceOverridePaths": {
+            "$ref": "#/definitions/namespaceOverridePaths"
           },
           "pythonVersion": {
             "$ref": "#/definitions/pythonVersion"
