@@ -131,6 +131,7 @@ Thumbs.db
 serena/
 .beads/
 AGENTS.md
+/plan
 
 # Generated benchmark output
 packages/pyright-internal/src/tests/benchmarks/.generated/
