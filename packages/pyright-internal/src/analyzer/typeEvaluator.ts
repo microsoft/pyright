@@ -21432,10 +21432,7 @@ export function createTypeEvaluator(
                     /* isSpecialForm */ false
                 );
 
-                specializedClass = TypeBase.cloneWithTypeForm(
-                    specializedClass,
-                    convertToInstance(specializedClass)
-                );
+                specializedClass = TypeBase.cloneWithTypeForm(specializedClass, convertToInstance(specializedClass));
 
                 return { type: specializedClass };
             }
