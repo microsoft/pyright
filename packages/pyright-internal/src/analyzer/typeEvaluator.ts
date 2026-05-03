@@ -1752,11 +1752,7 @@ export function createTypeEvaluator(
             (flags & EvalFlags.TypeFormArg) !== 0 ||
             (inferenceContext !== undefined && expectedTypeWantsTypeForm(inferenceContext.expectedType));
 
-        if (
-            node.d.strings.length !== 1 ||
-            node.d.strings[0].nodeType !== ParseNodeType.String ||
-            !wantsTypeForm
-        ) {
+        if (node.d.strings.length !== 1 || node.d.strings[0].nodeType !== ParseNodeType.String || !wantsTypeForm) {
             return typeResult;
         }
 
