@@ -883,6 +883,18 @@ test('ParamSpec55', () => {
     TestUtils.validateResults(results, 1);
 });
 
+// Regression test for a hang reported in microsoft/pyright#11413,
+// reproduced from the wrapt 2.1.x stubs. Analysis must terminate;
+// the call below sets up a cyclic constraint (R := R | Awaitable[R])
+// which has no finite solution. The constraint solver detects the cycle
+// and refuses to bind R, but the failure isn't surfaced as a user-
+// visible error here (it occurs during bidirectional inference for an
+// argument expression). The important thing is that analysis completes.
+test('ParamSpec56', () => {
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec56.py']);
+    TestUtils.validateResults(results, 0);
+});
+
 test('Slice1', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['slice1.py']);
     TestUtils.validateResults(results, 0);

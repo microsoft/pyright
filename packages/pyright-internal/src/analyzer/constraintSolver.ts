@@ -763,6 +763,27 @@ function assignUnconstrainedTypeVar(
     } else {
         if (!curLowerBound || isTypeSame(destType, curLowerBound)) {
             // There was previously no lower bound. We've now established one.
+            // Apply an occurs check: if `adjSrcType` references `destType`
+            // (the TypeVar being solved) at a strictly nested position
+            // (e.g. `R := F[R]` or `R := R | Awaitable[R]`), recording it as
+            // the lower bound creates a cyclic constraint that subsequent
+            // widening / substitution rounds expand into an exponentially
+            // growing recursive type. Such a constraint has no finite
+            // solution, so report the assignment as a failure rather than
+            // letting the analyzer hang. See microsoft/pyright#11413.
+            //
+            // Top-level union members that are exactly `destType` (e.g.
+            // `T := T | int` arising from protocol matching against `T | int`)
+            // are *not* considered cyclic - the original `adjSrcType` is
+            // recorded as the lower bound and existing logic resolves it.
+            if (typeVarOccursIn(destType, adjSrcType)) {
+                diag?.addMessage(
+                    LocAddendum.typeAssignmentMismatch().format(
+                        evaluator.printSrcDestTypes(adjSrcType, destType)
+                    )
+                );
+                return false;
+            }
             newLowerBound = adjSrcType;
         } else if (isTypeSame(curLowerBound, adjSrcType, {}, recursionCount)) {
             // If this is an invariant context and there is currently no upper bound
@@ -1287,6 +1308,46 @@ function assignParamSpec(
     });
 
     return isAssignable;
+}
+
+// Returns true if `typeVar` appears strictly inside `type` (i.e. nested
+// within another type, not as the top-level type itself or as a top-level
+// subtype of a union). Used as an occurs check to detect cyclic constraints
+// during widening. A bare top-level reference is fine (`T := T` is the
+// identity); a top-level union member can be subtracted before solving;
+// only a strictly nested reference (`T := F[T]`) has no finite solution.
+function typeVarOccursIn(typeVar: TypeVarType, type: Type): boolean {
+    // A bare top-level TypeVar reference is not a cycle. Compare by name +
+    // scope id rather than identity since pyright sometimes clones TypeVars.
+    if (
+        isTypeVar(type) &&
+        type.shared.name === typeVar.shared.name &&
+        type.priv.scopeId === typeVar.priv.scopeId
+    ) {
+        return false;
+    }
+
+    // Top-level union members that are exactly `typeVar` are also fine; only
+    // count occurrences strictly inside other types.
+    if (isUnion(type)) {
+        for (const subtype of type.priv.subtypes) {
+            if (typeVarOccursIn(typeVar, subtype)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    const tvars = getTypeVarArgsRecursive(type);
+    for (const tv of tvars) {
+        if (
+            tv.shared.name === typeVar.shared.name &&
+            tv.priv.scopeId === typeVar.priv.scopeId
+        ) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // For normal TypeVars, the constraint solver can widen a type by combining
