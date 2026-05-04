@@ -3,7 +3,7 @@
 import os
 import sys
 from abc import abstractmethod
-from typing import NoReturn
+from typing import Callable, NoReturn
 
 
 def func1():
@@ -89,6 +89,14 @@ def func9():
 
     # This should be marked unreachable.
     # If reportUnreachable is enabled, it should generate a diagnostic.
+    return 3
+
+
+def func9_1(noreturn_func: Callable[[], NoReturn], unknown_func, flag: bool):
+    callback = noreturn_func if flag else unknown_func
+    callback()
+
+    # This should not be marked unreachable because the call target includes Unknown.
     return 3
 
 
