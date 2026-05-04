@@ -778,9 +778,7 @@ function assignUnconstrainedTypeVar(
             // recorded as the lower bound and existing logic resolves it.
             if (typeVarOccursIn(destType, adjSrcType)) {
                 diag?.addMessage(
-                    LocAddendum.typeAssignmentMismatch().format(
-                        evaluator.printSrcDestTypes(adjSrcType, destType)
-                    )
+                    LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(adjSrcType, destType))
                 );
                 return false;
             }
@@ -1319,11 +1317,7 @@ function assignParamSpec(
 function typeVarOccursIn(typeVar: TypeVarType, type: Type): boolean {
     // A bare top-level TypeVar reference is not a cycle. Compare by name +
     // scope id rather than identity since pyright sometimes clones TypeVars.
-    if (
-        isTypeVar(type) &&
-        type.shared.name === typeVar.shared.name &&
-        type.priv.scopeId === typeVar.priv.scopeId
-    ) {
+    if (isTypeVar(type) && type.shared.name === typeVar.shared.name && type.priv.scopeId === typeVar.priv.scopeId) {
         return false;
     }
 
@@ -1340,10 +1334,7 @@ function typeVarOccursIn(typeVar: TypeVarType, type: Type): boolean {
 
     const tvars = getTypeVarArgsRecursive(type);
     for (const tv of tvars) {
-        if (
-            tv.shared.name === typeVar.shared.name &&
-            tv.priv.scopeId === typeVar.priv.scopeId
-        ) {
+        if (tv.shared.name === typeVar.shared.name && tv.priv.scopeId === typeVar.priv.scopeId) {
             return true;
         }
     }
