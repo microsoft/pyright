@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from collections.abc import Awaitable
 from typing import Any, ClassVar, Protocol, TypedDict, type_check_only
 
@@ -11,7 +12,7 @@ from django.utils.functional import LazyObject
 # We subclass both for type checking purposes to expose SessionBase attributes,
 # and suppress mypy's "misc" error with `# type: ignore[misc]`.
 @type_check_only
-class _LazySession(SessionBase, LazyObject):  # type: ignore[misc]
+class _LazySession(SessionBase, LazyObject[Incomplete]):  # type: ignore[misc]
     _wrapped: SessionBase
 
 @type_check_only

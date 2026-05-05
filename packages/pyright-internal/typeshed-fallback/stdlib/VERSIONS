@@ -295,6 +295,7 @@ sunau: 3.0-3.12
 symbol: 3.0-3.9
 symtable: 3.0-
 sys: 3.0-
+sys.__jit: 3.14-        # Similar to sys._monitoring
 sys._monitoring: 3.12-  # Doesn't actually exist. See comments in the stub.
 sysconfig: 3.0-
 syslog: 3.0-

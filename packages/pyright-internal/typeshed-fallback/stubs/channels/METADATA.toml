@@ -1,6 +1,6 @@
 version = "4.3.*"
 upstream-repository = "https://github.com/django/channels"
-dependencies = ["django-stubs>=4.2", "asgiref"]
+dependencies = ["django-stubs>=6.0.3", "asgiref"]
 
 [tool.stubtest]
 mypy-plugins = ['mypy_django_plugin.main']

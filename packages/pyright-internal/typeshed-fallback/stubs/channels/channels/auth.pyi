@@ -1,3 +1,5 @@
+from _typeshed import Incomplete
+
 from asgiref.typing import ASGIReceiveCallable, ASGISendCallable
 from channels.middleware import BaseMiddleware
 from django.contrib.auth.backends import BaseBackend
@@ -14,7 +16,7 @@ async def logout(scope: _ChannelScope) -> None: ...
 
 # Inherits AbstractBaseUser to improve autocomplete and show this is a lazy proxy for a user.
 # At runtime, it's just a LazyObject that wraps the actual user instance.
-class UserLazyObject(AbstractBaseUser, LazyObject): ...
+class UserLazyObject(AbstractBaseUser, LazyObject[Incomplete]): ...
 
 class AuthMiddleware(BaseMiddleware):
     def populate_scope(self, scope: _ChannelScope) -> None: ...

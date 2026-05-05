@@ -33,6 +33,24 @@ if sys.platform == "win32":
 else:
     from .unix_events import *
 
+if sys.version_info >= (3, 14):
+    from .events import _AbstractEventLoopPolicy
+
+    AbstractEventLoopPolicy = _AbstractEventLoopPolicy
+
+if sys.platform == "win32":
+    if sys.version_info >= (3, 14):
+        from .windows_events import _DefaultEventLoopPolicy, _WindowsProactorEventLoopPolicy, _WindowsSelectorEventLoopPolicy
+
+        DefaultEventLoopPolicy = _DefaultEventLoopPolicy
+        WindowsProactorEventLoopPolicy = _WindowsProactorEventLoopPolicy
+        WindowsSelectorEventLoopPolicy = _WindowsSelectorEventLoopPolicy
+else:
+    if sys.version_info >= (3, 14):
+        from .unix_events import _DefaultEventLoopPolicy
+
+        DefaultEventLoopPolicy = _DefaultEventLoopPolicy
+
 if sys.platform == "win32":
     if sys.version_info >= (3, 14):
 

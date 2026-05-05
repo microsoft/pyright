@@ -343,6 +343,7 @@ class FileDescriptor(DescriptorBase):
         create_key=None,
     ): ...
     _options: Any
+    _loaded_options: Any
     pool: DescriptorPool
     message_types_by_name: Mapping[str, Descriptor]
     name: str

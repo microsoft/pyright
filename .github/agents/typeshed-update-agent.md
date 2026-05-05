@@ -1,4 +1,7 @@
-# .github/agents/typeshed-update-agent.md
+---
+name: typeshed-update-agent
+description: Updates Pyright bundled typeshed fallback and triages resulting test changes while preserving type precision.
+---
 
 # Typeshed Update Agent
 
@@ -36,6 +39,7 @@ Notes:
 - The script clones `https://github.com/python/typeshed.git` into a temporary directory.
 - A local checkout of typeshed is not required to run the update.
 - It updates `packages/pyright-internal/typeshed-fallback/` and writes the selected SHA to `packages/pyright-internal/typeshed-fallback/commit.txt`.
+- Do not spend token budget reviewing or summarizing the full generated `typeshed-fallback` diff; it is expected to be large and noisy. Use the pinned SHA, upstream compare links, and targeted file inspection only when tests fail or a specific behavior change needs triage.
 
 ## Upstream Investigation Guidance
 

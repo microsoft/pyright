@@ -1,7 +1,8 @@
 from _typeshed import Unused
 from collections.abc import Hashable
+from typing import Final
 
-__all__ = ("hashkey", "methodkey", "typedkey", "typedmethodkey")
+__all__: Final = ("hashkey", "methodkey", "typedkey", "typedmethodkey")
 
 def hashkey(*args: Hashable, **kwargs: Hashable) -> tuple[Hashable, ...]: ...
 def methodkey(self: Unused, /, *args: Hashable, **kwargs: Hashable) -> tuple[Hashable, ...]: ...

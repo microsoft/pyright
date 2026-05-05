@@ -19,7 +19,7 @@ class FFI:
 
     BVoidP: CType
     BCharA: CType
-    NULL: CType
+    NULL: CData
     errno: int
 
     def __init__(self, backend: types.ModuleType | None = None) -> None: ...
@@ -36,7 +36,10 @@ class FFI:
     def sizeof(self, cdecl: str | CData) -> int: ...
     def alignof(self, cdecl: str | CData) -> int: ...
     def offsetof(self, cdecl: str | CData, *fields_or_indexes: str | int) -> int: ...
-    def new(self, cdecl: str | CType, init=None) -> CData: ...
+
+    # The acceptable types of `init` depend on the value of `cdecl` only known at runtime, and
+    # therefore unknown to the type checker.
+    def new(self, cdecl: str | CType, init: Any = None) -> CData: ...
     def new_allocator(
         self,
         alloc: Callable[[int], CData] | None = None,

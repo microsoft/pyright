@@ -1,7 +1,7 @@
 import sys
-from _typeshed import Incomplete
 from collections.abc import Callable
 from mmap import mmap
+from multiprocessing import popen_forkserver, popen_spawn_posix, resource_sharer
 from typing import Protocol, type_check_only
 from typing_extensions import TypeAlias
 
@@ -24,7 +24,12 @@ if sys.platform != "win32":
     class _SupportsDetach(Protocol):
         def detach(self) -> int: ...
 
-    def reduce_arena(a: Arena) -> tuple[Callable[[int, _SupportsDetach], Arena], tuple[int, Incomplete]]: ...
+    def reduce_arena(
+        a: Arena,
+    ) -> tuple[
+        Callable[[int, _SupportsDetach], Arena],
+        tuple[int, popen_forkserver._DupFd | popen_spawn_posix._DupFd | resource_sharer.DupFd],
+    ]: ...
     def rebuild_arena(size: int, dupfd: _SupportsDetach) -> Arena: ...
 
 class Heap:

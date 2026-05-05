@@ -11,6 +11,8 @@ _R = TypeVar("_R")
 @type_check_only
 class _cachetools_cache_wrapper(Generic[_R]):
     __wrapped__: Callable[..., _R]
+    __name__: str
+    __doc__: str | None
     def __call__(self, /, *args: Any, **kwargs: Any) -> _R: ...
     def cache_info(self) -> _CacheInfo: ...
     def cache_clear(self) -> None: ...
@@ -32,17 +34,17 @@ def lru_cache(maxsize: int | None = 128, typed: bool = False) -> Callable[[Calla
 def lru_cache(maxsize: Callable[..., _R], typed: bool = False) -> _cachetools_cache_wrapper[_R]: ...
 @overload
 def rr_cache(
-    maxsize: int | None = 128, choice: Callable[[Sequence[_T]], _T] | None = ..., typed: bool = False
+    maxsize: int | None = 128, choice: Callable[[Sequence[_T]], _T] = ..., typed: bool = False
 ) -> Callable[[Callable[..., _R]], _cachetools_cache_wrapper[_R]]: ...
 @overload
 def rr_cache(
-    maxsize: Callable[..., _R], choice: Callable[[Sequence[_T]], _T] | None = ..., typed: bool = False
+    maxsize: Callable[..., _R], choice: Callable[[Sequence[_T]], _T] = ..., typed: bool = False
 ) -> _cachetools_cache_wrapper[_R]: ...
 @overload
 def ttl_cache(
-    maxsize: int | None = 128, ttl: float = 600, timer: Callable[[], float] = ..., typed: bool = False
+    maxsize: int | None = 128, ttl: Any = 600, timer: Callable[[], _T] = ..., typed: bool = False
 ) -> Callable[[Callable[..., _R]], _cachetools_cache_wrapper[_R]]: ...
 @overload
 def ttl_cache(
-    maxsize: Callable[..., _R], ttl: float = 600, timer: Callable[[], float] = ..., typed: bool = False
+    maxsize: Callable[..., _R], ttl: Any = 600, timer: Callable[[], _T] = ..., typed: bool = False
 ) -> _cachetools_cache_wrapper[_R]: ...

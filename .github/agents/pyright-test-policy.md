@@ -1,4 +1,7 @@
-# .github/agents/pyright-test-policy.md
+---
+name: pyright-test-policy
+description: Enforces Pyright test policy, preserving type precision and requiring justification for test changes.
+---
 
 # Pyright Test Policy
 
