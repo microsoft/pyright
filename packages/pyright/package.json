@@ -29,7 +29,6 @@
         "@rspack/cli": "^1.7.2",
         "@rspack/core": "^1.7.2",
         "@types/node": "^22.19.6",
-        "copy-webpack-plugin": "^14.0.0",
         "esbuild-loader": "^4.4.2",
         "shx": "^0.4.0",
         "ts-loader": "^9.5.4",
