@@ -43,5 +43,8 @@
     "bin": {
         "pyright": "index.js",
         "pyright-langserver": "langserver.index.js"
+    },
+    "overrides": {
+        "tar": "7.5.11"
     }
 }
