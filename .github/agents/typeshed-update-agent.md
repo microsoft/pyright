@@ -20,6 +20,8 @@ The agent must follow the **Pyright Test Policy**.
 Update typeshed to <commit>
 
 Include the typeshed commit hash and summary.
+The PR must target the upstream Pyright repository (`microsoft/pyright`), not the fork repository.
+Use the fork branch as the PR head if needed, and verify the reported PR URL is under `github.com/microsoft/pyright`.
 
 ## Running The Update Script
 
