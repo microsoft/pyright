@@ -335,12 +335,7 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
         return false;
     }
 
-    let isCompatible = true;
-    doForEachSubtype(type2, (subtype) => {
-        if (!isCompatible) {
-            return;
-        }
-
+    return allSubtypes(type2, (subtype) => {
         if (!isTypeSame(type1, subtype)) {
             const conditions = getTypeCondition(subtype);
 
@@ -348,12 +343,12 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
                 !conditions ||
                 !conditions.some((condition) => condition.typeVar.priv.nameWithScope === type1.priv.nameWithScope)
             ) {
-                isCompatible = false;
+                return false;
             }
         }
-    });
 
-    return isCompatible;
+        return true;
+    });
 }
 
 export function makeInferenceContext(
@@ -796,11 +791,11 @@ export function someSubtypes(type: Type, callback: (type: Type) => boolean): boo
 export function allSubtypes(type: Type, callback: (type: Type) => boolean): boolean {
     if (isUnion(type)) {
         return type.priv.subtypes.every((subtype) => {
-            callback(subtype);
+            return callback(subtype);
         });
-    } else {
-        return callback(type);
     }
+
+    return callback(type);
 }
 
 export function doForEachSignature(
@@ -869,23 +864,17 @@ export function isUnionableType(subtypes: Type[]): boolean {
 }
 
 export function derivesFromAnyOrUnknown(type: Type): boolean {
-    let anyOrUnknown = false;
-
-    doForEachSubtype(type, (subtype) => {
-        if (isAnyOrUnknown(type)) {
-            anyOrUnknown = true;
-        } else if (isInstantiableClass(subtype)) {
-            if (ClassType.derivesFromAnyOrUnknown(subtype)) {
-                anyOrUnknown = true;
-            }
-        } else if (isClassInstance(subtype)) {
-            if (ClassType.derivesFromAnyOrUnknown(subtype)) {
-                anyOrUnknown = true;
-            }
+    return someSubtypes(type, (subtype) => {
+        if (isAnyOrUnknown(subtype)) {
+            return true;
         }
-    });
 
-    return anyOrUnknown;
+        if (isInstantiableClass(subtype) || isClassInstance(subtype)) {
+            return ClassType.derivesFromAnyOrUnknown(subtype);
+        }
+
+        return false;
+    });
 }
 
 export function getFullNameOfType(type: Type): string | undefined {
@@ -1301,18 +1290,19 @@ export function getLiteralTypeClassName(type: Type): string | undefined {
 
     if (isUnion(type)) {
         let className: string | undefined;
-        let foundMismatch = false;
 
-        doForEachSubtype(type, (subtype) => {
+        for (const subtype of type.priv.subtypes) {
             const subtypeLiteralTypeName = getLiteralTypeClassName(subtype);
             if (!subtypeLiteralTypeName) {
-                foundMismatch = true;
+                return undefined;
             } else if (!className) {
                 className = subtypeLiteralTypeName;
+            } else if (className !== subtypeLiteralTypeName) {
+                return undefined;
             }
-        });
+        }
 
-        return foundMismatch ? undefined : className;
+        return className;
     }
 
     return undefined;
@@ -2744,9 +2734,8 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined):
     }
 
     let tupleEntries: Type[][] | undefined;
-    let isValid = true;
-
-    doForEachSubtype(type, (subtype) => {
+    const subtypes = isUnion(type) ? type.priv.subtypes : [type];
+    for (const subtype of subtypes) {
         if (isClassInstance(subtype)) {
             let tupleClass: ClassType | undefined;
             if (isClass(subtype) && isTupleClass(subtype) && !isUnboundedTupleClass(subtype)) {
@@ -2768,20 +2757,20 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined):
                             tupleEntries![index].push(entry.type);
                         });
                     } else {
-                        isValid = false;
+                        return type;
                     }
                 } else {
                     tupleEntries = tupleClass.priv.tupleTypeArgs.map((entry) => [entry.type]);
                 }
             } else {
-                isValid = false;
+                return type;
             }
         } else {
-            isValid = false;
+            return type;
         }
-    });
+    }
 
-    if (!isValid || !tupleEntries) {
+    if (!tupleEntries) {
         return type;
     }
 
