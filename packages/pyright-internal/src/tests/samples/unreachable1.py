@@ -3,7 +3,7 @@
 import os
 import sys
 from abc import abstractmethod
-from typing import Callable, NoReturn
+from typing import Any, Callable, NoReturn
 
 
 def func1():
@@ -97,6 +97,14 @@ def func9_1(noreturn_func: Callable[[], NoReturn], unknown_func, flag: bool):
     callback()
 
     # This should not be marked unreachable because the call target includes Unknown.
+    return 3
+
+
+def func9_2(noreturn_func: Callable[[], NoReturn], any_func: Any, flag: bool):
+    callback = noreturn_func if flag else any_func
+    callback()
+
+    # This should not be marked unreachable because the call target includes Any.
     return 3
 
 
