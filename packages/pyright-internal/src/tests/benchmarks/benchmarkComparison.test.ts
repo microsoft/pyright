@@ -12,6 +12,7 @@ import * as path from 'path';
 import {
     calculatePercentDelta,
     classifyBenchmarkRegression,
+    compareAndWriteBenchmarkReportFiles,
     compareBenchmarkReportFiles,
     compareBenchmarkReports,
     compareBenchmarkResultSets,
@@ -286,6 +287,40 @@ benchmarkSuite('Benchmark Comparison', () => {
 
             expect(comparison.suiteName).toBe('parser');
             expect(comparison.compared[0].metrics[0].direction).toBe('regression');
+        } finally {
+            fs.rmSync(outputDir, { force: true, recursive: true });
+        }
+    });
+
+    test('compares and writes benchmark report files in one call', () => {
+        const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-benchmark-report-compare-write-'));
+        const baselineReport = createTestReport('parser', '2026-05-07T00:00:00.000Z', [
+            { name: 'case_a', medianMs: 100 },
+        ]);
+        const candidateReport = createTestReport('parser', '2026-05-07T01:00:00.000Z', [
+            { name: 'case_a', medianMs: 110 },
+        ]);
+        const baselineReportPath = path.join(outputDir, 'source-old.json');
+        const candidateReportPath = path.join(outputDir, 'source-new.json');
+
+        try {
+            fs.writeFileSync(baselineReportPath, JSON.stringify(baselineReport, undefined, 2), 'utf-8');
+            fs.writeFileSync(candidateReportPath, JSON.stringify(candidateReport, undefined, 2), 'utf-8');
+
+            const paths = compareAndWriteBenchmarkReportFiles<TestResult>(
+                baselineReportPath,
+                candidateReportPath,
+                outputDir,
+                (result) => result.name,
+                [{ name: 'medianMs', getValue: (result) => result.medianMs }]
+            );
+
+            expect(paths.oldJsonPath).toBe(path.join(outputDir, 'old.json'));
+            expect(paths.newJsonPath).toBe(path.join(outputDir, 'new.json'));
+            expect(paths.jsonPath).toBe(path.join(outputDir, 'comparison.json'));
+            expect(paths.markdownPath).toBe(path.join(outputDir, 'comparison.md'));
+            expect(JSON.parse(fs.readFileSync(paths.oldJsonPath, 'utf-8'))).toEqual(baselineReport);
+            expect(JSON.parse(fs.readFileSync(paths.newJsonPath, 'utf-8'))).toEqual(candidateReport);
         } finally {
             fs.rmSync(outputDir, { force: true, recursive: true });
         }

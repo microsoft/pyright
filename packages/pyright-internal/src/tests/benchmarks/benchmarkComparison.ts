@@ -141,6 +141,20 @@ export function compareBenchmarkReportFiles<ResultT>(
     );
 }
 
+export function compareAndWriteBenchmarkReportFiles<ResultT>(
+    baselineReportPath: string,
+    candidateReportPath: string,
+    outputDir: string,
+    getKey: (result: ResultT) => string,
+    metrics: ReadonlyArray<BenchmarkMetricDefinition<ResultT>>
+): BenchmarkReportComparisonArtifactPaths {
+    const baselineReport = loadBenchmarkReport<ResultT>(baselineReportPath);
+    const candidateReport = loadBenchmarkReport<ResultT>(candidateReportPath);
+    const comparison = compareBenchmarkReports(baselineReport, candidateReport, getKey, metrics);
+
+    return writeBenchmarkReportComparisonArtifacts(outputDir, baselineReport, candidateReport, comparison);
+}
+
 export function summarizeBenchmarkComparison(
     comparison: BenchmarkResultSetComparison,
     limit = 5
