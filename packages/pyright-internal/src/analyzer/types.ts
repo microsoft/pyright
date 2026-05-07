@@ -3343,6 +3343,8 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
     }
     recursionCount++;
 
+    const recursiveOptions = options.ignoreTypeFlags ? { ...options, ignoreTypeFlags: false } : options;
+
     if (options.honorTypeForm) {
         const typeForm1 = type1.props?.typeForm;
         const typeForm2 = type2.props?.typeForm;
@@ -3375,41 +3377,49 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
 
             if (!options.ignorePseudoGeneric || !ClassType.isPseudoGenericClass(type1)) {
                 // Make sure the type args match.
-                if (type1.priv.tupleTypeArgs && classType2.priv.tupleTypeArgs) {
-                    const type1TupleTypeArgs = type1.priv.tupleTypeArgs || [];
-                    const type2TupleTypeArgs = classType2.priv.tupleTypeArgs || [];
+                const type1TupleTypeArgs = type1.priv.tupleTypeArgs;
+                const type2TupleTypeArgs = classType2.priv.tupleTypeArgs;
+
+                if (type1TupleTypeArgs && type2TupleTypeArgs) {
                     if (type1TupleTypeArgs.length !== type2TupleTypeArgs.length) {
                         return false;
                     }
 
-                    for (let i = 0; i < type1TupleTypeArgs.length; i++) {
-                        if (
-                            !isTypeSame(
-                                type1TupleTypeArgs[i].type,
-                                type2TupleTypeArgs[i].type,
-                                { ...options, ignoreTypeFlags: false },
-                                recursionCount
-                            )
-                        ) {
-                            return false;
-                        }
+                    if (type1TupleTypeArgs !== type2TupleTypeArgs) {
+                        for (let i = 0; i < type1TupleTypeArgs.length; i++) {
+                            if (
+                                !isTypeSame(
+                                    type1TupleTypeArgs[i].type,
+                                    type2TupleTypeArgs[i].type,
+                                    recursiveOptions,
+                                    recursionCount
+                                )
+                            ) {
+                                return false;
+                            }
 
-                        if (type1TupleTypeArgs[i].isUnbounded !== type2TupleTypeArgs[i].isUnbounded) {
-                            return false;
+                            if (type1TupleTypeArgs[i].isUnbounded !== type2TupleTypeArgs[i].isUnbounded) {
+                                return false;
+                            }
                         }
                     }
                 } else {
-                    const type1TypeArgs = type1.priv.typeArgs || [];
-                    const type2TypeArgs = classType2.priv.typeArgs || [];
-                    const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
+                    const type1TypeArgs = type1.priv.typeArgs;
+                    const type2TypeArgs = classType2.priv.typeArgs;
 
-                    for (let i = 0; i < typeArgCount; i++) {
-                        // Assume that missing type args are "Unknown".
-                        const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : UnknownType.create();
-                        const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : UnknownType.create();
+                    if (type1TypeArgs !== type2TypeArgs) {
+                        const typeArgCount = Math.max(type1TypeArgs?.length ?? 0, type2TypeArgs?.length ?? 0);
 
-                        if (!isTypeSame(typeArg1, typeArg2, { ...options, ignoreTypeFlags: false }, recursionCount)) {
-                            return false;
+                        for (let i = 0; i < typeArgCount; i++) {
+                            // Assume that missing type args are "Unknown".
+                            const typeArg1 =
+                                type1TypeArgs && i < type1TypeArgs.length ? type1TypeArgs[i] : UnknownType.create();
+                            const typeArg2 =
+                                type2TypeArgs && i < type2TypeArgs.length ? type2TypeArgs[i] : UnknownType.create();
+
+                            if (!isTypeSame(typeArg1, typeArg2, recursiveOptions, recursionCount)) {
+                                return false;
+                            }
                         }
                     }
                 }
@@ -3455,39 +3465,51 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
-            const positionOnlyIndex1 = params1.findIndex((param) => isPositionOnlySeparator(param));
-            const positionOnlyIndex2 = params2.findIndex((param) => isPositionOnlySeparator(param));
+            const specializedTypes1 = type1.priv.specializedTypes;
+            const specializedTypes2 = functionType2.priv.specializedTypes;
 
-            // Make sure the parameter details match.
-            for (let i = 0; i < params1.length; i++) {
-                const param1 = params1[i];
-                const param2 = params2[i];
+            if (type1.shared === functionType2.shared && specializedTypes1 === specializedTypes2) {
+                return true;
+            }
 
-                if (param1.category !== param2.category) {
-                    return false;
-                }
+            const haveSameParamSignature =
+                params1 === params2 && specializedTypes1?.parameterTypes === specializedTypes2?.parameterTypes;
 
-                const isName1Relevant = positionOnlyIndex1 !== undefined && i > positionOnlyIndex1;
-                const isName2Relevant = positionOnlyIndex2 !== undefined && i > positionOnlyIndex2;
+            if (!haveSameParamSignature) {
+                const positionOnlyIndex1 = params1.findIndex((param) => isPositionOnlySeparator(param));
+                const positionOnlyIndex2 = params2.findIndex((param) => isPositionOnlySeparator(param));
 
-                if (isName1Relevant !== isName2Relevant) {
-                    return false;
-                }
+                // Make sure the parameter details match.
+                for (let i = 0; i < params1.length; i++) {
+                    const param1 = params1[i];
+                    const param2 = params2[i];
 
-                if (isName1Relevant) {
-                    if (param1.name !== param2.name) {
+                    if (param1.category !== param2.category) {
                         return false;
                     }
-                } else if (isPositionOnlySeparator(param1) && isPositionOnlySeparator(param2)) {
-                    continue;
-                } else if (isKeywordOnlySeparator(param1) && isKeywordOnlySeparator(param2)) {
-                    continue;
-                }
 
-                const param1Type = FunctionType.getParamType(type1, i);
-                const param2Type = FunctionType.getParamType(functionType2, i);
-                if (!isTypeSame(param1Type, param2Type, { ...options, ignoreTypeFlags: false }, recursionCount)) {
-                    return false;
+                    const isName1Relevant = positionOnlyIndex1 !== undefined && i > positionOnlyIndex1;
+                    const isName2Relevant = positionOnlyIndex2 !== undefined && i > positionOnlyIndex2;
+
+                    if (isName1Relevant !== isName2Relevant) {
+                        return false;
+                    }
+
+                    if (isName1Relevant) {
+                        if (param1.name !== param2.name) {
+                            return false;
+                        }
+                    } else if (isPositionOnlySeparator(param1) && isPositionOnlySeparator(param2)) {
+                        continue;
+                    } else if (isKeywordOnlySeparator(param1) && isKeywordOnlySeparator(param2)) {
+                        continue;
+                    }
+
+                    const param1Type = FunctionType.getParamType(type1, i);
+                    const param2Type = FunctionType.getParamType(functionType2, i);
+                    if (!isTypeSame(param1Type, param2Type, recursiveOptions, recursionCount)) {
+                        return false;
+                    }
                 }
             }
 
@@ -3512,7 +3534,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 if (
                     !return1Type ||
                     !return2Type ||
-                    !isTypeSame(return1Type, return2Type, { ...options, ignoreTypeFlags: false }, recursionCount)
+                    !isTypeSame(return1Type, return2Type, recursiveOptions, recursionCount)
                 ) {
                     return false;
                 }
@@ -3524,6 +3546,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
         case TypeCategory.Overloaded: {
             // Make sure the overload counts match.
             const functionType2 = type2 as OverloadedType;
+            if (type1.priv._overloads === functionType2.priv._overloads) {
+                return true;
+            }
+
             if (type1.priv._overloads.length !== functionType2.priv._overloads.length) {
                 return false;
             }
@@ -3546,6 +3572,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
 
             if (subtypes1.length !== subtypes2.length) {
                 return false;
+            }
+
+            if (subtypes1 === subtypes2) {
+                return true;
             }
 
             // The types do not have a particular order, so we need to
@@ -3582,7 +3612,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                     const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
                     const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
 
-                    if (!isTypeSame(typeArg1, typeArg2, { ...options, ignoreTypeFlags: false }, recursionCount)) {
+                    if (!isTypeSame(typeArg1, typeArg2, recursiveOptions, recursionCount)) {
                         return false;
                     }
                 }
@@ -3617,35 +3647,27 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
 
             const boundType1 = type1.shared.boundType;
             const boundType2 = type2TypeVar.shared.boundType;
-            if (boundType1) {
-                if (
-                    !boundType2 ||
-                    !isTypeSame(boundType1, boundType2, { ...options, ignoreTypeFlags: false }, recursionCount)
-                ) {
+            if (boundType1 !== boundType2) {
+                if (!boundType1 || !boundType2) {
                     return false;
                 }
-            } else {
-                if (boundType2) {
+
+                if (!isTypeSame(boundType1, boundType2, recursiveOptions, recursionCount)) {
                     return false;
                 }
             }
 
             const constraints1 = type1.shared.constraints;
             const constraints2 = type2TypeVar.shared.constraints;
-            if (constraints1.length !== constraints2.length) {
-                return false;
-            }
-
-            for (let i = 0; i < constraints1.length; i++) {
-                if (
-                    !isTypeSame(
-                        constraints1[i],
-                        constraints2[i],
-                        { ...options, ignoreTypeFlags: false },
-                        recursionCount
-                    )
-                ) {
+            if (constraints1 !== constraints2) {
+                if (constraints1.length !== constraints2.length) {
                     return false;
+                }
+
+                for (let i = 0; i < constraints1.length; i++) {
+                    if (!isTypeSame(constraints1[i], constraints2[i], recursiveOptions, recursionCount)) {
+                        return false;
+                    }
                 }
             }
 
