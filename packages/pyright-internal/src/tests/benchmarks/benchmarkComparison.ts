@@ -4,6 +4,7 @@ import * as path from 'path';
 import { BenchmarkReport, benchmarkReportSchemaVersion } from './benchmarkUtils';
 
 export type BenchmarkMetricDirection = 'improvement' | 'regression' | 'unchanged';
+export type BenchmarkRegressionSeverity = 'none' | 'warning' | 'failure';
 
 export interface BenchmarkMetricDefinition<ResultT> {
     name: string;
@@ -44,6 +45,18 @@ export interface BenchmarkComparisonSummary {
     unchangedCount: number;
     largestRegressions: BenchmarkMetricComparisonSummaryEntry[];
     largestImprovements: BenchmarkMetricComparisonSummaryEntry[];
+}
+
+export interface BenchmarkRegressionThresholds {
+    warnRegressionPct?: number;
+    failRegressionPct?: number;
+    warnRegressionAbsolute?: number;
+    failRegressionAbsolute?: number;
+    minAbsoluteRegression?: number;
+}
+
+export interface BenchmarkRegressionThresholdResult extends BenchmarkMetricComparisonSummaryEntry {
+    severity: BenchmarkRegressionSeverity;
 }
 
 export interface BenchmarkReportComparison extends BenchmarkResultSetComparison {
@@ -122,6 +135,40 @@ export function summarizeBenchmarkComparison(
         largestRegressions: sortMetricEntriesByMagnitude(regressions).slice(0, limit),
         largestImprovements: sortMetricEntriesByMagnitude(improvements).slice(0, limit),
     };
+}
+
+export function classifyBenchmarkRegression(
+    entry: BenchmarkMetricComparison,
+    thresholds: BenchmarkRegressionThresholds
+): BenchmarkRegressionSeverity {
+    if (entry.direction !== 'regression') {
+        return 'none';
+    }
+
+    const absoluteMagnitude = Math.abs(entry.absoluteDelta);
+    if (absoluteMagnitude < (thresholds.minAbsoluteRegression ?? 0)) {
+        return 'none';
+    }
+
+    if (exceedsRegressionThreshold(entry, thresholds.failRegressionPct, thresholds.failRegressionAbsolute)) {
+        return 'failure';
+    }
+
+    if (exceedsRegressionThreshold(entry, thresholds.warnRegressionPct, thresholds.warnRegressionAbsolute)) {
+        return 'warning';
+    }
+
+    return 'none';
+}
+
+export function getBenchmarkRegressionThresholdResults(
+    comparison: BenchmarkResultSetComparison,
+    thresholds: BenchmarkRegressionThresholds
+): BenchmarkRegressionThresholdResult[] {
+    return getComparisonMetricEntries(comparison)
+        .map((entry) => ({ ...entry, severity: classifyBenchmarkRegression(entry, thresholds) }))
+        .filter((entry) => entry.severity !== 'none')
+        .sort(compareThresholdResults);
 }
 
 export function renderBenchmarkComparisonMarkdown(comparison: BenchmarkResultSetComparison): string {
@@ -207,6 +254,43 @@ function sortMetricEntriesByMagnitude(
 
 function getMetricMagnitude(entry: BenchmarkMetricComparison): number {
     return Math.abs(entry.percentDelta ?? entry.absoluteDelta);
+}
+
+function exceedsRegressionThreshold(
+    entry: BenchmarkMetricComparison,
+    percentThreshold: number | undefined,
+    absoluteThreshold: number | undefined
+): boolean {
+    const percentMagnitude = entry.percentDelta === undefined ? undefined : Math.abs(entry.percentDelta);
+    const absoluteMagnitude = Math.abs(entry.absoluteDelta);
+
+    return (
+        (percentThreshold !== undefined && percentMagnitude !== undefined && percentMagnitude >= percentThreshold) ||
+        (absoluteThreshold !== undefined && absoluteMagnitude >= absoluteThreshold)
+    );
+}
+
+function compareThresholdResults(
+    left: BenchmarkRegressionThresholdResult,
+    right: BenchmarkRegressionThresholdResult
+): number {
+    const severityDelta = getSeverityRank(right.severity) - getSeverityRank(left.severity);
+    if (severityDelta !== 0) {
+        return severityDelta;
+    }
+
+    return getMetricMagnitude(right) - getMetricMagnitude(left);
+}
+
+function getSeverityRank(severity: BenchmarkRegressionSeverity): number {
+    switch (severity) {
+        case 'failure':
+            return 2;
+        case 'warning':
+            return 1;
+        case 'none':
+            return 0;
+    }
 }
 
 export function writeBenchmarkComparisonArtifacts(

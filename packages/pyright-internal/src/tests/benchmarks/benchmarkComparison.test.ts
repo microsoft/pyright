@@ -11,8 +11,10 @@ import * as path from 'path';
 
 import {
     calculatePercentDelta,
+    classifyBenchmarkRegression,
     compareBenchmarkReports,
     compareBenchmarkResultSets,
+    getBenchmarkRegressionThresholdResults,
     renderBenchmarkComparisonMarkdown,
     summarizeBenchmarkComparison,
     writeBenchmarkComparisonArtifacts,
@@ -165,6 +167,39 @@ benchmarkSuite('Benchmark Comparison', () => {
             largestRegressions: [{ key: 'regression' }],
             largestImprovements: [{ key: 'improvement' }],
         });
+    });
+
+    test('classifies regression thresholds', () => {
+        const comparison = compareBenchmarkResultSets<TestResult>(
+            [
+                { name: 'warning_case', medianMs: 100 },
+                { name: 'failure_case', medianMs: 100 },
+                { name: 'small_absolute_case', medianMs: 100 },
+                { name: 'improvement_case', medianMs: 100 },
+            ],
+            [
+                { name: 'warning_case', medianMs: 106 },
+                { name: 'failure_case', medianMs: 112 },
+                { name: 'small_absolute_case', medianMs: 104 },
+                { name: 'improvement_case', medianMs: 90 },
+            ],
+            (result) => result.name,
+            [{ name: 'medianMs', getValue: (result) => result.medianMs }]
+        );
+        const thresholdResults = getBenchmarkRegressionThresholdResults(comparison, {
+            warnRegressionPct: 5,
+            failRegressionPct: 10,
+            minAbsoluteRegression: 5,
+        });
+
+        expect(thresholdResults.map((result) => [result.key, result.severity])).toEqual([
+            ['failure_case', 'failure'],
+            ['warning_case', 'warning'],
+        ]);
+
+        const improvement = comparison.compared.find((result) => result.key === 'improvement_case');
+        expect(improvement).toBeDefined();
+        expect(classifyBenchmarkRegression(improvement!.metrics[0], { warnRegressionPct: 5 })).toBe('none');
     });
 
     test('writes comparison artifacts', () => {
