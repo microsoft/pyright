@@ -13,19 +13,20 @@
  *   src/tests/benchmarks/.generated/benchmark-results/parser/
  */
 
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-
 import { DiagnosticSink } from '../../common/diagnosticSink';
 import { ParseOptions, Parser } from '../../parser/parser';
+import {
+    calculateStats,
+    createBenchmarkReport,
+    formatCount,
+    loadBenchmarkCorpus,
+    writeBenchmarkReport,
+} from './benchmarkUtils';
 
 // --- Configuration ---
 
 const WARMUP_ITERATIONS = 3;
 const BENCHMARK_ITERATIONS = 10;
-
-const BENCHMARK_OUTPUT_DIR = path.join(__dirname, '.generated', 'benchmark-results', 'parser');
 
 // --- Types ---
 
@@ -45,69 +46,7 @@ interface BenchmarkResult {
     errorCount: number;
 }
 
-interface BenchmarkReport {
-    timestamp: string;
-    system: {
-        platform: string;
-        arch: string;
-        cpus: string;
-        cpuCount: number;
-        totalMemoryMB: number;
-        nodeVersion: string;
-    };
-    config: {
-        warmupIterations: number;
-        benchmarkIterations: number;
-    };
-    results: BenchmarkResult[];
-}
-
 // --- Helpers ---
-
-function calculateStats(times: ReadonlyArray<number>): {
-    median: number;
-    p95: number;
-    min: number;
-    max: number;
-    avg: number;
-} {
-    const sorted = [...times].sort((a, b) => a - b);
-    const len = sorted.length;
-
-    const median = len % 2 === 0 ? (sorted[len / 2 - 1] + sorted[len / 2]) / 2 : sorted[Math.floor(len / 2)];
-    const p95Index = Math.ceil(len * 0.95) - 1;
-    const p95 = sorted[Math.min(p95Index, len - 1)];
-    const min = sorted[0];
-    const max = sorted[len - 1];
-    const avg = times.reduce((a, b) => a + b, 0) / len;
-
-    return { median, p95, min, max, avg };
-}
-
-function loadCorpus(filename: string): string {
-    const filePath = path.resolve(__dirname, '..', 'benchmarkData', filename);
-    return fs.readFileSync(filePath, 'utf-8');
-}
-
-function getSystemInfo(): BenchmarkReport['system'] {
-    const cpus = os.cpus();
-    return {
-        platform: os.platform(),
-        arch: os.arch(),
-        cpus: cpus[0]?.model ?? 'unknown',
-        cpuCount: cpus.length,
-        totalMemoryMB: Math.round(os.totalmem() / (1024 * 1024)),
-        nodeVersion: process.version,
-    };
-}
-
-function writeReport(report: BenchmarkReport): void {
-    fs.mkdirSync(BENCHMARK_OUTPUT_DIR, { recursive: true });
-    const filename = `parser-benchmark-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-    const outputPath = path.join(BENCHMARK_OUTPUT_DIR, filename);
-    fs.writeFileSync(outputPath, JSON.stringify(report, undefined, 2), 'utf-8');
-    console.log(`\nBenchmark results written to: ${outputPath}`);
-}
 
 function printResultTable(results: ReadonlyArray<BenchmarkResult>): void {
     console.log('\n=== Parser Benchmark Results ===\n');
@@ -127,11 +66,9 @@ function printResultTable(results: ReadonlyArray<BenchmarkResult>): void {
                 r.statementCount
             ).padStart(7)} ${String(r.errorCount).padStart(7)} ${r.medianMs.toFixed(2).padStart(10)} ${r.minMs
                 .toFixed(2)
-                .padStart(10)} ${r.maxMs.toFixed(2).padStart(10)} ${r.avgMs.toFixed(2).padStart(10)} ${Math.round(
+                .padStart(10)} ${r.maxMs.toFixed(2).padStart(10)} ${r.avgMs.toFixed(2).padStart(10)} ${formatCount(
                 r.nodesPerSec
-            )
-                .toLocaleString()
-                .padStart(12)}`
+            ).padStart(12)}`
         );
     }
     console.log('');
@@ -241,14 +178,14 @@ describe('Parser Benchmark', () => {
 
     for (const { name, file } of corpora) {
         test(`parse ${name}`, () => {
-            const code = loadCorpus(file);
+            const code = loadBenchmarkCorpus(file);
             const result = benchmarkParse(name, code);
             allResults.push(result);
 
             console.log(
                 `  ${name}: median=${result.medianMs.toFixed(2)}ms, nodes=${result.nodeCount}, stmts=${
                     result.statementCount
-                }, nodes/sec=${Math.round(result.nodesPerSec).toLocaleString()}`
+                }, nodes/sec=${formatCount(result.nodesPerSec)}`
             );
 
             // Sanity: parser should produce statements
@@ -259,7 +196,7 @@ describe('Parser Benchmark', () => {
     }
 
     test('scaled corpus (10x large_stdlib)', () => {
-        const base = loadCorpus('large_stdlib.py');
+        const base = loadBenchmarkCorpus('large_stdlib.py');
         const scaled = Array(10).fill(base).join('\n');
 
         const result = benchmarkParse('large_stdlib_10x', scaled);
@@ -268,7 +205,7 @@ describe('Parser Benchmark', () => {
         console.log(
             `  large_stdlib_10x: median=${result.medianMs.toFixed(2)}ms, nodes=${
                 result.nodeCount
-            }, nodes/sec=${Math.round(result.nodesPerSec).toLocaleString()}`
+            }, nodes/sec=${formatCount(result.nodesPerSec)}`
         );
 
         expect(result.statementCount).toBeGreaterThan(0);
@@ -281,16 +218,10 @@ describe('Parser Benchmark', () => {
 
         printResultTable(allResults);
 
-        const report: BenchmarkReport = {
-            timestamp: new Date().toISOString(),
-            system: getSystemInfo(),
-            config: {
-                warmupIterations: WARMUP_ITERATIONS,
-                benchmarkIterations: BENCHMARK_ITERATIONS,
-            },
-            results: allResults,
-        };
-
-        writeReport(report);
+        writeBenchmarkReport(
+            'parser',
+            'parser-benchmark',
+            createBenchmarkReport(WARMUP_ITERATIONS, BENCHMARK_ITERATIONS, allResults)
+        );
     });
 });
