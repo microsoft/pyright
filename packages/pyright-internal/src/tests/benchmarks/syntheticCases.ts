@@ -64,6 +64,86 @@ export function generateProtocolMismatchCase(memberCount: number): string {
     return `${lines.join('\n')}\n`;
 }
 
+export function generateGenericAliasChainCase(depth: number): string {
+    const lines = [
+        'from typing import Generic, TypeAlias, TypeVar',
+        '',
+        'T = TypeVar("T")',
+        '',
+        'class Box(Generic[T]):',
+        '    def __init__(self, value: T) -> None:',
+        '        self.value = value',
+        '',
+        'Alias0: TypeAlias = int',
+        'value0: Alias0 = 1',
+    ];
+
+    for (let i = 1; i <= depth; i++) {
+        lines.push(`Alias${i}: TypeAlias = Box[Alias${i - 1}]`);
+        lines.push(`value${i}: Alias${i} = Box(value${i - 1})`);
+    }
+
+    lines.push('');
+    lines.push(`def unwrap(value${depth}: Alias${depth}) -> Alias0:`);
+
+    for (let i = depth; i > 0; i--) {
+        lines.push(`    value${i - 1} = value${i}.value`);
+    }
+
+    lines.push('    return value0');
+    lines.push('');
+    lines.push(`result = unwrap(value${depth})`);
+
+    return `${lines.join('\n')}\n`;
+}
+
+export function generateConstrainedTypeVarMatrixCase(width: number): string {
+    const classNames = Array.from({ length: width }, (_, index) => `Item${index}`);
+    const lines = ['from typing import TypeVar', ''];
+
+    for (const className of classNames) {
+        lines.push(`class ${className}:`);
+        lines.push('    pass');
+        lines.push('');
+    }
+
+    lines.push(`TItem = TypeVar("TItem", ${classNames.join(', ')})`);
+    lines.push('');
+    lines.push('def choose(left: TItem, right: TItem) -> TItem:');
+    lines.push('    return left');
+    lines.push('');
+
+    for (let left = 0; left < width; left++) {
+        for (let right = 0; right < width; right++) {
+            lines.push(`value_${left}_${right} = choose(Item${left}(), Item${right}())`);
+        }
+    }
+
+    return `${lines.join('\n')}\n`;
+}
+
+export function generateLiteralUnionMathCase(width: number): string {
+    const literals = Array.from({ length: width }, (_, index) => `Literal[${index}]`);
+    const lines = ['from typing import Literal', '', `Value = ${literals.join(' | ')}`, ''];
+
+    lines.push('def bump(value: Value) -> int:');
+
+    for (let i = 0; i < width - 1; i++) {
+        const prefix = i === 0 ? 'if' : 'elif';
+        lines.push(`    ${prefix} value == ${i}:`);
+        lines.push(`        return value + ${i}`);
+    }
+
+    lines.push('    return value');
+    lines.push('');
+    lines.push('def combine(left: Value, right: Value) -> int:');
+    lines.push('    return bump(left) + bump(right)');
+    lines.push('');
+    lines.push('result = combine(0, 1)');
+
+    return `${lines.join('\n')}\n`;
+}
+
 export function generateTypedDictCase(keyCount: number): string {
     const lines = ['from typing import TypedDict', '', 'class Payload(TypedDict):'];
 

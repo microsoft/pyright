@@ -21,7 +21,7 @@ src/tests/benchmarks/.generated/benchmark-results/
     cross-test heap effects.
 - `evaluatorBenchmark.test.ts` measures cold analysis time for generated evaluator-heavy Python cases.
 - `syntheticCases.ts` contains deterministic Python generators for recursive aliases, overload/union cross products,
-    protocol mismatches, and large TypedDicts.
+    protocol mismatches, generic alias chains, constrained TypeVar matrices, literal-union math, and large TypedDicts.
 - `benchmarkUtils.ts` contains shared statistics, system metadata, corpus loading, JSON artifact writing, count
     formatting, child-process benchmark helpers, and generated-source type analysis helpers.
 

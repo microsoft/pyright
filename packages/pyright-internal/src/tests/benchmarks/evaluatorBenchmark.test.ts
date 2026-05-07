@@ -15,6 +15,9 @@ import {
     writeBenchmarkReport,
 } from './benchmarkUtils';
 import {
+    generateConstrainedTypeVarMatrixCase,
+    generateGenericAliasChainCase,
+    generateLiteralUnionMathCase,
     generateOverloadUnionCrossProductCase,
     generateProtocolMismatchCase,
     generateRecursiveAliasCase,
@@ -141,6 +144,27 @@ const cases: BenchmarkCase[] = [
         scale: 'members=40',
         code: generateProtocolMismatchCase(40),
         minDiagnosticCount: 1,
+    },
+    {
+        name: 'generic_alias_chain',
+        fileName: 'genericAliasChain.py',
+        scale: 'depth=32',
+        code: generateGenericAliasChainCase(32),
+        minDiagnosticCount: 0,
+    },
+    {
+        name: 'constrained_typevar_matrix',
+        fileName: 'constrainedTypeVarMatrix.py',
+        scale: '8x8',
+        code: generateConstrainedTypeVarMatrixCase(8),
+        minDiagnosticCount: 1,
+    },
+    {
+        name: 'literal_union_math',
+        fileName: 'literalUnionMath.py',
+        scale: 'width=64',
+        code: generateLiteralUnionMathCase(64),
+        minDiagnosticCount: 0,
     },
     {
         name: 'typed_dict_many_keys',
