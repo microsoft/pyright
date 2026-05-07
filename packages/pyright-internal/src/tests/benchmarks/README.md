@@ -26,8 +26,8 @@ src/tests/benchmarks/.generated/benchmark-results/
     protocol mismatches, generic alias chains, constrained TypeVar matrices, literal-union math, and large TypedDicts.
 - `ecosystemSmokeProjects.ts` contains the curated smoke project list, mypy_primer project names, tags, costs, and
     selection helpers.
-- `benchmarkComparison.ts` contains shared old/new result comparison helpers and Markdown rendering for future report
-    generation.
+- `benchmarkComparison.ts` contains shared old/new result and report comparison helpers plus Markdown rendering for
+    future report generation.
 - `benchmarkUtils.ts` contains shared statistics, system metadata, corpus loading, JSON artifact writing, count
     formatting, child-process benchmark helpers, and generated-source type analysis helpers.
 

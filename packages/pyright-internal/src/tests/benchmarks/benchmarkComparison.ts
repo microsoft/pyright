@@ -1,3 +1,5 @@
+import { BenchmarkReport, benchmarkReportSchemaVersion } from './benchmarkUtils';
+
 export type BenchmarkMetricDirection = 'improvement' | 'regression' | 'unchanged';
 
 export interface BenchmarkMetricDefinition<ResultT> {
@@ -25,6 +27,13 @@ export interface BenchmarkResultSetComparison {
     compared: BenchmarkResultComparison[];
     addedKeys: string[];
     removedKeys: string[];
+}
+
+export interface BenchmarkReportComparison extends BenchmarkResultSetComparison {
+    schemaVersion: number;
+    suiteName: string;
+    baselineTimestamp: string;
+    candidateTimestamp: string;
 }
 
 export function calculatePercentDelta(baselineValue: number, candidateValue: number): number | undefined {
@@ -56,6 +65,23 @@ export function compareBenchmarkResultSets<ResultT>(
     };
 }
 
+export function compareBenchmarkReports<ResultT>(
+    baselineReport: BenchmarkReport<ResultT>,
+    candidateReport: BenchmarkReport<ResultT>,
+    getKey: (result: ResultT) => string,
+    metrics: ReadonlyArray<BenchmarkMetricDefinition<ResultT>>
+): BenchmarkReportComparison {
+    validateBenchmarkReportPair(baselineReport, candidateReport);
+
+    return {
+        schemaVersion: baselineReport.schemaVersion,
+        suiteName: baselineReport.suiteName,
+        baselineTimestamp: baselineReport.timestamp,
+        candidateTimestamp: candidateReport.timestamp,
+        ...compareBenchmarkResultSets(baselineReport.results, candidateReport.results, getKey, metrics),
+    };
+}
+
 export function renderBenchmarkComparisonMarkdown(comparison: BenchmarkResultSetComparison): string {
     const lines = [
         '| Case | Metric | Baseline | Candidate | Delta | Delta % | Direction |',
@@ -83,6 +109,28 @@ export function renderBenchmarkComparisonMarkdown(comparison: BenchmarkResultSet
     }
 
     return `${lines.join('\n')}\n`;
+}
+
+function validateBenchmarkReportPair<ResultT>(
+    baselineReport: BenchmarkReport<ResultT>,
+    candidateReport: BenchmarkReport<ResultT>
+): void {
+    validateBenchmarkReport(baselineReport, 'baseline');
+    validateBenchmarkReport(candidateReport, 'candidate');
+
+    if (baselineReport.suiteName !== candidateReport.suiteName) {
+        throw new Error(
+            `Cannot compare benchmark reports for different suites: ${baselineReport.suiteName}, ${candidateReport.suiteName}`
+        );
+    }
+}
+
+function validateBenchmarkReport<ResultT>(report: BenchmarkReport<ResultT>, label: string): void {
+    if (report.schemaVersion !== benchmarkReportSchemaVersion) {
+        throw new Error(
+            `Unsupported ${label} benchmark report schema version ${report.schemaVersion}; expected ${benchmarkReportSchemaVersion}.`
+        );
+    }
 }
 
 function compareBenchmarkResult<ResultT>(

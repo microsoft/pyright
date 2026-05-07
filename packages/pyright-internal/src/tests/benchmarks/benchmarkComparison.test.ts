@@ -7,9 +7,11 @@
 
 import {
     calculatePercentDelta,
+    compareBenchmarkReports,
     compareBenchmarkResultSets,
     renderBenchmarkComparisonMarkdown,
 } from './benchmarkComparison';
+import { BenchmarkReport, benchmarkReportSchemaVersion } from './benchmarkUtils';
 
 const RUN_BENCHMARKS_ENV = 'PYRIGHT_RUN_BENCHMARKS';
 
@@ -74,6 +76,41 @@ benchmarkSuite('Benchmark Comparison', () => {
         ]);
     });
 
+    test('compares benchmark report envelopes', () => {
+        const comparison = compareBenchmarkReports<TestResult>(
+            createTestReport('parser', '2026-05-07T00:00:00.000Z', [{ name: 'case_a', medianMs: 100 }]),
+            createTestReport('parser', '2026-05-07T01:00:00.000Z', [{ name: 'case_a', medianMs: 90 }]),
+            (result) => result.name,
+            [{ name: 'medianMs', getValue: (result) => result.medianMs }]
+        );
+
+        expect(comparison.schemaVersion).toBe(benchmarkReportSchemaVersion);
+        expect(comparison.suiteName).toBe('parser');
+        expect(comparison.baselineTimestamp).toBe('2026-05-07T00:00:00.000Z');
+        expect(comparison.candidateTimestamp).toBe('2026-05-07T01:00:00.000Z');
+        expect(comparison.compared[0].metrics[0].direction).toBe('improvement');
+    });
+
+    test('rejects incompatible benchmark report envelopes', () => {
+        expect(() =>
+            compareBenchmarkReports<TestResult>(
+                createTestReport('parser', '2026-05-07T00:00:00.000Z', []),
+                createTestReport('tokenizer', '2026-05-07T01:00:00.000Z', []),
+                (result) => result.name,
+                [{ name: 'medianMs', getValue: (result) => result.medianMs }]
+            )
+        ).toThrow('different suites');
+
+        expect(() =>
+            compareBenchmarkReports<TestResult>(
+                { ...createTestReport('parser', '2026-05-07T00:00:00.000Z', []), schemaVersion: 0 },
+                createTestReport('parser', '2026-05-07T01:00:00.000Z', []),
+                (result) => result.name,
+                [{ name: 'medianMs', getValue: (result) => result.medianMs }]
+            )
+        ).toThrow('Unsupported baseline benchmark report schema version');
+    });
+
     test('renders a markdown comparison table', () => {
         const comparison = compareBenchmarkResultSets<TestResult>(
             [{ name: 'case_a', medianMs: 100 }],
@@ -99,3 +136,24 @@ benchmarkSuite('Benchmark Comparison', () => {
         ).toThrow('Duplicate benchmark result key');
     });
 });
+
+function createTestReport(suiteName: string, timestamp: string, results: TestResult[]): BenchmarkReport<TestResult> {
+    return {
+        schemaVersion: benchmarkReportSchemaVersion,
+        suiteName,
+        timestamp,
+        system: {
+            platform: 'test',
+            arch: 'test',
+            cpus: 'test',
+            cpuCount: 1,
+            totalMemoryMB: 1,
+            nodeVersion: 'test',
+        },
+        config: {
+            warmupIterations: 0,
+            benchmarkIterations: 1,
+        },
+        results,
+    };
+}
