@@ -122,6 +122,25 @@ export function compareBenchmarkReports<ResultT>(
     };
 }
 
+export function loadBenchmarkReport<ResultT>(reportPath: string): BenchmarkReport<ResultT> {
+    const fileContents = fs.readFileSync(reportPath, 'utf-8');
+    return JSON.parse(fileContents) as BenchmarkReport<ResultT>;
+}
+
+export function compareBenchmarkReportFiles<ResultT>(
+    baselineReportPath: string,
+    candidateReportPath: string,
+    getKey: (result: ResultT) => string,
+    metrics: ReadonlyArray<BenchmarkMetricDefinition<ResultT>>
+): BenchmarkReportComparison {
+    return compareBenchmarkReports(
+        loadBenchmarkReport<ResultT>(baselineReportPath),
+        loadBenchmarkReport<ResultT>(candidateReportPath),
+        getKey,
+        metrics
+    );
+}
+
 export function summarizeBenchmarkComparison(
     comparison: BenchmarkResultSetComparison,
     limit = 5
