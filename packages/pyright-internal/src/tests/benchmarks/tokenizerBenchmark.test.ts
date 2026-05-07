@@ -202,7 +202,7 @@ benchmarkSuite('Tokenizer Benchmark', () => {
         writeBenchmarkReport(
             'tokenizer',
             'tokenizer-benchmark',
-            createBenchmarkReport(WARMUP_ITERATIONS, BENCHMARK_ITERATIONS, allResults)
+            createBenchmarkReport('tokenizer', WARMUP_ITERATIONS, BENCHMARK_ITERATIONS, allResults)
         );
     });
 });

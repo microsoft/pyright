@@ -221,7 +221,7 @@ describe('Parser Benchmark', () => {
         writeBenchmarkReport(
             'parser',
             'parser-benchmark',
-            createBenchmarkReport(WARMUP_ITERATIONS, BENCHMARK_ITERATIONS, allResults)
+            createBenchmarkReport('parser', WARMUP_ITERATIONS, BENCHMARK_ITERATIONS, allResults)
         );
     });
 });

@@ -37,6 +37,8 @@ The current microbenchmark reports use this common envelope:
 
 ```ts
 interface BenchmarkReport<ResultT> {
+    schemaVersion: number;
+    suiteName: string;
     timestamp: string;
     system: BenchmarkSystemInfo;
     config: {

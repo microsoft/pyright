@@ -57,7 +57,11 @@ benchmarkSuite('Ecosystem Smoke Manifest', () => {
             projects: ecosystemSmokeProjects,
         };
 
-        writeBenchmarkReport('ecosystem-smoke', 'ecosystem-smoke-projects', createBenchmarkReport(0, 0, [result]));
+        writeBenchmarkReport(
+            'ecosystem-smoke',
+            'ecosystem-smoke-projects',
+            createBenchmarkReport('ecosystem-smoke', 0, 0, [result])
+        );
     });
 
     test('selects projects by tag, pattern, and shard', () => {

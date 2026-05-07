@@ -32,6 +32,8 @@ export interface BenchmarkSystemInfo {
 }
 
 export interface BenchmarkReport<ResultT> {
+    schemaVersion: number;
+    suiteName: string;
     timestamp: string;
     system: BenchmarkSystemInfo;
     config: {
@@ -52,6 +54,7 @@ export interface TypeAnalysisSummary {
 
 export const benchmarkDataDir = path.resolve(__dirname, '..', 'benchmarkData');
 export const benchmarkResultsDir = path.join(__dirname, '.generated', 'benchmark-results');
+export const benchmarkReportSchemaVersion = 1;
 
 export function calculateStats(times: ReadonlyArray<number>): BenchmarkStats {
     if (times.length === 0) {
@@ -89,11 +92,14 @@ export function getSystemInfo(): BenchmarkSystemInfo {
 }
 
 export function createBenchmarkReport<ResultT>(
+    suiteName: string,
     warmupIterations: number,
     benchmarkIterations: number,
     results: ResultT[]
 ): BenchmarkReport<ResultT> {
     return {
+        schemaVersion: benchmarkReportSchemaVersion,
+        suiteName,
         timestamp: new Date().toISOString(),
         system: getSystemInfo(),
         config: {

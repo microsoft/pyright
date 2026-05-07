@@ -207,7 +207,7 @@ benchmarkSuite('Evaluator Benchmark', () => {
         writeBenchmarkReport(
             'evaluator',
             'evaluator-benchmark',
-            createBenchmarkReport(WARMUP_ITERATIONS, BENCHMARK_ITERATIONS, allResults)
+            createBenchmarkReport('evaluator', WARMUP_ITERATIONS, BENCHMARK_ITERATIONS, allResults)
         );
     });
 });
