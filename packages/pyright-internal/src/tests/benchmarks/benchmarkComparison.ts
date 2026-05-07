@@ -32,6 +32,20 @@ export interface BenchmarkResultSetComparison {
     removedKeys: string[];
 }
 
+export interface BenchmarkMetricComparisonSummaryEntry extends BenchmarkMetricComparison {
+    key: string;
+}
+
+export interface BenchmarkComparisonSummary {
+    comparedResultCount: number;
+    metricCount: number;
+    regressionCount: number;
+    improvementCount: number;
+    unchangedCount: number;
+    largestRegressions: BenchmarkMetricComparisonSummaryEntry[];
+    largestImprovements: BenchmarkMetricComparisonSummaryEntry[];
+}
+
 export interface BenchmarkReportComparison extends BenchmarkResultSetComparison {
     schemaVersion: number;
     suiteName: string;
@@ -90,11 +104,48 @@ export function compareBenchmarkReports<ResultT>(
     };
 }
 
+export function summarizeBenchmarkComparison(
+    comparison: BenchmarkResultSetComparison,
+    limit = 5
+): BenchmarkComparisonSummary {
+    const entries = getComparisonMetricEntries(comparison);
+    const regressions = entries.filter((entry) => entry.direction === 'regression');
+    const improvements = entries.filter((entry) => entry.direction === 'improvement');
+    const unchanged = entries.filter((entry) => entry.direction === 'unchanged');
+
+    return {
+        comparedResultCount: comparison.compared.length,
+        metricCount: entries.length,
+        regressionCount: regressions.length,
+        improvementCount: improvements.length,
+        unchangedCount: unchanged.length,
+        largestRegressions: sortMetricEntriesByMagnitude(regressions).slice(0, limit),
+        largestImprovements: sortMetricEntriesByMagnitude(improvements).slice(0, limit),
+    };
+}
+
 export function renderBenchmarkComparisonMarkdown(comparison: BenchmarkResultSetComparison): string {
+    const summary = summarizeBenchmarkComparison(comparison);
     const lines = [
-        '| Case | Metric | Baseline | Candidate | Delta | Delta % | Direction |',
-        '|---|---:|---:|---:|---:|---:|---|',
+        '## Summary',
+        '',
+        `Compared cases: ${summary.comparedResultCount}`,
+        `Compared metrics: ${summary.metricCount}`,
+        `Regressions: ${summary.regressionCount}`,
+        `Improvements: ${summary.improvementCount}`,
+        `Unchanged: ${summary.unchangedCount}`,
+        '',
     ];
+
+    appendMetricEntryTable(lines, '## Largest Regressions', summary.largestRegressions);
+    appendMetricEntryTable(lines, '## Largest Improvements', summary.largestImprovements);
+
+    lines.push(
+        '## Details',
+        '',
+        '| Case | Metric | Baseline | Candidate | Delta | Delta % | Direction |',
+        '|---|---:|---:|---:|---:|---:|---|'
+    );
 
     for (const result of comparison.compared) {
         for (const metric of result.metrics) {
@@ -117,6 +168,45 @@ export function renderBenchmarkComparisonMarkdown(comparison: BenchmarkResultSet
     }
 
     return `${lines.join('\n')}\n`;
+}
+
+function appendMetricEntryTable(
+    lines: string[],
+    heading: string,
+    entries: ReadonlyArray<BenchmarkMetricComparisonSummaryEntry>
+): void {
+    lines.push(heading, '');
+
+    if (entries.length === 0) {
+        lines.push('None.', '');
+        return;
+    }
+
+    lines.push('| Case | Metric | Baseline | Candidate | Delta | Delta % |', '|---|---:|---:|---:|---:|---:|');
+
+    for (const entry of entries) {
+        lines.push(
+            `| ${entry.key} | ${entry.metric} | ${formatMetric(entry.baselineValue)} | ${formatMetric(
+                entry.candidateValue
+            )} | ${formatMetric(entry.absoluteDelta)} | ${formatPercent(entry.percentDelta)} |`
+        );
+    }
+
+    lines.push('');
+}
+
+function getComparisonMetricEntries(comparison: BenchmarkResultSetComparison): BenchmarkMetricComparisonSummaryEntry[] {
+    return comparison.compared.flatMap((result) => result.metrics.map((metric) => ({ key: result.key, ...metric })));
+}
+
+function sortMetricEntriesByMagnitude(
+    entries: ReadonlyArray<BenchmarkMetricComparisonSummaryEntry>
+): BenchmarkMetricComparisonSummaryEntry[] {
+    return [...entries].sort((left, right) => getMetricMagnitude(right) - getMetricMagnitude(left));
+}
+
+function getMetricMagnitude(entry: BenchmarkMetricComparison): number {
+    return Math.abs(entry.percentDelta ?? entry.absoluteDelta);
 }
 
 export function writeBenchmarkComparisonArtifacts(

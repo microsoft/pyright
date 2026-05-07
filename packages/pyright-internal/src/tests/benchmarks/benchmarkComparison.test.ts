@@ -14,6 +14,7 @@ import {
     compareBenchmarkReports,
     compareBenchmarkResultSets,
     renderBenchmarkComparisonMarkdown,
+    summarizeBenchmarkComparison,
     writeBenchmarkComparisonArtifacts,
 } from './benchmarkComparison';
 import { BenchmarkReport, benchmarkReportSchemaVersion } from './benchmarkUtils';
@@ -118,13 +119,52 @@ benchmarkSuite('Benchmark Comparison', () => {
 
     test('renders a markdown comparison table', () => {
         const comparison = compareBenchmarkResultSets<TestResult>(
-            [{ name: 'case_a', medianMs: 100 }],
-            [{ name: 'case_a', medianMs: 110 }],
+            [
+                { name: 'case_a', medianMs: 100 },
+                { name: 'case_b', medianMs: 100 },
+            ],
+            [
+                { name: 'case_a', medianMs: 110 },
+                { name: 'case_b', medianMs: 80 },
+            ],
+            (result) => result.name,
+            [{ name: 'medianMs', getValue: (result) => result.medianMs }]
+        );
+        const markdown = renderBenchmarkComparisonMarkdown(comparison);
+
+        expect(markdown).toContain('## Summary');
+        expect(markdown).toContain('Regressions: 1');
+        expect(markdown).toContain('Improvements: 1');
+        expect(markdown).toContain('## Largest Regressions');
+        expect(markdown).toContain('## Largest Improvements');
+        expect(markdown).toContain('| case_a | medianMs | 100.00 | 110.00 |');
+    });
+
+    test('summarizes benchmark comparison directions', () => {
+        const comparison = compareBenchmarkResultSets<TestResult>(
+            [
+                { name: 'regression', medianMs: 100 },
+                { name: 'improvement', medianMs: 100 },
+                { name: 'unchanged', medianMs: 100 },
+            ],
+            [
+                { name: 'regression', medianMs: 120 },
+                { name: 'improvement', medianMs: 80 },
+                { name: 'unchanged', medianMs: 100 },
+            ],
             (result) => result.name,
             [{ name: 'medianMs', getValue: (result) => result.medianMs }]
         );
 
-        expect(renderBenchmarkComparisonMarkdown(comparison)).toContain('| case_a | medianMs | 100.00 | 110.00 |');
+        expect(summarizeBenchmarkComparison(comparison, 1)).toMatchObject({
+            comparedResultCount: 3,
+            metricCount: 3,
+            regressionCount: 1,
+            improvementCount: 1,
+            unchangedCount: 1,
+            largestRegressions: [{ key: 'regression' }],
+            largestImprovements: [{ key: 'improvement' }],
+        });
     });
 
     test('writes comparison artifacts', () => {
