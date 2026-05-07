@@ -3,6 +3,16 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
+import { ImportResolver } from '../../analyzer/importResolver';
+import { Program } from '../../analyzer/program';
+import { ConfigOptions } from '../../common/configOptions';
+import { NullConsole } from '../../common/console';
+import { DiagnosticCategory } from '../../common/diagnostic';
+import { FullAccessHost } from '../../common/fullAccessHost';
+import { RealTempFile, createFromRealFileSystem } from '../../common/realFileSystem';
+import { createServiceProvider } from '../../common/serviceProviderExtensions';
+import { UriEx } from '../../common/uri/uriUtils';
+
 export interface BenchmarkStats {
     median: number;
     p95: number;
@@ -28,6 +38,14 @@ export interface BenchmarkReport<ResultT> {
         benchmarkIterations: number;
     };
     results: ResultT[];
+}
+
+export interface TypeAnalysisSummary {
+    diagnosticCount: number;
+    errorCount: number;
+    warningCount: number;
+    informationCount: number;
+    statementCount: number;
 }
 
 export const benchmarkDataDir = path.resolve(__dirname, '..', 'benchmarkData');
@@ -160,5 +178,51 @@ export function runJestBenchmarkInFreshProcess<ResultT>(
         const output = getChildProcessOutput(error);
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Child benchmark for "${testName}" failed.\n${message}${output ? `\n${output}` : ''}`);
+    }
+}
+
+export function analyzeBenchmarkSource(source: string, fileName: string): TypeAnalysisSummary {
+    (global as any).__rootDirectory = path.resolve(__dirname, '..', '..', '..');
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-benchmark-'));
+    const filePath = path.join(tempDir, fileName);
+    fs.writeFileSync(filePath, source, 'utf-8');
+
+    const tempFile = new RealTempFile();
+    const fileSystem = createFromRealFileSystem(tempFile);
+    const serviceProvider = createServiceProvider(fileSystem, new NullConsole(), tempFile);
+    const configOptions = new ConfigOptions(UriEx.file(tempDir));
+    configOptions.internalTestMode = true;
+
+    const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(serviceProvider));
+    const program = new Program(importResolver, configOptions, serviceProvider);
+    const fileUri = UriEx.file(filePath);
+
+    try {
+        program.setTrackedFiles([fileUri]);
+
+        while (program.analyze()) {
+            // Continue until analysis completes.
+        }
+
+        const sourceFile = program.getSourceFile(fileUri);
+        if (!sourceFile) {
+            throw new Error(`Could not analyze generated benchmark file ${filePath}`);
+        }
+
+        const diagnostics = sourceFile.getDiagnostics(configOptions) ?? [];
+        const parseResults = sourceFile.getParseResults();
+
+        return {
+            diagnosticCount: diagnostics.length,
+            errorCount: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Error).length,
+            warningCount: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Warning).length,
+            informationCount: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Information).length,
+            statementCount: parseResults?.parserOutput.parseTree.d.statements.length ?? 0,
+        };
+    } finally {
+        program.dispose();
+        serviceProvider.dispose();
+        fs.rmSync(tempDir, { force: true, recursive: true });
     }
 }

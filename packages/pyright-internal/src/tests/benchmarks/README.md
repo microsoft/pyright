@@ -19,8 +19,11 @@ src/tests/benchmarks/.generated/benchmark-results/
 - `parserBenchmark.test.ts` measures parser throughput over representative Python corpora.
 - `tokenizerBenchmark.test.ts` measures tokenizer throughput and runs each corpus in a fresh child process to reduce
     cross-test heap effects.
+- `evaluatorBenchmark.test.ts` measures cold analysis time for generated evaluator-heavy Python cases.
+- `syntheticCases.ts` contains deterministic Python generators for recursive aliases, overload/union cross products,
+    protocol mismatches, and large TypedDicts.
 - `benchmarkUtils.ts` contains shared statistics, system metadata, corpus loading, JSON artifact writing, count
-    formatting, and child-process benchmark helpers.
+    formatting, child-process benchmark helpers, and generated-source type analysis helpers.
 
 ## Result Shape
 
