@@ -1,1 +1,2 @@
 *.json                       linguist-language=JSON-with-Comments
+**/package-lock.json         text eol=lf
