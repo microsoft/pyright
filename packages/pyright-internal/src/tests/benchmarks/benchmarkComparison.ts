@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 import { BenchmarkReport, benchmarkReportSchemaVersion } from './benchmarkUtils';
 
 export type BenchmarkMetricDirection = 'improvement' | 'regression' | 'unchanged';
@@ -34,6 +37,11 @@ export interface BenchmarkReportComparison extends BenchmarkResultSetComparison 
     suiteName: string;
     baselineTimestamp: string;
     candidateTimestamp: string;
+}
+
+export interface BenchmarkComparisonArtifactPaths {
+    jsonPath: string;
+    markdownPath: string;
 }
 
 export function calculatePercentDelta(baselineValue: number, candidateValue: number): number | undefined {
@@ -109,6 +117,21 @@ export function renderBenchmarkComparisonMarkdown(comparison: BenchmarkResultSet
     }
 
     return `${lines.join('\n')}\n`;
+}
+
+export function writeBenchmarkComparisonArtifacts(
+    outputDir: string,
+    comparison: BenchmarkResultSetComparison
+): BenchmarkComparisonArtifactPaths {
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    const jsonPath = path.join(outputDir, 'comparison.json');
+    const markdownPath = path.join(outputDir, 'comparison.md');
+
+    fs.writeFileSync(jsonPath, JSON.stringify(comparison, undefined, 2), 'utf-8');
+    fs.writeFileSync(markdownPath, renderBenchmarkComparisonMarkdown(comparison), 'utf-8');
+
+    return { jsonPath, markdownPath };
 }
 
 function validateBenchmarkReportPair<ResultT>(

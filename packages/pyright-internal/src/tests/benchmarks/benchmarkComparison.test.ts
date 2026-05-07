@@ -5,11 +5,16 @@
  * Tests for benchmark result comparison helpers.
  */
 
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
 import {
     calculatePercentDelta,
     compareBenchmarkReports,
     compareBenchmarkResultSets,
     renderBenchmarkComparisonMarkdown,
+    writeBenchmarkComparisonArtifacts,
 } from './benchmarkComparison';
 import { BenchmarkReport, benchmarkReportSchemaVersion } from './benchmarkUtils';
 
@@ -120,6 +125,27 @@ benchmarkSuite('Benchmark Comparison', () => {
         );
 
         expect(renderBenchmarkComparisonMarkdown(comparison)).toContain('| case_a | medianMs | 100.00 | 110.00 |');
+    });
+
+    test('writes comparison artifacts', () => {
+        const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-benchmark-comparison-'));
+
+        try {
+            const comparison = compareBenchmarkResultSets<TestResult>(
+                [{ name: 'case_a', medianMs: 100 }],
+                [{ name: 'case_a', medianMs: 110 }],
+                (result) => result.name,
+                [{ name: 'medianMs', getValue: (result) => result.medianMs }]
+            );
+            const paths = writeBenchmarkComparisonArtifacts(outputDir, comparison);
+
+            expect(paths.jsonPath).toBe(path.join(outputDir, 'comparison.json'));
+            expect(paths.markdownPath).toBe(path.join(outputDir, 'comparison.md'));
+            expect(JSON.parse(fs.readFileSync(paths.jsonPath, 'utf-8'))).toEqual(comparison);
+            expect(fs.readFileSync(paths.markdownPath, 'utf-8')).toContain('| case_a | medianMs |');
+        } finally {
+            fs.rmSync(outputDir, { force: true, recursive: true });
+        }
     });
 
     test('rejects duplicate result keys', () => {
