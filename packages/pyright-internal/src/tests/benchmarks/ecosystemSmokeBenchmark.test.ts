@@ -10,6 +10,7 @@ import {
     ecosystemSmokeProjects,
     getEcosystemSmokeProjectNames,
     getEcosystemSmokeProjectTags,
+    selectEcosystemSmokeProjects,
 } from './ecosystemSmokeProjects';
 
 const RUN_BENCHMARKS_ENV = 'PYRIGHT_RUN_BENCHMARKS';
@@ -57,5 +58,21 @@ benchmarkSuite('Ecosystem Smoke Manifest', () => {
         };
 
         writeBenchmarkReport('ecosystem-smoke', 'ecosystem-smoke-projects', createBenchmarkReport(0, 0, [result]));
+    });
+
+    test('selects projects by tag, pattern, and shard', () => {
+        expect(selectEcosystemSmokeProjects({ tag: 'overloads' }).map((project) => project.name)).toEqual(['pandas']);
+        expect(
+            selectEcosystemSmokeProjects({ projectPattern: /django|pandas/ }).map((project) => project.name)
+        ).toEqual(['django-modern-rest', 'pandas']);
+
+        const shard0 = selectEcosystemSmokeProjects({ numShards: 2, shardIndex: 0 }).map((project) => project.name);
+        const shard1 = selectEcosystemSmokeProjects({ numShards: 2, shardIndex: 1 }).map((project) => project.name);
+        const combinedShards = [...shard0, ...shard1].sort();
+
+        expect(shard0).toEqual(['black', 'attrs', 'python-chess', 'rich', 'django-modern-rest']);
+        expect(shard1).toEqual(['pytest', 'pydantic', 'packaging', 'mypy_primer', 'pandas']);
+        expect(combinedShards).toEqual(getEcosystemSmokeProjectNames().sort());
+        expect(() => selectEcosystemSmokeProjects({ numShards: 2, shardIndex: 2 })).toThrow('shardIndex');
     });
 });

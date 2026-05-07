@@ -24,6 +24,13 @@ export interface EcosystemSmokeProject {
     reason: string;
 }
 
+export interface EcosystemSmokeProjectSelectionOptions {
+    tag?: EcosystemProjectTag;
+    projectPattern?: RegExp;
+    numShards?: number;
+    shardIndex?: number;
+}
+
 export const ecosystemSmokeProjects: readonly EcosystemSmokeProject[] = [
     {
         name: 'black',
@@ -107,4 +114,50 @@ export function getEcosystemSmokeProjectsByTag(tag: EcosystemProjectTag): Ecosys
 
 export function getEcosystemSmokeProjectTags(): EcosystemProjectTag[] {
     return Array.from(new Set(ecosystemSmokeProjects.flatMap((project) => project.tags))).sort();
+}
+
+export function selectEcosystemSmokeProjects(
+    options: EcosystemSmokeProjectSelectionOptions = {}
+): EcosystemSmokeProject[] {
+    const { tag, projectPattern, numShards, shardIndex } = options;
+    let projects = [...ecosystemSmokeProjects];
+
+    if (tag) {
+        projects = projects.filter((project) => project.tags.includes(tag));
+    }
+
+    if (projectPattern) {
+        projects = projects.filter((project) => matchesProjectPattern(projectPattern, project));
+    }
+
+    if (numShards !== undefined || shardIndex !== undefined) {
+        validateShardOptions(numShards, shardIndex);
+        projects = projects.filter((_, index) => index % numShards! === shardIndex);
+    }
+
+    return projects;
+}
+
+function matchesProjectPattern(pattern: RegExp, project: EcosystemSmokeProject): boolean {
+    pattern.lastIndex = 0;
+    const matchesName = pattern.test(project.name);
+    pattern.lastIndex = 0;
+    const matchesMypyPrimerProject = pattern.test(project.mypyPrimerProject);
+    pattern.lastIndex = 0;
+
+    return matchesName || matchesMypyPrimerProject;
+}
+
+function validateShardOptions(numShards: number | undefined, shardIndex: number | undefined): void {
+    if (numShards === undefined || shardIndex === undefined) {
+        throw new Error('Both numShards and shardIndex must be provided for ecosystem smoke project sharding.');
+    }
+
+    if (!Number.isInteger(numShards) || numShards <= 0) {
+        throw new Error('numShards must be a positive integer.');
+    }
+
+    if (!Number.isInteger(shardIndex) || shardIndex < 0 || shardIndex >= numShards) {
+        throw new Error('shardIndex must be an integer greater than or equal to 0 and less than numShards.');
+    }
 }
