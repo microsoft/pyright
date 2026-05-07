@@ -47,7 +47,7 @@ Individual suites add case-specific fields such as token count, AST node count, 
 
 1. Extend microbenchmarks with deterministic generated cases for evaluator-heavy paths.
 2. Add ecosystem smoke benchmarks that compare base and head Pyright builds on a curated mypy_primer-compatible project list.
-3. Emit structured phase metrics from `TimingStats` rather than parsing CLI `--stats` text.
+3. Use `TimingStats.getSnapshot()` for structured phase metrics rather than parsing CLI `--stats` text.
 4. Add heuristic counters and sweep reports for evaluator bailout thresholds.
 5. Add LSP operation benchmarks after CLI and ecosystem reporting are stable.
 

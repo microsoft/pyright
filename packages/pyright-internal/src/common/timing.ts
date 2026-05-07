@@ -10,6 +10,24 @@
 
 import { ConsoleInterface } from './console';
 
+export interface TimingStatSnapshot {
+    totalTimeMs: number;
+    callCount: number;
+}
+
+export interface TimingStatsSnapshot {
+    totalDurationMs: number;
+    findFiles: TimingStatSnapshot;
+    readFile: TimingStatSnapshot;
+    tokenize: TimingStatSnapshot;
+    parse: TimingStatSnapshot;
+    resolveImports: TimingStatSnapshot;
+    cycleDetection: TimingStatSnapshot;
+    bind: TimingStatSnapshot;
+    typeCheck: TimingStatSnapshot;
+    typeEvaluation: TimingStatSnapshot;
+}
+
 export class Duration {
     private _startTime: number;
 
@@ -66,6 +84,13 @@ export class TimingStat {
         const roundedTime = Math.round(totalTimeInSec * 100) / 100;
         return roundedTime.toString() + 'sec';
     }
+
+    getSnapshot(): TimingStatSnapshot {
+        return {
+            totalTimeMs: this.totalTime,
+            callCount: this.callCount,
+        };
+    }
 }
 
 export class TimingStats {
@@ -99,6 +124,21 @@ export class TimingStats {
 
     getTotalDuration() {
         return this.totalDuration.getDurationInSeconds();
+    }
+
+    getSnapshot(): TimingStatsSnapshot {
+        return {
+            totalDurationMs: this.totalDuration.getDurationInMilliseconds(),
+            findFiles: this.findFilesTime.getSnapshot(),
+            readFile: this.readFileTime.getSnapshot(),
+            tokenize: this.tokenizeFileTime.getSnapshot(),
+            parse: this.parseFileTime.getSnapshot(),
+            resolveImports: this.resolveImportsTime.getSnapshot(),
+            cycleDetection: this.cycleDetectionTime.getSnapshot(),
+            bind: this.bindTime.getSnapshot(),
+            typeCheck: this.typeCheckerTime.getSnapshot(),
+            typeEvaluation: this.typeEvaluationTime.getSnapshot(),
+        };
     }
 }
 
