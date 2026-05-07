@@ -20,8 +20,12 @@ src/tests/benchmarks/.generated/benchmark-results/
 - `tokenizerBenchmark.test.ts` measures tokenizer throughput and runs each corpus in a fresh child process to reduce
     cross-test heap effects.
 - `evaluatorBenchmark.test.ts` measures cold analysis time for generated evaluator-heavy Python cases.
+- `ecosystemSmokeBenchmark.test.ts` validates the curated ecosystem smoke project manifest and writes it as a JSON
+    artifact for future mypy_primer-based runners.
 - `syntheticCases.ts` contains deterministic Python generators for recursive aliases, overload/union cross products,
     protocol mismatches, generic alias chains, constrained TypeVar matrices, literal-union math, and large TypedDicts.
+- `ecosystemSmokeProjects.ts` contains the curated smoke project list, mypy_primer project names, tags, costs, and
+    selection helpers.
 - `benchmarkUtils.ts` contains shared statistics, system metadata, corpus loading, JSON artifact writing, count
     formatting, child-process benchmark helpers, and generated-source type analysis helpers.
 
