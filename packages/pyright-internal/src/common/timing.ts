@@ -93,6 +93,13 @@ export class TimingStat {
     }
 }
 
+function subtractTimingStatSnapshot(end: TimingStatSnapshot, start: TimingStatSnapshot): TimingStatSnapshot {
+    return {
+        totalTimeMs: end.totalTimeMs - start.totalTimeMs,
+        callCount: end.callCount - start.callCount,
+    };
+}
+
 export class TimingStats {
     totalDuration = new Duration();
     findFilesTime = new TimingStat();
@@ -138,6 +145,23 @@ export class TimingStats {
             bind: this.bindTime.getSnapshot(),
             typeCheck: this.typeCheckerTime.getSnapshot(),
             typeEvaluation: this.typeEvaluationTime.getSnapshot(),
+        };
+    }
+
+    getSnapshotDelta(start: TimingStatsSnapshot): TimingStatsSnapshot {
+        const end = this.getSnapshot();
+
+        return {
+            totalDurationMs: end.totalDurationMs - start.totalDurationMs,
+            findFiles: subtractTimingStatSnapshot(end.findFiles, start.findFiles),
+            readFile: subtractTimingStatSnapshot(end.readFile, start.readFile),
+            tokenize: subtractTimingStatSnapshot(end.tokenize, start.tokenize),
+            parse: subtractTimingStatSnapshot(end.parse, start.parse),
+            resolveImports: subtractTimingStatSnapshot(end.resolveImports, start.resolveImports),
+            cycleDetection: subtractTimingStatSnapshot(end.cycleDetection, start.cycleDetection),
+            bind: subtractTimingStatSnapshot(end.bind, start.bind),
+            typeCheck: subtractTimingStatSnapshot(end.typeCheck, start.typeCheck),
+            typeEvaluation: subtractTimingStatSnapshot(end.typeEvaluation, start.typeEvaluation),
         };
     }
 }

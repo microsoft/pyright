@@ -6,6 +6,7 @@
  * Measures cold analysis time for generated Python cases that exercise evaluator-heavy paths.
  */
 
+import { TimingStatsSnapshot } from '../../common/timing';
 import {
     TypeAnalysisSummary,
     analyzeBenchmarkSource,
@@ -49,6 +50,7 @@ interface BenchmarkResult {
     warningCount: number;
     informationCount: number;
     statementCount: number;
+    timing: TimingStatsSnapshot;
 }
 
 function benchmarkAnalyze(testCase: BenchmarkCase): BenchmarkResult {
@@ -90,6 +92,7 @@ function benchmarkAnalyze(testCase: BenchmarkCase): BenchmarkResult {
         warningCount: summary.warningCount,
         informationCount: summary.informationCount,
         statementCount: summary.statementCount,
+        timing: summary.timing,
     };
 }
 
@@ -161,7 +164,7 @@ benchmarkSuite('Evaluator Benchmark', () => {
             console.log(
                 `  ${testCase.name} ${testCase.scale}: median=${result.medianMs.toFixed(2)}ms, diagnostics=${
                     result.diagnosticCount
-                }, lines=${result.sourceLines}`
+                }, check=${result.timing.typeCheck.totalTimeMs.toFixed(2)}ms, lines=${result.sourceLines}`
             );
 
             expect(result.statementCount).toBeGreaterThan(0);

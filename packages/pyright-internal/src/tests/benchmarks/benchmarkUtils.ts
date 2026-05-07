@@ -11,6 +11,7 @@ import { DiagnosticCategory } from '../../common/diagnostic';
 import { FullAccessHost } from '../../common/fullAccessHost';
 import { RealTempFile, createFromRealFileSystem } from '../../common/realFileSystem';
 import { createServiceProvider } from '../../common/serviceProviderExtensions';
+import { TimingStatsSnapshot, timingStats } from '../../common/timing';
 import { UriEx } from '../../common/uri/uriUtils';
 
 export interface BenchmarkStats {
@@ -41,6 +42,7 @@ export interface BenchmarkReport<ResultT> {
 }
 
 export interface TypeAnalysisSummary {
+    timing: TimingStatsSnapshot;
     diagnosticCount: number;
     errorCount: number;
     warningCount: number;
@@ -197,6 +199,7 @@ export function analyzeBenchmarkSource(source: string, fileName: string): TypeAn
     const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(serviceProvider));
     const program = new Program(importResolver, configOptions, serviceProvider);
     const fileUri = UriEx.file(filePath);
+    const startTiming = timingStats.getSnapshot();
 
     try {
         program.setTrackedFiles([fileUri]);
@@ -214,6 +217,7 @@ export function analyzeBenchmarkSource(source: string, fileName: string): TypeAn
         const parseResults = sourceFile.getParseResults();
 
         return {
+            timing: timingStats.getSnapshotDelta(startTiming),
             diagnosticCount: diagnostics.length,
             errorCount: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Error).length,
             warningCount: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Warning).length,
