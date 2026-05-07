@@ -18,6 +18,7 @@ import {
     renderBenchmarkComparisonMarkdown,
     summarizeBenchmarkComparison,
     writeBenchmarkComparisonArtifacts,
+    writeBenchmarkReportComparisonArtifacts,
 } from './benchmarkComparison';
 import { BenchmarkReport, benchmarkReportSchemaVersion } from './benchmarkUtils';
 
@@ -218,6 +219,40 @@ benchmarkSuite('Benchmark Comparison', () => {
             expect(paths.markdownPath).toBe(path.join(outputDir, 'comparison.md'));
             expect(JSON.parse(fs.readFileSync(paths.jsonPath, 'utf-8'))).toEqual(comparison);
             expect(fs.readFileSync(paths.markdownPath, 'utf-8')).toContain('| case_a | medianMs |');
+        } finally {
+            fs.rmSync(outputDir, { force: true, recursive: true });
+        }
+    });
+
+    test('writes report comparison artifact set', () => {
+        const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-benchmark-report-comparison-'));
+        const baselineReport = createTestReport('parser', '2026-05-07T00:00:00.000Z', [
+            { name: 'case_a', medianMs: 100 },
+        ]);
+        const candidateReport = createTestReport('parser', '2026-05-07T01:00:00.000Z', [
+            { name: 'case_a', medianMs: 110 },
+        ]);
+
+        try {
+            const comparison = compareBenchmarkReports<TestResult>(
+                baselineReport,
+                candidateReport,
+                (result) => result.name,
+                [{ name: 'medianMs', getValue: (result) => result.medianMs }]
+            );
+            const paths = writeBenchmarkReportComparisonArtifacts(
+                outputDir,
+                baselineReport,
+                candidateReport,
+                comparison
+            );
+
+            expect(paths.oldJsonPath).toBe(path.join(outputDir, 'old.json'));
+            expect(paths.newJsonPath).toBe(path.join(outputDir, 'new.json'));
+            expect(paths.jsonPath).toBe(path.join(outputDir, 'comparison.json'));
+            expect(paths.markdownPath).toBe(path.join(outputDir, 'comparison.md'));
+            expect(JSON.parse(fs.readFileSync(paths.oldJsonPath, 'utf-8'))).toEqual(baselineReport);
+            expect(JSON.parse(fs.readFileSync(paths.newJsonPath, 'utf-8'))).toEqual(candidateReport);
         } finally {
             fs.rmSync(outputDir, { force: true, recursive: true });
         }

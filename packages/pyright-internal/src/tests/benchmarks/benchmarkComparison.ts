@@ -71,6 +71,11 @@ export interface BenchmarkComparisonArtifactPaths {
     markdownPath: string;
 }
 
+export interface BenchmarkReportComparisonArtifactPaths extends BenchmarkComparisonArtifactPaths {
+    oldJsonPath: string;
+    newJsonPath: string;
+}
+
 export function calculatePercentDelta(baselineValue: number, candidateValue: number): number | undefined {
     if (baselineValue === 0) {
         return candidateValue === 0 ? 0 : undefined;
@@ -306,6 +311,26 @@ export function writeBenchmarkComparisonArtifacts(
     fs.writeFileSync(markdownPath, renderBenchmarkComparisonMarkdown(comparison), 'utf-8');
 
     return { jsonPath, markdownPath };
+}
+
+export function writeBenchmarkReportComparisonArtifacts<ResultT>(
+    outputDir: string,
+    baselineReport: BenchmarkReport<ResultT>,
+    candidateReport: BenchmarkReport<ResultT>,
+    comparison: BenchmarkReportComparison
+): BenchmarkReportComparisonArtifactPaths {
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    const oldJsonPath = path.join(outputDir, 'old.json');
+    const newJsonPath = path.join(outputDir, 'new.json');
+    fs.writeFileSync(oldJsonPath, JSON.stringify(baselineReport, undefined, 2), 'utf-8');
+    fs.writeFileSync(newJsonPath, JSON.stringify(candidateReport, undefined, 2), 'utf-8');
+
+    return {
+        oldJsonPath,
+        newJsonPath,
+        ...writeBenchmarkComparisonArtifacts(outputDir, comparison),
+    };
 }
 
 function validateBenchmarkReportPair<ResultT>(

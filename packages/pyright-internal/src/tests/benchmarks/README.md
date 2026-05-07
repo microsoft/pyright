@@ -27,8 +27,8 @@ src/tests/benchmarks/.generated/benchmark-results/
 - `ecosystemSmokeProjects.ts` contains the curated smoke project list, mypy_primer project names, tags, costs, and
     selection helpers.
 - `benchmarkComparison.ts` contains shared old/new result and report comparison helpers plus Markdown rendering for
-    summary, largest-regression, largest-improvement, threshold classification, `comparison.json`, and `comparison.md`
-    generation.
+    summary, largest-regression, largest-improvement, threshold classification, `old.json`, `new.json`,
+    `comparison.json`, and `comparison.md` generation.
 - `benchmarkUtils.ts` contains shared statistics, system metadata, corpus loading, JSON artifact writing, count
     formatting, child-process benchmark helpers, and generated-source type analysis helpers.
 
