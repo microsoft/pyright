@@ -58,6 +58,8 @@ interface BenchmarkReport<ResultT> {
 ```
 
 Individual suites add case-specific fields such as token count, AST node count, median time, p95 time, and throughput.
+Ecosystem benchmark results additionally preserve per-project fields like `filesAnalyzed`, diagnostic counts, and total
+runtime so report artifacts can distinguish execution-scope changes from pure performance regressions.
 
 ## Implementation Roadmap
 

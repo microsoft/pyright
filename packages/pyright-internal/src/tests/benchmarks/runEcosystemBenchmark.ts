@@ -54,6 +54,7 @@ export interface EcosystemBenchmarkResult {
     projectName: string;
     totalTimeMs?: number;
     maxMemoryMB?: number;
+    filesAnalyzed?: number;
     diagnosticCount?: number;
     errorCount?: number;
     warningCount?: number;
@@ -382,6 +383,7 @@ export function executePyrightProjectCommand(
     return {
         projectName,
         totalTimeMs: Math.round(elapsedMs * 100) / 100,
+        filesAnalyzed: jsonResults.summary.filesAnalyzed,
         diagnosticCount,
         errorCount: jsonResults.summary.errorCount,
         warningCount: jsonResults.summary.warningCount,

@@ -303,6 +303,7 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
             );
 
             expect(result.projectName).toBe('black');
+            expect(result.filesAnalyzed).toBe(3);
             expect(result.diagnosticCount).toBe(2);
             expect(result.errorCount).toBe(1);
             expect(result.warningCount).toBe(1);
@@ -360,6 +361,16 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
                         .jsonPath
                 )
             ).toBe(true);
+
+            const baselineReport = JSON.parse(
+                fs.readFileSync((artifactPaths as { baselineReportPath: string }).baselineReportPath, 'utf-8')
+            );
+            const candidateReport = JSON.parse(
+                fs.readFileSync((artifactPaths as { candidateReportPath: string }).candidateReportPath, 'utf-8')
+            );
+
+            expect(baselineReport.results[0].filesAnalyzed).toBe(3);
+            expect(candidateReport.results[0].filesAnalyzed).toBe(3);
         } finally {
             fs.rmSync(tempDir, { force: true, recursive: true });
         }
