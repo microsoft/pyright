@@ -18,7 +18,7 @@ The plan combines three ideas:
 
 ## Status Update
 
-Current implementation status as of 2026-05-07:
+Current implementation status as of 2026-05-08:
 
 - Completed: benchmark test directory layout, shared benchmark utilities, benchmark README, parser/tokenizer JSON artifact output,
   synthetic evaluator microbenchmarks, structured timing snapshots, evaluator phase timing metrics, curated ecosystem smoke
@@ -31,8 +31,10 @@ Current implementation status as of 2026-05-07:
 - In progress: ecosystem benchmark runner implementation. The manifest, selectors, report schema, comparison pipeline,
   and a `runEcosystemBenchmark.ts` entry point are in place for smoke-suite selection and report comparison, but there is
   not yet a `mypy_primer`-backed runner that executes base/head Pyright across the smoke suite.
-- Not started: mypy_primer synchronization, actual ecosystem execution, heuristic sweep harness, LSP benchmarks, and CI
-  workflow wiring.
+- In progress: `mypy_primer` metadata synchronization has started with a generated project file, local overrides, and an
+  initial `syncMypyPrimerProjects.ts` scaffold, but it does not yet sync from a checked-in upstream snapshot or drive
+  real ecosystem execution.
+- Not started: actual ecosystem execution, heuristic sweep harness, LSP benchmarks, and CI workflow wiring.
 
 ---
 
@@ -778,7 +780,7 @@ Update the date intentionally, maybe monthly, not accidentally on every run.
 
 ```text
 packages/pyright-internal/
-  benchmarks/
+  src/tests/benchmarks/
     README.md
 
     micro/
@@ -1128,15 +1130,16 @@ pydantic users
 First useful version:
 
 1. [x] Add benchmark directory layout.
-2. [ ] Add `syncMypyPrimerProjects.ts`.
-3. [ ] Generate `ecosystem-projects.generated.json`.
-4. [ ] Add `ecosystem-projects.overrides.json`.
+2. [~] Add `syncMypyPrimerProjects.ts`.
+3. [x] Generate `ecosystem-projects.generated.json`.
+4. [x] Add `ecosystem-projects.overrides.json`.
 5. [x] Add a smoke suite of 8–10 projects.
 6. [~] Add `runEcosystemBenchmark.ts`.
   - [x] Parse smoke-suite selection inputs (`--suite`, `--tag`, `--project`, `--num-shards`, `--shard-index`, `--output`).
   - [x] Write a selection manifest artifact for the resolved project set.
   - [x] Compare existing ecosystem benchmark reports into `old.json`, `new.json`, `comparison.json`, and `comparison.md`.
   - [ ] Run base vs head Pyright for the selected projects.
+  - [x] Resolve the smoke suite from generated project metadata plus local overrides.
 7. [ ] Run base vs head Pyright.
 8. [ ] Capture:
    - total runtime

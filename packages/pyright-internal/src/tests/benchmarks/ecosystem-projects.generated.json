@@ -1,0 +1,72 @@
+[
+  {
+    "name": "attrs",
+    "mypyPrimerProject": "attrs",
+    "source": {
+      "kind": "manual-snapshot"
+    }
+  },
+  {
+    "name": "black",
+    "mypyPrimerProject": "black",
+    "source": {
+      "kind": "manual-snapshot"
+    }
+  },
+  {
+    "name": "django-modern-rest",
+    "mypyPrimerProject": "django-modern-rest",
+    "source": {
+      "kind": "manual-snapshot"
+    }
+  },
+  {
+    "name": "mypy_primer",
+    "mypyPrimerProject": "mypy_primer",
+    "source": {
+      "kind": "manual-snapshot"
+    }
+  },
+  {
+    "name": "packaging",
+    "mypyPrimerProject": "packaging",
+    "source": {
+      "kind": "manual-snapshot"
+    }
+  },
+  {
+    "name": "pandas",
+    "mypyPrimerProject": "pandas",
+    "source": {
+      "kind": "manual-snapshot"
+    }
+  },
+  {
+    "name": "pydantic",
+    "mypyPrimerProject": "pydantic",
+    "source": {
+      "kind": "manual-snapshot"
+    }
+  },
+  {
+    "name": "pytest",
+    "mypyPrimerProject": "pytest",
+    "source": {
+      "kind": "manual-snapshot"
+    }
+  },
+  {
+    "name": "python-chess",
+    "mypyPrimerProject": "python-chess",
+    "source": {
+      "kind": "manual-snapshot"
+    }
+  },
+  {
+    "name": "rich",
+    "mypyPrimerProject": "rich",
+    "source": {
+      "kind": "manual-snapshot"
+    }
+  }
+]

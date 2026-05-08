@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 export type EcosystemProjectCost = 'small' | 'medium' | 'large';
 
 export type EcosystemProjectTag =
@@ -31,78 +34,26 @@ export interface EcosystemSmokeProjectSelectionOptions {
     shardIndex?: number;
 }
 
-export const ecosystemSmokeProjects: readonly EcosystemSmokeProject[] = [
-    {
-        name: 'black',
-        mypyPrimerProject: 'black',
-        cost: 'medium',
-        tags: ['parser-heavy', 'typed-library'],
-        reason: 'Parser-heavy practical codebase with broad syntax coverage.',
-    },
-    {
-        name: 'pytest',
-        mypyPrimerProject: 'pytest',
-        cost: 'large',
-        tags: ['dynamic', 'plugins', 'typed-library'],
-        reason: 'Large dynamic project with plugin patterns and pragmatic typing.',
-    },
-    {
-        name: 'attrs',
-        mypyPrimerProject: 'attrs',
-        cost: 'small',
-        tags: ['dataclass-like', 'decorators', 'typed-library'],
-        reason: 'Dataclass-like decorator patterns with stable runtime.',
-    },
-    {
-        name: 'pydantic',
-        mypyPrimerProject: 'pydantic',
-        cost: 'medium',
-        tags: ['decorators', 'generics', 'pydantic', 'typed-library'],
-        reason: 'Decorator-heavy validation models with generics and dataclass-like transforms.',
-    },
-    {
-        name: 'python-chess',
-        mypyPrimerProject: 'python-chess',
-        cost: 'small',
-        tags: ['typed-library'],
-        reason: 'Clean typed library with a useful expected-success signal.',
-    },
-    {
-        name: 'packaging',
-        mypyPrimerProject: 'packaging',
-        cost: 'small',
-        tags: ['typed-library'],
-        reason: 'Small stable baseline project for low-noise smoke runs.',
-    },
-    {
-        name: 'rich',
-        mypyPrimerProject: 'rich',
-        cost: 'medium',
-        tags: ['typed-library'],
-        reason: 'Practical typed library with meaningful module structure.',
-    },
-    {
-        name: 'mypy_primer',
-        mypyPrimerProject: 'mypy_primer',
-        cost: 'small',
-        tags: ['typed-library'],
-        reason: 'Typed tool codebase that anchors compatibility with the source project manifest.',
-    },
-    {
-        name: 'django-modern-rest',
-        mypyPrimerProject: 'django-modern-rest',
-        cost: 'medium',
-        tags: ['django', 'pydantic', 'web'],
-        reason: 'Web project with Django-style and pydantic-style patterns.',
-    },
-    {
-        name: 'pandas',
-        mypyPrimerProject: 'pandas',
-        cost: 'large',
-        tags: ['data-science', 'large', 'overloads', 'stubs-heavy'],
-        reason: 'Data-science project that stresses overloads, stubs, and large-project behavior.',
-    },
-];
+interface GeneratedEcosystemProject {
+    name: string;
+    mypyPrimerProject: string;
+}
+
+interface EcosystemProjectOverride {
+    includeInSmoke?: boolean;
+    smokeOrder?: number;
+    cost?: EcosystemProjectCost;
+    tags?: EcosystemProjectTag[];
+    reason?: string;
+}
+
+const generatedProjects = loadGeneratedProjects();
+const ecosystemProjectOverrides = loadProjectOverrides();
+
+export const ecosystemSmokeProjects: readonly EcosystemSmokeProject[] = generatedProjects
+    .map((project) => buildSmokeProject(project, ecosystemProjectOverrides[project.name]))
+    .filter((project): project is EcosystemSmokeProject => project !== undefined)
+    .sort((left, right) => getSmokeOrder(left.name) - getSmokeOrder(right.name));
 
 export function getEcosystemSmokeProjectNames(): string[] {
     return ecosystemSmokeProjects.map((project) => project.name);
@@ -160,4 +111,56 @@ function validateShardOptions(numShards: number | undefined, shardIndex: number 
     if (!Number.isInteger(shardIndex) || shardIndex < 0 || shardIndex >= numShards) {
         throw new Error('shardIndex must be an integer greater than or equal to 0 and less than numShards.');
     }
+}
+
+function buildSmokeProject(
+    project: GeneratedEcosystemProject,
+    override: EcosystemProjectOverride | undefined
+): EcosystemSmokeProject | undefined {
+    if (!override?.includeInSmoke) {
+        return undefined;
+    }
+
+    if (!override.cost || !override.tags || override.tags.length === 0 || !override.reason) {
+        throw new Error(`Smoke project ${project.name} is missing required ecosystem metadata overrides.`);
+    }
+
+    return {
+        name: project.name,
+        mypyPrimerProject: project.mypyPrimerProject,
+        cost: override.cost,
+        tags: [...override.tags],
+        reason: override.reason,
+    };
+}
+
+function getSmokeOrder(projectName: string): number {
+    const smokeOrder = ecosystemProjectOverrides[projectName]?.smokeOrder;
+    if (smokeOrder === undefined) {
+        return Number.MAX_SAFE_INTEGER;
+    }
+
+    return smokeOrder;
+}
+
+function loadGeneratedProjects(): GeneratedEcosystemProject[] {
+    return readJsonFile<GeneratedEcosystemProject[]>('ecosystem-projects.generated.json');
+}
+
+function loadProjectOverrides(): Record<string, EcosystemProjectOverride> {
+    return readJsonFile<Record<string, EcosystemProjectOverride>>('ecosystem-projects.overrides.json');
+}
+
+function readJsonFile<T>(filename: string): T {
+    const filePath = getBenchmarkFilePath(filename);
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as T;
+}
+
+function getBenchmarkFilePath(filename: string): string {
+    const sourceFilePath = path.resolve(__dirname, filename);
+    if (fs.existsSync(sourceFilePath)) {
+        return sourceFilePath;
+    }
+
+    return path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'src', 'tests', 'benchmarks', filename);
 }

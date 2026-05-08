@@ -1,0 +1,72 @@
+{
+  "black": {
+    "includeInSmoke": true,
+    "smokeOrder": 0,
+    "cost": "medium",
+    "tags": ["parser-heavy", "typed-library"],
+    "reason": "Parser-heavy practical codebase with broad syntax coverage."
+  },
+  "pytest": {
+    "includeInSmoke": true,
+    "smokeOrder": 1,
+    "cost": "large",
+    "tags": ["dynamic", "plugins", "typed-library"],
+    "reason": "Large dynamic project with plugin patterns and pragmatic typing."
+  },
+  "attrs": {
+    "includeInSmoke": true,
+    "smokeOrder": 2,
+    "cost": "small",
+    "tags": ["dataclass-like", "decorators", "typed-library"],
+    "reason": "Dataclass-like decorator patterns with stable runtime."
+  },
+  "pydantic": {
+    "includeInSmoke": true,
+    "smokeOrder": 3,
+    "cost": "medium",
+    "tags": ["decorators", "generics", "pydantic", "typed-library"],
+    "reason": "Decorator-heavy validation models with generics and dataclass-like transforms."
+  },
+  "python-chess": {
+    "includeInSmoke": true,
+    "smokeOrder": 4,
+    "cost": "small",
+    "tags": ["typed-library"],
+    "reason": "Clean typed library with a useful expected-success signal."
+  },
+  "packaging": {
+    "includeInSmoke": true,
+    "smokeOrder": 5,
+    "cost": "small",
+    "tags": ["typed-library"],
+    "reason": "Small stable baseline project for low-noise smoke runs."
+  },
+  "rich": {
+    "includeInSmoke": true,
+    "smokeOrder": 6,
+    "cost": "medium",
+    "tags": ["typed-library"],
+    "reason": "Practical typed library with meaningful module structure."
+  },
+  "mypy_primer": {
+    "includeInSmoke": true,
+    "smokeOrder": 7,
+    "cost": "small",
+    "tags": ["typed-library"],
+    "reason": "Typed tool codebase that anchors compatibility with the source project manifest."
+  },
+  "django-modern-rest": {
+    "includeInSmoke": true,
+    "smokeOrder": 8,
+    "cost": "medium",
+    "tags": ["django", "pydantic", "web"],
+    "reason": "Web project with Django-style and pydantic-style patterns."
+  },
+  "pandas": {
+    "includeInSmoke": true,
+    "smokeOrder": 9,
+    "cost": "large",
+    "tags": ["data-science", "large", "overloads", "stubs-heavy"],
+    "reason": "Data-science project that stresses overloads, stubs, and large-project behavior."
+  }
+}
