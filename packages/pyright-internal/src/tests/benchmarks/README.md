@@ -27,7 +27,9 @@ src/tests/benchmarks/.generated/benchmark-results/
     and compares existing or freshly executed ecosystem report files into
     `old.json`/`new.json`/`comparison.json`/`comparison.md` artifacts.
 - `syncMypyPrimerProjects.ts` is the first sync scaffold for normalizing `mypy_primer` project definitions into the
-    generated ecosystem metadata file consumed by the smoke manifest.
+    generated ecosystem metadata file consumed by the smoke manifest. The checked-in smoke snapshot now carries the
+    upstream `pyright_cmd` and `paths` data for the current smoke suite, so generated project configs can target real
+    source roots like `src`, `pandas`, `pydantic`, and `chess` instead of defaulting to the repo root.
 - `syntheticCases.ts` contains deterministic Python generators for recursive aliases, overload/union cross products,
     protocol mismatches, generic alias chains, constrained TypeVar matrices, literal-union math, and large TypedDicts.
 - `ecosystemSmokeProjects.ts` derives the smoke project list from `ecosystem-projects.generated.json` and
@@ -84,3 +86,21 @@ path.
 
 Keep new benchmark cases deterministic and report-only by default. Performance thresholds should be introduced only after
 repeated runs establish noise levels.
+
+## Local Ecosystem Runs
+
+For real local ecosystem execution, use the packaged Pyright CLI rather than the internal `out/.../pyright.js`
+entrypoint. The packaged CLI picks up the bundled resources correctly and matches the way end users invoke Pyright.
+
+```bash
+cd q:/dev/pyright-benchmark-suite
+npm run build:cli:dev
+
+cd packages/pyright-internal
+npm run build
+npm run bench:ecosystem:sync
+npm run bench:ecosystem:run:local -- --suite smoke --project "black|attrs" --project-root q:/path/to/checkouts --output ./src/tests/benchmarks/.generated/benchmark-results/ecosystem-local
+```
+
+`bench:ecosystem:run:local` defaults both baseline and candidate executables to `node ../pyright/index.js`, so the only
+required execution-specific arguments are the usual runner filters plus `--project-root` and `--output`.

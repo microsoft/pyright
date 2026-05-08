@@ -19,6 +19,8 @@ const optionDefinitions: OptionDefinition[] = [
     { name: 'output', type: String },
 ];
 
+const defaultMypyPrimerProjectSourcePath = getBenchmarkFilePath('mypy_primer.smoke_projects.snapshot.py');
+
 export function parseMypyPrimerProjectSource(sourceText: string, inputFile?: string): GeneratedEcosystemProject[] {
     const blocks = extractProjectBlocks(sourceText);
 
@@ -31,18 +33,15 @@ export function writeGeneratedEcosystemProjects(
     outputPath: string,
     projects: readonly GeneratedEcosystemProject[]
 ): void {
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, `${JSON.stringify(projects, undefined, 2)}\n`, 'utf-8');
 }
 
 export function syncMypyPrimerProjects(args: string[]): string {
     const parsedArgs = commandLineArgs(optionDefinitions, { argv: args }) as CommandLineOptions;
-    const inputPath = parsedArgs.input as string | undefined;
+    const inputPath = (parsedArgs.input as string | undefined) ?? defaultMypyPrimerProjectSourcePath;
     const outputPath =
-        (parsedArgs.output as string | undefined) ?? path.resolve(__dirname, 'ecosystem-projects.generated.json');
-
-    if (!inputPath) {
-        throw new Error('The --input option is required.');
-    }
+        (parsedArgs.output as string | undefined) ?? getWritableBenchmarkFilePath('ecosystem-projects.generated.json');
 
     const sourceText = fs.readFileSync(inputPath, 'utf-8');
     const projects = parseMypyPrimerProjectSource(sourceText, inputPath);
@@ -50,6 +49,28 @@ export function syncMypyPrimerProjects(args: string[]): string {
     console.log(`Wrote ${projects.length} ecosystem project definitions to ${outputPath}`);
 
     return outputPath;
+}
+
+export function getDefaultMypyPrimerProjectSourcePath(): string {
+    return defaultMypyPrimerProjectSourcePath;
+}
+
+function getBenchmarkFilePath(filename: string): string {
+    const sourceFilePath = path.resolve(__dirname, filename);
+    if (fs.existsSync(sourceFilePath)) {
+        return sourceFilePath;
+    }
+
+    return path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'src', 'tests', 'benchmarks', filename);
+}
+
+function getWritableBenchmarkFilePath(filename: string): string {
+    const sourceFilePath = path.resolve(__dirname, filename);
+    if (!sourceFilePath.includes(`${path.sep}out${path.sep}`)) {
+        return sourceFilePath;
+    }
+
+    return path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'src', 'tests', 'benchmarks', filename);
 }
 
 function extractProjectBlocks(sourceText: string): string[] {

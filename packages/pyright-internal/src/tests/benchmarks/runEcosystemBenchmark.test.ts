@@ -314,6 +314,40 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
         }
     });
 
+    test('resolves relative node script paths against the runner cwd during execution', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-ecosystem-relative-exec-'));
+        const workingDirectory = path.join(tempDir, 'projects', 'black');
+        const fakePyrightScriptPath = path.join(tempDir, 'fake-pyright-cli.js');
+        const previousCwd = process.cwd();
+
+        try {
+            fs.mkdirSync(workingDirectory, { recursive: true });
+            fs.writeFileSync(
+                fakePyrightScriptPath,
+                createFakePyrightScript({ errorCount: 0, warningCount: 0, informationCount: 0 }),
+                'utf-8'
+            );
+
+            process.chdir(tempDir);
+
+            const result = executePyrightProjectCommand(
+                'black',
+                createGeneratedProject({
+                    paths: ['src'],
+                }),
+                workingDirectory,
+                `"${process.execPath}" ./fake-pyright-cli.js`
+            );
+
+            expect(result.projectName).toBe('black');
+            expect(result.filesAnalyzed).toBe(3);
+            expect(result.diagnosticCount).toBe(0);
+        } finally {
+            process.chdir(previousCwd);
+            fs.rmSync(tempDir, { force: true, recursive: true });
+        }
+    });
+
     test('runs execution mode end to end and writes reports plus comparison artifacts', () => {
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-ecosystem-execution-main-'));
         const projectRoot = tempDir;

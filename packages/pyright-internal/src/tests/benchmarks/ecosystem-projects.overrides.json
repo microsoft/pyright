@@ -18,7 +18,8 @@
     "smokeOrder": 2,
     "cost": "small",
     "tags": ["dataclass-like", "decorators", "typed-library"],
-    "reason": "Dataclass-like decorator patterns with stable runtime."
+    "reason": "Dataclass-like decorator patterns with stable runtime.",
+    "sourcePaths": ["src"]
   },
   "pydantic": {
     "includeInSmoke": true,
@@ -46,14 +47,16 @@
     "smokeOrder": 6,
     "cost": "medium",
     "tags": ["typed-library"],
-    "reason": "Practical typed library with meaningful module structure."
+    "reason": "Practical typed library with meaningful module structure.",
+    "sourcePaths": ["rich"]
   },
   "mypy_primer": {
     "includeInSmoke": true,
     "smokeOrder": 7,
     "cost": "small",
     "tags": ["typed-library"],
-    "reason": "Typed tool codebase that anchors compatibility with the source project manifest."
+    "reason": "Typed tool codebase that anchors compatibility with the source project manifest.",
+    "sourcePaths": ["mypy_primer"]
   },
   "django-modern-rest": {
     "includeInSmoke": true,

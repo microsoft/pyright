@@ -359,7 +359,10 @@ export function executePyrightProjectCommand(
     executableCommand: string
 ): EcosystemBenchmarkResult {
     const pyrightConfigPath = writeProjectPyrightConfig(workingDirectory, project);
-    const invocation = buildPyrightInvocation(executableCommand, project, pyrightConfigPath);
+    const invocation = resolvePyrightInvocationPaths(
+        buildPyrightInvocation(executableCommand, project, pyrightConfigPath),
+        process.cwd()
+    );
     const startTime = process.hrtime.bigint();
     const result = spawnSync(invocation.command, invocation.args, {
         cwd: workingDirectory,
@@ -471,6 +474,24 @@ function getExecutableCommandTokens(executableCommand: string): string[] {
     return fs.existsSync(executableCommand) ? [executableCommand] : tokenizeCommandTemplate(executableCommand);
 }
 
+function resolvePyrightInvocationPaths(
+    invocation: { command: string; args: string[] },
+    baseDirectory: string
+): { command: string; args: string[] } {
+    const command = resolveExistingPath(baseDirectory, invocation.command);
+    const args = [...invocation.args];
+    const commandName = path.basename(command).toLowerCase();
+
+    if ((commandName === 'node' || commandName === 'node.exe') && args.length > 0) {
+        const firstArg = args[0];
+        if (firstArg !== '-e' && firstArg !== '--eval' && firstArg !== '--') {
+            args[0] = resolveExistingPath(baseDirectory, firstArg);
+        }
+    }
+
+    return { command, args };
+}
+
 function requiresNodeArgumentSeparator(command: string, executableArgs: string[], pyrightArgs: string[]): boolean {
     if (pyrightArgs.length === 0) {
         return false;
@@ -498,6 +519,15 @@ function isTestLikePath(entry: string): boolean {
 function getConfigRelativePath(fromDirectory: string, targetPath: string): string {
     const relativePath = path.relative(fromDirectory, targetPath);
     return relativePath.length > 0 ? relativePath.replace(/\\/g, '/') : '.';
+}
+
+function resolveExistingPath(baseDirectory: string, entry: string): string {
+    if (path.isAbsolute(entry)) {
+        return entry;
+    }
+
+    const resolvedPath = path.resolve(baseDirectory, entry);
+    return fs.existsSync(resolvedPath) ? resolvedPath : entry;
 }
 
 function writeNamedBenchmarkReport<ResultT>(

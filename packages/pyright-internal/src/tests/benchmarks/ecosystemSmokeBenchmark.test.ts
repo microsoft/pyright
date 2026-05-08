@@ -10,6 +10,7 @@ import {
     ecosystemSmokeProjects,
     getEcosystemSmokeProjectNames,
     getEcosystemSmokeProjectTags,
+    getGeneratedEcosystemProject,
     selectEcosystemSmokeProjects,
 } from './ecosystemSmokeProjects';
 
@@ -78,5 +79,12 @@ benchmarkSuite('Ecosystem Smoke Manifest', () => {
         expect(shard1).toEqual(['pytest', 'pydantic', 'packaging', 'mypy_primer', 'pandas']);
         expect(combinedShards).toEqual(getEcosystemSmokeProjectNames().sort());
         expect(() => selectEcosystemSmokeProjects({ numShards: 2, shardIndex: 2 })).toThrow('shardIndex');
+    });
+
+    test('applies smoke overrides to generated source roots for pathless upstream projects', () => {
+        expect(getGeneratedEcosystemProject('attrs')?.paths).toEqual(['src']);
+        expect(getGeneratedEcosystemProject('rich')?.paths).toEqual(['rich']);
+        expect(getGeneratedEcosystemProject('mypy_primer')?.paths).toEqual(['mypy_primer']);
+        expect(getGeneratedEcosystemProject('black')?.paths).toEqual(['src']);
     });
 });

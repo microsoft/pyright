@@ -3,70 +3,125 @@
     "name": "attrs",
     "mypyPrimerProject": "attrs",
     "source": {
-      "kind": "manual-snapshot"
-    }
+      "kind": "mypy-primer",
+      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+    },
+    "location": "https://github.com/python-attrs/attrs",
+    "pyrightCommand": "{pyright}"
   },
   {
     "name": "black",
     "mypyPrimerProject": "black",
     "source": {
-      "kind": "manual-snapshot"
-    }
+      "kind": "mypy-primer",
+      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+    },
+    "location": "https://github.com/psf/black",
+    "pyrightCommand": "{pyright} {paths}",
+    "paths": [
+      "src"
+    ]
   },
   {
     "name": "django-modern-rest",
     "mypyPrimerProject": "django-modern-rest",
     "source": {
-      "kind": "manual-snapshot"
-    }
+      "kind": "mypy-primer",
+      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+    },
+    "location": "https://github.com/wemake-services/django-modern-rest",
+    "pyrightCommand": "{pyright}",
+    "paths": [
+      "dmr"
+    ]
   },
   {
     "name": "mypy_primer",
     "mypyPrimerProject": "mypy_primer",
     "source": {
-      "kind": "manual-snapshot"
-    }
+      "kind": "mypy-primer",
+      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+    },
+    "location": "https://github.com/hauntsaninja/mypy_primer",
+    "pyrightCommand": "{pyright} {paths}",
+    "paths": [
+      "."
+    ]
   },
   {
     "name": "packaging",
     "mypyPrimerProject": "packaging",
     "source": {
-      "kind": "manual-snapshot"
-    }
+      "kind": "mypy-primer",
+      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+    },
+    "location": "https://github.com/pypa/packaging",
+    "pyrightCommand": "{pyright} {paths}",
+    "paths": [
+      "src"
+    ]
   },
   {
     "name": "pandas",
     "mypyPrimerProject": "pandas",
     "source": {
-      "kind": "manual-snapshot"
-    }
+      "kind": "mypy-primer",
+      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+    },
+    "location": "https://github.com/pandas-dev/pandas",
+    "pyrightCommand": "{pyright} {paths}",
+    "paths": [
+      "pandas"
+    ]
   },
   {
     "name": "pydantic",
     "mypyPrimerProject": "pydantic",
     "source": {
-      "kind": "manual-snapshot"
-    }
+      "kind": "mypy-primer",
+      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+    },
+    "location": "https://github.com/pydantic/pydantic",
+    "pyrightCommand": "{pyright} {paths}",
+    "paths": [
+      "pydantic"
+    ]
   },
   {
     "name": "pytest",
     "mypyPrimerProject": "pytest",
     "source": {
-      "kind": "manual-snapshot"
-    }
+      "kind": "mypy-primer",
+      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+    },
+    "location": "https://github.com/pytest-dev/pytest",
+    "pyrightCommand": "{pyright} {paths}",
+    "paths": [
+      "src",
+      "testing"
+    ]
   },
   {
     "name": "python-chess",
     "mypyPrimerProject": "python-chess",
     "source": {
-      "kind": "manual-snapshot"
-    }
+      "kind": "mypy-primer",
+      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+    },
+    "location": "https://github.com/niklasf/python-chess",
+    "pyrightCommand": "{pyright} {paths}",
+    "paths": [
+      "chess"
+    ]
   },
   {
     "name": "rich",
     "mypyPrimerProject": "rich",
     "source": {
-      "kind": "manual-snapshot"
-    }
+      "kind": "mypy-primer",
+      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+    },
+    "location": "https://github.com/Textualize/rich",
+    "pyrightCommand": "{pyright}"
   }
 ]

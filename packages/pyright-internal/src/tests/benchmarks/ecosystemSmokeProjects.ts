@@ -42,12 +42,15 @@ interface EcosystemProjectOverride {
     cost?: EcosystemProjectCost;
     tags?: EcosystemProjectTag[];
     reason?: string;
+    sourcePaths?: string[];
 }
 
 const generatedProjects = loadGeneratedProjects();
 const ecosystemProjectOverrides = loadProjectOverrides();
 
-export const ecosystemSmokeProjects: readonly EcosystemSmokeProject[] = generatedProjects
+const mergedGeneratedProjects = generatedProjects.map((project) => applyProjectOverrides(project));
+
+export const ecosystemSmokeProjects: readonly EcosystemSmokeProject[] = mergedGeneratedProjects
     .map((project) => buildSmokeProject(project, ecosystemProjectOverrides[project.name]))
     .filter((project): project is EcosystemSmokeProject => project !== undefined)
     .sort((left, right) => getSmokeOrder(left.name) - getSmokeOrder(right.name));
@@ -57,11 +60,11 @@ export function getEcosystemSmokeProjectNames(): string[] {
 }
 
 export function getGeneratedEcosystemProjects(): readonly GeneratedEcosystemProject[] {
-    return generatedProjects;
+    return mergedGeneratedProjects;
 }
 
 export function getGeneratedEcosystemProject(projectName: string): GeneratedEcosystemProject | undefined {
-    return generatedProjects.find((project) => project.name === projectName);
+    return mergedGeneratedProjects.find((project) => project.name === projectName);
 }
 
 export function getEcosystemSmokeProjectsByTag(tag: EcosystemProjectTag): EcosystemSmokeProject[] {
@@ -146,6 +149,18 @@ function getSmokeOrder(projectName: string): number {
     }
 
     return smokeOrder;
+}
+
+function applyProjectOverrides(project: GeneratedEcosystemProject): GeneratedEcosystemProject {
+    const override = ecosystemProjectOverrides[project.name];
+    if (!override?.sourcePaths || override.sourcePaths.length === 0) {
+        return project;
+    }
+
+    return {
+        ...project,
+        paths: [...override.sourcePaths],
+    };
 }
 
 function loadGeneratedProjects(): GeneratedEcosystemProject[] {
