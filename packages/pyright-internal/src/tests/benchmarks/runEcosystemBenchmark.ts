@@ -6,15 +6,14 @@ import * as path from 'path';
 import {
     BenchmarkMetricDefinition,
     BenchmarkReportComparisonArtifactPaths,
-    compareBenchmarkReports,
     compareAndWriteBenchmarkReportFiles,
 } from './benchmarkComparison';
 import { BenchmarkReport, createBenchmarkReport } from './benchmarkUtils';
 import {
     EcosystemProjectTag,
     EcosystemSmokeProject,
-    getGeneratedEcosystemProject,
     getEcosystemSmokeProjectTags,
+    getGeneratedEcosystemProject,
     selectEcosystemSmokeProjects,
 } from './ecosystemSmokeProjects';
 import { GeneratedEcosystemProject } from './syncMypyPrimerProjects';
@@ -92,6 +91,11 @@ interface PyrightJsonResults {
         filesAnalyzed: number;
         timeInSec: number;
     };
+}
+
+interface ProjectPyrightConfigFile {
+    include: string[];
+    exclude: string[];
 }
 
 export type EcosystemBenchmarkCommand =
@@ -353,7 +357,8 @@ export function executePyrightProjectCommand(
     workingDirectory: string,
     executableCommand: string
 ): EcosystemBenchmarkResult {
-    const invocation = buildPyrightInvocation(executableCommand, project);
+    const pyrightConfigPath = writeProjectPyrightConfig(workingDirectory, project);
+    const invocation = buildPyrightInvocation(executableCommand, project, pyrightConfigPath);
     const startTime = process.hrtime.bigint();
     const result = spawnSync(invocation.command, invocation.args, {
         cwd: workingDirectory,
@@ -386,7 +391,8 @@ export function executePyrightProjectCommand(
 
 export function buildPyrightInvocation(
     executableCommand: string,
-    project: GeneratedEcosystemProject
+    project: GeneratedEcosystemProject,
+    pyrightConfigPath?: string
 ): { command: string; args: string[] } {
     const template = project.pyrightCommand ?? '{pyright} {paths}';
     const projectPaths = project.paths && project.paths.length > 0 ? project.paths : ['.'];
@@ -396,35 +402,63 @@ export function buildPyrightInvocation(
         throw new Error('The Pyright executable command cannot be empty.');
     }
 
-    const args: string[] = [];
+    const executableArgs = executableTokens.slice(1);
+    const pyrightArgs: string[] = [];
     let command = executableTokens[0];
     let insertedExecutable = false;
 
     for (const token of tokens) {
         if (token === '{pyright}') {
             command = executableTokens[0];
-            args.push(...executableTokens.slice(1));
             insertedExecutable = true;
             continue;
         }
 
         if (token === '{paths}') {
-            args.push(...projectPaths);
+            if (pyrightConfigPath) {
+                continue;
+            }
+
+            pyrightArgs.push(...projectPaths);
             continue;
         }
 
-        args.push(token);
+        pyrightArgs.push(token);
     }
 
-    if (!insertedExecutable) {
-        args.unshift(...executableTokens.slice(1));
+    if (!pyrightArgs.includes('--outputjson')) {
+        pyrightArgs.push('--outputjson');
     }
 
-    if (!args.includes('--outputjson')) {
-        args.push('--outputjson');
+    if (pyrightConfigPath && !pyrightArgs.includes('-p') && !pyrightArgs.includes('--project')) {
+        pyrightArgs.push('-p', pyrightConfigPath);
     }
+
+    const args = [...executableArgs];
+    if (requiresNodeArgumentSeparator(command, executableArgs, pyrightArgs)) {
+        args.push('--');
+    }
+
+    args.push(...pyrightArgs);
 
     return { command, args };
+}
+
+export function writeProjectPyrightConfig(workingDirectory: string, project: GeneratedEcosystemProject): string {
+    const configDirectory = path.join(workingDirectory, '.pyright-benchmark');
+    fs.mkdirSync(configDirectory, { recursive: true });
+
+    const configPath = path.join(configDirectory, 'pyrightconfig.json');
+    const sourcePaths = selectProjectSourcePaths(project).map((entry) =>
+        getConfigRelativePath(configDirectory, path.resolve(workingDirectory, entry))
+    );
+    const config: ProjectPyrightConfigFile = {
+        include: sourcePaths,
+        exclude: ['../**/test', '../**/tests', '../**/testing', '../**/test_*', '../**/*_test.py', '../**/*_tests.py'],
+    };
+
+    fs.writeFileSync(configPath, JSON.stringify(config, undefined, 2), 'utf-8');
+    return configPath;
 }
 
 function tokenizeCommandTemplate(template: string): string[] {
@@ -435,7 +469,40 @@ function getExecutableCommandTokens(executableCommand: string): string[] {
     return fs.existsSync(executableCommand) ? [executableCommand] : tokenizeCommandTemplate(executableCommand);
 }
 
-function writeNamedBenchmarkReport<ResultT>(outputDir: string, fileName: string, report: BenchmarkReport<ResultT>): string {
+function requiresNodeArgumentSeparator(command: string, executableArgs: string[], pyrightArgs: string[]): boolean {
+    if (pyrightArgs.length === 0) {
+        return false;
+    }
+
+    const commandName = path.basename(command).toLowerCase();
+    if (commandName !== 'node' && commandName !== 'node.exe') {
+        return false;
+    }
+
+    return executableArgs.includes('-e') || executableArgs.includes('--eval');
+}
+
+function selectProjectSourcePaths(project: GeneratedEcosystemProject): string[] {
+    const configuredPaths = project.paths && project.paths.length > 0 ? project.paths : ['.'];
+    const sourcePaths = configuredPaths.filter((entry) => !isTestLikePath(entry));
+
+    return sourcePaths.length > 0 ? sourcePaths : configuredPaths;
+}
+
+function isTestLikePath(entry: string): boolean {
+    return /(^|[\\/])(test|tests|testing|testdata)([\\/]|$)/i.test(entry);
+}
+
+function getConfigRelativePath(fromDirectory: string, targetPath: string): string {
+    const relativePath = path.relative(fromDirectory, targetPath);
+    return relativePath.length > 0 ? relativePath.replace(/\\/g, '/') : '.';
+}
+
+function writeNamedBenchmarkReport<ResultT>(
+    outputDir: string,
+    fileName: string,
+    report: BenchmarkReport<ResultT>
+): string {
     const outputPath = path.join(outputDir, fileName);
     fs.writeFileSync(outputPath, JSON.stringify(report, undefined, 2), 'utf-8');
     return outputPath;

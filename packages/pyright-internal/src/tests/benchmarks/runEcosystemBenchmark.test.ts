@@ -11,14 +11,15 @@ import * as path from 'path';
 
 import { BenchmarkReport, benchmarkReportSchemaVersion } from './benchmarkUtils';
 import {
-    buildPyrightInvocation,
     buildEcosystemBenchmarkManifest,
+    buildPyrightInvocation,
     compareEcosystemBenchmarkReports,
     EcosystemBenchmarkResult,
     executePyrightProjectCommand,
     parseEcosystemBenchmarkArgs,
     runEcosystemBenchmark,
     writeEcosystemBenchmarkManifest,
+    writeProjectPyrightConfig,
 } from './runEcosystemBenchmark';
 import { GeneratedEcosystemProject } from './syncMypyPrimerProjects';
 
@@ -177,16 +178,86 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
     });
 
     test('builds a pyright invocation from project metadata', () => {
-        const invocation = buildPyrightInvocation('node ./dist/pyright.js', {
-            name: 'black',
-            mypyPrimerProject: 'black',
-            source: { kind: 'mypy-primer' },
-            pyrightCommand: '{pyright} --lib {paths}',
-            paths: ['src', 'tests'],
-        });
+        const invocation = buildPyrightInvocation(
+            'node ./dist/pyright.js',
+            {
+                name: 'black',
+                mypyPrimerProject: 'black',
+                source: { kind: 'mypy-primer' },
+                pyrightCommand: '{pyright} --lib {paths}',
+                paths: ['src', 'tests'],
+            },
+            'c:/temp/pyrightconfig.json'
+        );
 
         expect(invocation.command).toBe('node');
-        expect(invocation.args).toEqual(['./dist/pyright.js', '--lib', 'src', 'tests', '--outputjson']);
+        expect(invocation.args).toEqual([
+            './dist/pyright.js',
+            '--lib',
+            '--outputjson',
+            '-p',
+            'c:/temp/pyrightconfig.json',
+        ]);
+    });
+
+    test('inserts a separator for node eval commands', () => {
+        const invocation = buildPyrightInvocation(
+            'node -e "require(\'./out/pyright.js\').main()"',
+            {
+                name: 'black',
+                mypyPrimerProject: 'black',
+                source: { kind: 'mypy-primer' },
+                pyrightCommand: '{pyright}',
+            },
+            'c:/temp/pyrightconfig.json'
+        );
+
+        expect(invocation.command).toBe('node');
+        expect(invocation.args).toEqual([
+            '-e',
+            "require('./out/pyright.js').main()",
+            '--',
+            '--outputjson',
+            '-p',
+            'c:/temp/pyrightconfig.json',
+        ]);
+    });
+
+    test('writes a project pyrightconfig.json with source-only includes', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-project-config-'));
+
+        try {
+            const configPath = writeProjectPyrightConfig(tempDir, {
+                name: 'pydantic',
+                mypyPrimerProject: 'pydantic',
+                source: { kind: 'mypy-primer' },
+                paths: ['src', 'tests', 'testdata'],
+            });
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+
+            expect(config.include).toEqual(['../src']);
+            expect(config.exclude).toContain('../**/tests');
+        } finally {
+            fs.rmSync(tempDir, { force: true, recursive: true });
+        }
+    });
+
+    test('falls back to configured paths when every path looks test-like', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-project-config-fallback-'));
+
+        try {
+            const configPath = writeProjectPyrightConfig(tempDir, {
+                name: 'example',
+                mypyPrimerProject: 'example',
+                source: { kind: 'mypy-primer' },
+                paths: ['tests'],
+            });
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+
+            expect(config.include).toEqual(['../tests']);
+        } finally {
+            fs.rmSync(tempDir, { force: true, recursive: true });
+        }
     });
 
     test('executes a project command and captures benchmark results', () => {
@@ -199,6 +270,13 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
             fs.writeFileSync(
                 fakePyrightScriptPath,
                 [
+                    'const configArgIndex = process.argv.indexOf("-p");',
+                    'if (configArgIndex < 0) { throw new Error("missing -p"); }',
+                    'const fs = require("fs");',
+                    'const config = JSON.parse(fs.readFileSync(process.argv[configArgIndex + 1], "utf8"));',
+                    'if (JSON.stringify(config.include) !== JSON.stringify(["../src"])) {',
+                    '  throw new Error(`unexpected include paths: ${JSON.stringify(config.include)}`);',
+                    '}',
                     'const result = {',
                     '  generalDiagnostics: [{ severity: "error" }, { severity: "warning" }],',
                     '  summary: {',
@@ -216,7 +294,10 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
 
             const result = executePyrightProjectCommand(
                 'black',
-                createGeneratedProject({ pyrightCommand: `{pyright} "${fakePyrightScriptPath}" {paths}`, paths: ['src'] }),
+                createGeneratedProject({
+                    pyrightCommand: `{pyright} "${fakePyrightScriptPath}" {paths}`,
+                    paths: ['src', 'tests'],
+                }),
                 workingDirectory,
                 process.execPath
             );
@@ -275,7 +356,8 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
             expect(fs.existsSync((artifactPaths as { candidateReportPath: string }).candidateReportPath)).toBe(true);
             expect(
                 fs.existsSync(
-                    (artifactPaths as { comparisonArtifactPaths: { jsonPath: string } }).comparisonArtifactPaths.jsonPath
+                    (artifactPaths as { comparisonArtifactPaths: { jsonPath: string } }).comparisonArtifactPaths
+                        .jsonPath
                 )
             ).toBe(true);
         } finally {
