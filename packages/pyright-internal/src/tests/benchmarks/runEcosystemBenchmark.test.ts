@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
+import { BenchmarkReport, benchmarkReportSchemaVersion } from './benchmarkUtils';
 import {
     buildEcosystemBenchmarkManifest,
     compareEcosystemBenchmarkReports,
@@ -17,7 +18,6 @@ import {
     runEcosystemBenchmark,
     writeEcosystemBenchmarkManifest,
 } from './runEcosystemBenchmark';
-import { BenchmarkReport, benchmarkReportSchemaVersion } from './benchmarkUtils';
 
 const RUN_BENCHMARKS_ENV = 'PYRIGHT_RUN_BENCHMARKS';
 
@@ -75,7 +75,14 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
         const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-ecosystem-runner-'));
 
         try {
-            const config = parseEcosystemBenchmarkArgs(['--suite', 'smoke', '--project', 'django', '--output', outputDir]);
+            const config = parseEcosystemBenchmarkArgs([
+                '--suite',
+                'smoke',
+                '--project',
+                'django',
+                '--output',
+                outputDir,
+            ]);
 
             expect(config.mode).toBe('select');
             if (config.mode !== 'select') {
@@ -149,12 +156,24 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
 
             fs.writeFileSync(
                 baselinePath,
-                JSON.stringify(createEcosystemBenchmarkReport('2026-05-07T00:00:00.000Z', [{ projectName: 'black', totalTimeMs: 100, maxMemoryMB: 250 }]), undefined, 2),
+                JSON.stringify(
+                    createEcosystemBenchmarkReport('2026-05-07T00:00:00.000Z', [
+                        { projectName: 'black', totalTimeMs: 100, maxMemoryMB: 250 },
+                    ]),
+                    undefined,
+                    2
+                ),
                 'utf-8'
             );
             fs.writeFileSync(
                 candidatePath,
-                JSON.stringify(createEcosystemBenchmarkReport('2026-05-07T01:00:00.000Z', [{ projectName: 'black', totalTimeMs: 120, maxMemoryMB: 260 }]), undefined, 2),
+                JSON.stringify(
+                    createEcosystemBenchmarkReport('2026-05-07T01:00:00.000Z', [
+                        { projectName: 'black', totalTimeMs: 120, maxMemoryMB: 260 },
+                    ]),
+                    undefined,
+                    2
+                ),
                 'utf-8'
             );
 
@@ -162,7 +181,9 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
 
             expect(JSON.parse(fs.readFileSync(artifactPaths.jsonPath, 'utf-8')).compared[0].key).toBe('black');
             expect(fs.readFileSync(artifactPaths.markdownPath, 'utf-8')).toContain('Largest Regressions');
-            expect(JSON.parse(fs.readFileSync(artifactPaths.oldJsonPath, 'utf-8')).results[0].projectName).toBe('black');
+            expect(JSON.parse(fs.readFileSync(artifactPaths.oldJsonPath, 'utf-8')).results[0].projectName).toBe(
+                'black'
+            );
         } finally {
             fs.rmSync(reportsDir, { force: true, recursive: true });
             fs.rmSync(outputDir, { force: true, recursive: true });
@@ -179,12 +200,24 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
 
             fs.writeFileSync(
                 baselinePath,
-                JSON.stringify(createEcosystemBenchmarkReport('2026-05-07T00:00:00.000Z', [{ projectName: 'black', totalTimeMs: 100 }]), undefined, 2),
+                JSON.stringify(
+                    createEcosystemBenchmarkReport('2026-05-07T00:00:00.000Z', [
+                        { projectName: 'black', totalTimeMs: 100 },
+                    ]),
+                    undefined,
+                    2
+                ),
                 'utf-8'
             );
             fs.writeFileSync(
                 candidatePath,
-                JSON.stringify(createEcosystemBenchmarkReport('2026-05-07T01:00:00.000Z', [{ projectName: 'black', totalTimeMs: 95 }]), undefined, 2),
+                JSON.stringify(
+                    createEcosystemBenchmarkReport('2026-05-07T01:00:00.000Z', [
+                        { projectName: 'black', totalTimeMs: 95 },
+                    ]),
+                    undefined,
+                    2
+                ),
                 'utf-8'
             );
 
