@@ -23,7 +23,8 @@ src/tests/benchmarks/.generated/benchmark-results/
 - `ecosystemSmokeBenchmark.test.ts` validates the curated ecosystem smoke project manifest and writes it as a JSON
     artifact for future mypy_primer-based runners.
 - `runEcosystemBenchmark.ts` provides the first ecosystem runner entry point: it resolves smoke-suite selection from CLI
-    filters and writes a run manifest artifact.
+    filters, writes a run manifest artifact, and compares existing ecosystem report files into
+    `old.json`/`new.json`/`comparison.json`/`comparison.md` artifacts.
 - `syntheticCases.ts` contains deterministic Python generators for recursive aliases, overload/union cross products,
     protocol mismatches, generic alias chains, constrained TypeVar matrices, literal-union math, and large TypedDicts.
 - `ecosystemSmokeProjects.ts` contains the curated smoke project list, mypy_primer project names, tags, costs, and
