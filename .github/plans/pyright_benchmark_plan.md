@@ -16,6 +16,24 @@ The plan combines three ideas:
 - Use Ty/Ruff-style cold, warm, incremental, and language-server benchmarks.
 - Add Pyright-specific instrumentation so regressions and heuristic wins are explainable.
 
+## Status Update
+
+Current implementation status as of 2026-05-07:
+
+- Completed: benchmark test directory layout, shared benchmark utilities, benchmark README, parser/tokenizer JSON artifact output,
+  synthetic evaluator microbenchmarks, structured timing snapshots, evaluator phase timing metrics, curated ecosystem smoke
+  project manifest and selectors, and old/new/comparison report comparison helpers.
+- Completed: comparison helpers now support summary sections, largest regressions/improvements, threshold classification,
+  `old.json`, `new.json`, `comparison.json`, and `comparison.md` generation, plus loading reports back from disk and a
+  one-call compare-and-write flow.
+- Completed externally: CodSpeed bootstrap work has an initial PR in `bschnurr/pyright`, so the remaining local work is
+  to align this benchmark suite with that setup rather than starting CodSpeed integration from zero.
+- In progress: ecosystem benchmark runner implementation. The manifest, selectors, report schema, comparison pipeline,
+  and a selection-only `runEcosystemBenchmark.ts` entry point are in place, but there is not yet a `mypy_primer`-backed
+  runner that executes base/head Pyright across the smoke suite.
+- Not started: mypy_primer synchronization, actual ecosystem execution, heuristic sweep harness, LSP benchmarks, and CI
+  workflow wiring.
+
 ---
 
 ## Core Objectives
@@ -951,6 +969,12 @@ npm run bench:heuristics -- --heuristic recursionDepthLimit --values 16,32,64,12
 
 Use CodSpeed for Tier 0 and selected stable microbenchmarks.
 
+Status update:
+
+- Initial CodSpeed setup already exists in an external PR in `bschnurr/pyright`.
+- The next step in this repo is to wire the stable microbenchmark subset into that setup once the local benchmark entry
+  points match the expected runner shape.
+
 Good candidates:
 
 ```text
@@ -1103,30 +1127,34 @@ pydantic users
 
 First useful version:
 
-1. Add benchmark directory layout.
-2. Add `syncMypyPrimerProjects.ts`.
-3. Generate `ecosystem-projects.generated.json`.
-4. Add `ecosystem-projects.overrides.json`.
-5. Add a smoke suite of 8–10 projects.
-6. Add `runEcosystemBenchmark.ts`.
-7. Run base vs head Pyright.
-8. Capture:
+1. [x] Add benchmark directory layout.
+2. [ ] Add `syncMypyPrimerProjects.ts`.
+3. [ ] Generate `ecosystem-projects.generated.json`.
+4. [ ] Add `ecosystem-projects.overrides.json`.
+5. [x] Add a smoke suite of 8–10 projects.
+6. [~] Add `runEcosystemBenchmark.ts`.
+  - [x] Parse smoke-suite selection inputs (`--suite`, `--tag`, `--project`, `--num-shards`, `--shard-index`, `--output`).
+  - [x] Write a selection manifest artifact for the resolved project set.
+  - [ ] Run base vs head Pyright for the selected projects.
+7. [ ] Run base vs head Pyright.
+8. [ ] Capture:
    - total runtime
    - diagnostic count
    - diagnostic diff
    - process memory
-9. Generate:
-   - `old.json`
-   - `new.json`
-   - `comparison.json`
-   - `comparison.md`
-10. Add manual GitHub workflow.
-11. Add one heuristic sweep:
+9. [~] Generate:
+  - [x] `old.json`
+  - [x] `new.json`
+  - [x] `comparison.json`
+  - [x] `comparison.md`
+  - [~] Wire these artifacts into an actual ecosystem benchmark runner output.
+10. [ ] Add manual GitHub workflow.
+11. [ ] Add one heuristic sweep:
    - `recursionDepthLimit` or `unionExpansionLimit`
-12. Add two synthetic heuristic cases:
-   - recursive alias depth
-   - overload union cross product
-13. Add one heuristic report:
+12. [x] Add two synthetic heuristic cases:
+  - [x] recursive alias depth
+  - [x] overload union cross product
+13. [ ] Add one heuristic report:
    - `heuristic-recommendation.md`
 
 MVP smoke project list:

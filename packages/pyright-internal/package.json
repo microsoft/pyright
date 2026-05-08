@@ -16,6 +16,7 @@
         "test": "npm run webpack:testserver && node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks",
         "test:norebuild": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks",
         "test:benchmark": "cross-env PYRIGHT_RUN_BENCHMARKS=1 node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testTimeout=300000 --runInBand --detectOpenHandles src/tests/benchmarks",
+        "bench:ecosystem:smoke": "node ./out/packages/pyright-internal/src/tests/benchmarks/runEcosystemBenchmark.js --suite smoke --output ./src/tests/benchmarks/.generated/benchmark-results/ecosystem-run",
         "test:coverage": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks --reporters=jest-junit --reporters=default --coverage --coverageReporters=cobertura --coverageReporters=html --coverageReporters=json",
         "test:imports": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest importResolver.test --forceExit --runInBand"
     },
