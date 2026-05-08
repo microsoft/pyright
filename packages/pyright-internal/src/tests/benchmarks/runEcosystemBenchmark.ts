@@ -1,3 +1,4 @@
+import { spawnSync } from 'child_process';
 import commandLineArgs, { CommandLineOptions, OptionDefinition } from 'command-line-args';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -5,14 +6,18 @@ import * as path from 'path';
 import {
     BenchmarkMetricDefinition,
     BenchmarkReportComparisonArtifactPaths,
+    compareBenchmarkReports,
     compareAndWriteBenchmarkReportFiles,
 } from './benchmarkComparison';
+import { BenchmarkReport, createBenchmarkReport } from './benchmarkUtils';
 import {
     EcosystemProjectTag,
     EcosystemSmokeProject,
+    getGeneratedEcosystemProject,
     getEcosystemSmokeProjectTags,
     selectEcosystemSmokeProjects,
 } from './ecosystemSmokeProjects';
+import { GeneratedEcosystemProject } from './syncMypyPrimerProjects';
 
 export interface EcosystemBenchmarkRunConfig {
     mode: 'select';
@@ -32,6 +37,20 @@ export interface EcosystemBenchmarkComparisonConfig {
     outputDir: string;
 }
 
+export interface EcosystemBenchmarkExecutionConfig {
+    mode: 'execute';
+    suiteName: 'smoke';
+    outputDir: string;
+    projectRoot: string;
+    projectDate?: string;
+    tag?: EcosystemProjectTag;
+    projectPattern?: RegExp;
+    numShards?: number;
+    shardIndex?: number;
+    baselineExecutable?: string;
+    candidateExecutable?: string;
+}
+
 export interface EcosystemBenchmarkResult {
     projectName: string;
     totalTimeMs?: number;
@@ -44,7 +63,7 @@ export interface EcosystemBenchmarkResult {
 
 export interface EcosystemBenchmarkManifest {
     suiteName: 'smoke';
-    executionMode: 'selection-only';
+    executionMode: 'selection-only' | 'command-execution';
     outputDir: string;
     projectDate?: string;
     filters: {
@@ -58,7 +77,27 @@ export interface EcosystemBenchmarkManifest {
     notes: string[];
 }
 
-export type EcosystemBenchmarkCommand = EcosystemBenchmarkRunConfig | EcosystemBenchmarkComparisonConfig;
+export interface EcosystemBenchmarkExecutionArtifactPaths {
+    baselineReportPath?: string;
+    candidateReportPath?: string;
+    comparisonArtifactPaths?: BenchmarkReportComparisonArtifactPaths;
+}
+
+interface PyrightJsonResults {
+    generalDiagnostics: { severity: string }[];
+    summary: {
+        errorCount: number;
+        warningCount: number;
+        informationCount: number;
+        filesAnalyzed: number;
+        timeInSec: number;
+    };
+}
+
+export type EcosystemBenchmarkCommand =
+    | EcosystemBenchmarkRunConfig
+    | EcosystemBenchmarkComparisonConfig
+    | EcosystemBenchmarkExecutionConfig;
 
 const optionDefinitions: OptionDefinition[] = [
     { name: 'suite', type: String },
@@ -67,6 +106,9 @@ const optionDefinitions: OptionDefinition[] = [
     { name: 'num-shards', type: Number },
     { name: 'shard-index', type: Number },
     { name: 'project-date', type: String },
+    { name: 'project-root', type: String },
+    { name: 'baseline-executable', type: String },
+    { name: 'candidate-executable', type: String },
     { name: 'baseline-report', type: String },
     { name: 'candidate-report', type: String },
     { name: 'output', type: String },
@@ -86,6 +128,8 @@ export function parseEcosystemBenchmarkArgs(args: string[]): EcosystemBenchmarkC
 
     const baselineReportPath = parsedArgs['baseline-report'] as string | undefined;
     const candidateReportPath = parsedArgs['candidate-report'] as string | undefined;
+    const baselineExecutable = parsedArgs['baseline-executable'] as string | undefined;
+    const candidateExecutable = parsedArgs['candidate-executable'] as string | undefined;
 
     if (baselineReportPath || candidateReportPath) {
         if (!baselineReportPath || !candidateReportPath) {
@@ -112,6 +156,27 @@ export function parseEcosystemBenchmarkArgs(args: string[]): EcosystemBenchmarkC
     }
 
     const projectPatternText = parsedArgs.project as string | undefined;
+
+    if (baselineExecutable || candidateExecutable) {
+        const projectRoot = parsedArgs['project-root'] as string | undefined;
+        if (!projectRoot) {
+            throw new Error('The --project-root option is required when executing ecosystem benchmarks.');
+        }
+
+        return {
+            mode: 'execute',
+            suiteName,
+            outputDir,
+            projectRoot,
+            projectDate: parsedArgs['project-date'] as string | undefined,
+            tag: tag as EcosystemProjectTag | undefined,
+            projectPattern: projectPatternText ? new RegExp(projectPatternText, 'i') : undefined,
+            numShards: parsedArgs['num-shards'] as number | undefined,
+            shardIndex: parsedArgs['shard-index'] as number | undefined,
+            baselineExecutable,
+            candidateExecutable,
+        };
+    }
 
     return {
         mode: 'select',
@@ -153,6 +218,55 @@ export function buildEcosystemBenchmarkManifest(config: EcosystemBenchmarkRunCon
     };
 }
 
+export function executeEcosystemBenchmark(
+    config: EcosystemBenchmarkExecutionConfig
+): EcosystemBenchmarkExecutionArtifactPaths {
+    const selectedProjects = selectEcosystemSmokeProjects({
+        tag: config.tag,
+        projectPattern: config.projectPattern,
+        numShards: config.numShards,
+        shardIndex: config.shardIndex,
+    });
+
+    const baselineResults = config.baselineExecutable
+        ? executeEcosystemBenchmarkSuite(selectedProjects, config.projectRoot, config.baselineExecutable)
+        : undefined;
+    const candidateResults = config.candidateExecutable
+        ? executeEcosystemBenchmarkSuite(selectedProjects, config.projectRoot, config.candidateExecutable)
+        : undefined;
+
+    const artifactPaths: EcosystemBenchmarkExecutionArtifactPaths = {};
+    fs.mkdirSync(config.outputDir, { recursive: true });
+
+    if (baselineResults) {
+        artifactPaths.baselineReportPath = writeNamedBenchmarkReport(
+            config.outputDir,
+            'baseline-report.json',
+            createBenchmarkReport('ecosystem-smoke', 0, 1, baselineResults)
+        );
+    }
+
+    if (candidateResults) {
+        artifactPaths.candidateReportPath = writeNamedBenchmarkReport(
+            config.outputDir,
+            'candidate-report.json',
+            createBenchmarkReport('ecosystem-smoke', 0, 1, candidateResults)
+        );
+    }
+
+    if (artifactPaths.baselineReportPath && artifactPaths.candidateReportPath) {
+        artifactPaths.comparisonArtifactPaths = compareAndWriteBenchmarkReportFiles<EcosystemBenchmarkResult>(
+            artifactPaths.baselineReportPath,
+            artifactPaths.candidateReportPath,
+            config.outputDir,
+            (result) => result.projectName,
+            ecosystemBenchmarkComparisonMetrics
+        );
+    }
+
+    return artifactPaths;
+}
+
 export function compareEcosystemBenchmarkReports(
     baselineReportPath: string,
     candidateReportPath: string,
@@ -176,7 +290,9 @@ export function writeEcosystemBenchmarkManifest(outputDir: string, manifest: Eco
     return manifestPath;
 }
 
-export function runEcosystemBenchmark(args: string[]): string | BenchmarkReportComparisonArtifactPaths {
+export function runEcosystemBenchmark(
+    args: string[]
+): string | BenchmarkReportComparisonArtifactPaths | EcosystemBenchmarkExecutionArtifactPaths {
     const command = parseEcosystemBenchmarkArgs(args);
 
     if (command.mode === 'compare') {
@@ -190,6 +306,12 @@ export function runEcosystemBenchmark(args: string[]): string | BenchmarkReportC
         return artifactPaths;
     }
 
+    if (command.mode === 'execute') {
+        const artifactPaths = executeEcosystemBenchmark(command);
+        console.log(`Execution artifacts written to: ${command.outputDir}`);
+        return artifactPaths;
+    }
+
     const manifest = buildEcosystemBenchmarkManifest(command);
     const manifestPath = writeEcosystemBenchmarkManifest(command.outputDir, manifest);
 
@@ -197,6 +319,126 @@ export function runEcosystemBenchmark(args: string[]): string | BenchmarkReportC
     console.log(`Manifest written to: ${manifestPath}`);
 
     return manifestPath;
+}
+
+function executeEcosystemBenchmarkSuite(
+    projects: readonly EcosystemSmokeProject[],
+    projectRoot: string,
+    executableCommand: string
+): EcosystemBenchmarkResult[] {
+    return projects.map((project) => executeEcosystemProject(project, projectRoot, executableCommand));
+}
+
+function executeEcosystemProject(
+    project: EcosystemSmokeProject,
+    projectRoot: string,
+    executableCommand: string
+): EcosystemBenchmarkResult {
+    const generatedProject = getGeneratedEcosystemProject(project.name);
+    if (!generatedProject) {
+        throw new Error(`No generated ecosystem metadata found for project ${project.name}.`);
+    }
+
+    const workingDirectory = path.join(projectRoot, generatedProject.name);
+    if (!fs.existsSync(workingDirectory)) {
+        throw new Error(`Expected ecosystem project checkout at ${workingDirectory}.`);
+    }
+
+    return executePyrightProjectCommand(project.name, generatedProject, workingDirectory, executableCommand);
+}
+
+export function executePyrightProjectCommand(
+    projectName: string,
+    project: GeneratedEcosystemProject,
+    workingDirectory: string,
+    executableCommand: string
+): EcosystemBenchmarkResult {
+    const invocation = buildPyrightInvocation(executableCommand, project);
+    const startTime = process.hrtime.bigint();
+    const result = spawnSync(invocation.command, invocation.args, {
+        cwd: workingDirectory,
+        encoding: 'utf-8',
+    });
+    const elapsedMs = Number(process.hrtime.bigint() - startTime) / 1_000_000;
+
+    if (result.error) {
+        throw result.error;
+    }
+
+    const output = result.stdout?.trim();
+    if (!output) {
+        throw new Error(`Pyright execution for ${projectName} did not produce JSON output.`);
+    }
+
+    const jsonResults = JSON.parse(output) as PyrightJsonResults;
+    const diagnosticCount =
+        jsonResults.summary.errorCount + jsonResults.summary.warningCount + jsonResults.summary.informationCount;
+
+    return {
+        projectName,
+        totalTimeMs: Math.round(elapsedMs * 100) / 100,
+        diagnosticCount,
+        errorCount: jsonResults.summary.errorCount,
+        warningCount: jsonResults.summary.warningCount,
+        informationCount: jsonResults.summary.informationCount,
+    };
+}
+
+export function buildPyrightInvocation(
+    executableCommand: string,
+    project: GeneratedEcosystemProject
+): { command: string; args: string[] } {
+    const template = project.pyrightCommand ?? '{pyright} {paths}';
+    const projectPaths = project.paths && project.paths.length > 0 ? project.paths : ['.'];
+    const tokens = tokenizeCommandTemplate(template);
+    const executableTokens = getExecutableCommandTokens(executableCommand);
+    if (executableTokens.length === 0) {
+        throw new Error('The Pyright executable command cannot be empty.');
+    }
+
+    const args: string[] = [];
+    let command = executableTokens[0];
+    let insertedExecutable = false;
+
+    for (const token of tokens) {
+        if (token === '{pyright}') {
+            command = executableTokens[0];
+            args.push(...executableTokens.slice(1));
+            insertedExecutable = true;
+            continue;
+        }
+
+        if (token === '{paths}') {
+            args.push(...projectPaths);
+            continue;
+        }
+
+        args.push(token);
+    }
+
+    if (!insertedExecutable) {
+        args.unshift(...executableTokens.slice(1));
+    }
+
+    if (!args.includes('--outputjson')) {
+        args.push('--outputjson');
+    }
+
+    return { command, args };
+}
+
+function tokenizeCommandTemplate(template: string): string[] {
+    return Array.from(template.matchAll(/"([^"]*)"|'([^']*)'|\S+/g)).map((match) => match[1] ?? match[2] ?? match[0]);
+}
+
+function getExecutableCommandTokens(executableCommand: string): string[] {
+    return fs.existsSync(executableCommand) ? [executableCommand] : tokenizeCommandTemplate(executableCommand);
+}
+
+function writeNamedBenchmarkReport<ResultT>(outputDir: string, fileName: string, report: BenchmarkReport<ResultT>): string {
+    const outputPath = path.join(outputDir, fileName);
+    fs.writeFileSync(outputPath, JSON.stringify(report, undefined, 2), 'utf-8');
+    return outputPath;
 }
 
 if (require.main === module) {

@@ -11,13 +11,16 @@ import * as path from 'path';
 
 import { BenchmarkReport, benchmarkReportSchemaVersion } from './benchmarkUtils';
 import {
+    buildPyrightInvocation,
     buildEcosystemBenchmarkManifest,
     compareEcosystemBenchmarkReports,
     EcosystemBenchmarkResult,
+    executePyrightProjectCommand,
     parseEcosystemBenchmarkArgs,
     runEcosystemBenchmark,
     writeEcosystemBenchmarkManifest,
 } from './runEcosystemBenchmark';
+import { GeneratedEcosystemProject } from './syncMypyPrimerProjects';
 
 const RUN_BENCHMARKS_ENV = 'PYRIGHT_RUN_BENCHMARKS';
 
@@ -146,6 +149,140 @@ benchmarkSuite('Ecosystem Benchmark Runner', () => {
         });
     });
 
+    test('parses execution mode arguments', () => {
+        const config = parseEcosystemBenchmarkArgs([
+            '--suite',
+            'smoke',
+            '--project-root',
+            'q:/projects',
+            '--baseline-executable',
+            'node ./out/packages/pyright-internal/src/pyright.js',
+            '--output',
+            'artifacts',
+        ]);
+
+        expect(config).toEqual({
+            mode: 'execute',
+            suiteName: 'smoke',
+            outputDir: 'artifacts',
+            projectRoot: 'q:/projects',
+            projectDate: undefined,
+            tag: undefined,
+            projectPattern: undefined,
+            numShards: undefined,
+            shardIndex: undefined,
+            baselineExecutable: 'node ./out/packages/pyright-internal/src/pyright.js',
+            candidateExecutable: undefined,
+        });
+    });
+
+    test('builds a pyright invocation from project metadata', () => {
+        const invocation = buildPyrightInvocation('node ./dist/pyright.js', {
+            name: 'black',
+            mypyPrimerProject: 'black',
+            source: { kind: 'mypy-primer' },
+            pyrightCommand: '{pyright} --lib {paths}',
+            paths: ['src', 'tests'],
+        });
+
+        expect(invocation.command).toBe('node');
+        expect(invocation.args).toEqual(['./dist/pyright.js', '--lib', 'src', 'tests', '--outputjson']);
+    });
+
+    test('executes a project command and captures benchmark results', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-ecosystem-execute-'));
+        const workingDirectory = path.join(tempDir, 'black');
+        const fakePyrightScriptPath = path.join(tempDir, 'fake-pyright.js');
+
+        try {
+            fs.mkdirSync(workingDirectory, { recursive: true });
+            fs.writeFileSync(
+                fakePyrightScriptPath,
+                [
+                    'const result = {',
+                    '  generalDiagnostics: [{ severity: "error" }, { severity: "warning" }],',
+                    '  summary: {',
+                    '    filesAnalyzed: 3,',
+                    '    errorCount: 1,',
+                    '    warningCount: 1,',
+                    '    informationCount: 0,',
+                    '    timeInSec: 0.25',
+                    '  }',
+                    '};',
+                    'console.log(JSON.stringify(result));',
+                ].join('\n'),
+                'utf-8'
+            );
+
+            const result = executePyrightProjectCommand(
+                'black',
+                createGeneratedProject({ pyrightCommand: `{pyright} "${fakePyrightScriptPath}" {paths}`, paths: ['src'] }),
+                workingDirectory,
+                process.execPath
+            );
+
+            expect(result.projectName).toBe('black');
+            expect(result.diagnosticCount).toBe(2);
+            expect(result.errorCount).toBe(1);
+            expect(result.warningCount).toBe(1);
+            expect(result.informationCount).toBe(0);
+            expect(result.totalTimeMs).toBeGreaterThanOrEqual(0);
+        } finally {
+            fs.rmSync(tempDir, { force: true, recursive: true });
+        }
+    });
+
+    test('runs execution mode end to end and writes reports plus comparison artifacts', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-ecosystem-execution-main-'));
+        const projectRoot = tempDir;
+        const projectDir = path.join(projectRoot, 'black');
+        const outputDir = path.join(tempDir, 'artifacts');
+        const baselineScriptPath = path.join(tempDir, 'baseline-pyright.js');
+        const candidateScriptPath = path.join(tempDir, 'candidate-pyright.js');
+
+        try {
+            fs.mkdirSync(path.join(projectDir, 'src'), { recursive: true });
+            fs.writeFileSync(path.join(projectDir, 'src', 'sample.py'), 'x = 1\n', 'utf-8');
+
+            fs.writeFileSync(
+                baselineScriptPath,
+                createFakePyrightScript({ errorCount: 1, warningCount: 0, informationCount: 0 }),
+                'utf-8'
+            );
+            fs.writeFileSync(
+                candidateScriptPath,
+                createFakePyrightScript({ errorCount: 0, warningCount: 1, informationCount: 0 }),
+                'utf-8'
+            );
+
+            const artifactPaths = runEcosystemBenchmark([
+                '--suite',
+                'smoke',
+                '--tag',
+                'parser-heavy',
+                '--project-root',
+                projectRoot,
+                '--baseline-executable',
+                `"${process.execPath}" "${baselineScriptPath}"`,
+                '--candidate-executable',
+                `"${process.execPath}" "${candidateScriptPath}"`,
+                '--output',
+                outputDir,
+            ]);
+
+            expect(typeof artifactPaths).not.toBe('string');
+            expect(fs.existsSync((artifactPaths as { baselineReportPath: string }).baselineReportPath)).toBe(true);
+            expect(fs.existsSync((artifactPaths as { candidateReportPath: string }).candidateReportPath)).toBe(true);
+            expect(
+                fs.existsSync(
+                    (artifactPaths as { comparisonArtifactPaths: { jsonPath: string } }).comparisonArtifactPaths.jsonPath
+                )
+            ).toBe(true);
+        } finally {
+            fs.rmSync(tempDir, { force: true, recursive: true });
+        }
+    });
+
     test('writes comparison artifacts from ecosystem benchmark reports', () => {
         const reportsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-ecosystem-report-'));
         const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-ecosystem-compare-'));
@@ -261,4 +398,39 @@ function createEcosystemBenchmarkReport(
         },
         results,
     };
+}
+
+function createGeneratedProject(overrides: Partial<GeneratedEcosystemProject> = {}): GeneratedEcosystemProject {
+    return {
+        name: 'black',
+        mypyPrimerProject: 'black',
+        source: { kind: 'mypy-primer' },
+        ...overrides,
+    };
+}
+
+function createFakePyrightScript(counts: {
+    errorCount: number;
+    warningCount: number;
+    informationCount: number;
+}): string {
+    const diagnosticEntries = [
+        ...Array.from({ length: counts.errorCount }, () => '{ severity: "error" }'),
+        ...Array.from({ length: counts.warningCount }, () => '{ severity: "warning" }'),
+        ...Array.from({ length: counts.informationCount }, () => '{ severity: "information" }'),
+    ].join(', ');
+
+    return [
+        'const result = {',
+        `  generalDiagnostics: [${diagnosticEntries}],`,
+        '  summary: {',
+        '    filesAnalyzed: 3,',
+        `    errorCount: ${counts.errorCount},`,
+        `    warningCount: ${counts.warningCount},`,
+        `    informationCount: ${counts.informationCount},`,
+        '    timeInSec: 0.25',
+        '  }',
+        '};',
+        'console.log(JSON.stringify(result));',
+    ].join('\n');
 }

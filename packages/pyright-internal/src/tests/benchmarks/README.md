@@ -23,7 +23,8 @@ src/tests/benchmarks/.generated/benchmark-results/
 - `ecosystemSmokeBenchmark.test.ts` validates the curated ecosystem smoke project manifest and writes it as a JSON
     artifact derived from generated project metadata and local overrides for future mypy_primer-based runners.
 - `runEcosystemBenchmark.ts` provides the first ecosystem runner entry point: it resolves smoke-suite selection from CLI
-    filters, writes a run manifest artifact, and compares existing ecosystem report files into
+    filters, writes a run manifest artifact, executes selected local project checkouts with provided Pyright commands,
+    and compares existing or freshly executed ecosystem report files into
     `old.json`/`new.json`/`comparison.json`/`comparison.md` artifacts.
 - `syncMypyPrimerProjects.ts` is the first sync scaffold for normalizing `mypy_primer` project definitions into the
     generated ecosystem metadata file consumed by the smoke manifest.
@@ -63,7 +64,8 @@ Individual suites add case-specific fields such as token count, AST node count, 
 1. Extend microbenchmarks with deterministic generated cases for evaluator-heavy paths.
 2. Extend the ecosystem runner from selection-only manifest emission to base/head Pyright execution on a curated
     mypy_primer-compatible project list.
-    The metadata source layer now exists; the next step is execution, not more hand-curated manifest work.
+    The metadata source layer and first local execution path now exist; the next step is automated base/head ecosystem
+    execution driven from synchronized `mypy_primer` project checkouts.
 3. Use `TimingStats.getSnapshot()` for structured phase metrics rather than parsing CLI `--stats` text.
 4. Add heuristic counters and sweep reports for evaluator bailout thresholds.
 5. Add LSP operation benchmarks after CLI and ecosystem reporting are stable.

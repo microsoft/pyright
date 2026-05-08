@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { GeneratedEcosystemProject } from './syncMypyPrimerProjects';
+
 export type EcosystemProjectCost = 'small' | 'medium' | 'large';
 
 export type EcosystemProjectTag =
@@ -34,11 +36,6 @@ export interface EcosystemSmokeProjectSelectionOptions {
     shardIndex?: number;
 }
 
-interface GeneratedEcosystemProject {
-    name: string;
-    mypyPrimerProject: string;
-}
-
 interface EcosystemProjectOverride {
     includeInSmoke?: boolean;
     smokeOrder?: number;
@@ -57,6 +54,14 @@ export const ecosystemSmokeProjects: readonly EcosystemSmokeProject[] = generate
 
 export function getEcosystemSmokeProjectNames(): string[] {
     return ecosystemSmokeProjects.map((project) => project.name);
+}
+
+export function getGeneratedEcosystemProjects(): readonly GeneratedEcosystemProject[] {
+    return generatedProjects;
+}
+
+export function getGeneratedEcosystemProject(projectName: string): GeneratedEcosystemProject | undefined {
+    return generatedProjects.find((project) => project.name === projectName);
 }
 
 export function getEcosystemSmokeProjectsByTag(tag: EcosystemProjectTag): EcosystemSmokeProject[] {

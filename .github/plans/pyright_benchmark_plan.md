@@ -29,8 +29,9 @@ Current implementation status as of 2026-05-08:
 - Completed externally: CodSpeed bootstrap work has an initial PR in `bschnurr/pyright`, so the remaining local work is
   to align this benchmark suite with that setup rather than starting CodSpeed integration from zero.
 - In progress: ecosystem benchmark runner implementation. The manifest, selectors, report schema, comparison pipeline,
-  and a `runEcosystemBenchmark.ts` entry point are in place for smoke-suite selection and report comparison, but there is
-  not yet a `mypy_primer`-backed runner that executes base/head Pyright across the smoke suite.
+  and a `runEcosystemBenchmark.ts` entry point are in place for smoke-suite selection, local project execution, and
+  report comparison, but there is not yet a `mypy_primer`-backed runner that prepares project checkouts and executes
+  base/head Pyright across the smoke suite automatically.
 - In progress: `mypy_primer` metadata synchronization has started with a generated project file, local overrides, and an
   initial `syncMypyPrimerProjects.ts` scaffold, but it does not yet sync from a checked-in upstream snapshot or drive
   real ecosystem execution.
@@ -1138,9 +1139,10 @@ First useful version:
   - [x] Parse smoke-suite selection inputs (`--suite`, `--tag`, `--project`, `--num-shards`, `--shard-index`, `--output`).
   - [x] Write a selection manifest artifact for the resolved project set.
   - [x] Compare existing ecosystem benchmark reports into `old.json`, `new.json`, `comparison.json`, and `comparison.md`.
-  - [ ] Run base vs head Pyright for the selected projects.
+  - [x] Execute selected local project checkouts with provided baseline/candidate Pyright commands.
+  - [ ] Run base vs head Pyright for the selected projects from synchronized `mypy_primer` checkouts.
   - [x] Resolve the smoke suite from generated project metadata plus local overrides.
-7. [ ] Run base vs head Pyright.
+7. [~] Run base vs head Pyright.
 8. [ ] Capture:
    - total runtime
    - diagnostic count

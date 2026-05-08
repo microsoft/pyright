@@ -27,7 +27,10 @@ export function parseMypyPrimerProjectSource(sourceText: string, inputFile?: str
         .sort((left, right) => left.name.localeCompare(right.name));
 }
 
-export function writeGeneratedEcosystemProjects(outputPath: string, projects: readonly GeneratedEcosystemProject[]): void {
+export function writeGeneratedEcosystemProjects(
+    outputPath: string,
+    projects: readonly GeneratedEcosystemProject[]
+): void {
     fs.writeFileSync(outputPath, `${JSON.stringify(projects, undefined, 2)}\n`, 'utf-8');
 }
 
@@ -67,7 +70,7 @@ function extractProjectBlocks(sourceText: string): string[] {
                     inString = false;
                     stringQuote = '';
                 }
-            } else if (currentChar === '"' || currentChar === '\'') {
+            } else if (currentChar === '"' || currentChar === "'") {
                 inString = true;
                 stringQuote = currentChar;
             } else if (currentChar === '(') {
