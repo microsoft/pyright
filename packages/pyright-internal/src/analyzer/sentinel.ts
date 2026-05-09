@@ -77,11 +77,7 @@ export function createSentinelType(
     classType = ClassType.cloneWithLiteral(classType, new SentinelLiteral(fullClassName, className));
 
     let instanceType = ClassType.cloneAsInstance(classType);
-
-    // Is TypeForm supported?
-    if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
-        instanceType = TypeBase.cloneWithTypeForm(instanceType, instanceType);
-    }
+    instanceType = TypeBase.cloneWithTypeForm(instanceType, instanceType);
 
     return instanceType;
 }
