@@ -78,10 +78,7 @@ export function createSentinelType(
 
     let instanceType = ClassType.cloneAsInstance(classType);
 
-    // Is TypeForm supported?
-    if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
-        instanceType = TypeBase.cloneWithTypeForm(instanceType, instanceType);
-    }
+    instanceType = TypeBase.cloneWithTypeForm(instanceType, instanceType);
 
     return instanceType;
 }

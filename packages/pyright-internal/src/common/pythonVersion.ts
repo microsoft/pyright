@@ -215,5 +215,6 @@ export const pythonVersion3_11 = PythonVersion.create(3, 11);
 export const pythonVersion3_12 = PythonVersion.create(3, 12);
 export const pythonVersion3_13 = PythonVersion.create(3, 13);
 export const pythonVersion3_14 = PythonVersion.create(3, 14);
+export const pythonVersion3_15 = PythonVersion.create(3, 15);
 
 export const latestStablePythonVersion = pythonVersion3_14;

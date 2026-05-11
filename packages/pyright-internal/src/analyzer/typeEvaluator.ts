@@ -10591,11 +10591,13 @@ export function createTypeEvaluator(
                 return { returnType: createNewType(errorNode, argList) };
             }
 
-            // Handle the Sentinel call specially.
-            if (className === 'Sentinel') {
-                if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
-                    return { returnType: createSentinelType(evaluatorInterface, errorNode, argList) };
-                }
+            // Handle sentinel calls specially.
+            if (
+                expandedCallType.shared.fullName === 'builtins.sentinel' ||
+                expandedCallType.shared.fullName === 'typing_extensions.sentinel' ||
+                expandedCallType.shared.fullName === 'typing_extensions.Sentinel'
+            ) {
+                return { returnType: createSentinelType(evaluatorInterface, errorNode, argList) };
             }
 
             if (ClassType.isSpecialFormClass(expandedCallType)) {
