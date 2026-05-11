@@ -25,7 +25,8 @@ src/tests/benchmarks/.generated/benchmark-results/
 - `runEcosystemBenchmark.ts` provides the first ecosystem runner entry point: it resolves smoke-suite selection from CLI
     filters, writes a run manifest artifact, executes selected local project checkouts with provided Pyright commands,
     and compares existing or freshly executed ecosystem report files into
-    `old.json`/`new.json`/`comparison.json`/`comparison.md` artifacts.
+    `old.json`/`new.json`/`comparison.json`/`comparison.md` artifacts, including diagnostic count metrics and added/removed
+    diagnostic summaries.
 - `syncMypyPrimerProjects.ts` is the first sync scaffold for normalizing `mypy_primer` project definitions into the
     generated ecosystem metadata file consumed by the smoke manifest. The checked-in smoke snapshot now carries the
     upstream `pyright_cmd` and `paths` data for the current smoke suite, so generated project configs can target real
@@ -60,8 +61,14 @@ interface BenchmarkReport<ResultT> {
 ```
 
 Individual suites add case-specific fields such as token count, AST node count, median time, p95 time, and throughput.
-Ecosystem benchmark results additionally preserve per-project fields like `filesAnalyzed`, diagnostic counts, and total
-runtime so report artifacts can distinguish execution-scope changes from pure performance regressions.
+Ecosystem benchmark results additionally preserve per-project fields like `filesAnalyzed`, diagnostic counts, normalized
+diagnostics, and total runtime so report artifacts can distinguish execution-scope changes from pure performance
+regressions.
+
+Generated per-project configs always own the benchmark `include` and `exclude` scope so local runs stay focused on source
+roots rather than tests. If a project has `pyrightconfig.json`, the generated config extends it. If a project only has
+`[tool.pyright]` in `pyproject.toml`, the runner copies those settings into the generated config and rebases known path
+fields like `extraPaths`, `stubPath`, `typeshedPath`, and `venvPath` relative to the generated config file.
 
 ## Implementation Roadmap
 
@@ -104,3 +111,20 @@ npm run bench:ecosystem:run:local -- --suite smoke --project "black|attrs" --pro
 
 `bench:ecosystem:run:local` defaults both baseline and candidate executables to `node ../pyright/index.js`, so the only
 required execution-specific arguments are the usual runner filters plus `--project-root` and `--output`.
+
+Add `--prepare-projects` to clone or update selected project checkouts under `--project-root`. When `--project-date` is
+provided, preparation checks out the newest project commit before that date. Add `--install-dependencies` to install
+synced dependency metadata and run synced install commands after checkout preparation.
+
+To refresh the checked-in smoke baseline from a verified main-branch run, execute the baseline side of the local runner,
+pass `--update-main-baseline`, and stamp the source commit:
+
+```bash
+npm run bench:ecosystem:update-main-baseline -- --suite smoke --project-root q:/path/to/main-checkouts --prepare-projects --project-date 2026-01-01 --output ./src/tests/benchmarks/.generated/benchmark-results/ecosystem-main --baseline-source-commit <main-commit-sha>
+```
+
+PR comparison mode can then use the checked-in baseline by passing only the candidate report:
+
+```bash
+npm run bench:ecosystem:run -- --candidate-report ./src/tests/benchmarks/.generated/benchmark-results/ecosystem-pr/candidate-report.json --output ./src/tests/benchmarks/.generated/benchmark-results/ecosystem-pr-comparison
+```

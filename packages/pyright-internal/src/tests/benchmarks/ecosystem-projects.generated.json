@@ -4,7 +4,7 @@
     "mypyPrimerProject": "attrs",
     "source": {
       "kind": "mypy-primer",
-      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+      "inputFile": "mypy_primer.smoke_projects.snapshot.py"
     },
     "location": "https://github.com/python-attrs/attrs",
     "pyrightCommand": "{pyright}"
@@ -14,7 +14,7 @@
     "mypyPrimerProject": "black",
     "source": {
       "kind": "mypy-primer",
-      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+      "inputFile": "mypy_primer.smoke_projects.snapshot.py"
     },
     "location": "https://github.com/psf/black",
     "pyrightCommand": "{pyright} {paths}",
@@ -27,7 +27,7 @@
     "mypyPrimerProject": "django-modern-rest",
     "source": {
       "kind": "mypy-primer",
-      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+      "inputFile": "mypy_primer.smoke_projects.snapshot.py"
     },
     "location": "https://github.com/wemake-services/django-modern-rest",
     "pyrightCommand": "{pyright}",
@@ -40,7 +40,7 @@
     "mypyPrimerProject": "mypy_primer",
     "source": {
       "kind": "mypy-primer",
-      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+      "inputFile": "mypy_primer.smoke_projects.snapshot.py"
     },
     "location": "https://github.com/hauntsaninja/mypy_primer",
     "pyrightCommand": "{pyright} {paths}",
@@ -53,7 +53,7 @@
     "mypyPrimerProject": "packaging",
     "source": {
       "kind": "mypy-primer",
-      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+      "inputFile": "mypy_primer.smoke_projects.snapshot.py"
     },
     "location": "https://github.com/pypa/packaging",
     "pyrightCommand": "{pyright} {paths}",
@@ -66,7 +66,7 @@
     "mypyPrimerProject": "pandas",
     "source": {
       "kind": "mypy-primer",
-      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+      "inputFile": "mypy_primer.smoke_projects.snapshot.py"
     },
     "location": "https://github.com/pandas-dev/pandas",
     "pyrightCommand": "{pyright} {paths}",
@@ -79,7 +79,7 @@
     "mypyPrimerProject": "pydantic",
     "source": {
       "kind": "mypy-primer",
-      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+      "inputFile": "mypy_primer.smoke_projects.snapshot.py"
     },
     "location": "https://github.com/pydantic/pydantic",
     "pyrightCommand": "{pyright} {paths}",
@@ -92,7 +92,7 @@
     "mypyPrimerProject": "pytest",
     "source": {
       "kind": "mypy-primer",
-      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+      "inputFile": "mypy_primer.smoke_projects.snapshot.py"
     },
     "location": "https://github.com/pytest-dev/pytest",
     "pyrightCommand": "{pyright} {paths}",
@@ -106,7 +106,7 @@
     "mypyPrimerProject": "python-chess",
     "source": {
       "kind": "mypy-primer",
-      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+      "inputFile": "mypy_primer.smoke_projects.snapshot.py"
     },
     "location": "https://github.com/niklasf/python-chess",
     "pyrightCommand": "{pyright} {paths}",
@@ -119,7 +119,7 @@
     "mypyPrimerProject": "rich",
     "source": {
       "kind": "mypy-primer",
-      "inputFile": "Q:\\dev\\pyright-benchmark-suite\\packages\\pyright-internal\\src\\tests\\benchmarks\\mypy_primer.smoke_projects.snapshot.py"
+      "inputFile": "mypy_primer.smoke_projects.snapshot.py"
     },
     "location": "https://github.com/Textualize/rich",
     "pyrightCommand": "{pyright}"

@@ -29,13 +29,28 @@ Current implementation status as of 2026-05-08:
 - Completed externally: CodSpeed bootstrap work has an initial PR in `bschnurr/pyright`, so the remaining local work is
   to align this benchmark suite with that setup rather than starting CodSpeed integration from zero.
 - In progress: ecosystem benchmark runner implementation. The manifest, selectors, report schema, comparison pipeline,
-  and a `runEcosystemBenchmark.ts` entry point are in place for smoke-suite selection, local project execution, and
-  report comparison, but there is not yet a `mypy_primer`-backed runner that prepares project checkouts and executes
+  and a `runEcosystemBenchmark.ts` entry point are in place for smoke-suite selection, local project execution with
+  per-project generated `pyrightconfig.json` files, packaged-CLI local runs, and report comparison. There is not yet a
+  `mypy_primer`-backed runner that prepares project checkouts, installs dependencies, honors project dates, and executes
   base/head Pyright across the smoke suite automatically.
-- In progress: `mypy_primer` metadata synchronization has started with a generated project file, local overrides, and an
-  initial `syncMypyPrimerProjects.ts` scaffold, but it does not yet sync from a checked-in upstream snapshot or drive
-  real ecosystem execution.
-- Not started: actual ecosystem execution, heuristic sweep harness, LSP benchmarks, and CI workflow wiring.
+- In progress: `mypy_primer` metadata synchronization now has a checked-in smoke snapshot, generated project metadata,
+  and local overrides for smoke-suite source roots. The sync parser handles the known upstream smoke metadata shape,
+  including `name_override`, `pyright_cmd=None`, dependency/install/platform/cost fields, duplicate derived names, and
+  portable checked-in `inputFile` paths.
+- Not started: heuristic sweep harness and LSP benchmarks.
+
+### Review Gaps To Address Next
+
+The branch review identified the following gaps that should be treated as near-term work before broad CI use:
+
+Current PR staging note: create PRs against `origin` (`bschnurr/pyright`) for now. Do not target `upstream`
+(`microsoft/pyright`) until the benchmark baseline and workflow shape are ready for upstream review.
+
+1. Add base/head Pyright orchestration. Project checkout preparation now exists, but CI still needs a workflow-level way
+  to build and pass distinct baseline and candidate Pyright commands for the selected project set.
+2. Add a checked-in main-branch baseline report. PR runs need a stable comparison target before CI artifact lookup is in
+  place. Running the smoke suite on a known `main` commit should update a committed baseline artifact that PRs can use
+  as `old.json` when producing comparison reports.
 
 ---
 
@@ -701,6 +716,44 @@ comparison.json
 comparison.md
 ```
 
+### Checked-In Main Baseline
+
+PR comparisons need a stable baseline before the workflow can reliably fetch prior CI artifacts. Add a checked-in smoke
+baseline generated from a known `main` commit and use it as the default `old.json` input for PR smoke comparisons.
+
+Proposed layout:
+
+```text
+packages/pyright-internal/src/tests/benchmarks/baselines/
+  ecosystem-smoke-main.json
+  README.md
+```
+
+Baseline policy:
+
+- The checked-in baseline is generated only from `main` or an explicitly recorded main-branch commit.
+- The baseline report records the Pyright commit SHA, project snapshot date, benchmark suite, selected projects, Node and
+  Python versions, platform, and generated config mode.
+- PR benchmark runs generate `new.json` and compare it against `baselines/ecosystem-smoke-main.json` unless a fresher CI
+  artifact is supplied explicitly.
+- Updating the checked-in baseline should be a deliberate maintenance action after benchmark harness changes, project
+  snapshot refreshes, or accepted performance/diagnostic shifts on `main`.
+- The baseline should remain small and smoke-suite scoped. Full ecosystem and noisy exploratory runs should stay as CI
+  artifacts, not checked-in repository data.
+
+Near-term bootstrap command shape:
+
+```bash
+npm run build:cli:dev
+cd packages/pyright-internal
+npm run build
+npm run bench:ecosystem:run:local -- --suite smoke --project-root q:/path/to/main-checkouts --output ./src/tests/benchmarks/.generated/benchmark-results/ecosystem-main
+```
+
+The implementation should add a runner option or script that copies the generated `baseline-report.json` into the
+checked-in baseline path and stamps it with the source commit. PR comparison mode should accept that baseline path without
+requiring the developer or workflow to manually rename files.
+
 Example Markdown report:
 
 ```md
@@ -1132,35 +1185,70 @@ First useful version:
 
 1. [x] Add benchmark directory layout.
 2. [~] Add `syncMypyPrimerProjects.ts`.
+  - [x] Parse the checked-in smoke snapshot into generated metadata.
+  - [x] Write generated metadata from the built sync script back to the source tree.
+  - [x] Remove machine-local absolute `inputFile` paths from checked-in generated metadata.
+  - [x] Support full upstream `mypy_primer/projects.py` sync fields: `name_override`, `pyright_cmd=None`, deps,
+    install command, supported platforms, cost, and duplicate-location entries.
 3. [x] Generate `ecosystem-projects.generated.json`.
 4. [x] Add `ecosystem-projects.overrides.json`.
+  - [x] Add smoke-suite source root overrides for upstream entries that omit `paths`.
 5. [x] Add a smoke suite of 8–10 projects.
 6. [~] Add `runEcosystemBenchmark.ts`.
   - [x] Parse smoke-suite selection inputs (`--suite`, `--tag`, `--project`, `--num-shards`, `--shard-index`, `--output`).
   - [x] Write a selection manifest artifact for the resolved project set.
   - [x] Compare existing ecosystem benchmark reports into `old.json`, `new.json`, `comparison.json`, and `comparison.md`.
   - [x] Execute selected local project checkouts with provided baseline/candidate Pyright commands.
+  - [x] Generate per-project `pyrightconfig.json` files with config-relative source roots.
+  - [x] Add a packaged-CLI local run path for realistic local execution.
+  - [x] Prepare selected project checkouts with `--prepare-projects`.
+  - [x] Honor `--project-date` during checkout preparation.
+  - [x] Install project dependencies/stubs according to synced metadata with `--install-dependencies`.
   - [ ] Run base vs head Pyright for the selected projects from synchronized `mypy_primer` checkouts.
   - [x] Resolve the smoke suite from generated project metadata plus local overrides.
+  - [x] Preserve or deliberately merge project-level Pyright configuration instead of blindly replacing it.
+  - [x] Extend project-level `pyrightconfig.json` files when they exist.
+  - [x] Merge `[tool.pyright]` settings from `pyproject.toml` when no `pyrightconfig.json` exists, while preserving the
+    benchmark-owned include/exclude scope.
+  - [x] Include process status, stderr, and command details when Pyright does not emit JSON.
 7. [~] Run base vs head Pyright.
+  - [x] Execute local baseline/candidate commands against preexisting project checkouts.
+  - [x] Prepare project checkouts automatically when `--prepare-projects` is provided.
+  - [x] Honor `--project-date` during checkout preparation.
+  - [x] Install project dependencies/stubs according to synced metadata when `--install-dependencies` is provided.
+  - [ ] Build and pass distinct base/head Pyright commands automatically in CI.
 8. [ ] Capture:
-   - total runtime
-   - diagnostic count
-   - diagnostic diff
-   - process memory
+   - [x] total runtime
+   - [x] files analyzed
+   - [x] diagnostic count
+   - [x] severity counts
+  - [x] diagnostic diff
+   - [ ] process memory
 9. [~] Generate:
   - [x] `old.json`
   - [x] `new.json`
   - [x] `comparison.json`
   - [x] `comparison.md`
   - [~] Wire these artifacts into an actual ecosystem benchmark runner output.
-10. [ ] Add manual GitHub workflow.
-11. [ ] Add one heuristic sweep:
+  - [x] Include diagnostic and analyzed-file metrics in ecosystem comparison artifacts.
+  - [x] Add diagnostic-diff sections to comparison artifacts once diagnostic identities are captured.
+10. [ ] Add checked-in main-branch smoke baseline.
+  - [x] Add `src/tests/benchmarks/baselines/README.md` documenting checked-in baseline policy.
+  - [ ] Add `src/tests/benchmarks/baselines/ecosystem-smoke-main.json`.
+  - [x] Stamp refreshed baselines with source commit SHA, project snapshot date, refresh timestamp, and config mode.
+  - [x] Add a script or runner option to update the checked-in baseline from a verified main-branch run.
+  - [x] Make PR comparison mode default to the checked-in baseline when no explicit baseline report is supplied.
+11. [~] Add GitHub workflow.
+  - [x] Add a manual workflow for smoke comparison and baseline refresh runs.
+  - [x] In manual compare mode, run smoke benchmarks as `new.json` and compare against the checked-in main baseline.
+  - [x] In manual refresh mode, run smoke benchmarks and upload the refreshed checked-in baseline candidate.
+  - [ ] Add automatic PR triggering once the checked-in main baseline exists.
+12. [ ] Add one heuristic sweep:
    - `recursionDepthLimit` or `unionExpansionLimit`
-12. [x] Add two synthetic heuristic cases:
+13. [x] Add two synthetic heuristic cases:
   - [x] recursive alias depth
   - [x] overload union cross product
-13. [ ] Add one heuristic report:
+14. [ ] Add one heuristic report:
    - `heuristic-recommendation.md`
 
 MVP smoke project list:

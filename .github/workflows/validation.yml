@@ -57,6 +57,7 @@ jobs:
       - run: npm run check
 
   test:
+    if: github.repository == 'microsoft/pyright'
     strategy:
       fail-fast: false
       matrix:
@@ -126,6 +127,7 @@ jobs:
         working-directory: packages/pyright-internal
 
   build:
+    if: github.repository == 'microsoft/pyright'
     runs-on: ubuntu-latest
     name: Build
     needs: typecheck
@@ -151,6 +153,7 @@ jobs:
         working-directory: packages/vscode-pyright
 
   required:
+    if: github.repository == 'microsoft/pyright'
     runs-on: ubuntu-latest
     name: Required
     needs:
