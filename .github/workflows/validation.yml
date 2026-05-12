@@ -14,7 +14,7 @@ on:
 
 jobs:
   typecheck:
-    if: github.repository == 'microsoft/pyright'
+    if: github.repository == 'microsoft/pyright' || github.repository == 'bschnurr/pyright'
     runs-on: ubuntu-latest
     name: Typecheck
 
@@ -34,7 +34,7 @@ jobs:
       - run: npx lerna exec --stream --no-bail -- tsc --noEmit
 
   style:
-    if: github.repository == 'microsoft/pyright'
+    if: github.repository == 'microsoft/pyright' || github.repository == 'bschnurr/pyright'
     runs-on: ubuntu-latest
     name: Style
 
@@ -57,7 +57,7 @@ jobs:
       - run: npm run check
 
   test:
-    if: github.repository == 'microsoft/pyright'
+    if: github.repository == 'microsoft/pyright' || github.repository == 'bschnurr/pyright'
     strategy:
       fail-fast: false
       matrix:
@@ -127,7 +127,7 @@ jobs:
         working-directory: packages/pyright-internal
 
   build:
-    if: github.repository == 'microsoft/pyright'
+    if: github.repository == 'microsoft/pyright' || github.repository == 'bschnurr/pyright'
     runs-on: ubuntu-latest
     name: Build
     needs: typecheck
@@ -153,7 +153,7 @@ jobs:
         working-directory: packages/vscode-pyright
 
   required:
-    if: github.repository == 'microsoft/pyright'
+    if: github.repository == 'microsoft/pyright' || github.repository == 'bschnurr/pyright'
     runs-on: ubuntu-latest
     name: Required
     needs:

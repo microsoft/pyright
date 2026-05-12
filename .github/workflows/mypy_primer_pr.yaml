@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   mypy_primer:
-    if: github.repository == 'microsoft/pyright'
+    if: github.repository == 'microsoft/pyright' || github.repository == 'bschnurr/pyright'
     name: Run mypy_primer on PR
     runs-on: ubuntu-latest
     permissions:

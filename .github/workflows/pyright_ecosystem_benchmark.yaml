@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   ecosystem-smoke:
-    if: github.repository == 'microsoft/pyright'
+    if: github.repository == 'microsoft/pyright' || github.repository == 'bschnurr/pyright'
     name: Ecosystem smoke benchmark
     runs-on: ubuntu-latest
     permissions:
