@@ -10,24 +10,6 @@
 
 import { ConsoleInterface } from './console';
 
-export interface TimingStatSnapshot {
-    totalTimeMs: number;
-    callCount: number;
-}
-
-export interface TimingStatsSnapshot {
-    totalDurationMs: number;
-    findFiles: TimingStatSnapshot;
-    readFile: TimingStatSnapshot;
-    tokenize: TimingStatSnapshot;
-    parse: TimingStatSnapshot;
-    resolveImports: TimingStatSnapshot;
-    cycleDetection: TimingStatSnapshot;
-    bind: TimingStatSnapshot;
-    typeCheck: TimingStatSnapshot;
-    typeEvaluation: TimingStatSnapshot;
-}
-
 export class Duration {
     private _startTime: number;
 
@@ -84,20 +66,6 @@ export class TimingStat {
         const roundedTime = Math.round(totalTimeInSec * 100) / 100;
         return roundedTime.toString() + 'sec';
     }
-
-    getSnapshot(): TimingStatSnapshot {
-        return {
-            totalTimeMs: this.totalTime,
-            callCount: this.callCount,
-        };
-    }
-}
-
-function subtractTimingStatSnapshot(end: TimingStatSnapshot, start: TimingStatSnapshot): TimingStatSnapshot {
-    return {
-        totalTimeMs: end.totalTimeMs - start.totalTimeMs,
-        callCount: end.callCount - start.callCount,
-    };
 }
 
 export class TimingStats {
@@ -131,38 +99,6 @@ export class TimingStats {
 
     getTotalDuration() {
         return this.totalDuration.getDurationInSeconds();
-    }
-
-    getSnapshot(): TimingStatsSnapshot {
-        return {
-            totalDurationMs: this.totalDuration.getDurationInMilliseconds(),
-            findFiles: this.findFilesTime.getSnapshot(),
-            readFile: this.readFileTime.getSnapshot(),
-            tokenize: this.tokenizeFileTime.getSnapshot(),
-            parse: this.parseFileTime.getSnapshot(),
-            resolveImports: this.resolveImportsTime.getSnapshot(),
-            cycleDetection: this.cycleDetectionTime.getSnapshot(),
-            bind: this.bindTime.getSnapshot(),
-            typeCheck: this.typeCheckerTime.getSnapshot(),
-            typeEvaluation: this.typeEvaluationTime.getSnapshot(),
-        };
-    }
-
-    getSnapshotDelta(start: TimingStatsSnapshot): TimingStatsSnapshot {
-        const end = this.getSnapshot();
-
-        return {
-            totalDurationMs: end.totalDurationMs - start.totalDurationMs,
-            findFiles: subtractTimingStatSnapshot(end.findFiles, start.findFiles),
-            readFile: subtractTimingStatSnapshot(end.readFile, start.readFile),
-            tokenize: subtractTimingStatSnapshot(end.tokenize, start.tokenize),
-            parse: subtractTimingStatSnapshot(end.parse, start.parse),
-            resolveImports: subtractTimingStatSnapshot(end.resolveImports, start.resolveImports),
-            cycleDetection: subtractTimingStatSnapshot(end.cycleDetection, start.cycleDetection),
-            bind: subtractTimingStatSnapshot(end.bind, start.bind),
-            typeCheck: subtractTimingStatSnapshot(end.typeCheck, start.typeCheck),
-            typeEvaluation: subtractTimingStatSnapshot(end.typeEvaluation, start.typeEvaluation),
-        };
     }
 }
 

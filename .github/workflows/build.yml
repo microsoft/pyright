@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    if: github.repository == 'microsoft/pyright' || github.repository == 'bschnurr/pyright'
+    if: github.repository == 'microsoft/pyright'
     runs-on: ubuntu-latest
     name: Build
 
@@ -43,7 +43,7 @@ jobs:
           path: packages/vscode-pyright/${{ env.VSIX_NAME }}
 
   create_release:
-    if: github.repository == 'microsoft/pyright' || github.repository == 'bschnurr/pyright'
+    if: github.repository == 'microsoft/pyright'
     runs-on: ubuntu-latest
     name: Create release
     needs: [build]
