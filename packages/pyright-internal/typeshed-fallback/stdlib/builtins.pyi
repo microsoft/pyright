@@ -1556,6 +1556,15 @@ def iter(object: Callable[[], _T | None], sentinel: None, /) -> Iterator[_T]: ..
 @overload
 def iter(object: Callable[[], _T], sentinel: object, /) -> Iterator[_T]: ...
 
+if sys.version_info >= (3, 15):
+    @final
+    class sentinel:
+        __name__: str
+        __module__: str
+        def __init__(self, name: str, /) -> None: ...
+        def __or__(self, other: Any) -> types.UnionType: ...
+        def __ror__(self, other: Any) -> types.UnionType: ...
+
 if sys.version_info >= (3, 10):
     _ClassInfo: TypeAlias = type | types.UnionType | tuple[_ClassInfo, ...]
 else:

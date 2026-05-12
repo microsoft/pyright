@@ -141,6 +141,7 @@ __all__ = [
     "override",
     "Protocol",
     "Sentinel",
+    "sentinel",
     "reveal_type",
     "runtime",
     "runtime_checkable",
@@ -700,8 +701,23 @@ else:
     def type_repr(value: object) -> str: ...
 
 # PEP 661
+@final
+class sentinel:
+    __name__: str
+    __module__: str
+    def __init__(self, name: str, /) -> None: ...
+    if sys.version_info >= (3, 14):
+        def __or__(self, other: Any) -> UnionType: ...  # other can be any type form legal for unions
+        def __ror__(self, other: Any) -> UnionType: ...  # other can be any type form legal for unions
+    elif sys.version_info >= (3, 10):
+        def __or__(self, other: Any) -> _SpecialForm: ...  # other can be any type form legal for unions
+        def __ror__(self, other: Any) -> _SpecialForm: ...  # other can be any type form legal for unions
+
+@final
 class Sentinel:
-    def __init__(self, name: str, repr: str | None = None) -> None: ...
+    __name__: str
+    __module__: str
+    def __init__(self, name: str, /) -> None: ...
     if sys.version_info >= (3, 14):
         def __or__(self, other: Any) -> UnionType: ...  # other can be any type form legal for unions
         def __ror__(self, other: Any) -> UnionType: ...  # other can be any type form legal for unions
