@@ -209,6 +209,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         requiresPullRelatedInformationCapability: false,
     };
 
+    // Tracks whether the workspace is trusted. Defaults to true for backwards
+    // compatibility with clients that do not send workspace trust information.
+    protected isTrusted = true;
+
     protected defaultClientConfig: any;
 
     protected readonly workspaceFactory: IWorkspaceFactory;
@@ -580,6 +584,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }
 
         const initializationOptions = (params.initializationOptions ?? {}) as LSPObject & InitializationOptions;
+
+        // If the client provides workspace trust information, use it. Default to true for
+        // backwards compatibility with clients that do not send this information.
+        if (initializationOptions.isTrusted !== undefined) {
+            this.isTrusted = initializationOptions.isTrusted;
+        }
+
         const capabilities = params.capabilities;
         this.client.hasConfigurationCapability = !!capabilities.workspace?.configuration;
         this.client.hasWatchFileCapability = !!capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration;

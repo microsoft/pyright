@@ -178,6 +178,7 @@ export async function activate(context: ExtensionContext) {
         initializationOptions: {
             diagnosticMode: workspace.getConfiguration('python.analysis').get('diagnosticMode'),
             disablePullDiagnostics: workspace.getConfiguration('pyright').get('disablePullDiagnostics'),
+            isTrusted: workspace.isTrusted,
         },
     };
 

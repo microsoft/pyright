@@ -194,6 +194,27 @@ export class PyrightServer extends LanguageServerBase {
                 if (pythonAnalysisSection.typeEvaluationTimeThreshold !== undefined) {
                     serverSettings.typeEvaluationTimeThreshold = pythonAnalysisSection.typeEvaluationTimeThreshold;
                 }
+
+                // Only apply type server settings in trusted workspaces, as they
+                // can execute arbitrary code via the specified executable.
+                if (this.isTrusted) {
+                    if (pythonAnalysisSection.enableExternalTypeServer !== undefined) {
+                        serverSettings.enableExternalTypeServer = !!pythonAnalysisSection.enableExternalTypeServer;
+                    }
+
+                    if (pythonAnalysisSection.typeServerExecutable && isString(pythonAnalysisSection.typeServerExecutable)) {
+                        serverSettings.typeServerExecutable = pythonAnalysisSection.typeServerExecutable;
+                    }
+
+                    if (
+                        pythonAnalysisSection.typeServerArguments &&
+                        Array.isArray(pythonAnalysisSection.typeServerArguments)
+                    ) {
+                        serverSettings.typeServerArguments = this._getStringValues(
+                            pythonAnalysisSection.typeServerArguments
+                        );
+                    }
+                }
             } else {
                 serverSettings.autoSearchPaths = true;
             }

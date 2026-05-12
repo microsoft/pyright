@@ -1562,6 +1562,27 @@
                     "default": "",
                     "description": "Path to folder with a list of Virtual Environments.",
                     "scope": "resource"
+                },
+                "python.analysis.enableExternalTypeServer": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable use of an external type server for type analysis.",
+                    "scope": "resource"
+                },
+                "python.analysis.typeServerExecutable": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to the external type server executable.",
+                    "scope": "resource"
+                },
+                "python.analysis.typeServerArguments": {
+                    "type": "array",
+                    "default": [],
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Arguments to pass to the external type server.",
+                    "scope": "resource"
                 }
             }
         },
@@ -1571,6 +1592,17 @@
                 "url": "./schemas/pyrightconfig.schema.json"
             }
         ]
+    },
+    "capabilities": {
+        "untrustedWorkspaces": {
+            "supported": "limited",
+            "description": "Pyright does not launch external type servers in untrusted workspaces.",
+            "restrictedConfigurations": [
+                "python.analysis.enableExternalTypeServer",
+                "python.analysis.typeServerExecutable",
+                "python.analysis.typeServerArguments"
+            ]
+        }
     },
     "scripts": {
         "clean": "shx rm -rf ./dist ./out",
