@@ -26,7 +26,7 @@
         "fsevents": "~2.3.3"
     },
     "devDependencies": {
-        "@rspack/cli": "^1.7.2",
+        "@rspack/cli": "^2.0.4",
         "@rspack/core": "^1.7.2",
         "@types/node": "^22.19.6",
         "esbuild-loader": "^4.4.2",
