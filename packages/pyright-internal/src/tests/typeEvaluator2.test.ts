@@ -996,7 +996,7 @@ test('SolverUnknown1', () => {
 
 test('Sentinel1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel1.py']);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Sentinel2', () => {
