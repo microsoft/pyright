@@ -2,8 +2,8 @@ import sys
 from _typeshed import FileDescriptor, StrOrBytesPath
 from collections.abc import Callable
 from types import TracebackType
-from typing import Any, Literal, Protocol, overload, type_check_only
-from typing_extensions import TypeAlias, TypeVarTuple, Unpack
+from typing import Any, Literal, Protocol, TypeAlias, overload, type_check_only
+from typing_extensions import TypeVarTuple, Unpack
 
 _Ts = TypeVarTuple("_Ts")
 
@@ -83,6 +83,7 @@ class _TimerWatcher(_Watcher, Protocol):
     def start(self, callback: Callable[[Unpack[_Ts]], Any], *args: Unpack[_Ts], update: bool) -> None: ...
     @overload
     def start(self, callback: Callable[[Unpack[_Ts]], Any], *args: Unpack[_Ts]) -> None: ...
+
     @overload
     def again(self, callback: Callable[[Unpack[_Ts]], Any], *args: Unpack[_Ts], update: bool) -> None: ...
     @overload
@@ -92,6 +93,7 @@ class _TimerWatcher(_Watcher, Protocol):
 @type_check_only
 class _IoWatcher(_Watcher, Protocol):
     EVENT_MASK: int
+
     # pass_events means the first argument of the callback needs to be an integer, but we can't
     # type check the other passed in args in this case
     @overload

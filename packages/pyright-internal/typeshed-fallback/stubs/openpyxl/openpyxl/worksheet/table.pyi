@@ -1,7 +1,7 @@
 from _typeshed import ConvertibleToInt, Incomplete, Unused
 from collections.abc import Iterator
-from typing import ClassVar, Final, Literal, overload
-from typing_extensions import Self, TypeAlias
+from typing import ClassVar, Final, Literal, TypeAlias, overload
+from typing_extensions import Self
 
 from openpyxl.descriptors import Strict, String
 from openpyxl.descriptors.base import Alias, Bool, Integer, NoneSet, Typed, _ConvertibleToBool
@@ -42,6 +42,7 @@ class XMLColumnProps(Serialisable):
     xmlDataType: String[Literal[False]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
+
     @overload
     def __init__(
         self,
@@ -88,6 +89,7 @@ class TableColumn(Serialisable):
     xmlColumnPr: Typed[XMLColumnProps, Literal[True]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
+
     @overload
     def __init__(
         self,
@@ -129,6 +131,7 @@ class TableColumn(Serialisable):
         xmlColumnPr: XMLColumnProps | None = None,
         extLst: ExtensionList | None = None,
     ) -> None: ...
+
     def __iter__(self) -> Iterator[tuple[str, str]]: ...
     @classmethod
     def from_tree(cls, node: _ChildSerialisableTreeElement) -> Self: ...

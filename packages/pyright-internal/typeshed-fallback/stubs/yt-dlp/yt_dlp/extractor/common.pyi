@@ -3,8 +3,8 @@ from _typeshed import Incomplete, Unused
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from functools import cached_property
 from json.decoder import JSONDecoder
-from typing import Any, ClassVar, Literal, TypedDict, TypeVar, overload, type_check_only
-from typing_extensions import Never, Required, TypeAlias, deprecated
+from typing import Any, ClassVar, Literal, TypeAlias, TypedDict, TypeVar, overload, type_check_only
+from typing_extensions import Never, Required, deprecated
 from urllib.request import Request, _DataType
 from xml.etree import ElementTree as ET
 
@@ -220,11 +220,13 @@ class InfoExtractor:
     def write_debug(self, msg: str, only_once: bool = False) -> None: ...
     # *args and **kwargs are passed to .params.get() where params is normally a mapping but is not required to be.
     def get_param(self, name: str, default: Any = None, *args: Any, **kwargs: Any) -> Any: ...
+
     @overload
     def report_drm(self, video_id: str, partial: type[NO_DEFAULT] = ...) -> None: ...
     @overload
     @deprecated("InfoExtractor.report_drm no longer accepts the argument partial")
     def report_drm(self, video_id: str, partial: bool) -> None: ...
+
     def report_extraction(self, id_or_name: str) -> None: ...
     def report_download_webpage(self, video_id: str) -> None: ...
     def report_age_confirmation(self) -> None: ...
@@ -238,12 +240,14 @@ class InfoExtractor:
     def raise_geo_restricted(
         self, msg: str = ..., countries: Collection[str] | None = None, metadata_available: bool = False
     ) -> None: ...
+
     @overload
     def raise_no_formats(
         self, msg: str | ExtractorError, expected: Literal[False] = False, video_id: str | None = None
     ) -> Never: ...
     @overload
     def raise_no_formats(self, msg: str | ExtractorError, expected: Literal[True], video_id: str | None = None) -> None: ...
+
     @staticmethod
     def url_result(
         url: str,

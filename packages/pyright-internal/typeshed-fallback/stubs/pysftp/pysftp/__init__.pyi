@@ -2,8 +2,8 @@ from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
 from stat import S_IMODE as S_IMODE
 from types import TracebackType
-from typing import IO, Literal
-from typing_extensions import Self, TypeAlias
+from typing import IO, Literal, TypeAlias
+from typing_extensions import Self
 
 import paramiko
 from paramiko import AuthenticationException as AuthenticationException
@@ -120,10 +120,12 @@ class Connection:
     def security_options(self) -> paramiko.SecurityOptions: ...
     @property
     def logfile(self) -> str | Literal[False]: ...
+
     @property
     def timeout(self) -> float | None: ...
     @timeout.setter
     def timeout(self, val: float | None) -> None: ...
+
     @property
     def remote_server_key(self) -> paramiko.PKey: ...
     def __del__(self) -> None: ...

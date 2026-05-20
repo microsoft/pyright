@@ -1,7 +1,6 @@
 from _typeshed import Incomplete, Unused
 from collections.abc import Iterator
-from typing import Final
-from typing_extensions import TypeAlias
+from typing import Final, TypeAlias
 
 import _win32typing
 from pythoncom import com_record
@@ -67,6 +66,7 @@ class CoClassBaseClass:
 class VARIANT:
     varianttype: Incomplete
     def __init__(self, vt, value) -> None: ...
+
     @property
     def value(self): ...
     @value.setter

@@ -649,7 +649,7 @@ test('TypeAlias4', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_9;
     const analysisResults3_9 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
-    TestUtils.validateResults(analysisResults3_9, 1);
+    TestUtils.validateResults(analysisResults3_9, 12);
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults3_10 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);

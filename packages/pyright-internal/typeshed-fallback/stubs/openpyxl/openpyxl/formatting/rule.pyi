@@ -1,6 +1,5 @@
 from _typeshed import ConvertibleToInt, Incomplete, Unused
-from typing import ClassVar, Literal, overload
-from typing_extensions import TypeAlias
+from typing import ClassVar, Literal, TypeAlias, overload
 
 from openpyxl.descriptors import Float, Strict
 from openpyxl.descriptors.base import Bool, Integer, NoneSet, Set, String, Typed, _ConvertibleToBool
@@ -110,6 +109,7 @@ class DataBar(RuleType):
     color: ColorDescriptor[Literal[False]]
     __elements__: ClassVar[tuple[str, ...]]
     cfvo: Incomplete
+
     @overload
     def __init__(
         self,

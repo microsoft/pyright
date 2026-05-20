@@ -5,8 +5,8 @@ from _typeshed import Unused
 from collections.abc import Callable, Iterable, Mapping
 from email.message import Message
 from logging import Logger
-from typing import IO, Any, Final
-from typing_extensions import Self, TypeAlias
+from typing import IO, Any, Final, TypeAlias
+from typing_extensions import Self
 
 from ..cookies import YoutubeDLCookieJar
 from ..utils._utils import _YDLLogger
@@ -83,22 +83,27 @@ class Request:
         method: str | None = None,
         extensions: Mapping[str, Any] | None = None,
     ) -> None: ...
+
     @property
     def url(self) -> str: ...
     @url.setter
     def url(self, url: str) -> None: ...
+
     @property
     def method(self) -> str: ...
     @method.setter
     def method(self, method: str) -> None: ...
+
     @property
     def data(self) -> _RequestData | io.IOBase: ...
     @data.setter
     def data(self, data: _RequestData) -> None: ...
+
     @property
     def headers(self) -> HTTPHeaderDict | dict[str, str]: ...
     @headers.setter
     def headers(self, new_headers: Mapping[str, str] | HTTPHeaderDict) -> None: ...
+
     def update(
         self,
         url: str | None = None,

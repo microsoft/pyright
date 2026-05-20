@@ -1,8 +1,7 @@
 from _typeshed import SupportsRead
 from collections.abc import Iterator
 from io import StringIO
-from typing import IO, Any, Literal, TypedDict, overload, type_check_only
-from typing_extensions import TypeAlias
+from typing import IO, Any, Literal, TypeAlias, TypedDict, overload, type_check_only
 
 from docker._types import JSON
 
@@ -75,6 +74,7 @@ class ImageCollection(Collection[Image]):
     def get_registry_data(self, name, auth_config: dict[str, Any] | None = None) -> RegistryData: ...
     def list(self, name: str | None = None, all: bool = False, filters: dict[str, Any] | None = None) -> _ImageList: ...
     def load(self, data: bytes | SupportsRead[bytes]) -> _ImageList: ...
+
     @overload
     def pull(
         self,
@@ -105,6 +105,7 @@ class ImageCollection(Collection[Image]):
         auth_config: dict[str, Any] | None = None,
         platform: str | None = None,
     ) -> _ImageList: ...
+
     def push(self, repository: str, tag: str | None = None, **kwargs): ...
     def remove(self, *args, **kwargs) -> None: ...
     def search(self, *args, **kwargs): ...

@@ -1,6 +1,5 @@
 from _typeshed import ConvertibleToInt, Incomplete
-from typing import ClassVar, Literal, overload
-from typing_extensions import TypeAlias
+from typing import ClassVar, Literal, TypeAlias, overload
 
 from openpyxl.descriptors.base import Bool, Integer, Set, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable
@@ -40,6 +39,7 @@ class ObjectPr(Serialisable):
     altText: String[Literal[True]]
     dde: Bool[Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
+
     @overload
     def __init__(
         self,
@@ -84,6 +84,7 @@ class OleObject(Serialisable):
     autoLoad: Bool[Literal[True]]
     shapeId: Integer[Literal[False]]
     __elements__: ClassVar[tuple[str, ...]]
+
     @overload
     def __init__(
         self,

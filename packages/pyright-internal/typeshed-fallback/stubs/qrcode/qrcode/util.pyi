@@ -1,7 +1,6 @@
 from collections.abc import Callable, Generator
 from re import Pattern
-from typing import Final, Literal, overload
-from typing_extensions import TypeAlias
+from typing import Final, Literal, TypeAlias, overload
 
 from ._types import ErrorCorrect, MaskPattern
 from .base import RSBlock as RSBlock
@@ -47,12 +46,14 @@ def optimal_mode(data: bytes) -> _SupportedMode: ...
 class QRData:
     mode: _SupportedMode
     data: bytes
+
     @overload
     def __init__(self, data: bytes | str, mode: _SupportedMode | None = None, check_data: Literal[True] = True) -> None: ...
     @overload
     def __init__(self, data: bytes, mode: _SupportedMode | None = None, *, check_data: Literal[False]) -> None: ...
     @overload
     def __init__(self, data: bytes, mode: _SupportedMode | None, check_data: Literal[False]) -> None: ...
+
     def __len__(self) -> int: ...
     def write(self, buffer: BitBuffer) -> None: ...
 

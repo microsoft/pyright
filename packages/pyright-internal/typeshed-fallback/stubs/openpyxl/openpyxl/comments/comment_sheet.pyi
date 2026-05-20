@@ -1,7 +1,6 @@
 from _typeshed import ConvertibleToInt, Incomplete, Unused
 from collections.abc import Generator
-from typing import ClassVar, Literal, overload
-from typing_extensions import TypeAlias
+from typing import ClassVar, Literal, TypeAlias, overload
 
 from openpyxl.cell import _CellOrMergedCell
 from openpyxl.cell.text import Text
@@ -34,6 +33,7 @@ class Properties(Serialisable):
     colHidden: Bool[Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     anchor: ObjectAnchor | None
+
     @overload
     def __init__(
         self,

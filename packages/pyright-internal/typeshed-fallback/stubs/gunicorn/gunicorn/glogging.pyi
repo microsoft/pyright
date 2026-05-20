@@ -4,8 +4,7 @@ from collections.abc import Mapping
 from datetime import timedelta
 from logging.config import _DictConfigArgs
 from socket import SocketKind
-from typing import Annotated, Any, ClassVar, Literal, TypedDict, type_check_only
-from typing_extensions import TypeAlias
+from typing import Annotated, Any, ClassVar, Literal, TypeAlias, TypedDict, type_check_only
 
 from gunicorn.http import Request
 from gunicorn.http.wsgi import Response
@@ -60,6 +59,7 @@ _SyslogAddressType: TypeAlias = (
 )
 
 def parse_syslog_address(addr: str) -> _SyslogAddressType: ...
+
 @type_check_only
 class _LogLevels(TypedDict):
     critical: _CriticalIntType

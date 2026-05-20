@@ -1,7 +1,7 @@
 # This sample tests the handling of Sentinel as described in PEP 661.
 
 from typing import Literal, TypeAlias
-from typing_extensions import Sentinel, TypeForm, sentinel  # pyright: ignore[reportMissingModuleSource]
+from typing_extensions import Sentinel, TypeForm  # pyright: ignore[reportMissingModuleSource]
 
 # This should generate an error because the names don't match.
 BAD_NAME1 = Sentinel("OTHER")
@@ -15,22 +15,13 @@ BAD_CALL2 = Sentinel("BAD_CALL2", 1)
 # This should generate an error because the arg type is wrong.
 BAD_CALL3 = Sentinel(1)
 
-# This should generate an error because the arg count is wrong.
-BAD_CALL4 = sentinel()
-
-# This should generate an error because the arg type is wrong.
-BAD_CALL5 = sentinel(1)
-
 MISSING = Sentinel("MISSING")
-NOT_GIVEN = sentinel("NOT_GIVEN")
 
 type TA1 = int | MISSING
 
 TA2: TypeAlias = int | MISSING
 
 TA3 = int | MISSING
-
-TA4: TypeAlias = int | NOT_GIVEN
 
 # This should generate an error because Literal isn't appropriate here.
 x: Literal[MISSING]
@@ -65,10 +56,3 @@ def func3(x: Literal[0, 3, "hi"] | MISSING) -> None:
 
 t1 = type(MISSING)
 reveal_type(t1, expected_text="type[MISSING]")
-
-
-def func4(value: str | NOT_GIVEN) -> None:
-    if value is NOT_GIVEN:
-        reveal_type(value, expected_text="NOT_GIVEN")
-    else:
-        reveal_type(value, expected_text="str")

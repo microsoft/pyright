@@ -2,8 +2,7 @@ import sys
 import types
 from _typeshed import ReadableBuffer, WriteableBuffer
 from collections.abc import Callable, Hashable
-from typing import Any, Literal, TypeVar, overload
-from typing_extensions import TypeAlias
+from typing import Any, Literal, TypeAlias, TypeVar, overload
 
 import _cffi_backend
 from setuptools._distutils.extension import Extension
@@ -49,6 +48,7 @@ class FFI:
     def cast(self, cdecl: str | CType, source: CData | float) -> CData: ...
     def string(self, cdata: CData, maxlen: int = -1) -> bytes | str: ...
     def unpack(self, cdata: CData, length: int) -> bytes | str | list[Any]: ...
+
     @overload
     def from_buffer(self, cdecl: ReadableBuffer, require_writable: Literal[False] = False) -> CData: ...
     @overload
@@ -59,7 +59,9 @@ class FFI:
     ) -> CData: ...
     @overload
     def from_buffer(self, cdecl: str | CType, python_buffer: WriteableBuffer, require_writable: Literal[True]) -> CData: ...
+
     def memmove(self, dest: CData | WriteableBuffer, src: CData | ReadableBuffer, n: int) -> None: ...
+
     @overload
     def callback(
         self,
@@ -76,11 +78,14 @@ class FFI:
         error: Any = None,
         onerror: Callable[[Exception, Any, Any], None] | None = None,
     ) -> Callable[..., _T]: ...
+
     def getctype(self, cdecl: str | CType, replace_with: str = "") -> str: ...
+
     @overload
     def gc(self, cdata: CData, destructor: Callable[[CData], Any], size: int = 0) -> CData: ...
     @overload
     def gc(self, cdata: CData, destructor: None, size: int = 0) -> None: ...
+
     def verify(self, source: str = "", tmpdir: str | None = None, **kwargs: Any) -> _cffi_backend.Lib: ...
     # Technically exists on all OSs, but crashes on all but Windows. So we hide it in stubs
     if sys.platform == "win32":

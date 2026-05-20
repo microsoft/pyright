@@ -1,6 +1,5 @@
 from _typeshed import Incomplete, StrPath
-from typing import Literal, overload
-from typing_extensions import TypeAlias
+from typing import Literal, TypeAlias, overload
 
 from docutils.core import Publisher
 from docutils.nodes import document
@@ -16,6 +15,7 @@ def html_parts(
     doctitle: bool = True,
     initial_header_level: _HTMLHeaderLevel = 1,
 ) -> _WriterParts: ...
+
 @overload
 def html_body(
     input_string: str | bytes,
@@ -36,6 +36,7 @@ def html_body(
     doctitle: bool = True,
     initial_header_level: _HTMLHeaderLevel = 1,
 ) -> str | bytes: ...
+
 def internals(
     source: str,
     source_path: StrPath | None = None,

@@ -1,6 +1,5 @@
 from _typeshed import Incomplete
-from typing import Literal, overload
-from typing_extensions import TypeAlias
+from typing import Literal, TypeAlias, overload
 
 import numpy as np
 from numpy.typing import NDArray
@@ -51,6 +50,7 @@ def to_wkt(
     old_3d: bool = False,
     **kwargs,
 ) -> NDArray[np.str_]: ...
+
 @overload
 def to_wkb(
     geometry: None,
@@ -121,12 +121,14 @@ def to_wkb(
     flavor: Literal["iso", "extended"] = "extended",
     **kwargs,
 ) -> NDArray[np.bytes_] | NDArray[np.str_]: ...
+
 @overload
 def to_geojson(geometry: None, indent: int | None = None, **kwargs) -> None: ...
 @overload
 def to_geojson(geometry: Geometry, indent: int | None = None, **kwargs) -> str: ...
 @overload
 def to_geojson(geometry: OptGeoArrayLikeSeq, indent: int | None = None, **kwargs) -> NDArray[np.str_]: ...
+
 @overload
 def from_wkt(geometry: None, on_invalid: Literal["raise", "warn", "ignore", "fix"] = "raise", **kwargs) -> None: ...
 @overload
@@ -135,6 +137,7 @@ def from_wkt(geometry: str, on_invalid: Literal["raise", "warn", "ignore", "fix"
 def from_wkt(
     geometry: ArrayLikeSeq[str | None], on_invalid: Literal["raise", "warn", "ignore", "fix"] = "raise", **kwargs
 ) -> GeoArray: ...
+
 @overload
 def from_wkb(geometry: None, on_invalid: Literal["raise", "warn", "ignore", "fix"] = "raise", **kwargs) -> None: ...
 @overload
@@ -145,6 +148,7 @@ def from_wkb(
 def from_wkb(
     geometry: ArrayLikeSeq[str | bytes | None], on_invalid: Literal["raise", "warn", "ignore", "fix"] = "raise", **kwargs
 ) -> GeoArray: ...
+
 @overload
 def from_geojson(geometry: None, on_invalid: Literal["raise", "warn", "ignore", "fix"] = "raise", **kwargs) -> None: ...
 @overload

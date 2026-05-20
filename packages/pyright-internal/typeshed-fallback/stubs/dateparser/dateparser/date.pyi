@@ -3,8 +3,7 @@ from _typeshed import Incomplete
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Iterator, Set as AbstractSet
 from datetime import date, datetime, tzinfo
-from typing import Any, ClassVar, Final, Literal, NamedTuple, TypeVar, overload, type_check_only
-from typing_extensions import TypeAlias
+from typing import Any, ClassVar, Final, Literal, NamedTuple, TypeAlias, TypeVar, overload, type_check_only
 
 from dateparser.conf import Settings
 from dateparser.languages.loader import LocaleDataLoader
@@ -100,12 +99,14 @@ class DateData:
     locale: str | None
     period: _Period | None
     def __init__(self, *, date_obj: datetime | None = None, period: _Period | None = None, locale: str | None = None) -> None: ...
+
     @overload
     def __getitem__(self, k: Literal["date_obj"]) -> datetime | None: ...
     @overload
     def __getitem__(self, k: Literal["locale"]) -> str | None: ...
     @overload
     def __getitem__(self, k: Literal["period"]) -> _Period | None: ...
+
     @overload
     def __setitem__(self, k: Literal["date_obj"], v: datetime) -> None: ...
     @overload

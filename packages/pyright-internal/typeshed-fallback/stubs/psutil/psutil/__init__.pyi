@@ -4,8 +4,8 @@ from collections.abc import Callable, Collection, Iterable, Iterator
 from contextlib import AbstractContextManager
 from subprocess import _CMD, _ENV, _FILE
 from types import TracebackType
-from typing import Any, Literal, Protocol, overload, type_check_only
-from typing_extensions import Self, TypeAlias, deprecated
+from typing import Any, Literal, Protocol, TypeAlias, overload, type_check_only
+from typing_extensions import Self, deprecated
 
 from psutil._common import (
     AIX as AIX,
@@ -171,10 +171,12 @@ class Process:
     if sys.platform != "darwin":
         def io_counters(self) -> _ntp.pio: ...
         def ionice(self, ioclass: int | None = None, value: int | None = None) -> _ntp.pionice: ...
+
         @overload
         def cpu_affinity(self, cpus: None = None) -> list[int]: ...
         @overload
         def cpu_affinity(self, cpus: list[int]) -> None: ...
+
         def memory_maps(self, grouped: bool = True) -> list[Incomplete]: ...
     if sys.platform == "linux":
         def rlimit(self, resource: int, limits: tuple[int, int] | None = None) -> tuple[int, int]: ...
@@ -237,7 +239,7 @@ class Popen(Process):
             pipesize: int = -1,
             process_group: int | None = None,
         ) -> None: ...
-    elif sys.version_info >= (3, 10):
+    else:
         def __init__(
             self,
             args: _CMD,
@@ -267,35 +269,6 @@ class Popen(Process):
             umask: int = -1,
             pipesize: int = -1,
         ) -> None: ...
-    else:
-        def __init__(
-            self,
-            args: _CMD,
-            bufsize: int = -1,
-            executable: StrOrBytesPath | None = None,
-            stdin: _FILE | None = None,
-            stdout: _FILE | None = None,
-            stderr: _FILE | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            close_fds: bool = True,
-            shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: _ENV | None = None,
-            universal_newlines: bool | None = None,
-            startupinfo: Any | None = None,
-            creationflags: int = 0,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Collection[int] = (),
-            *,
-            text: bool | None = None,
-            encoding: str | None = None,
-            errors: str | None = None,
-            user: str | int | None = None,
-            group: str | int | None = None,
-            extra_groups: Iterable[str | int] | None = None,
-            umask: int = -1,
-        ) -> None: ...
 
     def __enter__(self) -> Self: ...
     def __exit__(
@@ -320,26 +293,31 @@ def wait_procs(
     procs: Iterable[Process], timeout: float | None = None, callback: Callable[[Process], object] | None = None
 ) -> tuple[list[Process], list[Process]]: ...
 def cpu_count(logical: bool = True) -> int | None: ...
+
 @overload
 def cpu_freq(percpu: Literal[False] = False) -> _ntp.scpufreq: ...
 @overload
 def cpu_freq(percpu: Literal[True]) -> list[_ntp.scpufreq]: ...
+
 @overload
 def cpu_times(percpu: Literal[False] = False) -> _ntp.scputimes: ...
 @overload
 def cpu_times(percpu: Literal[True]) -> list[_ntp.scputimes]: ...
+
 @overload
 def cpu_percent(interval: float | None = None, percpu: Literal[False] = False) -> float: ...
 @overload
 def cpu_percent(interval: float | None, percpu: Literal[True]) -> list[float]: ...
 @overload
 def cpu_percent(*, percpu: Literal[True]) -> list[float]: ...
+
 @overload
 def cpu_times_percent(interval: float | None = None, percpu: Literal[False] = False) -> _ntp.scputimes: ...
 @overload
 def cpu_times_percent(interval: float | None, percpu: Literal[True]) -> list[_ntp.scputimes]: ...
 @overload
 def cpu_times_percent(*, percpu: Literal[True]) -> list[_ntp.scputimes]: ...
+
 def cpu_stats() -> _ntp.scpustats: ...
 def getloadavg() -> tuple[float, float, float]: ...
 def virtual_memory() -> _ntp.svmem: ...
@@ -352,10 +330,12 @@ def disk_partitions(all: bool = False) -> list[_ntp.sdiskpart]: ...
 def disk_io_counters(perdisk: Literal[False] = False, nowrap: bool = True) -> _ntp.sdiskio | None: ...
 @overload
 def disk_io_counters(perdisk: Literal[True], nowrap: bool = True) -> dict[str, _ntp.sdiskio]: ...
+
 @overload
 def net_io_counters(pernic: Literal[False] = False, nowrap: bool = True) -> _ntp.snetio: ...
 @overload
 def net_io_counters(pernic: Literal[True], nowrap: bool = True) -> dict[str, _ntp.snetio]: ...
+
 def net_connections(kind: str = "inet") -> list[_ntp.sconn]: ...
 def net_if_addrs() -> dict[str, list[_ntp.snicaddr]]: ...
 def net_if_stats() -> dict[str, _ntp.snicstats]: ...

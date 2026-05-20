@@ -1,6 +1,5 @@
 from types import TracebackType
-from typing import Generic, TypeVar, final, overload
-from typing_extensions import TypeAlias
+from typing import Generic, TypeAlias, TypeVar, final, overload
 
 from gevent.event import _ValueSource
 from gevent.hub import Hub
@@ -35,10 +34,12 @@ class Waiter(Generic[_T]):
     @property
     def exc_info(self) -> _ThrowArgs | None: ...
     def switch(self, value: _T) -> None: ...
+
     @overload
     def throw(self, typ: type[BaseException], val: BaseException | object = None, tb: TracebackType | None = None, /) -> None: ...
     @overload
     def throw(self, typ: BaseException = ..., val: None = None, tb: TracebackType | None = None, /) -> None: ...
+
     def get(self) -> _T: ...
     def __call__(self, source: _ValueSource[_T]) -> None: ...
 
