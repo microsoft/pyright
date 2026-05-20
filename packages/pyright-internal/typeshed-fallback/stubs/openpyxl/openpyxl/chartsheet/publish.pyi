@@ -1,6 +1,5 @@
 from _typeshed import ConvertibleToInt, Incomplete
-from typing import ClassVar, Literal, overload
-from typing_extensions import TypeAlias
+from typing import ClassVar, Literal, TypeAlias, overload
 
 from openpyxl.descriptors.base import Bool, Integer, Set, String, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable
@@ -19,6 +18,7 @@ class WebPublishItem(Serialisable):
     destinationFile: String[Literal[False]]
     title: String[Literal[True]]
     autoRepublish: Bool[Literal[True]]
+
     @overload
     def __init__(
         self,

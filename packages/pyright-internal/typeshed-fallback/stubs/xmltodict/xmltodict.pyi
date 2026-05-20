@@ -1,7 +1,6 @@
 from _typeshed import ReadableBuffer, SupportsRead, SupportsWrite
 from collections.abc import Callable, Container, Generator, Mapping
-from typing import Any, overload
-from typing_extensions import TypeAlias
+from typing import Any, TypeAlias, overload
 
 class ParsingInterrupted(Exception): ...
 
@@ -76,6 +75,7 @@ def parse(
     force_list: bool | Container[str] | Callable[[tuple[str, _AttrDict | None], str, str], bool] | None = None,
     comment_key: str = "#comment",
 ) -> dict[str, Any]: ...
+
 @overload
 def unparse(
     input_dict: Mapping[str, Any],

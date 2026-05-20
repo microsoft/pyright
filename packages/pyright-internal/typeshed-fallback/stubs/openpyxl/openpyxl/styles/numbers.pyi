@@ -1,7 +1,6 @@
 from _typeshed import ConvertibleToInt, Incomplete, Unused
 from re import Pattern
-from typing import ClassVar, Final, Literal, SupportsIndex, overload
-from typing_extensions import TypeGuard
+from typing import ClassVar, Final, Literal, SupportsIndex, TypeGuard, overload
 
 from openpyxl.descriptors import Strict, String
 from openpyxl.descriptors.base import Integer
@@ -53,12 +52,15 @@ TIMEDELTA_RE: Final[Pattern[str]]
 
 def is_date_format(fmt: str | None) -> TypeGuard[str]: ...
 def is_timedelta_format(fmt: str | None) -> TypeGuard[str]: ...
+
 @overload
 def is_datetime(fmt: None) -> None: ...
 @overload
 def is_datetime(fmt: str) -> Literal["datetime", "date", "time"] | None: ...
+
 def is_builtin(fmt: str | None) -> TypeGuard[str]: ...
 def builtin_format_code(index: int) -> str | None: ...
+
 @overload
 def builtin_format_id(fmt: None) -> None: ...
 @overload

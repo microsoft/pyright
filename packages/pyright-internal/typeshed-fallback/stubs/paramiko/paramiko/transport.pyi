@@ -4,8 +4,7 @@ from logging import Logger
 from socket import socket
 from threading import Condition, Event, Lock, Thread
 from types import ModuleType
-from typing import Any, Protocol, type_check_only
-from typing_extensions import TypeAlias
+from typing import Any, Protocol, TypeAlias, type_check_only
 
 from paramiko.auth_handler import AuthHandler, AuthOnlyHandler, _InteractiveCallback
 from paramiko.channel import Channel
@@ -177,22 +176,27 @@ class Transport(Thread, ClosingContextManager):
 class SecurityOptions:
     __slots__ = "_transport"
     def __init__(self, transport: Transport) -> None: ...
+
     @property
     def ciphers(self) -> Sequence[str]: ...
     @ciphers.setter
     def ciphers(self, x: Sequence[str]) -> None: ...
+
     @property
     def digests(self) -> Sequence[str]: ...
     @digests.setter
     def digests(self, x: Sequence[str]) -> None: ...
+
     @property
     def key_types(self) -> Sequence[str]: ...
     @key_types.setter
     def key_types(self, x: Sequence[str]) -> None: ...
+
     @property
     def kex(self) -> Sequence[str]: ...
     @kex.setter
     def kex(self, x: Sequence[str]) -> None: ...
+
     @property
     def compression(self) -> Sequence[str]: ...
     @compression.setter

@@ -3,8 +3,8 @@ from collections import OrderedDict
 from collections.abc import Iterator, Sequence
 from functools import partial
 from logging import Logger
-from typing import Any, ClassVar, Generic, Literal, NoReturn, TypeVar, overload
-from typing_extensions import TypeAlias, deprecated
+from typing import Any, ClassVar, Generic, Literal, NoReturn, TypeAlias, TypeVar, overload
+from typing_extensions import deprecated
 
 from django.db.models import Field as DjangoField, Model, QuerySet
 from django.utils.safestring import SafeString
@@ -102,10 +102,12 @@ class Resource(Generic[_ModelT], metaclass=DeclarativeMetaclass):
     def before_import_row(self, row: dict[str, Any], **kwargs: Any) -> None: ...
     def after_import_row(self, row: dict[str, Any], row_result: RowResult, **kwargs: Any) -> None: ...
     def after_init_instance(self, instance: _ModelT, new: bool, row: dict[str, Any], **kwargs: Any) -> None: ...
+
     @overload
     def handle_import_error(self, result: Result, error: Exception, raise_errors: Literal[True]) -> NoReturn: ...
     @overload
     def handle_import_error(self, result: Result, error: Exception, raise_errors: Literal[False] = False) -> None: ...
+
     def import_row(self, row: dict[str, Any], instance_loader: BaseInstanceLoader, **kwargs: Any) -> RowResult: ...
     def import_data(
         self,

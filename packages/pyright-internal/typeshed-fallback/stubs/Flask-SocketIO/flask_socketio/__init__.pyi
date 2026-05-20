@@ -2,8 +2,8 @@ from _typeshed import Incomplete
 from collections.abc import Callable
 from logging import Logger
 from threading import Thread
-from typing import Any, Literal, Protocol, TypedDict, TypeVar, overload, type_check_only
-from typing_extensions import ParamSpec, TypeAlias, Unpack
+from typing import Any, Literal, ParamSpec, Protocol, TypeAlias, TypedDict, TypeVar, overload, type_check_only
+from typing_extensions import Unpack
 
 from flask import Flask
 from flask.testing import FlaskClient
@@ -84,10 +84,12 @@ class SocketIO:
     def on_error(self, namespace: str | None = None) -> _ExceptionHandlerDecorator: ...
     def on_error_default(self, exception_handler: _ExceptionHandler[_R_co]) -> _ExceptionHandler[_R_co]: ...
     def on_event(self, message: str, handler: _Handler[[Incomplete], object], namespace: str | None = None) -> None: ...
+
     @overload
     def event(self, event_handler: _Handler[_P, _R_co], /) -> _Handler[_P, _R_co]: ...
     @overload
     def event(self, namespace: str | None = None, *args, **kwargs) -> _HandlerDecorator: ...
+
     def on_namespace(self, namespace_handler: Namespace) -> None: ...
     def emit(
         self,

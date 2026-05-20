@@ -2,8 +2,8 @@ from _typeshed import Incomplete
 from collections.abc import Callable, Coroutine, Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from types import TracebackType
-from typing import Any, ClassVar, Generic, Literal, TypeVar, overload, type_check_only
-from typing_extensions import ParamSpec, Self
+from typing import Any, ClassVar, Generic, Literal, ParamSpec, TypeVar, overload, type_check_only
+from typing_extensions import Self
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 _AF = TypeVar("_AF", bound=Callable[..., Coroutine[Any, Any, Any]])
@@ -215,6 +215,7 @@ class _patch_dict:
 class _patcher:
     TEST_PREFIX: str
     dict: type[_patch_dict]
+
     @overload
     def __call__(
         self,
@@ -245,6 +246,7 @@ class _patcher:
         unsafe: bool = ...,
         **kwargs: Any,
     ) -> _patch[_T]: ...
+
     @overload
     def object(
         self,
@@ -274,6 +276,7 @@ class _patcher:
         unsafe: bool = ...,
         **kwargs: Any,
     ) -> _patch[_T]: ...
+
     def multiple(
         self,
         target: Any,

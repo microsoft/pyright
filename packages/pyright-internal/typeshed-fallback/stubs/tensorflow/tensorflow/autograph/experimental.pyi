@@ -1,7 +1,6 @@
 from collections.abc import Callable, Iterable
 from enum import Enum
-from typing import TypeVar, overload
-from typing_extensions import ParamSpec
+from typing import ParamSpec, TypeVar, overload
 
 import tensorflow as tf
 from tensorflow._aliases import Integer
@@ -22,6 +21,7 @@ class Feature(Enum):
 def do_not_convert(func: Callable[_Param, _RetType]) -> Callable[_Param, _RetType]: ...
 @overload
 def do_not_convert(func: None = None) -> Callable[[Callable[_Param, _RetType]], Callable[_Param, _RetType]]: ...
+
 def set_loop_options(
     parallel_iterations: Integer = ...,
     swap_memory: bool = ...,

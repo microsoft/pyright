@@ -1,7 +1,6 @@
 from _typeshed import Incomplete
 from logging import Logger
-from typing import TypedDict, type_check_only
-from typing_extensions import TypeAlias
+from typing import TypeAlias, TypedDict, type_check_only
 
 import requests
 from oauthlib.oauth1 import Client
@@ -53,10 +52,12 @@ class OAuth1Session(requests.Session):
         nonce=None,
         timestamp=None,
     ) -> None: ...
+
     @property
     def token(self) -> _TokenDict: ...
     @token.setter
     def token(self, value: _TokenDict) -> None: ...
+
     @property
     def authorized(self) -> bool: ...
     def authorization_url(self, url: str, request_token=None, **kwargs) -> str: ...

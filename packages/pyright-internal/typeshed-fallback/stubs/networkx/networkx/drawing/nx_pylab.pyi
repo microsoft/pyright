@@ -1,7 +1,7 @@
 from _typeshed import Incomplete, SupportsItems
 from collections.abc import Callable, Collection, Hashable, Iterable, Mapping, Sequence
-from typing import Any, Generic, Literal, TypedDict, TypeVar, overload, type_check_only
-from typing_extensions import TypeAlias, Unpack
+from typing import Any, Generic, Literal, TypeAlias, TypedDict, TypeVar, overload, type_check_only
+from typing_extensions import Unpack
 
 import numpy as np
 from matplotlib.axes import Axes  # type: ignore[import-not-found]
@@ -191,6 +191,7 @@ def draw_networkx_nodes(  # keep in sync with _DrawNetworkxKwds above
     margins: float | tuple[float, float] | None = None,
     hide_ticks: bool = True,
 ) -> PathCollection: ...
+
 @overload  # arrows=None -> LineCollection if G is undirected, list[FancyArrowPatch] if G is directed
 def draw_networkx_edges(  # keep in sync with _DrawNetworkxKwds above
     G: Graph[_Node],
@@ -288,6 +289,7 @@ def draw_networkx_edges(
     node_shape: str = "o",
     hide_ticks: bool = True,
 ) -> LineCollection: ...
+
 def draw_networkx_labels(  # keep in sync with _DrawNetworkxKwds above
     G: Graph[_Node],
     pos: Mapping[_Node, Collection[float]],

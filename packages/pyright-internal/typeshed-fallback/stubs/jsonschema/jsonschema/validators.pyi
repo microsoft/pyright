@@ -1,8 +1,8 @@
 from _typeshed import Incomplete, SupportsKeysAndGetItem
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager
-from typing import Any, ClassVar, overload, type_check_only
-from typing_extensions import TypeAlias, deprecated
+from typing import Any, ClassVar, TypeAlias, overload, type_check_only
+from typing_extensions import deprecated
 
 from referencing.jsonschema import Schema, SchemaRegistry
 from referencing.typing import URI
@@ -47,16 +47,19 @@ class _Validator(Validator):
     )
     def resolver(self): ...
     def evolve(self, **changes) -> _Validator: ...
+
     @overload
     def iter_errors(self, instance) -> Generator[Incomplete]: ...
     @overload
     @deprecated("Passing a schema to Validator.iter_errors is deprecated and will be removed in a future release.")
     def iter_errors(self, instance, _schema: Schema | None) -> Generator[Incomplete]: ...
+
     def descend(
         self, instance, schema: Schema, path: Incomplete | None = ..., schema_path: Incomplete | None = ..., resolver=None
     ) -> Generator[Incomplete]: ...
     def validate(self, *args, **kwargs) -> None: ...
     def is_type(self, instance, type) -> bool: ...
+
     @overload
     def is_valid(self, instance) -> bool: ...
     @overload

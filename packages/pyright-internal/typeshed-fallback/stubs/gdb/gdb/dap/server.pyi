@@ -2,8 +2,7 @@ import threading
 from _typeshed import Incomplete, SupportsReadline, Unused
 from collections.abc import Callable
 from contextlib import AbstractContextManager
-from typing import Any, Generic, TypeVar, type_check_only
-from typing_extensions import TypeAlias
+from typing import Any, Generic, TypeAlias, TypeVar, type_check_only
 
 from .io import _SupportsReadAndReadlineBytes, _SupportsWriteAndFlushBytes
 from .startup import DAPQueue
@@ -49,6 +48,7 @@ class Server:
     def shutdown(self) -> None: ...
 
 def send_event(event: str, body: _EventBody | None = None) -> None: ...
+
 @type_check_only
 class _Wrapper:
     def __call__(self, func: _F) -> _F: ...
