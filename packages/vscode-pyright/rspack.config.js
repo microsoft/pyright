@@ -1,12 +1,15 @@
 const path = require('path');
-const rspack = require('@rspack/core');
 const { monorepoResourceNameMapper, tsconfigResolveAliases } = require('../../build/lib/webpack');
 
 const outPath = path.resolve(__dirname, 'dist');
 const typeshedFallback = path.resolve(__dirname, '..', 'pyright-internal', 'typeshed-fallback');
 
-/**@type {(env: any, argv: { mode: 'production' | 'development' | 'none' }) => import('@rspack/core').Configuration}*/
-module.exports = (_, { mode }) => {
+/** @typedef {{ mode: 'production' | 'development' | 'none' }} RspackArgv */
+
+/** @param {unknown} _ @param {RspackArgv} param1 */
+module.exports = async (_, { mode }) => {
+    const { CopyRspackPlugin } = await import('@rspack/core');
+
     return {
         context: __dirname,
         entry: {
@@ -17,7 +20,9 @@ module.exports = (_, { mode }) => {
         output: {
             filename: '[name].js',
             path: outPath,
-            libraryTarget: 'commonjs2',
+            library: {
+                type: 'commonjs2',
+            },
             devtoolModuleFilenameTemplate:
                 mode === 'development' ? '../[resource-path]' : monorepoResourceNameMapper('vscode-pyright'),
             clean: true,
@@ -50,6 +55,6 @@ module.exports = (_, { mode }) => {
                 },
             ],
         },
-        plugins: [new rspack.CopyRspackPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] })],
+        plugins: [new CopyRspackPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] })],
     };
 };

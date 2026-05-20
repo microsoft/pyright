@@ -18,7 +18,7 @@
         "fix:eslint": "cross-env ESLINT_USE_FLAT_CONFIG=false eslint --fix .",
         "check:prettier": "prettier -c .",
         "fix:prettier": "prettier --write .",
-        "typecheck": "npx lerna exec --stream --no-bail --ignore=pyright -- tsc --noEmit"
+        "typecheck": "npx lerna exec --stream --no-bail --ignore=pyright -- \"tsc --noEmit\""
     },
     "devDependencies": {
         "@types/glob": "^8.1.0",

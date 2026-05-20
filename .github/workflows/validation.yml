@@ -31,7 +31,7 @@ jobs:
 
       - run: npm run install:all
 
-      - run: npx lerna exec --stream --no-bail -- tsc --noEmit
+      - run: npx lerna exec --stream --no-bail -- "tsc --noEmit"
 
   style:
     if: github.repository == 'microsoft/pyright'
