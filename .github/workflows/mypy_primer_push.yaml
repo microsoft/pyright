@@ -4,6 +4,9 @@
 # compares the output of both. It uploads the diffs as an artifact.
 name: Run mypy_primer on push
 
+env:
+  NODE_VERSION: '22' # Shipped with VS Code.
+
 on:
   # Run on all pushes to main.
   push:
@@ -36,6 +39,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'pyright_to_test/**/package-lock.json'
       - name: Install dependencies
         run: |
           python -m pip install -U pip

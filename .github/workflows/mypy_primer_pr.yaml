@@ -15,6 +15,9 @@
 
 name: Run mypy_primer on PR
 
+env:
+  NODE_VERSION: '22' # Shipped with VS Code.
+
 on:
   # Run on the creation or update of a PR.
   pull_request:
@@ -45,6 +48,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'pyright_to_test/**/package-lock.json'
       - name: Install dependencies
         run: |
           python -m pip install -U pip
