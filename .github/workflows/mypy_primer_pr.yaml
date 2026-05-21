@@ -68,6 +68,7 @@ jobs:
           cd pyright_to_test
           echo "new commit"
           git rev-list --format=%s --max-count=1 $GITHUB_SHA
+          git branch new_commit $GITHUB_SHA
 
           MERGE_BASE=$(git rev-parse "$GITHUB_SHA^1")
           git checkout -b base_commit $MERGE_BASE
@@ -110,7 +111,7 @@ jobs:
             mypy_primer \
             --repo pyright_to_test \
             --type-checker pyright \
-            --new $GITHUB_SHA --old base_commit \
+            --new new_commit --old base_commit \
             --num-shards 8 --shard-index ${{ matrix.shard-index }} \
             --debug \
             --output concise \
