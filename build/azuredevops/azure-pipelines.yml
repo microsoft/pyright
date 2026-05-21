@@ -41,9 +41,9 @@ extends:
                 fetchTags: true
                 persistCredentials: True
               - task: NodeTool@0
-                displayName: Use Node 18.x
+                displayName: Use Node 22.x
                 inputs:
-                  versionSpec: 18.x
+                  versionSpec: 22.x
               - task: CmdLine@2
                 displayName: npm install
                 inputs:

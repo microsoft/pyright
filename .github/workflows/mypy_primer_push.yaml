@@ -5,7 +5,7 @@
 name: Run mypy_primer on push
 
 env:
-  NODE_VERSION: '22.12.x' # Shipped with VS Code.
+  NODE_VERSION: '22.x' # Shipped with VS Code.
 
 on:
   # Run on all pushes to main.

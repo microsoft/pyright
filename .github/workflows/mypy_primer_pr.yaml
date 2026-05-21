@@ -16,7 +16,7 @@
 name: Run mypy_primer on PR
 
 env:
-  NODE_VERSION: '22.12.0' # Pin to a Node 22 release supported by @rspack/core.
+  NODE_VERSION: '22.x' # Shipped with VS Code.
 
 on:
   # Run on the creation or update of a PR.
