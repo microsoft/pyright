@@ -111,7 +111,6 @@ jobs:
             --type-checker pyright \
             --new $GITHUB_SHA --old base_commit \
             --num-shards 8 --shard-index ${{ matrix.shard-index }} \
-            --concurrency 1 \
             --debug \
             --output concise \
             | tee diff_${{ matrix.shard-index }}.txt
