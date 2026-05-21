@@ -45,6 +45,7 @@ jobs:
         with:
           path: pyright_to_test
           fetch-depth: 0
+          fetch-tags: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
