@@ -72,6 +72,11 @@ jobs:
           git checkout -b base_commit $MERGE_BASE
           echo "base commit"
           git rev-list --format=%s --max-count=1 base_commit
+          printf 'legacy-peer-deps=true\n' > .npmrc
+          git add .npmrc
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "Configure npm for mypy_primer base"
 
           echo ''
           cd ..
