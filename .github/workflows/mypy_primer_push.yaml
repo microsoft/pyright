@@ -50,6 +50,10 @@ jobs:
           pip install git+https://github.com/hauntsaninja/mypy_primer.git
       - name: Run mypy_primer
         shell: bash
+        env:
+          # mypy_primer installs both the new and old commits. The old commit can contain
+          # historical peer dependency conflicts that should not block primer comparisons.
+          NPM_CONFIG_LEGACY_PEER_DEPS: 'true'
         run: |
           cd pyright_to_test
           echo "new commit"
