@@ -60,6 +60,8 @@ jobs:
           git rev-list --format=%s --max-count=1 $GITHUB_SHA
 
           cd ..
+          npm config set legacy-peer-deps true --location=user
+          npm config get legacy-peer-deps
           # fail action if exit code isn't zero or one
           (
             mypy_primer \
