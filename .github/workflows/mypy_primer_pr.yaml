@@ -73,23 +73,6 @@ jobs:
           echo "base commit"
           git rev-list --format=%s --max-count=1 base_commit
 
-          # Keep the old checker source at the merge base, but use dependency metadata
-          # from this PR so mypy_primer can install historical base checkouts.
-          git checkout $GITHUB_SHA -- \
-            package.json \
-            package-lock.json \
-            packages/pyright/package.json \
-            packages/pyright/package-lock.json \
-            packages/pyright-internal/package.json \
-            packages/pyright-internal/package-lock.json \
-            packages/vscode-pyright/package.json \
-            packages/vscode-pyright/package-lock.json
-          if ! git diff --quiet; then
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git commit -m "Update dependency metadata for mypy_primer base"
-          fi
-
           echo ''
           cd ..
           npm config set legacy-peer-deps true --location=user
@@ -101,6 +84,7 @@ jobs:
             --type-checker pyright \
             --new $GITHUB_SHA --old base_commit \
             --num-shards 8 --shard-index ${{ matrix.shard-index }} \
+            --concurrency 1 \
             --debug \
             --output concise \
             | tee diff_${{ matrix.shard-index }}.txt
