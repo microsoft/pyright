@@ -72,11 +72,33 @@ jobs:
           git checkout -b base_commit $MERGE_BASE
           echo "base commit"
           git rev-list --format=%s --max-count=1 base_commit
+          # Keep the old checker source at the merge base, but use this PR's
+          # dependency and bundler metadata so the old checkout can install and build.
+          git checkout $GITHUB_SHA -- \
+            package.json \
+            package-lock.json \
+            packages/pyright/package.json \
+            packages/pyright/package-lock.json \
+            packages/pyright/rspack.config.js \
+            packages/pyright-internal/package.json \
+            packages/pyright-internal/package-lock.json \
+            packages/vscode-pyright/package.json \
+            packages/vscode-pyright/package-lock.json
           printf 'legacy-peer-deps=true\n' > .npmrc
-          git add .npmrc
+          git add \
+            .npmrc \
+            package.json \
+            package-lock.json \
+            packages/pyright/package.json \
+            packages/pyright/package-lock.json \
+            packages/pyright/rspack.config.js \
+            packages/pyright-internal/package.json \
+            packages/pyright-internal/package-lock.json \
+            packages/vscode-pyright/package.json \
+            packages/vscode-pyright/package-lock.json
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git commit -m "Configure npm for mypy_primer base"
+          git commit -m "Configure build dependencies for mypy_primer base"
 
           echo ''
           cd ..
