@@ -76,33 +76,19 @@ jobs:
           git rev-list --format=%s --max-count=1 base_commit
           # Keep the old checker source at the merge base, but use this PR's
           # dependency and bundler metadata so the old checkout can install and build.
-          # SYNC: Update this list when adding packages or build config files needed by install/build.
-          git checkout $GITHUB_SHA -- \
-            package.json \
-            package-lock.json \
-            packages/pyright/package.json \
-            packages/pyright/package-lock.json \
-            packages/pyright/rspack.config.js \
-            packages/pyright-internal/package.json \
-            packages/pyright-internal/package-lock.json \
-            packages/vscode-pyright/package.json \
-            packages/vscode-pyright/package-lock.json
+          mapfile -t BASE_BUILD_FILES < <(
+            git ls-tree -r --name-only "$GITHUB_SHA" |
+              grep -E '^(package(-lock)?\.json|packages/[^/]+/package(-lock)?\.json|packages/[^/]+/rspack\.config\.js)$'
+          )
+          echo "Using build metadata for mypy_primer base:"
+          printf '%s\n' "${BASE_BUILD_FILES[@]}"
+          git checkout $GITHUB_SHA -- "${BASE_BUILD_FILES[@]}"
           printf 'legacy-peer-deps=true\n' > .npmrc
-          git add \
-            .npmrc \
-            package.json \
-            package-lock.json \
-            packages/pyright/package.json \
-            packages/pyright/package-lock.json \
-            packages/pyright/rspack.config.js \
-            packages/pyright-internal/package.json \
-            packages/pyright-internal/package-lock.json \
-            packages/vscode-pyright/package.json \
-            packages/vscode-pyright/package-lock.json
+          git add .npmrc "${BASE_BUILD_FILES[@]}"
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git commit -m "Configure build dependencies for mypy_primer base"
-          echo "Prepared mypy_primer base_commit with selected build metadata. If old-checker install/build fails, check whether this file list is stale."
+          echo "Prepared mypy_primer base_commit with generated package and rspack build metadata."
 
           echo ''
           cd ..
