@@ -10,6 +10,7 @@ import assert from 'assert';
 import * as fs from 'fs-extra';
 import { isMainThread, threadId, Worker } from 'node:worker_threads';
 import path from 'path';
+import { PortMessageReader, PortMessageWriter } from 'vscode-jsonrpc/node';
 import {
     ApplyWorkspaceEditParams,
     ApplyWorkspaceEditRequest,
@@ -48,8 +49,6 @@ import {
     Event,
     HoverRequest,
     NotificationHandler,
-    PortMessageReader,
-    PortMessageWriter,
     ProgressToken,
     ProgressType,
     ProtocolNotificationType,
