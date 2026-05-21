@@ -47,7 +47,7 @@
         "@types/tmp": "^0.2.6",
         "esbuild-loader": "^4.4.2",
         "jest": "^30.2.0",
-        "jest-junit": "^16.0.0",
+        "jest-junit": "^17.0.0",
         "shx": "^0.4.0",
         "ts-jest": "^29.4.6",
         "ts-loader": "^9.5.4",
