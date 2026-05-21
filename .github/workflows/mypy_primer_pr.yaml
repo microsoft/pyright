@@ -15,6 +15,9 @@
 
 name: Run mypy_primer on PR
 
+env:
+  NODE_VERSION: '22.12.0' # Pin to a Node 22 release supported by @rspack/core.
+
 on:
   # Run on the creation or update of a PR.
   pull_request:
@@ -41,34 +44,62 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: pyright_to_test
-          fetch-depth: 0
+          fetch-depth: 2
+          fetch-tags: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'pyright_to_test/**/package-lock.json'
       - name: Install dependencies
         run: |
           python -m pip install -U pip
           pip install git+https://github.com/hauntsaninja/mypy_primer.git
       - name: Run mypy_primer
         shell: bash
+        env:
+          # mypy_primer installs both the PR and base commits. The base commit can contain
+          # historical peer dependency conflicts that should not block primer comparisons.
+          NPM_CONFIG_LEGACY_PEER_DEPS: 'true'
         run: |
           cd pyright_to_test
           echo "new commit"
           git rev-list --format=%s --max-count=1 $GITHUB_SHA
+          git branch new_commit $GITHUB_SHA
 
-          MERGE_BASE=$(git merge-base $GITHUB_SHA origin/$GITHUB_BASE_REF)
+          MERGE_BASE=$(git rev-parse "$GITHUB_SHA^1")
           git checkout -b base_commit $MERGE_BASE
           echo "base commit"
           git rev-list --format=%s --max-count=1 base_commit
+          # Keep the old checker source at the merge base, but use this PR's
+          # dependency and bundler metadata so the old checkout can install and build.
+          mapfile -t BASE_BUILD_FILES < <(
+            git ls-tree -r --name-only "$GITHUB_SHA" |
+              grep -E '^(package(-lock)?\.json|packages/[^/]+/package(-lock)?\.json|packages/[^/]+/rspack\.config\.js)$'
+          )
+          echo "Using build metadata for mypy_primer base:"
+          printf '%s\n' "${BASE_BUILD_FILES[@]}"
+          git checkout $GITHUB_SHA -- "${BASE_BUILD_FILES[@]}"
+          printf 'legacy-peer-deps=true\n' > .npmrc
+          git add .npmrc "${BASE_BUILD_FILES[@]}"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "Configure build dependencies for mypy_primer base"
+          echo "Prepared mypy_primer base_commit with generated package and rspack build metadata."
 
           echo ''
           cd ..
+          npm config set legacy-peer-deps true --location=user
+          npm config get legacy-peer-deps
           # fail action if exit code isn't zero or one
           (
             mypy_primer \
             --repo pyright_to_test \
             --type-checker pyright \
-            --new $GITHUB_SHA --old base_commit \
+            --new new_commit --old base_commit \
             --num-shards 8 --shard-index ${{ matrix.shard-index }} \
             --debug \
             --output concise \

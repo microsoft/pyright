@@ -5,16 +5,12 @@
  *
  * Test language server wrapper that lets us run the language server during a test.
  */
+import { Message, MessageReader, MessageWriter, PortMessageReader, PortMessageWriter } from 'vscode-jsonrpc/node';
 import {
     CancellationToken,
     Connection,
     DidOpenTextDocumentParams,
     Disposable,
-    Message,
-    MessageReader,
-    MessageWriter,
-    PortMessageReader,
-    PortMessageWriter,
     ShutdownRequest,
     createConnection,
 } from 'vscode-languageserver/node';

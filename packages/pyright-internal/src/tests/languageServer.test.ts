@@ -9,6 +9,7 @@
 import assert from 'assert';
 import {
     CancellationToken,
+    CompletionItem,
     CompletionRequest,
     ConfigurationItem,
     DidChangeWorkspaceFoldersNotification,
@@ -170,7 +171,7 @@ describe(`Basic language server tests`, () => {
         assert(completionResult);
         assert(!isArray(completionResult));
 
-        const completionItem = completionResult.items.find((i) => i.label === 'path')!;
+        const completionItem = completionResult.items.find((i: CompletionItem) => i.label === 'path')!;
         assert(completionItem);
     });
 

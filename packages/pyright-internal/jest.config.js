@@ -11,13 +11,7 @@ module.exports = {
         '^.+\\.tsx?$': [
             'ts-jest',
             {
-                tsconfig: {
-                    target: 'es2019',
-
-                    // Needed because jest calls tsc in a way that doesn't
-                    // inline const enums.
-                    preserveConstEnums: false,
-                },
+                tsconfig: 'tsconfig.jest.json',
                 diagnostics: {
                     ignoreCodes: [151002],
                 },
