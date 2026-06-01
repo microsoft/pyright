@@ -73,6 +73,7 @@ const _keywords: Map<string, KeywordType> = new Map([
     ['in', KeywordType.In],
     ['is', KeywordType.Is],
     ['lambda', KeywordType.Lambda],
+    ['lazy', KeywordType.Lazy],
     ['match', KeywordType.Match],
     ['nonlocal', KeywordType.Nonlocal],
     ['not', KeywordType.Not],
@@ -90,7 +91,7 @@ const _keywords: Map<string, KeywordType> = new Map([
     ['True', KeywordType.True],
 ]);
 
-const _softKeywords = new Set(['match', 'case', 'type']);
+const _softKeywords = new Set(['match', 'case', 'type', 'lazy']);
 
 const _operatorInfo: { [key: number]: OperatorFlags } = {
     [OperatorType.Add]: OperatorFlags.Unary | OperatorFlags.Binary,

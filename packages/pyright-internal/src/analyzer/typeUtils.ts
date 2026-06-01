@@ -1445,6 +1445,17 @@ export function isTupleGradualForm(type: Type) {
     );
 }
 
+// Returns true for classes that are generic in stubs but not subscriptable
+// at runtime (e.g. operator.attrgetter, operator.itemgetter). These lack
+// __class_getitem__ and are not builtins.
+export function isStubOnlySubscriptable(classType: ClassType) {
+    return (
+        ClassType.isDefinedInStub(classType) &&
+        !ClassType.isBuiltIn(classType) &&
+        !classType.shared.fields.has('__class_getitem__')
+    );
+}
+
 export function isTupleClass(type: ClassType) {
     return ClassType.isBuiltIn(type, 'tuple');
 }

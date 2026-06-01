@@ -640,6 +640,8 @@ export namespace Localizer {
             new ParameterizedString<{ returnType: string }>(
                 getRawString('Diagnostic.lambdaReturnTypePartiallyUnknown')
             );
+        export const lazyImportIllegal = () => getRawString('Diagnostic.lazyImportIllegal');
+        export const lazyImportWildcardIllegal = () => getRawString('Diagnostic.lazyImportWildcardIllegal');
         export const listAssignmentMismatch = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.listAssignmentMismatch'));
         export const listInAnnotation = () => getRawString('Diagnostic.listInAnnotation');

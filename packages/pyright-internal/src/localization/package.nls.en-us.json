@@ -704,6 +704,8 @@
         "keywordSubscriptIllegal": "Keyword arguments within subscripts are not supported",
         "lambdaReturnTypePartiallyUnknown": "Return type of lambda, \"{returnType}\", is partially unknown",
         "lambdaReturnTypeUnknown": "Return type of lambda is unknown",
+        "lazyImportIllegal": "Lazy import statement requires Python 3.15 or newer",
+        "lazyImportWildcardIllegal": "Wildcard imports cannot be used with 'lazy'",
         "listAssignmentMismatch": "Expression with type \"{type}\" cannot be assigned to target list",
         "listInAnnotation": {
             "message": "List expression not allowed in type expression",

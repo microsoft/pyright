@@ -2639,21 +2639,49 @@ export function createTypeEvaluator(
 
         function addOneFunctionToSignature(type: FunctionType) {
             let callResult: CallResult | undefined;
+            const constraints = new ConstraintTracker();
 
             useSpeculativeMode(callNode, () => {
                 callResult = validateArgs(
                     exprNode,
                     argList,
                     { type },
-                    /* constraints */ undefined,
+                    constraints,
                     /* skipUnknownArgCheck */ true,
                     /* inferenceContext */ undefined
                 );
             });
 
+            const specializedType = solveAndApplyConstraints(type, constraints);
+            const finalType = isFunction(specializedType) ? specializedType : type;
+            const hasActiveArg = argList.some((arg) => arg.active);
+
+            // If the type was specialized (e.g. ParamSpec expansion), the activeParam
+            // from the original validateArgs refers to parameters in the unspecialized
+            // type and won't match the specialized type's parameters. Re-run validateArgs
+            // against the specialized type to get the correct activeParam mapping.
+            let activeParam = callResult?.activeParam;
+            if (hasActiveArg && finalType !== type) {
+                let specializedActiveParam: typeof activeParam | undefined;
+                useSpeculativeMode(callNode, () => {
+                    const specializedResult = validateArgs(
+                        exprNode,
+                        argList,
+                        { type: finalType },
+                        new ConstraintTracker(),
+                        /* skipUnknownArgCheck */ true,
+                        /* inferenceContext */ undefined
+                    );
+                    specializedActiveParam = specializedResult?.activeParam;
+                });
+                if (specializedActiveParam) {
+                    activeParam = specializedActiveParam;
+                }
+            }
+
             signatures.push({
-                type: expandTypedKwargs(type),
-                activeParam: callResult?.activeParam,
+                type: expandTypedKwargs(finalType),
+                activeParam,
             });
         }
 
@@ -20875,6 +20903,11 @@ export function createTypeEvaluator(
 
             case ParseNodeType.Assignment: {
                 evaluateTypesForAssignmentStatement(parent);
+                return;
+            }
+
+            case ParseNodeType.AugmentedAssignment: {
+                evaluateTypesForAugmentedAssignment(parent);
                 return;
             }
         }

@@ -112,6 +112,7 @@ import { ServiceProvider } from './common/serviceProvider';
 import { Position, Range } from './common/textRange';
 import { Uri } from './common/uri/uri';
 import { convertUriToLspUriString } from './common/uri/uriUtils';
+import { hasWorkspaceEditChanges } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
 import { CompletionItemData, CompletionProvider } from './languageService/completionProvider';
@@ -1268,7 +1269,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         const executeCommand = async (token: CancellationToken) => {
             const result = await this.executeCommand(params, token);
-            if (WorkspaceEdit.is(result)) {
+            if (WorkspaceEdit.is(result) && hasWorkspaceEditChanges(result)) {
                 // Tell client to apply edits.
                 // Do not await; the client isn't expecting a result.
                 this.connection.workspace.applyEdit({
@@ -1278,7 +1279,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 });
             }
 
-            if (CommandResult.is(result)) {
+            if (CommandResult.is(result) && hasWorkspaceEditChanges(result.edits)) {
                 // Tell client to apply edits.
                 // Await so that we return after the edit is complete.
                 await this.connection.workspace.applyEdit({

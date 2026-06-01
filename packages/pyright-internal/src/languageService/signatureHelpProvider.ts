@@ -34,11 +34,12 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { DocStringService } from '../common/docStringService';
 import { ProgramView } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
-import { Position } from '../common/textRange';
+import { Position, TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ArgCategory, CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
 import { Tokenizer } from '../parser/tokenizer';
+import { TokenType } from '../parser/tokenizerTypes';
 import {
     getDocumentationPartsForTypeAndDecl,
     getFunctionDocStringFromType,
@@ -80,6 +81,20 @@ export class SignatureHelpProvider {
 
         const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
+            return undefined;
+        }
+
+        // Suppress signature help when the cursor is strictly inside string literal content.
+        // Strict-inside (offset > token.start && offset < end) ensures we don't suppress at
+        // either the opening-quote boundary (e.g. `key1=|'r'`) or the closing-quote boundary
+        // (e.g. `foo("text"|)`).
+        const token = ParseTreeUtils.getTokenOverlapping(this._parseResults.tokenizerOutput.tokens, offset);
+        if (
+            token &&
+            (token.type === TokenType.String || token.type === TokenType.FStringMiddle) &&
+            offset > token.start &&
+            TextRange.contains(token, offset)
+        ) {
             return undefined;
         }
 

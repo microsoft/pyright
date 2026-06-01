@@ -355,13 +355,7 @@ export class AnalyzerService {
         return this._program.getOwnedFiles().map((i) => i.uri);
     }
 
-    setFileOpened(
-        uri: Uri,
-        version: number | null,
-        contents: string,
-        ipythonMode = IPythonMode.None,
-        chainedFileUri?: Uri
-    ) {
+    setFileOpened(uri: Uri, version: number | null, contents: string, ipythonMode?: IPythonMode, chainedFileUri?: Uri) {
         // Open the file. Notebook cells are always tracked as they aren't 3rd party library files.
         // This is how it's worked in the past since each notebook used to have its own
         // workspace and the workspace include setting marked all cells as tracked.
@@ -369,7 +363,7 @@ export class AnalyzerService {
         const isVirtual = ipythonMode !== IPythonMode.None || uri.isUntitled();
         this._backgroundAnalysisProgram.setFileOpened(uri, version, contents, {
             isVirtual,
-            ipythonMode,
+            ipythonMode: ipythonMode ?? IPythonMode.None,
             chainedFileUri: chainedFileUri,
         });
         this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
@@ -388,11 +382,11 @@ export class AnalyzerService {
         uri: Uri,
         version: number | null,
         contents: string,
-        ipythonMode = IPythonMode.None,
+        ipythonMode?: IPythonMode,
         changedRange?: ChangedRange
     ) {
         this._backgroundAnalysisProgram.updateOpenFileContents(uri, version, contents, {
-            ipythonMode,
+            ipythonMode: ipythonMode ?? IPythonMode.None,
             chainedFileUri: undefined,
             changedRange,
         });
