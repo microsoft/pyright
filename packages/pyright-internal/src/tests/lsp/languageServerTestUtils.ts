@@ -712,7 +712,6 @@ export async function runPyrightServer(
                         finalConfiguration = configuration;
                     }
                 }
-
                 result.push(finalConfiguration);
             }
 
