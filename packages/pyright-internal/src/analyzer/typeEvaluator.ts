@@ -26924,9 +26924,9 @@ export function createTypeEvaluator(
                 ).length;
 
                 diag?.createAddendum().addMessage(
-                    LocAddendum.functionTooFewParams().format({
-                        expected: nonDefaultSrcParamCount,
-                        received: destPositionalCount,
+                    LocAddendum.functionTooManyParams().format({
+                        expected: destPositionalCount,
+                        received: nonDefaultSrcParamCount,
                     })
                 );
                 canAssign = false;
@@ -26997,9 +26997,9 @@ export function createTypeEvaluator(
 
                 if (srcPositionalCount < adjDestPositionalCount) {
                     diag?.addMessage(
-                        LocAddendum.functionTooManyParams().format({
-                            expected: srcPositionalCount,
-                            received: destPositionalCount,
+                        LocAddendum.functionTooFewParams().format({
+                            expected: adjDestPositionalCount,
+                            received: srcPositionalCount,
                         })
                     );
                     canAssign = false;
