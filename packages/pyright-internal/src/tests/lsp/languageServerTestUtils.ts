@@ -258,7 +258,7 @@ function isRequestedConfigurationSectionIncludesTargetSection(
 }
 
 function isPlainObject(value: unknown): boolean {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -271,14 +271,14 @@ function updateConfigurationSection(
     configuration: Record<string, any>,
     requestedSection: string | undefined,
     targetSection: string | undefined,
-    targetValue: any,
+    targetValue: any
 ): boolean {
     if (!isRequestedConfigurationSectionIncludesTargetSection(requestedSection, targetSection)) {
         return false;
     }
 
-    const requestedSectionParts = requestedSection ? requestedSection.split(".") : [];
-    const targetSectionParts = targetSection ? targetSection.split(".") : [];
+    const requestedSectionParts = requestedSection ? requestedSection.split('.') : [];
+    const targetSectionParts = targetSection ? targetSection.split('.') : [];
 
     // Path relative to the object we actually hold.
     const relativeParts = targetSectionParts.slice(requestedSectionParts.length);
@@ -704,7 +704,7 @@ export async function runPyrightServer(
                 const matchingSettings = mappedSettings.filter(
                     (s) =>
                         (s.item.scopeUri === item.scopeUri || s.item.scopeUri === undefined) &&
-                        (isRequestedConfigurationSectionIncludesTargetSection(item.section, s.item.section))
+                        isRequestedConfigurationSectionIncludesTargetSection(item.section, s.item.section)
                 );
                 if (matchingSettings.length) {
                     // Indicate we queried at least one setting.
