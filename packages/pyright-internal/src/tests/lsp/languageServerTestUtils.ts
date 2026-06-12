@@ -243,14 +243,11 @@ export function createFileSystem(projectRoot: string, testData: FourSlashData, o
 
 const settingsMap = new Map<PyrightServerInfo, { item: ConfigurationItem; value: any }[]>();
 
-function isRequestedConfigurationSectionIncludesTargetSection(
-    requestedSection: string | undefined,
-    targetSection: string | undefined
-) {
-    const requestedSectionParts = requestedSection ? requestedSection.split('.') : [];
-    const targetSectionParts = targetSection ? targetSection.split('.') : [];
-    for (const [i, requestedSectionPart] of requestedSectionParts.entries()) {
-        if (targetSectionParts[i] !== requestedSectionPart) {
+function isDotPathPrefix(prefix: string | undefined, path: string | undefined) {
+    const prefixParts = prefix ? prefix.split('.') : [];
+    const pathParts = path ? path.split('.') : [];
+    for (const [i, requestedSectionPart] of prefixParts.entries()) {
+        if (pathParts[i] !== requestedSectionPart) {
             return false;
         }
     }
@@ -273,7 +270,7 @@ function updateConfigurationSection(
     targetSection: string | undefined,
     targetValue: any
 ): boolean {
-    if (!isRequestedConfigurationSectionIncludesTargetSection(requestedSection, targetSection)) {
+    if (!isDotPathPrefix(requestedSection, targetSection)) {
         return false;
     }
 
@@ -704,7 +701,7 @@ export async function runPyrightServer(
                 const matchingSettings = mappedSettings.filter(
                     (s) =>
                         (s.item.scopeUri === item.scopeUri || s.item.scopeUri === undefined) &&
-                        isRequestedConfigurationSectionIncludesTargetSection(item.section, s.item.section)
+                        isDotPathPrefix(item.section, s.item.section)
                 );
                 if (matchingSettings.length) {
                     // Indicate we queried at least one setting.
