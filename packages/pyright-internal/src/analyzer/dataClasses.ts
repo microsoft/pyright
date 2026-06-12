@@ -376,7 +376,8 @@ export function synthesizeDataClassMethods(
                         });
 
                     // Is this a KW_ONLY separator introduced in Python 3.10?
-                    if (!isNamedTuple && statement.d.valueExpr.d.value === '_') {
+                    // Per the Python docs, the variable name is ignored — any name works.
+                    if (!isNamedTuple) {
                         const annotatedType = variableTypeEvaluator();
 
                         if (isClassInstance(annotatedType) && ClassType.isBuiltIn(annotatedType, 'KW_ONLY')) {
