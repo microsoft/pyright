@@ -701,17 +701,18 @@ export async function runPyrightServer(
             const result = [];
             const mappedSettings = settingsMap.get(info) || [];
             for (const item of p.items) {
-                const setting = mappedSettings.find(
+                const matchingSettings = mappedSettings.filter(
                     (s) =>
                         (s.item.scopeUri === item.scopeUri || s.item.scopeUri === undefined) &&
                         (isRequestedConfigurationSectionIncludesTargetSection(item.section, s.item.section))
                 );
-                let finalConfiguration = undefined;
-                if (setting) {
+                if (matchingSettings.length) {
                     // Indicate we queried at least one setting.
                     info.queriedConfigSettings.resolve();
-
-                    const configuration = {};
+                }
+                let finalConfiguration = undefined;
+                for (const setting of matchingSettings) {
+                    const configuration: Record<string, any> = finalConfiguration ?? {};
                     if (updateConfigurationSection(configuration, item.section, setting.item.section, setting.value)) {
                         finalConfiguration = configuration;
                     }
