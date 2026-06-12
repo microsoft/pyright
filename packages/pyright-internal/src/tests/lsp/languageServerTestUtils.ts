@@ -281,9 +281,7 @@ function updateConfigurationSection(
     const relativeParts = targetSectionParts.slice(requestedSectionParts.length);
     if (relativeParts.length === 0) {
         // target == the section itself
-        for (const [key, value] of Object.entries(targetValue)) {
-            configuration[key] = value;
-        }
+        Object.assign(configuration, targetValue);
         return true;
     }
 
