@@ -268,7 +268,7 @@ function isPlainObject(value: unknown): boolean {
  * Returns true if the update was applied, false otherwise.
  */
 function updateConfigurationSection(
-    configuration: any,
+    configuration: Record<string, any>,
     requestedSection: string | undefined,
     targetSection: string | undefined,
     targetValue: any,
@@ -283,7 +283,11 @@ function updateConfigurationSection(
     // Path relative to the object we actually hold.
     const relativeParts = targetSectionParts.slice(requestedSectionParts.length);
     if (relativeParts.length === 0) {
-        return false; // target == the section itself; nothing to set
+        // target == the section itself
+        for (const [key, value] of Object.entries(targetValue)) {
+            configuration[key] = value;
+        }
+        return true;
     }
 
     // Walk to the parent, creating missing intermediate objects along the way.
