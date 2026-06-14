@@ -27819,19 +27819,32 @@ export function createTypeEvaluator(
                     }
                 }
             } else if (overrideParamDetails.positionParamCount > baseParamDetails.positionParamCount) {
-                // Verify that all of the override parameters that extend the
-                // signature are either *args, **kwargs or parameters with
-                // default values.
+                const isCallableAttrOverriddenByInstanceMethod =
+                    baseParamDetails.positionParamCount === 0 &&
+                    overrideParamDetails.positionParamCount === 1 &&
+                    FunctionType.isInstanceMethod(overrideMethod) &&
+                    !FunctionType.isStaticMethod(baseMethod) &&
+                    !FunctionType.isClassMethod(baseMethod);
 
-                for (let i = baseParamDetails.positionParamCount; i < overrideParamDetails.positionParamCount; i++) {
-                    const overrideParam = overrideParamDetails.params[i].param;
+                if (!isCallableAttrOverriddenByInstanceMethod) {
+                    // Verify that all of the override parameters that extend the
+                    // signature are either *args, **kwargs or parameters with
+                    // default values.
 
-                    if (
-                        overrideParam.category === ParamCategory.Simple &&
-                        overrideParam.name &&
-                        !overrideParamDetails.params[i].defaultType
+                    for (
+                        let i = baseParamDetails.positionParamCount;
+                        i < overrideParamDetails.positionParamCount;
+                        i++
                     ) {
-                        foundParamCountMismatch = true;
+                        const overrideParam = overrideParamDetails.params[i].param;
+
+                        if (
+                            overrideParam.category === ParamCategory.Simple &&
+                            overrideParam.name &&
+                            !overrideParamDetails.params[i].defaultType
+                        ) {
+                            foundParamCountMismatch = true;
+                        }
                     }
                 }
             }

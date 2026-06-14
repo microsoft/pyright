@@ -958,6 +958,13 @@ test('MethodOverride1', () => {
     TestUtils.validateResults(analysisResults, 43);
 });
 
+test('MethodOverrideCallable1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverrideCallable1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MethodOverride2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
