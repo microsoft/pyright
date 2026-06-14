@@ -58,6 +58,7 @@ import {
     isNever,
     isSameWithoutLiteralValue,
     isTypeSame,
+    isTypeVar,
     isTypeVarTuple,
     isUnknown,
     isUnpackedTypeVar,
@@ -67,9 +68,11 @@ import {
     addConditionToType,
     containsAnyOrUnknown,
     convertToInstance,
+    convertToInstantiable,
     doForEachSubtype,
     getTypeCondition,
     getTypeVarScopeIds,
+    getUnknownForTypeVar,
     getUnknownTypeForCallable,
     isLiteralType,
     isLiteralTypeOrUnion,
@@ -82,6 +85,7 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     preserveUnknown,
+    selfSpecializeClass,
     specializeTupleClass,
     specializeWithUnknownTypeArgs,
     transformPossibleRecursiveTypeAlias,
@@ -755,7 +759,14 @@ function narrowTypeBasedOnClassPattern(
     // specialize it with Unknown type arguments.
     if (isClass(exprType) && !exprType.props?.typeAliasInfo) {
         exprType = ClassType.cloneRemoveTypePromotions(exprType);
-        exprType = specializeWithUnknownTypeArgs(exprType, evaluator.getTupleClassType());
+        if (
+            isInstantiableClass(exprType) &&
+            exprType.shared.typeParams.some((param) => isTypeVar(param) && param.shared.boundType)
+        ) {
+            exprType = selfSpecializeClass(exprType, { useBoundTypeVars: true });
+        } else {
+            exprType = specializeWithUnknownTypeArgs(exprType, evaluator.getTupleClassType());
+        }
     }
 
     // Are there any positional arguments? If so, try to get the mappings for
@@ -1019,6 +1030,32 @@ function narrowTypeBasedOnClassPattern(
                                                 },
                                             }
                                         ) as ClassType;
+                                    }
+
+                                    if (
+                                        isInstantiableClass(unexpandedSubtype) &&
+                                        unexpandedSubtype.shared.typeParams.some(
+                                            (param) => isTypeVar(param) && param.shared.boundType
+                                        )
+                                    ) {
+                                        const boundedTypeArgs = unexpandedSubtype.shared.typeParams.map((param) => {
+                                            if (isTypeVar(param) && param.shared.boundType) {
+                                                return TypeBase.isInstantiable(param)
+                                                    ? convertToInstantiable(param.shared.boundType, /* includeSubclasses */ false)
+                                                    : convertToInstance(param.shared.boundType);
+                                            }
+
+                                            return getUnknownForTypeVar(
+                                                param,
+                                                evaluator.getTupleClassType()
+                                            );
+                                        });
+                                        resultType = addConditionToType(
+                                            convertToInstance(
+                                                ClassType.specialize(unexpandedSubtype, boundedTypeArgs)
+                                            ),
+                                            getTypeCondition(subjectSubtypeExpanded)
+                                        );
                                     }
                                 }
                             }
