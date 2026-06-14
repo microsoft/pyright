@@ -1979,6 +1979,12 @@ export function getCodeFlowEngine(
                         }
                     }
 
+                    // Generic context managers (e.g. ContextManager[bool]) declare __exit__ as returning
+                    // a TypeVar. Specialize using the instance type args before checking for bool.
+                    if (isTypeVar(returnType) && cmType.priv.typeArgs && cmType.priv.typeArgs.length >= 1) {
+                        returnType = cmType.priv.typeArgs[0];
+                    }
+
                     cmSwallowsExceptions = false;
                     if (isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool')) {
                         if (returnType.priv.literalValue === undefined || returnType.priv.literalValue === true) {
