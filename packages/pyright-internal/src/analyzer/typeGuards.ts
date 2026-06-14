@@ -1128,6 +1128,25 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
 
             const adjustedSubtype = useExpandedSubtype ? subtype : unexpandedSubtype;
 
+            // NewType instances can be identity-compared with their underlying base type.
+            if (isClassInstance(adjustedSubtype) && ClassType.isNewTypeClass(adjustedSubtype) && adjustedSubtype.shared.baseClasses.length > 0) {
+                const baseClass = adjustedSubtype.shared.baseClasses[0];
+                if (isClass(baseClass)) {
+                    const baseInstance = ClassType.cloneAsInstance(baseClass);
+                    if (isNoneInstance(baseInstance)) {
+                        resultIncludesNoneSubtype = true;
+                        return isPositiveTest ? adjustedSubtype : undefined;
+                    }
+
+                    if (evaluator.assignType(baseInstance, evaluator.getNoneType())) {
+                        resultIncludesNoneSubtype = true;
+                        return isPositiveTest
+                            ? addConditionToType(evaluator.getNoneType(), subtype.props?.condition)
+                            : adjustedSubtype;
+                    }
+                }
+            }
+
             // Is it an exact match for None?
             if (isNoneInstance(subtype)) {
                 resultIncludesNoneSubtype = true;
@@ -2741,8 +2760,19 @@ function narrowTypeForLiteralComparison(
             }
 
             if (isIsOperator || isNoneInstance(subtype)) {
-                const isSubtype = evaluator.assignType(subtype, literalType);
-                return isSubtype ? literalType : undefined;
+                let compareType: Type = subtype;
+                if (isClassInstance(subtype) && ClassType.isNewTypeClass(subtype) && subtype.shared.baseClasses.length > 0) {
+                    const baseClass = subtype.shared.baseClasses[0];
+                    if (isClass(baseClass)) {
+                        compareType = ClassType.cloneAsInstance(baseClass);
+                    }
+                }
+
+                const isSubtype = evaluator.assignType(compareType, literalType);
+                if (isSubtype) {
+                    return isClassInstance(subtype) && ClassType.isNewTypeClass(subtype) ? subtype : literalType;
+                }
+                return undefined;
             }
         }
 
