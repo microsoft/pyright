@@ -1081,6 +1081,31 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
     });
 }
 
+// At runtime, a NewType instance is simply an instance of its base type.
+// If the provided type is an instance of a NewType class, this returns the
+// underlying base type instance (recursively unwrapping nested NewTypes).
+// Otherwise, it returns undefined.
+function getNewTypeBaseInstance(type: Type): ClassType | undefined {
+    if (!isClassInstance(type)) {
+        return undefined;
+    }
+
+    let current: ClassType = type;
+    let found = false;
+
+    while (ClassType.isNewTypeClass(current) && current.shared.baseClasses.length > 0) {
+        const baseClass = current.shared.baseClasses[0];
+        if (!isInstantiableClass(baseClass)) {
+            break;
+        }
+
+        current = baseClass;
+        found = true;
+    }
+
+    return found ? ClassType.cloneAsInstance(current) : undefined;
+}
+
 // Handle type narrowing for expressions of the form "x is None" and "x is not None".
 function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean) {
     const expandedType = mapSubtypes(type, (subtype) => {
@@ -1134,8 +1159,11 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
                 return isPositiveTest ? adjustedSubtype : undefined;
             }
 
-            // Is it potentially None?
-            if (evaluator.assignType(subtype, evaluator.getNoneType())) {
+            // Is it potentially None? For NewType instances, the runtime value
+            // is an instance of the underlying base type, so test the base type
+            // for overlap with None.
+            const subtypeForNoneCheck = getNewTypeBaseInstance(subtype) ?? subtype;
+            if (evaluator.assignType(subtypeForNoneCheck, evaluator.getNoneType())) {
                 resultIncludesNoneSubtype = true;
                 return isPositiveTest
                     ? addConditionToType(evaluator.getNoneType(), subtype.props?.condition)
@@ -2741,7 +2769,11 @@ function narrowTypeForLiteralComparison(
             }
 
             if (isIsOperator || isNoneInstance(subtype)) {
-                const isSubtype = evaluator.assignType(subtype, literalType);
+                // For NewType instances, the runtime value is an instance of the
+                // underlying base type, so test the base type for overlap with
+                // the literal.
+                const subtypeForCheck = getNewTypeBaseInstance(subtype) ?? subtype;
+                const isSubtype = evaluator.assignType(subtypeForCheck, literalType);
                 return isSubtype ? literalType : undefined;
             }
         }
