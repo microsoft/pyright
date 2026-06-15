@@ -4362,6 +4362,20 @@ export class Binder extends ParseTreeWalker {
             return false;
         }
 
+        // The imported symbol may be both an implicitly-imported submodule and a
+        // class/function/variable of the same name (e.g. a package that re-exports
+        // a class whose name matches a submodule). In that case the non-module
+        // declaration appears later in the declaration list and "wins" when the
+        // symbol is resolved. Only treat this wildcard re-export as a pure submodule
+        // re-export when the module alias is the symbol's effective (last)
+        // declaration; otherwise fall through so a normal alias declaration is
+        // created that resolves to the winning symbol.
+        // See https://github.com/microsoft/pyright/issues/11481.
+        const importedDecls = importedSymbol.getDeclarations();
+        if (importedDecls[importedDecls.length - 1] !== importedModuleAliasDecl) {
+            return false;
+        }
+
         const existingModuleAliasDecl = this._getMultipartModuleAliasDeclaration(
             localSymbol,
             importedModuleAliasDecl.moduleName,
