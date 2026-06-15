@@ -243,17 +243,66 @@ export function createFileSystem(projectRoot: string, testData: FourSlashData, o
 
 const settingsMap = new Map<PyrightServerInfo, { item: ConfigurationItem; value: any }[]>();
 
-export function updateSettingsMap(info: PyrightServerInfo, settings: { item: ConfigurationItem; value: any }[]) {
-    const ignoreCase = toBoolean(info.testData.globalOptions[GlobalMetadataOptionNames.ignoreCase]);
-    // Normalize the URIs for all of the settings.
-    settings.forEach((s) => {
-        if (s.item.scopeUri) {
-            s.item.scopeUri = UriEx.parse(s.item.scopeUri, !ignoreCase).toString();
+function isDotPathPrefix(prefix: string | undefined, path: string | undefined) {
+    const prefixParts = prefix ? prefix.split('.') : [];
+    const pathParts = path ? path.split('.') : [];
+    for (const [i, requestedSectionPart] of prefixParts.entries()) {
+        if (pathParts[i] !== requestedSectionPart) {
+            return false;
         }
-    });
+    }
+    return true;
+}
 
-    const current = settingsMap.get(info) || [];
-    settingsMap.set(info, [...settings, ...current]);
+function isPlainObject(value: unknown): boolean {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Update `targetSection` to `targetValue` inside `configuration`, where `configuration` is the object that
+ * was returned for `requestedSection` (dot notation). Missing intermediate objects are created as needed.
+ *
+ * Returns true if the update was applied, false otherwise.
+ */
+function updateConfigurationSection(
+    configuration: Record<string, any>,
+    requestedSection: string | undefined,
+    targetSection: string | undefined,
+    targetValue: any
+): boolean {
+    if (!isDotPathPrefix(requestedSection, targetSection)) {
+        return false;
+    }
+
+    const requestedSectionParts = requestedSection ? requestedSection.split('.') : [];
+    const targetSectionParts = targetSection ? targetSection.split('.') : [];
+
+    // Path relative to the object we actually hold.
+    const relativeParts = targetSectionParts.slice(requestedSectionParts.length);
+    if (relativeParts.length === 0) {
+        // target == the section itself
+        Object.assign(configuration, targetValue);
+        return true;
+    }
+
+    // Walk to the parent, creating missing intermediate objects along the way.
+    let node = configuration;
+    for (const part of relativeParts.slice(0, -1)) {
+        if (!isPlainObject(node)) {
+            return false; // an existing value blocks the path (e.g. a string)
+        }
+        if (!isPlainObject(node[part])) {
+            node[part] = {};
+        }
+        node = node[part];
+    }
+
+    const last = relativeParts[relativeParts.length - 1];
+    if (!isPlainObject(node)) {
+        return false; // parent isn't an object, can't set a key on it
+    }
+    node[last] = targetValue;
+    return true;
 }
 
 export function getParseResults(fileContents: string, isStubFile = false, useNotebookMode = false) {
@@ -647,16 +696,23 @@ export async function runPyrightServer(
             const result = [];
             const mappedSettings = settingsMap.get(info) || [];
             for (const item of p.items) {
-                const setting = mappedSettings.find(
+                const matchingSettings = mappedSettings.filter(
                     (s) =>
                         (s.item.scopeUri === item.scopeUri || s.item.scopeUri === undefined) &&
-                        s.item.section === item.section
+                        isDotPathPrefix(item.section, s.item.section)
                 );
-                if (setting) {
+                if (matchingSettings.length) {
                     // Indicate we queried at least one setting.
                     info.queriedConfigSettings.resolve();
                 }
-                result.push(setting?.value);
+                let finalConfiguration = undefined;
+                for (const setting of matchingSettings) {
+                    const configuration: Record<string, any> = finalConfiguration ?? {};
+                    if (updateConfigurationSection(configuration, item.section, setting.item.section, setting.value)) {
+                        finalConfiguration = configuration;
+                    }
+                }
+                result.push(finalConfiguration);
             }
 
             return result;
