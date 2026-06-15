@@ -1,4 +1,5 @@
 # Fix #11483 — Incorrect type inference from context manager `__exit__` return type with Generic
+## Status: ✅ Complete
 
 Status: ✅ Complete (pending pipeline push/PR)
 
