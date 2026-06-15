@@ -821,6 +821,12 @@ test('TotalOrdering1', () => {
     TestUtils.validateResults(analysisResults, 5);
 });
 
+test('StructUnpack1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['structUnpack1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TupleUnpack1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack1.py']);
 
