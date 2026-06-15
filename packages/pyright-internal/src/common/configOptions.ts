@@ -57,6 +57,10 @@ export class ExecutionEnvironment {
     // Default to no extra paths.
     extraPaths: Uri[] = [];
 
+    // Paths that should be treated as namespace packages even if they
+    // have an __init__.py file.
+    namespaceOverridePaths?: Uri[] | undefined;
+
     // Diagnostic rules with overrides.
     diagnosticRuleSet: DiagnosticRuleSet;
 
@@ -73,6 +77,7 @@ export class ExecutionEnvironment {
         defaultPythonVersion: PythonVersion | undefined,
         defaultPythonPlatform: string | undefined,
         defaultExtraPaths: Uri[] | undefined,
+        defaultNamespaceOverridePaths?: Uri[] | undefined,
         skipNativeLibraries = false
     ) {
         this.name = name;
@@ -80,6 +85,7 @@ export class ExecutionEnvironment {
         this.pythonVersion = defaultPythonVersion ?? latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
         this.extraPaths = Array.from(defaultExtraPaths ?? []);
+        this.namespaceOverridePaths = Array.from(defaultNamespaceOverridePaths ?? []);
         this.diagnosticRuleSet = { ...defaultDiagRuleSet };
         this.skipNativeLibraries = skipNativeLibraries;
     }
@@ -1057,6 +1063,9 @@ export class ConfigOptions {
     // Default extraPaths. Can be overridden by executionEnvironment.
     defaultExtraPaths?: Uri[] | undefined;
 
+    // Default namespaceOverridePaths. Can be overridden by executionEnvironment.
+    defaultNamespaceOverridePaths?: Uri[] | undefined;
+
     // Should native library import resolutions be skipped?
     skipNativeLibraries?: boolean;
 
@@ -1112,6 +1121,7 @@ export class ConfigOptions {
             this.defaultPythonVersion,
             this.defaultPythonPlatform,
             this.defaultExtraPaths,
+            this.defaultNamespaceOverridePaths,
             this.skipNativeLibraries
         );
     }
@@ -1320,6 +1330,25 @@ export class ConfigOptions {
                     }
                 });
                 this.defaultExtraPaths = [...configExtraPaths];
+            }
+        }
+
+        // Read the config "namespaceOverridePaths".
+        const configNamespaceOverridePaths: Uri[] = [];
+        if (configObj.namespaceOverridePaths !== undefined) {
+            unusedConfigKeys.delete('namespaceOverridePaths');
+            if (!Array.isArray(configObj.namespaceOverridePaths)) {
+                console.error(`Config "namespaceOverridePaths" field must contain an array.`);
+            } else {
+                const pathList = configObj.namespaceOverridePaths as string[];
+                pathList.forEach((path, pathIndex) => {
+                    if (typeof path !== 'string') {
+                        console.error(`Config "namespaceOverridePaths" field ${pathIndex} must be a string.`);
+                    } else {
+                        configNamespaceOverridePaths!.push(configDirUri.resolvePaths(path));
+                    }
+                });
+                this.defaultNamespaceOverridePaths = [...configNamespaceOverridePaths];
             }
         }
 
@@ -1610,7 +1639,8 @@ export class ConfigOptions {
                         this.diagnosticRuleSet,
                         this.defaultPythonVersion,
                         this.defaultPythonPlatform,
-                        this.defaultExtraPaths || []
+                        this.defaultExtraPaths || [],
+                        this.defaultNamespaceOverridePaths || []
                     );
 
                     if (execEnv) {
@@ -1659,7 +1689,8 @@ export class ConfigOptions {
         configDiagnosticRuleSet: DiagnosticRuleSet,
         configPythonVersion: PythonVersion | undefined,
         configPythonPlatform: string | undefined,
-        configExtraPaths: Uri[]
+        configExtraPaths: Uri[],
+        configNamespaceOverridePaths: Uri[]
     ): ExecutionEnvironment | undefined {
         try {
             const envObjKeys = envObj && typeof envObj === 'object' ? Object.getOwnPropertyNames(envObj) : [];
@@ -1671,7 +1702,8 @@ export class ConfigOptions {
                 configDiagnosticRuleSet,
                 configPythonVersion,
                 configPythonPlatform,
-                configExtraPaths
+                configExtraPaths,
+                configNamespaceOverridePaths
             );
 
             // Validate the root.
@@ -1705,6 +1737,32 @@ export class ConfigOptions {
                             newExecEnv.extraPaths.push(configDirUri.resolvePaths(path));
                         }
                     });
+                }
+            }
+
+            // Validate the namespaceOverridePaths.
+            unusedEnvKeys.delete('namespaceOverridePaths');
+            if (envObj.namespaceOverridePaths) {
+                if (!Array.isArray(envObj.namespaceOverridePaths)) {
+                    console.error(
+                        `Config executionEnvironments index ${index}: namespaceOverridePaths field must contain an array.`
+                    );
+                } else {
+                    // If specified, this overrides the default extra paths inherited
+                    // from the top-level config.
+                    const namespaceOverridePaths: Uri[] = [];
+                    const pathList = envObj.namespaceOverridePaths as string[];
+                    pathList.forEach((path, pathIndex) => {
+                        if (typeof path !== 'string') {
+                            console.error(
+                                `Config executionEnvironments index ${index}:` +
+                                    ` namespaceOverridePaths field ${pathIndex} must be a string.`
+                            );
+                        } else {
+                            namespaceOverridePaths.push(configDirUri.resolvePaths(path));
+                        }
+                    });
+                    newExecEnv.namespaceOverridePaths = namespaceOverridePaths;
                 }
             }
 

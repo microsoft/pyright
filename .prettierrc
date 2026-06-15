@@ -4,6 +4,7 @@
     "useTabs": false,
     "printWidth": 120,
     "endOfLine": "auto",
+    "trailingComma": "es5",
     "overrides": [
         {
             "files": ["*.yml", "*.yaml"],

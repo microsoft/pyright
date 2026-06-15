@@ -172,6 +172,14 @@ export class PyrightServer extends LanguageServerBase {
                         .filter(isDefined);
                 }
 
+                const namespaceOverridePaths = pythonAnalysisSection.namespaceOverridePaths;
+                if (namespaceOverridePaths && Array.isArray(namespaceOverridePaths) && namespaceOverridePaths.length > 0) {
+                    serverSettings.namespaceOverridePaths = namespaceOverridePaths
+                        .filter((p) => p && isString(p))
+                        .map((p) => resolvePathWithEnvVariables(workspace, p, workspaces))
+                        .filter(isDefined);
+                }
+
                 serverSettings.includeFileSpecs = this._getStringValues(pythonAnalysisSection.include);
                 serverSettings.excludeFileSpecs = this._getStringValues(pythonAnalysisSection.exclude);
                 serverSettings.ignoreFileSpecs = this._getStringValues(pythonAnalysisSection.ignore);

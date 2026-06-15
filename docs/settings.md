@@ -24,6 +24,8 @@ The Pyright language server honors the following settings.
 
 **python.analysis.extraPaths** [array of paths]: Paths to add to the default execution environment extra paths if there are no execution environments defined in the config file.
 
+**python.analysis.namespaceOverridePaths** [array of paths]: Paths to add to the default execution environment namespace override paths if there are no execution environments defined in the config file.
+
 **python.analysis.ignore** [array of paths]: Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed. This can be overridden in the configuration file.
 
 **python.analysis.include** [array of paths]: Paths of directories or files that should be included. This can be overridden in the configuration file.

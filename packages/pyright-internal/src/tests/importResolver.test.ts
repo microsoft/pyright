@@ -801,6 +801,79 @@ describe('Import tests with fake venv', () => {
         });
     });
 
+    describe('Namespace Package Override', () => {
+        const commonFiles = [
+            { path: combinePaths('/', 'root1', 'pkg', '__init__.py'), content: '' },
+            { path: combinePaths('/', 'root1', 'pkg', 'only_in_1.py'), content: '' },
+            { path: combinePaths('/', 'root2', 'pkg', '__init__.py'), content: '' },
+            { path: combinePaths('/', 'root2', 'pkg', 'only_in_2.py'), content: '' },
+        ];
+
+        test('Standard behavior: first __init__.py shadows subsequent roots', () => {
+            const importResult = getImportResult(commonFiles, ['pkg', 'only_in_2'], (config) => {
+                config.defaultExtraPaths = [
+                    UriEx.file(combinePaths('/', 'root1')),
+                    UriEx.file(combinePaths('/', 'root2')),
+                ];
+            });
+
+            assert(!importResult.isImportFound);
+            assert.strictEqual(importResult.isInitFilePresent, true);
+        });
+
+        test('Override behavior: allows merging across roots despite __init__.py', () => {
+            const importResult = getImportResult(commonFiles, ['pkg', 'only_in_2'], (config) => {
+                config.defaultExtraPaths = [
+                    UriEx.file(combinePaths('/', 'root1')),
+                    UriEx.file(combinePaths('/', 'root2')),
+                ];
+                config.defaultNamespaceOverridePaths = [UriEx.file(combinePaths('/', 'root1', 'pkg'))];
+            });
+
+            assert(importResult.isImportFound);
+            // resolvedUris should be: [Uri(pkg), Uri(only_in_2.py)] -> Length 2
+            // If the getImportResult helper includes the root, length might be 3.
+            // The key is that the last element is the correct file.
+            const lastUri = importResult.resolvedUris[importResult.resolvedUris.length - 1];
+            assert.strictEqual(lastUri.getFilePath(), combinePaths('/', 'root2', 'pkg', 'only_in_2.py'));
+
+            assert.strictEqual(importResult.isNamespacePackage, true);
+        });
+        test('Triple merge: tunneling through multiple transparent blockers', () => {
+            const tripleFiles = [
+                { path: combinePaths('/', 'root1', 'app', '__init__.py'), content: '' },
+                { path: combinePaths('/', 'root1', 'app', 'core.py'), content: '' },
+
+                { path: combinePaths('/', 'root2', 'app', '__init__.py'), content: '' },
+                { path: combinePaths('/', 'root2', 'app', 'generated.py'), content: '' },
+
+                { path: combinePaths('/', 'root3', 'app', '__init__.py'), content: '' },
+                { path: combinePaths('/', 'root3', 'app', 'utils.py'), content: '' },
+            ];
+
+            const importResult = getImportResult(tripleFiles, ['app'], (config) => {
+                config.defaultExtraPaths = [
+                    UriEx.file(combinePaths('/', 'root1')),
+                    UriEx.file(combinePaths('/', 'root2')),
+                    UriEx.file(combinePaths('/', 'root3')),
+                ];
+
+                config.defaultNamespaceOverridePaths = [
+                    UriEx.file(combinePaths('/', 'root1', 'app')),
+                    UriEx.file(combinePaths('/', 'root2', 'app')),
+                ];
+            });
+
+            assert(importResult.isImportFound, 'Should resolve app by merging roots');
+
+            // This checks if the analyzer sees the modules from all roots
+            // because they were merged into the namespace.
+            assert(importResult.implicitImports?.has('core'), 'Namespace should contain "core" from root1');
+            assert(importResult.implicitImports?.has('generated'), 'Namespace should contain "generated" from root2');
+            assert(importResult.implicitImports?.has('utils'), 'Namespace should contain "utils" from root3');
+        });
+    });
+
     if (usingTrueVenv()) {
         describe('Import tests that have to run with a venv', () => {
             test('venv can find imports', () => {
