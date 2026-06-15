@@ -1518,7 +1518,7 @@ export function partiallySpecializeType(
                         contextClassType,
                         typeClassType,
                         selfClass
-                    ) as FunctionType,
+                    ) as FunctionType | OverloadedType,
                     classType: methodInfo.classType,
                 };
             }

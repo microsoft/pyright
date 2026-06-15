@@ -6047,7 +6047,7 @@ export class Checker extends ParseTreeWalker {
         memberName: string,
         errorNode: ParseNode
     ) {
-        const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
+        const propMethodInfo: [string, (c: ClassType) => FunctionType | OverloadedType | undefined][] = [
             ['fget', (c) => c.priv.fgetInfo?.methodType],
             ['fset', (c) => c.priv.fsetInfo?.methodType],
             ['fdel', (c) => c.priv.fdelInfo?.methodType],
@@ -6487,7 +6487,7 @@ export class Checker extends ParseTreeWalker {
                 overrideFunction = impl;
             }
         } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
-            if (overrideType.priv.fgetInfo) {
+            if (overrideType.priv.fgetInfo && isFunction(overrideType.priv.fgetInfo.methodType)) {
                 overrideFunction = overrideType.priv.fgetInfo.methodType;
             }
         }
@@ -6551,7 +6551,7 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
-            if (overrideType.priv.fgetInfo) {
+            if (overrideType.priv.fgetInfo && isFunction(overrideType.priv.fgetInfo.methodType)) {
                 overrideFunction = overrideType.priv.fgetInfo.methodType;
             }
         }
@@ -6987,7 +6987,7 @@ export class Checker extends ParseTreeWalker {
         overrideSymbol: Symbol,
         memberName: string
     ) {
-        const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
+        const propMethodInfo: [string, (c: ClassType) => FunctionType | OverloadedType | undefined][] = [
             ['fget', (c) => c.priv.fgetInfo?.methodType],
             ['fset', (c) => c.priv.fsetInfo?.methodType],
             ['fdel', (c) => c.priv.fdelInfo?.methodType],

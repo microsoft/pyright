@@ -7,6 +7,7 @@
  * Provides type evaluation logic that is specific to properties.
  */
 
+import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocAddendum, LocMessage } from '../localization/localize';
@@ -30,6 +31,7 @@ import {
     isClass,
     isFunction,
     isInstantiableClass,
+    isOverloaded,
     isTypeSame,
     isTypeVar,
     ModuleType,
@@ -192,14 +194,18 @@ export function clonePropertyWithSetter(
     // Update the __get__ and __delete__ methods if present.
     updateGetSetDelMethodForClonedProperty(evaluator, propertyObject);
 
+    // Combine this setter with any overloaded setters accumulated from previous
+    // declarations of this property. This supports overloads on property setters.
+    const combinedSetter = combineSetterOverloads(classType.priv.fsetInfo?.methodType, fset);
+
     // Fill in the new fset method.
     propertyObject.priv.fsetInfo = {
-        methodType: fset,
+        methodType: combinedSetter,
         classType: fset.shared.methodClass,
     };
 
     // Fill in the __set__ method.
-    addSetMethodToPropertySymbolTable(evaluator, propertyObject, fset);
+    addSetMethodToPropertySymbolTable(evaluator, propertyObject, combinedSetter);
 
     // Fill in the getter, setter and deleter methods.
     addDecoratorMethodsToPropertySymbolTable(propertyObject);
@@ -343,10 +349,69 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     fields.set('__get__', getSymbol);
 }
 
-function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObject: ClassType, fset: FunctionType) {
+// Combines a newly-decorated setter function with any setter overloads that
+// were accumulated from previous declarations of the same property. The
+// resulting type is a single FunctionType for a non-overloaded setter or an
+// OverloadedType when the setter has overloads.
+function combineSetterOverloads(
+    prevSetter: FunctionType | OverloadedType | undefined,
+    newSetter: FunctionType
+): FunctionType | OverloadedType {
+    // Gather any overload signatures from the previous setter.
+    const prevOverloads: FunctionType[] = [];
+    if (prevSetter) {
+        if (isOverloaded(prevSetter)) {
+            appendArray(prevOverloads, OverloadedType.getOverloads(prevSetter));
+        } else if (FunctionType.isOverloaded(prevSetter)) {
+            prevOverloads.push(prevSetter);
+        }
+    }
+
+    if (FunctionType.isOverloaded(newSetter)) {
+        // The new setter is an overload. Append it to the accumulated overloads.
+        const overloads = [...prevOverloads, newSetter];
+        return overloads.length > 1 ? OverloadedType.create(overloads) : newSetter;
+    }
+
+    // The new setter is not an overload, so it's either a plain setter or the
+    // implementation for a set of setter overloads. If there are accumulated
+    // overloads, treat it as the implementation; otherwise it's a plain setter.
+    if (prevOverloads.length > 0) {
+        return OverloadedType.create(prevOverloads, newSetter);
+    }
+
+    return newSetter;
+}
+
+function addSetMethodToPropertySymbolTable(
+    evaluator: TypeEvaluator,
+    propertyObject: ClassType,
+    fset: FunctionType | OverloadedType
+) {
     const fields = ClassType.getSymbolTable(propertyObject);
 
-    const setFunction = FunctionType.createSynthesizedInstance('__set__');
+    let setMethod: Type;
+    if (isOverloaded(fset)) {
+        // Synthesize one __set__ overload per setter overload (excluding the
+        // implementation, consistent with normal overloaded function semantics).
+        const setOverloads = OverloadedType.getOverloads(fset).map((overload) =>
+            createSetMethodFromSetter(evaluator, overload, /* asOverload */ true)
+        );
+
+        setMethod = setOverloads.length > 1 ? OverloadedType.create(setOverloads) : setOverloads[0];
+    } else {
+        setMethod = createSetMethodFromSetter(evaluator, fset, /* asOverload */ false);
+    }
+
+    const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setMethod);
+    fields.set('__set__', setSymbol);
+}
+
+function createSetMethodFromSetter(evaluator: TypeEvaluator, fset: FunctionType, asOverload: boolean): FunctionType {
+    const setFunction = FunctionType.createSynthesizedInstance(
+        '__set__',
+        asOverload ? FunctionTypeFlags.Overloaded : FunctionTypeFlags.None
+    );
     FunctionType.addParam(
         setFunction,
         FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
@@ -388,8 +453,8 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         setFunction,
         FunctionParam.create(ParamCategory.Simple, setParamType, FunctionParamFlags.TypeDeclared, 'value')
     );
-    const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
-    fields.set('__set__', setSymbol);
+
+    return setFunction;
 }
 
 function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObject: ClassType, fdel: FunctionType) {
@@ -434,7 +499,7 @@ function updateGetSetDelMethodForClonedProperty(evaluator: TypeEvaluator, proper
     }
 
     const fsetInfo = propertyObject.priv.fsetInfo;
-    if (fsetInfo && isFunction(fsetInfo.methodType)) {
+    if (fsetInfo && (isFunction(fsetInfo.methodType) || isOverloaded(fsetInfo.methodType))) {
         addSetMethodToPropertySymbolTable(evaluator, propertyObject, fsetInfo.methodType);
     }
 
@@ -479,7 +544,7 @@ export function assignProperty(
     const destObjectToBind = ClassType.cloneAsInstance(destClass);
     let isAssignable = true;
     const accessors: {
-        getFunction: (c: ClassType) => FunctionType | undefined;
+        getFunction: (c: ClassType) => FunctionType | OverloadedType | undefined;
         missingDiagMsg: () => string;
         incompatibleDiagMsg: () => string;
     }[] = [

@@ -876,7 +876,7 @@ export class PackageTypeVerifier {
             case TypeCategory.Class: {
                 // Properties require special handling.
                 if (TypeBase.isInstance(type) && ClassType.isPropertyClass(type)) {
-                    const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
+                    const propMethodInfo: [string, (c: ClassType) => FunctionType | OverloadedType | undefined][] = [
                         ['fget', (c) => c.priv.fgetInfo?.methodType],
                         ['fset', (c) => c.priv.fsetInfo?.methodType],
                         ['fdel', (c) => c.priv.fdelInfo?.methodType],

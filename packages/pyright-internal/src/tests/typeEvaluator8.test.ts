@@ -335,6 +335,23 @@ test('Property18', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Property19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property19.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Property20', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['property20.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 1);
+
+    configOptions.diagnosticRuleSet.reportDeprecated = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['property20.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 1);
+});
+
 test('Operator1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator1.py']);
 
