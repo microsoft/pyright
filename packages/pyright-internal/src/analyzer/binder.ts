@@ -507,7 +507,14 @@ export class Binder extends ParseTreeWalker {
 
                 this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
                 this._addImplicitSymbolToCurrentScope('__module__', node, 'str');
-                this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str');
+
+                // `__qualname__` is added to the class scope so it can be referenced by
+                // name within the class body (e.g. `print(__qualname__)`). Unlike
+                // `__doc__`/`__module__`, it is exposed via the metaclass (`type`) rather
+                // than as a class/instance attribute, so it must not be treated as a class
+                // member. Otherwise instance access (`instance.__qualname__`) would
+                // incorrectly resolve instead of reporting an attribute-access error.
+                this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str', /* isClassMember */ false);
 
                 this._dunderSlotsEntries = undefined;
                 if (!this._moduleSymbolOnly) {
@@ -3713,9 +3720,10 @@ export class Binder extends ParseTreeWalker {
     private _addImplicitSymbolToCurrentScope(
         nameValue: string,
         node: ModuleNode | ClassNode | FunctionNode,
-        type: IntrinsicType
+        type: IntrinsicType,
+        isClassMember = true
     ) {
-        const symbol = this._addSymbolToCurrentScope(nameValue, /* isInitiallyUnbound */ false);
+        const symbol = this._addSymbolToCurrentScope(nameValue, /* isInitiallyUnbound */ false, isClassMember);
         if (symbol) {
             symbol.addDeclaration({
                 type: DeclarationType.Intrinsic,
@@ -3732,7 +3740,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     // Adds a new symbol with the specified name if it doesn't already exist.
-    private _addSymbolToCurrentScope(nameValue: string, isInitiallyUnbound: boolean) {
+    private _addSymbolToCurrentScope(nameValue: string, isInitiallyUnbound: boolean, isClassMember = true) {
         let symbol = this._currentScope.lookUpSymbol(nameValue);
 
         if (!symbol) {
@@ -3742,7 +3750,7 @@ export class Binder extends ParseTreeWalker {
                 symbolFlags |= SymbolFlags.InitiallyUnbound;
             }
 
-            if (this._currentScope.type === ScopeType.Class) {
+            if (this._currentScope.type === ScopeType.Class && isClassMember) {
                 symbolFlags |= SymbolFlags.ClassMember;
             }
 

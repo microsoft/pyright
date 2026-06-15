@@ -883,7 +883,7 @@ test('Classes1', () => {
 test('Classes3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes3.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('Classes4', () => {

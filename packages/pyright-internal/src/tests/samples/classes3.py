@@ -23,6 +23,7 @@ module = TestClass.__module__
 mro = TestClass.__mro__
 name = TestClass.__name__
 qualname = TestClass.__qualname__
+reveal_type(qualname, expected_text="str")
 text_signature = TestClass.__text_signature__
 subclasses = TestClass.__subclasses__
 
@@ -38,9 +39,10 @@ instance.__module__
 # This should generate an error.
 instance.__name__
 
-# This should generate an error, but it doesn't currently. That's because
-# the binder manually adds __qualname__ to a class's symbol table to make
-# it available within a class body.
+# This should generate an error. Although the binder adds __qualname__ to a
+# class's symbol table to make it available within a class body, __qualname__
+# is exposed via the metaclass (type), not on instances, so instance access
+# should be flagged.
 instance.__qualname__
 
 
@@ -61,4 +63,39 @@ _T = TypeVar("_T")
 def func1(cls: type[_T]) -> _T:
     x1 = cls.__dict__
     x2 = cls.__mro__
+
+    # Access through a class object (here a `type[_T]`) is valid and resolves
+    # via the metaclass `type`.
+    x3 = cls.__qualname__
+    reveal_type(x3, expected_text="str")
+
     return cls()
+
+
+class Sub(TestClass):
+    pass
+
+
+sub_qualname = Sub.__qualname__
+reveal_type(sub_qualname, expected_text="str")
+
+sub_instance = Sub()
+
+# This should generate an error. A base class's implicit __qualname__ must not
+# be surfaced as an instance member through the MRO of a derived class.
+sub_instance.__qualname__
+
+
+class Outer:
+    class Inner:
+        # __qualname__ must remain name-resolvable inside nested class bodies.
+        print(__qualname__)
+
+    inner_qualname = Inner.__qualname__
+    reveal_type(inner_qualname, expected_text="str")
+
+
+inner_instance = Outer.Inner()
+
+# This should generate an error.
+inner_instance.__qualname__
