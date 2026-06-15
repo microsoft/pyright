@@ -1007,6 +1007,14 @@ test('MethodOverride6', () => {
     TestUtils.validateResults(analysisResults2, 3);
 });
 
+test('MethodOverride7', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride7.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Enum1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum1.py']);
 

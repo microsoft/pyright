@@ -6656,6 +6656,19 @@ export class Checker extends ParseTreeWalker {
         if (isFunctionOrOverloaded(baseType)) {
             const diagAddendum = new DiagnosticAddendum();
 
+            // Determine whether the base class member is a plain callable variable
+            // (e.g. `x: Callable[..., None]`) rather than an actual method. In that
+            // case, accessing the override method on an instance binds its "self"
+            // parameter, so we bind it here before comparing signatures. This matches
+            // the behavior of other type checkers, which allow overriding a callable
+            // attribute with a method.
+            const baseDecls = baseClassAndSymbol.symbol.getDeclarations();
+            const baseIsCallableVariable =
+                baseDecls.length > 0 && baseDecls.every((decl) => decl.type === DeclarationType.Variable);
+            const overrideIsMethod = overrideSymbol
+                .getDeclarations()
+                .some((decl) => decl.type === DeclarationType.Function);
+
             // Don't check certain magic functions or private symbols.
             // Also, skip this check if the class is a TypedDict. The methods for a TypedDict
             // are synthesized, and they can result in many overloads. We assume they
@@ -6674,10 +6687,22 @@ export class Checker extends ParseTreeWalker {
                 // false positives.
                 const enforceParamNameMatch = !SymbolNameUtils.isDunderName(memberName);
 
+                let overrideTypeForComparison: FunctionType | OverloadedType = overrideType;
+                if (baseIsCallableVariable && overrideIsMethod) {
+                    const boundOverrideType = this._evaluator.bindFunctionToClassOrObject(
+                        childClassSelf,
+                        overrideType,
+                        childClassType
+                    );
+                    if (boundOverrideType) {
+                        overrideTypeForComparison = boundOverrideType;
+                    }
+                }
+
                 if (
                     this._evaluator.validateOverrideMethod(
                         baseType,
-                        overrideType,
+                        overrideTypeForComparison,
                         childClassType,
                         diagAddendum,
                         enforceParamNameMatch
