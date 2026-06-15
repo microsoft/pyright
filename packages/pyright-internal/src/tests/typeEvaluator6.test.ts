@@ -431,6 +431,14 @@ test('TypeVarTuple30', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeVarTuple31', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple31.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Match1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
