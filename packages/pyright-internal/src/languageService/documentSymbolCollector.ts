@@ -41,6 +41,12 @@ export type CollectionResult = {
     range: TextRange;
 };
 
+// Upper bound on transitive seed-discovery passes (see `DocumentSymbolCollector.collect` and
+// `AsyncDocumentSymbolCollector.collectAsync`). This is a safety net against pathological inputs;
+// realistic protocol/inheritance bridging converges in one or two passes. Shared by both the sync
+// and async collectors so the bound stays in lockstep.
+export const maxSeedDiscoveryPasses = 16;
+
 export interface DocumentSymbolCollectorOptions {
     readonly treatModuleInImportAndFromImportSame?: boolean;
     readonly skipUnreachableCode?: boolean;
@@ -102,6 +108,11 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     private readonly _skipUnreachableCode: boolean;
     private readonly _useCase: ReferenceUseCase;
 
+    // Set when at least one provider opts into transitive (fixpoint) discovery via
+    // `appendSeedDeclarationsAt`. When false, collection runs a single pass (no overhead).
+    private readonly _hasSeedProviders: boolean;
+    private readonly _pendingSeedDeclarations: Declaration[] = [];
+
     private _aliasResolver: AliasResolver;
 
     constructor(
@@ -129,6 +140,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             (this._program.serviceProvider.tryGet(ServiceKeys.symbolUsageProviderFactory) ?? [])
                 .map((f) => f.tryCreateProvider(this._useCase, declarations, this._cancellationToken))
                 .filter(isDefined);
+
+        this._hasSeedProviders = this._usageProviders.some((p) => p.appendSeedDeclarationsAt !== undefined);
 
         if (options?.providers === undefined) {
             // Check whether we need to add new symbol names and declarations.
@@ -270,6 +283,38 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     }
 
     collect() {
+        // Fast path: no provider needs transitive discovery, so a single pass is exact.
+        if (!this._hasSeedProviders) {
+            this.walk(this._startingNode);
+            return this._results;
+        }
+
+        // Fixpoint: a matched usage can reveal additional seed declarations (e.g. a class that
+        // bridges two disjoint protocol co-bases). Re-walk with the grown seed until no new
+        // declarations are discovered. Clearing results each pass keeps the final pass complete
+        // and duplicate-free. Passes are bounded as a safety net against pathological inputs.
+        //
+        // NOTE: keep this loop's observable behavior in lockstep with
+        // AsyncDocumentSymbolCollector.collectAsync. The two paths are intentionally structured
+        // differently (sync clears `_results` and re-walks the whole tree each pass; async keeps
+        // `_results` and re-runs only the monotonic match phase), but must converge on the same set.
+        for (let pass = 0; pass < maxSeedDiscoveryPasses; pass++) {
+            throwIfCancellationRequested(this._cancellationToken);
+
+            this._results.length = 0;
+            this._pendingSeedDeclarations.length = 0;
+            this.walk(this._startingNode);
+
+            if (!this._mergePendingSeedDeclarations()) {
+                // Converged: no new seed declarations, so `_results` reflects the final seed.
+                return this._results;
+            }
+        }
+
+        // Pass budget exhausted while the seed was still growing. The last merge added declarations
+        // after the final walk, so `_results` may lag the seed. Re-walk once more so results match
+        // the final seed set; this keeps rename edit sets complete even for pathological inputs.
+        this._results.length = 0;
         this.walk(this._startingNode);
         return this._results;
     }
@@ -357,11 +402,25 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         );
     }
 
+    private _mergePendingSeedDeclarations(): boolean {
+        let added = false;
+        for (const decl of this._pendingSeedDeclarations) {
+            // Seed declarations are compared in resolved form, so mirror getDeclarationsForNode.
+            const resolved = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true) ?? decl;
+            const before = this._declarations.length;
+            addDeclarationIfUnique(this._declarations, resolved);
+            if (this._declarations.length !== before) {
+                added = true;
+            }
+        }
+        return added;
+    }
+
     private _resultsContainsDeclaration(usage: ParseNode, declarations: readonly Declaration[]) {
         const results = [...declarations];
         this._usageProviders.forEach((p) => p.appendDeclarationsAt(usage, declarations, results));
 
-        return results.some((declaration) => {
+        const matched = results.some((declaration) => {
             // Resolve the declaration.
             const resolvedDecl = this._aliasResolver.resolve(declaration, /* resolveLocalNames */ false);
             if (!resolvedDecl) {
@@ -383,6 +442,16 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
             return this._isDeclarationAllowed(resolvedDeclNonlocal);
         });
+
+        // When the usage matches, let opted-in providers contribute declarations that should
+        // join the seed set so transitively-reachable usages can match on a later pass.
+        if (matched && this._hasSeedProviders) {
+            this._usageProviders.forEach((p) =>
+                p.appendSeedDeclarationsAt?.(usage, declarations, this._pendingSeedDeclarations)
+            );
+        }
+
+        return matched;
     }
 
     private _getResolveAliasDeclaration(declaration: Declaration) {

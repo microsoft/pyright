@@ -33,7 +33,7 @@ export interface DunderAllInfo {
     usesUnsupportedDunderAllForm: boolean;
 }
 
-interface AnalyzerNodeInfo {
+export interface AnalyzerNodeInfo {
     //---------------------------------------------------------------
     // Set as part of import resolution
 

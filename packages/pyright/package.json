@@ -26,13 +26,14 @@
         "fsevents": "~2.3.3"
     },
     "devDependencies": {
-        "@rspack/cli": "^2.0.4",
-        "@rspack/core": "^2.0.4",
-        "@types/node": "^22.19.6",
+        "@rspack/cli": "^2.0.5",
+        "@rspack/core": "^2.0.5",
+        "@types/node": "^25.6.0",
+        "copy-webpack-plugin": "^14.0.0",
         "esbuild-loader": "^4.4.2",
         "shx": "^0.4.0",
         "ts-loader": "^9.5.4",
-        "typescript": "~5.5.4",
+        "typescript": "~6.0.3",
         "webpack": "^5.104.1"
     },
     "files": [

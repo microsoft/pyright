@@ -29,6 +29,38 @@ export interface ScriptOutput {
     exitCode?: number;
 }
 
+/**
+ * Options for spawning a long-lived child process.
+ * Intentionally avoids Node.js-specific types so this interface can be
+ * referenced from platform-neutral code.
+ */
+export interface ProcessSpawnOptions {
+    cwd?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    env?: Record<string, string | undefined>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    stdio?: any;
+}
+
+/**
+ * Minimal abstraction over a spawned child process.
+ * Fields are typed as `any` for stdin/stdout/stderr to keep this interface
+ * free of Node.js-specific stream imports while still allowing callers in
+ * Node-only code to use them as streams.
+ */
+export interface SpawnedProcess {
+    readonly pid?: number;
+    readonly exitCode: number | null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    readonly stdout: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    readonly stdin: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    readonly stderr: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    on(event: string, listener: (...args: any[]) => void): void;
+}
+
 export interface Host {
     readonly kind: HostKind;
     getPythonSearchPaths(pythonPath?: Uri, failureLogger?: ImportLogger): PythonPathResult;
@@ -49,6 +81,12 @@ export interface Host {
         token: CancellationToken,
         forceIsolated?: boolean
     ): Promise<ScriptOutput>;
+    /**
+     * Spawn a long-lived child process and return an abstraction over it.
+     * Hosts with `LimitedAccess` or `NoAccess` kind must return `undefined`
+     * to prevent process spawning in restricted environments.
+     */
+    spawnProcess(exe: string, args: string[], options: ProcessSpawnOptions): SpawnedProcess | undefined;
 }
 
 export class NoAccessHost implements Host {
@@ -91,6 +129,10 @@ export class NoAccessHost implements Host {
         token: CancellationToken
     ): Promise<ScriptOutput> {
         return { stdout: '', stderr: '' };
+    }
+
+    spawnProcess(_exe: string, _args: string[], _options: ProcessSpawnOptions): SpawnedProcess | undefined {
+        return undefined;
     }
 }
 
