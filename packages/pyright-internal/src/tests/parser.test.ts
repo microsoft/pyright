@@ -271,7 +271,6 @@ test('LazyImport - lazy as module name at 3.15', () => {
 });
 
 test('LazyImport - soft-keyword identifier interactions at 3.15', () => {
-    const diagSink = new DiagnosticSink();
     const parseOptions = new ParseOptions();
     parseOptions.pythonVersion = pythonVersion3_15;
 
@@ -293,7 +292,6 @@ test('LazyImport - soft-keyword identifier interactions at 3.15', () => {
 });
 
 test('LazyImport - payload variants at 3.15', () => {
-    const diagSink = new DiagnosticSink();
     const parseOptions = new ParseOptions();
     parseOptions.pythonVersion = pythonVersion3_15;
 
