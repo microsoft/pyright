@@ -104,6 +104,7 @@ export interface ProgramView {
     // Consider getDiagnosticsForRange to call `analyzeFile` automatically if the file is not analyzed.
     analyzeFile(fileUri: Uri, token: CancellationToken): boolean;
     getDiagnosticsForRange(fileUri: Uri, range: Range): readonly Diagnostic[];
+    getDiagnosticsForRangeWithoutFileIgnore(fileUri: Uri, range: Range): readonly Diagnostic[];
     getParseDiagnostics(fileUri: Uri): readonly Diagnostic[] | undefined;
 
     // See whether we can get rid of these methods
@@ -161,6 +162,21 @@ export interface SymbolUsageProvider {
     appendSymbolNamesTo(symbolNames: Set<string>): void;
     appendDeclarationsTo(to: Declaration[]): void;
     appendDeclarationsAt(context: ParseNode, from: readonly Declaration[], to: Declaration[]): void;
+
+    // Optional hook for providers that need transitive (fixpoint) discovery. When a usage at
+    // `context` is found to match the symbol being collected, the collector calls this so the
+    // provider can contribute additional declarations that should join the seed set, allowing
+    // later usages that are only reachable through `context` to be matched on a subsequent pass.
+    // Providers that do not implement this opt out of the extra passes entirely.
+    //
+    // CONSTRAINT: seeds contributed here must not introduce new *symbol names*. `_symbolNames` is
+    // populated once up front (from `appendSymbolNamesTo`) and is never grown mid-fixpoint, so a
+    // seed whose name was not already seeded is silently missed in BOTH modes: the sync collector
+    // re-walks the whole tree each pass but `visitName` still gates candidates on that fixed name
+    // set, and the async collector only re-runs its match phase over the already-collected candidate
+    // nodes and never re-walks. Contributing same-named declarations (the protocol-member use case)
+    // is safe; growing the symbol-name set mid-fixpoint is not supported.
+    appendSeedDeclarationsAt?(context: ParseNode, from: readonly Declaration[], to: Declaration[]): void;
 }
 
 export interface StatusMutationListener {

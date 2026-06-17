@@ -1,0 +1,11 @@
+title: Files by analyzer area
+nav:
+  - analyzer: analyzer.md
+  - commands: commands.md
+  - common: common.md
+  - languageService: languageservice.md
+  - localization: localization.md
+  - parser: parser.md
+  - pprof: pprof.md
+  - src: src.md
+  - uri: uri.md

@@ -25,6 +25,7 @@ import {
     pythonVersion3_12,
     pythonVersion3_13,
     pythonVersion3_14,
+    pythonVersion3_15,
     pythonVersion3_3,
     pythonVersion3_5,
     pythonVersion3_6,
@@ -513,6 +514,35 @@ export class Parser {
         this._addSyntaxError(LocMessage.unexpectedAsyncToken(), asyncToken);
 
         return undefined;
+    }
+
+    // lazy_import_stmt: "lazy" import_stmt | "lazy" from_import_stmt
+    private _parseLazyImportStatement(): ImportNode | ImportFromNode {
+        const lazyToken = this._getKeywordToken(KeywordType.Lazy);
+
+        if (!this._parseOptions.isStubFile && PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_15)) {
+            this._addSyntaxError(LocMessage.lazyImportIllegal(), lazyToken);
+        }
+
+        const nextToken = this._peekToken();
+        let node: ImportNode | ImportFromNode;
+
+        if (nextToken.type === TokenType.Keyword && (nextToken as KeywordToken).keywordType === KeywordType.From) {
+            node = this._parseFromStatement();
+        } else {
+            node = this._parseImportStatement();
+        }
+
+        node.d.isLazy = true;
+        node.d.lazyToken = lazyToken as KeywordToken;
+        extendRange(node, lazyToken);
+
+        // PEP 810 disallows wildcard imports with 'lazy'.
+        if (node.nodeType === ParseNodeType.ImportFrom && node.d.isWildcardImport) {
+            this._addSyntaxError(LocMessage.lazyImportWildcardIllegal(), node.d.wildcardToken ?? lazyToken);
+        }
+
+        return node;
     }
 
     // type_alias_stmt: "type" name [type_param_seq] = expr
@@ -3119,6 +3149,20 @@ export class Parser {
 
             case KeywordType.Yield:
                 return this._parseYieldExpression();
+
+            case KeywordType.Lazy: {
+                // Lazy is considered a "soft" keyword, so we will treat it
+                // as an identifier if it is not followed by "import" or "from".
+                const peekToken1 = this._peekToken(1);
+                if (
+                    peekToken1.type === TokenType.Keyword &&
+                    ((peekToken1 as KeywordToken).keywordType === KeywordType.Import ||
+                        (peekToken1 as KeywordToken).keywordType === KeywordType.From)
+                ) {
+                    return this._parseLazyImportStatement();
+                }
+                break;
+            }
 
             case KeywordType.Type: {
                 // Type is considered a "soft" keyword, so we will treat it

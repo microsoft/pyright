@@ -1,0 +1,16 @@
+# Local-only artifacts (encoder logs, intermediate cache).
+# The committed source-of-truth files are listed explicitly below.
+*.log
+cache/
+tmp/
+
+# Local LLM credentials — never commit.
+llm-config.local.yaml
+
+
+# Allow the canonical graph + manifest + last-parsed sha.
+!rpg_encoder.json
+!rpg_encoder.json.gz
+!last_parsed_sha.txt
+!eval/
+!overrides.yml

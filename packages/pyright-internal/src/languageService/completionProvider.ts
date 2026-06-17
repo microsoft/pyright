@@ -81,7 +81,7 @@ import { fail } from '../common/debug';
 import { ProgramView } from '../common/extensibility';
 import { fromLSPAny, toLSPAny } from '../common/lspUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
-import { PythonVersion, pythonVersion3_10, pythonVersion3_5 } from '../common/pythonVersion';
+import { PythonVersion, pythonVersion3_10, pythonVersion3_15, pythonVersion3_5 } from '../common/pythonVersion';
 import '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position, TextRange } from '../common/textRange';
@@ -127,9 +127,11 @@ import {
 import { AutoImporter, AutoImportResult, buildModuleSymbolsMap } from './autoImporter';
 import {
     CompletionDetail,
+    detectTrailingOverlap,
     getCompletionItemDocumentation,
     getTypeDetail,
     SymbolDetail,
+    TrailingOverlap,
 } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
@@ -178,7 +180,12 @@ namespace Keywords {
 
     const python3_10: string[] = [...python3_5, 'case', 'match'];
 
+    const python3_15: string[] = [...python3_10, 'lazy'];
+
     export function forVersion(version: PythonVersion): string[] {
+        if (PythonVersion.isGreaterOrEqualTo(version, pythonVersion3_15)) {
+            return python3_15;
+        }
         if (PythonVersion.isGreaterOrEqualTo(version, pythonVersion3_10)) {
             return python3_10;
         }
@@ -619,6 +626,15 @@ export class CompletionProvider {
         return TextEdit.replace(range, text);
     }
 
+    protected createReplaceEditWithOverlap(priorWord: string, overlap: TrailingOverlap | undefined, text: string) {
+        const range: Range = {
+            start: { line: this.position.line, character: this.position.character - priorWord.length },
+            end: { line: this.position.line, character: this.position.character + (overlap?.consumedChars ?? 0) },
+        };
+
+        return TextEdit.replace(range, text);
+    }
+
     protected shouldProcessDeclaration(declaration: Declaration | undefined) {
         // By default, we allow all symbol/decl to be included in the completion.
         return true;
@@ -750,7 +766,11 @@ export class CompletionProvider {
         }
     }
 
-    protected getMemberAccessCompletions(leftExprNode: ExpressionNode, priorWord: string): CompletionMap | undefined {
+    protected getMemberAccessCompletions(
+        leftExprNode: ExpressionNode,
+        priorWord: string,
+        preserveEnumMembers = false
+    ): CompletionMap | undefined {
         const symbolTable = new Map<string, Symbol>();
         const completionMap = new CompletionMap();
 
@@ -769,16 +789,28 @@ export class CompletionProvider {
 
         doForEachSubtype(leftType, (subtype) => {
             subtype = this.evaluator.makeTopLevelTypeVarsConcrete(subtype);
+            let resolvedClassSubtype: ClassType | undefined;
 
             if (isClass(subtype)) {
-                const instance = TypeBase.isInstance(subtype);
-                getMembersForClass(subtype, symbolTable, instance);
+                if (preserveEnumMembers && ClassType.isEnumClass(subtype) && TypeBase.isInstance(subtype)) {
+                    // Preserve enum members by switching back to the class view before member enumeration.
+                    resolvedClassSubtype = ClassType.cloneAsInstantiable(subtype);
+                } else {
+                    resolvedClassSubtype = subtype;
+                }
 
-                if (ClassType.isEnumClass(subtype) && instance) {
+                const instance = TypeBase.isInstance(resolvedClassSubtype);
+                getMembersForClass(resolvedClassSubtype, symbolTable, instance);
+
+                if (ClassType.isEnumClass(resolvedClassSubtype) && instance && !preserveEnumMembers) {
                     // Don't show enum member out of another enum member
-                    // ex) Enum.Member. <= shouldn't show `Member` again.
+                    // ex) Enum.Member. <= shouldn't show `Member` again. This pruning stays separate
+                    // from the clone above because the clone only changes which members are enumerated.
+                    // Note: when preserveEnumMembers=true, the cloneAsInstantiable above already makes
+                    // instance=false, so this block is independently unreachable. The explicit
+                    // !preserveEnumMembers guard is defense-in-depth for clarity.
                     for (const name of symbolTable.keys()) {
-                        if (this._isEnumMember(subtype, name)) {
+                        if (this._isEnumMember(resolvedClassSubtype, name)) {
                             symbolTable.delete(name);
                         }
                     }
@@ -803,7 +835,7 @@ export class CompletionProvider {
                 priorWord,
                 leftExprNode,
                 /* isInImport */ false,
-                isClass(subtype) ? subtype : undefined,
+                resolvedClassSubtype,
                 completionMap
             );
         });
@@ -1453,6 +1485,13 @@ export class CompletionProvider {
             return this.getMemberAccessCompletions(curNode.parent.d.leftExpr, priorWord);
         }
 
+        if (this._isRecoveredPatternMemberAccessName(curNode, priorWord, priorText)) {
+            // Pass curNode (the Name node) rather than a MemberAccess leftExpr: the type evaluator
+            // resolves the Name to the same class type, and no MemberAccess parent exists in this
+            // recovered-pattern context.
+            return this.getMemberAccessCompletions(curNode, priorWord, /* preserveEnumMembers */ true);
+        }
+
         if (curNode.parent.nodeType === ParseNodeType.Except && curNode === curNode.parent.d.name) {
             return undefined;
         }
@@ -1529,6 +1568,20 @@ export class CompletionProvider {
         }
 
         return false;
+    }
+
+    private _isRecoveredPatternMemberAccessName(curNode: NameNode, priorWord: string, priorText: string) {
+        if (priorWord.length > 0 || !priorText.endsWith('.')) {
+            return false;
+        }
+
+        // Parser recovery keeps `case Direction.` as a `PatternCapture > Name`, so detect the
+        // trailing-dot text shape directly instead of waiting for a `MemberAccess` node.
+        if (curNode.parent?.nodeType !== ParseNodeType.PatternCapture) {
+            return false;
+        }
+
+        return !!ParseTreeUtils.getFirstAncestorOrSelfOfKind(curNode.parent, ParseNodeType.Case);
     }
 
     private _isWithinComment(offset: number): boolean {
@@ -1662,6 +1715,20 @@ export class CompletionProvider {
                 let completionResults = this._getLiteralCompletions(node, offset, priorWord, priorText, postText);
 
                 if (!completionResults) {
+                    if (
+                        node.d.category === ErrorExpressionCategory.MissingIndexOrSlice &&
+                        this.options.triggerCharacter === '[' &&
+                        !this._isSubscriptInTypeContext(node)
+                    ) {
+                        // When `[` auto-triggers a subscript and there are no literal key
+                        // suggestions, return undefined so the caller produces an empty
+                        // CompletionList instead of noisy generic expression completions.
+                        // Skip this suppression inside type-like contexts (annotations,
+                        // class bases, type aliases) where generic subscripts are the
+                        // expected workflow.
+                        return undefined;
+                    }
+
                     completionResults = this._getExpressionCompletions(node, priorWord, priorText, postText);
                 }
 
@@ -2125,7 +2192,7 @@ export class CompletionProvider {
 
             if (comparePositions(this.position, callNameEnd) > 0) {
                 if (!atArgument) {
-                    this._addNamedParameters(signatureInfo, priorWord, completionMap);
+                    this._addNamedParameters(signatureInfo, priorWord, postText, completionMap);
                 }
 
                 this._addLiteralValuesForArgument(signatureInfo, priorWord, priorText, postText, completionMap);
@@ -2378,6 +2445,51 @@ export class CompletionProvider {
         }
 
         return Array.from(keys);
+    }
+
+    private _isSubscriptInTypeContext(node: ParseNode): boolean {
+        // Standard type annotation contexts: TypeAnnotation, Parameter annotation, return annotation.
+        if (ParseTreeUtils.isWithinTypeAnnotation(node, /* requireQuotedAnnotation */ false)) {
+            return true;
+        }
+
+        // PEP 695 type alias: `type MyAlias = list[...]`
+        if (ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeAlias)) {
+            return true;
+        }
+
+        // Class bases: `class Foo(list[...])` or `class Foo(Generic[...])`
+        let curNode = node.parent;
+        while (curNode) {
+            if (curNode.nodeType === ParseNodeType.Argument && curNode.parent?.nodeType === ParseNodeType.Class) {
+                return true;
+            }
+            if (
+                curNode.nodeType === ParseNodeType.Suite ||
+                curNode.nodeType === ParseNodeType.Function ||
+                curNode.nodeType === ParseNodeType.Lambda
+            ) {
+                break;
+            }
+            curNode = curNode.parent;
+        }
+
+        // Old-style TypeAlias assignment: `MyAlias: TypeAlias = list[...]`
+        const assignmentNode = ParseTreeUtils.getParentNodeOfType<ParseNode>(node, ParseNodeType.Assignment);
+        if (assignmentNode && assignmentNode.nodeType === ParseNodeType.Assignment) {
+            const leftExpr = assignmentNode.d.leftExpr;
+            if (leftExpr.nodeType === ParseNodeType.TypeAnnotation) {
+                const annotation = leftExpr.d.annotation;
+                if (
+                    (annotation.nodeType === ParseNodeType.Name && annotation.d.value === 'TypeAlias') ||
+                    (annotation.nodeType === ParseNodeType.MemberAccess && annotation.d.member.d.value === 'TypeAlias')
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private _getLiteralCompletions(
@@ -3001,11 +3113,13 @@ export class CompletionProvider {
         }
 
         // If the text after the insertion point is the closing quote,
-        // replace it.
+        // extend the replacement range so we don't end up with a duplicated
+        // quote after the completion is applied.
         let rangeEndCol = this.position.character;
         if (postText !== undefined) {
-            if (postText.startsWith(quoteInfo.quoteCharacter)) {
-                rangeEndCol++;
+            const overlap = detectTrailingOverlap(quoteInfo.quoteCharacter, postText, 'adjacent');
+            if (overlap) {
+                rangeEndCol += overlap.consumedChars;
             }
         }
 
@@ -3106,7 +3220,12 @@ export class CompletionProvider {
         });
     }
 
-    private _addNamedParameters(signatureInfo: CallSignatureInfo, priorWord: string, completionMap: CompletionMap) {
+    private _addNamedParameters(
+        signatureInfo: CallSignatureInfo,
+        priorWord: string,
+        postText: string,
+        completionMap: CompletionMap
+    ) {
         const argNameSet = new Set<string>();
 
         signatureInfo.signatures.forEach((signature) => {
@@ -3148,6 +3267,14 @@ export class CompletionProvider {
                 completionItem.data = toLSPAny(completionItemData);
                 completionItem.sortText = this._makeSortText(SortCategory.NamedParameter, argName);
                 completionItem.filterText = argName;
+
+                // If the text immediately after the cursor already starts with
+                // `=`, extend the replacement range so we don't end up with
+                // `argName==` after the completion is applied (pylance-release#4808).
+                const overlap = detectTrailingOverlap('=', postText, 'adjacent');
+                if (overlap) {
+                    completionItem.textEdit = this.createReplaceEditWithOverlap(priorWord, overlap, label);
+                }
 
                 completionMap.set(completionItem);
             }

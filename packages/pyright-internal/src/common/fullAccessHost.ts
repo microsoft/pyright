@@ -14,7 +14,7 @@ import { PythonPathResult } from '../analyzer/pythonPathUtils';
 import { OperationCanceledException, onCancellationRequested, throwIfCancellationRequested } from './cancellationUtils';
 import { PythonPlatform } from './configOptions';
 import { assertNever } from './debug';
-import { HostKind, NoAccessHost, ScriptOutput } from './host';
+import { HostKind, NoAccessHost, ProcessSpawnOptions, ScriptOutput, SpawnedProcess } from './host';
 import { getAnyExtensionFromPath, normalizePath } from './pathUtils';
 import { terminateChild } from './processUtils';
 import { PythonVersion } from './pythonVersion';
@@ -257,6 +257,15 @@ export class FullAccessHost extends LimitedAccessHost {
                 reject(new Error(`Cannot start python interpreter with the given code snippet.`));
             }
         });
+    }
+
+    override spawnProcess(exe: string, args: string[], options: ProcessSpawnOptions): SpawnedProcess | undefined {
+        try {
+            const proc = child_process.spawn(exe, args, options as child_process.SpawnOptions);
+            return proc;
+        } catch {
+            return undefined;
+        }
     }
 
     protected shouldUseShellToRunInterpreter(interpreterPath: string): boolean {

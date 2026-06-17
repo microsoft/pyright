@@ -228,6 +228,9 @@ export interface AliasDeclaration extends DeclarationBase {
     // Is this a dummy entry for an import that cannot be resolved
     // directly because it targets a native library?
     isNativeLib?: boolean;
+
+    // Was this import declared with the "lazy" keyword (PEP 810)?
+    isLazy?: boolean;
 }
 
 // This interface represents a set of actions that the python loader

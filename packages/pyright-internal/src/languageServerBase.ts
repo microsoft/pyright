@@ -112,6 +112,7 @@ import { ServiceProvider } from './common/serviceProvider';
 import { Position, Range } from './common/textRange';
 import { Uri } from './common/uri/uri';
 import { convertUriToLspUriString } from './common/uri/uriUtils';
+import { hasWorkspaceEditChanges } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
 import { CompletionItemData, CompletionProvider } from './languageService/completionProvider';
@@ -1140,13 +1141,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected async onDidCloseTextDocument(params: DidCloseTextDocumentParams) {
         const uri = this.convertLspUriStringToUri(params.textDocument.uri);
 
+        // Stop tracking the document as open before any async work so that a request handled
+        // immediately after this close (e.g. a pull-diagnostics re-pull) observes the file as closed.
+        this.openFileMap.delete(uri.key);
+
         // Send this close to all the workspaces that might contain this file.
         const workspaces = await this.getContainingWorkspacesForFile(uri);
         workspaces.forEach((w) => {
             w.service.setFileClosed(uri);
         });
-
-        this.openFileMap.delete(uri.key);
     }
 
     protected async onDiagnostics(params: DocumentDiagnosticParams, token: CancellationToken) {
@@ -1166,6 +1169,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             !canNavigateToFile(workspace.service.fs, uri) ||
             token.isCancellationRequested
         ) {
+            return result;
+        }
+
+        // In open-files-only mode, only report diagnostics for files the client currently has open.
+        // A library/out-of-workspace file may have been transiently opened (e.g. via go-to-definition)
+        // and analyzed; once the client closes it, a re-pull must clear those diagnostics by returning
+        // an empty `full` report rather than re-analyzing the now-closed file.
+        if (workspace.service.checkOnlyOpenFiles && !this.openFileMap.has(uri.key)) {
             return result;
         }
 
@@ -1268,7 +1279,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         const executeCommand = async (token: CancellationToken) => {
             const result = await this.executeCommand(params, token);
-            if (WorkspaceEdit.is(result)) {
+            if (WorkspaceEdit.is(result) && hasWorkspaceEditChanges(result)) {
                 // Tell client to apply edits.
                 // Do not await; the client isn't expecting a result.
                 this.connection.workspace.applyEdit({
@@ -1278,7 +1289,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 });
             }
 
-            if (CommandResult.is(result)) {
+            if (CommandResult.is(result) && hasWorkspaceEditChanges(result.edits)) {
                 // Tell client to apply edits.
                 // Await so that we return after the edit is complete.
                 await this.connection.workspace.applyEdit({

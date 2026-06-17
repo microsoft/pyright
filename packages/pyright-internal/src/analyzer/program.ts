@@ -1013,6 +1013,32 @@ export class Program {
         });
     }
 
+    getDiagnosticsForRangeWithoutFileIgnore(fileUri: Uri, range: Range): Diagnostic[] {
+        const sourceFile = this.getSourceFile(fileUri);
+        if (!sourceFile) {
+            return [];
+        }
+
+        // The pre-ignore diagnostics cache is only populated when this specific Program instance
+        // checks the file. Published diagnostics may have been produced by a different (e.g.
+        // background-analysis) Program instance, so this foreground program's cache can be empty.
+        // Force a check here to populate it; this is a no-op when the file is already up to date.
+        this.analyzeFile(fileUri);
+
+        const diagnostics = sourceFile.getDiagnosticsWithoutFileIgnore();
+        return diagnostics.filter((diag) => {
+            if (!doRangesIntersect(diag.range, range)) {
+                return false;
+            }
+
+            if (this._configOptions.disableTaggedHints && isTaggedHintDiagnostic(diag)) {
+                return false;
+            }
+
+            return true;
+        });
+    }
+
     clone() {
         const program = new Program(
             this._importResolver,

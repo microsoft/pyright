@@ -1608,6 +1608,7 @@ export class ImportResolver {
         }
 
         // Look for the import in the list of third-party packages.
+        let thirdPartyNonStubImportFound = false;
         const pythonSearchPaths = this.getPythonSearchPaths(importLogger);
         if (pythonSearchPaths.length > 0) {
             for (const searchPath of pythonSearchPaths) {
@@ -1629,6 +1630,13 @@ export class ImportResolver {
 
                 if (thirdPartyImport) {
                     thirdPartyImport.importType = ImportType.ThirdParty;
+
+                    if (
+                        !thirdPartyImport.isStubFile &&
+                        (thirdPartyImport.isImportFound || thirdPartyImport.isPartlyResolved)
+                    ) {
+                        thirdPartyNonStubImportFound = true;
+                    }
 
                     bestResultSoFar = this._pickBestImport(bestResultSoFar, thirdPartyImport, moduleDescriptor);
                 }
@@ -1663,6 +1671,7 @@ export class ImportResolver {
             return extraResults;
         }
 
+        // Results from resolveImportEx return above, so this fallback guard applies only to typeshed fallback imports.
         // Check for a third-party typeshed file.
         if (allowPyi && moduleDescriptor.nameParts.length > 0) {
             importLogger?.log(`Looking for typeshed third-party path`);
@@ -1676,13 +1685,40 @@ export class ImportResolver {
 
             if (typeshedImport) {
                 typeshedImport.isThirdPartyTypeshedFile = true;
-                bestResultSoFar = this._pickBestImport(bestResultSoFar, typeshedImport, moduleDescriptor);
+
+                if (
+                    this._shouldSkipThirdPartyTypeshedFallbackForLocalNamespace(
+                        bestResultSoFar,
+                        thirdPartyNonStubImportFound
+                    )
+                ) {
+                    importLogger?.log(
+                        `Skipping typeshed third-party fallback because a local namespace package was resolved ` +
+                            `and no non-stub third-party package was found`
+                    );
+                } else {
+                    bestResultSoFar = this._pickBestImport(bestResultSoFar, typeshedImport, moduleDescriptor);
+                }
             }
         }
 
         // We weren't able to find an exact match, so return the best
         // partial match.
         return bestResultSoFar;
+    }
+
+    private _shouldSkipThirdPartyTypeshedFallbackForLocalNamespace(
+        bestImportSoFar: ImportResult | undefined,
+        thirdPartyNonStubImportFound: boolean
+    ): boolean {
+        return (
+            !thirdPartyNonStubImportFound &&
+            !!bestImportSoFar &&
+            bestImportSoFar.importType === ImportType.Local &&
+            bestImportSoFar.isNamespacePackage &&
+            bestImportSoFar.isImportFound &&
+            !bestImportSoFar.isStubFile
+        );
     }
 
     private _pickBestImport(
