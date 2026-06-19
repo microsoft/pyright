@@ -4192,15 +4192,6 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         let replacement = solutionSet.getType(typeVar);
 
-        if (replacement && isUnknown(replacement) && typeVar.shared.boundType) {
-            return this.apply(
-                TypeBase.isInstantiable(typeVar)
-                    ? convertToInstantiable(typeVar.shared.boundType, /* includeSubclasses */ false)
-                    : convertToInstance(typeVar.shared.boundType),
-                recursionCount
-            );
-        }
-
         if (replacement) {
             // No more processing is needed for ParamSpecs.
             if (isParamSpec(typeVar)) {
@@ -4288,16 +4279,6 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         // Use the default value if there is one.
         if (typeVar.shared.isDefaultExplicit && !this._options.replaceUnsolved?.useUnknown) {
             return this._solveDefaultType(typeVar, recursionCount);
-        }
-
-        // Use the bound type if there is one. This is important for pattern matching
-        // where unsolved type variables with bounds (e.g. T: bool) should retain
-        // their bound rather than being replaced with Unknown.
-        if (typeVar.shared.boundType) {
-            const boundType = TypeBase.isInstantiable(typeVar)
-                ? convertToInstantiable(typeVar.shared.boundType, /* includeSubclasses */ false)
-                : convertToInstance(typeVar.shared.boundType);
-            return this.apply(boundType, recursionCount);
         }
 
         return getUnknownForTypeVar(typeVar, this._options.replaceUnsolved?.tupleClassType);

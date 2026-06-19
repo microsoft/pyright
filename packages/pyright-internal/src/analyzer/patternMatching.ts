@@ -85,6 +85,7 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     preserveUnknown,
+    requiresSpecialization,
     selfSpecializeClass,
     specializeTupleClass,
     specializeWithUnknownTypeArgs,
@@ -759,14 +760,7 @@ function narrowTypeBasedOnClassPattern(
     // specialize it with Unknown type arguments.
     if (isClass(exprType) && !exprType.props?.typeAliasInfo) {
         exprType = ClassType.cloneRemoveTypePromotions(exprType);
-        if (
-            isInstantiableClass(exprType) &&
-            exprType.shared.typeParams.some((param) => isTypeVar(param) && param.shared.boundType)
-        ) {
-            exprType = selfSpecializeClass(exprType, { useBoundTypeVars: true });
-        } else {
-            exprType = specializeWithUnknownTypeArgs(exprType, evaluator.getTupleClassType());
-        }
+        exprType = specializeWithUnknownTypeArgs(exprType, evaluator.getTupleClassType());
     }
 
     // Are there any positional arguments? If so, try to get the mappings for
@@ -926,7 +920,10 @@ function narrowTypeBasedOnClassPattern(
                 const expandedSubtypeInstance = convertToInstance(expandedSubtype);
                 const isPatternMetaclass = isMetaclassInstance(expandedSubtypeInstance);
 
-                return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (subjectSubtypeExpanded) => {
+                return evaluator.mapSubtypesExpandTypeVars(
+                    type,
+                    /* options */ undefined,
+                    (subjectSubtypeExpanded, subjectSubtypeUnexpanded) => {
                     if (isAnyOrUnknown(subjectSubtypeExpanded)) {
                         if (isInstantiableClass(expandedSubtype) && ClassType.isBuiltIn(expandedSubtype, 'Callable')) {
                             // Convert to an unknown callable type.
@@ -1030,37 +1027,75 @@ function narrowTypeBasedOnClassPattern(
                                                 },
                                             }
                                         ) as ClassType;
-                                    }
 
-                                    if (
-                                        isInstantiableClass(unexpandedSubtype) &&
-                                        unexpandedSubtype.shared.typeParams.some(
-                                            (param) => isTypeVar(param) && param.shared.boundType
-                                        )
-                                    ) {
-                                        const boundedTypeArgs = unexpandedSubtype.shared.typeParams.map((param) => {
-                                            if (isTypeVar(param) && param.shared.boundType) {
-                                                return TypeBase.isInstantiable(param)
-                                                    ? convertToInstantiable(param.shared.boundType, /* includeSubclasses */ false)
-                                                    : convertToInstance(param.shared.boundType);
-                                            }
+                                        if (
+                                            unexpandedSubtype.shared.typeParams.some(
+                                                (param) => isTypeVar(param) && param.shared.boundType
+                                            )
+                                        ) {
+                                            const subjectTypeArgs = isClassInstance(subjectSubtypeExpanded)
+                                                ? subjectSubtypeExpanded.priv.typeArgs
+                                                : undefined;
+                                            const solvedTypeArgs = isClassInstance(resultType)
+                                                ? resultType.priv.typeArgs
+                                                : undefined;
+                                            const typeArgs = unexpandedSubtype.shared.typeParams.map((param, index) => {
+                                                const specializedArg = subjectTypeArgs?.[index] ?? solvedTypeArgs?.[index];
+                                                if (specializedArg && !requiresSpecialization(specializedArg)) {
+                                                    return specializedArg;
+                                                }
 
-                                            return getUnknownForTypeVar(
-                                                param,
-                                                evaluator.getTupleClassType()
+                                                if (isTypeVar(param) && param.shared.boundType) {
+                                                    return convertToInstance(param.shared.boundType);
+                                                }
+
+                                                return specializedArg ?? getUnknownForTypeVar(param, evaluator.getTupleClassType());
+                                            });
+
+                                            resultType = addConditionToType(
+                                                convertToInstance(ClassType.specialize(unexpandedSubtype, typeArgs)),
+                                                getTypeCondition(subjectSubtypeExpanded)
                                             );
-                                        });
-                                        resultType = addConditionToType(
-                                            convertToInstance(
-                                                ClassType.specialize(unexpandedSubtype, boundedTypeArgs)
-                                            ),
-                                            getTypeCondition(subjectSubtypeExpanded)
-                                        );
+                                        }
                                     }
+
                                 }
                             }
                         } else {
                             return undefined;
+                        }
+
+                        if (
+                            isClassInstance(resultType) &&
+                            isInstantiableClass(unexpandedSubtype) &&
+                            unexpandedSubtype.shared.typeParams.some((param) => isTypeVar(param) && param.shared.boundType)
+                        ) {
+                            const genericMatchType = unexpandedSubtype;
+                            const subjectTypeArgs = isClassInstance(subjectSubtypeUnexpanded)
+                                ? subjectSubtypeUnexpanded.priv.typeArgs
+                                : undefined;
+                            const solvedTypeArgs = resultType.priv.typeArgs;
+                            const typeArgs = genericMatchType.shared.typeParams.map((param, index) => {
+                                const specializedArg = subjectTypeArgs?.[index] ?? solvedTypeArgs?.[index];
+                                if (
+                                    specializedArg &&
+                                    !requiresSpecialization(specializedArg) &&
+                                    !containsAnyOrUnknown(specializedArg, /* recurse */ true)
+                                ) {
+                                    return specializedArg;
+                                }
+
+                                if (isTypeVar(param) && param.shared.boundType) {
+                                    return convertToInstance(param.shared.boundType);
+                                }
+
+                                return specializedArg ?? getUnknownForTypeVar(param, evaluator.getTupleClassType());
+                            });
+
+                            resultType = addConditionToType(
+                                convertToInstance(ClassType.specialize(genericMatchType, typeArgs)),
+                                getTypeCondition(subjectSubtypeExpanded)
+                            );
                         }
 
                         // Are there any positional arguments? If so, try to get the mappings for
@@ -1095,7 +1130,8 @@ function narrowTypeBasedOnClassPattern(
                     }
 
                     return undefined;
-                });
+                    }
+                );
             }
 
             return undefined;
