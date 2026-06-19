@@ -46,6 +46,7 @@ import {
     isFunction,
     isInstantiableClass,
     isModule,
+    isOverloaded,
     isTypeSame,
     isUnknown,
     ModuleType,
@@ -884,6 +885,9 @@ export class PackageTypeVerifier {
 
                     const propertyClass = type;
 
+                    const stripStaticMethodFlag = (func: FunctionType) =>
+                        FunctionType.cloneWithNewFlags(func, func.shared.flags & ~FunctionTypeFlags.StaticMethod);
+
                     propMethodInfo.forEach((info) => {
                         const methodAccessor = info[1];
                         let accessType = methodAccessor(propertyClass);
@@ -897,9 +901,17 @@ export class PackageTypeVerifier {
                             // work properly when accessed directly from the property object. We need
                             // to remove this flag here so the method is seen as an instance method rather than
                             // static. Otherwise we'll incorrectly report that "self" is not annotated.
-                            accessType = FunctionType.cloneWithNewFlags(
-                                accessType,
-                                accessType.shared.flags & ~FunctionTypeFlags.StaticMethod
+                            accessType = stripStaticMethodFlag(accessType);
+                        } else if (isOverloaded(accessType)) {
+                            // Apply the same StaticMethod-flag removal to each signature of an
+                            // overloaded accessor (e.g. an overloaded property setter).
+                            const overloads = OverloadedType.getOverloads(accessType).map(stripStaticMethodFlag);
+                            const implementation = OverloadedType.getImplementation(accessType);
+                            accessType = OverloadedType.create(
+                                overloads,
+                                implementation && isFunction(implementation)
+                                    ? stripStaticMethodFlag(implementation)
+                                    : implementation
                             );
                         }
 

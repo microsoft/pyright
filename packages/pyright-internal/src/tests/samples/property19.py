@@ -24,7 +24,7 @@ class A:
 
 a = A()
 
-reveal_type(a.t1)  # int
+reveal_type(a.t1, expected_text="int")
 
 # These should not generate errors because they match
 # the setter overloads.

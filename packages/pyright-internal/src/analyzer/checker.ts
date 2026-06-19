@@ -6067,6 +6067,10 @@ export class Checker extends ParseTreeWalker {
                     this._evaluator.getTypeClassType()
                 );
 
+                // Overloaded accessors (e.g. overloaded property setters) are
+                // represented as an OverloadedType rather than a FunctionType.
+                // Override-compatibility checking for overloaded accessors is not
+                // yet performed; only single-function accessors are validated here.
                 if (isFunction(baseClassMethodType)) {
                     if (!subclassPropMethod) {
                         // The method is missing.
@@ -7007,6 +7011,10 @@ export class Checker extends ParseTreeWalker {
                     this._evaluator.getTypeClassType()
                 );
 
+                // Overloaded accessors (e.g. overloaded property setters) are
+                // represented as an OverloadedType rather than a FunctionType.
+                // Override-compatibility checking for overloaded accessors is not
+                // yet performed; skip them rather than misreporting.
                 if (!isFunction(baseClassMethodType)) {
                     return;
                 }

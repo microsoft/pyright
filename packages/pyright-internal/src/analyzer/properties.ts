@@ -357,7 +357,11 @@ function combineSetterOverloads(
     prevSetter: FunctionType | OverloadedType | undefined,
     newSetter: FunctionType
 ): FunctionType | OverloadedType {
-    // Gather any overload signatures from the previous setter.
+    // Gather any overload signatures from the previous setter. Note: a lone
+    // `@overload` setter with no implementation is represented as a FunctionType
+    // with the Overloaded flag set, and is treated as a single overload here. A
+    // malformed source with multiple implementations is not specially handled;
+    // the most recent implementation wins, consistent with normal functions.
     const prevOverloads: FunctionType[] = [];
     if (prevSetter) {
         if (isOverloaded(prevSetter)) {
@@ -377,7 +381,20 @@ function combineSetterOverloads(
     // implementation for a set of setter overloads. If there are accumulated
     // overloads, treat it as the implementation; otherwise it's a plain setter.
     if (prevOverloads.length > 0) {
-        return OverloadedType.create(prevOverloads, newSetter);
+        // Per PEP 702, if the setter implementation is marked @deprecated, all of
+        // its overloads inherit the deprecation. This mirrors the behavior of
+        // addOverloadsToFunctionType for normal overloaded functions.
+        let overloads = prevOverloads;
+        if (newSetter.shared.deprecatedMessage !== undefined) {
+            const deprecationMessage = newSetter.shared.deprecatedMessage;
+            overloads = overloads.map((overload) =>
+                overload.shared.deprecatedMessage === undefined
+                    ? FunctionType.cloneWithDeprecatedMessage(overload, deprecationMessage)
+                    : overload
+            );
+        }
+
+        return OverloadedType.create(overloads, newSetter);
     }
 
     return newSetter;
@@ -394,6 +411,8 @@ function addSetMethodToPropertySymbolTable(
     if (isOverloaded(fset)) {
         // Synthesize one __set__ overload per setter overload (excluding the
         // implementation, consistent with normal overloaded function semantics).
+        // combineSetterOverloads only produces an OverloadedType when there is at
+        // least one overload, so setOverloads is guaranteed to be non-empty here.
         const setOverloads = OverloadedType.getOverloads(fset).map((overload) =>
             createSetMethodFromSetter(evaluator, overload, /* asOverload */ true)
         );
@@ -568,10 +587,14 @@ export function assignProperty(
     accessors.forEach((accessorInfo) => {
         let destAccessType = accessorInfo.getFunction(destPropertyType);
 
-        if (destAccessType && isFunction(destAccessType)) {
+        // Handle both single-function accessors and overloaded accessors (e.g.
+        // overloaded property setters). assignType and bindFunctionToClassOrObject
+        // both understand OverloadedType, so the comparison logic below works for
+        // either form.
+        if (destAccessType && (isFunction(destAccessType) || isOverloaded(destAccessType))) {
             const srcAccessType = accessorInfo.getFunction(srcPropertyType);
 
-            if (!srcAccessType || !isFunction(srcAccessType)) {
+            if (!srcAccessType || (!isFunction(srcAccessType) && !isOverloaded(srcAccessType))) {
                 diag?.addMessage(accessorInfo.missingDiagMsg());
                 isAssignable = false;
                 return;
@@ -583,7 +606,7 @@ export function assignProperty(
             // If the caller provided a "self" TypeVar context, replace any Self types.
             // This is needed during protocol matching.
             if (selfSolution) {
-                destAccessType = applySolvedTypeVars(destAccessType, selfSolution) as FunctionType;
+                destAccessType = applySolvedTypeVars(destAccessType, selfSolution) as FunctionType | OverloadedType;
             }
 
             const boundDestAccessType =
