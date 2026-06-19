@@ -140,6 +140,7 @@ import {
     EnumLiteral,
     FunctionParam,
     FunctionType,
+    FunctionTypeFlags,
     ModuleType,
     OverloadedType,
     Type,
@@ -5858,10 +5859,27 @@ export class Checker extends ParseTreeWalker {
             const diagAddendum = new DiagnosticAddendum();
 
             if (isFunctionOrOverloaded(overrideType)) {
-                if (
-                    !this._evaluator.validateOverrideMethod(
+                // If one base defines the member as a plain callable variable and a
+                // sibling base overrides it with a real method, bind the method's "self"
+                // so the two are compared as plain callables (mirrors the single-base
+                // override handling in `_validateBaseClassOverride`).
+                const childClassSelf = ClassType.cloneAsInstance(
+                    selfSpecializeClass(childClassType, { useBoundTypeVars: true })
+                );
+                const { baseType: overriddenTypeForComparison, overrideType: overrideTypeForComparison } =
+                    this._getCallableVariableOverrideComparison(
+                        overriddenClassAndSymbol.symbol,
+                        overrideClassAndSymbol.symbol,
                         overriddenType,
                         overrideType,
+                        childClassType,
+                        childClassSelf
+                    );
+
+                if (
+                    !this._evaluator.validateOverrideMethod(
+                        overriddenTypeForComparison,
+                        overrideTypeForComparison,
                         /* baseClass */ undefined,
                         diagAddendum,
                         /* enforceParamNameMatch */ true
@@ -6574,6 +6592,59 @@ export class Checker extends ParseTreeWalker {
         );
     }
 
+    // If a base class member is a plain callable variable (e.g. `x: Callable[..., None]`)
+    // and the override is a real method, accessing the override on an instance binds its
+    // "self" parameter, leaving a signature that should be compared against the base
+    // callable. This helper detects that asymmetry and returns adjusted types: the bound
+    // override and the base callable, both marked static so the override comparison does
+    // not skip the first parameter as an unbound "self". All other cases are returned
+    // unchanged. This matches the behavior of other type checkers, which allow overriding
+    // a callable attribute with a method.
+    private _getCallableVariableOverrideComparison(
+        baseSymbol: Symbol,
+        overrideSymbol: Symbol,
+        baseType: Type,
+        overrideType: FunctionType | OverloadedType,
+        childClassType: ClassType,
+        childClassSelf: ClassType
+    ): { baseType: Type; overrideType: FunctionType | OverloadedType } {
+        const baseDecls = baseSymbol.getDeclarations();
+        const baseIsCallableVariable =
+            baseDecls.length > 0 && baseDecls.every((decl) => decl.type === DeclarationType.Variable);
+        const overrideIsMethod = overrideSymbol
+            .getDeclarations()
+            .some((decl) => decl.type === DeclarationType.Function);
+
+        if (!baseIsCallableVariable || !overrideIsMethod) {
+            return { baseType, overrideType };
+        }
+
+        const boundOverrideType = this._evaluator.bindFunctionToClassOrObject(
+            childClassSelf,
+            overrideType,
+            childClassType
+        );
+
+        if (boundOverrideType && isFunction(baseType) && isFunction(boundOverrideType)) {
+            return {
+                baseType: FunctionType.cloneWithNewFlags(
+                    baseType,
+                    baseType.shared.flags | FunctionTypeFlags.StaticMethod
+                ),
+                overrideType: FunctionType.cloneWithNewFlags(
+                    boundOverrideType,
+                    boundOverrideType.shared.flags | FunctionTypeFlags.StaticMethod
+                ),
+            };
+        }
+
+        if (boundOverrideType) {
+            return { baseType, overrideType: boundOverrideType };
+        }
+
+        return { baseType, overrideType };
+    }
+
     private _validateBaseClassOverride(
         baseClassAndSymbol: ClassMember,
         overrideSymbol: Symbol,
@@ -6656,19 +6727,6 @@ export class Checker extends ParseTreeWalker {
         if (isFunctionOrOverloaded(baseType)) {
             const diagAddendum = new DiagnosticAddendum();
 
-            // Determine whether the base class member is a plain callable variable
-            // (e.g. `x: Callable[..., None]`) rather than an actual method. In that
-            // case, accessing the override method on an instance binds its "self"
-            // parameter, so we bind it here before comparing signatures. This matches
-            // the behavior of other type checkers, which allow overriding a callable
-            // attribute with a method.
-            const baseDecls = baseClassAndSymbol.symbol.getDeclarations();
-            const baseIsCallableVariable =
-                baseDecls.length > 0 && baseDecls.every((decl) => decl.type === DeclarationType.Variable);
-            const overrideIsMethod = overrideSymbol
-                .getDeclarations()
-                .some((decl) => decl.type === DeclarationType.Function);
-
             // Don't check certain magic functions or private symbols.
             // Also, skip this check if the class is a TypedDict. The methods for a TypedDict
             // are synthesized, and they can result in many overloads. We assume they
@@ -6687,21 +6745,26 @@ export class Checker extends ParseTreeWalker {
                 // false positives.
                 const enforceParamNameMatch = !SymbolNameUtils.isDunderName(memberName);
 
-                let overrideTypeForComparison: FunctionType | OverloadedType = overrideType;
-                if (baseIsCallableVariable && overrideIsMethod) {
-                    const boundOverrideType = this._evaluator.bindFunctionToClassOrObject(
-                        childClassSelf,
+                // If the base class member is a plain callable variable
+                // (e.g. `x: Callable[..., None]`) rather than an actual method,
+                // bind the override method's "self" so the two are compared as
+                // plain callables. The declaration scans needed to detect this
+                // are computed inside this helper, so the common method-vs-method
+                // path and the exempt/private/TypedDict early-returns above pay
+                // nothing extra.
+                const { baseType: baseTypeForComparison, overrideType: overrideTypeForComparison } =
+                    this._getCallableVariableOverrideComparison(
+                        baseClassAndSymbol.symbol,
+                        overrideSymbol,
+                        baseType,
                         overrideType,
-                        childClassType
+                        childClassType,
+                        childClassSelf
                     );
-                    if (boundOverrideType) {
-                        overrideTypeForComparison = boundOverrideType;
-                    }
-                }
 
                 if (
                     this._evaluator.validateOverrideMethod(
-                        baseType,
+                        baseTypeForComparison,
                         overrideTypeForComparison,
                         childClassType,
                         diagAddendum,
