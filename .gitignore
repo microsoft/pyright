@@ -135,3 +135,6 @@ AGENTS.md
 # Generated benchmark output
 packages/pyright-internal/src/tests/benchmarks/.generated/
 
+# perfCompare.py cached commit bundles
+/build/perfCompare/
+
