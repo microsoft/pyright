@@ -4367,10 +4367,20 @@ export class Binder extends ParseTreeWalker {
         // a class whose name matches a submodule). In that case the non-module
         // declaration appears later in the declaration list and "wins" when the
         // symbol is resolved. Only treat this wildcard re-export as a pure submodule
-        // re-export when the module alias is the symbol's effective (last)
-        // declaration; otherwise fall through so a normal alias declaration is
-        // created that resolves to the winning symbol.
-        // See https://github.com/microsoft/pyright/issues/11481.
+        // re-export when the module alias is the symbol's last declaration;
+        // otherwise fall through so a normal alias declaration is created that
+        // resolves to the winning symbol.
+        //
+        // We compare against the raw last declaration (not getLastTypedDeclarationForSymbol)
+        // on purpose: a module alias is a DeclarationType.Alias, which hasTypeForDeclaration
+        // treats as untyped, so it never appears among a symbol's typed declarations.
+        // The evaluator resolves alias symbols (like this one, whose declarations are all
+        // imports) by declaration order, so the last declaration is the relevant "winner"
+        // here. When this guard falls through, the alias created by the caller resolves to
+        // the winning (e.g. class) declaration and intentionally has no submoduleFallback:
+        // the class shadows the submodule, so submodule member access through the
+        // re-exported name is no longer offered. The genuine-submodule case (where the
+        // module alias is the last declaration) keeps its module/submodule behavior.
         const importedDecls = importedSymbol.getDeclarations();
         if (importedDecls[importedDecls.length - 1] !== importedModuleAliasDecl) {
             return false;
