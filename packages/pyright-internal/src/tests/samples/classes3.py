@@ -99,3 +99,21 @@ inner_instance = Outer.Inner()
 
 # This should generate an error.
 inner_instance.__qualname__
+
+
+# A function object explicitly declares `__qualname__`, so accessing it must not
+# be flagged. The implicit `__qualname__` symbol added to every class scope must
+# not hide a legitimate, explicitly-declared member.
+func_qualname = func1.__qualname__
+reveal_type(func_qualname, expected_text="str")
+
+
+class WithQualname:
+    # A class that explicitly declares `__qualname__` exposes it on instances.
+    __qualname__ = "WithQualname"
+
+
+# This should not generate an error because the attribute is explicitly declared
+# as a class member.
+WithQualname().__qualname__
+reveal_type(WithQualname().__qualname__, expected_text="str")

@@ -508,19 +508,26 @@ export class Binder extends ParseTreeWalker {
                 this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
                 this._addImplicitSymbolToCurrentScope('__module__', node, 'str');
 
+                this._dunderSlotsEntries = undefined;
+                if (!this._moduleSymbolOnly) {
+                    // Analyze the suite.
+                    this.walk(node.d.suite);
+                }
+
                 // `__qualname__` is added to the class scope so it can be referenced by
                 // name within the class body (e.g. `print(__qualname__)`). Unlike
                 // `__doc__`/`__module__`, it is exposed via the metaclass (`type`) rather
                 // than as a class/instance attribute, so it must not be treated as a class
                 // member. Otherwise instance access (`instance.__qualname__`) would
                 // incorrectly resolve instead of reporting an attribute-access error.
+                //
+                // This is injected after walking the suite so that a class that explicitly
+                // declares `__qualname__` (e.g. `type`, `function`, and other typeshed
+                // classes) keeps the class-member symbol created for that declaration. If it
+                // were injected first, the non-class-member symbol would be created up front
+                // and the explicit declaration would merge into it without restoring the
+                // class-member flag, incorrectly hiding the legitimate member.
                 this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str', /* isClassMember */ false);
-
-                this._dunderSlotsEntries = undefined;
-                if (!this._moduleSymbolOnly) {
-                    // Analyze the suite.
-                    this.walk(node.d.suite);
-                }
 
                 if (this._dunderSlotsEntries) {
                     this._addSlotsToCurrentScope(this._dunderSlotsEntries);
