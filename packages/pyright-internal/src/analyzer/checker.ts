@@ -6600,6 +6600,12 @@ export class Checker extends ParseTreeWalker {
     // not skip the first parameter as an unbound "self". All other cases are returned
     // unchanged. This matches the behavior of other type checkers, which allow overriding
     // a callable attribute with a method.
+    //
+    // Note: this validates only the read direction (the bound override is compatible with
+    // the base callable). A method is effectively read-only, so this intentionally does not
+    // attempt to preserve assignability of the mutable callable attribute; that asymmetry
+    // matches other type checkers and does not trigger `reportIncompatibleVariableOverride`
+    // because the override is a function, not a variable.
     private _getCallableVariableOverrideComparison(
         baseSymbol: Symbol,
         overrideSymbol: Symbol,
