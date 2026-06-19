@@ -20,6 +20,14 @@ assert_type(struct.unpack("2i3f", buffer), tuple[int, int, float, float, float])
 # A 's' code consumes its count as a single bytes value.
 assert_type(struct.unpack("<3s", buffer), tuple[bytes])
 
+# A large byte-length count for 's' still collapses to a single bytes value
+# and must not be rejected by the element-count guard.
+assert_type(struct.unpack("1024s", buffer), tuple[bytes])
+assert_type(struct.unpack("<512s", buffer), tuple[bytes])
+
+# 'p' (Pascal string) behaves the same as 's' for a large byte length.
+assert_type(struct.unpack("300p", buffer), tuple[bytes])
+
 # Pad bytes ('x') produce no elements.
 assert_type(struct.unpack("<ix", buffer), tuple[int])
 

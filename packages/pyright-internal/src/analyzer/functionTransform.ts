@@ -208,8 +208,7 @@ function applyStructUnpackTransform(
     const getElementType = (elementKind: StructElementType): Type | undefined => {
         let elementType = elementTypeCache.get(elementKind);
         if (!elementType) {
-            const builtInName = elementKind === 'bytes' ? 'bytes' : elementKind;
-            const builtInType = evaluator.getBuiltInObject(errorNode, builtInName);
+            const builtInType = evaluator.getBuiltInObject(errorNode, elementKind);
             if (!isClassInstance(builtInType)) {
                 return undefined;
             }
@@ -273,8 +272,11 @@ function parseStructFormat(format: string): StructElementType[] | undefined {
                 count = count * 10 + (format.charCodeAt(index) - 0x30);
                 index++;
 
-                // Guard against pathologically large counts.
-                if (count > maxStructUnpackElementCount) {
+                // Guard against pathologically large counts. This bounds the
+                // accumulator itself; the produced element count is bounded
+                // separately below so byte-length codes ('s'/'p') aren't
+                // rejected for large counts.
+                if (count > Number.MAX_SAFE_INTEGER) {
                     return undefined;
                 }
             }
@@ -295,7 +297,7 @@ function parseStructFormat(format: string): StructElementType[] | undefined {
 
         if (code === 's' || code === 'p') {
             // For 's' and 'p', the count is the byte length of a single value,
-            // so it always produces exactly one element.
+            // so it always produces exactly one element regardless of count.
             elements.push('bytes');
         } else if (elementKind === 'pad') {
             // Pad bytes ('x') produce no elements.
@@ -303,6 +305,12 @@ function parseStructFormat(format: string): StructElementType[] | undefined {
             const repeat = count < 0 ? 1 : count;
             for (let i = 0; i < repeat; i++) {
                 elements.push(elementKind);
+
+                // Bound the produced element count to avoid performance issues
+                // with very large repeat counts.
+                if (elements.length > maxStructUnpackElementCount) {
+                    return undefined;
+                }
             }
         }
     }
