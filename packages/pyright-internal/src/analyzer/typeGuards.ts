@@ -1081,6 +1081,25 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
     });
 }
 
+function isNewTypeWithSingletonBase(
+    evaluator: TypeEvaluator,
+    subtype: Type,
+    targetType: Type,
+    isExactMatch: (type: Type) => boolean
+) {
+    if (!isClassInstance(subtype) || !ClassType.isNewTypeClass(subtype) || subtype.shared.baseClasses.length === 0) {
+        return false;
+    }
+
+    const baseClass = subtype.shared.baseClasses[0];
+    if (!isClass(baseClass)) {
+        return false;
+    }
+
+    const baseInstance = ClassType.cloneAsInstance(baseClass);
+    return isExactMatch(baseInstance) || evaluator.assignType(baseInstance, targetType);
+}
+
 // Handle type narrowing for expressions of the form "x is None" and "x is not None".
 function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean) {
     const expandedType = mapSubtypes(type, (subtype) => {
@@ -1129,22 +1148,9 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
             const adjustedSubtype = useExpandedSubtype ? subtype : unexpandedSubtype;
 
             // NewType instances can be identity-compared with their underlying base type.
-            if (isClassInstance(adjustedSubtype) && ClassType.isNewTypeClass(adjustedSubtype) && adjustedSubtype.shared.baseClasses.length > 0) {
-                const baseClass = adjustedSubtype.shared.baseClasses[0];
-                if (isClass(baseClass)) {
-                    const baseInstance = ClassType.cloneAsInstance(baseClass);
-                    if (isNoneInstance(baseInstance)) {
-                        resultIncludesNoneSubtype = true;
-                        return isPositiveTest ? adjustedSubtype : undefined;
-                    }
-
-                    if (evaluator.assignType(baseInstance, evaluator.getNoneType())) {
-                        resultIncludesNoneSubtype = true;
-                        return isPositiveTest
-                            ? addConditionToType(evaluator.getNoneType(), subtype.props?.condition)
-                            : adjustedSubtype;
-                    }
-                }
+            if (isNewTypeWithSingletonBase(evaluator, adjustedSubtype, evaluator.getNoneType(), isNoneInstance)) {
+                resultIncludesNoneSubtype = true;
+                return isPositiveTest ? adjustedSubtype : undefined;
             }
 
             // Is it an exact match for None?
@@ -1170,7 +1176,10 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
     // of the subtypes are None types with conditions, retain those.
     if (isPositiveTest && resultIncludesNoneSubtype) {
         return mapSubtypes(result, (subtype) => {
-            return isNoneInstance(subtype) ? subtype : undefined;
+            return isNoneInstance(subtype) ||
+                isNewTypeWithSingletonBase(evaluator, subtype, evaluator.getNoneType(), isNoneInstance)
+                ? subtype
+                : undefined;
         });
     }
 
@@ -1212,6 +1221,11 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, node: ExpressionNode,
                     ? unexpandedSubtype
                     : subtype;
 
+            if (isNewTypeWithSingletonBase(evaluator, adjustedSubtype, ellipsisType, isEllipsisInstance)) {
+                resultIncludesEllipsisSubtype = true;
+                return isPositiveTest ? adjustedSubtype : undefined;
+            }
+
             // Is it an exact match for ellipsis?
             if (isEllipsisInstance(subtype)) {
                 resultIncludesEllipsisSubtype = true;
@@ -1233,7 +1247,10 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, node: ExpressionNode,
     // of the subtypes are ellipsis types with conditions, retain those.
     if (isPositiveTest && resultIncludesEllipsisSubtype) {
         return mapSubtypes(result, (subtype) => {
-            return isEllipsisInstance(subtype) ? subtype : undefined;
+            return isEllipsisInstance(subtype) ||
+                isNewTypeWithSingletonBase(evaluator, subtype, ellipsisType, isEllipsisInstance)
+                ? subtype
+                : undefined;
         });
     }
 

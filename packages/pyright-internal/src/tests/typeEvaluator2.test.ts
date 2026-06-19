@@ -306,7 +306,9 @@ test('NewType7', () => {
 });
 
 test('NewType8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newTypeIsLiteral1.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportUnreachable = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newTypeIsLiteral1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 0);
 });
