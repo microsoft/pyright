@@ -18,3 +18,21 @@ def test_generic_bool_context_manager() -> None:
         reveal_type(ctx.__exit__(None, None, None), expected_text="bool")
         foo = 1
     reveal_type(foo, expected_text="Literal['str', 1]")
+
+
+TEnter = TypeVar("TEnter")
+TExit = TypeVar("TExit", bound="bool|None")
+
+
+class SplitContextManager(Generic[TEnter, TExit]):
+    def __enter__(self) -> TEnter: ...
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> TExit: ...
+
+
+def test_multi_typevar_context_manager() -> None:
+    bar = "str"
+    with SplitContextManager[int, bool]() as ctx:
+        reveal_type(ctx, expected_text="int")
+        bar = 1
+    reveal_type(bar, expected_text="Literal['str', 1]")
