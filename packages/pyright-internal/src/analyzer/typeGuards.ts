@@ -1081,22 +1081,32 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
     });
 }
 
+function getInnermostNewTypeBaseInstance(subtype: Type): Type | undefined {
+    let currentType = subtype;
+
+    while (isClassInstance(currentType) && ClassType.isNewTypeClass(currentType) && currentType.shared.baseClasses.length > 0) {
+        const baseClass = currentType.shared.baseClasses[0];
+        if (!isClass(baseClass)) {
+            return undefined;
+        }
+
+        currentType = ClassType.cloneAsInstance(baseClass);
+    }
+
+    return currentType;
+}
+
 function isNewTypeWithSingletonBase(
     evaluator: TypeEvaluator,
     subtype: Type,
     targetType: Type,
     isExactMatch: (type: Type) => boolean
 ) {
-    if (!isClassInstance(subtype) || !ClassType.isNewTypeClass(subtype) || subtype.shared.baseClasses.length === 0) {
+    const baseInstance = getInnermostNewTypeBaseInstance(subtype);
+    if (!baseInstance || baseInstance === subtype) {
         return false;
     }
 
-    const baseClass = subtype.shared.baseClasses[0];
-    if (!isClass(baseClass)) {
-        return false;
-    }
-
-    const baseInstance = ClassType.cloneAsInstance(baseClass);
     return isExactMatch(baseInstance) || evaluator.assignType(baseInstance, targetType);
 }
 
@@ -2777,13 +2787,7 @@ function narrowTypeForLiteralComparison(
             }
 
             if (isIsOperator || isNoneInstance(subtype)) {
-                let compareType: Type = subtype;
-                if (isClassInstance(subtype) && ClassType.isNewTypeClass(subtype) && subtype.shared.baseClasses.length > 0) {
-                    const baseClass = subtype.shared.baseClasses[0];
-                    if (isClass(baseClass)) {
-                        compareType = ClassType.cloneAsInstance(baseClass);
-                    }
-                }
+                const compareType = getInnermostNewTypeBaseInstance(subtype) ?? subtype;
 
                 const isSubtype = evaluator.assignType(compareType, literalType);
                 if (isSubtype) {
