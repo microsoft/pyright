@@ -68,6 +68,52 @@ describe('Import tests with fake venv', () => {
                 );
             });
 
+            test('symlinked partial stub file exists', () => {
+                const stubSource = combinePaths(normalizeSlashes('/'), 'wheel', 'partialStub.pyi');
+                const files = [
+                    {
+                        path: stubSource,
+                        content: 'def test(): ...',
+                    },
+                    {
+                        path: combinePaths(libraryRoot, 'myLib-stubs', 'py.typed'),
+                        content: 'partial\n',
+                    },
+                    {
+                        path: combinePaths(libraryRoot, 'myLib', 'partialStub.py'),
+                        content: 'def test(): pass',
+                    },
+                ];
+
+                const testFS = createTestFileSystem(files);
+                testFS.symlinkSync(stubSource, combinePaths(libraryRoot, 'myLib-stubs', 'partialStub.pyi'));
+                const fs = new PyrightFileSystem(testFS);
+                const partialStubService = new PartialStubService(fs);
+                const sp = createServiceProvider(testFS, fs, partialStubService);
+                const configOptions = new ConfigOptions(UriEx.file('/'));
+                const uri = UriEx.file(files[files.length - 1].path);
+                const importResolver = new ImportResolver(
+                    sp,
+                    configOptions,
+                    new TestAccessHost(sp.fs().getModulePath(), [UriEx.file(libraryRoot)])
+                );
+
+                const importResult = importResolver.resolveImport(uri, configOptions.findExecEnvironment(uri), {
+                    leadingDots: 0,
+                    nameParts: ['myLib', 'partialStub'],
+                    importedSymbols: new Set<string>(),
+                });
+
+                assert(importResult.isImportFound);
+                assert(importResult.isStubFile);
+                assert.strictEqual(
+                    1,
+                    importResult.resolvedUris.filter(
+                        (f) => f.getFilePath() === combinePaths(libraryRoot, 'myLib', 'partialStub.pyi')
+                    ).length
+                );
+            });
+
             test('partial stub __init__ exists', () => {
                 const files = [
                     {
