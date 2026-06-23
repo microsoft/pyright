@@ -11,6 +11,12 @@ Cherry = NewType("Cherry", int)
 Dragonfruit = NewType("Dragonfruit", EllipsisType)
 Elderberry = NewType("Elderberry", Dragonfruit)
 
+# NewTypes over a non-singleton base that is merely compatible with the
+# singleton (object accepts both None and ...). The negative branch must stay
+# reachable rather than collapsing to Never.
+Fig = NewType("Fig", object)
+Guava = NewType("Guava", object)
+
 
 def f(a: Apple, aa: Apricot, b: Banana, bb: Plantain, c: Cherry, d: Dragonfruit, dd: Elderberry) -> None:
     if a is None:
@@ -34,6 +40,18 @@ def f(a: Apple, aa: Apricot, b: Banana, bb: Plantain, c: Cherry, d: Dragonfruit,
     if dd is ...:
         reveal_type(dd, expected_text="Elderberry")
 
+
+def g(o: Fig, e: Guava) -> None:
+    # A NewType over a non-singleton base (object) is not identity-equal to the
+    # singleton, so the negative branch must keep the NewType and stay reachable
+    # rather than collapsing to Never (a regression caught under reportUnreachable).
+    if o is not None:
+        reveal_type(o, expected_text="Fig")
+
+    if e is not ...:
+        reveal_type(e, expected_text="Guava")
+
+
 f(
     Apple(None),
     Apricot(Apple(None)),
@@ -43,3 +61,5 @@ f(
     Dragonfruit(...),
     Elderberry(Dragonfruit(...)),
 )
+
+g(Fig(object()), Guava(object()))

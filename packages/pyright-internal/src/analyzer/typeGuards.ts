@@ -1081,10 +1081,21 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
     });
 }
 
+// Walks a chain of NewType instances down to the innermost non-NewType base
+// instance (e.g. NewType("Y", NewType("X", bool)) -> an instance of bool).
+// Returns undefined if `subtype` is not a NewType instance or its base cannot
+// be resolved to a class.
 function getInnermostNewTypeBaseInstance(subtype: Type): Type | undefined {
-    let currentType = subtype;
+    if (!isClassInstance(subtype) || !ClassType.isNewTypeClass(subtype)) {
+        return undefined;
+    }
 
-    while (isClassInstance(currentType) && ClassType.isNewTypeClass(currentType) && currentType.shared.baseClasses.length > 0) {
+    let currentType: Type = subtype;
+    while (isClassInstance(currentType) && ClassType.isNewTypeClass(currentType)) {
+        if (currentType.shared.baseClasses.length === 0) {
+            return undefined;
+        }
+
         const baseClass = currentType.shared.baseClasses[0];
         if (!isClass(baseClass)) {
             return undefined;
@@ -1094,20 +1105,6 @@ function getInnermostNewTypeBaseInstance(subtype: Type): Type | undefined {
     }
 
     return currentType;
-}
-
-function isNewTypeWithSingletonBase(
-    evaluator: TypeEvaluator,
-    subtype: Type,
-    targetType: Type,
-    isExactMatch: (type: Type) => boolean
-) {
-    const baseInstance = getInnermostNewTypeBaseInstance(subtype);
-    if (!baseInstance || baseInstance === subtype) {
-        return false;
-    }
-
-    return isExactMatch(baseInstance) || evaluator.assignType(baseInstance, targetType);
 }
 
 // Handle type narrowing for expressions of the form "x is None" and "x is not None".
@@ -1157,8 +1154,14 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
 
             const adjustedSubtype = useExpandedSubtype ? subtype : unexpandedSubtype;
 
-            // NewType instances can be identity-compared with their underlying base type.
-            if (isNewTypeWithSingletonBase(evaluator, adjustedSubtype, evaluator.getNoneType(), isNoneInstance)) {
+            // A NewType whose innermost base is exactly None (e.g. NewType("Apple", NoneType))
+            // can be identity-compared with None: keep the NewType identity on the positive
+            // branch and eliminate it on the negative branch. A NewType whose base is merely
+            // None-compatible (e.g. NewType("Obj", object)) is intentionally not handled here;
+            // it falls through to the generic checks below so that "is not None" does not
+            // incorrectly collapse to Never.
+            const newTypeBaseInstance = getInnermostNewTypeBaseInstance(adjustedSubtype);
+            if (newTypeBaseInstance && isNoneInstance(newTypeBaseInstance)) {
                 resultIncludesNoneSubtype = true;
                 return isPositiveTest ? adjustedSubtype : undefined;
             }
@@ -1186,10 +1189,8 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
     // of the subtypes are None types with conditions, retain those.
     if (isPositiveTest && resultIncludesNoneSubtype) {
         return mapSubtypes(result, (subtype) => {
-            return isNoneInstance(subtype) ||
-                isNewTypeWithSingletonBase(evaluator, subtype, evaluator.getNoneType(), isNoneInstance)
-                ? subtype
-                : undefined;
+            const baseInstance = getInnermostNewTypeBaseInstance(subtype);
+            return isNoneInstance(subtype) || (baseInstance && isNoneInstance(baseInstance)) ? subtype : undefined;
         });
     }
 
@@ -1231,7 +1232,11 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, node: ExpressionNode,
                     ? unexpandedSubtype
                     : subtype;
 
-            if (isNewTypeWithSingletonBase(evaluator, adjustedSubtype, ellipsisType, isEllipsisInstance)) {
+            // Only a NewType whose innermost base is exactly the ellipsis type is treated
+            // as the singleton (see narrowTypeForIsNone for the rationale); a merely
+            // ellipsis-compatible base falls through so "is not ..." does not collapse to Never.
+            const newTypeBaseInstance = getInnermostNewTypeBaseInstance(adjustedSubtype);
+            if (newTypeBaseInstance && isEllipsisInstance(newTypeBaseInstance)) {
                 resultIncludesEllipsisSubtype = true;
                 return isPositiveTest ? adjustedSubtype : undefined;
             }
@@ -1257,8 +1262,8 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, node: ExpressionNode,
     // of the subtypes are ellipsis types with conditions, retain those.
     if (isPositiveTest && resultIncludesEllipsisSubtype) {
         return mapSubtypes(result, (subtype) => {
-            return isEllipsisInstance(subtype) ||
-                isNewTypeWithSingletonBase(evaluator, subtype, ellipsisType, isEllipsisInstance)
+            const baseInstance = getInnermostNewTypeBaseInstance(subtype);
+            return isEllipsisInstance(subtype) || (baseInstance && isEllipsisInstance(baseInstance))
                 ? subtype
                 : undefined;
         });
