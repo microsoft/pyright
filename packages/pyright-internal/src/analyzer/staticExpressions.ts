@@ -10,7 +10,16 @@
 
 import { ExecutionEnvironment, PythonPlatform } from '../common/configOptions';
 import { PythonReleaseLevel, PythonVersion } from '../common/pythonVersion';
-import { ArgCategory, ExpressionNode, NameNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
+import {
+    ArgCategory,
+    DictionaryEntryNode,
+    ExpressionNode,
+    NameNode,
+    NumberNode,
+    ParseNodeType,
+    StringListNode,
+    TupleNode,
+} from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
 // Returns undefined if the expression cannot be evaluated
@@ -22,13 +31,54 @@ export function evaluateStaticBoolExpression(
     typingImportAliases?: string[],
     sysImportAliases?: string[]
 ): boolean | undefined {
+    return _evaluateStaticBoolOrBoolLikeExpression(
+        node,
+        execEnv,
+        definedConstants,
+        typingImportAliases,
+        sysImportAliases,
+        _evaluateBoolConstant
+    );
+}
+
+// Similar to evaluateStaticBoolExpression except that it handles other non-bool
+// values that are statically falsy or truthy (like "None", "...", and
+// numeric/string/container literals).
+export function evaluateStaticBoolLikeExpression(
+    node: ExpressionNode,
+    execEnv: ExecutionEnvironment,
+    definedConstants: Map<string, boolean | string>,
+    typingImportAliases?: string[],
+    sysImportAliases?: string[]
+): boolean | undefined {
+    return _evaluateStaticBoolOrBoolLikeExpression(
+        node,
+        execEnv,
+        definedConstants,
+        typingImportAliases,
+        sysImportAliases,
+        _evaluateBoolLikeLiteral
+    );
+}
+
+// Shared implementation of the two functions above.
+// The "evaluatePrimitive" callback evaluates leaf expressions.
+function _evaluateStaticBoolOrBoolLikeExpression(
+    node: ExpressionNode,
+    execEnv: ExecutionEnvironment,
+    definedConstants: Map<string, boolean | string>,
+    typingImportAliases: string[] | undefined,
+    sysImportAliases: string[] | undefined,
+    evaluateLeafAsBool: (node: ExpressionNode) => boolean | undefined
+): boolean | undefined {
     if (node.nodeType === ParseNodeType.AssignmentExpression) {
-        return evaluateStaticBoolExpression(
+        return _evaluateStaticBoolOrBoolLikeExpression(
             node.d.rightExpr,
             execEnv,
             definedConstants,
             typingImportAliases,
-            sysImportAliases
+            sysImportAliases,
+            evaluateLeafAsBool
         );
     }
 
@@ -48,19 +98,21 @@ export function evaluateStaticBoolExpression(
     } else if (node.nodeType === ParseNodeType.BinaryOperation) {
         // Is it an OR or AND expression?
         if (node.d.operator === OperatorType.Or || node.d.operator === OperatorType.And) {
-            const leftValue = evaluateStaticBoolExpression(
+            const leftValue = _evaluateStaticBoolOrBoolLikeExpression(
                 node.d.leftExpr,
                 execEnv,
                 definedConstants,
                 typingImportAliases,
-                sysImportAliases
+                sysImportAliases,
+                evaluateLeafAsBool
             );
-            const rightValue = evaluateStaticBoolExpression(
+            const rightValue = _evaluateStaticBoolOrBoolLikeExpression(
                 node.d.rightExpr,
                 execEnv,
                 definedConstants,
                 typingImportAliases,
-                sysImportAliases
+                sysImportAliases,
+                evaluateLeafAsBool
             );
 
             if (leftValue === undefined || rightValue === undefined) {
@@ -139,12 +191,6 @@ export function evaluateStaticBoolExpression(
                 }
             }
         }
-    } else if (node.nodeType === ParseNodeType.Constant) {
-        if (node.d.constType === KeywordType.True) {
-            return true;
-        } else if (node.d.constType === KeywordType.False) {
-            return false;
-        }
     } else if (node.nodeType === ParseNodeType.Name) {
         if (node.d.value === 'TYPE_CHECKING') {
             return true;
@@ -170,26 +216,102 @@ export function evaluateStaticBoolExpression(
         }
     }
 
-    return undefined;
+    return evaluateLeafAsBool(node);
 }
 
-// Similar to evaluateStaticBoolExpression except that it handles
-// other non-bool values that are statically falsy or truthy
-// (like "None").
-export function evaluateStaticBoolLikeExpression(
-    node: ExpressionNode,
-    execEnv: ExecutionEnvironment,
-    definedConstants: Map<string, boolean | string>,
-    typingImportAliases?: string[],
-    sysImportAliases?: string[]
-): boolean | undefined {
+function _evaluateBoolConstant(node: ExpressionNode): boolean | undefined {
     if (node.nodeType === ParseNodeType.Constant) {
-        if (node.d.constType === KeywordType.None) {
+        if (node.d.constType === KeywordType.True) {
+            return true;
+        }
+        if (node.d.constType === KeywordType.False) {
             return false;
         }
     }
 
-    return evaluateStaticBoolExpression(node, execEnv, definedConstants, typingImportAliases, sysImportAliases);
+    return undefined;
+}
+
+function _evaluateBoolLikeLiteral(node: ExpressionNode): boolean | undefined {
+    switch (node.nodeType) {
+        case ParseNodeType.Constant:
+            if (node.d.constType === KeywordType.True) {
+                return true;
+            }
+            if (node.d.constType === KeywordType.False || node.d.constType === KeywordType.None) {
+                return false;
+            }
+            return undefined;
+
+        case ParseNodeType.Ellipsis:
+            return true;
+
+        case ParseNodeType.Number:
+            return _evaluateNumberTruthiness(node);
+
+        case ParseNodeType.StringList:
+            return _evaluateStringListTruthiness(node);
+
+        case ParseNodeType.List:
+        case ParseNodeType.Set:
+        case ParseNodeType.Tuple:
+            return _evaluateSequenceTruthiness(node.d.items);
+
+        case ParseNodeType.Dictionary:
+            return _evaluateDictTruthiness(node.d.items);
+
+        default:
+            return undefined;
+    }
+}
+
+function _evaluateNumberTruthiness(node: NumberNode): boolean {
+    // bool(v) is False iff v == 0:
+    // - zero (0, 0.0, 0j) is falsy;
+    // - everything else is truthy, including infinity and NaN.
+    if (typeof node.d.value === 'bigint') {
+        return node.d.value !== BigInt(0);
+    }
+    return node.d.value !== 0;
+}
+
+function _evaluateStringListTruthiness(node: StringListNode): boolean | undefined {
+    // If any segment is an f-string, the concatenated value is runtime-dependent
+    // (e.g. f"{x}" may be empty or not).
+    if (node.d.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
+        return undefined;
+    }
+
+    // Truthy iff any segment is non-empty.
+    return node.d.strings.some((str) => str.d.value.length > 0);
+}
+
+function _evaluateSequenceTruthiness(items: ExpressionNode[]): boolean | undefined {
+    if (items.length === 0) {
+        return false;
+    }
+
+    // A concrete element (not an unpack "*x" or a comprehension) guarantees the sequence is non-empty.
+    if (items.some((item) => item.nodeType !== ParseNodeType.Unpack && item.nodeType !== ParseNodeType.Comprehension)) {
+        return true;
+    }
+
+    // Only unpacks/comprehensions remain (e.g. "[*x]", "[i for i in y]").
+    return undefined;
+}
+
+function _evaluateDictTruthiness(items: DictionaryEntryNode[]): boolean | undefined {
+    if (items.length === 0) {
+        return false;
+    }
+
+    // A concrete key/value entry guarantees the dict is non-empty.
+    if (items.some((item) => item.nodeType === ParseNodeType.DictionaryKeyEntry)) {
+        return true;
+    }
+
+    // Only "**" expansions or comprehensions remain.
+    return undefined;
 }
 
 function _convertTupleToVersion(node: TupleNode): PythonVersion | undefined {
