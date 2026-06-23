@@ -1,5 +1,7 @@
 # This sample tests the static evaluation of literal truthiness
 
+from typing import Literal, assert_type
+
 
 # The literal condition is statically known
 def positive() -> None:
@@ -128,3 +130,21 @@ def negative(items: list[int], text: str, mapping: dict[str, int]) -> None:
         v = "error"
     else:
         v = 1
+
+
+# `not` always forces a truthiness context
+def strict_not_folding() -> None:
+    a = not None
+    assert_type(a, Literal[True])
+
+    b = not 0
+    assert_type(b, Literal[True])
+
+    c = not 1
+    assert_type(c, Literal[False])
+
+    d = not []
+    assert_type(d, Literal[True])
+
+    e = not not None
+    assert_type(e, Literal[False])

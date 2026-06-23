@@ -90,7 +90,9 @@ function _evaluateStaticBoolOrBoolLikeExpression(
                 definedConstants,
                 typingImportAliases,
                 sysImportAliases,
-                evaluateLeafAsBool
+                // `not x` always forces a truthiness context on its operand and yields real `bool`.
+                // So the operand is folded with the bool-like leaf even for strict callers.
+                _evaluateBoolLikeLiteral
             );
             if (value !== undefined) {
                 return !value;
