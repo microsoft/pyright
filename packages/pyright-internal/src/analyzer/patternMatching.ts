@@ -68,7 +68,6 @@ import {
     addConditionToType,
     containsAnyOrUnknown,
     convertToInstance,
-    convertToInstantiable,
     doForEachSubtype,
     getTypeCondition,
     getTypeVarScopeIds,
@@ -86,7 +85,6 @@ import {
     partiallySpecializeType,
     preserveUnknown,
     requiresSpecialization,
-    selfSpecializeClass,
     specializeTupleClass,
     specializeWithUnknownTypeArgs,
     transformPossibleRecursiveTypeAlias,
@@ -748,6 +746,41 @@ function narrowTypeBasedOnLiteralPattern(
     });
 }
 
+// When a class pattern matches a generic class whose type parameters have an
+// upper bound (e.g. `class Thing[T: bool]`), the constraint solver may leave the
+// parameters unsolved (Unknown) because the subject carries no type arguments.
+// Rather than surfacing Unknown, fall back to each parameter's bound while
+// preserving any argument that was concretely solved. The subject's condition is
+// reapplied to the resulting instance.
+function specializeBoundedMatchTypeParams(
+    evaluator: TypeEvaluator,
+    matchType: ClassType,
+    subjectTypeArgs: Type[] | undefined,
+    solvedTypeArgs: Type[] | undefined,
+    condition: ReturnType<typeof getTypeCondition>
+): Type {
+    const typeArgs = matchType.shared.typeParams.map((param, index) => {
+        const specializedArg = subjectTypeArgs?.[index] ?? solvedTypeArgs?.[index];
+
+        // Keep an argument that was solved to a concrete (non-bound, non-Unknown) type.
+        if (
+            specializedArg &&
+            !requiresSpecialization(specializedArg) &&
+            !containsAnyOrUnknown(specializedArg, /* recurse */ true)
+        ) {
+            return specializedArg;
+        }
+
+        if (isTypeVar(param) && param.shared.boundType) {
+            return convertToInstance(param.shared.boundType);
+        }
+
+        return specializedArg ?? getUnknownForTypeVar(param, evaluator.getTupleClassType());
+    });
+
+    return addConditionToType(convertToInstance(ClassType.specialize(matchType, typeArgs)), condition);
+}
+
 function narrowTypeBasedOnClassPattern(
     evaluator: TypeEvaluator,
     type: Type,
@@ -920,10 +953,7 @@ function narrowTypeBasedOnClassPattern(
                 const expandedSubtypeInstance = convertToInstance(expandedSubtype);
                 const isPatternMetaclass = isMetaclassInstance(expandedSubtypeInstance);
 
-                return evaluator.mapSubtypesExpandTypeVars(
-                    type,
-                    /* options */ undefined,
-                    (subjectSubtypeExpanded, subjectSubtypeUnexpanded) => {
+                return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (subjectSubtypeExpanded) => {
                     if (isAnyOrUnknown(subjectSubtypeExpanded)) {
                         if (isInstantiableClass(expandedSubtype) && ClassType.isBuiltIn(expandedSubtype, 'Callable')) {
                             // Convert to an unknown callable type.
@@ -1027,73 +1057,35 @@ function narrowTypeBasedOnClassPattern(
                                                 },
                                             }
                                         ) as ClassType;
-
-                                        if (
-                                            unexpandedSubtype.shared.typeParams.some(
-                                                (param) => isTypeVar(param) && param.shared.boundType
-                                            )
-                                        ) {
-                                            const subjectTypeArgs = isClassInstance(subjectSubtypeExpanded)
-                                                ? subjectSubtypeExpanded.priv.typeArgs
-                                                : undefined;
-                                            const solvedTypeArgs = isClassInstance(resultType)
-                                                ? resultType.priv.typeArgs
-                                                : undefined;
-                                            const typeArgs = unexpandedSubtype.shared.typeParams.map((param, index) => {
-                                                const specializedArg = subjectTypeArgs?.[index] ?? solvedTypeArgs?.[index];
-                                                if (specializedArg && !requiresSpecialization(specializedArg)) {
-                                                    return specializedArg;
-                                                }
-
-                                                if (isTypeVar(param) && param.shared.boundType) {
-                                                    return convertToInstance(param.shared.boundType);
-                                                }
-
-                                                return specializedArg ?? getUnknownForTypeVar(param, evaluator.getTupleClassType());
-                                            });
-
-                                            resultType = addConditionToType(
-                                                convertToInstance(ClassType.specialize(unexpandedSubtype, typeArgs)),
-                                                getTypeCondition(subjectSubtypeExpanded)
-                                            );
-                                        }
                                     }
-
                                 }
                             }
                         } else {
                             return undefined;
                         }
 
+                        // For a generic class pattern whose type parameters are bounded
+                        // (e.g. `class Thing[T: bool]`), the subject may carry no type arguments,
+                        // leaving the parameters unsolved. Fall back to each parameter's bound -
+                        // but only for the pattern class itself. When the subject narrowed to a
+                        // proper subclass of the pattern class, its own type arguments must be
+                        // preserved rather than rebuilt from the (widened) base.
                         if (
                             isClassInstance(resultType) &&
                             isInstantiableClass(unexpandedSubtype) &&
-                            unexpandedSubtype.shared.typeParams.some((param) => isTypeVar(param) && param.shared.boundType)
+                            ClassType.isSameGenericClass(resultType, ClassType.cloneAsInstance(unexpandedSubtype)) &&
+                            unexpandedSubtype.shared.typeParams.some(
+                                (param) => isTypeVar(param) && param.shared.boundType
+                            )
                         ) {
-                            const genericMatchType = unexpandedSubtype;
-                            const subjectTypeArgs = isClassInstance(subjectSubtypeUnexpanded)
-                                ? subjectSubtypeUnexpanded.priv.typeArgs
+                            const subjectTypeArgs = isClassInstance(subjectSubtypeExpanded)
+                                ? subjectSubtypeExpanded.priv.typeArgs
                                 : undefined;
-                            const solvedTypeArgs = resultType.priv.typeArgs;
-                            const typeArgs = genericMatchType.shared.typeParams.map((param, index) => {
-                                const specializedArg = subjectTypeArgs?.[index] ?? solvedTypeArgs?.[index];
-                                if (
-                                    specializedArg &&
-                                    !requiresSpecialization(specializedArg) &&
-                                    !containsAnyOrUnknown(specializedArg, /* recurse */ true)
-                                ) {
-                                    return specializedArg;
-                                }
-
-                                if (isTypeVar(param) && param.shared.boundType) {
-                                    return convertToInstance(param.shared.boundType);
-                                }
-
-                                return specializedArg ?? getUnknownForTypeVar(param, evaluator.getTupleClassType());
-                            });
-
-                            resultType = addConditionToType(
-                                convertToInstance(ClassType.specialize(genericMatchType, typeArgs)),
+                            resultType = specializeBoundedMatchTypeParams(
+                                evaluator,
+                                unexpandedSubtype,
+                                subjectTypeArgs,
+                                resultType.priv.typeArgs,
                                 getTypeCondition(subjectSubtypeExpanded)
                             );
                         }
@@ -1130,8 +1122,7 @@ function narrowTypeBasedOnClassPattern(
                     }
 
                     return undefined;
-                    }
-                );
+                });
             }
 
             return undefined;
