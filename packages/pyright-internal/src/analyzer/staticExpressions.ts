@@ -62,7 +62,7 @@ export function evaluateStaticBoolLikeExpression(
 }
 
 // Shared implementation of the two functions above.
-// The "evaluatePrimitive" callback evaluates leaf expressions.
+// The `evaluateLeafAsBool` callback evaluates leaf expressions.
 function _evaluateStaticBoolOrBoolLikeExpression(
     node: ExpressionNode,
     execEnv: ExecutionEnvironment,
