@@ -84,12 +84,13 @@ function _evaluateStaticBoolOrBoolLikeExpression(
 
     if (node.nodeType === ParseNodeType.UnaryOperation) {
         if (node.d.operator === OperatorType.Not) {
-            const value = evaluateStaticBoolLikeExpression(
+            const value = _evaluateStaticBoolOrBoolLikeExpression(
                 node.d.expr,
                 execEnv,
                 definedConstants,
                 typingImportAliases,
-                sysImportAliases
+                sysImportAliases,
+                evaluateLeafAsBool
             );
             if (value !== undefined) {
                 return !value;
