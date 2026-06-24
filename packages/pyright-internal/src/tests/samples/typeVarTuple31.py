@@ -71,3 +71,11 @@ forloop: ForwardRefParser[
     ],
     None,
 ] = ForwardRefParser(lambda: ws.then(ws).unpack_then(block).unpack_then(ws))
+
+# Pin the inferred type of the same constructor call (using an unannotated
+# target so the inferred, rather than declared, type is checked). This makes
+# the fix self-evident and guards against a future regression where the type
+# is inferred incorrectly (e.g. the solved "OO" TypeVar leaking back in)
+# without necessarily producing an assignment error.
+inferred = ForwardRefParser(lambda: ws.then(ws).unpack_then(block).unpack_then(ws))
+reveal_type(inferred)

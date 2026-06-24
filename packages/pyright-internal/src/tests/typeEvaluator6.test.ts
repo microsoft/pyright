@@ -8,6 +8,8 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import * as assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -436,7 +438,18 @@ test('TypeVarTuple31', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple31.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 0, 0, 1);
+
+    // The constructor call's inferred type should be fully concrete; in
+    // particular the solved "OO" TypeVar from "unpack_then" must not escape
+    // into the result. Pin it so a future divergent (but non-erroring)
+    // regression is caught.
+    assert.strictEqual(
+        analysisResults[0].infos[0].message,
+        'Type of "inferred" is "ForwardRefParser[tuple[tuple[tuple[tuple[tuple[Whitespace]]]], ' +
+            'tuple[tuple[tuple[tuple[Whitespace]]]], tuple[tuple[tuple[tuple[tuple[tuple[tuple[tuple[tuple[tuple[Whitespace]]]]], ' +
+            'Implementations]]]] | tuple[BlockItem]], tuple[tuple[tuple[tuple[Whitespace]]]]], None]"'
+    );
 });
 
 test('Match1', () => {
