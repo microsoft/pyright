@@ -18,6 +18,7 @@ import {
     Range,
     TextEdit,
 } from 'vscode-languageserver';
+import { ApplyKind } from 'vscode-languageserver-types';
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import {
@@ -30,7 +31,7 @@ import {
 } from '../analyzer/declaration';
 import { isDefinedInFile } from '../analyzer/declarationUtils';
 import { transformTypeForEnumMember } from '../analyzer/enums';
-import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
+import { ImportResolver } from '../analyzer/importResolver';
 import { ImportResult } from '../analyzer/importResult';
 import { getParamListDetails, ParamKind } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -134,6 +135,7 @@ import {
     TrailingOverlap,
 } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
+import { getImportFromTarget, getModuleNameCompletionSuggestions } from './importStatementCandidates';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
 
 namespace Keywords {
@@ -194,6 +196,46 @@ namespace Keywords {
         }
         return base;
     }
+
+    // Keywords that can only begin a statement and can never begin an expression,
+    // so they are suppressed in the expression-only slots recognized here. (Some
+    // of these, like `from`, can still appear *within* an expression form such as
+    // `yield from <expr>`, but never as the start of one.) Keywords like `if`,
+    // `else`, `for`, `in`, `lambda`, `yield`, and `await` are intentionally
+    // excluded because they can appear inside expressions (ternaries,
+    // comprehensions, lambdas, etc.).
+    // Keep in sync with the counterpart in
+    // pylance-internal/src/languageService/asyncCompletionProvider.ts.
+    const statementOnlyKeywords: ReadonlySet<string> = new Set([
+        'assert',
+        'break',
+        'case',
+        'class',
+        'continue',
+        'def',
+        'del',
+        'elif',
+        'except',
+        'finally',
+        'from',
+        'global',
+        'import',
+        'match',
+        'nonlocal',
+        'pass',
+        'raise',
+        'return',
+        'try',
+        'type',
+        'while',
+        'with',
+    ]);
+
+    // Returns the version-appropriate keywords that are valid in an expression
+    // context (i.e. the full keyword set minus the statement-only keywords).
+    export function expressionKeywordsForVersion(version: PythonVersion): string[] {
+        return forVersion(version).filter((keyword) => !statementOnlyKeywords.has(keyword));
+    }
 }
 
 enum SortCategory {
@@ -227,6 +269,12 @@ enum SortCategory {
     // An enum member.
     EnumMember,
 
+    // A symbol declared directly on the object or class being accessed.
+    DeclaredSymbol,
+
+    // A private symbol declared directly on the object or class being accessed.
+    DeclaredPrivateSymbol,
+
     // A normal symbol.
     NormalSymbol,
 
@@ -258,6 +306,41 @@ export interface CompletionOptions {
     readonly snippet: boolean;
     readonly lazyEdit: boolean;
     readonly triggerCharacter?: string;
+    // When true, the client supports `CompletionList.itemDefaults.data` (LSP 3.17) and
+    // `CompletionList.applyKind` merge semantics (LSP 3.18), so the shared completion item
+    // `data` (uri/position) can be hoisted into `itemDefaults.data` instead of being repeated
+    // on every item.
+    readonly completionItemDataDefault?: boolean;
+}
+
+// Publishes the shared completion item `data` fields (uri/position) once via
+// `CompletionList.itemDefaults.data` and requests a shallow merge via `CompletionList.applyKind`,
+// so each item only needs to carry its per-item data. Items are built without the shared fields in
+// the first place (see `createCompletionItemData`), so there is nothing to strip here. The client
+// reconstructs the full `data` (merging the defaults back in) before issuing a resolve request, so
+// the resolve handler is unaffected.
+//
+// The caller must only invoke this when the client advertises both
+// `completionList.itemDefaults` containing `data` and `completionList.applyKindSupport`.
+//
+// Note: `applyKind` only configures `data` (Merge); other itemDefaults (e.g. a future
+// `commitCharacters` default) would fall back to the client default of `Replace` unless this
+// object is extended. For data-less items (keywords, string literals) the shared `itemDefaults.data`
+// still applies via the client merge, but they have nothing to resolve. The resolve dispatch
+// short-circuits them by item kind so the merge doesn't drag them into a needless resolve
+// round-trip: keywords are identified by `CompletionItemKind.Keyword`, and string literals by
+// `CompletionItemKind.Constant` with no `symbolLabel` (data-bearing name completions always carry
+// a `symbolLabel`). Named-parameter items (`Variable`, no `symbolLabel`) are not kind-short-circuited
+// and may still reach resolve via the merge, but resolve is a no-op for them; the MRU is updated only
+// when a completion is accepted.
+export function hoistCompletionItemDataDefault(list: CompletionList, fileUri: Uri, position: Position): void {
+    if (list.items.length === 0) {
+        return;
+    }
+
+    const sharedData: CompletionItemData = { uri: fileUri.toString(), position };
+    list.itemDefaults = { ...list.itemDefaults, data: toLSPAny(sharedData) };
+    list.applyKind = { ...list.applyKind, data: ApplyKind.Merge };
 }
 
 interface RecentCompletionInfo {
@@ -317,31 +400,37 @@ export class CompletionProvider {
         }
 
         const completionMap = this._getCompletions();
-        return CompletionList.create(completionMap?.toArray());
+        const completionList = CompletionList.create(completionMap?.toArray());
+        if (this.options.completionItemDataDefault) {
+            hoistCompletionItemDataDefault(completionList, this.fileUri, this.position);
+        }
+        return completionList;
     }
 
-    // When the user selects a completion, this callback is invoked,
-    // allowing us to record what was selected. This allows us to
-    // build our MRU cache so we can better predict entries.
-    resolveCompletionItem(completionItem: CompletionItem) {
-        throwIfCancellationRequested(this.cancellationToken);
+    // Single source of truth for which completion item kinds participate in the MRU cache.
+    // Keyword items and data-less string-literal `Constant` items (no `symbolLabel`) carry no
+    // server-side identity: they are never resolved and were never recorded in the MRU. Every other
+    // kind can feed the MRU when accepted. Both the resolve short-circuit (languageService.ts) and the
+    // accept-command attach gate (asynchronousFeatures.ts) key off this predicate so MRU membership is
+    // defined in one place instead of as two hand-synced inverse checks.
+    static feedsMru(kind: CompletionItemKind | undefined, hasSymbolLabel: boolean): boolean {
+        return kind !== CompletionItemKind.Keyword && !(kind === CompletionItemKind.Constant && !hasSymbolLabel);
+    }
 
-        const completionItemData = this.getCompletionItemData(completionItem);
-
-        const label = completionItem.label;
-        let autoImportText = '';
-        if (completionItemData.autoImportText) {
-            autoImportText = completionItemData.autoImportText;
-        }
-
+    // Records an accepted completion in the MRU cache so we can better predict entries.
+    // This is called when a completion is actually committed (via the accept command), not when
+    // it is merely highlighted/previewed. Recording on highlight would let an inline preview that
+    // resolves on every keystroke reorder the list and make results oscillate.
+    static recordCompletionAccepted(label: string, autoImportText: string) {
         const curIndex = CompletionProvider._mostRecentCompletions.findIndex(
             (item) => item.label === label && item.autoImportText === autoImportText
         );
 
         if (curIndex > 0) {
             // If there's an existing entry with the same name that's not at the
-            // beginning of the array, remove it.
-            CompletionProvider._mostRecentCompletions = CompletionProvider._mostRecentCompletions.splice(curIndex, 1);
+            // beginning of the array, remove it in place. (Array.splice mutates the
+            // array and returns the removed elements, so it must not be reassigned.)
+            CompletionProvider._mostRecentCompletions.splice(curIndex, 1);
         }
 
         if (curIndex !== 0) {
@@ -353,6 +442,15 @@ export class CompletionProvider {
             // Prevent the MRU list from growing indefinitely.
             CompletionProvider._mostRecentCompletions.pop();
         }
+    }
+
+    // When the user highlights/previews a completion, this callback is invoked so we can fill in
+    // additional details (documentation, auto-import edits). It must NOT mutate the MRU cache; MRU
+    // updates happen only when a completion is accepted (see recordCompletionAccepted).
+    resolveCompletionItem(completionItem: CompletionItem) {
+        throwIfCancellationRequested(this.cancellationToken);
+
+        const completionItemData = this.getCompletionItemData(completionItem);
 
         if (!completionItemData.symbolLabel) {
             return;
@@ -422,6 +520,19 @@ export class CompletionProvider {
 
     protected getCompletionItemData(item: CompletionItem): CompletionItemData {
         return fromLSPAny<CompletionItemData>(item.data);
+    }
+
+    // Builds the `data` payload for a completion item. When the client supports `itemDefaults.data`
+    // (completionItemDataDefault), the shared `uri`/`position` live once in
+    // `CompletionList.itemDefaults.data` (see hoistCompletionItemDataDefault), so we never write them
+    // per item in the first place (rather than writing then stripping them); an item left with no
+    // per-item fields carries no `data` at all. Otherwise we inline `uri`/`position` on each item.
+    protected createCompletionItemData(data: Partial<CompletionItemData>) {
+        if (!this.options.completionItemDataDefault) {
+            return toLSPAny({ uri: this.fileUri.toString(), position: this.position, ...data });
+        }
+
+        return Object.keys(data).length > 0 ? toLSPAny(data) : undefined;
     }
 
     protected addAdditionalExpressionCompletions(
@@ -748,6 +859,7 @@ export class CompletionProvider {
 
             this.addNameToCompletions(detail.autoImportAlias ?? name, itemKind, priorWord, completionMap, {
                 autoImportText,
+                declaredOnBoundObjectOrClass: detail.declaredOnBoundObjectOrClass,
                 extraCommitChars: detail.extraCommitChars,
                 funcParensDisabled: detail.funcParensDisabled,
                 edits: detail.edits,
@@ -758,6 +870,7 @@ export class CompletionProvider {
             if (synthesizedType) {
                 const itemKind: CompletionItemKind = this._convertTypeToItemKind(synthesizedType);
                 this.addNameToCompletions(name, itemKind, priorWord, completionMap, {
+                    declaredOnBoundObjectOrClass: detail.declaredOnBoundObjectOrClass,
                     extraCommitChars: detail.extraCommitChars,
                     funcParensDisabled: detail.funcParensDisabled,
                     edits: detail.edits,
@@ -971,10 +1084,7 @@ export class CompletionProvider {
             this.addExtraCommitChar(completionItem);
         }
 
-        const completionItemData: CompletionItemData = {
-            uri: this.fileUri.toString(),
-            position: this.position,
-        };
+        const completionItemData: Partial<CompletionItemData> = {};
 
         if (detail?.funcParensDisabled || !this.options.snippet) {
             completionItemData.funcParensDisabled = true;
@@ -983,8 +1093,6 @@ export class CompletionProvider {
         if (detail?.moduleUri) {
             completionItemData.moduleUri = detail.moduleUri.toString();
         }
-
-        completionItem.data = toLSPAny(completionItemData);
 
         if (detail?.sortText || detail?.itemDetail) {
             completionItem.sortText = detail.sortText;
@@ -1014,7 +1122,12 @@ export class CompletionProvider {
             // Distinguish between normal and private symbols only if there is
             // currently no filter text. Once we get a single character to filter
             // upon, we'll no longer differentiate.
-            completionItem.sortText = this._makeSortText(SortCategory.PrivateSymbol, name);
+            completionItem.sortText = this._makeSortText(
+                detail?.declaredOnBoundObjectOrClass ? SortCategory.DeclaredPrivateSymbol : SortCategory.PrivateSymbol,
+                name
+            );
+        } else if (filter === '' && detail?.declaredOnBoundObjectOrClass) {
+            completionItem.sortText = this._makeSortText(SortCategory.DeclaredSymbol, name);
         } else {
             completionItem.sortText = this._makeSortText(SortCategory.NormalSymbol, name);
         }
@@ -1103,6 +1216,8 @@ export class CompletionProvider {
                 }
             }
         }
+
+        completionItem.data = this.createCompletionItemData(completionItemData);
 
         completionMap.set(completionItem);
     }
@@ -2068,6 +2183,60 @@ export class CompletionProvider {
         return this._getExpressionCompletions(parseNode, priorWord, priorText, postText);
     }
 
+    // Returns true when `node` occupies a slot that can only contain an
+    // expression (never the start of a statement), so statement-only keywords
+    // must be suppressed. Biased toward a superset: only well-understood
+    // expression slots return true; anything uncertain returns false so the
+    // full keyword set is offered (it's better to leak a wrong keyword than to
+    // drop a valid one). Keep in sync with the counterpart in
+    // pylance-internal/src/languageService/asyncCompletionProvider.ts.
+    private _isExpressionOnlySlot(node: ParseNode): boolean {
+        const parent = node.parent;
+        if (!parent) {
+            return false;
+        }
+
+        switch (parent.nodeType) {
+            case ParseNodeType.For:
+                // The iterable of `for target in <iterable>` (but not the target).
+                return parent.d.iterableExpr === node;
+
+            case ParseNodeType.ComprehensionFor:
+                // The iterable of a comprehension `... for target in <iterable>`.
+                return parent.d.iterableExpr === node;
+
+            case ParseNodeType.Assignment:
+                // The right-hand side of `target = <value>` (but not the target).
+                return parent.d.rightExpr === node;
+
+            case ParseNodeType.AssignmentExpression:
+                // The right-hand side of a walrus `name := <value>`.
+                return parent.d.rightExpr === node;
+
+            case ParseNodeType.Argument:
+                // Any `ArgumentNode` slot: call arguments, subscript index items,
+                // class bases, and decorator arguments. A statement-only keyword
+                // is never valid in any of these, so suppressing it is always safe.
+                return true;
+
+            case ParseNodeType.Return:
+                // The value of `return <expr>`.
+                return parent.d.expr === node;
+
+            case ParseNodeType.While:
+                // The condition of `while <expr>:`.
+                return parent.d.testExpr === node;
+
+            case ParseNodeType.If:
+                // The condition of `if <expr>:` / `elif <expr>:` (elif is a
+                // nested `IfNode`).
+                return parent.d.testExpr === node;
+
+            default:
+                return false;
+        }
+    }
+
     private _getExpressionCompletions(
         parseNode: ParseNode,
         priorWord: string,
@@ -2118,8 +2287,13 @@ export class CompletionProvider {
 
         this.addAdditionalExpressionCompletions(parseNode, priorWord, completionMap);
 
-        // Add keywords.
-        this._findMatchingKeywords(Keywords.forVersion(this.execEnv.pythonVersion), priorWord).map((keyword) => {
+        // Add keywords. In slots that can only contain an expression, suppress
+        // keywords that are only valid at the start of a statement (e.g. don't
+        // offer `raise` in the iterable of a `for ... in`).
+        const keywords = this._isExpressionOnlySlot(parseNode)
+            ? Keywords.expressionKeywordsForVersion(this.execEnv.pythonVersion)
+            : Keywords.forVersion(this.execEnv.pythonVersion);
+        this._findMatchingKeywords(keywords, priorWord).map((keyword) => {
             if (completionMap.has(keyword)) {
                 return;
             }
@@ -3145,25 +3319,21 @@ export class CompletionProvider {
 
         // Access the imported module information, which is hanging
         // off the ImportFromNode.
-        const importInfo = AnalyzerNodeInfo.getImportInfo(importFromNode.d.module);
+        const importFromTarget = getImportFromTarget(this.program, importFromNode);
+        const importInfo = importFromTarget.importInfo;
         if (!importInfo) {
             return undefined;
         }
 
         const completionMap = new CompletionMap();
-        const resolvedPath =
-            importInfo.resolvedUris.length > 0
-                ? importInfo.resolvedUris[importInfo.resolvedUris.length - 1]
-                : Uri.empty();
 
-        const parseResults = this.program.getParseResults(resolvedPath);
-        if (!parseResults) {
+        if (!importFromTarget.hasParseResults) {
             // Add the implicit imports.
             this._addImplicitImportsToCompletion(importInfo, importFromNode, priorWord, completionMap);
             return completionMap;
         }
 
-        const symbolTable = AnalyzerNodeInfo.getScope(parseResults.parserOutput.parseTree)?.symbolTable;
+        const symbolTable = importFromTarget.symbolTable;
         if (!symbolTable) {
             return completionMap;
         }
@@ -3260,11 +3430,7 @@ export class CompletionProvider {
                 const completionItem = CompletionItem.create(label);
                 completionItem.kind = CompletionItemKind.Variable;
 
-                const completionItemData: CompletionItemData = {
-                    uri: this.fileUri.toString(),
-                    position: this.position,
-                };
-                completionItem.data = toLSPAny(completionItemData);
+                completionItem.data = this.createCompletionItemData({});
                 completionItem.sortText = this._makeSortText(SortCategory.NamedParameter, argName);
                 completionItem.filterText = argName;
 
@@ -3367,6 +3533,12 @@ export class CompletionProvider {
         const insideTypeAnnotation =
             ParseTreeUtils.isWithinAnnotationComment(node) ||
             ParseTreeUtils.isWithinTypeAnnotation(node, /* requireQuotedAnnotation */ false);
+        // `boundSymbolTable` holds only the fields declared directly on the leaf `boundObjectOrClass`,
+        // whereas `symbolTable` is the merged-MRO table that also includes inherited members. The
+        // declared-vs-inherited check below relies on this distinction, so callers must keep passing the
+        // leaf type here even if they iterate per-MRO-class; otherwise inherited members would be
+        // mis-bucketed as directly declared.
+        const boundSymbolTable = boundObjectOrClass ? ClassType.getSymbolTable(boundObjectOrClass) : undefined;
         symbolTable.forEach((symbol, name) => {
             // If there are no declarations or the symbol is not
             // exported from this scope, don't include it in the
@@ -3380,8 +3552,10 @@ export class CompletionProvider {
                     // Skip func parens for classes when not a direct assignment or an argument (passed as a value)
                     const skipForClass = !this._shouldShowAutoParensForClass(symbol, node);
                     const skipForDecorator = node.parent?.nodeType === ParseNodeType.Decorator;
+                    const declaredOnBoundObjectOrClass = boundSymbolTable?.has(name);
                     this.addSymbol(name, symbol, priorWord, completionMap, {
                         boundObjectOrClass,
+                        declaredOnBoundObjectOrClass,
                         funcParensDisabled: isInImport || insideTypeAnnotation || skipForClass || skipForDecorator,
                         extraCommitChars: !isInImport && !!priorWord,
                     });
@@ -3429,6 +3603,8 @@ export class CompletionProvider {
                 sortCategory = SortCategory.RecentImportModuleName;
             } else if (
                 sortCategory === SortCategory.Keyword ||
+                sortCategory === SortCategory.DeclaredSymbol ||
+                sortCategory === SortCategory.DeclaredPrivateSymbol ||
                 sortCategory === SortCategory.NormalSymbol ||
                 sortCategory === SortCategory.PrivateSymbol ||
                 sortCategory === SortCategory.DunderSymbol
@@ -3531,14 +3707,7 @@ export class CompletionProvider {
     }
 
     private _getImportModuleCompletions(node: ModuleNameNode): CompletionMap {
-        const moduleDescriptor: ImportedModuleDescriptor = {
-            leadingDots: node.d.leadingDots,
-            hasTrailingDot: node.d.hasTrailingDot || false,
-            nameParts: node.d.nameParts.map((part) => part.d.value),
-            importedSymbols: new Set<string>(),
-        };
-
-        const completions = this.importResolver.getCompletionSuggestions(this.fileUri, this.execEnv, moduleDescriptor);
+        const completions = getModuleNameCompletionSuggestions(this.importResolver, this.fileUri, this.execEnv, node);
 
         const completionMap = new CompletionMap();
 

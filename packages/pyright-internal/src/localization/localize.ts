@@ -1673,6 +1673,13 @@ export namespace Localizer {
         export const indexValueDetail = () => getRawString('Completion.indexValueDetail');
     }
 
+    export namespace Rename {
+        export const cannotRenameNonUserCode = () =>
+            new ParameterizedString<{ symbolName: string; locations: string }>(
+                getRawString('Rename.cannotRenameNonUserCode')
+            );
+    }
+
     export namespace Service {
         export const longOperation = () => getRawString('Service.longOperation');
     }

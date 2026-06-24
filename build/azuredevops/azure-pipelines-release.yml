@@ -68,9 +68,9 @@ extends:
                 fetchTags: false
                 persistCredentials: True
               - task: NodeTool@0
-                displayName: Use Node 22.x
+                displayName: Use Node 24.15.0
                 inputs:
-                  versionSpec: 22.x
+                  versionSpec: 24.15.0
               - template: /build/templates/npmAuthenticate.yml@self
               - task: CmdLine@2
                 displayName: npm install
@@ -168,9 +168,9 @@ extends:
                 fetchTags: false
                 persistCredentials: True
               - task: NodeTool@0
-                displayName: Use Node 22.x
+                displayName: Use Node 24.15.0
                 inputs:
-                  versionSpec: 22.x
+                  versionSpec: 24.15.0
               - template: /build/templates/npmAuthenticate.yml@self
               - task: CmdLine@2
                 displayName: npm install
@@ -260,7 +260,7 @@ extends:
               - checkout: none
               - task: NodeTool@0
                 inputs:
-                  versionSpec: 22.x
+                  versionSpec: 24.15.0
               - task: DownloadPipelineArtifact@2
                 displayName: 'Download Artifacts from Validation Job'
                 inputs:

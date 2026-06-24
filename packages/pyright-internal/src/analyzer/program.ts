@@ -1519,7 +1519,14 @@ export class Program {
                     // We'll skip this for imports from within stub files and imports that target
                     // stdlib typeshed stubs because many of these are known to not have
                     // associated source files, and we don't want to fill the logs with noise.
-                    if (!sourceFileInfo.sourceFile.isStubFile() && !importResult.isStdlibTypeshedFile) {
+                    // We also skip any '__builtins__' import: a '__builtins__.pyi' is a
+                    // stub-only builtins-augmentation mechanism that intentionally has no source file,
+                    // so reporting a missing source for it is pure noise.
+                    if (
+                        !sourceFileInfo.sourceFile.isStubFile() &&
+                        !importResult.isStdlibTypeshedFile &&
+                        importResult.importName !== '__builtins__'
+                    ) {
                         if (options.verboseOutput) {
                             this._console.info(
                                 `Could not resolve source for '${importResult.importName}' ` +

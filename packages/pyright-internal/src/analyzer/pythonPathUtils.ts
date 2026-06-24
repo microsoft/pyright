@@ -90,7 +90,11 @@ export function findPythonSearchPaths(
 
         if (foundPaths.length > 0) {
             if (configOptions.pythonPath) {
-                const pathResult = host.getPythonSearchPaths(configOptions.pythonPath, importLogger);
+                const pathResult = host.getPythonSearchPaths(
+                    configOptions.pythonPath,
+                    importLogger,
+                    configOptions.projectRoot
+                );
                 const realVenvPath = fs.realCasePath(venvPath);
 
                 if (pathResult.prefix?.equals(realVenvPath)) {
@@ -121,7 +125,7 @@ export function findPythonSearchPaths(
     }
 
     // Fall back on the python interpreter.
-    const pathResult = host.getPythonSearchPaths(configOptions.pythonPath, importLogger);
+    const pathResult = host.getPythonSearchPaths(configOptions.pythonPath, importLogger, configOptions.projectRoot);
     if (includeWatchPathsOnly && workspaceRoot && !workspaceRoot.isEmpty()) {
         const paths = pathResult.paths
             .filter((p) => !p.startsWith(workspaceRoot) || p.startsWith(pathResult.prefix))

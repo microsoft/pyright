@@ -111,6 +111,35 @@ test('ModuleName range', () => {
     assert.strictEqual(TextRange.getEnd(node), expectedRange?.end);
 });
 
+test('Inline TypedDict dict key is not a forward-reference annotation', () => {
+    // An inline TypedDict field-name key must not be parsed into a
+    // forward-reference expression even though the dictionary appears inside a type
+    // annotation. Suspending type-annotation parsing for the key leaves its StringList
+    // without a synthesized `annotation` expression, while the value remains a type
+    // annotation and must still parse its forward reference.
+    const code = `
+//// from typing import TypedDict
+//// td: TypedDict[{"/*key*/as_var": "/*value*/int"}]
+        `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const keyStringList = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, 'key'), ParseNodeType.StringList);
+    assert.ok(keyStringList, 'Expected the dict key to be a StringList node');
+    assert.strictEqual(
+        keyStringList.d.annotation,
+        undefined,
+        'Inline TypedDict key string must not be parsed into a forward-reference annotation'
+    );
+
+    const valueStringList = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, 'value'), ParseNodeType.StringList);
+    assert.ok(valueStringList, 'Expected the dict value to be a StringList node');
+    assert.ok(
+        valueStringList.d.annotation,
+        'Inline TypedDict value string is a type annotation and must still parse its forward reference'
+    );
+});
+
 test('ParserRecovery1', () => {
     const diagSink = new DiagnosticSink();
     const parseResults = TestUtils.parseSampleFile('parserRecovery1.py', diagSink);

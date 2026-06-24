@@ -21,7 +21,7 @@ import { PythonVersion } from './pythonVersion';
 import { ServiceKeys } from './serviceKeys';
 import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
-import { isDirectory } from './uri/uriUtils';
+import { getUsableUriPath, isUsableDirectory } from './uri/uriUtils';
 
 // preventLocalImports removes the working directory from sys.path.
 // The -c flag adds it automatically, which can allow some stdlib
@@ -45,6 +45,19 @@ const extractVersion = [
     'import sys, json',
     'json.dump(tuple(sys.version_info), sys.stdout)',
 ].join('; ');
+
+// A failed chdir into a cwd that exists in the (virtual) FileSystem abstraction but not on the real
+// OS surfaces as a spawn-level ENOENT: the child process never starts, so there is no exit `status`.
+// A genuine interpreter error (process started, then exited non-zero) carries a numeric `status` and
+// must not be treated as an unusable-cwd failure.
+function isUnusableCwdSpawnError(err: unknown): boolean {
+    if (typeof err !== 'object' || err === null) {
+        return false;
+    }
+
+    const spawnError = err as NodeJS.ErrnoException & { status?: number | null };
+    return spawnError.code === 'ENOENT' && (spawnError.status === undefined || spawnError.status === null);
+}
 
 export class LimitedAccessHost extends NoAccessHost {
     override get kind(): HostKind {
@@ -88,9 +101,9 @@ export class FullAccessHost extends LimitedAccessHost {
         }
     }
 
-    override getPythonSearchPaths(pythonPath?: Uri, importLogger?: ImportLogger): PythonPathResult {
+    override getPythonSearchPaths(pythonPath?: Uri, importLogger?: ImportLogger, cwd?: Uri): PythonPathResult {
         let result = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
-            this._getSearchPathResultFromInterpreter(p, importLogger)
+            this._getSearchPathResultFromInterpreter(p, importLogger, cwd)
         );
 
         if (!result) {
@@ -277,6 +290,10 @@ export class FullAccessHost extends LimitedAccessHost {
         );
     }
 
+    protected getUsableCwdPath(cwd: Uri | undefined): string | undefined {
+        return getUsableUriPath(this.serviceProvider.fs(), cwd);
+    }
+
     private _executePythonInterpreter<T>(
         pythonPath: string | undefined,
         execute: (path: string) => T | undefined
@@ -311,7 +328,12 @@ export class FullAccessHost extends LimitedAccessHost {
      * @param commandLineArgs Command line args for interpreter other than the code to execute.
      * @param code Code to execute.
      */
-    private _executeCodeInInterpreter(interpreterPath: string, commandLineArgs: string[], code: string): string {
+    private _executeCodeInInterpreter(
+        interpreterPath: string,
+        commandLineArgs: string[],
+        code: string,
+        cwd?: Uri
+    ): string {
         const useShell = this.shouldUseShellToRunInterpreter(interpreterPath);
         if (useShell) {
             code = '"' + code + '"';
@@ -319,17 +341,42 @@ export class FullAccessHost extends LimitedAccessHost {
 
         commandLineArgs.push('-c', code);
 
-        const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, {
-            encoding: 'utf8',
-            shell: useShell,
-        });
+        const cwdPath = this.getUsableCwdPath(cwd);
 
-        return execOutput;
+        const run = (cwdToUse: string | undefined) =>
+            child_process.execFileSync(interpreterPath, commandLineArgs, {
+                cwd: cwdToUse,
+                encoding: 'utf8',
+                shell: useShell,
+            });
+
+        if (cwdPath === undefined) {
+            return run(undefined);
+        }
+
+        try {
+            return run(cwdPath);
+        } catch (err) {
+            // getUsableCwdPath validates the cwd against the FileSystem abstraction, which can be a
+            // virtual/mapped filesystem (e.g. a test harness that mounts a workspace root that does not
+            // exist on the real OS). The real child process can only chdir into a directory that exists
+            // on the real OS, so a missing cwd surfaces as a spawn-level ENOENT (the child never starts).
+            // Only that case falls back to the inherited cwd. A genuine interpreter failure (the process
+            // started and exited non-zero, e.g. a cwd-relative sitecustomize.py/.pth that raises) must
+            // propagate: silently retrying without the cwd would return inherited-cwd paths that callers
+            // then cache under the workspace-cwd key, reintroducing the wrong-cwd result.
+            if (!isUnusableCwdSpawnError(err)) {
+                throw err;
+            }
+
+            return run(undefined);
+        }
     }
 
     private _getSearchPathResultFromInterpreter(
         interpreterPath: string,
-        importLogger?: ImportLogger
+        importLogger?: ImportLogger,
+        cwd?: Uri
     ): PythonPathResult | undefined {
         const result: PythonPathResult = {
             paths: [],
@@ -338,7 +385,7 @@ export class FullAccessHost extends LimitedAccessHost {
 
         try {
             importLogger?.log(`Executing interpreter: '${interpreterPath}'`);
-            const execOutput = this._executeCodeInInterpreter(interpreterPath, [], extractSys);
+            const execOutput = this._executeCodeInInterpreter(interpreterPath, [], extractSys, cwd);
             const caseDetector = this.serviceProvider.get(ServiceKeys.caseSensitivityDetector);
 
             // Parse the execOutput. It should be a JSON-encoded array of paths.
@@ -350,10 +397,7 @@ export class FullAccessHost extends LimitedAccessHost {
                         const normalizedPath = normalizePath(execSplitEntry);
                         const normalizedUri = Uri.file(normalizedPath, caseDetector);
                         // Skip non-existent paths and broken zips/eggs.
-                        if (
-                            this.serviceProvider.fs().existsSync(normalizedUri) &&
-                            isDirectory(this.serviceProvider.fs(), normalizedUri)
-                        ) {
+                        if (isUsableDirectory(this.serviceProvider.fs(), normalizedUri)) {
                             result.paths.push(normalizedUri);
                         } else {
                             importLogger?.log(`Skipping '${normalizedPath}' because it is not a valid directory`);

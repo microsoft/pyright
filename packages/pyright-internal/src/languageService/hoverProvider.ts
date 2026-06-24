@@ -45,8 +45,9 @@ import { convertOffsetToPosition, convertPositionToOffset } from '../common/posi
 import { ServiceProvider } from '../common/serviceProvider';
 import { Position, Range, TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
-import { ExpressionNode, NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
+import { ExpressionNode, FunctionNode, NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
+import { TokenType } from '../parser/tokenizerTypes';
 import {
     getClassAndConstructorTypes,
     getConstructorTooltip,
@@ -138,6 +139,29 @@ export function addParameterResultsPart(
     parts.push({
         python: false,
         text: docString,
+    });
+}
+
+function addReturnResultsPart(
+    serviceProvider: ServiceProvider,
+    functionNode: FunctionNode,
+    format: MarkupKind,
+    parts: HoverTextPart[]
+) {
+    // See if we have a docstring for the function whose return arrow is being hovered.
+    const docString = ParseTreeUtils.getDocString(functionNode.d.suite?.d.statements ?? []);
+    if (!docString) {
+        return;
+    }
+
+    const returnDoc = serviceProvider.docStringService().extractReturnDocumentation(docString, format);
+    if (!returnDoc) {
+        return;
+    }
+
+    parts.push({
+        python: false,
+        text: returnDoc,
     });
 }
 
@@ -359,6 +383,12 @@ export class HoverProvider {
             const type = this._evaluator.getExpectedType(node)?.type;
             if (type !== undefined) {
                 this._tryAddPartsForTypedDictKey(node, type, results.parts);
+            }
+        } else if (node.nodeType === ParseNodeType.Function) {
+            // Hovering over the `->` return-type arrow shows the function's return documentation.
+            const token = ParseTreeUtils.getTokenOverlapping(this._parseResults.tokenizerOutput.tokens, offset);
+            if (token?.type === TokenType.Arrow) {
+                addReturnResultsPart(this._program.serviceProvider, node, this._format, results.parts);
             }
         }
 

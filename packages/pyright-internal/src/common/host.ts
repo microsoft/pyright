@@ -63,7 +63,7 @@ export interface SpawnedProcess {
 
 export interface Host {
     readonly kind: HostKind;
-    getPythonSearchPaths(pythonPath?: Uri, failureLogger?: ImportLogger): PythonPathResult;
+    getPythonSearchPaths(pythonPath?: Uri, failureLogger?: ImportLogger, cwd?: Uri): PythonPathResult;
     getPythonVersion(pythonPath?: Uri, failureLogger?: ImportLogger): PythonVersion | undefined;
     getPythonPlatform(failureLogger?: ImportLogger): PythonPlatform | undefined;
     runScript(
@@ -94,7 +94,7 @@ export class NoAccessHost implements Host {
         return HostKind.NoAccess;
     }
 
-    getPythonSearchPaths(pythonPath?: Uri, failureLogger?: ImportLogger): PythonPathResult {
+    getPythonSearchPaths(pythonPath?: Uri, failureLogger?: ImportLogger, cwd?: Uri): PythonPathResult {
         failureLogger?.log('No access to python executable.');
 
         return {

@@ -18,7 +18,7 @@ export class TestAccessHost extends NoAccessHost {
         super();
     }
 
-    override getPythonSearchPaths(pythonPath?: Uri, importLogger?: ImportLogger): PythonPathResult {
+    override getPythonSearchPaths(pythonPath?: Uri, importLogger?: ImportLogger, cwd?: Uri): PythonPathResult {
         // Filter out non-directory paths if filesystem is available
         const filteredPaths = this._fs ? this._searchPaths.filter((p) => isDirectory(this._fs!, p)) : this._searchPaths;
 

@@ -2784,14 +2784,24 @@ export function createTypeEvaluator(
         }
 
         tdEntries.forEach((tdEntry, name) => {
+            // A TypedDict entry type may carry the TypedDict's own type parameters (e.g. an unpacked
+            // generic TypedDict `**kwargs: Unpack[TD[int]]`), so specialize each entry against the
+            // (possibly generic) TypedDict instance. Specializing an already-concrete type is a
+            // no-op, so this is safe for non-generic TypedDicts.
+            const specializedValueType = partiallySpecializeType(
+                tdEntry.valueType,
+                kwargsType,
+                /* typeClassType */ undefined
+            );
+
             FunctionType.addParam(
                 newFunction,
                 FunctionParam.create(
                     ParamCategory.Simple,
-                    tdEntry.valueType,
+                    specializedValueType,
                     FunctionParamFlags.TypeDeclared,
                     name,
-                    tdEntry.isRequired ? undefined : tdEntry.valueType
+                    tdEntry.isRequired ? undefined : specializedValueType
                 )
             );
         });
@@ -2799,11 +2809,20 @@ export function createTypeEvaluator(
         const extraItemsType = kwargsType.shared.typedDictEntries?.extraItems?.valueType;
 
         if (extraItemsType && !isNever(extraItemsType)) {
+            // Specialized for the same reason as the per-entry types above. This PEP 728
+            // `extra_items` branch uses the identical mechanism and is intentionally not
+            // separately tested.
+            const specializedExtraItemsType = partiallySpecializeType(
+                extraItemsType,
+                kwargsType,
+                /* typeClassType */ undefined
+            );
+
             FunctionType.addParam(
                 newFunction,
                 FunctionParam.create(
                     ParamCategory.KwargsDict,
-                    extraItemsType,
+                    specializedExtraItemsType,
                     FunctionParamFlags.TypeDeclared,
                     'kwargs'
                 )
@@ -26957,9 +26976,9 @@ export function createTypeEvaluator(
                 ).length;
 
                 diag?.createAddendum().addMessage(
-                    LocAddendum.functionTooFewParams().format({
-                        expected: nonDefaultSrcParamCount,
-                        received: destPositionalCount,
+                    LocAddendum.functionTooManyParams().format({
+                        expected: destPositionalCount,
+                        received: nonDefaultSrcParamCount,
                     })
                 );
                 canAssign = false;
@@ -27030,9 +27049,9 @@ export function createTypeEvaluator(
 
                 if (srcPositionalCount < adjDestPositionalCount) {
                     diag?.addMessage(
-                        LocAddendum.functionTooManyParams().format({
-                            expected: srcPositionalCount,
-                            received: destPositionalCount,
+                        LocAddendum.functionTooFewParams().format({
+                            expected: adjDestPositionalCount,
+                            received: srcPositionalCount,
                         })
                     );
                     canAssign = false;
@@ -28779,6 +28798,9 @@ export function createTypeEvaluator(
         }
         if (options?.useFullyQualifiedNames) {
             flags |= TypePrinter.PrintTypeFlags.UseFullyQualifiedNames;
+        }
+        if (options?.disablePep604) {
+            flags &= ~TypePrinter.PrintTypeFlags.PEP604;
         }
 
         return TypePrinter.printType(type, flags, getEffectiveReturnType);

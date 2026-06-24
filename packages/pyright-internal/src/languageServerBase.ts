@@ -198,6 +198,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         hasDocumentChangeCapability: false,
         hasDocumentAnnotationCapability: false,
         hasCompletionCommitCharCapability: false,
+        hasCompletionItemDataDefaultCapability: false,
         hoverContentFormat: MarkupKind.PlainText,
         completionDocFormat: MarkupKind.PlainText,
         completionSupportsSnippet: false,
@@ -600,7 +601,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.client.hasDocumentAnnotationCapability = !!capabilities.workspace?.workspaceEdit?.changeAnnotationSupport;
         this.client.hasCompletionCommitCharCapability =
             !!capabilities.textDocument?.completion?.completionList?.itemDefaults &&
-            !!capabilities.textDocument.completion.completionItem?.commitCharactersSupport;
+            !!capabilities.textDocument?.completion?.completionItem?.commitCharactersSupport;
+        this.client.hasCompletionItemDataDefaultCapability =
+            !!capabilities.textDocument?.completion?.completionList?.itemDefaults?.includes('data') &&
+            !!capabilities.textDocument?.completion?.completionList?.applyKindSupport;
 
         this.client.hoverContentFormat = this._getCompatibleMarkupKind(capabilities.textDocument?.hover?.contentFormat);
         this.client.completionDocFormat = this._getCompatibleMarkupKind(
@@ -969,6 +973,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                     snippet: this.client.completionSupportsSnippet,
                     lazyEdit: false,
                     triggerCharacter: params?.context?.triggerCharacter,
+                    completionItemDataDefault: this.client.hasCompletionItemDataDefaultCapability,
                 },
                 token
             ).getCompletions();

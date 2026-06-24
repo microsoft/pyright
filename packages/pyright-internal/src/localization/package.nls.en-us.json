@@ -2165,6 +2165,9 @@
         "varianceMismatchForClass": "Variance of type argument \"{typeVarName}\" is incompatible with base class \"{className}\"",
         "varianceMismatchForTypeAlias": "Variance of type argument \"{typeVarName}\" is incompatible with \"{typeAliasParam}\""
     },
+    "Rename": {
+        "cannotRenameNonUserCode": "Can't rename \"{symbolName}\" because it is also declared in non-editable code (a library or stub file) that cannot be modified. Completing the rename would leave \"{symbolName}\" partially renamed. Resolve the conflicting declaration(s) first:\n{locations}"
+    },
     "Service": {
         "longOperation": "Enumeration of workspace source files is taking a long time. Consider opening a sub-folder instead. [Learn more](https://aka.ms/workspace-too-many-files)"
     }

@@ -41,12 +41,6 @@ export type CollectionResult = {
     range: TextRange;
 };
 
-// Upper bound on transitive seed-discovery passes (see `DocumentSymbolCollector.collect` and
-// `AsyncDocumentSymbolCollector.collectAsync`). This is a safety net against pathological inputs;
-// realistic protocol/inheritance bridging converges in one or two passes. Shared by both the sync
-// and async collectors so the bound stays in lockstep.
-export const maxSeedDiscoveryPasses = 16;
-
 export interface DocumentSymbolCollectorOptions {
     readonly treatModuleInImportAndFromImportSame?: boolean;
     readonly skipUnreachableCode?: boolean;
@@ -62,6 +56,17 @@ export interface DocumentSymbolCollectorOptions {
      * repeatedly for all files.
      */
     readonly providers?: readonly SymbolUsageProvider[];
+
+    /**
+     * Previous result the caller already has from earlier walks of this file: the set of result ranges
+     * (keyed via `getResultRangeKey`) reported on those passes. The collector treats it as READ-ONLY -- it never
+     * mutates it. When provided, the collector skips ranges already in the set (both the expensive
+     * declaration resolution and the result itself) and so returns ONLY the delta: the results whose range
+     * is not already present. The caller (the references provider) owns merging that delta back into the
+     * set before the next pass, so full result = previous result + the returned deltas. Left undefined for
+     * a plain full collection.
+     */
+    readonly previousResultRanges?: ReadonlySet<string>;
 }
 
 // 99% of time, `find all references` is looking for a symbol imported from the other file to this file.
@@ -95,6 +100,14 @@ export class AliasResolver {
     }
 }
 
+// Stable per-file identity for a result range, shared between the collector and the references provider
+// so the provider's delta-merge keys exactly match the collector's skip checks. Offsets are deterministic
+// for a given source, so this keys the previous-result set even if the parse tree is dropped and
+// re-parsed between passes.
+export function getResultRangeKey(range: TextRange): string {
+    return `${range.start}:${range.length}`;
+}
+
 // This walker looks for symbols that are semantically equivalent
 // to the requested symbol.
 export class DocumentSymbolCollector extends ParseTreeWalker {
@@ -108,10 +121,21 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     private readonly _skipUnreachableCode: boolean;
     private readonly _useCase: ReferenceUseCase;
 
-    // Set when at least one provider opts into transitive (fixpoint) discovery via
-    // `appendSeedDeclarationsAt`. When false, collection runs a single pass (no overhead).
+    // Set when at least one usage provider exposes `appendSeedDeclarationsAt`. Whether a provider
+    // exposes that hook for a given request is the provider's own policy -- the collector stays policy-
+    // free. (For example, the protocol/TypedDict providers bind the hook only for rename, where every
+    // unified declaration must be rewritten, and leave it unbound for Find All References / document
+    // highlight, which report only the clicked symbol's own usages via the always-on `appendDeclarationsAt`
+    // local expansion.) When set, a single walk additionally harvests one level of newly discovered seed
+    // declarations (exposed via `getSeedDeclarations`); the transitive closure across those is driven by
+    // the workspace-wide loop in `ReferencesProvider.collectWorkspaceReferences`, not here. When false,
+    // collection is a plain single pass (no overhead).
     private readonly _hasSeedProviders: boolean;
     private readonly _pendingSeedDeclarations: Declaration[] = [];
+
+    // Read-only previous result for delta collection (see `DocumentSymbolCollectorOptions.previousResultRanges`).
+    // Undefined for a plain full collection.
+    private readonly _previousResultRanges: ReadonlySet<string> | undefined;
 
     private _aliasResolver: AliasResolver;
 
@@ -134,6 +158,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         this._treatModuleInImportAndFromImportSame = options?.treatModuleInImportAndFromImportSame ?? false;
         this._skipUnreachableCode = options?.skipUnreachableCode ?? true;
         this._useCase = options?.useCase ?? ReferenceUseCase.References;
+        this._previousResultRanges = options?.previousResultRanges;
 
         this._usageProviders =
             options?.providers ??
@@ -282,40 +307,27 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
     }
 
+    // Returns the seed declarations after collection (the original seed plus any declarations this
+    // single walk discovered through seed-usage providers). The workspace-wide closure loop in
+    // ReferencesProvider harvests these and re-walks files to propagate discoveries to a fixpoint.
+    getSeedDeclarations(): readonly Declaration[] {
+        return this._declarations;
+    }
+
     collect() {
-        // Fast path: no provider needs transitive discovery, so a single pass is exact.
-        if (!this._hasSeedProviders) {
-            this.walk(this._startingNode);
-            return this._results;
-        }
-
-        // Fixpoint: a matched usage can reveal additional seed declarations (e.g. a class that
-        // bridges two disjoint protocol co-bases). Re-walk with the grown seed until no new
-        // declarations are discovered. Clearing results each pass keeps the final pass complete
-        // and duplicate-free. Passes are bounded as a safety net against pathological inputs.
-        //
-        // NOTE: keep this loop's observable behavior in lockstep with
-        // AsyncDocumentSymbolCollector.collectAsync. The two paths are intentionally structured
-        // differently (sync clears `_results` and re-walks the whole tree each pass; async keeps
-        // `_results` and re-runs only the monotonic match phase), but must converge on the same set.
-        for (let pass = 0; pass < maxSeedDiscoveryPasses; pass++) {
-            throwIfCancellationRequested(this._cancellationToken);
-
-            this._results.length = 0;
-            this._pendingSeedDeclarations.length = 0;
-            this.walk(this._startingNode);
-
-            if (!this._mergePendingSeedDeclarations()) {
-                // Converged: no new seed declarations, so `_results` reflects the final seed.
-                return this._results;
-            }
-        }
-
-        // Pass budget exhausted while the seed was still growing. The last merge added declarations
-        // after the final walk, so `_results` may lag the seed. Re-walk once more so results match
-        // the final seed set; this keeps rename edit sets complete even for pathological inputs.
-        this._results.length = 0;
         this.walk(this._startingNode);
+
+        // When seed-usage providers are active (rename only), a matched usage can reveal additional
+        // seed declarations (e.g. a class that bridges two disjoint protocol co-bases, or a union
+        // sibling key). We deliberately do NOT close that transitively inside this single file: the
+        // workspace-wide loop in `ReferencesProvider.collectWorkspaceReferences` re-walks every file
+        // as the seed grows, so exposing the freshly discovered declarations through
+        // `getSeedDeclarations` is enough for the next workspace pass to pick up their usages.
+        // Keeping the per-file collector single-pass avoids redundant re-walks here.
+        if (this._hasSeedProviders) {
+            this._mergePendingSeedDeclarations();
+        }
+
         return this._results;
     }
 
@@ -333,17 +345,27 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             return false;
         }
 
+        // Delta collection: a range already in the caller's previous result matched on an earlier walk
+        // (seed growth is monotonic) and is therefore not part of this file's delta. The previous result is
+        // READ-ONLY here -- the references provider owns merging the returned delta back in for the next
+        // pass. Gating here both skips the expensive declaration resolution and excludes the duplicate
+        // result, so `_addResult` can stay a pure push.
+        const range = this._resultRange(node);
+        if (this._isAlreadyCollected(range)) {
+            return false;
+        }
+
         if (this._declarations.length > 0) {
             const declarations = getDeclarationsForNameNode(this._evaluator, node, this._skipUnreachableCode);
             if (declarations && declarations.length > 0) {
                 // Does this name share a declaration with the symbol of interest?
                 if (this._resultsContainsDeclaration(node, declarations)) {
-                    this._addResult(node);
+                    this._addResult(node, range);
                 }
             }
         } else {
             // There were no declarations
-            this._addResult(node);
+            this._addResult(node, range);
         }
 
         return false;
@@ -355,7 +377,11 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             // Then the matching string should be included
             const matching = node.d.strings.find((s) => this._symbolNames.has(s.d.value));
             if (matching && matching.nodeType === ParseNodeType.String) {
-                this._addResult(matching);
+                // Delta collection: skip already-collected ranges (see visitName).
+                const range = this._resultRange(matching);
+                if (!this._isAlreadyCollected(range)) {
+                    this._addResult(matching, range);
+                }
             }
         }
 
@@ -366,7 +392,11 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         throwIfCancellationRequested(this._cancellationToken);
 
         if (this._dunderAllNameNodes.has(node)) {
-            this._addResult(node);
+            // Delta collection: skip already-collected ranges (see visitName).
+            const range = this._resultRange(node);
+            if (!this._isAlreadyCollected(range)) {
+                this._addResult(node, range);
+            }
             return false;
         }
 
@@ -374,8 +404,13 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         // encode type names (e.g. Annotated["T", ...]) without special-casing StringList
         // traversal logic.
         if (this._symbolNames.has(node.d.value) && this._declarations.length > 0) {
+            // Delta collection: skip already-collected ranges (see visitName).
+            const range = this._resultRange(node);
+            if (this._isAlreadyCollected(range)) {
+                return false;
+            }
             if (!this._results.some((r) => r.node === node) && this._resultsContainsDeclaration(node, [])) {
-                this._addResult(node);
+                this._addResult(node, range);
             }
         }
 
@@ -386,8 +421,19 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         return this._program.evaluator!;
     }
 
-    private _addResult(node: NameNode | StringNode) {
-        const range: TextRange = node.nodeType === ParseNodeType.Name ? node.d.token : getStringNodeValueRange(node);
+    private _resultRange(node: NameNode | StringNode): TextRange {
+        return node.nodeType === ParseNodeType.Name ? node.d.token : getStringNodeValueRange(node);
+    }
+
+    // Delta collection: true when `range` is in the caller's read-only previous result, i.e. it was reported
+    // on an earlier walk and is not part of this file's delta. `_previousResultRanges` never changes during a
+    // walk, so a single check per candidate is enough -- callers gate before doing expensive work and pass
+    // the range to `_addResult`, which then stays a pure push.
+    private _isAlreadyCollected(range: TextRange): boolean {
+        return this._previousResultRanges?.has(getResultRangeKey(range)) ?? false;
+    }
+
+    private _addResult(node: NameNode | StringNode, range: TextRange) {
         this._results.push({ node, range });
     }
 

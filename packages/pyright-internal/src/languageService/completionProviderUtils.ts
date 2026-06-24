@@ -45,6 +45,7 @@ export interface SymbolDetail extends CommonDetail {
     autoImportSource?: string;
     autoImportAlias?: string;
     boundObjectOrClass?: ClassType;
+    declaredOnBoundObjectOrClass?: boolean;
 }
 
 export interface CompletionDetail extends CommonDetail {
@@ -57,6 +58,7 @@ export interface CompletionDetail extends CommonDetail {
     sortText?: string;
     itemDetail?: string;
     moduleUri?: Uri;
+    declaredOnBoundObjectOrClass?: boolean;
 }
 
 export function getTypeDetail(

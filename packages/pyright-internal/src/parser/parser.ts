@@ -4366,7 +4366,16 @@ export class Parser {
             if (this._consumeTokenIfOperator(OperatorType.Power)) {
                 doubleStarExpression = this._parseExpression(/* allowUnpack */ false);
             } else {
+                // A dictionary key is never a forward-reference type annotation, even
+                // when the dictionary appears within a type annotation (e.g. the field
+                // names of an inline TypedDict such as `TypedDict[{'x': int}]`). Suspend
+                // type-annotation parsing for the key so its string isn't parsed into a
+                // forward-reference expression. The value remains a type annotation and
+                // must continue to allow forward references.
+                const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
+                this._isParsingTypeAnnotation = false;
                 keyExpression = this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
+                this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 
                 // Allow walrus operators in this context only for Python 3.10 and newer.
                 // Older versions of Python generated a syntax error in this context.
