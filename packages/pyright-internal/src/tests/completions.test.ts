@@ -916,7 +916,7 @@ test('completion MRU affects sort order', async () => {
     };
 
     const completionProviderTestAccess = CompletionProvider as unknown as {
-        _mostRecentCompletions: RecentCompletionInfo[];
+        [key: string]: RecentCompletionInfo[];
     };
 
     // Reset MRU list to keep the test deterministic.
@@ -987,7 +987,7 @@ test('passive resolve does not change MRU sort order', async () => {
     };
 
     const completionProviderTestAccess = CompletionProvider as unknown as {
-        _mostRecentCompletions: RecentCompletionInfo[];
+        [key: string]: RecentCompletionInfo[];
     };
 
     // Reset MRU list to keep the test deterministic.
