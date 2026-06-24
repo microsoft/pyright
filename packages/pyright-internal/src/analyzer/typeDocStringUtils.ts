@@ -76,17 +76,32 @@ export function getFunctionDocStringInherited(
     sourceMapper: SourceMapper,
     classType?: ClassType
 ) {
-    let docString: string | undefined;
+    return getFunctionDocStringInheritedInfo(type, resolvedDecl, sourceMapper, classType)?.docString;
+}
+
+interface FunctionDocStringInfo {
+    docString: string;
+    forceLiteral?: boolean;
+    sourceDecl?: FunctionDeclaration;
+}
+
+export function getFunctionDocStringInheritedInfo(
+    type: FunctionType,
+    resolvedDecl: Declaration | undefined,
+    sourceMapper: SourceMapper,
+    classType?: ClassType
+) {
+    let docInfo: FunctionDocStringInfo | undefined;
 
     // Don't allow docs to be inherited from the builtins to other classes;
     // they typically not helpful (and object's __init__ doc causes issues
     // with our current docstring traversal).
     if (!isInheritedFromBuiltin(type, classType) && resolvedDecl && isFunctionDeclaration(resolvedDecl)) {
-        docString = _getFunctionDocString(type, resolvedDecl, sourceMapper);
+        docInfo = _getFunctionDocStringInfo(type, resolvedDecl, sourceMapper);
     }
 
     // Search mro
-    if (!docString && classType) {
+    if (!docInfo?.docString && classType) {
         const funcName = type.shared.name;
         const memberIterator = getClassMemberIterator(classType, funcName, DefaultClassIteratorFlagsForFunctions);
 
@@ -95,8 +110,8 @@ export function getFunctionDocStringInherited(
             if (decls.length > 0) {
                 const inheritedDecl = classMember.symbol.getDeclarations().slice(-1)[0];
                 if (isFunctionDeclaration(inheritedDecl)) {
-                    docString = _getFunctionDocStringFromDeclaration(inheritedDecl, sourceMapper);
-                    if (docString) {
+                    docInfo = _getFunctionDocStringFromDeclarationInfo(inheritedDecl, sourceMapper);
+                    if (docInfo?.docString) {
                         break;
                     }
                 }
@@ -104,7 +119,21 @@ export function getFunctionDocStringInherited(
         }
     }
 
-    return docString || type.shared.docString;
+    if (docInfo?.docString) {
+        return docInfo;
+    }
+
+    if (!type.shared.docString) {
+        return undefined;
+    }
+
+    return {
+        docString: type.shared.docString,
+        sourceDecl:
+            type.shared.declaration && isFunctionDeclaration(type.shared.declaration)
+                ? type.shared.declaration
+                : undefined,
+    };
 }
 
 export function getOverloadedDocStringsInherited(
@@ -305,6 +334,27 @@ export function getOverloadedDocStrings(type: Type, resolvedDecl: Declaration | 
         docStrings.push(impl.shared.docString);
     }
 
+    // Fallback: try to extract docstrings from per-overload declarations.
+    // This handles cases where overloads are specialized (e.g. via a Callable[P, T]
+    // decorator) and shared.docString was not propagated to the specialized types.
+    if (docStrings.length === 0) {
+        for (const overload of overloads) {
+            if (overload.shared.declaration) {
+                const declDocString = _getFunctionDocStringFromDeclaration(overload.shared.declaration, sourceMapper);
+                if (declDocString) {
+                    docStrings.push(declDocString);
+                }
+            }
+        }
+
+        if (docStrings.length === 0 && impl && isFunction(impl) && impl.shared.declaration) {
+            const declDocString = _getFunctionDocStringFromDeclaration(impl.shared.declaration, sourceMapper);
+            if (declDocString) {
+                docStrings.push(declDocString);
+            }
+        }
+    }
+
     if (
         docStrings.length === 0 &&
         resolvedDecl &&
@@ -369,38 +419,92 @@ function _getPropertyDocStringInherited(
     return;
 }
 
-function _getFunctionDocString(type: Type, resolvedDecl: FunctionDeclaration | undefined, sourceMapper: SourceMapper) {
+function _getFunctionDocStringFromDeclaration(resolvedDecl: FunctionDeclaration, sourceMapper: SourceMapper) {
+    return _getFunctionDocStringFromDeclarationInfo(resolvedDecl, sourceMapper)?.docString;
+}
+
+export function getFunctionDocStringFromDeclarationInfo(
+    resolvedDecl: FunctionDeclaration,
+    sourceMapper: SourceMapper
+): FunctionDocStringInfo | undefined {
+    return _getFunctionDocStringFromDeclarationInfo(resolvedDecl, sourceMapper);
+}
+
+function _getFunctionDocStringInfo(
+    type: Type,
+    resolvedDecl: FunctionDeclaration | undefined,
+    sourceMapper: SourceMapper
+): FunctionDocStringInfo | undefined {
     if (!isFunction(type)) {
         return undefined;
     }
 
-    let docString = type.shared.docString;
-    if (!docString && resolvedDecl) {
-        docString = _getFunctionDocStringFromDeclaration(resolvedDecl, sourceMapper);
+    if (type.shared.docString) {
+        return {
+            docString: type.shared.docString,
+            sourceDecl:
+                type.shared.declaration && isFunctionDeclaration(type.shared.declaration)
+                    ? type.shared.declaration
+                    : resolvedDecl,
+        };
     }
 
-    if (!docString && type.shared.declaration) {
-        docString = _getFunctionDocStringFromDeclaration(type.shared.declaration, sourceMapper);
+    if (resolvedDecl) {
+        const docInfo = _getFunctionDocStringFromDeclarationInfo(resolvedDecl, sourceMapper);
+        if (docInfo) {
+            return docInfo;
+        }
     }
 
-    return docString;
+    if (type.shared.declaration) {
+        return _getFunctionDocStringFromDeclarationInfo(type.shared.declaration, sourceMapper);
+    }
+
+    return undefined;
 }
 
-function _getFunctionDocStringFromDeclaration(resolvedDecl: FunctionDeclaration, sourceMapper: SourceMapper) {
-    let docString = _getFunctionOrClassDeclsDocString([resolvedDecl]);
-    if (!docString && isStubFile(resolvedDecl.uri)) {
-        const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
-        docString = _getFunctionOrClassDeclsDocString(implDecls);
+function _getFunctionDocStringFromDeclarationInfo(
+    resolvedDecl: FunctionDeclaration,
+    sourceMapper: SourceMapper
+): FunctionDocStringInfo | undefined {
+    const docInfo = _getFunctionOrClassDeclsDocStringInfo([resolvedDecl]);
+    if (docInfo) {
+        return docInfo;
     }
 
-    return docString;
+    if (!isStubFile(resolvedDecl.uri)) {
+        return undefined;
+    }
+
+    const implDocInfo = _getFunctionOrClassDeclsDocStringInfo(sourceMapper.findFunctionDeclarations(resolvedDecl));
+    return implDocInfo
+        ? { docString: implDocInfo.docString, sourceDecl: implDocInfo.sourceDecl, forceLiteral: false }
+        : undefined;
 }
 
 function _getFunctionOrClassDeclsDocString(decls: FunctionDeclaration[] | ClassDeclaration[]): string | undefined {
+    if (decls.length === 0) {
+        return undefined;
+    }
+
+    return isFunctionDeclaration(decls[0])
+        ? _getFunctionOrClassDeclsDocStringInfo(decls as FunctionDeclaration[])?.docString
+        : _getFunctionOrClassDeclsDocStringInfo(decls as ClassDeclaration[])?.docString;
+}
+
+function _getFunctionOrClassDeclsDocStringInfo(
+    decls: FunctionDeclaration[]
+): { docString: string; sourceDecl: FunctionDeclaration } | undefined;
+function _getFunctionOrClassDeclsDocStringInfo(
+    decls: ClassDeclaration[]
+): { docString: string; sourceDecl: ClassDeclaration } | undefined;
+function _getFunctionOrClassDeclsDocStringInfo(
+    decls: readonly (FunctionDeclaration | ClassDeclaration)[]
+): { docString: string; sourceDecl: FunctionDeclaration | ClassDeclaration } | undefined {
     for (const decl of decls) {
         const docString = getFunctionOrClassDeclDocString(decl);
         if (docString) {
-            return docString;
+            return { docString, sourceDecl: decl };
         }
     }
 

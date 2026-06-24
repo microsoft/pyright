@@ -9,8 +9,10 @@ const util = require('util');
 const { glob } = require('glob');
 const exec = util.promisify(require('child_process').exec);
 
-/** @type {(path: string, options?: import('fs').RmDirOptions & { force?: boolean }) => Promise<void> | undefined} */
+/** @type {((path: string, options?: import('fs').RmOptions) => Promise<void>) | undefined} */
 const node14rm = /** @type {any} */ (fsAsync).rm;
+/** @type {(path: string, options?: { recursive?: boolean }) => Promise<void>} */
+const legacyRmdir = /** @type {any} */ (fsAsync.rmdir);
 
 /** @type {(path: string) => Promise<void>} */
 async function rmdir(path) {
@@ -18,7 +20,7 @@ async function rmdir(path) {
         // Avoid deprecation warning when on Node v14+, which have deprecated recursive rmdir in favor of rm.
         return node14rm(path, { recursive: true, force: true });
     }
-    return fsAsync.rmdir(path, { recursive: true });
+    return legacyRmdir(path, { recursive: true });
 }
 
 async function findPackages() {

@@ -15,10 +15,11 @@ import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
 import {
     getClassDocString,
-    getFunctionOrClassDeclDocString,
-    getFunctionDocStringInherited,
+    getFunctionDocStringFromDeclarationInfo,
+    getFunctionDocStringInheritedInfo,
     getModuleDocString,
     getModuleDocStringFromUris,
+    getOverloadedDocStrings,
     getOverloadedDocStringsInherited,
     getPropertyDocStringInherited,
     getVariableDocString,
@@ -322,12 +323,25 @@ function formatSignature(
 }
 
 export function getFunctionDocStringFromType(type: FunctionType, sourceMapper: SourceMapper, evaluator: TypeEvaluator) {
+    return getFunctionDocStringFromTypeInfo(type, sourceMapper, evaluator)?.text;
+}
+
+interface DocumentationPartInfo {
+    forceLiteral?: boolean;
+    text: string;
+    sourceDecl?: Declaration;
+}
+
+function getFunctionDocStringFromTypeInfo(type: FunctionType, sourceMapper: SourceMapper, evaluator: TypeEvaluator) {
     const decl = type.shared.declaration;
 
     const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
     const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
 
-    return getFunctionDocStringInherited(type, decl, sourceMapper, classResults?.classType);
+    const docInfo = getFunctionDocStringInheritedInfo(type, decl, sourceMapper, classResults?.classType);
+    return docInfo
+        ? { text: docInfo.docString, sourceDecl: docInfo.sourceDecl, forceLiteral: docInfo.forceLiteral }
+        : undefined;
 }
 
 export function getOverloadedDocStringsFromType(
@@ -340,13 +354,22 @@ export function getOverloadedDocStringsFromType(
         return [];
     }
 
-    const decl = overloads[0].shared.declaration;
-    const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
+    const resolvedDecls = overloads.map((o) => o.shared.declaration).filter(isDefined);
+
+    // Synthesized overloads (e.g. from a Callable[P, T] decorator applied to an overloaded
+    // function) have their declarations cleared by applyParamSpecValue. Fall back to reading
+    // shared.docString directly since it is copied from the original overloads.
+    if (resolvedDecls.length === 0) {
+        return getOverloadedDocStrings(type, undefined, sourceMapper) ?? [];
+    }
+
+    const decl = resolvedDecls[0] as FunctionDeclaration;
+    const enclosingClass = ParseTreeUtils.getEnclosingClass(decl.node);
     const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
 
     return getOverloadedDocStringsInherited(
         type,
-        overloads.map((o) => o.shared.declaration).filter(isDefined),
+        resolvedDecls,
         sourceMapper,
         evaluator,
 
@@ -399,24 +422,34 @@ export function getDocumentationPartForType(
     evaluator: TypeEvaluator,
     boundObjectOrClass?: ClassType | undefined
 ) {
+    return getDocumentationPartForTypeInfo(sourceMapper, type, resolvedDecl, evaluator, boundObjectOrClass)?.text;
+}
+
+function getDocumentationPartForTypeInfo(
+    sourceMapper: SourceMapper,
+    type: Type,
+    resolvedDecl: Declaration | undefined,
+    evaluator: TypeEvaluator,
+    boundObjectOrClass?: ClassType | undefined
+): DocumentationPartInfo | undefined {
     if (isModule(type)) {
         const doc = getModuleDocString(type, resolvedDecl, sourceMapper);
         if (doc) {
-            return doc;
+            return { text: doc, sourceDecl: resolvedDecl };
         }
     } else if (isInstantiableClass(type)) {
         const doc = getClassDocString(type, resolvedDecl, sourceMapper);
         if (doc) {
-            return doc;
+            return { text: doc, sourceDecl: resolvedDecl };
         }
     } else if (isFunction(type)) {
         const functionType = boundObjectOrClass
             ? evaluator.bindFunctionToClassOrObject(boundObjectOrClass, type)
             : type;
         if (functionType && isFunction(functionType)) {
-            const doc = getFunctionDocStringFromType(functionType, sourceMapper, evaluator);
-            if (doc) {
-                return doc;
+            const docInfo = getFunctionDocStringFromTypeInfo(functionType, sourceMapper, evaluator);
+            if (docInfo) {
+                return docInfo;
             }
         }
     } else if (isOverloaded(type)) {
@@ -427,14 +460,14 @@ export function getDocumentationPartForType(
             const doc = getOverloadedDocStringsFromType(functionType, sourceMapper, evaluator).find((d) => d);
 
             if (doc) {
-                return doc;
+                return { text: doc, sourceDecl: resolvedDecl };
             }
         }
     }
     return undefined;
 }
 
-export function getDocumentationPartsForTypeAndDecl(
+export function getDocumentationPartsForTypeAndDeclWithSource(
     sourceMapper: SourceMapper,
     type: Type | undefined,
     resolvedDecl: Declaration | undefined,
@@ -444,7 +477,7 @@ export function getDocumentationPartsForTypeAndDecl(
         symbol?: Symbol;
         boundObjectOrClass?: ClassType | undefined;
     }
-): string | undefined {
+): DocumentationPartInfo | undefined {
     // Get the alias first
     const aliasDoc = getDocumentationPartForTypeAlias(sourceMapper, resolvedDecl, evaluator, optional?.symbol);
 
@@ -463,25 +496,17 @@ export function getDocumentationPartsForTypeAndDecl(
         !isOverloaded(type) &&
         !_isFunctoolsWrapsDecoratedFunction(resolvedDecl)
     ) {
-        let declDocString = getFunctionOrClassDeclDocString(resolvedDecl);
-
-        if (!declDocString && isStubFile(resolvedDecl.uri)) {
-            const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
-            for (const implDecl of implDecls) {
-                declDocString = getFunctionOrClassDeclDocString(implDecl);
-                if (declDocString) {
-                    break;
-                }
-            }
-        }
-
-        if (declDocString) {
-            return aliasDoc ? `${aliasDoc}\n\n${declDocString}` : declDocString;
+        const declDocInfo = getFunctionDocStringFromDeclarationInfo(resolvedDecl, sourceMapper);
+        if (declDocInfo) {
+            return {
+                text: declDocInfo.docString,
+                sourceDecl: declDocInfo.sourceDecl,
+            };
         }
     }
 
     // Combine this with the type doc
-    let typeDoc: string | undefined;
+    let typeDoc: DocumentationPartInfo | undefined;
     if (resolvedDecl?.type === DeclarationType.Alias) {
         // Handle another alias decl special case.
         // ex) import X.Y
@@ -502,17 +527,44 @@ export function getDocumentationPartsForTypeAndDecl(
             }
         }
 
-        typeDoc = getModuleDocStringFromUris([resolvedDecl.uri], sourceMapper);
+        const moduleDoc = getModuleDocStringFromUris([resolvedDecl.uri], sourceMapper);
+        typeDoc = moduleDoc ? { text: moduleDoc, sourceDecl: resolvedDecl } : undefined;
     }
 
     typeDoc =
         typeDoc ??
         (type
-            ? getDocumentationPartForType(sourceMapper, type, resolvedDecl, evaluator, optional?.boundObjectOrClass)
+            ? getDocumentationPartForTypeInfo(sourceMapper, type, resolvedDecl, evaluator, optional?.boundObjectOrClass)
             : undefined);
 
     // Combine with a new line if they both exist
-    return aliasDoc && typeDoc && aliasDoc !== typeDoc ? `${aliasDoc}\n\n${typeDoc}` : aliasDoc || typeDoc;
+    if (aliasDoc && typeDoc) {
+        if (aliasDoc !== typeDoc.text) {
+            return { text: `${aliasDoc}\n\n${typeDoc.text}` };
+        }
+
+        return typeDoc;
+    }
+
+    if (aliasDoc) {
+        return { text: aliasDoc, sourceDecl: resolvedDecl };
+    }
+
+    return typeDoc;
+}
+
+export function getDocumentationPartsForTypeAndDecl(
+    sourceMapper: SourceMapper,
+    type: Type | undefined,
+    resolvedDecl: Declaration | undefined,
+    evaluator: TypeEvaluator,
+    optional?: {
+        name?: string;
+        symbol?: Symbol;
+        boundObjectOrClass?: ClassType | undefined;
+    }
+): string | undefined {
+    return getDocumentationPartsForTypeAndDeclWithSource(sourceMapper, type, resolvedDecl, evaluator, optional)?.text;
 }
 
 /**

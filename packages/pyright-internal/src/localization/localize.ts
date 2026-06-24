@@ -640,6 +640,8 @@ export namespace Localizer {
             new ParameterizedString<{ returnType: string }>(
                 getRawString('Diagnostic.lambdaReturnTypePartiallyUnknown')
             );
+        export const lazyImportIllegal = () => getRawString('Diagnostic.lazyImportIllegal');
+        export const lazyImportWildcardIllegal = () => getRawString('Diagnostic.lazyImportWildcardIllegal');
         export const listAssignmentMismatch = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.listAssignmentMismatch'));
         export const listInAnnotation = () => getRawString('Diagnostic.listInAnnotation');
@@ -1669,6 +1671,13 @@ export namespace Localizer {
     export namespace Completion {
         export const autoImportDetail = () => getRawString('Completion.autoImportDetail');
         export const indexValueDetail = () => getRawString('Completion.indexValueDetail');
+    }
+
+    export namespace Rename {
+        export const cannotRenameNonUserCode = () =>
+            new ParameterizedString<{ symbolName: string; locations: string }>(
+                getRawString('Rename.cannotRenameNonUserCode')
+            );
     }
 
     export namespace Service {

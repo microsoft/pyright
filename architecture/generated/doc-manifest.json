@@ -1,0 +1,112 @@
+{
+  "graph_path": "packages/pyright/.rpg/rpg_encoder.json",
+  "graph_repo_sha": "784698179a5627072df39bbe0fcadb55bb7dd408",
+  "graph_generated_at": "2026-06-10T00:19:36.841Z",
+  "renderer_version": 1,
+  "files": [
+    {
+      "path": ".pages",
+      "sha256": "c0537b4f54b0131b658628dcd74c13f3fe9386f8f3f9e17d2fef17868f7775ad"
+    },
+    {
+      "path": "README.md",
+      "sha256": "ffa9ff493bfa33e6e131257f0bd048cf61dc218e8d3df5f2f09ab0dff40e0106"
+    },
+    {
+      "path": "feature-map.md",
+      "sha256": "19135790a9c00c2ae5e1f9ad827435b079ca5d8cb66b317ada91aa709b293588"
+    },
+    {
+      "path": "features/.pages",
+      "sha256": "3fcee5050993206e91df815e4927033cecee1205e6defa8835e45670993cad20"
+    },
+    {
+      "path": "features/feat-cli-and-vs-code-extension.md",
+      "sha256": "a92363dda288954eeabe8e41c4cc502b82d223b212dd6aa2bf8750b243d6ba85"
+    },
+    {
+      "path": "features/feat-constraint-solving-and-type-variables.md",
+      "sha256": "8dc28dc76d39923ef77d0a645028221a2ce1a98a61af65324d7a7dec96d1c7b1"
+    },
+    {
+      "path": "features/feat-diagnostics-and-configuration.md",
+      "sha256": "7e8f871112d2bb6902d9dfb14e99dd21371705bc7a2b0351df131e62771cd1b7"
+    },
+    {
+      "path": "features/feat-documentation-and-comments.md",
+      "sha256": "f48c9a59ba90934b000c87ea8935e88725aa0c87b5bcc56621463b777f99bedd"
+    },
+    {
+      "path": "features/feat-flow-narrowing-and-type-guards.md",
+      "sha256": "d9a000e6a05b2e13e083b69daea457063ca1a073b3420e252364014164dde4fd"
+    },
+    {
+      "path": "features/feat-import-resolution-and-packaging.md",
+      "sha256": "9d04fee47761bacc9add2271c2858a8fa7afd25e35bd5ba096b64a104928abe0"
+    },
+    {
+      "path": "features/feat-language-service-providers.md",
+      "sha256": "ffb36c2f19f41d8a41490366ffaca9e4b05b6cafbd713f1cbb9a3b437234cac6"
+    },
+    {
+      "path": "features/feat-parser-binder-and-symbols.md",
+      "sha256": "80c6960fd9acd6cfe642919ae5d8faa590abb7a862afed2333f2e312bafb1ba1"
+    },
+    {
+      "path": "features/feat-program-analysis-and-scheduling.md",
+      "sha256": "aa5b896b214967b54452a425d3a1df5859b6540d6d8cc4bb7bf9ed33f16ab763"
+    },
+    {
+      "path": "features/feat-shared-runtime-infrastructure.md",
+      "sha256": "bb19b544e3bbd8752fa54b48214c74574b633fc4c1e02f8e9db6eaea2ff6c764"
+    },
+    {
+      "path": "features/feat-type-evaluation.md",
+      "sha256": "2f9c04cf04d34be2a6e1e97efe063414dc3cfcdf3fbc73b9b8d69b50cba4b14d"
+    },
+    {
+      "path": "pyright-engineering-map.md",
+      "sha256": "b2d0e52d1f779e4da7fd97e8fdc3ad748733fcf281370d904acec59ce22341a7"
+    },
+    {
+      "path": "subsystems/.pages",
+      "sha256": "1446864c9b25f8403c7a04a5c3d918698c547496aa3eb3c5e1a9bdc7417e3843"
+    },
+    {
+      "path": "subsystems/analyzer.md",
+      "sha256": "4e6cc4053515929f675e61b335c34674ebc44788b4116a3964da717e8308719f"
+    },
+    {
+      "path": "subsystems/commands.md",
+      "sha256": "c67599e54c00d030219f3ad712f760f5e6fae1e631447abc28469f118379e18b"
+    },
+    {
+      "path": "subsystems/common.md",
+      "sha256": "784c5bf8f57022aabc514036b927519106b0384a7206de9c988638aceb0b8f8c"
+    },
+    {
+      "path": "subsystems/languageservice.md",
+      "sha256": "863a82c5c3772a0a7e14694ed87d3b712f96f4a30186220a896606981881e889"
+    },
+    {
+      "path": "subsystems/localization.md",
+      "sha256": "cd1710ee91d762f8181bc22988500e016319f2dae061202d11ec9d19cb972ef7"
+    },
+    {
+      "path": "subsystems/parser.md",
+      "sha256": "549bc6705be50b68460336c05e81d16eaf523063013f46d96a609d7451687616"
+    },
+    {
+      "path": "subsystems/pprof.md",
+      "sha256": "f3fd0fbcde370db1e5d37471d735932f475765b0558a96e63e77a6f4b3f6dc29"
+    },
+    {
+      "path": "subsystems/src.md",
+      "sha256": "8db9c336049d24c0062c9c33c5d94d5ec65a2e0a6793461c60da43cbd66a8c95"
+    },
+    {
+      "path": "subsystems/uri.md",
+      "sha256": "c57e8b453cc83f377018021ac91d5c97dba6e1ce16f0e9692f06aba4f1d213b2"
+    }
+  ]
+}

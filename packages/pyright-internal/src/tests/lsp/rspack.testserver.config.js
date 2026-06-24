@@ -1,15 +1,14 @@
 const path = require('path');
+const { createRequire } = require('module');
 const { tsconfigResolveAliases } = require('../../../../../build/lib/webpack');
 
+const rspack = createRequire(__filename)('@rspack/core');
 const outPath = path.resolve(__dirname, '..', '..', '..', 'out');
+const tsconfigPath = path.resolve(__dirname, '..', '..', '..', 'tsconfig.json');
 const typeshedFallback = path.resolve(__dirname, '..', '..', '..', 'typeshed-fallback');
 
-/** @typedef {{ mode: 'production' | 'development' | 'none' }} RspackArgv */
-
-/** @param {unknown} _ @param {RspackArgv} param1 */
-module.exports = async (_, { mode }) => {
-    const { CopyRspackPlugin } = await import('@rspack/core');
-
+/** @type {(env: any, argv: { mode: 'production' | 'development' | 'none' }) => any} */
+module.exports = (_, { mode }) => {
     return {
         context: __dirname,
         entry: {
@@ -45,7 +44,7 @@ module.exports = async (_, { mode }) => {
                     test: /\.ts$/,
                     loader: 'ts-loader',
                     options: {
-                        configFile: 'tsconfig.json',
+                        configFile: tsconfigPath,
                     },
                 },
                 {
@@ -57,6 +56,6 @@ module.exports = async (_, { mode }) => {
                 },
             ],
         },
-        plugins: [new CopyRspackPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] })],
+        plugins: [new rspack.CopyRspackPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] })],
     };
 };

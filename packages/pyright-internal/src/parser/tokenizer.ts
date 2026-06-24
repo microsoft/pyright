@@ -73,6 +73,7 @@ const _keywords: Map<string, KeywordType> = new Map([
     ['in', KeywordType.In],
     ['is', KeywordType.Is],
     ['lambda', KeywordType.Lambda],
+    ['lazy', KeywordType.Lazy],
     ['match', KeywordType.Match],
     ['nonlocal', KeywordType.Nonlocal],
     ['not', KeywordType.Not],
@@ -90,7 +91,7 @@ const _keywords: Map<string, KeywordType> = new Map([
     ['True', KeywordType.True],
 ]);
 
-const _softKeywords = new Set(['match', 'case', 'type']);
+const _softKeywords = new Set(['match', 'case', 'type', 'lazy']);
 
 // Fast-reject table: keywords are 2–9 chars long and only start with these
 // character codes. A 128-entry boolean table indexed by charCodeAt(0) rejects

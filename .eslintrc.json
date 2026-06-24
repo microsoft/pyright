@@ -17,6 +17,7 @@
         "simple-import-sort"
     ],
     "root": true,
+    "ignorePatterns": ["**/rspack*.config.js"],
     "rules": {
         "eqeqeq": "error",
         "no-constant-condition": 0,

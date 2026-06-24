@@ -133,6 +133,7 @@ class WriteableData {
     // above information. This needs to be recomputed any time the
     // above change.
     accumulatedDiagnostics: Diagnostic[] = [];
+    diagnosticsWithoutFileIgnore: Diagnostic[] = [];
 
     // Circular dependencies that have been reported in this file.
     circularDependencies: CircularDependency[] = [];
@@ -386,6 +387,10 @@ export class SourceFile {
         }
 
         return this._writableData.accumulatedDiagnostics;
+    }
+
+    getDiagnosticsWithoutFileIgnore(): Diagnostic[] {
+        return this._writableData.diagnosticsWithoutFileIgnore;
     }
 
     getImports(): ImportResult[] {
@@ -1303,6 +1308,11 @@ export class SourceFile {
                     diag.category === DiagnosticCategory.Deprecated
             );
         }
+
+        // Capture the fully-filtered diagnostics before any file-level ignore clears them, so
+        // consumers that need the unsuppressed list (e.g. ignored-file quick fixes) can access it.
+        // For non-ignored files this is the same array reference as accumulatedDiagnostics below.
+        this._writableData.diagnosticsWithoutFileIgnore = diagList;
 
         // If the file is in the ignore list, clear the diagnostic list.
         if (configOptions.ignore.find((ignoreFileSpec) => this._uri.matchesRegex(ignoreFileSpec.regExp))) {

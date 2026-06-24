@@ -12,7 +12,7 @@ export interface SortOptions<T> {
     sort: 'insertion' | 'comparison';
 }
 
-export class SortedMap<K, V> {
+export class SortedMap<K, V> implements ReadonlyMap<K, V> {
     private _comparer: (a: K, b: K) => number;
     private _keys: K[] = [];
     private _values: V[] = [];
@@ -100,7 +100,7 @@ export class SortedMap<K, V> {
         }
     }
 
-    forEach(callback: (value: V, key: K, collection: this) => void, thisArg?: any) {
+    forEach(callback: (value: V, key: K, collection: ReadonlyMap<K, V>) => void, thisArg?: any) {
         const keys = this._keys;
         const values = this._values;
         const indices = this._getIterationOrder();

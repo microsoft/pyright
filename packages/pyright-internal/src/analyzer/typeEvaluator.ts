@@ -2639,21 +2639,49 @@ export function createTypeEvaluator(
 
         function addOneFunctionToSignature(type: FunctionType) {
             let callResult: CallResult | undefined;
+            const constraints = new ConstraintTracker();
 
             useSpeculativeMode(callNode, () => {
                 callResult = validateArgs(
                     exprNode,
                     argList,
                     { type },
-                    /* constraints */ undefined,
+                    constraints,
                     /* skipUnknownArgCheck */ true,
                     /* inferenceContext */ undefined
                 );
             });
 
+            const specializedType = solveAndApplyConstraints(type, constraints);
+            const finalType = isFunction(specializedType) ? specializedType : type;
+            const hasActiveArg = argList.some((arg) => arg.active);
+
+            // If the type was specialized (e.g. ParamSpec expansion), the activeParam
+            // from the original validateArgs refers to parameters in the unspecialized
+            // type and won't match the specialized type's parameters. Re-run validateArgs
+            // against the specialized type to get the correct activeParam mapping.
+            let activeParam = callResult?.activeParam;
+            if (hasActiveArg && finalType !== type) {
+                let specializedActiveParam: typeof activeParam | undefined;
+                useSpeculativeMode(callNode, () => {
+                    const specializedResult = validateArgs(
+                        exprNode,
+                        argList,
+                        { type: finalType },
+                        new ConstraintTracker(),
+                        /* skipUnknownArgCheck */ true,
+                        /* inferenceContext */ undefined
+                    );
+                    specializedActiveParam = specializedResult?.activeParam;
+                });
+                if (specializedActiveParam) {
+                    activeParam = specializedActiveParam;
+                }
+            }
+
             signatures.push({
-                type: expandTypedKwargs(type),
-                activeParam: callResult?.activeParam,
+                type: expandTypedKwargs(finalType),
+                activeParam,
             });
         }
 
@@ -2756,14 +2784,24 @@ export function createTypeEvaluator(
         }
 
         tdEntries.forEach((tdEntry, name) => {
+            // A TypedDict entry type may carry the TypedDict's own type parameters (e.g. an unpacked
+            // generic TypedDict `**kwargs: Unpack[TD[int]]`), so specialize each entry against the
+            // (possibly generic) TypedDict instance. Specializing an already-concrete type is a
+            // no-op, so this is safe for non-generic TypedDicts.
+            const specializedValueType = partiallySpecializeType(
+                tdEntry.valueType,
+                kwargsType,
+                /* typeClassType */ undefined
+            );
+
             FunctionType.addParam(
                 newFunction,
                 FunctionParam.create(
                     ParamCategory.Simple,
-                    tdEntry.valueType,
+                    specializedValueType,
                     FunctionParamFlags.TypeDeclared,
                     name,
-                    tdEntry.isRequired ? undefined : tdEntry.valueType
+                    tdEntry.isRequired ? undefined : specializedValueType
                 )
             );
         });
@@ -2771,11 +2809,20 @@ export function createTypeEvaluator(
         const extraItemsType = kwargsType.shared.typedDictEntries?.extraItems?.valueType;
 
         if (extraItemsType && !isNever(extraItemsType)) {
+            // Specialized for the same reason as the per-entry types above. This PEP 728
+            // `extra_items` branch uses the identical mechanism and is intentionally not
+            // separately tested.
+            const specializedExtraItemsType = partiallySpecializeType(
+                extraItemsType,
+                kwargsType,
+                /* typeClassType */ undefined
+            );
+
             FunctionType.addParam(
                 newFunction,
                 FunctionParam.create(
                     ParamCategory.KwargsDict,
-                    extraItemsType,
+                    specializedExtraItemsType,
                     FunctionParamFlags.TypeDeclared,
                     'kwargs'
                 )
@@ -20879,6 +20926,11 @@ export function createTypeEvaluator(
                 evaluateTypesForAssignmentStatement(parent);
                 return;
             }
+
+            case ParseNodeType.AugmentedAssignment: {
+                evaluateTypesForAugmentedAssignment(parent);
+                return;
+            }
         }
 
         if (nodeToEvaluate.nodeType === ParseNodeType.TypeAnnotation) {
@@ -26924,9 +26976,9 @@ export function createTypeEvaluator(
                 ).length;
 
                 diag?.createAddendum().addMessage(
-                    LocAddendum.functionTooFewParams().format({
-                        expected: nonDefaultSrcParamCount,
-                        received: destPositionalCount,
+                    LocAddendum.functionTooManyParams().format({
+                        expected: destPositionalCount,
+                        received: nonDefaultSrcParamCount,
                     })
                 );
                 canAssign = false;
@@ -26997,9 +27049,9 @@ export function createTypeEvaluator(
 
                 if (srcPositionalCount < adjDestPositionalCount) {
                     diag?.addMessage(
-                        LocAddendum.functionTooManyParams().format({
-                            expected: srcPositionalCount,
-                            received: destPositionalCount,
+                        LocAddendum.functionTooFewParams().format({
+                            expected: adjDestPositionalCount,
+                            received: srcPositionalCount,
                         })
                     );
                     canAssign = false;
@@ -28733,6 +28785,9 @@ export function createTypeEvaluator(
         }
         if (options?.useFullyQualifiedNames) {
             flags |= TypePrinter.PrintTypeFlags.UseFullyQualifiedNames;
+        }
+        if (options?.disablePep604) {
+            flags &= ~TypePrinter.PrintTypeFlags.PEP604;
         }
 
         return TypePrinter.printType(type, flags, getEffectiveReturnType);

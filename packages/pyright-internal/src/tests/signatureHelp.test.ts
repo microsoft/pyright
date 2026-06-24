@@ -501,6 +501,87 @@ test('within arguments in format string segment', () => {
     checkSignatureHelp(code, true);
 });
 
+// Wrong signature hint with an unpacked parameterized TypedDict as a variadic keyword parameter.
+// When a function declares `**kwargs: Unpack[GenericTypedDict[int]]`, signature help expands the
+// TypedDict entries but must substitute the type argument: the `t` entry should print as `int`,
+// not the unspecialized TypeVar `T@TD`.
+test('signature help substitutes type argument for unpacked generic TypedDict kwargs', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Generic, TypedDict, TypeVar, Unpack
+////
+//// T = TypeVar('T')
+////
+//// class TD(TypedDict, Generic[T]):
+////     t: T
+////
+//// def func(**kwargs: Unpack[TD[int]]) -> None:
+////     pass
+////
+//// func([|/*marker*/|])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const actual = getSignatureHelpForMarker(state, 'marker');
+
+    assert(actual, 'Expected signature help for unpacked generic TypedDict kwargs');
+    assert.strictEqual(actual.signatures.length, 1, 'Expected one signature');
+    assert.strictEqual(actual.signatures[0].label, '(*, t: int) -> None');
+});
+
+// Additional coverage for the unpacked generic TypedDict kwargs case.
+// The fix specializes TypedDict entries against the (possibly generic) TypedDict instance at the
+// param value type, the default-param value type (only exercised by non-required entries), and
+// nested generic value types. These variants guard the non-required (default-param) branch,
+// per-entry specialization with a concrete sibling entry, and nested generic value types.
+test('signature help substitutes type argument for unpacked generic TypedDict kwargs variants', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Generic, NotRequired, TypedDict, TypeVar, Unpack
+////
+//// T = TypeVar('T')
+////
+//// class TDNotRequired(TypedDict, Generic[T]):
+////     t: NotRequired[T]
+////
+//// class TDMixed(TypedDict, Generic[T]):
+////     a: T
+////     b: str
+////
+//// class TDNested(TypedDict, Generic[T]):
+////     t: list[T]
+////
+//// def func_notrequired(**kwargs: Unpack[TDNotRequired[int]]) -> None: ...
+//// def func_mixed(**kwargs: Unpack[TDMixed[int]]) -> None: ...
+//// def func_nested(**kwargs: Unpack[TDNested[int]]) -> None: ...
+////
+//// func_notrequired([|/*notRequired*/|])
+//// func_mixed([|/*mixed*/|])
+//// func_nested([|/*nested*/|])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    // Non-required entries exercise the default-param specialization branch: the type argument must
+    // still be substituted (`t: int = ...`), not left as the TypeVar `t: T@... = ...`.
+    const notRequired = getSignatureHelpForMarker(state, 'notRequired');
+    assert(notRequired, "Expected signature help at 'notRequired'");
+    assert.strictEqual(notRequired.signatures.length, 1);
+    assert.strictEqual(notRequired.signatures[0].label, '(*, t: int = ...) -> None');
+
+    // Mixed entries: the generic entry is substituted while the concrete sibling is unchanged.
+    const mixed = getSignatureHelpForMarker(state, 'mixed');
+    assert(mixed, "Expected signature help at 'mixed'");
+    assert.strictEqual(mixed.signatures.length, 1);
+    assert.strictEqual(mixed.signatures[0].label, '(*, a: int, b: str) -> None');
+
+    // Nested generic value types must specialize recursively (`list[T]` -> `list[int]`).
+    const nested = getSignatureHelpForMarker(state, 'nested');
+    assert(nested, "Expected signature help at 'nested'");
+    assert.strictEqual(nested.signatures.length, 1);
+    assert.strictEqual(nested.signatures[0].label, '(*, t: list[int]) -> None');
+});
+
 function checkSignatureHelp(code: string, expects: boolean) {
     const state = parseAndGetTestState(code).state;
     const actual = getSignatureHelpForMarker(state, 'marker');

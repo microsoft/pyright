@@ -2592,6 +2592,15 @@ export function getVariableDocStringNode(node: ExpressionNode): StringListNode |
         }
     }
 
+    // Chained assignments (e.g. `a = b = c = value`) parse into nested Assignment
+    // nodes where only the outermost node's parent is the StatementList that can
+    // hold the trailing PEP 258 attribute docstring. Walk up through the chain so
+    // every target (a, b, c) resolves the same docstring. This is a no-op for
+    // non-chained assignments.
+    while (curNode.nodeType === ParseNodeType.Assignment && curNode.parent?.nodeType === ParseNodeType.Assignment) {
+        curNode = curNode.parent;
+    }
+
     const parentNode = curNode.parent;
     if (parentNode?.nodeType !== ParseNodeType.StatementList) {
         return undefined;

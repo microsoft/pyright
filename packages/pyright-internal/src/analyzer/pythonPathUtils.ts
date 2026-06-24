@@ -89,6 +89,30 @@ export function findPythonSearchPaths(
         });
 
         if (foundPaths.length > 0) {
+            if (configOptions.pythonPath) {
+                const pathResult = host.getPythonSearchPaths(
+                    configOptions.pythonPath,
+                    importLogger,
+                    configOptions.projectRoot
+                );
+                const realVenvPath = fs.realCasePath(venvPath);
+
+                if (pathResult.prefix?.equals(realVenvPath)) {
+                    // A configured venv can still rely on interpreter-reported stdlib/source roots that are not
+                    // site-packages. Preserve those roots so library-code features can map typeshed stubs to the
+                    // real stdlib implementations while keeping site-packages controlled by the configured venv.
+                    pathResult.paths.forEach((path) => {
+                        const realCasePath = fs.realCasePath(path);
+                        if (
+                            !realCasePath.pathEndsWith(pathConsts.sitePackages) &&
+                            !realCasePath.pathEndsWith(pathConsts.distPackages)
+                        ) {
+                            addPathIfUnique(foundPaths, realCasePath);
+                        }
+                    });
+                }
+            }
+
             importLogger?.log(`Found the following '${pathConsts.sitePackages}' dirs`);
             foundPaths.forEach((path) => {
                 importLogger?.log(`  ${path}`);
@@ -101,7 +125,7 @@ export function findPythonSearchPaths(
     }
 
     // Fall back on the python interpreter.
-    const pathResult = host.getPythonSearchPaths(configOptions.pythonPath, importLogger);
+    const pathResult = host.getPythonSearchPaths(configOptions.pythonPath, importLogger, configOptions.projectRoot);
     if (includeWatchPathsOnly && workspaceRoot && !workspaceRoot.isEmpty()) {
         const paths = pathResult.paths
             .filter((p) => !p.startsWith(workspaceRoot) || p.startsWith(pathResult.prefix))
