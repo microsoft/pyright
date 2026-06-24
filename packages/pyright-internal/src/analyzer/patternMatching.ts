@@ -84,7 +84,6 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     preserveUnknown,
-    requiresSpecialization,
     specializeTupleClass,
     specializeWithUnknownTypeArgs,
     transformPossibleRecursiveTypeAlias,
@@ -762,12 +761,10 @@ function specializeBoundedMatchTypeParams(
     const typeArgs = matchType.shared.typeParams.map((param, index) => {
         const specializedArg = subjectTypeArgs?.[index] ?? solvedTypeArgs?.[index];
 
-        // Keep an argument that was solved to a concrete (non-bound, non-Unknown) type.
-        if (
-            specializedArg &&
-            !requiresSpecialization(specializedArg) &&
-            !containsAnyOrUnknown(specializedArg, /* recurse */ true)
-        ) {
+        // Keep an argument unless it is genuinely Unknown. A bare in-scope TypeVar
+        // (e.g. a subject `Thing[S]` from a generic function `def f[S: bool]`) is a
+        // legitimately narrowed argument and must not be widened to the bound.
+        if (specializedArg && !containsAnyOrUnknown(specializedArg, /* recurse */ true)) {
             return specializedArg;
         }
 

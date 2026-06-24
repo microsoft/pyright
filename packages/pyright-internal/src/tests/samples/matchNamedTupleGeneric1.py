@@ -57,3 +57,19 @@ def test_subclass(value: Sub) -> None:
     match value:
         case Base():
             reveal_type(value, expected_text="Sub")
+
+
+def f[S: bool](value: Thing[S]) -> None:
+    # The subject's type argument is an in-scope TypeVar. Matching must preserve
+    # the narrowed `S` rather than widening it to the bound `bool`.
+    match value:
+        case Thing():
+            reveal_type(value.foo, expected_text="S@f")
+
+
+def test_positional(value: object) -> None:
+    # Positional matching binds via __match_args__; confirm it still works for a
+    # generic NamedTuple whose parameter falls back to its bound.
+    match value:
+        case Thing(x):
+            reveal_type(x, expected_text="bool")
