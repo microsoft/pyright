@@ -242,6 +242,10 @@ extends:
           - job: wait_for_validation
             displayName: Wait for manual validation
             pool: server
+            templateContext:
+              mb:
+                publish:
+                  enabled: false
             steps:
               - task: ManualValidation@0
                 timeoutInMinutes: 120 # task times out in 2 hours
