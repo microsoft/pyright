@@ -212,6 +212,12 @@ test('With6', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('With7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with7.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Mro1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['mro1.py']);
 
