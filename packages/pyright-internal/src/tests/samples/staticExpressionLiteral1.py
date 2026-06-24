@@ -136,15 +136,19 @@ def negative(items: list[int], text: str, mapping: dict[str, int]) -> None:
 def strict_not_folding() -> None:
     a = not None
     assert_type(a, Literal[True])
-
     b = not 0
     assert_type(b, Literal[True])
-
     c = not 1
     assert_type(c, Literal[False])
-
     d = not []
     assert_type(d, Literal[True])
-
     e = not not None
     assert_type(e, Literal[False])
+    f = not {}
+    assert_type(f, Literal[True])
+    g = not {1, 2}
+    assert_type(g, Literal[False])
+    h = not [1]
+    assert_type(h, Literal[False])
+    i = not {1: 2}
+    assert_type(i, Literal[False])
