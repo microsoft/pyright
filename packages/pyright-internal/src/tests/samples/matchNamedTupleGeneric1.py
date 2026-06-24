@@ -73,3 +73,20 @@ def test_positional(value: object) -> None:
     match value:
         case Thing(x):
             reveal_type(x, expected_text="bool")
+
+
+class GenericBase[U]:
+    pass
+
+
+class BoundedDerived[T: bool](GenericBase[int]):
+    foo: T
+
+
+def test_generic_supertype(value: GenericBase[int]) -> None:
+    # `BoundedDerived` has a generic supertype `GenericBase[int]`. The fallback must
+    # read the pattern class's own unsolved bounded parameter (so `T` resolves to its
+    # bound `bool`), not the supertype's unrelated `int` type argument.
+    match value:
+        case BoundedDerived():
+            reveal_type(value.foo, expected_text="bool")

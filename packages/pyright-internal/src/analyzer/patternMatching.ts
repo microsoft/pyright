@@ -754,12 +754,17 @@ function narrowTypeBasedOnLiteralPattern(
 function specializeBoundedMatchTypeParams(
     evaluator: TypeEvaluator,
     matchType: ClassType,
-    subjectTypeArgs: Type[] | undefined,
     solvedTypeArgs: Type[] | undefined,
     condition: ReturnType<typeof getTypeCondition>
 ): Type {
+    // `solvedTypeArgs` is indexed by `matchType`'s own type parameters, so the
+    // caller must align it to the pattern class (e.g. pass `resultType.priv.typeArgs`
+    // where `resultType` is the same generic class). The subject's own type arguments
+    // must not be used here: the subject may be a different generic class (e.g. a
+    // generic supertype), and indexing it by the pattern class's parameters would
+    // misread unrelated arguments.
     const typeArgs = matchType.shared.typeParams.map((param, index) => {
-        const specializedArg = subjectTypeArgs?.[index] ?? solvedTypeArgs?.[index];
+        const specializedArg = solvedTypeArgs?.[index];
 
         // Keep an argument unless it is genuinely Unknown. A bare in-scope TypeVar
         // (e.g. a subject `Thing[S]` from a generic function `def f[S: bool]`) is a
@@ -1075,13 +1080,9 @@ function narrowTypeBasedOnClassPattern(
                                 (param) => isTypeVar(param) && param.shared.boundType
                             )
                         ) {
-                            const subjectTypeArgs = isClassInstance(subjectSubtypeExpanded)
-                                ? subjectSubtypeExpanded.priv.typeArgs
-                                : undefined;
                             resultType = specializeBoundedMatchTypeParams(
                                 evaluator,
                                 unexpandedSubtype,
-                                subjectTypeArgs,
                                 resultType.priv.typeArgs,
                                 getTypeCondition(subjectSubtypeExpanded)
                             );
