@@ -429,6 +429,14 @@ test('DataClassKwOnly1', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('DataClassKwOnly2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassKwOnly2.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('DataClassSlots1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_10;

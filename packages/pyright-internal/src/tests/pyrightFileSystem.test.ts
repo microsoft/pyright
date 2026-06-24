@@ -59,6 +59,35 @@ test('virtual file exists', () => {
     assert(!fs.existsSync(libraryRootUri.combinePaths('myLib-stubs')));
 });
 
+test('mapped symlinks reflect their targets', () => {
+    const testFs = new TestFileSystem(/* ignoreCase */ false, { cwd: normalizeSlashes('/') });
+    const stubPackage = combinePaths(libraryRoot, 'myLib-stubs');
+    const stubSource = combinePaths(normalizeSlashes('/'), 'wheel', 'partialStub.pyi');
+    const markerSource = combinePaths(normalizeSlashes('/'), 'wheel', 'py.typed');
+    const missingStub = combinePaths(stubPackage, 'missing.pyi');
+
+    testFs.mkdirpSync(combinePaths(libraryRoot, 'myLib'));
+    testFs.writeFileSync(Uri.file(combinePaths(libraryRoot, 'myLib', 'partialStub.py'), testFs), 'def test(): pass');
+    testFs.mkdirpSync(stubPackage);
+    testFs.mkdirpSync(getDirectoryPath(stubSource));
+    testFs.writeFileSync(Uri.file(stubSource, testFs), 'def test(): ...');
+    testFs.writeFileSync(Uri.file(markerSource, testFs), 'partial\n');
+    testFs.symlinkSync(stubSource, combinePaths(stubPackage, 'partialStub.pyi'));
+    testFs.symlinkSync(markerSource, combinePaths(stubPackage, 'py.typed'));
+    testFs.symlinkSync(combinePaths(normalizeSlashes('/'), 'wheel', 'missing.pyi'), missingStub);
+
+    const fs = new PyrightFileSystem(testFs);
+    const ps = new PartialStubService(fs);
+    ps.processPartialStubPackages([libraryRootUri], [libraryRootUri]);
+
+    const entries = fs.readdirEntriesSync(libraryRootUri.combinePaths('myLib'));
+    assert.strictEqual(2, entries.length);
+    const stubFile = entries.find((entry) => entry.name === 'partialStub.pyi');
+    assert.ok(stubFile, 'Expected partialStub.pyi');
+    assert(stubFile.isFile());
+    assert(!entries.some((entry) => entry.name === 'missing.pyi'));
+});
+
 test('virtual file coexists with real', () => {
     const files = [
         {

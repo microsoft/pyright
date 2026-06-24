@@ -68,6 +68,8 @@ import {
     UnknownType,
 } from './types';
 import {
+    applySolvedTypeVars,
+    buildSolution,
     cleanIncompleteUnknown,
     derivesFromStdlibClass,
     doForEachSubtype,
@@ -1977,6 +1979,16 @@ export function getCodeFlowEngine(
                         ) {
                             returnType = returnType.priv.typeArgs[2];
                         }
+                    }
+
+                    // Generic context managers can declare __exit__ as returning a TypeVar
+                    // that isn't necessarily the first type parameter. Specialize the declared
+                    // return type using the context manager instance's type arguments.
+                    if (cmType.shared.typeParams.length > 0 && cmType.priv.typeArgs) {
+                        returnType = applySolvedTypeVars(
+                            returnType,
+                            buildSolution(cmType.shared.typeParams, cmType.priv.typeArgs)
+                        );
                     }
 
                     cmSwallowsExceptions = false;
