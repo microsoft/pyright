@@ -1,6 +1,6 @@
 # This sample tests generic NamedTuple class pattern matching.
 
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 
 class Thing[T: bool](NamedTuple):
@@ -90,3 +90,53 @@ def test_generic_supertype(value: GenericBase[int]) -> None:
     match value:
         case BoundedDerived():
             reveal_type(value.foo, expected_text="bool")
+
+
+# The following cases guard against regression #11526: a subject that already
+# carries a concretely-solved type argument must keep that argument after a class
+# pattern match rather than being widened to the type parameter's bound. This is
+# true even when the solved argument is implicitly parameterized (bare `list` is
+# `list[Unknown]`, `dict` is `dict[Unknown, Unknown]`, etc.).
+
+
+class Wrapper[A: str | list]:
+    data: A
+
+
+def test_solved_bare_list(obj: Wrapper[list]) -> list:
+    match obj:
+        case Wrapper(data=data):
+            reveal_type(data, expected_text="list[Unknown]")
+            return data
+
+
+def test_solved_bare_list_instance(obj: Wrapper[list]) -> list:
+    match obj:
+        case Wrapper():
+            reveal_type(obj.data, expected_text="list[Unknown]")
+            return obj.data
+
+
+def test_solved_list_any(obj: Wrapper[list[Any]]) -> list:
+    match obj:
+        case Wrapper(data=data):
+            reveal_type(data, expected_text="list[Any]")
+            return data
+
+
+def test_solved_list_int(obj: Wrapper[list[int]]) -> list[int]:
+    match obj:
+        case Wrapper(data=data):
+            reveal_type(data, expected_text="list[int]")
+            return data
+
+
+class MultiWrapper[A: str | dict]:
+    data: A
+
+
+def test_solved_bare_dict(obj: MultiWrapper[dict]) -> dict:
+    match obj:
+        case MultiWrapper(data=data):
+            reveal_type(data, expected_text="dict[Unknown, Unknown]")
+            return data
