@@ -201,8 +201,8 @@ import {
     ClassTypeResult,
     DeclaredSymbolTypeInfo,
     EffectiveTypeResult,
-    EvalFlags,
     ensureExpectedTypeCandidates,
+    EvalFlags,
     EvaluatorUsage,
     ExpectedTypeOptions,
     ExpectedTypeResult,
@@ -363,6 +363,7 @@ import {
     requiresTypeArgs,
     selfSpecializeClass,
     simplifyFunctionToParamSpec,
+    someSubtypes,
     sortTypes,
     specializeForBaseClass,
     specializeTupleClass,
@@ -1117,10 +1118,7 @@ export function createTypeEvaluator(
 
                 if (isAny(anySpecialForm)) {
                     TypeBase.setSpecialForm(anySpecialForm, anyClass);
-
-                    if (isTypeFormSupported(node)) {
-                        TypeBase.setTypeForm(anySpecialForm, convertToInstance(anySpecialForm));
-                    }
+                    TypeBase.setTypeForm(anySpecialForm, convertToInstance(anySpecialForm));
                 }
             }
         }
@@ -1314,7 +1312,7 @@ export function createTypeEvaluator(
                     expectingInstantiable = false;
                 }
 
-                typeResult = getTypeOfStringList(node, flags);
+                typeResult = getTypeOfStringList(node, flags, inferenceContext);
                 break;
             }
 
@@ -1656,7 +1654,11 @@ export function createTypeEvaluator(
         return typeResult;
     }
 
-    function getTypeOfStringList(node: StringListNode, flags: EvalFlags): TypeResult {
+    function getTypeOfStringList(
+        node: StringListNode,
+        flags: EvalFlags,
+        inferenceContext?: InferenceContext
+    ): TypeResult {
         let typeResult: TypeResult | undefined;
 
         if ((flags & EvalFlags.StrLiteralAsType) !== 0 && (flags & EvalFlags.TypeFormArg) === 0) {
@@ -1743,11 +1745,18 @@ export function createTypeEvaluator(
             };
         }
 
-        if (
-            node.d.strings.length !== 1 ||
-            node.d.strings[0].nodeType !== ParseNodeType.String ||
-            !isTypeFormSupported(node)
-        ) {
+        if (node.d.strings.length !== 1 || node.d.strings[0].nodeType !== ParseNodeType.String) {
+            return typeResult;
+        }
+
+        // Only attempt to interpret the string as a TypeForm forward reference when
+        // there's a signal that a TypeForm value is wanted in this context. Doing it
+        // unconditionally can trigger expensive (and recursion-prone) type lookups
+        // for plain string literals in non-type contexts.
+        const wantsTypeForm =
+            (flags & EvalFlags.TypeFormArg) !== 0 ||
+            (inferenceContext !== undefined && expectedTypeWantsTypeForm(inferenceContext.expectedType));
+        if (!wantsTypeForm) {
             return typeResult;
         }
 
@@ -5061,10 +5070,6 @@ export function createTypeEvaluator(
     }
 
     function addTypeFormForSymbol(node: ExpressionNode, type: Type, flags: EvalFlags, includesVarDecl: boolean): Type {
-        if (!isTypeFormSupported(node)) {
-            return type;
-        }
-
         const isValid = isSymbolValidTypeExpression(type, includesVarDecl);
 
         // If the type already has type information associated with it, don't replace.
@@ -7706,9 +7711,7 @@ export function createTypeEvaluator(
             typeArgs: aliasTypeArgs,
         });
 
-        if (isTypeFormSupported(node)) {
-            type = TypeBase.cloneWithTypeForm(type, reportedError ? undefined : convertToInstance(type));
-        }
+        type = TypeBase.cloneWithTypeForm(type, reportedError ? undefined : convertToInstance(type));
 
         if (baseType.props?.typeAliasInfo) {
             return { type, node };
@@ -8879,7 +8882,7 @@ export function createTypeEvaluator(
         }
 
         const typeFormResult = getTypeOfArgExpectingType(convertNodeToArg(node.d.args[0]), {
-            typeFormArg: isTypeFormSupported(node),
+            typeFormArg: true,
             noNonTypeSpecialForms: true,
             typeExpression: true,
         });
@@ -13901,9 +13904,7 @@ export function createTypeEvaluator(
                         ? prefetched.noneTypeClass
                         : convertToInstance(prefetched.noneTypeClass);
 
-                if (isTypeFormSupported(node)) {
-                    type = TypeBase.cloneWithTypeForm(type, convertToInstance(type));
-                }
+                type = TypeBase.cloneWithTypeForm(type, convertToInstance(type));
             }
         } else if (
             node.d.constType === KeywordType.True ||
@@ -15787,7 +15788,7 @@ export function createTypeEvaluator(
             FunctionType.addParamSpecVariadics(functionType, convertToInstance(paramSpec));
         }
 
-        if (isTypeFormSupported(errorNode) && isValidTypeForm) {
+        if (isValidTypeForm) {
             functionType = TypeBase.cloneWithTypeForm(functionType, convertToInstance(functionType));
         }
 
@@ -16003,7 +16004,7 @@ export function createTypeEvaluator(
             result = TypeBase.cloneAsSpecialForm(result, ClassType.cloneAsInstance(prefetched.unionTypeClass));
         }
 
-        if (isTypeFormSupported(node) && isValidTypeForm) {
+        if (isValidTypeForm) {
             result = TypeBase.cloneWithTypeForm(result, convertToInstance(result));
         }
 
@@ -16074,9 +16075,7 @@ export function createTypeEvaluator(
         });
         let resultType = ClassType.specialize(classType, convertedTypeArgs);
 
-        if (isTypeFormSupported(errorNode)) {
-            resultType = TypeBase.cloneWithTypeForm(resultType, convertToInstance(resultType));
-        }
+        resultType = TypeBase.cloneWithTypeForm(resultType, convertToInstance(resultType));
 
         return resultType;
     }
@@ -16108,9 +16107,7 @@ export function createTypeEvaluator(
 
         let resultType = ClassType.specialize(classType, convertedTypeArgs);
 
-        if (isTypeFormSupported(errorNode)) {
-            resultType = TypeBase.cloneWithTypeForm(resultType, convertToInstance(resultType));
-        }
+        resultType = TypeBase.cloneWithTypeForm(resultType, convertToInstance(resultType));
 
         return resultType;
     }
@@ -16713,7 +16710,7 @@ export function createTypeEvaluator(
             if (unionType.props?.typeForm) {
                 unionType = TypeBase.cloneWithTypeForm(unionType, undefined);
             }
-        } else if (isTypeFormSupported(errorNode)) {
+        } else {
             const typeFormType = combineTypes(types.map((t) => t.props!.typeForm!));
             unionType = TypeBase.cloneWithTypeForm(unionType, typeFormType);
         }
@@ -17074,9 +17071,7 @@ export function createTypeEvaluator(
                 specialType.shared.baseClasses.push(prefetched?.strClass ?? AnyType.create());
                 computeMroLinearization(specialType);
 
-                if (isTypeFormSupported(node)) {
-                    specialType = TypeBase.cloneWithTypeForm(specialType, convertToInstance(specialType));
-                }
+                specialType = TypeBase.cloneWithTypeForm(specialType, convertToInstance(specialType));
             }
 
             // Handle 'Never' and 'NoReturn' specially.
@@ -17086,9 +17081,7 @@ export function createTypeEvaluator(
                     specialType
                 );
 
-                if (isTypeFormSupported(node)) {
-                    specialType = TypeBase.cloneWithTypeForm(specialType, convertToInstance(specialType));
-                }
+                specialType = TypeBase.cloneWithTypeForm(specialType, convertToInstance(specialType));
             }
 
             writeTypeCache(node, { type: specialType }, EvalFlags.None);
@@ -21298,9 +21291,7 @@ export function createTypeEvaluator(
 
                     let resultType = aliasedName === 'Never' ? NeverType.createNever() : NeverType.createNoReturn();
                     resultType = TypeBase.cloneAsSpecialForm(resultType, classType);
-                    if (isTypeFormSupported(errorNode)) {
-                        resultType = TypeBase.cloneWithTypeForm(resultType, convertToInstance(resultType));
-                    }
+                    resultType = TypeBase.cloneWithTypeForm(resultType, convertToInstance(resultType));
 
                     return { type: resultType };
                 }
@@ -21322,9 +21313,7 @@ export function createTypeEvaluator(
                         typeType = explodeGenericClass(typeType);
                     }
 
-                    if (isTypeFormSupported(errorNode)) {
-                        typeType = TypeBase.cloneWithTypeForm(typeType, convertToInstance(typeType));
-                    }
+                    typeType = TypeBase.cloneWithTypeForm(typeType, convertToInstance(typeType));
 
                     return { type: typeType };
                 }
@@ -21484,9 +21473,7 @@ export function createTypeEvaluator(
                         typeType = explodeGenericClass(typeType);
                     }
 
-                    if (isTypeFormSupported(errorNode)) {
-                        typeType = TypeBase.cloneWithTypeForm(typeType, convertToInstance(typeType));
-                    }
+                    typeType = TypeBase.cloneWithTypeForm(typeType, convertToInstance(typeType));
 
                     return { type: typeType };
                 }
@@ -21503,12 +21490,7 @@ export function createTypeEvaluator(
                     /* isSpecialForm */ false
                 );
 
-                if (isTypeFormSupported(errorNode)) {
-                    specializedClass = TypeBase.cloneWithTypeForm(
-                        specializedClass,
-                        convertToInstance(specializedClass)
-                    );
-                }
+                specializedClass = TypeBase.cloneWithTypeForm(specializedClass, convertToInstance(specializedClass));
 
                 return { type: specializedClass };
             }
@@ -21769,12 +21751,10 @@ export function createTypeEvaluator(
 
         let specializedClass = ClassType.specialize(classType, typeArgTypes, typeArgs !== undefined);
 
-        if (isTypeFormSupported(errorNode)) {
-            specializedClass = TypeBase.cloneWithTypeForm(
-                specializedClass,
-                isValidTypeForm ? convertToInstance(specializedClass) : undefined
-            );
-        }
+        specializedClass = TypeBase.cloneWithTypeForm(
+            specializedClass,
+            isValidTypeForm ? convertToInstance(specializedClass) : undefined
+        );
 
         return { type: specializedClass };
     }
@@ -25652,6 +25632,13 @@ export function createTypeEvaluator(
         return isAssignable;
     }
 
+    function expectedTypeWantsTypeForm(expectedType: Type): boolean {
+        return someSubtypes(
+            expectedType,
+            (subtype) => isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'TypeForm')
+        );
+    }
+
     // If the expected type is an explicit TypeForm type, see if the source
     // type has an implicit TypeForm type that can be assigned to it. If so,
     // convert to an explicit TypeForm type.
@@ -28766,13 +28753,6 @@ export function createTypeEvaluator(
         }
 
         return { sourceType: simpleSrcType, destType: simpleDestType };
-    }
-
-    function isTypeFormSupported(node: ParseNode) {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-
-        // For now, enable only if enableExperimentalFeatures is true.
-        return fileInfo.diagnosticRuleSet.enableExperimentalFeatures;
     }
 
     function printType(type: Type, options?: PrintTypeOptions): string {
