@@ -766,10 +766,14 @@ function specializeBoundedMatchTypeParams(
     const typeArgs = matchType.shared.typeParams.map((param, index) => {
         const specializedArg = solvedTypeArgs?.[index];
 
-        // Keep an argument unless it is genuinely Unknown. A bare in-scope TypeVar
-        // (e.g. a subject `Thing[S]` from a generic function `def f[S: bool]`) is a
-        // legitimately narrowed argument and must not be widened to the bound.
-        if (specializedArg && !containsAnyOrUnknown(specializedArg, /* recurse */ true)) {
+        // Keep an argument unless it is the unsolved sentinel (a bare top-level
+        // Unknown left by the constraint solver when the subject carried no type
+        // arguments). A concrete argument that is merely implicitly parameterized -
+        // e.g. bare `list` (`list[Unknown]`) or `dict` (`dict[Unknown, Unknown]`) - is
+        // a real, solved type and must be preserved rather than widened to the bound.
+        // A bare in-scope TypeVar (e.g. a subject `Thing[S]` from a generic function
+        // `def f[S: bool]`) is likewise a legitimately narrowed argument.
+        if (specializedArg && !isUnknown(specializedArg)) {
             return specializedArg;
         }
 
