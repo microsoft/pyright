@@ -1748,7 +1748,7 @@ export function createTypeEvaluator(
         if (node.d.strings.length !== 1 || node.d.strings[0].nodeType !== ParseNodeType.String) {
             return typeResult;
         }
-        
+
         // Only attempt to interpret the string as a TypeForm forward reference when
         // there's a signal that a TypeForm value is wanted in this context. Doing it
         // unconditionally can trigger expensive (and recursion-prone) type lookups
