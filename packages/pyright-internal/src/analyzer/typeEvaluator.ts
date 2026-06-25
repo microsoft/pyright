@@ -363,6 +363,7 @@ import {
     requiresTypeArgs,
     selfSpecializeClass,
     simplifyFunctionToParamSpec,
+    someSubtypes,
     sortTypes,
     specializeForBaseClass,
     specializeTupleClass,
@@ -25578,13 +25579,10 @@ export function createTypeEvaluator(
     }
 
     function expectedTypeWantsTypeForm(expectedType: Type): boolean {
-        let result = false;
-        doForEachSubtype(expectedType, (subtype) => {
-            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'TypeForm')) {
-                result = true;
-            }
-        });
-        return result;
+        return someSubtypes(
+            expectedType,
+            (subtype) => isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'TypeForm')
+        );
     }
 
     // If the expected type is an explicit TypeForm type, see if the source
