@@ -1042,3 +1042,11 @@ test('TypeForm7', () => {
 
     TestUtils.validateResults(analysisResults, 1);
 });
+
+test('TypeForm8', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm8.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
