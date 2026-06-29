@@ -53,6 +53,24 @@ assert_type(struct.unpack("i i", buffer), tuple[int, int])
 # A format string consisting only of a byte-order character is an empty tuple.
 assert_type(struct.unpack("@", buffer), tuple[()])
 
+# A zero repeat count produces no elements.
+assert_type(struct.unpack("0i", buffer), tuple[()])
+
+# 'n', 'N' and 'P' are valid only in native mode (no prefix or '@').
+assert_type(struct.unpack("nNP", buffer), tuple[int, int, int])
+assert_type(struct.unpack("@nNP", buffer), tuple[int, int, int])
+
+
+# A repeat count just above `maxStructUnpackElementCount` (256) falls back to
+# the declared return type.
+assert_type(struct.unpack("257i", buffer), tuple[Any, ...])
+
+# 'n', 'N' and 'P' under an explicit byte-order prefix are invalid at runtime,
+# so they fall back to the declared return type.
+assert_type(struct.unpack("<n", buffer), tuple[Any, ...])
+assert_type(struct.unpack("=N", buffer), tuple[Any, ...])
+assert_type(struct.unpack(">P", buffer), tuple[Any, ...])
+
 
 # An unrecognized format code falls back to the declared return type.
 assert_type(struct.unpack("<2z", buffer), tuple[Any, ...])

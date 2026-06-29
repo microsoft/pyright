@@ -250,8 +250,12 @@ function parseStructFormat(format: string): StructElementType[] | undefined {
     const elements: StructElementType[] = [];
     let index = 0;
 
-    // An optional leading byte-order/size/alignment character.
+    // An optional leading byte-order/size/alignment character. The 'n', 'N',
+    // and 'P' codes are only valid in native mode (no prefix or '@'); under an
+    // explicit byte-order prefix ('=', '<', '>', '!') they raise struct.error.
+    let isNativeMode = true;
     if (index < format.length && '@=<>!'.includes(format[index])) {
+        isNativeMode = format[index] === '@';
         index++;
     }
 
@@ -290,7 +294,7 @@ function parseStructFormat(format: string): StructElementType[] | undefined {
         const code = format[index];
         index++;
 
-        const elementKind = getStructElementType(code);
+        const elementKind = getStructElementType(code, isNativeMode);
         if (elementKind === undefined) {
             return undefined;
         }
@@ -318,7 +322,7 @@ function parseStructFormat(format: string): StructElementType[] | undefined {
     return elements;
 }
 
-function getStructElementType(code: string): StructElementType | 'pad' | undefined {
+function getStructElementType(code: string, isNativeMode: boolean): StructElementType | 'pad' | undefined {
     switch (code) {
         case 'x':
             return 'pad';
@@ -338,10 +342,15 @@ function getStructElementType(code: string): StructElementType | 'pad' | undefin
         case 'L':
         case 'q':
         case 'Q':
+            return 'int';
+
         case 'n':
         case 'N':
         case 'P':
-            return 'int';
+            // These codes are only available in native mode (no prefix or '@').
+            // Under an explicit byte-order prefix they are invalid, so fall back
+            // to the declared return type rather than synthesizing 'int'.
+            return isNativeMode ? 'int' : undefined;
 
         case '?':
             return 'bool';
