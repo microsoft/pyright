@@ -105,6 +105,11 @@ test('OverloadImpl2', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('OverloadImpl3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadImpl3.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('OverloadOverlap1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
