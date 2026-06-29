@@ -232,6 +232,13 @@ export interface AddConditionOptions {
     skipBoundTypeVars?: boolean;
 }
 
+// There are cases where tuple types can be infinitely nested. The
+// recursion count limit will eventually be hit, but this will create
+// deep types that are expensive to construct. As a performance safeguard,
+// we limit the depth of the tuple type arguments. This value is large
+// enough that we should never hit it in legitimate circumstances.
+const maxTupleTypeArgRecursionDepth = 10;
+
 // Tracks whether a function signature has been seen before within
 // an expression. For example, in the expression "foo(foo, foo)", the
 // signature for "foo" will be seen three times at three different
@@ -3716,6 +3723,16 @@ export class TypeVarTransformer {
 
         // Handle tuples specially.
         if (ClassType.isTupleClass(classType)) {
+            // As a performance safeguard, bail out early on very deeply nested
+            // tuples (the recursion count limit would eventually stop us, but
+            // constructing such deep types is expensive). Only do this when there
+            // are no type variables left to substitute; bailing out while type
+            // variables remain would return the unspecialized class and let those
+            // TypeVars "escape" unsolved (see microsoft/pyright#11472).
+            if (getContainerDepth(classType) > maxTupleTypeArgRecursionDepth && !requiresSpecialization(classType)) {
+                return classType;
+            }
+
             if (classType.priv.tupleTypeArgs) {
                 newTupleTypeArgs = [];
 

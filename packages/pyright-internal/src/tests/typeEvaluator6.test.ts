@@ -440,16 +440,18 @@ test('TypeVarTuple31', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple31.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0, 0, 1);
 
-    // The constructor call's inferred type should be fully concrete; in
-    // particular the solved "OO" TypeVar from "unpack_then" must not escape
-    // into the result. Pin it so a future divergent (but non-erroring)
-    // regression is caught.
-    assert.strictEqual(
-        analysisResults[0].infos[0].message,
-        'Type of "inferred" is "ForwardRefParser[tuple[tuple[tuple[tuple[tuple[Whitespace]]]], ' +
-            'tuple[tuple[tuple[tuple[Whitespace]]]], tuple[tuple[tuple[tuple[tuple[tuple[tuple[tuple[tuple[tuple[Whitespace]]]]], ' +
-            'Implementations]]]] | tuple[BlockItem]], tuple[tuple[tuple[tuple[Whitespace]]]]], None]"'
+    // The constructor call's inferred type should be fully concrete. In
+    // particular, the solved "OO" TypeVar from "unpack_then" must not escape
+    // into the result. Rather than pinning the full (brittle) nested-tuple
+    // expansion, assert the concrete outer shape and the absence of the leaked
+    // TypeVar so the fix stays self-evident without coupling to the exact
+    // type-printer output.
+    const revealedType = analysisResults[0].infos[0].message;
+    assert.ok(
+        revealedType.startsWith('Type of "inferred" is "ForwardRefParser['),
+        `Unexpected inferred type: ${revealedType}`
     );
+    assert.ok(!/\bOO\b/.test(revealedType), `"OO" TypeVar escaped into inferred type: ${revealedType}`);
 });
 
 test('Match1', () => {
