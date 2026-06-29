@@ -381,6 +381,18 @@ export function synthesizeDataClassMethods(
                         const annotatedType = variableTypeEvaluator();
 
                         if (isClassInstance(annotatedType) && ClassType.isBuiltIn(annotatedType, 'KW_ONLY')) {
+                            // CPython raises a TypeError if more than one KW_ONLY
+                            // separator appears within a single dataclass.
+                            if (sawKeywordOnlySeparator) {
+                                evaluator.addDiagnostic(
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    LocMessage.dataClassDuplicateKwOnly().format({
+                                        name: variableNameNode.d.value,
+                                    }),
+                                    variableNameNode
+                                );
+                            }
+
                             sawKeywordOnlySeparator = true;
                             variableNameNode = undefined;
                             typeAnnotationNode = undefined;

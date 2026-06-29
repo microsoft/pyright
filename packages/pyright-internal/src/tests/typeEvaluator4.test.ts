@@ -426,7 +426,7 @@ test('DataClassKwOnly1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassKwOnly1.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('DataClassKwOnly2', () => {
