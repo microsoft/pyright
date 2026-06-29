@@ -682,6 +682,113 @@ test('file changes cause semantic update', () => {
     assert.strictEqual(openFile.semanticVersion, oldSemanticVersion + 1);
 });
 
+test('setFileClosed drops tokenizer cache but keeps tracked parse tree and token comments', () => {
+    const code = `
+// @filename: test.py
+//// # module lead
+//// # lifetime comment retained on token
+//// def f():
+////     pass
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const sourceFileInfo = program.getSourceFileInfo(uri);
+    assert(sourceFileInfo);
+
+    const writableData = (sourceFileInfo.sourceFile as any)._writableData;
+    assert(writableData.parserOutput);
+    assert(writableData.tokenizerOutput);
+    assert(writableData.parsedFileContents?.includes('lifetime comment retained on token'));
+
+    program.setFileClosed(uri);
+
+    assert.strictEqual(program.getSourceFileInfo(uri), sourceFileInfo);
+    assert.strictEqual(sourceFileInfo.isOpenByClient, false);
+    assert.strictEqual(writableData.clientDocumentContents, undefined);
+    assert.strictEqual(writableData.tokenizerOutput, undefined);
+    assert(writableData.parserOutput);
+    assert(writableData.parsedFileContents?.includes('lifetime comment retained on token'));
+
+    const functionNode = writableData.parserOutput.parseTree.d.statements[0];
+    assert.deepStrictEqual(
+        functionNode.d.firstToken.comments?.map((comment: any) => comment.value),
+        [' lifetime comment retained on token']
+    );
+});
+
+test('updateOpenFileContents clears evaluator cache but private stale parse output survives until reparse', () => {
+    const code = `
+// @filename: test.py
+//// class C:
+////     value: int = 1
+////
+//// c = C()
+//// reveal_type(c.value)
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const sourceFileInfo = program.getSourceFileInfo(uri);
+    assert(sourceFileInfo);
+
+    const writableData = (sourceFileInfo.sourceFile as any)._writableData;
+    const oldParserOutput = writableData.parserOutput;
+    assert(oldParserOutput);
+    assert(program.evaluator);
+    assert((program.evaluator as any).getTypeCacheEntryCount() > 0);
+
+    state.workspace.service.updateOpenFileContents(uri, 2, `${state.testFS.readFileSync(uri, 'utf8')}\nother = 1\n`);
+
+    assert(program.evaluator);
+    assert.strictEqual((program.evaluator as any).getTypeCacheEntryCount(), 0);
+    assert.strictEqual(sourceFileInfo.sourceFile.getParserOutput(), undefined);
+    assert.strictEqual(writableData.parserOutput, oldParserOutput);
+});
+
+test('emptyCache drops retained parse tree and parsed contents for closed tracked file', () => {
+    const code = `
+// @filename: test.py
+//// # lifetime source text
+//// value = 1
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const sourceFileInfo = program.getSourceFileInfo(uri);
+    assert(sourceFileInfo);
+
+    const writableData = (sourceFileInfo.sourceFile as any)._writableData;
+    assert(writableData.parserOutput);
+    assert(writableData.parsedFileContents?.includes('lifetime source text'));
+
+    program.setFileClosed(uri);
+    program.emptyCache();
+
+    assert.strictEqual(program.getSourceFileInfo(uri), sourceFileInfo);
+    assert.strictEqual(writableData.parserOutput, undefined);
+    assert.strictEqual(writableData.parsedFileContents, undefined);
+    assert.strictEqual(writableData.moduleSymbolTable, undefined);
+});
+
 function testSourceFileWatchChange(code: string, expected = true, isFile = true) {
     const state = parseAndGetTestState(code, '/projectRoot').state;
     const marker = state.getMarkerByName('marker');
