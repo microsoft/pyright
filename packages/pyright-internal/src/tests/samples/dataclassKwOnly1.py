@@ -56,3 +56,35 @@ class DC4(DC3):
 
 DC4("", 0.2, b=3)
 DC4(a="", b=3, c=0.2)
+
+
+# This tests that the KW_ONLY separator is recognized even when it
+# is assigned to a name other than "_".
+@dataclass
+class DC5:
+    a: str
+    __: KW_ONLY
+    b: int = 0
+
+
+DC5("hi")
+DC5(a="hi", b=1)
+DC5("hi", b=1)
+
+# This should generate an error because "b" is keyword-only.
+DC5("hi", 1)
+
+
+# This tests that a duplicate KW_ONLY separator is flagged. CPython raises a
+# TypeError at runtime if more than one KW_ONLY separator appears.
+@dataclass
+class DC6:
+    a: str
+    _: KW_ONLY
+    b: int = 0
+    # This should generate an error because only one KW_ONLY separator is allowed.
+    __: KW_ONLY
+    c: int = 0
+
+
+DC6("hi", b=1, c=2)
