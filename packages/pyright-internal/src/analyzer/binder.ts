@@ -49,6 +49,7 @@ import {
     IfNode,
     ImportAsNode,
     ImportFromNode,
+    ImportNode,
     IndexNode,
     LambdaNode,
     MatchNode,
@@ -2092,6 +2093,7 @@ export class Binder extends ParseTreeWalker {
                             usesLocalName: false,
                             moduleName: this._formatModuleName(node.d.module),
                             isInExceptSuite: this._isInExceptSuite,
+                            isLazy: node.d.isLazy || undefined,
                         };
 
                         // Handle the case where this is an __init__.py file and the imported
@@ -2120,6 +2122,7 @@ export class Binder extends ParseTreeWalker {
                         moduleName: this._formatModuleName(node.d.module),
                         isInExceptSuite: this._isInExceptSuite,
                         isNativeLib: importInfo?.isNativeLib,
+                        isLazy: node.d.isLazy || undefined,
                     };
 
                     symbol.addDeclaration(aliasDecl);
@@ -2775,8 +2778,20 @@ export class Binder extends ParseTreeWalker {
         const isResolved =
             importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedUris.length > 0;
 
+        // Determine whether this import was declared with the "lazy" keyword (PEP 810).
+        const isLazy =
+            node.nodeType === ParseNodeType.ImportAs
+                ? (node.parent as ImportNode | undefined)?.d?.isLazy === true
+                : node.d.isLazy === true;
+
         if (existingDecl) {
             newDecl = existingDecl as AliasDeclaration;
+
+            // Reconcile laziness: if any eager import path exists for this symbol,
+            // the declaration is not lazy (PEP 810).
+            if (!isLazy) {
+                newDecl.isLazy = undefined;
+            }
         } else if (isResolved) {
             newDecl = {
                 type: DeclarationType.Alias,
@@ -2790,6 +2805,7 @@ export class Binder extends ParseTreeWalker {
                     : '.'.repeat(node.d.module.d.leadingDots) + firstNamePartValue,
                 firstNamePart: firstNamePartValue,
                 isInExceptSuite: this._isInExceptSuite,
+                isLazy: isLazy || undefined,
             };
         } else {
             // If we couldn't resolve the import, create a dummy declaration with a
@@ -2808,6 +2824,7 @@ export class Binder extends ParseTreeWalker {
                     : '.'.repeat(node.d.module.d.leadingDots) + firstNamePartValue,
                 isUnresolved: true,
                 isInExceptSuite: this._isInExceptSuite,
+                isLazy: isLazy || undefined,
             };
         }
 
@@ -4359,6 +4376,30 @@ export class Binder extends ParseTreeWalker {
     private _addWildcardImportedModuleAlias(node: ImportFromNode, localSymbol: Symbol, importedSymbol: Symbol) {
         const importedModuleAliasDecl = this._getMultipartModuleAliasDeclaration(importedSymbol);
         if (!importedModuleAliasDecl) {
+            return false;
+        }
+
+        // The imported symbol may be both an implicitly-imported submodule and a
+        // class/function/variable of the same name (e.g. a package that re-exports
+        // a class whose name matches a submodule). In that case the non-module
+        // declaration appears later in the declaration list and "wins" when the
+        // symbol is resolved. Only treat this wildcard re-export as a pure submodule
+        // re-export when the module alias is the symbol's last declaration;
+        // otherwise fall through so a normal alias declaration is created that
+        // resolves to the winning symbol.
+        //
+        // We compare against the raw last declaration (not getLastTypedDeclarationForSymbol)
+        // on purpose: a module alias is a DeclarationType.Alias, which hasTypeForDeclaration
+        // treats as untyped, so it never appears among a symbol's typed declarations.
+        // The evaluator resolves alias symbols (like this one, whose declarations are all
+        // imports) by declaration order, so the last declaration is the relevant "winner"
+        // here. When this guard falls through, the alias created by the caller resolves to
+        // the winning (e.g. class) declaration and intentionally has no submoduleFallback:
+        // the class shadows the submodule, so submodule member access through the
+        // re-exported name is no longer offered. The genuine-submodule case (where the
+        // module alias is the last declaration) keeps its module/submodule behavior.
+        const importedDecls = importedSymbol.getDeclarations();
+        if (importedDecls[importedDecls.length - 1] !== importedModuleAliasDecl) {
             return false;
         }
 

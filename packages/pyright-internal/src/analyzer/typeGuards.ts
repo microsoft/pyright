@@ -1081,6 +1081,32 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
     });
 }
 
+// Walks a chain of NewType instances down to the innermost non-NewType base
+// instance (e.g. NewType("Y", NewType("X", bool)) -> an instance of bool).
+// Returns undefined if `subtype` is not a NewType instance or its base cannot
+// be resolved to a class.
+function getInnermostNewTypeBaseInstance(subtype: Type): Type | undefined {
+    if (!isClassInstance(subtype) || !ClassType.isNewTypeClass(subtype)) {
+        return undefined;
+    }
+
+    let currentType: Type = subtype;
+    while (isClassInstance(currentType) && ClassType.isNewTypeClass(currentType)) {
+        if (currentType.shared.baseClasses.length === 0) {
+            return undefined;
+        }
+
+        const baseClass = currentType.shared.baseClasses[0];
+        if (!isClass(baseClass)) {
+            return undefined;
+        }
+
+        currentType = ClassType.cloneAsInstance(baseClass);
+    }
+
+    return currentType;
+}
+
 // Handle type narrowing for expressions of the form "x is None" and "x is not None".
 function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean) {
     const expandedType = mapSubtypes(type, (subtype) => {
@@ -1128,6 +1154,18 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
 
             const adjustedSubtype = useExpandedSubtype ? subtype : unexpandedSubtype;
 
+            // A NewType whose innermost base is exactly None (e.g. NewType("Apple", NoneType))
+            // can be identity-compared with None: keep the NewType identity on the positive
+            // branch and eliminate it on the negative branch. A NewType whose base is merely
+            // None-compatible (e.g. NewType("Obj", object)) is intentionally not handled here;
+            // it falls through to the generic checks below so that "is not None" does not
+            // incorrectly collapse to Never.
+            const newTypeBaseInstance = getInnermostNewTypeBaseInstance(adjustedSubtype);
+            if (newTypeBaseInstance && isNoneInstance(newTypeBaseInstance)) {
+                resultIncludesNoneSubtype = true;
+                return isPositiveTest ? adjustedSubtype : undefined;
+            }
+
             // Is it an exact match for None?
             if (isNoneInstance(subtype)) {
                 resultIncludesNoneSubtype = true;
@@ -1151,7 +1189,8 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
     // of the subtypes are None types with conditions, retain those.
     if (isPositiveTest && resultIncludesNoneSubtype) {
         return mapSubtypes(result, (subtype) => {
-            return isNoneInstance(subtype) ? subtype : undefined;
+            const baseInstance = getInnermostNewTypeBaseInstance(subtype);
+            return isNoneInstance(subtype) || (baseInstance && isNoneInstance(baseInstance)) ? subtype : undefined;
         });
     }
 
@@ -1193,6 +1232,15 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, node: ExpressionNode,
                     ? unexpandedSubtype
                     : subtype;
 
+            // Only a NewType whose innermost base is exactly the ellipsis type is treated
+            // as the singleton (see narrowTypeForIsNone for the rationale); a merely
+            // ellipsis-compatible base falls through so "is not ..." does not collapse to Never.
+            const newTypeBaseInstance = getInnermostNewTypeBaseInstance(adjustedSubtype);
+            if (newTypeBaseInstance && isEllipsisInstance(newTypeBaseInstance)) {
+                resultIncludesEllipsisSubtype = true;
+                return isPositiveTest ? adjustedSubtype : undefined;
+            }
+
             // Is it an exact match for ellipsis?
             if (isEllipsisInstance(subtype)) {
                 resultIncludesEllipsisSubtype = true;
@@ -1214,7 +1262,10 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, node: ExpressionNode,
     // of the subtypes are ellipsis types with conditions, retain those.
     if (isPositiveTest && resultIncludesEllipsisSubtype) {
         return mapSubtypes(result, (subtype) => {
-            return isEllipsisInstance(subtype) ? subtype : undefined;
+            const baseInstance = getInnermostNewTypeBaseInstance(subtype);
+            return isEllipsisInstance(subtype) || (baseInstance && isEllipsisInstance(baseInstance))
+                ? subtype
+                : undefined;
         });
     }
 
@@ -2741,8 +2792,13 @@ function narrowTypeForLiteralComparison(
             }
 
             if (isIsOperator || isNoneInstance(subtype)) {
-                const isSubtype = evaluator.assignType(subtype, literalType);
-                return isSubtype ? literalType : undefined;
+                const compareType = getInnermostNewTypeBaseInstance(subtype) ?? subtype;
+
+                const isSubtype = evaluator.assignType(compareType, literalType);
+                if (isSubtype) {
+                    return isClassInstance(subtype) && ClassType.isNewTypeClass(subtype) ? subtype : literalType;
+                }
+                return undefined;
             }
         }
 

@@ -829,7 +829,8 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     readFileSync(path: Uri, encoding?: BufferEncoding | null): string | Buffer;
-    readFileSync(path: Uri, encoding: BufferEncoding | null = null) {
+    readFileSync(path: Uri, encoding?: BufferEncoding | null): string | Buffer {
+        encoding = encoding ?? null;
         const { node } = this._walk(this._resolve(path.getFilePath()));
         if (!node) {
             throw createIOError('ENOENT');
@@ -1955,9 +1956,6 @@ function makeDirEnt(name: string, node: Inode, parentDir: string): Dirent {
         isSymbolicLink: () => isSymlink(node),
         name,
         parentPath: parentDir,
-        get path() {
-            return this.parentPath;
-        },
     };
     return de;
 }

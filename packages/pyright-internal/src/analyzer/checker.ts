@@ -421,6 +421,15 @@ export class Checker extends ParseTreeWalker {
             const keywordNames = new Set<string>();
             const paramDetails = getParamListDetails(functionTypeResult.functionType);
 
+            // If this function is the implementation of an overloaded function,
+            // its signature is ignored by the type checker (only the @overload
+            // signatures define the function's type). Per the typing spec, the
+            // implementation's parameters are allowed to remain unannotated, so
+            // skip the unknown/missing parameter type checks for it.
+            const isOverloadImplementation =
+                isOverloaded(functionTypeResult.decoratedType) &&
+                !FunctionType.isOverloaded(functionTypeResult.functionType);
+
             // Report any unknown or missing parameter types.
             node.d.params.forEach((param, index) => {
                 if (param.d.name) {
@@ -464,7 +473,10 @@ export class Checker extends ParseTreeWalker {
                         const functionTypeParam = functionTypeResult.functionType.shared.parameters[paramIndex];
                         const paramType = FunctionType.getParamType(functionTypeResult.functionType, paramIndex);
 
-                        if (this._fileInfo.diagnosticRuleSet.reportUnknownParameterType !== 'none') {
+                        if (
+                            !isOverloadImplementation &&
+                            this._fileInfo.diagnosticRuleSet.reportUnknownParameterType !== 'none'
+                        ) {
                             if (
                                 isUnknown(paramType) ||
                                 (isTypeVar(paramType) &&
@@ -504,7 +516,11 @@ export class Checker extends ParseTreeWalker {
                             }
                         }
 
-                        if (!hasAnnotation && this._fileInfo.diagnosticRuleSet.reportMissingParameterType !== 'none') {
+                        if (
+                            !isOverloadImplementation &&
+                            !hasAnnotation &&
+                            this._fileInfo.diagnosticRuleSet.reportMissingParameterType !== 'none'
+                        ) {
                             this._evaluator.addDiagnostic(
                                 DiagnosticRule.reportMissingParameterType,
                                 LocMessage.paramAnnotationMissing().format({ name: param.d.name.d.value }),
@@ -1813,7 +1829,12 @@ export class Checker extends ParseTreeWalker {
             !importResult.isStubFile ||
             importResult.importType === ImportType.BuiltIn ||
             !importResult.nonStubImportResult ||
-            importResult.nonStubImportResult.isImportFound
+            importResult.nonStubImportResult.isImportFound ||
+            // The non-stub resolution can report `isImportFound === false` yet `isNativeLib === true`
+            // when a compiled extension (.pyd/.so) backs a path segment of the import. A compiled
+            // extension has no Python source, but the module itself exists at runtime via the native
+            // lib, so "could not be resolved from source" is misleading.
+            importResult.nonStubImportResult.isNativeLib
         ) {
             return;
         }

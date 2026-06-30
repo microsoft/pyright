@@ -965,6 +965,12 @@ test('KwargsUnpack1', () => {
     TestUtils.validateResults(analysisResults, 13);
 });
 
+test('KwargsUnpack2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['kwargsUnpack2.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('FunctionMember1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

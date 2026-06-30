@@ -204,6 +204,15 @@ export class SourceEnumerator {
 
         this._seenDirs.clear();
 
+        // Skip enumeration for non-file URI schemes (e.g., memfs:, zowe-uss:).
+        // These require async file system access that isn't available here.
+        if (includeSpec.wildcardRoot.scheme !== 'file' && includeSpec.wildcardRoot.scheme !== '') {
+            this._console.info(
+                `Skipping file enumeration for non-file URI scheme "${includeSpec.wildcardRoot.scheme}".`
+            );
+            return;
+        }
+
         const stat = tryStat(this._fs, includeSpec.wildcardRoot);
         if (stat?.isFile()) {
             this._matches.set(includeSpec.wildcardRoot.key, includeSpec.wildcardRoot);

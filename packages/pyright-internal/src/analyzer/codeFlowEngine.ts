@@ -68,6 +68,8 @@ import {
     UnknownType,
 } from './types';
 import {
+    applySolvedTypeVars,
+    buildSolution,
     cleanIncompleteUnknown,
     derivesFromStdlibClass,
     doForEachSubtype,
@@ -1962,32 +1964,37 @@ export function getCodeFlowEngine(
                 const exitMethodName = isAsync ? '__aexit__' : '__exit__';
                 const exitType = evaluator.getBoundMagicMethod(cmType, exitMethodName);
 
-                if (exitType && isFunction(exitType)) {
-                    // Use the effective (specialized) return type rather than the declared
-                    // return type so that generic context managers whose __exit__ return
-                    // type is a TypeVar are evaluated using the solved type argument.
-                    let returnType = FunctionType.getEffectiveReturnType(exitType, /* includeInferred */ false);
+                if (exitType && isFunction(exitType) && exitType.shared.declaredReturnType) {
+                    let returnType = exitType.shared.declaredReturnType;
 
-                    if (returnType) {
-                        // If it's an __aexit__ method, its return type will typically be wrapped
-                        // in a Coroutine, so we need to extract the return type from the third
-                        // type argument.
-                        if (isAsync) {
-                            if (
-                                isClassInstance(returnType) &&
-                                ClassType.isBuiltIn(returnType, ['Coroutine', 'CoroutineType']) &&
-                                returnType.priv.typeArgs &&
-                                returnType.priv.typeArgs.length >= 3
-                            ) {
-                                returnType = returnType.priv.typeArgs[2];
-                            }
+                    // If it's an __aexit__ method, its return type will typically be wrapped
+                    // in a Coroutine, so we need to extract the return type from the third
+                    // type argument.
+                    if (isAsync) {
+                        if (
+                            isClassInstance(returnType) &&
+                            ClassType.isBuiltIn(returnType, ['Coroutine', 'CoroutineType']) &&
+                            returnType.priv.typeArgs &&
+                            returnType.priv.typeArgs.length >= 3
+                        ) {
+                            returnType = returnType.priv.typeArgs[2];
                         }
+                    }
 
-                        cmSwallowsExceptions = false;
-                        if (isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool')) {
-                            if (returnType.priv.literalValue === undefined || returnType.priv.literalValue === true) {
-                                cmSwallowsExceptions = true;
-                            }
+                    // Generic context managers can declare __exit__ as returning a TypeVar
+                    // that isn't necessarily the first type parameter. Specialize the declared
+                    // return type using the context manager instance's type arguments.
+                    if (cmType.shared.typeParams.length > 0 && cmType.priv.typeArgs) {
+                        returnType = applySolvedTypeVars(
+                            returnType,
+                            buildSolution(cmType.shared.typeParams, cmType.priv.typeArgs)
+                        );
+                    }
+
+                    cmSwallowsExceptions = false;
+                    if (isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool')) {
+                        if (returnType.priv.literalValue === undefined || returnType.priv.literalValue === true) {
+                            cmSwallowsExceptions = true;
                         }
                     }
                 }

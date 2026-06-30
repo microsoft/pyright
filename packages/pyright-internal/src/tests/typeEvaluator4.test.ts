@@ -426,6 +426,14 @@ test('DataClassKwOnly1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassKwOnly1.py'], configOptions);
 
+    TestUtils.validateResults(analysisResults, 5);
+});
+
+test('DataClassKwOnly2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassKwOnly2.py'], configOptions);
+
     TestUtils.validateResults(analysisResults, 3);
 });
 
@@ -525,6 +533,37 @@ test('Callable7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callable7.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('FunctionAssignabilityPositionalParamMessage1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionAssignabilityMessage1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+
+    // Addendum lines are indented with non-breaking spaces; normalize them to
+    // regular spaces so the full message can be asserted exactly.
+
+    // Source accepts too few positional parameters (0) for a dest that expects 1.
+    // The addendum must say "too few" with expected=1 (dest), received=0 (src).
+    expect(analysisResults[0].errors[0].message.replace(/\u00a0/g, ' ')).toBe(
+        [
+            'Argument of type "() -> int" cannot be assigned to parameter "func" of type "(int) -> int" in function "decorator"',
+            '  Type "() -> int" is not assignable to type "(int) -> int"',
+            '    Function accepts too few positional parameters; expected 1 but received 0',
+        ].join('\n')
+    );
+
+    // Symmetric case: source accepts too many positional parameters (2) for a
+    // dest that accepts 1. The addendum must say "too many" with expected=1
+    // (dest), received=2 (src).
+    expect(analysisResults[0].errors[1].message.replace(/\u00a0/g, ' ')).toBe(
+        [
+            'Argument of type "(a: int, b: int, /) -> int" cannot be assigned to parameter "func" of type "(int) -> int" in function "decorator"',
+            '  Type "(a: int, b: int, /) -> int" is not assignable to type "(int) -> int"',
+            '    Position-only parameter mismatch; expected 2 but received 1',
+            '    Function accepts too many positional parameters; expected 1 but received 2',
+        ].join('\n')
+    );
 });
 
 test('Generic1', () => {

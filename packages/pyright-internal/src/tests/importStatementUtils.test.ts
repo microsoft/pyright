@@ -23,6 +23,7 @@ import { isArray } from '../common/core';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { rangesAreEqual } from '../common/textRange';
+import { applyTextEditsToString } from '../common/workspaceEditUtils';
 import { NameNode } from '../parser/parseNodes';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
@@ -257,6 +258,94 @@ test('getTextEditsForAutoImportInsertion - insert third-party before local relat
     `;
 
     testInsertion(code, 'marker1', {}, 'numpy', ImportType.ThirdParty);
+});
+
+test('getTextEditsForAutoImportInsertions - new relative import grouped below absolute local import', () => {
+    const code = `
+// @filename: aaa.py
+//// A = 1
+
+// @filename: test.py
+//// from aaa import A[|/*marker1*/{|"r":"!n!!n!from .mmm import M"|}|]
+    `;
+
+    const module = { moduleName: 'mmm', importType: ImportType.Local, isLocalTypingsFile: false };
+    testInsertions(code, 'marker1', [{ module, name: 'M', nameForImportFrom: '.mmm' }]);
+});
+
+test('getTextEditsForAutoImportInsertions - new relative import sorts within existing relative group', () => {
+    const code = `
+// @filename: pkg/__init__.py
+//// pass
+
+// @filename: pkg/nnn.py
+//// N = 1
+
+// @filename: pkg/test.py
+//// [|{|"r":"from .mmm import M!n!"|}|]from .nnn import N
+//// N/*marker1*/
+    `;
+
+    const module = { moduleName: 'mmm', importType: ImportType.Local, isLocalTypingsFile: false };
+    testInsertions(code, 'marker1', [{ module, name: 'M', nameForImportFrom: '.mmm' }]);
+});
+
+test('getTextEditsForAutoImportInsertions - absolute-local and relative-local batched at same anchor (applied)', () => {
+    // The auto-import code action inserts a single symbol at a time, so it never batches an
+    // absolute-local and a relative-local insert at the same anchor; that single-insert path is the
+    // one this PR targets and is covered by the integration tests in codeActionProvider.common.ts.
+    //
+    // This test pins down the *batched* same-anchor path (a single getTextEditsForAutoImportInsertions
+    // call producing two same-range edits) and asserts the final applied document text rather than
+    // each edit independently. Upgrading Local -> LocalRelative changes the merge key, so the two
+    // inserts stay as separate same-range edits instead of merging. When applyTextEditsToString
+    // composes two zero-width edits at the same offset, the later-applied edit lands on top, so the
+    // relative import renders above the absolute one here. This ordering is a pre-existing property of
+    // composing multiple same-anchor edits (the long-standing builtin/third-party/local batch below
+    // behaves the same way) and is not introduced by this PR.
+    const code = `
+// @filename: aaa.py
+//// A = 1
+
+// @filename: pkg/__init__.py
+//// pass
+
+// @filename: pkg/mmm.py
+//// M = 1
+
+// @filename: pkg/test.py
+//// import os/*marker1*/
+    `;
+
+    const moduleAbs = { moduleName: 'aaa', importType: ImportType.Local, isLocalTypingsFile: false };
+    const moduleRel = { moduleName: 'mmm', importType: ImportType.Local, isLocalTypingsFile: false };
+    const result = applyInsertions(code, 'marker1', [
+        { module: moduleAbs, name: 'A' },
+        { module: moduleRel, name: 'M', nameForImportFrom: '.mmm' },
+    ]);
+
+    assert.strictEqual(result, 'import os\n\nfrom .mmm import M\n\nfrom aaa import A');
+});
+
+test('getTextEditsForAutoImportInsertions - absolute-local and relative-local batched at top of import-less file (applied)', () => {
+    // Same batched same-anchor path as above, but at a top-of-file (0,0) insertion in a file with no
+    // existing imports. The two same-range (0,0) edits do not merge (different import groups), and
+    // applyTextEditsToString again renders the later-applied (relative) edit above the absolute one.
+    // Input order does not affect the result: the edit list is import-group-sorted before applying.
+    const code = `
+//// /*marker1*/x = 1
+    `;
+
+    const moduleAbs = { moduleName: 'aaa', importType: ImportType.Local, isLocalTypingsFile: false };
+    const moduleRel = { moduleName: 'mmm', importType: ImportType.Local, isLocalTypingsFile: false };
+
+    // Pass relative first to prove the ordering comes from the import-group sort, not input order.
+    const result = applyInsertions(code, 'marker1', [
+        { module: moduleRel, name: 'M', nameForImportFrom: '.mmm' },
+        { module: moduleAbs, name: 'A' },
+    ]);
+
+    assert.strictEqual(result, 'from .mmm import M\n\n\nfrom aaa import A\n\n\nx = 1');
 });
 
 test('getTextEditsForAutoImportInsertions - mix of import and from import statements', () => {
@@ -642,6 +731,32 @@ function testInsertions(
     assert.strictEqual(edits.length, ranges.length, `${markerName} expects ${ranges.length} but got ${edits.length}`);
 
     testTextEdits(state, edits, ranges);
+}
+
+// Computes auto-import insertion edits the same way `testInsertions` does, but actually
+// applies them to the document and returns the resulting text. `testTextEdits` only checks
+// each edit's range/text independently (order-insensitive), so it cannot observe how multiple
+// edits at the *same* anchor compose once applied. Use this when the asserted behavior depends
+// on the final applied document text.
+function applyInsertions(
+    code: string,
+    markerName: string,
+    importNameInfo: ImportNameWithModuleInfo | ImportNameWithModuleInfo[]
+): string {
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName(markerName)!;
+    const sourceFile = state.program.getBoundSourceFile(marker.fileUri)!;
+    const parseResults = sourceFile.getParseResults()!;
+
+    const importStatements = getTopLevelImports(parseResults.parserOutput.parseTree);
+    const edits = getTextEditsForAutoImportInsertions(
+        importNameInfo,
+        importStatements,
+        parseResults,
+        convertOffsetToPosition(marker.position, parseResults.tokenizerOutput.lines)
+    );
+
+    return applyTextEditsToString(edits, parseResults.tokenizerOutput.lines, parseResults.text);
 }
 
 function testInsertion(

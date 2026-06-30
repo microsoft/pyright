@@ -15,7 +15,7 @@ import { Disposable } from 'vscode-jsonrpc';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface, NullConsole } from './console';
 import { randomBytesHex } from './crypto';
-import { FileSystem, MkDirOptions, TempFile, TmpfileOptions } from './fileSystem';
+import { FileSystem, MkDirOptions, TempFile, TmpfileOptions, VirtualDirent } from './fileSystem';
 import {
     FileWatcher,
     FileWatcherEventHandler,
@@ -269,18 +269,7 @@ export class RealFileSystem implements FileSystem {
             // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
             if (hasZipExtension(entry.name)) {
                 if (entry.isFile() && yarnFS.isZip(path)) {
-                    return {
-                        name: entry.name,
-                        parentPath: path,
-                        path: path,
-                        isFile: () => false,
-                        isDirectory: () => true,
-                        isBlockDevice: () => false,
-                        isCharacterDevice: () => false,
-                        isSymbolicLink: () => false,
-                        isFIFO: () => false,
-                        isSocket: () => false,
-                    };
+                    return new VirtualDirent(entry.name, /* file */ false, path);
                 }
             }
             return entry;

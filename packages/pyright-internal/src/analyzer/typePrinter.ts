@@ -46,6 +46,7 @@ import {
     doForEachSubtype,
     isNoneInstance,
     isSentinelLiteral,
+    isStubOnlySubscriptable,
     isTupleClass,
     removeNoneFromUnion,
 } from './typeUtils';
@@ -832,6 +833,20 @@ function printFunctionType(
     recursionCount: number
 ) {
     if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
+        const paramSpecValueString = FunctionType.isParamSpecValue(type)
+            ? printParamSpecValueForPythonSyntax(
+                  type,
+                  printTypeFlags,
+                  returnTypeCallback,
+                  uniqueNameMap,
+                  recursionTypes,
+                  recursionCount
+              )
+            : undefined;
+        if (paramSpecValueString !== undefined) {
+            return paramSpecValueString;
+        }
+
         const paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
         const typeWithoutParamSpec = paramSpec ? FunctionType.cloneRemoveParamSpecArgsKwargs(type) : type;
 
@@ -928,6 +943,47 @@ function printFunctionType(
 
         return fullSignature;
     }
+}
+
+function printParamSpecValueForPythonSyntax(
+    type: FunctionType,
+    printTypeFlags: PrintTypeFlags,
+    returnTypeCallback: FunctionReturnTypeCallback,
+    uniqueNameMap: UniqueNameMap,
+    recursionTypes: Type[],
+    recursionCount: number
+): string | undefined {
+    if (FunctionType.getParamSpecFromArgsKwargs(type)) {
+        return undefined;
+    }
+
+    if (!type.shared.parameters.every((param) => param.category === ParamCategory.Simple)) {
+        return undefined;
+    }
+
+    const paramTypes = type.shared.parameters.flatMap((param, index) => {
+        if (!param.name) {
+            return [];
+        }
+
+        const paramType = FunctionType.getParamType(type, index);
+        if (recursionTypes.length < maxTypeRecursionCount) {
+            return [
+                printTypeInternal(
+                    paramType,
+                    printTypeFlags,
+                    returnTypeCallback,
+                    uniqueNameMap,
+                    recursionTypes,
+                    recursionCount
+                ),
+            ];
+        }
+
+        return ['Any'];
+    });
+
+    return `[${paramTypes.join(', ')}]`;
 }
 
 function printObjectTypeForClassInternal(
@@ -1047,7 +1103,12 @@ function printObjectTypeForClassInternal(
                 }
 
                 if ((printTypeFlags & PrintTypeFlags.OmitTypeArgsIfUnknown) === 0 || !isAllUnknown) {
-                    objName += '[' + typeArgStrings.join(', ') + ']';
+                    // In PythonSyntax mode, omit type args for classes that are
+                    // generic only in stubs but not subscriptable at runtime
+                    // (e.g. operator.attrgetter, operator.itemgetter).
+                    if (!((printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0 && isStubOnlySubscriptable(type))) {
+                        objName += '[' + typeArgStrings.join(', ') + ']';
+                    }
                 }
             } else {
                 if (type.priv.isUnpacked) {

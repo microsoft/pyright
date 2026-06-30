@@ -3,7 +3,8 @@
         "target": "es2020",
         "module": "node16",
         "lib": [
-            "es2020"
+            "es2020",
+            "esnext.disposable"
         ],
         "skipLibCheck": true,
         "esModuleInterop": true,
@@ -17,7 +18,18 @@
         "noImplicitReturns": true,
         "noImplicitOverride": true,
         "checkJs": true,
-        "experimentalDecorators": true
+        "experimentalDecorators": true,
+        // TS 6.0 compat flags. Track removing these in a follow-up.
+        // "types: ['*']" preserves pre-6.0 behavior of auto-including all @types packages.
+        "types": ["*"],
+        // Silences "baseUrl is deprecated" warning; baseUrl is removed in TS 7, so this must
+        // be addressed before the next major upgrade.
+        "ignoreDeprecations": "6.0",
+        // Some side-effect-only imports (e.g. CSS in pylance-dev mcp-apps) have no .d.ts.
+        "noUncheckedSideEffectImports": false,
+        // Pyright/Pylance iterator code predates the stricter TReturn defaults; re-enabling
+        // would require widening many iterator return types.
+        "strictBuiltinIteratorReturn": false
     },
     "exclude": [
         "node_modules",

@@ -135,6 +135,7 @@ export const enum KeywordType {
     In,
     Is,
     Lambda,
+    Lazy,
     Match,
     None,
     Nonlocal,
@@ -151,7 +152,13 @@ export const enum KeywordType {
     Yield,
 }
 
-export const softKeywords = [KeywordType.Debug, KeywordType.Match, KeywordType.Case, KeywordType.Type];
+export const softKeywords = [
+    KeywordType.Debug,
+    KeywordType.Match,
+    KeywordType.Case,
+    KeywordType.Type,
+    KeywordType.Lazy,
+];
 
 export const enum StringTokenFlags {
     None = 0,

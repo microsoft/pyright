@@ -10,7 +10,11 @@
 const staticCache = new Map<string, any>();
 
 // Max number of static method values that are cached.
-const maxStaticCacheEntries = 256;
+// Sized to comfortably exceed the distinct-Uri working set of a single import
+// resolution across many extraPaths (monorepos can inject 100+ search roots, each
+// descended a few levels). A smaller cache thrashes: every resolution evicts the
+// previous one's stable prefix Uris, forcing constant re-allocation and GC churn.
+const maxStaticCacheEntries = 8192;
 
 // Caches the results of a getter property.
 export function cacheProperty() {

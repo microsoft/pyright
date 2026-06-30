@@ -13,6 +13,7 @@ import { FileSystem, MkDirOptions, Stats, VirtualDirent } from './common/fileSys
 import { FileWatcher, FileWatcherEventHandler } from './common/fileWatcher';
 import { Uri } from './common/uri/uri';
 import { UriMap } from './common/uri/uriMap';
+import { tryStat } from './common/uri/uriUtils';
 import { Disposable } from 'vscode-jsonrpc';
 
 interface MappedEntry {
@@ -70,12 +71,20 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         const mappedEntry = this._getOriginalEntry(uri);
         if (mappedEntry) {
             const originalUri = this._getInternalOriginalUri(uri);
-            const filteredEntries = this.realFS
-                .readdirEntriesSync(originalUri)
-                .filter((e) => mappedEntry.filter(originalUri.combinePaths(e.name), this.realFS))
-                .map((e) => new VirtualDirent(e.name, e.isFile(), uri.getFilePath()));
-            for (const entry of filteredEntries) {
-                entries.set(entry.name, entry);
+            for (const entry of this.realFS.readdirEntriesSync(originalUri)) {
+                const originalEntryUri = originalUri.combinePaths(entry.name);
+                if (!mappedEntry.filter(originalEntryUri, this.realFS)) {
+                    continue;
+                }
+
+                // Mapped entries are virtual, so resolve types that readdir cannot classify, including symlinks and
+                // DT_UNKNOWN entries.
+                const target = entry.isFile() || entry.isDirectory() ? entry : tryStat(this.realFS, originalEntryUri);
+                if (!target || (!target.isFile() && !target.isDirectory())) {
+                    continue;
+                }
+
+                entries.set(entry.name, new VirtualDirent(entry.name, target.isFile(), uri.getFilePath()));
             }
         }
 

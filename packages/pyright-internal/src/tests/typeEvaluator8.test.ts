@@ -11,7 +11,7 @@
 import * as assert from 'assert';
 
 import { ConfigOptions } from '../common/configOptions';
-import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8 } from '../common/pythonVersion';
+import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8, pythonVersion3_12 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -629,6 +629,14 @@ test('NamedTuple11', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('NamedTuple12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchNamedTupleGeneric1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Slots1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['slots1.py']);
 
@@ -963,6 +971,12 @@ test('StaticExpression2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('StaticExpressionLiteral1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpressionLiteral1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('SpecialForm1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialForm1.py']);
 
@@ -987,58 +1001,53 @@ test('SpecialForm4', () => {
     TestUtils.validateResults(analysisResults, 72);
 });
 
+// TypeForm support is enabled by default and no longer requires
+// enableExperimentalFeatures, so these tests intentionally leave it off.
+
 test('TypeForm1', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm1.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm1.py']);
 
     TestUtils.validateResults(analysisResults, 4);
 });
 
 test('TypeForm2', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm2.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm2.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeForm3', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm3.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm3.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeForm4', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm4.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm4.py']);
 
     TestUtils.validateResults(analysisResults, 27);
 });
 
 test('TypeForm5', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm5.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm5.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeForm6', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm6.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm6.py']);
 
     TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypeForm7', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm7.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm7.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TypeForm8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm8.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
 });

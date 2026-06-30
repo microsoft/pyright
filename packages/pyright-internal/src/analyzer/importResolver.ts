@@ -337,6 +337,13 @@ export class ImportResolver {
 
     isStdlibModule(module: ImportedModuleDescriptor, execEnv: ExecutionEnvironment): boolean {
         if (!this._stdlibModules) {
+            // The cache is built once (lazily) and memoized until invalidateCache(), without keying on
+            // the execution environment. The directory-backed gating in _buildStdlibCache is
+            // pythonVersion/pythonPlatform-sensitive, so for a config with multiple execution
+            // environments at different Python versions, whichever execEnv builds the cache first decides
+            // whether version-gated directory packages (e.g. zoneinfo) are visible to all execEnvs. This is
+            // best-effort for the cache-building execEnv; that ambiguous multi-execEnv config is uncommon and
+            // not worth the cost of keying (and re-building) the cache per version+platform.
             this._stdlibModules = this._buildStdlibCache(this.getTypeshedStdLibPath(execEnv), execEnv);
         }
 
@@ -1397,6 +1404,42 @@ export class ImportResolver {
                 ) {
                     isNativeLib = true;
                     importLogger?.log(`Did not find file '${pyiFilePath}' or '${pyFilePath}'`);
+                } else if (
+                    !allowPyi &&
+                    allowNativeLib &&
+                    isLastPart &&
+                    this.fileExistsCached(dirPath.addExtension('.pyc'))
+                ) {
+                    // Sourceless distribution: a compiled `.pyc` module sits where the `.py`
+                    // source would be (e.g. `mod.pyc` beside `mod.pyi`, with no `mod.py`) -- placed
+                    // directly in the package directory, not under `__pycache__`. Python imports
+                    // such a `.pyc` directly, so the module exists at runtime even though it has no
+                    // Python source.
+                    //
+                    // This branch only runs during the non-stub resolution (`allowPyi === false`),
+                    // whose result becomes `nonStubImportResult`. Pushing the `.pyc` onto
+                    // `resolvedPaths` makes that non-stub result report `isImportFound === true`,
+                    // and the checker's `_addMissingModuleSourceDiagnosticIfNeeded` short-circuits
+                    // on `nonStubImportResult.isImportFound` -- so the misleading
+                    // `reportMissingModuleSource` warning is suppressed via the `isImportFound`
+                    // path (not via `isNativeLib`, whose check the checker never reaches once
+                    // `isImportFound` is true).
+                    //
+                    // Gating mirrors the native-lib branch above: a compiled module is a native
+                    // artifact with no Python source, so it is only recognized where native libs are
+                    // allowed (`allowNativeLib`), ensuring a stray `.pyc` in a stub-only root is not
+                    // mistaken for the real module. `isNativeLib = true` is set purely for symmetry
+                    // with that branch; it does not drive the suppression here. The `.pyc` is
+                    // likewise kept out of `getSourceFilesFromStub` by that method's `.py`/`.pyi`
+                    // extension filter, independent of `isNativeLib`.
+                    //
+                    // The `.pyc` Uri is built inside this branch's guard (rather than unconditionally
+                    // alongside `pyFilePath`/`pyiFilePath`) so the allocation only happens for the
+                    // rare last-part library imports that fall through to here.
+                    const pycFilePath = dirPath.addExtension('.pyc');
+                    importLogger?.log(`Resolved import with compiled file '${pycFilePath}'`);
+                    resolvedPaths.push(pycFilePath);
+                    isNativeLib = true;
                 } else if (foundDirectory) {
                     if (!isLastPart) {
                         // We are not at the last part, and we found a directory,
@@ -1608,6 +1651,7 @@ export class ImportResolver {
         }
 
         // Look for the import in the list of third-party packages.
+        let thirdPartyNonStubImportFound = false;
         const pythonSearchPaths = this.getPythonSearchPaths(importLogger);
         if (pythonSearchPaths.length > 0) {
             for (const searchPath of pythonSearchPaths) {
@@ -1629,6 +1673,13 @@ export class ImportResolver {
 
                 if (thirdPartyImport) {
                     thirdPartyImport.importType = ImportType.ThirdParty;
+
+                    if (
+                        !thirdPartyImport.isStubFile &&
+                        (thirdPartyImport.isImportFound || thirdPartyImport.isPartlyResolved)
+                    ) {
+                        thirdPartyNonStubImportFound = true;
+                    }
 
                     bestResultSoFar = this._pickBestImport(bestResultSoFar, thirdPartyImport, moduleDescriptor);
                 }
@@ -1663,6 +1714,7 @@ export class ImportResolver {
             return extraResults;
         }
 
+        // Results from resolveImportEx return above, so this fallback guard applies only to typeshed fallback imports.
         // Check for a third-party typeshed file.
         if (allowPyi && moduleDescriptor.nameParts.length > 0) {
             importLogger?.log(`Looking for typeshed third-party path`);
@@ -1676,13 +1728,40 @@ export class ImportResolver {
 
             if (typeshedImport) {
                 typeshedImport.isThirdPartyTypeshedFile = true;
-                bestResultSoFar = this._pickBestImport(bestResultSoFar, typeshedImport, moduleDescriptor);
+
+                if (
+                    this._shouldSkipThirdPartyTypeshedFallbackForLocalNamespace(
+                        bestResultSoFar,
+                        thirdPartyNonStubImportFound
+                    )
+                ) {
+                    importLogger?.log(
+                        `Skipping typeshed third-party fallback because a local namespace package was resolved ` +
+                            `and no non-stub third-party package was found`
+                    );
+                } else {
+                    bestResultSoFar = this._pickBestImport(bestResultSoFar, typeshedImport, moduleDescriptor);
+                }
             }
         }
 
         // We weren't able to find an exact match, so return the best
         // partial match.
         return bestResultSoFar;
+    }
+
+    private _shouldSkipThirdPartyTypeshedFallbackForLocalNamespace(
+        bestImportSoFar: ImportResult | undefined,
+        thirdPartyNonStubImportFound: boolean
+    ): boolean {
+        return (
+            !thirdPartyNonStubImportFound &&
+            !!bestImportSoFar &&
+            bestImportSoFar.importType === ImportType.Local &&
+            bestImportSoFar.isNamespacePackage &&
+            bestImportSoFar.isImportFound &&
+            !bestImportSoFar.isStubFile
+        );
     }
 
     private _pickBestImport(
@@ -1854,25 +1933,52 @@ export class ImportResolver {
         const cache = new Set<string>();
 
         if (stdlibRoot) {
+            // Directory-backed package entries are new. Version/platform-gate them against the
+            // configured typeshed's stdlib/VERSIONS metadata. This only checks VERSIONS metadata, not
+            // on-disk file presence (we already confirmed that via existsSync at the call site).
+            const addDirectoryStdlibModule = (moduleName: string) => {
+                if (
+                    this._isStdlibTypeshedStubValidForVersion(
+                        createImportedModuleDescriptor(moduleName),
+                        this._configOptions.typeshedPath,
+                        executionEnvironment.pythonVersion,
+                        executionEnvironment.pythonPlatform
+                    )
+                ) {
+                    cache.add(moduleName);
+                }
+            };
+
+            // File-backed entries are added unconditionally and are NOT version/platform-gated today.
+            // Historically the file path passed the scan `root` to _isStdlibTypeshedStubValidForVersion,
+            // which resolves to a non-existent `stdlib/stdlib` directory and therefore yields an empty
+            // VERSIONS map, so the check always returned true. We preserve that behavior here (rather than
+            // changing which file-backed modules get cached). Keeping this in a separate helper from
+            // addDirectoryStdlibModule makes the file-vs-directory intent explicit so a future maintainer
+            // doesn't "fix" the file path and silently drop cache entries.
+            const addFileStdlibModule = (moduleName: string) => {
+                cache.add(moduleName);
+            };
+
             const readDir = (root: Uri, prefix: string | undefined) => {
                 this._fileSystemCache.readdirEntriesSync(root).forEach((entry) => {
                     if (entry.isDirectory()) {
                         const dirRoot = root.combinePaths(entry.name);
-                        readDir(dirRoot, prefix ? `${prefix}.${entry.name}` : entry.name);
+                        const moduleName = prefix ? `${prefix}.${entry.name}` : entry.name;
+
+                        if (!entry.name.startsWith('_')) {
+                            const packageInit = dirRoot.combinePaths('__init__.pyi');
+                            if (this._fileSystemCache.existsSync(packageInit)) {
+                                addDirectoryStdlibModule(moduleName);
+                            }
+                        }
+
+                        readDir(dirRoot, moduleName);
                     } else if (entry.name.includes('.py')) {
                         const stripped = stripFileExtension(entry.name);
                         // Skip anything starting with an underscore.
                         if (!stripped.startsWith('_')) {
-                            if (
-                                this._isStdlibTypeshedStubValidForVersion(
-                                    createImportedModuleDescriptor(stripped),
-                                    root,
-                                    executionEnvironment.pythonVersion,
-                                    executionEnvironment.pythonPlatform
-                                )
-                            ) {
-                                cache.add(prefix ? `${prefix}.${stripped}` : stripped);
-                            }
+                            addFileStdlibModule(prefix ? `${prefix}.${stripped}` : stripped);
                         }
                     }
                 });

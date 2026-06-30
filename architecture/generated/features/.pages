@@ -1,0 +1,24 @@
+title: Semantic graph nodes
+nav:
+  - CLI and VS Code Extension:
+      - Overview: feat-cli-and-vs-code-extension.md
+  - Constraint Solving and Type Variables:
+      - Overview: feat-constraint-solving-and-type-variables.md
+  - Diagnostics and Configuration:
+      - Overview: feat-diagnostics-and-configuration.md
+  - Documentation and Comments:
+      - Overview: feat-documentation-and-comments.md
+  - Flow Narrowing and Type Guards:
+      - Overview: feat-flow-narrowing-and-type-guards.md
+  - Import Resolution and Packaging:
+      - Overview: feat-import-resolution-and-packaging.md
+  - Language Service Providers:
+      - Overview: feat-language-service-providers.md
+  - Parser, Binder, and Symbols:
+      - Overview: feat-parser-binder-and-symbols.md
+  - Program Analysis and Scheduling:
+      - Overview: feat-program-analysis-and-scheduling.md
+  - Shared Runtime Infrastructure:
+      - Overview: feat-shared-runtime-infrastructure.md
+  - Type Evaluation:
+      - Overview: feat-type-evaluation.md
