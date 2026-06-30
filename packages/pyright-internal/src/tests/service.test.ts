@@ -494,6 +494,8 @@ test('service runEditMode', () => {
     verifyRunEditMode('# second');
 
     function verifyRunEditMode(value: string) {
+        let interimWritableData: any | undefined;
+
         state.workspace.service.runEditMode((p) => {
             p.addInterimFile(newFileUri);
             p.setFileOpened(openUri, 0, value, options);
@@ -501,6 +503,9 @@ test('service runEditMode', () => {
 
             const interim = p.getSourceFileInfo(newFileUri);
             assert(interim);
+            assert(p.getParseResults(newFileUri));
+            interimWritableData = ((interim as any).sourceFile as any)._writableData;
+            assert(interimWritableData.parserOutput);
 
             const openFile = p.getSourceFileInfo(openUri);
             assert(openFile);
@@ -515,6 +520,8 @@ test('service runEditMode', () => {
 
         const interim = state.workspace.service.test_program.getSourceFileInfo(newFileUri);
         assert(!interim);
+        assert.strictEqual(interimWritableData?.parserOutput, undefined);
+        assert.strictEqual(interimWritableData?.parsedFileContents, undefined);
 
         const openFile = state.workspace.service.test_program.getSourceFileInfo(openUri);
         assert(openFile);

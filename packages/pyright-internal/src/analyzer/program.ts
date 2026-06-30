@@ -283,6 +283,7 @@ export class Program {
         });
 
         // Delete files added while in edit mode
+        let removedFileHadAnalysisState = false;
         if (filesToDelete.size > 0) {
             // delete from the back to make sure index is valid.
             for (let i = this._sourceFileList.length - 1; i >= 0; i--) {
@@ -290,13 +291,15 @@ export class Program {
                 if (filesToDelete.has(v)) {
                     // We don't need to care about file diagnostics since in edit mode
                     // checker won't run.
-                    v.sourceFile.prepareForClose();
+                    if (this._prepareSourceFileForRemoval(v)) {
+                        removedFileHadAnalysisState = true;
+                    }
                     this._removeSourceFileFromListAndMap(v.uri, i);
                 }
             }
         }
 
-        if (mutatedFiles.length > 0) {
+        if (mutatedFiles.length > 0 || removedFileHadAnalysisState) {
             // All cache is invalid now.
             this._createNewEvaluator();
         }
@@ -1291,20 +1294,6 @@ export class Program {
         const fileDiagnostics: FileDiagnostics[] = [];
         let shouldRecreateEvaluator = false;
 
-        const prepareSourceFileForRemoval = (fileInfo: SourceFileInfo) => {
-            // Removing a known file can strand parse nodes in evaluator caches even if the
-            // SourceFileInfo itself is dropped below. Clear source-owned syntax now and reset
-            // the evaluator if this file ever contributed observed contents to analysis.
-            if (fileInfo.sourceFile.hasContentBeenRead()) {
-                shouldRecreateEvaluator = true;
-            }
-
-            fileInfo.sourceFile.prepareForClose();
-            if (fileInfo.sourceFile.releaseClosedFileSyntax()) {
-                shouldRecreateEvaluator = true;
-            }
-        };
-
         // If a file is no longer tracked, opened or shadowed, it can
         // be removed from the program.
         for (let i = 0; i < this._sourceFileList.length; ) {
@@ -1319,7 +1308,9 @@ export class Program {
                     });
                 }
 
-                prepareSourceFileForRemoval(fileInfo);
+                if (this._prepareSourceFileForRemoval(fileInfo)) {
+                    shouldRecreateEvaluator = true;
+                }
                 this._removeSourceFileFromListAndMap(fileInfo.uri, i);
 
                 // Unlink any imports and remove them from the list if
@@ -1347,7 +1338,9 @@ export class Program {
                                 });
                             }
 
-                            prepareSourceFileForRemoval(importedFile);
+                            if (this._prepareSourceFileForRemoval(importedFile)) {
+                                shouldRecreateEvaluator = true;
+                            }
                             this._removeSourceFileFromListAndMap(importedFile.uri, indexToRemove);
                             i--;
                         }
@@ -1889,6 +1882,24 @@ export class Program {
             // Invalidate the import resolver's cache as well.
             this._importResolver.invalidateCache();
         }
+    }
+
+    private _prepareSourceFileForRemoval(fileInfo: SourceFileInfo): boolean {
+        let hadAnalysisState = false;
+
+        // Removing a known file can strand parse nodes in evaluator caches even if the
+        // SourceFileInfo itself is dropped below. Clear source-owned syntax now and reset
+        // the evaluator if this file ever contributed observed contents to analysis.
+        if (fileInfo.sourceFile.hasContentBeenRead()) {
+            hadAnalysisState = true;
+        }
+
+        fileInfo.sourceFile.prepareForClose();
+        if (fileInfo.sourceFile.releaseClosedFileSyntax()) {
+            hadAnalysisState = true;
+        }
+
+        return hadAnalysisState;
     }
 
     private _getImplicitImports(file: SourceFileInfo) {
