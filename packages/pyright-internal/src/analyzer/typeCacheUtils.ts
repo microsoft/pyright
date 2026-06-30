@@ -70,6 +70,26 @@ export class SpeculativeTypeTracker {
     private _speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
     private _activeDependentTypes: DependentType[] = [];
 
+    getCacheStats() {
+        let speculativeTypeCacheEntries = 0;
+        this._speculativeTypeCache.forEach((entries) => {
+            speculativeTypeCacheEntries += entries.length;
+        });
+
+        return {
+            speculativeContextStack: this._speculativeContextStack.length,
+            speculativeTypeCache: this._speculativeTypeCache.size,
+            speculativeTypeCacheEntries,
+            activeDependentTypes: this._activeDependentTypes.length,
+        };
+    }
+
+    clear() {
+        this._speculativeContextStack = [];
+        this._speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
+        this._activeDependentTypes = [];
+    }
+
     enterSpeculativeContext(speculativeRootNode: ParseNode, options?: SpeculativeModeOptions) {
         this._speculativeContextStack.push({
             speculativeRootNode,

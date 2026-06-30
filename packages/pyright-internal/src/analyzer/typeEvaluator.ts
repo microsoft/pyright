@@ -201,6 +201,7 @@ import {
     ClassTypeResult,
     DeclaredSymbolTypeInfo,
     EffectiveTypeResult,
+    EvaluatorCacheStats,
     ensureExpectedTypeCandidates,
     EvalFlags,
     EvaluatorUsage,
@@ -603,6 +604,7 @@ const printExpressionTypes = false;
 export const maxCodeComplexity = 768;
 
 export interface EvaluatorOptions {
+    evaluatorGeneration: number;
     printTypeFlags: TypePrinter.PrintTypeFlags;
     logCalls: boolean;
     minimumLoggingThreshold: number;
@@ -670,6 +672,7 @@ export function createTypeEvaluator(
     let returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
     const signatureTrackerStack: SignatureTrackerStackEntry[] = [];
     let prefetched: Partial<PrefetchedTypes> | undefined;
+    let isDisposalPending = false;
 
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => Promise<T>): Promise<T>;
@@ -687,10 +690,12 @@ export function createTypeEvaluator(
 
             return result.finally(() => {
                 cancellationToken = oldToken;
+                completePendingDisposalIfInactive();
             });
         } finally {
             if (!isThenable(result)) {
                 cancellationToken = oldToken;
+                completePendingDisposalIfInactive();
             }
         }
     }
@@ -703,6 +708,51 @@ export function createTypeEvaluator(
 
     function getTypeCacheEntryCount(): number {
         return typeCache.size;
+    }
+
+    function getEvaluatorCacheStats(): EvaluatorCacheStats {
+        let functionRecursionEntries = 0;
+        functionRecursionMap.forEach((entries) => {
+            functionRecursionEntries += entries.length;
+        });
+
+        let codeFlowAnalyzerCacheEntries = 0;
+        codeFlowAnalyzerCache.forEach((entries) => {
+            codeFlowAnalyzerCacheEntries += entries.length;
+        });
+
+        let effectiveTypeCacheEntries = 0;
+        effectiveTypeCache.forEach((entries) => {
+            effectiveTypeCacheEntries += entries.size;
+        });
+
+        let deferredClassCompletionClasses = 0;
+        deferredClassCompletions.forEach((completion) => {
+            deferredClassCompletionClasses += completion.classesToComplete.length;
+        });
+
+        return {
+            evaluatorGeneration: evaluatorOptions.evaluatorGeneration,
+            functionRecursionMap: functionRecursionMap.size,
+            functionRecursionEntries,
+            codeFlowAnalyzerCache: codeFlowAnalyzerCache.size,
+            codeFlowAnalyzerCacheEntries,
+            typeCache: typeCache.size,
+            effectiveTypeCache: effectiveTypeCache.size,
+            effectiveTypeCacheEntries,
+            expectedTypeCache: expectedTypeCache.size,
+            asymmetricAccessorAssignmentCache: asymmetricAccessorAssignmentCache.size,
+            deferredClassCompletions: deferredClassCompletions.length,
+            deferredClassCompletionClasses,
+            returnTypeInferenceTypeCache: returnTypeInferenceTypeCache?.size ?? 0,
+            prefetchedTypes: prefetched ? Object.keys(prefetched).length : 0,
+            ...speculativeTypeTracker.getCacheStats(),
+            symbolResolutionStack: symbolResolutionStack.length,
+            suppressedNodeStack: suppressedNodeStack.length,
+            assignClassToSelfStack: assignClassToSelfStack.length,
+            returnTypeInferenceContextStack: returnTypeInferenceContextStack.length,
+            signatureTrackerStack: signatureTrackerStack.length,
+        };
     }
 
     // This function should be called immediately prior to discarding
@@ -718,6 +768,52 @@ export function createTypeEvaluator(
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
         expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
         asymmetricAccessorAssignmentCache = new Set<number>();
+
+        if (isEvaluatorActive()) {
+            // A memory-pressure cache clear can happen reentrantly while this evaluator is
+            // still on the stack. Preserve active execution state so the in-flight evaluation
+            // can unwind normally. Durable caches above are still cleared immediately because
+            // they are generation-owned and are the likely holders of stale parse nodes.
+            isDisposalPending = true;
+            return;
+        }
+
+        clearInactiveRetainers();
+    }
+
+    function isEvaluatorActive() {
+        const speculativeCacheStats = speculativeTypeTracker.getCacheStats();
+        return (
+            cancellationToken !== undefined ||
+            speculativeCacheStats.speculativeContextStack > 0 ||
+            symbolResolutionStack.length > 0 ||
+            suppressedNodeStack.length > 0 ||
+            assignClassToSelfStack.length > 0 ||
+            returnTypeInferenceContextStack.length > 0 ||
+            signatureTrackerStack.length > 0
+        );
+    }
+
+    function completePendingDisposalIfInactive() {
+        if (isDisposalPending && !isEvaluatorActive()) {
+            clearInactiveRetainers();
+        }
+    }
+
+    function clearInactiveRetainers() {
+        deferredClassCompletions = [];
+        returnTypeInferenceTypeCache = undefined;
+        prefetched = undefined;
+        cancellationToken = undefined;
+        printExpressionSpaceCount = 0;
+        incompleteGenCount = 0;
+        speculativeTypeTracker.clear();
+        symbolResolutionStack.length = 0;
+        suppressedNodeStack.length = 0;
+        assignClassToSelfStack.length = 0;
+        returnTypeInferenceContextStack.length = 0;
+        signatureTrackerStack.length = 0;
+        isDisposalPending = false;
     }
 
     function readTypeCacheEntry(node: ParseNode) {
@@ -28991,6 +29087,7 @@ export function createTypeEvaluator(
         printSrcDestTypes,
         printFunctionParts,
         getTypeCacheEntryCount,
+        getEvaluatorCacheStats,
         disposeEvaluator,
         useSpeculativeMode,
         isSpeculativeModeInUse,

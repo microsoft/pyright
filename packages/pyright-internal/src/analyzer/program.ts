@@ -151,6 +151,7 @@ export class Program {
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
     private _evaluator: TypeEvaluator | undefined;
+    private _evaluatorGeneration = 0;
     private _disposed = false;
     private _parsedFileCount = 0;
     private _preCheckCallback: PreCheckCallback | undefined;
@@ -220,7 +221,27 @@ export class Program {
     }
 
     dispose() {
+        if (this._disposed) {
+            return;
+        }
+
         this.disposeInternal(this._disposed);
+
+        if (this._evaluator) {
+            this._evaluator.disposeEvaluator();
+            this._evaluator = undefined;
+        }
+
+        // Treat program disposal as an explicit lifetime boundary. The Program is about to
+        // forget its file table, so eagerly sever source/evaluator references instead of
+        // relying on the surrounding service teardown to make the object graph unreachable.
+        this._sourceFileList.forEach((fileInfo) => {
+            fileInfo.sourceFile.setClientVersion(null, '');
+            fileInfo.sourceFile.releaseClosedFileSyntax();
+        });
+        this._sourceFileList.length = 0;
+        this._sourceFileMap.clear();
+        this._parsedFileCount = 0;
 
         this._cacheManager.unregisterCacheOwner(this);
         this._disposed = true;
@@ -411,6 +432,19 @@ export class Program {
 
     setFileOpened(fileUri: Uri, version: number | null, contents: string, options?: OpenFileOptions) {
         let sourceFileInfo = this.getSourceFileInfo(fileUri);
+        // Capture the prior lifetime state before setClientVersion mutates the SourceFile.
+        // Opening a brand-new or never-observed file should not throw away the evaluator, but
+        // reopening analyzed content with new text must dirty dependents and invalidate caches.
+        const wasKnownFile = sourceFileInfo !== undefined;
+        const wasOpenByClient = sourceFileInfo?.isOpenByClient ?? false;
+        const hadObservedContents = sourceFileInfo?.sourceFile.hasContentBeenRead() ?? false;
+        const hadAnalysisState = sourceFileInfo ? !sourceFileInfo.sourceFile.isParseRequired() : false;
+        const hadDependencyGraph =
+            (sourceFileInfo?.imports.length ?? 0) > 0 ||
+            (sourceFileInfo?.importedBy.length ?? 0) > 0 ||
+            (sourceFileInfo?.shadows.length ?? 0) > 0 ||
+            (sourceFileInfo?.shadowedBy.length ?? 0) > 0 ||
+            sourceFileInfo?.builtinsImport !== undefined;
         if (!sourceFileInfo) {
             const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
             const sourceFile = this._sourceFileFactory.createSourceFile(
@@ -444,19 +478,43 @@ export class Program {
             this._addToSourceFileListAndMap(sourceFileInfo);
         } else {
             sourceFileInfo.isOpenByClient = true;
-
-            // Reset the diagnostic version so we force an update to the
-            // diagnostics, which can change based on whether the file is open.
-            // We do not set the version to undefined here because that implies
-            // there are no diagnostics currently reported for this file.
-            sourceFileInfo.diagnosticsVersion = 0;
         }
 
         verifyNoCyclesInChainedFiles(this, sourceFileInfo);
         if (sourceFileInfo.ipythonMode === IPythonMode.CellDocs) {
             this._cellChainIndex.invalidate();
         }
-        sourceFileInfo.sourceFile.setClientVersion(version, contents);
+
+        const contentsChanged = sourceFileInfo.sourceFile.setClientVersion(version, contents);
+        if (wasKnownFile && (!wasOpenByClient || contentsChanged)) {
+            // Reset the diagnostic version so we force an update to the diagnostics,
+            // which can change based on whether the file is open or its contents changed.
+            // We do not set the version to undefined here because that implies there are
+            // no diagnostics currently reported for this file.
+            sourceFileInfo.diagnosticsVersion = 0;
+        }
+
+        if (wasKnownFile && (hadObservedContents || hadAnalysisState || hadDependencyGraph) && contentsChanged) {
+            const recreateEvaluator = !this._editModeTracker.isEditMode;
+            const fileName = fileUri.fileName;
+
+            // Builtins are an implicit dependency of every file, so their open-content changes
+            // must dirty the whole program rather than relying on normal importedBy edges.
+            if (fileName === 'builtins.pyi' || fileName === '__builtins__.pyi') {
+                this.markAllFilesDirty(/* evenIfContentsAreSame */ true, recreateEvaluator);
+            } else {
+                this._markFileDirtyRecursive(
+                    sourceFileInfo,
+                    new Set<string>(),
+                    /* forceRebinding */ false,
+                    /* recreateEvaluator */ false
+                );
+            }
+
+            if (recreateEvaluator && fileName !== 'builtins.pyi' && fileName !== '__builtins__.pyi') {
+                this._createNewEvaluator();
+            }
+        }
     }
 
     getChainedUri(fileUri: Uri): Uri | undefined {
@@ -470,9 +528,20 @@ export class Program {
             return;
         }
 
-        sourceFileInfo.chainedSourceFile = chainedFileUri ? this.getSourceFileInfo(chainedFileUri) : undefined;
+        const chainedSourceFile = chainedFileUri ? this.getSourceFileInfo(chainedFileUri) : undefined;
+        if (sourceFileInfo.chainedSourceFile === chainedSourceFile) {
+            return;
+        }
+
+        sourceFileInfo.chainedSourceFile = chainedSourceFile;
         sourceFileInfo.sourceFile.markDirty();
-        this._markFileDirtyRecursive(sourceFileInfo, new Set<string>());
+        this._markFileDirtyRecursive(
+            sourceFileInfo,
+            new Set<string>(),
+            /* forceRebinding */ false,
+            /* recreateEvaluator */ false
+        );
+        this._createNewEvaluator();
         this._cellChainIndex.invalidate();
 
         verifyNoCyclesInChainedFiles(this, sourceFileInfo);
@@ -502,47 +571,67 @@ export class Program {
             // people who use diagnosticMode Workspace.
             if (sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
                 sourceFileInfo.sourceFile.markDirty();
-                this._markFileDirtyRecursive(sourceFileInfo, new Set<string>());
+                this._markFileDirtyRecursive(
+                    sourceFileInfo,
+                    new Set<string>(),
+                    /* forceRebinding */ false,
+                    /* recreateEvaluator */ false
+                );
+                this._createNewEvaluator();
             }
+
+            sourceFileInfo.sourceFile.releaseClosedFileSyntax();
         }
 
         return this._removeUnneededFiles();
     }
 
-    markAllFilesDirty(evenIfContentsAreSame: boolean) {
+    markAllFilesDirty(evenIfContentsAreSame: boolean, recreateEvaluator = true) {
         const markDirtySet = new Set<string>();
+        let foundDirtyFile = false;
 
         this._sourceFileList.forEach((sourceFileInfo) => {
             if (evenIfContentsAreSame) {
                 sourceFileInfo.sourceFile.markDirty();
+                foundDirtyFile = true;
             } else if (sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
                 sourceFileInfo.sourceFile.markDirty();
+                foundDirtyFile = true;
 
                 // Mark any files that depend on this file as dirty
                 // also. This will retrigger analysis of these other files.
-                this._markFileDirtyRecursive(sourceFileInfo, markDirtySet);
+                this._markFileDirtyRecursive(
+                    sourceFileInfo,
+                    markDirtySet,
+                    /* forceRebinding */ false,
+                    /* recreateEvaluator */ false
+                );
             }
         });
 
-        if (markDirtySet.size > 0) {
+        if (recreateEvaluator && (foundDirtyFile || markDirtySet.size > 0)) {
             this._createNewEvaluator();
         }
     }
 
     markFilesDirty(fileUris: Uri[], evenIfContentsAreSame: boolean) {
+        if (
+            fileUris.some((fileUri) => {
+                const fileName = fileUri.fileName;
+                return (
+                    (fileName === 'builtins.pyi' || fileName === '__builtins__.pyi') &&
+                    this.getSourceFileInfo(fileUri) !== undefined
+                );
+            })
+        ) {
+            this.markAllFilesDirty(evenIfContentsAreSame);
+            return;
+        }
+
         const markDirtySet = new Set<string>();
         fileUris.forEach((fileUri) => {
             const sourceFileInfo = this.getSourceFileInfo(fileUri);
             if (sourceFileInfo) {
-                const fileName = fileUri.fileName;
-
-                // Handle builtins and __builtins__ specially. They are implicitly
-                // included by all source files.
-                if (fileName === 'builtins.pyi' || fileName === '__builtins__.pyi') {
-                    this.markAllFilesDirty(evenIfContentsAreSame);
-                    return;
-                }
-
                 // If !evenIfContentsAreSame, see if the on-disk contents have
                 // changed. If the file is open, the on-disk contents don't matter
                 // because we'll receive updates directly from the client.
@@ -554,7 +643,12 @@ export class Program {
 
                     // Mark any files that depend on this file as dirty
                     // also. This will retrigger analysis of these other files.
-                    this._markFileDirtyRecursive(sourceFileInfo, markDirtySet);
+                    this._markFileDirtyRecursive(
+                        sourceFileInfo,
+                        markDirtySet,
+                        /* forceRebinding */ false,
+                        /* recreateEvaluator */ false
+                    );
                 }
             }
         });
@@ -1194,6 +1288,21 @@ export class Program {
     // errors for files that have been deleted or closed.
     private _removeUnneededFiles(): FileDiagnostics[] {
         const fileDiagnostics: FileDiagnostics[] = [];
+        let shouldRecreateEvaluator = false;
+
+        const prepareSourceFileForRemoval = (fileInfo: SourceFileInfo) => {
+            // Removing a known file can strand parse nodes in evaluator caches even if the
+            // SourceFileInfo itself is dropped below. Clear source-owned syntax now and reset
+            // the evaluator if this file ever contributed observed contents to analysis.
+            if (fileInfo.sourceFile.hasContentBeenRead()) {
+                shouldRecreateEvaluator = true;
+            }
+
+            fileInfo.sourceFile.prepareForClose();
+            if (fileInfo.sourceFile.releaseClosedFileSyntax()) {
+                shouldRecreateEvaluator = true;
+            }
+        };
 
         // If a file is no longer tracked, opened or shadowed, it can
         // be removed from the program.
@@ -1209,7 +1318,7 @@ export class Program {
                     });
                 }
 
-                fileInfo.sourceFile.prepareForClose();
+                prepareSourceFileForRemoval(fileInfo);
                 this._removeSourceFileFromListAndMap(fileInfo.uri, i);
 
                 // Unlink any imports and remove them from the list if
@@ -1237,7 +1346,7 @@ export class Program {
                                 });
                             }
 
-                            importedFile.sourceFile.prepareForClose();
+                            prepareSourceFileForRemoval(importedFile);
                             this._removeSourceFileFromListAndMap(importedFile.uri, indexToRemove);
                             i--;
                         }
@@ -1263,6 +1372,10 @@ export class Program {
 
                 i++;
             }
+        }
+
+        if (shouldRecreateEvaluator) {
+            this._createNewEvaluator();
         }
 
         return fileDiagnostics;
@@ -1730,6 +1843,7 @@ export class Program {
         this._evaluator = createTypeEvaluatorWithTracker(
             this._lookUpImport,
             {
+                evaluatorGeneration: ++this._evaluatorGeneration,
                 printTypeFlags: getPrintTypeFlags(this._configOptions),
                 logCalls: this._configOptions.logTypeEvaluationTime,
                 minimumLoggingThreshold: this._configOptions.typeEvaluationTimeThreshold,
@@ -2286,7 +2400,12 @@ export class Program {
         firstSourceFile.sourceFile.addCircularDependency(this.configOptions, circDep);
     }
 
-    private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo, markSet: Set<string>, forceRebinding = false) {
+    private _markFileDirtyRecursive(
+        sourceFileInfo: SourceFileInfo,
+        markSet: Set<string>,
+        forceRebinding = false,
+        recreateEvaluator = true
+    ) {
         const fileUri = sourceFileInfo.uri;
 
         // Don't mark it again if it's already been visited.
@@ -2301,7 +2420,7 @@ export class Program {
             // Changes on chained source file can change symbols in the symbol table and
             // dependencies on the dependent file. Force rebinding.
             const forceRebinding = dep.chainedSourceFile === sourceFileInfo;
-            this._markFileDirtyRecursive(dep, markSet, forceRebinding);
+            this._markFileDirtyRecursive(dep, markSet, forceRebinding, recreateEvaluator);
         });
 
         // Change in the current file could impact chained notebook cells beyond checker-only results.
@@ -2327,7 +2446,7 @@ export class Program {
         // that it actually reevaluates all the nodes (instead of using the cache).
         // This is necessary because the original file change may not recreate the TypeEvaluator.
         // For example, it might be a file delete.
-        if (reevaluationRequired) {
+        if (reevaluationRequired && recreateEvaluator) {
             this._createNewEvaluator();
         }
     }

@@ -428,7 +428,7 @@ export class SourceFile {
         // If this is an open file any content changes will be
         // provided through the editor. We can assume contents
         // didn't change without us knowing about them.
-        if (this._writableData.clientDocumentContents) {
+        if (this._writableData.clientDocumentContents !== undefined) {
             return false;
         }
 
@@ -463,6 +463,10 @@ export class SourceFile {
         return false;
     }
 
+    hasContentBeenRead(): boolean {
+        return this._writableData.lastFileContentLength !== undefined;
+    }
+
     // Drop parse and binding info to save memory. It is used
     // in cases where memory is low. When info is needed, the file
     // will be re-parsed and rebound.
@@ -475,13 +479,37 @@ export class SourceFile {
 
         this._fireFileDirtyEvent();
 
-        this._writableData.parserOutput = undefined;
-        this._writableData.tokenizerLines = undefined;
-        this._writableData.tokenizerOutput = undefined;
-        this._writableData.parsedFileContents = undefined;
-        this._writableData.moduleSymbolTable = undefined;
+        this._releaseSyntaxCaches(/* preserveLineCount */ true);
         this._writableData.isBindingNeeded = true;
-        this._writableData.imports = [];
+    }
+
+    releaseClosedFileSyntax(): boolean {
+        if (this._writableData.isBindingInProgress || this._writableData.isCheckingInProgress) {
+            return false;
+        }
+
+        // These fields all belong to the full-syntax tier. Diagnostics and dependency
+        // graph summaries have already been materialized elsewhere, so closed files can
+        // release these objects without losing the compact state Program still needs.
+        const hadSyntax =
+            this._writableData.parserOutput !== undefined ||
+            this._writableData.tokenizerLines !== undefined ||
+            this._writableData.tokenizerOutput !== undefined ||
+            this._writableData.parsedFileContents !== undefined ||
+            this._writableData.moduleSymbolTable !== undefined ||
+            this._writableData.imports !== undefined ||
+            this._writableData.builtinsImport !== undefined ||
+            this._writableData.typeIgnoreLines.size > 0 ||
+            this._writableData.typeIgnoreAll !== undefined ||
+            this._writableData.pyrightIgnoreLines.size > 0;
+
+        if (!hadSyntax) {
+            return false;
+        }
+
+        this._releaseSyntaxCaches(/* preserveLineCount */ true);
+        this._writableData.isBindingNeeded = true;
+        return true;
     }
 
     markDirty(): void {
@@ -490,8 +518,7 @@ export class SourceFile {
         this._writableData.noCircularDependencyConfirmed = false;
         this._writableData.isCheckingNeeded = true;
         this._writableData.isBindingNeeded = true;
-        this._writableData.moduleSymbolTable = undefined;
-        this._writableData.lineCount = undefined;
+        this._releaseSyntaxCaches(/* preserveLineCount */ false);
 
         this._fireFileDirtyEvent();
     }
@@ -570,7 +597,7 @@ export class SourceFile {
         }
     }
 
-    setClientVersion(version: number | null, contents: string): void {
+    setClientVersion(version: number | null, contents: string): boolean {
         // Save pre edit state if in edit mode.
         this._cachePreEditState();
 
@@ -581,11 +608,13 @@ export class SourceFile {
             // Since the file is no longer open, dump the tokenizer output
             // so it doesn't consume memory.
             this._writableData.tokenizerOutput = undefined;
+            return false;
         } else {
             this._writableData.clientDocumentVersion = version;
             this._writableData.clientDocumentContents = contents;
 
             const contentsHash = StringUtils.hashString(contents);
+            let contentsChanged = false;
 
             // Have the contents of the file changed?
             if (
@@ -593,11 +622,13 @@ export class SourceFile {
                 contentsHash !== this._writableData.lastFileContentHash
             ) {
                 this.markDirty();
+                contentsChanged = true;
             }
 
             this._writableData.lastFileContentLength = contents.length;
             this._writableData.lastFileContentHash = contentsHash;
             this._writableData.isFileDeleted = false;
+            return contentsChanged;
         }
     }
 
@@ -1333,6 +1364,24 @@ export class SourceFile {
 
         // Recreate all the writable data from scratch.
         this._writableData = new WriteableData();
+    }
+
+    private _releaseSyntaxCaches(preserveLineCount: boolean) {
+        this._writableData.parserOutput = undefined;
+        this._writableData.tokenizerLines = undefined;
+        this._writableData.tokenizerOutput = undefined;
+        this._writableData.parsedFileContents = undefined;
+        this._writableData.moduleSymbolTable = undefined;
+        this._writableData.imports = undefined;
+        this._writableData.builtinsImport = undefined;
+        this._writableData.typeIgnoreLines = new Map<number, IgnoreComment>();
+        this._writableData.typeIgnoreAll = undefined;
+        this._writableData.pyrightIgnoreLines = new Map<number, IgnoreComment>();
+        this._writableData.parseTreeNeedsCleaning = false;
+
+        if (!preserveLineCount) {
+            this._writableData.lineCount = undefined;
+        }
     }
 
     // Get all task list diagnostics for the current file and add them

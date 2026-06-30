@@ -415,6 +415,32 @@ export interface ExpectedTypeResult {
     candidates: Type[];
 }
 
+export interface EvaluatorCacheStats {
+    evaluatorGeneration: number;
+    functionRecursionMap: number;
+    functionRecursionEntries: number;
+    codeFlowAnalyzerCache: number;
+    codeFlowAnalyzerCacheEntries: number;
+    typeCache: number;
+    effectiveTypeCache: number;
+    effectiveTypeCacheEntries: number;
+    expectedTypeCache: number;
+    asymmetricAccessorAssignmentCache: number;
+    deferredClassCompletions: number;
+    deferredClassCompletionClasses: number;
+    returnTypeInferenceTypeCache: number;
+    prefetchedTypes: number;
+    speculativeContextStack: number;
+    speculativeTypeCache: number;
+    speculativeTypeCacheEntries: number;
+    activeDependentTypes: number;
+    symbolResolutionStack: number;
+    suppressedNodeStack: number;
+    assignClassToSelfStack: number;
+    returnTypeInferenceContextStack: number;
+    signatureTrackerStack: number;
+}
+
 export function ensureExpectedTypeCandidates<T>(type: T, candidates: readonly T[]): T[] {
     return candidates.length > 0 ? [...candidates] : [type];
 }
@@ -881,6 +907,7 @@ export interface TypeEvaluator {
     printFunctionParts: (type: FunctionType, extraFlags?: PrintTypeFlags) => [string[], string];
 
     getTypeCacheEntryCount: () => number;
+    getEvaluatorCacheStats: () => EvaluatorCacheStats;
     disposeEvaluator: () => void;
     useSpeculativeMode: <T>(
         speculativeNode: ParseNode | undefined,
