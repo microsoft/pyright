@@ -1,7 +1,7 @@
 # This sample tests deprecation reporting for overloaded property setters.
 
 from typing import overload
-from typing_extensions import deprecated
+from typing_extensions import deprecated  # pyright: ignore[reportMissingModuleSource]
 
 
 class A:

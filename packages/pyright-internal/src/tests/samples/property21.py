@@ -2,7 +2,7 @@
 # setter implementation propagates to all of the setter overloads, per PEP 702.
 
 from typing import overload
-from typing_extensions import deprecated
+from typing_extensions import deprecated  # pyright: ignore[reportMissingModuleSource]
 
 
 class A:
