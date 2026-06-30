@@ -16,6 +16,14 @@ export type ImportPath = { importPath: Uri | undefined };
 
 type CacheEntry = { importResult: ImportResult; path: Uri; importName: string };
 
+export interface ParentDirectoryCacheStats {
+    importCheckedNames: number;
+    importCheckedEntries: number;
+    cachedResultNames: number;
+    cachedResults: number;
+    libPathCacheEntries: number;
+}
+
 export class ParentDirectoryCache {
     private readonly _importChecked = new Map<string, Map<string, ImportPath>>();
     private readonly _cachedResults = new Map<string, Map<string, ImportResult>>();
@@ -77,6 +85,26 @@ export class ParentDirectoryCache {
             result.path.key,
             result.importResult
         );
+    }
+
+    getCacheStats(): ParentDirectoryCacheStats {
+        let importCheckedEntries = 0;
+        this._importChecked.forEach((entries) => {
+            importCheckedEntries += entries.size;
+        });
+
+        let cachedResults = 0;
+        this._cachedResults.forEach((entries) => {
+            cachedResults += entries.size;
+        });
+
+        return {
+            importCheckedNames: this._importChecked.size,
+            importCheckedEntries,
+            cachedResultNames: this._cachedResults.size,
+            cachedResults,
+            libPathCacheEntries: this._libPathCache?.length ?? 0,
+        };
     }
 
     reset() {

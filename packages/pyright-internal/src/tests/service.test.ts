@@ -1224,6 +1224,40 @@ test('emptyCache preserves diagnostic range for checked files', () => {
     assert.strictEqual(diagnosticsAfter.length, diagnosticsBefore.length);
 });
 
+test('emptyCache clears import resolver caches', () => {
+    const code = `
+// @filename: test.py
+//// import package.sub
+//// package.sub.value
+
+// @filename: package/__init__.py
+////
+
+// @filename: package/sub.py
+//// value = 1
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const statsBefore = state.importResolver.getCacheStats();
+    assert(statsBefore.cachedImportResults > 0);
+
+    program.emptyCache();
+
+    const statsAfter = state.importResolver.getCacheStats();
+    assert.strictEqual(statsAfter.cachedImportResults, 0);
+    assert.strictEqual(statsAfter.cachedImportResultRoots, 0);
+    assert.strictEqual(statsAfter.cachedModuleNameResults, 0);
+    assert.strictEqual(statsAfter.cachedModuleNameRoots, 0);
+    assert.strictEqual(statsAfter.parentDirectoryCache.cachedResults, 0);
+    assert.strictEqual(statsAfter.parentDirectoryCache.importCheckedEntries, 0);
+});
+
 test('emptyCache preserves text range and diagnostic range queries for open files', () => {
     const code = `
 // @filename: test.py

@@ -26,7 +26,7 @@ import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { createImportResolverFileSystem } from './importResolverFileSystem';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
 import type { ImportResolverFileSystem, TypeshedInfoProvider } from './importResolverTypes';
-import { ImportPath, ParentDirectoryCache } from './parentDirectoryCache';
+import { ImportPath, ParentDirectoryCache, ParentDirectoryCacheStats } from './parentDirectoryCache';
 import { PyTypedInfo, getPyTypedInfoForPyTypedFile } from './pyTypedUtils';
 import { createDefaultTypeshedInfoProvider } from './typeshedInfoProvider';
 import * as PythonPathUtils from './pythonPathUtils';
@@ -79,6 +79,16 @@ export function createImportedModuleDescriptor(moduleName: string): ImportedModu
 }
 
 type CachedImportResults = Map<string, ImportResult>;
+
+export interface ImportResolverCacheStats {
+    cachedImportResultRoots: number;
+    cachedImportResults: number;
+    cachedModuleNameRoots: number;
+    cachedModuleNameResults: number;
+    cachedPythonSearchPaths: number;
+    stdlibModules: number;
+    parentDirectoryCache: ParentDirectoryCacheStats;
+}
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
 export const supportedSourceFileExtensions = ['.py', '.pyi'];
@@ -147,6 +157,28 @@ export class ImportResolver {
         this._invalidateFileSystemCache();
 
         this.partialStubs?.clearPartialStubs();
+    }
+
+    getCacheStats(): ImportResolverCacheStats {
+        let cachedImportResults = 0;
+        this._cachedImportResults.forEach((entries) => {
+            cachedImportResults += entries.size;
+        });
+
+        let cachedModuleNameResults = 0;
+        this._cachedModuleNameResults.forEach((entries) => {
+            cachedModuleNameResults += entries.size;
+        });
+
+        return {
+            cachedImportResultRoots: this._cachedImportResults.size,
+            cachedImportResults,
+            cachedModuleNameRoots: this._cachedModuleNameResults.size,
+            cachedModuleNameResults,
+            cachedPythonSearchPaths: this._cachedPythonSearchPaths?.paths.length ?? 0,
+            stdlibModules: this._stdlibModules?.size ?? 0,
+            parentDirectoryCache: this.cachedParentImportResults.getCacheStats(),
+        };
     }
 
     // Resolves the import and returns the path if it exists, otherwise
