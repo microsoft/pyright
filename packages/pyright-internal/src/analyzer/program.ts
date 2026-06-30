@@ -1311,47 +1311,9 @@ export class Program {
                 if (this._prepareSourceFileForRemoval(fileInfo)) {
                     shouldRecreateEvaluator = true;
                 }
+                this._detachSourceFileInfoForRemoval(fileInfo);
                 this._removeSourceFileFromListAndMap(fileInfo.uri, i);
-
-                // Unlink any imports and remove them from the list if
-                // they are no longer referenced.
-                fileInfo.imports.forEach((importedFile) => {
-                    const indexToRemove = importedFile.importedBy.findIndex((fi) => fi === fileInfo);
-                    if (indexToRemove < 0) {
-                        return;
-                    }
-
-                    importedFile.mutate((s) => s.importedBy.splice(indexToRemove, 1));
-
-                    // See if we need to remove the imported file because it
-                    // is no longer needed. If its index is >= i, it will be
-                    // removed when we get to it.
-                    if (!this._isFileNeeded(importedFile)) {
-                        const indexToRemove = this._sourceFileList.findIndex((fi) => fi === importedFile);
-                        if (indexToRemove >= 0 && indexToRemove < i) {
-                            // Clear if there are any errors for this import.
-                            if (importedFile.diagnosticsVersion !== undefined) {
-                                fileDiagnostics.push({
-                                    fileUri: importedFile.uri,
-                                    version: importedFile.sourceFile.getClientVersion(),
-                                    diagnostics: [],
-                                });
-                            }
-
-                            if (this._prepareSourceFileForRemoval(importedFile)) {
-                                shouldRecreateEvaluator = true;
-                            }
-                            this._removeSourceFileFromListAndMap(importedFile.uri, indexToRemove);
-                            i--;
-                        }
-                    }
-                });
-
-                // Remove any shadowed files corresponding to this file.
-                fileInfo.shadowedBy.forEach((shadowedFile) => {
-                    shadowedFile.mutate((s) => (s.shadows = s.shadows.filter((f) => f !== fileInfo)));
-                });
-                fileInfo.mutate((s) => (s.shadowedBy = []));
+                i = 0;
             } else {
                 // If we're showing the user errors only for open files, clear
                 // out the errors for the now-closed file.
@@ -1373,6 +1335,52 @@ export class Program {
         }
 
         return fileDiagnostics;
+    }
+
+    private _detachSourceFileInfoForRemoval(fileInfo: SourceFileInfo) {
+        fileInfo.imports.forEach((importedFile) => {
+            importedFile.mutate((s) => (s.importedBy = s.importedBy.filter((fi) => fi !== fileInfo)));
+        });
+
+        this._sourceFileList.forEach((sourceFileInfo) => {
+            if (sourceFileInfo === fileInfo) {
+                return;
+            }
+
+            if (
+                sourceFileInfo.imports.includes(fileInfo) ||
+                sourceFileInfo.importedBy.includes(fileInfo) ||
+                sourceFileInfo.shadows.includes(fileInfo) ||
+                sourceFileInfo.shadowedBy.includes(fileInfo) ||
+                sourceFileInfo.builtinsImport === fileInfo ||
+                sourceFileInfo.chainedSourceFile === fileInfo
+            ) {
+                sourceFileInfo.mutate((s) => {
+                    s.imports = s.imports.filter((fi) => fi !== fileInfo);
+                    s.importedBy = s.importedBy.filter((fi) => fi !== fileInfo);
+                    s.shadows = s.shadows.filter((fi) => fi !== fileInfo);
+                    s.shadowedBy = s.shadowedBy.filter((fi) => fi !== fileInfo);
+
+                    if (s.builtinsImport === fileInfo) {
+                        s.builtinsImport = undefined;
+                    }
+
+                    if (s.chainedSourceFile === fileInfo) {
+                        s.chainedSourceFile = undefined;
+                    }
+                });
+            }
+        });
+
+        fileInfo.mutate((s) => {
+            s.imports = [];
+            s.importedBy = [];
+            s.shadows = [];
+            s.shadowedBy = [];
+            s.builtinsImport = undefined;
+            s.chainedSourceFile = undefined;
+            s.effectiveFutureImports = undefined;
+        });
     }
 
     private _isFileNeeded(fileInfo: SourceFileInfo, skipFileNeededCheck?: boolean) {

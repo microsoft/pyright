@@ -862,6 +862,42 @@ test('setTrackedFiles removes closed files and clears evaluator retainers', () =
     });
 });
 
+test('removed deleted imports are unlinked from live importers', () => {
+    const code = `
+// @filename: test.py
+//// import removed
+//// removed.value
+
+// @filename: removed.py
+//// value = 1
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const program = state.workspace.service.test_program;
+    const testUri = UriEx.file('/projectRoot/test.py');
+    const removedUri = UriEx.file('/projectRoot/removed.py');
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const testInfo = program.getSourceFileInfo(testUri);
+    const removedInfo = program.getSourceFileInfo(removedUri);
+    assert(testInfo);
+    assert(removedInfo);
+    assert(testInfo.imports.includes(removedInfo));
+
+    state.testFS.unlinkSync(removedUri);
+    program.markFilesDirty([removedUri], /* evenIfContentsAreSame */ true);
+    program.getBoundSourceFile(removedUri);
+    assert(removedInfo.sourceFile.isFileDeleted());
+
+    program.getDiagnostics(program.configOptions);
+
+    assert.strictEqual(program.getSourceFileInfo(removedUri), undefined);
+    assert(!testInfo.imports.includes(removedInfo));
+});
+
 test('updateOpenFileContents disposes evaluator caches and stale parse output', () => {
     const code = `
 // @filename: test.py
