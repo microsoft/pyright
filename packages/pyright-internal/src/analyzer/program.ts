@@ -235,9 +235,12 @@ export class Program {
         // Treat program disposal as an explicit lifetime boundary. The Program is about to
         // forget its file table, so eagerly sever source/evaluator references instead of
         // relying on the surrounding service teardown to make the object graph unreachable.
+        this._editModeTracker.disable();
         this._sourceFileList.forEach((fileInfo) => {
+            fileInfo.clearForDispose();
             fileInfo.sourceFile.setClientVersion(null, '');
             fileInfo.sourceFile.releaseClosedFileSyntax();
+            fileInfo.sourceFile.clearPreEditStateForDispose();
         });
         this._sourceFileList.length = 0;
         this._sourceFileMap.clear();

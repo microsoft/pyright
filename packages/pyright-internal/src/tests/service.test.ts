@@ -1301,6 +1301,56 @@ test('program dispose clears evaluator and source retainers', () => {
     });
 });
 
+test('program dispose during edit mode clears pre-edit retainers', () => {
+    const code = `
+// @filename: dep.py
+//// value = 1
+// @filename: test.py
+//// import dep
+//// class C:
+////     value: int = 1
+////
+//// c = C()
+//// reveal_type(c.value)
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const sourceFileInfo = program.getSourceFileInfo(uri);
+    assert(sourceFileInfo);
+    const sourceFile = sourceFileInfo.sourceFile as any;
+    const preEditSourceInfoWritableData = (sourceFileInfo as any)._writableData;
+    const preEditSourceWritableData = sourceFile._writableData;
+    assert(preEditSourceInfoWritableData.imports.length > 0);
+    assert(preEditSourceWritableData.parserOutput);
+
+    program.enterEditMode();
+    program.setFileOpened(uri, 1, 'value = 1', {
+        ipythonMode: IPythonMode.None,
+        chainedFileUri: undefined,
+    });
+    const editSourceInfoWritableData = (sourceFileInfo as any)._writableData;
+    assert((program as any)._editModeTracker._mutatedFiles.includes(sourceFileInfo));
+    assert((sourceFileInfo as any)._preEditData);
+    assert(sourceFile._preEditData);
+    assert(editSourceInfoWritableData.imports.length > 0);
+
+    program.dispose();
+
+    assert.strictEqual((program as any)._editModeTracker._mutatedFiles.length, 0);
+    assert.strictEqual((sourceFileInfo as any)._preEditData, undefined);
+    assert.strictEqual(sourceFile._preEditData, undefined);
+    assert.strictEqual(preEditSourceInfoWritableData.imports.length, 0);
+    assert.strictEqual(editSourceInfoWritableData.imports.length, 0);
+    assert.strictEqual(preEditSourceWritableData.parserOutput, undefined);
+});
+
 test('emptyCache drops retained parse tree and parsed contents for closed tracked file', () => {
     const code = `
 // @filename: test.py

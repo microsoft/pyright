@@ -422,6 +422,17 @@ export class SourceFile {
         return undefined;
     }
 
+    clearPreEditStateForDispose() {
+        if (!this._preEditData) {
+            return;
+        }
+
+        this._preEditData.clientDocumentVersion = undefined;
+        this._preEditData.clientDocumentContents = undefined;
+        this._releaseSyntaxCachesForData(this._preEditData, /* preserveLineCount */ true);
+        this._preEditData = undefined;
+    }
+
     // Indicates whether the contents of the file have changed since
     // the last analysis was performed.
     didContentsChangeOnDisk(): boolean {
@@ -1367,20 +1378,27 @@ export class SourceFile {
     }
 
     private _releaseSyntaxCaches(preserveLineCount: boolean) {
-        this._writableData.parserOutput = undefined;
-        this._writableData.tokenizerLines = undefined;
-        this._writableData.tokenizerOutput = undefined;
-        this._writableData.parsedFileContents = undefined;
-        this._writableData.moduleSymbolTable = undefined;
-        this._writableData.imports = undefined;
-        this._writableData.builtinsImport = undefined;
-        this._writableData.typeIgnoreLines = new Map<number, IgnoreComment>();
-        this._writableData.typeIgnoreAll = undefined;
-        this._writableData.pyrightIgnoreLines = new Map<number, IgnoreComment>();
-        this._writableData.parseTreeNeedsCleaning = false;
+        this._releaseSyntaxCachesForData(this._writableData, preserveLineCount);
+    }
+
+    private _releaseSyntaxCachesForData(data: WriteableData, preserveLineCount: boolean) {
+        data.parserOutput = undefined;
+        data.tokenizerLines = undefined;
+        data.tokenizerOutput = undefined;
+        data.parsedFileContents = undefined;
+        data.moduleSymbolTable = undefined;
+        data.imports?.splice(0);
+        data.imports = undefined;
+        data.builtinsImport = undefined;
+        data.typeIgnoreLines.clear();
+        data.typeIgnoreLines = new Map<number, IgnoreComment>();
+        data.typeIgnoreAll = undefined;
+        data.pyrightIgnoreLines.clear();
+        data.pyrightIgnoreLines = new Map<number, IgnoreComment>();
+        data.parseTreeNeedsCleaning = false;
 
         if (!preserveLineCount) {
-            this._writableData.lineCount = undefined;
+            data.lineCount = undefined;
         }
     }
 

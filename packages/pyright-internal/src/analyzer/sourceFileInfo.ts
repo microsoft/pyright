@@ -171,6 +171,15 @@ export class SourceFileInfo implements extensibility.SourceFileInfo {
         return this.sourceFile.restore();
     }
 
+    clearForDispose() {
+        this._clearWriteableDataReferences(this._writableData);
+
+        if (this._preEditData) {
+            this._clearWriteableDataReferences(this._preEditData);
+            this._preEditData = undefined;
+        }
+    }
+
     private _cachePreEditState() {
         if (!this._editModeTracker.isEditMode || this._preEditData) {
             return;
@@ -212,6 +221,21 @@ export class SourceFileInfo implements extensibility.SourceFileInfo {
             shadows: data.shadows.slice(),
             shadowedBy: data.shadowedBy.slice(),
         };
+    }
+
+    private _clearWriteableDataReferences(data: WriteableData) {
+        data.imports.length = 0;
+        data.imports = [];
+        data.importedBy.length = 0;
+        data.importedBy = [];
+        data.shadows.length = 0;
+        data.shadows = [];
+        data.shadowedBy.length = 0;
+        data.shadowedBy = [];
+        data.builtinsImport = undefined;
+        data.chainedSourceFile = undefined;
+        data.effectiveFutureImports = undefined;
+        data.diagnosticsVersion = undefined;
     }
 }
 
