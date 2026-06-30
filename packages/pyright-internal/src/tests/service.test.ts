@@ -541,6 +541,7 @@ test('setFileOpened does not change tracked state for existing source files', ()
     const sourceFileInfo = program.getSourceFileInfo(uri);
     assert(sourceFileInfo);
     assert.strictEqual(sourceFileInfo.isTracked, false);
+    const oldEvaluator = program.evaluator;
 
     // Opening an existing untracked file does not change its tracked state.
     // Tracking is determined at creation time.
@@ -551,6 +552,7 @@ test('setFileOpened does not change tracked state for existing source files', ()
 
     assert.strictEqual(sourceFileInfo.isOpenByClient, true);
     assert.strictEqual(sourceFileInfo.isTracked, false);
+    assert.strictEqual(program.evaluator, oldEvaluator);
 });
 
 test('setTrackedFiles does not untrack virtual open files', () => {
@@ -573,6 +575,20 @@ test('setTrackedFiles does not untrack virtual open files', () => {
     assert.strictEqual(sourceFileInfo.isTracked, true);
 });
 
+test('setFileOpened does not recreate evaluator for new files', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const program = state.workspace.service.test_program;
+    const oldEvaluator = program.evaluator;
+    const uri = UriEx.file('/projectRoot/newFile.py');
+
+    program.setFileOpened(uri, 1, 'value = 1', {
+        ipythonMode: IPythonMode.None,
+        chainedFileUri: undefined,
+    });
+
+    assert.strictEqual(program.evaluator, oldEvaluator);
+});
+
 test('setTrackedFiles does not preserve tracked state for non-virtual open files', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
     const program = state.workspace.service.test_program;
@@ -581,6 +597,8 @@ test('setTrackedFiles does not preserve tracked state for non-virtual open files
     state.testFS.mkdirpSync('/projectRoot');
     state.testFS.writeFileSync(uri, 'value = 1');
     program.addTrackedFile(uri);
+    const oldEvaluator = program.evaluator;
+
     program.setFileOpened(uri, 1, 'value = 1', {
         ipythonMode: IPythonMode.None,
         chainedFileUri: undefined,
@@ -593,6 +611,7 @@ test('setTrackedFiles does not preserve tracked state for non-virtual open files
     assert.strictEqual(sourceFileInfo.isOpenByClient, true);
     assert.strictEqual(sourceFileInfo.isVirtual, false);
     assert.strictEqual(sourceFileInfo.isTracked, false);
+    assert.strictEqual(program.evaluator, oldEvaluator);
 });
 
 test('setFileClosed auto-untracks and removes virtual files from the source list', () => {
@@ -682,13 +701,39 @@ test('file changes cause semantic update', () => {
     assert.strictEqual(openFile.semanticVersion, oldSemanticVersion + 1);
 });
 
-test('setFileClosed drops tokenizer cache but keeps tracked parse tree and token comments', () => {
+test('open empty file does not use disk contents for dirty check', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    state.testFS.mkdirpSync('/projectRoot');
+    state.testFS.writeFileSync(uri, 'disk_value = 1');
+    program.addTrackedFile(uri);
+    program.setFileOpened(uri, 1, '', {
+        ipythonMode: IPythonMode.None,
+        chainedFileUri: undefined,
+    });
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const sourceFileInfo = program.getSourceFileInfo(uri);
+    assert(sourceFileInfo);
+    assert.strictEqual(sourceFileInfo.isOpenByClient, true);
+    assert.strictEqual(sourceFileInfo.sourceFile.isCheckingRequired(), false);
+    assert.strictEqual(sourceFileInfo.sourceFile.didContentsChangeOnDisk(), false);
+});
+
+test('setFileClosed drops tracked syntax without invalidating evaluator caches', () => {
     const code = `
 // @filename: test.py
 //// # module lead
 //// # lifetime comment retained on token
 //// def f():
 ////     pass
+//// missing_type_ignore  # type: ignore[reportUndefinedVariable]
+//// missing_pyright_ignore  # pyright: ignore[reportUndefinedVariable]
     `;
 
     const state = parseAndGetTestState(code, '/projectRoot').state;
@@ -706,24 +751,110 @@ test('setFileClosed drops tokenizer cache but keeps tracked parse tree and token
     assert(writableData.parserOutput);
     assert(writableData.tokenizerOutput);
     assert(writableData.parsedFileContents?.includes('lifetime comment retained on token'));
+    assert(writableData.typeIgnoreLines.size > 0);
+    assert(writableData.pyrightIgnoreLines.size > 0);
+    assert(sourceFileInfo.sourceFile.getImports().length > 0);
+    const oldSourceFileInfoImportCount = sourceFileInfo.imports.length;
+    const oldEvaluator = program.evaluator as any;
+    assert(oldEvaluator);
+    const oldEvaluatorStats = oldEvaluator.getEvaluatorCacheStats();
+    assert(oldEvaluatorStats.typeCache > 0);
 
     program.setFileClosed(uri);
 
+    assert.strictEqual(program.evaluator, oldEvaluator);
+    assert.deepStrictEqual(oldEvaluator.getEvaluatorCacheStats(), oldEvaluatorStats);
     assert.strictEqual(program.getSourceFileInfo(uri), sourceFileInfo);
     assert.strictEqual(sourceFileInfo.isOpenByClient, false);
     assert.strictEqual(writableData.clientDocumentContents, undefined);
     assert.strictEqual(writableData.tokenizerOutput, undefined);
-    assert(writableData.parserOutput);
-    assert(writableData.parsedFileContents?.includes('lifetime comment retained on token'));
-
-    const functionNode = writableData.parserOutput.parseTree.d.statements[0];
-    assert.deepStrictEqual(
-        functionNode.d.firstToken.comments?.map((comment: any) => comment.value),
-        [' lifetime comment retained on token']
-    );
+    assert.strictEqual(writableData.parserOutput, undefined);
+    assert.strictEqual(writableData.parsedFileContents, undefined);
+    assert.strictEqual(writableData.tokenizerLines, undefined);
+    assert.strictEqual(writableData.moduleSymbolTable, undefined);
+    assert.strictEqual(writableData.typeIgnoreLines.size, 0);
+    assert.strictEqual(writableData.typeIgnoreAll, undefined);
+    assert.strictEqual(writableData.pyrightIgnoreLines.size, 0);
+    assert.strictEqual(sourceFileInfo.sourceFile.getImports().length, 0);
+    assert.strictEqual(sourceFileInfo.imports.length, oldSourceFileInfoImportCount);
 });
 
-test('updateOpenFileContents clears evaluator cache but private stale parse output survives until reparse', () => {
+test('setFileClosed invalidates evaluator when disk contents changed', () => {
+    const code = `
+// @filename: test.py
+//// class C:
+////     value: int = 1
+////
+//// c = C()
+//// reveal_type(c.value)
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const oldEvaluator = program.evaluator as any;
+    assert(oldEvaluator);
+    assert(oldEvaluator.getEvaluatorCacheStats().typeCache > 0);
+
+    state.testFS.writeFileSync(uri, `${state.testFS.readFileSync(uri, 'utf8')}\nother = 1\n`);
+    program.setFileClosed(uri);
+
+    assert.notStrictEqual(program.evaluator, oldEvaluator);
+    Object.entries(oldEvaluator.getEvaluatorCacheStats()).forEach(([name, value]) => {
+        if (name !== 'evaluatorGeneration') {
+            assert.strictEqual(value, 0, `${name} should be cleared when close observes changed contents`);
+        }
+    });
+});
+
+test('setTrackedFiles removes closed files and clears evaluator retainers', () => {
+    const code = `
+// @filename: test.py
+//// class C:
+////     value: int = 1
+////
+//// c = C()
+//// reveal_type(c.value)
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const sourceFileInfo = program.getSourceFileInfo(uri);
+    assert(sourceFileInfo);
+    const writableData = (sourceFileInfo.sourceFile as any)._writableData;
+    assert(writableData.parserOutput);
+
+    const oldEvaluator = program.evaluator as any;
+    assert(oldEvaluator);
+    assert(oldEvaluator.getEvaluatorCacheStats().typeCache > 0);
+
+    program.setFileClosed(uri);
+    assert.strictEqual(program.evaluator, oldEvaluator);
+
+    program.setTrackedFiles([]);
+
+    assert.strictEqual(program.getSourceFileInfo(uri), undefined);
+    assert.notStrictEqual(program.evaluator, oldEvaluator);
+    assert.strictEqual(writableData.parserOutput, undefined);
+    Object.entries(oldEvaluator.getEvaluatorCacheStats()).forEach(([name, value]) => {
+        if (name !== 'evaluatorGeneration') {
+            assert.strictEqual(value, 0, `${name} should be cleared when a file is removed`);
+        }
+    });
+});
+
+test('updateOpenFileContents disposes evaluator caches and stale parse output', () => {
     const code = `
 // @filename: test.py
 //// class C:
@@ -747,15 +878,295 @@ test('updateOpenFileContents clears evaluator cache but private stale parse outp
     const writableData = (sourceFileInfo.sourceFile as any)._writableData;
     const oldParserOutput = writableData.parserOutput;
     assert(oldParserOutput);
-    assert(program.evaluator);
-    assert((program.evaluator as any).getTypeCacheEntryCount() > 0);
+    const oldEvaluator = program.evaluator as any;
+    assert(oldEvaluator);
+    assert(oldEvaluator.getTypeCacheEntryCount() > 0);
+    const oldEvaluatorGeneration = oldEvaluator.getEvaluatorCacheStats().evaluatorGeneration;
+    assert(oldEvaluator.getEvaluatorCacheStats().typeCache > 0);
 
     state.workspace.service.updateOpenFileContents(uri, 2, `${state.testFS.readFileSync(uri, 'utf8')}\nother = 1\n`);
 
     assert(program.evaluator);
-    assert.strictEqual((program.evaluator as any).getTypeCacheEntryCount(), 0);
+    assert.notStrictEqual(program.evaluator, oldEvaluator);
+    Object.entries(oldEvaluator.getEvaluatorCacheStats()).forEach(([name, value]) => {
+        if (name !== 'evaluatorGeneration') {
+            assert.strictEqual(value, 0, `${name} should be cleared on evaluator disposal`);
+        }
+    });
+    const newEvaluatorStats = (program.evaluator as any).getEvaluatorCacheStats();
+    assert(newEvaluatorStats.evaluatorGeneration > oldEvaluatorGeneration);
+    Object.entries(newEvaluatorStats).forEach(([name, value]) => {
+        if (name !== 'evaluatorGeneration') {
+            assert.strictEqual(value, 0, `${name} should be empty on the new evaluator`);
+        }
+    });
     assert.strictEqual(sourceFileInfo.sourceFile.getParserOutput(), undefined);
-    assert.strictEqual(writableData.parserOutput, oldParserOutput);
+    assert.strictEqual(writableData.parserOutput, undefined);
+    assert.notStrictEqual(writableData.parserOutput, oldParserOutput);
+});
+
+test('updateOpenFileContents with unchanged contents preserves evaluator and diagnostic version', () => {
+    const code = `
+// @filename: test.py
+//// value: int = 1
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const contents = state.testFS.readFileSync(uri, 'utf8');
+    const program = state.workspace.service.test_program;
+
+    state.workspace.service.setFileOpened(uri, 1, contents);
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+    program.getDiagnostics(program.configOptions);
+
+    const sourceFileInfo = program.getSourceFileInfo(uri);
+    assert(sourceFileInfo);
+    assert.strictEqual(sourceFileInfo.isOpenByClient, true);
+    const oldEvaluator = program.evaluator;
+    const oldDiagnosticsVersion = sourceFileInfo.diagnosticsVersion;
+
+    state.workspace.service.updateOpenFileContents(uri, 2, contents);
+
+    assert.strictEqual(program.evaluator, oldEvaluator);
+    assert.strictEqual(sourceFileInfo.diagnosticsVersion, oldDiagnosticsVersion);
+});
+
+test('setFileOpened disposes evaluator caches when contents change', () => {
+    const code = `
+// @filename: test.py
+//// class C:
+////     value: int = 1
+////
+//// c = C()
+//// reveal_type(c.value)
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const sourceFileInfo = program.getSourceFileInfo(uri);
+    assert(sourceFileInfo);
+
+    const oldEvaluator = program.evaluator as any;
+    assert(oldEvaluator);
+    assert(oldEvaluator.getEvaluatorCacheStats().typeCache > 0);
+    const oldEvaluatorGeneration = oldEvaluator.getEvaluatorCacheStats().evaluatorGeneration;
+
+    state.workspace.service.setFileOpened(uri, 2, `${state.testFS.readFileSync(uri, 'utf8')}\nother = 1\n`);
+
+    assert.notStrictEqual(program.evaluator, oldEvaluator);
+    Object.entries(oldEvaluator.getEvaluatorCacheStats()).forEach(([name, value]) => {
+        if (name !== 'evaluatorGeneration') {
+            assert.strictEqual(value, 0, `${name} should be cleared on evaluator disposal`);
+        }
+    });
+    assert((program.evaluator as any).getEvaluatorCacheStats().evaluatorGeneration > oldEvaluatorGeneration);
+    assert.strictEqual(sourceFileInfo.sourceFile.getParserOutput(), undefined);
+});
+
+test('setFileOpened defers evaluator disposal during edit mode', () => {
+    const code = `
+// @filename: test.py
+//// value = 1
+//// reveal_type(value)
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const oldEvaluator = program.evaluator as any;
+    assert(oldEvaluator);
+    assert(oldEvaluator.getEvaluatorCacheStats().typeCache > 0);
+
+    state.workspace.service.runEditMode((p) => {
+        p.setFileOpened(uri, 2, `${state.testFS.readFileSync(uri, 'utf8')}\nother = 1\n`);
+        assert.strictEqual(program.evaluator, oldEvaluator);
+        assert(oldEvaluator.getEvaluatorCacheStats().typeCache > 0);
+    }, CancellationToken.None);
+
+    assert.notStrictEqual(program.evaluator, oldEvaluator);
+    Object.entries(oldEvaluator.getEvaluatorCacheStats()).forEach(([name, value]) => {
+        if (name !== 'evaluatorGeneration') {
+            assert.strictEqual(value, 0, `${name} should be cleared when edit mode exits`);
+        }
+    });
+});
+
+test('setFileOpened marks dependents dirty during edit mode', () => {
+    const code = `
+// @filename: a.py
+//// value: int = 1
+// @filename: b.py
+//// from a import value
+//// reveal_type(value)
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const aUri = UriEx.file('/projectRoot/a.py');
+    const bUri = UriEx.file('/projectRoot/b.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const bInfo = program.getSourceFileInfo(bUri);
+    assert(bInfo);
+    assert.strictEqual(bInfo.sourceFile.isCheckingRequired(), false);
+
+    const oldEvaluator = program.evaluator as any;
+    assert(oldEvaluator);
+
+    state.workspace.service.runEditMode((p) => {
+        p.setFileOpened(aUri, 2, `${state.testFS.readFileSync(aUri, 'utf8')}\nother = 1\n`);
+        assert.strictEqual(program.evaluator, oldEvaluator);
+        assert.strictEqual(bInfo.sourceFile.isCheckingRequired(), true);
+    }, CancellationToken.None);
+
+    assert.notStrictEqual(program.evaluator, oldEvaluator);
+});
+
+test('setFileOpened marks all files dirty for builtins change', () => {
+    const code = `
+// @filename: a.py
+//// value = 1
+// @filename: builtins.pyi
+//// class object:
+////     pass
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const aUri = UriEx.file('/projectRoot/a.py');
+    const builtinsUri = UriEx.file('/projectRoot/builtins.pyi');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const aInfo = program.getSourceFileInfo(aUri);
+    assert(aInfo);
+    assert.strictEqual(aInfo.sourceFile.isCheckingRequired(), false);
+
+    const oldEvaluator = program.evaluator as any;
+    assert(oldEvaluator);
+
+    state.workspace.service.setFileOpened(
+        builtinsUri,
+        2,
+        `${state.testFS.readFileSync(builtinsUri, 'utf8')}\nclass int(object): ...\n`
+    );
+
+    assert.strictEqual(aInfo.sourceFile.isCheckingRequired(), true);
+    assert.notStrictEqual(program.evaluator, oldEvaluator);
+});
+
+test('updateChainedUri does not recreate evaluator for unchanged chain', () => {
+    const code = `
+// @filename: test.py
+//// value = 1
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const oldEvaluator = program.evaluator;
+
+    program.updateChainedUri(uri, undefined);
+
+    assert.strictEqual(program.evaluator, oldEvaluator);
+});
+
+test('disposeEvaluator preserves active evaluator state during reentrant invalidation', () => {
+    const code = `
+// @filename: test.py
+//// class C:
+////     pass
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const oldEvaluator = program.evaluator as any;
+    const parseTree = program.getParseResults(uri)!.parserOutput.parseTree;
+
+    program.run(() => {
+        oldEvaluator.useSpeculativeMode(parseTree, () => {
+            (program as any)._createNewEvaluator();
+        });
+    }, CancellationToken.None);
+
+    assert.notStrictEqual(program.evaluator, oldEvaluator);
+    Object.entries(oldEvaluator.getEvaluatorCacheStats()).forEach(([name, value]) => {
+        if (name !== 'evaluatorGeneration') {
+            assert.strictEqual(value, 0, `${name} should be cleared after active evaluator unwinds`);
+        }
+    });
+});
+
+test('program dispose clears evaluator and source retainers', () => {
+    const code = `
+// @filename: test.py
+//// class C:
+////     value: int = 1
+////
+//// c = C()
+//// reveal_type(c.value)
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+    state.workspace.service.setFileOpened(uri, 1, state.testFS.readFileSync(uri, 'utf8'));
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const sourceFileInfo = program.getSourceFileInfo(uri);
+    assert(sourceFileInfo);
+    const writableData = (sourceFileInfo.sourceFile as any)._writableData;
+    assert(writableData.parserOutput);
+    assert(writableData.clientDocumentContents);
+
+    const oldEvaluator = program.evaluator as any;
+    assert(oldEvaluator);
+    assert(oldEvaluator.getEvaluatorCacheStats().typeCache > 0);
+
+    program.dispose();
+
+    assert.strictEqual(program.evaluator, undefined);
+    assert.strictEqual(program.getSourceFileInfo(uri), undefined);
+    assert.strictEqual(writableData.parserOutput, undefined);
+    assert.strictEqual(writableData.clientDocumentContents, undefined);
+    Object.entries(oldEvaluator.getEvaluatorCacheStats()).forEach(([name, value]) => {
+        if (name !== 'evaluatorGeneration') {
+            assert.strictEqual(value, 0, `${name} should be cleared when program is disposed`);
+        }
+    });
 });
 
 test('emptyCache drops retained parse tree and parsed contents for closed tracked file', () => {
@@ -787,6 +1198,64 @@ test('emptyCache drops retained parse tree and parsed contents for closed tracke
     assert.strictEqual(writableData.parserOutput, undefined);
     assert.strictEqual(writableData.parsedFileContents, undefined);
     assert.strictEqual(writableData.moduleSymbolTable, undefined);
+});
+
+test('emptyCache preserves diagnostic range for checked files', () => {
+    const code = `
+// @filename: test.py
+//// value = 1
+//// bad: int = ""
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const diagnosticsBefore = program.analyzeFileAndGetDiagnostics(uri);
+    assert(diagnosticsBefore.length > 0);
+
+    program.emptyCache();
+
+    const diagnosticsAfter = program.analyzeFileAndGetDiagnostics(uri);
+    assert.strictEqual(diagnosticsAfter.length, diagnosticsBefore.length);
+});
+
+test('emptyCache preserves text range and diagnostic range queries for open files', () => {
+    const code = `
+// @filename: test.py
+//// value: int = ""
+//// /*marker*/value
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const marker = state.getMarkerByName('marker');
+    const uri = marker.fileUri;
+    const program = state.workspace.service.test_program;
+    state.workspace.service.setFileOpened(uri, 1, state.testFS.readFileSync(uri, 'utf8'));
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const wholeFileRange = program.getSourceFile(uri)!.getRange();
+    const diagnosticsBefore = program.getDiagnosticsForRange(uri, wholeFileRange);
+    assert(diagnosticsBefore.length > 0);
+
+    program.emptyCache();
+
+    assert.strictEqual(
+        program.getTextOnRange(
+            uri,
+            { start: { line: 1, character: 0 }, end: { line: 1, character: 5 } },
+            CancellationToken.None
+        ),
+        'value'
+    );
+    assert.strictEqual(program.getDiagnosticsForRange(uri, wholeFileRange).length, diagnosticsBefore.length);
 });
 
 function testSourceFileWatchChange(code: string, expected = true, isFile = true) {
