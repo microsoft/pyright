@@ -68,6 +68,52 @@ describe('Import tests with fake venv', () => {
                 );
             });
 
+            test('symlinked partial stub file exists', () => {
+                const stubSource = combinePaths(normalizeSlashes('/'), 'wheel', 'partialStub.pyi');
+                const files = [
+                    {
+                        path: stubSource,
+                        content: 'def test(): ...',
+                    },
+                    {
+                        path: combinePaths(libraryRoot, 'myLib-stubs', 'py.typed'),
+                        content: 'partial\n',
+                    },
+                    {
+                        path: combinePaths(libraryRoot, 'myLib', 'partialStub.py'),
+                        content: 'def test(): pass',
+                    },
+                ];
+
+                const testFS = createTestFileSystem(files);
+                testFS.symlinkSync(stubSource, combinePaths(libraryRoot, 'myLib-stubs', 'partialStub.pyi'));
+                const fs = new PyrightFileSystem(testFS);
+                const partialStubService = new PartialStubService(fs);
+                const sp = createServiceProvider(testFS, fs, partialStubService);
+                const configOptions = new ConfigOptions(UriEx.file('/'));
+                const uri = UriEx.file(files[files.length - 1].path);
+                const importResolver = new ImportResolver(
+                    sp,
+                    configOptions,
+                    new TestAccessHost(sp.fs().getModulePath(), [UriEx.file(libraryRoot)])
+                );
+
+                const importResult = importResolver.resolveImport(uri, configOptions.findExecEnvironment(uri), {
+                    leadingDots: 0,
+                    nameParts: ['myLib', 'partialStub'],
+                    importedSymbols: new Set<string>(),
+                });
+
+                assert(importResult.isImportFound);
+                assert(importResult.isStubFile);
+                assert.strictEqual(
+                    1,
+                    importResult.resolvedUris.filter(
+                        (f) => f.getFilePath() === combinePaths(libraryRoot, 'myLib', 'partialStub.pyi')
+                    ).length
+                );
+            });
+
             test('partial stub __init__ exists', () => {
                 const files = [
                     {
@@ -210,6 +256,154 @@ describe('Import tests with fake venv', () => {
                     importResult.resolvedUris.filter(
                         (f) => f.getFilePath() === combinePaths(libraryRoot, 'myLib', '__init__.pyi')
                     ).length
+                );
+            });
+
+            test('getSourceFilesFromStub maps stdlib typeshed stubs into python search paths', () => {
+                const stdlibSourceRoot = combinePaths(normalizeSlashes('/'), 'python-stdlib');
+                const stubFilePath = combinePaths('/', typeshedFallback, 'stdlib', 'typing.pyi');
+                const sourceFilePath = combinePaths(stdlibSourceRoot, 'typing.py');
+                const files = [
+                    {
+                        path: stubFilePath,
+                        content: 'class MutableMapping: ...',
+                    },
+                    {
+                        path: sourceFilePath,
+                        content:
+                            'from _collections_abc import MutableMapping as _MutableMapping\nMutableMapping = _MutableMapping',
+                    },
+                    {
+                        path: combinePaths(stdlibSourceRoot, '_collections_abc.py'),
+                        content: 'class MutableMapping: pass',
+                    },
+                    {
+                        path: combinePaths('/', 'src', 'test.py'),
+                        content: 'x = 1',
+                    },
+                ];
+
+                const sp = createServiceProviderFromFiles(files);
+                const configOptions = new ConfigOptions(UriEx.file('/'));
+                const importResolver = new ImportResolver(
+                    sp,
+                    configOptions,
+                    new TestAccessHost(sp.fs().getModulePath(), [UriEx.file(stdlibSourceRoot)])
+                );
+                const execEnv = configOptions.findExecEnvironment(UriEx.file(combinePaths('/', 'src', 'test.py')));
+
+                const sourceFiles = importResolver.getSourceFilesFromStub(UriEx.file(stubFilePath), execEnv, false);
+
+                assert.deepStrictEqual(
+                    sourceFiles.map((uri) => uri.getFilePath()),
+                    [sourceFilePath]
+                );
+            });
+
+            test('getSourceFilesFromStub preserves stdlib source roots with configured venv', () => {
+                const stdlibSourceRoot = combinePaths(normalizeSlashes('/'), 'python-stdlib');
+                const venvPath = combinePaths(normalizeSlashes('/'), 'venvs');
+                const venvName = 'test';
+                const venvSitePackages = combinePaths(venvPath, venvName, lib, sitePackages);
+                const stubFilePath = combinePaths('/', typeshedFallback, 'stdlib', 'typing.pyi');
+                const sourceFilePath = combinePaths(stdlibSourceRoot, 'typing.py');
+                const files = [
+                    {
+                        path: stubFilePath,
+                        content: 'class MutableMapping: ...',
+                    },
+                    {
+                        path: sourceFilePath,
+                        content:
+                            'from _collections_abc import MutableMapping as _MutableMapping\nMutableMapping = _MutableMapping',
+                    },
+                    {
+                        path: combinePaths(stdlibSourceRoot, '_collections_abc.py'),
+                        content: 'class MutableMapping: pass',
+                    },
+                    {
+                        path: combinePaths(venvSitePackages, 'sentinel.py'),
+                        content: 'x = 1',
+                    },
+                    {
+                        path: combinePaths('/', 'src', 'test.py'),
+                        content: 'x = 1',
+                    },
+                ];
+
+                const sp = createServiceProviderFromFiles(files);
+                const configOptions = new ConfigOptions(UriEx.file('/'));
+                configOptions.venvPath = UriEx.file(venvPath);
+                configOptions.venv = venvName;
+                configOptions.pythonPath = UriEx.file(combinePaths(venvPath, venvName, 'python'));
+
+                const importResolver = new ImportResolver(
+                    sp,
+                    configOptions,
+                    new TestAccessHost(
+                        UriEx.file(combinePaths(venvPath, venvName)),
+                        [UriEx.file(stdlibSourceRoot), UriEx.file(venvSitePackages)],
+                        sp.fs()
+                    )
+                );
+                const execEnv = configOptions.findExecEnvironment(UriEx.file(combinePaths('/', 'src', 'test.py')));
+
+                const sourceFiles = importResolver.getSourceFilesFromStub(UriEx.file(stubFilePath), execEnv, false);
+
+                assert.deepStrictEqual(
+                    sourceFiles.map((uri) => uri.getFilePath()),
+                    [sourceFilePath]
+                );
+            });
+
+            test('configured venv site-packages keep precedence over preserved stdlib source roots', () => {
+                const stdlibSourceRoot = combinePaths(normalizeSlashes('/'), 'python-stdlib');
+                const venvPath = combinePaths(normalizeSlashes('/'), 'venvs');
+                const venvName = 'test';
+                const venvSitePackages = combinePaths(venvPath, venvName, lib, sitePackages);
+                const venvModulePath = combinePaths(venvSitePackages, 'shadowed.py');
+                const files = [
+                    {
+                        path: combinePaths(stdlibSourceRoot, 'shadowed.py'),
+                        content: 'x = "stdlib"',
+                    },
+                    {
+                        path: venvModulePath,
+                        content: 'x = "venv"',
+                    },
+                    {
+                        path: combinePaths('/', 'src', 'test.py'),
+                        content: 'import shadowed',
+                    },
+                ];
+
+                const sp = createServiceProviderFromFiles(files);
+                const configOptions = new ConfigOptions(UriEx.file('/'));
+                configOptions.venvPath = UriEx.file(venvPath);
+                configOptions.venv = venvName;
+                configOptions.pythonPath = UriEx.file(combinePaths(venvPath, venvName, 'python'));
+
+                const importResolver = new ImportResolver(
+                    sp,
+                    configOptions,
+                    new TestAccessHost(
+                        UriEx.file(combinePaths(venvPath, venvName)),
+                        [UriEx.file(stdlibSourceRoot), UriEx.file(venvSitePackages)],
+                        sp.fs()
+                    )
+                );
+                const uri = UriEx.file(combinePaths('/', 'src', 'test.py'));
+                const execEnv = configOptions.findExecEnvironment(uri);
+                const importResult = importResolver.resolveImport(uri, execEnv, {
+                    leadingDots: 0,
+                    nameParts: ['shadowed'],
+                    importedSymbols: new Set<string>(),
+                });
+
+                assert(importResult.isImportFound);
+                assert.deepStrictEqual(
+                    importResult.resolvedUris.map((resolvedUri) => resolvedUri.getFilePath()),
+                    [venvModulePath]
                 );
             });
 

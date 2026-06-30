@@ -58,6 +58,7 @@ import {
     isNever,
     isSameWithoutLiteralValue,
     isTypeSame,
+    isTypeVar,
     isTypeVarTuple,
     isUnknown,
     isUnpackedTypeVar,
@@ -70,6 +71,7 @@ import {
     doForEachSubtype,
     getTypeCondition,
     getTypeVarScopeIds,
+    getUnknownForTypeVar,
     getUnknownTypeForCallable,
     isLiteralType,
     isLiteralTypeOrUnion,
@@ -743,6 +745,48 @@ function narrowTypeBasedOnLiteralPattern(
     });
 }
 
+// When a class pattern matches a generic class whose type parameters have an
+// upper bound (e.g. `class Thing[T: bool]`), the constraint solver may leave the
+// parameters unsolved (Unknown) because the subject carries no type arguments.
+// Rather than surfacing Unknown, fall back to each parameter's bound while
+// preserving any argument that was concretely solved. The subject's condition is
+// reapplied to the resulting instance.
+function specializeBoundedMatchTypeParams(
+    evaluator: TypeEvaluator,
+    matchType: ClassType,
+    solvedTypeArgs: Type[] | undefined,
+    condition: ReturnType<typeof getTypeCondition>
+): Type {
+    // `solvedTypeArgs` is indexed by `matchType`'s own type parameters, so the
+    // caller must align it to the pattern class (e.g. pass `resultType.priv.typeArgs`
+    // where `resultType` is the same generic class). The subject's own type arguments
+    // must not be used here: the subject may be a different generic class (e.g. a
+    // generic supertype), and indexing it by the pattern class's parameters would
+    // misread unrelated arguments.
+    const typeArgs = matchType.shared.typeParams.map((param, index) => {
+        const specializedArg = solvedTypeArgs?.[index];
+
+        // Keep an argument unless it is the unsolved sentinel (a bare top-level
+        // Unknown left by the constraint solver when the subject carried no type
+        // arguments). A concrete argument that is merely implicitly parameterized -
+        // e.g. bare `list` (`list[Unknown]`) or `dict` (`dict[Unknown, Unknown]`) - is
+        // a real, solved type and must be preserved rather than widened to the bound.
+        // A bare in-scope TypeVar (e.g. a subject `Thing[S]` from a generic function
+        // `def f[S: bool]`) is likewise a legitimately narrowed argument.
+        if (specializedArg && !isUnknown(specializedArg)) {
+            return specializedArg;
+        }
+
+        if (isTypeVar(param) && param.shared.boundType) {
+            return convertToInstance(param.shared.boundType);
+        }
+
+        return specializedArg ?? getUnknownForTypeVar(param, evaluator.getTupleClassType());
+    });
+
+    return addConditionToType(convertToInstance(ClassType.specialize(matchType, typeArgs)), condition);
+}
+
 function narrowTypeBasedOnClassPattern(
     evaluator: TypeEvaluator,
     type: Type,
@@ -1024,6 +1068,28 @@ function narrowTypeBasedOnClassPattern(
                             }
                         } else {
                             return undefined;
+                        }
+
+                        // For a generic class pattern whose type parameters are bounded
+                        // (e.g. `class Thing[T: bool]`), the subject may carry no type arguments,
+                        // leaving the parameters unsolved. Fall back to each parameter's bound -
+                        // but only for the pattern class itself. When the subject narrowed to a
+                        // proper subclass of the pattern class, its own type arguments must be
+                        // preserved rather than rebuilt from the (widened) base.
+                        if (
+                            isClassInstance(resultType) &&
+                            isInstantiableClass(unexpandedSubtype) &&
+                            ClassType.isSameGenericClass(resultType, ClassType.cloneAsInstance(unexpandedSubtype)) &&
+                            unexpandedSubtype.shared.typeParams.some(
+                                (param) => isTypeVar(param) && param.shared.boundType
+                            )
+                        ) {
+                            resultType = specializeBoundedMatchTypeParams(
+                                evaluator,
+                                unexpandedSubtype,
+                                resultType.priv.typeArgs,
+                                getTypeCondition(subjectSubtypeExpanded)
+                            );
                         }
 
                         // Are there any positional arguments? If so, try to get the mappings for

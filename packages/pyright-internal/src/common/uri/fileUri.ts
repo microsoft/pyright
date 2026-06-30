@@ -32,6 +32,7 @@ export const FileUriSchema = 'file';
 export class FileUri extends BaseUri {
     private _formattedString: string | undefined;
     private _normalizedPath: string | undefined;
+    private _combineChildren: Map<string, Uri> | undefined;
     private static _separator = getPathSeparator('');
     protected constructor(
         key: string,
@@ -212,6 +213,30 @@ export class FileUri extends BaseUri {
     }
 
     override combinePaths(...paths: string[]): Uri {
+        // Fast path: a single simple segment (no '.', '..', or separators) is by far the
+        // most common case on the import-resolution hot path. Memoize the resulting child
+        // per parent keyed by the short segment, so repeated walks of the same directory
+        // tree avoid rebuilding the full child path and the interning cache's long key.
+        if (paths.length === 1) {
+            const segment = paths[0];
+            if (
+                segment.length > 0 &&
+                segment !== '.' &&
+                !segment.includes('..') &&
+                !segment.includes(FileUri._separator) &&
+                !segment.includes('/')
+            ) {
+                const cached = this._combineChildren?.get(segment);
+                if (cached) {
+                    return cached;
+                }
+
+                const child = this.combinePathsUnsafe(segment);
+                (this._combineChildren ??= new Map()).set(segment, child);
+                return child;
+            }
+        }
+
         if (paths.some((p) => p.includes('..') || p.includes(FileUri._separator) || p.includes('/') || p === '.')) {
             // This is a slow path that handles paths that contain '..' or '.'.
             return this.resolvePaths(...paths);

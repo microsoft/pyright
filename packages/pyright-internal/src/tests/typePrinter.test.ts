@@ -110,6 +110,182 @@ test('ClassTypes', () => {
     assert.strictEqual(printType(unionType, PrintTypeFlags.PEP604, returnTypeCallback), 'int | A[int, int] | S');
 });
 
+test('ClassTypes PythonSyntax omits type args for stub-only generics', () => {
+    // Simulate operator.attrgetter — defined in a stub, not built-in, no __class_getitem__.
+    const attrgetter = ClassType.createInstantiable(
+        'attrgetter',
+        'operator',
+        'operator.attrgetter',
+        Uri.empty(),
+        ClassTypeFlags.DefinedInStub,
+        0,
+        /* declaredMetaclass*/ undefined,
+        /* effectiveMetaclass */ undefined
+    );
+
+    const typeVarT = TypeVarType.createInstance('_T');
+    attrgetter.shared.typeParams.push(typeVarT);
+
+    const classTypeStr = ClassType.createInstantiable(
+        'str',
+        'builtins',
+        'builtins.str',
+        Uri.empty(),
+        ClassTypeFlags.BuiltIn,
+        0,
+        /* declaredMetaclass*/ undefined,
+        /* effectiveMetaclass */ undefined
+    );
+    const instanceStr = ClassType.cloneAsInstance(classTypeStr);
+
+    const instanceAttrgetter = ClassType.cloneAsInstance(attrgetter);
+    const specialized = ClassType.specialize(instanceAttrgetter, [instanceStr]);
+
+    // Without PythonSyntax, type args are shown normally.
+    assert.strictEqual(printType(specialized, PrintTypeFlags.None, returnTypeCallback), 'attrgetter[str]');
+
+    // With PythonSyntax, type args are omitted because the class is not runtime-subscriptable.
+    assert.strictEqual(printType(specialized, PrintTypeFlags.PythonSyntax, returnTypeCallback), 'attrgetter');
+
+    // Built-in classes that are also defined in stubs should still show type args in PythonSyntax.
+    const listClass = ClassType.createInstantiable(
+        'list',
+        'builtins',
+        'builtins.list',
+        Uri.empty(),
+        ClassTypeFlags.BuiltIn | ClassTypeFlags.DefinedInStub,
+        0,
+        /* declaredMetaclass*/ undefined,
+        /* effectiveMetaclass */ undefined
+    );
+    const typeVarE = TypeVarType.createInstance('_E');
+    listClass.shared.typeParams.push(typeVarE);
+
+    const instanceList = ClassType.cloneAsInstance(listClass);
+    const specializedList = ClassType.specialize(instanceList, [instanceStr]);
+
+    assert.strictEqual(printType(specializedList, PrintTypeFlags.PythonSyntax, returnTypeCallback), 'list[str]');
+});
+
+test('ClassTypes PythonSyntax formats ParamSpec-specialized generic arguments', () => {
+    const classTypeA = ClassType.createInstantiable(
+        'A',
+        '',
+        '',
+        Uri.empty(),
+        ClassTypeFlags.None,
+        0,
+        /* declaredMetaclass*/ undefined,
+        /* effectiveMetaclass */ undefined
+    );
+
+    const paramSpecP = TypeVarType.createInstance('P', TypeVarKind.ParamSpec);
+    const typeVarR = TypeVarType.createInstance('R');
+    classTypeA.shared.typeParams.push(paramSpecP, typeVarR);
+
+    const instanceA = ClassType.cloneAsInstance(classTypeA);
+
+    const classTypeInt = ClassType.createInstantiable(
+        'int',
+        '',
+        '',
+        Uri.empty(),
+        ClassTypeFlags.None,
+        0,
+        /* declaredMetaclass*/ undefined,
+        /* effectiveMetaclass */ undefined
+    );
+    const instanceInt = ClassType.cloneAsInstance(classTypeInt);
+
+    const classTypeStr = ClassType.createInstantiable(
+        'str',
+        '',
+        '',
+        Uri.empty(),
+        ClassTypeFlags.None,
+        0,
+        /* declaredMetaclass*/ undefined,
+        /* effectiveMetaclass */ undefined
+    );
+    const instanceStr = ClassType.cloneAsInstance(classTypeStr);
+
+    const simpleParamSpecValue = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
+    FunctionType.addParam(
+        simpleParamSpecValue,
+        FunctionParam.create(ParamCategory.Simple, instanceInt, FunctionParamFlags.TypeDeclared, 'a')
+    );
+
+    const specializedA = ClassType.specialize(instanceA, [simpleParamSpecValue, instanceStr]);
+    assert.strictEqual(printType(specializedA, PrintTypeFlags.None, returnTypeCallback), 'A[(a: int), str]');
+    assert.strictEqual(printType(specializedA, PrintTypeFlags.PythonSyntax, returnTypeCallback), 'A[[int], str]');
+
+    const multiParamSpecValue = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
+    FunctionType.addParam(
+        multiParamSpecValue,
+        FunctionParam.create(ParamCategory.Simple, instanceInt, FunctionParamFlags.TypeDeclared, 'a')
+    );
+    FunctionType.addParam(
+        multiParamSpecValue,
+        FunctionParam.create(ParamCategory.Simple, instanceStr, FunctionParamFlags.TypeDeclared, 'b')
+    );
+
+    assert.strictEqual(
+        printType(
+            ClassType.specialize(instanceA, [multiParamSpecValue, instanceStr]),
+            PrintTypeFlags.PythonSyntax,
+            returnTypeCallback
+        ),
+        'A[[int, str], str]'
+    );
+
+    // Positional-only separator (`/`) is a nameless Simple param — it should be
+    // skipped in the bracketed form, not cause a Callable fallback.
+    const positionalOnlyParamSpecValue = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
+    FunctionType.addParam(
+        positionalOnlyParamSpecValue,
+        FunctionParam.create(ParamCategory.Simple, instanceInt, FunctionParamFlags.TypeDeclared, 'a')
+    );
+    FunctionType.addPositionOnlyParamSeparator(positionalOnlyParamSpecValue);
+
+    assert.strictEqual(
+        printType(
+            ClassType.specialize(instanceA, [positionalOnlyParamSpecValue, instanceStr]),
+            PrintTypeFlags.None,
+            returnTypeCallback
+        ),
+        'A[(a: int, /), str]'
+    );
+
+    assert.strictEqual(
+        printType(
+            ClassType.specialize(instanceA, [positionalOnlyParamSpecValue, instanceStr]),
+            PrintTypeFlags.PythonSyntax,
+            returnTypeCallback
+        ),
+        'A[[int], str]'
+    );
+
+    const complexParamSpecValue = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
+    FunctionType.addParam(
+        complexParamSpecValue,
+        FunctionParam.create(ParamCategory.Simple, instanceInt, FunctionParamFlags.TypeDeclared, 'a')
+    );
+    FunctionType.addKeywordOnlyParamSeparator(complexParamSpecValue);
+    FunctionType.addParam(
+        complexParamSpecValue,
+        FunctionParam.create(ParamCategory.Simple, instanceStr, FunctionParamFlags.TypeDeclared, 'b')
+    );
+
+    assert.strictEqual(
+        printType(
+            ClassType.specialize(instanceA, [complexParamSpecValue, instanceStr]),
+            PrintTypeFlags.PythonSyntax,
+            returnTypeCallback
+        ),
+        'A[Callable[..., Any], str]'
+    );
+});
+
 test('FunctionTypes', () => {
     const funcTypeA = FunctionType.createInstance('A', '', '', FunctionTypeFlags.None);
 

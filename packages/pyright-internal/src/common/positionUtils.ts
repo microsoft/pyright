@@ -40,6 +40,27 @@ export function convertOffsetsToRange(
     lines: TextRangeCollection<TextRange>
 ): Range {
     const start = convertOffsetToPosition(startOffset, lines);
+
+    // Fast path: when the end offset falls on the same line as the start, derive
+    // the end position directly from the start's line range instead of doing a
+    // second binary search. The overwhelming majority of ranges converted during
+    // binding/analysis are single-line (identifier and keyword tokens), so this
+    // avoids a large number of redundant lookups on big files. The result is
+    // identical to calling convertOffsetToPosition(endOffset) for these cases.
+    if (lines.end !== 0 && endOffset >= startOffset) {
+        const lineRange = lines.getItemAt(start.line);
+        const lineEnd = lineRange.start + lineRange.length;
+        if (endOffset >= lineRange.start && endOffset < lineEnd) {
+            return {
+                start,
+                end: {
+                    line: start.line,
+                    character: endOffset - lineRange.start,
+                },
+            };
+        }
+    }
+
     const end = convertOffsetToPosition(endOffset, lines);
     return { start, end };
 }

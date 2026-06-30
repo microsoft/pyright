@@ -497,6 +497,87 @@ describe(`config test'}`, () => {
         assert.ok(configOptions.include[0].regExp.source.includes('/test)'));
     });
 
+    test('URI scheme file specs are filtered out of include, exclude, and ignore', () => {
+        // Regression test for https://github.com/microsoft/pylance-release/issues/6612.
+        // In multi-root workspaces a folder can use a custom URI scheme (e.g. memfs:, zowe-uss:).
+        // Those scheme strings must not be treated as file paths, otherwise they get combined with
+        // the project root and corrupt the include/exclude/ignore specs.
+        const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project1'));
+        const service = createAnalyzer();
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptions.configSettings.includeFileSpecs = ['memfs:/host/workspace', 'realInclude'];
+        commandLineOptions.configSettings.excludeFileSpecs = ['zowe-uss://host/exclude', 'realExclude'];
+        commandLineOptions.configSettings.ignoreFileSpecs = ['vscode-vfs://host/ignore', 'realIgnore'];
+        service.setOptions(commandLineOptions);
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+        const includeSources = configOptions.include.map((s) => s.regExp.source);
+        const excludeSources = configOptions.exclude.map((s) => s.regExp.source);
+        const ignoreSources = configOptions.ignore.map((s) => s.regExp.source);
+
+        // The URI scheme specs are dropped entirely (their scheme strings never appear).
+        assert.ok(!includeSources.some((s) => s.includes('memfs')));
+        assert.ok(!excludeSources.some((s) => s.includes('zowe-uss')));
+        assert.ok(!ignoreSources.some((s) => s.includes('vscode-vfs')));
+
+        // The real file specs alongside them are still applied.
+        assert.ok(includeSources.some((s) => s.includes('/realInclude)')));
+        assert.ok(excludeSources.some((s) => s.includes('/realExclude)')));
+        assert.ok(ignoreSources.some((s) => s.includes('/realIgnore)')));
+    });
+
+    test('Windows drive-letter file specs are not mistaken for URI schemes', () => {
+        // The URI scheme filter must require 2+ leading letters so single-letter Windows drive
+        // prefixes like "C:" are preserved rather than filtered as if they were URI schemes.
+        const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project1'));
+        const service = createAnalyzer();
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptions.configSettings.includeFileSpecs = ['C:/driveLetterInclude'];
+        service.setOptions(commandLineOptions);
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+        const includeSources = configOptions.include.map((s) => s.regExp.source);
+        assert.ok(includeSources.some((s) => s.includes('driveLetterInclude')));
+    });
+
+    test('Relative paths containing a colon are not mistaken for URI schemes', () => {
+        // The URI scheme filter requires a "/" after the scheme delimiter so legitimate relative
+        // paths that merely contain a colon (e.g. POSIX "foo:bar") are preserved, not dropped.
+        const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project1'));
+        const service = createAnalyzer();
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptions.configSettings.includeFileSpecs = ['foo:bar'];
+        service.setOptions(commandLineOptions);
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+        const includeSources = configOptions.include.map((s) => s.regExp.source);
+        // The spec is not dropped by the URI scheme filter (if it were, include would be empty).
+        // The colon is regex-escaped in the resulting pattern, so match on the surrounding path
+        // components rather than the literal "foo:bar".
+        assert.ok(includeSources.some((s) => s.includes('foo') && s.includes('bar')));
+    });
+
+    test('URI scheme file specs are filtered out of includeFileSpecsOverride', () => {
+        // includeFileSpecsOverride strings flow into Uri.file(), so URI scheme strings must be
+        // filtered there too, otherwise they corrupt the override include specs.
+        const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project1'));
+        const service = createAnalyzer();
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptions.configSettings.includeFileSpecsOverride = [
+            'memfs:/host/workspace',
+            combinePaths(cwd, 'realOverride'),
+        ];
+        service.setOptions(commandLineOptions);
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+        const includeSources = configOptions.include.map((s) => s.regExp.source);
+
+        // The URI scheme override is dropped, but the real override path is still applied.
+        assert.ok(!includeSources.some((s) => s.includes('memfs')));
+        assert.ok(includeSources.some((s) => s.includes('realOverride')));
+    });
+
     test('Command line options can override config but only when not using extension', () => {
         const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_all_config'));
         const service = createAnalyzer();

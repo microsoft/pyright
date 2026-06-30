@@ -234,9 +234,9 @@ export interface AddConditionOptions {
 
 // There are cases where tuple types can be infinitely nested. The
 // recursion count limit will eventually be hit, but this will create
-// deep types that will effectively hang the analyzer. To prevent this,
-// we'll limit the depth of the tuple type arguments. This value is
-// large enough that we should never hit it in legitimate circumstances.
+// deep types that are expensive to construct. As a performance safeguard,
+// we limit the depth of the tuple type arguments. This value is large
+// enough that we should never hit it in legitimate circumstances.
 const maxTupleTypeArgRecursionDepth = 10;
 
 // Tracks whether a function signature has been seen before within
@@ -1442,6 +1442,17 @@ export function isTupleGradualForm(type: Type) {
         type.priv.tupleTypeArgs.length === 1 &&
         isAnyOrUnknown(type.priv.tupleTypeArgs[0].type) &&
         type.priv.tupleTypeArgs[0].isUnbounded
+    );
+}
+
+// Returns true for classes that are generic in stubs but not subscriptable
+// at runtime (e.g. operator.attrgetter, operator.itemgetter). These lack
+// __class_getitem__ and are not builtins.
+export function isStubOnlySubscriptable(classType: ClassType) {
+    return (
+        ClassType.isDefinedInStub(classType) &&
+        !ClassType.isBuiltIn(classType) &&
+        !classType.shared.fields.has('__class_getitem__')
     );
 }
 
@@ -3723,7 +3734,13 @@ export class TypeVarTransformer {
 
         // Handle tuples specially.
         if (ClassType.isTupleClass(classType)) {
-            if (getContainerDepth(classType) > maxTupleTypeArgRecursionDepth) {
+            // As a performance safeguard, bail out early on very deeply nested
+            // tuples (the recursion count limit would eventually stop us, but
+            // constructing such deep types is expensive). Only do this when there
+            // are no type variables left to substitute; bailing out while type
+            // variables remain would return the unspecialized class and let those
+            // TypeVars "escape" unsolved (see microsoft/pyright#11472).
+            if (getContainerDepth(classType) > maxTupleTypeArgRecursionDepth && !requiresSpecialization(classType)) {
                 return classType;
             }
 

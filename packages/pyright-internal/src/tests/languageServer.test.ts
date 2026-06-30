@@ -13,6 +13,8 @@ import {
     CompletionRequest,
     ConfigurationItem,
     DidChangeWorkspaceFoldersNotification,
+    DidCloseTextDocumentNotification,
+    DocumentDiagnosticRequest,
     InitializedNotification,
     InitializeRequest,
     MarkupContent,
@@ -23,6 +25,7 @@ import { PythonVersion, pythonVersion3_10 } from '../common/pythonVersion';
 
 import { isArray } from '../common/core';
 import { normalizeSlashes } from '../common/pathUtils';
+import { distlibFolder } from './harness/vfs/factory';
 import {
     cleanupAfterAll,
     DEFAULT_WORKSPACE_ROOT,
@@ -311,6 +314,137 @@ describe(`Basic language server tests`, () => {
                     `Expected diagnostic not found. Got ${JSON.stringify(diagnostic.diagnostics)}`
                 );
             });
+
+            if (supportsPullDiagnostics) {
+                // Regression test: in open-files-only mode, diagnostics for a library/out-of-workspace
+                // file that was transiently opened (e.g. via go-to-definition) must clear once the client
+                // closes the file. A re-pull of the now-closed file must return an empty `full` report.
+                test('closed out-of-workspace file clears diagnostics on pull (open-files-only)', async () => {
+                    const libraryPath = normalizeSlashes(`${distlibFolder.getFilePath()}/library.py`);
+                    const code = `
+// @filename: ${libraryPath}
+//// x: int = [|/*lib*/"not an int"|]
+        `;
+                    const settings = [
+                        {
+                            item: {
+                                scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
+                                section: 'python.analysis',
+                            },
+                            value: {
+                                // default open-files-only mode
+                                diagnosticMode: 'openFilesOnly',
+                            },
+                        },
+                    ];
+
+                    const info = await runLanguageServer(
+                        DEFAULT_WORKSPACE_ROOT,
+                        code,
+                        /* callInitialize */ true,
+                        settings,
+                        undefined,
+                        /* supportsBackgroundThread */ true,
+                        supportsPullDiagnostics
+                    );
+
+                    // Simulate go-to-definition opening the out-of-workspace library file.
+                    await openFile(info, 'lib');
+                    const libUri = info.testData.markerPositions.get('lib')!.fileUri.toString();
+
+                    // 1) While the library file is open, a pull reports the type error.
+                    const reportOpen: any = await info.connection.sendRequest(DocumentDiagnosticRequest.type, {
+                        textDocument: { uri: libUri },
+                    });
+                    assert.strictEqual(reportOpen?.kind, 'full');
+                    assert.ok(
+                        (reportOpen?.items?.length ?? 0) > 0,
+                        `expected library file to report errors while open, got ${JSON.stringify(reportOpen?.items)}`
+                    );
+
+                    // 2) Close the library file.
+                    info.connection.sendNotification(DidCloseTextDocumentNotification.type, {
+                        textDocument: { uri: libUri },
+                    });
+
+                    // 3) A re-pull of the now-closed out-of-workspace file must return an empty full report.
+                    const reportClosed: any = await info.connection.sendRequest(DocumentDiagnosticRequest.type, {
+                        textDocument: { uri: libUri },
+                    });
+                    assert.strictEqual(reportClosed?.kind, 'full');
+                    assert.strictEqual(
+                        reportClosed?.items?.length ?? 0,
+                        0,
+                        `expected no diagnostics for closed out-of-workspace library file, got ${JSON.stringify(
+                            reportClosed?.items
+                        )}`
+                    );
+                });
+
+                // Regression guard: the open-state guard must only apply in
+                // open-files-only mode. In `workspace` mode (`checkOnlyOpenFiles === false`) a file
+                // that the client has closed is still analyzed, so a re-pull must continue to report
+                // its diagnostics. This proves the guard's `checkOnlyOpenFiles` condition is
+                // load-bearing and that the fix did not change workspace-mode behavior.
+                test('closed workspace file still reports diagnostics on pull (workspace mode)', async () => {
+                    const code = `
+// @filename: root/test.py
+//// x: int = [|/*marker*/"not an int"|]
+        `;
+                    const settings = [
+                        {
+                            item: {
+                                scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
+                                section: 'python.analysis',
+                            },
+                            value: {
+                                diagnosticMode: 'workspace',
+                            },
+                        },
+                    ];
+
+                    const info = await runLanguageServer(
+                        DEFAULT_WORKSPACE_ROOT,
+                        code,
+                        /* callInitialize */ true,
+                        settings,
+                        undefined,
+                        /* supportsBackgroundThread */ true,
+                        supportsPullDiagnostics
+                    );
+
+                    await openFile(info, 'marker');
+                    const fileUri = info.testData.markerPositions.get('marker')!.fileUri.toString();
+
+                    // 1) While the file is open, a pull reports the type error.
+                    const reportOpen: any = await info.connection.sendRequest(DocumentDiagnosticRequest.type, {
+                        textDocument: { uri: fileUri },
+                    });
+                    assert.strictEqual(reportOpen?.kind, 'full');
+                    assert.ok(
+                        (reportOpen?.items?.length ?? 0) > 0,
+                        `expected workspace file to report errors while open, got ${JSON.stringify(reportOpen?.items)}`
+                    );
+
+                    // 2) Close the file.
+                    info.connection.sendNotification(DidCloseTextDocumentNotification.type, {
+                        textDocument: { uri: fileUri },
+                    });
+
+                    // 3) In workspace mode the closed file is still analyzed, so a re-pull must still
+                    //    report the error (the open-state guard must NOT fire here).
+                    const reportClosed: any = await info.connection.sendRequest(DocumentDiagnosticRequest.type, {
+                        textDocument: { uri: fileUri },
+                    });
+                    assert.strictEqual(reportClosed?.kind, 'full');
+                    assert.ok(
+                        (reportClosed?.items?.length ?? 0) > 0,
+                        `expected workspace-mode closed file to still report errors, got ${JSON.stringify(
+                            reportClosed?.items
+                        )}`
+                    );
+                });
+            }
         });
     });
 });

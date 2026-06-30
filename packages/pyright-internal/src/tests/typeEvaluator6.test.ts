@@ -8,6 +8,8 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import * as assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -100,6 +102,11 @@ test('OverloadImpl1', () => {
 
 test('OverloadImpl2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadImpl2.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('OverloadImpl3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadImpl3.py']);
     TestUtils.validateResults(analysisResults, 2);
 });
 
@@ -429,6 +436,27 @@ test('TypeVarTuple30', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple30.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeVarTuple31', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple31.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 0, 1);
+
+    // The constructor call's inferred type should be fully concrete. In
+    // particular, the solved "OO" TypeVar from "unpack_then" must not escape
+    // into the result. Rather than pinning the full (brittle) nested-tuple
+    // expansion, assert the concrete outer shape and the absence of the leaked
+    // TypeVar so the fix stays self-evident without coupling to the exact
+    // type-printer output.
+    const revealedType = analysisResults[0].infos[0].message;
+    assert.ok(
+        revealedType.startsWith('Type of "inferred" is "ForwardRefParser['),
+        `Unexpected inferred type: ${revealedType}`
+    );
+    assert.ok(!/\bOO\b/.test(revealedType), `"OO" TypeVar escaped into inferred type: ${revealedType}`);
 });
 
 test('Match1', () => {

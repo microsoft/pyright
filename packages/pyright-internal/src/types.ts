@@ -21,6 +21,11 @@ export interface ClientCapabilities {
     hasDocumentChangeCapability: boolean;
     hasDocumentAnnotationCapability: boolean;
     hasCompletionCommitCharCapability: boolean;
+    // Client supports `CompletionList.itemDefaults.data` (LSP 3.17) together with
+    // `CompletionList.applyKind` merge semantics (LSP 3.18). When set, the server can
+    // hoist the shared completion item `data` (uri/position) into `itemDefaults.data`
+    // and request a shallow merge, avoiding sending the same data on every item.
+    hasCompletionItemDataDefaultCapability: boolean;
     hoverContentFormat: MarkupKind;
     completionDocFormat: MarkupKind;
     completionSupportsSnippet: boolean;

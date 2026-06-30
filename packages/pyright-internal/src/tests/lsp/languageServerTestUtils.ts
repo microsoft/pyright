@@ -1260,7 +1260,7 @@ export class TestHost extends LimitedAccessHost {
         return this._options.platform;
     }
 
-    override getPythonSearchPaths(pythonPath?: Uri, importLogger?: ImportLogger): PythonPathResult {
+    override getPythonSearchPaths(pythonPath?: Uri, importLogger?: ImportLogger, cwd?: Uri): PythonPathResult {
         return {
             paths: this._options.searchPaths,
             prefix: Uri.empty(),

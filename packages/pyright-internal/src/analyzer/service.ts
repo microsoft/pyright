@@ -72,6 +72,12 @@ const _gitDirectory = normalizeSlashes('/.git/');
 
 const _pyTypedMarkerFileName = 'py.typed';
 
+// Matches URI scheme prefixes like "memfs:/..." or "zowe-uss://...". URI schemes require 2+
+// leading letters so single-letter prefixes like "C:" (Windows drive letters) are not matched.
+// We also require a "/" (or "//") after the scheme delimiter so that legitimate relative paths
+// that merely contain a colon (e.g. POSIX "foo:bar") are not mistaken for URIs and dropped.
+const _uriSchemeRegex = /^[a-zA-Z]{2,}[\w+.-]*:\/\/?/;
+
 export interface LibraryReanalysisTimeProvider {
     (): number;
     libraryReanalysisStarted?: () => void;
@@ -355,13 +361,7 @@ export class AnalyzerService {
         return this._program.getOwnedFiles().map((i) => i.uri);
     }
 
-    setFileOpened(
-        uri: Uri,
-        version: number | null,
-        contents: string,
-        ipythonMode = IPythonMode.None,
-        chainedFileUri?: Uri
-    ) {
+    setFileOpened(uri: Uri, version: number | null, contents: string, ipythonMode?: IPythonMode, chainedFileUri?: Uri) {
         // Open the file. Notebook cells are always tracked as they aren't 3rd party library files.
         // This is how it's worked in the past since each notebook used to have its own
         // workspace and the workspace include setting marked all cells as tracked.
@@ -369,7 +369,7 @@ export class AnalyzerService {
         const isVirtual = ipythonMode !== IPythonMode.None || uri.isUntitled();
         this._backgroundAnalysisProgram.setFileOpened(uri, version, contents, {
             isVirtual,
-            ipythonMode,
+            ipythonMode: ipythonMode ?? IPythonMode.None,
             chainedFileUri: chainedFileUri,
         });
         this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
@@ -388,11 +388,11 @@ export class AnalyzerService {
         uri: Uri,
         version: number | null,
         contents: string,
-        ipythonMode = IPythonMode.None,
+        ipythonMode?: IPythonMode,
         changedRange?: ChangedRange
     ) {
         this._backgroundAnalysisProgram.updateOpenFileContents(uri, version, contents, {
-            ipythonMode,
+            ipythonMode: ipythonMode ?? IPythonMode.None,
             chainedFileUri: undefined,
             changedRange,
         });
@@ -1143,14 +1143,26 @@ export class AnalyzerService {
         }
 
         commandLineOptions.includeFileSpecs.forEach((fileSpec) => {
+            // Skip file specs that look like URI schemes (e.g., "zowe-uss:", "memfs:").
+            if (_uriSchemeRegex.test(fileSpec)) {
+                return;
+            }
             configOptions.include.push(getFileSpec(projectRoot, fileSpec));
         });
 
         commandLineOptions.excludeFileSpecs.forEach((fileSpec) => {
+            // Skip file specs that look like URI schemes (e.g., "zowe-uss:", "memfs:").
+            if (_uriSchemeRegex.test(fileSpec)) {
+                return;
+            }
             configOptions.exclude.push(getFileSpec(projectRoot, fileSpec));
         });
 
         commandLineOptions.ignoreFileSpecs.forEach((fileSpec) => {
+            // Skip file specs that look like URI schemes (e.g., "zowe-uss:", "memfs:").
+            if (_uriSchemeRegex.test(fileSpec)) {
+                return;
+            }
             configOptions.ignore.push(getFileSpec(projectRoot, fileSpec));
         });
 
@@ -1167,6 +1179,11 @@ export class AnalyzerService {
         if (commandLineOptions.includeFileSpecsOverride) {
             configOptions.include = [];
             commandLineOptions.includeFileSpecsOverride.forEach((include) => {
+                // Skip overrides that look like URI schemes (e.g., "memfs:/", "zowe-uss://").
+                // Otherwise they get passed to Uri.file() and corrupt the include specs.
+                if (_uriSchemeRegex.test(include)) {
+                    return;
+                }
                 configOptions.include.push(
                     getFileSpec(Uri.file(include, this.serviceProvider, /* checkRelative */ true), '.')
                 );

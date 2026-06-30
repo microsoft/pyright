@@ -45,6 +45,7 @@ export interface SymbolDetail extends CommonDetail {
     autoImportSource?: string;
     autoImportAlias?: string;
     boundObjectOrClass?: ClassType;
+    declaredOnBoundObjectOrClass?: boolean;
 }
 
 export interface CompletionDetail extends CommonDetail {
@@ -57,6 +58,7 @@ export interface CompletionDetail extends CommonDetail {
     sortText?: string;
     itemDetail?: string;
     moduleUri?: Uri;
+    declaredOnBoundObjectOrClass?: boolean;
 }
 
 export function getTypeDetail(
@@ -189,4 +191,63 @@ export function getCompletionItemDocumentation(
         };
     }
     return undefined;
+}
+
+// Characters that are safe to consume from the text following the completion
+// replacement range so the inserted text does not produce a duplicated
+// adjacent punctuation. Identifier characters and numeric digits are
+// intentionally excluded so we never silently swallow user code.
+const overlapAllowedChars = new Set(['=', '(', ')', '[', ']', '{', '}', ':', ',', '"', "'"]);
+
+type OverlapMatchPolicy = 'adjacent' | 'skipInlineWhitespace';
+
+export interface TrailingOverlap {
+    // Number of characters of `textAfterRangeEnd` that should be included in
+    // the completion's replacement range (this includes any whitespace skipped
+    // by the policy as well as the matched `tail`).
+    consumedChars: number;
+}
+
+/**
+ * Detects whether the text immediately following a completion's default
+ * replacement range already contains `tail`. Callers use this to decide
+ * whether to extend the replacement range so a literal that the completion is
+ * about to insert (for example `=` for a kwarg or `(` for a callable) does
+ * not appear twice in a row.
+ *
+ * Only characters in `overlapAllowedChars` are considered, so identifier and
+ * digit characters that follow the cursor are never consumed.
+ */
+export function detectTrailingOverlap(
+    tail: string,
+    textAfterRangeEnd: string,
+    policy: OverlapMatchPolicy
+): TrailingOverlap | undefined {
+    if (tail.length === 0) {
+        return undefined;
+    }
+
+    for (const ch of tail) {
+        if (!overlapAllowedChars.has(ch)) {
+            return undefined;
+        }
+    }
+
+    let scanStart = 0;
+    if (policy === 'skipInlineWhitespace') {
+        while (scanStart < textAfterRangeEnd.length) {
+            const ch = textAfterRangeEnd[scanStart];
+            if (ch === ' ' || ch === '\t') {
+                scanStart++;
+            } else {
+                break;
+            }
+        }
+    }
+
+    if (textAfterRangeEnd.substring(scanStart, scanStart + tail.length) !== tail) {
+        return undefined;
+    }
+
+    return { consumedChars: scanStart + tail.length };
 }

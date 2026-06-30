@@ -14,7 +14,12 @@ import { AnalyzerService } from '../analyzer/service';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { combinePaths, getDirectoryPath } from '../common/pathUtils';
 import { Uri } from '../common/uri/uri';
-import { applyWorkspaceEdit, convertToWorkspaceEdit, generateWorkspaceEdit } from '../common/workspaceEditUtils';
+import {
+    applyWorkspaceEdit,
+    convertToWorkspaceEdit,
+    generateWorkspaceEdit,
+    hasWorkspaceEditChanges,
+} from '../common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecutor';
 import { TestLanguageService } from './harness/fourslash/testLanguageService';
 import { TestState, parseAndGetTestState } from './harness/fourslash/testState';
@@ -423,6 +428,52 @@ test('test convertToWorkspaceEdit includes annotationId with changeAnnotations',
     assert.strictEqual(renameOp.annotationId, 'default');
     const deleteOp = ws.documentChanges!.find((d) => (d as any).kind === 'delete') as DeleteFile;
     assert.strictEqual(deleteOp.annotationId, 'default');
+});
+
+test('test hasWorkspaceEditChanges for empty workspace edits', () => {
+    assert.strictEqual(hasWorkspaceEditChanges({ changes: {} }), false);
+    assert.strictEqual(hasWorkspaceEditChanges({ changes: { 'file:///test.py': [] } }), false);
+    assert.strictEqual(
+        hasWorkspaceEditChanges({
+            documentChanges: [
+                TextDocumentEdit.create(
+                    {
+                        uri: 'file:///test.py',
+                        version: null,
+                    },
+                    []
+                ),
+            ],
+        }),
+        false
+    );
+});
+
+test('test hasWorkspaceEditChanges for text and file operations', () => {
+    const textEdit = {
+        range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 0 },
+        },
+        newText: 'x',
+    };
+
+    assert.strictEqual(hasWorkspaceEditChanges({ changes: { 'file:///test.py': [textEdit] } }), true);
+    assert.strictEqual(
+        hasWorkspaceEditChanges({
+            documentChanges: [
+                TextDocumentEdit.create(
+                    {
+                        uri: 'file:///test.py',
+                        version: null,
+                    },
+                    [textEdit]
+                ),
+            ],
+        }),
+        true
+    );
+    assert.strictEqual(hasWorkspaceEditChanges({ documentChanges: [CreateFile.create('file:///created.py')] }), true);
 });
 
 function applyWorkspaceEditToService(service: AnalyzerService, edits: WorkspaceEdit, filesChanged: Map<string, Uri>) {

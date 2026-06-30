@@ -128,6 +128,30 @@ export function isDirectory(fs: ReadOnlyFileSystem, uri: Uri): boolean {
     return tryStat(fs, uri)?.isDirectory() ?? false;
 }
 
+// True when `uri` resolves to an existing directory on the given file system. `fs` is an explicit
+// parameter so callers that decide a usable cwd/workspace root must name the file system they are
+// validating against, rather than relying on a coincidental match between independent fs handles.
+export function isUsableDirectory(fs: ReadOnlyFileSystem, uri: Uri): boolean {
+    return fs.existsSync(uri) && isDirectory(fs, uri);
+}
+
+// Returns the file-system path of `uri` only when it is usable as a working directory: it is
+// defined, has a non-empty file path, and resolves to an existing directory on `fs`. Otherwise
+// returns undefined. `fs` is explicit so each caller names the file system it validates against
+// when normalizing a cwd / workspace root.
+export function getUsableUriPath(fs: ReadOnlyFileSystem, uri: Uri | undefined): string | undefined {
+    if (!uri) {
+        return undefined;
+    }
+
+    const uriPath = uri.getFilePath();
+    if (!uriPath) {
+        return undefined;
+    }
+
+    return isUsableDirectory(fs, uri) ? uriPath : undefined;
+}
+
 export function isFile(fs: ReadOnlyFileSystem, uri: Uri, treatZipDirectoryAsFile = false): boolean {
     const stats = tryStat(fs, uri);
     if (stats?.isFile()) {
