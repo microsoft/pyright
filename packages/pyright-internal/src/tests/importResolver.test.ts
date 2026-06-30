@@ -407,6 +407,35 @@ describe('Import tests with fake venv', () => {
                 );
             });
 
+            test('invalidateCache clears cached python search paths', () => {
+                const searchRoot = combinePaths(normalizeSlashes('/'), 'python-search');
+                const files = [
+                    {
+                        path: combinePaths(searchRoot, 'sentinel.py'),
+                        content: 'x = 1',
+                    },
+                    {
+                        path: combinePaths('/', 'src', 'test.py'),
+                        content: 'x = 1',
+                    },
+                ];
+
+                const sp = createServiceProviderFromFiles(files);
+                const configOptions = new ConfigOptions(UriEx.file('/'));
+                const importResolver = new ImportResolver(
+                    sp,
+                    configOptions,
+                    new TestAccessHost(sp.fs().getModulePath(), [UriEx.file(searchRoot)], sp.fs())
+                );
+
+                assert.strictEqual(importResolver.getPythonSearchPaths().length, 1);
+                assert.strictEqual(importResolver.getCacheStats().cachedPythonSearchPaths, 1);
+
+                importResolver.invalidateCache();
+
+                assert.strictEqual(importResolver.getCacheStats().cachedPythonSearchPaths, 0);
+            });
+
             test('py.typed file', () => {
                 const files = [
                     {

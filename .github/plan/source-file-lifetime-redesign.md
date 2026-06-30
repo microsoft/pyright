@@ -35,7 +35,7 @@ release. The big wins are:
 | Open empty file dirty check | `didContentsChangeOnDisk()` now treats empty client text as open-file content instead of falling through to disk comparison. | Empty open files no longer get dirtied or invalidated because the on-disk file differs while the editor owns contents. |
 | No-op open update hardening | `setFileOpened` now resets published diagnostic-version state only when opening a previously closed file or when contents actually changed. | Same-content `updateOpenFileContents` no longer republishes diagnostics or disturbs evaluator/cache state. |
 | Cache-pressure query coverage | `releaseClosedFileSyntax()` now treats leftover `SourceFile` import results as releasable state, and tests cover open-file text/range diagnostics after `emptyCache()`. | Cache pressure can drop syntax while preserving user-facing range queries, and stale source import graphs are not left behind if syntax was already partially released. |
-| Import resolver cache pressure | `Program.emptyCache()` now invalidates `ImportResolver` caches, and import resolver / parent-directory cache stats expose retained import-result and module-name cache sizes. | Low-memory cache clearing now covers resolver-owned `ImportResult` graphs and filesystem/import metadata, not just evaluator and `SourceFile` syntax caches. |
+| Import resolver cache pressure | `Program.emptyCache()` now invalidates `ImportResolver` caches, and import resolver / parent-directory cache stats expose retained import-result, module-name, parent-directory, and Python search-path cache sizes. | Low-memory cache clearing now covers resolver-owned `ImportResult` graphs and filesystem/import metadata, not just evaluator and `SourceFile` syntax caches. |
 | Removal hardening | `_removeUnneededFiles()` prepares removed files for close, releases source-owned syntax/import retainers, and recreates the evaluator if removed files had observed contents or releasable syntax. | Compaction no longer leaves the old evaluator or removed `SourceFile` objects as the last owners of stale parse/source graphs. |
 | Dispose hardening | `Program.dispose()` now disposes the evaluator, releases source syntax, clears open text, clears source-file lists/maps, and resets parsed-file accounting. | Worker/program teardown becomes an explicit memory boundary instead of relying on later GC of still-connected owner graphs. |
 | Close behavior | Unchanged `setFileClosed` releases SourceFile-owned syntax/import caches without invalidating the whole evaluator; close invalidates only if disk contents changed while the file was open. | Closing a file stays cheap and preserves type-cache wins, while real content changes still get fresh analysis. |
@@ -45,16 +45,16 @@ Tracked stats for this slice:
 
 | Metric | Value | Notes |
 | --- | ---: | --- |
-| Completed investigation todos | 26 | Evaluator/source-lifetime/duplicate-data/over-invalidation/memory-scan/set-open/open-update/lifecycle-hardening/cache-pressure/removal-dispose/import-diagnostic-resource investigation items tracked in session state. |
+| Completed investigation todos | 27 | Evaluator/source-lifetime/duplicate-data/over-invalidation/memory-scan/set-open/open-update/lifecycle-hardening/cache-pressure/removal-dispose/import-diagnostic-resource/diagnostic-cache investigation items tracked in session state. |
 | Evaluator cache/stat fields exposed | 23 | `EvaluatorCacheStats` covers generation, maps, entry counts, stacks, speculative state, and prefetched types. |
 | Import resolver cache/stat fields exposed | 11 | `ImportResolverCacheStats` and `ParentDirectoryCacheStats` cover import results, module-name results, python search paths, stdlib modules, and parent-directory cache entries. |
 | Rooted heap-probe syntax invalidation paths | 6 | `setFileOpened`, `updateOpenFileContents`, `updateChainedUri`, `markFilesDirty`, `markAllFilesDirty`, `emptyCache`; unchanged `setFileClosed` is not a full evaluator invalidation path. |
 | Weakly tracked heap object classes | 13 | 12 syntax/source/import/ignore/declaration objects plus one evaluator `TypeResult`. |
-| Targeted passing Jest tests | 129 | 55 `service.test` + 21 `workspaceEditUtils`/`chainedSourceFiles` + 51 `importResolver`/`importResolverSupport` + 2 opt-in heap probes. |
+| Targeted passing Jest tests | 130 | 55 `service.test` + 21 `workspaceEditUtils`/`chainedSourceFiles` + 52 `importResolver`/`importResolverSupport` + 2 opt-in heap probes. |
 | Opt-in heap probe size | 209 lines | `packages\pyright-internal\src\tests\sourceFileLifetime.probe.test.ts`. |
 | Lifetime-model doc size | 83 lines | `.github\plan\source-file-lifetime-model.md`. |
-| Analyzer/support diff size | +412 / -40 | `program`, `sourceFile`, `importResolver`, `parentDirectoryCache`, `typeCacheUtils`, `typeEvaluator`, `typeEvaluatorTypes`, and `backgroundAnalysisProgram` cumulative branch diff. |
-| Service regression diff size | +610 / -0 | `packages\pyright-internal\src\tests\service.test.ts` cumulative branch diff. |
+| Analyzer/support diff size | +413 / -40 | `program`, `sourceFile`, `importResolver`, `parentDirectoryCache`, `typeCacheUtils`, `typeEvaluator`, `typeEvaluatorTypes`, and `backgroundAnalysisProgram` cumulative branch diff. |
+| Service regression diff size | +613 / -0 | `packages\pyright-internal\src\tests\service.test.ts` cumulative branch diff. |
 
 ## Goals
 

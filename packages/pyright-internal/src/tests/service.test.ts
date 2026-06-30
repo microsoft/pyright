@@ -1244,8 +1244,10 @@ test('emptyCache clears import resolver caches', () => {
         // Process all queued items.
     }
 
+    state.importResolver.getPythonSearchPaths();
     const statsBefore = state.importResolver.getCacheStats();
     assert(statsBefore.cachedImportResults > 0);
+    assert(statsBefore.cachedPythonSearchPaths > 0);
 
     program.emptyCache();
 
@@ -1254,6 +1256,7 @@ test('emptyCache clears import resolver caches', () => {
     assert.strictEqual(statsAfter.cachedImportResultRoots, 0);
     assert.strictEqual(statsAfter.cachedModuleNameResults, 0);
     assert.strictEqual(statsAfter.cachedModuleNameRoots, 0);
+    assert.strictEqual(statsAfter.cachedPythonSearchPaths, 0);
     assert.strictEqual(statsAfter.parentDirectoryCache.cachedResults, 0);
     assert.strictEqual(statsAfter.parentDirectoryCache.importCheckedEntries, 0);
 });

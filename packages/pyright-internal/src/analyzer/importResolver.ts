@@ -149,6 +149,7 @@ export class ImportResolver {
     }
 
     invalidateCache() {
+        this._cachedPythonSearchPaths = undefined;
         this._cachedImportResults = new Map<string | undefined, CachedImportResults>();
         this._cachedModuleNameResults = new Map<string, Map<string, ModuleImportInfo>>();
         this.cachedParentImportResults.reset();
