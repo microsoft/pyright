@@ -753,8 +753,10 @@ export interface TupleTypeArg {
 }
 
 export interface PropertyMethodInfo {
-    // The decorated function (fget, fset, fdel) for a property
-    methodType: FunctionType;
+    // The decorated function (fget, fset, fdel) for a property. This is
+    // normally a single function, but it can be an OverloadedType if the
+    // accessor (currently only the setter) is overloaded.
+    methodType: FunctionType | OverloadedType;
 
     // The class that declared this function
     classType: ClassType | undefined;

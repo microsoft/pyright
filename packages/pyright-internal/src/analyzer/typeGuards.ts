@@ -2478,7 +2478,7 @@ export function narrowTypeForDiscriminatedLiteralFieldComparison(
             // that has a declared literal return type for its getter.
             if (isClassInstance(subtype) && isClassInstance(memberType) && isProperty(memberType)) {
                 const getterType = memberType.priv.fgetInfo?.methodType;
-                if (getterType && getterType.shared.declaredReturnType) {
+                if (getterType && isFunction(getterType) && getterType.shared.declaredReturnType) {
                     const getterReturnType = FunctionType.getEffectiveReturnType(getterType);
                     if (getterReturnType) {
                         memberType = getterReturnType;
