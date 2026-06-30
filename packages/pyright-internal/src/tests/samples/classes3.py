@@ -109,11 +109,17 @@ reveal_type(func_qualname, expected_text="str")
 
 
 class WithQualname:
-    # A class that explicitly declares `__qualname__` exposes it on instances.
+    # A class-body `__qualname__` assignment. At runtime `type.__new__` consumes
+    # this to set the class's qualified name and removes it from the class
+    # `__dict__`, so `WithQualname().__qualname__` actually raises `AttributeError`.
+    # Pyright, however, models class-body assignments as instance-accessible class
+    # variables, so it treats this as a declared member and does not flag the
+    # instance access below. This test pins that class-variable modeling, not the
+    # runtime behavior.
     __qualname__ = "WithQualname"
 
 
-# This should not generate an error because the attribute is explicitly declared
-# as a class member.
+# Consistent with pyright's class-variable modeling above, this is not flagged
+# even though the equivalent runtime access would raise `AttributeError`.
 WithQualname().__qualname__
 reveal_type(WithQualname().__qualname__, expected_text="str")

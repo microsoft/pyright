@@ -514,20 +514,29 @@ export class Binder extends ParseTreeWalker {
                     this.walk(node.d.suite);
                 }
 
-                // `__qualname__` is added to the class scope so it can be referenced by
-                // name within the class body (e.g. `print(__qualname__)`). Unlike
-                // `__doc__`/`__module__`, it is exposed via the metaclass (`type`) rather
-                // than as a class/instance attribute, so it must not be treated as a class
-                // member. Otherwise instance access (`instance.__qualname__`) would
-                // incorrectly resolve instead of reporting an attribute-access error.
-                //
-                // This is injected after walking the suite so that a class that explicitly
-                // declares `__qualname__` (e.g. `type`, `function`, and other typeshed
-                // classes) keeps the class-member symbol created for that declaration. If it
-                // were injected first, the non-class-member symbol would be created up front
-                // and the explicit declaration would merge into it without restoring the
-                // class-member flag, incorrectly hiding the legitimate member.
-                this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str', /* isClassMember */ false);
+                // `__qualname__` is exposed via the metaclass (`type`) rather than as a
+                // class/instance attribute, unlike `__doc__`/`__module__`. We handle it
+                // after walking the suite so we can tell whether the class body already
+                // declared it.
+                const existingQualname = this._currentScope.lookUpSymbol('__qualname__');
+                if (existingQualname) {
+                    // The class explicitly declares `__qualname__` (e.g. typeshed `type`,
+                    // `function`, or a user `__qualname__ = "..."`). Keep that real
+                    // declaration untouched so hover, go-to-definition, and completion all
+                    // resolve to it. We must not append a synthetic empty-range Intrinsic
+                    // declaration on top, because declaration-selecting consumers (e.g.
+                    // `getLastTypedDeclarationForSymbol`) would otherwise resolve to the
+                    // empty range instead of the real declaration. We still mark it as
+                    // ignored for protocol matching, matching the implicit-dunder treatment.
+                    existingQualname.setIsIgnoredForProtocolMatch();
+                } else {
+                    // The class does not declare `__qualname__`. Add it as a non-class
+                    // member so it is name-resolvable within the class body (e.g.
+                    // `print(__qualname__)`) but is not exposed as a class/instance
+                    // attribute. Otherwise instance access (`instance.__qualname__`) would
+                    // incorrectly resolve instead of reporting an attribute-access error.
+                    this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str', /* isClassMember */ false);
+                }
 
                 if (this._dunderSlotsEntries) {
                     this._addSlotsToCurrentScope(this._dunderSlotsEntries);
