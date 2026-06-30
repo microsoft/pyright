@@ -98,6 +98,10 @@ export interface OpenFileOptions {
     isVirtual?: boolean;
 }
 
+function isBuiltinsModuleFile(fileName: string) {
+    return fileName === 'builtins.pyi' || fileName === '__builtins__.pyi';
+}
+
 // Track edit mode related information.
 class EditModeTracker {
     private _isEditMode = false;
@@ -508,7 +512,7 @@ export class Program {
 
             // Builtins are an implicit dependency of every file, so their open-content changes
             // must dirty the whole program rather than relying on normal importedBy edges.
-            if (fileName === 'builtins.pyi' || fileName === '__builtins__.pyi') {
+            if (isBuiltinsModuleFile(fileName)) {
                 this.markAllFilesDirty(/* evenIfContentsAreSame */ true, recreateEvaluator);
             } else {
                 this._markFileDirtyRecursive(
@@ -519,7 +523,7 @@ export class Program {
                 );
             }
 
-            if (recreateEvaluator && fileName !== 'builtins.pyi' && fileName !== '__builtins__.pyi') {
+            if (recreateEvaluator && !isBuiltinsModuleFile(fileName)) {
                 this._createNewEvaluator();
             }
         }
@@ -625,11 +629,7 @@ export class Program {
     markFilesDirty(fileUris: Uri[], evenIfContentsAreSame: boolean) {
         if (
             fileUris.some((fileUri) => {
-                const fileName = fileUri.fileName;
-                return (
-                    (fileName === 'builtins.pyi' || fileName === '__builtins__.pyi') &&
-                    this.getSourceFileInfo(fileUri) !== undefined
-                );
+                return isBuiltinsModuleFile(fileUri.fileName) && this.getSourceFileInfo(fileUri) !== undefined;
             })
         ) {
             this.markAllFilesDirty(evenIfContentsAreSame);
@@ -1298,12 +1298,10 @@ export class Program {
     private _removeUnneededFiles(): FileDiagnostics[] {
         const fileDiagnostics: FileDiagnostics[] = [];
         let shouldRecreateEvaluator = false;
+        const filesToRemove = this._collectUnneededFiles();
 
-        // If a file is no longer tracked, opened or shadowed, it can
-        // be removed from the program.
-        for (let i = 0; i < this._sourceFileList.length; ) {
-            const fileInfo = this._sourceFileList[i];
-            if (!this._isFileNeeded(fileInfo)) {
+        this._sourceFileList.forEach((fileInfo) => {
+            if (filesToRemove.has(fileInfo)) {
                 // Clear only if there are any errors for this file.
                 if (fileInfo.diagnosticsVersion !== undefined) {
                     fileDiagnostics.push({
@@ -1316,13 +1314,6 @@ export class Program {
                 if (this._prepareSourceFileForRemoval(fileInfo)) {
                     shouldRecreateEvaluator = true;
                 }
-
-                // A removed file can still be reachable through live dependency graph
-                // edges. Detach it before dropping the list/map entry so parse trees
-                // and source-owned import results do not remain rooted by importers.
-                this._detachSourceFileInfoForRemoval(fileInfo);
-                this._removeSourceFileFromListAndMap(fileInfo.uri, i);
-                i = 0;
             } else {
                 // If we're showing the user errors only for open files, clear
                 // out the errors for the now-closed file.
@@ -1334,8 +1325,20 @@ export class Program {
                     });
                     fileInfo.diagnosticsVersion = undefined;
                 }
+            }
+        });
 
-                i++;
+        if (filesToRemove.size > 0) {
+            const markDirtySet = new Set<string>();
+            if (this._detachSourceFileInfosForRemoval(filesToRemove, markDirtySet)) {
+                shouldRecreateEvaluator = true;
+            }
+
+            for (let i = this._sourceFileList.length - 1; i >= 0; i--) {
+                const fileInfo = this._sourceFileList[i];
+                if (filesToRemove.has(fileInfo)) {
+                    this._removeSourceFileFromListAndMap(fileInfo.uri, i);
+                }
             }
         }
 
@@ -1346,53 +1349,95 @@ export class Program {
         return fileDiagnostics;
     }
 
-    private _detachSourceFileInfoForRemoval(fileInfo: SourceFileInfo) {
-        // Dependency lists are bidirectional and can include secondary edges like
-        // shadow files, chained files, and builtins. Clear both sides so removal
-        // is a graph operation, not just a deletion from Program's file table.
-        fileInfo.imports.forEach((importedFile) => {
-            importedFile.mutate((s) => (s.importedBy = s.importedBy.filter((fi) => fi !== fileInfo)));
-        });
+    private _collectUnneededFiles() {
+        const neededFiles = new Set<SourceFileInfo>();
 
-        this._sourceFileList.forEach((sourceFileInfo) => {
-            if (sourceFileInfo === fileInfo) {
+        const markNeededRecursive = (fileInfo: SourceFileInfo | undefined) => {
+            if (!fileInfo || neededFiles.has(fileInfo) || fileInfo.sourceFile.isFileDeleted()) {
                 return;
             }
 
-            if (
-                sourceFileInfo.imports.includes(fileInfo) ||
-                sourceFileInfo.importedBy.includes(fileInfo) ||
-                sourceFileInfo.shadows.includes(fileInfo) ||
-                sourceFileInfo.shadowedBy.includes(fileInfo) ||
-                sourceFileInfo.builtinsImport === fileInfo ||
-                sourceFileInfo.chainedSourceFile === fileInfo
-            ) {
-                sourceFileInfo.mutate((s) => {
-                    s.imports = s.imports.filter((fi) => fi !== fileInfo);
-                    s.importedBy = s.importedBy.filter((fi) => fi !== fileInfo);
-                    s.shadows = s.shadows.filter((fi) => fi !== fileInfo);
-                    s.shadowedBy = s.shadowedBy.filter((fi) => fi !== fileInfo);
+            neededFiles.add(fileInfo);
 
-                    if (s.builtinsImport === fileInfo) {
-                        s.builtinsImport = undefined;
-                    }
+            fileInfo.imports.forEach(markNeededRecursive);
+            markNeededRecursive(fileInfo.builtinsImport);
+            markNeededRecursive(fileInfo.chainedSourceFile);
+            fileInfo.shadowedBy.forEach(markNeededRecursive);
+        };
 
-                    if (s.chainedSourceFile === fileInfo) {
-                        s.chainedSourceFile = undefined;
-                    }
-                });
+        this._sourceFileList.forEach((fileInfo) => {
+            if (fileInfo.isTracked || fileInfo.isOpenByClient) {
+                markNeededRecursive(fileInfo);
             }
         });
 
-        fileInfo.mutate((s) => {
-            s.imports = [];
-            s.importedBy = [];
-            s.shadows = [];
-            s.shadowedBy = [];
-            s.builtinsImport = undefined;
-            s.chainedSourceFile = undefined;
-            s.effectiveFutureImports = undefined;
+        return new Set(this._sourceFileList.filter((fileInfo) => !neededFiles.has(fileInfo)));
+    }
+
+    private _detachSourceFileInfosForRemoval(filesToRemove: ReadonlySet<SourceFileInfo>, markDirtySet: Set<string>) {
+        let markedSourceFileDirty = false;
+
+        // Dependency lists are bidirectional and can include secondary edges like
+        // shadow files, chained files, and builtins. Clear both sides so removal
+        // is a graph operation, not just a deletion from Program's file table.
+        this._sourceFileList.forEach((sourceFileInfo) => {
+            if (filesToRemove.has(sourceFileInfo)) {
+                sourceFileInfo.mutate((s) => {
+                    s.imports = [];
+                    s.importedBy = [];
+                    s.shadows = [];
+                    s.shadowedBy = [];
+                    s.builtinsImport = undefined;
+                    s.chainedSourceFile = undefined;
+                    s.effectiveFutureImports = undefined;
+                });
+                return;
+            }
+
+            const imports = sourceFileInfo.imports.filter((fi) => !filesToRemove.has(fi));
+            const importedBy = sourceFileInfo.importedBy.filter((fi) => !filesToRemove.has(fi));
+            const shadows = sourceFileInfo.shadows.filter((fi) => !filesToRemove.has(fi));
+            const shadowedBy = sourceFileInfo.shadowedBy.filter((fi) => !filesToRemove.has(fi));
+            const builtinsImport =
+                sourceFileInfo.builtinsImport && filesToRemove.has(sourceFileInfo.builtinsImport)
+                    ? undefined
+                    : sourceFileInfo.builtinsImport;
+            const chainedSourceFile =
+                sourceFileInfo.chainedSourceFile && filesToRemove.has(sourceFileInfo.chainedSourceFile)
+                    ? undefined
+                    : sourceFileInfo.chainedSourceFile;
+            const chainedSourceFileChanged = chainedSourceFile !== sourceFileInfo.chainedSourceFile;
+
+            if (
+                imports.length !== sourceFileInfo.imports.length ||
+                importedBy.length !== sourceFileInfo.importedBy.length ||
+                shadows.length !== sourceFileInfo.shadows.length ||
+                shadowedBy.length !== sourceFileInfo.shadowedBy.length ||
+                builtinsImport !== sourceFileInfo.builtinsImport ||
+                chainedSourceFileChanged
+            ) {
+                sourceFileInfo.mutate((s) => {
+                    s.imports = imports;
+                    s.importedBy = importedBy;
+                    s.shadows = shadows;
+                    s.shadowedBy = shadowedBy;
+                    s.builtinsImport = builtinsImport;
+                    s.chainedSourceFile = chainedSourceFile;
+                });
+
+                if (chainedSourceFileChanged) {
+                    this._markFileDirtyRecursive(
+                        sourceFileInfo,
+                        markDirtySet,
+                        /* forceRebinding */ true,
+                        /* recreateEvaluator */ false
+                    );
+                    markedSourceFileDirty = true;
+                }
+            }
         });
+
+        return markedSourceFileDirty;
     }
 
     private _isFileNeeded(fileInfo: SourceFileInfo, skipFileNeededCheck?: boolean) {

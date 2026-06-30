@@ -80,7 +80,7 @@ export function createImportedModuleDescriptor(moduleName: string): ImportedModu
 
 type CachedImportResults = Map<string, ImportResult>;
 
-export interface ImportResolverCacheStats {
+interface ImportResolverCacheStats {
     cachedImportResultRoots: number;
     cachedImportResults: number;
     cachedModuleNameRoots: number;

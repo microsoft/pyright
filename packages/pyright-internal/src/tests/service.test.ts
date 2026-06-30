@@ -810,7 +810,15 @@ test('setFileClosed drops tracked syntax without invalidating evaluator caches',
     const writableData = (sourceFileInfo.sourceFile as any)._writableData;
     assert(writableData.parserOutput);
     assert(writableData.tokenizerOutput);
-    assert(writableData.parsedFileContents?.includes('lifetime comment retained on token'));
+    assert.strictEqual(
+        writableData.parsedFileContents,
+        '# module lead\n' +
+            '# lifetime comment retained on token\n' +
+            'def f():\n' +
+            '    pass\n' +
+            'missing_type_ignore  # type: ignore[reportUndefinedVariable]\n' +
+            'missing_pyright_ignore  # pyright: ignore[reportUndefinedVariable]'
+    );
     assert(writableData.typeIgnoreLines.size > 0);
     assert(writableData.pyrightIgnoreLines.size > 0);
     assert(sourceFileInfo.sourceFile.getImports().length > 0);
@@ -1227,6 +1235,32 @@ test('updateChainedUri does not recreate evaluator for unchanged chain', () => {
     assert.strictEqual(program.evaluator, oldEvaluator);
 });
 
+test('markAllFilesDirty retains parse tree for unchanged files', () => {
+    const code = `
+// @filename: test.py
+//// value = 1
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const sourceFileInfo = program.getSourceFileInfo(uri);
+    assert(sourceFileInfo);
+
+    const writableData = (sourceFileInfo.sourceFile as any)._writableData;
+    const parserOutput = writableData.parserOutput;
+    assert(parserOutput);
+
+    program.markAllFilesDirty(/* evenIfContentsAreSame */ true);
+
+    assert.strictEqual(writableData.parserOutput, parserOutput);
+});
+
 test('disposeEvaluator preserves active evaluator state during reentrant invalidation', () => {
     const code = `
 // @filename: test.py
@@ -1371,7 +1405,7 @@ test('emptyCache drops retained parse tree and parsed contents for closed tracke
 
     const writableData = (sourceFileInfo.sourceFile as any)._writableData;
     assert(writableData.parserOutput);
-    assert(writableData.parsedFileContents?.includes('lifetime source text'));
+    assert.strictEqual(writableData.parsedFileContents, '# lifetime source text\nvalue = 1');
 
     program.setFileClosed(uri);
     program.emptyCache();

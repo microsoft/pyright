@@ -672,6 +672,7 @@ export function createTypeEvaluator(
     let returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
     const signatureTrackerStack: SignatureTrackerStackEntry[] = [];
     let prefetched: Partial<PrefetchedTypes> | undefined;
+    let runWithCancellationTokenDepth = 0;
     let isDisposalPending = false;
 
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
@@ -680,6 +681,7 @@ export function createTypeEvaluator(
         // Save the current token and restore it after the callback to support nested calls
         const oldToken = cancellationToken;
         let result: T | Promise<T> | undefined = undefined;
+        runWithCancellationTokenDepth++;
         try {
             cancellationToken = token;
             result = callback();
@@ -690,11 +692,13 @@ export function createTypeEvaluator(
 
             return result.finally(() => {
                 cancellationToken = oldToken;
+                runWithCancellationTokenDepth--;
                 completePendingDisposalIfInactive();
             });
         } finally {
             if (!isThenable(result)) {
                 cancellationToken = oldToken;
+                runWithCancellationTokenDepth--;
                 completePendingDisposalIfInactive();
             }
         }
@@ -770,6 +774,11 @@ export function createTypeEvaluator(
         asymmetricAccessorAssignmentCache = new Set<number>();
 
         if (isEvaluatorActive()) {
+            assert(
+                runWithCancellationTokenDepth > 0,
+                'Active evaluator disposal must unwind through cancellation scope'
+            );
+
             // A memory-pressure cache clear can happen reentrantly while this evaluator is
             // still on the stack. Preserve active execution state so the in-flight evaluation
             // can unwind normally. Durable caches above are still cleared immediately because

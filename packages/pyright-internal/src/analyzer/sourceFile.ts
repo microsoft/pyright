@@ -532,9 +532,15 @@ export class SourceFile {
         this._writableData.noCircularDependencyConfirmed = false;
         this._writableData.isCheckingNeeded = true;
         this._writableData.isBindingNeeded = true;
-        this._releaseSyntaxCaches(/* preserveLineCount */ false);
+        this._writableData.moduleSymbolTable = undefined;
+        this._writableData.lineCount = undefined;
 
         this._fireFileDirtyEvent();
+    }
+
+    markDirtyAndDropSyntax(): void {
+        this.markDirty();
+        this._releaseSyntaxCaches(/* preserveLineCount */ false);
     }
 
     markReanalysisRequired(forceRebinding: boolean): void {
@@ -635,7 +641,7 @@ export class SourceFile {
                 contents.length !== this._writableData.lastFileContentLength ||
                 contentsHash !== this._writableData.lastFileContentHash
             ) {
-                this.markDirty();
+                this.markDirtyAndDropSyntax();
                 contentsChanged = true;
             }
 
