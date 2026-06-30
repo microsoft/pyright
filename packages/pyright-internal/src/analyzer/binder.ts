@@ -508,12 +508,35 @@ export class Binder extends ParseTreeWalker {
 
                 this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
                 this._addImplicitSymbolToCurrentScope('__module__', node, 'str');
-                this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str');
 
                 this._dunderSlotsEntries = undefined;
                 if (!this._moduleSymbolOnly) {
                     // Analyze the suite.
                     this.walk(node.d.suite);
+                }
+
+                // `__qualname__` is exposed via the metaclass (`type`) rather than as a
+                // class/instance attribute, unlike `__doc__`/`__module__`. We handle it
+                // after walking the suite so we can tell whether the class body already
+                // declared it.
+                const existingQualname = this._currentScope.lookUpSymbol('__qualname__');
+                if (existingQualname) {
+                    // The class explicitly declares `__qualname__` (e.g. typeshed `type`,
+                    // `function`, or a user `__qualname__ = "..."`). Keep that real
+                    // declaration untouched so hover, go-to-definition, and completion all
+                    // resolve to it. We must not append a synthetic empty-range Intrinsic
+                    // declaration on top, because declaration-selecting consumers (e.g.
+                    // `getLastTypedDeclarationForSymbol`) would otherwise resolve to the
+                    // empty range instead of the real declaration. We still mark it as
+                    // ignored for protocol matching, matching the implicit-dunder treatment.
+                    existingQualname.setIsIgnoredForProtocolMatch();
+                } else {
+                    // The class does not declare `__qualname__`. Add it as a non-class
+                    // member so it is name-resolvable within the class body (e.g.
+                    // `print(__qualname__)`) but is not exposed as a class/instance
+                    // attribute. Otherwise instance access (`instance.__qualname__`) would
+                    // incorrectly resolve instead of reporting an attribute-access error.
+                    this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str', /* isClassMember */ false);
                 }
 
                 if (this._dunderSlotsEntries) {
@@ -3730,9 +3753,10 @@ export class Binder extends ParseTreeWalker {
     private _addImplicitSymbolToCurrentScope(
         nameValue: string,
         node: ModuleNode | ClassNode | FunctionNode,
-        type: IntrinsicType
+        type: IntrinsicType,
+        isClassMember = true
     ) {
-        const symbol = this._addSymbolToCurrentScope(nameValue, /* isInitiallyUnbound */ false);
+        const symbol = this._addSymbolToCurrentScope(nameValue, /* isInitiallyUnbound */ false, isClassMember);
         if (symbol) {
             symbol.addDeclaration({
                 type: DeclarationType.Intrinsic,
@@ -3749,7 +3773,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     // Adds a new symbol with the specified name if it doesn't already exist.
-    private _addSymbolToCurrentScope(nameValue: string, isInitiallyUnbound: boolean) {
+    private _addSymbolToCurrentScope(nameValue: string, isInitiallyUnbound: boolean, isClassMember = true) {
         let symbol = this._currentScope.lookUpSymbol(nameValue);
 
         if (!symbol) {
@@ -3759,7 +3783,7 @@ export class Binder extends ParseTreeWalker {
                 symbolFlags |= SymbolFlags.InitiallyUnbound;
             }
 
-            if (this._currentScope.type === ScopeType.Class) {
+            if (this._currentScope.type === ScopeType.Class && isClassMember) {
                 symbolFlags |= SymbolFlags.ClassMember;
             }
 
