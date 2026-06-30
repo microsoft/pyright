@@ -15,9 +15,10 @@ import { CommandLineOptions } from '../common/commandLineOptions';
 import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
 import { Uri } from '../common/uri/uri';
 import { getFileSpec, UriEx } from '../common/uri/uriUtils';
-import { TestFileSystem } from './harness/vfs/filesystem';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
+import { libFolder } from './harness/vfs/factory';
+import { TestFileSystem } from './harness/vfs/filesystem';
 
 test('random library file changed', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
@@ -1266,6 +1267,54 @@ test('emptyCache clears import resolver caches', () => {
     assert.strictEqual(statsAfter.cachedPythonSearchPaths, 0);
     assert.strictEqual(statsAfter.parentDirectoryCache.cachedResults, 0);
     assert.strictEqual(statsAfter.parentDirectoryCache.importCheckedEntries, 0);
+});
+
+test('emptyCache preserves live partial stub files', () => {
+    const code = `
+// @filename: test.py
+//// import mylib.partialstub
+//// mylib.partialstub.value
+
+// @filename: mylib-stubs/py.typed
+// @library: true
+//// partial
+
+// @filename: mylib-stubs/partialstub.pyi
+// @library: true
+//// value: int
+
+// @filename: mylib/__init__.py
+// @library: true
+////
+
+// @filename: mylib/partialstub.py
+// @library: true
+//// value = ''
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot', 'unnamedFile.py', { enablePartialStub: true }).state;
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze()) {
+        // Process all queued items.
+    }
+
+    const testUri = Uri.file(combinePaths('/projectRoot', 'test.py'), state.serviceProvider);
+    const originalPartialStubUri = Uri.file(
+        combinePaths(libFolder.getFilePath(), 'mylib-stubs', 'partialstub.pyi'),
+        state.serviceProvider
+    );
+
+    const partialStubFile = program.getSourceFile(originalPartialStubUri);
+    assert(partialStubFile);
+    assert(!partialStubFile.isFileDeleted());
+
+    program.emptyCache();
+
+    assert(program.getBoundSourceFile(testUri));
+    assert(program.getBoundSourceFile(originalPartialStubUri));
+    assert(!partialStubFile.isFileDeleted());
+    assert(!partialStubFile.isParseRequired());
 });
 
 test('emptyCache preserves text range and diagnostic range queries for open files', () => {

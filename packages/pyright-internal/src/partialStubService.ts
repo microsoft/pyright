@@ -38,9 +38,6 @@ export class PartialStubService implements SupportPartialStubs {
     // Root paths processed
     private readonly _rootSearched = new Set<string>();
 
-    // Partial stub package paths processed
-    private readonly _partialStubPackagePaths = new Set<string>();
-
     // Disposables to cleanup moved directories
     private _movedDirectories: Disposable[] = [];
 
@@ -99,9 +96,6 @@ export class PartialStubService implements SupportPartialStubs {
                     continue;
                 }
 
-                // We found partially typed stub-packages.
-                this._partialStubPackagePaths.add(partialStubPackagePath.key);
-
                 // Search the root to see whether we have matching package installed.
                 const packageName = entry.name.substr(0, entry.name.length - stubsSuffix.length);
                 for (const root of roots) {
@@ -135,7 +129,6 @@ export class PartialStubService implements SupportPartialStubs {
 
     clearPartialStubs(): void {
         this._rootSearched.clear();
-        this._partialStubPackagePaths.clear();
         this._movedDirectories.forEach((d) => d.dispose());
         this._movedDirectories = [];
     }
