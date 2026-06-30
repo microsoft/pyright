@@ -235,6 +235,8 @@ export class Program {
         // Treat program disposal as an explicit lifetime boundary. The Program is about to
         // forget its file table, so eagerly sever source/evaluator references instead of
         // relying on the surrounding service teardown to make the object graph unreachable.
+        // If disposal happens during edit mode, discard the edit-mode transaction rather
+        // than restoring it; no caller will consume the generated edits after disposal.
         this._editModeTracker.disable();
         this._sourceFileList.forEach((fileInfo) => {
             fileInfo.clearForDispose();
@@ -1314,6 +1316,10 @@ export class Program {
                 if (this._prepareSourceFileForRemoval(fileInfo)) {
                     shouldRecreateEvaluator = true;
                 }
+
+                // A removed file can still be reachable through live dependency graph
+                // edges. Detach it before dropping the list/map entry so parse trees
+                // and source-owned import results do not remain rooted by importers.
                 this._detachSourceFileInfoForRemoval(fileInfo);
                 this._removeSourceFileFromListAndMap(fileInfo.uri, i);
                 i = 0;
@@ -1341,6 +1347,9 @@ export class Program {
     }
 
     private _detachSourceFileInfoForRemoval(fileInfo: SourceFileInfo) {
+        // Dependency lists are bidirectional and can include secondary edges like
+        // shadow files, chained files, and builtins. Clear both sides so removal
+        // is a graph operation, not just a deletion from Program's file table.
         fileInfo.imports.forEach((importedFile) => {
             importedFile.mutate((s) => (s.importedBy = s.importedBy.filter((fi) => fi !== fileInfo)));
         });

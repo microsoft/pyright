@@ -149,6 +149,9 @@ export class ImportResolver {
     }
 
     invalidateCache() {
+        // This is used both for configuration/filesystem invalidation and for
+        // Program.emptyCache() memory pressure cleanup, so every resolver-owned
+        // cache that can retain import results or search-path metadata belongs here.
         this._cachedPythonSearchPaths = undefined;
         this._cachedImportResults = new Map<string | undefined, CachedImportResults>();
         this._cachedModuleNameResults = new Map<string, Map<string, ModuleImportInfo>>();

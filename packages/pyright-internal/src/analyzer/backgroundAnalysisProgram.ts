@@ -255,6 +255,9 @@ export class BackgroundAnalysisProgram {
         this._disposed = true;
         this._program.dispose();
 
+        // Edit mode parks the active background analysis in _preEditAnalysis.
+        // Disposal must drain both slots; otherwise the parked worker can outlive
+        // the foreground Program that now owns no source-file state.
         const backgroundAnalyses = new Set<IBackgroundAnalysis>();
         if (this._backgroundAnalysis) {
             backgroundAnalyses.add(this._backgroundAnalysis);

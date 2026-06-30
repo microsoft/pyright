@@ -172,6 +172,9 @@ export class SourceFileInfo implements extensibility.SourceFileInfo {
     }
 
     clearForDispose() {
+        // Do not call restore() here. Program disposal abandons any edit-mode
+        // transaction, so both the current graph and the pre-edit graph need to
+        // release their SourceFileInfo references.
         this._clearWriteableDataReferences(this._writableData);
 
         if (this._preEditData) {

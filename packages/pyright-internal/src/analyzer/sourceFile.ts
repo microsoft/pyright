@@ -427,6 +427,9 @@ export class SourceFile {
             return;
         }
 
+        // Normal edit-mode exit restores this snapshot and returns the edited text.
+        // Program disposal is different: the edit result is abandoned, so clear the
+        // saved source text and syntax tier directly.
         this._preEditData.clientDocumentVersion = undefined;
         this._preEditData.clientDocumentContents = undefined;
         this._releaseSyntaxCachesForData(this._preEditData, /* preserveLineCount */ true);
@@ -1382,6 +1385,9 @@ export class SourceFile {
     }
 
     private _releaseSyntaxCachesForData(data: WriteableData, preserveLineCount: boolean) {
+        // Keep this helper usable for both the current writable data and edit-mode
+        // pre-edit snapshots. The latter must be releasable during Program.dispose()
+        // without swapping the snapshot back into the active SourceFile state.
         data.parserOutput = undefined;
         data.tokenizerLines = undefined;
         data.tokenizerOutput = undefined;
