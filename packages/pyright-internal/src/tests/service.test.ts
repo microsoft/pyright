@@ -7,7 +7,7 @@
 import assert from 'assert';
 
 import { CancellationToken } from 'vscode-jsonrpc';
-import { InvalidatedReason } from '../analyzer/backgroundAnalysisProgram';
+import { BackgroundAnalysisProgram, InvalidatedReason } from '../analyzer/backgroundAnalysisProgram';
 import { SourceEnumerator } from '../analyzer/sourceEnumerator';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { NullConsole } from '../common/console';
@@ -539,6 +539,58 @@ test('service runEditMode', () => {
     }
 });
 
+test('background analysis dispose shuts down analysis parked by edit mode', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const program = state.workspace.service.test_program;
+    let shutdownCount = 0;
+    let disposeCount = 0;
+
+    const backgroundAnalysis = {
+        setProgramView: () => {},
+        setCompletionCallback: () => {},
+        setImportResolver: () => {},
+        setConfigOptions: () => {},
+        setTrackedFiles: () => {},
+        setAllowedThirdPartyImports: () => {},
+        ensurePartialStubPackages: () => {},
+        setFileOpened: () => {},
+        updateChainedUri: () => {},
+        setFileClosed: () => {},
+        addInterimFile: () => {},
+        markAllFilesDirty: () => {},
+        markFilesDirty: () => {},
+        startAnalysis: () => {},
+        analyzeFile: async () => false,
+        analyzeFileAndGetDiagnostics: async () => [],
+        getDiagnosticsForRange: async () => [],
+        writeTypeStub: async () => undefined,
+        invalidateAndForceReanalysis: () => {},
+        restart: () => {},
+        shutdown: () => {
+            shutdownCount++;
+        },
+        dispose: () => {
+            disposeCount++;
+        },
+    };
+
+    const backgroundProgram = new BackgroundAnalysisProgram(
+        'test',
+        state.serviceProvider,
+        program.configOptions,
+        state.importResolver,
+        backgroundAnalysis
+    );
+
+    backgroundProgram.enterEditMode();
+    assert.strictEqual(backgroundProgram.backgroundAnalysis, undefined);
+
+    backgroundProgram.dispose();
+
+    assert.strictEqual(shutdownCount, 1);
+    assert.strictEqual(disposeCount, 1);
+});
+
 test('setFileOpened does not change tracked state for existing source files', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
     const program = state.workspace.service.test_program;
@@ -896,6 +948,42 @@ test('removed deleted imports are unlinked from live importers', () => {
 
     assert.strictEqual(program.getSourceFileInfo(removedUri), undefined);
     assert(!testInfo.imports.includes(removedInfo));
+});
+
+test('edit-mode-created files are unlinked from live imports on exit', () => {
+    const code = `
+// @filename: existing.py
+//// value = 1
+    `;
+
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const program = state.workspace.service.test_program;
+    const existingUri = UriEx.file('/projectRoot/existing.py');
+    const createdUri = UriEx.file('/projectRoot/created.py');
+    let createdInfo: any;
+
+    state.workspace.service.runEditMode((p) => {
+        p.setFileOpened(createdUri, 1, 'import existing\nexisting.value', {
+            ipythonMode: IPythonMode.None,
+            chainedFileUri: undefined,
+        });
+        createdInfo = p.getSourceFileInfo(createdUri);
+        assert(createdInfo);
+        assert(createdInfo.isCreatedInEditMode);
+
+        p.analyzeFile(createdUri, CancellationToken.None);
+
+        const existingInfo = p.getSourceFileInfo(existingUri);
+        assert(existingInfo);
+        assert(existingInfo.importedBy.includes(createdInfo));
+    }, CancellationToken.None);
+
+    const existingInfo = program.getSourceFileInfo(existingUri);
+    assert(existingInfo);
+    assert(createdInfo);
+    assert.strictEqual(program.getSourceFileInfo(createdUri), undefined);
+    assert.strictEqual(createdInfo.imports.length, 0);
+    assert(!existingInfo.importedBy.includes(createdInfo));
 });
 
 test('updateOpenFileContents disposes evaluator caches and stale parse output', () => {

@@ -254,8 +254,23 @@ export class BackgroundAnalysisProgram {
 
         this._disposed = true;
         this._program.dispose();
-        this._backgroundAnalysis?.shutdown();
-        this._backgroundAnalysis?.dispose();
+
+        const backgroundAnalyses = new Set<IBackgroundAnalysis>();
+        if (this._backgroundAnalysis) {
+            backgroundAnalyses.add(this._backgroundAnalysis);
+        }
+        if (this._preEditAnalysis) {
+            backgroundAnalyses.add(this._preEditAnalysis);
+        }
+
+        this._backgroundAnalysis = undefined;
+        this._preEditAnalysis = undefined;
+        this._onAnalysisCompletion = undefined;
+
+        backgroundAnalyses.forEach((backgroundAnalysis) => {
+            backgroundAnalysis.shutdown();
+            backgroundAnalysis.dispose();
+        });
     }
 
     enterEditMode() {
