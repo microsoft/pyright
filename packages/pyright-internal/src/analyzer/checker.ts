@@ -5862,7 +5862,11 @@ export class Checker extends ParseTreeWalker {
                 // If one base defines the member as a plain callable variable and a
                 // sibling base overrides it with a real method, bind the method's "self"
                 // so the two are compared as plain callables (mirrors the single-base
-                // override handling in `_validateBaseClassOverride`).
+                // override handling in `_validateBaseClassOverride`). This is
+                // load-bearing for parametered callables (e.g. `Callable[[int], None]`
+                // vs `def cb(self, value: int)`): without binding, the method's extra
+                // "self" causes a spurious arity mismatch. See the `DiamondParam*`
+                // samples in methodOverride7.py.
                 const childClassSelf = ClassType.cloneAsInstance(
                     selfSpecializeClass(childClassType, { useBoundTypeVars: true })
                 );
@@ -6631,24 +6635,48 @@ export class Checker extends ParseTreeWalker {
             childClassType
         );
 
-        if (boundOverrideType && isFunction(baseType) && isFunction(boundOverrideType)) {
+        if (!boundOverrideType) {
+            return { baseType, overrideType };
+        }
+
+        // Mark both the base callable and the bound override as static so the
+        // override comparison does not skip the first parameter as an unbound
+        // "self" (see the `i === 0` self/cls skip in typeEvaluator's
+        // `validateOverrideMethodInternal`). Without this, the bound override
+        // keeps its instance-method flag and its first real parameter would be
+        // silently dropped during the comparison.
+        const staticBaseType = isFunction(baseType) ? this._markFunctionStatic(baseType) : baseType;
+
+        if (isFunction(boundOverrideType)) {
             return {
-                baseType: FunctionType.cloneWithNewFlags(
-                    baseType,
-                    baseType.shared.flags | FunctionTypeFlags.StaticMethod
-                ),
-                overrideType: FunctionType.cloneWithNewFlags(
-                    boundOverrideType,
-                    boundOverrideType.shared.flags | FunctionTypeFlags.StaticMethod
-                ),
+                baseType: staticBaseType,
+                overrideType: this._markFunctionStatic(boundOverrideType),
             };
         }
 
-        if (boundOverrideType) {
-            return { baseType, overrideType: boundOverrideType };
+        if (isOverloaded(boundOverrideType)) {
+            // An overloaded method binds to an overloaded callable. Apply the
+            // same static normalization to every overload (and the
+            // implementation, if present) so an incompatible first parameter in
+            // an overloaded override is still caught rather than skipped as
+            // "self".
+            const staticOverloads = OverloadedType.getOverloads(boundOverrideType).map((overload) =>
+                this._markFunctionStatic(overload)
+            );
+            const impl = OverloadedType.getImplementation(boundOverrideType);
+            const staticImpl = impl && isFunction(impl) ? this._markFunctionStatic(impl) : impl;
+
+            return {
+                baseType: staticBaseType,
+                overrideType: OverloadedType.create(staticOverloads, staticImpl),
+            };
         }
 
-        return { baseType, overrideType };
+        return { baseType, overrideType: boundOverrideType };
+    }
+
+    private _markFunctionStatic(functionType: FunctionType): FunctionType {
+        return FunctionType.cloneWithNewFlags(functionType, functionType.shared.flags | FunctionTypeFlags.StaticMethod);
     }
 
     private _validateBaseClassOverride(
