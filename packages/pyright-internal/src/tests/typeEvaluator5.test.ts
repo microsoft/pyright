@@ -315,6 +315,11 @@ test('Conditional1', () => {
     TestUtils.validateResults(analysisResults, 15);
 });
 
+test('ConditionalExpr1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditionalExpr1.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypePrinter1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typePrinter1.py']);
     TestUtils.validateResults(analysisResults, 0);
