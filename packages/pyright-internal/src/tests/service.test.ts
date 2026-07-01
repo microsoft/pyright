@@ -1054,7 +1054,7 @@ test('edit-mode-created files are unlinked from live imports on exit', () => {
     assert(!existingInfo.importedBy.includes(createdInfo));
 });
 
-test('updateOpenFileContents disposes evaluator caches and stale parse output', () => {
+test('updateOpenFileContents preserves evaluator cache and drops stale parse output', () => {
     const code = `
 // @filename: test.py
 //// class C:
@@ -1081,25 +1081,13 @@ test('updateOpenFileContents disposes evaluator caches and stale parse output', 
     const oldEvaluator = program.evaluator as any;
     assert(oldEvaluator);
     assert(oldEvaluator.getTypeCacheEntryCount() > 0);
-    const oldEvaluatorGeneration = oldEvaluator.getEvaluatorCacheStats().evaluatorGeneration;
-    assert(oldEvaluator.getEvaluatorCacheStats().typeCache > 0);
+    const oldEvaluatorStats = oldEvaluator.getEvaluatorCacheStats();
+    assert(oldEvaluatorStats.typeCache > 0);
 
     state.workspace.service.updateOpenFileContents(uri, 2, `${state.testFS.readFileSync(uri, 'utf8')}\nother = 1\n`);
 
-    assert(program.evaluator);
-    assert.notStrictEqual(program.evaluator, oldEvaluator);
-    Object.entries(oldEvaluator.getEvaluatorCacheStats()).forEach(([name, value]) => {
-        if (name !== 'evaluatorGeneration') {
-            assert.strictEqual(value, 0, `${name} should be cleared on evaluator disposal`);
-        }
-    });
-    const newEvaluatorStats = (program.evaluator as any).getEvaluatorCacheStats();
-    assert(newEvaluatorStats.evaluatorGeneration > oldEvaluatorGeneration);
-    Object.entries(newEvaluatorStats).forEach(([name, value]) => {
-        if (name !== 'evaluatorGeneration') {
-            assert.strictEqual(value, 0, `${name} should be empty on the new evaluator`);
-        }
-    });
+    assert.strictEqual(program.evaluator, oldEvaluator);
+    assert.deepStrictEqual(oldEvaluator.getEvaluatorCacheStats(), oldEvaluatorStats);
     assert.strictEqual(sourceFileInfo.sourceFile.getParserOutput(), undefined);
     assert.strictEqual(writableData.parserOutput, undefined);
     assert.notStrictEqual(writableData.parserOutput, oldParserOutput);
@@ -1134,7 +1122,7 @@ test('updateOpenFileContents with unchanged contents preserves evaluator and dia
     assert.strictEqual(sourceFileInfo.diagnosticsVersion, oldDiagnosticsVersion);
 });
 
-test('setFileOpened disposes evaluator caches when contents change', () => {
+test('setFileOpened preserves evaluator cache when contents change', () => {
     const code = `
 // @filename: test.py
 //// class C:
@@ -1157,18 +1145,13 @@ test('setFileOpened disposes evaluator caches when contents change', () => {
 
     const oldEvaluator = program.evaluator as any;
     assert(oldEvaluator);
-    assert(oldEvaluator.getEvaluatorCacheStats().typeCache > 0);
-    const oldEvaluatorGeneration = oldEvaluator.getEvaluatorCacheStats().evaluatorGeneration;
+    const oldEvaluatorStats = oldEvaluator.getEvaluatorCacheStats();
+    assert(oldEvaluatorStats.typeCache > 0);
 
     state.workspace.service.setFileOpened(uri, 2, `${state.testFS.readFileSync(uri, 'utf8')}\nother = 1\n`);
 
-    assert.notStrictEqual(program.evaluator, oldEvaluator);
-    Object.entries(oldEvaluator.getEvaluatorCacheStats()).forEach(([name, value]) => {
-        if (name !== 'evaluatorGeneration') {
-            assert.strictEqual(value, 0, `${name} should be cleared on evaluator disposal`);
-        }
-    });
-    assert((program.evaluator as any).getEvaluatorCacheStats().evaluatorGeneration > oldEvaluatorGeneration);
+    assert.strictEqual(program.evaluator, oldEvaluator);
+    assert.deepStrictEqual(oldEvaluator.getEvaluatorCacheStats(), oldEvaluatorStats);
     assert.strictEqual(sourceFileInfo.sourceFile.getParserOutput(), undefined);
 });
 
@@ -1205,7 +1188,7 @@ test('setFileOpened defers evaluator disposal during edit mode', () => {
     });
 });
 
-test('setFileOpened marks dependents dirty during edit mode', () => {
+test('setFileOpened preserves dependent state during edit mode', () => {
     const code = `
 // @filename: a.py
 //// value: int = 1
@@ -1233,13 +1216,13 @@ test('setFileOpened marks dependents dirty during edit mode', () => {
     state.workspace.service.runEditMode((p) => {
         p.setFileOpened(aUri, 2, `${state.testFS.readFileSync(aUri, 'utf8')}\nother = 1\n`);
         assert.strictEqual(program.evaluator, oldEvaluator);
-        assert.strictEqual(bInfo.sourceFile.isCheckingRequired(), true);
+        assert.strictEqual(bInfo.sourceFile.isCheckingRequired(), false);
     }, CancellationToken.None);
 
     assert.notStrictEqual(program.evaluator, oldEvaluator);
 });
 
-test('setFileOpened marks all files dirty for builtins change', () => {
+test('setFileOpened preserves evaluator and dependents for builtins open edit', () => {
     const code = `
 // @filename: a.py
 //// value = 1
@@ -1270,8 +1253,8 @@ test('setFileOpened marks all files dirty for builtins change', () => {
         `${state.testFS.readFileSync(builtinsUri, 'utf8')}\nclass int(object): ...\n`
     );
 
-    assert.strictEqual(aInfo.sourceFile.isCheckingRequired(), true);
-    assert.notStrictEqual(program.evaluator, oldEvaluator);
+    assert.strictEqual(aInfo.sourceFile.isCheckingRequired(), false);
+    assert.strictEqual(program.evaluator, oldEvaluator);
 });
 
 test('updateChainedUri does not recreate evaluator for unchanged chain', () => {

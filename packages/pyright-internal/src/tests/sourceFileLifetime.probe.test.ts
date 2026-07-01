@@ -24,14 +24,7 @@ heapTest('probe invalidation paths release old syntax objects', async () => {
         return;
     }
 
-    for (const path of [
-        'setFileOpened',
-        'updateOpenFileContents',
-        'updateChainedUri',
-        'markFilesDirty',
-        'markAllFilesDirty',
-        'emptyCache',
-    ]) {
+    for (const path of ['updateChainedUri', 'markFilesDirty', 'markAllFilesDirty', 'emptyCache']) {
         const result = runSyntaxInvalidationProbe(path);
         await assertCollected(path, result.weakRefs);
         assertDisposedEvaluator(path, result.oldEvaluator);

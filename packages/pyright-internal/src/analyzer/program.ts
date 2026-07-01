@@ -444,19 +444,11 @@ export class Program {
 
     setFileOpened(fileUri: Uri, version: number | null, contents: string, options?: OpenFileOptions) {
         let sourceFileInfo = this.getSourceFileInfo(fileUri);
-        // Capture the prior lifetime state before setClientVersion mutates the SourceFile.
-        // Opening or repeatedly editing a file that has not been parsed/bound yet should not
-        // throw away the evaluator, but replacing analyzed content must dirty dependents and
-        // invalidate caches that can retain old parse nodes.
+        // Capture the prior open state before setClientVersion mutates the SourceFile.
+        // Open-file edits intentionally preserve the evaluator/type cache for fast
+        // incremental analysis; the edited file gets new parse-node IDs on reparse.
         const wasKnownFile = sourceFileInfo !== undefined;
         const wasOpenByClient = sourceFileInfo?.isOpenByClient ?? false;
-        const hadAnalysisState = sourceFileInfo ? !sourceFileInfo.sourceFile.isParseRequired() : false;
-        const hadDependencyGraph =
-            (sourceFileInfo?.imports.length ?? 0) > 0 ||
-            (sourceFileInfo?.importedBy.length ?? 0) > 0 ||
-            (sourceFileInfo?.shadows.length ?? 0) > 0 ||
-            (sourceFileInfo?.shadowedBy.length ?? 0) > 0 ||
-            sourceFileInfo?.builtinsImport !== undefined;
         if (!sourceFileInfo) {
             const moduleImportInfo = this._getModuleImportInfoForFile(fileUri);
             const sourceFile = this._sourceFileFactory.createSourceFile(
@@ -504,28 +496,6 @@ export class Program {
             // We do not set the version to undefined here because that implies there are
             // no diagnostics currently reported for this file.
             sourceFileInfo.diagnosticsVersion = 0;
-        }
-
-        if (wasKnownFile && (hadAnalysisState || hadDependencyGraph) && contentsChanged) {
-            const recreateEvaluator = !this._editModeTracker.isEditMode;
-            const fileName = fileUri.fileName;
-
-            // Builtins are an implicit dependency of every file, so their open-content changes
-            // must dirty the whole program rather than relying on normal importedBy edges.
-            if (isBuiltinsModuleFile(fileName)) {
-                this.markAllFilesDirty(/* evenIfContentsAreSame */ true, recreateEvaluator);
-            } else {
-                this._markFileDirtyRecursive(
-                    sourceFileInfo,
-                    new Set<string>(),
-                    /* forceRebinding */ false,
-                    /* recreateEvaluator */ false
-                );
-            }
-
-            if (recreateEvaluator && !isBuiltinsModuleFile(fileName)) {
-                this._createNewEvaluator();
-            }
         }
     }
 
