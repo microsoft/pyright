@@ -136,7 +136,7 @@ export async function activate(context: ExtensionContext) {
                             // This lets the server know that it's unset rather than explicitly
                             // set to the default value (typings) so it can behave differently.
                             if (!isConfigSettingSetByUser(pythonConfig, 'analysis.stubPath')) {
-                                delete (result[i] as any).analysis.stubPath;
+                                delete (result[i] as any).analysis?.stubPath;
                             }
                         }
                     }
