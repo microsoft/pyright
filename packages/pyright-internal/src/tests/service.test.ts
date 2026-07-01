@@ -1054,7 +1054,7 @@ test('edit-mode-created files are unlinked from live imports on exit', () => {
     assert(!existingInfo.importedBy.includes(createdInfo));
 });
 
-test('updateOpenFileContents preserves evaluator cache and drops stale parse output', () => {
+test('updateOpenFileContents disposes evaluator caches and stale parse output', () => {
     const code = `
 // @filename: test.py
 //// class C:
@@ -1081,19 +1081,31 @@ test('updateOpenFileContents preserves evaluator cache and drops stale parse out
     const oldEvaluator = program.evaluator as any;
     assert(oldEvaluator);
     assert(oldEvaluator.getTypeCacheEntryCount() > 0);
-    const oldEvaluatorStats = oldEvaluator.getEvaluatorCacheStats();
-    assert(oldEvaluatorStats.typeCache > 0);
+    const oldEvaluatorGeneration = oldEvaluator.getEvaluatorCacheStats().evaluatorGeneration;
+    assert(oldEvaluator.getEvaluatorCacheStats().typeCache > 0);
 
     state.workspace.service.updateOpenFileContents(uri, 2, `${state.testFS.readFileSync(uri, 'utf8')}\nother = 1\n`);
 
-    assert.strictEqual(program.evaluator, oldEvaluator);
-    assert.deepStrictEqual(oldEvaluator.getEvaluatorCacheStats(), oldEvaluatorStats);
+    assert(program.evaluator);
+    assert.notStrictEqual(program.evaluator, oldEvaluator);
+    Object.entries(oldEvaluator.getEvaluatorCacheStats()).forEach(([name, value]) => {
+        if (name !== 'evaluatorGeneration') {
+            assert.strictEqual(value, 0, `${name} should be cleared on evaluator disposal`);
+        }
+    });
+    const newEvaluatorStats = (program.evaluator as any).getEvaluatorCacheStats();
+    assert(newEvaluatorStats.evaluatorGeneration > oldEvaluatorGeneration);
+    Object.entries(newEvaluatorStats).forEach(([name, value]) => {
+        if (name !== 'evaluatorGeneration') {
+            assert.strictEqual(value, 0, `${name} should be empty on the new evaluator`);
+        }
+    });
     assert.strictEqual(sourceFileInfo.sourceFile.getParserOutput(), undefined);
     assert.strictEqual(writableData.parserOutput, undefined);
     assert.notStrictEqual(writableData.parserOutput, oldParserOutput);
 });
 
-test('updateOpenFileContents with unchanged contents preserves evaluator and diagnostic version', () => {
+test('updateOpenFileContents with unchanged contents preserves diagnostic version', () => {
     const code = `
 // @filename: test.py
 //// value: int = 1
@@ -1118,7 +1130,7 @@ test('updateOpenFileContents with unchanged contents preserves evaluator and dia
 
     state.workspace.service.updateOpenFileContents(uri, 2, contents);
 
-    assert.strictEqual(program.evaluator, oldEvaluator);
+    assert.notStrictEqual(program.evaluator, oldEvaluator);
     assert.strictEqual(sourceFileInfo.diagnosticsVersion, oldDiagnosticsVersion);
 });
 
