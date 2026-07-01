@@ -785,7 +785,7 @@ test('open empty file does not use disk contents for dirty check', () => {
     assert.strictEqual(sourceFileInfo.sourceFile.didContentsChangeOnDisk(), false);
 });
 
-test('setFileClosed drops tracked syntax without invalidating evaluator caches', () => {
+test('setFileClosed preserves tracked syntax without invalidating evaluator caches', () => {
     const code = `
 // @filename: test.py
 //// # module lead
@@ -836,14 +836,21 @@ test('setFileClosed drops tracked syntax without invalidating evaluator caches',
     assert.strictEqual(sourceFileInfo.isOpenByClient, false);
     assert.strictEqual(writableData.clientDocumentContents, undefined);
     assert.strictEqual(writableData.tokenizerOutput, undefined);
-    assert.strictEqual(writableData.parserOutput, undefined);
-    assert.strictEqual(writableData.parsedFileContents, undefined);
-    assert.strictEqual(writableData.tokenizerLines, undefined);
-    assert.strictEqual(writableData.moduleSymbolTable, undefined);
-    assert.strictEqual(writableData.typeIgnoreLines.size, 0);
-    assert.strictEqual(writableData.typeIgnoreAll, undefined);
-    assert.strictEqual(writableData.pyrightIgnoreLines.size, 0);
-    assert.strictEqual(sourceFileInfo.sourceFile.getImports().length, 0);
+    assert(writableData.parserOutput);
+    assert.strictEqual(
+        writableData.parsedFileContents,
+        '# module lead\n' +
+            '# lifetime comment retained on token\n' +
+            'def f():\n' +
+            '    pass\n' +
+            'missing_type_ignore  # type: ignore[reportUndefinedVariable]\n' +
+            'missing_pyright_ignore  # pyright: ignore[reportUndefinedVariable]'
+    );
+    assert(writableData.tokenizerLines);
+    assert(writableData.moduleSymbolTable);
+    assert(writableData.typeIgnoreLines.size > 0);
+    assert(writableData.pyrightIgnoreLines.size > 0);
+    assert(sourceFileInfo.sourceFile.getImports().length > 0);
     assert.strictEqual(sourceFileInfo.imports.length, oldSourceFileInfoImportCount);
 });
 
@@ -920,6 +927,40 @@ test('setTrackedFiles removes closed files and clears evaluator retainers', () =
             assert.strictEqual(value, 0, `${name} should be cleared when a file is removed`);
         }
     });
+});
+
+test('setTrackedFiles removes unrooted shadow files', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const program = state.workspace.service.test_program;
+    const stubUri = UriEx.file('/projectRoot/test.pyi');
+    const implementationUri = UriEx.file('/projectRoot/test.py');
+
+    const stubInfo = program.addInterimFile(stubUri);
+    const implementationInfo = program.addInterimFile(implementationUri);
+    implementationInfo.mutate((s) => s.shadows.push(stubInfo));
+    stubInfo.mutate((s) => s.shadowedBy.push(implementationInfo));
+
+    program.setTrackedFiles([]);
+
+    assert.strictEqual(program.getSourceFileInfo(stubUri), undefined);
+    assert.strictEqual(program.getSourceFileInfo(implementationUri), undefined);
+});
+
+test('setTrackedFiles preserves rooted shadow files', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const program = state.workspace.service.test_program;
+    const stubUri = UriEx.file('/projectRoot/test.pyi');
+    const implementationUri = UriEx.file('/projectRoot/test.py');
+
+    const stubInfo = program.addInterimFile(stubUri);
+    const implementationInfo = program.addInterimFile(implementationUri);
+    implementationInfo.mutate((s) => s.shadows.push(stubInfo));
+    stubInfo.mutate((s) => s.shadowedBy.push(implementationInfo));
+
+    program.setTrackedFiles([stubUri]);
+
+    assert.strictEqual(program.getSourceFileInfo(stubUri), stubInfo);
+    assert.strictEqual(program.getSourceFileInfo(implementationUri), implementationInfo);
 });
 
 test('removed deleted imports are unlinked from live importers', () => {

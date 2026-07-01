@@ -766,8 +766,6 @@ export function createTypeEvaluator(
     // circular references in complex data structures, so it fails
     // to clean up the objects if we don't help it out.
     function disposeEvaluator() {
-        functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
-        codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
         typeCache = new Map<number, TypeCacheEntry>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
         expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
@@ -781,8 +779,10 @@ export function createTypeEvaluator(
 
             // A memory-pressure cache clear can happen reentrantly while this evaluator is
             // still on the stack. Preserve active execution state so the in-flight evaluation
-            // can unwind normally. Durable caches above are still cleared immediately because
-            // they are generation-owned and are the likely holders of stale parse nodes.
+            // can unwind normally. Generation-owned type caches above are still cleared
+            // immediately because they are the likely holders of stale parse nodes. Recursion
+            // and code-flow maps are paired with active analysis state and are cleared below
+            // once the evaluator unwinds.
             isDisposalPending = true;
             return;
         }
@@ -810,6 +810,8 @@ export function createTypeEvaluator(
     }
 
     function clearInactiveRetainers() {
+        functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
+        codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
         deferredClassCompletions = [];
         returnTypeInferenceTypeCache = undefined;
         prefetched = undefined;

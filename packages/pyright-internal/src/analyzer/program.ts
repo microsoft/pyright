@@ -592,7 +592,10 @@ export class Program {
                 this._createNewEvaluator();
             }
 
-            sourceFileInfo.sourceFile.releaseClosedFileSyntax();
+            // Syntax release happens through explicit cache-pressure and removal
+            // boundaries. A closed file can still be needed by tracked files or
+            // live importers, and dropping syntax here would force a reparse/rebind
+            // on the next analysis pass while the evaluator still owns the old cache.
         }
 
         return this._removeUnneededFiles();
@@ -1350,28 +1353,87 @@ export class Program {
     }
 
     private _collectUnneededFiles() {
-        const neededFiles = new Set<SourceFileInfo>();
+        const filesToRemove = new Set<SourceFileInfo>();
+        let removedFile = true;
 
-        const markNeededRecursive = (fileInfo: SourceFileInfo | undefined) => {
-            if (!fileInfo || neededFiles.has(fileInfo) || fileInfo.sourceFile.isFileDeleted()) {
-                return;
+        while (removedFile) {
+            removedFile = false;
+
+            this._sourceFileList.forEach((fileInfo) => {
+                if (
+                    !filesToRemove.has(fileInfo) &&
+                    !this._isFileNeeded(fileInfo, /* skipFileNeededCheck */ false, filesToRemove)
+                ) {
+                    filesToRemove.add(fileInfo);
+                    removedFile = true;
+                }
+            });
+        }
+
+        return filesToRemove;
+    }
+
+    private _isFileNeeded(
+        fileInfo: SourceFileInfo,
+        skipFileNeededCheck?: boolean,
+        filesToRemove?: ReadonlySet<SourceFileInfo>
+    ) {
+        if (fileInfo.sourceFile.isFileDeleted()) {
+            return false;
+        }
+
+        if (!!skipFileNeededCheck || fileInfo.isTracked || fileInfo.isOpenByClient) {
+            return true;
+        }
+
+        if (fileInfo.shadows.some((shadowedFile) => !filesToRemove?.has(shadowedFile))) {
+            return true;
+        }
+
+        if (fileInfo.importedBy.every((importer) => filesToRemove?.has(importer))) {
+            return false;
+        }
+
+        // It's possible for a cycle of files to be imported
+        // by a tracked file but then abandoned. The import cycle
+        // will keep the entire group "alive" if we don't detect
+        // the condition and garbage collect them.
+        return this._isImportNeededRecursive(fileInfo, new Set<string>(), filesToRemove);
+    }
+
+    private _isImportNeededRecursive(
+        fileInfo: SourceFileInfo,
+        recursionSet: Set<string>,
+        filesToRemove?: ReadonlySet<SourceFileInfo>
+    ) {
+        if (filesToRemove?.has(fileInfo)) {
+            return false;
+        }
+
+        if (
+            fileInfo.isTracked ||
+            fileInfo.isOpenByClient ||
+            fileInfo.shadows.some((shadowedFile) => !filesToRemove?.has(shadowedFile))
+        ) {
+            return true;
+        }
+
+        const fileUri = fileInfo.uri;
+
+        // Avoid infinite recursion.
+        if (recursionSet.has(fileUri.key)) {
+            return false;
+        }
+
+        recursionSet.add(fileUri.key);
+
+        for (const importerInfo of fileInfo.importedBy) {
+            if (this._isImportNeededRecursive(importerInfo, recursionSet, filesToRemove)) {
+                return true;
             }
+        }
 
-            neededFiles.add(fileInfo);
-
-            fileInfo.imports.forEach(markNeededRecursive);
-            markNeededRecursive(fileInfo.builtinsImport);
-            markNeededRecursive(fileInfo.chainedSourceFile);
-            fileInfo.shadowedBy.forEach(markNeededRecursive);
-        };
-
-        this._sourceFileList.forEach((fileInfo) => {
-            if (fileInfo.isTracked || fileInfo.isOpenByClient) {
-                markNeededRecursive(fileInfo);
-            }
-        });
-
-        return new Set(this._sourceFileList.filter((fileInfo) => !neededFiles.has(fileInfo)));
+        return false;
     }
 
     private _detachSourceFileInfosForRemoval(filesToRemove: ReadonlySet<SourceFileInfo>, markDirtySet: Set<string>) {
@@ -1382,48 +1444,19 @@ export class Program {
         // is a graph operation, not just a deletion from Program's file table.
         this._sourceFileList.forEach((sourceFileInfo) => {
             if (filesToRemove.has(sourceFileInfo)) {
-                sourceFileInfo.mutate((s) => {
-                    s.imports = [];
-                    s.importedBy = [];
-                    s.shadows = [];
-                    s.shadowedBy = [];
-                    s.builtinsImport = undefined;
-                    s.chainedSourceFile = undefined;
-                    s.effectiveFutureImports = undefined;
-                });
+                sourceFileInfo.clearForDispose();
                 return;
             }
 
-            const imports = sourceFileInfo.imports.filter((fi) => !filesToRemove.has(fi));
-            const importedBy = sourceFileInfo.importedBy.filter((fi) => !filesToRemove.has(fi));
-            const shadows = sourceFileInfo.shadows.filter((fi) => !filesToRemove.has(fi));
-            const shadowedBy = sourceFileInfo.shadowedBy.filter((fi) => !filesToRemove.has(fi));
-            const builtinsImport =
-                sourceFileInfo.builtinsImport && filesToRemove.has(sourceFileInfo.builtinsImport)
-                    ? undefined
-                    : sourceFileInfo.builtinsImport;
-            const chainedSourceFile =
-                sourceFileInfo.chainedSourceFile && filesToRemove.has(sourceFileInfo.chainedSourceFile)
-                    ? undefined
-                    : sourceFileInfo.chainedSourceFile;
-            const chainedSourceFileChanged = chainedSourceFile !== sourceFileInfo.chainedSourceFile;
-
             if (
-                imports.length !== sourceFileInfo.imports.length ||
-                importedBy.length !== sourceFileInfo.importedBy.length ||
-                shadows.length !== sourceFileInfo.shadows.length ||
-                shadowedBy.length !== sourceFileInfo.shadowedBy.length ||
-                builtinsImport !== sourceFileInfo.builtinsImport ||
-                chainedSourceFileChanged
+                sourceFileInfo.imports.some((fi) => filesToRemove.has(fi)) ||
+                sourceFileInfo.importedBy.some((fi) => filesToRemove.has(fi)) ||
+                sourceFileInfo.shadows.some((fi) => filesToRemove.has(fi)) ||
+                sourceFileInfo.shadowedBy.some((fi) => filesToRemove.has(fi)) ||
+                (sourceFileInfo.builtinsImport !== undefined && filesToRemove.has(sourceFileInfo.builtinsImport)) ||
+                (sourceFileInfo.chainedSourceFile !== undefined && filesToRemove.has(sourceFileInfo.chainedSourceFile))
             ) {
-                sourceFileInfo.mutate((s) => {
-                    s.imports = imports;
-                    s.importedBy = importedBy;
-                    s.shadows = shadows;
-                    s.shadowedBy = shadowedBy;
-                    s.builtinsImport = builtinsImport;
-                    s.chainedSourceFile = chainedSourceFile;
-                });
+                const { chainedSourceFileChanged } = sourceFileInfo.detachFromRemovedFiles(filesToRemove);
 
                 if (chainedSourceFileChanged) {
                     this._markFileDirtyRecursive(
@@ -1438,53 +1471,6 @@ export class Program {
         });
 
         return markedSourceFileDirty;
-    }
-
-    private _isFileNeeded(fileInfo: SourceFileInfo, skipFileNeededCheck?: boolean) {
-        if (fileInfo.sourceFile.isFileDeleted()) {
-            return false;
-        }
-
-        if (!!skipFileNeededCheck || fileInfo.isTracked || fileInfo.isOpenByClient) {
-            return true;
-        }
-
-        if (fileInfo.shadows.length > 0) {
-            return true;
-        }
-
-        if (fileInfo.importedBy.length === 0) {
-            return false;
-        }
-
-        // It's possible for a cycle of files to be imported
-        // by a tracked file but then abandoned. The import cycle
-        // will keep the entire group "alive" if we don't detect
-        // the condition and garbage collect them.
-        return this._isImportNeededRecursive(fileInfo, new Set<string>());
-    }
-
-    private _isImportNeededRecursive(fileInfo: SourceFileInfo, recursionSet: Set<string>) {
-        if (fileInfo.isTracked || fileInfo.isOpenByClient || fileInfo.shadows.length > 0) {
-            return true;
-        }
-
-        const fileUri = fileInfo.uri;
-
-        // Avoid infinite recursion.
-        if (recursionSet.has(fileUri.key)) {
-            return false;
-        }
-
-        recursionSet.add(fileUri.key);
-
-        for (const importerInfo of fileInfo.importedBy) {
-            if (this._isImportNeededRecursive(importerInfo, recursionSet)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private _createSourceMapper(

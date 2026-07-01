@@ -175,12 +175,44 @@ export class SourceFileInfo implements extensibility.SourceFileInfo {
         // Do not call restore() here. Program disposal abandons any edit-mode
         // transaction, so both the current graph and the pre-edit graph need to
         // release their SourceFileInfo references.
-        this._clearWriteableDataReferences(this._writableData);
+        this._clearAllEdges(this._writableData);
 
         if (this._preEditData) {
-            this._clearWriteableDataReferences(this._preEditData);
+            this._clearAllEdges(this._preEditData);
             this._preEditData = undefined;
         }
+    }
+
+    detachFromRemovedFiles(filesToRemove: ReadonlySet<SourceFileInfo>) {
+        const data = this._writableData;
+        const imports = data.imports.filter((fi) => !filesToRemove.has(fi));
+        const importedBy = data.importedBy.filter((fi) => !filesToRemove.has(fi));
+        const shadows = data.shadows.filter((fi) => !filesToRemove.has(fi));
+        const shadowedBy = data.shadowedBy.filter((fi) => !filesToRemove.has(fi));
+        const builtinsImport =
+            data.builtinsImport && filesToRemove.has(data.builtinsImport) ? undefined : data.builtinsImport;
+        const chainedSourceFile =
+            data.chainedSourceFile && filesToRemove.has(data.chainedSourceFile) ? undefined : data.chainedSourceFile;
+        const chainedSourceFileChanged = chainedSourceFile !== data.chainedSourceFile;
+        const changed =
+            imports.length !== data.imports.length ||
+            importedBy.length !== data.importedBy.length ||
+            shadows.length !== data.shadows.length ||
+            shadowedBy.length !== data.shadowedBy.length ||
+            builtinsImport !== data.builtinsImport ||
+            chainedSourceFileChanged;
+
+        if (changed) {
+            this._cachePreEditState();
+            this._writableData.imports = imports;
+            this._writableData.importedBy = importedBy;
+            this._writableData.shadows = shadows;
+            this._writableData.shadowedBy = shadowedBy;
+            this._writableData.builtinsImport = builtinsImport;
+            this._writableData.chainedSourceFile = chainedSourceFile;
+        }
+
+        return { changed, chainedSourceFileChanged };
     }
 
     private _cachePreEditState() {
@@ -226,7 +258,7 @@ export class SourceFileInfo implements extensibility.SourceFileInfo {
         };
     }
 
-    private _clearWriteableDataReferences(data: WriteableData) {
+    private _clearAllEdges(data: WriteableData) {
         data.imports.length = 0;
         data.imports = [];
         data.importedBy.length = 0;

@@ -481,9 +481,8 @@ export class SourceFile {
         return this._writableData.lastFileContentLength !== undefined;
     }
 
-    // Drop parse and binding info to save memory. It is used
-    // in cases where memory is low. When info is needed, the file
-    // will be re-parsed and rebound.
+    // Use for cache-pressure cleanup when callers need to preserve diagnostic
+    // range queries. The file will be re-parsed and rebound when syntax is needed.
     dropParseAndBindInfo(): void {
         // If we are actively binding or checking this file, we can't
         // safely drop parse and binding info.
@@ -497,6 +496,8 @@ export class SourceFile {
         this._writableData.isBindingNeeded = true;
     }
 
+    // Use when a closed file is being removed or explicitly compacted. Returns true
+    // if this call released any syntax-tier state.
     releaseClosedFileSyntax(): boolean {
         if (this._writableData.isBindingInProgress || this._writableData.isCheckingInProgress) {
             return false;
@@ -538,6 +539,8 @@ export class SourceFile {
         this._fireFileDirtyEvent();
     }
 
+    // Use when replacing the source contents, where the old parse tree must not be
+    // reused and should be released immediately.
     markDirtyAndDropSyntax(): void {
         this.markDirty();
         this._releaseSyntaxCaches(/* preserveLineCount */ false);
