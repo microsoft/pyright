@@ -127,7 +127,7 @@ export async function activate(context: ExtensionContext) {
 
                     for (const [i, item] of params.items.entries()) {
                         if (item.section === 'python') {
-                            const analysisConfig = workspace.getConfiguration(
+                            const pythonConfig = workspace.getConfiguration(
                                 item.section,
                                 item.scopeUri ? Uri.parse(item.scopeUri) : undefined
                             );
@@ -135,8 +135,8 @@ export async function activate(context: ExtensionContext) {
                             // If stubPath is not set, remove it rather than sending default value.
                             // This lets the server know that it's unset rather than explicitly
                             // set to the default value (typings) so it can behave differently.
-                            if (!isConfigSettingSetByUser(analysisConfig, 'stubPath')) {
-                                delete (result[i] as any).stubPath;
+                            if (!isConfigSettingSetByUser(pythonConfig, 'analysis.stubPath')) {
+                                delete (result[i] as any).analysis.stubPath;
                             }
                         }
                     }
