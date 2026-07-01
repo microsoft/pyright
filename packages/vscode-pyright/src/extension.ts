@@ -126,7 +126,7 @@ export async function activate(context: ExtensionContext) {
                     }
 
                     for (const [i, item] of params.items.entries()) {
-                        if (item.section === 'python.analysis') {
+                        if (item.section === 'python') {
                             const analysisConfig = workspace.getConfiguration(
                                 item.section,
                                 item.scopeUri ? Uri.parse(item.scopeUri) : undefined
