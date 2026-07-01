@@ -445,11 +445,11 @@ export class Program {
     setFileOpened(fileUri: Uri, version: number | null, contents: string, options?: OpenFileOptions) {
         let sourceFileInfo = this.getSourceFileInfo(fileUri);
         // Capture the prior lifetime state before setClientVersion mutates the SourceFile.
-        // Opening a brand-new or never-observed file should not throw away the evaluator, but
-        // reopening analyzed content with new text must dirty dependents and invalidate caches.
+        // Opening or repeatedly editing a file that has not been parsed/bound yet should not
+        // throw away the evaluator, but replacing analyzed content must dirty dependents and
+        // invalidate caches that can retain old parse nodes.
         const wasKnownFile = sourceFileInfo !== undefined;
         const wasOpenByClient = sourceFileInfo?.isOpenByClient ?? false;
-        const hadObservedContents = sourceFileInfo?.sourceFile.hasContentBeenRead() ?? false;
         const hadAnalysisState = sourceFileInfo ? !sourceFileInfo.sourceFile.isParseRequired() : false;
         const hadDependencyGraph =
             (sourceFileInfo?.imports.length ?? 0) > 0 ||
@@ -506,7 +506,7 @@ export class Program {
             sourceFileInfo.diagnosticsVersion = 0;
         }
 
-        if (wasKnownFile && (hadObservedContents || hadAnalysisState || hadDependencyGraph) && contentsChanged) {
+        if (wasKnownFile && (hadAnalysisState || hadDependencyGraph) && contentsChanged) {
             const recreateEvaluator = !this._editModeTracker.isEditMode;
             const fileName = fileUri.fileName;
 

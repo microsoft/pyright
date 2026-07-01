@@ -674,6 +674,25 @@ test('setTrackedFiles does not preserve tracked state for non-virtual open files
     assert.strictEqual(program.evaluator, oldEvaluator);
 });
 
+test('setFileOpened does not recreate evaluator for repeated pre-analysis edits', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const program = state.workspace.service.test_program;
+    const uri = UriEx.file('/projectRoot/test.py');
+    const options = {
+        ipythonMode: IPythonMode.None,
+        chainedFileUri: undefined,
+    };
+    const oldEvaluator = program.evaluator;
+
+    program.setFileOpened(uri, 1, 'value = 1', options);
+    program.setFileOpened(uri, 2, 'value = 2', options);
+
+    const sourceFileInfo = program.getSourceFileInfo(uri);
+    assert(sourceFileInfo);
+    assert(sourceFileInfo.sourceFile.isParseRequired());
+    assert.strictEqual(program.evaluator, oldEvaluator);
+});
+
 test('setFileClosed auto-untracks and removes virtual files from the source list', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
     const program = state.workspace.service.test_program;
