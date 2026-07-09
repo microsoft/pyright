@@ -2,7 +2,6 @@
  * typeGuards.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
- * Author: Eric Traut
  *
  * Provides logic for narrowing types based on conditional
  * expressions. The logic handles both positive ("if") and

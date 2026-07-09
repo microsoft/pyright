@@ -2,7 +2,6 @@
  * enums.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
- * Author: Eric Traut
  *
  * Provides special-case logic for the Enum class.
  */
