@@ -28,8 +28,8 @@ import { Uri } from '../common/uri/uri';
 import { ModuleNode, ParseNode } from '../parser/parseNodes';
 import { ParseFileResults, ParserOutput } from '../parser/parser';
 
-import { IAsyncTypeEvaluator } from './asyncTypeEvaluatorTypes';
 import { IParserOutputProvider } from './typeServerConversionTypes';
+import { ITypeServerEvaluator } from './typeServerEvaluator';
 
 import { ProfilingInfo } from './profilingStub';
 
@@ -38,18 +38,18 @@ export interface ParseResults extends ParseFileResults {
     uri: Uri;
 }
 
-export interface IAsyncSymbolDefinitionProviderFactory {
-    createInstance(snapshot: IAsyncProgramSnapshot): IAsyncSymbolDefinitionProvider;
+export interface ISymbolDefinitionProviderFactory {
+    createInstance(program: IProgram): ISymbolDefinitionProvider;
 }
 
-export interface IAsyncSymbolDefinitionProvider {
-    tryGetDeclarations(node: ParseNode, offset: number, token: CancellationToken): Promise<Declaration[]>;
+export interface ISymbolDefinitionProvider {
+    tryGetDeclarations(node: ParseNode, offset: number, token: CancellationToken): Declaration[];
 }
 
-export interface IAsyncSymbolUsageProvider {
+export interface ISymbolUsageProvider {
     appendSymbolNamesTo(symbolNames: Set<string>): void;
-    appendDeclarationsToAsync(to: Declaration[]): Promise<void>;
-    appendDeclarationsAtAsync(context: ParseNode, from: readonly Declaration[], to: Declaration[]): Promise<void>;
+    appendDeclarationsTo(to: Declaration[]): void;
+    appendDeclarationsAt(context: ParseNode, from: readonly Declaration[], to: Declaration[]): void;
 
     // Optional hook for providers that need transitive (fixpoint) discovery. When a usage at
     // `context` is found to match the symbol being collected, the collector calls this so the
@@ -57,65 +57,61 @@ export interface IAsyncSymbolUsageProvider {
     // later usages that are only reachable through `context` to be matched on a subsequent pass.
     // Providers that do not implement this opt out of the extra passes entirely.
     //
-    // CONSTRAINT: seeds contributed here must not introduce new *symbol names*. This async
-    // collector only re-runs its match phase over the already-collected candidate nodes and never
+    // CONSTRAINT: seeds contributed here must not introduce new *symbol names*. This collector
+    // only re-runs its match phase over the already-collected candidate nodes and never
     // re-walks the tree, so a seed with a previously-unseen name would be silently missed.
     // Contributing same-named declarations (the protocol-member use case) is safe; growing
     // `appendSymbolNamesTo` mid-fixpoint is not supported.
-    appendSeedDeclarationsAtAsync?(context: ParseNode, from: readonly Declaration[], to: Declaration[]): Promise<void>;
+    appendSeedDeclarationsAt?(context: ParseNode, from: readonly Declaration[], to: Declaration[]): void;
 }
 
-export interface IAsyncSymbolUsageProviderFactory {
-    tryCreateAsyncProvider(
-        snapshot: IAsyncProgramSnapshot,
+export interface ISymbolUsageProviderFactory {
+    tryCreateProvider(
+        program: IProgram,
         useCase: ReferenceUseCase,
         declarations: readonly Declaration[],
         token: CancellationToken
-    ): Promise<IAsyncSymbolUsageProvider | undefined>;
+    ): ISymbolUsageProvider | undefined;
 }
 
-export interface IAsyncSourceFileInfo extends SourceFileInfo {
-    getImports(): Promise<IAsyncSourceFileInfo[]>;
-    getImportedBy(): Promise<IAsyncSourceFileInfo[]>;
-    getBuiltinsImportForBinding(): Promise<IAsyncSourceFileInfo | undefined>;
-    getImplicitImportForBinding(): Promise<IAsyncSourceFileInfo | undefined>;
+export interface ISourceFileInfo extends SourceFileInfo {
+    getImports(): ISourceFileInfo[];
+    getImportedBy(): ISourceFileInfo[];
+    getBuiltinsImportForBinding(): ISourceFileInfo | undefined;
+    getImplicitImportForBinding(): ISourceFileInfo | undefined;
 }
 
-export interface IAsyncSymbolLookup {
-    getFileInfo(node: ParseNode): Promise<AnalyzerFileInfo>;
-    getDeclaration(node: ParseNode): Promise<Declaration | undefined>;
-    getScope(node: ParseNode): Promise<Scope | undefined>;
-    getDunderAllInfo(node: ParseNode): Promise<DunderAllInfo | undefined>;
-    getImportInfo(node: ParseNode): Promise<ImportResult | undefined>;
-    getFlowNode(node: ParseNode): Promise<FlowNode | undefined>;
-    getSymbolsForFile(
-        fileUri: Uri,
-        skipFileNeededCheck?: boolean,
-        token?: CancellationToken
-    ): Promise<SymbolTable | undefined>;
-    getSymbolsForNode(node: ParseNode, token?: CancellationToken): Promise<SymbolTable | undefined>;
+export interface ISymbolLookup {
+    getFileInfo(node: ParseNode): AnalyzerFileInfo;
+    getDeclaration(node: ParseNode): Declaration | undefined;
+    getScope(node: ParseNode): Scope | undefined;
+    getDunderAllInfo(node: ParseNode): DunderAllInfo | undefined;
+    getImportInfo(node: ParseNode): ImportResult | undefined;
+    getFlowNode(node: ParseNode): FlowNode | undefined;
+    getSymbolsForFile(fileUri: Uri, skipFileNeededCheck?: boolean, token?: CancellationToken): SymbolTable | undefined;
+    getSymbolsForNode(node: ParseNode, token?: CancellationToken): SymbolTable | undefined;
     lookupSymbol(
         scopingNode: ParseNode,
         name: string,
         skipFileNeededCheck?: boolean,
         token?: CancellationToken
-    ): Promise<Symbol | undefined>;
-    getScopeIdForNode(node: ParseNode): Promise<string>;
+    ): Symbol | undefined;
+    getScopeIdForNode(node: ParseNode): string;
     getMatchingFileInfos(fileId: string): AnalyzerFileInfo[];
 }
 
-export interface IAsyncSourceMapper {
-    findDeclarations(decl: Declaration): Promise<Declaration[]>;
-    findDeclarationsByType(originatedPath: Uri, type: ClassType, useTypeAlias: boolean): Promise<Declaration[]>;
-    findFunctionDeclarations(decl: FunctionDeclaration): Promise<FunctionDeclaration[]>;
-    findClassDeclarationsByType(uri: Uri, type: ClassType): Promise<Declaration[]>;
-    getSourcePathsFromStub(stubUri: Uri, fromFile: Uri | undefined): Promise<Uri[]>;
-    getModuleNode(uri: Uri): Promise<ModuleNode | undefined>;
-    findModules(stubFile: Uri): Promise<ModuleNode[]>;
-    getFileInfo(node: ParseNode): Promise<AnalyzerFileInfo>;
+export interface ISourceMapper {
+    findDeclarations(decl: Declaration): Declaration[];
+    findDeclarationsByType(originatedPath: Uri, type: ClassType, useTypeAlias: boolean): Declaration[];
+    findFunctionDeclarations(decl: FunctionDeclaration): FunctionDeclaration[];
+    findClassDeclarationsByType(uri: Uri, type: ClassType): Declaration[];
+    getSourcePathsFromStub(stubUri: Uri, fromFile: Uri | undefined): Uri[];
+    getModuleNode(uri: Uri): ModuleNode | undefined;
+    findModules(stubFile: Uri): ModuleNode[];
+    getFileInfo(node: ParseNode): AnalyzerFileInfo;
 }
 
-export interface IAsyncProgramBase extends IParserOutputProvider {
+export interface IProgramBase extends IParserOutputProvider {
     readonly id: string;
     readonly rootPath: Uri;
     readonly console: ConsoleInterface;
@@ -128,108 +124,89 @@ export interface IAsyncProgramBase extends IParserOutputProvider {
     readonly supportsPullDiagnostics: boolean;
     owns(uri: Uri): boolean;
     getParserOutput(fileUri: Uri): ParserOutput | undefined;
-    // Returns the snapshot-resident `ParseResults` (the Pylance subtype of
-    // ParseFileResults that carries `moduleName` and `uri`). Snapshot-aware
-    // callers (`SnapshotView`) serve from the snapshot's own ASFI cell so
-    // reads stay pinned to the snapshot's content version.
+    // Returns the snapshot-resident `ParseResults` (the subtype of ParseFileResults that
+    // carries `moduleName` and `uri`). Snapshot-aware callers (`SnapshotView`) serve from the
+    // snapshot's own ASFI cell so reads stay pinned to the snapshot's content version.
     getParseResults(fileUri: Uri): ParseResults | undefined;
     getModuleName(fileUri: Uri): string | undefined;
     /**
      * Non-side-effecting existence probe. Returns true only if the program
-     * already has an `IAsyncSourceFileInfo` registered for `fileUri`. Unlike
+     * already has an `ISourceFileInfo` registered for `fileUri`. Unlike
      * `getSourceFileInfo`, this does NOT lazily materialize a new entry, so
      * it is safe to use when callers (e.g. workspace ownership checks) only
      * want to know whether a file is already tracked.
      */
     hasSourceFile(fileUri: Uri): boolean;
-    getSourceFileInfo(fileUri: Uri): IAsyncSourceFileInfo | undefined;
-    getTrackedFileList(): readonly IAsyncSourceFileInfo[];
+    getSourceFileInfo(fileUri: Uri): ISourceFileInfo | undefined;
+    getTrackedFileList(): readonly ISourceFileInfo[];
     lookupImport(
         fileUriOrModule: Uri | AbsoluteModuleDescriptor,
         options?: LookupImportOptions
-    ): Promise<ImportLookupResult | undefined>;
+    ): ImportLookupResult | undefined;
 }
 
 export interface ITypeProvider {
-    getComputedType(arg: ParseNode | Declaration, token: CancellationToken): Promise<Type | undefined>;
-    getExpectedType(arg: ParseNode | Declaration, token: CancellationToken): Promise<ExpectedTypeResult | undefined>;
-    getDeclaredType(arg: ParseNode | Declaration, token: CancellationToken): Promise<Type | undefined>;
+    getComputedType(arg: ParseNode | Declaration, token: CancellationToken): Type | undefined;
+    getExpectedType(arg: ParseNode | Declaration, token: CancellationToken): ExpectedTypeResult | undefined;
+    getDeclaredType(arg: ParseNode | Declaration, token: CancellationToken): Type | undefined;
 }
 
-export interface IAsyncProgramSnapshot extends IAsyncProgramBase, ITypeProvider {
-    readonly snapshot: number;
-    readonly symbolLookup: IAsyncSymbolLookup;
-    readonly host: IAsyncProgramHost;
-    createEvaluator(): IAsyncTypeEvaluator;
+export interface IProgram extends IProgramBase, ITypeProvider, Disposable {
+    readonly symbolLookup: ISymbolLookup;
+    createEvaluator(): ITypeServerEvaluator;
+
+    // Monotonic content-version counter. Bumped whenever the underlying program
+    // mutates (files opened/closed/dirtied, config changes). The type server hands
+    // this to clients via `typeServer/getSnapshot`; clients echo it back on
+    // subsequent requests so the server request handlers can reject stale work and
+    // notify clients (SnapshotChangedNotification) when it changes.
+    getSnapshot(token: CancellationToken): number;
+
+    // Runs the callback against the live program. Because Pyright's evaluator is
+    // synchronous, the callback executes atomically: the program cannot be mutated
+    // mid-run, so the callback simply receives `this`.
+    run<T>(callback: (p: IProgram) => T, token: CancellationToken): T;
+    runEditMode<T>(callback: (p: IProgram) => T, token: CancellationToken): FileEditAction[];
+    enterEditMode(): void;
+    exitEditMode(): FileEditAction[];
+    addInterimFile(uri: Uri): IProgram;
+
     resolveImport(
         sourceUri: Uri,
         moduleDescriptor: TypeServerProtocol.ModuleName,
         token: CancellationToken
-    ): Promise<Uri | undefined>;
-    getPythonSearchPaths(token: CancellationToken): Promise<Uri[] | undefined>;
+    ): Uri | undefined;
+    getPythonSearchPaths(token: CancellationToken): Uri[] | undefined;
     getSourceMapper(
         fileUri: Uri,
         mapCompiled: boolean,
         preferStubs: boolean,
         token: CancellationToken
-    ): Promise<IAsyncSourceMapper | undefined>;
+    ): ISourceMapper | undefined;
     getDocumentDiagnostics(
         uri: Uri,
         previousResultId: string | undefined,
         token: CancellationToken
-    ): Promise<DocumentDiagnosticReport>;
+    ): DocumentDiagnosticReport;
     getDiagnosticsForRangeWithoutFileIgnore?(fileUri: Uri, range: Range): readonly PyrightDiagnostic[];
 
-    // Snapshot-scoped cache of `getTypeForDeclaration` results, used by the
-    // TSP→Pyright type-shell factory to avoid re-evaluating the same
-    // declaration repeatedly during a single conversion session. Lifetime is
-    // bounded by the snapshot; the cache is dropped when the snapshot
-    // increments.
+    // Cache of `getTypeForDeclaration` results, used by the TSP→Pyright type-shell
+    // factory to avoid re-evaluating the same declaration repeatedly during a
+    // conversion session. Dropped whenever the snapshot increments.
     getCachedTypeForDeclaration(decl: Declaration): Type | undefined;
     setCachedTypeForDeclaration(decl: Declaration, type: Type): void;
 
-    // Snapshot-scoped cache of TSP `Declaration` → Pyright `Declaration`
-    // resolutions. Used by the type-shell factory to avoid re-running
-    // `lookupSymbol` for the same TSP declaration on every conversion call.
-    // Lifetime is bounded by the snapshot.
+    // Cache of TSP `Declaration` → Pyright `Declaration` resolutions. Used by the
+    // type-shell factory to avoid re-running `lookupSymbol` for the same TSP
+    // declaration on every conversion call. Dropped whenever the snapshot increments.
     getCachedProtocolDecl(tspDecl: TypeServerProtocol.Declaration): Declaration | undefined;
     setCachedProtocolDecl(tspDecl: TypeServerProtocol.Declaration, decl: Declaration): void;
 
-    // Snapshot scoped cache for other data.
-    setFileCachedData(owningUri: Uri, key: string, data: any): void;
-    getFileCachedData(owningUri: Uri, key: string): any;
-
-    /**
-     * Handle high memory usage by clearing caches or performing cleanup.
-     * Used by long workspace-wide walks (e.g. find-all-references / rename
-     * transitive seed discovery) to shed the type cache between files, mirroring
-     * the sync `ProgramView.handleMemoryHighUsage`. May be a no-op for
-     * implementations that don't manage their own in-process memory.
-     */
-    handleMemoryHighUsage(): void;
-}
-
-export interface IAsyncProgram extends IAsyncProgramBase, Disposable {
-    runAsync<T>(callback: (p: IAsyncProgramSnapshot) => Promise<T>, token: CancellationToken): Promise<T>;
-    getSnapshot(token: CancellationToken): Promise<number>;
-    getDocumentDiagnostics(
-        uri: Uri,
-        snapshot: number,
-        previousResultId: string | undefined,
-        token: CancellationToken
-    ): Promise<DocumentDiagnosticReport>;
-    runEditModeAsync<T>(
-        callback: (p: IAsyncProgram) => Promise<T>,
-        token: CancellationToken
-    ): Promise<FileEditAction[]>;
-    enterEditMode(): void;
-    exitEditMode(): FileEditAction[];
-    addInterimFile(uri: Uri): IAsyncProgramSnapshot;
-    startProfiling(): Promise<ProfilingInfo | undefined>;
-    stopProfiling(): Promise<ProfilingInfo | undefined>;
+    startProfiling(): ProfilingInfo | undefined;
+    stopProfiling(): ProfilingInfo | undefined;
     updateFileContents(uri: Uri, newContents: string): void;
-    startWorkspaceDiagnostics(partialResultToken: string): Promise<void>;
-    stopWorkspaceDiagnostics(): Promise<void>;
+    startWorkspaceDiagnostics(partialResultToken: string): void;
+    stopWorkspaceDiagnostics(): void;
 
     /**
      * Add a file to be tracked by the program for indexing purposes.
@@ -245,13 +222,15 @@ export interface IAsyncProgram extends IAsyncProgramBase, Disposable {
 
     /**
      * Handle high memory usage by clearing caches or performing cleanup.
-     * May be a no-op for implementations that don't manage their own memory.
+     * Used by long workspace-wide walks (e.g. find-all-references / rename
+     * transitive seed discovery) to shed the type cache between files, mirroring
+     * the sync `ProgramView.handleMemoryHighUsage`. May be a no-op for
+     * implementations that don't manage their own in-process memory.
      */
     handleMemoryHighUsage(): void;
 
     /**
      * Notify the program that watched files have changed.
-     * No-op for the sync wrapper; filters and forwards in the async implementation.
      */
     changedWatchedFiles(changes: FileEvent[]): void;
 }
@@ -265,20 +244,6 @@ export type OpenFileContent = {
     isVirtual: boolean;
 };
 
-export interface IAsyncServiceFactory<T> {
-    createInstance(snapshot: IAsyncProgramSnapshot): T;
-}
-
-export class PropertyKey<T> {
-    constructor(readonly debugName: string, readonly create: () => T) {}
-}
-
-export interface PropertyBag {
-    get<T>(key: PropertyKey<T>): T | undefined;
-    getOrAdd<T>(key: PropertyKey<T>): T; // calls key.create() if absent
-    remove<T>(key: PropertyKey<T>): void;
-}
-
-export interface IAsyncProgramHost {
-    readonly properties: PropertyBag;
+export interface IServiceFactory<T> {
+    createInstance(program: IProgram): T;
 }

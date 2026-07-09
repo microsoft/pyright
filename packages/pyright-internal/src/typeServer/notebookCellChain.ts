@@ -126,7 +126,9 @@ export function verifyCellChainIsLinear(notebookData: NotebookData, workspace: W
     }
 
     if (duplicateIndices.length > 0) {
-        notebookData.mappedCellUris = notebookData.mappedCellUris.filter((_, index) => !duplicateIndices.includes(index));
+        notebookData.mappedCellUris = notebookData.mappedCellUris.filter(
+            (_, index) => !duplicateIndices.includes(index)
+        );
     }
 
     // Verify that chained file paths match the expected order. When a mismatch is found,
@@ -211,7 +213,9 @@ function updateCellPaths(
             notebookData.mappedCellUris[structure.array.start + i] = uriMapper.getMappedCellUri(
                 Uri.parse(structure.array.cells[i].document, workspace.service.serviceProvider)
             );
-            notebookData.operations.push(`Added at position ${structure.array.start + i}:${structure.array.cells.length}`);
+            notebookData.operations.push(
+                `Added at position ${structure.array.start + i}:${structure.array.cells.length}`
+            );
         }
     }
 }

@@ -12,13 +12,10 @@
 import { ClassType, isClass, isClassInstance } from '../analyzer/types';
 
 import { transformTypeForEnumMember } from './enums';
-import { TypeEvaluatorInternal } from './asyncTypeEvaluatorTypes';
 import { forEach, getSymbolTable } from './typeEvalUtils';
+import { ITypeServerEvaluator } from './typeServerEvaluator';
 
-export async function enumerateLiteralsForType(
-    evaluator: TypeEvaluatorInternal,
-    type: ClassType
-): Promise<ClassType[] | undefined> {
+export function enumerateLiteralsForType(evaluator: ITypeServerEvaluator, type: ClassType): ClassType[] | undefined {
     if (ClassType.isBuiltIn(type, 'bool')) {
         // Booleans have only two types: True and False.
         return [
@@ -36,11 +33,11 @@ export async function enumerateLiteralsForType(
 
         // Enumerate all of the values in this enumeration.
         const enumList: ClassType[] = [];
-        const fields = await getSymbolTable(type);
-        await forEach(fields, async (symbol, name) => {
+        const fields = getSymbolTable(type);
+        forEach(fields, (symbol, name) => {
             if (!symbol.isIgnoredForProtocolMatch()) {
-                let symbolType = await evaluator.getEffectiveTypeOfSymbol(symbol);
-                symbolType = (await transformTypeForEnumMember(evaluator, type, name)) ?? symbolType;
+                let symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
+                symbolType = transformTypeForEnumMember(evaluator, type, name) ?? symbolType;
 
                 if (
                     isClassInstance(symbolType) &&

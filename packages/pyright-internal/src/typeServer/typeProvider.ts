@@ -10,10 +10,10 @@ import { Uri } from '../common/uri/uri';
 import * as PyrightNodes from '../parser/parseNodes';
 
 import { isReprEnumClass } from './enums';
-import { IAsyncTypeEvaluator } from './asyncTypeEvaluatorTypes';
-import { map, PylanceClassDetailsShared } from './typeEvalUtils';
+import { ITypeServerEvaluator } from './typeServerEvaluator';
+import { map } from './typeEvalUtils';
 import { convertLspUriStringToUri } from './serverUtils';
-import { IAsyncProgramSnapshot, IAsyncSymbolLookup } from './programTypes';
+import { IProgram, ISymbolLookup } from './programTypes';
 
 import {
     fromProtocolNode,
@@ -29,32 +29,28 @@ import {
 import * as ProtocolUtils from './typeServerProtocolUtils';
 
 export class TypeProvider implements IPyrightTypeFactory {
-    private readonly _evaluator: IAsyncTypeEvaluator;
+    private readonly _evaluator: ITypeServerEvaluator;
 
-    constructor(
-        private readonly _cycleMap: Map<number, PyrightTypes.Type>,
-        private readonly _view: IAsyncProgramSnapshot
-    ) {
-        // Create an evaluator once for the pinned snapshot so the hot
-        // type-conversion path doesn't allocate a fresh evaluator on
-        // every `createEvaluator()` call.
+    constructor(private readonly _cycleMap: Map<number, PyrightTypes.Type>, private readonly _view: IProgram) {
+        // Create the evaluator once so the hot type-conversion path doesn't
+        // allocate a fresh evaluator on every `createEvaluator()` call.
         this._evaluator = _view.createEvaluator();
     }
 
-    get provider(): IAsyncProgramSnapshot {
+    get provider(): IProgram {
         return this._view;
     }
 
-    get symbolLookup(): IAsyncSymbolLookup {
+    get symbolLookup(): ISymbolLookup {
         return this._view.symbolLookup;
     }
 
-    async getType(type: TypeServerProtocol.Type): Promise<PyrightTypes.Type> {
+    getType(type: TypeServerProtocol.Type): PyrightTypes.Type {
         if (type.kind === TypeServerProtocol.TypeKind.TypeReference) {
             return this.getTypeReference(type.typeReferenceId);
         }
 
-        return await fromProtocolType(type, this, this.symbolLookup);
+        return fromProtocolType(type, this, this.symbolLookup);
     }
 
     getTypeShell(protocolType: TypeServerProtocol.Type): PyrightTypes.Type {
@@ -77,27 +73,27 @@ export class TypeProvider implements IPyrightTypeFactory {
         return type;
     }
 
-    createEvaluator(): IAsyncTypeEvaluator {
+    createEvaluator(): ITypeServerEvaluator {
         return this._evaluator;
     }
 }
 
-async function applyTypeFlags(
+function applyTypeFlags(
     pyrightType: PyrightTypes.Type,
     tspType: TypeServerProtocol.Type,
     factory: TypeProvider,
-    symbolLookup: IAsyncSymbolLookup
-): Promise<void> {
+    symbolLookup: ISymbolLookup
+): void {
     if (ProtocolUtils.isTypeFlagSet(tspType.flags, TypeServerProtocol.TypeFlags.Literal)) {
         const tspClassType = tspType as TypeServerProtocol.ClassType;
-        await fromProtocolLiteralValue(pyrightType, tspClassType.literalValue, factory);
+        fromProtocolLiteralValue(pyrightType, tspClassType.literalValue, factory);
     }
 
     if (PyrightTypes.isClass(pyrightType) && isClass(tspType) && tspType.typeArgs) {
         if (pyrightType.priv.tupleTypeArgs) {
             for (let i = 0; i < tspType.typeArgs.length; i++) {
                 const typeArg = tspType.typeArgs[i];
-                pyrightType.priv.tupleTypeArgs[i].type = await fromProtocolType(typeArg, factory, symbolLookup);
+                pyrightType.priv.tupleTypeArgs[i].type = fromProtocolType(typeArg, factory, symbolLookup);
                 pyrightType.priv.tupleTypeArgs[i].isUnbounded =
                     (typeArg.flags & TypeServerProtocol.TypeFlags.Unbound) !== 0;
                 pyrightType.priv.tupleTypeArgs[i].isOptional =
@@ -106,17 +102,17 @@ async function applyTypeFlags(
             pyrightType.priv.typeArgs = [combineTupleTypeArgs(pyrightType.priv.tupleTypeArgs)];
         } else if (pyrightType.priv.typeArgs) {
             for (let i = 0; i < tspType.typeArgs.length; i++) {
-                pyrightType.priv.typeArgs[i] = await fromProtocolType(tspType.typeArgs[i], factory, symbolLookup);
+                pyrightType.priv.typeArgs[i] = fromProtocolType(tspType.typeArgs[i], factory, symbolLookup);
             }
         }
     }
 }
 
-async function fromProtocolLiteralValue(
+function fromProtocolLiteralValue(
     type: PyrightTypes.Type,
     value: TypeServerProtocol.LiteralValue | undefined,
     factory: TypeProvider
-): Promise<void> {
+): void {
     if (value === undefined) {
         return;
     }
@@ -141,7 +137,7 @@ async function fromProtocolLiteralValue(
             'Not Used',
             value.className,
             value.itemName,
-            (await factory.getType(value.itemType)) ?? PyrightTypes.UnknownType.create(),
+            factory.getType(value.itemType) ?? PyrightTypes.UnknownType.create(),
             isReprEnumClass(type)
         );
         type.priv.literalValue = literal;
@@ -166,11 +162,11 @@ function applyTypeProps(
     }
 }
 
-async function fromProtocolTypeAliasInfo(
+function fromProtocolTypeAliasInfo(
     type: PyrightTypes.Type,
     info: TypeServerProtocol.TypeAliasInfo | undefined,
     factory: TypeProvider
-): Promise<void> {
+): void {
     if (!info) {
         return;
     }
@@ -183,14 +179,14 @@ async function fromProtocolTypeAliasInfo(
             fileUri: convertLspUriStringToUri(info.fileUri, factory.provider, factory.provider.uriMapper),
             typeVarScopeId: info.scopeId,
             isTypeAliasType: info.isTypeAliasType,
-            typeParams: (await fromProtocolTypesOrUndefined(info.typeParams, factory)) as
+            typeParams: fromProtocolTypesOrUndefined(info.typeParams, factory) as
                 | PyrightTypes.TypeVarType[]
                 | undefined,
             computedVariance: info.computedVariance?.map(
                 (v) => fromProtocolVariance(v) ?? PyrightTypes.Variance.Unknown
             ),
         },
-        typeArgs: await fromProtocolTypesOrUndefined(info.typeArgs, factory),
+        typeArgs: fromProtocolTypesOrUndefined(info.typeArgs, factory),
     } satisfies PyrightTypes.TypeAliasInfo;
 
     if (aliasInfo.shared.typeVarScopeId && aliasInfo.shared.typeParams) {
@@ -222,16 +218,16 @@ async function fromProtocolTypeAliasInfo(
     applyTypeProps(type, { typeAliasInfo: aliasInfo });
 }
 
-async function applySpecializedTypes(
+function applySpecializedTypes(
     pyrightType: PyrightTypes.Type,
     tspType: TypeServerProtocol.FunctionType,
     factory: TypeProvider
-): Promise<PyrightTypes.Type> {
+): PyrightTypes.Type {
     if (!PyrightTypes.isFunction(pyrightType)) {
         return pyrightType;
     }
 
-    pyrightType.priv.specializedTypes = await fromProtocolSpecializedFunctionTypesOrUndefined(
+    pyrightType.priv.specializedTypes = fromProtocolSpecializedFunctionTypesOrUndefined(
         tspType.specializedTypes,
         factory
     );
@@ -296,9 +292,7 @@ async function applySpecializedTypes(
     // the function with stripFirstParam=true. We don't use bindFunctionToClassOrObject because
     // that would recompute specializedTypes, but we want to preserve the exact specializedTypes
     // that were sent across the protocol (which were computed when the function was originally bound).
-    const boundToType = (await fromProtocolTypeOrUndefined(tspType.boundToType, factory)) as
-        | PyrightTypes.ClassType
-        | undefined;
+    const boundToType = fromProtocolTypeOrUndefined(tspType.boundToType, factory) as PyrightTypes.ClassType | undefined;
 
     if (boundToType) {
         // Clone the function with stripFirstParam=true to recreate the bound state
@@ -309,11 +303,11 @@ async function applySpecializedTypes(
     return pyrightType;
 }
 
-async function applyReturnType(
+function applyReturnType(
     pyrightType: PyrightTypes.Type,
     tspReturnType: TypeServerProtocol.Type | undefined,
     factory: TypeProvider
-): Promise<void> {
+): void {
     if (
         !tspReturnType ||
         !PyrightTypes.isFunction(pyrightType) ||
@@ -331,7 +325,7 @@ async function applyReturnType(
         return;
     }
 
-    const returnType = await factory.getType(tspReturnType);
+    const returnType = factory.getType(tspReturnType);
 
     if (PyrightTypes.isTypeVar(returnType)) {
         const specializedReturn = pyrightType.priv.specializedTypes?.returnType;
@@ -395,27 +389,24 @@ async function applyReturnType(
     pyrightType.shared.inferredReturnType = { type: returnType };
 }
 
-async function fromProtocolSpecializedFunctionTypesOrUndefined(
+function fromProtocolSpecializedFunctionTypesOrUndefined(
     specializedTypes: TypeServerProtocol.SpecializedFunctionTypes | undefined,
     factory: TypeProvider
-): Promise<PyrightTypes.SpecializedFunctionTypes | undefined> {
+): PyrightTypes.SpecializedFunctionTypes | undefined {
     if (!specializedTypes) {
         return undefined;
     }
 
     return {
-        parameterTypes: await fromProtocolTypes(specializedTypes.parameterTypes, factory),
+        parameterTypes: fromProtocolTypes(specializedTypes.parameterTypes, factory),
         parameterDefaultTypes: specializedTypes.parameterDefaultTypes
-            ? await map(specializedTypes.parameterDefaultTypes, (t) => fromProtocolTypeOrUndefined(t, factory))
+            ? map(specializedTypes.parameterDefaultTypes, (t) => fromProtocolTypeOrUndefined(t, factory))
             : undefined,
-        returnType: await fromProtocolTypeOrUndefined(specializedTypes.returnType, factory),
+        returnType: fromProtocolTypeOrUndefined(specializedTypes.returnType, factory),
     };
 }
 
-async function searchSymbolTableForClassSymbol(
-    symbolTable: SymbolTable | undefined,
-    className: string
-): Promise<Symbol | undefined> {
+function searchSymbolTableForClassSymbol(symbolTable: SymbolTable | undefined, className: string): Symbol | undefined {
     if (!symbolTable) {
         return undefined;
     }
@@ -439,23 +430,23 @@ async function searchSymbolTableForClassSymbol(
 
 // This should be only called from TypeFactory
 // Otherwise, cycle detection won't work.
-async function fromProtocolType(
+function fromProtocolType(
     protocolType: TypeServerProtocol.Type,
     factory: TypeProvider,
-    symbolLookup: IAsyncSymbolLookup
-): Promise<PyrightTypes.Type> {
+    symbolLookup: ISymbolLookup
+): PyrightTypes.Type {
     switch (protocolType.kind) {
         case TypeServerProtocol.TypeKind.BuiltIn: {
             switch (protocolType.name) {
                 case 'unknown': {
                     const type = factory.getTypeShell(protocolType);
-                    await applyTypeFlags(type, protocolType, factory, symbolLookup);
+                    applyTypeFlags(type, protocolType, factory, symbolLookup);
 
                     if (!PyrightTypes.isUnknown(type)) {
                         return type;
                     }
 
-                    type.priv.possibleType = await fromProtocolTypeOrUndefined(protocolType.possibleType, factory);
+                    type.priv.possibleType = fromProtocolTypeOrUndefined(protocolType.possibleType, factory);
                     return type;
                 }
             }
@@ -464,30 +455,25 @@ async function fromProtocolType(
         }
         case TypeServerProtocol.TypeKind.Class: {
             const type = factory.getTypeShell(protocolType);
-            await applyTypeFlags(type, protocolType, factory, symbolLookup);
+            applyTypeFlags(type, protocolType, factory, symbolLookup);
 
             if (PyrightTypes.isClass(type)) {
-                await fromProtocolTypeAliasInfo(type, protocolType.typeAliasInfo, factory);
+                fromProtocolTypeAliasInfo(type, protocolType.typeAliasInfo, factory);
                 // Synthesized fields may not be computed yet. Force them to compute now.
-                // Here the type is from pylance async type eval.
-                const shared = type.shared as PylanceClassDetailsShared;
-                if (shared.synthesizeMethodsDeferredAsync) {
-                    // eslint-disable-next-line @typescript-eslint/await-thenable
-                    await shared.synthesizeMethodsDeferredAsync();
-                }
+                type.shared.synthesizeMethodsDeferred?.();
             }
 
             return type;
         }
         case TypeServerProtocol.TypeKind.Function: {
             let type = factory.getTypeShell(protocolType);
-            await applyTypeFlags(type, protocolType, factory, symbolLookup);
+            applyTypeFlags(type, protocolType, factory, symbolLookup);
 
             if (PyrightTypes.isFunction(type)) {
-                await fromProtocolTypeAliasInfo(type, protocolType.typeAliasInfo, factory);
+                fromProtocolTypeAliasInfo(type, protocolType.typeAliasInfo, factory);
                 // applySpecializedTypes may return a bound function, so use its result
-                type = await applySpecializedTypes(type, protocolType, factory);
-                await applyReturnType(type, protocolType.returnType, factory);
+                type = applySpecializedTypes(type, protocolType, factory);
+                applyReturnType(type, protocolType.returnType, factory);
             }
 
             return type;
@@ -495,27 +481,24 @@ async function fromProtocolType(
         case TypeServerProtocol.TypeKind.Declared: {
             // Fallback for other declared types (rare)
             const type = factory.getTypeShell(protocolType);
-            await applyTypeFlags(type, protocolType, factory, symbolLookup);
+            applyTypeFlags(type, protocolType, factory, symbolLookup);
             return type;
         }
         case TypeServerProtocol.TypeKind.Union: {
             const type = factory.getTypeShell(protocolType);
-            await applyTypeFlags(type, protocolType, factory, symbolLookup);
+            applyTypeFlags(type, protocolType, factory, symbolLookup);
 
             if (!PyrightTypes.isUnion(type)) {
                 return type;
             }
 
-            await fromProtocolTypeAliasInfo(type, protocolType.typeAliasInfo, factory);
-            type.priv.subtypes = (await fromProtocolTypes(
-                protocolType.subTypes,
-                factory
-            )) as PyrightTypes.UnionableType[];
+            fromProtocolTypeAliasInfo(type, protocolType.typeAliasInfo, factory);
+            type.priv.subtypes = fromProtocolTypes(protocolType.subTypes, factory) as PyrightTypes.UnionableType[];
             return type;
         }
         case TypeServerProtocol.TypeKind.Module: {
             const moduleType = factory.getTypeShell(protocolType);
-            await applyTypeFlags(moduleType, protocolType, factory, symbolLookup);
+            applyTypeFlags(moduleType, protocolType, factory, symbolLookup);
 
             if (!PyrightTypes.isModule(moduleType)) {
                 return moduleType;
@@ -525,7 +508,7 @@ async function fromProtocolType(
                 return moduleType;
             }
 
-            const symbolTable = await factory.symbolLookup.getSymbolsForFile(moduleType.priv.fileUri);
+            const symbolTable = factory.symbolLookup.getSymbolsForFile(moduleType.priv.fileUri);
             const parseResults = factory.provider.getParserOutput(moduleType.priv.fileUri);
             if (symbolTable && parseResults) {
                 moduleType.priv.fields = symbolTable;
@@ -539,19 +522,16 @@ async function fromProtocolType(
         }
         case TypeServerProtocol.TypeKind.Overloaded: {
             const overloadedType = factory.getTypeShell(protocolType);
-            await applyTypeFlags(overloadedType, protocolType, factory, symbolLookup);
+            applyTypeFlags(overloadedType, protocolType, factory, symbolLookup);
             if (!PyrightTypes.isOverloaded(overloadedType)) {
                 return overloadedType;
             }
 
-            overloadedType.priv._overloads = (await fromProtocolTypes(
+            overloadedType.priv._overloads = fromProtocolTypes(
                 protocolType.overloads,
                 factory
-            )) as PyrightTypes.FunctionType[];
-            overloadedType.priv._implementation = await fromProtocolTypeOrUndefined(
-                protocolType.implementation,
-                factory
-            );
+            ) as PyrightTypes.FunctionType[];
+            overloadedType.priv._implementation = fromProtocolTypeOrUndefined(protocolType.implementation, factory);
 
             return overloadedType;
         }
@@ -561,11 +541,11 @@ async function fromProtocolType(
             let owningModule: PyrightTypes.ModuleType | undefined;
             let directoryUri: Uri | undefined;
             if (protocolType.metadata?.module) {
-                owningModule = (await fromProtocolType(
+                owningModule = fromProtocolType(
                     protocolType.metadata.module,
                     factory,
                     symbolLookup
-                )) as PyrightTypes.ModuleType;
+                ) as PyrightTypes.ModuleType;
                 if (owningModule) {
                     assert(
                         owningModule.category === PyrightTypes.TypeCategory.Module,
@@ -623,24 +603,24 @@ async function fromProtocolType(
                 if (assignNode.d.leftExpr.nodeType === PyrightNodes.ParseNodeType.Name) {
                     const nameNode = assignNode.d.leftExpr as PyrightNodes.NameNode;
 
-                    const assignedType = await evaluator.getType(nameNode);
+                    const assignedType = evaluator.getType(nameNode);
                     type = assignedType;
                 }
             } else if (targetNode.nodeType === PyrightNodes.ParseNodeType.Function) {
-                const result = await evaluator.getTypeOfFunction(targetNode as PyrightNodes.FunctionNode);
+                const result = evaluator.getTypeOfFunction(targetNode as PyrightNodes.FunctionNode);
                 type = result?.functionType;
 
                 // Special case. If this is a classmethod, rewrite the type to be the original class type.
                 // This makes sure we don't have two representations of the class type.
                 if (type && PyrightTypes.isFunction(type) && type.shared.methodClass && owningModule) {
                     // We should have a module and that module should have the class symbol.
-                    const symbolTable = await symbolLookup.getSymbolsForFile(owningModule.priv.fileUri);
-                    const classSymbol = await searchSymbolTableForClassSymbol(
+                    const symbolTable = symbolLookup.getSymbolsForFile(owningModule.priv.fileUri);
+                    const classSymbol = searchSymbolTableForClassSymbol(
                         symbolTable,
                         type.shared.methodClass.shared.name
                     );
                     if (classSymbol) {
-                        const classType = await evaluator.getEffectiveTypeOfSymbol(classSymbol);
+                        const classType = evaluator.getEffectiveTypeOfSymbol(classSymbol);
                         if (classType && PyrightTypes.isClass(classType)) {
                             type.shared.methodClass = classType;
                         }
@@ -678,7 +658,7 @@ async function fromProtocolType(
 
                 // Try the evaluator first — this works now that the extracted typeshed is
                 // on disk and reachable through resolveImport.
-                type = await evaluator.getType(targetNode.d.annotation);
+                type = evaluator.getType(targetNode.d.annotation);
 
                 // Fall back to display-string parsing if the evaluator returns Unknown
                 // (e.g. special forms like Literal, type[X]) or returns a class without
@@ -688,10 +668,10 @@ async function fromProtocolType(
                     PyrightTypes.isUnknown(type) ||
                     (PyrightTypes.isClass(type) && !type.priv.typeArgs?.length && displayStr?.includes('['));
                 if (evaluatorLostInfo && displayStr) {
-                    type = await buildTypeFromDisplay(targetNode, displayStr, evaluator);
+                    type = buildTypeFromDisplay(targetNode, displayStr, evaluator);
                 }
             } else {
-                const result = await evaluator.getTypeOfClass(targetNode as PyrightNodes.ClassNode);
+                const result = evaluator.getTypeOfClass(targetNode as PyrightNodes.ClassNode);
                 type = result?.classType;
             }
 
@@ -717,7 +697,7 @@ async function fromProtocolType(
         }
         case TypeServerProtocol.TypeKind.TypeVar: {
             const typeVarType = factory.getTypeShell(protocolType);
-            await applyTypeFlags(typeVarType, protocolType, factory, symbolLookup);
+            applyTypeFlags(typeVarType, protocolType, factory, symbolLookup);
             return typeVarType;
         }
         case TypeServerProtocol.TypeKind.TypeReference: {
@@ -743,21 +723,21 @@ async function fromProtocolType(
  * Returns an instantiable ClassType; the caller is responsible for cloning
  * to instance if the protocol type has the Instance flag.
  */
-export async function buildTypeFromDisplay(
+export function buildTypeFromDisplay(
     node: PyrightNodes.ParseNode,
     display: string,
-    evaluator: IAsyncTypeEvaluator
-): Promise<PyrightTypes.Type> {
+    evaluator: ITypeServerEvaluator
+): PyrightTypes.Type {
     // ty uses <class 'X'> format for class objects (instantiable types)
     if (display.startsWith("<class '") && display.endsWith("'>")) {
         const className = display.slice(8, -2);
-        return await buildSyntheticClass(node, className, evaluator);
+        return buildSyntheticClass(node, className, evaluator);
     }
 
     // type[X] → instantiable ClassType for X
     if (display.startsWith('type[') && display.endsWith(']')) {
         const inner = display.slice(5, -1);
-        const innerType = await buildTypeFromDisplay(node, inner, evaluator);
+        const innerType = buildTypeFromDisplay(node, inner, evaluator);
         // Instantiable ClassType prints as "type[X]"
         if (PyrightTypes.isClass(innerType) && !PyrightTypes.TypeBase.isInstantiable(innerType)) {
             return PyrightTypes.ClassType.cloneAsInstantiable(innerType);
@@ -768,12 +748,12 @@ export async function buildTypeFromDisplay(
     // Literal[value] → class instance with literal value
     if (display.startsWith('Literal[') && display.endsWith(']')) {
         const value = display.slice(8, -1).trim();
-        return await buildLiteralType(node, evaluator, value);
+        return buildLiteralType(node, evaluator, value);
     }
 
     // None → NoneType instance
     if (display === 'None') {
-        const noneClass = await buildSyntheticClass(node, 'NoneType', evaluator);
+        const noneClass = buildSyntheticClass(node, 'NoneType', evaluator);
         return PyrightTypes.ClassType.cloneAsInstance(noneClass);
     }
 
@@ -784,22 +764,20 @@ export async function buildTypeFromDisplay(
         const argsStr = display.slice(bracketIdx + 1, -1);
         const args = splitDisplayTypeArgs(argsStr);
 
-        const baseClass = await buildSyntheticClass(node, baseName, evaluator);
-        const typeArgs = await Promise.all(
-            args.map(async (arg) => {
-                const argType = await buildTypeFromDisplay(node, arg.trim(), evaluator);
-                // Type args should be instances (e.g., int not type[int])
-                if (PyrightTypes.isClass(argType) && PyrightTypes.TypeBase.isInstantiable(argType)) {
-                    return PyrightTypes.ClassType.cloneAsInstance(argType);
-                }
-                return argType;
-            })
-        );
+        const baseClass = buildSyntheticClass(node, baseName, evaluator);
+        const typeArgs = args.map((arg) => {
+            const argType = buildTypeFromDisplay(node, arg.trim(), evaluator);
+            // Type args should be instances (e.g., int not type[int])
+            if (PyrightTypes.isClass(argType) && PyrightTypes.TypeBase.isInstantiable(argType)) {
+                return PyrightTypes.ClassType.cloneAsInstance(argType);
+            }
+            return argType;
+        });
         return PyrightTypes.ClassType.specialize(baseClass, typeArgs);
     }
 
     // Simple name → instantiable ClassType
-    return await buildSyntheticClass(node, display, evaluator);
+    return buildSyntheticClass(node, display, evaluator);
 }
 
 /** Create a synthetic instantiable ClassType with the given name.
@@ -815,19 +793,19 @@ export async function buildTypeFromDisplay(
  * `object` — the last isn't really a primitive but is included because it
  * benefits from the same real-class resolution) behaviorally faithful.
  */
-async function buildSyntheticClass(
+function buildSyntheticClass(
     node: PyrightNodes.ParseNode,
     name: string,
-    evaluator: IAsyncTypeEvaluator
-): Promise<PyrightTypes.ClassType> {
+    evaluator: ITypeServerEvaluator
+): PyrightTypes.ClassType {
     if (BUILTIN_PRIMITIVE_NAMES.has(name)) {
-        const builtIn = await evaluator.getBuiltInType(node, name);
+        const builtIn = evaluator.getBuiltInType(node, name);
         if (PyrightTypes.isInstantiableClass(builtIn)) {
             return builtIn;
         }
     }
 
-    const fileInfo = await evaluator.getSymbolLookup().getFileInfo(node);
+    const fileInfo = evaluator.getSymbolLookup().getFileInfo(node);
     const classType = PyrightTypes.ClassType.createInstantiable(
         name,
         '',
@@ -838,7 +816,7 @@ async function buildSyntheticClass(
         undefined,
         undefined
     );
-    const objectType = (await evaluator.getBuiltInType(node, 'object')) as PyrightTypes.ClassType;
+    const objectType = evaluator.getBuiltInType(node, 'object') as PyrightTypes.ClassType;
     classType.shared.baseClasses.push(objectType);
     computeMroLinearization(classType);
     return classType;
@@ -855,29 +833,29 @@ const BUILTIN_PRIMITIVE_NAMES: ReadonlySet<string> = new Set([
 ]);
 
 /** Build a literal type (int, str, or bool) from a Literal[] value string. */
-async function buildLiteralType(
+function buildLiteralType(
     node: PyrightNodes.ParseNode,
-    evaluator: IAsyncTypeEvaluator,
+    evaluator: ITypeServerEvaluator,
     value: string
-): Promise<PyrightTypes.Type> {
+): PyrightTypes.Type {
     // Integer literal
     if (/^-?\d+$/.test(value)) {
         const intInstance = PyrightTypes.ClassType.cloneAsInstance(
-            (await evaluator.getBuiltInType(node, 'int')) as PyrightTypes.ClassType
+            evaluator.getBuiltInType(node, 'int') as PyrightTypes.ClassType
         );
         return PyrightTypes.ClassType.cloneWithLiteral(intInstance, BigInt(value));
     }
     // String literal
     if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
         const strInstance = PyrightTypes.ClassType.cloneAsInstance(
-            (await evaluator.getBuiltInType(node, 'str')) as PyrightTypes.ClassType
+            evaluator.getBuiltInType(node, 'str') as PyrightTypes.ClassType
         );
         return PyrightTypes.ClassType.cloneWithLiteral(strInstance, value.slice(1, -1));
     }
     // Boolean literal
     if (value === 'True' || value === 'False') {
         const boolInstance = PyrightTypes.ClassType.cloneAsInstance(
-            (await evaluator.getBuiltInType(node, 'bool')) as PyrightTypes.ClassType
+            evaluator.getBuiltInType(node, 'bool') as PyrightTypes.ClassType
         );
         return PyrightTypes.ClassType.cloneWithLiteral(boolInstance, value === 'True');
     }

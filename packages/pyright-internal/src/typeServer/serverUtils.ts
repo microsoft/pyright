@@ -12,7 +12,11 @@ import { Uri } from '../common/uri/uri';
 
 import { INotebookUriMapper, NotebookUriMapper } from './notebookUriMapper';
 
-export function convertLspUriStringToUri(uri: string, caseDetector: CaseSensitivityDetector, mapper?: INotebookUriMapper) {
+export function convertLspUriStringToUri(
+    uri: string,
+    caseDetector: CaseSensitivityDetector,
+    mapper?: INotebookUriMapper
+) {
     const parsed = Uri.parse(uri, caseDetector);
     if (mapper && NotebookUriMapper.isNotebookCell(parsed)) {
         return mapper.getMappedCellUri(parsed);

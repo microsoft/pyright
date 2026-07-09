@@ -19,9 +19,9 @@ import { Uri } from '../common/uri/uri';
 import { convertUriToLspUriString } from '../common/uri/uriUtils';
 import * as PyrightNodes from '../parser/parseNodes';
 
-import { IAsyncTypeEvaluator } from './asyncTypeEvaluatorTypes';
+import { ITypeServerEvaluator } from './typeServerEvaluator';
 import { isDeclaration, map } from './typeEvalUtils';
-import { IAsyncProgramSnapshot } from './programTypes';
+import { IProgram } from './programTypes';
 
 import {
     generateStubFromClassType,
@@ -65,10 +65,10 @@ export class ProtocolTypeFactory {
     private _id = 0;
     private readonly _cycleMap = new Map<PyrightTypes.Type, number>();
     private readonly _sourceUri: Uri;
-    private readonly _evaluator: IAsyncTypeEvaluator;
+    private readonly _evaluator: ITypeServerEvaluator;
 
     constructor(
-        readonly view: IAsyncProgramSnapshot,
+        readonly view: IProgram,
         readonly pythonVersion: PythonVersion,
         declarationOrNode: Declaration | PyrightNodes.ParseNode
     ) {
@@ -89,19 +89,19 @@ export class ProtocolTypeFactory {
         return this._id++;
     }
 
-    async getModule(type: PyrightTypes.FunctionType | PyrightTypes.ClassType): Promise<PyrightTypes.ModuleType> {
+    getModule(type: PyrightTypes.FunctionType | PyrightTypes.ClassType): PyrightTypes.ModuleType {
         const moduleName = type.shared.moduleName;
         const moduleDescriptor = toProtocolModuleName(moduleName);
         const moduleUri =
-            (await this.view.resolveImport(this.sourceUri, moduleDescriptor, CancellationToken.None)) || this.sourceUri;
+            this.view.resolveImport(this.sourceUri, moduleDescriptor, CancellationToken.None) || this.sourceUri;
         const moduleNode = this.view.getParserOutput(moduleUri)?.parseTree;
         assert(moduleNode !== undefined, `Module node not found for URI: ${moduleUri.toString()}`);
-        const scope = await this.view.symbolLookup.getScope(moduleNode);
+        const scope = this.view.symbolLookup.getScope(moduleNode);
         const symbolTable = scope?.symbolTable;
         return PyrightTypes.ModuleType.create(moduleName, moduleUri, symbolTable);
     }
 
-    async getType(type: PyrightTypes.Type): Promise<TypeServerProtocol.Type> {
+    getType(type: PyrightTypes.Type): TypeServerProtocol.Type {
         const newId = this.getNextId();
 
         const existingTypeId = this._cycleMap.get(type);
@@ -115,7 +115,7 @@ export class ProtocolTypeFactory {
         }
 
         this._set(type, newId);
-        return await toProtocolType(newId, type, this);
+        return toProtocolType(newId, type, this);
     }
 
     private _set(type: PyrightTypes.Type, id: number) {
@@ -131,40 +131,37 @@ export class ProtocolTypeFactory {
     }
 }
 
-async function toProtocolTypesOrUndefined(
+function toProtocolTypesOrUndefined(
     types: PyrightTypes.Type[] | undefined,
     factory: ProtocolTypeFactory
-): Promise<TypeServerProtocol.Type[] | undefined> {
+): TypeServerProtocol.Type[] | undefined {
     if (!types) {
         return undefined;
     }
 
-    return await toProtocolTypes(types, factory);
+    return toProtocolTypes(types, factory);
 }
 
-async function toProtocolTypes(
-    types: PyrightTypes.Type[],
-    factory: ProtocolTypeFactory
-): Promise<TypeServerProtocol.Type[]> {
-    return await map(types, (type) => factory.getType(type));
+function toProtocolTypes(types: PyrightTypes.Type[], factory: ProtocolTypeFactory): TypeServerProtocol.Type[] {
+    return map(types, (type) => factory.getType(type));
 }
 
-async function toProtocolTypeOrUndefined(
+function toProtocolTypeOrUndefined(
     type: PyrightTypes.Type | undefined,
     factory: ProtocolTypeFactory
-): Promise<TypeServerProtocol.Type | undefined> {
+): TypeServerProtocol.Type | undefined {
     if (!type) {
         return undefined;
     }
 
-    return await factory.getType(type);
+    return factory.getType(type);
 }
 
-async function toProtocolTypeArgs(type: PyrightTypes.ClassType, factory: ProtocolTypeFactory) {
+function toProtocolTypeArgs(type: PyrightTypes.ClassType, factory: ProtocolTypeFactory) {
     // See if we have any type arguments. Set those on the handle too.
     let typeArgs: TypeServerProtocol.Type[] | undefined = undefined;
     if (type.priv.tupleTypeArgs) {
-        typeArgs = await toProtocolTypesOrUndefined(
+        typeArgs = toProtocolTypesOrUndefined(
             type.priv.tupleTypeArgs.map((t) => t.type),
             factory
         );
@@ -179,13 +176,13 @@ async function toProtocolTypeArgs(type: PyrightTypes.ClassType, factory: Protoco
             }
         }
     } else if (type.priv.typeArgs) {
-        typeArgs = await toProtocolTypesOrUndefined(type.priv.typeArgs, factory);
+        typeArgs = toProtocolTypesOrUndefined(type.priv.typeArgs, factory);
     }
 
     return typeArgs;
 }
 
-async function toProtocolTypeAliasInfo(info: PyrightTypes.TypeAliasInfo | undefined, factory: ProtocolTypeFactory) {
+function toProtocolTypeAliasInfo(info: PyrightTypes.TypeAliasInfo | undefined, factory: ProtocolTypeFactory) {
     if (!info) {
         return undefined;
     }
@@ -197,8 +194,8 @@ async function toProtocolTypeAliasInfo(info: PyrightTypes.TypeAliasInfo | undefi
         fileUri: convertUriToLspUriString(factory.view.fs, info.shared.fileUri),
         scopeId: info.shared.typeVarScopeId,
         isTypeAliasType: info.shared.isTypeAliasType,
-        typeParams: await toProtocolTypesOrUndefined(info.shared.typeParams, factory),
-        typeArgs: await toProtocolTypesOrUndefined(info.typeArgs, factory),
+        typeParams: toProtocolTypesOrUndefined(info.shared.typeParams, factory),
+        typeArgs: toProtocolTypesOrUndefined(info.typeArgs, factory),
         computedVariance: info.shared.computedVariance?.map(
             (v) => toProtocolVariance(v) ?? TypeServerProtocol.Variance.Unknown
         ),
@@ -207,11 +204,7 @@ async function toProtocolTypeAliasInfo(info: PyrightTypes.TypeAliasInfo | undefi
 
 // This should be only called from TspTypeFactory
 // Otherwise, cycle detection won't work.
-async function toProtocolType(
-    id: number,
-    type: PyrightTypes.Type,
-    factory: ProtocolTypeFactory
-): Promise<TypeServerProtocol.Type> {
+function toProtocolType(id: number, type: PyrightTypes.Type, factory: ProtocolTypeFactory): TypeServerProtocol.Type {
     switch (type.category) {
         case PyrightTypes.TypeCategory.Class: {
             const decl = type.shared.declaration;
@@ -220,15 +213,15 @@ async function toProtocolType(
                     id,
                     kind: TypeServerProtocol.TypeKind.Class,
                     flags: toProtocolTypeFlags(type),
-                    typeAliasInfo: await toProtocolTypeAliasInfo(type.props?.typeAliasInfo, factory),
+                    typeAliasInfo: toProtocolTypeAliasInfo(type.props?.typeAliasInfo, factory),
 
                     declaration: toProtocolDecl(decl, factory.view),
-                    literalValue: await toProtocolLiteralValue(type, factory),
-                    typeArgs: await toProtocolTypeArgs(type, factory),
+                    literalValue: toProtocolLiteralValue(type, factory),
+                    typeArgs: toProtocolTypeArgs(type, factory),
                 } satisfies TypeServerProtocol.ClassType;
             }
 
-            return await createSynthesizedType(id, type, factory);
+            return createSynthesizedType(id, type, factory);
         }
         case PyrightTypes.TypeCategory.Function: {
             const decl = type.shared.declaration;
@@ -248,21 +241,21 @@ async function toProtocolType(
                     id,
                     kind: TypeServerProtocol.TypeKind.Function,
                     flags: toProtocolTypeFlags(type),
-                    typeAliasInfo: await toProtocolTypeAliasInfo(type.props?.typeAliasInfo, factory),
+                    typeAliasInfo: toProtocolTypeAliasInfo(type.props?.typeAliasInfo, factory),
 
                     declaration: toProtocolDecl(decl, factory.view),
 
-                    specializedTypes: await toProtocolSpecializedFunctionTypesOrUndefined(
+                    specializedTypes: toProtocolSpecializedFunctionTypesOrUndefined(
                         type.priv.specializedTypes,
                         factory
                     ),
-                    boundToType: await toProtocolTypeOrUndefined(boundToType, factory),
+                    boundToType: toProtocolTypeOrUndefined(boundToType, factory),
 
-                    returnType: await toProtocolTypeOrUndefined(returnType, factory),
+                    returnType: toProtocolTypeOrUndefined(returnType, factory),
                 } satisfies TypeServerProtocol.FunctionType;
             }
 
-            return await createSynthesizedType(id, type, factory);
+            return createSynthesizedType(id, type, factory);
         }
         case PyrightTypes.TypeCategory.Overloaded: {
             const implementation = PyrightTypes.OverloadedType.getImplementation(type);
@@ -272,12 +265,12 @@ async function toProtocolType(
                 id,
                 kind: TypeServerProtocol.TypeKind.Overloaded,
                 flags: toProtocolTypeFlags(type),
-                overloads: await toProtocolTypes(overloaded, factory),
-                implementation: await toProtocolTypeOrUndefined(implementation, factory),
+                overloads: toProtocolTypes(overloaded, factory),
+                implementation: toProtocolTypeOrUndefined(implementation, factory),
             } satisfies TypeServerProtocol.OverloadedType;
         }
         case PyrightTypes.TypeCategory.TypeVar: {
-            const declaration = await getDeclarationForTypeVar(type, factory);
+            const declaration = getDeclarationForTypeVar(type, factory);
             if (declaration) {
                 return {
                     id,
@@ -287,7 +280,7 @@ async function toProtocolType(
                 } satisfies TypeServerProtocol.TypeVarType;
             }
 
-            return await createSynthesizedType(id, type, factory);
+            return createSynthesizedType(id, type, factory);
         }
         case PyrightTypes.TypeCategory.Unbound: {
             const handle: TypeServerProtocol.BuiltInType = {
@@ -306,7 +299,7 @@ async function toProtocolType(
                 kind: TypeServerProtocol.TypeKind.BuiltIn,
                 flags: toProtocolTypeFlags(type),
                 name: 'unknown',
-                possibleType: await toProtocolTypeOrUndefined(possibleType, factory),
+                possibleType: toProtocolTypeOrUndefined(possibleType, factory),
             };
             return handle;
         }
@@ -333,9 +326,9 @@ async function toProtocolType(
                 id,
                 kind: TypeServerProtocol.TypeKind.Union,
                 flags: toProtocolTypeFlags(type),
-                typeAliasInfo: await toProtocolTypeAliasInfo(type.props?.typeAliasInfo, factory),
+                typeAliasInfo: toProtocolTypeAliasInfo(type.props?.typeAliasInfo, factory),
 
-                subTypes: await map(type.priv.subtypes, (t) => factory.getType(t)),
+                subTypes: map(type.priv.subtypes, (t) => factory.getType(t)),
             } satisfies TypeServerProtocol.UnionType;
 
         case PyrightTypes.TypeCategory.Module: {
@@ -355,26 +348,26 @@ export class PyrightTypeFactory {
     private readonly _typeShellFactory: IPyrightTypeFactory;
     private readonly _typeProvider: IPyrightTypeFactory;
 
-    constructor(view: IAsyncProgramSnapshot) {
+    constructor(view: IProgram) {
         this._typeShellFactory = new TypeShellFactory(this._cycleMap, view);
         this._typeProvider = new TypeProvider(this._cycleMap, view);
     }
 
-    async getType(protocolType: TypeServerProtocol.Type): Promise<PyrightTypes.Type> {
+    getType(protocolType: TypeServerProtocol.Type): PyrightTypes.Type {
         // this is 2 pass of type handle to toProtocolHandle cycles.
         // first pass, create type shells for all types.
-        await this._typeShellFactory.getType(protocolType);
+        this._typeShellFactory.getType(protocolType);
 
         // second pass, fill in type details.
-        return await this._typeProvider.getType(protocolType);
+        return this._typeProvider.getType(protocolType);
     }
 }
 
-async function createSynthesizedType(
+function createSynthesizedType(
     id: number,
     type: PyrightTypes.FunctionType | PyrightTypes.ClassType | PyrightTypes.TypeVarType,
     factory: ProtocolTypeFactory
-): Promise<TypeServerProtocol.SynthesizedType> {
+): TypeServerProtocol.SynthesizedType {
     const options = { pythonVersion: factory.pythonVersion } satisfies StubGenerationOptions;
     let moduleHandle: TypeServerProtocol.ModuleType;
     let stubResult: StubGenerationResult;
@@ -382,16 +375,16 @@ async function createSynthesizedType(
     if (PyrightTypes.isTypeVar(type)) {
         const moduleName = factory.view.getModuleName(factory.sourceUri) ?? '';
         const moduleType = PyrightTypes.ModuleType.create(moduleName, factory.sourceUri, new Map());
-        moduleHandle = (await factory.getType(moduleType)) as TypeServerProtocol.ModuleType;
+        moduleHandle = factory.getType(moduleType) as TypeServerProtocol.ModuleType;
 
-        stubResult = await generateStubFromTypeVar(type, options);
+        stubResult = generateStubFromTypeVar(type, options);
     } else {
-        const module = await factory.getModule(type);
-        moduleHandle = (await factory.getType(module)) as TypeServerProtocol.ModuleType;
+        const module = factory.getModule(type);
+        moduleHandle = factory.getType(module) as TypeServerProtocol.ModuleType;
 
         stubResult = PyrightTypes.isFunction(type)
-            ? await generateStubFromFunctionType(factory.evaluator, type, options)
-            : await generateStubFromClassType(factory.evaluator, type, options);
+            ? generateStubFromFunctionType(factory.evaluator, type, options)
+            : generateStubFromClassType(factory.evaluator, type, options);
     }
 
     const metadata: TypeServerProtocol.SynthesizedTypeMetadata = {
@@ -403,33 +396,33 @@ async function createSynthesizedType(
         id,
         kind: TypeServerProtocol.TypeKind.Synthesized,
         flags: toProtocolTypeFlags(type),
-        typeAliasInfo: await toProtocolTypeAliasInfo(type.props?.typeAliasInfo, factory),
+        typeAliasInfo: toProtocolTypeAliasInfo(type.props?.typeAliasInfo, factory),
         stubContent: stubResult.stubContent,
         metadata,
     } satisfies TypeServerProtocol.SynthesizedType;
 }
 
-async function toProtocolSpecializedFunctionTypesOrUndefined(
+function toProtocolSpecializedFunctionTypesOrUndefined(
     specializedTypes: PyrightTypes.SpecializedFunctionTypes | undefined,
     factory: ProtocolTypeFactory
-): Promise<TypeServerProtocol.SpecializedFunctionTypes | undefined> {
+): TypeServerProtocol.SpecializedFunctionTypes | undefined {
     if (!specializedTypes) {
         return undefined;
     }
 
     return {
-        parameterTypes: await map(specializedTypes.parameterTypes, (t) => factory.getType(t)),
+        parameterTypes: map(specializedTypes.parameterTypes, (t) => factory.getType(t)),
         parameterDefaultTypes: specializedTypes.parameterDefaultTypes
-            ? await map(specializedTypes.parameterDefaultTypes, (t) => toProtocolTypeOrUndefined(t, factory))
+            ? map(specializedTypes.parameterDefaultTypes, (t) => toProtocolTypeOrUndefined(t, factory))
             : undefined,
-        returnType: await toProtocolTypeOrUndefined(specializedTypes.returnType, factory),
+        returnType: toProtocolTypeOrUndefined(specializedTypes.returnType, factory),
     };
 }
 
-async function toProtocolLiteralValue(
+function toProtocolLiteralValue(
     type: PyrightTypes.ClassType,
     factory: ProtocolTypeFactory
-): Promise<TypeServerProtocol.LiteralValue | undefined> {
+): TypeServerProtocol.LiteralValue | undefined {
     const value = type.priv.literalValue;
     if (value === undefined) {
         return undefined;
@@ -447,7 +440,7 @@ async function toProtocolLiteralValue(
         return {
             className: value.className,
             itemName: value.itemName,
-            itemType: await factory.getType(value.itemType),
+            itemType: factory.getType(value.itemType),
         } satisfies TypeServerProtocol.EnumLiteral;
     }
 
@@ -458,10 +451,10 @@ async function toProtocolLiteralValue(
 // the same metadata the evaluator used when the symbol was first defined. Stub-based
 // reconstruction frequently loses this link, so we search for it on demand using the
 // scope id that is preserved on the TypeVar instance.
-export async function getDeclarationForTypeVar(
+export function getDeclarationForTypeVar(
     typeVar: PyrightTypes.TypeVarType,
     factory: ProtocolTypeFactory
-): Promise<Declaration | undefined> {
+): Declaration | undefined {
     // freeTypeVar stores the "canonical" definition for synthesized instances that were
     // cloned for specialization. Always operate on that canonical TypeVar when available.
     const canonicalTypeVar = typeVar.priv.freeTypeVar ?? typeVar;
@@ -476,22 +469,21 @@ export async function getDeclarationForTypeVar(
         return undefined;
     }
 
-    const scopeNode = await findScopeNodeForId(scopeId, factory.view);
+    const scopeNode = findScopeNodeForId(scopeId, factory.view);
     if (!scopeNode) {
         return undefined;
     }
 
     // Start by inspecting the symbol table attached to the original scope; this covers
     // most cases for function, class, and alias TypeVars.
-    let symbolTable = await factory.view.symbolLookup.getSymbolsForNode(scopeNode);
+    let symbolTable = factory.view.symbolLookup.getSymbolsForNode(scopeNode);
     if (!symbolTable && scopeNode.nodeType === PyrightNodes.ParseNodeType.Module) {
-        const fileInfo = await factory.view.symbolLookup.getFileInfo(scopeNode);
-        symbolTable = await factory.view.symbolLookup.getSymbolsForFile(fileInfo.fileUri);
+        const fileInfo = factory.view.symbolLookup.getFileInfo(scopeNode);
+        symbolTable = factory.view.symbolLookup.getSymbolsForFile(fileInfo.fileUri);
     }
 
     const typeVarName = canonicalTypeVar.shared.name;
-    let symbol =
-        symbolTable?.get(typeVarName) ?? (await factory.view.symbolLookup.lookupSymbol(scopeNode, typeVarName));
+    let symbol = symbolTable?.get(typeVarName) ?? factory.view.symbolLookup.lookupSymbol(scopeNode, typeVarName);
 
     if (
         (!symbol || symbol.getDeclarations().length === 0) &&
@@ -502,13 +494,13 @@ export async function getDeclarationForTypeVar(
         // containing module table for reuse.
         const moduleNode = findModuleAncestor(scopeNode);
         if (moduleNode) {
-            const moduleInfo = await factory.view.symbolLookup.getFileInfo(moduleNode);
-            const moduleSymbols = await factory.view.symbolLookup.getSymbolsForFile(moduleInfo.fileUri);
+            const moduleInfo = factory.view.symbolLookup.getFileInfo(moduleNode);
+            const moduleSymbols = factory.view.symbolLookup.getSymbolsForFile(moduleInfo.fileUri);
             const moduleSymbol = moduleSymbols?.get(typeVarName);
             if (moduleSymbol) {
                 symbol = moduleSymbol;
             } else {
-                symbol = await factory.view.symbolLookup.lookupSymbol(moduleNode, typeVarName);
+                symbol = factory.view.symbolLookup.lookupSymbol(moduleNode, typeVarName);
             }
         }
     }
@@ -520,7 +512,7 @@ export async function getDeclarationForTypeVar(
         // information even when binding never populated a symbol.
         const typeParamNode = findTypeParameterNode(scopeNode, typeVarName);
         if (typeParamNode) {
-            const fileInfo = await factory.view.symbolLookup.getFileInfo(typeParamNode);
+            const fileInfo = factory.view.symbolLookup.getFileInfo(typeParamNode);
             return {
                 type: DeclarationType.TypeParam,
                 node: typeParamNode,
@@ -540,10 +532,7 @@ export async function getDeclarationForTypeVar(
 // Search all known parse trees to locate the node that owns the provided scope id.
 // Scope ids are assigned to functions, classes, modules, and type aliases; once we
 // find the matching node we can dig into its symbol table for declarations.
-async function findScopeNodeForId(
-    scopeId: string,
-    view: IAsyncProgramSnapshot
-): Promise<PyrightNodes.ParseNode | undefined> {
+function findScopeNodeForId(scopeId: string, view: IProgram): PyrightNodes.ParseNode | undefined {
     const targetPrefix = scopeId.split('.', 1)[0];
     const matchingFiles = view.symbolLookup.getMatchingFileInfos(targetPrefix);
 
@@ -556,7 +545,7 @@ async function findScopeNodeForId(
         const stack: PyrightNodes.ParseNode[] = [parseResults.parseTree];
         while (stack.length > 0) {
             const node = stack.pop()!;
-            const nodeScopeId = await view.symbolLookup.getScopeIdForNode(node);
+            const nodeScopeId = view.symbolLookup.getScopeIdForNode(node);
             if (isTypeVarScopeCandidate(node) && nodeScopeId === scopeId) {
                 return node;
             }

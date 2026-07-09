@@ -40,7 +40,7 @@ import { assert } from '../common/debug';
 import { PythonVersion, pythonVersion3_13 } from '../common/pythonVersion';
 import { ArgCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 
-import { TypeEvaluatorInternal } from './asyncTypeEvaluatorTypes';
+import { ITypeServerEvaluator } from './typeServerEvaluator';
 import { forEach, getSymbolTable } from './typeEvalUtils';
 import { enumerateLiteralsForType } from './typeGuards';
 
@@ -62,7 +62,7 @@ export function isEnumMetaclass(classType: ClassType) {
 
 // Determines whether this is an enum class that has at least one enum
 // member defined.
-export async function isEnumClassWithMembers(evaluator: TypeEvaluatorInternal, classType: ClassType) {
+export function isEnumClassWithMembers(evaluator: ITypeServerEvaluator, classType: ClassType) {
     if (!isClass(classType) || !ClassType.isEnumClass(classType)) {
         return false;
     }
@@ -70,8 +70,8 @@ export async function isEnumClassWithMembers(evaluator: TypeEvaluatorInternal, c
     // Determine whether the enum class defines a member.
     let definesMember = false;
 
-    await forEach(await getSymbolTable(classType), async (symbol, name) => {
-        const symbolType = await transformTypeForEnumMember(evaluator, classType, name);
+    forEach(getSymbolTable(classType), (symbol, name) => {
+        const symbolType = transformTypeForEnumMember(evaluator, classType, name);
         if (
             symbolType &&
             isClassInstance(symbolType) &&
@@ -85,13 +85,13 @@ export async function isEnumClassWithMembers(evaluator: TypeEvaluatorInternal, c
 }
 
 // Creates a new custom enum class with named values.
-export async function createEnumType(
-    evaluator: TypeEvaluatorInternal,
+export function createEnumType(
+    evaluator: ITypeServerEvaluator,
     errorNode: ExpressionNode,
     enumClass: ClassType,
     argList: Arg[]
-): Promise<ClassType | undefined> {
-    const fileInfo = await evaluator.getSymbolLookup().getFileInfo(errorNode);
+): ClassType | undefined {
+    const fileInfo = evaluator.getSymbolLookup().getFileInfo(errorNode);
     const isReprEnum = isReprEnumClass(enumClass);
 
     if (argList.length === 0) {
@@ -123,7 +123,7 @@ export async function createEnumType(
     classType.shared.baseClasses.push(enumClass);
     computeMroLinearization(classType);
 
-    const classFields = await getSymbolTable(classType);
+    const classFields = getSymbolTable(classType);
     classFields.set(
         '__class__',
         Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType)
@@ -138,7 +138,7 @@ export async function createEnumType(
         return undefined;
     }
 
-    const intClassType = await evaluator.getBuiltInType(errorNode, 'int');
+    const intClassType = evaluator.getBuiltInType(errorNode, 'int');
     if (!intClassType || !isInstantiableClass(intClassType)) {
         return undefined;
     }
@@ -232,7 +232,7 @@ export async function createEnumType(
                     return undefined;
                 }
                 nameNode = entry.d.items[0];
-                valueType = (await evaluator.getTypeOfExpression(entry.d.items[1])).type;
+                valueType = evaluator.getTypeOfExpression(entry.d.items[1]).type;
             } else {
                 return undefined;
             }
@@ -277,7 +277,7 @@ export async function createEnumType(
             }
 
             const nameNode = entry.d.keyExpr;
-            const valueType = (await evaluator.getTypeOfExpression(entry.d.valueExpr)).type;
+            const valueType = evaluator.getTypeOfExpression(entry.d.valueExpr).type;
 
             if (
                 nameNode.nodeType !== ParseNodeType.StringList ||
@@ -316,13 +316,13 @@ export async function createEnumType(
 // as a member of the enumeration, but the Enum metaclass ignores such
 // annotations. The typing spec indicates that the use of an annotation is
 // illegal, so we need to detect this case and report an error.
-export async function transformTypeForEnumMember(
-    evaluator: TypeEvaluatorInternal,
+export function transformTypeForEnumMember(
+    evaluator: ITypeServerEvaluator,
     classType: ClassType,
     memberName: string,
     ignoreAnnotation = false,
     recursionCount = 0
-): Promise<Type | undefined> {
+): Type | undefined {
     if (!ClassType.isEnumClass(classType)) {
         return undefined;
     }
@@ -405,19 +405,19 @@ export async function transformTypeForEnumMember(
             return undefined;
         }
 
-        const declaredType = declaredTypeNode ? await evaluator.getTypeOfAnnotation(declaredTypeNode) : undefined;
+        const declaredType = declaredTypeNode ? evaluator.getTypeOfAnnotation(declaredTypeNode) : undefined;
         let assignedType: Type | undefined;
 
         if (valueTypeExprNode) {
-            const evalFlags = (await evaluator.getSymbolLookup().getFileInfo(valueTypeExprNode)).isStubFile
+            const evalFlags = evaluator.getSymbolLookup().getFileInfo(valueTypeExprNode).isStubFile
                 ? EvalFlags.ConvertEllipsisToAny
                 : undefined;
-            assignedType = (await evaluator.getTypeOfExpression(valueTypeExprNode, evalFlags)).type;
+            assignedType = evaluator.getTypeOfExpression(valueTypeExprNode, evalFlags).type;
         }
 
         // Handle aliases to other enum members within the same enum.
         if (valueTypeExprNode?.nodeType === ParseNodeType.Name && valueTypeExprNode.d.value !== memberName) {
-            const aliasedEnumType = await transformTypeForEnumMember(
+            const aliasedEnumType = transformTypeForEnumMember(
                 evaluator,
                 classType,
                 valueTypeExprNode.d.value,
@@ -436,12 +436,12 @@ export async function transformTypeForEnumMember(
         }
 
         if (primaryDecl.node.nodeType === ParseNodeType.Function) {
-            const functionTypeInfo = await evaluator.getTypeOfFunction(primaryDecl.node);
+            const functionTypeInfo = evaluator.getTypeOfFunction(primaryDecl.node);
             if (functionTypeInfo) {
                 assignedType = functionTypeInfo.decoratedType;
             }
         } else if (primaryDecl.node.nodeType === ParseNodeType.Class) {
-            const classTypeInfo = await evaluator.getTypeOfClass(primaryDecl.node);
+            const classTypeInfo = evaluator.getTypeOfClass(primaryDecl.node);
             if (classTypeInfo) {
                 assignedType = classTypeInfo.decoratedType;
 
@@ -449,7 +449,7 @@ export async function transformTypeForEnumMember(
                 // depends on the version of Python. In versions prior to 3.13, classes
                 // are treated as members.
                 if (isInstantiableClass(assignedType)) {
-                    const fileInfo = await evaluator.getSymbolLookup().getFileInfo(primaryDecl.node);
+                    const fileInfo = evaluator.getSymbolLookup().getFileInfo(primaryDecl.node);
                     isMemberOfEnumeration = PythonVersion.isLessThan(
                         fileInfo.executionEnvironment.pythonVersion,
                         pythonVersion3_13
@@ -464,18 +464,16 @@ export async function transformTypeForEnumMember(
         // a special case.
         if (isUnpackedTuple) {
             valueType =
-                (
-                    await evaluator.getTypeOfIterator(
-                        { type: valueType },
-                        /* isAsync */ false,
-                        nameNode,
-                        /* emitNotIterableError */ false
-                    )
+                evaluator.getTypeOfIterator(
+                    { type: valueType },
+                    /* isAsync */ false,
+                    nameNode,
+                    /* emitNotIterableError */ false
                 )?.type ?? UnknownType.create();
         }
 
         // The spec excludes descriptors.
-        if (isClassInstance(valueType) && (await getSymbolTable(valueType)).get('__get__')) {
+        if (isClassInstance(valueType) && getSymbolTable(valueType).get('__get__')) {
             return undefined;
         }
 
@@ -495,12 +493,10 @@ export async function transformTypeForEnumMember(
             nameNode.parent?.nodeType === ParseNodeType.Assignment &&
             nameNode.parent.d.leftExpr === nameNode
         ) {
-            assignedType = (
-                await evaluator.getTypeOfExpression(
-                    nameNode.parent.d.rightExpr,
-                    /* flags */ undefined,
-                    makeInferenceContext(declaredType)
-                )
+            assignedType = evaluator.getTypeOfExpression(
+                nameNode.parent.d.rightExpr,
+                /* flags */ undefined,
+                makeInferenceContext(declaredType)
             ).type;
         }
 
@@ -514,7 +510,7 @@ export async function transformTypeForEnumMember(
 
                 // If the type of the nonmember is declared and the assigned value has
                 // a compatible type, use the declared type.
-                if (declaredType && (await evaluator.assignType(declaredType, nonMemberType))) {
+                if (declaredType && evaluator.assignType(declaredType, nonMemberType)) {
                     return declaredType;
                 }
 
@@ -548,13 +544,13 @@ export async function transformTypeForEnumMember(
     }
 }
 
-export async function isDeclInEnumClass(evaluator: TypeEvaluatorInternal, decl: VariableDeclaration): Promise<boolean> {
+export function isDeclInEnumClass(evaluator: ITypeServerEvaluator, decl: VariableDeclaration): boolean {
     const classNode = getEnclosingClass(decl.node, /* stopAtFunction */ true);
     if (!classNode) {
         return false;
     }
 
-    const classInfo = await evaluator.getTypeOfClass(classNode);
+    const classInfo = evaluator.getTypeOfClass(classNode);
     if (!classInfo) {
         return false;
     }
@@ -562,11 +558,11 @@ export async function isDeclInEnumClass(evaluator: TypeEvaluatorInternal, decl: 
     return ClassType.isEnumClass(classInfo.classType);
 }
 
-export async function getEnumDeclaredValueType(
-    evaluator: TypeEvaluatorInternal,
+export function getEnumDeclaredValueType(
+    evaluator: ITypeServerEvaluator,
     classType: ClassType,
     declaredTypesOnly = false
-): Promise<Type | undefined> {
+): Type | undefined {
     // See if there is a declared type for "_value_".
     let valueType: Type | undefined;
 
@@ -584,24 +580,24 @@ export async function getEnumDeclaredValueType(
         isClass(declaredValueMember.classType) &&
         !ClassType.isBuiltIn(declaredValueMember.classType, 'Enum')
     ) {
-        valueType = await evaluator.getTypeOfMember(declaredValueMember);
+        valueType = evaluator.getTypeOfMember(declaredValueMember);
     }
 
     return valueType;
 }
 
-export async function getTypeOfEnumMember(
-    evaluator: TypeEvaluatorInternal,
+export function getTypeOfEnumMember(
+    evaluator: ITypeServerEvaluator,
     errorNode: ParseNode,
     classType: ClassType,
     memberName: string,
     isIncomplete: boolean
-): Promise<TypeResult | undefined> {
+): TypeResult | undefined {
     if (!ClassType.isEnumClass(classType)) {
         return undefined;
     }
 
-    const type = await transformTypeForEnumMember(evaluator, classType, memberName);
+    const type = transformTypeForEnumMember(evaluator, classType, memberName);
     if (type) {
         return { type, isIncomplete };
     }
@@ -621,7 +617,7 @@ export async function getTypeOfEnumMember(
             return undefined;
         }
 
-        const strClass = await evaluator.getBuiltInType(errorNode, 'str');
+        const strClass = evaluator.getBuiltInType(errorNode, 'str');
         if (!isInstantiableClass(strClass)) {
             return undefined;
         }
@@ -637,7 +633,7 @@ export async function getTypeOfEnumMember(
 
         // The type wasn't associated with a particular enum literal, so return
         // a union of all possible enum literals.
-        const literalValues = await enumerateLiteralsForType(evaluator, classType);
+        const literalValues = enumerateLiteralsForType(evaluator, classType);
         if (literalValues && literalValues.length > 0) {
             return {
                 type: combineTypes(
@@ -653,7 +649,7 @@ export async function getTypeOfEnumMember(
     }
 
     // See if there is a declared type for "_value_".
-    const valueType = await getEnumDeclaredValueType(evaluator, classType);
+    const valueType = getEnumDeclaredValueType(evaluator, classType);
 
     if (memberName === 'value' || memberName === '_value_') {
         // Does the class explicitly override this member? Or it it using the
@@ -708,7 +704,7 @@ export async function getTypeOfEnumMember(
 
         // The type wasn't associated with a particular enum literal, so return
         // a union of all possible enum literals.
-        const literalValues = await enumerateLiteralsForType(evaluator, classType);
+        const literalValues = enumerateLiteralsForType(evaluator, classType);
         if (literalValues && literalValues.length > 0) {
             return {
                 type: combineTypes(
@@ -726,13 +722,13 @@ export async function getTypeOfEnumMember(
     return undefined;
 }
 
-export async function getEnumAutoValueType(evaluator: TypeEvaluatorInternal, node: ExpressionNode) {
+export function getEnumAutoValueType(evaluator: ITypeServerEvaluator, node: ExpressionNode) {
     const containingClassNode = getEnclosingClass(node);
 
     if (containingClassNode) {
-        const classTypeInfo = await evaluator.getTypeOfClass(containingClassNode);
+        const classTypeInfo = evaluator.getTypeOfClass(containingClassNode);
         if (classTypeInfo) {
-            const memberInfo = await evaluator.getTypeOfBoundMember(
+            const memberInfo = evaluator.getTypeOfBoundMember(
                 node,
                 ClassType.cloneAsInstance(classTypeInfo.classType),
                 '_generate_next_value_'
@@ -756,7 +752,7 @@ export async function getEnumAutoValueType(evaluator: TypeEvaluatorInternal, nod
         }
     }
 
-    return await evaluator.getBuiltInObject(node, 'int');
+    return evaluator.getBuiltInObject(node, 'int');
 }
 
 export function isReprEnumClass(enumClass: ClassType) {

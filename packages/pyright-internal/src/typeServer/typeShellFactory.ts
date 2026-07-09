@@ -7,10 +7,10 @@ import * as PyrightTypes from '../analyzer/types';
 import { specializeTupleClass } from '../analyzer/typeUtils';
 import * as PyrightNodes from '../parser/parseNodes';
 
-import { IAsyncTypeEvaluator } from './asyncTypeEvaluatorTypes';
+import { ITypeServerEvaluator } from './typeServerEvaluator';
 import { forEach } from './typeEvalUtils';
 import { convertLspUriStringToUri } from './serverUtils';
-import { IAsyncProgramSnapshot, IAsyncSymbolLookup } from './programTypes';
+import { IProgram, ISymbolLookup } from './programTypes';
 
 import * as PylanceUtils from './typeUtils';
 import { buildTypeFromDisplay } from './typeProvider';
@@ -30,22 +30,19 @@ import * as ProtocolUtils from './typeServerProtocolUtils';
 // A factory that creates type shells to break cycles when deserializing types from the type server.
 // Only types returned from this factory should be used. and never cloned once returned from here.
 export class TypeShellFactory implements IPyrightTypeFactory {
-    readonly evaluator: IAsyncTypeEvaluator;
+    readonly evaluator: ITypeServerEvaluator;
 
-    constructor(
-        private readonly _cycleMap: Map<number, PyrightTypes.Type>,
-        private readonly _view: IAsyncProgramSnapshot
-    ) {
-        // Resolve the evaluator once for the pinned snapshot so the hot
-        // type-conversion path doesn't re-run the snapshot guard.
+    constructor(private readonly _cycleMap: Map<number, PyrightTypes.Type>, private readonly _view: IProgram) {
+        // Resolve the evaluator once so the hot type-conversion path doesn't
+        // allocate a fresh evaluator on every call.
         this.evaluator = _view.createEvaluator();
     }
 
-    get provider(): IAsyncProgramSnapshot {
+    get provider(): IProgram {
         return this._view;
     }
 
-    get symbolLookup(): IAsyncSymbolLookup {
+    get symbolLookup(): ISymbolLookup {
         return this._view.symbolLookup;
     }
 
@@ -54,12 +51,12 @@ export class TypeShellFactory implements IPyrightTypeFactory {
         return type;
     }
 
-    async getType(protocolType: TypeServerProtocol.Type): Promise<PyrightTypes.Type> {
+    getType(protocolType: TypeServerProtocol.Type): PyrightTypes.Type {
         if (protocolType.kind === TypeServerProtocol.TypeKind.TypeReference) {
             return this.getTypeReference(protocolType.typeReferenceId);
         }
 
-        return await fromProtocolType(protocolType, this, this.symbolLookup);
+        return fromProtocolType(protocolType, this, this.symbolLookup);
     }
 
     getTypeReference(typeReferenceId: number): PyrightTypes.Type {
@@ -93,7 +90,7 @@ function applyPrimitiveLiteralValue(type: PyrightTypes.Type, protocolType: TypeS
     return PyrightTypes.ClassType.cloneWithLiteral(type, lv as PyrightTypes.LiteralValue);
 }
 
-async function applyTypeFlagsOrUndefined(
+function applyTypeFlagsOrUndefined(
     type: PyrightTypes.Type | undefined,
     protocolType: TypeServerProtocol.Type,
     factory: TypeShellFactory
@@ -102,21 +99,21 @@ async function applyTypeFlagsOrUndefined(
         return type;
     }
 
-    return await applyTypeFlags(type, protocolType, factory);
+    return applyTypeFlags(type, protocolType, factory);
 }
 
-async function applyTypeFlags<T extends PyrightTypes.Type>(
+function applyTypeFlags<T extends PyrightTypes.Type>(
     type: T,
     protocolType: TypeServerProtocol.Type,
     factory: TypeShellFactory
-): Promise<T> {
+): T {
     let resolvedType = type;
 
     if (PyrightTypes.isClass(resolvedType) && isClass(protocolType) && protocolType.typeArgs) {
         const tspTypeArgs = protocolType.typeArgs;
         let classType: PyrightTypes.ClassType = resolvedType;
 
-        const resolvedTypeArgs = await fromProtocolTypesOrUndefined(tspTypeArgs, factory);
+        const resolvedTypeArgs = fromProtocolTypesOrUndefined(tspTypeArgs, factory);
 
         if (
             tspTypeArgs.length > 0 &&
@@ -178,54 +175,54 @@ async function applyTypeFlags<T extends PyrightTypes.Type>(
     return resolvedType;
 }
 
-async function applyTypeArgs(type: TypeServerProtocol.Type, factory: TypeShellFactory) {
+function applyTypeArgs(type: TypeServerProtocol.Type, factory: TypeShellFactory) {
     if (!isClass(type)) {
         return;
     }
 
-    await fromProtocolTypesOrUndefined(type.typeArgs, factory);
+    fromProtocolTypesOrUndefined(type.typeArgs, factory);
 }
 
-async function fromProtocolTypeAliasInfo(
+function fromProtocolTypeAliasInfo(
     info: TypeServerProtocol.TypeAliasInfo | undefined,
     factory: TypeShellFactory
-): Promise<void> {
+): void {
     if (!info) {
         return;
     }
 
-    await fromProtocolTypesOrUndefined(info.typeParams, factory);
-    await fromProtocolTypesOrUndefined(info.typeArgs, factory);
+    fromProtocolTypesOrUndefined(info.typeParams, factory);
+    fromProtocolTypesOrUndefined(info.typeArgs, factory);
 }
 
-async function fromProtocolLiteralValue(
+function fromProtocolLiteralValue(
     value: TypeServerProtocol.LiteralValue | undefined,
     factory: TypeShellFactory,
-    symbolLookup: IAsyncSymbolLookup
-): Promise<void> {
+    symbolLookup: ISymbolLookup
+): void {
     if (value === undefined) {
         return;
     }
 
     if (isEnumLiteral(value)) {
-        await fromProtocolType(value.itemType, factory, symbolLookup);
+        fromProtocolType(value.itemType, factory, symbolLookup);
     }
 }
 
-async function fromProtocolSpecializedFunctionTypesOrUndefined(
+function fromProtocolSpecializedFunctionTypesOrUndefined(
     specializedTypes: TypeServerProtocol.SpecializedFunctionTypes | undefined,
     factory: TypeShellFactory
-): Promise<void> {
+): void {
     if (!specializedTypes) {
         return undefined;
     }
 
-    await fromProtocolTypes(specializedTypes.parameterTypes, factory);
-    await fromProtocolTypeOrUndefined(specializedTypes.returnType, factory);
+    fromProtocolTypes(specializedTypes.parameterTypes, factory);
+    fromProtocolTypeOrUndefined(specializedTypes.returnType, factory);
 
     if (specializedTypes.parameterDefaultTypes) {
-        await forEach(specializedTypes.parameterDefaultTypes, async (t) => {
-            await fromProtocolTypeOrUndefined(t, factory);
+        forEach(specializedTypes.parameterDefaultTypes, (t) => {
+            fromProtocolTypeOrUndefined(t, factory);
         });
     }
 }
@@ -234,16 +231,16 @@ async function fromProtocolSpecializedFunctionTypesOrUndefined(
 // evaluate it once and cache it on the snapshot. The cache is bounded by the
 // snapshot lifetime and dropped on snapshot increment, so cached entries
 // always reflect the current parse tree.
-async function getOrEvaluateDeclType(
+function getOrEvaluateDeclType(
     factory: TypeShellFactory,
     decl: PyrightDeclaration
-): Promise<{ type: PyrightTypes.Type | undefined }> {
+): { type: PyrightTypes.Type | undefined } {
     const cached = factory.provider.getCachedTypeForDeclaration(decl);
     if (cached) {
         return { type: cached };
     }
 
-    const result = await factory.evaluator.getTypeForDeclaration(decl);
+    const result = factory.evaluator.getTypeForDeclaration(decl);
     if (result.type) {
         factory.provider.setCachedTypeForDeclaration(decl, result.type);
     }
@@ -384,11 +381,11 @@ function isTypedDictImportedFromTyping(node: PyrightNodes.ParseNode): boolean {
 // types like `int` whose source it doesn't track). In that case
 // `fromProtocolNode` throws; fall back to any available parsed module's tree
 // so callers can still use it as an anchor for `buildTypeFromDisplay`.
-async function getNodeForProtocolDeclSafe(
+function getNodeForProtocolDeclSafe(
     protocolNode: TypeServerProtocol.Node,
     factory: TypeShellFactory,
     hints: PyrightNodes.ParseNodeType[]
-): Promise<PyrightNodes.ParseNode | undefined> {
+): PyrightNodes.ParseNode | undefined {
     if (protocolNode?.uri) {
         try {
             return fromProtocolNode<PyrightNodes.ParseNode>(protocolNode, factory.provider, hints);
@@ -398,7 +395,7 @@ async function getNodeForProtocolDeclSafe(
     }
 
     // Find builtins as our default parse tree.
-    const builtins = await factory.provider.resolveImport(
+    const builtins = factory.provider.resolveImport(
         factory.provider.rootPath,
         { nameParts: ['builtins'], leadingDots: 0 },
         CancellationToken.None
@@ -420,17 +417,17 @@ async function getNodeForProtocolDeclSafe(
 // snapshot-scoped protocol-decl cache so we don't re-run `lookupSymbol` for
 // the same TSP declaration during a single conversion session. Misses fall
 // through to `fromProtocolDecl` and the result (if any) is cached.
-async function getOrFetchProtocolDecl(
+function getOrFetchProtocolDecl(
     tspDecl: TypeServerProtocol.Declaration,
     factory: TypeShellFactory,
-    symbolLookup: IAsyncSymbolLookup
-): Promise<PyrightDeclaration | undefined> {
+    symbolLookup: ISymbolLookup
+): PyrightDeclaration | undefined {
     const cached = factory.provider.getCachedProtocolDecl(tspDecl);
     if (cached) {
         return cached;
     }
 
-    const decl = await fromProtocolDecl(tspDecl, factory.provider, symbolLookup);
+    const decl = fromProtocolDecl(tspDecl, factory.provider, symbolLookup);
     if (decl) {
         factory.provider.setCachedProtocolDecl(tspDecl, decl);
     }
@@ -517,11 +514,11 @@ function preserveClassMembers(
     return newType;
 }
 
-async function convertPropertyFunctionType(
+function convertPropertyFunctionType(
     decl: PyrightDeclaration,
     resolvedType: PyrightTypes.Type | undefined,
     factory: TypeShellFactory
-): Promise<PyrightTypes.Type | undefined> {
+): PyrightTypes.Type | undefined {
     if (
         !resolvedType ||
         decl.type !== DeclarationType.Function ||
@@ -535,27 +532,27 @@ async function convertPropertyFunctionType(
         return resolvedType;
     }
 
-    const propertyType = await factory.evaluator.getBuiltInType(decl.node, 'property');
+    const propertyType = factory.evaluator.getBuiltInType(decl.node, 'property');
     if (PyrightTypes.isClass(propertyType)) {
         return PyrightTypes.ClassType.cloneAsInstance(propertyType);
     }
 
-    const fallbackPropertyType = await buildTypeFromDisplay(decl.node, 'property', factory.evaluator);
+    const fallbackPropertyType = buildTypeFromDisplay(decl.node, 'property', factory.evaluator);
     return PyrightTypes.isClass(fallbackPropertyType)
         ? PyrightTypes.ClassType.cloneAsInstance(fallbackPropertyType)
         : resolvedType;
 }
 
-async function fromProtocolType(
+function fromProtocolType(
     protocolType: TypeServerProtocol.Type,
     factory: TypeShellFactory,
-    symbolLookup: IAsyncSymbolLookup
-): Promise<PyrightTypes.Type> {
+    symbolLookup: ISymbolLookup
+): PyrightTypes.Type {
     switch (protocolType.kind) {
         case TypeServerProtocol.TypeKind.BuiltIn: {
             switch (protocolType.name) {
                 case 'unknown': {
-                    const possibleType = await fromProtocolTypeOrUndefined(protocolType.possibleType, factory);
+                    const possibleType = fromProtocolTypeOrUndefined(protocolType.possibleType, factory);
                     return factory.set(
                         protocolType,
                         possibleType
@@ -587,11 +584,11 @@ async function fromProtocolType(
                 return factory.set(protocolType, PyrightTypes.UnknownType.create());
             }
 
-            const decl = await getOrFetchProtocolDecl(protocolType.declaration, factory, symbolLookup);
+            const decl = getOrFetchProtocolDecl(protocolType.declaration, factory, symbolLookup);
             if (!decl && protocolType.declaration.kind !== TypeServerProtocol.DeclarationKind.Synthesized) {
                 // Compute the node at least.
                 const hints = getParseNodeTypesForDecl(protocolType.declaration);
-                const node = await getNodeForProtocolDeclSafe(protocolType.declaration.node, factory, hints);
+                const node = getNodeForProtocolDeclSafe(protocolType.declaration.node, factory, hints);
 
                 // Declaration not resolvable (e.g., typeshed files not parsed in ExternalProgram,
                 // or the external type server sent an empty declaration for a built-in type).
@@ -614,15 +611,15 @@ async function fromProtocolType(
                 }
 
                 if (className && node) {
-                    const fallbackType = await buildTypeFromDisplay(node, className, factory.evaluator);
+                    const fallbackType = buildTypeFromDisplay(node, className, factory.evaluator);
                     let type =
-                        (await applyTypeFlagsOrUndefined(fallbackType, protocolType, factory)) ??
+                        applyTypeFlagsOrUndefined(fallbackType, protocolType, factory) ??
                         PyrightTypes.UnknownType.create();
                     // Apply primitive literal value if present (the Literal flag may not be set
                     // by all external type servers, so also check the literalValue field directly).
                     type = applyPrimitiveLiteralValue(type, protocolType);
                     factory.set(protocolType, type);
-                    await applyTypeArgs(protocolType, factory);
+                    applyTypeArgs(protocolType, factory);
                     return type;
                 }
                 return factory.set(protocolType, PyrightTypes.UnknownType.create());
@@ -632,7 +629,7 @@ async function fromProtocolType(
 
             let declType: Awaited<ReturnType<typeof factory.evaluator.getTypeForDeclaration>>;
             try {
-                declType = await getOrEvaluateDeclType(factory, decl);
+                declType = getOrEvaluateDeclType(factory, decl);
             } catch (evalErr) {
                 // Decorator evaluation (e.g., @dataclass) can crash in the stub context.
                 // Fall back to building a simple type from the declaration name.
@@ -641,14 +638,14 @@ async function fromProtocolType(
                         ? protocolType.declaration?.name
                         : undefined;
                 if (className) {
-                    const fallbackType = await buildTypeFromDisplay(decl.node, className, factory.evaluator);
+                    const fallbackType = buildTypeFromDisplay(decl.node, className, factory.evaluator);
                     if (fallbackType) {
                         let type =
-                            (await applyTypeFlagsOrUndefined(fallbackType, protocolType, factory)) ??
+                            applyTypeFlagsOrUndefined(fallbackType, protocolType, factory) ??
                             PyrightTypes.UnknownType.create();
                         type = applyPrimitiveLiteralValue(type, protocolType);
                         factory.set(protocolType, type);
-                        await applyTypeArgs(protocolType, factory);
+                        applyTypeArgs(protocolType, factory);
                         return type;
                     }
                 }
@@ -669,13 +666,13 @@ async function fromProtocolType(
                 expectedName &&
                 declType.type.shared.name !== expectedName
             ) {
-                const fallbackType = await buildTypeFromDisplay(decl.node, expectedName, factory.evaluator);
+                const fallbackType = buildTypeFromDisplay(decl.node, expectedName, factory.evaluator);
                 if (fallbackType) {
                     const type =
-                        (await applyTypeFlagsOrUndefined(fallbackType, protocolType, factory)) ??
+                        applyTypeFlagsOrUndefined(fallbackType, protocolType, factory) ??
                         PyrightTypes.UnknownType.create();
                     factory.set(protocolType, type);
-                    await applyTypeArgs(protocolType, factory);
+                    applyTypeArgs(protocolType, factory);
                     return type;
                 }
             }
@@ -691,7 +688,7 @@ async function fromProtocolType(
                 const fallbackName =
                     expectedName ??
                     (decl.node.nodeType === PyrightNodes.ParseNodeType.Class ? decl.node.d.name.d.value : undefined);
-                const fallbackType = await buildTypeFromDisplay(decl.node, fallbackName ?? 'object', factory.evaluator);
+                const fallbackType = buildTypeFromDisplay(decl.node, fallbackName ?? 'object', factory.evaluator);
                 if (PyrightTypes.isClass(fallbackType)) {
                     declType = { ...declType, type: preserveClassMembers(originalClass, fallbackType) };
                 }
@@ -747,16 +744,15 @@ async function fromProtocolType(
             }
 
             let type =
-                (await applyTypeFlagsOrUndefined(declType.type, protocolType, factory)) ??
-                PyrightTypes.UnknownType.create();
+                applyTypeFlagsOrUndefined(declType.type, protocolType, factory) ?? PyrightTypes.UnknownType.create();
             // Apply primitive literal value if present (the Literal flag may not be set
             // by all external type servers, so also check the literalValue field directly).
             type = applyPrimitiveLiteralValue(type, protocolType);
             factory.set(protocolType, type);
 
-            await applyTypeArgs(protocolType, factory);
-            await fromProtocolTypeAliasInfo(protocolType.typeAliasInfo, factory);
-            await fromProtocolLiteralValue(protocolType.literalValue, factory, symbolLookup);
+            applyTypeArgs(protocolType, factory);
+            fromProtocolTypeAliasInfo(protocolType.typeAliasInfo, factory);
+            fromProtocolLiteralValue(protocolType.literalValue, factory, symbolLookup);
 
             return type;
         }
@@ -765,11 +761,11 @@ async function fromProtocolType(
                 return factory.set(protocolType, PyrightTypes.UnknownType.create());
             }
 
-            const decl = await getOrFetchProtocolDecl(protocolType.declaration, factory, symbolLookup);
+            const decl = getOrFetchProtocolDecl(protocolType.declaration, factory, symbolLookup);
             if (!decl && protocolType.declaration.kind !== TypeServerProtocol.DeclarationKind.Synthesized) {
                 // Compute the node at least.
                 const hints = getParseNodeTypesForDecl(protocolType.declaration);
-                const node = await getNodeForProtocolDeclSafe(protocolType.declaration.node, factory, hints);
+                const node = getNodeForProtocolDeclSafe(protocolType.declaration.node, factory, hints);
                 // Declaration not resolvable (e.g., typeshed files not parsed in ExternalProgram).
                 // Fall back to building a type from the declaration name.
                 const funcName =
@@ -777,9 +773,9 @@ async function fromProtocolType(
                         ? protocolType.declaration.name
                         : undefined;
                 if (funcName && node) {
-                    const fallbackType = await buildTypeFromDisplay(node, funcName, factory.evaluator);
+                    const fallbackType = buildTypeFromDisplay(node, funcName, factory.evaluator);
                     const type =
-                        (await applyTypeFlagsOrUndefined(fallbackType, protocolType, factory)) ??
+                        applyTypeFlagsOrUndefined(fallbackType, protocolType, factory) ??
                         PyrightTypes.UnknownType.create();
                     factory.set(protocolType, type);
                     return type;
@@ -789,9 +785,9 @@ async function fromProtocolType(
                 return factory.set(protocolType, PyrightTypes.UnknownType.create());
             }
 
-            const declType = await getOrEvaluateDeclType(factory, decl);
+            const declType = getOrEvaluateDeclType(factory, decl);
             let resolvedType = declType.type;
-            resolvedType = (await convertPropertyFunctionType(decl, resolvedType, factory)) ?? resolvedType;
+            resolvedType = convertPropertyFunctionType(decl, resolvedType, factory) ?? resolvedType;
 
             // For @overload-decorated functions, getTypeForDeclaration returns the
             // post-decoration type. Decorator evaluation of `typing.overload` in
@@ -805,46 +801,44 @@ async function fromProtocolType(
                 decl.node.nodeType === PyrightNodes.ParseNodeType.Function &&
                 hasOverloadDecorator(decl.node)
             ) {
-                const funcResult = await factory.evaluator.getTypeOfFunction(decl.node as PyrightNodes.FunctionNode);
+                const funcResult = factory.evaluator.getTypeOfFunction(decl.node as PyrightNodes.FunctionNode);
                 if (funcResult?.functionType) {
                     resolvedType = funcResult.functionType;
                 }
             }
 
             const type =
-                (await applyTypeFlagsOrUndefined(resolvedType, protocolType, factory)) ??
-                PyrightTypes.UnknownType.create();
+                applyTypeFlagsOrUndefined(resolvedType, protocolType, factory) ?? PyrightTypes.UnknownType.create();
             factory.set(protocolType, type);
 
-            await fromProtocolTypeAliasInfo(protocolType.typeAliasInfo, factory);
-            await fromProtocolSpecializedFunctionTypesOrUndefined(protocolType.specializedTypes, factory);
-            await fromProtocolTypeOrUndefined(protocolType.boundToType, factory);
-            await fromProtocolTypeOrUndefined(protocolType.returnType, factory);
+            fromProtocolTypeAliasInfo(protocolType.typeAliasInfo, factory);
+            fromProtocolSpecializedFunctionTypesOrUndefined(protocolType.specializedTypes, factory);
+            fromProtocolTypeOrUndefined(protocolType.boundToType, factory);
+            fromProtocolTypeOrUndefined(protocolType.returnType, factory);
 
             return type;
         }
         case TypeServerProtocol.TypeKind.Declared: {
             // Fallback for other declared types (rare)
-            const decl = await getOrFetchProtocolDecl(protocolType.declaration, factory, symbolLookup);
+            const decl = getOrFetchProtocolDecl(protocolType.declaration, factory, symbolLookup);
             if (!decl) {
                 return factory.set(protocolType, PyrightTypes.UnknownType.create());
             }
 
-            const declType = await getOrEvaluateDeclType(factory, decl);
+            const declType = getOrEvaluateDeclType(factory, decl);
             const type =
-                (await applyTypeFlagsOrUndefined(declType.type, protocolType, factory)) ??
-                PyrightTypes.UnknownType.create();
+                applyTypeFlagsOrUndefined(declType.type, protocolType, factory) ?? PyrightTypes.UnknownType.create();
             factory.set(protocolType, type);
             return type;
         }
         case TypeServerProtocol.TypeKind.Union: {
-            const types = await fromProtocolTypes(protocolType.subTypes, factory);
+            const types = fromProtocolTypes(protocolType.subTypes, factory);
             const union = PyrightTypes.combineTypes(types);
 
-            const type = await applyTypeFlags(union, protocolType, factory);
+            const type = applyTypeFlags(union, protocolType, factory);
             factory.set(protocolType, type);
 
-            await fromProtocolTypeAliasInfo(protocolType.typeAliasInfo, factory);
+            fromProtocolTypeAliasInfo(protocolType.typeAliasInfo, factory);
             return type;
         }
         case TypeServerProtocol.TypeKind.Module: {
@@ -853,17 +847,17 @@ async function fromProtocolType(
                 convertLspUriStringToUri(protocolType.uri, factory.provider, factory.provider.uriMapper)
             );
 
-            const moduleType = await applyTypeFlags(type, protocolType, factory);
+            const moduleType = applyTypeFlags(type, protocolType, factory);
             factory.set(protocolType, moduleType);
             return moduleType;
         }
         case TypeServerProtocol.TypeKind.Overloaded: {
             const type = PyrightTypes.OverloadedType.create([]);
-            const overloadedType = await applyTypeFlags(type, protocolType, factory);
+            const overloadedType = applyTypeFlags(type, protocolType, factory);
             factory.set(protocolType, overloadedType);
 
-            await fromProtocolTypes(protocolType.overloads, factory);
-            await fromProtocolTypeOrUndefined(protocolType.implementation, factory);
+            fromProtocolTypes(protocolType.overloads, factory);
+            fromProtocolTypeOrUndefined(protocolType.implementation, factory);
 
             return overloadedType;
         }
@@ -889,7 +883,7 @@ async function fromProtocolType(
 
             // We also need to set any types for the metadata in the synthesized type
             if (protocolType.metadata.module) {
-                await fromProtocolType(protocolType.metadata.module, factory, symbolLookup);
+                fromProtocolType(protocolType.metadata.module, factory, symbolLookup);
             }
 
             return result;
@@ -913,9 +907,9 @@ async function fromProtocolType(
                     : undefined;
 
             if (protocolType.declaration) {
-                const decl = await getOrFetchProtocolDecl(protocolType.declaration, factory, symbolLookup);
+                const decl = getOrFetchProtocolDecl(protocolType.declaration, factory, symbolLookup);
                 if (decl) {
-                    const declType = await getOrEvaluateDeclType(factory, decl);
+                    const declType = getOrEvaluateDeclType(factory, decl);
                     resolvedType = declType.type;
 
                     if (
@@ -924,9 +918,9 @@ async function fromProtocolType(
                     ) {
                         const nameNode = decl.node;
                         if (nameNode.nodeType === PyrightNodes.ParseNodeType.Name) {
-                            const symbol = await symbolLookup.lookupSymbol(nameNode, nameNode.d.value);
+                            const symbol = symbolLookup.lookupSymbol(nameNode, nameNode.d.value);
                             if (symbol) {
-                                const effectiveType = await factory.evaluator.getEffectiveTypeOfSymbol(symbol);
+                                const effectiveType = factory.evaluator.getEffectiveTypeOfSymbol(symbol);
                                 if (PyrightTypes.isTypeVar(effectiveType)) {
                                     resolvedType = effectiveType;
                                 }
@@ -943,8 +937,7 @@ async function fromProtocolType(
             }
 
             const typeVar =
-                (await applyTypeFlagsOrUndefined(resolvedType, protocolType, factory)) ??
-                PyrightTypes.UnknownType.create();
+                applyTypeFlagsOrUndefined(resolvedType, protocolType, factory) ?? PyrightTypes.UnknownType.create();
 
             const finalType: PyrightTypes.Type = typeVar;
 

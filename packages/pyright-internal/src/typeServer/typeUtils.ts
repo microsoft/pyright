@@ -5,20 +5,9 @@
  * Collection of helper functions around types
  */
 
-import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import {
-    ClassType,
-    isAnyOrUnknown,
-    isClass,
-    isUnion as isUnionType,
-    Type,
-    TypeFlags,
-} from '../analyzer/types';
+import { ClassType, isAnyOrUnknown, isClass, isUnion as isUnionType, Type, TypeFlags } from '../analyzer/types';
 import { getClassMemberIterator, isOptionalType, MemberAccessFlags } from '../analyzer/typeUtils';
-import { isThenable } from '../common/core';
-import { ExpressionNode, FunctionNode, ParameterNode } from '../parser/parseNodes';
-
-import { IAsyncTypeEvaluator } from './asyncTypeEvaluatorTypes';
+import { FunctionNode, ParameterNode } from '../parser/parseNodes';
 
 export function isOptional(type: Type) {
     // Both `typing.Optional` and `T | None` is considered as Optional
@@ -87,24 +76,4 @@ export interface TypeMember {
 
 export function isTypeFlagSet(flags: TypeFlags, flag: TypeFlags): boolean {
     return (flags & flag) === flag;
-}
-
-export function getTypeWithConcreteTopLevelTypeVars(evaluator: TypeEvaluator, node: ExpressionNode): Type | undefined;
-export function getTypeWithConcreteTopLevelTypeVars(
-    evaluator: IAsyncTypeEvaluator,
-    node: ExpressionNode
-): Promise<Type | undefined>;
-export function getTypeWithConcreteTopLevelTypeVars(
-    evaluator: TypeEvaluator | IAsyncTypeEvaluator,
-    node: ExpressionNode
-): Type | undefined | Promise<Type | undefined> {
-    const typeOrPromise = evaluator.getType(node);
-
-    if (isThenable<Type | undefined>(typeOrPromise)) {
-        return Promise.resolve(typeOrPromise).then((type) =>
-            type ? evaluator.makeTopLevelTypeVarsConcrete(type) : undefined
-        );
-    }
-
-    return typeOrPromise ? evaluator.makeTopLevelTypeVarsConcrete(typeOrPromise) : undefined;
 }

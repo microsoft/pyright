@@ -2,11 +2,19 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * asyncWrapper.ts
+ * programWrapper.ts
  *
- * Defines a wrapper around the Program class to provide an async interface for the language server.
+ * Wraps Pyright's `Program` in the `IProgram` interface the type server consumes.
  *
- * This allows us to have a single interface for talking to the program, regardless of whether it's actually async or not.
+ * The wrapper is thin: every method delegates synchronously to the underlying `Program`.
+ * It exists to (a) present the `IProgram` contract the conversion layer is written against,
+ * (b) reshape Pyright types (`SourceFileInfo`, `ParseFileResults`, `SourceMapper`) into the
+ * type-server-facing shapes, and (c) maintain a monotonic `snapshot` content-version counter
+ * (on the shared `ITypeCache`) that the server exposes to clients for cache coherence.
+ *
+ * Cancellation is handled the same way as everywhere else in Pyright: work runs inside
+ * `runWithCancellationToken`, and the evaluator polls the token, so long-running synchronous
+ * queries can be interrupted mid-request.
  */
 import { TypeServerProtocol } from './protocol/typeServerProtocol';
 import { CancellationToken, Diagnostic, DocumentDiagnosticReport, FileEvent } from 'vscode-languageserver-protocol';
@@ -38,7 +46,6 @@ import { SourceFileInfo } from '../analyzer/sourceFileInfo';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import { ensureExpectedTypeCandidates, ExpectedTypeResult } from '../analyzer/typeEvaluatorTypes';
 import { isClass, isFunctionOrOverloaded, Type } from '../analyzer/types';
-import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { FileEditAction } from '../common/editAction';
@@ -52,8 +59,7 @@ import { isFile } from '../common/uri/uriUtils';
 import { isExpressionNode, ModuleNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParserOutput } from '../parser/parser';
 
-import { createTypeEvaluator } from './syncEvaluatorAdapter';
-import { IAsyncTypeEvaluator } from './asyncTypeEvaluatorTypes';
+import { createTypeServerEvaluator, ITypeServerEvaluator } from './typeServerEvaluator';
 import { getEffectiveTypeOfDeclaration, isDeclaration } from './typeEvalUtils';
 import { convertFromPyrightDiagnostic } from './diagnosticUtils';
 import { INotebookUriMapper, NotebookUriMapper } from './notebookUriMapper';
@@ -63,67 +69,29 @@ import { TypeServerServiceKeys } from './typeServerServiceKeys';
 import { findFirstExpression } from './typeServerConversionUtils';
 import { ProfilingInfo } from './profilingStub';
 import { ServerCanceledException } from './cancellation';
-import {
-    IAsyncProgram,
-    IAsyncProgramHost,
-    IAsyncProgramSnapshot,
-    IAsyncSourceFileInfo,
-    IAsyncSourceMapper,
-    IAsyncSymbolLookup,
-    ParseResults,
-    PropertyBag,
-    PropertyKey,
-} from './programTypes';
+import { IProgram, ISourceFileInfo, ISourceMapper, ISymbolLookup, ParseResults } from './programTypes';
 import { ITypeCache, TypeCache } from './typeCache';
 
-class AsyncWrapperPropertyBag implements PropertyBag {
-    private _map = new Map<PropertyKey<any>, any>();
-
-    get<T>(key: PropertyKey<T>): T | undefined {
-        return this._map.get(key);
-    }
-    getOrAdd<T>(key: PropertyKey<T>): T {
-        if (!this._map.has(key)) {
-            this._map.set(key, key.create());
-        }
-        return this._map.get(key);
-    }
-    remove<T>(key: PropertyKey<T>): void {
-        this._map.delete(key);
-    }
-}
-
 /**
- * Adapter that lets the in-proc Pyright `Program` (which is mutable and has
- * no native snapshot concept) satisfy the same `IAsyncProgram` contract as
- * `ExternalProgram`. This is *not* a real snapshot:
+ * Adapter that lets the in-proc Pyright `Program` (which is mutable and has no
+ * native snapshot concept) satisfy the `IProgram` contract the type server's
+ * conversion layer is written against.
  *
- *   - `runAsync` runs the callback over the live mutable `Program` via
- *     `_program.run(...)`. There is no copy-on-write.
- *   - `_createSnapshotWrapper()` returns a per-call view object pinned to
- *     the current `_snapshotVersion` counter; mutators bump the counter so
- *     stale snapshot consumers can fail fast.
- *   - Cross-call state (`_globalDataCache`, `_declTypeCache`, `_addedStubs`,
- *     …) lives on the wrapper, not on the snapshot view, because the
- *     underlying `Program` has nowhere to put it.
- *
- * The "snapshot out of sync" throw that you see in callers is part of this
- * compromise: it exists so the in-proc path can detect that the underlying
- * `Program` was mutated between snapshot creation and use. Real snapshots
- * (`ExternalProgramSnapshot`) cannot become out of sync because their state
- * is immutable.
- *
- * Treat `AsyncWrapper` as a migration scaffold: once the external type
- * server is the only backend and the in-proc `Program` path is retired,
- * this class, `makeAsync()`, the snapshot-version counter, the monkey-
- * patched mutators, and the out-of-sync throw can all be deleted. Until
- * then, every `IAsyncProgram` caller has to be safe on both backends.
+ *   - `run` runs the callback over the live `Program` via `_program.run(...)`.
+ *     Because Pyright's evaluator is synchronous the callback executes atomically,
+ *     so it simply receives `this` — there is no copy-on-write snapshot view.
+ *   - A monotonic `snapshot` counter (on the shared `ITypeCache`) is bumped by the
+ *     mutating methods below. It is a protocol-level content version: the server
+ *     hands it to clients via `typeServer/getSnapshot`, rejects stale requests at
+ *     the request boundary, and fires `SnapshotChangedNotification` on change.
+ *   - Cross-request state (`_declTypeCache`, `_protocolDeclCache`, `_addedStubs`, …)
+ *     lives on the wrapper, not on the `Program`, which has nowhere to put it, and
+ *     is invalidated when the snapshot increments.
  */
-export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
+export class ProgramWrapper implements IProgram {
     private _cachedSearchPaths: Uri[] | undefined;
     private _declTypeCache: WeakMap<ParseNode, Type> = new WeakMap();
     private _protocolDeclCache: Map<string, Declaration> = new Map();
-    private _propertyBag: AsyncWrapperPropertyBag = new AsyncWrapperPropertyBag();
     private _disableSnapshotIncrement = false;
     private _addedStubs = new UriMap<boolean>();
     private _inEditMode = false;
@@ -160,22 +128,14 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         this._program.setConfigOptions = (configOptions: ConfigOptions) => {
             originalSetConfigOptions(configOptions);
             this._cachedSearchPaths = undefined;
-            this._propertyBag = new AsyncWrapperPropertyBag();
             this._incrementSnapshot();
         };
         const originalSetImportResolver = this._program.setImportResolver.bind(this._program);
         this._program.setImportResolver = (importResolver) => {
             originalSetImportResolver(importResolver);
             this._cachedSearchPaths = undefined;
-            this._propertyBag = new AsyncWrapperPropertyBag();
             this._incrementSnapshot();
         };
-    }
-    get properties(): PropertyBag {
-        return this._propertyBag;
-    }
-    get snapshot(): number {
-        return this._cache.snapshot;
     }
     get id(): string {
         return this._program.id;
@@ -218,61 +178,53 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         return true;
     }
 
-    get symbolLookup(): IAsyncSymbolLookup {
-        const symbolLookup: IAsyncSymbolLookup = {
-            getFileInfo: (node: ParseNode): Promise<AnalyzerFileInfo> => {
+    get symbolLookup(): ISymbolLookup {
+        const symbolLookup: ISymbolLookup = {
+            getFileInfo: (node: ParseNode): AnalyzerFileInfo => {
                 // Ensure the file is bound before reading AnalyzerInfo off the node.
                 // Without this, nodes from files that haven't been bound yet (e.g.
                 // freshly-discovered modules during a code-action request) return
                 // undefined fileInfo and crash downstream readers.
                 const fileUri = this._cache.getUri(node);
                 this._program.getBoundSourceFileInfo(fileUri);
-                const fileInfo = getFileInfo(node);
-                return Promise.resolve(fileInfo);
+                return getFileInfo(node);
             },
-            getImportInfo: (node: ParseNode): Promise<ImportResult | undefined> => {
-                const importInfo = getImportInfo(node);
-                return Promise.resolve(importInfo);
+            getImportInfo: (node: ParseNode): ImportResult | undefined => {
+                return getImportInfo(node);
             },
-            getDeclaration: (node: ParseNode): Promise<Declaration | undefined> => {
-                const declaration = getDeclaration(node);
-                return Promise.resolve(declaration);
+            getDeclaration: (node: ParseNode): Declaration | undefined => {
+                return getDeclaration(node);
             },
-            getFlowNode: (node: ParseNode): Promise<FlowNode | undefined> => {
-                const flowNode = getFlowNode(node);
-                return Promise.resolve(flowNode);
+            getFlowNode: (node: ParseNode): FlowNode | undefined => {
+                return getFlowNode(node);
             },
             getScope(node) {
-                const scope = getScope(node);
-                return Promise.resolve(scope);
+                return getScope(node);
             },
-            getScopeIdForNode(node: ParseNode): Promise<string> {
-                return Promise.resolve(getScopeIdForNode(node));
+            getScopeIdForNode(node: ParseNode): string {
+                return getScopeIdForNode(node);
             },
-            getDunderAllInfo(node: ModuleNode): Promise<DunderAllInfo | undefined> {
-                const dunderAllInfo = getDunderAllInfo(node);
-                return Promise.resolve(dunderAllInfo);
+            getDunderAllInfo(node: ModuleNode): DunderAllInfo | undefined {
+                return getDunderAllInfo(node);
             },
-            getSymbolsForFile: (fileUri: Uri, skipFileNeededCheck = false): Promise<SymbolTable | undefined> => {
-                // Sync-wrapper path: the underlying sync `Program` has only one
-                // version of any file, and there is no snapshot view to pin to.
-                // Keep parity with the async type-server-backed implementation:
-                // callers expect this to return a symbol table even if the file
-                // hasn't been analyzed yet. Ensure the file is present and bound.
+            getSymbolsForFile: (fileUri: Uri, skipFileNeededCheck = false): SymbolTable | undefined => {
+                // The underlying sync `Program` has only one version of any file, and there is
+                // no snapshot view to pin to. Callers expect this to return a symbol table even
+                // if the file hasn't been analyzed yet, so ensure the file is present and bound.
                 this._program.addInterimFile(fileUri);
                 this._program.getBoundSourceFileInfo(fileUri, undefined, skipFileNeededCheck);
-                return Promise.resolve(this._program.getModuleSymbolTable(fileUri));
+                return this._program.getModuleSymbolTable(fileUri);
             },
-            getSymbolsForNode: (node: ParseNode): Promise<SymbolTable | undefined> => {
+            getSymbolsForNode: (node: ParseNode): SymbolTable | undefined => {
                 const scope = getScopeForNode(node);
-                return Promise.resolve(scope?.symbolTable);
+                return scope?.symbolTable;
             },
             lookupSymbol: (
                 scopingNode: ParseNode,
                 name: string,
                 _skipFileNeededCheck?: boolean
-            ): Promise<Symbol | undefined> => {
-                return Promise.resolve(getSymbolFromScope(scopingNode, name));
+            ): Symbol | undefined => {
+                return getSymbolFromScope(scopingNode, name);
             },
             getMatchingFileInfos: (fileId: string): AnalyzerFileInfo[] => {
                 const parseTrees = this._program
@@ -286,15 +238,7 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         return symbolLookup;
     }
 
-    waitForReady(): Promise<IAsyncProgramSnapshot> {
-        // The internal program is always ready, so this is a no-op.
-        return Promise.resolve(this._createSnapshotWrapper());
-    }
-
-    async runEditModeAsync<T>(
-        callback: (p: IAsyncProgram) => Promise<T>,
-        token: CancellationToken
-    ): Promise<FileEditAction[]> {
+    runEditMode<T>(callback: (p: IProgram) => T, token: CancellationToken): FileEditAction[] {
         let results: FileEditAction[] = [];
         if (this._inEditMode) {
             throw new ServerCanceledException();
@@ -302,7 +246,7 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         this._inEditMode = true;
         this._program.enterEditMode();
         try {
-            await this._program.evaluator?.runWithCancellationToken(token, () => callback(this));
+            this._program.evaluator?.runWithCancellationToken(token, () => callback(this));
         } finally {
             results = this._program.exitEditMode();
             this._inEditMode = false;
@@ -315,12 +259,12 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
     exitEditMode(): FileEditAction[] {
         return this._program.exitEditMode();
     }
-    async runAsync<T>(callback: (p: IAsyncProgramSnapshot) => Promise<T>, token: CancellationToken): Promise<T> {
-        return await this._program.run((v) => callback(this._createSnapshotWrapper()), token);
+    run<T>(callback: (p: IProgram) => T, token: CancellationToken): T {
+        return this._program.run(() => callback(this), token);
     }
 
-    createEvaluator(): IAsyncTypeEvaluator {
-        return createTypeEvaluator(this._program, this.symbolLookup);
+    createEvaluator(): ITypeServerEvaluator {
+        return createTypeServerEvaluator(this._program, this.symbolLookup);
     }
 
     getCachedTypeForDeclaration(decl: Declaration): Type | undefined {
@@ -338,36 +282,36 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
     setCachedProtocolDecl(tspDecl: TypeServerProtocol.Declaration, decl: Declaration): void {
         this._protocolDeclCache.set(getProtocolDeclKey(tspDecl), decl);
     }
-    async getSourceMapper(
+    getSourceMapper(
         fileUri: Uri,
         mapCompiled: boolean,
         preferStubs: boolean,
         token: CancellationToken
-    ): Promise<IAsyncSourceMapper | undefined> {
+    ): ISourceMapper | undefined {
         const sourceMapper = this._program.getSourceMapper(fileUri, token, mapCompiled, preferStubs);
-        const wrapper: IAsyncSourceMapper = {
-            findDeclarations: async (decl: Declaration) => {
+        const wrapper: ISourceMapper = {
+            findDeclarations: (decl: Declaration) => {
                 return sourceMapper ? sourceMapper.findDeclarations(decl) : [];
             },
-            findDeclarationsByType: async (originatedPath, type, useTypeAlias) => {
+            findDeclarationsByType: (originatedPath, type, useTypeAlias) => {
                 return sourceMapper ? sourceMapper.findDeclarationsByType(originatedPath, type, useTypeAlias) : [];
             },
-            findClassDeclarationsByType: async (uri, type) => {
+            findClassDeclarationsByType: (uri, type) => {
                 return sourceMapper ? sourceMapper.findClassDeclarationsByType(uri, type) : [];
             },
-            findFunctionDeclarations: async (decl: FunctionDeclaration) => {
+            findFunctionDeclarations: (decl: FunctionDeclaration) => {
                 return sourceMapper ? sourceMapper.findFunctionDeclarations(decl) : [];
             },
-            getSourcePathsFromStub: async (stubUri: Uri, fromFile: Uri | undefined) => {
+            getSourcePathsFromStub: (stubUri: Uri, fromFile: Uri | undefined) => {
                 return sourceMapper ? sourceMapper.getSourcePathsFromStub(stubUri, fromFile) : [];
             },
-            getModuleNode: async (uri: Uri) => {
+            getModuleNode: (uri: Uri) => {
                 return sourceMapper ? sourceMapper.getModuleNode(uri) : undefined;
             },
-            findModules: async (stubFile: Uri) => {
+            findModules: (stubFile: Uri) => {
                 return sourceMapper ? sourceMapper.findModules(stubFile) : [];
             },
-            getFileInfo: async (node) => {
+            getFileInfo: (node) => {
                 // Ensure the file is bound before reading AnalyzerInfo off the node.
                 const fileUri = this._cache.getUri(node);
                 this._program.getBoundSourceFileInfo(fileUri);
@@ -413,13 +357,7 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         }
     }
 
-    async getComputedType(
-        arg: ParseNode | Declaration,
-        snapshot: number,
-        token: CancellationToken
-    ): Promise<Type | undefined> {
-        this._throwIfOutOfDate(snapshot, token);
-
+    getComputedType(arg: ParseNode | Declaration, token: CancellationToken): Type | undefined {
         const result = this._program.run((p) => {
             if (isDeclaration(arg)) {
                 return getEffectiveTypeOfDeclaration(p.evaluator, arg);
@@ -436,13 +374,7 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         return this._massageTypeResult(result);
     }
 
-    async getExpectedType(
-        arg: ParseNode | Declaration,
-        snapshot: number,
-        token: CancellationToken
-    ): Promise<ExpectedTypeResult | undefined> {
-        this._throwIfOutOfDate(snapshot, token);
-
+    getExpectedType(arg: ParseNode | Declaration, token: CancellationToken): ExpectedTypeResult | undefined {
         const result = this._program.run((p) => {
             if (isDeclaration(arg)) {
                 const type = p.evaluator?.getTypeForDeclaration(arg)?.type;
@@ -464,13 +396,7 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
 
         return this._massageExpectedTypeResult(result);
     }
-    async getDeclaredType(
-        arg: ParseNode | Declaration,
-        snapshot: number,
-        token: CancellationToken
-    ): Promise<Type | undefined> {
-        this._throwIfOutOfDate(snapshot, token);
-
+    getDeclaredType(arg: ParseNode | Declaration, token: CancellationToken): Type | undefined {
         const result = this._program.run((p) => {
             if (isDeclaration(arg)) {
                 return p.evaluator?.getTypeForDeclaration(arg)?.type;
@@ -487,42 +413,37 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         return this._massageTypeResult(result);
     }
 
-    async startProfiling(): Promise<ProfilingInfo | undefined> {
+    startProfiling(): ProfilingInfo | undefined {
         const localProfiler = this.serviceProvider.tryGet(TypeServerServiceKeys.profilingService);
-        const localPromise = localProfiler?.startProfiling();
-        const results = localPromise ? await localPromise : undefined;
-        return results;
+        return localProfiler?.startProfiling();
     }
 
-    async stopProfiling(): Promise<ProfilingInfo | undefined> {
+    stopProfiling(): ProfilingInfo | undefined {
         const localProfiler = this.serviceProvider.tryGet(TypeServerServiceKeys.profilingService);
-        const localPromise = localProfiler?.stopProfiling();
-        const results = localPromise ? await localPromise : undefined;
-        return results;
+        return localProfiler?.stopProfiling();
     }
 
-    async startWorkspaceDiagnostics(partialResultToken: string): Promise<void> {
+    startWorkspaceDiagnostics(partialResultToken: string): void {
         // No-op for internal program
     }
 
-    async stopWorkspaceDiagnostics(): Promise<void> {
+    stopWorkspaceDiagnostics(): void {
         // No-op for internal program
     }
 
-    getPythonSearchPaths(snapshot: number, token: CancellationToken): Promise<Uri[] | undefined> {
-        this._throwIfOutOfDate(snapshot, token);
+    getPythonSearchPaths(token: CancellationToken): Uri[] | undefined {
         const execEnv = this._getExecEnv(this._program.rootPath);
         if (!this._cachedSearchPaths) {
             this._cachedSearchPaths = this._program.importResolver.getImportRoots(execEnv);
         }
-        return Promise.resolve(this._cachedSearchPaths);
+        return this._cachedSearchPaths;
     }
 
     lookupImport(
         fileUriOrModule: Uri | AbsoluteModuleDescriptor,
         options?: LookupImportOptions
-    ): Promise<ImportLookupResult | undefined> {
-        return Promise.resolve(this._program.lookUpImport(fileUriOrModule, options));
+    ): ImportLookupResult | undefined {
+        return this._program.lookUpImport(fileUriOrModule, options);
     }
 
     owns(uri: Uri): boolean {
@@ -551,10 +472,9 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         if (!results) {
             return undefined;
         }
-        // Sync `ProgramView.getParseResults` returns the upstream
-        // `ParseFileResults`; the Pylance `ParseResults` adds `moduleName`
-        // and `uri`. Synthesize them so the sync wrapper satisfies the
-        // shared `IAsyncProgram` contract used by snapshot-aware callers.
+        // Sync `ProgramView.getParseResults` returns the upstream `ParseFileResults`; the
+        // type server's `ParseResults` adds `moduleName` and `uri`. Synthesize them so the
+        // wrapper satisfies the shared `IProgram` contract used by snapshot-aware callers.
         return {
             ...results,
             moduleName: this.getModuleName(fileUri) ?? '',
@@ -638,10 +558,10 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         );
         return moduleNameAndType.moduleName || undefined;
     }
-    getSourceFileInfo(fileUri: Uri): IAsyncSourceFileInfo | undefined {
+    getSourceFileInfo(fileUri: Uri): ISourceFileInfo | undefined {
         const result = this._program.getSourceFileInfo(fileUri);
         if (result) {
-            return this._makeAsyncSourceFileInfo(result);
+            return this._makeSourceFileInfo(result);
         }
         return undefined;
     }
@@ -650,10 +570,10 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         // simple existence check is safe.
         return !!this._program.getSourceFileInfo(fileUri);
     }
-    getTrackedFileList(): readonly IAsyncSourceFileInfo[] {
-        return this._program.getSourceFileInfoList().map((s) => this._makeAsyncSourceFileInfo(s));
+    getTrackedFileList(): readonly ISourceFileInfo[] {
+        return this._program.getSourceFileInfoList().map((s) => this._makeSourceFileInfo(s));
     }
-    async updateFileContents(uri: Uri, newContents: string) {
+    updateFileContents(uri: Uri, newContents: string): void {
         let fileInfo = this._program.getSourceFileInfo(uri);
         if (!fileInfo) {
             fileInfo = this._program.addInterimFile(uri);
@@ -664,10 +584,6 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
             const ipythonMode = fileInfo ? fileInfo.ipythonMode : IPythonMode.None;
             this._program.setFileOpened(uri, version + 1, newContents, { chainedFileUri, ipythonMode });
         }
-    }
-    waitForPendingUpdates(token: CancellationToken): Promise<void> {
-        // Nothing to do here as everthing is synchronous.
-        return Promise.resolve();
     }
 
     addTrackedFile(uri: Uri, isThirdPartyImport: boolean, isInPyTypedPackage: boolean): void {
@@ -682,16 +598,14 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         this._program.handleMemoryHighUsage();
     }
 
-    getSnapshot(token: CancellationToken): Promise<number> {
-        return Promise.resolve(this._cache.snapshot);
+    getSnapshot(token: CancellationToken): number {
+        return this._cache.snapshot;
     }
     getDocumentDiagnostics(
         uri: Uri,
-        snapshot: number,
         previousResultId: string | undefined,
         token: CancellationToken
-    ): Promise<DocumentDiagnosticReport> {
-        this._throwIfOutOfDate(snapshot, token);
+    ): DocumentDiagnosticReport {
         const sourceFile = this._program.getSourceFile(uri);
         if (sourceFile) {
             // Analyze the file if it needs to be analyzed
@@ -712,15 +626,13 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
                 .map((d) => convertFromPyrightDiagnostic(d, this._program.fileSystem, true, true) || d);
             versionStr = sourceFile.getDiagnosticVersion().toString();
         }
-        return Promise.resolve({ kind: 'full', resultId: versionStr, items: diagnostics });
+        return { kind: 'full', resultId: versionStr, items: diagnostics };
     }
     resolveImport(
         source: Uri,
         moduleDescriptor: TypeServerProtocol.ModuleName,
-        snapshot: number,
         token: CancellationToken
-    ): Promise<Uri | undefined> {
-        this._throwIfOutOfDate(snapshot, token);
+    ): Uri | undefined {
         const realModuleDescriptor: ImportedModuleDescriptor = {
             ...moduleDescriptor,
             importedSymbols: new Set<string>(),
@@ -733,129 +645,19 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         const uris = results.resolvedUris.filter((uri) => uri !== undefined && !uri.isEmpty());
         if (uris && results.isImportFound) {
             // Make sure to pick the last one. It's the most specific.
-            return Promise.resolve(uris[uris.length - 1]);
+            return uris[uris.length - 1];
         }
-        return Promise.resolve(undefined);
+        return undefined;
     }
     changedWatchedFiles(changes: FileEvent[]): void {
         // Not necessary for the normal program.
     }
-    addInterimFile(uri: Uri) {
+    addInterimFile(uri: Uri): IProgram {
         this._program.addInterimFile(uri);
-        return this._createSnapshotWrapper();
+        return this;
     }
     dispose(): void {
         // Don't dispose of the program. The caller is responsible for that.
-    }
-
-    private _createSnapshotWrapper(): IAsyncProgramSnapshot {
-        const that = this;
-        const snapshot = this._cache.snapshot;
-        const fileDataCache = new UriMap<Map<string, any>>();
-        const wrapper: IAsyncProgramSnapshot = {
-            snapshot,
-            host: that,
-            getComputedType: (arg: ParseNode | Declaration, token: CancellationToken) =>
-                that.getComputedType(arg, snapshot, token),
-            getExpectedType: (arg: ParseNode | Declaration, token: CancellationToken) =>
-                that.getExpectedType(arg, snapshot, token),
-            getDeclaredType: (arg: ParseNode | Declaration, token: CancellationToken) =>
-                that.getDeclaredType(arg, snapshot, token),
-            resolveImport: (source: Uri, moduleDescriptor: TypeServerProtocol.ModuleName, token: CancellationToken) =>
-                that.resolveImport(source, moduleDescriptor, snapshot, token),
-            getPythonSearchPaths: (token: CancellationToken) => that.getPythonSearchPaths(snapshot, token),
-            getSourceMapper: (fileUri: Uri, mapCompiled: boolean, preferStubs: boolean, token: CancellationToken) =>
-                that.getSourceMapper(fileUri, mapCompiled, preferStubs, token),
-            getDocumentDiagnostics: (uri: Uri, previousResultId: string | undefined, token: CancellationToken) =>
-                that.getDocumentDiagnostics(uri, snapshot, previousResultId, token),
-            // Reads the cached pre-ignore diagnostics. Guard against snapshot staleness like the
-            // sibling closures. This is only consulted for ignored files (which publish no
-            // diagnostics), where the async code-action path first calls getDocumentDiagnostics to
-            // populate the cache, so no analyzeFile is needed here.
-            getDiagnosticsForRangeWithoutFileIgnore: (fileUri, range) => {
-                that._throwIfOutOfDate(snapshot, CancellationToken.None);
-                return that._program.getDiagnosticsForRangeWithoutFileIgnore(fileUri, range);
-            },
-            symbolLookup: that.symbolLookup,
-            createEvaluator: function (): IAsyncTypeEvaluator {
-                return that.createEvaluator();
-            },
-            getCachedTypeForDeclaration: function (decl: Declaration): Type | undefined {
-                return that.getCachedTypeForDeclaration(decl);
-            },
-            setCachedTypeForDeclaration: function (decl: Declaration, type: Type): void {
-                that.setCachedTypeForDeclaration(decl, type);
-            },
-            getCachedProtocolDecl: function (tspDecl: TypeServerProtocol.Declaration): Declaration | undefined {
-                return that.getCachedProtocolDecl(tspDecl);
-            },
-            setCachedProtocolDecl: function (tspDecl: TypeServerProtocol.Declaration, decl: Declaration): void {
-                that.setCachedProtocolDecl(tspDecl, decl);
-            },
-            setFileCachedData: function (uri: Uri, key: string, value: any): void {
-                let cache = fileDataCache.get(uri);
-                if (!cache) {
-                    cache = new Map<string, any>();
-                    fileDataCache.set(uri, cache);
-                }
-                cache.set(key, value);
-            },
-            getFileCachedData: function (uri: Uri, key: string): any | undefined {
-                const cache = fileDataCache.get(uri);
-                return cache ? cache.get(key) : undefined;
-            },
-            handleMemoryHighUsage: function (): void {
-                that.handleMemoryHighUsage();
-            },
-            id: that.id,
-            rootPath: that.rootPath,
-            console: that.console,
-            configOptions: that.configOptions,
-            fileSystem: that.fileSystem,
-            serviceProvider: that.serviceProvider,
-            isAlive: that.isAlive,
-            isPyright: that.isPyright,
-            performsAnalysis: false,
-            supportsPullDiagnostics: false,
-            owns: function (uri: Uri): boolean {
-                return that.owns(uri);
-            },
-            getParserOutput: function (fileUri: Uri): ParserOutput | undefined {
-                return that.getParserOutput(fileUri);
-            },
-            getParseResults: function (fileUri: Uri): ParseResults | undefined {
-                return that.getParseResults(fileUri);
-            },
-            getModuleName: function (fileUri: Uri): string | undefined {
-                return that.getModuleName(fileUri);
-            },
-            hasSourceFile: function (fileUri: Uri): boolean {
-                return that.hasSourceFile(fileUri);
-            },
-            getSourceFileInfo: function (fileUri: Uri): IAsyncSourceFileInfo | undefined {
-                return that.getSourceFileInfo(fileUri);
-            },
-            getTrackedFileList: function (): readonly IAsyncSourceFileInfo[] {
-                return that.getTrackedFileList();
-            },
-            lookupImport: function (
-                fileUriOrModule: Uri | AbsoluteModuleDescriptor,
-                options?: LookupImportOptions
-            ): Promise<ImportLookupResult | undefined> {
-                return that.lookupImport(fileUriOrModule, options);
-            },
-            getUri: function (node: ParseNode): Uri {
-                return that.getUri(node);
-            },
-            fs: that.fs,
-            addStubCode: function (code: string, directoryUri?: Uri): { uri: Uri; parseResults: ParseResults } {
-                return that.addStubCode(code, directoryUri);
-            },
-            isCaseSensitive: function (uri: string): boolean {
-                return that.isCaseSensitive(uri);
-            },
-        };
-        return wrapper;
     }
 
     private _massageTypeResult(result: Type | undefined): Type | undefined {
@@ -871,7 +673,7 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
             result = { ...result, shared: { ...result.shared, protocolCompatibility: undefined } };
         }
 
-        // Remove all cached values. They need to be recomputed on the pylance side.
+        // Remove all cached values. They need to be recomputed on the client side.
         if (result && result.cached) {
             result = { ...result, cached: undefined };
         }
@@ -900,10 +702,10 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         };
     }
 
-    private _makeAsyncSourceFileInfo(s: SourceFileInfo): IAsyncSourceFileInfo {
-        // Create an anonymous class that wraps a SourceFileInfo and provides the IAsyncSourceFileInfo interface
-        return new (class implements IAsyncSourceFileInfo {
-            constructor(private _parentWrapper: AsyncWrapper, private _s: SourceFileInfo) {}
+    private _makeSourceFileInfo(s: SourceFileInfo): ISourceFileInfo {
+        // Create an anonymous class that wraps a SourceFileInfo and provides the ISourceFileInfo interface
+        return new (class implements ISourceFileInfo {
+            constructor(private _parentWrapper: ProgramWrapper, private _s: SourceFileInfo) {}
 
             // Implement all properties from SourceFileInfo as getters
             get uri() {
@@ -967,42 +769,41 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
                 return this._s.shadowedBy;
             }
 
-            // Implement async methods required by IAsyncSourceFileInfo
-            getImports(): Promise<IAsyncSourceFileInfo[]> {
-                return Promise.resolve(s.imports.map(this._makeAsyncSourceFileInfo));
+            getImports(): ISourceFileInfo[] {
+                return s.imports.map(this._makeSourceFileInfo);
             }
 
-            getImportedBy(): Promise<IAsyncSourceFileInfo[]> {
-                return Promise.resolve(s.importedBy.map(this._makeAsyncSourceFileInfo));
+            getImportedBy(): ISourceFileInfo[] {
+                return s.importedBy.map(this._makeSourceFileInfo);
             }
 
-            getImplicitImport(): Promise<IAsyncSourceFileInfo | undefined> {
+            getImplicitImport(): ISourceFileInfo | undefined {
                 if (s.builtinsImport === s) {
-                    return Promise.resolve(undefined);
+                    return undefined;
                 }
                 if (s.chainedSourceFile && !s.chainedSourceFile.sourceFile.isFileDeleted()) {
-                    return Promise.resolve(this._makeAsyncSourceFileInfo(s.chainedSourceFile));
+                    return this._makeSourceFileInfo(s.chainedSourceFile);
                 }
 
-                return Promise.resolve(s.builtinsImport ? this._makeAsyncSourceFileInfo(s.builtinsImport) : undefined);
+                return s.builtinsImport ? this._makeSourceFileInfo(s.builtinsImport) : undefined;
             }
 
-            getBuiltinsImport(): Promise<IAsyncSourceFileInfo | undefined> {
-                return Promise.resolve(s.builtinsImport ? this._makeAsyncSourceFileInfo(s.builtinsImport) : undefined);
+            getBuiltinsImport(): ISourceFileInfo | undefined {
+                return s.builtinsImport ? this._makeSourceFileInfo(s.builtinsImport) : undefined;
             }
 
             // Binding-specialized methods: in the wrapper path, imports are always
             // synchronously available so these delegate to the full-import versions.
-            getBuiltinsImportForBinding(): Promise<IAsyncSourceFileInfo | undefined> {
+            getBuiltinsImportForBinding(): ISourceFileInfo | undefined {
                 return this.getBuiltinsImport();
             }
 
-            getImplicitImportForBinding(): Promise<IAsyncSourceFileInfo | undefined> {
+            getImplicitImportForBinding(): ISourceFileInfo | undefined {
                 return this.getImplicitImport();
             }
 
-            private _makeAsyncSourceFileInfo = (sf: SourceFileInfo): IAsyncSourceFileInfo => {
-                return this._parentWrapper._makeAsyncSourceFileInfo(sf);
+            private _makeSourceFileInfo = (sf: SourceFileInfo): ISourceFileInfo => {
+                return this._parentWrapper._makeSourceFileInfo(sf);
             };
         })(this, s);
     }
@@ -1032,13 +833,6 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
         }
     }
 
-    private _throwIfOutOfDate(snapshot: number, token: CancellationToken): void {
-        throwIfCancellationRequested(token);
-        if (this._cache.snapshot !== snapshot) {
-            throw new ServerCanceledException();
-        }
-    }
-
     private _getExecEnv(uri: Uri): ExecutionEnvironment {
         const env = this._program.configOptions
             .getExecutionEnvironments()
@@ -1047,18 +841,17 @@ export class AsyncWrapper implements IAsyncProgram, IAsyncProgramHost {
     }
 }
 
-const asyncWrappers = new WeakMap<ProgramView, IAsyncProgram>();
-export function makeAsync(program: ProgramView, cache?: ITypeCache): IAsyncProgram {
-    // Cache the async wrapper for the program.
-    // This allows us to avoid creating multiple async wrappers for the same program.
-    // And allows us to use the same async wrapper for the key into other maps.
-    let wrapper: IAsyncProgram | undefined = asyncWrappers.get(program);
+const programWrappers = new WeakMap<ProgramView, IProgram>();
+export function makeProgram(program: ProgramView, cache?: ITypeCache): IProgram {
+    // Cache the wrapper for the program. This lets us avoid creating multiple wrappers for the
+    // same program and use the same wrapper as the key into other maps.
+    let wrapper: IProgram | undefined = programWrappers.get(program);
     if (!wrapper) {
-        wrapper = new AsyncWrapper(
+        wrapper = new ProgramWrapper(
             program as Program,
             cache ?? new TypeCache(program.serviceProvider, (uri) => program.getParserOutput(uri))
         );
-        asyncWrappers.set(program, wrapper);
+        programWrappers.set(program, wrapper);
     }
     return wrapper;
 }

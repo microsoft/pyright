@@ -12,7 +12,7 @@ import * as PyrightTypes from '../analyzer/types';
 import { PythonVersion, pythonVersion3_10, pythonVersion3_11 } from '../common/pythonVersion';
 import { ParamCategory } from '../parser/parseNodes';
 
-import { IAsyncTypeEvaluator } from './asyncTypeEvaluatorTypes';
+import { ITypeServerEvaluator } from './typeServerEvaluator';
 
 /**
  * Represents collected import statements needed for a stub file.
@@ -50,10 +50,10 @@ export interface StubGenerationResult {
     primaryDefinitionOffset: number; // Character offset to the primary definition in stubContent
 }
 
-export async function generateStubFromTypeVar(
+export function generateStubFromTypeVar(
     typeVar: PyrightTypes.TypeVarType,
     options: StubGenerationOptions
-): Promise<StubGenerationResult> {
+): StubGenerationResult {
     const context: StubGenerationContext = {
         imports: { imports: new Map() },
         pythonVersion: options.pythonVersion,
@@ -121,17 +121,17 @@ export async function generateStubFromTypeVar(
  * @param options Generation options including Python version
  * @returns Stub generation result with content and metadata
  */
-export async function generateStubFromFunctionType(
-    evaluator: IAsyncTypeEvaluator,
+export function generateStubFromFunctionType(
+    evaluator: ITypeServerEvaluator,
     type: PyrightTypes.FunctionType,
     options: StubGenerationOptions
-): Promise<StubGenerationResult> {
+): StubGenerationResult {
     // Check if this function is a method (has a methodClass)
     // If so, generate the entire class stub with marker on this specific method
     const methodClass = type.shared.methodClass;
     if (methodClass && PyrightTypes.isClass(methodClass)) {
         // Generate class stub with marker on the specific method
-        return await generateStubFromClassType(evaluator, methodClass, options, type.shared.name);
+        return generateStubFromClassType(evaluator, methodClass, options, type.shared.name);
     }
 
     const context: StubGenerationContext = {
@@ -507,12 +507,12 @@ function generateImportStatements(context: StubGenerationContext): string[] {
  * @param targetMethodName If provided, marks this specific method as the primary definition
  * @returns Stub generation result with content and metadata
  */
-export async function generateStubFromClassType(
-    evaluator: IAsyncTypeEvaluator,
+export function generateStubFromClassType(
+    evaluator: ITypeServerEvaluator,
     type: PyrightTypes.ClassType,
     options: StubGenerationOptions,
     targetMethodName?: string
-): Promise<StubGenerationResult> {
+): StubGenerationResult {
     const context: StubGenerationContext = {
         imports: { imports: new Map() },
         pythonVersion: options.pythonVersion,
@@ -532,7 +532,7 @@ export async function generateStubFromClassType(
     }
 
     // Generate the class stub (will include marker for main class)
-    const classStub = await generateClassStub(evaluator, type, context, true);
+    const classStub = generateClassStub(evaluator, type, context, true);
     lines.push(classStub);
 
     // Generate imports (will be inserted at top after we know what's needed)
@@ -632,12 +632,12 @@ function generateNewTypeStub(
  * @param context - The stub generation context
  * @param isTopLevel - Whether this is the main class (vs a synthesized base class)
  */
-async function generateClassStub(
-    evaluator: IAsyncTypeEvaluator,
+function generateClassStub(
+    evaluator: ITypeServerEvaluator,
     type: PyrightTypes.ClassType,
     context: StubGenerationContext,
     isTopLevel: boolean = false
-): Promise<string> {
+): string {
     const lines: string[] = [];
 
     // Check for special TypedDict or NamedTuple
@@ -645,7 +645,7 @@ async function generateClassStub(
         return generateTypedDictStub(type, context);
     }
     if (type.shared.namedTupleEntries) {
-        return await generateNamedTupleStub(evaluator, type, context);
+        return generateNamedTupleStub(evaluator, type, context);
     }
 
     // Add @deprecated decorator if deprecated
@@ -685,7 +685,7 @@ async function generateClassStub(
                 // Track this as a synthesized base class
                 synthesizedBaseClasses.add(bc.shared.name);
                 // Generate stub for synthesized base class
-                const baseStub = await generateClassStub(evaluator, bc, context);
+                const baseStub = generateClassStub(evaluator, bc, context);
                 let bcStr = pyrightTypeToString(bc, context);
                 // Remove type[] wrapper if present
                 const typeWrapperMatch = bcStr.match(/^type\[(.+)\]$/);
@@ -737,7 +737,7 @@ async function generateClassStub(
     }
 
     // Generate class body
-    const bodyLines = await generateClassBody(evaluator, type, context);
+    const bodyLines = generateClassBody(evaluator, type, context);
     if (bodyLines.length === 0) {
         lines.push('    ...');
     } else {
@@ -760,11 +760,11 @@ async function generateClassStub(
 /**
  * Generates the body of a class (fields and methods).
  */
-async function generateClassBody(
-    evaluator: IAsyncTypeEvaluator,
+function generateClassBody(
+    evaluator: ITypeServerEvaluator,
     type: PyrightTypes.ClassType,
     context: StubGenerationContext
-): Promise<string[]> {
+): string[] {
     const lines: string[] = [];
 
     // Get all fields from the symbol table, excluding private members
@@ -783,7 +783,7 @@ async function generateClassBody(
             fieldType = synthesizedType.type;
         } else {
             // Try to get declared type from declarations
-            fieldType = await evaluator.getEffectiveTypeOfSymbol(symbol);
+            fieldType = evaluator.getEffectiveTypeOfSymbol(symbol);
         }
 
         if (!fieldType) {
@@ -848,7 +848,7 @@ async function generateClassBody(
             }
         } else if (PyrightTypes.isClass(field.type) && !field.type.shared.declaration) {
             // Nested synthesized class - generate its stub recursively
-            const nestedStub = await generateClassStub(evaluator, field.type, context);
+            const nestedStub = generateClassStub(evaluator, field.type, context);
             const indentedStub = nestedStub
                 .split('\n')
                 .map((line) => `    ${line}`)
@@ -907,11 +907,11 @@ function generateTypedDictStub(type: PyrightTypes.ClassType, context: StubGenera
 /**
  * Generates a NamedTuple stub using special syntax.
  */
-async function generateNamedTupleStub(
-    evaluator: IAsyncTypeEvaluator,
+function generateNamedTupleStub(
+    evaluator: ITypeServerEvaluator,
     type: PyrightTypes.ClassType,
     context: StubGenerationContext
-): Promise<string> {
+): string {
     const lines: string[] = [];
 
     // NamedTuple class definition
@@ -932,7 +932,7 @@ async function generateNamedTupleStub(
                     const typeStr = pyrightTypeToString(synthesizedType.type, context);
                     lines.push(`    ${name}: ${typeStr}`);
                 } else {
-                    const type = await evaluator.getEffectiveTypeOfSymbol(symbol);
+                    const type = evaluator.getEffectiveTypeOfSymbol(symbol);
                     if (type) {
                         const typeStr = pyrightTypeToString(type, context);
                         lines.push(`    ${name}: ${typeStr}`);

@@ -17,7 +17,6 @@ export interface ProfilingInfo {
 }
 
 export interface IProfilingService {
-    startProfiling(): Promise<ProfilingInfo | undefined>;
-    stopProfiling(): Promise<ProfilingInfo | undefined>;
+    startProfiling(): ProfilingInfo | undefined;
+    stopProfiling(): ProfilingInfo | undefined;
 }
-

@@ -9,9 +9,10 @@
  *
  * This is the Pyright-native port of Pylance's `type-server/src/server/typeServer.ts`. It
  * is rebased onto Pyright's own infrastructure (`LanguageServerBase`, `WorkspaceFactory`,
- * `ImportResolver`, `BackgroundAnalysisProgram`) instead of the Pylance subclasses. The
- * async type queries are backed by Pyright's synchronous evaluator through
- * `AsyncWrapper` + `SyncToAsyncEvaluatorAdapter`.
+ * `ImportResolver`, `BackgroundAnalysisProgram`) instead of the Pylance subclasses. Type
+ * queries are answered synchronously by Pyright's evaluator through the `ProgramWrapper`;
+ * cancellation is file/token based like the rest of Pyright, so long-running queries can
+ * still be interrupted mid-request.
  *
  * Feature notes:
  *   - Telemetry and profiling are intentionally omitted (Pyright has no telemetry).
@@ -59,12 +60,12 @@ import { canNavigateToFile } from '../languageService/navigationUtils';
 import { ParseNode } from '../parser/parseNodes';
 import { WellKnownWorkspaceKinds, Workspace } from '../workspaceFactory';
 
-import { AsyncWrapper, makeAsync } from './asyncWrapper';
 import { ServerCanceledException } from './cancellation';
 import { convertFromPyrightDiagnostic } from './diagnosticUtils';
 import { AnyNotebookDocumentSelector } from './notebookCellChain';
 import { NotebookDocumentHandler } from './notebookDocumentHandler';
 import { INotebookUriMapper, NotebookUriMapper } from './notebookUriMapper';
+import { makeProgram, ProgramWrapper } from './programWrapper';
 import { TspSupplemental } from './protocol/tspSupplemental';
 import { TypeServerProtocol } from './protocol/typeServerProtocol';
 import { convertLspUriStringToUri } from './serverUtils';
@@ -341,22 +342,18 @@ export class TypeServer extends LanguageServerBase {
         // Register for all of the other requests that we support.
         this.connection.onRequest(
             TypeServerProtocol.GetComputedTypeRequest.type,
-            this._onGetType.bind(this, (program, input, snapshot, token) =>
-                program.getComputedType(input, snapshot, token)
-            )
+            this._onGetType.bind(this, (program, input, token) => program.getComputedType(input, token))
         );
         this.connection.onRequest(
             TypeServerProtocol.GetExpectedTypeRequest.type,
-            this._onGetType.bind(this, async (program, input, snapshot, token) => {
-                const result = await program.getExpectedType(input, snapshot, token);
+            this._onGetType.bind(this, (program, input, token) => {
+                const result = program.getExpectedType(input, token);
                 return result?.type;
             })
         );
         this.connection.onRequest(
             TypeServerProtocol.GetDeclaredTypeRequest.type,
-            this._onGetType.bind(this, (program, input, snapshot, token) =>
-                program.getDeclaredType(input, snapshot, token)
-            )
+            this._onGetType.bind(this, (program, input, token) => program.getDeclaredType(input, token))
         );
         this.connection.onRequest(TypeServerProtocol.GetSnapshotRequest.type, this._onGetSnapshot.bind(this));
         this.connection.onRequest(
@@ -439,7 +436,7 @@ export class TypeServer extends LanguageServerBase {
         // advertises workspace-folders support (it expects a didChangeWorkspaceFolders event
         // instead). A TSP client may advertise workspaceFolders: true but never send that
         // event, so trigger the settings update here when workspaces already exist. Without
-        // this, setConfigOptions is never called, the AsyncWrapper hooks never fire, and the
+        // this, setConfigOptions is never called, the ProgramWrapper hooks never fire, and the
         // snapshot stays at its initial invalid value forever.
         if (this.client.hasWorkspaceFoldersCapability && this.workspaceFactory.items().length > 0) {
             this.updateSettingsForAllWorkspaces();
@@ -454,7 +451,7 @@ export class TypeServer extends LanguageServerBase {
         // Make sure the program is wrapped so that we are tracking snapshots for it and it
         // shares the global type cache.
         const program = workspace.service.backgroundAnalysisProgram.program;
-        makeAsync(program, this._globalTypeCache);
+        makeProgram(program, this._globalTypeCache);
     }
 
     protected override async onDidOpenTextDocument(
@@ -576,10 +573,10 @@ export class TypeServer extends LanguageServerBase {
         return nonDefault.find((w) => w.service.isTracked(uri)) ?? nonDefault[0] ?? this.workspaceFactory.items()[0];
     }
 
-    private async _getProgram(uri: Uri): Promise<AsyncWrapper | undefined> {
+    private async _getProgram(uri: Uri): Promise<ProgramWrapper | undefined> {
         const workspace = await this.getWorkspaceForFile(uri);
         if (workspace) {
-            return makeAsync(workspace.service.backgroundAnalysisProgram.program) as AsyncWrapper;
+            return makeProgram(workspace.service.backgroundAnalysisProgram.program) as ProgramWrapper;
         }
         return undefined;
     }
@@ -594,11 +591,10 @@ export class TypeServer extends LanguageServerBase {
 
     private async _onGetType(
         typeFetcher: (
-            program: AsyncWrapper,
+            program: ProgramWrapper,
             input: ParseNode | Declaration,
-            snapshot: number,
             token: CancellationToken
-        ) => Promise<Type | undefined>,
+        ) => Type | undefined,
         params: {
             arg: TypeServerProtocol.Declaration | TypeServerProtocol.Node;
             snapshot: number;
@@ -619,18 +615,18 @@ export class TypeServer extends LanguageServerBase {
         }
 
         // Make sure this is the current snapshot.
-        if ((await program.getSnapshot(token)) !== params.snapshot) {
+        if (program.getSnapshot(token) !== params.snapshot) {
             throw new ServerCanceledException();
         }
 
         const input = isProtocolDeclaration(arg)
-            ? await fromProtocolDecl(arg, program, program.symbolLookup)
+            ? fromProtocolDecl(arg, program, program.symbolLookup)
             : fromProtocolNode<ParseNode>(arg, program);
         if (!input) {
             return undefined;
         }
 
-        const type = await typeFetcher(program, input, params.snapshot, token);
+        const type = typeFetcher(program, input, token);
         if (!type) {
             return undefined;
         }
@@ -641,18 +637,25 @@ export class TypeServer extends LanguageServerBase {
             pythonVersion = fileInfo.executionEnvironment.pythonVersion;
         }
 
-        return await program.runAsync(async (p) => {
+        return program.run((p) => {
             const factory = new ProtocolTypeFactory(p, pythonVersion, input);
-            return await factory.getType(type);
+            return factory.getType(type);
         }, token);
     }
 
     private async _onResolveImport(params: TypeServerProtocol.ResolveImportParams, token: CancellationToken) {
         const sourceUri = this.convertLspUriStringToUri(params.sourceUri);
         const program = await this._getProgram(sourceUri);
-        const result = program
-            ? await program.resolveImport(sourceUri, params.moduleDescriptor, params.snapshot, token)
-            : undefined;
+        if (!program) {
+            return undefined;
+        }
+
+        // Make sure this is the current snapshot.
+        if (program.getSnapshot(token) !== params.snapshot) {
+            throw new ServerCanceledException();
+        }
+
+        const result = program.resolveImport(sourceUri, params.moduleDescriptor, token);
         if (!result) {
             return undefined;
         }
@@ -665,7 +668,16 @@ export class TypeServer extends LanguageServerBase {
     ): Promise<string[] | undefined> {
         const uri = this.convertLspUriStringToUri(params.fromUri);
         const program = uri ? await this._getProgram(uri) : undefined;
-        const uris = program ? await program.getPythonSearchPaths(params.snapshot, token) : [];
+        if (!program) {
+            return [];
+        }
+
+        // Make sure this is the current snapshot.
+        if (program.getSnapshot(token) !== params.snapshot) {
+            throw new ServerCanceledException();
+        }
+
+        const uris = program.getPythonSearchPaths(token);
         return uris ? uris.map((u) => u.toString()) : [];
     }
 

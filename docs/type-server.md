@@ -35,4 +35,15 @@ The type server supports redirecting the contents of a file on disk to a virtual
 
 ## Relationship to Pyright
 
-The type server is built on the same analyzer, binder, and type evaluator as the Pyright command-line tool and language server. It reuses Pyright's `Service` / `Program` / `SourceFile` infrastructure, so type results are identical to what Pyright's other front ends produce. The TSP-specific code lives in `packages/pyright-internal/src/typeServer/`, and the `pyright-typeserver` package is a thin bundling shim over it (mirroring how the `pyright` package wraps the command-line tool and language server).
+The type server is built on the same analyzer, binder, and type evaluator as the Pyright command-line tool and language server. It reuses Pyright's `Service` / `Program` / `SourceFile` infrastructure, so type results are identical to what Pyright's other front ends produce.
+
+### Code layout: two packages
+
+The type server is split across two packages, following the same convention Pyright uses for its command-line tool and language server:
+
+| Package | Role |
+| --- | --- |
+| `packages/pyright-internal/src/typeServer/` | **All of the actual code.** The server, protocol definitions, notebook support, virtual-file redirection, the file system layer, and the tests all live here. This is the only package with real implementation. |
+| `packages/pyright-typeserver/` | **The distributable wrapper.** A thin bundling shim (rspack config, `package.json`, and a bin entry point) that packages the code above into the publishable `pyright-typeserver` npm package. It contains no logic — its `nodeMain.ts` simply calls `main()` from `pyright-internal`. |
+
+This mirrors how `pyright-internal` holds all of the parser/checker/evaluator logic while the `pyright` package is just the thin CLI and language-server bundle. Keeping the code in `pyright-internal` means the type server shares the exact same `vscode-languageserver` copy and analyzer internals as the rest of Pyright, rather than pulling in a duplicate or mismatched set of dependencies.

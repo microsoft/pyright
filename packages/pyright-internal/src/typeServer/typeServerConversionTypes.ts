@@ -17,13 +17,13 @@ import { ParserOutput } from '../parser/parser';
 
 import { map } from './typeEvalUtils';
 import { convertLspUriStringToUri } from './serverUtils';
-import { IAsyncSymbolLookup, ParseResults } from './programTypes';
+import { ISymbolLookup, ParseResults } from './programTypes';
 
 import { INotebookUriMapper } from './notebookUriMapper';
 
 export interface IPyrightTypeFactory {
     readonly provider: IParserOutputProvider;
-    getType(protocolType: TypeServerProtocol.Type): Promise<PyrightTypes.Type>;
+    getType(protocolType: TypeServerProtocol.Type): PyrightTypes.Type;
 }
 
 export interface IParserOutputProvider extends CaseSensitivityDetector {
@@ -52,33 +52,33 @@ export function isFunction(handle: TypeServerProtocol.Type): handle is TypeServe
     return handle.kind === TypeServerProtocol.TypeKind.Function;
 }
 
-export async function fromProtocolTypesOrUndefined<TTypeFactory extends IPyrightTypeFactory>(
+export function fromProtocolTypesOrUndefined<TTypeFactory extends IPyrightTypeFactory>(
     types: TypeServerProtocol.Type[] | undefined,
     factory: TTypeFactory
-): Promise<PyrightTypes.Type[] | undefined> {
+): PyrightTypes.Type[] | undefined {
     if (!types) {
         return undefined;
     }
 
-    return await fromProtocolTypes(types, factory);
+    return fromProtocolTypes(types, factory);
 }
 
-export async function fromProtocolTypes<TTypeFactory extends IPyrightTypeFactory>(
+export function fromProtocolTypes<TTypeFactory extends IPyrightTypeFactory>(
     types: TypeServerProtocol.Type[],
     factory: TTypeFactory
-): Promise<PyrightTypes.Type[]> {
-    return await map(types, (handle) => factory.getType(handle));
+): PyrightTypes.Type[] {
+    return map(types, (handle) => factory.getType(handle));
 }
 
-export async function fromProtocolTypeOrUndefined<TTypeFactory extends IPyrightTypeFactory>(
+export function fromProtocolTypeOrUndefined<TTypeFactory extends IPyrightTypeFactory>(
     type: TypeServerProtocol.Type | undefined,
     factory: TTypeFactory
-): Promise<PyrightTypes.Type | undefined> {
+): PyrightTypes.Type | undefined {
     if (!type) {
         return undefined;
     }
 
-    return await factory.getType(type);
+    return factory.getType(type);
 }
 
 export function toProtocolNodeOrUndefined(
@@ -299,11 +299,11 @@ export function getProtocolDeclKey(decl: TypeServerProtocol.Declaration): string
     }`;
 }
 
-export async function fromProtocolDecl(
+export function fromProtocolDecl(
     decl: TypeServerProtocol.Declaration,
     resultsProvider: IParserOutputProvider,
-    symbolLookup: IAsyncSymbolLookup
-): Promise<PyrightDecl.Declaration | undefined> {
+    symbolLookup: ISymbolLookup
+): PyrightDecl.Declaration | undefined {
     if (decl.kind === TypeServerProtocol.DeclarationKind.Synthesized) {
         return synthesizeAliasDeclaration(
             convertLspUriStringToUri(decl.uri, resultsProvider, resultsProvider.uriMapper)
@@ -349,7 +349,7 @@ export async function fromProtocolDecl(
         return undefined;
     }
 
-    const symbol = await symbolLookup.lookupSymbol(node, decl.name);
+    const symbol = symbolLookup.lookupSymbol(node, decl.name);
     if (!symbol) {
         return undefined;
     }
