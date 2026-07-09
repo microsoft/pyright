@@ -1,0 +1,78 @@
+const path = require('path');
+const { createRequire } = require('module');
+const { monorepoResourceNameMapper, tsconfigResolveAliases } = require('../../build/lib/webpack');
+
+const rspack = createRequire(__filename)('@rspack/core');
+const outPath = path.resolve(__dirname, 'dist');
+const typeshedFallback = path.resolve(__dirname, '..', 'pyright-internal', 'typeshed-fallback');
+
+/** @type {(env: any, argv: { mode: 'production' | 'development' | 'none' }) => any} */
+module.exports = (_, { mode }) => {
+    return {
+        context: __dirname,
+        entry: {
+            'pyright-typeserver': './src/node/nodeMain.ts',
+        },
+        target: 'node',
+        output: {
+            filename: '[name].js',
+            path: outPath,
+            devtoolModuleFilenameTemplate:
+                mode === 'development' ? '../[resource-path]' : monorepoResourceNameMapper('pyright-typeserver'),
+            clean: true,
+        },
+        devtool: mode === 'development' ? 'source-map' : 'nosources-source-map',
+        cache: mode === 'development',
+        stats: {
+            all: false,
+            errors: true,
+            warnings: true,
+            publicPath: true,
+            timings: true,
+        },
+        resolve: {
+            extensions: ['.ts', '.js'],
+            alias: tsconfigResolveAliases('tsconfig.json'),
+        },
+        externals: {
+            fsevents: 'commonjs2 fsevents',
+        },
+        module: {
+            rules: [
+                {
+                    test: /\.ts$/,
+                    loader: 'ts-loader',
+                    options: {
+                        configFile: path.resolve(__dirname, 'tsconfig.json'),
+                    },
+                },
+                {
+                    test: /\.js$/,
+                    loader: 'esbuild-loader',
+                    options: {
+                        target: 'node12',
+                    },
+                },
+            ],
+        },
+        plugins: [new rspack.CopyRspackPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] })],
+        optimization: {
+            splitChunks: {
+                cacheGroups: {
+                    defaultVendors: {
+                        name: 'vendor',
+                        test: /[\\/]node_modules[\\/]/,
+                        chunks: 'all',
+                        priority: -10,
+                    },
+                    pyright: {
+                        name: 'pyright-internal',
+                        chunks: 'all',
+                        test: /[\\/]pyright-internal[\\/]/,
+                        priority: -20,
+                    },
+                },
+            },
+        },
+    };
+};

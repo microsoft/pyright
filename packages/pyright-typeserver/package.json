@@ -1,0 +1,50 @@
+{
+    "name": "pyright-typeserver",
+    "displayName": "Pyright Type Server",
+    "description": "Type Server Protocol (TSP) server for the Python language, powered by Pyright",
+    "version": "1.1.410",
+    "license": "MIT",
+    "author": {
+        "name": "Microsoft Corporation"
+    },
+    "publisher": "Microsoft Corporation",
+    "engines": {
+        "node": ">=14.0.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Microsoft/pyright",
+        "directory": "packages/pyright-typeserver"
+    },
+    "scripts": {
+        "build": "rspack build -c rspack.config.js --mode production",
+        "clean": "shx rm -rf ./dist ./out README.md LICENSE.txt",
+        "prepack": "npm run clean && shx cp ../../README.md . && shx cp ../../LICENSE.txt . && npm run build",
+        "webpack": "rspack build -c rspack.config.js --mode development"
+    },
+    "optionalDependencies": {
+        "fsevents": "~2.3.3"
+    },
+    "devDependencies": {
+        "@rspack/cli": "^2.0.5",
+        "@rspack/core": "^2.0.5",
+        "@types/node": "^25.6.0",
+        "copy-webpack-plugin": "^14.0.0",
+        "esbuild-loader": "^4.4.2",
+        "shx": "^0.4.0",
+        "ts-loader": "^9.5.4",
+        "typescript": "~6.0.3",
+        "webpack": "^5.104.1"
+    },
+    "files": [
+        "/dist",
+        "LICENSE.txt"
+    ],
+    "main": "pyright-typeserver.js",
+    "bin": {
+        "pyright-typeserver": "pyright-typeserver.js"
+    },
+    "overrides": {
+        "tar": "7.5.11"
+    }
+}
