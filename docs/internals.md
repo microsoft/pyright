@@ -6,6 +6,7 @@
 * packages/pyright-internal/typeshed-fallback/: Recent copy of Typeshed type stub files for Python stdlib
 * packages/pyright-internal/src/pyright.ts: Main entry point for command-line tool
 * packages/pyright-internal/src/server.ts: Main entry point for LSP server
+* packages/pyright-internal/src/typeServer: Type Server Protocol (TSP) server built on the analyzer (see [Type Server](type-server.md))
 * packages/pyright-internal/src/analyzer: Modules that perform analysis passes over Python parse tree
 * packages/pyright-internal/src/common: Modules  that are common to the parser and analyzer
 * packages/pyright-internal/src/parser: Modules that perform tokenization and parsing of Python source
