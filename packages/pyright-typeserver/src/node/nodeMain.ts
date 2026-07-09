@@ -11,4 +11,3 @@
 import { main } from 'pyright-internal/typeServer/nodeMain';
 
 void main();
-
