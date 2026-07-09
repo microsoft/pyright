@@ -25,7 +25,9 @@ import { getConnectionOptions } from '../nodeServer';
 import { PartialStubService } from '../partialStubService';
 
 import { TypeServer } from './server';
+import { NotebookUriMapper } from './notebookUriMapper';
 import { TypeServerFileSystem } from './typeServerFileSystem';
+import { TypeServerServiceKeys } from './typeServerServiceKeys';
 
 export async function main() {
     await initializeDependencies();
@@ -41,7 +43,12 @@ export async function main() {
     const console = new ConsoleWithLogLevel(connection.console, `TS(${process.pid})`);
     const fileWatcherProvider = new WorkspaceFileWatcherProvider();
     const fileSystem = createFromRealFileSystem(tempFile, console, fileWatcherProvider);
-    const typeServerFs = new TypeServerFileSystem(fileSystem);
+
+    // The notebook URI mapper maps notebook-cell URIs to their file-scheme equivalents. It is
+    // shared between the file system (so mapped reads/stats resolve) and the server (so cell
+    // requests route to the right workspace). `tempFile` provides case-sensitivity detection.
+    const uriMapper = new NotebookUriMapper(tempFile);
+    const typeServerFs = new TypeServerFileSystem(fileSystem, uriMapper);
     const cacheManager = new CacheManager();
     const partialStubService = new PartialStubService(typeServerFs);
 
@@ -53,6 +60,7 @@ export async function main() {
         partialStubService,
         new FileBasedCancellationProvider('bg')
     );
+    serviceProvider.add(TypeServerServiceKeys.uriMapper, uriMapper);
 
     const rootUri: Uri = getRootUri(serviceProvider) || Uri.file(rootDirectory, serviceProvider);
     const realPathRoot = typeServerFs.realCasePath(rootUri);

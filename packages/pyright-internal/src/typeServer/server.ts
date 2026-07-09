@@ -22,10 +22,15 @@
 import { CancellationToken, Connection, Diagnostic, WorkDoneProgressServerReporter } from 'vscode-languageserver';
 import {
     CodeActionParams,
+    DidChangeNotebookDocumentParams,
+    DidCloseNotebookDocumentParams,
+    DidOpenNotebookDocumentParams,
     DidOpenTextDocumentParams,
     DocumentDiagnosticParams,
     DocumentDiagnosticReport,
     ExecuteCommandParams,
+    InitializeParams,
+    InitializeResult,
 } from 'vscode-languageserver-protocol';
 import { CodeAction, Command } from 'vscode-languageserver-types';
 
@@ -57,27 +62,66 @@ import { WellKnownWorkspaceKinds, Workspace } from '../workspaceFactory';
 import { AsyncWrapper, makeAsync } from './asyncWrapper';
 import { ServerCanceledException } from './cancellation';
 import { convertFromPyrightDiagnostic } from './diagnosticUtils';
+import { AnyNotebookDocumentSelector } from './notebookCellChain';
+import { NotebookDocumentHandler } from './notebookDocumentHandler';
+import { INotebookUriMapper, NotebookUriMapper } from './notebookUriMapper';
 import { TspSupplemental } from './protocol/tspSupplemental';
 import { TypeServerProtocol } from './protocol/typeServerProtocol';
+import { convertLspUriStringToUri } from './serverUtils';
 import { fromProtocolDecl, fromProtocolNode } from './typeServerConversionTypes';
 import { ProtocolTypeFactory } from './typeServerConversionUtils';
 import { isDeclaration } from './typeEvalUtils';
 import { ITypeCache, TypeCache } from './typeCache';
 import { TypeServerFileSystem } from './typeServerFileSystem';
+import { TypeServerServiceKeys } from './typeServerServiceKeys';
 
 export class TypeServer extends LanguageServerBase {
     private readonly _handleToUriMap = new Map<number, Uri>();
     private _initializedComplete = false;
     private _globalTypeCache: ITypeCache;
+    private _notebookManager: NotebookDocumentHandler | undefined;
+    private readonly _uriMapper: INotebookUriMapper | undefined;
 
     constructor(serverOptions: ServerOptions, connection: Connection) {
         super(serverOptions, connection);
+        this._uriMapper = serverOptions.serviceProvider.tryGet(TypeServerServiceKeys.uriMapper);
         this._globalTypeCache = new TypeCache(serverOptions.serviceProvider, this._getParserOutput.bind(this));
         this._globalTypeCache.snapshotChanged(this._onSnapshotChanged.bind(this));
     }
 
     override dispose() {
         super.dispose();
+    }
+
+    override async getWorkspaceForFile(fileUri: Uri, pythonPath?: Uri): Promise<Workspace> {
+        // If this is a notebook cell and no python path was passed in, use the last known
+        // python path for the containing notebook so cells resolve to the workspace with the
+        // matching pythonPath.
+        if (NotebookUriMapper.isNotebookCell(fileUri) && this._notebookManager) {
+            const notebookData = await this._notebookManager.getNotebookDataForCell(fileUri);
+            if (pythonPath === undefined) {
+                pythonPath = notebookData?.pythonPath;
+            }
+
+            // Map the vscode-notebook-cell: URI to its file-scheme equivalent so the workspace
+            // factory can match it against workspace root URIs.
+            fileUri = this._uriMapper!.getMappedCellUri(fileUri);
+        }
+
+        return this.workspaceFactory.getWorkspaceForFile(fileUri, pythonPath);
+    }
+
+    override async getContainingWorkspacesForFile(fileUri: Uri): Promise<Workspace[]> {
+        // If this is a notebook cell we should wait for the notebook to open first.
+        if (NotebookUriMapper.isNotebookCell(fileUri) && this._notebookManager) {
+            await this._notebookManager.getNotebookDataForCell(fileUri);
+
+            // Map the vscode-notebook-cell: URI to its file-scheme equivalent so the workspace
+            // factory can match it against workspace root URIs.
+            fileUri = this._uriMapper!.getMappedCellUri(fileUri);
+        }
+
+        return this.workspaceFactory.getContainingWorkspacesForFile(fileUri);
     }
 
     override async getSettings(workspace: Workspace): Promise<ServerSettings> {
@@ -335,6 +379,57 @@ export class TypeServer extends LanguageServerBase {
         this.connection.onNotification(TspSupplemental.RemoveVirtualFileRedirectNotification.type, (params) =>
             this._onRemoveVirtualFileRedirect(params)
         );
+
+        // Register raw notification handlers for notebook documents. These are registered here
+        // (before connection.listen()) so they're ready when the connection starts processing
+        // messages. `_notebookManager` is created in `initialize()` (not here) because SWC's
+        // TC39 class-field semantics would reinitialize it to undefined after the base class
+        // constructor returns; `initialize()` runs before any notifications arrive.
+        this.connection.onNotification('notebookDocument/didOpen', (params: DidOpenNotebookDocumentParams) => {
+            this._notebookManager?.onDidOpenNotebookDocument(params);
+        });
+        this.connection.onNotification('notebookDocument/didChange', (params: DidChangeNotebookDocumentParams) => {
+            this._notebookManager?.onDidChangeNotebookDocument(params);
+        });
+        this.connection.onNotification('notebookDocument/didClose', (params: DidCloseNotebookDocumentParams) => {
+            this._notebookManager?.onDidCloseNotebookDocument(params);
+        });
+    }
+
+    protected override async initialize(
+        params: InitializeParams,
+        supportedCommands: string[],
+        supportedCodeActions: string[]
+    ): Promise<InitializeResult> {
+        // Create the notebook manager here (not in setupConnection) because SWC's TC39
+        // class-field semantics reinitialize `_notebookManager` to undefined after the base
+        // class constructor returns. This method runs when the Initialize request is processed,
+        // which is before any notifications arrive. The manager is only created when a notebook
+        // URI mapper is registered in the service provider (notebook support is otherwise off).
+        if (this._uriMapper && this._uriMapper instanceof NotebookUriMapper) {
+            const uriMapper = this._uriMapper;
+            this._notebookManager = new NotebookDocumentHandler(
+                uriMapper,
+                this.caseSensitiveDetector,
+                this.console,
+                (fileUri) => this.workspaceFactory.getWorkspaceForFile(fileUri, undefined)
+            );
+        }
+
+        const result = await super.initialize(params, supportedCommands, supportedCodeActions);
+
+        // Advertise notebook support so the client sends notebookDocument/* notifications.
+        if (this._notebookManager) {
+            result.capabilities.notebookDocumentSync = AnyNotebookDocumentSelector;
+        }
+
+        return result;
+    }
+
+    protected override convertLspUriStringToUri(lspUri: string): Uri {
+        // Do our own conversion of the LSP URI string to a Uri so notebook cells map to their
+        // file-scheme equivalent.
+        return convertLspUriStringToUri(lspUri, this.caseSensitiveDetector, this._uriMapper);
     }
 
     protected override onInitialized() {

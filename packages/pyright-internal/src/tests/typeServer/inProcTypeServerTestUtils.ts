@@ -45,9 +45,11 @@ import { Uri } from '../../common/uri/uri';
 import { UriEx } from '../../common/uri/uriUtils';
 import { Tokenizer, TokenizerOutput } from '../../parser/tokenizer';
 import { PartialStubService } from '../../partialStubService';
+import { NotebookUriMapper } from '../../typeServer/notebookUriMapper';
 import { TypeServerFileSystem } from '../../typeServer/typeServerFileSystem';
 import { TypeServerProtocol } from '../../typeServer/protocol/typeServerProtocol';
 import { TypeServer } from '../../typeServer/server';
+import { TypeServerServiceKeys } from '../../typeServer/typeServerServiceKeys';
 import { parseTestData } from '../harness/fourslash/fourSlashParser';
 import {
     FourSlashData,
@@ -262,10 +264,12 @@ async function createInProcTypeServer(code: string): Promise<InProcTypeServer> {
     // bundled typeshed-fallback so stdlib/builtins resolve during type evaluation.
     const fourslash = parseTestData(DEFAULT_WORKSPACE_ROOT, code, 'main.py');
     const testFS = createFileSystem(DEFAULT_WORKSPACE_ROOT, fourslash);
-    const pyrightFs = new TypeServerFileSystem(testFS);
+    const uriMapper = new NotebookUriMapper(testFS);
+    const pyrightFs = new TypeServerFileSystem(testFS, uriMapper);
     const serverConsole = new ConsoleWithLogLevel(new NullConsole(), 'typeServer.inProc');
     const partialStubs = new PartialStubService(pyrightFs);
     const serviceProvider = createServiceProvider(testFS, pyrightFs, serverConsole, partialStubs);
+    serviceProvider.add(TypeServerServiceKeys.uriMapper, uriMapper);
 
     const fileWatcherProvider = new WorkspaceFileWatcherProvider();
     const rootUri = Uri.file(DEFAULT_WORKSPACE_ROOT, serviceProvider);
