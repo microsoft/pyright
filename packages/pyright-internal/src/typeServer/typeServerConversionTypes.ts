@@ -15,16 +15,10 @@ import { convertUriToLspUriString } from '../common/uri/uriUtils';
 import * as PyrightNodes from '../parser/parseNodes';
 import { ParserOutput } from '../parser/parser';
 
-import { map } from './typeEvalUtils';
 import { convertLspUriStringToUri } from './serverUtils';
 import { ISymbolLookup, ParseResults } from './programTypes';
 
 import { INotebookUriMapper } from './notebookUriMapper';
-
-export interface IPyrightTypeFactory {
-    readonly provider: IParserOutputProvider;
-    getType(protocolType: TypeServerProtocol.Type): PyrightTypes.Type;
-}
 
 export interface IParserOutputProvider extends CaseSensitivityDetector {
     getUri(node: PyrightNodes.ParseNode): Uri;
@@ -34,51 +28,6 @@ export interface IParserOutputProvider extends CaseSensitivityDetector {
     // Parse and return the results for stub code with a dummy URI
     // If directoryUri is provided, the stub URI will be created in that directory
     addStubCode(code: string, directoryUri?: Uri): { uri: Uri; parseResults: ParseResults };
-}
-
-export function isSentinelLiteral(value: any): value is TypeServerProtocol.SentinelLiteral {
-    return value && value.moduleName !== undefined && value.className !== undefined;
-}
-
-export function isEnumLiteral(value: any): value is TypeServerProtocol.EnumLiteral {
-    return value && value.className !== undefined && value.itemName !== undefined && value.itemType !== undefined;
-}
-
-export function isClass(handle: TypeServerProtocol.Type): handle is TypeServerProtocol.ClassType {
-    return handle.kind === TypeServerProtocol.TypeKind.Class;
-}
-
-export function isFunction(handle: TypeServerProtocol.Type): handle is TypeServerProtocol.FunctionType {
-    return handle.kind === TypeServerProtocol.TypeKind.Function;
-}
-
-export function fromProtocolTypesOrUndefined<TTypeFactory extends IPyrightTypeFactory>(
-    types: TypeServerProtocol.Type[] | undefined,
-    factory: TTypeFactory
-): PyrightTypes.Type[] | undefined {
-    if (!types) {
-        return undefined;
-    }
-
-    return fromProtocolTypes(types, factory);
-}
-
-export function fromProtocolTypes<TTypeFactory extends IPyrightTypeFactory>(
-    types: TypeServerProtocol.Type[],
-    factory: TTypeFactory
-): PyrightTypes.Type[] {
-    return map(types, (handle) => factory.getType(handle));
-}
-
-export function fromProtocolTypeOrUndefined<TTypeFactory extends IPyrightTypeFactory>(
-    type: TypeServerProtocol.Type | undefined,
-    factory: TTypeFactory
-): PyrightTypes.Type | undefined {
-    if (!type) {
-        return undefined;
-    }
-
-    return factory.getType(type);
 }
 
 export function toProtocolNodeOrUndefined(
@@ -566,29 +515,4 @@ export function toProtocolVariance(
     }
 
     return TypeServerProtocol.Variance.Unknown;
-}
-
-export function fromProtocolVariance(
-    variance: TypeServerProtocol.Variance | undefined
-): PyrightTypes.Variance | undefined {
-    if (variance === undefined) {
-        return undefined;
-    }
-
-    switch (variance) {
-        case TypeServerProtocol.Variance.Auto:
-            return PyrightTypes.Variance.Auto;
-        case TypeServerProtocol.Variance.Unknown:
-            return PyrightTypes.Variance.Unknown;
-        case TypeServerProtocol.Variance.Invariant:
-            return PyrightTypes.Variance.Invariant;
-        case TypeServerProtocol.Variance.Covariant:
-            return PyrightTypes.Variance.Covariant;
-        case TypeServerProtocol.Variance.Contravariant:
-            return PyrightTypes.Variance.Contravariant;
-        default:
-            debug.assertNever(variance);
-    }
-
-    return PyrightTypes.Variance.Unknown;
 }

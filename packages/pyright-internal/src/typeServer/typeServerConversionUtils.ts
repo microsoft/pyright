@@ -30,15 +30,7 @@ import {
     StubGenerationOptions,
     StubGenerationResult,
 } from './stubGenerator';
-import { TypeProvider } from './typeProvider';
-import {
-    IPyrightTypeFactory,
-    toProtocolDecl,
-    toProtocolNode,
-    toProtocolTypeFlags,
-    toProtocolVariance,
-} from './typeServerConversionTypes';
-import { TypeShellFactory } from './typeShellFactory';
+import { toProtocolDecl, toProtocolNode, toProtocolTypeFlags, toProtocolVariance } from './typeServerConversionTypes';
 
 export function toProtocolModuleName(moduleName: string): TypeServerProtocol.ModuleName {
     if (moduleName.length === 0) {
@@ -340,26 +332,6 @@ function toProtocolType(id: number, type: PyrightTypes.Type, factory: ProtocolTy
                 uri: convertUriToLspUriString(factory.view.fs, type.priv.fileUri),
             } satisfies TypeServerProtocol.ModuleType;
         }
-    }
-}
-
-export class PyrightTypeFactory {
-    private readonly _cycleMap = new Map<number, PyrightTypes.Type>();
-    private readonly _typeShellFactory: IPyrightTypeFactory;
-    private readonly _typeProvider: IPyrightTypeFactory;
-
-    constructor(view: IProgram) {
-        this._typeShellFactory = new TypeShellFactory(this._cycleMap, view);
-        this._typeProvider = new TypeProvider(this._cycleMap, view);
-    }
-
-    getType(protocolType: TypeServerProtocol.Type): PyrightTypes.Type {
-        // this is 2 pass of type handle to toProtocolHandle cycles.
-        // first pass, create type shells for all types.
-        this._typeShellFactory.getType(protocolType);
-
-        // second pass, fill in type details.
-        return this._typeProvider.getType(protocolType);
     }
 }
 
