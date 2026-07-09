@@ -34,6 +34,24 @@ assert_type(struct.unpack("<ix", buffer), tuple[int])
 # 'c' produces one bytes value per repeat.
 assert_type(struct.unpack("3c", buffer), tuple[bytes, bytes, bytes])
 
+# A mixed line exercises the full numeric code mapping in one place, guarding
+# against a future typo (e.g. 'e' accidentally mapped to int). 'b'/'h'/'l'/'q'
+# are int; 'e'/'f'/'d' are float.
+assert_type(
+    struct.unpack("bhlqefd", buffer),
+    tuple[int, int, int, int, float, float, float],
+)
+
+# The uppercase (unsigned) numeric codes map to the same element types.
+assert_type(struct.unpack("BHILQ", buffer), tuple[int, int, int, int, int])
+
+# Without a count, 's'/'p' still collapse to a single bytes value.
+assert_type(struct.unpack("s", buffer), tuple[bytes])
+assert_type(struct.unpack("p", buffer), tuple[bytes])
+
+# A zero repeat count on 'c' produces no elements.
+assert_type(struct.unpack("0c", buffer), tuple[()])
+
 # A bytes literal format string works the same way.
 assert_type(struct.unpack(b"<2i", buffer), tuple[int, int])
 

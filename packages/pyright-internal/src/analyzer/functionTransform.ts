@@ -148,8 +148,12 @@ function applyTotalOrderingTransform(
 // Distinguishes between the `struct` functions whose return type can be
 // synthesized from a literal format string. `unpack` and `unpack_from`
 // return a tuple; `iter_unpack` returns an iterator of tuples.
-type StructUnpackKind = 'tuple' | 'iterator';
-
+//
+// Only the module-level `_struct.*` free functions are handled here. The
+// reused-format API (`struct.Struct(fmt).unpack()` / `.unpack_from()` /
+// `.iter_unpack()`) is out of scope: it would require threading the
+// constructor's literal format through to the method calls, so those still
+// infer the declared `tuple[Any, ...]`.
 function getStructUnpackKind(fullName: string): StructUnpackKind | undefined {
     switch (fullName) {
         case '_struct.unpack':
@@ -163,9 +167,6 @@ function getStructUnpackKind(fullName: string): StructUnpackKind | undefined {
             return undefined;
     }
 }
-
-// The synthesized element type produced by a single struct format code.
-type StructElementType = 'int' | 'float' | 'bool' | 'bytes';
 
 // To avoid performance issues with very large repeat counts, fall back to
 // the declared return type (a homogeneous `Any` tuple) above this many elements.
@@ -364,3 +365,10 @@ function getStructElementType(code: string, isNativeMode: boolean): StructElemen
             return undefined;
     }
 }
+
+// The kind of return type synthesized for a dispatched `struct` function:
+// a tuple (`unpack`/`unpack_from`) or an iterator of tuples (`iter_unpack`).
+type StructUnpackKind = 'tuple' | 'iterator';
+
+// The synthesized element type produced by a single struct format code.
+type StructElementType = 'int' | 'float' | 'bool' | 'bytes';
