@@ -51,7 +51,6 @@ import { ConsoleInterface } from '../common/console';
 import { FileEditAction } from '../common/editAction';
 import { ProgramView } from '../common/extensibility';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
-import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
 import { Uri } from '../common/uri/uri';
 import { UriMap } from '../common/uri/uriMap';
@@ -62,8 +61,8 @@ import { ParserOutput } from '../parser/parser';
 import { createTypeServerEvaluator, ITypeServerEvaluator } from './typeServerEvaluator';
 import { getEffectiveTypeOfDeclaration, isDeclaration } from './typeEvalUtils';
 import { convertFromPyrightDiagnostic } from './diagnosticUtils';
-import { INotebookUriMapper, NotebookUriMapper } from './notebookUriMapper';
-import { getProtocolDeclKey, IParserOutputProvider } from './typeServerConversionTypes';
+import { INotebookUriMapper } from './notebookUriMapper';
+import { getProtocolDeclKey } from './typeServerConversionTypes';
 
 import { TypeServerServiceKeys } from './typeServerServiceKeys';
 import { findFirstExpression } from './typeServerConversionUtils';
@@ -854,21 +853,6 @@ export function makeProgram(program: ProgramView, cache?: ITypeCache): IProgram 
         programWrappers.set(program, wrapper);
     }
     return wrapper;
-}
-
-export function makeParseResultsProvider(program: ProgramView): IParserOutputProvider {
-    const uriMapper = new NotebookUriMapper(program.serviceProvider.get(ServiceKeys.caseSensitivityDetector));
-    return {
-        getParserOutput: (uri: Uri) => program.getParserOutput(uri),
-        getUri: (node: ParseNode) => getFileInfo(node)?.fileUri,
-        isCaseSensitive: (uri: string) =>
-            program.serviceProvider.get(ServiceKeys.caseSensitivityDetector).isCaseSensitive(uri),
-        fs: program.serviceProvider.fs(),
-        uriMapper: uriMapper,
-        addStubCode: (code: string) => {
-            throw new Error('addStubCode not supported in ProgramView wrapper');
-        },
-    };
 }
 
 function getSymbolFromScope(node: ParseNode, name: string) {

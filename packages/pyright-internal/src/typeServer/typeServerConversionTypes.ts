@@ -30,17 +30,6 @@ export interface IParserOutputProvider extends CaseSensitivityDetector {
     addStubCode(code: string, directoryUri?: Uri): { uri: Uri; parseResults: ParseResults };
 }
 
-export function toProtocolNodeOrUndefined(
-    node: PyrightNodes.ParseNode | undefined,
-    provider: IParserOutputProvider
-): TypeServerProtocol.Node | undefined {
-    if (!node) {
-        return undefined;
-    }
-
-    return toProtocolNode(node, provider);
-}
-
 export function toProtocolNode(node: PyrightNodes.ParseNode, provider: IParserOutputProvider): TypeServerProtocol.Node {
     const uri = provider.getUri(node);
     const results = provider.getParserOutput(uri);
@@ -55,18 +44,6 @@ export function toProtocolNode(node: PyrightNodes.ParseNode, provider: IParserOu
         uri: uriString,
         range,
     };
-}
-
-export function fromProtocolNodeOrUndefined<T extends PyrightNodes.ParseNodeBase<PyrightNodes.ParseNodeType>>(
-    node: TypeServerProtocol.Node | undefined,
-    resultsProvider: IParserOutputProvider,
-    typeHints?: PyrightNodes.ParseNodeType[]
-): T | undefined {
-    if (!node) {
-        return undefined;
-    }
-
-    return fromProtocolNode<T>(node, resultsProvider, typeHints);
 }
 
 export function fromProtocolNode<T extends PyrightNodes.ParseNodeBase<PyrightNodes.ParseNodeType>>(
@@ -477,17 +454,6 @@ export function toProtocolTypeFlags(type: PyrightTypes.Type): TypeServerProtocol
     }
     if (PyrightTypes.isUnpacked(type)) {
         flags |= TypeServerProtocol.TypeFlags.Unpacked;
-    }
-    return flags;
-}
-
-export function fromProtocolTypeFlags(protocolFlags: TypeServerProtocol.TypeFlags): PyrightTypes.TypeFlags {
-    let flags = PyrightTypes.TypeFlags.None;
-    if (protocolFlags & TypeServerProtocol.TypeFlags.Instance) {
-        flags |= PyrightTypes.TypeFlags.Instance;
-    }
-    if (protocolFlags & TypeServerProtocol.TypeFlags.Instantiable) {
-        flags |= PyrightTypes.TypeFlags.Instantiable;
     }
     return flags;
 }

@@ -12,7 +12,6 @@ import { FlowNode } from '../analyzer/codeFlowTypes';
 import { Declaration, FunctionDeclaration } from '../analyzer/declaration';
 import { ImportResult } from '../analyzer/importResult';
 import { Scope } from '../analyzer/scope';
-import { IPythonMode } from '../analyzer/sourceFile';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import { ExpectedTypeResult } from '../analyzer/typeEvaluatorTypes';
 import { ClassType, Type } from '../analyzer/types';
@@ -20,7 +19,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { Diagnostic as PyrightDiagnostic } from '../common/diagnostic';
 import { FileEditAction } from '../common/editAction';
-import { ReferenceUseCase, SourceFileInfo } from '../common/extensibility';
+import { SourceFileInfo } from '../common/extensibility';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { ServiceProvider } from '../common/serviceProvider';
 import { Range } from '../common/textRange';
@@ -36,42 +35,6 @@ import { ProfilingInfo } from './profilingStub';
 export interface ParseResults extends ParseFileResults {
     moduleName: string;
     uri: Uri;
-}
-
-export interface ISymbolDefinitionProviderFactory {
-    createInstance(program: IProgram): ISymbolDefinitionProvider;
-}
-
-export interface ISymbolDefinitionProvider {
-    tryGetDeclarations(node: ParseNode, offset: number, token: CancellationToken): Declaration[];
-}
-
-export interface ISymbolUsageProvider {
-    appendSymbolNamesTo(symbolNames: Set<string>): void;
-    appendDeclarationsTo(to: Declaration[]): void;
-    appendDeclarationsAt(context: ParseNode, from: readonly Declaration[], to: Declaration[]): void;
-
-    // Optional hook for providers that need transitive (fixpoint) discovery. When a usage at
-    // `context` is found to match the symbol being collected, the collector calls this so the
-    // provider can contribute additional declarations that should join the seed set, allowing
-    // later usages that are only reachable through `context` to be matched on a subsequent pass.
-    // Providers that do not implement this opt out of the extra passes entirely.
-    //
-    // CONSTRAINT: seeds contributed here must not introduce new *symbol names*. This collector
-    // only re-runs its match phase over the already-collected candidate nodes and never
-    // re-walks the tree, so a seed with a previously-unseen name would be silently missed.
-    // Contributing same-named declarations (the protocol-member use case) is safe; growing
-    // `appendSymbolNamesTo` mid-fixpoint is not supported.
-    appendSeedDeclarationsAt?(context: ParseNode, from: readonly Declaration[], to: Declaration[]): void;
-}
-
-export interface ISymbolUsageProviderFactory {
-    tryCreateProvider(
-        program: IProgram,
-        useCase: ReferenceUseCase,
-        declarations: readonly Declaration[],
-        token: CancellationToken
-    ): ISymbolUsageProvider | undefined;
 }
 
 export interface ISourceFileInfo extends SourceFileInfo {
@@ -233,17 +196,4 @@ export interface IProgram extends IProgramBase, ITypeProvider, Disposable {
      * Notify the program that watched files have changed.
      */
     changedWatchedFiles(changes: FileEvent[]): void;
-}
-
-export type OpenFileContent = {
-    uri: Uri;
-    contents: string;
-    version: number;
-    chainedFileUri: Uri | undefined;
-    ipythonMode: IPythonMode;
-    isVirtual: boolean;
-};
-
-export interface IServiceFactory<T> {
-    createInstance(program: IProgram): T;
 }

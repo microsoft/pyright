@@ -16,7 +16,6 @@
  */
 
 import {
-    DidChangeNotebookDocumentParams,
     NotebookCellArrayChange,
     NotebookDocumentSyncOptions,
     TextDocumentIdentifier,
@@ -30,22 +29,6 @@ import { Uri } from '../common/uri/uri';
 import { Workspace } from '../workspaceFactory';
 
 import { INotebookUriMapper, NotebookUriMapper } from './notebookUriMapper';
-
-/**
- * Notebook selector matching file- and untitled-scheme notebooks with Python cells.
- */
-export const NotebookDocumentSelector: NotebookDocumentSyncOptions = {
-    notebookSelector: [
-        {
-            notebook: { scheme: 'file' },
-            cells: [{ language: 'python' }],
-        },
-        {
-            notebook: { scheme: 'untitled' },
-            cells: [{ language: 'python' }],
-        },
-    ],
-};
 
 /**
  * Notebook selector matching notebooks of any scheme with Python cells.
@@ -300,11 +283,4 @@ export function updateNotebookStructure(
     updateCellPaths(structure, notebookData, uriMapper, workspace);
     openAndCloseCells(structure, notebookData, uriMapper, workspace);
     updateCellChain(structure, notebookData, workspace, console);
-}
-
-export function isNotebookKernelChange(params: DidChangeNotebookDocumentParams): boolean {
-    return !!(
-        (params.change?.metadata as any)?.custom?.metadata?.kernelspec ||
-        (params.change?.metadata as any)?.metadata?.kernelspec
-    );
 }
