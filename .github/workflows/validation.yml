@@ -147,6 +147,9 @@ jobs:
       - run: npm publish --dry-run
         working-directory: packages/pyright
 
+      - run: npm publish --dry-run
+        working-directory: packages/pyright-typeserver
+
       - run: npm run package
         working-directory: packages/vscode-pyright
 
