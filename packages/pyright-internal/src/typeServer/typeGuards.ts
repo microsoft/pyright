@@ -6,6 +6,13 @@
  * Provides logic for narrowing types based on conditional
  * expressions. The logic handles both positive ("if") and
  * negative ("else") narrowing cases.
+ *
+ * NOTE: This module is forked from `analyzer/typeGuards.ts` and intentionally kept
+ * structurally identical to it. The only substantive difference is that file-info
+ * is routed through the `ITypeServerEvaluator` rather than the analyzer's evaluator.
+ * Keep this copy in sync whenever the canonical narrowing semantics in
+ * `analyzer/typeGuards.ts` change, otherwise the two will silently drift. Tracked by
+ * the type-server deduplication follow-up.
  */
 
 import { ClassType, isClass, isClassInstance } from '../analyzer/types';

@@ -69,7 +69,7 @@ export function isDeclaration(decl: any): decl is Declaration {
     return decl && decl.type !== undefined && decl.uri !== undefined;
 }
 
-function getSymbolFromScope(node: ParseNode, name: string) {
+export function getSymbolFromScope(node: ParseNode, name: string) {
     // use name node for parameter to get the correct scope
     const nodeForScope = node.nodeType === ParseNodeType.Parameter ? node.d.name ?? node : node;
     const scope = getScopeForNode(nodeForScope);

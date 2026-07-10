@@ -4,6 +4,13 @@
  * Licensed under the MIT license.
  *
  * Provides special-case logic for the Enum class.
+ *
+ * NOTE: This module is forked from `analyzer/enums.ts` and intentionally kept
+ * structurally identical to it. The only substantive difference is that file-info
+ * is routed through `evaluator.getSymbolLookup().getFileInfo(...)` so the logic can
+ * run against an `ITypeServerEvaluator`. Keep this copy in sync whenever the
+ * canonical enum semantics in `analyzer/enums.ts` change, otherwise the two will
+ * silently drift. Tracked by the type-server deduplication follow-up.
  */
 
 import { VariableDeclaration } from '../analyzer/declaration';

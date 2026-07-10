@@ -573,10 +573,26 @@ export class TypeServer extends LanguageServerBase {
         return nonDefault.find((w) => w.service.isTracked(uri)) ?? nonDefault[0] ?? this.workspaceFactory.items()[0];
     }
 
+    // Preserve the file's existing IPython mode when re-pushing its contents. If we
+    // unconditionally passed IPythonMode.None we would reset an open notebook cell's mode
+    // and detach it from its cell chain (mirrors ProgramWrapper.updateFileContents).
+    private _getExistingIPythonMode(workspace: Workspace, uri: Uri): IPythonMode {
+        const fileInfo = workspace.service.backgroundAnalysisProgram.program?.getSourceFileInfo(uri);
+        return fileInfo?.ipythonMode ?? IPythonMode.None;
+    }
+
     private async _getProgram(uri: Uri): Promise<ProgramWrapper | undefined> {
         const workspace = await this.getWorkspaceForFile(uri);
         if (workspace) {
-            return makeProgram(workspace.service.backgroundAnalysisProgram.program) as ProgramWrapper;
+            // Pass the global type cache explicitly so the wrapper is guaranteed to share
+            // the same `ITypeCache` (and therefore the same snapshot) that `_onGetSnapshot`
+            // returns. The `makeProgram` WeakMap normally returns the wrapper created in
+            // `onWorkspaceCreated`, but relying on that alone would livelock the client on
+            // permanent `ServerCancelled` if a program were ever re-wrapped cache-less.
+            return makeProgram(
+                workspace.service.backgroundAnalysisProgram.program,
+                this._globalTypeCache
+            ) as ProgramWrapper;
         }
         return undefined;
     }
@@ -712,7 +728,7 @@ export class TypeServer extends LanguageServerBase {
                     realUri,
                     doc?.version ?? null,
                     virtualContent,
-                    IPythonMode.None
+                    this._getExistingIPythonMode(workspace, realUri)
                 );
             }
             workspace.service.invalidateAndScheduleReanalysis(InvalidatedReason.Reanalyzed);
@@ -752,7 +768,12 @@ export class TypeServer extends LanguageServerBase {
         if (workspace) {
             if (realContent !== undefined) {
                 const doc = this.openFileMap.get(realUri.key);
-                workspace.service.updateOpenFileContents(realUri, doc?.version ?? null, realContent, IPythonMode.None);
+                workspace.service.updateOpenFileContents(
+                    realUri,
+                    doc?.version ?? null,
+                    realContent,
+                    this._getExistingIPythonMode(workspace, realUri)
+                );
             }
             workspace.service.invalidateAndScheduleReanalysis(InvalidatedReason.Reanalyzed);
         }

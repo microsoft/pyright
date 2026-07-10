@@ -22,6 +22,18 @@ import { initializeDependenciesForInProcTests, withInProcTypeServer } from './in
 
 jest.setTimeout(120000);
 
+/** Extract the class name from a protocol Type, if it's a ClassType with a regular declaration. */
+function getClassTypeName(type: TypeServerProtocol.Type | undefined): string | undefined {
+    if (!type || type.kind !== TypeServerProtocol.TypeKind.Class) {
+        return undefined;
+    }
+    const classType = type as TypeServerProtocol.ClassType;
+    if (classType.declaration.kind === TypeServerProtocol.DeclarationKind.Regular) {
+        return classType.declaration.name;
+    }
+    return undefined;
+}
+
 describe('TypeServer in-proc protocol', () => {
     beforeAll(async () => {
         await initializeDependenciesForInProcTests();
@@ -181,7 +193,8 @@ describe('TypeServer in-proc protocol', () => {
 
             assert(type !== undefined);
             assert(typeof type.id === 'number');
-            assert(typeof type.kind === 'number');
+            assert.strictEqual(type.kind, TypeServerProtocol.TypeKind.Class);
+            assert.strictEqual(getClassTypeName(type), 'int');
         });
     });
 
@@ -205,7 +218,8 @@ describe('TypeServer in-proc protocol', () => {
 
             assert(type !== undefined);
             assert(typeof type.id === 'number');
-            assert(typeof type.kind === 'number');
+            assert.strictEqual(type.kind, TypeServerProtocol.TypeKind.Class);
+            assert.strictEqual(getClassTypeName(type), 'C');
         });
     });
 
@@ -226,7 +240,8 @@ describe('TypeServer in-proc protocol', () => {
 
             assert(type !== undefined);
             assert(typeof type.id === 'number');
-            assert(typeof type.kind === 'number');
+            assert.strictEqual(type.kind, TypeServerProtocol.TypeKind.Class);
+            assert.strictEqual(getClassTypeName(type), 'str');
         });
     });
 

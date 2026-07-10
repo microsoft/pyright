@@ -48,6 +48,7 @@ import { ensureExpectedTypeCandidates, ExpectedTypeResult } from '../analyzer/ty
 import { isClass, isFunctionOrOverloaded, Type } from '../analyzer/types';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
+import { fail } from '../common/debug';
 import { FileEditAction } from '../common/editAction';
 import { ProgramView } from '../common/extensibility';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
@@ -55,11 +56,11 @@ import { ServiceProvider } from '../common/serviceProvider';
 import { Uri } from '../common/uri/uri';
 import { UriMap } from '../common/uri/uriMap';
 import { isFile } from '../common/uri/uriUtils';
-import { isExpressionNode, ModuleNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { isExpressionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
 import { ParserOutput } from '../parser/parser';
 
 import { createTypeServerEvaluator, ITypeServerEvaluator } from './typeServerEvaluator';
-import { getEffectiveTypeOfDeclaration, isDeclaration } from './typeEvalUtils';
+import { getEffectiveTypeOfDeclaration, getSymbolFromScope, isDeclaration } from './typeEvalUtils';
 import { convertFromPyrightDiagnostic } from './diagnosticUtils';
 import { INotebookUriMapper } from './notebookUriMapper';
 import { getProtocolDeclKey } from './typeServerConversionTypes';
@@ -138,6 +139,9 @@ export class ProgramWrapper implements IProgram {
     }
     get id(): string {
         return this._program.id;
+    }
+    get typeCache(): ITypeCache {
+        return this._cache;
     }
     get rootPath(): Uri {
         return this._program.rootPath;
@@ -851,17 +855,12 @@ export function makeProgram(program: ProgramView, cache?: ITypeCache): IProgram 
             cache ?? new TypeCache(program.serviceProvider, (uri) => program.getParserOutput(uri))
         );
         programWrappers.set(program, wrapper);
+    } else if (cache && wrapper instanceof ProgramWrapper && wrapper.typeCache !== cache) {
+        // Enforce the snapshot invariant: a program must not be re-wrapped with a different
+        // type cache. If it were, `server._onGetSnapshot()` (which reads the global cache) and
+        // the request handlers (which read the wrapper's cache) would report divergent
+        // snapshots and livelock the client on permanent `ServerCancelled`.
+        fail('makeProgram called with a different type cache for an already-wrapped program');
     }
     return wrapper;
-}
-
-function getSymbolFromScope(node: ParseNode, name: string) {
-    // use name node for parameter to get the correct scope
-    const nodeForScope = node.nodeType === ParseNodeType.Parameter ? node.d.name ?? node : node;
-    const scope = getScopeForNode(nodeForScope);
-    if (!scope) {
-        return undefined;
-    }
-
-    return scope.lookUpSymbol(name);
 }

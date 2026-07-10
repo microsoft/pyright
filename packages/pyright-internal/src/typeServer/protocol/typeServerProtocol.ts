@@ -12,6 +12,17 @@
  *
  * All the types in this file should be JSON serializable, as they are sent over the wire.
  * The protocol is designed to be extensible, allowing for future additions of new requests and notifications.
+ *
+ * Single source of truth:
+ * - Within Pyright, this `.ts` file is authoritative. The sibling `tsp.json` and
+ *   `tsp.schema.json` are GENERATED from it by `generate_json.py` (run that script
+ *   after editing this file); do not hand-edit the JSON artifacts.
+ * - Across repos, this file is a synchronized copy of the canonical shared Type Server
+ *   Protocol also consumed by Pylance. Version negotiation
+ *   (`TypeServerVersion.current`) guards against gross cross-version mismatches, but it
+ *   does NOT detect silent field-level drift within a version. Any wire-level change
+ *   must be mirrored in the other repo's copy and coordinated cross-repo so the two
+ *   cannot diverge.
  */
 import {
     MessageDirection,
