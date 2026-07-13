@@ -200,6 +200,18 @@ test('TrailingBackslashCRAtEOF', () => {
     assert.ok(errors.some((e) => e.message.includes('Unexpected EOF')));
 });
 
+test('AssignmentExpressionInComprehensionIterable', () => {
+    const diagSink = new DiagnosticSink();
+    TestUtils.parseText('[x for x in [y for y in range(10) if (z := y)]]', diagSink);
+
+    const errors = diagSink.getErrors();
+    assert.strictEqual(errors.length, 1);
+    assert.strictEqual(
+        errors[0].message,
+        'Assignment expression cannot be used in a comprehension iterable expression'
+    );
+});
+
 test('LazyImport - Python 3.15', () => {
     const diagSink = new DiagnosticSink();
     const parseOptions = new ParseOptions();

@@ -1763,6 +1763,7 @@
             "comment": ["{Locked='TypeVarTuple'}", "A generic type is a parameterized type, for example a container where the generic type parameter specifies the type of elements in the container"]
         },
         "walrusIllegal": "Operator \":=\" requires Python 3.8 or newer",
+        "walrusInComprehensionIterable": "Assignment expression cannot be used in a comprehension iterable expression",
         "walrusNotAllowed": "Operator \":=\" is not allowed in this context without surrounding parentheses",
         "wildcardInFunction": {
             "message": "Wildcard import not allowed within a class or function",
