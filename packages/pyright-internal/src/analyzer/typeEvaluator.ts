@@ -27907,6 +27907,12 @@ export function createTypeEvaluator(
                 // If the first parameter is a "self" or "cls" parameter, skip the
                 // test because these are allowed to violate the Liskov substitution
                 // principle.
+                //
+                // Note: the checker deliberately defeats this skip for the
+                // "callable variable overridden by a method" case by marking both
+                // sides static before calling this routine (see
+                // `_getCallableVariableOverrideComparison` in checker.ts). Keep the
+                // two in sync if this skip logic changes.
                 if (i === 0) {
                     if (
                         FunctionType.isInstanceMethod(overrideMethod) ||
