@@ -24628,7 +24628,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        if (propertyClass.priv.fgetInfo) {
+        if (propertyClass.priv.fgetInfo && isFunction(propertyClass.priv.fgetInfo.methodType)) {
             return getEffectiveReturnType(propertyClass.priv.fgetInfo.methodType);
         }
 

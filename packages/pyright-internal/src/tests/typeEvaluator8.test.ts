@@ -335,6 +335,53 @@ test('Property18', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Property19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property19.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Property20', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['property20.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 1);
+
+    configOptions.diagnosticRuleSet.reportDeprecated = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['property20.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 1);
+});
+
+test('Property21', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['property21.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 2);
+
+    configOptions.diagnosticRuleSet.reportDeprecated = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['property21.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 2);
+});
+
+test('Property22', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property22.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Property23', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
+
+    // Override-compatibility checking is not yet performed for overloaded
+    // property accessors, so the incompatible setter override in this sample
+    // is intentionally not reported. Update this expectation when override
+    // support for overloaded accessors is added.
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property23.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Operator1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator1.py']);
 
