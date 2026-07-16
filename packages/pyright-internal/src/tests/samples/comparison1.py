@@ -75,3 +75,39 @@ def func4(val: str | None):
     # This should generate an error because there is no overlap in types.
     if val == 42:
         ...
+
+
+def func5(data1: bytearray, data2: bytes):
+    # "bytearray" and "bytes" are disjoint types, but they should still be
+    # considered comparable because their "__eq__" methods support
+    # cross-type content comparisons.
+    if data1 == data2:
+        ...
+
+    if data1 == b"\x00\x00\x00\x00":
+        ...
+
+
+def func6(x: int, y: str):
+    # This should generate an error because there is no overlap in types.
+    if x == y:
+        ...
+
+
+def func7(x: list[int], y: dict[str, int]):
+    # This should generate an error because there is no overlap in types.
+    if x == y:
+        ...
+
+
+def func8(a: memoryview, b: bytes, c: bytearray):
+    # "memoryview", "bytes" and "bytearray" are all mutually comparable
+    # for the same reason as func5, above.
+    if a == b:
+        ...
+
+    if a == c:
+        ...
+
+    if b == c:
+        ...
