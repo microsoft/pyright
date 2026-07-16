@@ -590,6 +590,10 @@ export class ReferencesProvider {
             return this.getDeclarationForNode(program, fileUri, node, reporter, useCase, token);
         }
 
+        if (node.nodeType === ParseNodeType.Function) {
+            return this.getDeclarationForNode(program, fileUri, node.d.name, reporter, useCase, token);
+        }
+
         // For other node types, there are no references to be found.
         return undefined;
     }
