@@ -703,6 +703,12 @@ export class Binder extends ParseTreeWalker {
             () => {
                 AnalyzerNodeInfo.setScope(node, this._currentScope);
 
+                const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
+                if (enclosingClass) {
+                    // Lambdas create the same implicit __class__ closure as named functions.
+                    this._addImplicitSymbolToCurrentScope('__class__', node, '__class__');
+                }
+
                 this._deferBinding(() => {
                     // Create a start node for the lambda.
                     this._currentFlowNode = this._createStartFlowNode();
@@ -3752,7 +3758,7 @@ export class Binder extends ParseTreeWalker {
 
     private _addImplicitSymbolToCurrentScope(
         nameValue: string,
-        node: ModuleNode | ClassNode | FunctionNode,
+        node: ModuleNode | ClassNode | FunctionNode | LambdaNode,
         type: IntrinsicType,
         isClassMember = true
     ) {
