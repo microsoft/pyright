@@ -2832,6 +2832,56 @@ export function createTypeEvaluator(
         return false;
     }
 
+    // Given a member symbol and the context in which it was accessed, computes
+    // the declared type of the member (applying descriptor setter types, partial
+    // specialization, and function binding as appropriate). Returns undefined if
+    // the symbol has no declared type.
+    function resolveDeclaredMemberType(
+        symbol: Symbol,
+        classOrObjectBase: ClassType | undefined,
+        memberAccessClass: Type | undefined,
+        useDescriptorSetterType: boolean,
+        bindFunction: boolean,
+        selfType: ClassType | TypeVarType | undefined
+    ): Type | undefined {
+        let declaredType = getDeclaredTypeOfSymbol(symbol)?.type;
+        if (!declaredType) {
+            return undefined;
+        }
+
+        // If it's a descriptor, we need to get the setter type.
+        if (useDescriptorSetterType && isClassInstance(declaredType)) {
+            const setter = getBoundMagicMethod(declaredType, '__set__');
+            if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
+                declaredType = FunctionType.getParamType(setter, 1);
+
+                if (isAnyOrUnknown(declaredType)) {
+                    return undefined;
+                }
+            }
+        }
+
+        if (classOrObjectBase) {
+            if (memberAccessClass && isInstantiableClass(memberAccessClass)) {
+                declaredType = partiallySpecializeType(declaredType, memberAccessClass, getTypeClassType(), selfType);
+            }
+
+            if (isFunctionOrOverloaded(declaredType)) {
+                if (bindFunction) {
+                    declaredType = bindFunctionToClassOrObject(
+                        classOrObjectBase,
+                        declaredType,
+                        /* memberClass */ undefined,
+                        /* treatConstructorAsClassMethod */ undefined,
+                        selfType
+                    );
+                }
+            }
+        }
+
+        return declaredType;
+    }
+
     // Determines whether the specified expression is a symbol with a declared type.
     function getDeclaredTypeForExpression(expression: ExpressionNode, usage?: EvaluatorUsage): Type | undefined {
         let symbol: Symbol | undefined;
@@ -2882,10 +2932,24 @@ export function createTypeEvaluator(
                 const baseTypeConcrete = makeTopLevelTypeVarsConcrete(baseType);
                 const memberName = expression.d.member.d.value;
 
+                if (isTypeVar(baseType)) {
+                    selfType = baseType;
+                }
+
                 // Normally, baseTypeConcrete will not be a composite type (a union),
-                // but this can occur. In this case, it's not clear how to handle this
-                // correctly. For now, we'll just loop through the subtypes and
-                // use one of them. We'll sort the subtypes for determinism.
+                // but this can occur. In this case, we compute the declared type of
+                // the member for each subtype. If the subtypes don't all agree on a
+                // single declared type, there is no unambiguous declared type to use
+                // (e.g. as the expected type for bidirectional inference of an
+                // assigned value), so we return undefined. Committing to one subtype's
+                // declared type would produce false positives when assigning a value
+                // (such as an empty container) that is compatible with every subtype.
+                // We sort the subtypes for determinism.
+                const isUnionBase = isUnion(baseTypeConcrete);
+                let firstMemberDeclaredType: Type | undefined;
+                let sawMemberDeclaredType = false;
+                let hasDivergentMemberDeclaredTypes = false;
+
                 doForEachSubtype(
                     baseTypeConcrete,
                     (baseSubtype) => {
@@ -2927,13 +2991,41 @@ export function createTypeEvaluator(
                             useDescriptorSetterType = false;
                             bindFunction = false;
                         }
+
+                        // If the base is a union, verify that the subtypes agree on a
+                        // single declared type for the member.
+                        if (isUnionBase) {
+                            const subtypeDeclaredType = symbol
+                                ? resolveDeclaredMemberType(
+                                      symbol,
+                                      classOrObjectBase,
+                                      memberAccessClass,
+                                      useDescriptorSetterType,
+                                      bindFunction,
+                                      selfType
+                                  )
+                                : undefined;
+
+                            if (subtypeDeclaredType) {
+                                if (!sawMemberDeclaredType) {
+                                    firstMemberDeclaredType = subtypeDeclaredType;
+                                    sawMemberDeclaredType = true;
+                                } else if (
+                                    !firstMemberDeclaredType ||
+                                    !isTypeSame(firstMemberDeclaredType, subtypeDeclaredType)
+                                ) {
+                                    hasDivergentMemberDeclaredTypes = true;
+                                }
+                            }
+                        }
                     },
                     /* sortSubtypes */ true
                 );
 
-                if (isTypeVar(baseType)) {
-                    selfType = baseType;
+                if (hasDivergentMemberDeclaredTypes) {
+                    return undefined;
                 }
+
                 break;
             }
 
@@ -3024,45 +3116,14 @@ export function createTypeEvaluator(
         }
 
         if (symbol) {
-            let declaredType = getDeclaredTypeOfSymbol(symbol)?.type;
-            if (declaredType) {
-                // If it's a descriptor, we need to get the setter type.
-                if (useDescriptorSetterType && isClassInstance(declaredType)) {
-                    const setter = getBoundMagicMethod(declaredType, '__set__');
-                    if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
-                        declaredType = FunctionType.getParamType(setter, 1);
-
-                        if (isAnyOrUnknown(declaredType)) {
-                            return undefined;
-                        }
-                    }
-                }
-
-                if (classOrObjectBase) {
-                    if (memberAccessClass && isInstantiableClass(memberAccessClass)) {
-                        declaredType = partiallySpecializeType(
-                            declaredType,
-                            memberAccessClass,
-                            getTypeClassType(),
-                            selfType
-                        );
-                    }
-
-                    if (isFunctionOrOverloaded(declaredType)) {
-                        if (bindFunction) {
-                            declaredType = bindFunctionToClassOrObject(
-                                classOrObjectBase,
-                                declaredType,
-                                /* memberClass */ undefined,
-                                /* treatConstructorAsClassMethod */ undefined,
-                                selfType
-                            );
-                        }
-                    }
-                }
-
-                return declaredType;
-            }
+            return resolveDeclaredMemberType(
+                symbol,
+                classOrObjectBase,
+                memberAccessClass,
+                useDescriptorSetterType,
+                bindFunction,
+                selfType
+            );
         }
 
         return undefined;
