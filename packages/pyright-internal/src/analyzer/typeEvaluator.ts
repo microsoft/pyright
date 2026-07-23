@@ -2832,6 +2832,56 @@ export function createTypeEvaluator(
         return false;
     }
 
+    // Given a member symbol and the context in which it was accessed, computes
+    // the declared type of the member (applying descriptor setter types, partial
+    // specialization, and function binding as appropriate). Returns undefined if
+    // the symbol has no declared type.
+    function resolveDeclaredMemberType(
+        symbol: Symbol,
+        classOrObjectBase: ClassType | undefined,
+        memberAccessClass: Type | undefined,
+        useDescriptorSetterType: boolean,
+        bindFunction: boolean,
+        selfType: ClassType | TypeVarType | undefined
+    ): Type | undefined {
+        let declaredType = getDeclaredTypeOfSymbol(symbol)?.type;
+        if (!declaredType) {
+            return undefined;
+        }
+
+        // If it's a descriptor, we need to get the setter type.
+        if (useDescriptorSetterType && isClassInstance(declaredType)) {
+            const setter = getBoundMagicMethod(declaredType, '__set__');
+            if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
+                declaredType = FunctionType.getParamType(setter, 1);
+
+                if (isAnyOrUnknown(declaredType)) {
+                    return undefined;
+                }
+            }
+        }
+
+        if (classOrObjectBase) {
+            if (memberAccessClass && isInstantiableClass(memberAccessClass)) {
+                declaredType = partiallySpecializeType(declaredType, memberAccessClass, getTypeClassType(), selfType);
+            }
+
+            if (isFunctionOrOverloaded(declaredType)) {
+                if (bindFunction) {
+                    declaredType = bindFunctionToClassOrObject(
+                        classOrObjectBase,
+                        declaredType,
+                        /* memberClass */ undefined,
+                        /* treatConstructorAsClassMethod */ undefined,
+                        selfType
+                    );
+                }
+            }
+        }
+
+        return declaredType;
+    }
+
     // Determines whether the specified expression is a symbol with a declared type.
     function getDeclaredTypeForExpression(expression: ExpressionNode, usage?: EvaluatorUsage): Type | undefined {
         let symbol: Symbol | undefined;
@@ -2882,10 +2932,39 @@ export function createTypeEvaluator(
                 const baseTypeConcrete = makeTopLevelTypeVarsConcrete(baseType);
                 const memberName = expression.d.member.d.value;
 
-                // Normally, baseTypeConcrete will not be a composite type (a union),
-                // but this can occur. In this case, it's not clear how to handle this
-                // correctly. For now, we'll just loop through the subtypes and
-                // use one of them. We'll sort the subtypes for determinism.
+                if (isTypeVar(baseType)) {
+                    selfType = baseType;
+                }
+
+                // Normally, baseType will not be a composite type (a union), but
+                // this can occur. In this case, we compute the declared type of the
+                // member for each subtype. If the subtypes declare the member with
+                // the same generic class but different (invariant) type arguments
+                // (e.g. "list[int]" vs. "list[str]"), there is no single declared
+                // type that can serve as the expected type for bidirectional
+                // inference of an assigned value. Committing to one subtype's
+                // declared type produces a false positive when assigning a value
+                // (such as an empty container) that is compatible with every
+                // subtype, so in that case we return undefined and let the value be
+                // evaluated without an expected type. We sort the subtypes for
+                // determinism.
+                //
+                // This is deliberately limited to the "same class, differing type
+                // arguments" case. When the subtypes declare the member with
+                // unrelated types, we retain the previous behavior (use one
+                // subtype's declared type) so that genuine assignment errors are
+                // still reported at the same location and downstream inference is
+                // unchanged.
+                //
+                // This handling is further limited to cases where the declared base
+                // type is itself a union. We intentionally don't apply it when the
+                // base is a type variable that merely concretizes to a union.
+                const isUnionBase = isUnion(baseType);
+                let firstMemberDeclaredType: Type | undefined;
+                let sawMemberDeclaredType = false;
+                let hasDivergentMemberDeclaredTypes = false;
+                let divergesOnlyByTypeArgs = true;
+
                 doForEachSubtype(
                     baseTypeConcrete,
                     (baseSubtype) => {
@@ -2927,13 +3006,58 @@ export function createTypeEvaluator(
                             useDescriptorSetterType = false;
                             bindFunction = false;
                         }
+
+                        // If the base is a union, verify that the subtypes agree on a
+                        // single declared type for the member.
+                        if (isUnionBase) {
+                            const subtypeDeclaredType = symbol
+                                ? resolveDeclaredMemberType(
+                                      symbol,
+                                      classOrObjectBase,
+                                      memberAccessClass,
+                                      useDescriptorSetterType,
+                                      bindFunction,
+                                      selfType
+                                  )
+                                : undefined;
+
+                            if (subtypeDeclaredType) {
+                                if (!sawMemberDeclaredType) {
+                                    firstMemberDeclaredType = subtypeDeclaredType;
+                                    sawMemberDeclaredType = true;
+                                } else if (
+                                    !firstMemberDeclaredType ||
+                                    !isTypeSame(firstMemberDeclaredType, subtypeDeclaredType)
+                                ) {
+                                    hasDivergentMemberDeclaredTypes = true;
+
+                                    // The false positive we're addressing is specific
+                                    // to invariant type arguments of the same generic
+                                    // class. If the divergent types aren't instances of
+                                    // the same generic class, don't treat this as an
+                                    // ambiguous declared type.
+                                    if (
+                                        !firstMemberDeclaredType ||
+                                        !isClassInstance(firstMemberDeclaredType) ||
+                                        !isClassInstance(subtypeDeclaredType) ||
+                                        !ClassType.isSameGenericClass(
+                                            ClassType.cloneAsInstantiable(firstMemberDeclaredType),
+                                            ClassType.cloneAsInstantiable(subtypeDeclaredType)
+                                        )
+                                    ) {
+                                        divergesOnlyByTypeArgs = false;
+                                    }
+                                }
+                            }
+                        }
                     },
                     /* sortSubtypes */ true
                 );
 
-                if (isTypeVar(baseType)) {
-                    selfType = baseType;
+                if (hasDivergentMemberDeclaredTypes && divergesOnlyByTypeArgs) {
+                    return undefined;
                 }
+
                 break;
             }
 
@@ -3024,45 +3148,14 @@ export function createTypeEvaluator(
         }
 
         if (symbol) {
-            let declaredType = getDeclaredTypeOfSymbol(symbol)?.type;
-            if (declaredType) {
-                // If it's a descriptor, we need to get the setter type.
-                if (useDescriptorSetterType && isClassInstance(declaredType)) {
-                    const setter = getBoundMagicMethod(declaredType, '__set__');
-                    if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
-                        declaredType = FunctionType.getParamType(setter, 1);
-
-                        if (isAnyOrUnknown(declaredType)) {
-                            return undefined;
-                        }
-                    }
-                }
-
-                if (classOrObjectBase) {
-                    if (memberAccessClass && isInstantiableClass(memberAccessClass)) {
-                        declaredType = partiallySpecializeType(
-                            declaredType,
-                            memberAccessClass,
-                            getTypeClassType(),
-                            selfType
-                        );
-                    }
-
-                    if (isFunctionOrOverloaded(declaredType)) {
-                        if (bindFunction) {
-                            declaredType = bindFunctionToClassOrObject(
-                                classOrObjectBase,
-                                declaredType,
-                                /* memberClass */ undefined,
-                                /* treatConstructorAsClassMethod */ undefined,
-                                selfType
-                            );
-                        }
-                    }
-                }
-
-                return declaredType;
-            }
+            return resolveDeclaredMemberType(
+                symbol,
+                classOrObjectBase,
+                memberAccessClass,
+                useDescriptorSetterType,
+                bindFunction,
+                selfType
+            );
         }
 
         return undefined;
