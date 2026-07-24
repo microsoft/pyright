@@ -163,16 +163,23 @@ export function getTypeNarrowingCallback(
                 testExpression.d.rightExpr.d.constType === KeywordType.None
             ) {
                 // Allow the LHS to be either a simple expression or an assignment
-                // expression that assigns to a simple name.
+                // expression. For assignment expressions, narrow both the target
+                // name and the RHS (same as truthiness narrowing).
                 let leftExpression = testExpression.d.leftExpr;
+                let assignmentExprRight: ExpressionNode | undefined;
                 if (leftExpression.nodeType === ParseNodeType.AssignmentExpression) {
+                    assignmentExprRight = leftExpression.d.rightExpr;
                     leftExpression = leftExpression.d.name;
                 }
 
                 if (
                     ParseTreeUtils.isMatchingExpression(reference, leftExpression, (ref, expr) =>
                         isNameSameScope(evaluator, ref, expr)
-                    )
+                    ) ||
+                    (assignmentExprRight !== undefined &&
+                        ParseTreeUtils.isMatchingExpression(reference, assignmentExprRight, (ref, expr) =>
+                            isNameSameScope(evaluator, ref, expr)
+                        ))
                 ) {
                     return (type: Type) => {
                         return { type: narrowTypeForIsNone(evaluator, type, adjIsPositiveTest), isIncomplete: false };
@@ -207,16 +214,23 @@ export function getTypeNarrowingCallback(
             // Look for "X is ...", "X is not ...", "X == ...", and "X != ...".
             if (testExpression.d.rightExpr.nodeType === ParseNodeType.Ellipsis) {
                 // Allow the LHS to be either a simple expression or an assignment
-                // expression that assigns to a simple name.
+                // expression. For assignment expressions, narrow both the target
+                // name and the RHS (same as truthiness narrowing).
                 let leftExpression = testExpression.d.leftExpr;
+                let assignmentExprRight: ExpressionNode | undefined;
                 if (leftExpression.nodeType === ParseNodeType.AssignmentExpression) {
+                    assignmentExprRight = leftExpression.d.rightExpr;
                     leftExpression = leftExpression.d.name;
                 }
 
                 if (
                     ParseTreeUtils.isMatchingExpression(reference, leftExpression, (ref, expr) =>
                         isNameSameScope(evaluator, ref, expr)
-                    )
+                    ) ||
+                    (assignmentExprRight !== undefined &&
+                        ParseTreeUtils.isMatchingExpression(reference, assignmentExprRight, (ref, expr) =>
+                            isNameSameScope(evaluator, ref, expr)
+                        ))
                 ) {
                     return (type: Type) => {
                         return {

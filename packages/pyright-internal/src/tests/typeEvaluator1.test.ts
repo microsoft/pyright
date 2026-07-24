@@ -303,6 +303,12 @@ test('TypeNarrowing8', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeNarrowing9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing9.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeNarrowingAssert1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingAssert1.py']);
 
