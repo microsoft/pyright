@@ -162,23 +162,16 @@ export function getTypeNarrowingCallback(
                 testExpression.d.rightExpr.nodeType === ParseNodeType.Constant &&
                 testExpression.d.rightExpr.d.constType === KeywordType.None
             ) {
-                // Allow the LHS to be either a simple expression or an assignment
-                // expression that assigns to a simple name.
-                let leftExpression = testExpression.d.leftExpr;
-                if (leftExpression.nodeType === ParseNodeType.AssignmentExpression) {
-                    leftExpression = leftExpression.d.name;
-                }
-
-                if (
-                    ParseTreeUtils.isMatchingExpression(reference, leftExpression, (ref, expr) =>
-                        isNameSameScope(evaluator, ref, expr)
-                    )
-                ) {
+                // Allow the LHS to be a simple expression or an assignment expression.
+                // For assignment expressions, narrow both the target and the RHS
+                // (consistent with truthiness narrowing).
+                if (isMatchingExpressionOrWalrusRhs(evaluator, reference, testExpression.d.leftExpr)) {
                     return (type: Type) => {
                         return { type: narrowTypeForIsNone(evaluator, type, adjIsPositiveTest), isIncomplete: false };
                     };
                 }
 
+                const leftExpression = testExpression.d.leftExpr;
                 if (
                     leftExpression.nodeType === ParseNodeType.Index &&
                     ParseTreeUtils.isMatchingExpression(reference, leftExpression.d.leftExpr, (ref, expr) =>
@@ -206,18 +199,7 @@ export function getTypeNarrowingCallback(
 
             // Look for "X is ...", "X is not ...", "X == ...", and "X != ...".
             if (testExpression.d.rightExpr.nodeType === ParseNodeType.Ellipsis) {
-                // Allow the LHS to be either a simple expression or an assignment
-                // expression that assigns to a simple name.
-                let leftExpression = testExpression.d.leftExpr;
-                if (leftExpression.nodeType === ParseNodeType.AssignmentExpression) {
-                    leftExpression = leftExpression.d.name;
-                }
-
-                if (
-                    ParseTreeUtils.isMatchingExpression(reference, leftExpression, (ref, expr) =>
-                        isNameSameScope(evaluator, ref, expr)
-                    )
-                ) {
+                if (isMatchingExpressionOrWalrusRhs(evaluator, reference, testExpression.d.leftExpr)) {
                     return (type: Type) => {
                         return {
                             type: narrowTypeForIsEllipsis(evaluator, testExpression, type, adjIsPositiveTest),
@@ -234,11 +216,7 @@ export function getTypeNarrowingCallback(
                     testExpression.d.leftExpr.d.args[0].d.argCategory === ArgCategory.Simple
                 ) {
                     const arg0Expr = testExpression.d.leftExpr.d.args[0].d.valueExpr;
-                    if (
-                        ParseTreeUtils.isMatchingExpression(reference, arg0Expr, (ref, expr) =>
-                            isNameSameScope(evaluator, ref, expr)
-                        )
-                    ) {
+                    if (isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
                         const callType = evaluator.getTypeOfExpression(
                             testExpression.d.leftExpr.d.leftExpr,
                             EvalFlags.CallBaseDefaults
@@ -276,11 +254,7 @@ export function getTypeNarrowingCallback(
             }
 
             if (isOrIsNotOperator) {
-                if (
-                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr, (ref, expr) =>
-                        isNameSameScope(evaluator, ref, expr)
-                    )
-                ) {
+                if (isMatchingExpressionOrWalrusRhs(evaluator, reference, testExpression.d.leftExpr)) {
                     const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                     const rightType = rightTypeResult.type;
 
@@ -381,11 +355,7 @@ export function getTypeNarrowingCallback(
                 const adjIsPositiveTest =
                     testExpression.d.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
 
-                if (
-                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr, (ref, expr) =>
-                        isNameSameScope(evaluator, ref, expr)
-                    )
-                ) {
+                if (isMatchingExpressionOrWalrusRhs(evaluator, reference, testExpression.d.leftExpr)) {
                     const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                     const rightType = rightTypeResult.type;
 
@@ -615,11 +585,7 @@ export function getTypeNarrowingCallback(
 
         if (testExpression.d.operator === OperatorType.In || testExpression.d.operator === OperatorType.NotIn) {
             // Look for "x in y" or "x not in y" where y is one of several built-in types.
-            if (
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr, (ref, expr) =>
-                    isNameSameScope(evaluator, ref, expr)
-                )
-            ) {
+            if (isMatchingExpressionOrWalrusRhs(evaluator, reference, testExpression.d.leftExpr)) {
                 const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
                 const rightType = rightTypeResult.type;
                 const adjIsPositiveTest =
@@ -671,11 +637,7 @@ export function getTypeNarrowingCallback(
             const arg0Expr = testExpression.d.args[0].d.valueExpr;
             const arg1Expr = testExpression.d.args[1].d.valueExpr;
 
-            if (
-                ParseTreeUtils.isMatchingExpression(reference, arg0Expr, (ref, expr) =>
-                    isNameSameScope(evaluator, ref, expr)
-                )
-            ) {
+            if (isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.d.leftExpr,
                     EvalFlags.CallBaseDefaults
@@ -721,11 +683,7 @@ export function getTypeNarrowingCallback(
 
         // Look for "bool(X)"
         if (testExpression.d.args.length === 1 && !testExpression.d.args[0].d.name) {
-            if (
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.args[0].d.valueExpr, (ref, expr) =>
-                    isNameSameScope(evaluator, ref, expr)
-                )
-            ) {
+            if (isMatchingExpressionOrWalrusRhs(evaluator, reference, testExpression.d.args[0].d.valueExpr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.d.leftExpr,
                     EvalFlags.CallBaseDefaults
@@ -746,11 +704,7 @@ export function getTypeNarrowingCallback(
         // Look for a TypeGuard function.
         if (testExpression.d.args.length >= 1) {
             const arg0Expr = testExpression.d.args[0].d.valueExpr;
-            if (
-                ParseTreeUtils.isMatchingExpression(reference, arg0Expr, (ref, expr) =>
-                    isNameSameScope(evaluator, ref, expr)
-                )
-            ) {
+            if (isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
                 // Does this look like it's a custom type guard function?
                 let isPossiblyTypeGuard = false;
 
@@ -2866,4 +2820,25 @@ function isNameSameScope(evaluator: TypeEvaluator, reference: NameNode, expressi
     }
 
     return isScopeContainedWithin(refScope, exprScope);
+}
+
+// Matches a reference against an expression, including the RHS of an assignment
+// expression. This keeps walrus narrowing consistent with truthiness handling in
+// getTypeNarrowingCallbackForAssignmentExpression.
+function isMatchingExpressionOrWalrusRhs(
+    evaluator: TypeEvaluator,
+    reference: ExpressionNode,
+    expression: ExpressionNode
+): boolean {
+    const compareName = (ref: NameNode, expr: NameNode) => isNameSameScope(evaluator, ref, expr);
+
+    if (ParseTreeUtils.isMatchingExpression(reference, expression, compareName)) {
+        return true;
+    }
+
+    if (expression.nodeType === ParseNodeType.AssignmentExpression) {
+        return ParseTreeUtils.isMatchingExpression(reference, expression.d.rightExpr, compareName);
+    }
+
+    return false;
 }
