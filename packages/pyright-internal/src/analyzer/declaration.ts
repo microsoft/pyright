@@ -18,6 +18,7 @@ import {
     ImportAsNode,
     ImportFromAsNode,
     ImportFromNode,
+    LambdaNode,
     ModuleNode,
     NameNode,
     ParameterNode,
@@ -87,7 +88,7 @@ export interface DeclarationBase {
 export interface IntrinsicDeclaration extends DeclarationBase {
     type: DeclarationType.Intrinsic;
     name: string;
-    node: ModuleNode | FunctionNode | ClassNode;
+    node: ModuleNode | FunctionNode | LambdaNode | ClassNode;
     intrinsicType: IntrinsicType;
 }
 
