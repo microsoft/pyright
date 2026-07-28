@@ -682,7 +682,8 @@ function narrowTypeBasedOnLiteralPattern(
                 isLiteralType(literalType) &&
                 isClassInstance(expandedSubtype) &&
                 isLiteralType(expandedSubtype) &&
-                evaluator.assignType(literalType, expandedSubtype)
+                (evaluator.assignType(literalType, expandedSubtype) ||
+                    isIntLiteralPatternEqualToBool(literalType, expandedSubtype))
             ) {
                 return undefined;
             }
@@ -708,6 +709,16 @@ function narrowTypeBasedOnLiteralPattern(
     }
 
     return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (expandedSubtype, unexpandedSubtype) => {
+        if (
+            isClassInstance(literalType) &&
+            isLiteralType(literalType) &&
+            isClassInstance(expandedSubtype) &&
+            isLiteralType(expandedSubtype) &&
+            isIntLiteralPatternEqualToBool(literalType, expandedSubtype)
+        ) {
+            return expandedSubtype;
+        }
+
         if (evaluator.assignType(expandedSubtype, literalType)) {
             // We have to be careful here because the runtime uses an equality
             // check, but the expandedSubtype could be a superclass that is not
@@ -743,6 +754,23 @@ function narrowTypeBasedOnLiteralPattern(
         }
         return undefined;
     });
+}
+
+function isIntLiteralPatternEqualToBool(patternType: ClassType, subjectType: ClassType): boolean {
+    // Numeric literal patterns use equality, so 0 and 1 also match False and True.
+    // The inverse isn't true because singleton bool patterns use identity.
+    if (!ClassType.isBuiltIn(patternType, 'int') || !ClassType.isBuiltIn(subjectType, 'bool')) {
+        return false;
+    }
+
+    const patternValue = patternType.priv.literalValue;
+    const subjectValue = subjectType.priv.literalValue;
+    if ((typeof patternValue !== 'number' && typeof patternValue !== 'bigint') || typeof subjectValue !== 'boolean') {
+        return false;
+    }
+
+    const boolAsNumber = subjectValue ? 1 : 0;
+    return typeof patternValue === 'bigint' ? patternValue === BigInt(boolAsNumber) : patternValue === boolAsNumber;
 }
 
 // When a class pattern matches a generic class whose type parameters have an

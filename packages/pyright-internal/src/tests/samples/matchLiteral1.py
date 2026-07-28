@@ -108,6 +108,30 @@ def test_subclass3(subj: Literal[1]):
             reveal_type(subj, expected_text="Literal[1]")
 
 
+def test_numeric_literal_matches_bool(subj: Literal[0, False]):
+    match subj:
+        case 0:
+            reveal_type(subj, expected_text="Literal[0, False]")
+        case _:
+            reveal_type(subj, expected_text="Never")
+
+
+def test_numeric_literal_matches_true(subj: Literal[1, True]):
+    match subj:
+        case 1:
+            reveal_type(subj, expected_text="Literal[1, True]")
+        case _:
+            reveal_type(subj, expected_text="Never")
+
+
+def test_bool_literal_uses_identity(subj: Literal[0, False]):
+    match subj:
+        case False:
+            reveal_type(subj, expected_text="Literal[False]")
+        case _:
+            reveal_type(subj, expected_text="Literal[0]")
+
+
 T1 = TypeVar("T1", Literal["A"], Literal["B"])
 
 
