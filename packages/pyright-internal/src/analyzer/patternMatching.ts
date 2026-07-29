@@ -1351,6 +1351,17 @@ function narrowTypeBasedOnValuePattern(
                             )
                         );
 
+                        if (
+                            returnType &&
+                            !evaluator.assignType(subjectSubtypeExpanded, valueSubtypeExpanded) &&
+                            !evaluator.assignType(valueSubtypeExpanded, subjectSubtypeExpanded)
+                        ) {
+                            // Equality can succeed between unrelated types, so retain the subject type.
+                            return evaluator.isTypeComparable(valueSubtypeExpanded, subjectSubtypeExpanded)
+                                ? subjectSubtypeExpanded
+                                : undefined;
+                        }
+
                         return returnType ? valueSubtypeUnexpanded : undefined;
                     }
                 )
