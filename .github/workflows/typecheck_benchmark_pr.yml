@@ -1,0 +1,73 @@
+name: Type checker benchmark
+
+env:
+  NODE_VERSION: '22.x'
+  PYTHON_VERSION: '3.14'
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/typecheck_benchmark_pr.yml'
+      - 'build/benchmark/**'
+      - 'packages/pyright/**'
+      - 'packages/pyright-internal/src/**'
+      - 'packages/pyright-internal/typeshed-fallback/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Compare Pyright performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - uses: ./.github/actions/npm-cache-dir
+
+      - name: Install build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+          npm install
+
+      - name: Build Pyright CLI
+        working-directory: packages/pyright
+        run: npm run build
+
+      - name: Run benchmark
+        env:
+          PYTHONNOUSERSITE: '1'
+        run: |
+          python build/benchmark/typecheck_benchmark.py \
+            -c pyright -r 1 -w 0 -t 600 --memory-limit-mb 8192 \
+            --skip-pyright-build --os-name linux-x64 \
+            --output build/benchmark/results
+
+      - name: Compare with baseline
+        run: |
+          python build/benchmark/compare_benchmarks.py \
+            build/benchmark/baselines/latest-linux-x64.json \
+            build/benchmark/results/latest-linux-x64.json
+
+      - name: Upload candidate results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typecheck-benchmark-linux-x64
+          path: build/benchmark/results/

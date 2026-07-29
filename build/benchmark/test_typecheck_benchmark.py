@@ -20,6 +20,22 @@ class TypecheckBenchmarkTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
+    def test_pyright_command_uses_package_entry_point(self) -> None:
+        entry_point = self.root / "index.js"
+        bundle = self.root / "dist" / "pyright.js"
+        bundle.parent.mkdir()
+        entry_point.touch()
+        bundle.touch()
+
+        with (
+            patch.object(benchmark, "PYRIGHT_ENTRY_POINT", entry_point),
+            patch.object(benchmark, "PYRIGHT_BUNDLE", bundle),
+            patch.object(benchmark, "_executable", return_value="node"),
+        ):
+            command = benchmark._pyright_command()
+
+        self.assertEqual(command, ["node", str(entry_point)])
+
     def test_pyright_config_and_command(self) -> None:
         source_dir = self.root / "src"
         source_dir.mkdir()
@@ -33,11 +49,54 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertIsNotNone(command)
         self.assertEqual(command[:2], ["node", "pyright.js"])
         self.assertEqual(command[2], "--project")
-        self.assertEqual(command[-1], "--outputjson")
+        self.assertEqual(command[-1], "--stats")
+        self.assertNotIn("--outputjson", command)
         config = json.loads(configs[0].read_text(encoding="utf-8"))
         self.assertEqual(config["include"], ["src"])
         self.assertIs(config["useLibraryCodeForTypes"], True)
         configs[0].unlink()
+
+    def test_load_install_envs_includes_source_only_packages(self) -> None:
+        config_path = self.root / "install_envs.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "packages": [
+                        {
+                            "github_url": "https://github.com/pallets/click",
+                            "check_paths": ["src/click"],
+                            "install": False,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        packages = benchmark.load_install_envs(config_path)
+
+        self.assertEqual(len(packages), 1)
+        self.assertEqual(packages[0]["name"], "click")
+
+    def test_install_failure_is_a_package_failure(self) -> None:
+        package = {
+            "name": "example",
+            "github_url": "https://example.com/example",
+            "install": True,
+        }
+        with (
+            patch.object(benchmark, "clone_package", return_value=self.root),
+            patch.object(benchmark, "get_package_commit", return_value="abc123"),
+            patch.object(benchmark, "install_deps", return_value=False),
+            patch.object(benchmark, "_benchmark_directory") as run_directory,
+        ):
+            result = benchmark._benchmark_package(
+                package, self.root, ["pyright"], 30, 1, 0, 4096
+            )
+
+        self.assertEqual(result["error"], "Dependency installation failed")
+        self.assertEqual(result["commit"], "abc123")
+        run_directory.assert_not_called()
 
     def test_zuban_uses_positional_paths_without_config(self) -> None:
         source_dir = self.root / "src"
@@ -131,6 +190,8 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertEqual(output["memory_limit_mb"], 2048)
         self.assertEqual(output["warmup_runs"], 0)
         self.assertEqual(output["uncounted_validation_runs_per_checker"], 1)
+        self.assertEqual(output["python_version"], benchmark.platform.python_version())
+        self.assertEqual(output["architecture"], benchmark.platform.machine())
 
     def test_local_mode_builds_pyright_without_clone_or_install(self) -> None:
         package_result: benchmark.PackageResult = {

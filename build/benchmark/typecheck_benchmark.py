@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
 import re
 import shutil
 import signal
@@ -37,7 +38,8 @@ from typing import Any, Sequence, TypedDict
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1]
 PYRIGHT_PACKAGE_DIR = REPO_ROOT / "packages" / "pyright"
-PYRIGHT_CLI = PYRIGHT_PACKAGE_DIR / "dist" / "pyright.js"
+PYRIGHT_ENTRY_POINT = PYRIGHT_PACKAGE_DIR / "index.js"
+PYRIGHT_BUNDLE = PYRIGHT_PACKAGE_DIR / "dist" / "pyright.js"
 
 DEFAULT_TYPE_CHECKERS = ["pyright", "pyrefly", "ty", "mypy", "zuban"]
 DEFAULT_TIMEOUT = 300
@@ -87,6 +89,7 @@ class TimingMetrics(RequiredTimingMetrics, total=False):
 class PackageResult(TypedDict, total=False):
     package_name: str
     github_url: str | None
+    commit: str
     local_path: str
     error: str | None
     metrics: dict[str, TimingMetrics]
@@ -124,9 +127,13 @@ def _executable(name: str) -> str | None:
 
 def _pyright_command() -> list[str] | None:
     node = _executable("node")
-    if not node or not PYRIGHT_CLI.is_file():
+    if (
+        not node
+        or not PYRIGHT_ENTRY_POINT.is_file()
+        or not PYRIGHT_BUNDLE.is_file()
+    ):
         return None
-    return [node, str(PYRIGHT_CLI)]
+    return [node, str(PYRIGHT_ENTRY_POINT)]
 
 
 def _checker_command(checker: str) -> list[str] | None:
@@ -153,9 +160,9 @@ def prepare_local_pyright(skip_build: bool) -> None:
         raise BenchmarkError("Node.js is required to run the local Pyright CLI")
 
     if skip_build:
-        if not PYRIGHT_CLI.is_file():
+        if not PYRIGHT_BUNDLE.is_file():
             raise BenchmarkError(
-                f"--skip-pyright-build requires an existing local CLI at {PYRIGHT_CLI}"
+                f"--skip-pyright-build requires an existing local bundle at {PYRIGHT_BUNDLE}"
             )
         return
 
@@ -179,8 +186,8 @@ def prepare_local_pyright(skip_build: bool) -> None:
 
     if result.returncode != 0:
         raise BenchmarkError(f"Pyright build failed with exit code {result.returncode}")
-    if not PYRIGHT_CLI.is_file():
-        raise BenchmarkError(f"Pyright build did not produce {PYRIGHT_CLI}")
+    if not PYRIGHT_BUNDLE.is_file():
+        raise BenchmarkError(f"Pyright build did not produce {PYRIGHT_BUNDLE}")
 
 
 def _monitor_memory_linux(
@@ -342,8 +349,6 @@ def load_install_envs(install_envs_file: Path | None = None) -> list[dict[str, A
         github_url = package.get("github_url")
         if not github_url:
             continue
-        if not package.get("install", False) and not package.get("deps"):
-            continue
         name = package.get("name") or github_url.rstrip("/").split("/")[-1]
         packages.append({**package, "name": name})
     return packages
@@ -377,17 +382,55 @@ def get_type_checker_versions(type_checkers: list[str]) -> dict[str, str]:
     return versions
 
 
-def clone_package(github_url: str, name: str, destination: Path) -> Path | None:
+def clone_package(
+    github_url: str, name: str, destination: Path, commit: str | None = None
+) -> Path | None:
     """Shallow-clone a configured project into the benchmark temp directory."""
     target = destination / name
-    print(f"  Cloning {github_url}...")
+    revision_text = f" at {commit}" if commit else ""
+    print(f"  Cloning {github_url}{revision_text}...")
+    if commit:
+        command = [
+            "git",
+            "-c",
+            f"init.defaultBranch=benchmark-{name}",
+            "init",
+            "--quiet",
+            str(target),
+        ]
+        followup_commands = [
+            ["git", "remote", "add", "origin", github_url],
+            ["git", "fetch", "--depth", "1", "--quiet", "origin", commit],
+            ["git", "checkout", "--detach", "--quiet", "FETCH_HEAD"],
+        ]
+    else:
+        command = [
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--quiet",
+            github_url,
+            str(target),
+        ]
+        followup_commands = []
     try:
         result = subprocess.run(
-            ["git", "clone", "--depth", "1", "--quiet", github_url, str(target)],
+            command,
             capture_output=True,
             text=True,
             timeout=CLONE_TIMEOUT,
         )
+        for followup_command in followup_commands:
+            if result.returncode != 0:
+                break
+            result = subprocess.run(
+                followup_command,
+                cwd=target,
+                capture_output=True,
+                text=True,
+                timeout=CLONE_TIMEOUT,
+            )
     except subprocess.TimeoutExpired:
         print(f"  Clone timed out after {CLONE_TIMEOUT} seconds")
         return None
@@ -399,6 +442,21 @@ def clone_package(github_url: str, name: str, destination: Path) -> Path | None:
         print(f"  Clone failed: {result.stderr.strip()[:300]}")
         return None
     return target
+
+
+def get_package_commit(package_path: Path) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=package_path,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    commit = result.stdout.strip()
+    return commit if result.returncode == 0 and commit else None
 
 
 def install_deps(package_path: Path, config: dict[str, Any]) -> bool:
@@ -549,7 +607,7 @@ def _build_checker_command(
             *base_command,
             "--project",
             str(config_path),
-            "--outputjson",
+            "--stats",
         ], [config_path]
     if checker == "pyrefly":
         config_path = _write_pyrefly_config(package_path, relative_paths)
@@ -861,7 +919,9 @@ def _benchmark_package(
 ) -> PackageResult:
     name = package["name"]
     github_url = package["github_url"]
-    package_path = clone_package(github_url, name, temp_path)
+    package_path = clone_package(
+        github_url, name, temp_path, package.get("commit")
+    )
     if not package_path:
         return {
             "package_name": name,
@@ -870,8 +930,15 @@ def _benchmark_package(
             "metrics": {},
         }
 
+    commit = get_package_commit(package_path)
     if not install_deps(package_path, package):
-        print("  Warning: dependency installation had issues; continuing anyway")
+        return {
+            "package_name": name,
+            "github_url": github_url,
+            "commit": commit or "unknown",
+            "error": "Dependency installation failed",
+            "metrics": {},
+        }
 
     resolved_paths: list[Path] | None = None
     raw_check_paths = package.get("check_paths")
@@ -895,7 +962,7 @@ def _benchmark_package(
         else:
             print("  Warning: configured check paths do not exist; checking full repo")
 
-    return _benchmark_directory(
+    result = _benchmark_directory(
         name=name,
         github_url=github_url,
         package_path=package_path,
@@ -906,6 +973,8 @@ def _benchmark_package(
         warmup=warmup,
         memory_limit_mb=memory_limit_mb,
     )
+    result["commit"] = commit or "unknown"
+    return result
 
 
 def _save_results(
@@ -931,6 +1000,10 @@ def _save_results(
         "timestamp": timestamp.isoformat(),
         "date": date,
         "platform": sys.platform,
+        "platform_details": platform.platform(),
+        "architecture": platform.machine(),
+        "python_version": platform.python_version(),
+        "cpu_count": os.cpu_count(),
         "upstream_source": UPSTREAM_SOURCE,
         "memory_measurement": (
             "/proc/<pid>/status"

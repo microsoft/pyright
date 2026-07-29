@@ -1,7 +1,68 @@
 {
+    "description": "Curated Python packages for cross-type-checker benchmarking",
     "packages": [
         {
+            "github_url": "https://github.com/ansible/ansible",
+            "commit": "e8264c418ad2e87f92fa48f75cacfaa451cb38e4",
+            "check_paths": [
+                "lib/ansible"
+            ],
+            "install": false,
+            "deps": [
+                "jinja2",
+                "pyyaml",
+                "cryptography",
+                "packaging",
+                "resolvelib"
+            ]
+        },
+        {
+            "github_url": "https://github.com/pallets/click",
+            "commit": "00e592cea702e0b2caa0dee42489fdb1c22cd845",
+            "check_paths": [
+                "src/click"
+            ],
+            "install": false
+        },
+        {
+            "github_url": "https://github.com/home-assistant/core",
+            "name": "homeassistant",
+            "commit": "f002c54d12077d6b906fa624f1c4bba11a71897d",
+            "check_paths": [
+                "homeassistant"
+            ],
+            "install": true,
+            "deps": [
+                "aiohttp",
+                "attrs",
+                "pydantic",
+                "SQLAlchemy",
+                "types-setuptools",
+                "types-atomicwrites",
+                "types-certifi",
+                "types-croniter",
+                "types-PyYAML",
+                "types-requests",
+                "types-python-slugify",
+                "types-backports",
+                "voluptuous"
+            ]
+        },
+        {
+            "github_url": "https://github.com/numpy/numpy",
+            "commit": "db6ccacf630dd90f7c498e0d924bd47b66c83746",
+            "check_paths": [
+                "numpy"
+            ],
+            "install": false,
+            "deps": [
+                "pytest",
+                "hypothesis"
+            ]
+        },
+        {
             "github_url": "https://github.com/pandas-dev/pandas",
+            "commit": "982854070758cd2015fc9e64395684546b1c5444",
             "check_paths": [
                 "pandas"
             ],
@@ -13,6 +74,75 @@
                 "types-PyMySQL",
                 "types-setuptools",
                 "pytest"
+            ]
+        },
+        {
+            "github_url": "https://github.com/pytest-dev/pytest",
+            "commit": "56b196e921acec0259d84622a570fde6032e15b5",
+            "check_paths": [
+                "src",
+                "testing"
+            ],
+            "install": false,
+            "deps": [
+                "attrs",
+                "pluggy",
+                "py",
+                "types-setuptools"
+            ]
+        },
+        {
+            "github_url": "https://github.com/psf/requests",
+            "commit": "414f0513c33883adf6f2b46901d4f0b38a455851",
+            "check_paths": [
+                "src/requests"
+            ],
+            "install": false,
+            "deps": [
+                "charset-normalizer",
+                "idna",
+                "urllib3",
+                "certifi"
+            ]
+        },
+        {
+            "github_url": "https://github.com/scipy/scipy",
+            "commit": "39da5a9747f5b8e7a1b1b3492ad14f25c6be8dfc",
+            "check_paths": [
+                "scipy"
+            ],
+            "install": false,
+            "deps": [
+                "numpy",
+                "pytest",
+                "hypothesis",
+                "setuptools>=71.1",
+                "types-psutil"
+            ]
+        },
+        {
+            "github_url": "https://github.com/pytorch/pytorch",
+            "name": "torch",
+            "commit": "3ee692b380206d788625e0a4474d758f93571ee9",
+            "check_paths": [
+                "torch"
+            ],
+            "install": false
+        },
+        {
+            "github_url": "https://github.com/huggingface/transformers",
+            "commit": "2ef79f87a02111f8b49a72fb7d0c86b5b0bf10b7",
+            "check_paths": [
+                "src/transformers"
+            ],
+            "install": false,
+            "deps": [
+                "huggingface-hub",
+                "packaging",
+                "pyyaml",
+                "tqdm",
+                "safetensors",
+                "numpy"
             ]
         }
     ]

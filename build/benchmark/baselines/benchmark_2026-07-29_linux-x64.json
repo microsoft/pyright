@@ -1,0 +1,378 @@
+{
+  "timestamp": "2026-07-29T20:37:53.980020+00:00",
+  "date": "2026-07-29",
+  "platform": "linux",
+  "platform_details": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "architecture": "x86_64",
+  "python_version": "3.14.6",
+  "cpu_count": 32,
+  "upstream_source": {
+    "repository_url": "https://github.com/lolpack/type_coverage_py",
+    "commit": "85667d6f090ce9648d88cd7a9777b492f3b95f1c",
+    "source_file_url": "https://github.com/lolpack/type_coverage_py/blob/85667d6f090ce9648d88cd7a9777b492f3b95f1c/typecheck_benchmark/daily_runner.py"
+  },
+  "memory_measurement": "/proc/<pid>/status",
+  "memory_limit_mb": 8192,
+  "type_checkers": [
+    "pyright"
+  ],
+  "type_checker_versions": {
+    "pyright": "1.1.411"
+  },
+  "package_count": 10,
+  "runs_per_package": 1,
+  "warmup_runs": 0,
+  "uncounted_validation_runs_per_checker": 1,
+  "timeout_s": 600,
+  "aggregate": {
+    "pyright": {
+      "packages_tested": 9,
+      "packages_failed": 1,
+      "avg_execution_time_s": 77.236,
+      "p50_execution_time_s": 61.582,
+      "p90_execution_time_s": 171.263,
+      "p95_execution_time_s": 180.862,
+      "max_execution_time_s": 190.461,
+      "total_execution_time_s": 695.122,
+      "avg_peak_memory_mb": 2298.5,
+      "p50_peak_memory_mb": 2661.6,
+      "p90_peak_memory_mb": 4151.8,
+      "p95_peak_memory_mb": 4199.7,
+      "max_peak_memory_mb": 4247.6
+    }
+  },
+  "results": [
+    {
+      "package_name": "ansible",
+      "github_url": "https://github.com/ansible/ansible",
+      "error": null,
+      "metrics": {
+        "pyright": {
+          "ok": true,
+          "execution_time_s": 21.58,
+          "peak_memory_mb": 1123.8,
+          "oom_killed": false,
+          "runs": 1,
+          "execution_times_s": [
+            21.58
+          ],
+          "peak_memories_mb": [
+            1123.8
+          ],
+          "execution_time_stats": {
+            "min": 21.58,
+            "max": 21.58,
+            "mean": 21.58,
+            "median": 21.58,
+            "stddev": 0.0
+          },
+          "peak_memory_stats": {
+            "min": 1123.8,
+            "max": 1123.8,
+            "mean": 1123.8,
+            "median": 1123.8,
+            "stddev": 0.0
+          }
+        }
+      },
+      "commit": "e8264c418ad2e87f92fa48f75cacfaa451cb38e4"
+    },
+    {
+      "package_name": "click",
+      "github_url": "https://github.com/pallets/click",
+      "error": null,
+      "metrics": {
+        "pyright": {
+          "ok": true,
+          "execution_time_s": 3.223,
+          "peak_memory_mb": 349.6,
+          "oom_killed": false,
+          "runs": 1,
+          "execution_times_s": [
+            3.223
+          ],
+          "peak_memories_mb": [
+            349.6
+          ],
+          "execution_time_stats": {
+            "min": 3.223,
+            "max": 3.223,
+            "mean": 3.223,
+            "median": 3.223,
+            "stddev": 0.0
+          },
+          "peak_memory_stats": {
+            "min": 349.6,
+            "max": 349.6,
+            "mean": 349.6,
+            "median": 349.6,
+            "stddev": 0.0
+          }
+        }
+      },
+      "commit": "00e592cea702e0b2caa0dee42489fdb1c22cd845"
+    },
+    {
+      "package_name": "homeassistant",
+      "github_url": "https://github.com/home-assistant/core",
+      "error": null,
+      "metrics": {
+        "pyright": {
+          "ok": true,
+          "execution_time_s": 158.943,
+          "peak_memory_mb": 4127.9,
+          "oom_killed": false,
+          "runs": 1,
+          "execution_times_s": [
+            158.943
+          ],
+          "peak_memories_mb": [
+            4127.9
+          ],
+          "execution_time_stats": {
+            "min": 158.943,
+            "max": 158.943,
+            "mean": 158.943,
+            "median": 158.943,
+            "stddev": 0.0
+          },
+          "peak_memory_stats": {
+            "min": 4127.9,
+            "max": 4127.9,
+            "mean": 4127.9,
+            "median": 4127.9,
+            "stddev": 0.0
+          }
+        }
+      },
+      "commit": "f002c54d12077d6b906fa624f1c4bba11a71897d"
+    },
+    {
+      "package_name": "numpy",
+      "github_url": "https://github.com/numpy/numpy",
+      "error": null,
+      "metrics": {
+        "pyright": {
+          "ok": false,
+          "execution_time_s": 600.491,
+          "peak_memory_mb": 3130.0,
+          "oom_killed": false,
+          "error_message": "Timed out after 600 seconds",
+          "runs": 0
+        }
+      },
+      "commit": "db6ccacf630dd90f7c498e0d924bd47b66c83746"
+    },
+    {
+      "package_name": "pandas",
+      "github_url": "https://github.com/pandas-dev/pandas",
+      "error": null,
+      "metrics": {
+        "pyright": {
+          "ok": true,
+          "execution_time_s": 76.594,
+          "peak_memory_mb": 2965.8,
+          "oom_killed": false,
+          "runs": 1,
+          "execution_times_s": [
+            76.594
+          ],
+          "peak_memories_mb": [
+            2965.8
+          ],
+          "execution_time_stats": {
+            "min": 76.594,
+            "max": 76.594,
+            "mean": 76.594,
+            "median": 76.594,
+            "stddev": 0.0
+          },
+          "peak_memory_stats": {
+            "min": 2965.8,
+            "max": 2965.8,
+            "mean": 2965.8,
+            "median": 2965.8,
+            "stddev": 0.0
+          }
+        }
+      },
+      "commit": "982854070758cd2015fc9e64395684546b1c5444"
+    },
+    {
+      "package_name": "pytest",
+      "github_url": "https://github.com/pytest-dev/pytest",
+      "error": null,
+      "metrics": {
+        "pyright": {
+          "ok": true,
+          "execution_time_s": 13.755,
+          "peak_memory_mb": 798.3,
+          "oom_killed": false,
+          "runs": 1,
+          "execution_times_s": [
+            13.755
+          ],
+          "peak_memories_mb": [
+            798.3
+          ],
+          "execution_time_stats": {
+            "min": 13.755,
+            "max": 13.755,
+            "mean": 13.755,
+            "median": 13.755,
+            "stddev": 0.0
+          },
+          "peak_memory_stats": {
+            "min": 798.3,
+            "max": 798.3,
+            "mean": 798.3,
+            "median": 798.3,
+            "stddev": 0.0
+          }
+        }
+      },
+      "commit": "56b196e921acec0259d84622a570fde6032e15b5"
+    },
+    {
+      "package_name": "requests",
+      "github_url": "https://github.com/psf/requests",
+      "error": null,
+      "metrics": {
+        "pyright": {
+          "ok": true,
+          "execution_time_s": 2.521,
+          "peak_memory_mb": 332.2,
+          "oom_killed": false,
+          "runs": 1,
+          "execution_times_s": [
+            2.521
+          ],
+          "peak_memories_mb": [
+            332.2
+          ],
+          "execution_time_stats": {
+            "min": 2.521,
+            "max": 2.521,
+            "mean": 2.521,
+            "median": 2.521,
+            "stddev": 0.0
+          },
+          "peak_memory_stats": {
+            "min": 332.2,
+            "max": 332.2,
+            "mean": 332.2,
+            "median": 332.2,
+            "stddev": 0.0
+          }
+        }
+      },
+      "commit": "414f0513c33883adf6f2b46901d4f0b38a455851"
+    },
+    {
+      "package_name": "scipy",
+      "github_url": "https://github.com/scipy/scipy",
+      "error": null,
+      "metrics": {
+        "pyright": {
+          "ok": true,
+          "execution_time_s": 61.582,
+          "peak_memory_mb": 2661.6,
+          "oom_killed": false,
+          "runs": 1,
+          "execution_times_s": [
+            61.582
+          ],
+          "peak_memories_mb": [
+            2661.6
+          ],
+          "execution_time_stats": {
+            "min": 61.582,
+            "max": 61.582,
+            "mean": 61.582,
+            "median": 61.582,
+            "stddev": 0.0
+          },
+          "peak_memory_stats": {
+            "min": 2661.6,
+            "max": 2661.6,
+            "mean": 2661.6,
+            "median": 2661.6,
+            "stddev": 0.0
+          }
+        }
+      },
+      "commit": "39da5a9747f5b8e7a1b1b3492ad14f25c6be8dfc"
+    },
+    {
+      "package_name": "torch",
+      "github_url": "https://github.com/pytorch/pytorch",
+      "error": null,
+      "metrics": {
+        "pyright": {
+          "ok": true,
+          "execution_time_s": 190.461,
+          "peak_memory_mb": 4079.7,
+          "oom_killed": false,
+          "runs": 1,
+          "execution_times_s": [
+            190.461
+          ],
+          "peak_memories_mb": [
+            4079.7
+          ],
+          "execution_time_stats": {
+            "min": 190.461,
+            "max": 190.461,
+            "mean": 190.461,
+            "median": 190.461,
+            "stddev": 0.0
+          },
+          "peak_memory_stats": {
+            "min": 4079.7,
+            "max": 4079.7,
+            "mean": 4079.7,
+            "median": 4079.7,
+            "stddev": 0.0
+          }
+        }
+      },
+      "commit": "3ee692b380206d788625e0a4474d758f93571ee9"
+    },
+    {
+      "package_name": "transformers",
+      "github_url": "https://github.com/huggingface/transformers",
+      "error": null,
+      "metrics": {
+        "pyright": {
+          "ok": true,
+          "execution_time_s": 166.463,
+          "peak_memory_mb": 4247.6,
+          "oom_killed": false,
+          "runs": 1,
+          "execution_times_s": [
+            166.463
+          ],
+          "peak_memories_mb": [
+            4247.6
+          ],
+          "execution_time_stats": {
+            "min": 166.463,
+            "max": 166.463,
+            "mean": 166.463,
+            "median": 166.463,
+            "stddev": 0.0
+          },
+          "peak_memory_stats": {
+            "min": 4247.6,
+            "max": 4247.6,
+            "mean": 4247.6,
+            "median": 4247.6,
+            "stddev": 0.0
+          }
+        }
+      },
+      "commit": "2ef79f87a02111f8b49a72fb7d0c86b5b0bf10b7"
+    }
+  ],
+  "os": "linux-x64"
+}

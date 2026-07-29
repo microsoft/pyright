@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+
+def _load_results(path: Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Unable to load {path}: {exc}") from exc
+
+
+def _metrics_by_package(data: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
+    metrics: dict[tuple[str, str], dict[str, Any]] = {}
+    for package in data.get("results", []):
+        package_name = package.get("package_name")
+        if not package_name:
+            continue
+        for checker, checker_metrics in package.get("metrics", {}).items():
+            metrics[(package_name, checker)] = checker_metrics
+    return metrics
+
+
+def _packages_by_name(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        package["package_name"]: package
+        for package in data.get("results", [])
+        if package.get("package_name")
+    }
+
+
+def _percent_change(baseline: float, candidate: float) -> float:
+    return ((candidate - baseline) / baseline) * 100 if baseline else 0.0
+
+
+def compare(
+    baseline: dict[str, Any], candidate: dict[str, Any], threshold_percent: float
+) -> list[str]:
+    failures: list[str] = []
+    for field in (
+        "platform",
+        "architecture",
+        "python_version",
+        "memory_limit_mb",
+        "runs_per_package",
+        "warmup_runs",
+        "timeout_s",
+    ):
+        if baseline.get(field) != candidate.get(field):
+            failures.append(
+                f"environment mismatch for {field}: "
+                f"{baseline.get(field)!r} != {candidate.get(field)!r}"
+            )
+    baseline_metrics = _metrics_by_package(baseline)
+    candidate_metrics = _metrics_by_package(candidate)
+    baseline_packages = _packages_by_name(baseline)
+    candidate_packages = _packages_by_name(candidate)
+
+    print(
+        f"{'Package':<20} {'Checker':<10} {'Time':>10} {'Delta':>9} "
+        f"{'Memory':>10} {'Delta':>9}"
+    )
+    print("-" * 72)
+    for key, old in sorted(baseline_metrics.items()):
+        package, checker = key
+        new = candidate_metrics.get(key)
+        if not old.get("ok"):
+            continue
+        old_package = baseline_packages[package]
+        new_package = candidate_packages.get(package)
+        if not new_package:
+            failures.append(f"{package}/{checker}: candidate result is missing")
+            continue
+        if old_package.get("commit") != new_package.get("commit"):
+            failures.append(
+                f"{package}/{checker}: package commit changed from "
+                f"{old_package.get('commit')} to {new_package.get('commit')}"
+            )
+            continue
+        if not new or not new.get("ok"):
+            failures.append(f"{package}/{checker}: candidate result failed or is missing")
+            continue
+
+        old_time = float(old["execution_time_s"])
+        new_time = float(new["execution_time_s"])
+        old_memory = float(old.get("peak_memory_mb", 0.0))
+        new_memory = float(new.get("peak_memory_mb", 0.0))
+        time_delta = _percent_change(old_time, new_time)
+        memory_delta = _percent_change(old_memory, new_memory)
+        print(
+            f"{package:<20} {checker:<10} {new_time:>9.3f}s {time_delta:>+8.1f}% "
+            f"{new_memory:>9.1f}M {memory_delta:>+8.1f}%"
+        )
+        if time_delta > threshold_percent:
+            failures.append(
+                f"{package}/{checker}: time regressed {time_delta:.1f}% "
+                f"(limit {threshold_percent:.1f}%)"
+            )
+        if old_memory > 0 and memory_delta > threshold_percent:
+            failures.append(
+                f"{package}/{checker}: memory regressed {memory_delta:.1f}% "
+                f"(limit {threshold_percent:.1f}%)"
+            )
+    return failures
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Compare two benchmark result files")
+    parser.add_argument("baseline", type=Path)
+    parser.add_argument("candidate", type=Path)
+    parser.add_argument("--threshold-percent", type=float, default=10.0)
+    args = parser.parse_args(argv)
+
+    try:
+        baseline = _load_results(args.baseline)
+        candidate = _load_results(args.candidate)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    failures = compare(baseline, candidate, args.threshold_percent)
+    if failures:
+        print("\nRegressions:")
+        for failure in failures:
+            print(f"  {failure}")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

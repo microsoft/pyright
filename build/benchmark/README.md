@@ -10,12 +10,15 @@ The local integration preserves repository-specific behavior: it builds and invo
 checkout's Pyright production bundle rather than resolving Pyright from `PATH`. The benchmark
 measures performance only, not diagnostic accuracy or type precision.
 
-The checked corpus is intentionally limited to `pandas-dev/pandas`, with the `pandas` directory as
-the check path.
+The checked corpus is a curated set of source repositories derived from
+[`lolpack/type_coverage_py`](https://github.com/lolpack/type_coverage_py/blob/main/included_packages.txt).
+Each entry in `install_envs.json` defines its repository, check paths, installation behavior, and
+additional dependencies. Repository commits are pinned so pull-request comparisons analyze the same
+source revisions.
 
 ## Prerequisites
 
-- Python 3.10 or newer, with pip
+- Python 3.14, with pip
 - Git
 - Node.js and npm
 - The non-Pyright checkers you want to measure installed in the active Python environment:
@@ -24,8 +27,10 @@ the check path.
     python -m pip install pyrefly ty mypy zuban
     ```
 
-Use a dedicated virtual environment. The benchmark clones pandas into a temporary directory and
-installs pandas plus its configured dependencies into the active environment.
+Use a dedicated virtual environment with pip available. The benchmark clones each package into a
+temporary directory and installs the project and configured dependencies into the active environment. A
+benchmark that reports a dependency-installation warning is not a valid prepared-environment
+measurement and should be rerun after fixing pip or the package installation.
 
 From the repository root:
 
@@ -40,8 +45,9 @@ python build/benchmark/typecheck_benchmark.py -c pyright --local path/to/project
 
 When Pyright is selected, the script automatically runs `npm run build` in `packages/pyright` once
 before cloning or timing the corpus. Build time is not measured. Every Pyright invocation, including
-version detection, uses `node packages/pyright/dist/pyright.js`; a `pyright` executable on `PATH` is
-never used.
+version detection, uses `node packages/pyright/index.js`; a `pyright` executable on `PATH` is never
+used. The package entry point initializes the production bundle's resource root before loading
+`dist/pyright.js`.
 
 Use `--skip-pyright-build` to reuse an existing production bundle. The script rejects this flag if
 `packages/pyright/dist/pyright.js` does not exist.
@@ -79,10 +85,30 @@ By default, results are written to the ignored `build/benchmark/results/` direct
 writes a UTC-dated file such as `benchmark_2026-07-28.json` and updates `latest.json`. With
 `--os-name macos`, the names are `benchmark_2026-07-28_macos.json` and `latest-macos.json`.
 
+Checked-in reference runs live in `build/benchmark/baselines/`. Generate a candidate with the same
+OS label, run count, warmup count, memory limit, Python version, and package commits as its baseline,
+then compare it before submitting a performance-sensitive pull request:
+
+```console
+python build/benchmark/typecheck_benchmark.py \
+    -c pyright -r 1 -w 0 -t 600 --memory-limit-mb 8192 \
+    --os-name linux-x64 --output build/benchmark/results
+python build/benchmark/compare_benchmarks.py \
+    build/benchmark/baselines/latest-linux-x64.json \
+    build/benchmark/results/latest-linux-x64.json
+```
+
+The comparator reports per-package timing and memory deltas and exits nonzero when a previously
+successful result is missing, the Python/platform contract differs, or a result exceeds the default
+10% regression threshold. Use `--threshold-percent` to select another threshold. Generate baselines
+and candidates on the same runner class; results from different machines are historical data, not a
+reliable regression gate.
+
 The top-level JSON records the timestamp, platform, checker versions, run settings, aggregate
 statistics, per-package results, configured memory limit, and an `upstream_source` object containing
-the original repository, exact commit, and source-file URL. Each successful checker result contains
-the measured wall times and peak-memory values, plus min, max, mean, median, and standard deviation.
+the original repository, exact commit, and source-file URL. Each package result records the cloned
+repository commit. Each successful checker result contains the measured wall times and peak-memory
+values, plus min, max, mean, median, and standard deviation.
 Aggregate data contains package counts and mean, p50, p90, p95, maximum, and total timing or memory
 statistics.
 
@@ -96,10 +122,11 @@ warmups and all measured runs discard output to avoid pipe overhead. `--warmup 0
 uncounted validation pass labeled `Check`; otherwise exactly the requested number of warmups is
 reported and discarded.
 
-Dependency installation failures produce a warning and timing continues. If none of a package's
-configured check paths exist, the benchmark warns and checks the full repository.
+Dependency installation failures mark the package as failed and skip its checker runs. If none of a
+package's configured check paths exist, the benchmark warns and checks the full repository.
 
 ## Relationship to `perfCompare.py`
 
 `build/perfCompare.py` compares Pyright revisions on the same corpus to detect performance
-regressions. This benchmark compares the local Pyright build with other type checkers on pandas.
+regressions. This benchmark compares the local Pyright build with other type checkers across the
+configured package set.
