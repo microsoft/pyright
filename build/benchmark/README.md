@@ -104,6 +104,10 @@ successful result is missing, the Python/platform contract differs, or a result 
 and candidates on the same runner class; results from different machines are historical data, not a
 reliable regression gate.
 
+On pull requests, the benchmark workflow writes the comparison table to the Actions job summary and
+uploads it with the candidate JSON. A separate trusted workflow posts or updates the same report as a
+pull-request comment, including failed checks and packages without a successful baseline.
+
 The top-level JSON records the timestamp, platform, checker versions, run settings, aggregate
 statistics, per-package results, configured memory limit, and an `upstream_source` object containing
 the original repository, exact commit, and source-file URL. Each package result records the cloned

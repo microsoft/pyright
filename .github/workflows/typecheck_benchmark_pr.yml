@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/typecheck_benchmark_pr.yml'
+      - '.github/workflows/typecheck_benchmark_comment.yml'
       - 'build/benchmark/**'
       - 'packages/pyright/**'
       - 'packages/pyright-internal/src/**'
@@ -50,6 +51,11 @@ jobs:
         working-directory: packages/pyright
         run: npm run build
 
+      - name: Record pull request
+        run: |
+          mkdir -p build/benchmark/results
+          printf '%s\n' '${{ github.event.pull_request.number }}' > build/benchmark/results/pr_number.txt
+
       - name: Run benchmark
         env:
           PYTHONNOUSERSITE: '1'
@@ -61,9 +67,14 @@ jobs:
 
       - name: Compare with baseline
         run: |
+          set +e
           python build/benchmark/compare_benchmarks.py \
             build/benchmark/baselines/latest-linux-x64.json \
-            build/benchmark/results/latest-linux-x64.json
+            build/benchmark/results/latest-linux-x64.json \
+            --markdown-output build/benchmark/results/report.md
+          comparison_status=$?
+          cat build/benchmark/results/report.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$comparison_status"
 
       - name: Upload candidate results
         if: always()

@@ -17,7 +17,7 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
         "results": [
             {
                 "package_name": "example",
-            "commit": "abc123",
+                "commit": "abc123",
                 "metrics": {
                     "pyright": {
                         "ok": ok,
@@ -26,7 +26,7 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
                     }
                 },
             }
-        ]
+        ],
     }
 
 
@@ -80,10 +80,20 @@ class CompareBenchmarksTest(unittest.TestCase):
 
         self.assertEqual(
             failures,
-            [
-                "example/pyright: package commit changed from abc123 to def456"
-            ],
+            ["example/pyright: package commit changed from abc123 to def456"],
         )
+
+    def test_renders_markdown_summary_and_failure(self) -> None:
+        report = compare_benchmarks.render_markdown(
+            _result(10.0, 100.0), _result(12.0, 105.0), 10.0
+        )
+
+        self.assertIn("**1 regression check(s) failed.**", report)
+        self.assertIn(
+            "| example | pyright | 12.000s | +20.0% | 105.0 MB | +5.0% | Regression |",
+            report,
+        )
+        self.assertIn("- example/pyright: time regressed 20.0%", report)
 
 
 if __name__ == "__main__":
