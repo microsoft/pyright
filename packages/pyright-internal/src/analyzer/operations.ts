@@ -765,6 +765,33 @@ export function getTypeOfUnaryOperation(
     return { type, isIncomplete, magicMethodDeprecationInfo: deprecatedInfo };
 }
 
+// Helper function to check if an expression is a simple name or `not <Name>` with a literal bool type.
+// We avoid narrowing for these cases because the variable could be reassigned.
+function isBoolLiteralName(expr: ExpressionNode, exprType: Type, evaluator: TypeEvaluator): boolean {
+    // Check for simple name references
+    if (expr.nodeType === ParseNodeType.Name) {
+        return (
+            isClassInstance(exprType) &&
+            ClassType.isBuiltIn(exprType, 'bool') &&
+            exprType.priv.literalValue !== undefined
+        );
+    }
+
+    // Check for `not <Name>` expressions
+    if (expr.nodeType === ParseNodeType.UnaryOperation && expr.d.operator === OperatorType.Not) {
+        // Evaluate the inner expression's type (not the `not` expression's type).
+        // Note: makeTopLevelTypeVarsConcrete is needed here for the isClassInstance/
+        // ClassType.isBuiltIn checks, unlike the outer call site which was removed
+        // because canBeTruthy/canBeFalsy do it internally.
+        const innerType = evaluator.makeTopLevelTypeVarsConcrete(
+            evaluator.getTypeOfExpression(expr.d.expr).type
+        );
+        return isBoolLiteralName(expr.d.expr, innerType, evaluator);
+    }
+
+    return false;
+}
+
 export function getTypeOfTernaryOperation(
     evaluator: TypeEvaluator,
     node: TernaryNode,
@@ -778,7 +805,9 @@ export function getTypeOfTernaryOperation(
         return { type: UnknownType.create() };
     }
 
-    evaluator.getTypeOfExpression(node.d.testExpr);
+    // Get the narrowed type of the test expression at this point in the code flow.
+    const testExprTypeResult = evaluator.getTypeOfExpression(node.d.testExpr);
+    const testExprType = testExprTypeResult.type;
 
     const typesToCombine: Type[] = [];
     let isIncomplete = false;
@@ -790,7 +819,19 @@ export function getTypeOfTernaryOperation(
         fileInfo.definedConstants
     );
 
-    if (constExprValue !== false && evaluator.isNodeReachable(node.d.ifExpr)) {
+    // Check if we should apply flow-sensitive narrowing. We avoid narrowing for
+    // simple name references with literal bool types because the variable could
+    // be reassigned, even though the type is a literal. This also applies to
+    // `not <Name>` expressions to maintain consistency.
+    // Note: This guard is specific to ternary expressions. The and/or operators
+    // don't need this guard because they operate on already-evaluated types from
+    // their operands, not on types that may have been narrowed by upstream flow analysis.
+    const shouldApplyNarrowing = !isBoolLiteralName(node.d.testExpr, testExprType, evaluator);
+
+    // Determine if the if-branch is reachable based on static evaluation,
+    // general reachability, and flow-sensitive type narrowing.
+    const testCanBeTruthy = shouldApplyNarrowing ? evaluator.canBeTruthy(testExprType) : true;
+    if (constExprValue !== false && evaluator.isNodeReachable(node.d.ifExpr) && testCanBeTruthy) {
         const ifType = evaluator.getTypeOfExpression(node.d.ifExpr, flags, inferenceContext);
         typesToCombine.push(ifType.type);
         if (ifType.isIncomplete) {
@@ -801,7 +842,10 @@ export function getTypeOfTernaryOperation(
         }
     }
 
-    if (constExprValue !== true && evaluator.isNodeReachable(node.d.elseExpr)) {
+    // Determine if the else-branch is reachable based on static evaluation,
+    // general reachability, and flow-sensitive type narrowing.
+    const testCanBeFalsy = shouldApplyNarrowing ? evaluator.canBeFalsy(testExprType) : true;
+    if (constExprValue !== true && evaluator.isNodeReachable(node.d.elseExpr) && testCanBeFalsy) {
         const elseType = evaluator.getTypeOfExpression(node.d.elseExpr, flags, inferenceContext);
         typesToCombine.push(elseType.type);
         if (elseType.isIncomplete) {
