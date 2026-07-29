@@ -1,0 +1,19 @@
+{
+    "packages": [
+        {
+            "github_url": "https://github.com/pandas-dev/pandas",
+            "check_paths": [
+                "pandas"
+            ],
+            "install": true,
+            "deps": [
+                "numpy",
+                "types-python-dateutil",
+                "types-pytz",
+                "types-PyMySQL",
+                "types-setuptools",
+                "pytest"
+            ]
+        }
+    ]
+}
