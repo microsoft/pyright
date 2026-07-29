@@ -97,8 +97,42 @@ export class TextRangeCollection<T extends TextRange> {
             return -1;
         }
 
-        return getIndexContaining(this._items, position);
+        return getIndexContainingDense(this._items, position);
     }
+}
+
+// Fast path for dense, start-sorted ranges:
+// binary-search for the containing item, with an early-out
+// when the position falls between adjacent ranges.
+function getIndexContainingDense<T extends TextRange>(arr: readonly T[], position: number): number {
+    let min = 0;
+    let max = arr.length - 1;
+
+    while (min <= max) {
+        const mid = min + ((max - min) >> 1);
+        const item = arr[mid];
+
+        if (TextRange.contains(item, position)) {
+            return mid;
+        }
+
+        if (position < item.start) {
+            max = mid - 1;
+            continue;
+        }
+
+        const end = TextRange.getEnd(item);
+
+        // If the position falls between this item's end and the next item's start,
+        // it isn't contained in any item.
+        if (mid < arr.length - 1 && end <= position && position < arr[mid + 1].start) {
+            return -1;
+        }
+
+        min = mid + 1;
+    }
+
+    return -1;
 }
 
 export function getIndexContaining<T extends TextRange>(
