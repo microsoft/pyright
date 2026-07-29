@@ -1272,6 +1272,9 @@ export class TestState {
             const expectedFilePath = map[name].items.map((x) => x.filePath);
             const expectedRange = map[name].items.map((x) => x.range);
             const expectedName = map[name].items.map((x) => x.name);
+            const expectedSelectionRange = map[name].items
+                .map((x) => x.selectionRange)
+                .filter((x): x is PositionRange => x !== undefined);
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
             const actual = new CallHierarchyProvider(
@@ -1289,6 +1292,12 @@ export class TestState {
                 for (const a of actual) {
                     assert.strictEqual(expectedRange?.filter((e) => this._deepEqual(a.from.range, e)).length, 1);
                     assert.strictEqual(expectedName?.filter((e) => this._deepEqual(a.from.name, e)).length, 1);
+                    if (expectedSelectionRange.length > 0) {
+                        assert.strictEqual(
+                            expectedSelectionRange.filter((e) => this._deepEqual(a.from.selectionRange, e)).length,
+                            1
+                        );
+                    }
                     assert.ok(
                         expectedFilePath?.filter((e) =>
                             this._deepEqual(a.from.uri, Uri.file(e, this.serviceProvider).toString())
