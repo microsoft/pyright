@@ -18,6 +18,8 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
             {
                 "package_name": "example",
                 "commit": "abc123",
+                "check_paths": ["src"],
+                "exclude_directories": [],
                 "metrics": {
                     "pyright": {
                         "ok": ok,
@@ -81,6 +83,21 @@ class CompareBenchmarksTest(unittest.TestCase):
         self.assertEqual(
             failures,
             ["example/pyright: package commit changed from abc123 to def456"],
+        )
+
+    def test_rejects_package_scope_mismatch(self) -> None:
+        candidate = _result(10.0, 100.0)
+        candidate["results"][0]["exclude_directories"] = ["tests"]
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                _result(10.0, 100.0), candidate, 10.0
+            )
+
+        self.assertEqual(
+            failures,
+            [
+                "example/pyright: package exclude_directories changed from [] to ['tests']"
+            ],
         )
 
     def test_renders_markdown_summary_and_failure(self) -> None:

@@ -16,6 +16,12 @@ Each entry in `install_envs.json` defines its repository, check paths, installat
 additional dependencies. Repository commits are pinned so pull-request comparisons analyze the same
 source revisions.
 
+Entries can define `exclude_directories` to prune named directories while resolving their check
+paths. The benchmark expands those entries to `.py` and `.pyi` files before invoking any checker, so
+all checkers analyze the same production-source scope. This keeps large scientific package test
+corpora from exhausting hosted-runner timeouts. Generated Pyright configurations explicitly retain
+its standard `**/node_modules`, `**/__pycache__`, and `**/.*` exclusions.
+
 ## Prerequisites
 
 - Python 3.14, with pip
@@ -100,9 +106,10 @@ python build/benchmark/compare_benchmarks.py \
 
 The comparator reports per-package timing and memory deltas and exits nonzero when a previously
 successful result is missing, the Python/platform contract differs, or a result exceeds the default
-10% regression threshold. Use `--threshold-percent` to select another threshold. Generate baselines
-and candidates on the same runner class; results from different machines are historical data, not a
-reliable regression gate.
+10% regression threshold. Package commits, check paths, and excluded directory names must also
+match. Use `--threshold-percent` to select another threshold. Generate baselines and candidates on
+the same runner class; results from different machines are historical data, not a reliable
+regression gate.
 
 On pull requests, the benchmark workflow writes the comparison table to the Actions job summary and
 uploads it with the candidate JSON. A separate trusted workflow posts or updates the same report as a

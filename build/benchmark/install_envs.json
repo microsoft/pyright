@@ -54,6 +54,9 @@
             "check_paths": [
                 "numpy"
             ],
+            "exclude_directories": [
+                "tests"
+            ],
             "install": false,
             "deps": [
                 "pytest",
@@ -65,6 +68,10 @@
             "commit": "982854070758cd2015fc9e64395684546b1c5444",
             "check_paths": [
                 "pandas"
+            ],
+            "exclude_directories": [
+                "tests",
+                "_testing"
             ],
             "install": true,
             "deps": [
@@ -110,6 +117,9 @@
             "commit": "39da5a9747f5b8e7a1b1b3492ad14f25c6be8dfc",
             "check_paths": [
                 "scipy"
+            ],
+            "exclude_directories": [
+                "tests"
             ],
             "install": false,
             "deps": [

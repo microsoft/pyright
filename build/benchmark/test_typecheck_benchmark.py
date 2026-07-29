@@ -10,6 +10,25 @@ import typecheck_benchmark as benchmark
 
 
 class TypecheckBenchmarkTest(unittest.TestCase):
+    def test_resolve_check_paths_excludes_named_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            package_path = Path(temp_dir)
+            (package_path / "source" / "tests").mkdir(parents=True)
+            (package_path / "source" / "module.py").write_text("")
+            (package_path / "source" / "types.pyi").write_text("")
+            (package_path / "source" / "notes.txt").write_text("")
+            (package_path / "source" / "tests" / "test_module.py").write_text("")
+
+            paths, missing = benchmark._resolve_check_paths(
+                package_path, ["source"], ["tests"]
+            )
+
+            self.assertEqual(missing, [])
+            self.assertEqual(
+                {path.relative_to(package_path).as_posix() for path in paths},
+                {"source/module.py", "source/types.pyi"},
+            )
+
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory(
             prefix=".typecheck-benchmark-test-",
@@ -53,6 +72,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertNotIn("--outputjson", command)
         config = json.loads(configs[0].read_text(encoding="utf-8"))
         self.assertEqual(config["include"], ["src"])
+        self.assertEqual(config["exclude"], benchmark.PYRIGHT_DEFAULT_EXCLUDES)
         self.assertIs(config["useLibraryCodeForTypes"], True)
         configs[0].unlink()
 

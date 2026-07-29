@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-07-29T20:37:53.980020+00:00",
+  "timestamp": "2026-07-29T22:58:39.364693+00:00",
   "date": "2026-07-29",
   "platform": "linux",
   "platform_details": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
@@ -26,18 +26,18 @@
   "timeout_s": 600,
   "aggregate": {
     "pyright": {
-      "packages_tested": 9,
-      "packages_failed": 1,
-      "avg_execution_time_s": 77.236,
-      "p50_execution_time_s": 61.582,
-      "p90_execution_time_s": 171.263,
-      "p95_execution_time_s": 180.862,
+      "packages_tested": 10,
+      "packages_failed": 0,
+      "avg_execution_time_s": 64.971,
+      "p50_execution_time_s": 26.968,
+      "p90_execution_time_s": 168.863,
+      "p95_execution_time_s": 179.662,
       "max_execution_time_s": 190.461,
-      "total_execution_time_s": 695.122,
-      "avg_peak_memory_mb": 2298.5,
-      "p50_peak_memory_mb": 2661.6,
-      "p90_peak_memory_mb": 4151.8,
-      "p95_peak_memory_mb": 4199.7,
+      "total_execution_time_s": 649.714,
+      "avg_peak_memory_mb": 1897.9,
+      "p50_peak_memory_mb": 1227.2,
+      "p90_peak_memory_mb": 4139.9,
+      "p95_peak_memory_mb": 4193.7,
       "max_peak_memory_mb": 4247.6
     }
   },
@@ -75,7 +75,11 @@
           }
         }
       },
-      "commit": "e8264c418ad2e87f92fa48f75cacfaa451cb38e4"
+      "commit": "e8264c418ad2e87f92fa48f75cacfaa451cb38e4",
+      "check_paths": [
+        "lib/ansible"
+      ],
+      "exclude_directories": []
     },
     {
       "package_name": "click",
@@ -110,7 +114,11 @@
           }
         }
       },
-      "commit": "00e592cea702e0b2caa0dee42489fdb1c22cd845"
+      "commit": "00e592cea702e0b2caa0dee42489fdb1c22cd845",
+      "check_paths": [
+        "src/click"
+      ],
+      "exclude_directories": []
     },
     {
       "package_name": "homeassistant",
@@ -145,7 +153,11 @@
           }
         }
       },
-      "commit": "f002c54d12077d6b906fa624f1c4bba11a71897d"
+      "commit": "f002c54d12077d6b906fa624f1c4bba11a71897d",
+      "check_paths": [
+        "homeassistant"
+      ],
+      "exclude_directories": []
     },
     {
       "package_name": "numpy",
@@ -153,15 +165,40 @@
       "error": null,
       "metrics": {
         "pyright": {
-          "ok": false,
-          "execution_time_s": 600.491,
-          "peak_memory_mb": 3130.0,
+          "ok": true,
+          "execution_time_s": 38.833,
+          "peak_memory_mb": 1465.1,
           "oom_killed": false,
-          "error_message": "Timed out after 600 seconds",
-          "runs": 0
+          "runs": 1,
+          "execution_times_s": [
+            38.833
+          ],
+          "peak_memories_mb": [
+            1465.1
+          ],
+          "execution_time_stats": {
+            "min": 38.833,
+            "max": 38.833,
+            "mean": 38.833,
+            "median": 38.833,
+            "stddev": 0.0
+          },
+          "peak_memory_stats": {
+            "min": 1465.1,
+            "max": 1465.1,
+            "mean": 1465.1,
+            "median": 1465.1,
+            "stddev": 0.0
+          }
         }
       },
-      "commit": "db6ccacf630dd90f7c498e0d924bd47b66c83746"
+      "commit": "db6ccacf630dd90f7c498e0d924bd47b66c83746",
+      "check_paths": [
+        "numpy"
+      ],
+      "exclude_directories": [
+        "tests"
+      ]
     },
     {
       "package_name": "pandas",
@@ -170,33 +207,40 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 76.594,
-          "peak_memory_mb": 2965.8,
+          "execution_time_s": 23.283,
+          "peak_memory_mb": 1195.4,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            76.594
+            23.283
           ],
           "peak_memories_mb": [
-            2965.8
+            1195.4
           ],
           "execution_time_stats": {
-            "min": 76.594,
-            "max": 76.594,
-            "mean": 76.594,
-            "median": 76.594,
+            "min": 23.283,
+            "max": 23.283,
+            "mean": 23.283,
+            "median": 23.283,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 2965.8,
-            "max": 2965.8,
-            "mean": 2965.8,
-            "median": 2965.8,
+            "min": 1195.4,
+            "max": 1195.4,
+            "mean": 1195.4,
+            "median": 1195.4,
             "stddev": 0.0
           }
         }
       },
-      "commit": "982854070758cd2015fc9e64395684546b1c5444"
+      "commit": "982854070758cd2015fc9e64395684546b1c5444",
+      "check_paths": [
+        "pandas"
+      ],
+      "exclude_directories": [
+        "tests",
+        "_testing"
+      ]
     },
     {
       "package_name": "pytest",
@@ -231,7 +275,12 @@
           }
         }
       },
-      "commit": "56b196e921acec0259d84622a570fde6032e15b5"
+      "commit": "56b196e921acec0259d84622a570fde6032e15b5",
+      "check_paths": [
+        "src",
+        "testing"
+      ],
+      "exclude_directories": []
     },
     {
       "package_name": "requests",
@@ -266,7 +315,11 @@
           }
         }
       },
-      "commit": "414f0513c33883adf6f2b46901d4f0b38a455851"
+      "commit": "414f0513c33883adf6f2b46901d4f0b38a455851",
+      "check_paths": [
+        "src/requests"
+      ],
+      "exclude_directories": []
     },
     {
       "package_name": "scipy",
@@ -275,33 +328,39 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 61.582,
-          "peak_memory_mb": 2661.6,
+          "execution_time_s": 30.652,
+          "peak_memory_mb": 1259.1,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            61.582
+            30.652
           ],
           "peak_memories_mb": [
-            2661.6
+            1259.1
           ],
           "execution_time_stats": {
-            "min": 61.582,
-            "max": 61.582,
-            "mean": 61.582,
-            "median": 61.582,
+            "min": 30.652,
+            "max": 30.652,
+            "mean": 30.652,
+            "median": 30.652,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 2661.6,
-            "max": 2661.6,
-            "mean": 2661.6,
-            "median": 2661.6,
+            "min": 1259.1,
+            "max": 1259.1,
+            "mean": 1259.1,
+            "median": 1259.1,
             "stddev": 0.0
           }
         }
       },
-      "commit": "39da5a9747f5b8e7a1b1b3492ad14f25c6be8dfc"
+      "commit": "39da5a9747f5b8e7a1b1b3492ad14f25c6be8dfc",
+      "check_paths": [
+        "scipy"
+      ],
+      "exclude_directories": [
+        "tests"
+      ]
     },
     {
       "package_name": "torch",
@@ -336,7 +395,11 @@
           }
         }
       },
-      "commit": "3ee692b380206d788625e0a4474d758f93571ee9"
+      "commit": "3ee692b380206d788625e0a4474d758f93571ee9",
+      "check_paths": [
+        "torch"
+      ],
+      "exclude_directories": []
     },
     {
       "package_name": "transformers",
@@ -371,7 +434,11 @@
           }
         }
       },
-      "commit": "2ef79f87a02111f8b49a72fb7d0c86b5b0bf10b7"
+      "commit": "2ef79f87a02111f8b49a72fb7d0c86b5b0bf10b7",
+      "check_paths": [
+        "src/transformers"
+      ],
+      "exclude_directories": []
     }
   ],
   "os": "linux-x64"

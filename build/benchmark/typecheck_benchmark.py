@@ -56,6 +56,7 @@ UPSTREAM_SOURCE = {
         "typecheck_benchmark/daily_runner.py"
     ),
 }
+PYRIGHT_DEFAULT_EXCLUDES = ["**/node_modules", "**/__pycache__", "**/.*"]
 
 
 class BenchmarkError(Exception):
@@ -90,6 +91,8 @@ class PackageResult(TypedDict, total=False):
     package_name: str
     github_url: str | None
     commit: str
+    check_paths: list[str]
+    exclude_directories: list[str]
     local_path: str
     error: str | None
     metrics: dict[str, TimingMetrics]
@@ -518,6 +521,41 @@ def _relative_check_paths(
     ]
 
 
+def _resolve_check_paths(
+    package_path: Path,
+    check_paths: list[str],
+    exclude_directories: list[str],
+) -> tuple[list[Path], list[str]]:
+    configured_paths = [package_path / path for path in check_paths]
+    missing = [
+        str(path.relative_to(package_path))
+        for path in configured_paths
+        if not path.exists()
+    ]
+    existing_paths = [path for path in configured_paths if path.exists()]
+    if not exclude_directories:
+        return existing_paths, missing
+
+    excluded_names = set(exclude_directories)
+    resolved_paths: list[Path] = []
+    for path in existing_paths:
+        if path.is_file():
+            resolved_paths.append(path)
+            continue
+        for root, directory_names, file_names in os.walk(path):
+            directory_names[:] = [
+                name for name in directory_names if name not in excluded_names
+            ]
+            directory_names.sort()
+            root_path = Path(root)
+            resolved_paths.extend(
+                root_path / name
+                for name in sorted(file_names)
+                if Path(name).suffix in (".py", ".pyi")
+            )
+    return resolved_paths, missing
+
+
 def _new_config_path(package_path: Path, checker: str, suffix: str) -> Path:
     file_descriptor, path = tempfile.mkstemp(
         prefix=f".typecheck-benchmark-{checker}-",
@@ -532,7 +570,7 @@ def _write_pyright_config(package_path: Path, check_paths: list[str] | None) -> 
     config_path = _new_config_path(package_path, "pyright", ".json")
     config = {
         "include": check_paths or ["."],
-        "exclude": [],
+        "exclude": PYRIGHT_DEFAULT_EXCLUDES,
         "typeCheckingMode": "basic",
         "useLibraryCodeForTypes": True,
     }
@@ -919,13 +957,20 @@ def _benchmark_package(
 ) -> PackageResult:
     name = package["name"]
     github_url = package["github_url"]
+    raw_check_paths = package.get("check_paths", [])
+    exclude_directories = package.get("exclude_directories", [])
+    package_metadata: PackageResult = {
+        "package_name": name,
+        "github_url": github_url,
+        "check_paths": raw_check_paths,
+        "exclude_directories": exclude_directories,
+    }
     package_path = clone_package(
         github_url, name, temp_path, package.get("commit")
     )
     if not package_path:
         return {
-            "package_name": name,
-            "github_url": github_url,
+            **package_metadata,
             "error": "Failed to clone",
             "metrics": {},
         }
@@ -933,32 +978,26 @@ def _benchmark_package(
     commit = get_package_commit(package_path)
     if not install_deps(package_path, package):
         return {
-            "package_name": name,
-            "github_url": github_url,
+            **package_metadata,
             "commit": commit or "unknown",
             "error": "Dependency installation failed",
             "metrics": {},
         }
 
     resolved_paths: list[Path] | None = None
-    raw_check_paths = package.get("check_paths")
     if raw_check_paths:
-        configured_paths = [package_path / path for path in raw_check_paths]
-        resolved_paths = [path for path in configured_paths if path.exists()]
-        missing = [
-            str(path.relative_to(package_path))
-            for path in configured_paths
-            if not path.exists()
-        ]
+        resolved_paths, missing = _resolve_check_paths(
+            package_path, raw_check_paths, exclude_directories
+        )
         if missing:
             print(f"  Warning: missing configured check paths: {', '.join(missing)}")
         if resolved_paths:
-            print(
-                "  Checking: "
-                + ", ".join(
-                    str(path.relative_to(package_path)) for path in resolved_paths
-                )
-            )
+            check_text = ", ".join(raw_check_paths)
+            if exclude_directories:
+                check_text += " (excluding directories: " + ", ".join(
+                    exclude_directories
+                ) + ")"
+            print(f"  Checking: {check_text}")
         else:
             print("  Warning: configured check paths do not exist; checking full repo")
 
@@ -974,6 +1013,7 @@ def _benchmark_package(
         memory_limit_mb=memory_limit_mb,
     )
     result["commit"] = commit or "unknown"
+    result.update(package_metadata)
     return result
 
 

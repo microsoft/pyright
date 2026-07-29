@@ -122,6 +122,28 @@ def _analyze(
                 }
             )
             continue
+        scope_changed = False
+        for field in ("check_paths", "exclude_directories"):
+            if old_package.get(field, []) != new_package.get(field, []):
+                failures.append(
+                    f"{package}/{checker}: package {field} changed from "
+                    f"{old_package.get(field, [])} to {new_package.get(field, [])}"
+                )
+                rows.append(
+                    {
+                        "package": package,
+                        "checker": checker,
+                        "execution_time_s": None,
+                        "time_delta": None,
+                        "peak_memory_mb": None,
+                        "memory_delta": None,
+                        "status": "Scope changed",
+                    }
+                )
+                scope_changed = True
+                break
+        if scope_changed:
+            continue
         if not new or not new.get("ok"):
             failures.append(f"{package}/{checker}: candidate result failed or is missing")
             rows.append(
