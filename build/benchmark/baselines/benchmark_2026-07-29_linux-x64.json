@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-07-29T22:58:39.364693+00:00",
+  "timestamp": "2026-07-29T23:40:04.246533+00:00",
   "date": "2026-07-29",
   "platform": "linux",
-  "platform_details": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "platform_details": "Linux-6.17.0-1020-azure-x86_64-with-glibc2.39",
   "architecture": "x86_64",
   "python_version": "3.14.6",
-  "cpu_count": 32,
+  "cpu_count": 4,
   "upstream_source": {
     "repository_url": "https://github.com/lolpack/type_coverage_py",
     "commit": "85667d6f090ce9648d88cd7a9777b492f3b95f1c",
@@ -19,26 +19,26 @@
   "type_checker_versions": {
     "pyright": "1.1.411"
   },
-  "package_count": 10,
+  "package_count": 9,
   "runs_per_package": 1,
   "warmup_runs": 0,
   "uncounted_validation_runs_per_checker": 1,
   "timeout_s": 600,
   "aggregate": {
     "pyright": {
-      "packages_tested": 10,
+      "packages_tested": 9,
       "packages_failed": 0,
-      "avg_execution_time_s": 64.971,
-      "p50_execution_time_s": 26.968,
-      "p90_execution_time_s": 168.863,
-      "p95_execution_time_s": 179.662,
-      "max_execution_time_s": 190.461,
-      "total_execution_time_s": 649.714,
-      "avg_peak_memory_mb": 1897.9,
-      "p50_peak_memory_mb": 1227.2,
-      "p90_peak_memory_mb": 4139.9,
-      "p95_peak_memory_mb": 4193.7,
-      "max_peak_memory_mb": 4247.6
+      "avg_execution_time_s": 81.244,
+      "p50_execution_time_s": 35.422,
+      "p90_execution_time_s": 217.094,
+      "p95_execution_time_s": 217.495,
+      "max_execution_time_s": 217.896,
+      "total_execution_time_s": 731.196,
+      "avg_peak_memory_mb": 1911.5,
+      "p50_peak_memory_mb": 1436.5,
+      "p90_peak_memory_mb": 4038.8,
+      "p95_peak_memory_mb": 4041.1,
+      "max_peak_memory_mb": 4043.4
     }
   },
   "results": [
@@ -49,28 +49,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 21.58,
-          "peak_memory_mb": 1123.8,
+          "execution_time_s": 19.695,
+          "peak_memory_mb": 934.2,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            21.58
+            19.695
           ],
           "peak_memories_mb": [
-            1123.8
+            934.2
           ],
           "execution_time_stats": {
-            "min": 21.58,
-            "max": 21.58,
-            "mean": 21.58,
-            "median": 21.58,
+            "min": 19.695,
+            "max": 19.695,
+            "mean": 19.695,
+            "median": 19.695,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 1123.8,
-            "max": 1123.8,
-            "mean": 1123.8,
-            "median": 1123.8,
+            "min": 934.2,
+            "max": 934.2,
+            "mean": 934.2,
+            "median": 934.2,
             "stddev": 0.0
           }
         }
@@ -88,28 +88,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 3.223,
-          "peak_memory_mb": 349.6,
+          "execution_time_s": 3.235,
+          "peak_memory_mb": 260.1,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            3.223
+            3.235
           ],
           "peak_memories_mb": [
-            349.6
+            260.1
           ],
           "execution_time_stats": {
-            "min": 3.223,
-            "max": 3.223,
-            "mean": 3.223,
-            "median": 3.223,
+            "min": 3.235,
+            "max": 3.235,
+            "mean": 3.235,
+            "median": 3.235,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 349.6,
-            "max": 349.6,
-            "mean": 349.6,
-            "median": 349.6,
+            "min": 260.1,
+            "max": 260.1,
+            "mean": 260.1,
+            "median": 260.1,
             "stddev": 0.0
           }
         }
@@ -127,28 +127,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 158.943,
-          "peak_memory_mb": 4127.9,
+          "execution_time_s": 181.596,
+          "peak_memory_mb": 4043.4,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            158.943
+            181.596
           ],
           "peak_memories_mb": [
-            4127.9
+            4043.4
           ],
           "execution_time_stats": {
-            "min": 158.943,
-            "max": 158.943,
-            "mean": 158.943,
-            "median": 158.943,
+            "min": 181.596,
+            "max": 181.596,
+            "mean": 181.596,
+            "median": 181.596,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 4127.9,
-            "max": 4127.9,
-            "mean": 4127.9,
-            "median": 4127.9,
+            "min": 4043.4,
+            "max": 4043.4,
+            "mean": 4043.4,
+            "median": 4043.4,
             "stddev": 0.0
           }
         }
@@ -166,28 +166,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 38.833,
-          "peak_memory_mb": 1465.1,
+          "execution_time_s": 35.422,
+          "peak_memory_mb": 1436.5,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            38.833
+            35.422
           ],
           "peak_memories_mb": [
-            1465.1
+            1436.5
           ],
           "execution_time_stats": {
-            "min": 38.833,
-            "max": 38.833,
-            "mean": 38.833,
-            "median": 38.833,
+            "min": 35.422,
+            "max": 35.422,
+            "mean": 35.422,
+            "median": 35.422,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 1465.1,
-            "max": 1465.1,
-            "mean": 1465.1,
-            "median": 1465.1,
+            "min": 1436.5,
+            "max": 1436.5,
+            "mean": 1436.5,
+            "median": 1436.5,
             "stddev": 0.0
           }
         }
@@ -207,28 +207,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 23.283,
-          "peak_memory_mb": 1195.4,
+          "execution_time_s": 39.745,
+          "peak_memory_mb": 1513.8,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            23.283
+            39.745
           ],
           "peak_memories_mb": [
-            1195.4
+            1513.8
           ],
           "execution_time_stats": {
-            "min": 23.283,
-            "max": 23.283,
-            "mean": 23.283,
-            "median": 23.283,
+            "min": 39.745,
+            "max": 39.745,
+            "mean": 39.745,
+            "median": 39.745,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 1195.4,
-            "max": 1195.4,
-            "mean": 1195.4,
-            "median": 1195.4,
+            "min": 1513.8,
+            "max": 1513.8,
+            "mean": 1513.8,
+            "median": 1513.8,
             "stddev": 0.0
           }
         }
@@ -249,28 +249,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 13.755,
-          "peak_memory_mb": 798.3,
+          "execution_time_s": 13.932,
+          "peak_memory_mb": 758.9,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            13.755
+            13.932
           ],
           "peak_memories_mb": [
-            798.3
+            758.9
           ],
           "execution_time_stats": {
-            "min": 13.755,
-            "max": 13.755,
-            "mean": 13.755,
-            "median": 13.755,
+            "min": 13.932,
+            "max": 13.932,
+            "mean": 13.932,
+            "median": 13.932,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 798.3,
-            "max": 798.3,
-            "mean": 798.3,
-            "median": 798.3,
+            "min": 758.9,
+            "max": 758.9,
+            "mean": 758.9,
+            "median": 758.9,
             "stddev": 0.0
           }
         }
@@ -289,28 +289,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 2.521,
-          "peak_memory_mb": 332.2,
+          "execution_time_s": 2.781,
+          "peak_memory_mb": 237.2,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            2.521
+            2.781
           ],
           "peak_memories_mb": [
-            332.2
+            237.2
           ],
           "execution_time_stats": {
-            "min": 2.521,
-            "max": 2.521,
-            "mean": 2.521,
-            "median": 2.521,
+            "min": 2.781,
+            "max": 2.781,
+            "mean": 2.781,
+            "median": 2.781,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 332.2,
-            "max": 332.2,
-            "mean": 332.2,
-            "median": 332.2,
+            "min": 237.2,
+            "max": 237.2,
+            "mean": 237.2,
+            "median": 237.2,
             "stddev": 0.0
           }
         }
@@ -322,75 +322,34 @@
       "exclude_directories": []
     },
     {
-      "package_name": "scipy",
-      "github_url": "https://github.com/scipy/scipy",
-      "error": null,
-      "metrics": {
-        "pyright": {
-          "ok": true,
-          "execution_time_s": 30.652,
-          "peak_memory_mb": 1259.1,
-          "oom_killed": false,
-          "runs": 1,
-          "execution_times_s": [
-            30.652
-          ],
-          "peak_memories_mb": [
-            1259.1
-          ],
-          "execution_time_stats": {
-            "min": 30.652,
-            "max": 30.652,
-            "mean": 30.652,
-            "median": 30.652,
-            "stddev": 0.0
-          },
-          "peak_memory_stats": {
-            "min": 1259.1,
-            "max": 1259.1,
-            "mean": 1259.1,
-            "median": 1259.1,
-            "stddev": 0.0
-          }
-        }
-      },
-      "commit": "39da5a9747f5b8e7a1b1b3492ad14f25c6be8dfc",
-      "check_paths": [
-        "scipy"
-      ],
-      "exclude_directories": [
-        "tests"
-      ]
-    },
-    {
       "package_name": "torch",
       "github_url": "https://github.com/pytorch/pytorch",
       "error": null,
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 190.461,
-          "peak_memory_mb": 4079.7,
+          "execution_time_s": 217.896,
+          "peak_memory_mb": 4037.6,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            190.461
+            217.896
           ],
           "peak_memories_mb": [
-            4079.7
+            4037.6
           ],
           "execution_time_stats": {
-            "min": 190.461,
-            "max": 190.461,
-            "mean": 190.461,
-            "median": 190.461,
+            "min": 217.896,
+            "max": 217.896,
+            "mean": 217.896,
+            "median": 217.896,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 4079.7,
-            "max": 4079.7,
-            "mean": 4079.7,
-            "median": 4079.7,
+            "min": 4037.6,
+            "max": 4037.6,
+            "mean": 4037.6,
+            "median": 4037.6,
             "stddev": 0.0
           }
         }
@@ -408,28 +367,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 166.463,
-          "peak_memory_mb": 4247.6,
+          "execution_time_s": 216.894,
+          "peak_memory_mb": 3981.7,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            166.463
+            216.894
           ],
           "peak_memories_mb": [
-            4247.6
+            3981.7
           ],
           "execution_time_stats": {
-            "min": 166.463,
-            "max": 166.463,
-            "mean": 166.463,
-            "median": 166.463,
+            "min": 216.894,
+            "max": 216.894,
+            "mean": 216.894,
+            "median": 216.894,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 4247.6,
-            "max": 4247.6,
-            "mean": 4247.6,
-            "median": 4247.6,
+            "min": 3981.7,
+            "max": 3981.7,
+            "mean": 3981.7,
+            "median": 3981.7,
             "stddev": 0.0
           }
         }

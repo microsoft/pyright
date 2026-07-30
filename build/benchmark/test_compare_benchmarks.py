@@ -105,9 +105,9 @@ class CompareBenchmarksTest(unittest.TestCase):
             _result(10.0, 100.0), _result(12.0, 105.0), 10.0
         )
 
-        self.assertIn("**1 regression check(s) failed.**", report)
+        self.assertIn("🔴 **1 regression check(s) failed.**", report)
         self.assertIn(
-            "| example | pyright | 12.000s | +20.0% | 105.0 MB | +5.0% | Regression |",
+            "| example | pyright | 12.000s | +20.0% | 105.0 MB | +5.0% | 🔴 Regression |",
             report,
         )
         self.assertIn("- example/pyright: time regressed 20.0%", report)

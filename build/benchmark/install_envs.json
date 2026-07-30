@@ -113,24 +113,6 @@
             ]
         },
         {
-            "github_url": "https://github.com/scipy/scipy",
-            "commit": "39da5a9747f5b8e7a1b1b3492ad14f25c6be8dfc",
-            "check_paths": [
-                "scipy"
-            ],
-            "exclude_directories": [
-                "tests"
-            ],
-            "install": false,
-            "deps": [
-                "numpy",
-                "pytest",
-                "hypothesis",
-                "setuptools>=71.1",
-                "types-psutil"
-            ]
-        },
-        {
             "github_url": "https://github.com/pytorch/pytorch",
             "name": "torch",
             "commit": "3ee692b380206d788625e0a4474d758f93571ee9",

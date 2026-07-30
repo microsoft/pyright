@@ -217,9 +217,9 @@ def render_markdown(
 ) -> str:
     failures, rows = _analyze(baseline, candidate, threshold_percent)
     if failures:
-        summary = f"**{len(failures)} regression check(s) failed.**"
+        summary = f"🔴 **{len(failures)} regression check(s) failed.**"
     else:
-        summary = "**No performance regressions detected.**"
+        summary = "🟢 **No performance regressions detected.**"
     lines = [
         "## Type checker benchmark",
         "",
@@ -230,6 +230,15 @@ def render_markdown(
         "| Package | Checker | Time | Time delta | Peak memory | Memory delta | Status |",
         "| --- | --- | ---: | ---: | ---: | ---: | --- |",
     ]
+    status_indicators = {
+        "Pass": "🟢 Pass",
+        "Regression": "🔴 Regression",
+        "Failed": "🔴 Failed",
+        "Missing": "🔴 Missing",
+        "Commit changed": "🔴 Commit changed",
+        "Scope changed": "🔴 Scope changed",
+        "Baseline unavailable": "⚪ Baseline unavailable",
+    }
     for row in rows:
         execution_time = (
             f"{row['execution_time_s']:.3f}s"
@@ -251,7 +260,8 @@ def render_markdown(
         )
         lines.append(
             f"| {row['package']} | {row['checker']} | {execution_time} | "
-            f"{time_delta} | {peak_memory} | {memory_delta} | {row['status']} |"
+            f"{time_delta} | {peak_memory} | {memory_delta} | "
+            f"{status_indicators[row['status']]} |"
         )
     if failures:
         lines.extend(["", "### Failures", ""])
