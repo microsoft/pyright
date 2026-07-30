@@ -72,6 +72,8 @@ jobs:
             build/benchmark/baselines/latest-linux-x64.json \
             build/benchmark/results/latest-linux-x64.json \
             --threshold-percent 20 \
+            --time-noise-floor-seconds 1 \
+            --memory-noise-floor-mb 100 \
             --markdown-output build/benchmark/results/report.md
           comparison_status=$?
           cat build/benchmark/results/report.md >> "$GITHUB_STEP_SUMMARY"

@@ -57,7 +57,11 @@ def _escape_markdown(value: object) -> str:
 
 
 def _analyze(
-    baseline: dict[str, Any], candidate: dict[str, Any], threshold_percent: float
+    baseline: dict[str, Any],
+    candidate: dict[str, Any],
+    threshold_percent: float,
+    time_noise_floor_s: float = 0.0,
+    memory_noise_floor_mb: float = 0.0,
 ) -> tuple[list[str], list[ComparisonRow]]:
     failures: list[str] = []
     rows: list[ComparisonRow] = []
@@ -188,13 +192,20 @@ def _analyze(
         time_delta = _percent_change(old_time, new_time)
         memory_delta = _percent_change(old_memory, new_memory)
         status = "Pass"
-        if time_delta > threshold_percent:
+        if (
+            time_delta > threshold_percent
+            and new_time - old_time > time_noise_floor_s
+        ):
             failures.append(
                 f"{package}/{checker}: time regressed {time_delta:.1f}% "
                 f"(limit {threshold_percent:.1f}%)"
             )
             status = "Regression"
-        if old_memory > 0 and memory_delta > threshold_percent:
+        if (
+            old_memory > 0
+            and memory_delta > threshold_percent
+            and new_memory - old_memory > memory_noise_floor_mb
+        ):
             failures.append(
                 f"{package}/{checker}: memory regressed {memory_delta:.1f}% "
                 f"(limit {threshold_percent:.1f}%)"
@@ -215,9 +226,19 @@ def _analyze(
 
 
 def compare(
-    baseline: dict[str, Any], candidate: dict[str, Any], threshold_percent: float
+    baseline: dict[str, Any],
+    candidate: dict[str, Any],
+    threshold_percent: float,
+    time_noise_floor_s: float = 0.0,
+    memory_noise_floor_mb: float = 0.0,
 ) -> list[str]:
-    failures, rows = _analyze(baseline, candidate, threshold_percent)
+    failures, rows = _analyze(
+        baseline,
+        candidate,
+        threshold_percent,
+        time_noise_floor_s,
+        memory_noise_floor_mb,
+    )
     print(
         f"{'Package':<20} {'Checker':<10} {'Time':>10} {'Delta':>9} "
         f"{'Memory':>10} {'Delta':>9}"
@@ -235,9 +256,19 @@ def compare(
 
 
 def render_markdown(
-    baseline: dict[str, Any], candidate: dict[str, Any], threshold_percent: float
+    baseline: dict[str, Any],
+    candidate: dict[str, Any],
+    threshold_percent: float,
+    time_noise_floor_s: float = 0.0,
+    memory_noise_floor_mb: float = 0.0,
 ) -> str:
-    failures, rows = _analyze(baseline, candidate, threshold_percent)
+    failures, rows = _analyze(
+        baseline,
+        candidate,
+        threshold_percent,
+        time_noise_floor_s,
+        memory_noise_floor_mb,
+    )
     if failures:
         summary = f"🔴 **{len(failures)} regression check(s) failed.**"
     else:
@@ -256,10 +287,19 @@ def render_markdown(
         summary,
         "",
         f"Regression threshold: `{threshold_percent:.1f}%`",
-        "",
-        "| Package | Checker | Time | Time delta | Peak memory | Memory delta | Status |",
-        "| --- | --- | ---: | ---: | ---: | ---: | --- |",
     ]
+    if time_noise_floor_s > 0 or memory_noise_floor_mb > 0:
+        lines.append(
+            f"Variance guard: `>{time_noise_floor_s:.1f}s` time and "
+            f"`>{memory_noise_floor_mb:.1f} MB` memory"
+        )
+    lines.extend(
+        [
+            "",
+            "| Package | Checker | Time | Time delta | Peak memory | Memory delta | Status |",
+            "| --- | --- | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
     status_indicators = {
         "Pass": "🟢 Pass",
         "Regression": "🔴 Regression",
@@ -306,6 +346,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("baseline", type=Path)
     parser.add_argument("candidate", type=Path)
     parser.add_argument("--threshold-percent", type=float, default=10.0)
+    parser.add_argument("--time-noise-floor-seconds", type=float, default=0.0)
+    parser.add_argument("--memory-noise-floor-mb", type=float, default=0.0)
     parser.add_argument("--markdown-output", type=Path)
     args = parser.parse_args(argv)
 
@@ -316,10 +358,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    failures = compare(baseline, candidate, args.threshold_percent)
+    failures = compare(
+        baseline,
+        candidate,
+        args.threshold_percent,
+        args.time_noise_floor_seconds,
+        args.memory_noise_floor_mb,
+    )
     if args.markdown_output:
         args.markdown_output.write_text(
-            render_markdown(baseline, candidate, args.threshold_percent),
+            render_markdown(
+                baseline,
+                candidate,
+                args.threshold_percent,
+                args.time_noise_floor_seconds,
+                args.memory_noise_floor_mb,
+            ),
             encoding="utf-8",
         )
     if failures:

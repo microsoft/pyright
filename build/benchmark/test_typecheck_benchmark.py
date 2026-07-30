@@ -65,9 +65,14 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             patch.object(benchmark, "PYRIGHT_ENTRY_POINT", entry_point),
             patch.object(benchmark, "PYRIGHT_BUNDLE", bundle),
             patch.object(benchmark, "_executable", return_value="node"),
-            self.assertRaisesRegex(benchmark.BenchmarkError, "index.js"),
         ):
-            benchmark.prepare_local_pyright(skip_build=True)
+            with self.assertRaises(benchmark.BenchmarkError) as context:
+                benchmark.prepare_local_pyright(skip_build=True)
+
+        self.assertEqual(
+            str(context.exception),
+            f"--skip-pyright-build requires existing local Pyright files: {entry_point}",
+        )
 
     def test_pyright_config_and_command(self) -> None:
         source_dir = self.root / "src"
@@ -314,8 +319,14 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             )
 
         self.assertEqual(calls, [True, False, False])
-        self.assertIn("Check...", stdout.getvalue())
-        self.assertNotIn("Warmup", stdout.getvalue())
+        self.assertEqual(
+            stdout.getvalue(),
+            "    Running pyright (1 validation check + 2 measured)...\n"
+            "      Check... 1.000s, 2.0 MB (discarded)\n"
+            "      Run 1/2... 1.000s, 2.0 MB\n"
+            "      Run 2/2... 1.000s, 2.0 MB\n"
+            "      Mean: 1.000s, 2.0 MB (stddev: 0.000s)\n",
+        )
 
     def test_only_first_warmup_captures_output(self) -> None:
         captures: list[bool] = []

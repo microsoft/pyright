@@ -29,7 +29,11 @@ jobs:
           script: |
             const fs = require('fs')
             const pullRequests = context.payload.workflow_run.pull_requests
-            if (pullRequests.length !== 1) {
+            if (pullRequests.length === 0) {
+              core.info('No pull request is associated with this workflow run; skipping comment')
+              return
+            }
+            if (pullRequests.length > 1) {
               core.setFailed(`Expected one pull request, found ${pullRequests.length}`)
               return
             }
@@ -65,6 +69,7 @@ jobs:
             core.setOutput('pr-number', issueNumber)
 
       - name: Extract candidate results
+        if: ${{ steps.download.outputs.pr-number != '' }}
         run: |
           python - <<'PY'
           import json
@@ -91,12 +96,15 @@ jobs:
           PY
 
       - name: Render benchmark report
+        if: ${{ steps.download.outputs.pr-number != '' }}
         run: |
           set +e
           python build/benchmark/compare_benchmarks.py \
             build/benchmark/baselines/latest-linux-x64.json \
             candidate.json \
             --threshold-percent 20 \
+            --time-noise-floor-seconds 1 \
+            --memory-noise-floor-mb 100 \
             --markdown-output report.md
           if [[ ! -s report.md ]]; then
             printf '%s\n' \
@@ -107,6 +115,7 @@ jobs:
           fi
 
       - name: Post benchmark comment
+        if: ${{ steps.download.outputs.pr-number != '' }}
         uses: actions/github-script@v7
         with:
           script: |

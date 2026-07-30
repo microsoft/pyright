@@ -112,11 +112,12 @@ Runner class, CPU count, and the exact Python version are part of the environmen
 historical data, not a reliable regression gate.
 
 On pull requests, the benchmark workflow pins Python 3.14.6, caches pip downloads using
-`install_envs.json` as the cache key, and uses a 20% regression threshold to account for observed
-hosted-runner variation. It writes the comparison table to the Actions job summary and uploads it
-with the candidate JSON. A separate trusted workflow validates the originating PR and renders the
-same report from JSON using code from the default branch before posting or updating a PR comment.
-Reports and artifacts are published before a failed comparison marks the job unsuccessful.
+`install_envs.json` as the cache key, and requires a regression to exceed both a 20% relative
+threshold and an absolute variance guard of 1 second for time or 100 MB for peak memory. It writes
+the comparison table to the Actions job summary and uploads it with the candidate JSON. A separate
+trusted workflow validates the originating PR and renders the same report from JSON using code from
+the default branch before posting or updating a PR comment. Reports and artifacts are published
+before a failed comparison marks the job unsuccessful.
 
 The top-level JSON records the timestamp, platform, checker versions, run settings, aggregate
 statistics, per-package results, configured memory limit, and an `upstream_source` object containing
