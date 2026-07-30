@@ -18,8 +18,8 @@ source revisions.
 
 Entries can define `exclude_directories` to prune named directories while resolving their check
 paths. The benchmark expands those entries to `.py` and `.pyi` files before invoking any checker, so
-all checkers analyze the same production-source scope. This keeps large scientific package test
-corpora from exhausting hosted-runner timeouts. Generated Pyright configurations explicitly retain
+all checkers analyze the same scope. NumPy excludes its test directories; pandas includes its full
+`pandas` tree, including `tests` and `_testing`. Generated Pyright configurations explicitly retain
 its standard `**/node_modules`, `**/__pycache__`, and `**/.*` exclusions.
 
 ## Prerequisites
@@ -97,7 +97,7 @@ then compare it before submitting a performance-sensitive pull request:
 
 ```console
 python build/benchmark/typecheck_benchmark.py \
-    -c pyright -r 1 -w 0 -t 600 --memory-limit-mb 8192 \
+    -c pyright -r 1 -w 0 -t 1800 --memory-limit-mb 8192 \
     --os-name linux-x64 --output build/benchmark/results
 python build/benchmark/compare_benchmarks.py \
     build/benchmark/baselines/latest-linux-x64.json \
@@ -118,6 +118,11 @@ the comparison table to the Actions job summary and uploads it with the candidat
 trusted workflow validates the originating PR and renders the same report from JSON using code from
 the default branch before posting or updating a PR comment. Reports and artifacts are published
 before a failed comparison marks the job unsuccessful.
+
+The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
+Each checker performs three measured runs after one warmup over the same pinned corpus. The aggregate
+job stores each raw JSON result with a self-contained `index.html` comparison for 90 days; its Actions
+job summary links directly to the downloadable report artifact.
 
 The top-level JSON records the timestamp, platform, checker versions, run settings, aggregate
 statistics, per-package results, configured memory limit, and an `upstream_source` object containing

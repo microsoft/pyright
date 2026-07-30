@@ -597,17 +597,7 @@ def _write_mypy_config(
     lines = ["[mypy]"]
     if check_paths:
         lines.append(f"files = {', '.join(check_paths)}")
-    lines.extend(
-        [
-            "check_untyped_defs = True",
-            "exclude = (?x)(",
-            "    /tests/",
-            "    | /test_",
-            "    | /testing/",
-            "  )",
-            "",
-        ]
-    )
+    lines.extend(["check_untyped_defs = True", ""])
     config_path.write_text("\n".join(lines), encoding="utf-8")
     return config_path
 

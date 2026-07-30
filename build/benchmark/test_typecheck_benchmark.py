@@ -148,6 +148,24 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertEqual(command, ["zuban", "check", "src"])
         self.assertEqual(configs, [])
 
+    def test_mypy_config_preserves_testing_paths(self) -> None:
+        testing_dir = self.root / "testing"
+        testing_dir.mkdir()
+        with patch.object(benchmark, "_checker_command", return_value=["mypy"]):
+            command, configs = benchmark._build_checker_command(
+                "mypy", self.root, [testing_dir]
+            )
+
+        self.assertEqual(
+            command,
+            ["mypy", "--no-incremental", "--config-file", str(configs[0])],
+        )
+        self.assertEqual(
+            configs[0].read_text(encoding="utf-8"),
+            "[mypy]\nfiles = testing\ncheck_untyped_defs = True\n",
+        )
+        configs[0].unlink()
+
     def test_run_checker_removes_temporary_config(self) -> None:
         process_result: benchmark.ProcessResult = {
             "stdout": "{}",

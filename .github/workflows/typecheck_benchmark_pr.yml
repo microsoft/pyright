@@ -6,6 +6,7 @@ env:
   PYTHON_VERSION: '3.14.6'
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - '.github/workflows/typecheck_benchmark_pr.yml'
@@ -23,7 +24,7 @@ jobs:
   benchmark:
     name: Compare Pyright performance
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     permissions:
       contents: read
 
@@ -59,7 +60,7 @@ jobs:
           PYTHONNOUSERSITE: '1'
         run: |
           python build/benchmark/typecheck_benchmark.py \
-            -c pyright -r 1 -w 0 -t 600 --memory-limit-mb 8192 \
+            -c pyright -r 1 -w 0 -t 1800 --memory-limit-mb 8192 \
             --skip-pyright-build --os-name linux-x64 \
             --output build/benchmark/results
 
