@@ -163,9 +163,15 @@ def prepare_local_pyright(skip_build: bool) -> None:
         raise BenchmarkError("Node.js is required to run the local Pyright CLI")
 
     if skip_build:
-        if not PYRIGHT_BUNDLE.is_file():
+        missing_paths = [
+            path
+            for path in (PYRIGHT_ENTRY_POINT, PYRIGHT_BUNDLE)
+            if not path.is_file()
+        ]
+        if missing_paths:
             raise BenchmarkError(
-                f"--skip-pyright-build requires an existing local bundle at {PYRIGHT_BUNDLE}"
+                "--skip-pyright-build requires existing local Pyright files: "
+                + ", ".join(str(path) for path in missing_paths)
             )
         return
 
@@ -189,8 +195,14 @@ def prepare_local_pyright(skip_build: bool) -> None:
 
     if result.returncode != 0:
         raise BenchmarkError(f"Pyright build failed with exit code {result.returncode}")
-    if not PYRIGHT_BUNDLE.is_file():
-        raise BenchmarkError(f"Pyright build did not produce {PYRIGHT_BUNDLE}")
+    missing_paths = [
+        path for path in (PYRIGHT_ENTRY_POINT, PYRIGHT_BUNDLE) if not path.is_file()
+    ]
+    if missing_paths:
+        raise BenchmarkError(
+            "Pyright build did not produce required files: "
+            + ", ".join(str(path) for path in missing_paths)
+        )
 
 
 def _monitor_memory_linux(
@@ -1042,6 +1054,7 @@ def _save_results(
         "platform": sys.platform,
         "platform_details": platform.platform(),
         "architecture": platform.machine(),
+        "runner_class": os.environ.get("BENCHMARK_RUNNER_CLASS", "local"),
         "python_version": platform.python_version(),
         "cpu_count": os.cpu_count(),
         "upstream_source": UPSTREAM_SOURCE,

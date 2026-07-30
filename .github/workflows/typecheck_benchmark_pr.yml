@@ -1,8 +1,9 @@
 name: Type checker benchmark
 
 env:
+  BENCHMARK_RUNNER_CLASS: 'github-ubuntu-latest'
   NODE_VERSION: '22.x'
-  PYTHON_VERSION: '3.14'
+  PYTHON_VERSION: '3.14.6'
 
 on:
   pull_request:
@@ -32,6 +33,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: 'build/benchmark/install_envs.json'
 
       - uses: actions/setup-node@v6
         with:
@@ -50,11 +53,6 @@ jobs:
       - name: Build Pyright CLI
         working-directory: packages/pyright
         run: npm run build
-
-      - name: Record pull request
-        run: |
-          mkdir -p build/benchmark/results
-          printf '%s\n' '${{ github.event.pull_request.number }}' > build/benchmark/results/pr_number.txt
 
       - name: Run benchmark
         env:

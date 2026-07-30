@@ -9,6 +9,8 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
     return {
         "platform": "linux",
         "architecture": "x86_64",
+        "runner_class": "github-ubuntu-latest",
+        "cpu_count": 4,
         "python_version": "3.14.6",
         "memory_limit_mb": 8192,
         "runs_per_package": 1,
@@ -58,6 +60,22 @@ class CompareBenchmarksTest(unittest.TestCase):
         self.assertEqual(
             failures, ["example/pyright: candidate result failed or is missing"]
         )
+
+    def test_reports_preparation_failure_without_regression(self) -> None:
+        candidate = _result(0.0, 0.0, ok=False)
+        candidate["results"][0]["error"] = "Dependency installation failed"
+        candidate["results"][0]["metrics"] = {}
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                _result(10.0, 100.0), candidate, 10.0
+            )
+
+        self.assertEqual(failures, [])
+        report = compare_benchmarks.render_markdown(
+            _result(10.0, 100.0), candidate, 10.0
+        )
+        self.assertIn("🟡 **1 package(s) could not be prepared", report)
+        self.assertIn("🟡 Preparation failed", report)
 
     def test_rejects_environment_mismatch(self) -> None:
         candidate = _result(10.0, 100.0)
@@ -110,7 +128,19 @@ class CompareBenchmarksTest(unittest.TestCase):
             "| example | pyright | 12.000s | +20.0% | 105.0 MB | +5.0% | 🔴 Regression |",
             report,
         )
-        self.assertIn("- example/pyright: time regressed 20.0%", report)
+        self.assertIn("time regressed 20\\.0%", report)
+
+    def test_escapes_untrusted_markdown_in_report(self) -> None:
+        candidate = _result(10.0, 100.0)
+        candidate["python_version"] = "[click](https://example.com)\n# heading"
+
+        report = compare_benchmarks.render_markdown(
+            _result(10.0, 100.0), candidate, 10.0
+        )
+
+        self.assertNotIn("[click](https://example.com)", report)
+        self.assertNotIn("\n# heading", report)
+        self.assertIn(r"\[click\]\(https://example\.com\)", report)
 
 
 if __name__ == "__main__":

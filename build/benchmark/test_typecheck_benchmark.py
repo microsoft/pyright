@@ -55,6 +55,20 @@ class TypecheckBenchmarkTest(unittest.TestCase):
 
         self.assertEqual(command, ["node", str(entry_point)])
 
+    def test_skip_build_requires_entry_point_and_bundle(self) -> None:
+        entry_point = self.root / "index.js"
+        bundle = self.root / "dist" / "pyright.js"
+        bundle.parent.mkdir()
+        bundle.touch()
+
+        with (
+            patch.object(benchmark, "PYRIGHT_ENTRY_POINT", entry_point),
+            patch.object(benchmark, "PYRIGHT_BUNDLE", bundle),
+            patch.object(benchmark, "_executable", return_value="node"),
+            self.assertRaisesRegex(benchmark.BenchmarkError, "index.js"),
+        ):
+            benchmark.prepare_local_pyright(skip_build=True)
+
     def test_pyright_config_and_command(self) -> None:
         source_dir = self.root / "src"
         source_dir.mkdir()
@@ -212,6 +226,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertEqual(output["uncounted_validation_runs_per_checker"], 1)
         self.assertEqual(output["python_version"], benchmark.platform.python_version())
         self.assertEqual(output["architecture"], benchmark.platform.machine())
+        self.assertEqual(output["runner_class"], "local")
 
     def test_local_mode_builds_pyright_without_clone_or_install(self) -> None:
         package_result: benchmark.PackageResult = {

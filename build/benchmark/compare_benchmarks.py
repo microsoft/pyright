@@ -49,6 +49,13 @@ def _percent_change(baseline: float, candidate: float) -> float:
     return ((candidate - baseline) / baseline) * 100 if baseline else 0.0
 
 
+def _escape_markdown(value: object) -> str:
+    text = str(value).replace("\\", "\\\\").replace("\r", " ").replace("\n", " ")
+    for character in "`*_{}[]<>()#+-.!|":
+        text = text.replace(character, f"\\{character}")
+    return text
+
+
 def _analyze(
     baseline: dict[str, Any], candidate: dict[str, Any], threshold_percent: float
 ) -> tuple[list[str], list[ComparisonRow]]:
@@ -57,6 +64,8 @@ def _analyze(
     for field in (
         "platform",
         "architecture",
+        "runner_class",
+        "cpu_count",
         "python_version",
         "memory_limit_mb",
         "runs_per_package",
@@ -102,6 +111,19 @@ def _analyze(
                     "peak_memory_mb": None,
                     "memory_delta": None,
                     "status": "Missing",
+                }
+            )
+            continue
+        if new_package.get("error"):
+            rows.append(
+                {
+                    "package": package,
+                    "checker": checker,
+                    "execution_time_s": None,
+                    "time_delta": None,
+                    "peak_memory_mb": None,
+                    "memory_delta": None,
+                    "status": "Preparation failed",
                 }
             )
             continue
@@ -220,6 +242,14 @@ def render_markdown(
         summary = f"🔴 **{len(failures)} regression check(s) failed.**"
     else:
         summary = "🟢 **No performance regressions detected.**"
+    preparation_failures = sum(
+        row["status"] == "Preparation failed" for row in rows
+    )
+    if preparation_failures:
+        summary += (
+            f"\n\n🟡 **{preparation_failures} package(s) could not be prepared "
+            "and were not measured.**"
+        )
     lines = [
         "## Type checker benchmark",
         "",
@@ -237,6 +267,7 @@ def render_markdown(
         "Missing": "🔴 Missing",
         "Commit changed": "🔴 Commit changed",
         "Scope changed": "🔴 Scope changed",
+        "Preparation failed": "🟡 Preparation failed",
         "Baseline unavailable": "⚪ Baseline unavailable",
     }
     for row in rows:
@@ -259,13 +290,14 @@ def render_markdown(
             else "N/A"
         )
         lines.append(
-            f"| {row['package']} | {row['checker']} | {execution_time} | "
+            f"| {_escape_markdown(row['package'])} | "
+            f"{_escape_markdown(row['checker'])} | {execution_time} | "
             f"{time_delta} | {peak_memory} | {memory_delta} | "
             f"{status_indicators[row['status']]} |"
         )
     if failures:
         lines.extend(["", "### Failures", ""])
-        lines.extend(f"- {failure}" for failure in failures)
+        lines.extend(f"- {_escape_markdown(failure)}" for failure in failures)
     return "\n".join(lines) + "\n"
 
 

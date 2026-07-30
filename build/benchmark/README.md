@@ -24,7 +24,7 @@ its standard `**/node_modules`, `**/__pycache__`, and `**/.*` exclusions.
 
 ## Prerequisites
 
-- Python 3.14, with pip
+- Python 3.14.6, with pip
 - Git
 - Node.js and npm
 - The non-Pyright checkers you want to measure installed in the active Python environment:
@@ -105,17 +105,18 @@ python build/benchmark/compare_benchmarks.py \
 ```
 
 The comparator reports per-package timing and memory deltas and exits nonzero when a previously
-successful result is missing, the Python/platform contract differs, or a result exceeds the default
-10% regression threshold. Package commits, check paths, and excluded directory names must also
-match. Use `--threshold-percent` to select another threshold. Generate baselines and candidates on
-the same runner class; results from different machines are historical data, not a reliable
-regression gate.
+successful result is missing, the environment contract differs, or a result exceeds the default 10%
+regression threshold. Package commits, check paths, and excluded directory names must also match.
+Runner class, CPU count, and the exact Python version are part of the environment contract. Use
+`--threshold-percent` to select another threshold. Results from different runner classes are
+historical data, not a reliable regression gate.
 
-On pull requests, the benchmark workflow uses a 20% regression threshold to account for hosted-runner
-variation. It writes the comparison table to the Actions job summary and uploads it with the candidate
-JSON. A separate trusted workflow posts or updates the same report as a pull-request comment,
-including failed checks and packages without a successful baseline. Reports and artifacts are
-published before a failed comparison marks the job unsuccessful.
+On pull requests, the benchmark workflow pins Python 3.14.6, caches pip downloads using
+`install_envs.json` as the cache key, and uses a 20% regression threshold to account for observed
+hosted-runner variation. It writes the comparison table to the Actions job summary and uploads it
+with the candidate JSON. A separate trusted workflow validates the originating PR and renders the
+same report from JSON using code from the default branch before posting or updating a PR comment.
+Reports and artifacts are published before a failed comparison marks the job unsuccessful.
 
 The top-level JSON records the timestamp, platform, checker versions, run settings, aggregate
 statistics, per-package results, configured memory limit, and an `upstream_source` object containing
@@ -135,8 +136,9 @@ warmups and all measured runs discard output to avoid pipe overhead. `--warmup 0
 uncounted validation pass labeled `Check`; otherwise exactly the requested number of warmups is
 reported and discarded.
 
-Dependency installation failures mark the package as failed and skip its checker runs. If none of a
-package's configured check paths exist, the benchmark warns and checks the full repository.
+Dependency installation failures mark the package as unmeasured and skip its checker runs. The PR
+report displays these preparation failures, but they do not count as performance regressions. If none
+of a package's configured check paths exist, the benchmark warns and checks the full repository.
 
 ## Relationship to `perfCompare.py`
 

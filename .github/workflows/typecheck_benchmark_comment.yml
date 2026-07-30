@@ -18,11 +18,31 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.event == 'pull_request' }}
     steps:
-      - name: Download benchmark report
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Download benchmark results
+        id: download
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs')
+            const pullRequests = context.payload.workflow_run.pull_requests
+            if (pullRequests.length !== 1) {
+              core.setFailed(`Expected one pull request, found ${pullRequests.length}`)
+              return
+            }
+            const issueNumber = pullRequests[0].number
+            const pullRequest = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: issueNumber,
+            })
+            if (pullRequest.data.head.sha !== context.payload.workflow_run.head_sha) {
+              core.setFailed('The workflow run head does not match the pull request head')
+              return
+            }
             const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -42,9 +62,49 @@ jobs:
               archive_format: 'zip',
             })
             fs.writeFileSync('benchmark-report.zip', Buffer.from(download.data))
+            core.setOutput('pr-number', issueNumber)
 
-      - name: Extract benchmark report
-        run: unzip -q benchmark-report.zip -d benchmark-report
+      - name: Extract candidate results
+        run: |
+          python - <<'PY'
+          import json
+          import zipfile
+          from pathlib import PurePosixPath
+
+          with zipfile.ZipFile('benchmark-report.zip') as archive:
+              matches = [
+                  name
+                  for name in archive.namelist()
+                  if PurePosixPath(name).name == 'latest-linux-x64.json'
+                  and '..' not in PurePosixPath(name).parts
+              ]
+              if len(matches) != 1:
+                  raise RuntimeError(f'Expected one candidate result, found {len(matches)}')
+              contents = archive.read(matches[0])
+          if len(contents) > 5 * 1024 * 1024:
+              raise RuntimeError('Candidate result exceeds 5 MB')
+          data = json.loads(contents)
+          if not isinstance(data, dict):
+              raise RuntimeError('Candidate result must be a JSON object')
+          with open('candidate.json', 'wb') as output:
+              output.write(contents)
+          PY
+
+      - name: Render benchmark report
+        run: |
+          set +e
+          python build/benchmark/compare_benchmarks.py \
+            build/benchmark/baselines/latest-linux-x64.json \
+            candidate.json \
+            --threshold-percent 20 \
+            --markdown-output report.md
+          if [[ ! -s report.md ]]; then
+            printf '%s\n' \
+              '## Type checker benchmark' \
+              '' \
+              '🔴 **The benchmark results could not be compared. See the workflow run for details.**' \
+              > report.md
+          fi
 
       - name: Post benchmark comment
         uses: actions/github-script@v7
@@ -52,10 +112,8 @@ jobs:
           script: |
             const fs = require('fs')
             const marker = '<!-- typecheck-benchmark-report -->'
-            const report = fs.readFileSync('benchmark-report/report.md', 'utf8')
-            const issueNumber = Number(
-              fs.readFileSync('benchmark-report/pr_number.txt', 'utf8').trim()
-            )
+            const report = fs.readFileSync('report.md', 'utf8')
+            const issueNumber = Number('${{ steps.download.outputs.pr-number }}')
             const body = `${marker}\n${report}`
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,

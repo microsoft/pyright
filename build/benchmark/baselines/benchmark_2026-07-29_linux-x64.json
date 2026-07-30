@@ -4,6 +4,7 @@
   "platform": "linux",
   "platform_details": "Linux-6.17.0-1020-azure-x86_64-with-glibc2.39",
   "architecture": "x86_64",
+  "runner_class": "github-ubuntu-latest",
   "python_version": "3.14.6",
   "cpu_count": 4,
   "upstream_source": {
