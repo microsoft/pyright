@@ -798,6 +798,18 @@ test('UnusedVariable1', () => {
     TestUtils.validateResults(analysisResults2, 3);
 });
 
+test('UnusedVariable2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.diagnosticRuleSet.reportUnusedVariable = 'none';
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['unusedVariable2.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, 1);
+
+    configOptions.diagnosticRuleSet.reportUnusedVariable = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['unusedVariable2.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 1, 0, 0, 1);
+});
+
 test('Descriptor1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor1.py']);
 

@@ -3881,11 +3881,15 @@ export class Checker extends ParseTreeWalker {
 
         const action = rule === DiagnosticRule.reportUnusedImport ? { action: Commands.unusedImport } : undefined;
         if (nameNode) {
-            this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
-                LocMessage.unaccessedSymbol().format({ name: nameNode.d.value }),
-                nameNode,
-                action
-            );
+            const isAllowedUnusedVariable =
+                rule === DiagnosticRule.reportUnusedVariable && nameNode.d.value.startsWith('_');
+            if (!isAllowedUnusedVariable) {
+                this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+                    LocMessage.unaccessedSymbol().format({ name: nameNode.d.value }),
+                    nameNode,
+                    action
+                );
+            }
 
             if (rule !== undefined && message && diagnosticLevel !== 'none') {
                 this._evaluator.addDiagnostic(rule, message, nameNode);
