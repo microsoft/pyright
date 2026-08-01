@@ -57,6 +57,7 @@ import {
     NeverType,
     OverloadedType,
     Type,
+    TypeCondition,
     TypedDictEntries,
     TypedDictEntry,
     TypeVarScopeType,
@@ -68,6 +69,7 @@ import {
     buildSolutionFromSpecializedClass,
     computeMroLinearization,
     convertToInstance,
+    getTypeCondition,
     getTypeVarScopeId,
     isLiteralType,
     mapSubtypes,
@@ -1521,7 +1523,12 @@ export function getTypeOfIndexedTypedDict(
     let diag = new DiagnosticAddendum();
     let allDiagsInvolveNotRequiredKeys = true;
 
+    const conditionFilter = getTypeCondition(baseType);
     const resultingType = mapSubtypes(indexType, (subtype) => {
+        if (!TypeCondition.isCompatible(getTypeCondition(subtype), conditionFilter)) {
+            return undefined;
+        }
+
         if (isAnyOrUnknown(subtype)) {
             return subtype;
         }

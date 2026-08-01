@@ -19,6 +19,17 @@ if "key2" in my_dict1:
     my_dict1["key2"]
 
 
+def read_present_keys(value: MyDict1):
+    for key in ("key1", "key2"):
+        if key in value:
+            reveal_type(key, expected_text="Literal['key1', 'key2']")
+            value[key]
+
+            # This should generate an error because checking the variable key
+            # doesn't prove that this specific key is present.
+            value["key1"]
+
+
 class MyDict2(TypedDict, total=False):
     key3: MyDict1
     key4: MyDict1
