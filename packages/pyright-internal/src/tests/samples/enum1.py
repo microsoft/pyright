@@ -18,9 +18,10 @@ class TestEnum3(Enum):
 TestEnum3Literal = Literal[TestEnum3.A, TestEnum3.B, TestEnum3.C, TestEnum3.D]
 
 
-def test_enum_literal_union(value: TestEnum3) -> None:
+def test_enum_literal_union(value: TestEnum3, literal_value: TestEnum3Literal) -> None:
     full_union: TestEnum3Literal = value
     assert_type(value, TestEnum3Literal)
+    assert_type(literal_value, TestEnum3)
 
     # This should generate an error because the union is incomplete.
     incomplete_union: Literal[TestEnum3.A, TestEnum3.B, TestEnum3.C] = value
@@ -57,6 +58,9 @@ class TestIntEnumLiteralUnion(IntEnum):
 
 def test_int_enum_literal_union(value: TestIntEnumLiteralUnion) -> None:
     full_union: Literal[TestIntEnumLiteralUnion.A, TestIntEnumLiteralUnion.B] = value
+    # This should generate an error because enum literals are distinct from
+    # literals of their underlying values.
+    underlying_values: Literal[1, 2] = value
 
 
 class TestStrEnumLiteralUnion(StrEnum):
@@ -66,6 +70,9 @@ class TestStrEnumLiteralUnion(StrEnum):
 
 def test_str_enum_literal_union(value: TestStrEnumLiteralUnion) -> None:
     full_union: Literal[TestStrEnumLiteralUnion.A, TestStrEnumLiteralUnion.B] = value
+    # This should generate an error because enum literals are distinct from
+    # literals of their underlying values.
+    underlying_values: Literal["a", "b"] = value
 
 
 class TestFlagLiteralUnion(Flag):

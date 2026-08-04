@@ -9017,6 +9017,7 @@ export function createTypeEvaluator(
         // what mypy does -- and what various library authors expect.
         const arg0Type = stripTypeGuard(arg0TypeResult.type);
         let arg0TypeForComparison = arg0Type;
+        let assertedTypeForComparison = assertedType;
 
         if (isClassInstance(arg0Type) && arg0Type.priv.literalValue === undefined && ClassType.isEnumClass(arg0Type)) {
             const expandedLiteralTypes = enumerateLiteralsForType(evaluatorInterface, arg0Type);
@@ -9026,7 +9027,18 @@ export function createTypeEvaluator(
         }
 
         if (
-            !isTypeSame(assertedType, arg0TypeForComparison, {
+            isClassInstance(assertedType) &&
+            assertedType.priv.literalValue === undefined &&
+            ClassType.isEnumClass(assertedType)
+        ) {
+            const expandedLiteralTypes = enumerateLiteralsForType(evaluatorInterface, assertedType);
+            if (expandedLiteralTypes && expandedLiteralTypes.length > 0) {
+                assertedTypeForComparison = combineTypes(expandedLiteralTypes);
+            }
+        }
+
+        if (
+            !isTypeSame(assertedTypeForComparison, arg0TypeForComparison, {
                 treatAnySameAsUnknown: true,
                 ignorePseudoGeneric: true,
                 ignoreConditions: true,
