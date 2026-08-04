@@ -31,6 +31,25 @@ def test_enum_literal_union(value: TestEnum3, literal_value: TestEnum3Literal) -
     underlying_values: Literal[0, 1, 2, 3] = value
 
 
+def test_enum_literal_union_in_union(
+    value: TestEnum3 | int, literal_value: TestEnum3Literal | int
+) -> None:
+    assert_type(value, TestEnum3Literal | int)
+    assert_type(literal_value, TestEnum3 | int)
+
+
+class TestSingleMemberEnum(Enum):
+    ONLY = 1
+
+
+def test_single_member_enum(
+    value: TestSingleMemberEnum, literal_value: Literal[TestSingleMemberEnum.ONLY]
+) -> None:
+    full_union: Literal[TestSingleMemberEnum.ONLY] = value
+    assert_type(value, Literal[TestSingleMemberEnum.ONLY])
+    assert_type(literal_value, TestSingleMemberEnum)
+
+
 def test_enum_without_known_members(value: Enum) -> None:
     # This should generate an error because no literal members can be enumerated.
     full_union: TestEnum3Literal = value

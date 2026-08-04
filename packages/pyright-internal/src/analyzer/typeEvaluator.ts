@@ -2340,6 +2340,19 @@ export function createTypeEvaluator(
         });
     }
 
+    function expandEnumTypeToLiteralUnion(type: Type): Type {
+        return mapSubtypes(type, (subtype) => {
+            if (isClassInstance(subtype) && subtype.priv.literalValue === undefined && ClassType.isEnumClass(subtype)) {
+                const expandedLiteralTypes = enumerateLiteralsForType(evaluatorInterface, subtype);
+                if (expandedLiteralTypes && expandedLiteralTypes.length > 0) {
+                    return combineTypes(expandedLiteralTypes);
+                }
+            }
+
+            return subtype;
+        });
+    }
+
     function solveAndApplyConstraints(
         type: Type,
         constraints: ConstraintTracker,
@@ -9016,26 +9029,8 @@ export function createTypeEvaluator(
         // The spec is unclear on whether this is the correct behavior, but it seems to be
         // what mypy does -- and what various library authors expect.
         const arg0Type = stripTypeGuard(arg0TypeResult.type);
-        let arg0TypeForComparison = arg0Type;
-        let assertedTypeForComparison = assertedType;
-
-        if (isClassInstance(arg0Type) && arg0Type.priv.literalValue === undefined && ClassType.isEnumClass(arg0Type)) {
-            const expandedLiteralTypes = enumerateLiteralsForType(evaluatorInterface, arg0Type);
-            if (expandedLiteralTypes && expandedLiteralTypes.length > 0) {
-                arg0TypeForComparison = combineTypes(expandedLiteralTypes);
-            }
-        }
-
-        if (
-            isClassInstance(assertedType) &&
-            assertedType.priv.literalValue === undefined &&
-            ClassType.isEnumClass(assertedType)
-        ) {
-            const expandedLiteralTypes = enumerateLiteralsForType(evaluatorInterface, assertedType);
-            if (expandedLiteralTypes && expandedLiteralTypes.length > 0) {
-                assertedTypeForComparison = combineTypes(expandedLiteralTypes);
-            }
-        }
+        const arg0TypeForComparison = expandEnumTypeToLiteralUnion(arg0Type);
+        const assertedTypeForComparison = expandEnumTypeToLiteralUnion(assertedType);
 
         if (
             !isTypeSame(assertedTypeForComparison, arg0TypeForComparison, {
@@ -25204,21 +25199,12 @@ export function createTypeEvaluator(
             return true;
         }
 
-        if (isUnion(destType)) {
-            if (isClassInstance(srcType) && srcType.priv.literalValue === undefined && ClassType.isEnumClass(srcType)) {
-                const expandedLiteralTypes = enumerateLiteralsForType(evaluatorInterface, srcType);
-                if (expandedLiteralTypes && expandedLiteralTypes.length > 0) {
-                    return assignType(
-                        destType,
-                        combineTypes(expandedLiteralTypes),
-                        diag,
-                        constraints,
-                        flags,
-                        recursionCount
-                    );
-                }
-            }
+        const expandedEnumSrcType = expandEnumTypeToLiteralUnion(srcType);
+        if (expandedEnumSrcType !== srcType) {
+            return assignType(destType, expandedEnumSrcType, diag, constraints, flags, recursionCount);
+        }
 
+        if (isUnion(destType)) {
             // If both the source and dest are unions, use assignFromUnionType which has
             // special-case logic to handle this case.
             if (isUnion(srcType)) {
