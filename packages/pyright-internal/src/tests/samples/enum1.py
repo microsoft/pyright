@@ -38,6 +38,16 @@ def test_enum_literal_union_in_union(
     assert_type(literal_value, TestEnum3 | int)
 
 
+def test_enum_invariant_containers(
+    values: list[TestEnum3],
+    value_map: dict[TestEnum3, int],
+    mixed_values: list[TestEnum3 | int],
+) -> None:
+    same_values: list[TestEnum3] = values
+    same_value_map: dict[TestEnum3, int] = value_map
+    same_mixed_values: list[TestEnum3 | int] = mixed_values
+
+
 class TestSingleMemberEnum(Enum):
     ONLY = 1
 

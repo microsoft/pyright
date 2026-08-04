@@ -2353,6 +2353,23 @@ export function createTypeEvaluator(
         });
     }
 
+    function expandEnumTypeToLiteralUnionForDestination(srcType: Type, destType: Type): Type {
+        return mapSubtypes(srcType, (srcSubtype) => {
+            const expandedSrcSubtype = expandEnumTypeToLiteralUnion(srcSubtype);
+            if (expandedSrcSubtype === srcSubtype) {
+                return srcSubtype;
+            }
+
+            const destContainsType = (type: Type) =>
+                isUnion(destType) ? UnionType.containsType(destType, type) : isTypeSame(destType, type);
+            const destContainsAllLiterals = isUnion(expandedSrcSubtype)
+                ? expandedSrcSubtype.priv.subtypes.every(destContainsType)
+                : destContainsType(expandedSrcSubtype);
+
+            return destContainsAllLiterals ? expandedSrcSubtype : srcSubtype;
+        });
+    }
+
     function solveAndApplyConstraints(
         type: Type,
         constraints: ConstraintTracker,
@@ -25199,7 +25216,7 @@ export function createTypeEvaluator(
             return true;
         }
 
-        const expandedEnumSrcType = expandEnumTypeToLiteralUnion(srcType);
+        const expandedEnumSrcType = expandEnumTypeToLiteralUnionForDestination(srcType, destType);
         if (expandedEnumSrcType !== srcType) {
             return assignType(destType, expandedEnumSrcType, diag, constraints, flags, recursionCount);
         }
