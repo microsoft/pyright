@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of Enum.
 
-from enum import Enum, EnumMeta, IntEnum
-from typing import Self
+from enum import Enum, EnumMeta, Flag, IntEnum, StrEnum, auto
+from typing import Generic, Literal, Self, TypeVar, assert_type
 
 
 TestEnum1 = Enum("TestEnum1", "   A   B, , ,C , \t D\t")
@@ -13,6 +13,69 @@ class TestEnum3(Enum):
     B = 1
     C = 2
     D = 3
+
+
+TestEnum3Literal = Literal[TestEnum3.A, TestEnum3.B, TestEnum3.C, TestEnum3.D]
+
+
+def test_enum_literal_union(value: TestEnum3) -> None:
+    full_union: TestEnum3Literal = value
+    assert_type(value, TestEnum3Literal)
+
+    # This should generate an error because the union is incomplete.
+    incomplete_union: Literal[TestEnum3.A, TestEnum3.B, TestEnum3.C] = value
+
+    # This should generate an error because enum literals are distinct from
+    # literals of their underlying values.
+    underlying_values: Literal[0, 1, 2, 3] = value
+
+
+def test_enum_without_known_members(value: Enum) -> None:
+    # This should generate an error because no literal members can be enumerated.
+    full_union: TestEnum3Literal = value
+
+
+TTestEnum3 = TypeVar("TTestEnum3", bound=TestEnum3)
+
+
+class EnumContainer(Generic[TTestEnum3]):
+    pass
+
+
+def accept_enum_container(value: EnumContainer[TestEnum3Literal]) -> None:
+    pass
+
+
+def test_generic_enum_literal_union(value: EnumContainer[TestEnum3]) -> None:
+    accept_enum_container(value)
+
+
+class TestIntEnumLiteralUnion(IntEnum):
+    A = 1
+    B = 2
+
+
+def test_int_enum_literal_union(value: TestIntEnumLiteralUnion) -> None:
+    full_union: Literal[TestIntEnumLiteralUnion.A, TestIntEnumLiteralUnion.B] = value
+
+
+class TestStrEnumLiteralUnion(StrEnum):
+    A = "a"
+    B = "b"
+
+
+def test_str_enum_literal_union(value: TestStrEnumLiteralUnion) -> None:
+    full_union: Literal[TestStrEnumLiteralUnion.A, TestStrEnumLiteralUnion.B] = value
+
+
+class TestFlagLiteralUnion(Flag):
+    A = auto()
+    B = auto()
+
+
+def test_flag_literal_union(value: TestFlagLiteralUnion) -> None:
+    # This should generate an error because Flag values can be combined.
+    full_union: Literal[TestFlagLiteralUnion.A, TestFlagLiteralUnion.B] = value
 
 
 a = TestEnum1["A"]
