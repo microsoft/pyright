@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of Enum.
 
 from enum import Enum, EnumMeta, Flag, IntEnum, StrEnum, auto
-from typing import Generic, Literal, Self, TypeVar, assert_type
+from typing import Final, Generic, Literal, Self, TypeVar, assert_type
 
 
 TestEnum1 = Enum("TestEnum1", "   A   B, , ,C , \t D\t")
@@ -50,6 +50,17 @@ def test_enum_invariant_containers(
 
 class TestSingleMemberEnum(Enum):
     ONLY = 1
+
+
+single_member_sentinel: Final[TestSingleMemberEnum] = TestSingleMemberEnum.ONLY
+reveal_type(single_member_sentinel, expected_text="Literal[TestSingleMemberEnum.ONLY]")
+
+
+def resolve_single_member_sentinel(value: float | TestSingleMemberEnum) -> float:
+    if value is single_member_sentinel:
+        return 0.0
+    reveal_type(value, expected_text="float")
+    return value
 
 
 def test_single_member_enum(

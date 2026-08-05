@@ -27698,6 +27698,19 @@ export function createTypeEvaluator(
                 // one we choose) or one or both include gradual types (Any, etc.),
                 // in which case we'll want to stick with the declared subtype.
                 if (assignType(assignedSubtype, declaredSubtype)) {
+                    // Preserve an assigned enum literal rather than widening it back to the
+                    // declared enum type when the enum has only one member.
+                    if (
+                        isClassInstance(assignedSubtype) &&
+                        assignedSubtype.priv.literalValue !== undefined &&
+                        ClassType.isEnumClass(assignedSubtype) &&
+                        isClassInstance(declaredSubtype) &&
+                        declaredSubtype.priv.literalValue === undefined &&
+                        ClassType.isSameGenericClass(assignedSubtype, declaredSubtype)
+                    ) {
+                        return assignedSubtype;
+                    }
+
                     // We need to be careful with TypedDict types that have
                     // narrowed fields. In this case, we want to return the
                     // assigned type.
