@@ -30,6 +30,39 @@ def read_present_keys(value: MyDict1):
             value["key1"]
 
 
+def read_present_or_undeclared_key(value: MyDict1):
+    for key in ("key1", "missing"):
+        if key in value:
+            # This should generate an error for the undeclared key alternative.
+            value[key]
+
+
+class MutableDict(TypedDict, total=False):
+    first: int
+    second: int
+
+
+def mutate_present_keys(value: MutableDict):
+    for key in ("first", "second"):
+        if key in value:
+            value[key] = 1
+            del value[key]
+
+
+class IntValueDict(TypedDict, total=False):
+    int_value: int
+
+
+class StrValueDict(TypedDict, total=False):
+    str_value: str
+
+
+def read_present_key_from_union(value: IntValueDict | StrValueDict):
+    for key in ("int_value", "str_value"):
+        if key in value:
+            reveal_type(value[key], expected_text="int* | str*")
+
+
 class MyDict2(TypedDict, total=False):
     key3: MyDict1
     key4: MyDict1

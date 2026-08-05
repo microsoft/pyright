@@ -582,7 +582,7 @@ test('TypeNarrowingTypedDict2', () => {
 test('TypeNarrowingTypedDict3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict3.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('typeNarrowingCallable1', () => {
