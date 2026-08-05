@@ -592,41 +592,35 @@ export function getTypeNarrowingCallback(
                     testExpression.d.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
 
                 return (type: Type) => {
+                    const keyNarrowingInfo = createTypedDictKeyNarrowingInfo(testExpression, type);
                     let narrowedType = narrowTypeForContainerType(evaluator, type, rightType, adjIsPositiveTest);
 
                     if (
                         adjIsPositiveTest &&
+                        keyNarrowingInfo &&
+                        keyNarrowingInfo.literalKeyTypes.length > 1 &&
                         someSubtypes(
                             rightType,
                             (subtype) => isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)
                         )
                     ) {
-                        const literalKeyTypes = getStringLiteralTypes(narrowedType);
-                        if (literalKeyTypes && literalKeyTypes.length > 1) {
-                            const conditionTypeVar = createTypedDictKeyConditionTypeVar(
-                                testExpression,
-                                literalKeyTypes
-                            );
-                            const conditionIndexMap = new Map(
-                                literalKeyTypes.map((keyType, index) => [keyType.priv.literalValue as string, index])
-                            );
-
-                            narrowedType = mapSubtypes(narrowedType, (subtype) => {
-                                if (
-                                    isClassInstance(subtype) &&
-                                    ClassType.isBuiltIn(subtype, 'str') &&
-                                    typeof subtype.priv.literalValue === 'string'
-                                ) {
-                                    const constraintIndex = conditionIndexMap.get(subtype.priv.literalValue);
-                                    if (constraintIndex !== undefined) {
-                                        return addConditionToType(subtype, [
-                                            { typeVar: conditionTypeVar, constraintIndex },
-                                        ]);
-                                    }
+                        narrowedType = mapSubtypes(narrowedType, (subtype) => {
+                            if (
+                                isClassInstance(subtype) &&
+                                ClassType.isBuiltIn(subtype, 'str') &&
+                                typeof subtype.priv.literalValue === 'string'
+                            ) {
+                                const constraintIndex = keyNarrowingInfo.conditionIndexMap.get(
+                                    subtype.priv.literalValue
+                                );
+                                if (constraintIndex !== undefined) {
+                                    return addConditionToType(subtype, [
+                                        { typeVar: keyNarrowingInfo.conditionTypeVar, constraintIndex },
+                                    ]);
                                 }
-                                return subtype;
-                            });
-                        }
+                            }
+                            return subtype;
+                        });
                     }
 
                     return {
@@ -646,36 +640,42 @@ export function getTypeNarrowingCallback(
                 const leftTypeResult = evaluator.getTypeOfExpression(testExpression.d.leftExpr);
                 const leftType = leftTypeResult.type;
 
-                const literalKeyTypes = getStringLiteralTypes(leftType);
+                const keyNarrowingInfo = createTypedDictKeyNarrowingInfo(testExpression, leftType);
                 const adjIsPositiveTest =
                     testExpression.d.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
-                if (literalKeyTypes && (literalKeyTypes.length === 1 || adjIsPositiveTest)) {
+                if (keyNarrowingInfo && (keyNarrowingInfo.literalKeyTypes.length === 1 || adjIsPositiveTest)) {
                     return (type: Type) => {
                         let narrowedType: Type;
-                        if (literalKeyTypes.length === 1) {
+                        if (keyNarrowingInfo.literalKeyTypes.length === 1) {
                             narrowedType = narrowTypeForTypedDictKey(
                                 evaluator,
                                 type,
-                                ClassType.cloneAsInstantiable(literalKeyTypes[0]),
+                                ClassType.cloneAsInstantiable(keyNarrowingInfo.literalKeyTypes[0]),
                                 adjIsPositiveTest
                             );
                         } else {
-                            const conditionTypeVar = createTypedDictKeyConditionTypeVar(
-                                testExpression,
-                                literalKeyTypes
-                            );
                             narrowedType = combineTypes(
-                                literalKeyTypes.map((literalKeyType, constraintIndex) =>
-                                    addConditionToType(
-                                        narrowTypeForTypedDictKey(
-                                            evaluator,
-                                            type,
-                                            ClassType.cloneAsInstantiable(literalKeyType),
-                                            /* isPositiveTest */ true
-                                        ),
-                                        [{ typeVar: conditionTypeVar, constraintIndex }]
-                                    )
-                                )
+                                keyNarrowingInfo.literalKeyTypes.map((literalKeyType) => {
+                                    let narrowedTypeForKey = narrowTypeForTypedDictKey(
+                                        evaluator,
+                                        type,
+                                        ClassType.cloneAsInstantiable(literalKeyType),
+                                        /* isPositiveTest */ true
+                                    );
+
+                                    // Retain an undeclared key alternative so indexed access can
+                                    // report it rather than silently filtering it out.
+                                    if (isNever(narrowedTypeForKey)) {
+                                        narrowedTypeForKey = type;
+                                    }
+
+                                    const constraintIndex = keyNarrowingInfo.conditionIndexMap.get(
+                                        literalKeyType.priv.literalValue as string
+                                    )!;
+                                    return addConditionToType(narrowedTypeForKey, [
+                                        { typeVar: keyNarrowingInfo.conditionTypeVar, constraintIndex },
+                                    ]);
+                                })
                             );
                         }
 
@@ -2323,16 +2323,34 @@ function getStringLiteralTypes(type: Type): ClassType[] | undefined {
     return literalTypes.sort((a, b) => (a.priv.literalValue as string).localeCompare(b.priv.literalValue as string));
 }
 
-function createTypedDictKeyConditionTypeVar(node: ExpressionNode, literalKeyTypes: ClassType[]): TypeVarType {
-    const typeVar = TypeVarType.cloneForScopeId(
+interface TypedDictKeyNarrowingInfo {
+    literalKeyTypes: ClassType[];
+    conditionTypeVar: TypeVarType;
+    conditionIndexMap: Map<string, number>;
+}
+
+function createTypedDictKeyNarrowingInfo(node: ExpressionNode, type: Type): TypedDictKeyNarrowingInfo | undefined {
+    const literalKeyTypes = getStringLiteralTypes(type);
+    if (!literalKeyTypes) {
+        return undefined;
+    }
+
+    const conditionTypeVar = TypeVarType.cloneForScopeId(
         TypeVarType.createInstance('__typedDictKeyNarrowing'),
         `typedDictKeyNarrowing.${node.id}`,
         /* scopeName */ undefined,
         /* scopeType */ undefined
     );
-    typeVar.shared.isSynthesized = true;
-    literalKeyTypes.forEach((literalKeyType) => TypeVarType.addConstraint(typeVar, literalKeyType));
-    return typeVar;
+    conditionTypeVar.shared.isSynthesized = true;
+    literalKeyTypes.forEach((literalKeyType) => TypeVarType.addConstraint(conditionTypeVar, literalKeyType));
+
+    return {
+        literalKeyTypes,
+        conditionTypeVar,
+        conditionIndexMap: new Map(
+            literalKeyTypes.map((keyType, index) => [keyType.priv.literalValue as string, index])
+        ),
+    };
 }
 
 // Attempts to narrow a type based on whether it is a TypedDict with
