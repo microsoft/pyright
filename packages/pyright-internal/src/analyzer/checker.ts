@@ -4608,32 +4608,59 @@ export class Checker extends ParseTreeWalker {
         });
     }
 
-    // Verifies the rules specified in PEP 589 about TypedDict classes.
-    // They cannot have statements other than type annotations, doc
-    // strings, and "pass" statements or ellipses.
+    // Verifies the rules specified for TypedDict class bodies.
+    // They cannot have statements other than type annotations, doc strings,
+    // "pass" statements, ellipses, and statically evaluable if statements.
     private _validateTypedDictClassSuite(suiteNode: SuiteNode) {
         const emitBadStatementError = (node: ParseNode) => {
             this._evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.typedDictBadVar(), node);
         };
 
-        suiteNode.d.statements.forEach((statement) => {
-            if (!AnalyzerNodeInfo.isCodeUnreachable(statement)) {
-                if (statement.nodeType === ParseNodeType.StatementList) {
-                    for (const substatement of statement.d.statements) {
-                        if (
-                            substatement.nodeType !== ParseNodeType.TypeAnnotation &&
-                            substatement.nodeType !== ParseNodeType.Ellipsis &&
-                            substatement.nodeType !== ParseNodeType.StringList &&
-                            substatement.nodeType !== ParseNodeType.Pass
-                        ) {
-                            emitBadStatementError(substatement);
-                        }
-                    }
-                } else {
-                    emitBadStatementError(statement);
-                }
+        function validateStatement(statement: StatementNode) {
+            if (AnalyzerNodeInfo.isCodeUnreachable(statement)) {
+                return;
             }
-        });
+
+            if (statement.nodeType === ParseNodeType.StatementList) {
+                for (const substatement of statement.d.statements) {
+                    if (
+                        substatement.nodeType !== ParseNodeType.TypeAnnotation &&
+                        substatement.nodeType !== ParseNodeType.Ellipsis &&
+                        substatement.nodeType !== ParseNodeType.StringList &&
+                        substatement.nodeType !== ParseNodeType.Pass
+                    ) {
+                        emitBadStatementError(substatement);
+                    }
+                }
+
+                return;
+            }
+
+            if (statement.nodeType === ParseNodeType.If) {
+                const conditionValue = AnalyzerNodeInfo.getStaticConditionValue(statement);
+                if (conditionValue === undefined) {
+                    emitBadStatementError(statement);
+                    return;
+                }
+
+                const reachableSuite = conditionValue ? statement.d.ifSuite : statement.d.elseSuite;
+                if (reachableSuite?.nodeType === ParseNodeType.If) {
+                    validateStatement(reachableSuite);
+                } else if (reachableSuite) {
+                    validateSuite(reachableSuite);
+                }
+
+                return;
+            }
+
+            emitBadStatementError(statement);
+        }
+
+        function validateSuite(suite: SuiteNode) {
+            suite.d.statements.forEach((statement) => validateStatement(statement));
+        }
+
+        validateSuite(suiteNode);
     }
 
     private _validateTypeGuardFunction(node: FunctionNode, functionType: FunctionType, isMethod: boolean) {

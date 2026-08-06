@@ -1481,6 +1481,7 @@ export class Binder extends ParseTreeWalker {
                 this._typingImportAliases,
                 this._sysImportAliases
             );
+            AnalyzerNodeInfo.setStaticConditionValue(node, constExprValue);
 
             this._bindConditional(node.d.testExpr, thenLabel, elseLabel);
 
