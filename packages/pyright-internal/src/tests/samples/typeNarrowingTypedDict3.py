@@ -1,6 +1,6 @@
 # This sample tests assignment-based narrowing for TypedDict values.
 
-from typing import TypedDict
+from typing import Required, TypedDict
 
 
 class MyDict1(TypedDict, total=False):
@@ -37,15 +37,23 @@ def read_present_or_undeclared_key(value: MyDict1):
             value[key]
 
 
+def read_literal_keys_from_regular_dict(value: dict[str, int]):
+    for key in ("first", "second"):
+        if key in value:
+            reveal_type(value, expected_text="dict[str, int]")
+
+
 class MutableDict(TypedDict, total=False):
-    first: int
-    second: int
+    first: Required[int]
+    second: str
 
 
 def mutate_present_keys(value: MutableDict):
     for key in ("first", "second"):
         if key in value:
-            value[key] = 1
+            value[key] = value[key]
+
+            # This should generate an error for the required key alternative.
             del value[key]
 
 

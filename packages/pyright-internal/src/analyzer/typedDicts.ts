@@ -1524,6 +1524,10 @@ export function getTypeOfIndexedTypedDict(
     let allDiagsInvolveNotRequiredKeys = true;
 
     const conditionFilter = getTypeCondition(baseType);
+    const setType =
+        usage.method === 'set' && usage.setType && conditionFilter
+            ? evaluator.mapSubtypesExpandTypeVars(usage.setType.type, { conditionFilter }, (subtype) => subtype)
+            : usage.setType?.type;
     const resultingType = mapSubtypes(indexType, (subtype) => {
         if (!TypeCondition.isCompatible(getTypeCondition(subtype), conditionFilter)) {
             return undefined;
@@ -1569,7 +1573,7 @@ export function getTypeOfIndexedTypedDict(
             }
 
             if (usage.method === 'set') {
-                if (!evaluator.assignType(entry.valueType, usage.setType?.type ?? AnyType.create(), diag)) {
+                if (!evaluator.assignType(entry.valueType, setType ?? AnyType.create(), diag)) {
                     allDiagsInvolveNotRequiredKeys = false;
                 }
             } else if (usage.method === 'del' && entry.isRequired) {

@@ -653,7 +653,12 @@ export function getTypeNarrowingCallback(
                                 ClassType.cloneAsInstantiable(keyNarrowingInfo.literalKeyTypes[0]),
                                 adjIsPositiveTest
                             );
-                        } else {
+                        } else if (
+                            someSubtypes(
+                                type,
+                                (subtype) => isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)
+                            )
+                        ) {
                             narrowedType = combineTypes(
                                 keyNarrowingInfo.literalKeyTypes.map((literalKeyType) => {
                                     let narrowedTypeForKey = narrowTypeForTypedDictKey(
@@ -677,6 +682,8 @@ export function getTypeNarrowingCallback(
                                     ]);
                                 })
                             );
+                        } else {
+                            narrowedType = type;
                         }
 
                         return {
