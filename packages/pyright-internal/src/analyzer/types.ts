@@ -670,6 +670,10 @@ export const enum ClassTypeFlags {
     // This class is rejected when used as the second argument to
     // an isinstance or issubclass call.
     IllegalIsinstanceClass = 1 << 24,
+
+    // The statically-known enum members may not represent the complete
+    // runtime member set.
+    EnumMembersUnknown = 1 << 25,
 }
 
 export interface DataClassBehaviors {
@@ -1241,6 +1245,10 @@ export namespace ClassType {
 
     export function isEnumClass(classType: ClassType) {
         return !!(classType.shared.flags & ClassTypeFlags.EnumClass);
+    }
+
+    export function areEnumMembersUnknown(classType: ClassType) {
+        return !!(classType.shared.flags & ClassTypeFlags.EnumMembersUnknown);
     }
 
     export function isPropertyClass(classType: ClassType) {
@@ -2602,6 +2610,7 @@ export interface UnionDetailsPriv {
     literalClasses: LiteralTypes;
     typeAliasSources: Set<UnionType> | undefined;
     includesRecursiveTypeAlias: boolean;
+    includesEnumLiteral: boolean;
 }
 
 export interface UnionType extends TypeBase<TypeCategory.Union> {
@@ -2630,6 +2639,7 @@ export namespace UnionType {
                 },
                 typeAliasSources: undefined,
                 includesRecursiveTypeAlias: false,
+                includesEnumLiteral: false,
             },
         };
 
@@ -2637,6 +2647,10 @@ export namespace UnionType {
     }
 
     export function addType(unionType: UnionType, newType: UnionableType) {
+        if (isClass(newType) && ClassType.isEnumClass(newType) && newType.priv.literalValue instanceof EnumLiteral) {
+            unionType.priv.includesEnumLiteral = true;
+        }
+
         // If we're adding a string, integer or enum literal, add it to the
         // corresponding literal map to speed up some operations. It's not
         // uncommon for unions to contain hundreds of literals.

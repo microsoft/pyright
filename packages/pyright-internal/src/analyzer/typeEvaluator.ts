@@ -8989,6 +8989,144 @@ export function createTypeEvaluator(
         return typeFormResult;
     }
 
+    function expandEnumTypeForLiteralComparison(typeToExpand: Type, comparisonType: Type): Type {
+        if (!containsTopLevelLiteralEnum(comparisonType)) {
+            return typeToExpand;
+        }
+
+        typeToExpand = makeTopLevelTypeVarsConcrete(typeToExpand);
+        const literalEnumClasses = collectLiteralEnumClasses(comparisonType);
+        return expandEnumTypeForLiteralClasses(typeToExpand, literalEnumClasses);
+    }
+
+    function containsTopLevelLiteralEnum(type: Type): boolean {
+        if (isClassInstance(type) && ClassType.isEnumClass(type) && type.priv.literalValue instanceof EnumLiteral) {
+            return true;
+        }
+
+        if (!isUnion(type)) {
+            return false;
+        }
+
+        return type.priv.includesEnumLiteral;
+    }
+
+    function expandEnumTypeForLiteralClasses(typeToExpand: Type, literalEnumClasses: ClassType[]): Type {
+        if (literalEnumClasses.length === 0) {
+            return typeToExpand;
+        }
+
+        return mapSubtypes(typeToExpand, (subtype) => {
+            if (
+                isClassInstance(subtype) &&
+                ClassType.isEnumClass(subtype) &&
+                subtype.priv.literalValue === undefined &&
+                literalEnumClasses.some((enumClass) => ClassType.isSameGenericClass(enumClass, subtype))
+            ) {
+                const literalTypes = enumerateLiteralsForType(evaluatorInterface, subtype);
+                if (literalTypes && literalTypes.length > 0) {
+                    return combineTypes(literalTypes);
+                }
+            }
+
+            return subtype;
+        });
+    }
+
+    function collectLiteralEnumClasses(
+        type: Type,
+        literalEnumClasses: ClassType[] = [],
+        recursively = false,
+        recursionCount = 0
+    ): ClassType[] {
+        if (recursionCount > maxTypeRecursionCount) {
+            return literalEnumClasses;
+        }
+        recursionCount++;
+
+        doForEachSubtype(type, (subtype) => {
+            if (!isClass(subtype)) {
+                return;
+            }
+
+            if (
+                isClassInstance(subtype) &&
+                ClassType.isEnumClass(subtype) &&
+                subtype.priv.literalValue instanceof EnumLiteral &&
+                !literalEnumClasses.some((enumClass) => ClassType.isSameGenericClass(enumClass, subtype))
+            ) {
+                literalEnumClasses.push(subtype);
+            }
+
+            if (recursively && subtype.priv.typeArgs) {
+                if (subtype.priv.tupleTypeArgs) {
+                    subtype.priv.tupleTypeArgs.forEach((typeArg) =>
+                        collectLiteralEnumClasses(typeArg.type, literalEnumClasses, recursively, recursionCount)
+                    );
+                } else {
+                    subtype.priv.typeArgs.forEach((typeArg) =>
+                        collectLiteralEnumClasses(typeArg, literalEnumClasses, recursively, recursionCount)
+                    );
+                }
+            }
+        });
+
+        return literalEnumClasses;
+    }
+
+    function normalizeEnumTypes(typeToNormalize: Type, literalEnumClasses: ClassType[], recursionCount = 0): Type {
+        if (recursionCount > maxTypeRecursionCount) {
+            return typeToNormalize;
+        }
+        recursionCount++;
+
+        typeToNormalize = expandEnumTypeForLiteralClasses(typeToNormalize, literalEnumClasses);
+
+        if (isUnion(typeToNormalize)) {
+            return mapSubtypes(typeToNormalize, (subtype) =>
+                normalizeEnumTypes(subtype, literalEnumClasses, recursionCount)
+            );
+        }
+
+        if (!isClass(typeToNormalize) || !typeToNormalize.priv.typeArgs) {
+            return typeToNormalize;
+        }
+
+        if (typeToNormalize.priv.tupleTypeArgs) {
+            let typeChanged = false;
+            const tupleTypeArgs = typeToNormalize.priv.tupleTypeArgs.map((typeArg) => {
+                const normalizedType = normalizeEnumTypes(typeArg.type, literalEnumClasses, recursionCount);
+                if (normalizedType !== typeArg.type) {
+                    typeChanged = true;
+                }
+
+                return { ...typeArg, type: normalizedType };
+            });
+
+            return typeChanged
+                ? specializeTupleClass(
+                      typeToNormalize,
+                      tupleTypeArgs,
+                      !!typeToNormalize.priv.isTypeArgExplicit,
+                      !!typeToNormalize.priv.isUnpacked
+                  )
+                : typeToNormalize;
+        }
+
+        let typeChanged = false;
+        const typeArgs = typeToNormalize.priv.typeArgs.map((typeArg) => {
+            const normalizedType = normalizeEnumTypes(typeArg, literalEnumClasses, recursionCount);
+            if (normalizedType !== typeArg) {
+                typeChanged = true;
+            }
+            return normalizedType;
+        });
+
+        return typeChanged
+            ? ClassType.specialize(typeToNormalize, typeArgs, typeToNormalize.priv.isTypeArgExplicit)
+            : typeToNormalize;
+    }
+
     function getTypeOfAssertType(node: CallNode, inferenceContext: InferenceContext | undefined): TypeResult {
         if (
             node.d.args.length !== 2 ||
@@ -9017,13 +9155,22 @@ export function createTypeEvaluator(
         // what mypy does -- and what various library authors expect.
         const arg0Type = stripTypeGuard(arg0TypeResult.type);
 
-        if (
-            !isTypeSame(assertedType, arg0Type, {
-                treatAnySameAsUnknown: true,
-                ignorePseudoGeneric: true,
-                ignoreConditions: true,
-            })
-        ) {
+        const typeSameOptions = {
+            treatAnySameAsUnknown: true,
+            ignorePseudoGeneric: true,
+            ignoreConditions: true,
+        };
+        let typesMatch = isTypeSame(assertedType, arg0Type, typeSameOptions);
+
+        if (!typesMatch) {
+            const literalEnumClasses = collectLiteralEnumClasses(assertedType, [], /* recursively */ true);
+            collectLiteralEnumClasses(arg0Type, literalEnumClasses, /* recursively */ true);
+            const normalizedAssertedType = normalizeEnumTypes(assertedType, literalEnumClasses);
+            const normalizedArg0Type = normalizeEnumTypes(arg0Type, literalEnumClasses);
+            typesMatch = isTypeSame(normalizedAssertedType, normalizedArg0Type, typeSameOptions);
+        }
+
+        if (!typesMatch) {
             const srcDestTypes = printSrcDestTypes(arg0TypeResult.type, assertedType, { expandTypeAlias: true });
 
             addDiagnostic(
@@ -18305,6 +18452,18 @@ export function createTypeEvaluator(
 
             const effectiveMetaclass = computeEffectiveMetaclass(classType, node.d.name);
 
+            if (
+                ClassType.isEnumClass(classType) &&
+                (AnalyzerNodeInfo.getScope(node)?.hasPotentiallyDynamicSymbolTable ||
+                    !isInstantiableClass(effectiveMetaclass) ||
+                    !ClassType.isBuiltIn(effectiveMetaclass, ['EnumMeta', 'EnumType']) ||
+                    classType.shared.mro.some(
+                        (mroClass) => isClass(mroClass) && ClassType.areEnumMembersUnknown(mroClass)
+                    ))
+            ) {
+                classType.shared.flags |= ClassTypeFlags.EnumMembersUnknown;
+            }
+
             // Clear the "partially constructed" flag.
             classType.shared.flags &= ~ClassTypeFlags.PartiallyEvaluated;
 
@@ -25182,6 +25341,11 @@ export function createTypeEvaluator(
                 setConstraintsForFreeTypeVars(destType, UnknownType.create(), constraints);
             }
             return true;
+        }
+
+        srcType = expandEnumTypeForLiteralComparison(srcType, destType);
+        if ((flags & AssignTypeFlags.Invariant) !== 0) {
+            destType = expandEnumTypeForLiteralComparison(destType, srcType);
         }
 
         if (isUnion(destType)) {

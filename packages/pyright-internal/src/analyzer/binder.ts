@@ -164,6 +164,26 @@ interface NarrowExprOptions {
     allowDiscriminatedNarrowing?: boolean;
 }
 
+function isStaticClassAssignmentTarget(target: ExpressionNode): boolean {
+    switch (target.nodeType) {
+        case ParseNodeType.Name:
+            return true;
+
+        case ParseNodeType.TypeAnnotation:
+            return isStaticClassAssignmentTarget(target.d.valueExpr);
+
+        case ParseNodeType.Tuple:
+        case ParseNodeType.List:
+            return target.d.items.every((item) => isStaticClassAssignmentTarget(item));
+
+        case ParseNodeType.Unpack:
+            return isStaticClassAssignmentTarget(target.d.expr);
+
+        default:
+            return false;
+    }
+}
+
 // For each flow node within an execution context, we'll add a small
 // amount to the complexity factor. Without this, the complexity
 // calculation fails to take into account large numbers of non-cyclical
@@ -3724,6 +3744,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _bindPossibleTupleNamedTarget(target: ExpressionNode, addedSymbols?: Map<string, Symbol>) {
+        if (this._currentScope.type === ScopeType.Class && !isStaticClassAssignmentTarget(target)) {
+            this._currentScope.hasPotentiallyDynamicSymbolTable = true;
+        }
+
         switch (target.nodeType) {
             case ParseNodeType.Name: {
                 this._bindNameToScope(this._currentScope, target, addedSymbols);

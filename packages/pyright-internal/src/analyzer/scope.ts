@@ -121,6 +121,11 @@ export class Scope {
     // for class scopes).
     slotsNames: string[] | undefined;
 
+    // Indicates that the class body contains an assignment target that
+    // cannot be represented as a statically-known class symbol. Arbitrary
+    // call side effects are outside the static symbol model.
+    hasPotentiallyDynamicSymbolTable = false;
+
     constructor(
         type: ScopeType,
         parent?: Scope,
