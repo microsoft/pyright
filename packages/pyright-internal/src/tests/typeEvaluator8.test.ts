@@ -803,11 +803,11 @@ test('UnusedVariable2', () => {
 
     configOptions.diagnosticRuleSet.reportUnusedVariable = 'none';
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['unusedVariable2.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 0, 0, 0, 1);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, 2);
 
     configOptions.diagnosticRuleSet.reportUnusedVariable = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['unusedVariable2.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 1, 0, 0, 1);
+    TestUtils.validateResults(analysisResults2, 1, 0, 0, 2);
 });
 
 test('Descriptor1', () => {
