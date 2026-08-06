@@ -365,6 +365,8 @@ export class Checker extends ParseTreeWalker {
 
             this._validateOverloadDecoratorConsistency(classTypeResult.classType);
 
+            this._validateDisjointBaseClass(classTypeResult.classType, node.d.name);
+
             this._validateMultipleInheritanceBaseClasses(classTypeResult.classType, node.d.name);
 
             this._validateMultipleInheritanceCompatibility(classTypeResult.classType, node.d.name);
@@ -5656,6 +5658,43 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
             }
+        }
+    }
+
+    // Verifies that a class has a unique most-derived disjoint base.
+    private _validateDisjointBaseClass(classType: ClassType, errorNode: ParseNode) {
+        const candidates: ClassType[] = [];
+
+        for (const baseClass of classType.shared.baseClasses) {
+            if (!isInstantiableClass(baseClass)) {
+                // An unknown base may introduce an unknown disjoint base.
+                return;
+            }
+
+            const candidate = ClassType.getDisjointBase(baseClass);
+            if (!candidate) {
+                // The base class is invalid or its disjoint base is unknown.
+                return;
+            }
+
+            if (!candidates.some((existingCandidate) => ClassType.isSameGenericClass(existingCandidate, candidate))) {
+                candidates.push(candidate);
+            }
+        }
+
+        if (
+            candidates.length > 1 &&
+            !candidates.some((candidate) =>
+                candidates.every((otherCandidate) => ClassType.isDerivedFrom(candidate, otherCandidate))
+            )
+        ) {
+            this._evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.disjointBaseIncompatible().format({
+                    bases: candidates.map((candidate) => `"${candidate.shared.name}"`).join(', '),
+                }),
+                errorNode
+            );
         }
     }
 

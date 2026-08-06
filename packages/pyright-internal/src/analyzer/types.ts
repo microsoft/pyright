@@ -653,6 +653,9 @@ export const enum ClassTypeFlags {
     // Class is declared within a type stub file.
     DefinedInStub = 1 << 18,
 
+    // Class is decorated with @disjoint_base.
+    DisjointBase = 1 << 19,
+
     // Decorated with @type_check_only.
     TypeCheckOnly = 1 << 20,
 
@@ -1253,6 +1256,36 @@ export namespace ClassType {
 
     export function isFinal(classType: ClassType) {
         return !!(classType.shared.flags & ClassTypeFlags.Final);
+    }
+
+    export function isDisjointBase(classType: ClassType) {
+        // Dataclass decorators can synthesize a __slots__ definition lazily.
+        classType.shared.synthesizeMethodsDeferred?.();
+
+        return (
+            !!(classType.shared.flags & ClassTypeFlags.DisjointBase) ||
+            ClassType.isBuiltIn(classType, 'object') ||
+            !!classType.shared.localSlotsNames?.length
+        );
+    }
+
+    export function getDisjointBase(classType: ClassType): ClassType | undefined {
+        if (isDisjointBase(classType)) {
+            return classType;
+        }
+
+        // An unknown base may introduce an unknown disjoint base.
+        if (classType.shared.mro.some((mroClass) => isAnyOrUnknown(mroClass))) {
+            return undefined;
+        }
+
+        const candidates = classType.shared.mro.filter(
+            (mroClass): mroClass is ClassType => isInstantiableClass(mroClass) && isDisjointBase(mroClass)
+        );
+
+        return candidates.find((candidate) =>
+            candidates.every((otherCandidate) => ClassType.isDerivedFrom(candidate, otherCandidate))
+        );
     }
 
     export function isProtocolClass(classType: ClassType) {
