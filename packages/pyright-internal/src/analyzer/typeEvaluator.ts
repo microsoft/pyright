@@ -24320,6 +24320,12 @@ export function createTypeEvaluator(
             }
         }
 
+        // A class value remains unspecialized so it can be subscripted. Apply its
+        // default type arguments when comparing it against a type specialization.
+        if (TypeBase.isInstantiable(srcType) && srcType.props?.typeForm) {
+            srcType = specializeWithDefaultTypeArgs(srcType);
+        }
+
         // Is it a structural type (i.e. a protocol)? If so, we need to
         // perform a member-by-member check.
         const inheritanceChain: InheritanceChain = [];
