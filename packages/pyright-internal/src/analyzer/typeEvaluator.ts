@@ -625,6 +625,10 @@ interface TypeCacheEntry {
     flags: EvalFlags | undefined;
 }
 
+interface TypeFormTypeCacheEntry extends TypeCacheEntry {
+    expectedType: Type | undefined;
+}
+
 interface CodeFlowAnalyzerCacheEntry {
     typeAtStart: TypeResult | undefined;
     codeFlowAnalyzer: CodeFlowAnalyzer;
@@ -659,6 +663,7 @@ export function createTypeEvaluator(
     let functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
     let typeCache = new Map<number, TypeCacheEntry>();
+    let typeFormTypeCache = new Map<number, TypeFormTypeCacheEntry[]>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     let expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
     let asymmetricAccessorAssignmentCache = new Set<number>();
@@ -668,6 +673,7 @@ export function createTypeEvaluator(
     let incompleteGenCount = 0;
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
+    let returnTypeInferenceTypeFormTypeCache: Map<number, TypeFormTypeCacheEntry[]> | undefined;
     const signatureTrackerStack: SignatureTrackerStackEntry[] = [];
     let prefetched: Partial<PrefetchedTypes> | undefined;
 
@@ -715,6 +721,7 @@ export function createTypeEvaluator(
         functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
         codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
         typeCache = new Map<number, TypeCacheEntry>();
+        typeFormTypeCache = new Map<number, TypeFormTypeCacheEntry[]>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
         expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
         asymmetricAccessorAssignmentCache = new Set<number>();
@@ -730,8 +737,39 @@ export function createTypeEvaluator(
         }
     }
 
+    function getTypeFormTypeCache(node: ParseNode) {
+        if (returnTypeInferenceTypeFormTypeCache && isNodeInReturnTypeInferenceContext(node)) {
+            return returnTypeInferenceTypeFormTypeCache;
+        }
+
+        return typeFormTypeCache;
+    }
+
+    function readTypeFormTypeCacheEntry(node: ParseNode, expectedType: Type | undefined) {
+        return getTypeFormTypeCache(node)
+            .get(node.id)
+            ?.find((entry) =>
+                expectedType
+                    ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType)
+                    : !entry.expectedType
+            );
+    }
+
+    function readTypeCacheEntryForNode(node: ParseNode) {
+        const expectedType = expectedTypeCache.get(node.id)?.type;
+        if (expectedType && expectedTypeWantsTypeForm(expectedType)) {
+            return (
+                readTypeFormTypeCacheEntry(node, expectedType) ??
+                readTypeFormTypeCacheEntry(node, /* expectedType */ undefined) ??
+                readTypeCacheEntry(node)
+            );
+        }
+
+        return readTypeFormTypeCacheEntry(node, /* expectedType */ undefined) ?? readTypeCacheEntry(node);
+    }
+
     function isTypeCached(node: ParseNode) {
-        const cacheEntry = readTypeCacheEntry(node);
+        const cacheEntry = readTypeCacheEntryForNode(node);
         if (!cacheEntry) {
             return false;
         }
@@ -777,6 +815,52 @@ export function createTypeEvaluator(
         inferenceContext?: InferenceContext,
         allowSpeculativeCaching = false
     ) {
+        const useTypeFormCache =
+            (flags !== undefined && (flags & EvalFlags.TypeFormArg) !== 0) ||
+            (!!inferenceContext && expectedTypeWantsTypeForm(inferenceContext.expectedType));
+
+        if (useTypeFormCache) {
+            if (!typeResult.isIncomplete) {
+                incompleteGenCount++;
+            }
+
+            if (isSpeculativeModeInUse(node)) {
+                return;
+            }
+
+            const expectedType = inferenceContext?.expectedType;
+            const typeFormCache = getTypeFormTypeCache(node);
+            let cacheEntries = typeFormCache.get(node.id) ?? [];
+            const oldEntry = cacheEntries.find((entry) =>
+                expectedType
+                    ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType)
+                    : !entry.expectedType
+            );
+
+            if (
+                typeResult.isIncomplete &&
+                oldEntry !== undefined &&
+                !isTypeSame(typeResult.type, oldEntry.typeResult.type)
+            ) {
+                incompleteGenCount++;
+            }
+
+            cacheEntries = cacheEntries.filter((entry) =>
+                expectedType
+                    ? !entry.expectedType || !isTypeSame(expectedType, entry.expectedType)
+                    : !!entry.expectedType
+            );
+            cacheEntries.push({ typeResult, flags, incompleteGenCount, expectedType });
+
+            const maxCacheEntriesPerNode = 8;
+            if (cacheEntries.length > maxCacheEntriesPerNode) {
+                cacheEntries = cacheEntries.slice(cacheEntries.length - maxCacheEntriesPerNode);
+            }
+
+            typeFormCache.set(node.id, cacheEntries);
+            return;
+        }
+
         // Should we use a temporary cache associated with a contextual
         // analysis of a function, contextualized based on call-site argument types?
         const typeCacheToUse =
@@ -979,7 +1063,7 @@ export function createTypeEvaluator(
 
     // Reads the type of the node from the cache.
     function getCachedType(node: ExpressionNode | DecoratorNode): Type | undefined {
-        return readTypeCache(node, EvalFlags.None);
+        return readTypeCacheEntryForNode(node)?.typeResult.type;
     }
 
     // Determines the expected type of a specified node based on surrounding
@@ -1129,8 +1213,24 @@ export function createTypeEvaluator(
         flags = EvalFlags.None,
         inferenceContext?: InferenceContext
     ): TypeResult {
+        let useTypeFormCache = (flags & EvalFlags.TypeFormArg) !== 0;
+        if (inferenceContext) {
+            inferenceContext.expectedType = transformPossibleRecursiveTypeAlias(inferenceContext.expectedType);
+            useTypeFormCache ||= expectedTypeWantsTypeForm(inferenceContext.expectedType);
+
+            if (expectedTypeRequiresTypeForm(inferenceContext.expectedType)) {
+                flags |= EvalFlags.TypeFormArg;
+            }
+        }
+
+        if ((flags & EvalFlags.TypeFormArg) !== 0 && (flags & EvalFlags.NoConvertSpecialForm) === 0) {
+            flags |= EvalFlags.NoParamSpec | EvalFlags.NoTypeVarTuple;
+        }
+
         // Is this type already cached?
-        const cacheEntry = readTypeCacheEntry(node);
+        const cacheEntry = useTypeFormCache
+            ? readTypeFormTypeCacheEntry(node, inferenceContext?.expectedType)
+            : readTypeCacheEntry(node);
         if (cacheEntry) {
             if (!cacheEntry.typeResult.isIncomplete || cacheEntry.incompleteGenCount === incompleteGenCount) {
                 if (printExpressionTypes) {
@@ -1148,7 +1248,9 @@ export function createTypeEvaluator(
         }
 
         // Is it cached in the speculative type cache?
-        const specCacheEntry = speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
+        const specCacheEntry = useTypeFormCache
+            ? undefined
+            : speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
         if (specCacheEntry) {
             if (
                 !specCacheEntry.typeResult.isIncomplete ||
@@ -1177,10 +1279,6 @@ export function createTypeEvaluator(
         // the cancellation check. If the operation is canceled, an exception
         // will be thrown at this point.
         checkForCancellation();
-
-        if (inferenceContext) {
-            inferenceContext.expectedType = transformPossibleRecursiveTypeAlias(inferenceContext.expectedType);
-        }
 
         // If we haven't already fetched some core type definitions from the
         // typeshed stubs, do so here. It would be better to fetch this when it's
@@ -1661,7 +1759,10 @@ export function createTypeEvaluator(
     ): TypeResult {
         let typeResult: TypeResult | undefined;
 
-        if ((flags & EvalFlags.StrLiteralAsType) !== 0 && (flags & EvalFlags.TypeFormArg) === 0) {
+        if (
+            (flags & EvalFlags.StrLiteralAsType) !== 0 &&
+            ((flags & EvalFlags.TypeFormArg) === 0 || (flags & EvalFlags.NoConvertSpecialForm) !== 0)
+        ) {
             return getTypeOfStringListAsType(node, flags);
         }
 
@@ -1798,8 +1899,6 @@ export function createTypeEvaluator(
         if ((flags & EvalFlags.ParsesStringLiteral) === 0) {
             updatedFlags |= EvalFlags.NotParsed;
         }
-
-        updatedFlags &= ~EvalFlags.TypeFormArg;
 
         if (node.d.annotation && (flags & EvalFlags.TypeExpression) !== 0) {
             return getTypeOfExpression(node.d.annotation, updatedFlags);
@@ -5138,6 +5237,11 @@ export function createTypeEvaluator(
             }
         }
 
+        if (isTypeVarTuple(type) && (flags & EvalFlags.NoTypeVarTuple) !== 0 && !type.priv.isInUnion) {
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeVarTupleContext(), node);
+            type = UnknownType.create();
+        }
+
         // If we're expecting a type expression and got a sentinel literal instance,
         // treat it as its instantiable counterpart. This is similar to how None
         // is treated in a type expression context.
@@ -5151,10 +5255,13 @@ export function createTypeEvaluator(
             reportUseOfTypeCheckOnly(type, node);
         }
 
-        if ((flags & EvalFlags.InstantiableType) !== 0) {
+        if ((flags & (EvalFlags.InstantiableType | EvalFlags.TypeFormArg)) !== 0) {
             if ((flags & EvalFlags.AllowGeneric) === 0) {
                 if (isInstantiableClass(type) && ClassType.isBuiltIn(type, 'Generic')) {
                     addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.genericNotAllowed(), node);
+                    if ((flags & EvalFlags.TypeFormArg) !== 0) {
+                        type = UnknownType.create();
+                    }
                 }
             }
         }
@@ -5163,6 +5270,99 @@ export function createTypeEvaluator(
     }
 
     function addTypeFormForSymbol(node: ExpressionNode, type: Type, flags: EvalFlags, includesVarDecl: boolean): Type {
+        const isIndexBase = node.parent?.nodeType === ParseNodeType.Index && node.parent.d.leftExpr === node;
+        if ((flags & EvalFlags.TypeFormArg) !== 0 && isTypeVar(type) && TypeVarType.isSelf(type)) {
+            type = TypeBase.cloneWithTypeForm(type, convertToInstance(type));
+        }
+
+        if ((flags & EvalFlags.TypeFormArg) !== 0 && isInstantiableClass(type) && !isIndexBase) {
+            if (isTypeFormClass(type)) {
+                return createTypeFormType(type, node, /* typeArgs */ undefined);
+            }
+
+            if (ClassType.isBuiltIn(type, 'Final')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.finalContext(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'Optional')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.optionalExtraArgs(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'Protocol')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.protocolNotAllowed(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'TypedDict')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typedDictNotAllowed(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'TypeAlias')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeAnnotationVariable(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'Literal')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalNotAllowed(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, ['TypeGuard', 'TypeIs'])) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeGuardArgCount(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'Union')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unionTypeArgCount(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'Annotated')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.annotatedTypeArgMissing(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'ClassVar')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.classVarNotAllowed(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'Required')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.requiredArgCount(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'NotRequired')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.notRequiredArgCount(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'ReadOnly')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.readOnlyArgCount(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'Unpack')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unpackArgCount(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'Concatenate')) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.concatenateContext(), node);
+                return UnknownType.create();
+            }
+
+            if (ClassType.isBuiltIn(type, 'Self')) {
+                type = createSelfType(type, node, /* typeArgs */ undefined, flags);
+                if (isTypeVar(type)) {
+                    type = TypeBase.cloneWithTypeForm(type, convertToInstance(type));
+                }
+            }
+        }
+
         const isValid = isSymbolValidTypeExpression(type, includesVarDecl);
 
         // If the type already has type information associated with it, don't replace.
@@ -5612,7 +5812,7 @@ export function createTypeEvaluator(
         // Is this a generic class that needs to be specialized?
         if (isInstantiableClass(type)) {
             if ((flags & EvalFlags.InstantiableType) !== 0 && (flags & EvalFlags.AllowMissingTypeArgs) === 0) {
-                if (!type.props?.typeAliasInfo && requiresTypeArgs(type)) {
+                if (!type.props?.typeAliasInfo && !isTypeFormClass(type) && requiresTypeArgs(type)) {
                     if (!type.priv.typeArgs || !type.priv.isTypeArgExplicit) {
                         addDiagnostic(
                             DiagnosticRule.reportMissingTypeArgument,
@@ -7956,15 +8156,20 @@ export function createTypeEvaluator(
                     if (ClassType.isBuiltIn(concreteSubtype, 'InitVar')) {
                         // Special-case InitVar, used in dataclasses.
                         const typeArgs = getTypeArgs(node, flags);
+                        const isTypeFormArg = (flags & EvalFlags.TypeFormArg) !== 0;
 
-                        if ((flags & EvalFlags.TypeExpression) !== 0) {
-                            if ((flags & EvalFlags.VarTypeAnnotation) === 0) {
+                        if ((flags & EvalFlags.TypeExpression) !== 0 || isTypeFormArg) {
+                            if (isTypeFormArg || (flags & EvalFlags.VarTypeAnnotation) === 0) {
                                 addDiagnostic(
                                     DiagnosticRule.reportInvalidTypeForm,
                                     LocMessage.initVarNotAllowed(),
                                     node.d.leftExpr
                                 );
                             }
+                        }
+
+                        if (isTypeFormArg) {
+                            return UnknownType.create();
                         }
 
                         if (typeArgs.length === 1) {
@@ -8475,7 +8680,9 @@ export function createTypeEvaluator(
     function getTypeArgs(node: IndexNode, flags: EvalFlags, options?: GetTypeArgsOptions): TypeResultWithNode[] {
         const typeArgs: TypeResultWithNode[] = [];
         let adjFlags = flags | EvalFlags.NoConvertSpecialForm;
-        adjFlags &= ~EvalFlags.TypeFormArg;
+        if ((adjFlags & EvalFlags.TypeFormArg) !== 0) {
+            adjFlags |= EvalFlags.TypeExpression;
+        }
 
         const allowFinalClassVar = () => {
             // If the annotation is a variable within the body of a dataclass, a
@@ -15899,7 +16106,7 @@ export function createTypeEvaluator(
             // If no type arguments are provided, the resulting type
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
-            if ((flags & EvalFlags.TypeExpression) !== 0) {
+            if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.optionalExtraArgs(), errorNode);
                 return UnknownType.create();
             }
@@ -16111,9 +16318,9 @@ export function createTypeEvaluator(
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvalFlags
     ): Type {
-        if (flags & EvalFlags.NoClassVar) {
+        if (flags & (EvalFlags.NoClassVar | EvalFlags.TypeFormArg)) {
             addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.classVarNotAllowed(), errorNode);
-            return AnyType.create();
+            return (flags & EvalFlags.TypeFormArg) !== 0 ? UnknownType.create() : AnyType.create();
         }
 
         if (!typeArgs) {
@@ -16146,8 +16353,22 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         typeArgs: TypeResultWithNode[] | undefined
     ): Type {
-        if (!typeArgs || typeArgs.length === 0) {
-            return ClassType.specialize(classType, [UnknownType.create()]);
+        if (!typeArgs) {
+            const specializedType = ClassType.specialize(classType, [AnyType.create()]);
+            return TypeBase.cloneWithTypeForm(specializedType, ClassType.cloneAsInstance(specializedType));
+        }
+
+        if (typeArgs.length === 0) {
+            addDiagnostic(
+                DiagnosticRule.reportInvalidTypeForm,
+                LocMessage.typeArgsTooFew().format({
+                    name: classType.priv.aliasName || classType.shared.name,
+                    expected: 1,
+                    received: 0,
+                }),
+                errorNode
+            );
+            return UnknownType.create();
         }
 
         if (typeArgs.length > 1) {
@@ -16184,11 +16405,11 @@ export function createTypeEvaluator(
         // depends on whether we're evaluating a type annotation or
         // we're in some other context.
         if (!typeArgs) {
-            if ((flags & EvalFlags.TypeExpression) !== 0) {
+            if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeGuardArgCount(), errorNode);
             }
 
-            return classType;
+            return (flags & EvalFlags.TypeFormArg) !== 0 ? UnknownType.create() : classType;
         } else if (typeArgs.length !== 1) {
             addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeGuardArgCount(), errorNode);
             return UnknownType.create();
@@ -16233,7 +16454,7 @@ export function createTypeEvaluator(
 
         const enclosingClassTypeResult = enclosingClass ? getTypeOfClass(enclosingClass) : undefined;
         if (!enclosingClassTypeResult) {
-            if ((flags & (EvalFlags.TypeExpression | EvalFlags.InstantiableType)) !== 0) {
+            if ((flags & (EvalFlags.TypeExpression | EvalFlags.InstantiableType | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.selfTypeContext(), errorNode);
             }
 
@@ -16309,12 +16530,14 @@ export function createTypeEvaluator(
         // If no type arguments are provided, the resulting type
         // depends on whether we're evaluating a type annotation or
         // we're in some other context.
-        if (!typeArgs && (flags & EvalFlags.TypeExpression) === 0) {
+        const typeExpressionFlags = EvalFlags.TypeExpression | EvalFlags.TypeFormArg;
+
+        if (!typeArgs && (flags & typeExpressionFlags) === 0) {
             return { type: classType };
         }
 
         if (!typeArgs || typeArgs.length !== 1) {
-            if ((flags & EvalFlags.TypeExpression) !== 0) {
+            if ((flags & typeExpressionFlags) !== 0) {
                 addDiagnostic(
                     DiagnosticRule.reportInvalidTypeForm,
                     classType.shared.name === 'ReadOnly'
@@ -16326,7 +16549,7 @@ export function createTypeEvaluator(
                 );
             }
 
-            return { type: classType };
+            return { type: (flags & EvalFlags.TypeFormArg) !== 0 ? UnknownType.create() : classType };
         }
 
         const typeArgType = typeArgs[0].type;
@@ -16378,7 +16601,7 @@ export function createTypeEvaluator(
         }
 
         if (!isUsageLegal) {
-            if ((flags & EvalFlags.TypeExpression) !== 0) {
+            if ((flags & typeExpressionFlags) !== 0) {
                 addDiagnostic(
                     DiagnosticRule.reportInvalidTypeForm,
                     classType.shared.name === 'ReadOnly'
@@ -16390,7 +16613,7 @@ export function createTypeEvaluator(
                 );
             }
 
-            return { type: classType };
+            return { type: (flags & EvalFlags.TypeFormArg) !== 0 ? UnknownType.create() : classType };
         }
 
         return { type: typeArgType, isReadOnly, isRequired, isNotRequired };
@@ -16403,10 +16626,10 @@ export function createTypeEvaluator(
         flags: EvalFlags
     ): Type {
         if (!typeArgs || typeArgs.length !== 1) {
-            if ((flags & EvalFlags.TypeExpression) !== 0) {
+            if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unpackArgCount(), errorNode);
             }
-            return classType;
+            return (flags & EvalFlags.TypeFormArg) !== 0 ? UnknownType.create() : classType;
         }
 
         const typeArgType = typeArgs[0].type;
@@ -16417,7 +16640,7 @@ export function createTypeEvaluator(
                 return unpackedType;
             }
 
-            if ((flags & EvalFlags.TypeExpression) === 0) {
+            if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) === 0) {
                 return classType;
             }
             addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.unpackExpectedTypeVarTuple(), errorNode);
@@ -16436,8 +16659,16 @@ export function createTypeEvaluator(
             return UnknownType.create();
         }
 
-        if ((flags & EvalFlags.TypeExpression) === 0) {
+        if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) === 0) {
             return classType;
+        }
+        if ((flags & EvalFlags.TypeFormArg) !== 0) {
+            if (isUnknown(typeArgType)) {
+                return typeArgType;
+            }
+            if (isTypeVar(typeArgType) && !typeArgType.priv.scopeId) {
+                return UnknownType.create();
+            }
         }
         addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.unpackNotAllowed(), errorNode);
         return UnknownType.create();
@@ -16450,11 +16681,11 @@ export function createTypeEvaluator(
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvalFlags
     ): Type {
-        if (flags & EvalFlags.NoFinal) {
-            if ((flags & EvalFlags.TypeExpression) !== 0) {
+        if (flags & (EvalFlags.NoFinal | EvalFlags.TypeFormArg)) {
+            if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.finalContext(), errorNode);
             }
-            return classType;
+            return (flags & EvalFlags.TypeFormArg) !== 0 ? UnknownType.create() : classType;
         }
 
         if ((flags & EvalFlags.TypeExpression) === 0 || !typeArgs || typeArgs.length === 0) {
@@ -16475,10 +16706,10 @@ export function createTypeEvaluator(
         flags: EvalFlags
     ): Type {
         if ((flags & EvalFlags.AllowConcatenate) === 0) {
-            if ((flags & EvalFlags.TypeExpression) !== 0) {
+            if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.concatenateContext(), errorNode);
             }
-            return classType;
+            return (flags & EvalFlags.TypeFormArg) !== 0 ? UnknownType.create() : classType;
         }
 
         if (!typeArgs || typeArgs.length === 0) {
@@ -16742,7 +16973,7 @@ export function createTypeEvaluator(
             // If no type arguments are provided, the resulting type
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
-            if ((flags & EvalFlags.TypeExpression) !== 0) {
+            if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unionTypeArgCount(), errorNode);
                 return NeverType.createNever();
             }
@@ -16788,7 +17019,7 @@ export function createTypeEvaluator(
         // is allowed if it's an unpacked TypeVarTuple or tuple. None is also allowed
         // since it is used to define NoReturn in typeshed stubs).
         if (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0])) {
-            if ((flags & EvalFlags.TypeExpression) !== 0) {
+            if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeArguments, LocMessage.unionTypeArgCount(), errorNode);
             }
             isValidTypeForm = false;
@@ -16823,11 +17054,16 @@ export function createTypeEvaluator(
             // If no type arguments are provided, the resulting type
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
-            if ((flags & (EvalFlags.TypeExpression | EvalFlags.NoNakedGeneric)) !== 0) {
+            if ((flags & (EvalFlags.TypeExpression | EvalFlags.NoNakedGeneric | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.genericTypeArgMissing(), errorNode);
             }
 
-            return classType;
+            return (flags & EvalFlags.TypeFormArg) !== 0 ? UnknownType.create() : classType;
+        }
+
+        if ((flags & EvalFlags.TypeFormArg) !== 0) {
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.genericNotAllowed(), errorNode);
+            return UnknownType.create();
         }
 
         const uniqueTypeVars: TypeVarType[] = [];
@@ -21236,7 +21472,7 @@ export function createTypeEvaluator(
     function evaluateTypeForSubnode(subnode: ParseNode, callback: () => void): TypeResult | undefined {
         // If the type cache is already populated with a complete type,
         // don't bother doing additional work.
-        let cacheEntry = readTypeCacheEntry(subnode);
+        let cacheEntry = readTypeCacheEntryForNode(subnode);
         if (cacheEntry && !cacheEntry.typeResult.isIncomplete) {
             const typeResult = cacheEntry.typeResult;
 
@@ -21254,7 +21490,7 @@ export function createTypeEvaluator(
         }
 
         callback();
-        cacheEntry = readTypeCacheEntry(subnode);
+        cacheEntry = readTypeCacheEntryForNode(subnode);
         if (cacheEntry) {
             return cacheEntry.typeResult;
         }
@@ -21416,7 +21652,11 @@ export function createTypeEvaluator(
                 }
 
                 case 'Protocol': {
-                    if ((flags & (EvalFlags.NoNonTypeSpecialForms | EvalFlags.TypeExpression)) !== 0) {
+                    if (
+                        (flags &
+                            (EvalFlags.NoNonTypeSpecialForms | EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !==
+                        0
+                    ) {
                         addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.protocolNotAllowed(), errorNode);
                     }
 
@@ -21441,7 +21681,11 @@ export function createTypeEvaluator(
                 }
 
                 case 'TypedDict': {
-                    if ((flags & (EvalFlags.NoNonTypeSpecialForms | EvalFlags.TypeExpression)) !== 0) {
+                    if (
+                        (flags &
+                            (EvalFlags.NoNonTypeSpecialForms | EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !==
+                        0
+                    ) {
                         const isInlinedTypedDict =
                             AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures &&
                             !!typeArgs;
@@ -21459,8 +21703,24 @@ export function createTypeEvaluator(
                 }
 
                 case 'Literal': {
-                    if ((flags & (EvalFlags.NoNonTypeSpecialForms | EvalFlags.TypeExpression)) !== 0) {
+                    if (
+                        (flags &
+                            (EvalFlags.NoNonTypeSpecialForms | EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !==
+                        0
+                    ) {
                         addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalNotAllowed(), errorNode);
+                    }
+                    isValidTypeForm = false;
+                    break;
+                }
+
+                case 'TypeAlias': {
+                    if ((flags & (EvalFlags.TypeFormArg | EvalFlags.NoConvertSpecialForm)) !== 0) {
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeForm,
+                            LocMessage.typeAnnotationVariable(),
+                            errorNode
+                        );
                     }
                     isValidTypeForm = false;
                     break;
@@ -21624,7 +21884,12 @@ export function createTypeEvaluator(
                     );
                 }
 
-                return { type: typeArgs[0].inlinedTypeDict };
+                let inlinedTypeDict: Type = typeArgs[0].inlinedTypeDict;
+                if ((flags & EvalFlags.TypeFormArg) !== 0) {
+                    inlinedTypeDict = TypeBase.cloneWithTypeForm(inlinedTypeDict, convertToInstance(inlinedTypeDict));
+                }
+
+                return { type: inlinedTypeDict };
             } else if (typeArgCount > typeParams.length) {
                 if (!ClassType.isPartiallyEvaluated(classType) && !ClassType.isTupleClass(classType)) {
                     if (typeParams.length === 0) {
@@ -24000,6 +24265,7 @@ export function createTypeEvaluator(
             // this function so we can analyze it separately without polluting
             // the main type cache.
             const prevTypeCache = returnTypeInferenceTypeCache;
+            const prevTypeFormTypeCache = returnTypeInferenceTypeFormTypeCache;
             returnTypeInferenceContextStack.push({
                 functionNode,
                 codeFlowAnalyzer: codeFlowEngine.createCodeFlowAnalyzer(),
@@ -24007,6 +24273,7 @@ export function createTypeEvaluator(
 
             try {
                 returnTypeInferenceTypeCache = new Map<number, TypeCacheEntry>();
+                returnTypeInferenceTypeFormTypeCache = new Map<number, TypeFormTypeCacheEntry[]>();
 
                 let allArgTypesAreUnknown = true;
                 functionNode.d.params.forEach((param, index) => {
@@ -24084,6 +24351,7 @@ export function createTypeEvaluator(
             } finally {
                 returnTypeInferenceContextStack.pop();
                 returnTypeInferenceTypeCache = prevTypeCache;
+                returnTypeInferenceTypeFormTypeCache = prevTypeFormTypeCache;
             }
         });
 
@@ -24896,6 +25164,22 @@ export function createTypeEvaluator(
             }
         }
 
+        // A subscripted runtime built-in such as list[int] is represented as its
+        // precise class type, but it is also a types.GenericAlias object at runtime.
+        if (
+            isClassInstance(destType) &&
+            ClassType.isBuiltIn(destType, 'GenericAlias') &&
+            isInstantiableClass(srcType) &&
+            !ClassType.isSpecialBuiltIn(srcType) &&
+            !srcType.priv.aliasName &&
+            srcType.shared.moduleName === 'builtins' &&
+            srcType.priv.typeArgs !== undefined &&
+            srcType.props?.typeForm &&
+            classGetItemReturnsGenericAlias(srcType)
+        ) {
+            return true;
+        }
+
         // If the source is a class-like type created by a call to NewType, treat it
         // as a FunctionClass instance rather than an instantiable class for
         // purposes of assignability. This reflects its actual runtime type.
@@ -25338,7 +25622,7 @@ export function createTypeEvaluator(
                 const destTypeArg =
                     destType.priv.typeArgs && destType.priv.typeArgs.length > 0
                         ? destType.priv.typeArgs[0]
-                        : UnknownType.create();
+                        : AnyType.create();
 
                 let srcTypeArg: Type | undefined;
                 if (isClassInstance(concreteSrcType) && ClassType.isBuiltIn(concreteSrcType, 'type')) {
@@ -25725,11 +26009,50 @@ export function createTypeEvaluator(
         return isAssignable;
     }
 
-    function expectedTypeWantsTypeForm(expectedType: Type): boolean {
-        return someSubtypes(
-            expectedType,
-            (subtype) => isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'TypeForm')
+    function isTypeFormClass(type: ClassType): boolean {
+        return (
+            ClassType.isBuiltIn(type, 'TypeForm') ||
+            (ClassType.isSpecialBuiltIn(type) &&
+                (type.shared.name === 'TypeForm' || type.priv.aliasName === 'TypeForm'))
         );
+    }
+
+    function isTypeFormType(type: Type): boolean {
+        return isClassInstance(type) && isTypeFormClass(type);
+    }
+
+    function classGetItemReturnsGenericAlias(classType: ClassType): boolean {
+        const member = lookUpClassMember(classType, '__class_getitem__', MemberAccessFlags.SkipInstanceMembers);
+        if (!member) {
+            return false;
+        }
+
+        const memberType = getTypeOfMember(member);
+        const functionReturnsGenericAlias = (functionType: FunctionType) => {
+            const returnType = FunctionType.getEffectiveReturnType(functionType);
+            return !!returnType && isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'GenericAlias');
+        };
+
+        if (isFunction(memberType)) {
+            return functionReturnsGenericAlias(memberType);
+        }
+
+        if (isOverloaded(memberType)) {
+            return OverloadedType.getOverloads(memberType).every(functionReturnsGenericAlias);
+        }
+
+        return false;
+    }
+
+    function expectedTypeRequiresTypeForm(expectedType: Type): boolean {
+        return (
+            someSubtypes(expectedType, isTypeFormType) &&
+            !someSubtypes(expectedType, (subtype) => !isTypeFormType(subtype))
+        );
+    }
+
+    function expectedTypeWantsTypeForm(expectedType: Type): boolean {
+        return someSubtypes(expectedType, isTypeFormType);
     }
 
     // If the expected type is an explicit TypeForm type, see if the source
@@ -25775,9 +26098,7 @@ export function createTypeEvaluator(
             }
 
             const destTypeFormType =
-                subtype.priv.typeArgs && subtype.priv.typeArgs.length > 0
-                    ? subtype.priv.typeArgs[0]
-                    : UnknownType.create();
+                subtype.priv.typeArgs && subtype.priv.typeArgs.length > 0 ? subtype.priv.typeArgs[0] : AnyType.create();
 
             if (assignType(destTypeFormType, srcTypeFormType)) {
                 resultType = ClassType.specialize(subtype, [srcTypeFormType]);

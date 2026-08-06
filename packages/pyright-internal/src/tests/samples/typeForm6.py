@@ -1,9 +1,9 @@
 # This sample tests the handling of assert_type with TypeForm types.
 
-# pyright: reportMissingModuleSource=false
+# pyright: reportMissingModuleSource=false, reportMissingTypeArgument=error
 
 from types import UnionType
-from typing import assert_type
+from typing import Any, assert_type
 from typing_extensions import TypeForm
 
 
@@ -60,3 +60,16 @@ def func3[T](x: T) -> T:
     assert_type(v3_tf, TypeForm[list[str | T] | T])
 
     return x
+
+
+def func4(x: TypeForm):
+    reveal_type(x, expected_text="TypeForm[Any]")
+    assert_type(x, TypeForm[Any])
+
+
+def unwrap[T](x: TypeForm[T]) -> T:
+    raise NotImplementedError()
+
+
+bare_type_form = unwrap(TypeForm)
+reveal_type(bare_type_form, expected_text="TypeForm[Any]")
