@@ -465,20 +465,23 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Slice: {
+            // The colons are significant here, so they must be emitted even when
+            // the surrounding expressions are omitted. Otherwise "x[1:]" would be
+            // printed as "x[1]" and "x[::2]" as "x[:2]".
             let result = '';
 
-            if (node.d.startValue || node.d.endValue || node.d.stepValue) {
-                if (node.d.startValue) {
-                    result += printExpression(node.d.startValue, flags);
-                }
-                if (node.d.endValue) {
-                    result += ': ' + printExpression(node.d.endValue, flags);
-                }
-                if (node.d.stepValue) {
-                    result += ': ' + printExpression(node.d.stepValue, flags);
-                }
-            } else {
-                result += ':';
+            if (node.d.startValue) {
+                result += printExpression(node.d.startValue, flags);
+            }
+
+            result += ':';
+
+            if (node.d.endValue) {
+                result += printExpression(node.d.endValue, flags);
+            }
+
+            if (node.d.stepValue) {
+                result += ':' + printExpression(node.d.stepValue, flags);
             }
 
             return result;
@@ -548,7 +551,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Set: {
-            return node.d.items.map((entry) => printExpression(entry, flags)).join(', ');
+            return `{${node.d.items.map((entry) => printExpression(entry, flags)).join(', ')}}`;
         }
 
         case ParseNodeType.Error: {
