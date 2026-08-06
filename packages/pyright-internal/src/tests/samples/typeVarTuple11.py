@@ -51,11 +51,11 @@ def func3(p1: tuple[int], p2: tuple[int, str], p3: tuple[int, int]):
     v4 = func2((3, "hi"), p2)
     reveal_type(v4, expected_text="str")
 
-    # This should generate an error.
-    func2((3, 3), p2)
+    v5 = func2((3, 3), p2)
+    reveal_type(v5, expected_text="int | str")
 
-    v5 = func2((3, 3), p3)
-    reveal_type(v5, expected_text="int")
+    v6 = func2((3, 3), p3)
+    reveal_type(v6, expected_text="int")
 
 
 def func4(a: int, *args: *_Xs, **kwargs: str) -> tuple[int, *_Xs]: ...
@@ -69,3 +69,11 @@ reveal_type(c2, expected_text="tuple[int]")
 
 # This should generate an error.
 c3 = func4(b="3", c="5")
+
+
+def func5(a: Array[*_Xs], b: Array[*_Xs]) -> None: ...
+
+
+def func6(a: Array[int], b: Array[str]):
+    # This should generate an error because Array is invariant.
+    func5(a, b)
