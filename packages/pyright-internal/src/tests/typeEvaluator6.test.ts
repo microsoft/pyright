@@ -67,7 +67,7 @@ test('OverloadCall5', () => {
 
 test('OverloadCall6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall6.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 2, 0, undefined, undefined, undefined, 1);
 });
 
 test('OverloadCall7', () => {
@@ -88,6 +88,11 @@ test('OverloadCall9', () => {
 test('OverloadCall10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall10.py']);
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('OverloadCall11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall11.py']);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('OverloadOverride1', () => {
