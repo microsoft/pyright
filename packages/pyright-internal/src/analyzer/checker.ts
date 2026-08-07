@@ -5663,6 +5663,10 @@ export class Checker extends ParseTreeWalker {
 
     // Verifies that a class has a unique most-derived disjoint base.
     private _validateDisjointBaseClass(classType: ClassType, errorNode: ParseNode) {
+        if (classType.shared.baseClasses.length < 2) {
+            return;
+        }
+
         const candidates: ClassType[] = [];
 
         for (const baseClass of classType.shared.baseClasses) {

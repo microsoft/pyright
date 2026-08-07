@@ -1259,8 +1259,15 @@ export namespace ClassType {
     }
 
     function isDisjointBase(classType: ClassType) {
+        // The disjoint-base property applies only to nominal classes.
+        if (ClassType.isProtocolClass(classType) || ClassType.isTypedDictClass(classType)) {
+            return false;
+        }
+
         // Dataclass decorators can synthesize a __slots__ definition lazily.
-        classType.shared.synthesizeMethodsDeferred?.();
+        if (ClassType.isDataClassGenerateSlots(classType)) {
+            classType.shared.synthesizeMethodsDeferred?.();
+        }
 
         return (
             !!(classType.shared.flags & ClassTypeFlags.DisjointBase) ||

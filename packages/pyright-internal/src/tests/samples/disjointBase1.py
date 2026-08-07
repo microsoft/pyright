@@ -5,6 +5,7 @@ Tests the typing.disjoint_base decorator introduced in PEP 800.
 # Specification: https://typing.readthedocs.io/en/latest/spec/directives.html#disjoint-base
 # See also https://peps.python.org/pep-0800/
 
+from dataclasses import dataclass
 from typing import Any, NamedTuple, Protocol, TypedDict
 from typing_extensions import disjoint_base  # pyright: ignore[reportMissingModuleSource]
 
@@ -114,6 +115,32 @@ class SlotAndEmptySlots(SlotBase1, EmptySlots):
 
 
 class IncompatibleSlots(SlotBase1, SlotBase2):  # This should generate an error
+    pass
+
+
+@dataclass(slots=True)
+class SlottedDataClass:
+    value: int
+
+
+class SlottedDataClassConflict(SlottedDataClass, SlotBase1):  # This should generate an error
+    pass
+
+
+@dataclass(slots=True)
+class EmptySlottedDataClass:
+    pass
+
+
+class SlotAndEmptySlottedDataClass(SlotBase1, EmptySlottedDataClass):
+    pass
+
+
+class SlottedProtocol(Protocol):
+    __slots__ = ("value",)
+
+
+class SlotAndSlottedProtocol(SlotBase1, SlottedProtocol):
     pass
 
 
