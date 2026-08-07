@@ -6,7 +6,7 @@ Tests the typing.disjoint_base decorator introduced in PEP 800.
 # See also https://peps.python.org/pep-0800/
 
 from typing import Any, NamedTuple, Protocol, TypedDict
-from typing_extensions import disjoint_base
+from typing_extensions import disjoint_base  # pyright: ignore[reportMissingModuleSource]
 
 
 def _unknown_base() -> Any: ...
