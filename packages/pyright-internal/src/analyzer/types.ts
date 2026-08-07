@@ -1264,11 +1264,6 @@ export namespace ClassType {
             return false;
         }
 
-        // Dataclass decorators can synthesize a __slots__ definition lazily.
-        if (ClassType.isDataClassGenerateSlots(classType)) {
-            classType.shared.synthesizeMethodsDeferred?.();
-        }
-
         return (
             !!(classType.shared.flags & ClassTypeFlags.DisjointBase) ||
             ClassType.isBuiltIn(classType, 'object') ||
