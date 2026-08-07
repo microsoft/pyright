@@ -94,6 +94,18 @@ class LeftAndRightWithUnknown(Left, Right, _unknown_base()):  # This should gene
     pass
 
 
+# A known disjoint base inherited transitively through a class whose own MRO
+# contains an unknown base must still be reported as conflicting.
+
+
+class LeftWithUnknown(Left, _unknown_base()):
+    pass
+
+
+class LeftWithUnknownAndRight(LeftWithUnknown, Right):  # This should generate an error
+    pass
+
+
 # > A nominal class is a disjoint base if it [...] contains a non-empty
 # > `__slots__` definition.
 

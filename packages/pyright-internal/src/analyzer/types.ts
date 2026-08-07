@@ -1276,11 +1276,9 @@ export namespace ClassType {
             return classType;
         }
 
-        // An unknown base may introduce an unknown disjoint base.
-        if (classType.shared.mro.some((mroClass) => isAnyOrUnknown(mroClass))) {
-            return undefined;
-        }
-
+        // An unknown class in the MRO may introduce an unknown disjoint base, but
+        // it cannot make two already-known disjoint bases compatible. Preserve the
+        // most-derived known candidate so transitive conflicts are still reported.
         const candidates = classType.shared.mro.filter(
             (mroClass): mroClass is ClassType => isInstantiableClass(mroClass) && isDisjointBase(mroClass)
         );
