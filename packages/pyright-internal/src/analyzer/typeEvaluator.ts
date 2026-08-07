@@ -749,7 +749,9 @@ export function createTypeEvaluator(
     // This is the single source of truth for TypeForm-entry identity; both the lookup
     // and eviction paths derive from it so they cannot drift.
     function entryMatchesExpectedType(entry: TypeFormTypeCacheEntry, expectedType: Type | undefined) {
-        return expectedType ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType) : !entry.expectedType;
+        return expectedType
+            ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType)
+            : !entry.expectedType;
     }
 
     function readTypeFormTypeCacheEntry(node: ParseNode, expectedType: Type | undefined) {
