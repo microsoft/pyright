@@ -459,6 +459,14 @@ test('TypeVarTuple31', () => {
     assert.ok(!/\bOO\b/.test(revealedType), `"OO" TypeVar escaped into inferred type: ${revealedType}`);
 });
 
+test('TypeVarTuple32', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple32.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Match1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
