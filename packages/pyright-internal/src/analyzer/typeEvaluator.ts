@@ -768,6 +768,19 @@ export function createTypeEvaluator(
         return readTypeFormTypeCacheEntry(node, /* expectedType */ undefined) ?? readTypeCacheEntry(node);
     }
 
+    // Bumps the incomplete generation count using the same rules for both the
+    // regular type cache and the TypeForm type cache so the two cache-invalidation
+    // paths cannot drift. A complete result always bumps the count (invalidating
+    // dependent incomplete entries); an incomplete result bumps only when its type
+    // differs from the previously-cached value.
+    function updateIncompleteGenerationCount(typeResult: TypeResult, oldTypeResult: TypeResult | undefined) {
+        if (!typeResult.isIncomplete) {
+            incompleteGenCount++;
+        } else if (oldTypeResult !== undefined && !isTypeSame(typeResult.type, oldTypeResult.type)) {
+            incompleteGenCount++;
+        }
+    }
+
     function isTypeCached(node: ParseNode) {
         const cacheEntry = readTypeCacheEntryForNode(node);
         if (!cacheEntry) {
@@ -820,14 +833,6 @@ export function createTypeEvaluator(
             (!!inferenceContext && expectedTypeWantsTypeForm(inferenceContext.expectedType));
 
         if (useTypeFormCache) {
-            if (!typeResult.isIncomplete) {
-                incompleteGenCount++;
-            }
-
-            if (isSpeculativeModeInUse(node)) {
-                return;
-            }
-
             const expectedType = inferenceContext?.expectedType;
             const typeFormCache = getTypeFormTypeCache(node);
             let cacheEntries = typeFormCache.get(node.id) ?? [];
@@ -837,12 +842,10 @@ export function createTypeEvaluator(
                     : !entry.expectedType
             );
 
-            if (
-                typeResult.isIncomplete &&
-                oldEntry !== undefined &&
-                !isTypeSame(typeResult.type, oldEntry.typeResult.type)
-            ) {
-                incompleteGenCount++;
+            updateIncompleteGenerationCount(typeResult, oldEntry?.typeResult);
+
+            if (isSpeculativeModeInUse(node)) {
+                return;
             }
 
             cacheEntries = cacheEntries.filter((entry) =>
@@ -868,14 +871,8 @@ export function createTypeEvaluator(
                 ? returnTypeInferenceTypeCache
                 : typeCache;
 
-        if (!typeResult.isIncomplete) {
-            incompleteGenCount++;
-        } else {
-            const oldValue = typeCacheToUse.get(node.id);
-            if (oldValue !== undefined && !isTypeSame(typeResult.type, oldValue.typeResult.type)) {
-                incompleteGenCount++;
-            }
-        }
+        const oldValue = typeCacheToUse.get(node.id);
+        updateIncompleteGenerationCount(typeResult, oldValue?.typeResult);
 
         typeCacheToUse.set(node.id, { typeResult, flags, incompleteGenCount });
 
