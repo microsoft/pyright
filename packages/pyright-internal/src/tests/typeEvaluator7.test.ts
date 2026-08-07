@@ -1041,7 +1041,7 @@ test('exceptionGroup1', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['exceptionGroup1.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 34);
+    TestUtils.validateResults(analysisResults1, 46);
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['exceptionGroup1.py'], configOptions);
