@@ -1283,6 +1283,13 @@ export namespace ClassType {
             (mroClass): mroClass is ClassType => isInstantiableClass(mroClass) && isDisjointBase(mroClass)
         );
 
+        return getMostDerivedDisjointBase(candidates);
+    }
+
+    // Applies the PEP 800 reduction rule to a set of disjoint base candidates:
+    // returns the unique candidate that is a subclass of every other candidate,
+    // or undefined if no such candidate exists.
+    export function getMostDerivedDisjointBase(candidates: ClassType[]): ClassType | undefined {
         return candidates.find((candidate) =>
             candidates.every((otherCandidate) => ClassType.isDerivedFrom(candidate, otherCandidate))
         );

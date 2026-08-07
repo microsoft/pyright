@@ -5,8 +5,11 @@ Tests the typing.disjoint_base decorator introduced in PEP 800.
 # Specification: https://typing.readthedocs.io/en/latest/spec/directives.html#disjoint-base
 # See also https://peps.python.org/pep-0800/
 
-from typing import NamedTuple, Protocol, TypedDict
+from typing import Any, NamedTuple, Protocol, TypedDict
 from typing_extensions import disjoint_base
+
+
+def _unknown_base() -> Any: ...
 
 
 # > It may only be used on nominal classes, including ``NamedTuple``
@@ -79,6 +82,14 @@ class LeftAndRightViaChild(LeftAndPlain, Right):  # This should generate an erro
 
 
 class LeftRecord(Left, Record):  # This should generate an error
+    pass
+
+
+# An unknown base cannot relate two otherwise-incompatible disjoint bases, so
+# the conflict between the known bases must still be reported.
+
+
+class LeftAndRightWithUnknown(Left, Right, _unknown_base()):  # This should generate an error
     pass
 
 

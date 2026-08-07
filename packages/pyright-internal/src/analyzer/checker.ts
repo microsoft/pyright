@@ -5667,14 +5667,18 @@ export class Checker extends ParseTreeWalker {
 
         for (const baseClass of classType.shared.baseClasses) {
             if (!isInstantiableClass(baseClass)) {
-                // An unknown base may introduce an unknown disjoint base.
-                return;
+                // An unknown base may introduce an unknown disjoint base, but it
+                // cannot make two already-incompatible known bases compatible,
+                // so keep collecting the known candidates.
+                continue;
             }
 
             const candidate = ClassType.getDisjointBase(baseClass);
             if (!candidate) {
-                // The base class is invalid or its disjoint base is unknown.
-                return;
+                // The base class is invalid or its disjoint base is unknown; an
+                // unknown disjoint base cannot relate two otherwise-incompatible
+                // known candidates, so keep collecting the known candidates.
+                continue;
             }
 
             if (!candidates.some((existingCandidate) => ClassType.isSameGenericClass(existingCandidate, candidate))) {
@@ -5682,12 +5686,7 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        if (
-            candidates.length > 1 &&
-            !candidates.some((candidate) =>
-                candidates.every((otherCandidate) => ClassType.isDerivedFrom(candidate, otherCandidate))
-            )
-        ) {
+        if (candidates.length > 1 && !ClassType.getMostDerivedDisjointBase(candidates)) {
             this._evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.disjointBaseIncompatible().format({
