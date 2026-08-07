@@ -48,6 +48,7 @@ import {
     ClassType,
     combineTypes,
     FunctionType,
+    isAnyOrUnknown,
     isClass,
     isClassInstance,
     isFunction,
@@ -59,6 +60,7 @@ import {
     isTypeSame,
     isTypeVar,
     isTypeVarTuple,
+    isUnion,
     maxTypeRecursionCount,
     NeverType,
     OverloadedType,
@@ -1774,9 +1776,16 @@ export function getCodeFlowEngine(
             const callTypeResult = evaluator.getTypeOfExpression(node.d.leftExpr, EvalFlags.CallBaseDefaults);
             const callType = callTypeResult.type;
 
-            doForEachSubtype(callType, (callSubtype) => {
+            const callSubtypes = isUnion(callType) ? callType.priv.subtypes : [callType];
+            for (let callSubtype of callSubtypes) {
                 // Track the number of subtypes we've examined.
                 subtypeCount++;
+
+                // Any or Unknown can never establish a guaranteed NoReturn result, so any
+                // union containing either is immediately a negative answer.
+                if (isAnyOrUnknown(callSubtype)) {
+                    return false;
+                }
 
                 if (isInstantiableClass(callSubtype)) {
                     // Does the class have a custom metaclass that implements a `__call__` method?
@@ -1784,7 +1793,7 @@ export function getCodeFlowEngine(
                     // in this case that the __call__ method is not a NoReturn type.
                     const metaclassCallResult = getBoundCallMethod(evaluator, node, callSubtype);
                     if (metaclassCallResult) {
-                        return;
+                        continue;
                     }
 
                     const newMethodResult = getBoundNewMethod(evaluator, node, callSubtype);
@@ -1841,7 +1850,7 @@ export function getCodeFlowEngine(
                         }
                     }
                 }
-            });
+            }
 
             // The call is considered NoReturn if all subtypes evaluate to NoReturn.
             const callIsNoReturn = subtypeCount > 0 && noReturnTypeCount === subtypeCount;
