@@ -1413,7 +1413,9 @@ function widenTypeForTypeVarTuple(
 
         if (evaluator.assignType(typeArg1.type, typeArg2.type, undefined, undefined, undefined, recursionCount)) {
             widenedType = typeArg1.type;
-        } else if (evaluator.assignType(typeArg2.type, typeArg1.type, undefined, undefined, undefined, recursionCount)) {
+        } else if (
+            evaluator.assignType(typeArg2.type, typeArg1.type, undefined, undefined, undefined, recursionCount)
+        ) {
             widenedType = typeArg2.type;
         } else {
             widenedType = combineTypes([typeArg1.type, typeArg2.type], {
