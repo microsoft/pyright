@@ -82,6 +82,15 @@ class LeftAndRightViaChild(LeftAndPlain, Right):  # This should generate an erro
     pass
 
 
+# `Plain` resolves to `object` as its disjoint base. Since `object` is
+# compatible with every disjoint base, it must not appear in the reported
+# incompatible-base names even though it sits between the conflicting bases.
+
+
+class LeftPlainRight(Left, Plain, Right):  # This should generate an error
+    pass
+
+
 class LeftRecord(Left, Record):  # This should generate an error
     pass
 

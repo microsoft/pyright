@@ -5694,7 +5694,13 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.disjointBaseIncompatible().format({
-                    bases: candidates.map((candidate) => `"${candidate.shared.name}"`).join(', '),
+                    // `object` is a disjoint base but is compatible with every
+                    // other disjoint base, so including it in the reported names
+                    // would be misleading. Filter it out.
+                    bases: candidates
+                        .filter((candidate) => !ClassType.isBuiltIn(candidate, 'object'))
+                        .map((candidate) => `"${candidate.shared.name}"`)
+                        .join(', '),
                 }),
                 errorNode
             );
