@@ -229,6 +229,25 @@ def return_bound_enum[T: Color](value: T, other: T) -> ColorLiterals:
     return value
 
 
+def test_type_var_invariant_source[T: Color, U: int](
+    enum_bound_list: list[T],
+    unrelated_list: list[U],
+    literal_color_list: list[ColorLiterals],
+) -> None:
+    # A source TypeVar bound to the enum expands in an invariant position, so
+    # list[T] and list[ColorLiterals] are treated as equivalent in both
+    # directions.
+    to_literals: list[ColorLiterals] = enum_bound_list
+    assert_type(enum_bound_list, list[T])
+
+    # An unrelated source TypeVar must not be collapsed to its bound while
+    # probing for enum expansion, so the invariant comparison still fails and
+    # the TypeVar remains intact.
+    bad_to_literals: list[ColorLiterals] = unrelated_list  # This should generate an error
+    bad_from_literals: list[U] = literal_color_list  # This should generate an error
+    assert_type(unrelated_list, list[U])
+
+
 def test_assignment_narrowing() -> None:
     color: Color = Color.RED
     assert_type(color, Literal[Color.RED])

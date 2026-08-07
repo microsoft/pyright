@@ -8994,9 +8994,20 @@ export function createTypeEvaluator(
             return typeToExpand;
         }
 
-        typeToExpand = makeTopLevelTypeVarsConcrete(typeToExpand);
         const literalEnumClasses = collectLiteralEnumClasses(comparisonType);
-        return expandEnumTypeForLiteralClasses(typeToExpand, literalEnumClasses);
+        if (literalEnumClasses.length === 0) {
+            return typeToExpand;
+        }
+
+        // Concretize top-level TypeVars only to probe for a matching enum subtype.
+        // If no enum expansion actually occurs (for example, an unrelated source
+        // TypeVar whose bound is not one of the comparison's enum classes), preserve
+        // the original type rather than replacing the TypeVar with its bound. Doing so
+        // keeps unrelated invariant comparisons like `list[T]` vs `list[ColorLiterals]`
+        // unaffected.
+        const concreteType = makeTopLevelTypeVarsConcrete(typeToExpand);
+        const expandedType = expandEnumTypeForLiteralClasses(concreteType, literalEnumClasses);
+        return expandedType === concreteType ? typeToExpand : expandedType;
     }
 
     function containsTopLevelLiteralEnum(type: Type): boolean {
