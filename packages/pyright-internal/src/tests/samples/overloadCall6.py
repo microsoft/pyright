@@ -3,8 +3,8 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Any, Generic, Literal, TypeVar, overload
-from typing_extensions import LiteralString, TypeIs
+from typing import Any, Generic, Literal, Sequence, TypeVar, overload
+from typing_extensions import LiteralString, TypeIs, deprecated
 
 _T = TypeVar("_T")
 
@@ -124,7 +124,212 @@ def overload5(x: list[str] | list[int]) -> list[str] | list[int]:
 
 
 def func6(y: list[Any]):
-    reveal_type(overload5(y), expected_text="list[int]")
+    reveal_type(overload5(y), expected_text="Any")
+
+
+def func6_unknown(y: list):
+    reveal_type(overload5(y), expected_text="Unknown")
+
+
+@overload
+def overload5_same_return(x: list[int]) -> int: ...
+
+
+@overload
+def overload5_same_return(x: list[str]) -> int: ...
+
+
+def overload5_same_return(x: list[Any]) -> int:
+    return 0
+
+
+def func6_same_return(y: list[Any]):
+    reveal_type(overload5_same_return(y), expected_text="int")
+
+
+@overload
+def overload5_covariant(x: Sequence[object]) -> int: ...
+
+
+@overload
+def overload5_covariant(x: list[str], y: int = 0) -> str: ...
+
+
+def overload5_covariant(x: Sequence[object], y: int = 0) -> int | str:
+    return 0
+
+
+def func6_covariant(y: list[Any]):
+    reveal_type(overload5_covariant(y), expected_text="int")
+
+
+@overload
+def overload5_covariant_base(x: Sequence[int]) -> int: ...
+
+
+@overload
+def overload5_covariant_base(x: Sequence[object]) -> object: ...
+
+
+def overload5_covariant_base(x: Sequence[object]) -> object:
+    return x
+
+
+def func6_covariant_base(y: list[Any]):
+    reveal_type(overload5_covariant_base(y), expected_text="Any")
+
+
+@overload
+def overload5_unsupported_union(x: list[int | str]) -> int: ...
+
+
+@overload
+def overload5_unsupported_union(x: list[bytes | float]) -> str: ...
+
+
+def overload5_unsupported_union(x: list[Any]) -> int | str:
+    return 1
+
+
+def func6_unsupported_union(y: list[Any]):
+    reveal_type(overload5_unsupported_union(y), expected_text="int")
+
+
+@overload
+def overload5_mixed_any(x: int, y: Sequence[object]) -> int: ...
+
+
+@overload
+def overload5_mixed_any(x: str, y: Sequence[object]) -> str: ...
+
+
+def overload5_mixed_any(x: int | str, y: Sequence[object]) -> int | str:
+    return x
+
+
+def func6_mixed_any(x: Any, y: list[Any]):
+    reveal_type(overload5_mixed_any(x, y), expected_text="Unknown")
+
+
+_default_list: list[Any] = []
+
+
+@overload
+def overload5_default(tag: Literal[1], value: list[int] = _default_list) -> Literal[1]: ...
+
+
+@overload
+def overload5_default(tag: int) -> int: ...
+
+
+def overload5_default(tag: int, value: Any = _default_list) -> int:
+    return tag
+
+
+reveal_type(overload5_default(1), expected_text="Literal[1]")
+
+
+@overload
+def overload5_unknown(x: list[int]) -> Literal[1]: ...
+
+
+@overload
+def overload5_unknown(x: list[str]) -> int: ...
+
+
+def overload5_unknown(x: list[Any]) -> int:
+    return 1
+
+
+def func6_nested_unknown(x: list):
+    reveal_type(overload5_unknown(x), expected_text="Unknown")
+
+
+@overload
+def overload5_deprecated(x: list[int]) -> int: ...
+
+
+@overload
+def overload5_deprecated(x: list[Any]) -> int: ...
+
+
+@overload
+@deprecated("fallback is deprecated")
+def overload5_deprecated(x: Any) -> int: ...
+
+
+def overload5_deprecated(x: Any) -> int:
+    return 1
+
+
+def func6_deprecated(x: list[Any]):
+    overload5_deprecated(x)
+
+
+@overload
+@deprecated("int overload is deprecated")
+def overload5_deprecated_union(x: int) -> int: ...
+
+
+@overload
+def overload5_deprecated_union(x: list[int]) -> int: ...
+
+
+@overload
+def overload5_deprecated_union(x: list[Any]) -> int: ...
+
+
+def overload5_deprecated_union(x: Any) -> int:
+    return 1
+
+
+def func6_deprecated_union(x: int | list[Any]):
+    overload5_deprecated_union(x)
+
+
+class ClassWithOverloadedInit(Generic[_T]):
+    @overload
+    def __init__(self: "ClassWithOverloadedInit[int]", value: list[int]) -> None: ...
+
+    @overload
+    def __init__(self: "ClassWithOverloadedInit[str]", value: list[str]) -> None: ...
+
+    def __init__(self, value: list[Any]) -> None:
+        pass
+
+
+def func6_overloaded_init(x: list[Any]):
+    reveal_type(ClassWithOverloadedInit(x), expected_text="Any")
+
+
+class ExplicitClassWithOverloadedInit(Generic[_T]):
+    @overload
+    def __init__(self: "ExplicitClassWithOverloadedInit[int]", value: list[int]) -> None: ...
+
+    @overload
+    def __init__(self, value: list[str]) -> None: ...
+
+    def __init__(self, value: list[Any]) -> None:
+        pass
+
+
+def func6_explicit_overloaded_init(x: list[Any]):
+    reveal_type(ExplicitClassWithOverloadedInit[int](x), expected_text="ExplicitClassWithOverloadedInit[int]")
+
+
+@overload
+def overload5_contextual(x: list[Any], flag: Literal[True]) -> str: ...
+
+
+@overload
+def overload5_contextual(x: list[int], flag: bool) -> object: ...
+
+
+def overload5_contextual(x: list[Any], flag: bool) -> object:
+    return x
+
+
+reveal_type(overload5_contextual([], True), expected_text="str")
 
 
 class ClassA(Generic[_T]):
@@ -139,7 +344,7 @@ class ClassA(Generic[_T]):
 
 
 def func7(a: ClassA[Any]):
-    reveal_type(a.m1(), expected_text="ClassA[int]")
+    reveal_type(a.m1(), expected_text="Any")
 
 
 class ClassB(Generic[_T]):
@@ -154,7 +359,7 @@ class ClassB(Generic[_T]):
 
 
 def func8(b: ClassB[Any]):
-    reveal_type(b.m1(b), expected_text="ClassB[int]")
+    reveal_type(b.m1(b), expected_text="Any")
 
 
 _T1 = TypeVar("_T1")
@@ -273,7 +478,7 @@ def overload10(x) -> Any:
 
 def func18(a: Any, b: list[Any], c: list[str], d: list[int]):
     reveal_type(overload10(a), expected_text="list[int]")
-    reveal_type(overload10(b), expected_text="list[int]")
+    reveal_type(overload10(b), expected_text="Any")
     reveal_type(overload10(c), expected_text="list[Any]")
     reveal_type(overload10(d), expected_text="list[int]")
 

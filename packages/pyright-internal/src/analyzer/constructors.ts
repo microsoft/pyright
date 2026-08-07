@@ -519,12 +519,17 @@ function validateInitMethod(
         adjustedClassType = ClassType.cloneAsInstantiable(callResult.specializedInitSelfType);
     }
 
-    const returnType = applyExpectedTypeForConstructor(
-        evaluator,
-        adjustedClassType,
-        /* inferenceContext */ undefined,
-        constraints
-    );
+    const returnType =
+        callResult.specializedInitSelfType &&
+        !type.priv.isTypeArgExplicit &&
+        (isAny(callResult.specializedInitSelfType) || isUnknown(callResult.specializedInitSelfType))
+            ? callResult.specializedInitSelfType
+            : applyExpectedTypeForConstructor(
+                  evaluator,
+                  adjustedClassType,
+                  /* inferenceContext */ undefined,
+                  constraints
+              );
 
     if (callResult.isTypeIncomplete) {
         isTypeIncomplete = true;
