@@ -251,6 +251,7 @@ export class Parser {
     private _importedModules: ModuleImport[] = [];
     private _containsWildcardImport = false;
     private _assignmentExpressionsAllowed = true;
+    private _assignmentExpressionErrorMessage: string | undefined;
     private _typingImportAliases: string[] = [];
     private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
     private _maxChildDepthMap = new Map<number, number>();
@@ -1835,7 +1836,7 @@ export class Parser {
         } else {
             this._disallowAssignmentExpression(() => {
                 seqExpr = this._parseOrTest();
-            });
+            }, LocMessage.walrusInComprehensionIterable());
         }
 
         const compForNode = ComprehensionForNode.create(asyncToken || forToken, targetExpr, seqExpr!);
@@ -3381,7 +3382,7 @@ export class Parser {
         }
 
         if (!this._assignmentExpressionsAllowed || disallowAssignmentExpression) {
-            this._addSyntaxError(LocMessage.walrusNotAllowed(), walrusToken);
+            this._addSyntaxError(this._assignmentExpressionErrorMessage || LocMessage.walrusNotAllowed(), walrusToken);
         }
 
         if (PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_8)) {
@@ -5306,13 +5307,16 @@ export class Parser {
         return false;
     }
 
-    private _disallowAssignmentExpression(callback: () => void) {
+    private _disallowAssignmentExpression(callback: () => void, errorMessage?: string) {
         const wasAllowed = this._assignmentExpressionsAllowed;
+        const previousErrorMessage = this._assignmentExpressionErrorMessage;
         this._assignmentExpressionsAllowed = false;
+        this._assignmentExpressionErrorMessage = errorMessage;
 
         callback();
 
         this._assignmentExpressionsAllowed = wasAllowed;
+        this._assignmentExpressionErrorMessage = previousErrorMessage;
     }
 
     private _getNextToken(): Token {

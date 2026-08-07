@@ -1234,6 +1234,7 @@ export namespace Localizer {
         export const variadicTypeParamTooManyClass = () =>
             new ParameterizedString<{ names: string }>(getRawString('Diagnostic.variadicTypeParamTooManyClass'));
         export const walrusIllegal = () => getRawString('Diagnostic.walrusIllegal');
+        export const walrusInComprehensionIterable = () => getRawString('Diagnostic.walrusInComprehensionIterable');
         export const walrusNotAllowed = () => getRawString('Diagnostic.walrusNotAllowed');
         export const wildcardInFunction = () => getRawString('Diagnostic.wildcardInFunction');
         export const wildcardPatternTypeUnknown = () => getRawString('Diagnostic.wildcardPatternTypeUnknown');
