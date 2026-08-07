@@ -24320,9 +24320,19 @@ export function createTypeEvaluator(
             }
         }
 
-        // A class value remains unspecialized so it can be subscripted. Apply its
-        // default type arguments when comparing it against a type specialization.
-        if (TypeBase.isInstantiable(srcType) && srcType.props?.typeForm) {
+        // A class value normally remains unspecialized so it can be subscripted.
+        // If every type parameter has an explicit default, apply those defaults
+        // when comparing it against a type specialization. Classes with one or
+        // more defaultless parameters retain their unspecialized behavior, so
+        // this cannot introduce Unknown.
+        if (
+            TypeBase.isInstantiable(srcType) &&
+            srcType.props?.typeForm &&
+            !srcType.priv.typeArgs &&
+            !srcType.priv.includeSubclasses &&
+            srcType.shared.typeParams.length > 0 &&
+            srcType.shared.typeParams.every((typeParam) => typeParam.shared.isDefaultExplicit)
+        ) {
             srcType = specializeWithDefaultTypeArgs(srcType);
         }
 
