@@ -45,6 +45,7 @@ import {
     TypeVarKind,
     TypeVarScopeId,
     TypeVarType,
+    UnknownType,
     Variance,
 } from './types';
 import {
@@ -777,12 +778,19 @@ function assignUnconstrainedTypeVar(
             // are *not* considered cyclic - the original `adjSrcType` is
             // recorded as the lower bound and existing logic resolves it.
             if (typeVarOccursIn(destType, adjSrcType)) {
-                diag?.addMessage(
-                    LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(adjSrcType, destType))
-                );
-                return false;
+                if (constraints) {
+                    diag?.addMessage(
+                        LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(adjSrcType, destType))
+                    );
+                    return false;
+                }
+                // The caller is testing assignability: `constraints` is
+                // undefined, so bounds are not recorded. A lower bound widened
+                // to 'Unknown' is correct without a finite least solution.
+                newLowerBound = UnknownType.create();
+            } else {
+                newLowerBound = adjSrcType;
             }
-            newLowerBound = adjSrcType;
         } else if (isTypeSame(curLowerBound, adjSrcType, {}, recursionCount)) {
             // If this is an invariant context and there is currently no upper bound
             // established, use the "no literals" version of the lower bound rather
