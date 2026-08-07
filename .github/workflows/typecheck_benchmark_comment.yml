@@ -1,0 +1,149 @@
+name: Comment with type checker benchmark
+
+on:
+  workflow_run:
+    workflows:
+      - Type checker benchmark
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+
+jobs:
+  comment:
+    name: Comment benchmark results
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Download benchmark results
+        id: download
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            const pullRequests = context.payload.workflow_run.pull_requests
+            if (pullRequests.length === 0) {
+              core.info('No pull request is associated with this workflow run; skipping comment')
+              return
+            }
+            if (pullRequests.length > 1) {
+              core.setFailed(`Expected one pull request, found ${pullRequests.length}`)
+              return
+            }
+            const issueNumber = pullRequests[0].number
+            const pullRequest = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: issueNumber,
+            })
+            if (pullRequest.data.head.sha !== context.payload.workflow_run.head_sha) {
+              core.setFailed('The workflow run head does not match the pull request head')
+              return
+            }
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.payload.workflow_run.id,
+            })
+            const report = artifacts.data.artifacts.find(
+              (artifact) => artifact.name === 'typecheck-benchmark-linux-x64'
+            )
+            if (!report) {
+              core.setFailed('The benchmark report artifact was not found')
+              return
+            }
+            const download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: report.id,
+              archive_format: 'zip',
+            })
+            fs.writeFileSync('benchmark-report.zip', Buffer.from(download.data))
+            core.setOutput('pr-number', issueNumber)
+
+      - name: Extract candidate results
+        if: ${{ steps.download.outputs.pr-number != '' }}
+        run: |
+          python - <<'PY'
+          import json
+          import zipfile
+          from pathlib import PurePosixPath
+
+          with zipfile.ZipFile('benchmark-report.zip') as archive:
+              matches = [
+                  name
+                  for name in archive.namelist()
+                  if PurePosixPath(name).name == 'latest-linux-x64.json'
+                  and '..' not in PurePosixPath(name).parts
+              ]
+              if len(matches) != 1:
+                  raise RuntimeError(f'Expected one candidate result, found {len(matches)}')
+              contents = archive.read(matches[0])
+          if len(contents) > 5 * 1024 * 1024:
+              raise RuntimeError('Candidate result exceeds 5 MB')
+          data = json.loads(contents)
+          if not isinstance(data, dict):
+              raise RuntimeError('Candidate result must be a JSON object')
+          with open('candidate.json', 'wb') as output:
+              output.write(contents)
+          PY
+
+      - name: Render benchmark report
+        if: ${{ steps.download.outputs.pr-number != '' }}
+        run: |
+          set +e
+          python build/benchmark/compare_benchmarks.py \
+            build/benchmark/baselines/latest-linux-x64.json \
+            candidate.json \
+            --threshold-percent 20 \
+            --time-noise-floor-seconds 1 \
+            --memory-noise-floor-mb 100 \
+            --markdown-output report.md
+          if [[ ! -s report.md ]]; then
+            printf '%s\n' \
+              '## Type checker benchmark' \
+              '' \
+              '🔴 **The benchmark results could not be compared. See the workflow run for details.**' \
+              > report.md
+          fi
+
+      - name: Post benchmark comment
+        if: ${{ steps.download.outputs.pr-number != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            const marker = '<!-- typecheck-benchmark-report -->'
+            const report = fs.readFileSync('report.md', 'utf8')
+            const issueNumber = Number('${{ steps.download.outputs.pr-number }}')
+            const body = `${marker}\n${report}`
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+            })
+            const previous = comments.find(
+              (comment) => comment.user?.type === 'Bot' && comment.body?.includes(marker)
+            )
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: previous.id,
+                body,
+              })
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body,
+              })
+            }
