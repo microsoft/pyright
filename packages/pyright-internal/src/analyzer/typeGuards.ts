@@ -677,9 +677,12 @@ export function getTypeNarrowingCallback(
                                     const constraintIndex = keyNarrowingInfo.conditionIndexMap.get(
                                         literalKeyType.priv.literalValue as string
                                     )!;
-                                    return addConditionToType(narrowedTypeForKey, [
-                                        { typeVar: keyNarrowingInfo.conditionTypeVar, constraintIndex },
-                                    ]);
+                                    const condition = [{ typeVar: keyNarrowingInfo.conditionTypeVar, constraintIndex }];
+                                    return mapSubtypes(narrowedTypeForKey, (subtype) =>
+                                        TypeCondition.isCompatible(getTypeCondition(subtype), condition)
+                                            ? addConditionToType(subtype, condition)
+                                            : undefined
+                                    );
                                 })
                             );
                         } else {

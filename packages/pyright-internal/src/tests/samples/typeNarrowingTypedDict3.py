@@ -51,6 +51,14 @@ class MutableDict(TypedDict, total=False):
 def mutate_present_keys(value: MutableDict):
     for key in ("first", "second"):
         if key in value:
+            # This should generate an error because int is incompatible with
+            # the "second" key alternative.
+            value[key] = 1
+
+            # This should generate an error because str is incompatible with
+            # the "first" key alternative.
+            value[key] = "x"
+
             value[key] = value[key]
 
             # This should generate an error for the required key alternative.

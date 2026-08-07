@@ -1526,7 +1526,9 @@ export function getTypeOfIndexedTypedDict(
     const conditionFilter = getTypeCondition(baseType);
     const setType =
         usage.method === 'set' && usage.setType && conditionFilter
-            ? evaluator.mapSubtypesExpandTypeVars(usage.setType.type, { conditionFilter }, (subtype) => subtype)
+            ? evaluator.mapSubtypesExpandTypeVars(usage.setType.type, /* options */ undefined, (subtype) =>
+                  TypeCondition.isCompatible(getTypeCondition(subtype), conditionFilter) ? subtype : undefined
+              )
             : usage.setType?.type;
     const resultingType = mapSubtypes(indexType, (subtype) => {
         if (!TypeCondition.isCompatible(getTypeCondition(subtype), conditionFilter)) {
