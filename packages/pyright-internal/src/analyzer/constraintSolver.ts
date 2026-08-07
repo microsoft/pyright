@@ -849,7 +849,13 @@ function assignUnconstrainedTypeVar(
                         newLowerBound = adjSrcType;
                     }
                 } else if (isTypeVarTuple(destType)) {
-                    const widenedType = widenTypeForTypeVarTuple(evaluator, curLowerBound, adjSrcType, isInvariant);
+                    const widenedType = widenTypeForTypeVarTuple(
+                        evaluator,
+                        curLowerBound,
+                        adjSrcType,
+                        isInvariant,
+                        recursionCount
+                    );
                     if (!widenedType) {
                         diag?.addMessage(
                             LocAddendum.typeAssignmentMismatch().format(
@@ -1348,7 +1354,8 @@ function widenTypeForTypeVarTuple(
     evaluator: TypeEvaluator,
     type1: Type,
     type2: Type,
-    isInvariant: boolean
+    isInvariant: boolean,
+    recursionCount: number
 ): Type | undefined {
     // If the two types are not unpacked tuples, we can't combine them.
     if (!isUnpackedClass(type1) || !isUnpackedClass(type2)) {
@@ -1390,6 +1397,12 @@ function widenTypeForTypeVarTuple(
         return strippedType1;
     }
 
+    // The typing spec indicates that a TypeVarTuple bound in multiple locations
+    // should resolve to "exactly the same type". In an invariant context we honor
+    // that strictly and bail out when the tuples differ. In non-invariant contexts,
+    // however, requiring an exact match is overly restrictive and rejects valid
+    // heterogeneous bindings, so we instead widen element-wise (mirroring how normal
+    // TypeVars widen incompatible lower bounds into a union).
     if (isInvariant) {
         return undefined;
     }
@@ -1398,9 +1411,9 @@ function widenTypeForTypeVarTuple(
         const typeArg2 = tupleTypeArgs2[index];
         let widenedType: Type;
 
-        if (evaluator.assignType(typeArg1.type, typeArg2.type)) {
+        if (evaluator.assignType(typeArg1.type, typeArg2.type, undefined, undefined, undefined, recursionCount)) {
             widenedType = typeArg1.type;
-        } else if (evaluator.assignType(typeArg2.type, typeArg1.type)) {
+        } else if (evaluator.assignType(typeArg2.type, typeArg1.type, undefined, undefined, undefined, recursionCount)) {
             widenedType = typeArg2.type;
         } else {
             widenedType = combineTypes([typeArg1.type, typeArg2.type], {
