@@ -1258,7 +1258,7 @@ export namespace ClassType {
         return !!(classType.shared.flags & ClassTypeFlags.Final);
     }
 
-    export function isDisjointBase(classType: ClassType) {
+    function isDisjointBase(classType: ClassType) {
         // Dataclass decorators can synthesize a __slots__ definition lazily.
         classType.shared.synthesizeMethodsDeferred?.();
 
