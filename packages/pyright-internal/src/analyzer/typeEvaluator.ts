@@ -745,14 +745,17 @@ export function createTypeEvaluator(
         return typeFormTypeCache;
     }
 
+    // Determines whether a TypeForm cache entry corresponds to the given expected type.
+    // This is the single source of truth for TypeForm-entry identity; both the lookup
+    // and eviction paths derive from it so they cannot drift.
+    function entryMatchesExpectedType(entry: TypeFormTypeCacheEntry, expectedType: Type | undefined) {
+        return expectedType ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType) : !entry.expectedType;
+    }
+
     function readTypeFormTypeCacheEntry(node: ParseNode, expectedType: Type | undefined) {
         return getTypeFormTypeCache(node)
             .get(node.id)
-            ?.find((entry) =>
-                expectedType
-                    ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType)
-                    : !entry.expectedType
-            );
+            ?.find((entry) => entryMatchesExpectedType(entry, expectedType));
     }
 
     function readTypeCacheEntryForNode(node: ParseNode) {
@@ -836,11 +839,7 @@ export function createTypeEvaluator(
             const expectedType = inferenceContext?.expectedType;
             const typeFormCache = getTypeFormTypeCache(node);
             let cacheEntries = typeFormCache.get(node.id) ?? [];
-            const oldEntry = cacheEntries.find((entry) =>
-                expectedType
-                    ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType)
-                    : !entry.expectedType
-            );
+            const oldEntry = cacheEntries.find((entry) => entryMatchesExpectedType(entry, expectedType));
 
             updateIncompleteGenerationCount(typeResult, oldEntry?.typeResult);
 
@@ -848,11 +847,7 @@ export function createTypeEvaluator(
                 return;
             }
 
-            cacheEntries = cacheEntries.filter((entry) =>
-                expectedType
-                    ? !entry.expectedType || !isTypeSame(expectedType, entry.expectedType)
-                    : !!entry.expectedType
-            );
+            cacheEntries = cacheEntries.filter((entry) => !entryMatchesExpectedType(entry, expectedType));
             cacheEntries.push({ typeResult, flags, incompleteGenCount, expectedType });
 
             const maxCacheEntriesPerNode = 8;
