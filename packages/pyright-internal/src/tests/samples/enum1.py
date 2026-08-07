@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of Enum.
 
-from enum import Enum, EnumMeta, IntEnum
-from typing import Self
+from enum import Enum, EnumMeta, Flag, IntEnum, StrEnum, auto
+from typing import Final, Generic, Literal, Self, TypeVar, assert_type
 
 
 TestEnum1 = Enum("TestEnum1", "   A   B, , ,C , \t D\t")
@@ -13,6 +13,116 @@ class TestEnum3(Enum):
     B = 1
     C = 2
     D = 3
+
+
+TestEnum3Literal = Literal[TestEnum3.A, TestEnum3.B, TestEnum3.C, TestEnum3.D]
+
+
+def test_enum_literal_union(value: TestEnum3, literal_value: TestEnum3Literal) -> None:
+    full_union: TestEnum3Literal = value
+    assert_type(value, TestEnum3Literal)
+    assert_type(literal_value, TestEnum3)
+
+    # This should generate an error because the union is incomplete.
+    incomplete_union: Literal[TestEnum3.A, TestEnum3.B, TestEnum3.C] = value
+
+    # This should generate an error because enum literals are distinct from
+    # literals of their underlying values.
+    underlying_values: Literal[0, 1, 2, 3] = value
+
+
+def test_enum_literal_union_in_union(
+    value: TestEnum3 | int, literal_value: TestEnum3Literal | int
+) -> None:
+    assert_type(value, TestEnum3Literal | int)
+    assert_type(literal_value, TestEnum3 | int)
+
+
+def test_enum_invariant_containers(
+    values: list[TestEnum3],
+    value_map: dict[TestEnum3, int],
+    mixed_values: list[TestEnum3 | int],
+) -> None:
+    same_values: list[TestEnum3] = values
+    same_value_map: dict[TestEnum3, int] = value_map
+    same_mixed_values: list[TestEnum3 | int] = mixed_values
+
+
+class TestSingleMemberEnum(Enum):
+    ONLY = 1
+
+
+single_member_sentinel: Final[TestSingleMemberEnum] = TestSingleMemberEnum.ONLY
+reveal_type(single_member_sentinel, expected_text="Literal[TestSingleMemberEnum.ONLY]")
+
+
+def resolve_single_member_sentinel(value: float | TestSingleMemberEnum) -> float:
+    if value is single_member_sentinel:
+        return 0.0
+    reveal_type(value, expected_text="float")
+    return value
+
+
+def test_single_member_enum(
+    value: TestSingleMemberEnum, literal_value: Literal[TestSingleMemberEnum.ONLY]
+) -> None:
+    full_union: Literal[TestSingleMemberEnum.ONLY] = value
+    assert_type(value, Literal[TestSingleMemberEnum.ONLY])
+    assert_type(literal_value, TestSingleMemberEnum)
+
+
+def test_enum_without_known_members(value: Enum) -> None:
+    # This should generate an error because no literal members can be enumerated.
+    full_union: TestEnum3Literal = value
+
+
+TTestEnum3 = TypeVar("TTestEnum3", bound=TestEnum3)
+
+
+class EnumContainer(Generic[TTestEnum3]):
+    pass
+
+
+def accept_enum_container(value: EnumContainer[TestEnum3Literal]) -> None:
+    pass
+
+
+def test_generic_enum_literal_union(value: EnumContainer[TestEnum3]) -> None:
+    accept_enum_container(value)
+
+
+class TestIntEnumLiteralUnion(IntEnum):
+    A = 1
+    B = 2
+
+
+def test_int_enum_literal_union(value: TestIntEnumLiteralUnion) -> None:
+    full_union: Literal[TestIntEnumLiteralUnion.A, TestIntEnumLiteralUnion.B] = value
+    # This should generate an error because enum literals are distinct from
+    # literals of their underlying values.
+    underlying_values: Literal[1, 2] = value
+
+
+class TestStrEnumLiteralUnion(StrEnum):
+    A = "a"
+    B = "b"
+
+
+def test_str_enum_literal_union(value: TestStrEnumLiteralUnion) -> None:
+    full_union: Literal[TestStrEnumLiteralUnion.A, TestStrEnumLiteralUnion.B] = value
+    # This should generate an error because enum literals are distinct from
+    # literals of their underlying values.
+    underlying_values: Literal["a", "b"] = value
+
+
+class TestFlagLiteralUnion(Flag):
+    A = auto()
+    B = auto()
+
+
+def test_flag_literal_union(value: TestFlagLiteralUnion) -> None:
+    # This should generate an error because Flag values can be combined.
+    full_union: Literal[TestFlagLiteralUnion.A, TestFlagLiteralUnion.B] = value
 
 
 a = TestEnum1["A"]
