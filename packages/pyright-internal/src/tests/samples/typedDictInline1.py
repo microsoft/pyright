@@ -1,7 +1,7 @@
 # This sample tests support for inlined TypedDict definitions.
 
 from typing import NotRequired, ReadOnly, Required, TypedDict
-from typing_extensions import TypeForm
+from typing_extensions import TypeForm  # pyright: ignore[reportMissingModuleSource]
 
 
 td1: TypedDict[{"a": int, "b": str}] = {"a": 0, "b": ""}

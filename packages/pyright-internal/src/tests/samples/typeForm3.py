@@ -1,6 +1,6 @@
 # This sample tests inference behaviors related to TypeForm.
 
-# pyright: strict
+# pyright: strict, reportMissingModuleSource=false
 
 from types import GenericAlias
 from enum import member
