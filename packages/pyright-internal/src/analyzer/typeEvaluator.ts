@@ -9031,6 +9031,7 @@ export function createTypeEvaluator(
             if (
                 isClassInstance(subtype) &&
                 ClassType.isEnumClass(subtype) &&
+                !ClassType.areEnumMembersUnknown(subtype) &&
                 subtype.priv.literalValue === undefined &&
                 literalEnumClasses.some((enumClass) => ClassType.isSameGenericClass(enumClass, subtype))
             ) {
@@ -27828,6 +27829,19 @@ export function createTypeEvaluator(
                 // Retain unknowns for code flow analysis convergence and for
                 // unknown type reporting in strict mode.
                 if (isUnknown(assignedSubtype)) {
+                    return assignedSubtype;
+                }
+
+                // Preserve assignment narrowing when an enum literal is assigned
+                // to its non-literal enum class. A single-member enum is equivalent
+                // to its only literal, but the assigned value is still more precise.
+                if (
+                    isClassInstance(assignedSubtype) &&
+                    assignedSubtype.priv.literalValue instanceof EnumLiteral &&
+                    isClassInstance(declaredSubtype) &&
+                    declaredSubtype.priv.literalValue === undefined &&
+                    ClassType.isSameGenericClass(assignedSubtype, declaredSubtype)
+                ) {
                     return assignedSubtype;
                 }
 

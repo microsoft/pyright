@@ -2,7 +2,7 @@
 # their literal members.
 
 from enum import Enum, EnumType, Flag, IntEnum, IntFlag, StrEnum, auto
-from typing import Literal, assert_type
+from typing import Final, Literal, assert_type
 
 
 class Color(Enum):
@@ -60,6 +60,18 @@ def test_single_member_equivalence(single: Single, literal_single: SingleLiteral
     value2: Single = literal_single
     assert_type(single, SingleLiteral)
     assert_type(literal_single, Single)
+
+
+SINGLE_DEFAULT: Final[Single] = Single.ONLY
+
+
+def test_single_member_narrowing(value: Single | float | None) -> float | None:
+    if value is SINGLE_DEFAULT:
+        reveal_type(value, expected_text="Literal[Single.ONLY]")
+        return None
+
+    reveal_type(value, expected_text="float | None")
+    return value
 
 
 def test_union_equivalence(
@@ -250,7 +262,11 @@ def test_type_var_invariant_source[T: Color, U: int](
 
 def test_assignment_narrowing() -> None:
     color: Color = Color.RED
+    single: Single = Single.ONLY
+    flag: DirectFlags = DirectFlags.FIRST
     assert_type(color, Literal[Color.RED])
+    reveal_type(single, expected_text="Literal[Single.ONLY]")
+    reveal_type(flag, expected_text="Literal[DirectFlags.FIRST]")
 
 
 class Aliased(Enum):
@@ -336,4 +352,19 @@ def test_custom_metaclass(value: CustomMetaEnum) -> None:
     if value is CustomMetaEnum.FIRST:
         pass
     else:
-        assert_type(value, CustomMetaEnum)
+        assert_type(value, Literal[CustomMetaEnum.SECOND])
+
+
+def test_custom_metaclass_exhaustiveness(value: CustomMetaEnum) -> int:
+    # Closedness gates complete-union equivalence without changing the existing
+    # narrowing and exhaustiveness behavior for statically known members.
+    match value:
+        case CustomMetaEnum.FIRST:
+            return 1
+        case CustomMetaEnum.SECOND:
+            return 2
+
+
+def test_custom_metaclass_assignment_narrowing() -> None:
+    value: CustomMetaEnum = CustomMetaEnum.FIRST
+    reveal_type(value, expected_text="Literal[CustomMetaEnum.FIRST]")
