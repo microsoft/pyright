@@ -1057,11 +1057,9 @@ export function createTypeEvaluator(
 
     // Reads the type of the node from the cache.
     function getCachedType(node: ExpressionNode | DecoratorNode): Type | undefined {
-        // Use readTypeCacheEntryForNode so TypeForm-cached entries are found, but
-        // preserve the incomplete-result safeguard from readTypeCache (don't expose
-        // partially-evaluated types). The evaluator-flag verification isn't applied
-        // here because TypeForm entries are cached with different flags than EvalFlags.None.
-        const cacheEntry = readTypeCacheEntryForNode(node);
+        // Prefer the ordinary runtime type when both caches contain an entry for this node.
+        // Fall back to the contextual cache so TypeForm-only evaluations remain discoverable.
+        const cacheEntry = readTypeCacheEntry(node) ?? readTypeCacheEntryForNode(node);
         if (!cacheEntry || cacheEntry.typeResult.isIncomplete) {
             return undefined;
         }

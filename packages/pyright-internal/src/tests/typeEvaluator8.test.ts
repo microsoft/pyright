@@ -10,7 +10,7 @@
 
 import * as assert from 'assert';
 
-import { ClassType, isClassInstance } from '../analyzer/types';
+import { ClassType, isClassInstance, isInstantiableClass } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8, pythonVersion3_12 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -1079,6 +1079,13 @@ test('TypeFormCache', () => {
     assert.ok(typeArg);
     assert.ok(isClassInstance(typeArg));
     assert.ok(ClassType.isBuiltIn(typeArg, 'int'));
+
+    const runtimeType = state.program.evaluator!.getTypeOfExpression(node).type;
+    assert.ok(isInstantiableClass(runtimeType));
+    assert.ok(ClassType.isBuiltIn(runtimeType, 'int'));
+
+    const cachedType = state.program.evaluator!.getCachedType(node);
+    assert.strictEqual(cachedType, runtimeType);
 });
 
 test('TypeFormExplicitCache', () => {
