@@ -10,9 +10,12 @@
 
 import * as assert from 'assert';
 
+import { ClassType, isClassInstance, isInstantiableClass } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8, pythonVersion3_12 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { ParseNodeType } from '../parser/parseNodes';
+import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
 
 test('Import1', () => {
@@ -1057,6 +1060,100 @@ test('SpecialForm4', () => {
 // TypeForm support is enabled by default and no longer requires
 // enableExperimentalFeatures, so these tests intentionally leave it off.
 
+test('TypeFormCache', () => {
+    const code = `
+// @filename: test.py
+//// from typing_extensions import TypeForm
+//// value: TypeForm[int] = /*marker*/int
+    `;
+    const state = parseAndGetTestState(code).state;
+    const node = getNodeAtMarker(state);
+    assert.ok(node.nodeType === ParseNodeType.Name);
+
+    const type = state.program.evaluator!.getType(node);
+    assert.ok(type);
+    assert.ok(isClassInstance(type));
+    assert.ok(ClassType.isBuiltIn(type, 'TypeForm'));
+
+    const typeArg = type.priv.typeArgs?.[0];
+    assert.ok(typeArg);
+    assert.ok(isClassInstance(typeArg));
+    assert.ok(ClassType.isBuiltIn(typeArg, 'int'));
+
+    const runtimeType = state.program.evaluator!.getTypeOfExpression(node).type;
+    assert.ok(isInstantiableClass(runtimeType));
+    assert.ok(ClassType.isBuiltIn(runtimeType, 'int'));
+
+    const subnodeTypeResult = state.program.evaluator!.evaluateTypeForSubnode(node, () => {
+        assert.fail('Runtime type is already cached');
+    });
+    assert.strictEqual(subnodeTypeResult?.type, runtimeType);
+
+    const cachedType = state.program.evaluator!.getCachedType(node);
+    assert.strictEqual(cachedType, runtimeType);
+});
+
+test('TypeFormCacheDoesNotSkipRuntimeEvaluation', () => {
+    const code = `
+// @filename: test.py
+//// from typing_extensions import TypeForm
+//// def consume(value: TypeForm[int]): ...
+//// consume(/*marker*/int)
+    `;
+    const state = parseAndGetTestState(code).state;
+    const node = getNodeAtMarker(state);
+    assert.ok(node.nodeType === ParseNodeType.Name);
+
+    const type = state.program.evaluator!.getType(node);
+    assert.ok(type);
+    assert.ok(isClassInstance(type));
+    assert.ok(ClassType.isBuiltIn(type, 'TypeForm'));
+
+    assert.ok(node.parent?.nodeType === ParseNodeType.Argument);
+    const callNode = node.parent.parent;
+    assert.ok(callNode?.nodeType === ParseNodeType.Call);
+    state.program.evaluator!.getTypeOfExpression(callNode);
+
+    const cachedType = state.program.evaluator!.getCachedType(node);
+    assert.ok(cachedType);
+    assert.ok(isInstantiableClass(cachedType));
+    assert.ok(ClassType.isBuiltIn(cachedType, 'int'));
+});
+
+test('TypeFormExplicitCache', () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// { "enableExperimentalFeatures": true }
+// @filename: test.py
+//// from typing import TypedDict
+//// from typing_extensions import TypeForm
+//// value = TypeForm(/*marker*/TypedDict[{"a": int}])
+    `;
+    const state = parseAndGetTestState(code).state;
+    const node = getNodeAtMarker(state);
+    assert.ok(node.nodeType === ParseNodeType.Name);
+    assert.ok(node.parent?.nodeType === ParseNodeType.Index);
+
+    const type = state.program.evaluator!.getType(node.parent);
+    assert.ok(type);
+    assert.ok(isClassInstance(type));
+    assert.ok(ClassType.isBuiltIn(type, 'TypeForm'));
+
+    const typeArg = type.priv.typeArgs?.[0];
+    assert.ok(typeArg);
+    assert.ok(isClassInstance(typeArg));
+    assert.ok(ClassType.isTypedDictClass(typeArg));
+
+    const runtimeTypeResult = state.program.evaluator!.getTypeOfExpression(node.parent);
+    assert.ok(isInstantiableClass(runtimeTypeResult.type));
+    assert.ok(ClassType.isTypedDictClass(runtimeTypeResult.type));
+
+    const subnodeTypeResult = state.program.evaluator!.evaluateTypeForSubnode(node.parent, () => {
+        assert.fail('Runtime type is already cached');
+    });
+    assert.strictEqual(subnodeTypeResult?.type, runtimeTypeResult.type);
+});
+
 test('TypeForm1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm1.py']);
 
@@ -1066,19 +1163,19 @@ test('TypeForm1', () => {
 test('TypeForm2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm2.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypeForm3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm3.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('TypeForm4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm4.py']);
 
-    TestUtils.validateResults(analysisResults, 27);
+    TestUtils.validateResults(analysisResults, 58);
 });
 
 test('TypeForm5', () => {

@@ -1,6 +1,7 @@
 # This sample tests support for inlined TypedDict definitions.
 
 from typing import NotRequired, ReadOnly, Required, TypedDict
+from typing_extensions import TypeForm  # pyright: ignore[reportMissingModuleSource]
 
 
 td1: TypedDict[{"a": int, "b": str}] = {"a": 0, "b": ""}
@@ -48,3 +49,10 @@ class Outer1[T]:
 
     def __init__(self, v: T) -> None:
         self.attr1 = {"a": [v]}
+
+
+tf1 = TypeForm(TypedDict[{"a": int}])
+reveal_type(tf1, expected_text="TypeForm[<TypedDict>]")
+
+tf2 = TypeForm(list[TypedDict[{"a": int}]])
+reveal_type(tf2, expected_text="TypeForm[list[<TypedDict>]]")
