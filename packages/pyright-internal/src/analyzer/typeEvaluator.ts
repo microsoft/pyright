@@ -9091,8 +9091,9 @@ export function createTypeEvaluator(
                 isInstantiableClass(baseTypeResult.type) &&
                 ClassType.isBuiltIn(baseTypeResult.type, 'TypeVar') &&
                 AnalyzerNodeInfo.getFileInfo(node).isTypingStubFile;
+            const isTypeFormCall = isInstantiableClass(baseTypeResult.type) && isTypeFormClass(baseTypeResult.type);
 
-            if (!isCyclicalTypeVarCall) {
+            if (!isCyclicalTypeVarCall && !isTypeFormCall) {
                 argList.forEach((arg) => {
                     if (
                         arg.valueExpression &&
