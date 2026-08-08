@@ -315,6 +315,12 @@ test('TypeNarrowingTypeIs1', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('TypeGuardMethod1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuardMethod1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeNarrowingTypeEquals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeEquals1.py']);
 
