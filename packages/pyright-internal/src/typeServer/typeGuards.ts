@@ -33,7 +33,7 @@ export function enumerateLiteralsForType(evaluator: ITypeServerEvaluator, type: 
     if (ClassType.isEnumClass(type)) {
         // Enum expansion doesn't apply to enum classes that derive
         // from enum.Flag.
-        if (type.shared.baseClasses.some((baseClass) => isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'Flag'))) {
+        if (type.shared.mro.some((mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'Flag'))) {
             return undefined;
         }
 
