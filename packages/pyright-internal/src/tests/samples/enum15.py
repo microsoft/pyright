@@ -1,7 +1,7 @@
 # This sample tests equivalence between enum classes and complete unions of
 # their literal members.
 
-from enum import Enum, EnumType, Flag, IntEnum, IntFlag, StrEnum, auto
+from enum import Enum, EnumType, Flag, IntEnum, IntFlag, StrEnum, auto, unique
 import builtins
 from collections.abc import Callable
 from typing import Final, Literal, assert_type
@@ -541,3 +541,19 @@ DecoratedEnumLiteral = Literal[DecoratedEnum.FIRST]
 
 def test_decorated_enum(value: DecoratedEnum) -> None:
     literal_value: DecoratedEnumLiteral = value  # This should generate an error
+
+
+@unique
+class UniqueEnum(Enum):
+    FIRST = 1
+    SECOND = 2
+
+
+UniqueEnumLiterals = Literal[UniqueEnum.FIRST, UniqueEnum.SECOND]
+
+
+def test_member_preserving_decorator(value: UniqueEnum) -> None:
+    # Even known member-preserving decorators are treated conservatively because
+    # arbitrary class decorators can add or remove enum members at runtime.
+    literal_value: UniqueEnumLiterals = value  # This should generate an error
+    assert_type(value, UniqueEnumLiterals)  # This should generate an error
