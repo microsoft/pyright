@@ -365,6 +365,8 @@ export class Checker extends ParseTreeWalker {
 
             this._validateOverloadDecoratorConsistency(classTypeResult.classType);
 
+            this._validateDisjointBaseClass(classTypeResult.classType, node.d.name);
+
             this._validateMultipleInheritanceBaseClasses(classTypeResult.classType, node.d.name);
 
             this._validateMultipleInheritanceCompatibility(classTypeResult.classType, node.d.name);
@@ -5683,6 +5685,52 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
             }
+        }
+    }
+
+    // Verifies that a class has a unique most-derived disjoint base.
+    private _validateDisjointBaseClass(classType: ClassType, errorNode: ParseNode) {
+        if (classType.shared.baseClasses.length < 2) {
+            return;
+        }
+
+        const candidates: ClassType[] = [];
+
+        for (const baseClass of classType.shared.baseClasses) {
+            if (!isInstantiableClass(baseClass)) {
+                // An unknown base may introduce an unknown disjoint base, but it
+                // cannot make two already-incompatible known bases compatible,
+                // so keep collecting the known candidates.
+                continue;
+            }
+
+            const candidate = ClassType.getDisjointBase(baseClass);
+            if (!candidate) {
+                // The base class is invalid or its disjoint base is unknown; an
+                // unknown disjoint base cannot relate two otherwise-incompatible
+                // known candidates, so keep collecting the known candidates.
+                continue;
+            }
+
+            if (!candidates.some((existingCandidate) => ClassType.isSameGenericClass(existingCandidate, candidate))) {
+                candidates.push(candidate);
+            }
+        }
+
+        if (candidates.length > 1 && !ClassType.getMostDerivedDisjointBase(candidates)) {
+            this._evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.disjointBaseIncompatible().format({
+                    // `object` is a disjoint base but is compatible with every
+                    // other disjoint base, so including it in the reported names
+                    // would be misleading. Filter it out.
+                    bases: candidates
+                        .filter((candidate) => !ClassType.isBuiltIn(candidate, 'object'))
+                        .map((candidate) => `"${candidate.shared.name}"`)
+                        .join(', '),
+                }),
+                errorNode
+            );
         }
     }
 

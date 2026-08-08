@@ -18201,6 +18201,7 @@ export function createTypeEvaluator(
             if (slotsNames) {
                 classType.shared.localSlotsNames = slotsNames;
             }
+            classType.shared.hasNonEmptySlots = innerScope?.hasNonEmptySlots;
 
             // Determine if the class should be a "pseudo-generic" class, characterized
             // by having an __init__ method with parameters that lack type annotations.

@@ -653,6 +653,9 @@ export const enum ClassTypeFlags {
     // Class is declared within a type stub file.
     DefinedInStub = 1 << 18,
 
+    // Class is decorated with @disjoint_base.
+    DisjointBase = 1 << 19,
+
     // Decorated with @type_check_only.
     TypeCheckOnly = 1 << 20,
 
@@ -707,6 +710,7 @@ export interface ClassDetailsShared {
     typedDictEntries?: TypedDictEntries | undefined;
     typedDictExtraItemsExpr?: ExpressionNode | undefined;
     localSlotsNames?: string[];
+    hasNonEmptySlots?: boolean;
 
     // If the class is decorated with a @deprecated decorator, this
     // string provides the message to be displayed when the class
@@ -1253,6 +1257,52 @@ export namespace ClassType {
 
     export function isFinal(classType: ClassType) {
         return !!(classType.shared.flags & ClassTypeFlags.Final);
+    }
+
+    function isDisjointBase(classType: ClassType) {
+        // The disjoint-base property applies only to nominal classes.
+        if (ClassType.isProtocolClass(classType) || ClassType.isTypedDictClass(classType)) {
+            return false;
+        }
+
+        // Classification forces deferred dataclass synthesis because decorators
+        // can synthesize a __slots__ definition lazily.
+        classType.shared.synthesizeMethodsDeferred?.();
+
+        return (
+            !!(classType.shared.flags & ClassTypeFlags.DisjointBase) ||
+            ClassType.isBuiltIn(classType, 'object') ||
+            !!classType.shared.hasNonEmptySlots
+        );
+    }
+
+    export function getDisjointBase(classType: ClassType): ClassType | undefined {
+        if (isDisjointBase(classType)) {
+            return classType;
+        }
+
+        // An unknown class in the MRO may introduce an unknown disjoint base, but
+        // it cannot make two already-known disjoint bases compatible. Preserve the
+        // most-derived known candidate so transitive conflicts are still reported.
+        const candidates = classType.shared.mro.filter(
+            (mroClass): mroClass is ClassType => isInstantiableClass(mroClass) && isDisjointBase(mroClass)
+        );
+
+        return getMostDerivedDisjointBase(candidates);
+    }
+
+    // Applies the PEP 800 reduction rule to a set of disjoint base candidates:
+    // returns the unique candidate that is a subclass of every other candidate,
+    // or undefined if no such candidate exists.
+    export function getMostDerivedDisjointBase(candidates: ClassType[]): ClassType | undefined {
+        return candidates.find((candidate) =>
+            candidates.every((otherCandidate) =>
+                candidate.shared.mro.some(
+                    (mroClass) =>
+                        isInstantiableClass(mroClass) && ClassType.isSameGenericClass(mroClass, otherCandidate)
+                )
+            )
+        );
     }
 
     export function isProtocolClass(classType: ClassType) {

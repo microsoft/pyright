@@ -799,7 +799,23 @@ export function synthesizeDataClassMethods(
     }
 
     if (ClassType.isDataClassGenerateSlots(classType) && classType.shared.localSlotsNames === undefined) {
-        classType.shared.localSlotsNames = localDataClassEntries.map((entry) => entry.name);
+        const inheritedSlotsNames = new Set<string>();
+        classType.shared.mro.slice(1).forEach((mroClass) => {
+            if (isInstantiableClass(mroClass)) {
+                mroClass.shared.synthesizeMethodsDeferred?.();
+                mroClass.shared.localSlotsNames?.forEach((name) => inheritedSlotsNames.add(name));
+            }
+        });
+
+        classType.shared.localSlotsNames = localDataClassEntries
+            .filter(
+                (entry) =>
+                    !entry.isClassVar &&
+                    !symbolTable.get(entry.name)?.isInitVar() &&
+                    !inheritedSlotsNames.has(entry.name)
+            )
+            .map((entry) => entry.name);
+        classType.shared.hasNonEmptySlots = classType.shared.localSlotsNames.length > 0;
     }
 
     // Should we synthesize a __slots__ symbol?

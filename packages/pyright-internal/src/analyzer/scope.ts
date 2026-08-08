@@ -121,6 +121,10 @@ export class Scope {
     // for class scopes).
     slotsNames: string[] | undefined;
 
+    // Indicates that __slots__ definitely contains at least one name,
+    // even if the complete set of names is unknown.
+    hasNonEmptySlots = false;
+
     constructor(
         type: ScopeType,
         parent?: Scope,
@@ -263,5 +267,9 @@ export class Scope {
 
     getSlotsNames(): string[] | undefined {
         return this.slotsNames;
+    }
+
+    setHasNonEmptySlots(value: boolean) {
+        this.hasNonEmptySlots = value;
     }
 }
