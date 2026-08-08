@@ -8989,7 +8989,14 @@ export function createTypeEvaluator(
         return typeFormResult;
     }
 
-    function expandEnumTypeForLiteralComparison(typeToExpand: Type, comparisonType: Type): Type {
+    function expandEnumTypeForLiteralComparison(
+        typeToExpand: Type,
+        comparisonType: Type,
+        concretizeTypeVars: boolean
+    ): Type {
+        // Assignment checks apply this at each recursive assignType call so existing
+        // variance and constraint handling remains intact. Keep this equivalence
+        // relation aligned with the recursive normalization used by assert_type below.
         if (!containsTopLevelLiteralEnum(comparisonType)) {
             return typeToExpand;
         }
@@ -9005,7 +9012,7 @@ export function createTypeEvaluator(
         // the original type rather than replacing the TypeVar with its bound. Doing so
         // keeps unrelated invariant comparisons like `list[T]` vs `list[ColorLiterals]`
         // unaffected.
-        const concreteType = makeTopLevelTypeVarsConcrete(typeToExpand);
+        const concreteType = concretizeTypeVars ? makeTopLevelTypeVarsConcrete(typeToExpand) : typeToExpand;
         const expandedType = expandEnumTypeForLiteralClasses(concreteType, literalEnumClasses);
         return expandedType === concreteType ? typeToExpand : expandedType;
     }
@@ -9056,6 +9063,31 @@ export function createTypeEvaluator(
         }
         recursionCount++;
 
+        if (recursively && isFunction(type)) {
+            type.shared.parameters.forEach((_, index) =>
+                collectLiteralEnumClasses(
+                    FunctionType.getParamType(type, index),
+                    literalEnumClasses,
+                    recursively,
+                    recursionCount
+                )
+            );
+
+            const returnType = FunctionType.getEffectiveReturnType(type);
+            if (returnType) {
+                collectLiteralEnumClasses(returnType, literalEnumClasses, recursively, recursionCount);
+            }
+        } else if (recursively && isOverloaded(type)) {
+            OverloadedType.getOverloads(type).forEach((overload) =>
+                collectLiteralEnumClasses(overload, literalEnumClasses, recursively, recursionCount)
+            );
+
+            const implementation = OverloadedType.getImplementation(type);
+            if (implementation) {
+                collectLiteralEnumClasses(implementation, literalEnumClasses, recursively, recursionCount);
+            }
+        }
+
         doForEachSubtype(type, (subtype) => {
             if (!isClass(subtype)) {
                 return;
@@ -9098,6 +9130,47 @@ export function createTypeEvaluator(
             return mapSubtypes(typeToNormalize, (subtype) =>
                 normalizeEnumTypes(subtype, literalEnumClasses, recursionCount)
             );
+        }
+
+        if (isFunction(typeToNormalize)) {
+            let typeChanged = false;
+            const parameterTypes = typeToNormalize.shared.parameters.map((_, index) => {
+                const parameterType = FunctionType.getParamType(typeToNormalize, index);
+                const normalizedType = normalizeEnumTypes(parameterType, literalEnumClasses, recursionCount);
+                typeChanged ||= normalizedType !== parameterType;
+                return normalizedType;
+            });
+
+            const returnType = FunctionType.getEffectiveReturnType(typeToNormalize);
+            const normalizedReturnType = returnType
+                ? normalizeEnumTypes(returnType, literalEnumClasses, recursionCount)
+                : undefined;
+            typeChanged ||= normalizedReturnType !== returnType;
+
+            return typeChanged
+                ? FunctionType.specialize(typeToNormalize, {
+                      parameterTypes,
+                      parameterDefaultTypes: typeToNormalize.priv.specializedTypes?.parameterDefaultTypes,
+                      returnType: normalizedReturnType,
+                  })
+                : typeToNormalize;
+        }
+
+        if (isOverloaded(typeToNormalize)) {
+            let typeChanged = false;
+            const overloads = OverloadedType.getOverloads(typeToNormalize).map((overload) => {
+                const normalizedType = normalizeEnumTypes(overload, literalEnumClasses, recursionCount);
+                typeChanged ||= normalizedType !== overload;
+                return isFunction(normalizedType) ? normalizedType : overload;
+            });
+
+            const implementation = OverloadedType.getImplementation(typeToNormalize);
+            const normalizedImplementation = implementation
+                ? normalizeEnumTypes(implementation, literalEnumClasses, recursionCount)
+                : undefined;
+            typeChanged ||= normalizedImplementation !== implementation;
+
+            return typeChanged ? OverloadedType.create(overloads, normalizedImplementation) : typeToNormalize;
         }
 
         if (!isClass(typeToNormalize) || !typeToNormalize.priv.typeArgs) {
@@ -9175,6 +9248,9 @@ export function createTypeEvaluator(
         let typesMatch = isTypeSame(assertedType, arg0Type, typeSameOptions);
 
         if (!typesMatch) {
+            // Unlike assignType, assert_type requires exact structural identity, so
+            // normalize both types recursively. Keep this equivalence relation aligned
+            // with expandEnumTypeForLiteralComparison, which assignType applies as it recurses.
             const literalEnumClasses = collectLiteralEnumClasses(assertedType, [], /* recursively */ true);
             collectLiteralEnumClasses(arg0Type, literalEnumClasses, /* recursively */ true);
             const normalizedAssertedType = normalizeEnumTypes(assertedType, literalEnumClasses);
@@ -25355,9 +25431,10 @@ export function createTypeEvaluator(
             return true;
         }
 
-        srcType = expandEnumTypeForLiteralComparison(srcType, destType);
-        if ((flags & AssignTypeFlags.Invariant) !== 0) {
-            destType = expandEnumTypeForLiteralComparison(destType, srcType);
+        const isInvariant = (flags & AssignTypeFlags.Invariant) !== 0;
+        srcType = expandEnumTypeForLiteralComparison(srcType, destType, /* concretizeTypeVars */ !isInvariant);
+        if (isInvariant) {
+            destType = expandEnumTypeForLiteralComparison(destType, srcType, /* concretizeTypeVars */ false);
         }
 
         if (isUnion(destType)) {

@@ -2,7 +2,11 @@
 # their literal members.
 
 from enum import Enum, EnumType, Flag, IntEnum, IntFlag, StrEnum, auto
+import builtins
+from collections.abc import Callable
 from typing import Final, Literal, assert_type
+
+from builtins import locals as builtin_locals
 
 
 class Color(Enum):
@@ -116,6 +120,19 @@ def test_invariant_equivalence(
     assert_type(literal_color_dict, dict[Color, int])
     assert_type(color_or_int_list, list[ColorLiterals | int])
     assert_type(literal_color_or_int_list, list[Color | int])
+
+
+def test_callable_equivalence(
+    callback: Callable[[Color], Color],
+    literal_callback: Callable[[ColorLiterals], ColorLiterals],
+    partial_callback: Callable[[PartialColorLiterals], PartialColorLiterals],
+) -> None:
+    assert_type(callback, Callable[[ColorLiterals], ColorLiterals])
+    assert_type(literal_callback, Callable[[Color], Color])
+    assert_type(partial_callback, Callable[[Color], Color])  # This should generate an error
+    assert_type(
+        callback, Callable[[PartialColorLiterals], Color]
+    )  # This should generate an error
 
 
 class Number(IntEnum):
@@ -246,10 +263,10 @@ def test_type_var_invariant_source[T: Color, U: int](
     unrelated_list: list[U],
     literal_color_list: list[ColorLiterals],
 ) -> None:
-    # A source TypeVar bound to the enum expands in an invariant position, so
-    # list[T] and list[ColorLiterals] are treated as equivalent in both
-    # directions.
-    to_literals: list[ColorLiterals] = enum_bound_list
+    # A bound TypeVar cannot expand in an invariant position because T may be
+    # narrower than Color, and widening list[T] would allow unsafe mutation.
+    to_literals: list[ColorLiterals] = enum_bound_list  # This should generate an error
+    from_literals: list[T] = literal_color_list  # This should generate an error
     assert_type(enum_bound_list, list[T])
 
     # An unrelated source TypeVar must not be collapsed to its bound while
@@ -332,6 +349,75 @@ def test_dynamic_body(value: DynamicBody) -> None:
         pass
     else:
         assert_type(value, DynamicBody)
+
+
+class DynamicUpdate(Enum):
+    FIRST = 1
+    locals().update({"SECOND": 2})
+
+
+DynamicUpdateLiteral = Literal[DynamicUpdate.FIRST]
+
+
+def test_dynamic_update(value: DynamicUpdate) -> None:
+    dynamic_literal: DynamicUpdateLiteral = value  # This should generate an error
+
+
+class DynamicQualifiedUpdate(Enum):
+    FIRST = 1
+    builtins.locals().update({"SECOND": 2})
+
+
+DynamicQualifiedUpdateLiteral = Literal[DynamicQualifiedUpdate.FIRST]
+
+
+def test_dynamic_qualified_update(value: DynamicQualifiedUpdate) -> None:
+    dynamic_literal: DynamicQualifiedUpdateLiteral = value  # This should generate an error
+
+
+class DynamicAliasedUpdate(Enum):
+    FIRST = 1
+    builtin_locals().update({"SECOND": 2})
+
+
+DynamicAliasedUpdateLiteral = Literal[DynamicAliasedUpdate.FIRST]
+
+
+def test_dynamic_aliased_update(value: DynamicAliasedUpdate) -> None:
+    dynamic_literal: DynamicAliasedUpdateLiteral = value  # This should generate an error
+
+
+run_exec = exec
+
+
+class DynamicAssignedAlias(Enum):
+    FIRST = 1
+    run_exec("SECOND = 2")
+
+
+DynamicAssignedAliasLiteral = Literal[DynamicAssignedAlias.FIRST]
+
+
+def test_dynamic_assigned_alias(value: DynamicAssignedAlias) -> None:
+    dynamic_literal: DynamicAssignedAliasLiteral = value  # This should generate an error
+
+
+class ShadowedLocals(Enum):
+    FIRST = 1
+    SECOND = 2
+
+    @staticmethod
+    def locals() -> dict[str, int]:
+        return {}
+
+    locals().update({"THIRD": 3})
+
+
+ShadowedLocalsLiterals = Literal[ShadowedLocals.FIRST, ShadowedLocals.SECOND]
+
+
+def test_shadowed_locals(value: ShadowedLocals) -> None:
+    literal_value: ShadowedLocalsLiterals = value
 
 
 class CustomEnumType(EnumType):
