@@ -1107,9 +1107,26 @@ export class Binder extends ParseTreeWalker {
                             isExpressionUnderstood = false;
                         }
                     });
+                } else if (expr.nodeType === ParseNodeType.Dictionary) {
+                    expr.d.items.forEach((dictionaryEntryNode) => {
+                        if (
+                            dictionaryEntryNode.nodeType === ParseNodeType.DictionaryKeyEntry &&
+                            dictionaryEntryNode.d.keyExpr.nodeType === ParseNodeType.StringList &&
+                            dictionaryEntryNode.d.keyExpr.d.strings.length === 1 &&
+                            dictionaryEntryNode.d.keyExpr.d.strings[0].nodeType === ParseNodeType.String
+                        ) {
+                            this._dunderSlotsEntries!.push(dictionaryEntryNode.d.keyExpr);
+                        } else {
+                            isExpressionUnderstood = false;
+                        }
+                    });
                 } else {
                     isExpressionUnderstood = false;
                 }
+
+                this._currentScope.setHasNonEmptySlots(
+                    this._dunderSlotsEntries.some((entry) => entry.d.strings[0].d.value !== '__dict__')
+                );
 
                 if (!isExpressionUnderstood) {
                     this._dunderSlotsEntries = undefined;

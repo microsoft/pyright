@@ -710,6 +710,7 @@ export interface ClassDetailsShared {
     typedDictEntries?: TypedDictEntries | undefined;
     typedDictExtraItemsExpr?: ExpressionNode | undefined;
     localSlotsNames?: string[];
+    hasNonEmptySlots?: boolean;
 
     // If the class is decorated with a @deprecated decorator, this
     // string provides the message to be displayed when the class
@@ -1264,10 +1265,14 @@ export namespace ClassType {
             return false;
         }
 
+        // Classification forces deferred dataclass synthesis because decorators
+        // can synthesize a __slots__ definition lazily.
+        classType.shared.synthesizeMethodsDeferred?.();
+
         return (
             !!(classType.shared.flags & ClassTypeFlags.DisjointBase) ||
             ClassType.isBuiltIn(classType, 'object') ||
-            !!classType.shared.localSlotsNames?.length
+            !!classType.shared.hasNonEmptySlots
         );
     }
 
@@ -1291,7 +1296,12 @@ export namespace ClassType {
     // or undefined if no such candidate exists.
     export function getMostDerivedDisjointBase(candidates: ClassType[]): ClassType | undefined {
         return candidates.find((candidate) =>
-            candidates.every((otherCandidate) => ClassType.isDerivedFrom(candidate, otherCandidate))
+            candidates.every((otherCandidate) =>
+                candidate.shared.mro.some(
+                    (mroClass) =>
+                        isInstantiableClass(mroClass) && ClassType.isSameGenericClass(mroClass, otherCandidate)
+                )
+            )
         );
     }
 

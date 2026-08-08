@@ -5,7 +5,7 @@ Tests the typing.disjoint_base decorator introduced in PEP 800.
 # Specification: https://typing.readthedocs.io/en/latest/spec/directives.html#disjoint-base
 # See also https://peps.python.org/pep-0800/
 
-from dataclasses import dataclass
+from dataclasses import InitVar, dataclass
 from typing import Any, NamedTuple, Protocol, TypedDict
 from typing_extensions import disjoint_base  # pyright: ignore[reportMissingModuleSource]
 
@@ -115,6 +115,19 @@ class LeftWithUnknownAndRight(LeftWithUnknown, Right):  # This should generate a
     pass
 
 
+# A directly decorated class is its own disjoint base. An unknown base in its
+# MRO must not make it appear derived from an unrelated disjoint base.
+
+
+@disjoint_base
+class DirectDisjointWithUnknown(Left, _unknown_base()):
+    pass
+
+
+class DirectDisjointWithUnknownAndRight(DirectDisjointWithUnknown, Right):  # This should generate an error
+    pass
+
+
 # > A nominal class is a disjoint base if it [...] contains a non-empty
 # > `__slots__` definition.
 
@@ -139,6 +152,25 @@ class IncompatibleSlots(SlotBase1, SlotBase2):  # This should generate an error
     pass
 
 
+class MappingSlotBase:
+    __slots__ = {"value": "documentation"}
+
+
+class IncompatibleMappingSlots(MappingSlotBase, SlotBase1):  # This should generate an error
+    pass
+
+
+_extra_slots: dict[str, str] = {}
+
+
+class MixedMappingSlotBase:
+    __slots__ = {"value": "documentation", **_extra_slots}
+
+
+class IncompatibleMixedMappingSlots(MixedMappingSlotBase, SlotBase1):  # This should generate an error
+    pass
+
+
 @dataclass(slots=True)
 class SlottedDataClass:
     value: int
@@ -155,6 +187,20 @@ class EmptySlottedDataClass:
 
 class SlotAndEmptySlottedDataClass(SlotBase1, EmptySlottedDataClass):
     pass
+
+
+@dataclass(slots=True)
+class InitVarOnlySlottedDataClass:
+    value: InitVar[int]
+
+
+class SlotAndInitVarOnlySlottedDataClass(SlotBase1, InitVarOnlySlottedDataClass):
+    pass
+
+
+@dataclass(slots=True)
+class SlottedDataClassRedeclaresField(SlottedDataClass):
+    value: int
 
 
 class SlottedProtocol(Protocol):
