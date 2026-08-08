@@ -787,7 +787,9 @@ export function createTypeEvaluator(
     }
 
     function isTypeCached(node: ParseNode) {
-        const cacheEntry = readTypeCacheEntryForNode(node);
+        // This helper is used by runtime-evaluation guards. A contextual TypeForm
+        // entry does not prove that the ordinary runtime type was evaluated.
+        const cacheEntry = readTypeCacheEntry(node);
         if (!cacheEntry) {
             return false;
         }

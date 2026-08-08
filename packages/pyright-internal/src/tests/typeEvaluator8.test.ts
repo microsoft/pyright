@@ -1088,6 +1088,33 @@ test('TypeFormCache', () => {
     assert.strictEqual(cachedType, runtimeType);
 });
 
+test('TypeFormCacheDoesNotSkipRuntimeEvaluation', () => {
+    const code = `
+// @filename: test.py
+//// from typing_extensions import TypeForm
+//// def consume(value: TypeForm[int]): ...
+//// consume(/*marker*/int)
+    `;
+    const state = parseAndGetTestState(code).state;
+    const node = getNodeAtMarker(state);
+    assert.ok(node.nodeType === ParseNodeType.Name);
+
+    const type = state.program.evaluator!.getType(node);
+    assert.ok(type);
+    assert.ok(isClassInstance(type));
+    assert.ok(ClassType.isBuiltIn(type, 'TypeForm'));
+
+    assert.ok(node.parent?.nodeType === ParseNodeType.Argument);
+    const callNode = node.parent.parent;
+    assert.ok(callNode?.nodeType === ParseNodeType.Call);
+    state.program.evaluator!.getTypeOfExpression(callNode);
+
+    const cachedType = state.program.evaluator!.getCachedType(node);
+    assert.ok(cachedType);
+    assert.ok(isInstantiableClass(cachedType));
+    assert.ok(ClassType.isBuiltIn(cachedType, 'int'));
+});
+
 test('TypeFormExplicitCache', () => {
     const code = `
 // @filename: pyrightconfig.json
