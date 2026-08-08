@@ -822,6 +822,12 @@ test('Descriptor4', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Descriptor5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor5.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Partial1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial1.py']);
 
