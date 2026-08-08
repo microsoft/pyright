@@ -135,6 +135,23 @@ def test_callable_equivalence(
     )  # This should generate an error
 
 
+def test_nested_shape_parity(
+    enum_shape: tuple[list[Color], Callable[[Color], Color]],
+    literal_shape: tuple[
+        list[ColorLiterals], Callable[[ColorLiterals], ColorLiterals]
+    ],
+) -> None:
+    assignment1: tuple[
+        list[ColorLiterals], Callable[[ColorLiterals], ColorLiterals]
+    ] = enum_shape
+    assignment2: tuple[list[Color], Callable[[Color], Color]] = literal_shape
+    assert_type(
+        enum_shape,
+        tuple[list[ColorLiterals], Callable[[ColorLiterals], ColorLiterals]],
+    )
+    assert_type(literal_shape, tuple[list[Color], Callable[[Color], Color]])
+
+
 class Number(IntEnum):
     ONE = 1
     TWO = 2
@@ -226,6 +243,14 @@ def test_flag_narrowing(
         pass
     else:
         assert_type(indirect, IndirectFlags)
+
+
+def test_indirect_flag_match(value: IndirectFlags) -> int:  # This should generate an error
+    match value:
+        case IndirectFlags.FIRST:
+            return 1
+        case IndirectFlags.SECOND:
+            return 2
 
 
 direct_combination = DirectFlags.FIRST | DirectFlags.SECOND
@@ -402,6 +427,33 @@ def test_dynamic_assigned_alias(value: DynamicAssignedAlias) -> None:
     dynamic_literal: DynamicAssignedAliasLiteral = value  # This should generate an error
 
 
+class DynamicEval(Enum):
+    FIRST = 1
+    eval("locals().update({'SECOND': 2})")
+
+
+DynamicEvalLiteral = Literal[DynamicEval.FIRST]
+
+
+def test_dynamic_eval(value: DynamicEval) -> None:
+    dynamic_literal: DynamicEvalLiteral = value  # This should generate an error
+
+
+run_eval = eval
+
+
+class DynamicEvalAlias(Enum):
+    FIRST = 1
+    run_eval("locals().update({'SECOND': 2})")
+
+
+DynamicEvalAliasLiteral = Literal[DynamicEvalAlias.FIRST]
+
+
+def test_dynamic_eval_alias(value: DynamicEvalAlias) -> None:
+    dynamic_literal: DynamicEvalAliasLiteral = value  # This should generate an error
+
+
 class ShadowedLocals(Enum):
     FIRST = 1
     SECOND = 2
@@ -454,3 +506,38 @@ def test_custom_metaclass_exhaustiveness(value: CustomMetaEnum) -> int:
 def test_custom_metaclass_assignment_narrowing() -> None:
     value: CustomMetaEnum = CustomMetaEnum.FIRST
     reveal_type(value, expected_text="Literal[CustomMetaEnum.FIRST]")
+
+
+class MissingValueEnum(Enum):
+    FIRST = 1
+
+    @classmethod
+    def _missing_(cls, value: object) -> "MissingValueEnum":
+        return object.__new__(cls)
+
+
+MissingValueEnumLiteral = Literal[MissingValueEnum.FIRST]
+
+
+def test_missing_value_hook(value: MissingValueEnum) -> None:
+    literal_value: MissingValueEnumLiteral = value  # This should generate an error
+
+
+def install_missing_hook[T](cls: type[T]) -> type[T]:
+    def missing(cls: type[T], value: object) -> T:
+        return object.__new__(cls)
+
+    setattr(cls, "_missing_", classmethod(missing))
+    return cls
+
+
+@install_missing_hook
+class DecoratedEnum(Enum):
+    FIRST = 1
+
+
+DecoratedEnumLiteral = Literal[DecoratedEnum.FIRST]
+
+
+def test_decorated_enum(value: DecoratedEnum) -> None:
+    literal_value: DecoratedEnumLiteral = value  # This should generate an error

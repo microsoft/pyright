@@ -673,7 +673,7 @@ export const enum ClassTypeFlags {
 
     // The statically-known enum members may not represent the complete
     // runtime member set.
-    EnumMembersUnknown = 1 << 25,
+    EnumMemberSetMayBeIncomplete = 1 << 25,
 }
 
 export interface DataClassBehaviors {
@@ -1247,8 +1247,8 @@ export namespace ClassType {
         return !!(classType.shared.flags & ClassTypeFlags.EnumClass);
     }
 
-    export function areEnumMembersUnknown(classType: ClassType) {
-        return !!(classType.shared.flags & ClassTypeFlags.EnumMembersUnknown);
+    export function isEnumMemberSetMayBeIncomplete(classType: ClassType) {
+        return !!(classType.shared.flags & ClassTypeFlags.EnumMemberSetMayBeIncomplete);
     }
 
     export function isPropertyClass(classType: ClassType) {
@@ -2610,6 +2610,7 @@ export interface UnionDetailsPriv {
     literalClasses: LiteralTypes;
     typeAliasSources: Set<UnionType> | undefined;
     includesRecursiveTypeAlias: boolean;
+    // This cached value relies on all union construction adding subtypes through UnionType.addType.
     includesEnumLiteral: boolean;
 }
 

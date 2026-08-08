@@ -238,7 +238,11 @@ function getCalledBuiltInName(
 
 function doesCallExposeClassNamespace(scope: Scope, node: CallNode): boolean {
     const builtInName = getCalledBuiltInName(scope, node.d.leftExpr);
-    return builtInName === 'exec' || ((builtInName === 'locals' || builtInName === 'vars') && node.d.args.length === 0);
+    return (
+        builtInName === 'exec' ||
+        (builtInName === 'eval' && node.d.args.length === 1) ||
+        ((builtInName === 'locals' || builtInName === 'vars') && node.d.args.length === 0)
+    );
 }
 
 // For each flow node within an execution context, we'll add a small

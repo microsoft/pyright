@@ -9038,7 +9038,7 @@ export function createTypeEvaluator(
             if (
                 isClassInstance(subtype) &&
                 ClassType.isEnumClass(subtype) &&
-                !ClassType.areEnumMembersUnknown(subtype) &&
+                !ClassType.isEnumMemberSetMayBeIncomplete(subtype) &&
                 subtype.priv.literalValue === undefined &&
                 literalEnumClasses.some((enumClass) => ClassType.isSameGenericClass(enumClass, subtype))
             ) {
@@ -18542,14 +18542,19 @@ export function createTypeEvaluator(
 
             if (
                 ClassType.isEnumClass(classType) &&
-                (AnalyzerNodeInfo.getScope(node)?.hasPotentiallyDynamicSymbolTable ||
+                (node.d.decorators.length > 0 ||
+                    AnalyzerNodeInfo.getScope(node)?.hasPotentiallyDynamicSymbolTable ||
                     !isInstantiableClass(effectiveMetaclass) ||
                     !ClassType.isBuiltIn(effectiveMetaclass, ['EnumMeta', 'EnumType']) ||
                     classType.shared.mro.some(
-                        (mroClass) => isClass(mroClass) && ClassType.areEnumMembersUnknown(mroClass)
+                        (mroClass) =>
+                            isClass(mroClass) &&
+                            (ClassType.isEnumMemberSetMayBeIncomplete(mroClass) ||
+                                (!ClassType.isBuiltIn(mroClass, 'Enum') &&
+                                    ClassType.getSymbolTable(mroClass).has('_missing_')))
                     ))
             ) {
-                classType.shared.flags |= ClassTypeFlags.EnumMembersUnknown;
+                classType.shared.flags |= ClassTypeFlags.EnumMemberSetMayBeIncomplete;
             }
 
             // Clear the "partially constructed" flag.
