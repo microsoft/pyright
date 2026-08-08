@@ -760,6 +760,9 @@ export function createTypeEvaluator(
             ?.find((entry) => entryMatchesExpectedType(entry, expectedType));
     }
 
+    // Contextual reads consult expectedTypeCache and prefer a matching TypeForm result.
+    // Runtime-only consumers must use readTypeCacheEntry so this precedence is not
+    // accidentally applied where an ordinary runtime type is required.
     function readContextualTypeCacheEntryForNode(node: ParseNode) {
         const expectedType = expectedTypeCache.get(node.id)?.type;
         if (expectedType && expectedTypeWantsTypeForm(expectedType)) {
@@ -21731,7 +21734,7 @@ export function createTypeEvaluator(
                 }
 
                 case 'TypeAlias': {
-                    if ((flags & (EvalFlags.TypeFormArg | EvalFlags.NoConvertSpecialForm)) !== 0) {
+                    if ((flags & EvalFlags.TypeFormArg) !== 0) {
                         addDiagnostic(
                             DiagnosticRule.reportInvalidTypeForm,
                             LocMessage.typeAnnotationVariable(),

@@ -40,6 +40,9 @@ TA3: TypeAlias = Annotated[int, "meta"]
 TA4 = int | str
 type TA5[T] = int
 
+# TypeAlias is accepted as a nested type argument outside a TypeForm context.
+ordinary_type_alias: list[TypeAlias]
+
 
 def func1():
     t1: TypeForm[int | str] = int
