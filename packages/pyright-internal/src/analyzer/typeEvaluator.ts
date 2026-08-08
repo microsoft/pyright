@@ -760,7 +760,7 @@ export function createTypeEvaluator(
             ?.find((entry) => entryMatchesExpectedType(entry, expectedType));
     }
 
-    function readTypeCacheEntryForNode(node: ParseNode) {
+    function readContextualTypeCacheEntryForNode(node: ParseNode) {
         const expectedType = expectedTypeCache.get(node.id)?.type;
         if (expectedType && expectedTypeWantsTypeForm(expectedType)) {
             return (
@@ -770,7 +770,7 @@ export function createTypeEvaluator(
             );
         }
 
-        return readTypeFormTypeCacheEntry(node, /* expectedType */ undefined) ?? readTypeCacheEntry(node);
+        return readTypeCacheEntry(node) ?? readTypeFormTypeCacheEntry(node, /* expectedType */ undefined);
     }
 
     // Bumps the incomplete generation count using the same rules for both the
@@ -994,7 +994,7 @@ export function createTypeEvaluator(
     function getType(node: ExpressionNode): Type | undefined {
         initializePrefetchedTypes(node);
 
-        let type = evaluateTypeForSubnode(node, () => {
+        let type = evaluateContextualTypeForSubnode(node, () => {
             evaluateTypesForExpressionInContext(node);
         })?.type;
 
@@ -1046,13 +1046,13 @@ export function createTypeEvaluator(
     }
 
     function getTypeResult(node: ExpressionNode): TypeResult | undefined {
-        return evaluateTypeForSubnode(node, () => {
+        return evaluateContextualTypeForSubnode(node, () => {
             evaluateTypesForExpressionInContext(node);
         });
     }
 
     function getTypeResultForDecorator(node: DecoratorNode): TypeResult | undefined {
-        return evaluateTypeForSubnode(node, () => {
+        return evaluateContextualTypeForSubnode(node, () => {
             evaluateTypesForExpressionInContext(node.d.expr);
         });
     }
@@ -1061,7 +1061,7 @@ export function createTypeEvaluator(
     function getCachedType(node: ExpressionNode | DecoratorNode): Type | undefined {
         // Prefer the ordinary runtime type when both caches contain an entry for this node.
         // Fall back to the contextual cache so TypeForm-only evaluations remain discoverable.
-        const cacheEntry = readTypeCacheEntry(node) ?? readTypeCacheEntryForNode(node);
+        const cacheEntry = readTypeCacheEntry(node) ?? readContextualTypeCacheEntryForNode(node);
         if (!cacheEntry || cacheEntry.typeResult.isIncomplete) {
             return undefined;
         }
@@ -21474,9 +21474,21 @@ export function createTypeEvaluator(
     // within that tree. If the type cannot be determined (because it's part
     // of a cyclical dependency), the function returns undefined.
     function evaluateTypeForSubnode(subnode: ParseNode, callback: () => void): TypeResult | undefined {
+        return evaluateTypeForSubnodeWithCache(subnode, callback, readTypeCacheEntry);
+    }
+
+    function evaluateContextualTypeForSubnode(subnode: ParseNode, callback: () => void): TypeResult | undefined {
+        return evaluateTypeForSubnodeWithCache(subnode, callback, readContextualTypeCacheEntryForNode);
+    }
+
+    function evaluateTypeForSubnodeWithCache(
+        subnode: ParseNode,
+        callback: () => void,
+        readCacheEntry: (node: ParseNode) => TypeCacheEntry | undefined
+    ): TypeResult | undefined {
         // If the type cache is already populated with a complete type,
         // don't bother doing additional work.
-        let cacheEntry = readTypeCacheEntryForNode(subnode);
+        let cacheEntry = readCacheEntry(subnode);
         if (cacheEntry && !cacheEntry.typeResult.isIncomplete) {
             const typeResult = cacheEntry.typeResult;
 
@@ -21494,7 +21506,7 @@ export function createTypeEvaluator(
         }
 
         callback();
-        cacheEntry = readTypeCacheEntryForNode(subnode);
+        cacheEntry = readCacheEntry(subnode);
         if (cacheEntry) {
             return cacheEntry.typeResult;
         }

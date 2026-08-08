@@ -1084,6 +1084,11 @@ test('TypeFormCache', () => {
     assert.ok(isInstantiableClass(runtimeType));
     assert.ok(ClassType.isBuiltIn(runtimeType, 'int'));
 
+    const subnodeTypeResult = state.program.evaluator!.evaluateTypeForSubnode(node, () => {
+        assert.fail('Runtime type is already cached');
+    });
+    assert.strictEqual(subnodeTypeResult?.type, runtimeType);
+
     const cachedType = state.program.evaluator!.getCachedType(node);
     assert.strictEqual(cachedType, runtimeType);
 });
@@ -1138,6 +1143,15 @@ test('TypeFormExplicitCache', () => {
     assert.ok(typeArg);
     assert.ok(isClassInstance(typeArg));
     assert.ok(ClassType.isTypedDictClass(typeArg));
+
+    const runtimeTypeResult = state.program.evaluator!.getTypeOfExpression(node.parent);
+    assert.ok(isInstantiableClass(runtimeTypeResult.type));
+    assert.ok(ClassType.isTypedDictClass(runtimeTypeResult.type));
+
+    const subnodeTypeResult = state.program.evaluator!.evaluateTypeForSubnode(node.parent, () => {
+        assert.fail('Runtime type is already cached');
+    });
+    assert.strictEqual(subnodeTypeResult?.type, runtimeTypeResult.type);
 });
 
 test('TypeForm1', () => {
