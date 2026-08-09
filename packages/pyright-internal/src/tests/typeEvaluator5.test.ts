@@ -350,7 +350,7 @@ test('TypedDictReadOnly2', () => {
 
 test('TypedDictClosed1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed1.py']);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypedDictClosed2', () => {
