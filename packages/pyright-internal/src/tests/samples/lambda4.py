@@ -1,7 +1,7 @@
 # This sample tests the case where a lambda is assigned to
 # a union type that contains multiple callables.
 
-from typing import Callable, Protocol, TypeVar
+from typing import Callable, Generic, Protocol, Self, TypeVar
 
 
 U1 = Callable[[int, str], bool] | Callable[[str], bool]
@@ -76,3 +76,38 @@ U3 = Takes[Takes[int]] | Takes[Takes[str]]
 def accepts_u3(u: U3):
     # This should generate an error.
     u(lambda v: v.lower())
+
+
+class KeywordOnlyCallable:
+    def __call__(self, *, kwarg: int) -> Self: ...
+
+
+keyword_only_union: Callable[[KeywordOnlyCallable], KeywordOnlyCallable] | KeywordOnlyCallable = lambda x: x
+
+
+class GenericKeywordOnlyCallable(Generic[T]):
+    def __call__(self, *, kwarg: T) -> Self: ...
+
+
+generic_keyword_only_union: (
+    Callable[[GenericKeywordOnlyCallable[int]], GenericKeywordOnlyCallable[int]] | GenericKeywordOnlyCallable[int]
+) = lambda x: x
+
+
+class KeywordOnlyCallback(Protocol):
+    def __call__(self, *, value: int) -> Self: ...
+
+
+protocol_keyword_only_union: Callable[[KeywordOnlyCallback], KeywordOnlyCallback] | KeywordOnlyCallback = lambda x: x
+
+ordinary_callable_union: Callable[[int], int] | Callable[[str], str] = lambda x: x
+
+
+class PositionalCallable:
+    def __call__(self, value: int) -> Self: ...
+
+
+positional_callable_union: Callable[[PositionalCallable], PositionalCallable] | PositionalCallable = lambda x: x
+
+# This should generate an error.
+keyword_only_callback: KeywordOnlyCallback = lambda x: x

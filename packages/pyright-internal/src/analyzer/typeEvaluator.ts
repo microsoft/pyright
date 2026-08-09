@@ -15264,6 +15264,7 @@ export function createTypeEvaluator(
             // more sophisticated in the future, but it becomes very complex to handle
             // all of the permutations.
             let sawParamMismatch = false;
+            let sawLambdaArgsParam = false;
 
             node.d.params.forEach((param, index) => {
                 let paramType: Type | undefined;
@@ -15277,7 +15278,8 @@ export function createTypeEvaluator(
                         // from the expected parameter.
                         if (
                             expectedParam.param.category === param.d.category &&
-                            !param.d.name === !expectedParam.param.name
+                            !param.d.name === !expectedParam.param.name &&
+                            (expectedParam.kind !== ParamKind.Keyword || sawLambdaArgsParam)
                         ) {
                             paramType = expectedParam.type;
                         } else {
@@ -15348,6 +15350,10 @@ export function createTypeEvaluator(
                 );
 
                 FunctionType.addParam(functionType, functionParam);
+
+                if (param.d.category === ParamCategory.ArgsList) {
+                    sawLambdaArgsParam = true;
+                }
             });
 
             if (paramsArePositionOnly && functionType.shared.parameters.length > 0) {
