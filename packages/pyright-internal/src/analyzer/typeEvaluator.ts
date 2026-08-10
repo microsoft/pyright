@@ -14665,7 +14665,7 @@ export function createTypeEvaluator(
                             }
                         });
 
-                        if (tdEntries.extraItems) {
+                        if (!expectedTypedDictEntries && tdEntries.extraItems) {
                             keyTypes.push({ node: entryNode, type: ClassType.cloneAsInstance(strObject) });
                             valueTypes.push({
                                 node: entryNode,
