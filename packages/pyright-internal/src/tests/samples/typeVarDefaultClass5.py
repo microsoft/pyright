@@ -41,8 +41,8 @@ assert_type(Child[bool](), Child[bool])
 
 
 # A subclass can also retain a type parameter that has no default. In that
-# case the retained parameter specializes to Unknown, which is assignable to
-# any specialization, so neither of the assignments below should error.
+# case the class remains unspecialized, so neither assignment below should
+# generate an error.
 class ChildNoDefault(Parent[int, U]):
     pass
 
