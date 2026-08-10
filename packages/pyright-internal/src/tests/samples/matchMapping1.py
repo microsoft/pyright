@@ -150,5 +150,26 @@ def test_not_required_narrowing(subj: TD1) -> None:
             # This should generate an error.
             print(subj["v1"])
 
+
             print(subj["v2"])
             print(subj["v3"])
+
+
+class MsgA(TypedDict):
+    v: Literal[1]
+    kind: Literal["a"]
+    data_a: int
+
+
+class MsgB(TypedDict):
+    v: Literal[1]
+    kind: Literal["b"]
+    data_b: str
+
+
+def test_negative_narrowing3(msg: MsgA | MsgB) -> None:
+    match msg:
+        case {"v": 1, "kind": "a"}:
+            reveal_type(msg, expected_text="MsgA")
+        case _:
+            reveal_type(msg, expected_text="MsgB")
