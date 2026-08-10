@@ -137,21 +137,25 @@ class UnknownCondition(TypedDict):
 
 
 class InvalidControlFlow(TypedDict):
-    # Each statement should generate an error because arbitrary control flow is not allowed.
+    # This should generate an error because while statements are not allowed.
     while False:
         while_field: int
 
+    # This should generate an error because for statements are not allowed.
     for _ in ():
         for_field: int
 
+    # This should generate an error because try statements are not allowed.
     try:
         try_field: int
     except Exception:
         except_field: int
 
+    # This should generate an error because with statements are not allowed.
     with contextlib.nullcontext():
         with_field: int
 
+    # This should generate an error because match statements are not allowed.
     match 1:
         case 1:
             match_field: int
