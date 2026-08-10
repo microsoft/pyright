@@ -674,6 +674,10 @@ export const enum ClassTypeFlags {
     // The statically-known enum members may not represent the complete
     // runtime member set.
     EnumMemberSetMayBeIncomplete = 1 << 25,
+
+    // The enum class body can modify its namespace in a way that the binder
+    // cannot represent as statically-known member symbols.
+    EnumMemberSetMayBeDynamicallyModified = 1 << 26,
 }
 
 export interface DataClassBehaviors {
@@ -1249,6 +1253,10 @@ export namespace ClassType {
 
     export function isEnumMemberSetMayBeIncomplete(classType: ClassType) {
         return !!(classType.shared.flags & ClassTypeFlags.EnumMemberSetMayBeIncomplete);
+    }
+
+    export function isEnumMemberSetMayBeDynamicallyModified(classType: ClassType) {
+        return !!(classType.shared.flags & ClassTypeFlags.EnumMemberSetMayBeDynamicallyModified);
     }
 
     export function isPropertyClass(classType: ClassType) {

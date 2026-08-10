@@ -2770,9 +2770,12 @@ export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassTy
     }
 
     if (ClassType.isEnumClass(type)) {
-        // Enum expansion doesn't apply to enum classes that derive
-        // from enum.Flag.
-        if (type.shared.mro.some((mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'Flag'))) {
+        // Enum expansion doesn't apply if the member set cannot be statically
+        // enumerated or if the class derives from enum.Flag.
+        if (
+            ClassType.isEnumMemberSetMayBeDynamicallyModified(type) ||
+            type.shared.mro.some((mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'Flag'))
+        ) {
             return undefined;
         }
 

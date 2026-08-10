@@ -1118,6 +1118,12 @@ test('Enum15', () => {
     TestUtils.validateResults(analysisResults, 31);
 });
 
+test('Enum16', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum16.py']);
+
+    TestUtils.validateResults(analysisResults, 38);
+});
+
 test('EnumAuto1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumAuto1.py']);
 

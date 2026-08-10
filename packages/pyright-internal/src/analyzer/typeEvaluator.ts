@@ -18539,11 +18539,21 @@ export function createTypeEvaluator(
             }
 
             const effectiveMetaclass = computeEffectiveMetaclass(classType, node.d.name);
+            const enumMemberSetMayBeDynamicallyModified =
+                ClassType.isEnumClass(classType) &&
+                (AnalyzerNodeInfo.getScope(node)?.hasPotentiallyDynamicSymbolTable ||
+                    classType.shared.mro.some(
+                        (mroClass) => isClass(mroClass) && ClassType.isEnumMemberSetMayBeDynamicallyModified(mroClass)
+                    ));
+
+            if (enumMemberSetMayBeDynamicallyModified) {
+                classType.shared.flags |= ClassTypeFlags.EnumMemberSetMayBeDynamicallyModified;
+            }
 
             if (
                 ClassType.isEnumClass(classType) &&
                 (node.d.decorators.length > 0 ||
-                    AnalyzerNodeInfo.getScope(node)?.hasPotentiallyDynamicSymbolTable ||
+                    enumMemberSetMayBeDynamicallyModified ||
                     !isInstantiableClass(effectiveMetaclass) ||
                     !ClassType.isBuiltIn(effectiveMetaclass, ['EnumMeta', 'EnumType']) ||
                     classType.shared.mro.some(
