@@ -2325,12 +2325,14 @@ export class Parser {
         }
 
         if (this._consumeTokenIfOperator(OperatorType.Assign)) {
-            paramNode.d.defaultValue = this._parseTestExpression(/* allowAssignmentExpression */ false);
-            paramNode.d.defaultValue.parent = paramNode;
-            extendRange(paramNode, paramNode.d.defaultValue);
+            this._disallowAssignmentExpression(() => {
+                paramNode.d.defaultValue = this._parseTestExpression(/* allowAssignmentExpression */ false);
+            });
+            paramNode.d.defaultValue!.parent = paramNode;
+            extendRange(paramNode, paramNode.d.defaultValue!);
 
             if (starCount > 0) {
-                this._addSyntaxError(LocMessage.defaultValueNotAllowed(), paramNode.d.defaultValue);
+                this._addSyntaxError(LocMessage.defaultValueNotAllowed(), paramNode.d.defaultValue!);
             }
         }
 
