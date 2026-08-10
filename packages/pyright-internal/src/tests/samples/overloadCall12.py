@@ -4,7 +4,7 @@
 import re
 from collections.abc import Callable, Sequence
 from typing import Any, Generic, Literal, Never, ParamSpec, Protocol, TypeVar, overload
-from typing_extensions import deprecated
+from typing_extensions import deprecated  # pyright: ignore[reportMissingModuleSource]
 
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
