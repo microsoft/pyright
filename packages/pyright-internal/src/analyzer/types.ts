@@ -673,6 +673,14 @@ export const enum ClassTypeFlags {
     // This class is rejected when used as the second argument to
     // an isinstance or issubclass call.
     IllegalIsinstanceClass = 1 << 24,
+
+    // The statically-known enum members may not represent the complete
+    // runtime member set.
+    EnumMemberSetMayBeIncomplete = 1 << 25,
+
+    // The enum class body can modify its namespace in a way that the binder
+    // cannot represent as statically-known member symbols.
+    EnumMemberSetMayBeDynamicallyModified = 1 << 26,
 }
 
 export interface DataClassBehaviors {
@@ -1248,6 +1256,14 @@ export namespace ClassType {
 
     export function isEnumClass(classType: ClassType) {
         return !!(classType.shared.flags & ClassTypeFlags.EnumClass);
+    }
+
+    export function isEnumMemberSetMayBeIncomplete(classType: ClassType) {
+        return !!(classType.shared.flags & ClassTypeFlags.EnumMemberSetMayBeIncomplete);
+    }
+
+    export function isEnumMemberSetMayBeDynamicallyModified(classType: ClassType) {
+        return !!(classType.shared.flags & ClassTypeFlags.EnumMemberSetMayBeDynamicallyModified);
     }
 
     export function isPropertyClass(classType: ClassType) {
@@ -2653,6 +2669,8 @@ export interface UnionDetailsPriv {
     literalClasses: LiteralTypes;
     typeAliasSources: Set<UnionType> | undefined;
     includesRecursiveTypeAlias: boolean;
+    // This cached value relies on all union construction adding subtypes through UnionType.addType.
+    includesEnumLiteral: boolean;
 }
 
 export interface UnionType extends TypeBase<TypeCategory.Union> {
@@ -2681,6 +2699,7 @@ export namespace UnionType {
                 },
                 typeAliasSources: undefined,
                 includesRecursiveTypeAlias: false,
+                includesEnumLiteral: false,
             },
         };
 
@@ -2688,6 +2707,10 @@ export namespace UnionType {
     }
 
     export function addType(unionType: UnionType, newType: UnionableType) {
+        if (isClass(newType) && ClassType.isEnumClass(newType) && newType.priv.literalValue instanceof EnumLiteral) {
+            unionType.priv.includesEnumLiteral = true;
+        }
+
         // If we're adding a string, integer or enum literal, add it to the
         // corresponding literal map to speed up some operations. It's not
         // uncommon for unions to contain hundreds of literals.

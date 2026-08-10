@@ -8993,6 +8993,229 @@ export function createTypeEvaluator(
         return typeFormResult;
     }
 
+    function expandEnumTypeForLiteralComparison(
+        typeToExpand: Type,
+        comparisonType: Type,
+        concretizeTypeVars: boolean
+    ): Type {
+        // Assignment checks apply this at each recursive assignType call so existing
+        // variance and constraint handling remains intact. Keep this equivalence
+        // relation aligned with the recursive normalization used by assert_type below.
+        if (!containsTopLevelLiteralEnum(comparisonType)) {
+            return typeToExpand;
+        }
+
+        const literalEnumClasses = collectLiteralEnumClasses(comparisonType);
+        if (literalEnumClasses.length === 0) {
+            return typeToExpand;
+        }
+
+        // Concretize top-level TypeVars only to probe for a matching enum subtype.
+        // If no enum expansion actually occurs (for example, an unrelated source
+        // TypeVar whose bound is not one of the comparison's enum classes), preserve
+        // the original type rather than replacing the TypeVar with its bound. Doing so
+        // keeps unrelated invariant comparisons like `list[T]` vs `list[ColorLiterals]`
+        // unaffected.
+        const concreteType = concretizeTypeVars ? makeTopLevelTypeVarsConcrete(typeToExpand) : typeToExpand;
+        const expandedType = expandEnumTypeForLiteralClasses(concreteType, literalEnumClasses);
+        return expandedType === concreteType ? typeToExpand : expandedType;
+    }
+
+    function containsTopLevelLiteralEnum(type: Type): boolean {
+        if (isClassInstance(type) && ClassType.isEnumClass(type) && type.priv.literalValue instanceof EnumLiteral) {
+            return true;
+        }
+
+        if (!isUnion(type)) {
+            return false;
+        }
+
+        return type.priv.includesEnumLiteral;
+    }
+
+    function expandEnumTypeForLiteralClasses(typeToExpand: Type, literalEnumClasses: ClassType[]): Type {
+        if (literalEnumClasses.length === 0) {
+            return typeToExpand;
+        }
+
+        return mapSubtypes(typeToExpand, (subtype) => {
+            if (
+                isClassInstance(subtype) &&
+                ClassType.isEnumClass(subtype) &&
+                !ClassType.isEnumMemberSetMayBeIncomplete(subtype) &&
+                subtype.priv.literalValue === undefined &&
+                literalEnumClasses.some((enumClass) => ClassType.isSameGenericClass(enumClass, subtype))
+            ) {
+                const literalTypes = enumerateLiteralsForType(evaluatorInterface, subtype);
+                if (literalTypes && literalTypes.length > 0) {
+                    return combineTypes(literalTypes);
+                }
+            }
+
+            return subtype;
+        });
+    }
+
+    function collectLiteralEnumClasses(
+        type: Type,
+        literalEnumClasses: ClassType[] = [],
+        recursively = false,
+        recursionCount = 0
+    ): ClassType[] {
+        if (recursionCount > maxTypeRecursionCount) {
+            return literalEnumClasses;
+        }
+        recursionCount++;
+
+        if (recursively && isFunction(type)) {
+            type.shared.parameters.forEach((_, index) =>
+                collectLiteralEnumClasses(
+                    FunctionType.getParamType(type, index),
+                    literalEnumClasses,
+                    recursively,
+                    recursionCount
+                )
+            );
+
+            const returnType = FunctionType.getEffectiveReturnType(type);
+            if (returnType) {
+                collectLiteralEnumClasses(returnType, literalEnumClasses, recursively, recursionCount);
+            }
+        } else if (recursively && isOverloaded(type)) {
+            OverloadedType.getOverloads(type).forEach((overload) =>
+                collectLiteralEnumClasses(overload, literalEnumClasses, recursively, recursionCount)
+            );
+
+            const implementation = OverloadedType.getImplementation(type);
+            if (implementation) {
+                collectLiteralEnumClasses(implementation, literalEnumClasses, recursively, recursionCount);
+            }
+        }
+
+        doForEachSubtype(type, (subtype) => {
+            if (!isClass(subtype)) {
+                return;
+            }
+
+            if (
+                isClassInstance(subtype) &&
+                ClassType.isEnumClass(subtype) &&
+                subtype.priv.literalValue instanceof EnumLiteral &&
+                !literalEnumClasses.some((enumClass) => ClassType.isSameGenericClass(enumClass, subtype))
+            ) {
+                literalEnumClasses.push(subtype);
+            }
+
+            if (recursively && subtype.priv.typeArgs) {
+                if (subtype.priv.tupleTypeArgs) {
+                    subtype.priv.tupleTypeArgs.forEach((typeArg) =>
+                        collectLiteralEnumClasses(typeArg.type, literalEnumClasses, recursively, recursionCount)
+                    );
+                } else {
+                    subtype.priv.typeArgs.forEach((typeArg) =>
+                        collectLiteralEnumClasses(typeArg, literalEnumClasses, recursively, recursionCount)
+                    );
+                }
+            }
+        });
+
+        return literalEnumClasses;
+    }
+
+    function normalizeEnumTypes(typeToNormalize: Type, literalEnumClasses: ClassType[], recursionCount = 0): Type {
+        if (recursionCount > maxTypeRecursionCount) {
+            return typeToNormalize;
+        }
+        recursionCount++;
+
+        typeToNormalize = expandEnumTypeForLiteralClasses(typeToNormalize, literalEnumClasses);
+
+        if (isUnion(typeToNormalize)) {
+            return mapSubtypes(typeToNormalize, (subtype) =>
+                normalizeEnumTypes(subtype, literalEnumClasses, recursionCount)
+            );
+        }
+
+        if (isFunction(typeToNormalize)) {
+            let typeChanged = false;
+            const parameterTypes = typeToNormalize.shared.parameters.map((_, index) => {
+                const parameterType = FunctionType.getParamType(typeToNormalize, index);
+                const normalizedType = normalizeEnumTypes(parameterType, literalEnumClasses, recursionCount);
+                typeChanged ||= normalizedType !== parameterType;
+                return normalizedType;
+            });
+
+            const returnType = FunctionType.getEffectiveReturnType(typeToNormalize);
+            const normalizedReturnType = returnType
+                ? normalizeEnumTypes(returnType, literalEnumClasses, recursionCount)
+                : undefined;
+            typeChanged ||= normalizedReturnType !== returnType;
+
+            return typeChanged
+                ? FunctionType.specialize(typeToNormalize, {
+                      parameterTypes,
+                      parameterDefaultTypes: typeToNormalize.priv.specializedTypes?.parameterDefaultTypes,
+                      returnType: normalizedReturnType,
+                  })
+                : typeToNormalize;
+        }
+
+        if (isOverloaded(typeToNormalize)) {
+            let typeChanged = false;
+            const overloads = OverloadedType.getOverloads(typeToNormalize).map((overload) => {
+                const normalizedType = normalizeEnumTypes(overload, literalEnumClasses, recursionCount);
+                typeChanged ||= normalizedType !== overload;
+                return isFunction(normalizedType) ? normalizedType : overload;
+            });
+
+            const implementation = OverloadedType.getImplementation(typeToNormalize);
+            const normalizedImplementation = implementation
+                ? normalizeEnumTypes(implementation, literalEnumClasses, recursionCount)
+                : undefined;
+            typeChanged ||= normalizedImplementation !== implementation;
+
+            return typeChanged ? OverloadedType.create(overloads, normalizedImplementation) : typeToNormalize;
+        }
+
+        if (!isClass(typeToNormalize) || !typeToNormalize.priv.typeArgs) {
+            return typeToNormalize;
+        }
+
+        if (typeToNormalize.priv.tupleTypeArgs) {
+            let typeChanged = false;
+            const tupleTypeArgs = typeToNormalize.priv.tupleTypeArgs.map((typeArg) => {
+                const normalizedType = normalizeEnumTypes(typeArg.type, literalEnumClasses, recursionCount);
+                if (normalizedType !== typeArg.type) {
+                    typeChanged = true;
+                }
+
+                return { ...typeArg, type: normalizedType };
+            });
+
+            return typeChanged
+                ? specializeTupleClass(
+                      typeToNormalize,
+                      tupleTypeArgs,
+                      !!typeToNormalize.priv.isTypeArgExplicit,
+                      !!typeToNormalize.priv.isUnpacked
+                  )
+                : typeToNormalize;
+        }
+
+        let typeChanged = false;
+        const typeArgs = typeToNormalize.priv.typeArgs.map((typeArg) => {
+            const normalizedType = normalizeEnumTypes(typeArg, literalEnumClasses, recursionCount);
+            if (normalizedType !== typeArg) {
+                typeChanged = true;
+            }
+            return normalizedType;
+        });
+
+        return typeChanged
+            ? ClassType.specialize(typeToNormalize, typeArgs, typeToNormalize.priv.isTypeArgExplicit)
+            : typeToNormalize;
+    }
+
     function getTypeOfAssertType(node: CallNode, inferenceContext: InferenceContext | undefined): TypeResult {
         if (
             node.d.args.length !== 2 ||
@@ -9021,13 +9244,25 @@ export function createTypeEvaluator(
         // what mypy does -- and what various library authors expect.
         const arg0Type = stripTypeGuard(arg0TypeResult.type);
 
-        if (
-            !isTypeSame(assertedType, arg0Type, {
-                treatAnySameAsUnknown: true,
-                ignorePseudoGeneric: true,
-                ignoreConditions: true,
-            })
-        ) {
+        const typeSameOptions = {
+            treatAnySameAsUnknown: true,
+            ignorePseudoGeneric: true,
+            ignoreConditions: true,
+        };
+        let typesMatch = isTypeSame(assertedType, arg0Type, typeSameOptions);
+
+        if (!typesMatch) {
+            // Unlike assignType, assert_type requires exact structural identity, so
+            // normalize both types recursively. Keep this equivalence relation aligned
+            // with expandEnumTypeForLiteralComparison, which assignType applies as it recurses.
+            const literalEnumClasses = collectLiteralEnumClasses(assertedType, [], /* recursively */ true);
+            collectLiteralEnumClasses(arg0Type, literalEnumClasses, /* recursively */ true);
+            const normalizedAssertedType = normalizeEnumTypes(assertedType, literalEnumClasses);
+            const normalizedArg0Type = normalizeEnumTypes(arg0Type, literalEnumClasses);
+            typesMatch = isTypeSame(normalizedAssertedType, normalizedArg0Type, typeSameOptions);
+        }
+
+        if (!typesMatch) {
             const srcDestTypes = printSrcDestTypes(arg0TypeResult.type, assertedType, { expandTypeAlias: true });
 
             addDiagnostic(
@@ -18309,6 +18544,33 @@ export function createTypeEvaluator(
             }
 
             const effectiveMetaclass = computeEffectiveMetaclass(classType, node.d.name);
+            const enumMemberSetMayBeDynamicallyModified =
+                ClassType.isEnumClass(classType) &&
+                (AnalyzerNodeInfo.getScope(node)?.hasPotentiallyDynamicSymbolTable ||
+                    classType.shared.mro.some(
+                        (mroClass) => isClass(mroClass) && ClassType.isEnumMemberSetMayBeDynamicallyModified(mroClass)
+                    ));
+
+            if (enumMemberSetMayBeDynamicallyModified) {
+                classType.shared.flags |= ClassTypeFlags.EnumMemberSetMayBeDynamicallyModified;
+            }
+
+            if (
+                ClassType.isEnumClass(classType) &&
+                (node.d.decorators.length > 0 ||
+                    enumMemberSetMayBeDynamicallyModified ||
+                    !isInstantiableClass(effectiveMetaclass) ||
+                    !ClassType.isBuiltIn(effectiveMetaclass, ['EnumMeta', 'EnumType']) ||
+                    classType.shared.mro.some(
+                        (mroClass) =>
+                            isClass(mroClass) &&
+                            (ClassType.isEnumMemberSetMayBeIncomplete(mroClass) ||
+                                (!ClassType.isBuiltIn(mroClass, 'Enum') &&
+                                    ClassType.getSymbolTable(mroClass).has('_missing_')))
+                    ))
+            ) {
+                classType.shared.flags |= ClassTypeFlags.EnumMemberSetMayBeIncomplete;
+            }
 
             // Clear the "partially constructed" flag.
             classType.shared.flags &= ~ClassTypeFlags.PartiallyEvaluated;
@@ -25194,6 +25456,12 @@ export function createTypeEvaluator(
             return true;
         }
 
+        const isInvariant = (flags & AssignTypeFlags.Invariant) !== 0;
+        srcType = expandEnumTypeForLiteralComparison(srcType, destType, /* concretizeTypeVars */ !isInvariant);
+        if (isInvariant) {
+            destType = expandEnumTypeForLiteralComparison(destType, srcType, /* concretizeTypeVars */ false);
+        }
+
         if (isUnion(destType)) {
             // If both the source and dest are unions, use assignFromUnionType which has
             // special-case logic to handle this case.
@@ -27663,6 +27931,19 @@ export function createTypeEvaluator(
                 // Retain unknowns for code flow analysis convergence and for
                 // unknown type reporting in strict mode.
                 if (isUnknown(assignedSubtype)) {
+                    return assignedSubtype;
+                }
+
+                // Preserve assignment narrowing when an enum literal is assigned
+                // to its non-literal enum class. A single-member enum is equivalent
+                // to its only literal, but the assigned value is still more precise.
+                if (
+                    isClassInstance(assignedSubtype) &&
+                    assignedSubtype.priv.literalValue instanceof EnumLiteral &&
+                    isClassInstance(declaredSubtype) &&
+                    declaredSubtype.priv.literalValue === undefined &&
+                    ClassType.isSameGenericClass(assignedSubtype, declaredSubtype)
+                ) {
                     return assignedSubtype;
                 }
 
