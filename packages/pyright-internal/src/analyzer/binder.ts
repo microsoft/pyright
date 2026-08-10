@@ -164,6 +164,87 @@ interface NarrowExprOptions {
     allowDiscriminatedNarrowing?: boolean;
 }
 
+function isStaticClassAssignmentTarget(target: ExpressionNode): boolean {
+    switch (target.nodeType) {
+        case ParseNodeType.Name:
+            return true;
+
+        case ParseNodeType.TypeAnnotation:
+            return isStaticClassAssignmentTarget(target.d.valueExpr);
+
+        case ParseNodeType.Tuple:
+        case ParseNodeType.List:
+            return target.d.items.every((item) => isStaticClassAssignmentTarget(item));
+
+        case ParseNodeType.Unpack:
+            return isStaticClassAssignmentTarget(target.d.expr);
+
+        default:
+            return false;
+    }
+}
+
+function getCalledBuiltInName(
+    scope: Scope,
+    expression: ExpressionNode,
+    visitedSymbols = new Set<Symbol>()
+): string | undefined {
+    if (expression.nodeType === ParseNodeType.Name) {
+        const symbolWithScope = scope.lookUpSymbolRecursive(expression.d.value);
+        if (!symbolWithScope || visitedSymbols.has(symbolWithScope.symbol)) {
+            return undefined;
+        }
+        visitedSymbols.add(symbolWithScope.symbol);
+
+        if (symbolWithScope.scope.type === ScopeType.Builtin) {
+            return expression.d.value;
+        }
+
+        const declarations = symbolWithScope.symbol.getDeclarations();
+        const declaration = declarations[declarations.length - 1];
+        if (
+            declaration?.type === DeclarationType.Variable &&
+            (declaration.inferredTypeSource?.nodeType === ParseNodeType.Name ||
+                declaration.inferredTypeSource?.nodeType === ParseNodeType.MemberAccess)
+        ) {
+            return getCalledBuiltInName(scope, declaration.inferredTypeSource, visitedSymbols);
+        }
+
+        if (
+            declaration?.type === DeclarationType.Alias &&
+            declaration.moduleName === 'builtins' &&
+            declaration.symbolName
+        ) {
+            return declaration.symbolName;
+        }
+    } else if (
+        expression.nodeType === ParseNodeType.MemberAccess &&
+        expression.d.leftExpr.nodeType === ParseNodeType.Name
+    ) {
+        const symbolWithScope = scope.lookUpSymbolRecursive(expression.d.leftExpr.d.value);
+        const declarations = symbolWithScope?.symbol.getDeclarations() ?? [];
+        const declaration = declarations[declarations.length - 1];
+        if (
+            declaration?.type === DeclarationType.Alias &&
+            declaration.moduleName === 'builtins' &&
+            !declaration.symbolName
+        ) {
+            return expression.d.member.d.value;
+        }
+    }
+
+    return undefined;
+}
+
+function doesCallExposeClassNamespace(scope: Scope, node: CallNode): boolean {
+    const builtInName = getCalledBuiltInName(scope, node.d.leftExpr);
+    return (
+        builtInName === 'exec' ||
+        (builtInName === 'eval' && node.d.args.length === 1) ||
+        ((builtInName === 'locals' || builtInName === 'vars') && node.d.args.length === 0)
+    );
+}
+
 // For each flow node within an execution context, we'll add a small
 // amount to the complexity factor. Without this, the complexity
 // calculation fails to take into account large numbers of non-cyclical
@@ -749,6 +830,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitCall(node: CallNode): boolean {
+        if (this._currentScope.type === ScopeType.Class && doesCallExposeClassNamespace(this._currentScope, node)) {
+            this._currentScope.hasPotentiallyDynamicSymbolTable = true;
+        }
+
         this._disableTrueFalseTargets(() => {
             this.walk(node.d.leftExpr);
 
@@ -3725,6 +3810,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _bindPossibleTupleNamedTarget(target: ExpressionNode, addedSymbols?: Map<string, Symbol>) {
+        if (this._currentScope.type === ScopeType.Class && !isStaticClassAssignmentTarget(target)) {
+            this._currentScope.hasPotentiallyDynamicSymbolTable = true;
+        }
+
         switch (target.nodeType) {
             case ParseNodeType.Name: {
                 this._bindNameToScope(this._currentScope, target, addedSymbols);
