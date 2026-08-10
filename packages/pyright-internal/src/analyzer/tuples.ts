@@ -550,11 +550,11 @@ export function getSlicedTupleType(
     const startValue = getTupleSliceParam(evaluator, sliceNode.d.startValue, 0, tupleTypeArgs);
     const endValue = getTupleSliceParam(evaluator, sliceNode.d.endValue, tupleTypeArgs.length, tupleTypeArgs);
 
-    if (startValue === undefined || endValue === undefined || endValue < startValue) {
+    if (startValue === undefined || endValue === undefined) {
         return undefined;
     }
 
-    const slicedTypeArgs = tupleTypeArgs.slice(startValue, endValue);
+    const slicedTypeArgs = startValue < endValue ? tupleTypeArgs.slice(startValue, endValue) : [];
     return ClassType.cloneAsInstance(specializeTupleClass(tupleType, slicedTypeArgs));
 }
 
