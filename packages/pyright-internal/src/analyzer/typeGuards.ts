@@ -1246,27 +1246,27 @@ export function getIsInstanceClassTypes(
 
                 if (isInstantiableClass(subtype) && ClassType.isBuiltIn(subtype, 'Callable')) {
                     subtype = convertToInstantiable(getUnknownTypeForCallable());
-                } else if (TypeBase.isInstance(subtype)) {
-                    if (
-                        ClassType.isBuiltIn(subtype, 'type') &&
-                        subtype.priv.typeArgs &&
-                        isAnyOrUnknown(subtype.priv.typeArgs[0])
-                    ) {
-                        foundNonClassType = true;
-                        return;
+                } else if (TypeBase.isInstance(subtype) && ClassType.isBuiltIn(subtype, 'type')) {
+                    if (subtype.priv.typeArgs && subtype.priv.typeArgs.length > 0) {
+                        const typeArg = subtype.priv.typeArgs[0];
+                        if (isAnyOrUnknown(typeArg)) {
+                            foundNonClassType = true;
+                            return;
+                        }
+                        if (isInstantiableClass(typeArg)) {
+                            subtype = typeArg;
+                        } else if (isClass(typeArg) && TypeBase.isInstance(typeArg)) {
+                            subtype = convertToInstantiable(typeArg);
+                        }
                     }
-                    subtype = convertToInstantiable(subtype);
                 }
             }
 
             if (isInstantiableClass(subtype)) {
-                if (subtype.priv.includeSubclasses) {
-                    subtype = ClassType.cloneIncludeSubclasses(subtype, /* includeSubclasses */ false);
-                }
                 // If this is a reference to a class that has type promotions (e.g.
                 // float or complex), remove the promotions for purposes of the
                 // isinstance check).
-                if (subtype.priv.includePromotions) {
+                if (!subtype.priv.includeSubclasses && subtype.priv.includePromotions) {
                     subtype = ClassType.cloneRemoveTypePromotions(subtype);
                 }
                 classTypeList.push(subtype);
@@ -1553,8 +1553,12 @@ function narrowTypeForInstance(
                 // note this case specially so we don't do any narrowing, which
                 // will generate false positives.
                 if (filterIsSuperclass) {
-                    if (!isTypeIsCheck && concreteFilterType.priv.includeSubclasses) {
-                        // If the filter type includes subclasses, we can't eliminate
+                    if (
+                        !isTypeIsCheck &&
+                        concreteFilterType.priv.includeSubclasses &&
+                        !ClassType.isFinal(concreteFilterType)
+                    ) {
+                        // If the filter type includes subclasses and is not final, we can't eliminate
                         // this type in the negative direction. We'll relax this for
                         // TypeIs checks.
                         isClassRelationshipIndeterminate = true;
