@@ -1618,7 +1618,7 @@ export function getTypedDictClassFromMethod(
     type: FunctionType | OverloadedType
 ): { classType: ClassType; methodName: string; isBound: boolean } | undefined {
     const overload = isOverloaded(type) ? OverloadedType.getOverloads(type)[0] : type;
-    if (!overload) {
+    if (!overload || !FunctionType.isSynthesizedMethod(overload)) {
         return undefined;
     }
 
@@ -1650,11 +1650,31 @@ export function applyTypedDictMethodTransform(
     methodName: string,
     isBound: boolean
 ): CallResult | undefined {
+    // Validate argument counts and shape:
+    // Bound call: 1 or 2 positional args. Unbound call: 2 or 3 positional args.
+    const minArgs = isBound ? 1 : 2;
+    const maxArgs = isBound ? 2 : 3;
+    if (argList.length < minArgs || argList.length > maxArgs) {
+        return undefined;
+    }
+
+    // Require all arguments to be simple positional (no keyword names, no *args/**kwargs)
+    if (!argList.every((arg) => !arg.name && arg.argCategory === ArgCategory.Simple)) {
+        return undefined;
+    }
+
     const keyIndex = isBound ? 0 : 1;
     const defaultIndex = isBound ? 1 : 2;
 
-    if (argList.length <= keyIndex) {
-        return undefined;
+    // Validate receiver type for unbound method calls
+    if (!isBound) {
+        const selfArg = argList[0];
+        const selfNode = selfArg.valueExpression ?? errorNode;
+        const selfType = (selfArg.typeResult ?? evaluator.getTypeOfExpression(selfNode)).type;
+        const expectedSelfType = ClassType.cloneAsInstance(typedDictClass);
+        if (!evaluator.assignType(expectedSelfType, selfType)) {
+            return undefined;
+        }
     }
 
     const keyArg = argList[keyIndex];
