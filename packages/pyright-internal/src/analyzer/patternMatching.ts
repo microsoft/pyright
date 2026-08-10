@@ -513,8 +513,7 @@ function narrowTypeBasedOnMappingPattern(
             } else if (
                 valuePattern.nodeType === ParseNodeType.PatternAs &&
                 valuePattern.d.orPatterns.length === 1 &&
-                (valuePattern.d.orPatterns[0].nodeType === ParseNodeType.PatternCapture ||
-                    valuePattern.d.orPatterns[0].nodeType === ParseNodeType.PatternValue)
+                valuePattern.d.orPatterns[0].nodeType === ParseNodeType.PatternCapture
             ) {
                 valueTypes = undefined;
             } else {
