@@ -95,6 +95,11 @@ test('OverloadCall11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('OverloadCall12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall12.py']);
+    TestUtils.validateResults(analysisResults, 5, 0, undefined, undefined, undefined, 1);
+});
+
 test('OverloadOverride1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverride1.py']);
     TestUtils.validateResults(analysisResults, 1);

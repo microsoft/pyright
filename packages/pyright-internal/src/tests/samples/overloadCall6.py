@@ -263,7 +263,7 @@ def overload5_deprecated(x: Any) -> int:
 
 
 def func6_deprecated(x: list[Any]):
-    overload5_deprecated(x)
+    reveal_type(overload5_deprecated(x), expected_text="int")
 
 
 @overload
@@ -284,7 +284,7 @@ def overload5_deprecated_union(x: Any) -> int:
 
 
 def func6_deprecated_union(x: int | list[Any]):
-    overload5_deprecated_union(x)
+    reveal_type(overload5_deprecated_union(x), expected_text="int")
 
 
 class ClassWithOverloadedInit(Generic[_T]):
