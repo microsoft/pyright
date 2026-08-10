@@ -808,6 +808,15 @@ test('TypedDict27', () => {
     TestUtils.validateResults(analysisResults, 7);
 });
 
+test('TypedDict28', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.strictDictionaryInference = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict28.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypedDictInline1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
