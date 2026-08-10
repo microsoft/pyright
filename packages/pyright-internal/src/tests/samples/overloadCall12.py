@@ -154,7 +154,10 @@ class Table(Generic[_T]):
     @overload
     def __init__(self: "Table[str]", values: list[str]) -> None: ...
 
-    def __init__(self, values: list[Any]) -> None:
+    @overload
+    def __init__(self: "Table[bytes]", values: bytes) -> None: ...
+
+    def __init__(self, values: list[Any] | bytes) -> None:
         pass
 
 
@@ -166,6 +169,11 @@ def check_constructors(values_any: list[Any], values_unknown: list, values_int: 
 
     # This should generate an error.
     Table[int](["bad"])
+
+
+def check_constructor_union(values_any: list[Any] | bytes, values_unknown: list | bytes) -> None:
+    reveal_type(Table(values_any), expected_text="Any")
+    reveal_type(Table(values_unknown), expected_text="Unknown")
 
 
 @overload

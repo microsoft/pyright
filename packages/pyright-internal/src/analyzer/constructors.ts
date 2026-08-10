@@ -511,6 +511,10 @@ function validateInitMethod(
     );
 
     let adjustedClassType = type;
+
+    // Overload evaluation keeps the ordinary __init__ return as a placeholder
+    // and carries argument-dependent constructed types through this separate field,
+    // including when union-expanded argument lists are combined.
     if (
         callResult.specializedInitSelfType &&
         isClassInstance(callResult.specializedInitSelfType) &&

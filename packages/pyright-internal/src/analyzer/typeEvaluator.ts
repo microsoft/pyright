@@ -9740,6 +9740,11 @@ export function createTypeEvaluator(
                     }
 
                     if (isInitSelfMaterializationAmbiguity) {
+                        // Overloaded __init__ methods normally return None. Preserve that
+                        // ordinary return as a placeholder while union-expanded calls are
+                        // combined, and carry the effective constructed types separately.
+                        // validateInitMethod consumes specializedInitSelfType to reconstruct
+                        // the constructor result after call validation is complete.
                         specializedInitSelfTypes.push(returnType);
                         returnTypes.push(possibleMatchResults[0].returnType);
                     } else {
