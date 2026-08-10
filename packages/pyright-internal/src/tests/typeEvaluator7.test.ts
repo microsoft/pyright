@@ -1232,9 +1232,19 @@ test('TypedDict29', () => {
 
 test('TypedDict31', () => {
     const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.strictDictionaryInference = true;
+    configOptions.defaultPythonVersion = pythonVersion3_13;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict31.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypedDict32', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.strictDictionaryInference = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict32.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 0);
 });
