@@ -790,6 +790,24 @@ test('TypedDict25', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypedDict26', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict26.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TypedDict27', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict27.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 7);
+});
+
 test('TypedDictInline1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;

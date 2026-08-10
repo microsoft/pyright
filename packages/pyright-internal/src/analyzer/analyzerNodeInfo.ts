@@ -15,6 +15,7 @@ import {
     ComprehensionNode,
     ExecutionScopeNode,
     FunctionNode,
+    IfNode,
     LambdaNode,
     ModuleNode,
     ParseNode,
@@ -68,6 +69,9 @@ export interface AnalyzerNodeInfo {
     // flow graph.
     codeFlowComplexity?: number;
 
+    // Statically evaluated value of an if statement's condition.
+    staticConditionValue?: boolean;
+
     // List of __all__ symbols in the module.
     dunderAllInfo?: DunderAllInfo | undefined;
 }
@@ -104,6 +108,10 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
 
     if (info?.codeFlowComplexity) {
         info.codeFlowComplexity = undefined;
+    }
+
+    if (info?.staticConditionValue !== undefined) {
+        info.staticConditionValue = undefined;
     }
 
     if (info?.dunderAllInfo) {
@@ -192,6 +200,16 @@ export function getCodeFlowComplexity(node: ExecutionScopeNode) {
 export function setCodeFlowComplexity(node: ExecutionScopeNode, complexity: number) {
     const info = getAnalyzerInfoForWrite(node);
     info.codeFlowComplexity = complexity;
+}
+
+export function getStaticConditionValue(node: IfNode): boolean | undefined {
+    const info = getAnalyzerInfo(node);
+    return info?.staticConditionValue;
+}
+
+export function setStaticConditionValue(node: IfNode, value: boolean | undefined) {
+    const info = getAnalyzerInfoForWrite(node);
+    info.staticConditionValue = value;
 }
 
 export function getDunderAllInfo(node: ModuleNode): DunderAllInfo | undefined {
