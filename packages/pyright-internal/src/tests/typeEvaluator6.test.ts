@@ -67,7 +67,11 @@ test('OverloadCall5', () => {
 
 test('OverloadCall6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall6.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 2, 0, undefined, undefined, undefined, 1);
+    assert.deepStrictEqual(analysisResults[0].deprecateds[0].range, {
+        start: { line: 286, character: 16 },
+        end: { line: 286, character: 42 },
+    });
 });
 
 test('OverloadCall7', () => {
@@ -88,6 +92,16 @@ test('OverloadCall9', () => {
 test('OverloadCall10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall10.py']);
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('OverloadCall11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall11.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('OverloadCall12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall12.py']);
+    TestUtils.validateResults(analysisResults, 5, 0, undefined, undefined, undefined, 1);
 });
 
 test('OverloadOverride1', () => {

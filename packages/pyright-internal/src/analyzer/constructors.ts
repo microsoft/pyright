@@ -511,6 +511,10 @@ function validateInitMethod(
     );
 
     let adjustedClassType = type;
+
+    // Overload evaluation keeps the ordinary __init__ return as a placeholder
+    // and carries argument-dependent constructed types through this separate field,
+    // including when union-expanded argument lists are combined.
     if (
         callResult.specializedInitSelfType &&
         isClassInstance(callResult.specializedInitSelfType) &&
@@ -519,12 +523,17 @@ function validateInitMethod(
         adjustedClassType = ClassType.cloneAsInstantiable(callResult.specializedInitSelfType);
     }
 
-    const returnType = applyExpectedTypeForConstructor(
-        evaluator,
-        adjustedClassType,
-        /* inferenceContext */ undefined,
-        constraints
-    );
+    const returnType =
+        callResult.specializedInitSelfType &&
+        !type.priv.isTypeArgExplicit &&
+        (isAny(callResult.specializedInitSelfType) || isUnknown(callResult.specializedInitSelfType))
+            ? callResult.specializedInitSelfType
+            : applyExpectedTypeForConstructor(
+                  evaluator,
+                  adjustedClassType,
+                  /* inferenceContext */ undefined,
+                  constraints
+              );
 
     if (callResult.isTypeIncomplete) {
         isTypeIncomplete = true;

@@ -448,6 +448,7 @@ interface MatchedOverloadInfo {
     constraints: ConstraintTracker;
     argResults: ArgResult[];
     returnType: Type;
+    specializedInitSelfType?: Type;
 }
 
 interface ValidateArgTypeOptions {
@@ -9775,13 +9776,15 @@ export function createTypeEvaluator(
         inferenceContext: InferenceContext | undefined
     ): CallResult {
         const returnTypes: Type[] = [];
+        const specializedInitSelfTypes: Type[] = [];
         let matchedOverloads: MatchedOverloadInfo[] = [];
         let isTypeIncomplete = false;
-        let overloadsUsedForCall: FunctionType[] = [];
+        const overloadsUsedForCall: FunctionType[] = [];
         let isDefinitiveMatchFound = false;
         const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
+            const overloadsUsedStartIndex = overloadsUsedForCall.length;
             let matchedOverload: FunctionType | undefined;
             const argTypeOverride = expandedArgTypes[expandedTypesIndex];
             const hasArgTypeOverride = argTypeOverride.some((a) => a !== undefined);
@@ -9834,10 +9837,15 @@ export function createTypeEvaluator(
                         constraints: effectiveConstraints,
                         returnType: callResult.returnType,
                         argResults: callResult.argResults ?? [],
+                        specializedInitSelfType: callResult.specializedInitSelfType,
                     };
                     matchedOverloads.push(matchedOverloadInfo);
 
-                    if (callResult.anyOrUnknownArg || matchResults.unpackedArgOfUnknownLength) {
+                    if (
+                        callResult.anyOrUnknownArg ||
+                        matchResults.unpackedArgOfUnknownLength ||
+                        possibleMatchResults.length > 0
+                    ) {
                         possibleMatchResults.push(matchedOverloadInfo);
 
                         if (callResult.anyOrUnknownArg) {
@@ -9862,21 +9870,61 @@ export function createTypeEvaluator(
                 possibleMatchResults = filterOverloadMatchesForUnpackedArgs(possibleMatchResults);
                 possibleMatchResults = filterOverloadMatchesForAnyArgs(possibleMatchResults);
 
+                // Keep diagnostic bookkeeping aligned with the candidates that remain possible.
+                // This applies to both top-level gradual arguments and nested materialization,
+                // so deprecation diagnostics are reported only for retained overloads.
+                overloadsUsedForCall.splice(
+                    overloadsUsedStartIndex,
+                    overloadsUsedForCall.length - overloadsUsedStartIndex,
+                    ...possibleMatchResults.map((result) => result.overload)
+                );
+
                 // Did the filtering produce a single result? If so, we're done.
                 if (possibleMatchResults.length === 1) {
-                    overloadsUsedForCall = [possibleMatchResults[0].overload];
                     returnTypes.push(possibleMatchResults[0].returnType);
                     matchedOverloads = [possibleMatchResults[0]];
                 } else {
+                    const firstArgParamPairs = getOverloadArgParamPairs(possibleMatchResults[0]);
+                    let ambiguousMatchIncludesNestedAny = false;
+                    let ambiguousMatchIncludesNestedUnknown = false;
+                    let ambiguousMatchIncludesTopLevelAnyOrUnknown = false;
+
+                    firstArgParamPairs.forEach((pair, index) => {
+                        const paramTypes = possibleMatchResults.map((match) => {
+                            const argParamPairs = getOverloadArgParamPairs(match);
+                            return index < argParamPairs.length ? argParamPairs[index].paramType : UnknownType.create();
+                        });
+
+                        if (!areTypesSame(paramTypes, { treatAnySameAsUnknown: true })) {
+                            if (isAnyOrUnknown(pair.argType)) {
+                                ambiguousMatchIncludesTopLevelAnyOrUnknown = true;
+                            } else {
+                                const anyOrUnknown = getAnyOrUnknownInInvariantPosition(pair.argType);
+                                if (anyOrUnknown && isAny(anyOrUnknown)) {
+                                    ambiguousMatchIncludesNestedAny = true;
+                                } else if (anyOrUnknown && isUnknown(anyOrUnknown)) {
+                                    ambiguousMatchIncludesNestedUnknown = true;
+                                }
+                            }
+                        }
+                    });
+
                     // Eliminate any return types that are subsumed by other return types.
                     let dedupedMatchResults: Type[] = [];
                     let dedupedResultsIncludeAny = false;
 
+                    const isInitSelfMaterializationAmbiguity =
+                        (ambiguousMatchIncludesNestedAny || ambiguousMatchIncludesNestedUnknown) &&
+                        possibleMatchResults.some((result) => !!result.specializedInitSelfType);
+
                     possibleMatchResults.forEach((result) => {
+                        const resultType = isInitSelfMaterializationAmbiguity
+                            ? getEffectiveOverloadReturnType(result)
+                            : result.returnType;
                         let isSubtypeSubsumed = false;
 
                         for (let dedupedIndex = 0; dedupedIndex < dedupedMatchResults.length; dedupedIndex++) {
-                            if (assignType(dedupedMatchResults[dedupedIndex], result.returnType)) {
+                            if (assignType(dedupedMatchResults[dedupedIndex], resultType)) {
                                 const anyOrUnknown = containsAnyOrUnknown(
                                     dedupedMatchResults[dedupedIndex],
                                     /* recurse */ false
@@ -9887,8 +9935,8 @@ export function createTypeEvaluator(
                                     dedupedResultsIncludeAny = true;
                                 }
                                 break;
-                            } else if (assignType(result.returnType, dedupedMatchResults[dedupedIndex])) {
-                                const anyOrUnknown = containsAnyOrUnknown(result.returnType, /* recurse */ false);
+                            } else if (assignType(resultType, dedupedMatchResults[dedupedIndex])) {
+                                const anyOrUnknown = containsAnyOrUnknown(resultType, /* recurse */ false);
                                 if (!anyOrUnknown) {
                                     dedupedMatchResults[dedupedIndex] = NeverType.createNever();
                                 } else if (isAny(anyOrUnknown)) {
@@ -9899,7 +9947,7 @@ export function createTypeEvaluator(
                         }
 
                         if (!isSubtypeSubsumed) {
-                            dedupedMatchResults.push(result.returnType);
+                            dedupedMatchResults.push(resultType);
                         }
                     });
 
@@ -9907,7 +9955,14 @@ export function createTypeEvaluator(
                     const combinedTypes = combineTypes(dedupedMatchResults);
 
                     let returnType = combinedTypes;
-                    if (dedupedMatchResults.length > 1) {
+                    if (ambiguousMatchIncludesNestedUnknown) {
+                        returnType = UnknownType.createPossibleType(
+                            combinedTypes,
+                            possibleMatchInvolvesIncompleteUnknown
+                        );
+                    } else if (ambiguousMatchIncludesNestedAny && !ambiguousMatchIncludesTopLevelAnyOrUnknown) {
+                        returnType = AnyType.create();
+                    } else if (dedupedMatchResults.length > 1) {
                         // If one or more of the deduped types is Any or contains Any,
                         // we will assume that the person who defined the overload really
                         // wanted Any rather than Unknown. In cases where the deduped types
@@ -9923,7 +9978,17 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    returnTypes.push(returnType);
+                    if (isInitSelfMaterializationAmbiguity) {
+                        // Overloaded __init__ methods normally return None. Preserve that
+                        // ordinary return as a placeholder while union-expanded calls are
+                        // combined, and carry the effective constructed types separately.
+                        // validateInitMethod consumes specializedInitSelfType to reconstruct
+                        // the constructor result after call validation is complete.
+                        specializedInitSelfTypes.push(returnType);
+                        returnTypes.push(possibleMatchResults[0].returnType);
+                    } else {
+                        returnTypes.push(returnType);
+                    }
                 }
             }
 
@@ -9960,7 +10025,10 @@ export function createTypeEvaluator(
             anyOrUnknownArg: finalCallResult.anyOrUnknownArg,
             returnType: combineTypes(returnTypes),
             isTypeIncomplete,
-            specializedInitSelfType: finalCallResult.specializedInitSelfType,
+            specializedInitSelfType:
+                specializedInitSelfTypes.length > 0
+                    ? combineTypes(specializedInitSelfTypes)
+                    : finalCallResult.specializedInitSelfType,
             overloadsUsedForCall,
         };
     }
@@ -9982,6 +10050,322 @@ export function createTypeEvaluator(
         return unpackedArgsOverloads;
     }
 
+    // assignType cannot be used for this detection because it accepts Any and Unknown
+    // without exposing whether acceptance depends on a gradual invariant type argument.
+    function getAnyOrUnknownInInvariantPosition(type: Type, recursionCount = 0): AnyType | UnknownType | undefined {
+        if (recursionCount > maxTypeRecursionCount) {
+            return undefined;
+        }
+        recursionCount++;
+
+        let result: AnyType | UnknownType | undefined;
+        const addResult = (newResult: AnyType | UnknownType | undefined) => {
+            if (newResult) {
+                result = result ? preserveUnknown(result, newResult) : newResult;
+            }
+        };
+
+        if (isUnion(type)) {
+            doForEachSubtype(type, (subtype) => {
+                addResult(getAnyOrUnknownInInvariantPosition(subtype, recursionCount));
+            });
+            return result;
+        }
+
+        if (!isClass(type)) {
+            return undefined;
+        }
+
+        // Tuple entries are covariant, but they can contain an invariant type.
+        if (type.priv.tupleTypeArgs) {
+            type.priv.tupleTypeArgs.forEach((typeArg) => {
+                addResult(getAnyOrUnknownInInvariantPosition(typeArg.type, recursionCount));
+            });
+            return result;
+        }
+
+        if (!type.priv.typeArgs) {
+            return undefined;
+        }
+
+        inferVarianceForClass(type);
+        const typeParams = ClassType.getTypeParams(type);
+
+        type.priv.typeArgs.forEach((typeArg, index) => {
+            const typeParam = index < typeParams.length ? typeParams[index] : undefined;
+            const variance = typeParam ? TypeVarType.getVariance(typeParam) : Variance.Invariant;
+
+            if (variance === Variance.Invariant) {
+                addResult(containsAnyOrUnknown(typeArg, /* recurse */ true));
+            } else {
+                addResult(getAnyOrUnknownInInvariantPosition(typeArg, recursionCount));
+            }
+        });
+
+        return result;
+    }
+
+    function getEffectiveOverloadReturnType(match: MatchedOverloadInfo): Type {
+        return match.specializedInitSelfType ?? match.returnType;
+    }
+
+    function getOverloadArgParamPairs(match: MatchedOverloadInfo): { argType: Type; paramType: Type }[] {
+        const pairs: { argType: Type; paramType: Type }[] = [];
+
+        // argResults and argParams share validation order: supplied arguments in caller
+        // order, followed by synthesized defaults. Preserve that order so the same index
+        // across overloads represents the same supplied argument, even for keyword calls.
+        match.argResults.forEach((argResult, index) => {
+            const argParam =
+                index < match.matchResults.argParams.length ? match.matchResults.argParams[index] : undefined;
+            if (!argParam?.isDefaultArg) {
+                pairs.push({
+                    argType: argResult.argType,
+                    paramType: argParam?.paramType ?? UnknownType.create(),
+                });
+            }
+        });
+
+        if (match.overload.priv.boundToType && match.overload.priv.strippedFirstParamType) {
+            pairs.unshift({
+                argType: match.overload.priv.boundToType,
+                paramType: match.overload.priv.strippedFirstParamType,
+            });
+        }
+
+        return pairs;
+    }
+
+    // assignType tests one gradual source type, whereas overload step 5 asks whether
+    // every materialization of that source is covered. These helpers therefore use a
+    // conservative tri-state proof over supported nominal and tuple relationships:
+    // true means all materializations are covered, false identifies a counterexample,
+    // and undefined means coverage is unproven. New cases must preserve this invariant.
+    type MaterializationCoverage = boolean | undefined;
+
+    function combineMaterializationCoverage(results: MaterializationCoverage[]): MaterializationCoverage {
+        if (results.some((result) => result === false)) {
+            return false;
+        }
+
+        return results.some((result) => result === undefined) ? undefined : true;
+    }
+
+    function areAllMaterializationsEquivalent(
+        destType: Type,
+        srcType: Type,
+        recursionCount = 0
+    ): MaterializationCoverage {
+        if (recursionCount > maxTypeRecursionCount) {
+            return undefined;
+        }
+        recursionCount++;
+
+        if (!containsAnyOrUnknown(srcType, /* recurse */ true)) {
+            return isTypeSame(destType, srcType, { treatAnySameAsUnknown: true });
+        }
+
+        if (isAnyOrUnknown(destType)) {
+            return true;
+        }
+
+        if (isTypeSame(destType, srcType, { treatAnySameAsUnknown: true })) {
+            return true;
+        }
+
+        if (
+            isTypeVar(destType) ||
+            isUnion(destType) ||
+            isFunction(destType) ||
+            isOverloaded(destType) ||
+            (isClass(destType) && ClassType.isProtocolClass(destType))
+        ) {
+            return undefined;
+        }
+
+        if (isAnyOrUnknown(srcType)) {
+            return false;
+        }
+
+        if (isUnion(srcType) || isUnion(destType) || isFunction(srcType) || isFunction(destType)) {
+            return undefined;
+        }
+
+        if (!isClass(destType) || !isClass(srcType)) {
+            return false;
+        }
+
+        if (!ClassType.isSameGenericClass(destType, srcType)) {
+            return false;
+        }
+
+        if (destType.priv.tupleTypeArgs || srcType.priv.tupleTypeArgs) {
+            const destTupleTypeArgs = destType.priv.tupleTypeArgs;
+            const srcTupleTypeArgs = srcType.priv.tupleTypeArgs;
+            if (
+                !destTupleTypeArgs ||
+                !srcTupleTypeArgs ||
+                destTupleTypeArgs.length !== srcTupleTypeArgs.length ||
+                destTupleTypeArgs.some(
+                    (destTypeArg, index) => destTypeArg.isUnbounded !== srcTupleTypeArgs[index].isUnbounded
+                )
+            ) {
+                return false;
+            }
+
+            return combineMaterializationCoverage(
+                srcTupleTypeArgs.map((srcTypeArg, index) =>
+                    areAllMaterializationsEquivalent(destTupleTypeArgs[index].type, srcTypeArg.type, recursionCount)
+                )
+            );
+        }
+
+        const destTypeArgs = destType.priv.typeArgs;
+        const srcTypeArgs = srcType.priv.typeArgs;
+        if (!destTypeArgs || !srcTypeArgs || destTypeArgs.length !== srcTypeArgs.length) {
+            return false;
+        }
+
+        return combineMaterializationCoverage(
+            srcTypeArgs.map((srcTypeArg, index) =>
+                areAllMaterializationsEquivalent(destTypeArgs[index], srcTypeArg, recursionCount)
+            )
+        );
+    }
+
+    function areAllMaterializationsAssignable(
+        destType: Type,
+        srcType: Type,
+        recursionCount = 0
+    ): MaterializationCoverage {
+        if (recursionCount > maxTypeRecursionCount) {
+            return undefined;
+        }
+        recursionCount++;
+
+        if (!containsAnyOrUnknown(srcType, /* recurse */ true)) {
+            return assignType(destType, srcType);
+        }
+
+        if (isAnyOrUnknown(destType)) {
+            return true;
+        }
+
+        if (isTypeSame(destType, srcType, { treatAnySameAsUnknown: true })) {
+            return true;
+        }
+
+        if (
+            isTypeVar(destType) ||
+            isUnion(destType) ||
+            isFunction(destType) ||
+            isOverloaded(destType) ||
+            (isClass(destType) && ClassType.isProtocolClass(destType))
+        ) {
+            return undefined;
+        }
+
+        if (isAnyOrUnknown(srcType)) {
+            return assignType(destType, getObjectType());
+        }
+
+        if (
+            isUnion(srcType) ||
+            isUnion(destType) ||
+            isFunction(srcType) ||
+            isFunction(destType) ||
+            isOverloaded(srcType) ||
+            isOverloaded(destType)
+        ) {
+            return undefined;
+        }
+
+        if (!isClass(destType) || !isClass(srcType)) {
+            return false;
+        }
+
+        if (isTupleClass(destType) && isTupleClass(srcType)) {
+            const destTupleTypeArgs = destType.priv.tupleTypeArgs;
+            const srcTupleTypeArgs = srcType.priv.tupleTypeArgs;
+            if (!destTupleTypeArgs || !srcTupleTypeArgs) {
+                return undefined;
+            }
+
+            if (destTupleTypeArgs.length === 1 && destTupleTypeArgs[0].isUnbounded) {
+                return combineMaterializationCoverage(
+                    srcTupleTypeArgs.map((srcTypeArg) =>
+                        areAllMaterializationsAssignable(destTupleTypeArgs[0].type, srcTypeArg.type, recursionCount)
+                    )
+                );
+            }
+
+            if (
+                destTupleTypeArgs.length !== srcTupleTypeArgs.length ||
+                destTupleTypeArgs.some(
+                    (destTypeArg, index) => destTypeArg.isUnbounded !== srcTupleTypeArgs[index].isUnbounded
+                )
+            ) {
+                return false;
+            }
+
+            return combineMaterializationCoverage(
+                srcTupleTypeArgs.map((srcTypeArg, index) =>
+                    areAllMaterializationsAssignable(destTupleTypeArgs[index].type, srcTypeArg.type, recursionCount)
+                )
+            );
+        }
+
+        let specializedSrcType: ClassType | undefined;
+        if (ClassType.isSameGenericClass(destType, srcType)) {
+            specializedSrcType = srcType;
+        } else {
+            const instantiableDestType = isClassInstance(destType) ? ClassType.cloneAsInstantiable(destType) : destType;
+            const baseClass = srcType.shared.mro.find(
+                (mroClass) => isClass(mroClass) && ClassType.isSameGenericClass(instantiableDestType, mroClass)
+            );
+            if (baseClass && isClass(baseClass)) {
+                specializedSrcType = specializeForBaseClass(srcType, baseClass);
+            }
+        }
+
+        if (!specializedSrcType) {
+            return ClassType.isBuiltIn(destType, 'object') ? true : undefined;
+        }
+
+        const typeParams = ClassType.getTypeParams(destType);
+        if (typeParams.length === 0) {
+            return true;
+        }
+
+        const destTypeArgs = destType.priv.typeArgs;
+        const srcTypeArgs = specializedSrcType.priv.typeArgs;
+        if (!destTypeArgs) {
+            return true;
+        }
+        if (!srcTypeArgs) {
+            return false;
+        }
+
+        inferVarianceForClass(destType);
+        return combineMaterializationCoverage(
+            srcTypeArgs.map((srcTypeArg, index) => {
+                const destTypeArg = index < destTypeArgs.length ? destTypeArgs[index] : UnknownType.create();
+                const typeParam = index < typeParams.length ? typeParams[index] : undefined;
+                const variance = typeParam ? TypeVarType.getVariance(typeParam) : Variance.Invariant;
+
+                if (variance === Variance.Covariant) {
+                    return areAllMaterializationsAssignable(destTypeArg, srcTypeArg, recursionCount);
+                }
+
+                if (variance === Variance.Invariant) {
+                    return areAllMaterializationsEquivalent(destTypeArg, srcTypeArg, recursionCount);
+                }
+
+                return undefined;
+            })
+        );
+    }
+
     // Determines whether multiple incompatible overloads match
     // due to an Any or Unknown argument type.
     function filterOverloadMatchesForAnyArgs(matches: MatchedOverloadInfo[]): MatchedOverloadInfo[] {
@@ -9989,31 +10373,90 @@ export function createTypeEvaluator(
             return matches;
         }
 
-        // If all of the return types match, select the first one.
+        let firstArgParamPairs = getOverloadArgParamPairs(matches[0]);
+        const hasInvariantAnyOrUnknownArg = firstArgParamPairs.some((pair) =>
+            getAnyOrUnknownInInvariantPosition(pair.argType)
+        );
+
+        // If all of the effective return types match, select the first one.
         if (
             areTypesSame(
-                matches.map((match) => match.returnType),
+                matches.map((match) =>
+                    hasInvariantAnyOrUnknownArg ? getEffectiveOverloadReturnType(match) : match.returnType
+                ),
                 { treatAnySameAsUnknown: true }
             )
         ) {
             return [matches[0]];
         }
 
-        const firstArgResults = matches[0].argResults;
-        if (!firstArgResults) {
-            return matches;
+        // Apply overload step 5 to arguments that contain a gradual type in an
+        // invariant position. An overload that covers all materializations
+        // eliminates only the overloads that follow it.
+        if (hasInvariantAnyOrUnknownArg) {
+            let materializationCheckSupported = true;
+            for (let matchIndex = 0; matchIndex < matches.length; matchIndex++) {
+                const argParamPairs = getOverloadArgParamPairs(matches[matchIndex]);
+                const coverage =
+                    argParamPairs.length === firstArgParamPairs.length
+                        ? combineMaterializationCoverage(
+                              argParamPairs.map((pair, index) => {
+                                  const argType = firstArgParamPairs[index].argType;
+                                  return areAllMaterializationsAssignable(pair.paramType, argType);
+                              })
+                          )
+                        : false;
+
+                if (coverage === undefined) {
+                    materializationCheckSupported = false;
+                    break;
+                }
+
+                if (coverage) {
+                    matches = matches.slice(0, matchIndex + 1);
+                    break;
+                }
+            }
+
+            if (materializationCheckSupported) {
+                if (matches.length < 2) {
+                    return matches;
+                }
+
+                if (
+                    areTypesSame(
+                        matches.map((match) => getEffectiveOverloadReturnType(match)),
+                        { treatAnySameAsUnknown: true }
+                    )
+                ) {
+                    return [matches[0]];
+                }
+
+                firstArgParamPairs = getOverloadArgParamPairs(matches[0]);
+                for (let i = 0; i < firstArgParamPairs.length; i++) {
+                    if (getAnyOrUnknownInInvariantPosition(firstArgParamPairs[i].argType)) {
+                        const paramTypes = matches.map((match) => {
+                            const argParamPairs = getOverloadArgParamPairs(match);
+                            return i < argParamPairs.length ? argParamPairs[i].paramType : UnknownType.create();
+                        });
+
+                        if (!areTypesSame(paramTypes, { treatAnySameAsUnknown: true })) {
+                            return matches;
+                        }
+                    }
+                }
+            }
         }
 
         let foundAmbiguousAnyArg = false;
-        for (let i = 0; i < firstArgResults.length; i++) {
+        for (let i = 0; i < firstArgParamPairs.length; i++) {
             // If the arg is Any or Unknown, see if the corresponding
             // parameter types differ in any way.
-            if (isAnyOrUnknown(firstArgResults[i].argType)) {
-                const paramTypes = matches.map((match) =>
-                    i < match.matchResults.argParams.length
-                        ? match.matchResults.argParams[i].paramType
-                        : UnknownType.create()
-                );
+            if (isAnyOrUnknown(firstArgParamPairs[i].argType)) {
+                const paramTypes = matches.map((match) => {
+                    const argParamPairs = getOverloadArgParamPairs(match);
+                    return i < argParamPairs.length ? argParamPairs[i].paramType : UnknownType.create();
+                });
                 if (!areTypesSame(paramTypes, { treatAnySameAsUnknown: true })) {
                     foundAmbiguousAnyArg = true;
                 }
@@ -10025,7 +10468,10 @@ export function createTypeEvaluator(
         // that one of the arguments is an unpacked iterator, and it maps to
         // an indeterminate number of parameters, which means that the overload
         // selection is ambiguous.
-        if (foundAmbiguousAnyArg || matches.some((match) => match.argResults.length !== firstArgResults.length)) {
+        if (
+            foundAmbiguousAnyArg ||
+            matches.some((match) => getOverloadArgParamPairs(match).length !== firstArgParamPairs.length)
+        ) {
             return matches;
         }
 
@@ -12531,7 +12977,9 @@ export function createTypeEvaluator(
         let argumentErrors = false;
         let argumentMatchScore = 0;
         let specializedInitSelfType: Type | undefined;
-        let anyOrUnknownArg: UnknownType | AnyType | undefined;
+        let anyOrUnknownArg = type.priv.boundToType
+            ? getAnyOrUnknownInInvariantPosition(type.priv.boundToType)
+            : undefined;
         const speculativeNode = getSpeculativeNodeForCall(errorNode);
         const typeCondition = getTypeCondition(type);
         const paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
@@ -12665,10 +13113,11 @@ export function createTypeEvaluator(
                 condition = TypeCondition.combine(condition, argResult.condition) ?? [];
             }
 
-            if (isAnyOrUnknown(argResult.argType)) {
-                anyOrUnknownArg = anyOrUnknownArg
-                    ? preserveUnknown(argResult.argType, anyOrUnknownArg)
-                    : argResult.argType;
+            const argAnyOrUnknown = isAnyOrUnknown(argResult.argType)
+                ? argResult.argType
+                : getAnyOrUnknownInInvariantPosition(argResult.argType);
+            if (argAnyOrUnknown && !argParam.isDefaultArg) {
+                anyOrUnknownArg = anyOrUnknownArg ? preserveUnknown(argAnyOrUnknown, anyOrUnknownArg) : argAnyOrUnknown;
             }
 
             if (paramSpec) {
