@@ -65,3 +65,11 @@ def test_keyword_and_extra_args(p: Person, k: Literal["name", "age"]):
     # Keyword arguments or extra arguments fall back to standard overload validation.
     p.get(k, default=0)
     p.get(k, 0, 1)
+
+def test_setdefault_missing_default(p: Person, k: Literal["name", "age"]):
+    # setdefault requires default argument; missing default falls back to normal validation and errors.
+    p.setdefault(k)
+
+def test_union_with_non_string_subtype(p: Person, k: Literal["name"] | int):
+    # Union containing non-string subtype falls back to normal validation and errors on int.
+    p.get(k)

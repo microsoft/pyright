@@ -53,6 +53,7 @@ import {
     isClass,
     isClassInstance,
     isInstantiableClass,
+    isMethodType,
     isNever,
     isOverloaded,
     isUnion,
@@ -1627,10 +1628,10 @@ export function getTypedDictClassFromMethod(
         return undefined;
     }
 
-    let isBound = false;
-    let boundType = overload.priv.strippedFirstParamType;
-    if (boundType) {
-        isBound = true;
+    const isBound = isMethodType(overload);
+    let boundType: Type | undefined;
+    if (isBound) {
+        boundType = overload.priv.strippedFirstParamType;
     } else if (overload.shared?.parameters && overload.shared.parameters.length > 0) {
         boundType = FunctionType.getParamType(overload, 0);
     }
@@ -1651,8 +1652,9 @@ export function applyTypedDictMethodTransform(
     isBound: boolean
 ): CallResult | undefined {
     // Validate argument counts and shape:
-    // Bound call: 1 or 2 positional args. Unbound call: 2 or 3 positional args.
-    const minArgs = isBound ? 1 : 2;
+    // Bound call: 1 or 2 positional args for get/pop, 2 for setdefault.
+    // Unbound call: 2 or 3 positional args for get/pop, 3 for setdefault.
+    const minArgs = isBound ? (methodName === 'setdefault' ? 2 : 1) : methodName === 'setdefault' ? 3 : 2;
     const maxArgs = isBound ? 2 : 3;
     if (argList.length < minArgs || argList.length > maxArgs) {
         return undefined;
@@ -1686,7 +1688,33 @@ export function applyTypedDictMethodTransform(
         return undefined;
     }
 
+    // Verify all key subtypes are valid string types. If any subtype is not assignable to str,
+    // fall back to standard overload validation so argument type errors are reported.
+    const strType = evaluator.getBuiltInObject(errorNode, 'str');
+    let hasInvalidKeySubtype = false;
+    mapSubtypes(keyType, (keySubtype) => {
+        if (isAnyOrUnknown(keySubtype)) {
+            return keySubtype;
+        }
+        if (!evaluator.assignType(strType, keySubtype)) {
+            hasInvalidKeySubtype = true;
+        }
+        return keySubtype;
+    });
+
+    if (hasInvalidKeySubtype) {
+        return undefined;
+    }
+
+    let isTypeIncomplete = !!keyTypeResult.isIncomplete;
     const defaultArg = argList.length > defaultIndex ? argList[defaultIndex] : undefined;
+    if (defaultArg?.typeResult?.isIncomplete) {
+        isTypeIncomplete = true;
+    }
+    if (!isBound && argList[0].typeResult?.isIncomplete) {
+        isTypeIncomplete = true;
+    }
+
     const defaultNode = defaultArg?.valueExpression ?? errorNode;
     const defaultType = defaultArg
         ? (defaultArg.typeResult ?? evaluator.getTypeOfExpression(defaultNode)).type
@@ -1819,6 +1847,7 @@ export function applyTypedDictMethodTransform(
     return {
         returnType,
         argumentErrors,
+        isTypeIncomplete,
     };
 }
 

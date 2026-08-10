@@ -811,7 +811,7 @@ test('TypedDict27', () => {
 test('TypedDict28', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict28.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypedDictInline1', () => {
