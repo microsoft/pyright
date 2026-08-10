@@ -9630,6 +9630,10 @@ export function createTypeEvaluator(
             if (!isDefinitiveMatchFound && possibleMatchResults.length > 0) {
                 possibleMatchResults = filterOverloadMatchesForUnpackedArgs(possibleMatchResults);
                 possibleMatchResults = filterOverloadMatchesForAnyArgs(possibleMatchResults);
+
+                // Keep diagnostic bookkeeping aligned with the candidates that remain possible.
+                // This applies to both top-level gradual arguments and nested materialization,
+                // so deprecation diagnostics are reported only for retained overloads.
                 overloadsUsedForCall.splice(
                     overloadsUsedStartIndex,
                     overloadsUsedForCall.length - overloadsUsedStartIndex,
@@ -9802,6 +9806,8 @@ export function createTypeEvaluator(
         return unpackedArgsOverloads;
     }
 
+    // assignType cannot be used for this detection because it accepts Any and Unknown
+    // without exposing whether acceptance depends on a gradual invariant type argument.
     function getAnyOrUnknownInInvariantPosition(type: Type, recursionCount = 0): AnyType | UnknownType | undefined {
         if (recursionCount > maxTypeRecursionCount) {
             return undefined;
@@ -9861,6 +9867,10 @@ export function createTypeEvaluator(
 
     function getOverloadArgParamPairs(match: MatchedOverloadInfo): { argType: Type; paramType: Type }[] {
         const pairs: { argType: Type; paramType: Type }[] = [];
+
+        // argResults and argParams share validation order: supplied arguments in caller
+        // order, followed by synthesized defaults. Preserve that order so the same index
+        // across overloads represents the same supplied argument, even for keyword calls.
         match.argResults.forEach((argResult, index) => {
             const argParam =
                 index < match.matchResults.argParams.length ? match.matchResults.argParams[index] : undefined;
@@ -9882,6 +9892,11 @@ export function createTypeEvaluator(
         return pairs;
     }
 
+    // assignType tests one gradual source type, whereas overload step 5 asks whether
+    // every materialization of that source is covered. These helpers therefore use a
+    // conservative tri-state proof over supported nominal and tuple relationships:
+    // true means all materializations are covered, false identifies a counterexample,
+    // and undefined means coverage is unproven. New cases must preserve this invariant.
     type MaterializationCoverage = boolean | undefined;
 
     function combineMaterializationCoverage(results: MaterializationCoverage[]): MaterializationCoverage {
@@ -10007,9 +10022,6 @@ export function createTypeEvaluator(
         }
 
         if (isAnyOrUnknown(srcType)) {
-            if (isTypeVar(destType)) {
-                return false;
-            }
             return assignType(destType, getObjectType());
         }
 

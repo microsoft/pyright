@@ -272,6 +272,24 @@ def check_defaults_and_context() -> None:
     reveal_type(contextual_case([], True), expected_text="str")
 
 
+@overload
+def keyword_default_case(value: list[int], *, scale: int = 0, name: str) -> int: ...
+
+
+@overload
+def keyword_default_case(value: list[str], *, name: str, scale: int = 0) -> str: ...
+
+
+def keyword_default_case(value: list[Any], *, name: str, scale: int = 0) -> int | str:
+    return scale
+
+
+def check_keyword_default(values_any: list[Any], values_unknown: list) -> None:
+    reveal_type(keyword_default_case(name="value", value=values_any), expected_text="Any")
+    reveal_type(keyword_default_case(name="value", value=values_unknown), expected_text="Unknown")
+    reveal_type(keyword_default_case(name="value", value=values_any, scale=1), expected_text="Any")
+
+
 _TBound = TypeVar("_TBound", bound=int)
 _TConstrained = TypeVar("_TConstrained", int, str)
 
