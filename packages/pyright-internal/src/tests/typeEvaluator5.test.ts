@@ -259,6 +259,16 @@ test('TypeVarDefaultClass4', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeVarDefaultClass5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass5.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TypeVarDefaultClass6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass6.py']);
+    TestUtils.validateResults(analysisResults, 8);
+});
+
 test('TypeVarDefaultTypeAlias1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultTypeAlias1.py']);
     TestUtils.validateResults(analysisResults, 0);

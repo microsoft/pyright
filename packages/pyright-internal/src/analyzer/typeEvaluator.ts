@@ -25041,6 +25041,34 @@ export function createTypeEvaluator(
             }
         }
 
+        // A class value normally remains unspecialized so it can be subscripted.
+        // If every type parameter has an explicit default, apply those defaults
+        // when comparing it against a type specialization. Classes with defaultless
+        // parameters or defaults that resolve directly to Any or Unknown retain
+        // their unspecialized behavior, so they don't degrade inference.
+        if (
+            TypeBase.isInstantiable(srcType) &&
+            srcType.props?.typeForm &&
+            !srcType.priv.typeArgs &&
+            !srcType.priv.includeSubclasses &&
+            srcType.shared.typeParams.length > 0 &&
+            srcType.shared.typeParams.every((typeParam) => typeParam.shared.isDefaultExplicit)
+        ) {
+            const specializedSrcType = specializeWithDefaultTypeArgs(srcType);
+            const specializedTypeArgs =
+                specializedSrcType.priv.typeArgs ??
+                specializedSrcType.priv.tupleTypeArgs?.map((tupleTypeArg) => tupleTypeArg.type);
+            const hasGradualTypeArg = specializedTypeArgs?.some(
+                (typeArg) =>
+                    !!containsAnyOrUnknown(typeArg, /* recurse */ false) ||
+                    (isFunction(typeArg) && FunctionType.isGradualCallableForm(typeArg)) ||
+                    (isUnpackedClass(typeArg) && !!containsAnyOrUnknown(typeArg, /* recurse */ true))
+            );
+            if (hasGradualTypeArg === false) {
+                srcType = specializedSrcType;
+            }
+        }
+
         // Is it a structural type (i.e. a protocol)? If so, we need to
         // perform a member-by-member check.
         const inheritanceChain: InheritanceChain = [];
