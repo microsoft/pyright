@@ -1071,3 +1071,13 @@ test('Decorator7', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('DisjointBase1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase1.py']);
+    TestUtils.validateResults(analysisResults, 15);
+});
+
+test('DisjointBase2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase2.py']);
+    TestUtils.validateResults(analysisResults, 11);
+});

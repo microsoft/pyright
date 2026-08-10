@@ -432,6 +432,11 @@ export namespace Localizer {
         export const dictInAnnotation = () => getRawString('Diagnostic.dictInAnnotation');
         export const dictKeyValuePairs = () => getRawString('Diagnostic.dictKeyValuePairs');
         export const dictUnpackIsNotMapping = () => getRawString('Diagnostic.dictUnpackIsNotMapping');
+        export const disjointBaseFunction = () => getRawString('Diagnostic.disjointBaseFunction');
+        export const disjointBaseIncompatible = () =>
+            new ParameterizedString<{ bases: string }>(getRawString('Diagnostic.disjointBaseIncompatible'));
+        export const disjointBaseProtocol = () => getRawString('Diagnostic.disjointBaseProtocol');
+        export const disjointBaseTypedDict = () => getRawString('Diagnostic.disjointBaseTypedDict');
         export const delTargetExpr = () => getRawString('Diagnostic.delTargetExpr');
         export const dunderAllSymbolNotPresent = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.dunderAllSymbolNotPresent'));

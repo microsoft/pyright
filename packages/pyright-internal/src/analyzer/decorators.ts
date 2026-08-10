@@ -9,6 +9,8 @@
  */
 
 import { appendArray } from '../common/collectionUtils';
+import { DiagnosticRule } from '../common/diagnosticRules';
+import { LocMessage } from '../localization/localize';
 import { ArgCategory, CallNode, DecoratorNode, FunctionNode, ParamCategory, ParseNodeType } from '../parser/parseNodes';
 import { getDeclaration, getFileInfo } from './analyzerNodeInfo';
 import {
@@ -142,6 +144,15 @@ export function applyFunctionDecorator(
 
     const decoratorTypeResult = evaluator.getTypeOfExpression(decoratorNode.d.expr, evaluatorFlags);
     const decoratorType = decoratorTypeResult.type;
+
+    if (isFunction(decoratorType) && FunctionType.isBuiltIn(decoratorType, 'disjoint_base')) {
+        evaluator.addDiagnostic(
+            DiagnosticRule.reportGeneralTypeIssues,
+            LocMessage.disjointBaseFunction(),
+            decoratorNode.d.expr
+        );
+        return inputFunctionType;
+    }
 
     // Special-case the "overload" because it has no definition. Older versions of typeshed
     // defined "overload" as an object, but newer versions define it as a function.
@@ -363,6 +374,26 @@ export function applyClassDecorator(
             return inputClassType;
         }
     } else if (isFunction(decoratorType)) {
+        if (FunctionType.isBuiltIn(decoratorType, 'disjoint_base')) {
+            if (ClassType.isTypedDictClass(originalClassType)) {
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.disjointBaseTypedDict(),
+                    decoratorNode.d.expr
+                );
+            } else if (ClassType.isProtocolClass(originalClassType)) {
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.disjointBaseProtocol(),
+                    decoratorNode.d.expr
+                );
+            } else {
+                originalClassType.shared.flags |= ClassTypeFlags.DisjointBase;
+            }
+
+            return inputClassType;
+        }
+
         if (FunctionType.isBuiltIn(decoratorType, 'final')) {
             originalClassType.shared.flags |= ClassTypeFlags.Final;
 

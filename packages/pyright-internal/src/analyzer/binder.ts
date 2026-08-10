@@ -1192,9 +1192,26 @@ export class Binder extends ParseTreeWalker {
                             isExpressionUnderstood = false;
                         }
                     });
+                } else if (expr.nodeType === ParseNodeType.Dictionary) {
+                    expr.d.items.forEach((dictionaryEntryNode) => {
+                        if (
+                            dictionaryEntryNode.nodeType === ParseNodeType.DictionaryKeyEntry &&
+                            dictionaryEntryNode.d.keyExpr.nodeType === ParseNodeType.StringList &&
+                            dictionaryEntryNode.d.keyExpr.d.strings.length === 1 &&
+                            dictionaryEntryNode.d.keyExpr.d.strings[0].nodeType === ParseNodeType.String
+                        ) {
+                            this._dunderSlotsEntries!.push(dictionaryEntryNode.d.keyExpr);
+                        } else {
+                            isExpressionUnderstood = false;
+                        }
+                    });
                 } else {
                     isExpressionUnderstood = false;
                 }
+
+                this._currentScope.setHasNonEmptySlots(
+                    this._dunderSlotsEntries.some((entry) => entry.d.strings[0].d.value !== '__dict__')
+                );
 
                 if (!isExpressionUnderstood) {
                     this._dunderSlotsEntries = undefined;
@@ -1996,7 +2013,7 @@ export class Binder extends ParseTreeWalker {
 
     override visitImportFrom(node: ImportFromNode): boolean {
         const typingSymbolsOfInterest = ['Final', 'ClassVar', 'Annotated'];
-        const dataclassesSymbolsOfInterest = ['InitVar'];
+        const dataclassesSymbolsOfInterest = ['InitVar', 'KW_ONLY'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.d.module);
 
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
@@ -4171,6 +4188,17 @@ export class Binder extends ParseTreeWalker {
                                 symbolWithScope.symbol.setIsInitVar();
                             }
                         }
+                    }
+
+                    if (this._isDataclassesAnnotation(typeAnnotation, 'KW_ONLY')) {
+                        symbolWithScope.symbol.setIsDataClassKeywordOnly();
+                    } else if (
+                        typeAnnotation.nodeType === ParseNodeType.Index &&
+                        this._isTypingAnnotation(typeAnnotation.d.leftExpr, 'Annotated') &&
+                        typeAnnotation.d.items.length > 0 &&
+                        this._isDataclassesAnnotation(typeAnnotation.d.items[0].d.valueExpr, 'KW_ONLY')
+                    ) {
+                        symbolWithScope.symbol.setIsDataClassKeywordOnly();
                     }
                 }
 

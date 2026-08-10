@@ -121,6 +121,10 @@ export class Scope {
     // for class scopes).
     slotsNames: string[] | undefined;
 
+    // Indicates that __slots__ definitely contains at least one name,
+    // even if the complete set of names is unknown.
+    hasNonEmptySlots = false;
+
     // Indicates that the class body contains an assignment target that
     // cannot be represented as a statically-known class symbol or exposes
     // its namespace to runtime mutation.
@@ -268,5 +272,9 @@ export class Scope {
 
     getSlotsNames(): string[] | undefined {
         return this.slotsNames;
+    }
+
+    setHasNonEmptySlots(value: boolean) {
+        this.hasNonEmptySlots = value;
     }
 }
