@@ -1,7 +1,7 @@
 # This sample tests type inference and diagnostic behavior for TypedDict
 # methods (get, pop, setdefault) when called with union key types.
 
-from typing import Any, Literal, NotRequired, ReadOnly, TypedDict, assert_type
+from typing import Any, Literal, NotRequired, ReadOnly, TypedDict, assert_type, overload
 
 class Person(TypedDict):
     name: str
@@ -43,3 +43,25 @@ def test_setdefault_union_literal_keys(p: Person, k: Literal["name", "age"]):
 def test_unbound_method_union_keys(p: Person, k: Literal["name", "age"]):
     v = Person.get(p, k)
     assert_type(v, str | int)
+
+class CustomContainer:
+    @overload
+    def get(self, key: Literal["a"]) -> int: ...
+    @overload
+    def get(self, key: Literal["b"]) -> str: ...
+    def get(self, key: str) -> Any:
+        pass
+
+def test_custom_overloaded_get_not_intercepted(c: CustomContainer, k: Literal["a", "b"]):
+    # User-defined overloaded function should NOT be intercepted by TypedDict transform.
+    # Standard overload resolution should apply.
+    v = c.get(k)
+
+def test_unbound_invalid_receiver(k: Literal["name", "age"]):
+    # Unbound call with invalid receiver should fall back to normal overload validation.
+    Person.get(123, k)
+
+def test_keyword_and_extra_args(p: Person, k: Literal["name", "age"]):
+    # Keyword arguments or extra arguments fall back to standard overload validation.
+    p.get(k, default=0)
+    p.get(k, 0, 1)
