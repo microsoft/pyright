@@ -16211,7 +16211,10 @@ export function createTypeEvaluator(
                     type = UnknownType.create();
                     isValidTypeForm = false;
                 }
-            } else if (itemExpr.nodeType === ParseNodeType.StringList) {
+            } else if (
+                itemExpr.nodeType === ParseNodeType.StringList &&
+                itemExpr.d.strings.every((stringNode) => stringNode.nodeType === ParseNodeType.String)
+            ) {
                 const isBytes = (itemExpr.d.strings[0].d.token.flags & StringTokenFlags.Bytes) !== 0;
                 const value = itemExpr.d.strings.map((s) => s.d.value).join('');
                 if (isBytes) {
@@ -17498,6 +17501,16 @@ export function createTypeEvaluator(
         let rightHandType = readTypeCache(node.d.rightExpr, /* flags */ undefined);
         let isIncomplete = false;
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
+
+        // A runtime-first query may have cached the RHS without its assignment
+        // context. Re-evaluate it when the annotation expects a TypeForm so the
+        // ordinary cache cannot suppress contextual validation and conversion.
+        if (rightHandType) {
+            const declaredType = getDeclaredTypeForExpression(node.d.leftExpr, { method: 'set' });
+            if (declaredType && expectedTypeWantsTypeForm(declaredType)) {
+                rightHandType = undefined;
+            }
+        }
 
         if (!rightHandType) {
             // Special-case the typing.pyi file, which contains some special

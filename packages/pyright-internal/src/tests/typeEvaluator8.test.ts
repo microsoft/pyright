@@ -1093,6 +1093,67 @@ test('TypeFormCache', () => {
     assert.strictEqual(cachedType, runtimeType);
 });
 
+test('TypeFormCacheRuntimeFirst', () => {
+    const code = `
+// @filename: test.py
+//// from typing_extensions import TypeForm
+//// value: TypeForm[int] = /*marker*/int
+    `;
+    const state = parseAndGetTestState(code).state;
+    const node = getNodeAtMarker(state);
+    assert.ok(node.nodeType === ParseNodeType.Name);
+
+    const runtimeType = state.program.evaluator!.getTypeOfExpression(node).type;
+    assert.ok(isInstantiableClass(runtimeType));
+    assert.ok(ClassType.isBuiltIn(runtimeType, 'int'));
+    assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
+
+    state.program.evaluator!.evaluateTypesForStatement(node);
+
+    const contextualType = state.program.evaluator!.getType(node);
+    assert.ok(contextualType);
+    assert.ok(isClassInstance(contextualType));
+    assert.ok(ClassType.isBuiltIn(contextualType, 'TypeForm'));
+
+    const typeArg = contextualType.priv.typeArgs?.[0];
+    assert.ok(typeArg);
+    assert.ok(isClassInstance(typeArg));
+    assert.ok(ClassType.isBuiltIn(typeArg, 'int'));
+
+    assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
+    assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
+});
+
+test('TypeFormCacheRuntimeFirstReassignment', () => {
+    const code = `
+// @filename: test.py
+//// from typing_extensions import TypeForm
+//// value: TypeForm[int]
+//// value = /*marker*/int
+    `;
+    const state = parseAndGetTestState(code).state;
+    const node = getNodeAtMarker(state);
+    assert.ok(node.nodeType === ParseNodeType.Name);
+
+    const runtimeType = state.program.evaluator!.getTypeOfExpression(node).type;
+    assert.ok(isInstantiableClass(runtimeType));
+    assert.ok(ClassType.isBuiltIn(runtimeType, 'int'));
+
+    state.program.evaluator!.evaluateTypesForStatement(node);
+
+    const contextualType = state.program.evaluator!.getType(node);
+    assert.ok(contextualType);
+    assert.ok(isClassInstance(contextualType));
+    assert.ok(ClassType.isBuiltIn(contextualType, 'TypeForm'));
+
+    const typeArg = contextualType.priv.typeArgs?.[0];
+    assert.ok(typeArg);
+    assert.ok(isClassInstance(typeArg));
+    assert.ok(ClassType.isBuiltIn(typeArg, 'int'));
+
+    assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
+});
+
 test('TypeFormCacheDoesNotSkipRuntimeEvaluation', () => {
     const code = `
 // @filename: test.py
@@ -1200,4 +1261,10 @@ test('TypeForm8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm8.py']);
 
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('TypeForm9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm9.py']);
+
+    TestUtils.validateResults(analysisResults, 10);
 });

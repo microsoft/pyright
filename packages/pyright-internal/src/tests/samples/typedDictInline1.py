@@ -1,6 +1,6 @@
 # This sample tests support for inlined TypedDict definitions.
 
-from typing import NotRequired, ReadOnly, Required, TypedDict
+from typing import NotRequired, ReadOnly, Required, TypedDict, assert_type
 from typing_extensions import TypeForm  # pyright: ignore[reportMissingModuleSource]
 
 
@@ -56,3 +56,15 @@ reveal_type(tf1, expected_text="TypeForm[<TypedDict>]")
 
 tf2 = TypeForm(list[TypedDict[{"a": int}]])
 reveal_type(tf2, expected_text="TypeForm[list[<TypedDict>]]")
+
+
+def deserialize[T](schema: TypeForm[T], payload: bytes) -> T:
+    raise NotImplementedError
+
+
+inline_user = deserialize(TypedDict[{"id": int, "name": str}], b"")
+assert_type(inline_user["id"], int)
+assert_type(inline_user["name"], str)
+
+inline_users = deserialize(list[TypedDict[{"id": int}]], b"")
+assert_type(inline_users[0]["id"], int)
