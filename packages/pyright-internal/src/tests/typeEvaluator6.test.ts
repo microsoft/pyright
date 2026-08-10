@@ -139,6 +139,11 @@ test('TypeGuard3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeGuard4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeIs1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs1.py']);
     TestUtils.validateResults(analysisResults, 2);
@@ -156,11 +161,6 @@ test('TypeIs3', () => {
 
 test('TypeIs4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs4.py']);
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeIs5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs5.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 

@@ -4669,19 +4669,14 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const guardSubtypes: ClassType[] = [];
-        doForEachSubtype(returnType, (subtype) => {
-            if (
-                isClassInstance(subtype) &&
-                (ClassType.isBuiltIn(subtype, 'TypeGuard') || ClassType.isBuiltIn(subtype, 'TypeIs')) &&
-                subtype.priv.typeArgs &&
-                subtype.priv.typeArgs.length >= 1
-            ) {
-                guardSubtypes.push(subtype);
-            }
-        });
+        if (!isClassInstance(returnType) || !returnType.priv.typeArgs || returnType.priv.typeArgs.length < 1) {
+            return;
+        }
 
-        if (guardSubtypes.length === 0) {
+        const isTypeGuard = ClassType.isBuiltIn(returnType, 'TypeGuard');
+        const isTypeIs = ClassType.isBuiltIn(returnType, 'TypeIs');
+
+        if (!isTypeGuard && !isTypeIs) {
             return;
         }
 
@@ -4705,36 +4700,32 @@ export class Checker extends ParseTreeWalker {
             );
         }
 
-        const scopeIds = getTypeVarScopeIds(functionType);
+        if (isTypeIs) {
+            const scopeIds = getTypeVarScopeIds(functionType);
+            const narrowedType = returnType.priv.typeArgs[0];
+            let typeGuardType = makeTypeVarsBound(narrowedType, scopeIds);
+            typeGuardType = TypeBase.cloneWithTypeForm(typeGuardType, typeGuardType);
 
-        // Determine the type of the first parameter.
-        const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
-        if (paramIndex >= functionType.shared.parameters.length) {
-            return;
-        }
+            // Determine the type of the first parameter.
+            const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
+            if (paramIndex >= functionType.shared.parameters.length) {
+                return;
+            }
 
-        const paramType = makeTypeVarsBound(FunctionType.getParamType(functionType, paramIndex), scopeIds);
+            const paramType = makeTypeVarsBound(FunctionType.getParamType(functionType, paramIndex), scopeIds);
 
-        for (const guardSubtype of guardSubtypes) {
-            if (ClassType.isBuiltIn(guardSubtype, 'TypeIs')) {
-                const narrowedType = guardSubtype.priv.typeArgs![0];
-                let typeGuardType = makeTypeVarsBound(narrowedType, scopeIds);
-                typeGuardType = TypeBase.cloneWithTypeForm(typeGuardType, typeGuardType);
-
-                // Verify that the typeGuardType is a narrower type than the paramType.
-                if (!this._evaluator.assignType(paramType, typeGuardType)) {
-                    const returnAnnotation =
-                        node.d.returnAnnotation || node.d.funcAnnotationComment?.d.returnAnnotation;
-                    if (returnAnnotation) {
-                        this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.typeIsReturnType().format({
-                                type: this._evaluator.printType(paramType),
-                                returnType: this._evaluator.printType(narrowedType),
-                            }),
-                            returnAnnotation
-                        );
-                    }
+            // Verify that the typeGuardType is a narrower type than the paramType.
+            if (!this._evaluator.assignType(paramType, typeGuardType)) {
+                const returnAnnotation = node.d.returnAnnotation || node.d.funcAnnotationComment?.d.returnAnnotation;
+                if (returnAnnotation) {
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typeIsReturnType().format({
+                            type: this._evaluator.printType(paramType),
+                            returnType: this._evaluator.printType(narrowedType),
+                        }),
+                        returnAnnotation
+                    );
                 }
             }
         }

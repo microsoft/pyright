@@ -55,7 +55,6 @@ import {
     isTypeSame,
     isTypeVar,
     isUnpackedTypeVarTuple,
-    isUnion,
     maxTypeRecursionCount,
     OverloadedType,
     TupleTypeArg,
@@ -364,6 +363,22 @@ export function getTypeNarrowingCallback(
                         return (type: Type) => {
                             return {
                                 type: narrowTypeForLiteralComparison(
+                                    evaluator,
+                                    type,
+                                    rightType,
+                                    adjIsPositiveTest,
+                                    /* isIsOperator */ false
+                                ),
+                                isIncomplete: !!rightTypeResult.isIncomplete,
+                            };
+                        };
+                    }
+
+                    // Look for X == <class> or X != <class>.
+                    if (isInstantiableClass(rightType)) {
+                        return (type: Type) => {
+                            return {
+                                type: narrowTypeForClassComparison(
                                     evaluator,
                                     type,
                                     rightType,
@@ -710,23 +725,11 @@ export function getTypeNarrowingCallback(
                 let isPossiblyTypeGuard = false;
 
                 const isFunctionReturnTypeGuard = (type: FunctionType) => {
-                    const returnType = type.shared.declaredReturnType;
-                    if (!returnType) {
-                        return false;
-                    }
-                    if (isClassInstance(returnType)) {
-                        return ClassType.isBuiltIn(returnType, ['TypeGuard', 'TypeIs']);
-                    }
-                    if (isUnion(returnType)) {
-                        let isAllGuards = true;
-                        doForEachSubtype(returnType, (subtype) => {
-                            if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, ['TypeGuard', 'TypeIs'])) {
-                                isAllGuards = false;
-                            }
-                        });
-                        return isAllGuards;
-                    }
-                    return false;
+                    return (
+                        type.shared.declaredReturnType &&
+                        isClassInstance(type.shared.declaredReturnType) &&
+                        ClassType.isBuiltIn(type.shared.declaredReturnType, ['TypeGuard', 'TypeIs'])
+                    );
                 };
 
                 const callTypeResult = evaluator.getTypeOfExpression(
@@ -751,44 +754,14 @@ export function getTypeNarrowingCallback(
                     const functionReturnTypeResult = evaluator.getTypeOfExpression(testExpression);
                     const functionReturnType = functionReturnTypeResult.type;
 
-                    let typeGuardType: Type | undefined;
-                    let isStrictTypeGuard = false;
-
                     if (
                         isClassInstance(functionReturnType) &&
                         ClassType.isBuiltIn(functionReturnType, ['TypeGuard', 'TypeIs']) &&
                         functionReturnType.priv.typeArgs &&
                         functionReturnType.priv.typeArgs.length > 0
                     ) {
-                        isStrictTypeGuard = ClassType.isBuiltIn(functionReturnType, 'TypeIs');
-                        typeGuardType = functionReturnType.priv.typeArgs[0];
-                    } else if (isUnion(functionReturnType)) {
-                        const typeGuardSubtypes: ClassType[] = [];
-                        let isAllGuards = true;
-
-                        doForEachSubtype(functionReturnType, (subtype) => {
-                            if (
-                                isClassInstance(subtype) &&
-                                ClassType.isBuiltIn(subtype, ['TypeGuard', 'TypeIs']) &&
-                                subtype.priv.typeArgs &&
-                                subtype.priv.typeArgs.length > 0
-                            ) {
-                                typeGuardSubtypes.push(subtype);
-                            } else {
-                                isAllGuards = false;
-                            }
-                        });
-
-                        if (isAllGuards && typeGuardSubtypes.length > 0) {
-                            // A union of type guards cannot be strict in the negative case because at runtime
-                            // only one arm of the overload/union is selected. Treating it as strict would
-                            // unsoundly eliminate types in the negative branch.
-                            isStrictTypeGuard = false;
-                            typeGuardType = combineTypes(typeGuardSubtypes.map((subtype) => subtype.priv.typeArgs![0]));
-                        }
-                    }
-
-                    if (typeGuardType) {
+                        const isStrictTypeGuard = ClassType.isBuiltIn(functionReturnType, 'TypeIs');
+                        const typeGuardType = functionReturnType.priv.typeArgs[0];
                         const isIncomplete = !!callTypeResult.isIncomplete || !!functionReturnTypeResult.isIncomplete;
 
                         return (type: Type) => {
@@ -796,7 +769,7 @@ export function getTypeNarrowingCallback(
                                 type: narrowTypeForUserDefinedTypeGuard(
                                     evaluator,
                                     type,
-                                    typeGuardType!,
+                                    typeGuardType,
                                     isPositiveTest,
                                     isStrictTypeGuard,
                                     testExpression
@@ -2628,16 +2601,46 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
     return combineTypes(typesToCombine);
 }
 
+function hasCustomEqualityMetaclass(classType: ClassType): boolean {
+    const metaclass = classType.shared.effectiveMetaclass;
+    if (metaclass && isClass(metaclass)) {
+        if (
+            lookUpClassMember(
+                metaclass,
+                '__eq__',
+                MemberAccessFlags.SkipTypeBaseClass | MemberAccessFlags.SkipObjectBaseClass
+            ) ||
+            lookUpClassMember(
+                metaclass,
+                '__ne__',
+                MemberAccessFlags.SkipTypeBaseClass | MemberAccessFlags.SkipObjectBaseClass
+            )
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Attempts to narrow a type based on a comparison with a class using "is" or
-// "is not". This pattern is sometimes used for sentinels.
+// "is not", or "==" or "!=".
 function narrowTypeForClassComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
     classType: ClassType,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    isIsOperator = true
 ): Type {
+    if (!isIsOperator && hasCustomEqualityMetaclass(classType)) {
+        return referenceType;
+    }
+
     return mapSubtypes(referenceType, (subtype) => {
         let concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+        if (!isIsOperator && isInstantiableClass(concreteSubtype) && hasCustomEqualityMetaclass(concreteSubtype)) {
+            return subtype;
+        }
 
         if (isPositiveTest) {
             if (
@@ -2657,6 +2660,9 @@ function narrowTypeForClassComparison(
 
             if (isClass(concreteSubtype)) {
                 if (TypeBase.isInstance(concreteSubtype)) {
+                    if (!isIsOperator) {
+                        return subtype;
+                    }
                     return ClassType.isBuiltIn(concreteSubtype, 'object') ? classType : undefined;
                 }
 
