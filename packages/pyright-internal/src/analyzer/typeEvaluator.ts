@@ -5275,39 +5275,33 @@ export function createTypeEvaluator(
         return { type, isIncomplete };
     }
 
-    const typeFormSpecialFormDiagnosticFactories: Record<string, () => string> = {
-        Final: () => LocMessage.finalContext(),
-        Optional: () => LocMessage.optionalExtraArgs(),
-        Protocol: () => LocMessage.protocolNotAllowed(),
-        TypedDict: () => LocMessage.typedDictNotAllowed(),
-        TypeAlias: () => LocMessage.typeAnnotationVariable(),
-        Literal: () => LocMessage.literalNotAllowed(),
-        TypeGuard: () => LocMessage.typeGuardArgCount(),
-        TypeIs: () => LocMessage.typeGuardArgCount(),
-        Union: () => LocMessage.unionTypeArgCount(),
-        Annotated: () => LocMessage.annotatedTypeArgMissing(),
-        ClassVar: () => LocMessage.classVarNotAllowed(),
-        Required: () => LocMessage.requiredArgCount(),
-        NotRequired: () => LocMessage.notRequiredArgCount(),
-        ReadOnly: () => LocMessage.readOnlyArgCount(),
-        Unpack: () => LocMessage.unpackArgCount(),
-        Concatenate: () => LocMessage.concatenateContext(),
-    };
+    const typeFormSpecialFormDiagnosticFactories: [string | string[], () => string][] = [
+        ['Final', () => LocMessage.finalContext()],
+        ['Optional', () => LocMessage.optionalExtraArgs()],
+        ['Protocol', () => LocMessage.protocolNotAllowed()],
+        ['TypedDict', () => LocMessage.typedDictNotAllowed()],
+        ['TypeAlias', () => LocMessage.typeAnnotationVariable()],
+        ['Literal', () => LocMessage.literalNotAllowed()],
+        [['TypeGuard', 'TypeIs'], () => LocMessage.typeGuardArgCount()],
+        ['Union', () => LocMessage.unionTypeArgCount()],
+        ['Annotated', () => LocMessage.annotatedTypeArgMissing()],
+        ['ClassVar', () => LocMessage.classVarNotAllowed()],
+        ['Required', () => LocMessage.requiredArgCount()],
+        ['NotRequired', () => LocMessage.notRequiredArgCount()],
+        ['ReadOnly', () => LocMessage.readOnlyArgCount()],
+        ['Unpack', () => LocMessage.unpackArgCount()],
+        ['Concatenate', () => LocMessage.concatenateContext()],
+    ];
 
     function rejectBareSpecialFormInTypeForm(type: ClassType, node: ExpressionNode): Type | undefined {
-        if (!ClassType.isBuiltIn(type)) {
-            return undefined;
+        for (const [className, diagnosticFactory] of typeFormSpecialFormDiagnosticFactories) {
+            if (ClassType.isBuiltIn(type, className)) {
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, diagnosticFactory(), node);
+                return UnknownType.create();
+            }
         }
 
-        const diagnosticFactory =
-            (type.priv.aliasName && typeFormSpecialFormDiagnosticFactories[type.priv.aliasName]) ??
-            typeFormSpecialFormDiagnosticFactories[type.shared.name];
-        if (!diagnosticFactory) {
-            return undefined;
-        }
-
-        addDiagnostic(DiagnosticRule.reportInvalidTypeForm, diagnosticFactory(), node);
-        return UnknownType.create();
+        return undefined;
     }
 
     function addTypeFormForSymbol(node: ExpressionNode, type: Type, flags: EvalFlags, includesVarDecl: boolean): Type {
