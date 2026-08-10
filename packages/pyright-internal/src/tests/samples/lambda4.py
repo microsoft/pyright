@@ -1,7 +1,7 @@
 # This sample tests the case where a lambda is assigned to
 # a union type that contains multiple callables.
 
-from typing import Callable, Generic, Protocol, Self, TypeVar
+from typing import Callable, Generic, Protocol, Self, TypeVar, assert_type
 
 
 U1 = Callable[[int, str], bool] | Callable[[str], bool]
@@ -111,3 +111,20 @@ positional_callable_union: Callable[[PositionalCallable], PositionalCallable] | 
 
 # This should generate an error.
 keyword_only_callback: KeywordOnlyCallback = lambda x: x
+
+
+class KeywordOnlyIntCallback(Protocol):
+    def __call__(self, *, value: int) -> int: ...
+
+
+same_name_keyword_only_callback: KeywordOnlyIntCallback = lambda value: assert_type(value, int)
+
+
+class VariadicKeywordOnlyCallback(Protocol):
+    def __call__(self, *args: object, value: int) -> int: ...
+
+
+variadic_keyword_only_callback: VariadicKeywordOnlyCallback = lambda *args, value: assert_type(value, int)
+
+# This should generate an error.
+position_only_keyword_callback: KeywordOnlyIntCallback = lambda value, /: value
