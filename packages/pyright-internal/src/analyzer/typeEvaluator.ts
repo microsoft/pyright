@@ -14656,7 +14656,7 @@ export function createTypeEvaluator(
                         );
 
                         tdEntries.knownItems.forEach((entry, name) => {
-                            if (entry.isRequired || entry.isProvided) {
+                            if (!expectedTypedDictEntries || entry.isRequired || entry.isProvided) {
                                 keyTypes.push({
                                     node: entryNode,
                                     type: ClassType.cloneWithLiteral(strObject, name),
@@ -14665,11 +14665,11 @@ export function createTypeEvaluator(
                             }
                         });
 
-                        if (!expectedTypedDictEntries) {
+                        if (!expectedTypedDictEntries && tdEntries.extraItems) {
                             keyTypes.push({ node: entryNode, type: ClassType.cloneAsInstance(strObject) });
                             valueTypes.push({
                                 node: entryNode,
-                                type: tdEntries.extraItems?.valueType ?? getObjectType(),
+                                type: tdEntries.extraItems.valueType,
                             });
                         }
 
