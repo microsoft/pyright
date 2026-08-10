@@ -1121,7 +1121,6 @@ test('TypeFormCacheRuntimeFirst', () => {
     assert.ok(ClassType.isBuiltIn(typeArg, 'int'));
 
     assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
-    assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
 });
 
 test('TypeFormCacheRuntimeFirstReassignment', () => {

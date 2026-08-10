@@ -5275,6 +5275,41 @@ export function createTypeEvaluator(
         return { type, isIncomplete };
     }
 
+    const typeFormSpecialFormDiagnosticFactories: Record<string, () => string> = {
+        Final: () => LocMessage.finalContext(),
+        Optional: () => LocMessage.optionalExtraArgs(),
+        Protocol: () => LocMessage.protocolNotAllowed(),
+        TypedDict: () => LocMessage.typedDictNotAllowed(),
+        TypeAlias: () => LocMessage.typeAnnotationVariable(),
+        Literal: () => LocMessage.literalNotAllowed(),
+        TypeGuard: () => LocMessage.typeGuardArgCount(),
+        TypeIs: () => LocMessage.typeGuardArgCount(),
+        Union: () => LocMessage.unionTypeArgCount(),
+        Annotated: () => LocMessage.annotatedTypeArgMissing(),
+        ClassVar: () => LocMessage.classVarNotAllowed(),
+        Required: () => LocMessage.requiredArgCount(),
+        NotRequired: () => LocMessage.notRequiredArgCount(),
+        ReadOnly: () => LocMessage.readOnlyArgCount(),
+        Unpack: () => LocMessage.unpackArgCount(),
+        Concatenate: () => LocMessage.concatenateContext(),
+    };
+
+    function rejectBareSpecialFormInTypeForm(type: ClassType, node: ExpressionNode): Type | undefined {
+        if (!ClassType.isBuiltIn(type)) {
+            return undefined;
+        }
+
+        const diagnosticFactory =
+            (type.priv.aliasName && typeFormSpecialFormDiagnosticFactories[type.priv.aliasName]) ??
+            typeFormSpecialFormDiagnosticFactories[type.shared.name];
+        if (!diagnosticFactory) {
+            return undefined;
+        }
+
+        addDiagnostic(DiagnosticRule.reportInvalidTypeForm, diagnosticFactory(), node);
+        return UnknownType.create();
+    }
+
     function addTypeFormForSymbol(node: ExpressionNode, type: Type, flags: EvalFlags, includesVarDecl: boolean): Type {
         const isIndexBase = node.parent?.nodeType === ParseNodeType.Index && node.parent.d.leftExpr === node;
         if ((flags & EvalFlags.TypeFormArg) !== 0 && isTypeVar(type) && TypeVarType.isSelf(type)) {
@@ -5286,79 +5321,9 @@ export function createTypeEvaluator(
                 return createTypeFormType(type, node, /* typeArgs */ undefined);
             }
 
-            if (ClassType.isBuiltIn(type, 'Final')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.finalContext(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'Optional')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.optionalExtraArgs(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'Protocol')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.protocolNotAllowed(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'TypedDict')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typedDictNotAllowed(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'TypeAlias')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeAnnotationVariable(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'Literal')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalNotAllowed(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, ['TypeGuard', 'TypeIs'])) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeGuardArgCount(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'Union')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unionTypeArgCount(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'Annotated')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.annotatedTypeArgMissing(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'ClassVar')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.classVarNotAllowed(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'Required')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.requiredArgCount(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'NotRequired')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.notRequiredArgCount(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'ReadOnly')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.readOnlyArgCount(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'Unpack')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unpackArgCount(), node);
-                return UnknownType.create();
-            }
-
-            if (ClassType.isBuiltIn(type, 'Concatenate')) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.concatenateContext(), node);
-                return UnknownType.create();
+            const rejectedType = rejectBareSpecialFormInTypeForm(type, node);
+            if (rejectedType) {
+                return rejectedType;
             }
 
             if (ClassType.isBuiltIn(type, 'Self')) {
