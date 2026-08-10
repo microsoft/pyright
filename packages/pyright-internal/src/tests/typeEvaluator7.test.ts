@@ -808,6 +808,39 @@ test('TypedDict27', () => {
     TestUtils.validateResults(analysisResults, 7);
 });
 
+test('TypedDict28', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.defaultPythonPlatform = 'Linux';
+    configOptions.defineConstant.set('ENABLE_FAST_PATH', true);
+    configOptions.defineConstant.set('FEATURE_SET', 'modern');
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict28.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 13);
+});
+
+test('TypedDict29', () => {
+    const modernConfigOptions = new ConfigOptions(Uri.empty());
+    modernConfigOptions.defaultPythonVersion = pythonVersion3_13;
+    modernConfigOptions.defaultPythonPlatform = 'Linux';
+    modernConfigOptions.defineConstant.set('FEATURE_SET', 'modern');
+
+    const modernResults = TestUtils.typeAnalyzeSampleFiles(['typedDict29.py'], modernConfigOptions);
+    TestUtils.validateResults(modernResults, 0);
+
+    const legacyConfigOptions = new ConfigOptions(Uri.empty());
+    legacyConfigOptions.defaultPythonVersion = pythonVersion3_10;
+    legacyConfigOptions.defaultPythonPlatform = 'Windows';
+    legacyConfigOptions.defineConstant.set('FEATURE_SET', 'legacy');
+
+    const legacyResults = TestUtils.typeAnalyzeSampleFiles(['typedDict29.py'], legacyConfigOptions);
+    TestUtils.validateResults(legacyResults, 3);
+
+    const repeatedModernResults = TestUtils.typeAnalyzeSampleFiles(['typedDict29.py'], modernConfigOptions);
+    TestUtils.validateResults(repeatedModernResults, 0);
+});
+
 test('TypedDictInline1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
