@@ -1246,14 +1246,27 @@ export function getIsInstanceClassTypes(
 
                 if (isInstantiableClass(subtype) && ClassType.isBuiltIn(subtype, 'Callable')) {
                     subtype = convertToInstantiable(getUnknownTypeForCallable());
+                } else if (TypeBase.isInstance(subtype)) {
+                    if (
+                        ClassType.isBuiltIn(subtype, 'type') &&
+                        subtype.priv.typeArgs &&
+                        isAnyOrUnknown(subtype.priv.typeArgs[0])
+                    ) {
+                        foundNonClassType = true;
+                        return;
+                    }
+                    subtype = convertToInstantiable(subtype);
                 }
             }
 
             if (isInstantiableClass(subtype)) {
+                if (subtype.priv.includeSubclasses) {
+                    subtype = ClassType.cloneIncludeSubclasses(subtype, /* includeSubclasses */ false);
+                }
                 // If this is a reference to a class that has type promotions (e.g.
                 // float or complex), remove the promotions for purposes of the
                 // isinstance check).
-                if (!subtype.priv.includeSubclasses && subtype.priv.includePromotions) {
+                if (subtype.priv.includePromotions) {
                     subtype = ClassType.cloneRemoveTypePromotions(subtype);
                 }
                 classTypeList.push(subtype);
