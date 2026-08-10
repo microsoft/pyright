@@ -789,7 +789,7 @@ test('Lambda3', () => {
 test('Lambda4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda4.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Lambda5', () => {
