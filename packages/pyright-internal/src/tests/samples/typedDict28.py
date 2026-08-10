@@ -8,6 +8,7 @@ from typing import Generic, NotRequired, Required, TYPE_CHECKING, TypeVar, Typed
 
 from typing_extensions import ReadOnly  # pyright: ignore[reportMissingModuleSource]
 
+# The test configuration overrides these values to select the enabled branches below.
 ENABLE_FAST_PATH = False
 FEATURE_SET = "legacy"
 _T = TypeVar("_T")
@@ -115,8 +116,10 @@ class ReverseOrder(TypedDict):
         value: str
 
 
-ForwardOrder(value="")
-ReverseOrder(value="")
+forward_order = ForwardOrder(value="")
+reverse_order = ReverseOrder(value="")
+assert_type(forward_order["value"], str)
+assert_type(reverse_order["value"], str)
 
 # These should generate errors. Equivalent conditions in different orders must select the same type.
 ForwardOrder(value=b"")
