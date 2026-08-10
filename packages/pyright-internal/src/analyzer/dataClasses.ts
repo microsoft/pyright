@@ -30,7 +30,7 @@ import { getFileInfo } from './analyzerNodeInfo';
 import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
-import { DeclarationType } from './declaration';
+import { DeclarationType, VariableDeclaration } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
 import {
     getClassFullName,
@@ -88,6 +88,100 @@ import {
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
+
+function getInheritedDataClassSlotsNames(classType: ClassType) {
+    const inheritedSlotsNames = new Set<string>();
+    classType.shared.mro.slice(1).forEach((mroClass) => {
+        if (isInstantiableClass(mroClass)) {
+            mroClass.shared.synthesizeDataClassSlotsDeferred?.();
+            mroClass.shared.localSlotsNames?.forEach((name) => inheritedSlotsNames.add(name));
+        }
+    });
+    return inheritedSlotsNames;
+}
+
+function isDataClassKeywordOnlySeparator(
+    evaluator: TypeEvaluator,
+    symbol: Symbol | undefined,
+    annotationNode: ExpressionNode
+) {
+    if (symbol?.isDataClassKeywordOnly()) {
+        return true;
+    }
+
+    const annotatedType = evaluator.getTypeOfAnnotation(annotationNode, {
+        varTypeAnnotation: true,
+        allowFinal: true,
+        allowClassVar: true,
+    });
+    return isClassInstance(annotatedType) && ClassType.isBuiltIn(annotatedType, 'KW_ONLY');
+}
+
+// Calculate generated slots without forcing deferred dataclass method synthesis.
+export function synthesizeDataClassSlots(evaluator: TypeEvaluator, classType: ClassType) {
+    delete classType.shared.synthesizeDataClassSlotsDeferred;
+
+    if (!ClassType.isDataClassGenerateSlots(classType) || classType.shared.localSlotsNames !== undefined) {
+        return;
+    }
+
+    const inheritedSlotsNames = getInheritedDataClassSlotsNames(classType);
+    const localSlotsNames: string[] = [];
+    const localFields = [...classType.shared.fields.entries()];
+
+    const synthesizeMethodsDeferred = classType.shared.synthesizeMethodsDeferred;
+    delete classType.shared.synthesizeMethodsDeferred;
+    try {
+        localFields.forEach(([name, symbol]) => {
+            if (symbol.isIgnoredForProtocolMatch() || name === '__hash__') {
+                return;
+            }
+
+            let variableDecl = symbol.getTypedDeclarations().find((decl): decl is VariableDeclaration => {
+                if (decl.type !== DeclarationType.Variable) {
+                    return false;
+                }
+
+                const container = getEnclosingClassOrFunction(decl.node);
+                return container?.nodeType === ParseNodeType.Class;
+            });
+
+            if (!variableDecl) {
+                variableDecl = symbol
+                    .getDeclarations()
+                    .find(
+                        (decl): decl is VariableDeclaration =>
+                            decl.type === DeclarationType.Variable && !decl.typeAnnotationNode && !!decl.isFinal
+                    );
+            }
+
+            if (variableDecl?.node.parent?.nodeType !== ParseNodeType.TypeAnnotation) {
+                variableDecl = undefined;
+            }
+
+            const isKeywordOnlySeparator =
+                !!variableDecl?.typeAnnotationNode &&
+                isDataClassKeywordOnlySeparator(evaluator, symbol, variableDecl.typeAnnotationNode);
+
+            if (
+                variableDecl &&
+                !symbol.isClassVar() &&
+                !symbol.isInitVar() &&
+                !isKeywordOnlySeparator &&
+                !inheritedSlotsNames.has(name)
+            ) {
+                localSlotsNames.push(name);
+            }
+        });
+    } finally {
+        if (synthesizeMethodsDeferred && !classType.shared.synthesizeMethodsDeferred) {
+            classType.shared.synthesizeMethodsDeferred = synthesizeMethodsDeferred;
+        }
+    }
+
+    classType.shared.localSlotsNames = localSlotsNames;
+    classType.shared.hasNonEmptySlots = localSlotsNames.length > 0;
+}
 
 // Validates fields for compatibility with a dataclass and synthesizes
 // an appropriate __new__ and __init__ methods plus __dataclass_fields__
@@ -374,32 +468,37 @@ export function synthesizeDataClassMethods(
                             allowFinal: !isNamedTuple,
                             allowClassVar: !isNamedTuple,
                         });
-
-                    // Is this a KW_ONLY separator introduced in Python 3.10?
-                    // Per the Python docs, the variable name is ignored — any name works.
-                    if (!isNamedTuple) {
-                        const annotatedType = variableTypeEvaluator();
-
-                        if (isClassInstance(annotatedType) && ClassType.isBuiltIn(annotatedType, 'KW_ONLY')) {
-                            // CPython raises a TypeError if more than one KW_ONLY
-                            // separator appears within a single dataclass.
-                            if (sawKeywordOnlySeparator) {
-                                evaluator.addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    LocMessage.dataClassDuplicateKwOnly().format({
-                                        name: variableNameNode.d.value,
-                                    }),
-                                    variableNameNode
-                                );
-                            }
-
-                            sawKeywordOnlySeparator = true;
-                            variableNameNode = undefined;
-                            typeAnnotationNode = undefined;
-                            variableTypeEvaluator = undefined;
-                        }
-                    }
                 }
+            }
+
+            // Is this a KW_ONLY separator introduced in Python 3.10?
+            // Per the Python docs, the variable name and any assigned value are ignored.
+            if (
+                variableNameNode &&
+                typeAnnotationNode &&
+                !isNamedTuple &&
+                isDataClassKeywordOnlySeparator(
+                    evaluator,
+                    classType.shared.fields.get(variableNameNode.d.value),
+                    typeAnnotationNode.d.annotation
+                )
+            ) {
+                // CPython raises a TypeError if more than one KW_ONLY
+                // separator appears within a single dataclass.
+                if (sawKeywordOnlySeparator) {
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.dataClassDuplicateKwOnly().format({
+                            name: variableNameNode.d.value,
+                        }),
+                        variableNameNode
+                    );
+                }
+
+                sawKeywordOnlySeparator = true;
+                variableNameNode = undefined;
+                typeAnnotationNode = undefined;
+                variableTypeEvaluator = undefined;
             }
 
             if (variableNameNode && variableTypeEvaluator) {
@@ -799,13 +898,9 @@ export function synthesizeDataClassMethods(
     }
 
     if (ClassType.isDataClassGenerateSlots(classType) && classType.shared.localSlotsNames === undefined) {
-        const inheritedSlotsNames = new Set<string>();
-        classType.shared.mro.slice(1).forEach((mroClass) => {
-            if (isInstantiableClass(mroClass)) {
-                mroClass.shared.synthesizeMethodsDeferred?.();
-                mroClass.shared.localSlotsNames?.forEach((name) => inheritedSlotsNames.add(name));
-            }
-        });
+        delete classType.shared.synthesizeDataClassSlotsDeferred;
+
+        const inheritedSlotsNames = getInheritedDataClassSlotsNames(classType);
 
         classType.shared.localSlotsNames = localDataClassEntries
             .filter(

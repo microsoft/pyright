@@ -1928,7 +1928,7 @@ export class Binder extends ParseTreeWalker {
 
     override visitImportFrom(node: ImportFromNode): boolean {
         const typingSymbolsOfInterest = ['Final', 'ClassVar', 'Annotated'];
-        const dataclassesSymbolsOfInterest = ['InitVar'];
+        const dataclassesSymbolsOfInterest = ['InitVar', 'KW_ONLY'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.d.module);
 
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
@@ -4099,6 +4099,17 @@ export class Binder extends ParseTreeWalker {
                                 symbolWithScope.symbol.setIsInitVar();
                             }
                         }
+                    }
+
+                    if (this._isDataclassesAnnotation(typeAnnotation, 'KW_ONLY')) {
+                        symbolWithScope.symbol.setIsDataClassKeywordOnly();
+                    } else if (
+                        typeAnnotation.nodeType === ParseNodeType.Index &&
+                        this._isTypingAnnotation(typeAnnotation.d.leftExpr, 'Annotated') &&
+                        typeAnnotation.d.items.length > 0 &&
+                        this._isDataclassesAnnotation(typeAnnotation.d.items[0].d.valueExpr, 'KW_ONLY')
+                    ) {
+                        symbolWithScope.symbol.setIsDataClassKeywordOnly();
                     }
                 }
 

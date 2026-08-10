@@ -112,7 +112,11 @@ import {
 } from './constraintSolver';
 import { ConstraintSet, ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod, validateConstructorArgs } from './constructors';
-import { applyDataClassClassBehaviorOverrides, synthesizeDataClassMethods } from './dataClasses';
+import {
+    applyDataClassClassBehaviorOverrides,
+    synthesizeDataClassMethods,
+    synthesizeDataClassSlots,
+} from './dataClasses';
 import {
     ClassDeclaration,
     Declaration,
@@ -18443,6 +18447,11 @@ export function createTypeEvaluator(
                 if (isNamedTupleSubclass) {
                     synthesizeMethods();
                 } else {
+                    if (ClassType.isDataClassGenerateSlots(classType)) {
+                        classType.shared.synthesizeDataClassSlotsDeferred = () =>
+                            synthesizeDataClassSlots(evaluatorInterface, classType);
+                    }
+
                     classType.shared.synthesizeMethodsDeferred = () => {
                         delete classType.shared.synthesizeMethodsDeferred;
                         synthesizeMethods();
