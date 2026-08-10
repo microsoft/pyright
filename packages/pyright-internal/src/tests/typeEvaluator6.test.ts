@@ -68,6 +68,10 @@ test('OverloadCall5', () => {
 test('OverloadCall6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall6.py']);
     TestUtils.validateResults(analysisResults, 2, 0, undefined, undefined, undefined, 1);
+    assert.deepStrictEqual(analysisResults[0].deprecateds[0].range, {
+        start: { line: 286, character: 4 },
+        end: { line: 286, character: 30 },
+    });
 });
 
 test('OverloadCall7', () => {
