@@ -469,58 +469,91 @@ function narrowTypeBasedOnMappingPattern(
             return combineTypes(mappingInfo.filter((m) => !m.isDefinitelyMapping).map((m) => m.subtype));
         }
 
-        if (pattern.d.entries.length !== 1 || pattern.d.entries[0].nodeType !== ParseNodeType.PatternMappingKeyEntry) {
-            return type;
-        }
-
         // Handle the case where the type is a union that includes a TypedDict with
-        // a field discriminated by a literal.
-        const keyPattern = pattern.d.entries[0].d.keyPattern;
-        const valuePattern = pattern.d.entries[0].d.valuePattern;
-        if (
-            keyPattern.nodeType !== ParseNodeType.PatternLiteral ||
-            valuePattern.nodeType !== ParseNodeType.PatternAs ||
-            !valuePattern.d.orPatterns.every((orPattern) => orPattern.nodeType === ParseNodeType.PatternLiteral)
-        ) {
-            return type;
+        // fields discriminated by literals or match patterns.
+        const keyEntryInfos: { keyValue: string; valueTypes?: Type[] }[] = [];
+        let hasUnsupportedKeyPattern = false;
+
+        for (const entry of pattern.d.entries) {
+            if (entry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
+                continue;
+            }
+            if (entry.nodeType !== ParseNodeType.PatternMappingKeyEntry) {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+
+            const keyPattern = entry.d.keyPattern;
+            if (keyPattern.nodeType !== ParseNodeType.PatternLiteral) {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+
+            const keyType = evaluator.getTypeOfExpression(keyPattern.d.expr).type;
+            if (
+                !isClassInstance(keyType) ||
+                !ClassType.isBuiltIn(keyType, 'str') ||
+                keyType.priv.literalValue === undefined
+            ) {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+            const keyValue = keyType.priv.literalValue as string;
+
+            const valuePattern = entry.d.valuePattern;
+            let valueTypes: Type[] | undefined;
+
+            if (
+                valuePattern.nodeType === ParseNodeType.PatternAs &&
+                valuePattern.d.orPatterns.every((orPattern) => orPattern.nodeType === ParseNodeType.PatternLiteral)
+            ) {
+                valueTypes = valuePattern.d.orPatterns.map(
+                    (orPattern) => evaluator.getTypeOfExpression((orPattern as PatternLiteralNode).d.expr).type
+                );
+            } else if (
+                valuePattern.nodeType === ParseNodeType.PatternAs &&
+                valuePattern.d.orPatterns.length === 1 &&
+                (valuePattern.d.orPatterns[0].nodeType === ParseNodeType.PatternCapture ||
+                    valuePattern.d.orPatterns[0].nodeType === ParseNodeType.PatternValue)
+            ) {
+                valueTypes = undefined;
+            } else {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+
+            keyEntryInfos.push({ keyValue, valueTypes });
         }
 
-        const keyType = evaluator.getTypeOfExpression(keyPattern.d.expr).type;
-
-        // The key type must be a str literal.
-        if (
-            !isClassInstance(keyType) ||
-            !ClassType.isBuiltIn(keyType, 'str') ||
-            keyType.priv.literalValue === undefined
-        ) {
+        if (hasUnsupportedKeyPattern || keyEntryInfos.length === 0) {
             return type;
         }
-        const keyValue = keyType.priv.literalValue as string;
-
-        const valueTypes = valuePattern.d.orPatterns.map(
-            (orPattern) => evaluator.getTypeOfExpression((orPattern as PatternLiteralNode).d.expr).type
-        );
 
         return mapSubtypes(type, (subtype) => {
             if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
                 const typedDictMembers = getTypedDictMembersForClass(evaluator, subtype, /* allowNarrowed */ true);
-                const member = typedDictMembers.knownItems.get(keyValue);
 
-                if (member && (member.isRequired || member.isProvided) && isClassInstance(member.valueType)) {
-                    const memberValueType = member.valueType;
-
-                    // If there's at least one literal value pattern that matches
-                    // the literal type of the member, we can eliminate this type.
-                    if (
-                        valueTypes.some(
-                            (valueType) =>
-                                isClassInstance(valueType) &&
-                                ClassType.isSameGenericClass(valueType, memberValueType) &&
-                                valueType.priv.literalValue === memberValueType.priv.literalValue
-                        )
-                    ) {
-                        return undefined;
+                const matchesAllEntries = keyEntryInfos.every((entryInfo) => {
+                    const member = typedDictMembers.knownItems.get(entryInfo.keyValue);
+                    if (!member || (!member.isRequired && !member.isProvided) || !isClassInstance(member.valueType)) {
+                        return false;
                     }
+
+                    if (entryInfo.valueTypes === undefined) {
+                        return true;
+                    }
+
+                    const memberValueType = member.valueType;
+                    return entryInfo.valueTypes.some(
+                        (valueType) =>
+                            isClassInstance(valueType) &&
+                            ClassType.isSameGenericClass(valueType, memberValueType) &&
+                            valueType.priv.literalValue === memberValueType.priv.literalValue
+                    );
+                });
+
+                if (matchesAllEntries) {
+                    return undefined;
                 }
             }
 
