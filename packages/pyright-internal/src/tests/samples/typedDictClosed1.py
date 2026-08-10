@@ -48,6 +48,17 @@ def func2(movie: Movie) -> None:
     movie["other3"] = 1
 
 
+def func3(movie: Movie) -> None:
+    # "name" is a required known item, so it is always present and the
+    # negative branch of the "in" check must remain unreachable.
+    if "name" in movie:
+        return
+
+    # This would generate a type incompatibility error if the statement
+    # above were incorrectly considered reachable.
+    movie["other4"] = 1
+
+
 class MovieBase(TypedDict, extra_items=ReadOnly[str | None]):
     name: str
 
