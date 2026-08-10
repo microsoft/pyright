@@ -96,7 +96,8 @@ class SelectedWireValue(TypedDict):
         value: int
 
 
-SelectedWireValue(value="")
+selected_wire_value = SelectedWireValue(value="")
+assert_type(selected_wire_value["value"], str)
 
 # This should generate an error because Python 3.13 selects str.
 SelectedWireValue(value=1)
