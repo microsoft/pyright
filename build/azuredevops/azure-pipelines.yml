@@ -10,6 +10,9 @@ variables:
     value: 'real'
   - name: TeamName
     value: Pyright
+  # Route npm child processes through the runtime-generated authenticated CFS config.
+  - name: NPM_CONFIG_USERCONFIG
+    value: $(Agent.TempDirectory)/cfs.npmrc
 extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
   parameters:
@@ -44,6 +47,7 @@ extends:
                 displayName: Use Node 24.15.0
                 inputs:
                   versionSpec: 24.15.0
+              - template: /build/templates/npmAuthenticate.yml@self
               - task: CmdLine@2
                 displayName: npm install
                 inputs:

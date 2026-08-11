@@ -21,6 +21,9 @@ variables:
     value: pyright
   - name: AZURE_ARTIFACTS_FEED
     value: 'https://devdiv.pkgs.visualstudio.com/DevDiv/_packaging/Pylance_PublicPackages/npm/registry/'
+  # Route npm child processes through the runtime-generated authenticated CFS config.
+  - name: NPM_CONFIG_USERCONFIG
+    value: $(Agent.TempDirectory)/cfs.npmrc
 
 extends:
   template: azure-pipelines/MicroBuild.1ES.Official.Publish.yml@MicroBuildTemplate
@@ -213,9 +216,13 @@ extends:
                   targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)
             steps:
               - checkout: none
+              - template: /build/templates/npmAuthenticate.yml@self
               # Next step fails the build if https://github.com/microsoft/pyright/issues/10350 repros.
+              # Yarn does not reliably honor NPM_CONFIG_USERCONFIG, so place the
+              # authenticated config in its working directory too.
               - script: |
                   mkdir pyrightTest
+                  cp "$(Agent.TempDirectory)/cfs.npmrc" pyrightTest/.npmrc
                   cd pyrightTest
                   yarn
                   yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
@@ -273,6 +280,7 @@ extends:
                   targetPath: '$(System.ArtifactsDirectory)'
               # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
               # Install dependencies and VS Code Extension Manager (vsce >= v2.26.1 needed)
+              - template: /build/templates/npmAuthenticate.yml@self
               - script: |
                   npm install -g @vscode/vsce
                 displayName: 'Install vsce and dependencies'
