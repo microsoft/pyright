@@ -6843,8 +6843,8 @@ export function createTypeEvaluator(
 
         // Determine if we're calling __set__ on an asymmetric descriptor or property.
         let isAsymmetricAccessor = false;
-        if (usage.method === 'set' && isClass(methodClassType)) {
-            if (isAsymmetricDescriptorClass(methodClassType)) {
+        if (usage.method === 'set') {
+            if (isAsymmetricDescriptorClass(concreteMemberType)) {
                 isAsymmetricAccessor = true;
             }
         }

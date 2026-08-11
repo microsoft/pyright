@@ -27,6 +27,28 @@ container.value = "1"
 assert_type(container.value, int)
 
 
+class SetterBase:
+    def __get__(self, instance: Any, owner: Any = None) -> int | str:
+        return cast(Any, None)
+
+    def __set__(self, instance: Any, value: int | str) -> None:
+        pass
+
+
+class GetterOverride(SetterBase):
+    def __get__(self, instance: Any, owner: Any = None) -> int:
+        return 0
+
+
+class OverrideContainer:
+    value: GetterOverride
+
+
+override_container = OverrideContainer()
+override_container.value = "1"
+assert_type(override_container.value, int)
+
+
 class AsymmetricProperty:
     @property
     def value(self) -> int:
