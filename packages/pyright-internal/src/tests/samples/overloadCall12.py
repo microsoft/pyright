@@ -178,6 +178,20 @@ class AmbiguousTable(Generic[_T]):
         pass
 
 
+class PartiallySpecializedTable(Generic[_T]):
+    @overload
+    def __init__(self: "PartiallySpecializedTable[int]", values: list[int]) -> None: ...
+
+    @overload
+    def __init__(self: "PartiallySpecializedTable[str]", values: list[str]) -> None: ...
+
+    @overload
+    def __init__(self, values: set[_T]) -> None: ...
+
+    def __init__(self, values: list[Any] | set[Any]) -> None:
+        pass
+
+
 def check_constructors(values_any: list[Any], values_unknown: list, values_int: list[int]) -> None:
     reveal_type(Table(values_any), expected_text="Any")
     reveal_type(Table(values_unknown), expected_text="Unknown")
@@ -194,11 +208,15 @@ def check_constructor_union(
     values_unknown: list | bytes,
     values_int: list[int] | bytes,
     values_gradual: list[Any] | set,
+    values_partially_specialized: list[Any] | set[float],
 ) -> None:
     reveal_type(Table(values_any), expected_text="Any | Table[bytes]")
     reveal_type(Table(values_unknown), expected_text="Unknown | Table[bytes]")
     reveal_type(Table(values_int), expected_text="Table[int] | Table[bytes]")
     reveal_type(AmbiguousTable(values_gradual), expected_text="Any | Unknown")
+    reveal_type(
+        PartiallySpecializedTable(values_partially_specialized), expected_text="Any | PartiallySpecializedTable[float]"
+    )
     reveal_type(table.__init__(values_any), expected_text="None")
 
 
