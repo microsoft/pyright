@@ -2595,7 +2595,7 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
                     if (!classType.priv.includeSubclasses) {
                         // If the class if marked final and it matches, then
                         // we can eliminate it in the negative case.
-                        if (matches && (ClassType.isFinal(classType) || ClassType.isFinal(instantiableSubtype))) {
+                        if (matches && ClassType.isFinal(instantiableSubtype)) {
                             return undefined;
                         }
 

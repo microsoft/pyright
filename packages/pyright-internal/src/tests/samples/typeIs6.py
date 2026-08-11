@@ -47,3 +47,14 @@ def func6(x: FinalA | FinalB, cls: type[FinalA]):
 def func7(x: int | str, cls: type[int] | type[str]):
     if type(x) is cls:
         reveal_type(x, expected_text="int | str")
+
+class Base: pass
+
+@final
+class FinalSub(Base): pass
+
+def func8(x: Base):
+    if type(x) is not FinalSub:
+        reveal_type(x, expected_text="Base")
+    else:
+        reveal_type(x, expected_text="FinalSub")
