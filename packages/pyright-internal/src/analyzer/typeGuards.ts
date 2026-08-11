@@ -13,6 +13,7 @@ import { assert } from '../common/debug';
 import {
     ArgCategory,
     AssignmentExpressionNode,
+    CallNode,
     ExpressionNode,
     isExpressionNode,
     NameNode,
@@ -209,45 +210,76 @@ export function getTypeNarrowingCallback(
                 }
             }
 
-            // Look for "type(X) is Y", "type(X) is not Y", "type(X) == Y" or "type(X) != Y".
+            // Look for "type(X) is Y", "type(X) is not Y", "type(X) == Y" or "type(X) != Y",
+            // as well as reverse forms "Y is type(X)", "Y is not type(X)", "Y == type(X)", "Y != type(X)".
+            let typeCallNode: CallNode | undefined;
+            let otherExpr: ExpressionNode | undefined;
+
             if (testExpression.d.leftExpr.nodeType === ParseNodeType.Call) {
-                if (
-                    testExpression.d.leftExpr.d.args.length === 1 &&
-                    testExpression.d.leftExpr.d.args[0].d.argCategory === ArgCategory.Simple
-                ) {
-                    const arg0Expr = testExpression.d.leftExpr.d.args[0].d.valueExpr;
-                    if (isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
-                        const callType = evaluator.getTypeOfExpression(
-                            testExpression.d.leftExpr.d.leftExpr,
-                            EvalFlags.CallBaseDefaults
-                        ).type;
+                typeCallNode = testExpression.d.leftExpr;
+                otherExpr = testExpression.d.rightExpr;
+            } else if (testExpression.d.rightExpr.nodeType === ParseNodeType.Call) {
+                typeCallNode = testExpression.d.rightExpr;
+                otherExpr = testExpression.d.leftExpr;
+            }
 
-                        if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type')) {
-                            const rhsResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
-                            const classTypes: ClassType[] = [];
-                            let isClassType = true;
+            if (
+                typeCallNode &&
+                otherExpr &&
+                typeCallNode.d.args.length === 1 &&
+                typeCallNode.d.args[0].d.argCategory === ArgCategory.Simple
+            ) {
+                const arg0Expr = typeCallNode.d.args[0].d.valueExpr;
+                if (isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
+                    const callType = evaluator.getTypeOfExpression(
+                        typeCallNode.d.leftExpr,
+                        EvalFlags.CallBaseDefaults
+                    ).type;
 
-                            evaluator.mapSubtypesExpandTypeVars(
-                                rhsResult.type,
-                                /* options */ undefined,
-                                (expandedSubtype) => {
-                                    if (isInstantiableClass(expandedSubtype)) {
-                                        classTypes.push(expandedSubtype);
-                                    } else {
-                                        isClassType = false;
+                    if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type')) {
+                        const otherResult = evaluator.getTypeOfExpression(otherExpr);
+                        const classTypes: ClassType[] = [];
+                        let isClassType = true;
+
+                        evaluator.mapSubtypesExpandTypeVars(
+                            otherResult.type,
+                            /* options */ undefined,
+                            (expandedSubtype) => {
+                                let instantiable: ClassType | undefined;
+                                if (isClass(expandedSubtype)) {
+                                    if (
+                                        ClassType.isBuiltIn(expandedSubtype, 'type') &&
+                                        expandedSubtype.priv.typeArgs &&
+                                        expandedSubtype.priv.typeArgs.length > 0
+                                    ) {
+                                        const extracted = convertToInstantiable(
+                                            expandedSubtype.priv.typeArgs[0],
+                                            /* includeSubclasses */ false
+                                        );
+                                        if (isInstantiableClass(extracted)) {
+                                            instantiable = extracted;
+                                        }
+                                    } else if (isInstantiableClass(expandedSubtype)) {
+                                        instantiable = expandedSubtype;
                                     }
-                                    return undefined;
                                 }
-                            );
 
-                            if (isClassType && classTypes.length > 0) {
-                                return (type: Type) => {
-                                    return {
-                                        type: narrowTypeForTypeIs(evaluator, type, classTypes, adjIsPositiveTest),
-                                        isIncomplete: !!rhsResult.isIncomplete,
-                                    };
-                                };
+                                if (instantiable && !ClassType.isBuiltIn(instantiable, 'object')) {
+                                    classTypes.push(ClassType.cloneIncludeSubclasses(instantiable, false));
+                                } else {
+                                    isClassType = false;
+                                }
+                                return undefined;
                             }
+                        );
+
+                        if (isClassType && classTypes.length > 0) {
+                            return (type: Type) => {
+                                return {
+                                    type: narrowTypeForTypeIs(evaluator, type, classTypes, adjIsPositiveTest),
+                                    isIncomplete: !!otherResult.isIncomplete,
+                                };
+                            };
                         }
                     }
                 }
@@ -2538,17 +2570,20 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
             /* options */ undefined,
             (subtype: Type, unexpandedSubtype: Type) => {
                 if (isClassInstance(subtype)) {
-                    const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
+                    const instantiableSubtype = ClassType.cloneAsInstantiable(subtype);
+                    const matches = ClassType.isDerivedFrom(classType, instantiableSubtype);
+                    const isSubclass = ClassType.isDerivedFrom(instantiableSubtype, classType);
+
                     if (isPositiveTest) {
                         if (matches) {
-                            if (ClassType.isSameGenericClass(ClassType.cloneAsInstantiable(subtype), classType)) {
+                            if (ClassType.isSameGenericClass(instantiableSubtype, classType)) {
                                 return addConditionToType(subtype, getTypeCondition(classType));
                             }
 
                             return addConditionToType(ClassType.cloneAsInstance(classType), subtype.props?.condition);
                         }
 
-                        if (!classType.priv.includeSubclasses) {
+                        if (!classType.priv.includeSubclasses || !isSubclass) {
                             return undefined;
                         }
 
@@ -2560,7 +2595,7 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
                     if (!classType.priv.includeSubclasses) {
                         // If the class if marked final and it matches, then
                         // we can eliminate it in the negative case.
-                        if (matches && ClassType.isFinal(subtype)) {
+                        if (matches && (ClassType.isFinal(classType) || ClassType.isFinal(instantiableSubtype))) {
                             return undefined;
                         }
 
