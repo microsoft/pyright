@@ -2277,11 +2277,13 @@ function narrowTypeForTypedDictKey(
                     //     return subtype;
                     // }
 
-                    // if (isNever(tdEntry.valueType)) {
-                    //     // If the entry is typed as Never or the "extra items" is typed as Never,
-                    //     // then this key cannot be present in the TypedDict, and we can eliminate it.
-                    //     return undefined;
-                    // }
+                    if (isNever(tdEntry.valueType)) {
+                        // If the entry is typed as Never or the "extra items" is typed as Never,
+                        // then this key cannot be present in the TypedDict, and we can eliminate it.
+                        // A closed TypedDict has an "extra items" of Never, so this is what allows
+                        // a key check to discriminate between closed TypedDicts.
+                        return undefined;
+                    }
 
                     // If the entry is currently not required and not marked provided, we can mark
                     // it as provided after this guard expression confirms it is.

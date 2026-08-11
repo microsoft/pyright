@@ -408,6 +408,11 @@ test('TypedDictClosed10', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypedDictClosed11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed11.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('DataclassTransform1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform1.py']);
 
