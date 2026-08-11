@@ -9948,7 +9948,7 @@ export function createTypeEvaluator(
         const overloadsUsedForCall: FunctionType[] = [];
         let isDefinitiveMatchFound = false;
         let hasInitSelfMaterializationAmbiguity = false;
-        let hasSpecializedInitSelfType = false;
+        let hasEffectiveInitSelfType = false;
         const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
@@ -10024,8 +10024,7 @@ export function createTypeEvaluator(
                         }
                     } else {
                         returnTypes.push(callResult.returnType);
-                        effectiveInitSelfType = getEffectiveOverloadReturnType(matchedOverloadInfo);
-                        hasSpecializedInitSelfType ||= !!callResult.specializedInitSelfType;
+                        effectiveInitSelfType = getEffectiveInitSelfType(matchedOverloadInfo);
                         isDefinitiveMatchFound = true;
                         break;
                     }
@@ -10053,8 +10052,7 @@ export function createTypeEvaluator(
                 // Did the filtering produce a single result? If so, we're done.
                 if (possibleMatchResults.length === 1) {
                     returnTypes.push(possibleMatchResults[0].returnType);
-                    effectiveInitSelfType = getEffectiveOverloadReturnType(possibleMatchResults[0]);
-                    hasSpecializedInitSelfType ||= !!possibleMatchResults[0].specializedInitSelfType;
+                    effectiveInitSelfType = getEffectiveInitSelfType(possibleMatchResults[0]);
                     matchedOverloads = [possibleMatchResults[0]];
                 } else {
                     const firstArgParamPairs = getOverloadArgParamPairs(possibleMatchResults[0]);
@@ -10151,14 +10149,13 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    effectiveInitSelfType = returnType;
                     if (isInitSelfMaterializationAmbiguity) {
                         // Overloaded __init__ methods normally return None. Preserve that
                         // ordinary return as a placeholder while union-expanded calls are
                         // combined, and carry the effective constructed types separately.
                         // validateInitMethod consumes specializedInitSelfType to reconstruct
                         // the constructor result after call validation is complete.
-                        hasSpecializedInitSelfType = true;
+                        effectiveInitSelfType = returnType;
                         hasInitSelfMaterializationAmbiguity = true;
                         returnTypes.push(possibleMatchResults[0].returnType);
                     } else {
@@ -10169,12 +10166,19 @@ export function createTypeEvaluator(
 
             if (effectiveInitSelfType) {
                 specializedInitSelfTypes.push(effectiveInitSelfType);
+                hasEffectiveInitSelfType = true;
             }
 
             if (!matchedOverload) {
                 return { argumentErrors: true, isTypeIncomplete, overloadsUsedForCall };
             }
         }
+
+        // Union expansion requires one constructor handoff per expanded argument list.
+        // Materialization ambiguity requires a combined handoff even when there is only
+        // one argument list because multiple overload candidates contribute to its result.
+        const shouldCombineInitSelfTypes =
+            hasInitSelfMaterializationAmbiguity || (expandedArgTypes.length > 1 && hasEffectiveInitSelfType);
 
         // We found a match for all of the expanded argument lists. Copy the
         // resulting type var context back into the caller's type var context.
@@ -10186,7 +10190,9 @@ export function createTypeEvaluator(
 
         // And run through the first expanded argument list one more time to
         // populate the type cache.
-        const finalConstraints = constraints ?? matchedOverloads[0].constraints;
+        const finalConstraints = shouldCombineInitSelfTypes
+            ? matchedOverloads[0].constraints
+            : constraints ?? matchedOverloads[0].constraints;
         const finalCallResult = validateArgTypesWithContext(
             errorNode,
             matchedOverloads[0].matchResults,
@@ -10198,12 +10204,6 @@ export function createTypeEvaluator(
         if (finalCallResult.isTypeIncomplete) {
             isTypeIncomplete = true;
         }
-
-        // Union expansion requires one constructor handoff per expanded argument list.
-        // Materialization ambiguity requires a combined handoff even when there is only
-        // one argument list because multiple overload candidates contribute to its result.
-        const shouldCombineInitSelfTypes =
-            hasInitSelfMaterializationAmbiguity || (expandedArgTypes.length > 1 && hasSpecializedInitSelfType);
 
         return {
             argumentErrors: finalCallResult.argumentErrors,
@@ -10291,10 +10291,13 @@ export function createTypeEvaluator(
     }
 
     function getEffectiveOverloadReturnType(match: MatchedOverloadInfo): Type {
+        return getEffectiveInitSelfType(match) ?? match.returnType;
+    }
+
+    function getEffectiveInitSelfType(match: MatchedOverloadInfo): Type | undefined {
         if (match.specializedInitSelfType) {
             return match.specializedInitSelfType;
         }
-
         const boundToType = match.overload.priv.boundToType;
         if (match.overload.shared.name === '__init__' && boundToType && isClassInstance(boundToType)) {
             return solveAndApplyConstraints(boundToType, match.constraints, {
@@ -10305,7 +10308,7 @@ export function createTypeEvaluator(
             });
         }
 
-        return match.returnType;
+        return undefined;
     }
 
     function getOverloadArgParamPairs(match: MatchedOverloadInfo): { argType: Type; paramType: Type }[] {
