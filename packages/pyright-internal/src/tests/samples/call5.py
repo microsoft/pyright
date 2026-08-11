@@ -4,6 +4,7 @@
 
 from typing import NamedTuple, List, Tuple
 
+# The field-name strings are ordinary values, not stringified type expressions.
 X = NamedTuple("X", [("a", int), ("b", str), ("c", str)])
 
 q0: List[Tuple[int, str, str]] = [(1, "", ""), (2, "", "")]
@@ -69,6 +70,16 @@ q6 = Z(["1"], [3])
 for a, b in zip(*q6):
     reveal_type(a, expected_text="str")
     reveal_type(b, expected_text="int")
+
+
+ColumnRecord = NamedTuple("ColumnRecord", [("text", list[str]), ("numbers", list[int])])
+column_record = ColumnRecord(["one"], [1])
+
+# This combines functional NamedTuple field-name strings with application code
+# that transposes columnar data, the recursion pattern from the TypeForm regression.
+for text, number in zip(*column_record):
+    reveal_type(text, expected_text="str")
+    reveal_type(number, expected_text="int")
 
 
 def func1(a: list[str], c: list[int]): ...

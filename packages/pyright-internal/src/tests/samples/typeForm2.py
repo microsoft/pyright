@@ -162,6 +162,9 @@ def func3[**P, R](x: Callable[P, R]) -> Callable[P, R]:
     t1 = tf(Callable[Concatenate[int, P], R])
     reveal_type(t1, expected_text="TypeForm[(int, **P@func3) -> R@func3]")
 
+    t2 = TypeForm(Callable[P, R])
+    reveal_type(t2, expected_text="TypeForm[(**P@func3) -> R@func3]")
+
     return x
 
 
@@ -209,10 +212,8 @@ def func6(x: T) -> T:
     return x
 
 
-# These should maybe generage errors, but given
-# that the typing spec doesn't say anything about how
-# to evaluate the type of a special form when it's used
-# in a value expression context, it's not clear.
+# These special forms aren't valid type expressions in this context,
+# so each should generate an error.
 def func7():
     t1 = tf(Generic)
 
