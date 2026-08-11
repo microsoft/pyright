@@ -36,9 +36,12 @@ export interface TypeResult {
     isIncomplete?: boolean;
 }
 
-export interface SpeculativeTypeEntry {
-    typeResult: TypeResult;
+export interface ContextualTypeCacheEntry {
     expectedType: Type | undefined;
+}
+
+export interface SpeculativeTypeEntry extends ContextualTypeCacheEntry {
+    typeResult: TypeResult;
     incompleteGenerationCount: number;
     dependentTypes?: DependentType[];
 }
@@ -52,6 +55,33 @@ export interface SpeculativeModeOptions {
     // a speculative root, but this can be overridden by specifying
     // this option.
     allowDiagnostics?: boolean;
+}
+
+const maxContextualTypeCacheEntriesPerNode = 8;
+
+export function contextualTypeCacheEntryMatches(
+    entry: ContextualTypeCacheEntry,
+    expectedType: Type | undefined
+): boolean {
+    return expectedType ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType) : !entry.expectedType;
+}
+
+export function addContextualTypeCacheEntry<T extends ContextualTypeCacheEntry>(
+    cacheEntries: readonly T[],
+    newEntry: T,
+    isEntryValid?: (entry: T) => boolean
+): T[] {
+    let newCacheEntries = cacheEntries.filter(
+        (entry) =>
+            (!isEntryValid || isEntryValid(entry)) && !contextualTypeCacheEntryMatches(entry, newEntry.expectedType)
+    );
+
+    newCacheEntries.push(newEntry);
+    if (newCacheEntries.length > maxContextualTypeCacheEntriesPerNode) {
+        newCacheEntries = newCacheEntries.slice(newCacheEntries.length - maxContextualTypeCacheEntriesPerNode);
+    }
+
+    return newCacheEntries;
 }
 
 // This class maintains a stack of "speculative type contexts". When
@@ -158,38 +188,6 @@ export class SpeculativeTypeTracker {
     ) {
         assert(this._speculativeContextStack.length > 0);
 
-        const maxCacheEntriesPerNode = 8;
-        let cacheEntries = this._speculativeTypeCache.get(node.id);
-
-        if (!cacheEntries) {
-            cacheEntries = [];
-        } else {
-            cacheEntries = cacheEntries.filter((entry) => {
-                // Filter out any incomplete entries that no longer match the generation count.
-                // These are obsolete and cannot be used.
-                if (entry.typeResult.isIncomplete && entry.incompleteGenerationCount !== incompleteGenerationCount) {
-                    return false;
-                }
-
-                // Filter out any entries that match the expected type of the
-                // new entry. The new entry replaces the old in this case.
-                if (expectedType) {
-                    if (!entry.expectedType) {
-                        return true;
-                    }
-                    return !isTypeSame(entry.expectedType, expectedType);
-                }
-
-                return !!entry.expectedType;
-            });
-
-            // Don't allow the cache to grow too large.
-            if (cacheEntries.length >= maxCacheEntriesPerNode) {
-                cacheEntries.slice(1);
-            }
-        }
-
-        // Add the new entry.
         const newEntry: SpeculativeTypeEntry = {
             typeResult,
             expectedType,
@@ -200,8 +198,11 @@ export class SpeculativeTypeTracker {
             newEntry.dependentTypes = Array.from(this._activeDependentTypes);
         }
 
-        cacheEntries.push(newEntry);
-
+        const cacheEntries = addContextualTypeCacheEntry(
+            this._speculativeTypeCache.get(node.id) ?? [],
+            newEntry,
+            (entry) => !entry.typeResult.isIncomplete || entry.incompleteGenerationCount === incompleteGenerationCount
+        );
         this._speculativeTypeCache.set(node.id, cacheEntries);
     }
 
@@ -214,15 +215,7 @@ export class SpeculativeTypeTracker {
             const entries = this._speculativeTypeCache.get(node.id);
             if (entries) {
                 for (const entry of entries) {
-                    if (!expectedType) {
-                        if (!entry.expectedType && this._dependentTypesMatch(entry)) {
-                            return entry;
-                        }
-                    } else if (
-                        entry.expectedType &&
-                        isTypeSame(expectedType, entry.expectedType) &&
-                        this._dependentTypesMatch(entry)
-                    ) {
+                    if (contextualTypeCacheEntryMatches(entry, expectedType) && this._dependentTypesMatch(entry)) {
                         return entry;
                     }
                 }

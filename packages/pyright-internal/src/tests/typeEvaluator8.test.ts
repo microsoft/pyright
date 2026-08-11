@@ -10,7 +10,8 @@
 
 import * as assert from 'assert';
 
-import { ClassType, isClassInstance, isInstantiableClass } from '../analyzer/types';
+import { EvalFlags } from '../analyzer/typeEvaluatorTypes';
+import { ClassType, isClassInstance, isInstantiableClass, UnknownType } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8, pythonVersion3_12 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -1152,6 +1153,132 @@ test('TypeFormCacheRuntimeFirstReassignment', () => {
     assert.ok(ClassType.isBuiltIn(typeArg, 'int'));
 
     assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
+});
+
+test('TypeFormCacheRuntimeFirstString', () => {
+    const code = `
+// @filename: test.py
+//// from typing_extensions import TypeForm
+//// value: TypeForm[int] = /*marker*/"int"
+    `;
+    const state = parseAndGetTestState(code).state;
+    const markerNode = getNodeAtMarker(state);
+    const node = markerNode.nodeType === ParseNodeType.String ? markerNode.parent : markerNode;
+    assert.ok(node?.nodeType === ParseNodeType.StringList);
+
+    const runtimeType = state.program.evaluator!.getTypeOfExpression(node).type;
+    assert.ok(isClassInstance(runtimeType));
+    assert.ok(ClassType.isBuiltIn(runtimeType, 'str'));
+    assert.strictEqual(runtimeType.props?.typeForm, undefined);
+
+    state.program.evaluator!.evaluateTypesForStatement(node);
+
+    const contextualType = state.program.evaluator!.getType(node);
+    assert.ok(contextualType);
+    assert.ok(isClassInstance(contextualType));
+    assert.ok(ClassType.isBuiltIn(contextualType, 'TypeForm'));
+
+    const typeArg = contextualType.priv.typeArgs?.[0];
+    assert.ok(typeArg);
+    assert.ok(isClassInstance(typeArg));
+    assert.ok(ClassType.isBuiltIn(typeArg, 'int'));
+
+    assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
+});
+
+test('TypeFormCacheRuntimeFirstMemberAssignment', () => {
+    const code = `
+// @filename: test.py
+//// from typing_extensions import TypeForm
+//// class Holder:
+////     value: TypeForm[int]
+//// holder = Holder()
+//// holder.value = /*marker*/int
+    `;
+    const state = parseAndGetTestState(code).state;
+    const node = getNodeAtMarker(state);
+    assert.ok(node.nodeType === ParseNodeType.Name);
+
+    const runtimeType = state.program.evaluator!.getTypeOfExpression(node).type;
+    assert.ok(isInstantiableClass(runtimeType));
+    assert.ok(ClassType.isBuiltIn(runtimeType, 'int'));
+
+    state.program.evaluator!.evaluateTypesForStatement(node);
+
+    const contextualType = state.program.evaluator!.getType(node);
+    assert.ok(contextualType);
+    assert.ok(isClassInstance(contextualType));
+    assert.ok(ClassType.isBuiltIn(contextualType, 'TypeForm'));
+    const typeArg = contextualType.priv.typeArgs?.[0];
+    assert.ok(typeArg);
+    assert.ok(isClassInstance(typeArg));
+    assert.ok(ClassType.isBuiltIn(typeArg, 'int'));
+
+    assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
+});
+
+test('TypeFormCacheRuntimeFirstIndexAssignment', () => {
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict, cast
+//// from typing_extensions import TypeForm
+//// class Holder(TypedDict):
+////     value: TypeForm[int]
+//// holder = cast(Holder, {})
+//// holder["value"] = /*marker*/int
+    `;
+    const state = parseAndGetTestState(code).state;
+    const node = getNodeAtMarker(state);
+    assert.ok(node.nodeType === ParseNodeType.Name);
+
+    const runtimeType = state.program.evaluator!.getTypeOfExpression(node).type;
+    assert.ok(isInstantiableClass(runtimeType));
+    assert.ok(ClassType.isBuiltIn(runtimeType, 'int'));
+
+    state.program.evaluator!.evaluateTypesForStatement(node);
+
+    const contextualType = state.program.evaluator!.getType(node);
+    assert.ok(contextualType);
+    assert.ok(isClassInstance(contextualType));
+    assert.ok(ClassType.isBuiltIn(contextualType, 'TypeForm'));
+    const typeArg = contextualType.priv.typeArgs?.[0];
+    assert.ok(typeArg);
+    assert.ok(isClassInstance(typeArg));
+    assert.ok(ClassType.isBuiltIn(typeArg, 'int'));
+
+    assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
+});
+
+test('TypeFormSpeculativeCacheDoesNotInvalidateIncompleteCache', () => {
+    const code = `
+// @filename: test.py
+//// from typing_extensions import TypeForm
+//// other = /*incomplete*/1
+//// value: TypeForm[int] = /*typeForm*/int
+    `;
+    const state = parseAndGetTestState(code).state;
+    const node = getNodeAtMarker(state, 'typeForm');
+    const incompleteNode = getNodeAtMarker(state, 'incomplete');
+    assert.ok(node.nodeType === ParseNodeType.Name);
+    assert.ok(incompleteNode.nodeType === ParseNodeType.Number);
+
+    const incompleteType = UnknownType.create();
+    state.program.evaluator!.setTypeResultForNode(incompleteNode, {
+        type: incompleteType,
+        isIncomplete: true,
+    });
+
+    state.program.evaluator!.useSpeculativeMode(node, () => {
+        state.program.evaluator!.setTypeResultForNode(node, { type: UnknownType.create() }, EvalFlags.TypeFormArg);
+    });
+
+    assert.strictEqual(state.program.evaluator!.getCachedType(node), undefined);
+    const incompleteResult = state.program.evaluator!.getTypeOfExpression(incompleteNode);
+    assert.ok(
+        incompleteResult.type === incompleteType,
+        'Speculative TypeForm write invalidated an unrelated incomplete cache entry'
+    );
+    assert.strictEqual(incompleteResult.isIncomplete, true);
 });
 
 test('TypeFormCacheDoesNotSkipRuntimeEvaluation', () => {

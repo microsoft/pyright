@@ -175,7 +175,13 @@ import { indeterminateSymbolId, Symbol, SymbolFlags, SynthesizedTypeInfo } from 
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
 import { assignTupleTypeArgs, expandTuple, getSlicedTupleType, getTypeOfTuple, makeTupleObject } from './tuples';
-import { SpeculativeModeOptions, SpeculativeTypeTracker } from './typeCacheUtils';
+import {
+    addContextualTypeCacheEntry,
+    ContextualTypeCacheEntry,
+    contextualTypeCacheEntryMatches,
+    SpeculativeModeOptions,
+    SpeculativeTypeTracker,
+} from './typeCacheUtils';
 import {
     assignToTypedDict,
     assignTypedDictToTypedDict,
@@ -625,9 +631,7 @@ interface TypeCacheEntry {
     flags: EvalFlags | undefined;
 }
 
-interface TypeFormTypeCacheEntry extends TypeCacheEntry {
-    expectedType: Type | undefined;
-}
+interface TypeFormTypeCacheEntry extends TypeCacheEntry, ContextualTypeCacheEntry {}
 
 interface CodeFlowAnalyzerCacheEntry {
     typeAtStart: TypeResult | undefined;
@@ -745,19 +749,10 @@ export function createTypeEvaluator(
         return typeFormTypeCache;
     }
 
-    // Determines whether a TypeForm cache entry corresponds to the given expected type.
-    // This is the single source of truth for TypeForm-entry identity; both the lookup
-    // and eviction paths derive from it so they cannot drift.
-    function entryMatchesExpectedType(entry: TypeFormTypeCacheEntry, expectedType: Type | undefined) {
-        return expectedType
-            ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType)
-            : !entry.expectedType;
-    }
-
     function readTypeFormTypeCacheEntry(node: ParseNode, expectedType: Type | undefined) {
         return getTypeFormTypeCache(node)
             .get(node.id)
-            ?.find((entry) => entryMatchesExpectedType(entry, expectedType));
+            ?.find((entry) => contextualTypeCacheEntryMatches(entry, expectedType));
     }
 
     // Contextual reads consult expectedTypeCache and prefer a matching TypeForm result.
@@ -844,25 +839,23 @@ export function createTypeEvaluator(
 
         if (useTypeFormCache) {
             const expectedType = inferenceContext?.expectedType;
-            const typeFormCache = getTypeFormTypeCache(node);
-            let cacheEntries = typeFormCache.get(node.id) ?? [];
-            const oldEntry = cacheEntries.find((entry) => entryMatchesExpectedType(entry, expectedType));
 
-            updateIncompleteGenerationCount(typeResult, oldEntry?.typeResult);
-
+            // Speculative TypeForm results are not retained, so they must not invalidate
+            // persistent incomplete entries through the global generation counter.
             if (isSpeculativeModeInUse(node)) {
                 return;
             }
 
-            cacheEntries = cacheEntries.filter((entry) => !entryMatchesExpectedType(entry, expectedType));
-            cacheEntries.push({ typeResult, flags, incompleteGenCount, expectedType });
+            const typeFormCache = getTypeFormTypeCache(node);
+            const cacheEntries = typeFormCache.get(node.id) ?? [];
+            const oldEntry = cacheEntries.find((entry) => contextualTypeCacheEntryMatches(entry, expectedType));
 
-            const maxCacheEntriesPerNode = 8;
-            if (cacheEntries.length > maxCacheEntriesPerNode) {
-                cacheEntries = cacheEntries.slice(cacheEntries.length - maxCacheEntriesPerNode);
-            }
+            updateIncompleteGenerationCount(typeResult, oldEntry?.typeResult);
 
-            typeFormCache.set(node.id, cacheEntries);
+            typeFormCache.set(
+                node.id,
+                addContextualTypeCacheEntry(cacheEntries, { typeResult, flags, incompleteGenCount, expectedType })
+            );
             return;
         }
 
@@ -17431,6 +17424,33 @@ export function createTypeEvaluator(
         return undefined;
     }
 
+    function cachedAssignmentTargetMayHaveDeclaredType(expression: ExpressionNode): boolean {
+        switch (expression.nodeType) {
+            case ParseNodeType.Name: {
+                const symbolWithScope = lookUpSymbolRecursive(expression, expression.d.value, /* honorCodeFlow */ true);
+                return (
+                    !!symbolWithScope &&
+                    (symbolWithScope.symbol.hasTypedDeclarations() || symbolWithScope.scope.type === ScopeType.Class)
+                );
+            }
+
+            case ParseNodeType.TypeAnnotation:
+            case ParseNodeType.MemberAccess:
+            case ParseNodeType.Index:
+                return true;
+
+            case ParseNodeType.Tuple:
+                return (
+                    expression.d.items.length > 0 &&
+                    !expression.d.items.some((item) => item.nodeType === ParseNodeType.Unpack) &&
+                    expression.d.items.every((item) => cachedAssignmentTargetMayHaveDeclaredType(item))
+                );
+
+            default:
+                return false;
+        }
+    }
+
     function evaluateTypesForAssignmentStatement(node: AssignmentNode): void {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
@@ -17460,12 +17480,15 @@ export function createTypeEvaluator(
         let rightHandType = readTypeCache(node.d.rightExpr, /* flags */ undefined);
         let isIncomplete = false;
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
+        let declaredType: Type | undefined;
+        let declaredTypeResolved = false;
 
         // A runtime-first query may have cached the RHS without its assignment
         // context. Re-evaluate it when the annotation expects a TypeForm so the
         // ordinary cache cannot suppress contextual validation and conversion.
-        if (rightHandType) {
-            const declaredType = getDeclaredTypeForExpression(node.d.leftExpr, { method: 'set' });
+        if (rightHandType && cachedAssignmentTargetMayHaveDeclaredType(node.d.leftExpr)) {
+            declaredType = getDeclaredTypeForExpression(node.d.leftExpr, { method: 'set' });
+            declaredTypeResolved = true;
             if (declaredType && expectedTypeWantsTypeForm(declaredType)) {
                 rightHandType = undefined;
             }
@@ -17540,7 +17563,9 @@ export function createTypeEvaluator(
                 }
             }
 
-            let declaredType = getDeclaredTypeForExpression(node.d.leftExpr, { method: 'set' });
+            if (!declaredTypeResolved) {
+                declaredType = getDeclaredTypeForExpression(node.d.leftExpr, { method: 'set' });
+            }
 
             if (declaredType) {
                 const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
