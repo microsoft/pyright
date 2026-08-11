@@ -2146,6 +2146,8 @@ function narrowTypeForContainerType(
                 typesToEliminate.push(tupleEntry.type);
             } else if (isClassInstance(tupleEntry.type) && isLiteralType(tupleEntry.type)) {
                 typesToEliminate.push(tupleEntry.type);
+            } else if (isInstantiableClass(tupleEntry.type)) {
+                typesToEliminate.push(tupleEntry.type);
             }
         }
     });
