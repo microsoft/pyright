@@ -3,7 +3,7 @@
 # is not one of its known items, so such a check can discriminate.
 
 
-from typing import TypedDict
+from typing import Never, NotRequired, TypedDict
 
 
 class Foo(TypedDict, closed=True):
@@ -56,3 +56,44 @@ def func4(u: Foo | Open) -> None:
         reveal_type(u, expected_text="Foo")
     else:
         reveal_type(u, expected_text="Open")
+
+
+class NeverItem(TypedDict):
+    always: int
+    never: Never
+
+
+def func5(td: NeverItem) -> None:
+    # A declared item typed as Never can never be present either, so the
+    # same elimination applies to it and not only to the "extra items"
+    # entry synthesized for a closed TypedDict.
+    if "never" in td:
+        reveal_type(td, expected_text="Never")
+    else:
+        reveal_type(td, expected_text="NeverItem")
+
+
+class Left(TypedDict, closed=True):
+    common: int
+    left: int
+
+
+class Right(TypedDict, closed=True):
+    common: int
+    right: NotRequired[int]
+
+
+def func6(u: Left | Right) -> None:
+    # "common" is a required known item of both, so neither is eliminated.
+    if "common" in u:
+        reveal_type(u, expected_text="Left | Right")
+    else:
+        reveal_type(u, expected_text="Never")
+
+
+def func7(td: Right) -> None:
+    # "right" is a known item that is not required, so the subtype is kept
+    # and the key is marked as provided rather than eliminated.
+    if "right" in td:
+        reveal_type(td, expected_text="Right")
+        reveal_type(td["right"], expected_text="int")
