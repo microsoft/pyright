@@ -246,15 +246,18 @@ export function getTypeNarrowingCallback(
                             /* options */ undefined,
                             (expandedSubtype) => {
                                 let instantiable: ClassType | undefined;
+                                let isTypeParam = false;
+
                                 if (isClass(expandedSubtype)) {
                                     if (
                                         ClassType.isBuiltIn(expandedSubtype, 'type') &&
                                         expandedSubtype.priv.typeArgs &&
                                         expandedSubtype.priv.typeArgs.length > 0
                                     ) {
+                                        isTypeParam = true;
                                         const extracted = convertToInstantiable(
                                             expandedSubtype.priv.typeArgs[0],
-                                            /* includeSubclasses */ false
+                                            /* includeSubclasses */ true
                                         );
                                         if (isInstantiableClass(extracted)) {
                                             instantiable = extracted;
@@ -265,7 +268,11 @@ export function getTypeNarrowingCallback(
                                 }
 
                                 if (instantiable && !ClassType.isBuiltIn(instantiable, 'object')) {
-                                    classTypes.push(ClassType.cloneIncludeSubclasses(instantiable, false));
+                                    classTypes.push(
+                                        isTypeParam
+                                            ? instantiable
+                                            : ClassType.cloneIncludeSubclasses(instantiable, false)
+                                    );
                                 } else {
                                     isClassType = false;
                                 }

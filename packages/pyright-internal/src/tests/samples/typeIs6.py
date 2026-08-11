@@ -58,3 +58,19 @@ def func8(x: Base):
         reveal_type(x, expected_text="Base")
     else:
         reveal_type(x, expected_text="FinalSub")
+
+class Index: pass
+
+class MultiIndex(Index): pass
+
+def test_spark_regression(self_val: MultiIndex, other: Index):
+    if type(self_val) is not type(other):
+        pass
+    reveal_type(self_val, expected_text="MultiIndex")
+
+def test_direct_class_vs_type_param(x: Base, cls: type[Base]):
+    if type(x) is not Base:
+        reveal_type(x, expected_text="Base")
+    
+    if type(x) is not cls:
+        reveal_type(x, expected_text="Base")
