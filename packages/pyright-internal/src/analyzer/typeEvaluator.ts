@@ -9947,11 +9947,13 @@ export function createTypeEvaluator(
         let isTypeIncomplete = false;
         const overloadsUsedForCall: FunctionType[] = [];
         let isDefinitiveMatchFound = false;
+        let hasInitSelfMaterializationAmbiguity = false;
         const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
             const overloadsUsedStartIndex = overloadsUsedForCall.length;
             let matchedOverload: FunctionType | undefined;
+            let specializedInitSelfType: Type | undefined;
             const argTypeOverride = expandedArgTypes[expandedTypesIndex];
             const hasArgTypeOverride = argTypeOverride.some((a) => a !== undefined);
             let possibleMatchResults: MatchedOverloadInfo[] = [];
@@ -10021,6 +10023,7 @@ export function createTypeEvaluator(
                         }
                     } else {
                         returnTypes.push(callResult.returnType);
+                        specializedInitSelfType = callResult.specializedInitSelfType;
                         isDefinitiveMatchFound = true;
                         break;
                     }
@@ -10048,6 +10051,7 @@ export function createTypeEvaluator(
                 // Did the filtering produce a single result? If so, we're done.
                 if (possibleMatchResults.length === 1) {
                     returnTypes.push(possibleMatchResults[0].returnType);
+                    specializedInitSelfType = possibleMatchResults[0].specializedInitSelfType;
                     matchedOverloads = [possibleMatchResults[0]];
                 } else {
                     const firstArgParamPairs = getOverloadArgParamPairs(possibleMatchResults[0]);
@@ -10150,12 +10154,17 @@ export function createTypeEvaluator(
                         // combined, and carry the effective constructed types separately.
                         // validateInitMethod consumes specializedInitSelfType to reconstruct
                         // the constructor result after call validation is complete.
-                        specializedInitSelfTypes.push(returnType);
+                        specializedInitSelfType = returnType;
+                        hasInitSelfMaterializationAmbiguity = true;
                         returnTypes.push(possibleMatchResults[0].returnType);
                     } else {
                         returnTypes.push(returnType);
                     }
                 }
+            }
+
+            if (specializedInitSelfType) {
+                specializedInitSelfTypes.push(specializedInitSelfType);
             }
 
             if (!matchedOverload) {
@@ -10192,7 +10201,8 @@ export function createTypeEvaluator(
             returnType: combineTypes(returnTypes),
             isTypeIncomplete,
             specializedInitSelfType:
-                specializedInitSelfTypes.length > 0
+                specializedInitSelfTypes.length > 0 &&
+                (hasInitSelfMaterializationAmbiguity || expandedArgTypes.length > 1)
                     ? combineTypes(specializedInitSelfTypes)
                     : finalCallResult.specializedInitSelfType,
             overloadsUsedForCall,
