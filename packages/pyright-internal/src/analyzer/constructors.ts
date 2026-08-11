@@ -510,30 +510,34 @@ function validateInitMethod(
         inferenceContext ? { ...inferenceContext, returnTypeOverride } : undefined
     );
 
-    let adjustedClassType = type;
-
     // Overload evaluation keeps the ordinary __init__ return as a placeholder
     // and carries argument-dependent constructed types through this separate field,
     // including when union-expanded argument lists are combined.
-    if (
-        callResult.specializedInitSelfType &&
-        isClassInstance(callResult.specializedInitSelfType) &&
-        ClassType.isSameGenericClass(callResult.specializedInitSelfType, adjustedClassType)
-    ) {
-        adjustedClassType = ClassType.cloneAsInstantiable(callResult.specializedInitSelfType);
-    }
+    const returnType = callResult.specializedInitSelfType
+        ? mapSubtypes(callResult.specializedInitSelfType, (specializedInitSelfSubtype) => {
+              let adjustedClassType = type;
+              if (
+                  isClassInstance(specializedInitSelfSubtype) &&
+                  ClassType.isSameGenericClass(specializedInitSelfSubtype, adjustedClassType)
+              ) {
+                  adjustedClassType = ClassType.cloneAsInstantiable(specializedInitSelfSubtype);
+              }
 
-    const returnType =
-        callResult.specializedInitSelfType &&
-        !type.priv.isTypeArgExplicit &&
-        (isAny(callResult.specializedInitSelfType) || isUnknown(callResult.specializedInitSelfType))
-            ? callResult.specializedInitSelfType
-            : applyExpectedTypeForConstructor(
+              if (
+                  !type.priv.isTypeArgExplicit &&
+                  (isAny(specializedInitSelfSubtype) || isUnknown(specializedInitSelfSubtype))
+              ) {
+                  return specializedInitSelfSubtype;
+              }
+
+              return applyExpectedTypeForConstructor(
                   evaluator,
                   adjustedClassType,
                   /* inferenceContext */ undefined,
                   constraints
               );
+          })
+        : applyExpectedTypeForConstructor(evaluator, type, /* inferenceContext */ undefined, constraints);
 
     if (callResult.isTypeIncomplete) {
         isTypeIncomplete = true;

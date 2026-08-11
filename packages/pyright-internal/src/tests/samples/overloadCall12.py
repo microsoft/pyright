@@ -161,6 +161,48 @@ class Table(Generic[_T]):
         pass
 
 
+class AmbiguousTable(Generic[_T]):
+    @overload
+    def __init__(self: "AmbiguousTable[int]", values: list[int]) -> None: ...
+
+    @overload
+    def __init__(self: "AmbiguousTable[str]", values: list[str]) -> None: ...
+
+    @overload
+    def __init__(self: "AmbiguousTable[int]", values: set[int]) -> None: ...
+
+    @overload
+    def __init__(self: "AmbiguousTable[str]", values: set[str]) -> None: ...
+
+    def __init__(self, values: list[Any] | set[Any]) -> None:
+        pass
+
+
+class PartiallySpecializedTable(Generic[_T]):
+    @overload
+    def __init__(self: "PartiallySpecializedTable[int]", values: list[int]) -> None: ...
+
+    @overload
+    def __init__(self: "PartiallySpecializedTable[str]", values: list[str]) -> None: ...
+
+    @overload
+    def __init__(self, values: set[_T]) -> None: ...
+
+    def __init__(self, values: list[Any] | set[Any]) -> None:
+        pass
+
+
+class InferredTable(Generic[_T]):
+    @overload
+    def __init__(self, values: list[_T]) -> None: ...
+
+    @overload
+    def __init__(self, values: set[_T]) -> None: ...
+
+    def __init__(self, values: list[Any] | set[Any]) -> None:
+        pass
+
+
 def check_constructors(values_any: list[Any], values_unknown: list, values_int: list[int]) -> None:
     reveal_type(Table(values_any), expected_text="Any")
     reveal_type(Table(values_unknown), expected_text="Unknown")
@@ -171,9 +213,24 @@ def check_constructors(values_any: list[Any], values_unknown: list, values_int: 
     Table[int](["bad"])
 
 
-def check_constructor_union(values_any: list[Any] | bytes, values_unknown: list | bytes) -> None:
-    reveal_type(Table(values_any), expected_text="Any")
-    reveal_type(Table(values_unknown), expected_text="Unknown")
+def check_constructor_union(
+    table: Table[Any],
+    values_any: list[Any] | bytes,
+    values_unknown: list | bytes,
+    values_int: list[int] | bytes,
+    values_gradual: list[Any] | set,
+    values_partially_specialized: list[Any] | set[float],
+    values_inferred: list[int] | set[str],
+) -> None:
+    reveal_type(Table(values_any), expected_text="Any | Table[bytes]")
+    reveal_type(Table(values_unknown), expected_text="Unknown | Table[bytes]")
+    reveal_type(Table(values_int), expected_text="Table[int] | Table[bytes]")
+    reveal_type(AmbiguousTable(values_gradual), expected_text="Any | Unknown")
+    reveal_type(
+        PartiallySpecializedTable(values_partially_specialized), expected_text="Any | PartiallySpecializedTable[float]"
+    )
+    reveal_type(InferredTable(values_inferred), expected_text="InferredTable[int] | InferredTable[str]")
+    reveal_type(table.__init__(values_any), expected_text="None")
 
 
 @overload
