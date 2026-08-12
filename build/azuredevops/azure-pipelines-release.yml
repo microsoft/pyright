@@ -10,6 +10,10 @@ parameters:
     values:
       - full
       - npmOnly
+  - name: releaseTag
+    displayName: Release tag (required for npmOnly)
+    type: string
+    default: ''
 resources:
   repositories:
     - repository: MicroBuildTemplate
@@ -53,7 +57,7 @@ extends:
       - ES365AIMigrationTooling
     stages:
       - stage: BuildVsix
-        condition: and(succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
+        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
         jobs:
           - job: build_vsix
             displayName: Build VSIX
@@ -179,10 +183,25 @@ extends:
                 submodules: true
                 fetchTags: false
                 persistCredentials: True
+              - ${{ if eq(parameters.releaseMode, 'npmOnly') }}:
+                  - bash: |
+                      set -euo pipefail
+                      tag='${{ parameters.releaseTag }}'
+                      if [[ ! "$tag" =~ ^1\.1\.[0-9]+$ ]]; then
+                        echo "##vso[task.logissue type=error]releaseTag must match 1.1.<patch>"
+                        exit 1
+                      fi
+                      git fetch origin "refs/tags/$tag:refs/tags/$tag"
+                      git checkout --detach "$tag"
+                    displayName: Check out release tag
               - task: NodeTool@0
                 displayName: Use Node 24.15.0
                 inputs:
                   versionSpec: 24.15.0
+              - ${{ if eq(parameters.releaseMode, 'npmOnly') }}:
+                  - script: |
+                      node -e "const actual=require('./packages/pyright/package.json').version; const expected='${{ parameters.releaseTag }}'; if(actual!==expected){console.error('Expected package version '+expected+', got '+actual); process.exit(1)}"
+                    displayName: Validate release tag version
               - template: /build/templates/npmAuthenticate.yml@self
               - task: CmdLine@2
                 displayName: npm install
@@ -206,21 +225,16 @@ extends:
                   Contents: '${{ variables.PACKAGE_NAME }}'
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
-      - stage: CreateRelease
-        condition: and(succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
+      - stage: ValidateNpm
         dependsOn:
-          - BuildVsix
           - BuildNpm
         jobs:
-          - job: create_release
-            displayName: Create GitHub Release
+          - job: validate_npm
+            displayName: Validate NPM package
             templateContext:
               type: releaseJob
-              isProduction: true
+              isProduction: false
               inputs:
-                - input: pipelineArtifact
-                  artifactName: $(ARTIFACT_NAME_VSIX)
-                  targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)
                 - input: pipelineArtifact
                   artifactName: $(ARTIFACT_NAME_PACKAGE)
                   targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)
@@ -238,6 +252,27 @@ extends:
                   yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
                   node_modules/.bin/pyright --version
                 displayName: Validate npm package
+
+      - stage: CreateRelease
+        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
+        dependsOn:
+          - BuildVsix
+          - ValidateNpm
+        jobs:
+          - job: create_release
+            displayName: Create GitHub Release
+            templateContext:
+              type: releaseJob
+              isProduction: true
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_VSIX)
+                  targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_PACKAGE)
+                  targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)
+            steps:
+              - checkout: none
               - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
                 displayName: 'Create GitHub Release'
                 inputs:
@@ -253,7 +288,7 @@ extends:
                     $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
 
       - stage: WaitForValidation
-        condition: and(succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
+        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
         dependsOn:
           - CreateRelease
         jobs:
@@ -273,7 +308,7 @@ extends:
                   onTimeout: 'reject' # require sign-off
 
       - stage: PublishToMarketplace
-        condition: and(succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
+        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
         dependsOn:
           - WaitForValidation
         jobs:
@@ -313,7 +348,8 @@ extends:
       - stage: PublishToNpm
         condition: |
           and(
-            in(dependencies.BuildNpm.result, 'Succeeded', 'SucceededWithIssues'),
+            not(canceled()),
+            in(dependencies.ValidateNpm.result, 'Succeeded', 'SucceededWithIssues'),
             or(
               eq('${{ parameters.releaseMode }}', 'npmOnly'),
               and(
@@ -323,7 +359,7 @@ extends:
             )
           )
         dependsOn:
-          - BuildNpm
+          - ValidateNpm
           - WaitForValidation
           - PublishToMarketplace
         jobs:
