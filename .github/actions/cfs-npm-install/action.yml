@@ -10,7 +10,7 @@ runs:
   using: composite
   steps:
     - name: Azure OIDC Login
-      uses: azure/login@v2
+      uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
       with:
         # These are not secret values and are safe to commit to the repository
         client-id: 92c669e8-02ad-4ce6-ad73-f222fc7177e2
