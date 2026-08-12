@@ -247,7 +247,7 @@ extends:
                   }
                   $headers = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
                   $sourceBuild = Invoke-RestMethod `
-                    -Uri "$(System.CollectionUri)$(System.TeamProjectId)/_apis/build/builds/$env:SOURCE_BUILD_ID?api-version=7.1" `
+                    -Uri "$(System.CollectionUri)$(System.TeamProjectId)/_apis/build/builds/${env:SOURCE_BUILD_ID}?api-version=7.1" `
                     -Headers $headers
                   if ($sourceBuild.definition.id -ne [int]"$(System.DefinitionId)") {
                     Write-Error 'sourceBuildId belongs to a different pipeline'
