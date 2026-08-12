@@ -21,7 +21,10 @@ export function terminateProcessTree(pid: number) {
     }
 }
 
-export function terminateChild(child: child_process.ChildProcess) {
+// Accepts both Node's ChildProcess and the host abstraction's SpawnedProcess
+// (both expose `pid` and `exitCode`), so callers routing through a Host don't
+// need to cast back to a concrete child-process type.
+export function terminateChild(child: { readonly pid?: number; readonly exitCode: number | null }) {
     try {
         if (child.pid && child.exitCode === null) {
             terminateProcessTree(child.pid);

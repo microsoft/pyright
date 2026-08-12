@@ -38,11 +38,13 @@
                 {
                     label: '"name"',
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'str',
                     textEdit: { range: marker2Range, newText: '"name"' },
                 },
                 {
                     label: '"age"',
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: marker2Range, newText: '"age"' },
                 },
             ],
@@ -66,11 +68,13 @@
                 {
                     label: '"name"',
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'str',
                     textEdit: { range: marker4Range, newText: '"name"' },
                 },
                 {
                     label: '"age"',
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: marker4Range, newText: '"age"' },
                 },
             ],

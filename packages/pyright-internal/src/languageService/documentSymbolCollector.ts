@@ -11,13 +11,25 @@
 import { CancellationToken } from 'vscode-languageserver';
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { AliasDeclaration, Declaration, DeclarationType, isAliasDeclaration } from '../analyzer/declaration';
+import { getInfoReader } from '../analyzer/analyzerNodeInfo';
+import {
+    AliasDeclaration,
+    Declaration,
+    DeclarationType,
+    isAliasDeclaration,
+    isVariableDeclaration,
+} from '../analyzer/declaration';
 import {
     areDeclarationsSame,
     getDeclarationsWithUsesLocalNameRemoved,
     synthesizeAliasDeclaration,
 } from '../analyzer/declarationUtils';
-import { getEvaluationScopeNode, getModuleNode, getStringNodeValueRange } from '../analyzer/parseTreeUtils';
+import {
+    getEnclosingClass,
+    getEvaluationScopeNode,
+    getModuleNode,
+    getStringNodeValueRange,
+} from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { ScopeType } from '../analyzer/scope';
 import * as ScopeUtils from '../analyzer/scopeUtils';
@@ -26,7 +38,8 @@ import { collectImportedByCells } from '../analyzer/sourceFileInfoUtils';
 import { isStubFile } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { TypeCategory } from '../analyzer/types';
+import { ClassType, isClassInstance, isInstantiableClass, TypeCategory } from '../analyzer/types';
+import { doForEachSubtype, lookUpClassMember, lookUpObjectMember, MemberAccessFlags } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
@@ -120,6 +133,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     private readonly _treatModuleInImportAndFromImportSame: boolean;
     private readonly _skipUnreachableCode: boolean;
     private readonly _useCase: ReferenceUseCase;
+    private readonly _nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader;
 
     // Set when at least one usage provider exposes `appendSeedDeclarationsAt`. Whether a provider
     // exposes that hook for a given request is the provider's own policy -- the collector stays policy-
@@ -147,8 +161,9 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         private readonly _cancellationToken: CancellationToken,
         options?: DocumentSymbolCollectorOptions
     ) {
-        super();
+        super(getInfoReader(_program));
 
+        this._nodeInfo = getInfoReader(this._program);
         this._aliasResolver = new AliasResolver(this._program.evaluator!);
 
         // Start with the symbols passed in
@@ -163,7 +178,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         this._usageProviders =
             options?.providers ??
             (this._program.serviceProvider.tryGet(ServiceKeys.symbolUsageProviderFactory) ?? [])
-                .map((f) => f.tryCreateProvider(this._useCase, declarations, this._cancellationToken))
+                .map((f) => f.tryCreateProvider(this._useCase, declarations, this._nodeInfo, this._cancellationToken))
                 .filter(isDefined);
 
         this._hasSeedProviders = this._usageProviders.some((p) => p.appendSeedDeclarationsAt !== undefined);
@@ -223,8 +238,9 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             return [];
         }
 
-        const declarations = getDeclarationsForNameNode(evaluator, node, /* skipUnreachableCode */ false);
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const nodeInfo = getInfoReader(program);
+        const declarations = getDeclarationsForNameNode(evaluator, node, /* skipUnreachableCode */ false, nodeInfo);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node, nodeInfo);
         const fileUri = fileInfo.fileUri;
 
         const resolveLocalNames = options?.resolveLocalNames ?? true;
@@ -270,7 +286,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             implicitlyImportedBy.forEach((implicitImport) => {
                 const parseTree = program.getParseResults(implicitImport.uri)?.parserOutput.parseTree;
                 if (parseTree) {
-                    const scope = AnalyzerNodeInfo.getScope(parseTree);
+                    const scope = AnalyzerNodeInfo.getScope(parseTree, nodeInfo);
                     const symbol = scope?.lookUpSymbol(node.d.value);
                     appendSymbolDeclarations(symbol, resolvedDeclarations);
                 }
@@ -303,7 +319,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 return false;
             }
 
-            return getEvaluationScopeNode(decl.node).node.nodeType === ParseNodeType.Module;
+            return getEvaluationScopeNode(decl.node, nodeInfo).node.nodeType === ParseNodeType.Module;
         }
     }
 
@@ -332,7 +348,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     }
 
     override walk(node: ParseNode) {
-        if (!this._skipUnreachableCode || !AnalyzerNodeInfo.isCodeUnreachable(node)) {
+        if (!this._skipUnreachableCode || !AnalyzerNodeInfo.isCodeUnreachable(node, this._nodeInfo)) {
             super.walk(node);
         }
     }
@@ -356,7 +372,12 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         if (this._declarations.length > 0) {
-            const declarations = getDeclarationsForNameNode(this._evaluator, node, this._skipUnreachableCode);
+            const declarations = getDeclarationsForNameNode(
+                this._evaluator,
+                node,
+                this._skipUnreachableCode,
+                this._nodeInfo
+            );
             if (declarations && declarations.length > 0) {
                 // Does this name share a declaration with the symbol of interest?
                 if (this._resultsContainsDeclaration(node, declarations)) {
@@ -529,12 +550,12 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             return;
         }
 
-        const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(node);
+        const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(node, this._nodeInfo);
         if (!dunderAllInfo) {
             return;
         }
 
-        const moduleScope = ScopeUtils.getScopeForNode(node);
+        const moduleScope = ScopeUtils.getScopeForNode(node, this._nodeInfo);
         if (!moduleScope) {
             return;
         }
@@ -558,14 +579,19 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     }
 }
 
-export function getDeclarationsForNameNode(evaluator: TypeEvaluator, node: NameNode, skipUnreachableCode = true) {
+export function getDeclarationsForNameNode(
+    evaluator: TypeEvaluator,
+    node: NameNode,
+    skipUnreachableCode: boolean,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+) {
     // This can handle symbols brought in by wildcard (import *) as long as the declarations that the symbol collector
     // compares against point to the actual alias declaration, not one that uses local name (ex, import alias)
     if (node.parent?.nodeType !== ParseNodeType.ModuleName) {
         return _getDeclarationsForNonModuleNameNode(evaluator, node, skipUnreachableCode);
     }
 
-    return _getDeclarationsForModuleNameNode(evaluator, node);
+    return _getDeclarationsForModuleNameNode(evaluator, node, nodeInfo);
 }
 
 export function addDeclarationIfUnique(declarations: Declaration[], itemToAdd: Declaration) {
@@ -629,10 +655,87 @@ function _getDeclarationsForNonModuleNameNode(
         );
     }
 
+    for (const subclassDecl of _getSubclassMemberVariableDeclarations(evaluator, node, decls)) {
+        addDeclarationIfUnique(decls, subclassDecl);
+    }
+
     return decls;
 }
 
-function _getDeclarationsForModuleNameNode(evaluator: TypeEvaluator, node: NameNode): Declaration[] {
+// Handles the specific case where a member-access name (e.g. `self.a`) resolves to a base *protocol*
+// class's declared variable instead of the subclass's own member-access assignment of the same name.
+// `getDeclInfoForNameNode` prefers the protocol's declared-type variable, so it returns only the protocol
+// declaration and hides the subclass's own (regular) variable from reference collection. Only when the
+// declarations we already resolved (`decls`) include such a protocol variable do we look up the subclass's
+// own member-access variable and return it so both are matched.
+function _getSubclassMemberVariableDeclarations(
+    evaluator: TypeEvaluator,
+    node: NameNode,
+    decls: readonly Declaration[]
+): Declaration[] {
+    const memberAccess = node.parent;
+    if (memberAccess?.nodeType !== ParseNodeType.MemberAccess || memberAccess.d.member !== node) {
+        return [];
+    }
+
+    // Bail out unless a resolved declaration is a protocol member variable. Every other member-access
+    // name already has the right declaration in `decls`, so it needs no extra work.
+    if (!decls.some((d) => _isVariableInProtocolClass(evaluator, d))) {
+        return [];
+    }
+
+    const leftType = evaluator.getType(memberAccess.d.leftExpr);
+    if (!leftType) {
+        return [];
+    }
+
+    const result: Declaration[] = [];
+    doForEachSubtype(evaluator.makeTopLevelTypeVarsConcrete(leftType), (subtype) => {
+        subtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+        const ownMember = isInstantiableClass(subtype)
+            ? lookUpClassMember(subtype, node.d.value, MemberAccessFlags.SkipBaseClasses)
+            : isClassInstance(subtype)
+            ? lookUpObjectMember(subtype, node.d.value, MemberAccessFlags.SkipBaseClasses)
+            : undefined;
+        if (!ownMember) {
+            return;
+        }
+
+        // The subclass's own member must be a regular member-access variable (e.g. `self.a = 3`),
+        // distinct from the inherited protocol annotation. This is why a directly-inherited class-body
+        // attribute (`class A: a = 1` -> `class B(A): ...`) is intentionally NOT linked here while an
+        // unrelated instance attribute (`self.a = ...`) is: a class-body variable lives in the class
+        // dict (one shared slot already reachable through normal inheritance), whereas a member-access
+        // variable lives in the instance `__dict__`, so the subclass's own `self.a` is a distinct
+        // declaration that reference collection would otherwise miss.
+        ownMember.symbol
+            .getDeclarations()
+            .filter((d) => isVariableDeclaration(d) && d.isDefinedByMemberAccess)
+            .forEach((d) => addDeclarationIfUnique(result, d));
+    });
+
+    return result;
+}
+
+// True when `decl` is a variable declared directly in a class that is *itself* a protocol: a
+// class-body variable annotation (`a: int`, not assigned by member access) whose enclosing class is
+// a protocol. Async twin: `isVariableInProtocolClassAsync` in asyncDocumentSymbolCollector.
+function _isVariableInProtocolClass(evaluator: TypeEvaluator, decl: Declaration): boolean {
+    if (!isVariableDeclaration(decl) || decl.isDefinedByMemberAccess) {
+        return false;
+    }
+
+    const enclosingClass = getEnclosingClass(decl.node);
+    const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
+    return !!classResults && ClassType.isProtocolClass(classResults.classType);
+}
+
+function _getDeclarationsForModuleNameNode(
+    evaluator: TypeEvaluator,
+    node: NameNode,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+): Declaration[] {
     assert(node.parent?.nodeType === ParseNodeType.ModuleName);
 
     // We don't have symbols corresponding to ModuleName in our system since those
@@ -681,7 +784,7 @@ function _getDeclarationsForModuleNameNode(evaluator: TypeEvaluator, node: NameN
             // And we also need to re-use "decls for X" binder has created
             // so that it matches with decls type evaluator returns for "references for X".
             // ex) import X or from .X import ... in init file and etc.
-            const symbolWithScope = ScopeUtils.getScopeForNode(node)?.lookUpSymbolRecursive(importName);
+            const symbolWithScope = ScopeUtils.getScopeForNode(node, nodeInfo)?.lookUpSymbolRecursive(importName);
             if (symbolWithScope && moduleName.d.nameParts.length === 1) {
                 let declsFromSymbol: Declaration[] = [];
 

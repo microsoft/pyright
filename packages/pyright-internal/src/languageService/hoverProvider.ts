@@ -11,6 +11,7 @@
 
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import {
     Declaration,
     DeclarationType,
@@ -50,6 +51,7 @@ import { ParseFileResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
 import {
     getClassAndConstructorTypes,
+    getConstructorDocInfo,
     getConstructorTooltip,
     getDocumentationPartsForTypeAndDeclWithSource,
     getToolTipForType,
@@ -317,7 +319,11 @@ export class HoverProvider {
             return null;
         }
 
-        const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, offset);
+        const node = ParseTreeUtils.findNodeByOffset(
+            this._parseResults.parserOutput.parseTree,
+            offset,
+            AnalyzerNodeInfo.getInfoReader(this._program)
+        );
         if (node === undefined) {
             return null;
         }
@@ -649,10 +655,24 @@ export class HoverProvider {
                 /* python */ true
             );
 
-            const addedDoc = this._addDocumentationPartForType(parts, result.methodType, declaration);
-
-            if (!addedDoc) {
-                this._addDocumentationPartForType(parts, result.classType, declaration);
+            // Select the constructor docstring via the unified component (Phase 1 constructor-method
+            // docstrings across the MRO, then Phase 2 the class docstring).
+            const docInfo = getConstructorDocInfo(
+                result.classType,
+                result.methodType,
+                declaration,
+                this._sourceMapper,
+                this._evaluator
+            );
+            if (docInfo?.text) {
+                addDocumentationResultsPart(
+                    this._program.serviceProvider,
+                    docInfo.text,
+                    this._format,
+                    parts,
+                    docInfo.sourceDecl ?? declaration,
+                    docInfo.forceLiteral
+                );
             }
             return true;
         }

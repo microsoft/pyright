@@ -10,7 +10,7 @@
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { assertNever, fail } from '../common/debug';
 import { TextRange } from '../common/textRange';
-import { NameNode, ParseNode, ParseNodeArray, ParseNodeType } from '../parser/parseNodes';
+import { getParserStringAnnotation, NameNode, ParseNode, ParseNodeArray, ParseNodeType } from '../parser/parseNodes';
 import { isCompliantWithNodeRangeRules } from './parseTreeUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 
@@ -69,7 +69,7 @@ export class TestWalker extends ParseTreeWalker {
                             break;
 
                         case ParseNodeType.StringList:
-                            if (child === node.d.annotation) {
+                            if (child === getParserStringAnnotation(node)) {
                                 skipCheck = true;
                             }
                             break;

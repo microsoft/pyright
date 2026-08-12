@@ -10,7 +10,7 @@
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
 import { ArgCategory, ExpressionNode, ParseNodeType } from '../parser/parseNodes';
-import { getFileInfo } from './analyzerNodeInfo';
+import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { getClassFullName, getTypeSourceId } from './parseTreeUtils';
 import { Arg, TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassType, ClassTypeFlags, SentinelLiteral, Type, TypeBase } from './types';
@@ -19,7 +19,8 @@ import { computeMroLinearization } from './typeUtils';
 export function createSentinelType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: Arg[]
+    argList: Arg[],
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type | undefined {
     let className = '';
 
@@ -59,7 +60,7 @@ export function createSentinelType(
         return undefined;
     }
 
-    const fileInfo = getFileInfo(errorNode);
+    const fileInfo = nodeInfo.getFileInfo(errorNode);
     const fullClassName = getClassFullName(errorNode, fileInfo.moduleName, className);
     let classType = ClassType.createInstantiable(
         className,

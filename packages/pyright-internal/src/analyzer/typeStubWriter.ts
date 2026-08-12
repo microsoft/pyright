@@ -48,6 +48,7 @@ import {
 import { OperatorType } from '../parser/tokenizerTypes';
 import { ParseFileResults } from '../parser/parser';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { getInfoReader } from './analyzerNodeInfo';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { getScopeForNode } from './scopeUtils';
@@ -103,8 +104,12 @@ class TrackedImportFrom extends TrackedImport {
 }
 
 class ImportSymbolWalker extends ParseTreeWalker {
-    constructor(private _accessedImportedSymbols: Set<string>, private _treatStringsAsSymbols: boolean) {
-        super();
+    constructor(
+        private _accessedImportedSymbols: Set<string>,
+        private _treatStringsAsSymbols: boolean,
+        private _nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+    ) {
+        super(_nodeInfo);
     }
 
     analyze(node: ExpressionNode) {
@@ -112,7 +117,7 @@ class ImportSymbolWalker extends ParseTreeWalker {
     }
 
     override walk(node: ParseNode) {
-        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
+        if (!AnalyzerNodeInfo.isCodeUnreachable(node, this._nodeInfo)) {
             super.walk(node);
         }
     }
@@ -225,7 +230,13 @@ export class TypeStubWriter {
             throw new Error('Type evaluator unavailable for stub generation');
         }
 
-        const treeWalker = new TypeStubTreeWalker(typeStubPath, parseResults, fileSystem, evaluator);
+        const treeWalker = new TypeStubTreeWalker(
+            typeStubPath,
+            parseResults,
+            fileSystem,
+            evaluator,
+            getInfoReader(this._program)
+        );
         treeWalker.write();
 
         this._program.handleMemoryHighUsage();
@@ -283,7 +294,8 @@ class TypeStubTreeWalker extends ParseTreeWalker {
         private readonly _stubPath: Uri,
         private readonly _parseResults: ParseFileResults,
         private readonly _fileSystem: FileSystem,
-        private readonly _evaluator: TypeEvaluator
+        private readonly _evaluator: TypeEvaluator,
+        private readonly _nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
     ) {
         super();
 
@@ -305,7 +317,7 @@ class TypeStubTreeWalker extends ParseTreeWalker {
     }
 
     override walk(node: ParseNode) {
-        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
+        if (!AnalyzerNodeInfo.isCodeUnreachable(node, this._nodeInfo)) {
             super.walk(node);
         }
     }
@@ -634,7 +646,7 @@ class TypeStubTreeWalker extends ParseTreeWalker {
             return false;
         }
 
-        const currentScope = getScopeForNode(node);
+        const currentScope = getScopeForNode(node, this._nodeInfo);
         if (currentScope) {
             // Record the input for later.
             node.d.list.forEach((imp) => {
@@ -666,7 +678,7 @@ class TypeStubTreeWalker extends ParseTreeWalker {
             return false;
         }
 
-        const currentScope = getScopeForNode(node);
+        const currentScope = getScopeForNode(node, this._nodeInfo);
         if (currentScope) {
             // Record the input for later.
             const moduleName = this._printModuleName(node.d.module);
@@ -831,7 +843,11 @@ class TypeStubTreeWalker extends ParseTreeWalker {
     }
 
     private _printExpression(node: ExpressionNode, isType = false, treatStringsAsSymbols = false): string {
-        const importSymbolWalker = new ImportSymbolWalker(this._accessedImportedSymbols, treatStringsAsSymbols);
+        const importSymbolWalker = new ImportSymbolWalker(
+            this._accessedImportedSymbols,
+            treatStringsAsSymbols,
+            this._nodeInfo
+        );
         importSymbolWalker.analyze(node);
 
         let expressionFlags = isType

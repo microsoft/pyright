@@ -21,10 +21,17 @@ variables:
     value: pyright
   - name: AZURE_ARTIFACTS_FEED
     value: 'https://devdiv.pkgs.visualstudio.com/DevDiv/_packaging/Pylance_PublicPackages/npm/registry/'
+  # Route all npm/pnpm/yarn installs through the runtime-generated, authenticated
+  # CFS feed .npmrc (created by build/templates/npmAuthenticate.yml) instead of a
+  # committed registry, so this public repo's local/fork installs stay on public npm (ICM 839806358).
+  - name: NPM_CONFIG_USERCONFIG
+    value: $(Agent.TempDirectory)/cfs.npmrc
 
 extends:
   template: azure-pipelines/MicroBuild.1ES.Official.Publish.yml@MicroBuildTemplate
   parameters:
+    settings:
+      networkIsolationPolicy: Good, CFSClean, GitHub, AzureStorage
     sdl:
       codeSignValidation:
         enabled: true
@@ -67,20 +74,20 @@ extends:
                 submodules: true
                 fetchTags: false
                 persistCredentials: True
-              - task: NodeTool@0
+              - template: /build/templates/npmAuthenticate.yml@self
+              - task: UseNode@1
                 displayName: Use Node 24.15.0
                 inputs:
-                  versionSpec: 24.15.0
-              - template: /build/templates/npmAuthenticate.yml@self
+                  version: 24.15.0
               - task: CmdLine@2
-                displayName: npm install
+                displayName: pnpm install
                 inputs:
-                  script: npm run install:all
+                  script: pnpm run install:all
               - task: CmdLine@2
                 displayName: Package VSIX
                 inputs:
                   script: |
-                    npm run package
+                    pnpm run package
                   workingDirectory: packages/vscode-pyright
 
               - task: PowerShell@2
@@ -98,21 +105,27 @@ extends:
                   TargetFolder: build_output
 
               - script: |
-                  npm install -g @vscode/vsce
+                  pnpm install -g @vscode/vsce
                 displayName: 'Install vsce and dependencies'
 
-              - script: npx vsce generate-manifest -i $(VSIX_NAME) -o extension.manifest
+              - script: pnpm exec vsce generate-manifest -i $(VSIX_NAME) -o extension.manifest
                 displayName: 'Generate extension manifest'
                 workingDirectory: packages/vscode-pyright
 
               - task: NuGetToolInstaller@1
                 displayName: 'Install NuGet'
 
+              - task: NuGetAuthenticate@1
+                displayName: 'Authenticate NuGet'
+
               - task: NuGetCommand@2
                 inputs:
                   command: 'restore'
                   restoreSolution: '$(Build.SourcesDirectory)/packages/vscode-pyright/packages.config'
                   restoreDirectory: '$(Build.SourcesDirectory)/packages/vscode-pyright/packages'
+                  feedsToUse: 'config'
+                  nugetConfigPath: '$(Build.SourcesDirectory)/packages/vscode-pyright/nuget.config'
+                  includeNuGetOrg: false
 
               - task: MSBuild@1
                 displayName: 'Sign binaries'
@@ -153,7 +166,7 @@ extends:
         dependsOn: # Blank to allow running in parallel with BuildVsix
         jobs:
           - job: build_npm
-            displayName: Build NPM
+            displayName: Build package
             templateContext:
               outputs:
                 - output: pipelineArtifact
@@ -167,18 +180,18 @@ extends:
                 submodules: true
                 fetchTags: false
                 persistCredentials: True
-              - task: NodeTool@0
+              - template: /build/templates/npmAuthenticate.yml@self
+              - task: UseNode@1
                 displayName: Use Node 24.15.0
                 inputs:
-                  versionSpec: 24.15.0
-              - template: /build/templates/npmAuthenticate.yml@self
+                  version: 24.15.0
               - task: CmdLine@2
-                displayName: npm install
+                displayName: pnpm install
                 inputs:
-                  script: npm run install:all
+                  script: pnpm run install:all
 
-              - script: npm pack
-                displayName: npm pack
+              - script: pnpm pack
+                displayName: pnpm pack
                 workingDirectory: packages/pyright
 
               - script: mv pyright-*.tgz ${{ variables.PACKAGE_NAME }}
@@ -213,14 +226,19 @@ extends:
                   targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)
             steps:
               - checkout: none
+              # Generate + authenticate the CFS feed .npmrc at runtime (ICM 839806358).
+              - template: /build/templates/npmAuthenticate.yml@self
               # Next step fails the build if https://github.com/microsoft/pyright/issues/10350 repros.
+              # Yarn does not reliably honor NPM_CONFIG_USERCONFIG, so also drop the authenticated
+              # CFS .npmrc directly in the working dir where yarn resolves it.
               - script: |
                   mkdir pyrightTest
+                  cp "$(Agent.TempDirectory)/cfs.npmrc" pyrightTest/.npmrc
                   cd pyrightTest
                   yarn
                   yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
                   node_modules/.bin/pyright --version
-                displayName: Validate npm package
+                displayName: Validate package archive
               - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
                 displayName: 'Create GitHub Release'
                 inputs:
@@ -262,9 +280,9 @@ extends:
             displayName: Publish extension to marketplace
             steps:
               - checkout: none
-              - task: NodeTool@0
+              - task: UseNode@1
                 inputs:
-                  versionSpec: 24.15.0
+                  version: 24.15.0
               - task: DownloadPipelineArtifact@2
                 displayName: 'Download Artifacts from Validation Job'
                 inputs:
@@ -273,8 +291,10 @@ extends:
                   targetPath: '$(System.ArtifactsDirectory)'
               # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
               # Install dependencies and VS Code Extension Manager (vsce >= v2.26.1 needed)
+              # Generate + authenticate the CFS feed .npmrc at runtime (ICM 839806358).
+              - template: /build/templates/npmAuthenticate.yml@self
               - script: |
-                  npm install -g @vscode/vsce
+                  pnpm install -g @vscode/vsce
                 displayName: 'Install vsce and dependencies'
               # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
               # Publish to Marketplace
@@ -296,7 +316,7 @@ extends:
           - PublishToMarketplace
         jobs:
           - job: publish_package
-            displayName: Publish package to NPM
+            displayName: Publish package to registry
 
             pool:
               name: VSEngSS-MicroBuild2022-1ES # This pool is required to have the certs needed to publish using ESRP.
