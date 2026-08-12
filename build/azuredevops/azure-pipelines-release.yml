@@ -14,6 +14,10 @@ parameters:
     displayName: Release tag (required for npmOnly)
     type: string
     default: ''
+  - name: sourceBuildId
+    displayName: Source build ID (required for npmOnly)
+    type: number
+    default: 0
 resources:
   repositories:
     - repository: MicroBuildTemplate
@@ -36,6 +40,12 @@ variables:
   # Route npm child processes through the runtime-generated authenticated CFS config.
   - name: NPM_CONFIG_USERCONFIG
     value: $(Agent.TempDirectory)/cfs.npmrc
+  - ${{ if eq(parameters.releaseMode, 'npmOnly') }}:
+      - name: EXPECTED_RELEASE_TAG
+        value: ${{ parameters.releaseTag }}
+  - ${{ else }}:
+      - name: EXPECTED_RELEASE_TAG
+        value: $(Build.SourceBranchName)
 
 extends:
   template: azure-pipelines/MicroBuild.1ES.Official.Publish.yml@MicroBuildTemplate
@@ -166,6 +176,7 @@ extends:
                   TargetFolder: build_output
 
       - stage: BuildNpm
+        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
         dependsOn: # Blank to allow running in parallel with BuildVsix
         jobs:
           - job: build_npm
@@ -183,25 +194,10 @@ extends:
                 submodules: true
                 fetchTags: false
                 persistCredentials: True
-              - ${{ if eq(parameters.releaseMode, 'npmOnly') }}:
-                  - bash: |
-                      set -euo pipefail
-                      tag='${{ parameters.releaseTag }}'
-                      if [[ ! "$tag" =~ ^1\.1\.[0-9]+$ ]]; then
-                        echo "##vso[task.logissue type=error]releaseTag must match 1.1.<patch>"
-                        exit 1
-                      fi
-                      git fetch origin "refs/tags/$tag:refs/tags/$tag"
-                      git checkout --detach "$tag"
-                    displayName: Check out release tag
               - task: NodeTool@0
                 displayName: Use Node 24.15.0
                 inputs:
                   versionSpec: 24.15.0
-              - ${{ if eq(parameters.releaseMode, 'npmOnly') }}:
-                  - script: |
-                      node -e "const actual=require('./packages/pyright/package.json').version; const expected='${{ parameters.releaseTag }}'; if(actual!==expected){console.error('Expected package version '+expected+', got '+actual); process.exit(1)}"
-                    displayName: Validate release tag version
               - template: /build/templates/npmAuthenticate.yml@self
               - task: CmdLine@2
                 displayName: npm install
@@ -225,9 +221,64 @@ extends:
                   Contents: '${{ variables.PACKAGE_NAME }}'
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
+      - stage: RecoverNpmArtifact
+        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'npmOnly'))
+        dependsOn: []
+        jobs:
+          - job: recover_npm_artifact
+            displayName: Recover NPM artifact
+            templateContext:
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: '$(Build.ArtifactStagingDirectory)/$(ARTIFACT_NAME_PACKAGE)'
+                  artifactName: $(ARTIFACT_NAME_PACKAGE)
+            steps:
+              - checkout: none
+              - pwsh: |
+                  if ($env:RELEASE_TAG -notmatch '^1\.1\.\d+$') {
+                      Write-Error 'releaseTag must match 1.1.<patch>'
+                  }
+                  if ([int]$env:SOURCE_BUILD_ID -le 0) {
+                      Write-Error 'sourceBuildId must identify the original release run'
+                  }
+                  $headers = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
+                  $sourceBuild = Invoke-RestMethod `
+                    -Uri "$(System.CollectionUri)$(System.TeamProjectId)/_apis/build/builds/$env:SOURCE_BUILD_ID?api-version=7.1" `
+                    -Headers $headers
+                  if ($sourceBuild.definition.id -ne [int]"$(System.DefinitionId)") {
+                    Write-Error 'sourceBuildId belongs to a different pipeline'
+                  }
+                  if ($sourceBuild.sourceBranch -ne "refs/tags/$env:RELEASE_TAG") {
+                    Write-Error "Source build used $($sourceBuild.sourceBranch), expected refs/tags/$env:RELEASE_TAG"
+                  }
+                displayName: Validate recovery parameters
+                env:
+                  RELEASE_TAG: ${{ parameters.releaseTag }}
+                  SOURCE_BUILD_ID: ${{ parameters.sourceBuildId }}
+                  SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              - task: DownloadPipelineArtifact@2
+                displayName: Download original NPM artifact
+                inputs:
+                  buildType: specific
+                  project: $(System.TeamProjectId)
+                  definition: $(System.DefinitionId)
+                  buildVersionToDownload: specific
+                  pipelineId: ${{ parameters.sourceBuildId }}
+                  artifactName: $(ARTIFACT_NAME_PACKAGE)
+                  targetPath: '$(Build.ArtifactStagingDirectory)/$(ARTIFACT_NAME_PACKAGE)'
+
       - stage: ValidateNpm
+        condition: |
+          and(
+            not(canceled()),
+            or(
+              and(eq('${{ parameters.releaseMode }}', 'full'), in(dependencies.BuildNpm.result, 'Succeeded', 'SucceededWithIssues')),
+              and(eq('${{ parameters.releaseMode }}', 'npmOnly'), in(dependencies.RecoverNpmArtifact.result, 'Succeeded', 'SucceededWithIssues'))
+            )
+          )
         dependsOn:
           - BuildNpm
+          - RecoverNpmArtifact
         jobs:
           - job: validate_npm
             displayName: Validate NPM package
@@ -250,8 +301,11 @@ extends:
                   cd pyrightTest
                   yarn
                   yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
+                  node -e "const actual=require('./node_modules/pyright/package.json').version; const expected=process.env.RELEASE_TAG; if(actual!==expected){console.error('Expected package version '+expected+', got '+actual); process.exit(1)}"
                   node_modules/.bin/pyright --version
                 displayName: Validate npm package
+                env:
+                  RELEASE_TAG: $(EXPECTED_RELEASE_TAG)
 
       - stage: CreateRelease
         condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
