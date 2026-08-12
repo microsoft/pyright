@@ -2,6 +2,14 @@ trigger:
   branches:
     include:
       - refs/tags/*
+parameters:
+  - name: releaseMode
+    displayName: Release mode
+    type: string
+    default: full
+    values:
+      - full
+      - npmOnly
 resources:
   repositories:
     - repository: MicroBuildTemplate
@@ -45,6 +53,7 @@ extends:
       - ES365AIMigrationTooling
     stages:
       - stage: BuildVsix
+        condition: and(succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
         jobs:
           - job: build_vsix
             displayName: Build VSIX
@@ -198,6 +207,7 @@ extends:
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
       - stage: CreateRelease
+        condition: and(succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
         dependsOn:
           - BuildVsix
           - BuildNpm
@@ -243,6 +253,7 @@ extends:
                     $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
 
       - stage: WaitForValidation
+        condition: and(succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
         dependsOn:
           - CreateRelease
         jobs:
@@ -262,6 +273,7 @@ extends:
                   onTimeout: 'reject' # require sign-off
 
       - stage: PublishToMarketplace
+        condition: and(succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
         dependsOn:
           - WaitForValidation
         jobs:
@@ -299,7 +311,19 @@ extends:
                     vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
 
       - stage: PublishToNpm
+        condition: |
+          and(
+            in(dependencies.BuildNpm.result, 'Succeeded', 'SucceededWithIssues'),
+            or(
+              eq('${{ parameters.releaseMode }}', 'npmOnly'),
+              and(
+                in(dependencies.WaitForValidation.result, 'Succeeded', 'SucceededWithIssues'),
+                in(dependencies.PublishToMarketplace.result, 'Succeeded', 'SucceededWithIssues')
+              )
+            )
+          )
         dependsOn:
+          - BuildNpm
           - WaitForValidation
           - PublishToMarketplace
         jobs:
@@ -328,4 +352,4 @@ extends:
                   folderLocation: $(Build.StagingDirectory)/dist
                   waitForReleaseCompletion: true
                   owners: rchiodo@microsoft.com
-                  approvers: grwheele@microsoft.com
+                  approvers: brcan@microsoft.com
