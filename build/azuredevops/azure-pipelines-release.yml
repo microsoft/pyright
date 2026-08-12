@@ -256,7 +256,7 @@ extends:
                   if ($sourceBuild.sourceBranch -ne "refs/tags/$env:RELEASE_TAG") {
                     Write-Error "Source build used $($sourceBuild.sourceBranch), expected refs/tags/$env:RELEASE_TAG"
                   }
-                    git fetch origin "refs/tags/$env:RELEASE_TAG:refs/tags/$env:RELEASE_TAG"
+                    git fetch origin "refs/tags/${env:RELEASE_TAG}:refs/tags/${env:RELEASE_TAG}"
                     if ($LASTEXITCODE -ne 0) {
                       Write-Error "Unable to fetch release tag $env:RELEASE_TAG"
                     }
