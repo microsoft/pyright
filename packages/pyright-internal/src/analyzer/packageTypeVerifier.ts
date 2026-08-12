@@ -288,7 +288,7 @@ export class PackageTypeVerifier {
                 };
 
                 const parseTree = sourceFile.getParserOutput()!.parseTree;
-                const moduleScope = getScopeForNode(parseTree)!;
+                const moduleScope = getScopeForNode(parseTree, this._program.analyzerNodeInfoContext)!;
 
                 this._getPublicSymbolsInSymbolTable(
                     publicSymbols,
@@ -401,7 +401,7 @@ export class PackageTypeVerifier {
 
             if (sourceFile) {
                 const parseTree = sourceFile.getParserOutput()!.parseTree;
-                const moduleScope = getScopeForNode(parseTree)!;
+                const moduleScope = getScopeForNode(parseTree, this._program.analyzerNodeInfoContext)!;
 
                 this._getTypeKnownStatusForSymbolTable(
                     report,

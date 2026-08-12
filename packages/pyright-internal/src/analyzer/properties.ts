@@ -11,7 +11,7 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocAddendum, LocMessage } from '../localization/localize';
 import { DecoratorNode, FunctionNode, ParamCategory, ParseNode } from '../parser/parseNodes';
-import { getFileInfo } from './analyzerNodeInfo';
+import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { getClassFullName, getTypeAnnotationForParam, getTypeSourceId } from './parseTreeUtils';
@@ -50,9 +50,10 @@ export function createProperty(
     evaluator: TypeEvaluator,
     decoratorNode: DecoratorNode,
     decoratorType: ClassType,
-    fget: FunctionType
+    fget: FunctionType,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): ClassType {
-    const fileInfo = getFileInfo(decoratorNode);
+    const fileInfo = nodeInfo.getFileInfo(decoratorNode);
     const typeMetaclass = evaluator.getBuiltInType(decoratorNode, 'type');
     const typeSourceId = ClassType.isBuiltIn(decoratorType, 'property')
         ? getTypeSourceId(decoratorNode)
@@ -116,7 +117,8 @@ export function clonePropertyWithSetter(
     evaluator: TypeEvaluator,
     prop: Type,
     fset: FunctionType,
-    errorNode: FunctionNode
+    errorNode: FunctionNode,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
     if (!isProperty(prop)) {
         return prop;
@@ -129,7 +131,7 @@ export function clonePropertyWithSetter(
     // Verify parameters for fset.
     // We'll skip this test if the diagnostic rule is disabled because it
     // can be somewhat expensive, especially in code that is not annotated.
-    const fileInfo = getFileInfo(errorNode);
+    const fileInfo = nodeInfo.getFileInfo(errorNode);
     if (errorNode.d.params.length >= 2) {
         const typeAnnotation = getTypeAnnotationForParam(errorNode, 1);
         if (typeAnnotation) {
@@ -163,7 +165,7 @@ export function clonePropertyWithSetter(
         classType.shared.name,
         classType.shared.fullName,
         classType.shared.moduleName,
-        getFileInfo(errorNode).fileUri,
+        nodeInfo.getFileInfo(errorNode).fileUri,
         flagsToClone,
         classType.shared.typeSourceId,
         classType.shared.declaredMetaclass,
@@ -211,7 +213,8 @@ export function clonePropertyWithDeleter(
     evaluator: TypeEvaluator,
     prop: Type,
     fdel: FunctionType,
-    errorNode: FunctionNode
+    errorNode: FunctionNode,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
     if (!isProperty(prop)) {
         return prop;
@@ -222,7 +225,7 @@ export function clonePropertyWithDeleter(
         classType.shared.name,
         classType.shared.fullName,
         classType.shared.moduleName,
-        getFileInfo(errorNode).fileUri,
+        nodeInfo.getFileInfo(errorNode).fileUri,
         classType.shared.flags,
         classType.shared.typeSourceId,
         classType.shared.declaredMetaclass,

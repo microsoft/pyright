@@ -30,11 +30,13 @@
                 {
                     label: "'name'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'str',
                     textEdit: { range: helper.getPositionRange('marker1'), newText: "'name'" },
                 },
                 {
                     label: "'age'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: helper.getPositionRange('marker1'), newText: "'age'" },
                 },
             ],
@@ -44,11 +46,13 @@
                 {
                     label: '"name"',
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'str',
                     textEdit: { range: helper.getPositionRange('marker2'), newText: '"name"' },
                 },
                 {
                     label: '"age"',
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: helper.getPositionRange('marker2'), newText: '"age"' },
                 },
             ],
@@ -58,6 +62,7 @@
                 {
                     label: '"age"',
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: helper.getPositionRange('marker3'), newText: '"age"' },
                 },
             ],

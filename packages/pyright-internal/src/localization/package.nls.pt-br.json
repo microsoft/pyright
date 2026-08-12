@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "Library",
+        "standardLibrary": "Standard library",
+        "workspace": "Workspace"
+    },
     "CodeAction": {
         "createTypeStub": "Criar Stub de Tipo",
         "createTypeStubFor": "Criar Stub de tipo para \"{moduleName}\"",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "Uma classe congelada não pode herdar de uma classe que não está congelada",
         "dataClassConverterFunction": "O argumento do tipo \"{argType}\" não é um conversor válido para o campo \"{fieldName}\" do tipo \"{fieldType}\"",
         "dataClassConverterOverloads": "Nenhuma sobrecarga de \"{funcName}\" são conversores válidos para o campo \"{fieldName}\" do tipo \"{fieldType}\"",
+        "dataClassDuplicateKwOnly": "\"{name}\" é um separador KW_ONLY duplicado; somente um é permitido em uma classe de dados",
         "dataClassFieldInheritedDefault": "\"{fieldName}\" substitui um campo com o mesmo nome, mas não possui um valor padrão",
         "dataClassFieldWithDefault": "Campos sem valores padrão não podem aparecer após campos com valores padrão",
         "dataClassFieldWithPrivateName": "O campo Dataclass não pode usar o nome privado",
@@ -293,6 +299,8 @@
         "keywordSubscriptIllegal": "Não há suporte para argumentos de palavra-chave em subscritos",
         "lambdaReturnTypePartiallyUnknown": "O tipo de retorno de lambda, \"{returnType}\", é parcialmente desconhecido",
         "lambdaReturnTypeUnknown": "O tipo de retorno de lambda é desconhecido",
+        "lazyImportIllegal": "A instrução de importação tardia requer o Python 3.15 ou mais recente",
+        "lazyImportWildcardIllegal": "Importações curinga não podem ser usadas com 'lazy'",
         "listAssignmentMismatch": "A expressão com o tipo \"{type}\" não pode ser atribuída à lista de destino",
         "listInAnnotation": "Expressão de List não permitida na expressão de tipo",
         "literalEmptyArgs": "Um ou mais argumentos de tipo esperados após \"Literal\"",
@@ -845,6 +853,9 @@
         "useTypeInstead": "Usar type[T] em vez disso",
         "varianceMismatchForClass": "A variação do argumento de tipo \"{typeVarName}\" é incompatível com a classe base \"{className}\"",
         "varianceMismatchForTypeAlias": "A variação do argumento de tipo \"{typeVarName}\" é incompatível com \"{typeAliasParam}\""
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "Não é possível renomear \"{symbolName}\" porque ele também é declarado em código não editável (uma biblioteca ou arquivo stub) que não pode ser modificado. Concluir a renomeação deixaria \"{symbolName}\" parcialmente renomeado. Resolva primeiro a(s) declaração(ões) conflitante(s) primeiro:\r\n{locations}"
     },
     "Service": {
         "longOperation": "A enumeração de arquivos de origem do espaço de trabalho está demorando muito. Em vez disso, considere abrir uma subpasta. [Saiba mais](https://aka.ms/workspace-too-many-files)"

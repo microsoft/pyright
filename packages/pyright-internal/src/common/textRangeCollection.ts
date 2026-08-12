@@ -17,6 +17,13 @@ import { TextRange } from './textRange';
 export class TextRangeCollection<T extends TextRange> {
     private _items: T[];
 
+    // Index most recently returned by getItemContaining. Offsets converted in
+    // bulk (e.g. one per completion item or reference) cluster on the same or an
+    // adjacent line, so remembering the last hit lets consecutive lookups skip the
+    // binary search. It is only ever used as a hint that is re-validated on each
+    // call, so it never changes the returned result.
+    private _lastHitIndex = 0;
+
     constructor(items: T[]) {
         this._items = items;
     }
@@ -97,7 +104,34 @@ export class TextRangeCollection<T extends TextRange> {
             return -1;
         }
 
-        return getIndexContaining(this._items, position);
+        // Fast path: check the last returned index and its forward neighbor before
+        // falling back to the binary search. Because the items are immutable, sorted
+        // and non-overlapping, an item that contains the position is unique, so any
+        // index returned here is exactly what getIndexContaining would return. The
+        // memo is re-validated with the same containment predicate on every call, so
+        // a stale hint can only miss (and fall through), never return a wrong result.
+        const lastHit = this._lastHitIndex;
+        if (lastHit >= 0 && lastHit < this._items.length) {
+            const item = this._items[lastHit];
+            if (item !== undefined && TextRange.contains(item, position)) {
+                return lastHit;
+            }
+
+            const nextIndex = lastHit + 1;
+            if (nextIndex < this._items.length) {
+                const nextItem = this._items[nextIndex];
+                if (nextItem !== undefined && TextRange.contains(nextItem, position)) {
+                    this._lastHitIndex = nextIndex;
+                    return nextIndex;
+                }
+            }
+        }
+
+        const index = getIndexContaining(this._items, position);
+        if (index >= 0) {
+            this._lastHitIndex = index;
+        }
+        return index;
     }
 }
 

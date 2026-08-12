@@ -10,7 +10,7 @@
 import { assert } from '../common/debug';
 import { PythonVersion, pythonVersion3_13 } from '../common/pythonVersion';
 import { ArgCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { getFileInfo } from './analyzerNodeInfo';
+import { AnalyzerNodeInfoAccessor, AnalyzerNodeInfoReader, getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
 import { getClassFullName, getEnclosingClass, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
@@ -55,7 +55,11 @@ export function isEnumMetaclass(classType: ClassType) {
 
 // Determines whether this is an enum class that has at least one enum
 // member defined.
-export function isEnumClassWithMembers(evaluator: TypeEvaluator, classType: ClassType) {
+export function isEnumClassWithMembers(
+    evaluator: TypeEvaluator,
+    classType: ClassType,
+    nodeInfo: AnalyzerNodeInfoAccessor
+) {
     if (!isClass(classType) || !ClassType.isEnumClass(classType)) {
         return false;
     }
@@ -63,7 +67,7 @@ export function isEnumClassWithMembers(evaluator: TypeEvaluator, classType: Clas
     // Determine whether the enum class defines a member.
     const symbolTable = ClassType.getSymbolTable(classType);
     for (const name of symbolTable.keys()) {
-        const symbolType = transformTypeForEnumMember(evaluator, classType, name);
+        const symbolType = transformTypeForEnumMember(evaluator, classType, name, nodeInfo);
         if (
             symbolType &&
             isClassInstance(symbolType) &&
@@ -81,9 +85,10 @@ export function createEnumType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     enumClass: ClassType,
-    argList: Arg[]
+    argList: Arg[],
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): ClassType | undefined {
-    const fileInfo = getFileInfo(errorNode);
+    const fileInfo = nodeInfo.getFileInfo(errorNode);
     const isReprEnum = isReprEnumClass(enumClass);
 
     if (argList.length === 0) {
@@ -312,6 +317,7 @@ export function transformTypeForEnumMember(
     evaluator: TypeEvaluator,
     classType: ClassType,
     memberName: string,
+    nodeInfo: AnalyzerNodeInfoReader,
     ignoreAnnotation = false,
     recursionCount = 0
 ): Type | undefined {
@@ -401,7 +407,8 @@ export function transformTypeForEnumMember(
         let assignedType: Type | undefined;
 
         if (valueTypeExprNode) {
-            const evalFlags = getFileInfo(valueTypeExprNode).isStubFile ? EvalFlags.ConvertEllipsisToAny : undefined;
+            const fileInfo = getFileInfo(valueTypeExprNode, nodeInfo);
+            const evalFlags = fileInfo.isStubFile ? EvalFlags.ConvertEllipsisToAny : undefined;
             assignedType = evaluator.getTypeOfExpression(valueTypeExprNode, evalFlags).type;
         }
 
@@ -411,6 +418,7 @@ export function transformTypeForEnumMember(
                 evaluator,
                 classType,
                 valueTypeExprNode.d.value,
+                nodeInfo,
                 /* ignoreAnnotation */ false,
                 recursionCount
             );
@@ -439,7 +447,7 @@ export function transformTypeForEnumMember(
                 // depends on the version of Python. In versions prior to 3.13, classes
                 // are treated as members.
                 if (isInstantiableClass(assignedType)) {
-                    const fileInfo = getFileInfo(primaryDecl.node);
+                    const fileInfo = getFileInfo(primaryDecl.node, nodeInfo);
                     isMemberOfEnumeration = PythonVersion.isLessThan(
                         fileInfo.executionEnvironment.pythonVersion,
                         pythonVersion3_13
@@ -581,13 +589,14 @@ export function getTypeOfEnumMember(
     errorNode: ParseNode,
     classType: ClassType,
     memberName: string,
-    isIncomplete: boolean
+    isIncomplete: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): TypeResult | undefined {
     if (!ClassType.isEnumClass(classType)) {
         return undefined;
     }
 
-    const type = transformTypeForEnumMember(evaluator, classType, memberName);
+    const type = transformTypeForEnumMember(evaluator, classType, memberName, nodeInfo);
     if (type) {
         return { type, isIncomplete };
     }

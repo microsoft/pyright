@@ -10,8 +10,10 @@
  */
 import assert from 'assert';
 
+import { FileSystem } from '../../common/fileSystem';
 import { TspSupplemental } from '../../typeServer/protocol/tspSupplemental';
 import { TypeServerProtocol } from '../../typeServer/protocol/typeServerProtocol';
+import { TypeServerVirtualFileRedirects } from '../../typeServer/typeServerFileSystem';
 import { initializeDependenciesForInProcTests, withInProcTypeServer } from './inProcTypeServerTestUtils';
 
 jest.setTimeout(120000);
@@ -31,6 +33,37 @@ function getClassTypeName(type: TypeServerProtocol.Type | undefined): string | u
 describe('TypeServer virtual file redirect (TspSupplemental)', () => {
     beforeAll(async () => {
         await initializeDependenciesForInProcTests();
+    });
+
+    test('redirect capability requires both operations', () => {
+        const redirects = Object.create({
+            addVirtualFileRedirect() {},
+            removeVirtualFileRedirect() {},
+        }) as FileSystem;
+
+        assert(TypeServerVirtualFileRedirects.is(redirects));
+        assert.strictEqual(
+            TypeServerVirtualFileRedirects.is({ addVirtualFileRedirect() {} } as unknown as FileSystem),
+            false
+        );
+        assert.strictEqual(
+            TypeServerVirtualFileRedirects.is({ removeVirtualFileRedirect() {} } as unknown as FileSystem),
+            false
+        );
+        assert.strictEqual(
+            TypeServerVirtualFileRedirects.is({
+                addVirtualFileRedirect: undefined,
+                removeVirtualFileRedirect() {},
+            } as unknown as FileSystem),
+            false
+        );
+        assert.strictEqual(
+            TypeServerVirtualFileRedirects.is({
+                addVirtualFileRedirect() {},
+                removeVirtualFileRedirect: undefined,
+            } as unknown as FileSystem),
+            false
+        );
     });
 
     test('setVirtualFileRedirect triggers reanalysis and changes inferred types', async () => {

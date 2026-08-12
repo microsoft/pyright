@@ -160,6 +160,59 @@ test('getNestedProperty', () => {
     assert.deepEqual(utils.getNestedProperty(undefined, ''), undefined);
 });
 
+test('createMapFromItems groups by key preserving order and identity', () => {
+    const a = { id: 1, k: 'x' };
+    const b = { id: 2, k: 'y' };
+    const c = { id: 3, k: 'x' };
+    const map = utils.createMapFromItems([a, b, c], (t) => t.k);
+
+    // Keys appear in first-occurrence order.
+    assert.deepEqual([...map.keys()], ['x', 'y']);
+    // Items keep their original order within a key, and the exact references are stored.
+    assert.equal(map.get('x')!.length, 2);
+    assert.strictEqual(map.get('x')![0], a);
+    assert.strictEqual(map.get('x')![1], c);
+    assert.strictEqual(map.get('y')![0], b);
+});
+
+test('createMapFromItems handles empty input', () => {
+    const map = utils.createMapFromItems<number>([], (t) => String(t));
+    assert.equal(map.size, 0);
+});
+
+test('createMapFromItems keeps duplicate identical references', () => {
+    const dup = { id: 'dup' };
+    const map = utils.createMapFromItems([dup, dup, dup], () => 'k');
+    assert.equal(map.get('k')!.length, 3);
+    assert.strictEqual(map.get('k')![0], dup);
+    assert.strictEqual(map.get('k')![2], dup);
+});
+
+test('createMapFromItems matches legacy concat-based semantics', () => {
+    assertCreateMapParity<number>([], (t) => String(t));
+    assertCreateMapParity([{ v: 'a' }, { v: 'b' }, { v: 'a' }], (t) => t.v);
+    assertCreateMapParity(['aa', 'bb', 'aa', 'cc'], (t) => t[0]);
+    assertCreateMapParity([1, 2, 12, 22, 3], (t) => String(t % 10));
+    assertCreateMapParity([{ v: '' }, { v: '0' }, { v: 'undefined' }, { v: 'ключ' }, { v: '' }], (t) => t.v);
+});
+
+// Oracle that reproduces the pre-rewrite concat-based implementation, so any
+// behavioral drift for the non-array items every caller passes is caught.
+function assertCreateMapParity<T>(items: T[], keyGetter: (t: T) => string) {
+    const legacy = items
+        .map((t) => keyGetter(t))
+        .reduce((m, key, i) => {
+            m.set(key, (m.get(key) || []).concat(items[i]));
+            return m;
+        }, new Map<string, T[]>());
+    const actual = utils.createMapFromItems(items, keyGetter);
+
+    assert.deepEqual([...actual.keys()], [...legacy.keys()]);
+    for (const key of legacy.keys()) {
+        assert.deepEqual(actual.get(key), legacy.get(key));
+    }
+}
+
 class B {
     value: number;
 

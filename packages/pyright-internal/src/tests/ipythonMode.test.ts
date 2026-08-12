@@ -561,6 +561,52 @@ test('unused expression is error if within another statement', async () => {
     verifyAnalysisDiagnosticCount(code, 1, DiagnosticRule.reportUnusedExpression);
 });
 
+test('magic as only statement in a suite body is not a parse error', () => {
+    const code = `
+// @filename: test.py
+// @ipythonMode: true
+//// def foo():
+////     %cd test[|/*marker*/|]
+    `;
+
+    verifyAnalysisDiagnosticCount(code, 0);
+});
+
+test('magic as first line of an if-suite is not a parse error', () => {
+    const code = `
+// @filename: test.py
+// @ipythonMode: true
+//// if True:
+////     %pip install matplotlib[|/*marker*/|]
+    `;
+
+    verifyAnalysisDiagnosticCount(code, 0);
+});
+
+test('magic as first line of a nested suite body is not a parse error', () => {
+    const code = `
+// @filename: test.py
+// @ipythonMode: true
+//// def foo():
+////     if True:
+////         %cd test[|/*marker*/|]
+    `;
+
+    verifyAnalysisDiagnosticCount(code, 0);
+});
+
+test('shell escape as first line of a suite body followed by a statement is not a parse error', () => {
+    const code = `
+// @filename: test.py
+// @ipythonMode: true
+//// def foo():
+////     !echo hi
+////     pass[|/*marker*/|]
+    `;
+
+    verifyAnalysisDiagnosticCount(code, 0);
+});
+
 function verifyAnalysisDiagnosticCount(code: string, expectedCount: number, expectedRule?: string) {
     const state = parseAndGetTestState(code).state;
 
