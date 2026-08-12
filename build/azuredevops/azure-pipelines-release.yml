@@ -233,7 +233,11 @@ extends:
                   targetPath: '$(Build.ArtifactStagingDirectory)/$(ARTIFACT_NAME_PACKAGE)'
                   artifactName: $(ARTIFACT_NAME_PACKAGE)
             steps:
-              - checkout: none
+              - checkout: self
+                fetchDepth: 1
+                clean: true
+                fetchTags: false
+                persistCredentials: true
               - pwsh: |
                   if ($env:RELEASE_TAG -notmatch '^1\.1\.\d+$') {
                       Write-Error 'releaseTag must match 1.1.<patch>'
@@ -251,6 +255,17 @@ extends:
                   if ($sourceBuild.sourceBranch -ne "refs/tags/$env:RELEASE_TAG") {
                     Write-Error "Source build used $($sourceBuild.sourceBranch), expected refs/tags/$env:RELEASE_TAG"
                   }
+                    git fetch origin "refs/tags/$env:RELEASE_TAG:refs/tags/$env:RELEASE_TAG"
+                    if ($LASTEXITCODE -ne 0) {
+                      Write-Error "Unable to fetch release tag $env:RELEASE_TAG"
+                    }
+                    $tagCommit = git rev-list -n 1 "refs/tags/$env:RELEASE_TAG"
+                    if ($LASTEXITCODE -ne 0 -or -not $tagCommit) {
+                      Write-Error "Unable to resolve release tag $env:RELEASE_TAG"
+                    }
+                    if ($sourceBuild.sourceVersion -ne $tagCommit) {
+                      Write-Error "Source build used commit $($sourceBuild.sourceVersion), but tag $env:RELEASE_TAG resolves to $tagCommit"
+                    }
                 displayName: Validate recovery parameters
                 env:
                   RELEASE_TAG: ${{ parameters.releaseTag }}
