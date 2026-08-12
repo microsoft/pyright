@@ -10,12 +10,13 @@ parameters:
     values:
       - full
       - npmOnly
+      - npmValidateOnly
   - name: releaseTag
-    displayName: Release tag (required for npmOnly)
+    displayName: Release tag (required for npmOnly and npmValidateOnly)
     type: string
     default: ''
   - name: sourceBuildId
-    displayName: Source build ID (required for npmOnly)
+    displayName: Source build ID (required for npmOnly and npmValidateOnly)
     type: number
     default: 0
 resources:
@@ -40,7 +41,7 @@ variables:
   # Route npm child processes through the runtime-generated authenticated CFS config.
   - name: NPM_CONFIG_USERCONFIG
     value: $(Agent.TempDirectory)/cfs.npmrc
-  - ${{ if eq(parameters.releaseMode, 'npmOnly') }}:
+  - ${{ if or(eq(parameters.releaseMode, 'npmOnly'), eq(parameters.releaseMode, 'npmValidateOnly')) }}:
       - name: EXPECTED_RELEASE_TAG
         value: ${{ parameters.releaseTag }}
   - ${{ else }}:
@@ -222,7 +223,7 @@ extends:
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
       - stage: RecoverNpmArtifact
-        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'npmOnly'))
+        condition: and(not(canceled()), succeeded(), or(eq('${{ parameters.releaseMode }}', 'npmOnly'), eq('${{ parameters.releaseMode }}', 'npmValidateOnly')))
         dependsOn: []
         jobs:
           - job: recover_npm_artifact
@@ -247,7 +248,7 @@ extends:
                   }
                   $headers = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
                   $sourceBuild = Invoke-RestMethod `
-                    -Uri "$(System.CollectionUri)$(System.TeamProjectId)/_apis/build/builds/$env:SOURCE_BUILD_ID?api-version=7.1" `
+                    -Uri "$(System.CollectionUri)$(System.TeamProjectId)/_apis/build/builds/${env:SOURCE_BUILD_ID}?api-version=7.1" `
                     -Headers $headers
                   if ($sourceBuild.definition.id -ne [int]"$(System.DefinitionId)") {
                     Write-Error 'sourceBuildId belongs to a different pipeline'
@@ -255,7 +256,7 @@ extends:
                   if ($sourceBuild.sourceBranch -ne "refs/tags/$env:RELEASE_TAG") {
                     Write-Error "Source build used $($sourceBuild.sourceBranch), expected refs/tags/$env:RELEASE_TAG"
                   }
-                    git fetch origin "refs/tags/$env:RELEASE_TAG:refs/tags/$env:RELEASE_TAG"
+                    git fetch origin "refs/tags/${env:RELEASE_TAG}:refs/tags/${env:RELEASE_TAG}"
                     if ($LASTEXITCODE -ne 0) {
                       Write-Error "Unable to fetch release tag $env:RELEASE_TAG"
                     }
@@ -288,7 +289,7 @@ extends:
             not(canceled()),
             or(
               and(eq('${{ parameters.releaseMode }}', 'full'), in(dependencies.BuildNpm.result, 'Succeeded', 'SucceededWithIssues')),
-              and(eq('${{ parameters.releaseMode }}', 'npmOnly'), in(dependencies.RecoverNpmArtifact.result, 'Succeeded', 'SucceededWithIssues'))
+              and(or(eq('${{ parameters.releaseMode }}', 'npmOnly'), eq('${{ parameters.releaseMode }}', 'npmValidateOnly')), in(dependencies.RecoverNpmArtifact.result, 'Succeeded', 'SucceededWithIssues'))
             )
           )
         dependsOn:
