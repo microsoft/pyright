@@ -10,6 +10,7 @@ parameters:
     values:
       - full
       - npmOnly
+      - npmValidateOnly
   - name: releaseTag
     displayName: Release tag (required for npmOnly)
     type: string
@@ -40,7 +41,7 @@ variables:
   # Route npm child processes through the runtime-generated authenticated CFS config.
   - name: NPM_CONFIG_USERCONFIG
     value: $(Agent.TempDirectory)/cfs.npmrc
-  - ${{ if eq(parameters.releaseMode, 'npmOnly') }}:
+  - ${{ if ne(parameters.releaseMode, 'full') }}:
       - name: EXPECTED_RELEASE_TAG
         value: ${{ parameters.releaseTag }}
   - ${{ else }}:
@@ -222,7 +223,7 @@ extends:
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
       - stage: RecoverNpmArtifact
-        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'npmOnly'))
+        condition: and(not(canceled()), succeeded(), ne('${{ parameters.releaseMode }}', 'full'))
         dependsOn: []
         jobs:
           - job: recover_npm_artifact
@@ -288,7 +289,7 @@ extends:
             not(canceled()),
             or(
               and(eq('${{ parameters.releaseMode }}', 'full'), in(dependencies.BuildNpm.result, 'Succeeded', 'SucceededWithIssues')),
-              and(eq('${{ parameters.releaseMode }}', 'npmOnly'), in(dependencies.RecoverNpmArtifact.result, 'Succeeded', 'SucceededWithIssues'))
+              and(ne('${{ parameters.releaseMode }}', 'full'), in(dependencies.RecoverNpmArtifact.result, 'Succeeded', 'SucceededWithIssues'))
             )
           )
         dependsOn:
