@@ -1125,6 +1125,95 @@ test('TypeFormCacheRuntimeFirst', () => {
     assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
 });
 
+test('TypeFormCacheNestedAliasRuntimeFirst', () => {
+    const code = `
+// @filename: test.py
+//// # pyright: reportMissingModuleSource=false
+//// from typing import assert_type
+//// from typing_extensions import TypeForm
+//// class Codec[T]: ...
+//// def codec_for[T](schema: TypeForm[T]) -> Codec[T]: ...
+//// type Foo = int | str
+//// class Bar[T: Foo]: ...
+//// bar_codec = codec_for(Bar[[|/*marker*/Foo|]])
+//// assert_type(bar_codec, Codec[Bar[Foo]])
+    `;
+    const state = parseAndGetTestState(code).state;
+    const node = getNodeAtMarker(state);
+    assert.ok(node.nodeType === ParseNodeType.Name);
+
+    const runtimeType = state.program.evaluator!.getTypeOfExpression(node).type;
+    assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
+
+    state.verifyDiagnostics({
+        marker: { category: 'none', message: '' },
+    });
+});
+
+test('TypeFormCacheNestedGenericAliasRuntimeFirst', () => {
+    const code = `
+// @filename: test.py
+//// # pyright: reportMissingModuleSource=false
+//// from typing import assert_type
+//// from typing_extensions import TypeForm
+//// class Codec[T]: ...
+//// def codec_for[T](schema: TypeForm[T]) -> Codec[T]: ...
+//// type Foo = int | str
+//// type Bar[T: Foo] = list[T]
+//// bar_codec = codec_for(Bar[[|/*marker*/Foo|]])
+//// assert_type(bar_codec, Codec[list[int | str]])
+    `;
+    const state = parseAndGetTestState(code).state;
+    const node = getNodeAtMarker(state);
+    assert.ok(node.nodeType === ParseNodeType.Name);
+
+    const runtimeType = state.program.evaluator!.getTypeOfExpression(node).type;
+    assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
+
+    state.verifyDiagnostics({
+        marker: { category: 'none', message: '' },
+    });
+});
+
+test('TypeFormCacheNestedVariadicRuntimeFirst', () => {
+    const code = `
+// @filename: test.py
+//// # pyright: reportMissingModuleSource=false
+//// from collections.abc import Callable
+//// from typing import assert_type
+//// from typing_extensions import TypeForm
+//// class Codec[T]: ...
+//// def codec_for[T](schema: TypeForm[T]) -> Codec[T]: ...
+//// type Foo = int | str
+//// class ParamSpecClass[**P]: ...
+//// type ParamSpecAlias[**P] = Callable[P, None]
+//// class VariadicClass[*Ts]: ...
+//// type VariadicAlias[*Ts] = tuple[*Ts]
+//// param_class_codec = codec_for(ParamSpecClass[[[|/*paramClass*/Foo|]]])
+//// assert_type(param_class_codec, Codec[ParamSpecClass[[Foo]]])
+//// param_alias_codec = codec_for(ParamSpecAlias[[[|/*paramAlias*/Foo|]]])
+//// assert_type(param_alias_codec, Codec[Callable[[Foo], None]])
+//// variadic_class_codec = codec_for(VariadicClass[[|/*variadicClass*/Foo|]])
+//// assert_type(variadic_class_codec, Codec[VariadicClass[Foo]])
+//// variadic_alias_codec = codec_for(VariadicAlias[[|/*variadicAlias*/Foo|]])
+//// assert_type(variadic_alias_codec, Codec[tuple[Foo]])
+    `;
+    const state = parseAndGetTestState(code).state;
+    const markerNames = ['paramClass', 'paramAlias', 'variadicClass', 'variadicAlias'];
+
+    markerNames.forEach((markerName) => {
+        const node = getNodeAtMarker(state, markerName);
+        assert.ok(node.nodeType === ParseNodeType.Name);
+
+        const runtimeType = state.program.evaluator!.getTypeOfExpression(node).type;
+        assert.strictEqual(state.program.evaluator!.getCachedType(node), runtimeType);
+    });
+
+    state.verifyDiagnostics(
+        Object.fromEntries(markerNames.map((markerName) => [markerName, { category: 'none', message: '' }]))
+    );
+});
+
 test('TypeFormCacheRuntimeFirstReassignment', () => {
     const code = `
 // @filename: test.py

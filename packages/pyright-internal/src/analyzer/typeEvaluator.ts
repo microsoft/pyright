@@ -792,7 +792,14 @@ export function createTypeEvaluator(
     function isTypeCached(node: ParseNode) {
         // This helper is used by runtime-evaluation guards. A contextual TypeForm
         // entry does not prove that the ordinary runtime type was evaluated.
-        const cacheEntry = readTypeCacheEntry(node);
+        return isTypeCacheEntryValid(readTypeCacheEntry(node));
+    }
+
+    function isTypeFormTypeCached(node: ParseNode, expectedType: Type | undefined) {
+        return isTypeCacheEntryValid(readTypeFormTypeCacheEntry(node, expectedType));
+    }
+
+    function isTypeCacheEntryValid(cacheEntry: TypeCacheEntry | undefined) {
         if (!cacheEntry) {
             return false;
         }
@@ -7695,6 +7702,11 @@ export function createTypeEvaluator(
         return type;
     }
 
+    function convertTypeArgToInstance(type: Type, flags: EvalFlags): Type {
+        const contextualType = (flags & EvalFlags.TypeFormArg) !== 0 ? type.props?.typeForm ?? type : type;
+        return convertToInstance(contextualType);
+    }
+
     // Handles index expressions that are providing type arguments for a
     // generic type alias.
     function createSpecializedTypeAlias(
@@ -7889,7 +7901,7 @@ export function createTypeEvaluator(
 
                 let typeArgType: Type;
                 if (index < typeArgs.length) {
-                    typeArgType = convertToInstance(typeArgs[index].type);
+                    typeArgType = convertTypeArgToInstance(typeArgs[index].type, flags);
                 } else if (param.shared.isDefaultExplicit) {
                     typeArgType = solveAndApplyConstraints(param, constraints, {
                         replaceUnsolved: {
@@ -8259,12 +8271,18 @@ export function createTypeEvaluator(
             }
         );
 
-        // In case we didn't walk the list items above, do so now.
-        // If we have, this information will be cached.
+        // In case we didn't walk the list items above, do so now. TypeForm arguments
+        // use a separate cache, so check it when the enclosing expression is a TypeForm.
         if (!baseTypeResult.isIncomplete) {
+            const isTypeFormArg = (flags & EvalFlags.TypeFormArg) !== 0;
+
             node.d.items.forEach((item) => {
-                if (!isTypeCached(item.d.valueExpr)) {
-                    getTypeOfExpression(item.d.valueExpr, flags & EvalFlags.ForwardRefs);
+                const isItemCached = isTypeFormArg
+                    ? isTypeFormTypeCached(item.d.valueExpr, /* expectedType */ undefined)
+                    : isTypeCached(item.d.valueExpr);
+
+                if (!isItemCached) {
+                    getTypeOfExpression(item.d.valueExpr, flags & (EvalFlags.ForwardRefs | EvalFlags.TypeFormArg));
                 }
             });
         }
@@ -9055,12 +9073,18 @@ export function createTypeEvaluator(
 
             if (!isCyclicalTypeVarCall && !isTypeFormCall) {
                 argList.forEach((arg) => {
+                    const valueExpression = arg.valueExpression;
                     if (
-                        arg.valueExpression &&
-                        arg.valueExpression.nodeType !== ParseNodeType.StringList &&
-                        !isTypeCached(arg.valueExpression)
+                        valueExpression &&
+                        valueExpression.nodeType !== ParseNodeType.StringList &&
+                        !isTypeCached(valueExpression)
                     ) {
-                        getTypeOfExpression(arg.valueExpression);
+                        const expectedType = expectedTypeCache.get(valueExpression.id)?.type;
+                        if (isTypeFormTypeCached(valueExpression, expectedType)) {
+                            suppressDiagnostics(valueExpression, () => getTypeOfExpression(valueExpression));
+                        } else {
+                            getTypeOfExpression(valueExpression);
+                        }
                     }
                 });
             }
@@ -22814,7 +22838,7 @@ export function createTypeEvaluator(
                     }
                 }
 
-                const typeArgType = convertToInstance(typeArgs[index].type);
+                const typeArgType = convertTypeArgToInstance(typeArgs[index].type, flags);
                 typeArgTypes.push(typeArgType);
                 constraints.setBounds(typeParam, typeArgType);
                 return;

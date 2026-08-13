@@ -131,6 +131,18 @@ literal_codec = codec_for(Literal["int", "list[str]"])
 assert_type(literal_codec, Codec[Literal["int", "list[str]"]])
 
 
+# A PEP 695 type alias used as a nested TypeForm argument should resolve
+# to the alias's target type rather than the runtime TypeAliasType.
+type Foo = int | str
+
+
+class Bar[T: Foo]: ...
+
+
+bar_codec = codec_for(Bar[Foo])
+assert_type(bar_codec, Codec[Bar[Foo]])
+
+
 # Mixed contexts preserve valid non-TypeForm alternatives.
 def accept_string_or_type(value: str | TypeForm[int]) -> None:
     pass
