@@ -792,7 +792,14 @@ export function createTypeEvaluator(
     function isTypeCached(node: ParseNode) {
         // This helper is used by runtime-evaluation guards. A contextual TypeForm
         // entry does not prove that the ordinary runtime type was evaluated.
-        const cacheEntry = readTypeCacheEntry(node);
+        return isTypeCacheEntryValid(readTypeCacheEntry(node));
+    }
+
+    function isTypeFormTypeCached(node: ParseNode, expectedType: Type | undefined) {
+        return isTypeCacheEntryValid(readTypeFormTypeCacheEntry(node, expectedType));
+    }
+
+    function isTypeCacheEntryValid(cacheEntry: TypeCacheEntry | undefined) {
         if (!cacheEntry) {
             return false;
         }
@@ -8259,11 +8266,17 @@ export function createTypeEvaluator(
             }
         );
 
-        // In case we didn't walk the list items above, do so now.
-        // If we have, this information will be cached.
+        // In case we didn't walk the list items above, do so now. TypeForm arguments
+        // use a separate cache, so check it when the enclosing expression is a TypeForm.
         if (!baseTypeResult.isIncomplete) {
+            const isTypeFormArg = (flags & EvalFlags.TypeFormArg) !== 0;
+
             node.d.items.forEach((item) => {
-                if (!isTypeCached(item.d.valueExpr)) {
+                const isItemCached =
+                    isTypeCached(item.d.valueExpr) ||
+                    (isTypeFormArg && isTypeFormTypeCached(item.d.valueExpr, /* expectedType */ undefined));
+
+                if (!isItemCached) {
                     getTypeOfExpression(item.d.valueExpr, flags & EvalFlags.ForwardRefs);
                 }
             });
