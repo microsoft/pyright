@@ -1772,6 +1772,22 @@ export function createTypeEvaluator(
 
         const isBytesNode = (node: StringNode | FormatStringNode) =>
             (node.d.token.flags & StringTokenFlags.Bytes) !== 0;
+        const isTemplateNode = (node: StringNode | FormatStringNode) =>
+            (node.d.token.flags & StringTokenFlags.Template) !== 0;
+
+        // Check for mixing of t-string literals with str, bytes, or f-string
+        // literals. CPython reports this as a SyntaxError (PEP 750).
+        const firstTemplateIndex = node.d.strings.findIndex(isTemplateNode);
+        const firstNonTemplateIndex = node.d.strings.findIndex((str) => !isTemplateNode(str));
+        if (firstTemplateIndex >= 0 && firstNonTemplateIndex >= 0) {
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.mixingTemplateAndStr(),
+                node.d.strings[Math.max(firstTemplateIndex, firstNonTemplateIndex)]
+            );
+
+            return { type: UnknownType.create() };
+        }
 
         // Check for mixing of bytes and str, which is not allowed.
         const firstStrIndex = node.d.strings.findIndex((str) => !isBytesNode(str));

@@ -140,7 +140,7 @@ test('TString2', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_14;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tstring2.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 1);
+    TestUtils.validateResults(analysisResults1, 6);
 });
 
 test('MemberAccess1', () => {
