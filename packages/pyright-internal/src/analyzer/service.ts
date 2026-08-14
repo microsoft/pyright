@@ -27,7 +27,7 @@ import { EditableProgram, ProgramView } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
-import { configFileName, defaultStubsDirectory, pyprojectTomlName } from '../common/pathConsts';
+import { configFileName, defaultExcludes, defaultStubsDirectory, pyprojectTomlName } from '../common/pathConsts';
 import { getFileName, isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { ServiceKeys } from '../common/serviceKeys';
@@ -911,7 +911,8 @@ export class AnalyzerService {
                 configOptions.setupExecutionEnvironments(
                     config.configFileJsonObj,
                     config.configFileDirUri,
-                    this.serviceProvider.console()
+                    this.serviceProvider.console(),
+                    this.fs
                 );
             }
         }
@@ -926,8 +927,6 @@ export class AnalyzerService {
         executionRoot: Uri,
         commandLineOptions: CommandLineOptions
     ) {
-        const defaultExcludes = ['**/node_modules', '**/__pycache__', '**/.*'];
-
         // If no include paths were provided, assume that all files within
         // the project should be included.
         if (configOptions.include.length === 0) {
@@ -935,18 +934,39 @@ export class AnalyzerService {
             configOptions.include.push(getFileSpec(projectRoot, '.'));
         }
 
-        // If there was no explicit set of excludes, add a few common ones to
-        // avoid long scan times.
-        if (configOptions.exclude.length === 0) {
-            defaultExcludes.forEach((exclude) => {
-                this._console.info(`Auto-excluding ${exclude}`);
-                configOptions.exclude.push(getFileSpec(projectRoot, exclude));
-            });
+        // Record whether the user explicitly provided any excludes before we (optionally) add
+        // the default excludes below. Consumers (e.g. Pylance's workspace routing) use this to
+        // distinguish files orphaned only by implicit defaults from files the user explicitly
+        // excluded.
+        configOptions.userSpecifiedExcludes = configOptions.exclude.length > 0;
 
-            if (configOptions.autoExcludeVenv === undefined) {
-                configOptions.autoExcludeVenv = true;
-            }
+        // Add the built-in default excludes unless the user turned them off via the
+        // `useDefaultExcludes` setting (defaults to on). When enabled, these defaults are applied
+        // additively on top of any user-specified excludes and, like any other exclude, take
+        // precedence over `include` — a directory auto-detected as a virtual environment stays
+        // excluded even when it is explicitly included. When disabled, no default excludes are
+        // added and virtual-environment auto-detection is left off, so nothing is auto-excluded.
+        const useDefaultExcludes = commandLineOptions.configSettings.useDefaultExcludes ?? true;
+        if (useDefaultExcludes) {
+            // Deduplicate against patterns the user already listed (by compiled regex source) so
+            // specifying a custom exclude never silently drops — or duplicates — the defaults.
+            const existingExcludeRegExps = new Set(configOptions.exclude.map((spec) => spec.regExp.source));
+            defaultExcludes.forEach((exclude) => {
+                const fileSpec = getFileSpec(projectRoot, exclude);
+                if (existingExcludeRegExps.has(fileSpec.regExp.source)) {
+                    return;
+                }
+
+                this._console.info(`Auto-excluding ${exclude}`);
+                existingExcludeRegExps.add(fileSpec.regExp.source);
+                configOptions.exclude.push(fileSpec);
+            });
         }
+
+        // Virtual-environment auto-detection is part of the default-exclude set, so it follows the
+        // same `useDefaultExcludes` gate. Assigning it unconditionally (rather than behind an
+        // `=== undefined` guard) is idempotent because this method is its single writer.
+        configOptions.autoExcludeVenv = useDefaultExcludes;
 
         if (!configOptions.defaultExtraPaths) {
             configOptions.ensureDefaultExtraPaths(

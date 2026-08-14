@@ -14,15 +14,15 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
 import {
+    FunctionDocStringInfo,
     getClassDocString,
     getFunctionDocStringFromDeclarationInfo,
-    getFunctionDocStringInheritedInfo,
     getModuleDocString,
     getModuleDocStringFromUris,
-    getOverloadedDocStrings,
-    getOverloadedDocStringsInherited,
     getPropertyDocStringInherited,
     getVariableDocString,
+    resolveConstructorDocInfo,
+    resolveMethodDocInfo,
 } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { MemberAccessFlags, lookUpClassMember } from '../analyzer/typeUtils';
@@ -35,6 +35,7 @@ import {
     TypeCategory,
     UnknownType,
     combineTypes,
+    isClass,
     isClassInstance,
     isFunction,
     isFunctionOrOverloaded,
@@ -43,7 +44,6 @@ import {
     isOverloaded,
 } from '../analyzer/types';
 import { SignatureDisplayType } from '../common/configOptions';
-import { isDefined } from '../common/core';
 import {
     ArgCategory,
     CallNode,
@@ -332,49 +332,73 @@ interface DocumentationPartInfo {
     sourceDecl?: Declaration;
 }
 
-function getFunctionDocStringFromTypeInfo(type: FunctionType, sourceMapper: SourceMapper, evaluator: TypeEvaluator) {
+// Resolve a constructor-call docstring in spec order: Phase 1 = constructor-method docstrings
+// across the MRO (resolveConstructorDocInfo), Phase 2 = the class docstring. `methodType` is the
+// call-narrowed constructor whose overloads are the matched-overload hint for Rule A.
+export function getConstructorDocInfo(
+    classType: ClassType,
+    methodType: FunctionType | OverloadedType,
+    resolvedDecl: Declaration | undefined,
+    sourceMapper: SourceMapper,
+    evaluator: TypeEvaluator
+): DocumentationPartInfo | undefined {
+    const matchedOverloads = isOverloaded(methodType) ? OverloadedType.getOverloads(methodType) : [methodType];
+
+    const ctorInfo = resolveConstructorDocInfo(classType, matchedOverloads, sourceMapper, evaluator);
+    if (ctorInfo?.docString) {
+        return {
+            text: ctorInfo.docString,
+            sourceDecl: ctorInfo.sourceDecl ?? resolvedDecl,
+            forceLiteral: ctorInfo.forceLiteral,
+        };
+    }
+
+    const classDoc = getClassDocString(classType, resolvedDecl, sourceMapper);
+    return classDoc ? { text: classDoc, sourceDecl: resolvedDecl } : undefined;
+}
+
+function getFunctionDocStringFromTypeInfo(
+    type: FunctionType,
+    sourceMapper: SourceMapper,
+    evaluator: TypeEvaluator
+): DocumentationPartInfo | undefined {
+    // A @functools.wraps-decorated function surfaces the wrapped function's docstring
+    // (matches the async pylance path). Single-level: pull the docstring from the wrapped
+    // function itself without recursively re-applying @wraps.
     const decl = type.shared.declaration;
+    if (decl && decl.type === DeclarationType.Function) {
+        const wrappedType = getWrappedFunctionType(decl, evaluator);
+        if (wrappedType) {
+            const wrappedDoc =
+                wrappedType.shared.docString ??
+                (wrappedType.shared.declaration
+                    ? getFunctionDocStringFromDeclarationInfo(wrappedType.shared.declaration, sourceMapper)?.docString
+                    : undefined);
+            if (wrappedDoc) {
+                return { text: wrappedDoc, sourceDecl: decl };
+            }
+        }
+    }
 
-    const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
-    const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
-
-    const docInfo = getFunctionDocStringInheritedInfo(type, decl, sourceMapper, classResults?.classType);
+    const docInfo = getMethodDocInfo(type, sourceMapper, evaluator);
     return docInfo
         ? { text: docInfo.docString, sourceDecl: docInfo.sourceDecl, forceLiteral: docInfo.forceLiteral }
         : undefined;
 }
 
-export function getOverloadedDocStringsFromType(
-    type: OverloadedType,
+// Resolve a function/method/overloaded docstring via the unified spec-ordered component. The
+// matched-overload hint is the (possibly call-narrowed) type's overload set; the class used for
+// MRO inheritance is the enclosing class of the member's declaration.
+function getMethodDocInfo(
+    type: FunctionType | OverloadedType,
     sourceMapper: SourceMapper,
     evaluator: TypeEvaluator
-) {
-    const overloads = OverloadedType.getOverloads(type);
-    if (overloads.length === 0) {
-        return [];
-    }
-
-    const resolvedDecls = overloads.map((o) => o.shared.declaration).filter(isDefined);
-
-    // Synthesized overloads (e.g. from a Callable[P, T] decorator applied to an overloaded
-    // function) have their declarations cleared by applyParamSpecValue. Fall back to reading
-    // shared.docString directly since it is copied from the original overloads.
-    if (resolvedDecls.length === 0) {
-        return getOverloadedDocStrings(type, undefined, sourceMapper) ?? [];
-    }
-
-    const decl = resolvedDecls[0] as FunctionDeclaration;
-    const enclosingClass = ParseTreeUtils.getEnclosingClass(decl.node);
+): FunctionDocStringInfo | undefined {
+    const overloads = isOverloaded(type) ? OverloadedType.getOverloads(type) : [type];
+    const decl = overloads.length > 0 ? overloads[0].shared.declaration : undefined;
+    const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
     const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
-
-    return getOverloadedDocStringsInherited(
-        type,
-        resolvedDecls,
-        sourceMapper,
-        evaluator,
-
-        classResults?.classType
-    );
+    return resolveMethodDocInfo(type, classResults?.classType, overloads, sourceMapper, evaluator);
 }
 
 export function getDocumentationPartForTypeAlias(
@@ -442,29 +466,84 @@ function getDocumentationPartForTypeInfo(
         if (doc) {
             return { text: doc, sourceDecl: resolvedDecl };
         }
-    } else if (isFunction(type)) {
-        const functionType = boundObjectOrClass
-            ? evaluator.bindFunctionToClassOrObject(boundObjectOrClass, type)
-            : type;
-        if (functionType && isFunction(functionType)) {
-            const docInfo = getFunctionDocStringFromTypeInfo(functionType, sourceMapper, evaluator);
+    } else if (isFunction(type) || isOverloaded(type)) {
+        const boundType = boundObjectOrClass ? evaluator.bindFunctionToClassOrObject(boundObjectOrClass, type) : type;
+        if (boundType && isFunction(boundType)) {
+            // Route single functions through getFunctionDocStringFromTypeInfo so a
+            // @functools.wraps-decorated function surfaces the wrapped function's docstring.
+            const docInfo = getFunctionDocStringFromTypeInfo(boundType, sourceMapper, evaluator);
             if (docInfo) {
                 return docInfo;
             }
-        }
-    } else if (isOverloaded(type)) {
-        const functionType = boundObjectOrClass
-            ? evaluator.bindFunctionToClassOrObject(boundObjectOrClass, type)
-            : type;
-        if (functionType && isOverloaded(functionType)) {
-            const doc = getOverloadedDocStringsFromType(functionType, sourceMapper, evaluator).find((d) => d);
-
-            if (doc) {
-                return { text: doc, sourceDecl: resolvedDecl };
+        } else if (boundType && isOverloaded(boundType)) {
+            const docInfo = getMethodDocInfo(boundType, sourceMapper, evaluator);
+            if (docInfo) {
+                return {
+                    text: docInfo.docString,
+                    sourceDecl: docInfo.sourceDecl ?? resolvedDecl,
+                    forceLiteral: docInfo.forceLiteral,
+                };
             }
         }
     }
     return undefined;
+}
+
+// Last-resort fallback for a callable-instance variable/attribute whose own docstring is empty:
+// surface its __call__ docstring (method rules), consistent with the __call__ signature already
+// shown for such values. A plain (non-callable) instance has NO type-docstring fallback — a
+// variable/attribute is a value reference, so its declared type's class docstring (which is about
+// the type, not the reference) is intentionally not shown. Builtin instance types are excluded.
+function getCallableInstanceDocInfo(
+    sourceMapper: SourceMapper,
+    type: Type,
+    resolvedDecl: Declaration | undefined,
+    evaluator: TypeEvaluator
+): DocumentationPartInfo | undefined {
+    if (!isClassInstance(type) || resolvedDecl?.type !== DeclarationType.Variable || ClassType.isBuiltIn(type)) {
+        return undefined;
+    }
+
+    // Only surface the __call__ fallback for source-defined user callables. A stub-defined library
+    // callable held in a variable (e.g. `handler = SomeLibCallable()`) would otherwise dump its full
+    // library __call__ docstring on plain variable hover.
+    const classDeclUri = type.shared.declaration?.uri;
+    if (!classDeclUri || isStubFile(classDeclUri)) {
+        return undefined;
+    }
+
+    const callMember = lookUpClassMember(type, '__call__');
+    if (!callMember) {
+        return undefined;
+    }
+
+    // lookUpClassMember consults the metaclass first, so a class with a custom metaclass can
+    // surface the metaclass's (or type's) __call__ even when the instance itself is not callable.
+    // Only treat __call__ as a callable-instance fallback when it is defined within the instance
+    // type's own MRO.
+    const callDefiningClass = callMember.classType;
+    if (
+        !isClass(callDefiningClass) ||
+        !type.shared.mro.some(
+            (mroClass) => isClass(mroClass) && ClassType.isSameGenericClass(mroClass, callDefiningClass)
+        )
+    ) {
+        return undefined;
+    }
+
+    const callType = evaluator.getTypeOfMember(callMember);
+    if (!isFunction(callType) && !isOverloaded(callType)) {
+        return undefined;
+    }
+
+    const docInfo = getMethodDocInfo(callType, sourceMapper, evaluator);
+    return docInfo?.docString
+        ? {
+              text: docInfo.docString,
+              sourceDecl: docInfo.sourceDecl ?? resolvedDecl,
+              forceLiteral: docInfo.forceLiteral,
+          }
+        : undefined;
 }
 
 export function getDocumentationPartsForTypeAndDeclWithSource(
@@ -536,6 +615,13 @@ export function getDocumentationPartsForTypeAndDeclWithSource(
         (type
             ? getDocumentationPartForTypeInfo(sourceMapper, type, resolvedDecl, evaluator, optional?.boundObjectOrClass)
             : undefined);
+
+    // Spec: a callable-instance variable/attribute with no assignment/member docstring and no
+    // type-level doc surfaces its __call__ docstring (method rules). Plain value references get
+    // no type-docstring fallback.
+    if (!aliasDoc && !typeDoc && type) {
+        typeDoc = getCallableInstanceDocInfo(sourceMapper, type, resolvedDecl, evaluator);
+    }
 
     // Combine with a new line if they both exist
     if (aliasDoc && typeDoc) {

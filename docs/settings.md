@@ -22,7 +22,7 @@ The Pyright language server honors the following settings.
 
 **python.analysis.exclude** [array of paths]: Paths of directories or files that should not be included. This can be overridden in the configuration file.
 
-**python.analysis.extraPaths** [array of paths]: Paths to add to the default execution environment extra paths if there are no execution environments defined in the config file.
+**python.analysis.extraPaths** [array of paths]: Paths to add to the default execution environment extra paths if there are no execution environments defined in the config file. Each entry may contain glob patterns, which are expanded to matching directories in a deterministic order; see [Extra path glob expansion](import-resolution.md#extra-path-glob-expansion).
 
 **python.analysis.ignore** [array of paths]: Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed. This can be overridden in the configuration file.
 

@@ -9,7 +9,7 @@
 
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { ParseNode } from '../parser/parseNodes';
-import { getFileInfo } from './analyzerNodeInfo';
+import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import {
     FlowAssignment,
     FlowCall,
@@ -25,7 +25,7 @@ import {
     FlowWildcardImport,
 } from './codeFlowTypes';
 
-export function formatControlFlowGraph(flowNode: FlowNode) {
+export function formatControlFlowGraph(flowNode: FlowNode, nodeInfo: AnalyzerNodeInfoAccessor) {
     const enum BoxCharacter {
         lr = '─',
         ud = '│',
@@ -297,7 +297,7 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
             return undefined;
         }
 
-        const fileInfo = getFileInfo(parseNode);
+        const fileInfo = nodeInfo.getFileInfo(parseNode);
         const startPos = convertOffsetToPosition(parseNode.start, fileInfo.lines);
 
         return `[${startPos.line + 1}:${startPos.character + 1}]`;

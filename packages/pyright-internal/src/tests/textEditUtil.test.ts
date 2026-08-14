@@ -109,7 +109,7 @@ test('handle comments', () => {
 
 function verifyRemoveNodes(code: string) {
     const state = parseAndGetTestState(code).state;
-    const tracker = new TextEditTracker();
+    const tracker = new TextEditTracker(state.program.analyzerNodeInfoContext);
 
     const ranges = state.getRanges();
     const changeRanges = _getChangeRanges(ranges);
@@ -133,7 +133,7 @@ function verifyRemoveNodes(code: string) {
 
 function verifyEdits(code: string, mergeOnlyDuplications = true) {
     const state = parseAndGetTestState(code).state;
-    const tracker = new TextEditTracker(mergeOnlyDuplications);
+    const tracker = new TextEditTracker(state.program.analyzerNodeInfoContext, mergeOnlyDuplications);
 
     const ranges = state.getRanges();
     const changeRanges = _getChangeRanges(ranges);

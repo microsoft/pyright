@@ -10,7 +10,6 @@
 
 import * as assert from 'assert';
 
-import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { ScopeType } from '../analyzer/scope';
 import { ConfigOptions } from '../common/configOptions';
 import {
@@ -22,7 +21,26 @@ import {
     pythonVersion3_9,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { getChildNodes } from '../parser/parseTreeUtils';
+import { getParserStringAnnotation, ParseNode, ParseNodeType, StringListNode } from '../parser/parseNodes';
 import * as TestUtils from './testUtils';
+
+function getNodes(root: ParseNode) {
+    const nodes: ParseNode[] = [];
+    const pending = [root];
+
+    while (pending.length > 0) {
+        const node = pending.pop()!;
+        nodes.push(node);
+        getChildNodes(node).forEach((child) => {
+            if (child) {
+                pending.push(child);
+            }
+        });
+    }
+
+    return nodes;
+}
 
 test('Unreachable1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
@@ -212,8 +230,8 @@ test('Builtins1', () => {
         'ellipsis',
     ];
 
-    const moduleScope = AnalyzerNodeInfo.getScope(analysisResults[0].parseResults!.parserOutput.parseTree)!;
-    assert.notStrictEqual(moduleScope, undefined);
+    const moduleScope = analysisResults[0].moduleScope;
+    assert.ok(moduleScope);
 
     const builtinsScope = moduleScope.parent!;
     assert.notStrictEqual(builtinsScope, undefined);
@@ -757,6 +775,17 @@ test('Lambda9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda9.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+
+    const root = analysisResults[0].parseResults!.parserOutput.parseTree;
+    const stringList = getNodes(root).find(
+        (node): node is StringListNode =>
+            node.nodeType === ParseNodeType.StringList &&
+            node.parent?.nodeType === ParseNodeType.Argument &&
+            node.d.strings[0].nodeType === ParseNodeType.String &&
+            node.d.strings[0].d.value === 'Flow'
+    );
+
+    expect(stringList ? getParserStringAnnotation(stringList) : undefined).toBeUndefined();
 });
 
 test('Lambda10', () => {

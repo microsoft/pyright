@@ -15,6 +15,14 @@ export function isUserCode(fileInfo: SourceFileInfo | undefined) {
     return !!fileInfo && fileInfo.isTracked && !fileInfo.isThirdPartyImport && !fileInfo.isTypeshedFile;
 }
 
+// A file counts as a candidate for user-facing scans when it is user code or currently open in the
+// editor. Over an external type server an open user file can report `isTracked === false` (so
+// `isUserCode` is false); including `isOpenByClient` keeps those files in scope for candidate-file
+// enumeration.
+export function isUserCodeOrOpenByClient(fileInfo: SourceFileInfo | undefined) {
+    return isUserCode(fileInfo) || !!fileInfo?.isOpenByClient;
+}
+
 export function collectImportedByCells<T extends SourceFileInfo>(program: ProgramView, fileInfo: T): Set<T> {
     // The ImportedBy only works when files are parsed. Due to the lazy-loading nature of our system,
     // we can't ensure that all files within the program are parsed, which might lead to an incomplete dependency graph.

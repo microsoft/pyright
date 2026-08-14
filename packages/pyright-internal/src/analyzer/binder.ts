@@ -172,6 +172,7 @@ const flowNodeComplexityContribution = 0.025;
 
 export class Binder extends ParseTreeWalker {
     private readonly _fileInfo: AnalyzerFileInfo;
+    private readonly _nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
 
     // A queue of deferred analysis operations.
     private _deferredBindingTasks: DeferredBindingTask[] = [];
@@ -280,12 +281,14 @@ export class Binder extends ParseTreeWalker {
 
     constructor(
         fileInfo: AnalyzerFileInfo,
-        private _moduleSymbolOnly = false,
-        private readonly _cellChainIndex?: CellChainIndexProvider
+        private _moduleSymbolOnly: boolean | undefined,
+        private readonly _cellChainIndex: CellChainIndexProvider | undefined,
+        nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor
     ) {
         super();
 
         this._fileInfo = fileInfo;
+        this._nodeInfo = nodeInfo;
     }
 
     bindModule(node: ModuleNode): void {
@@ -302,8 +305,8 @@ export class Binder extends ParseTreeWalker {
             /* proxyScope */ undefined,
             chainedModuleLevelScopeLookup,
             () => {
-                AnalyzerNodeInfo.setScope(node, this._currentScope);
-                AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+                this._nodeInfo.setScope(node, this._currentScope);
+                this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
 
                 // Bind implicit names.
                 // List taken from https://docs.python.org/3/reference/import.html#__name__
@@ -325,10 +328,10 @@ export class Binder extends ParseTreeWalker {
                 this._walkStatementsAndReportUnreachable(node.d.statements);
 
                 // Associate the code flow node at the end of the module with the module.
-                AnalyzerNodeInfo.setAfterFlowNode(node, this._currentFlowNode);
+                this._nodeInfo.setAfterFlowNode(node, this._currentFlowNode);
 
-                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
-                AnalyzerNodeInfo.setCodeFlowComplexity(node, this._codeFlowComplexity);
+                this._nodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
+                this._nodeInfo.setCodeFlowComplexity(node, this._codeFlowComplexity);
             }
         );
 
@@ -376,17 +379,17 @@ export class Binder extends ParseTreeWalker {
         });
 
         if (this._dunderAllNames) {
-            AnalyzerNodeInfo.setDunderAllInfo(node, {
+            this._nodeInfo.setDunderAllInfo(node, {
                 names: this._dunderAllNames,
                 stringNodes: this._dunderAllStringNodes,
                 usesUnsupportedDunderAllForm: this._usesUnsupportedDunderAllForm,
             });
         } else {
-            AnalyzerNodeInfo.setDunderAllInfo(node, /* names */ undefined);
+            this._nodeInfo.setDunderAllInfo(node, /* names */ undefined);
         }
 
         // Set __all__ flags on the module symbols.
-        const scope = AnalyzerNodeInfo.getScope(node);
+        const scope = this._nodeInfo.getScope(node);
         if (scope && this._dunderAllNames) {
             for (const name of this._dunderAllNames) {
                 scope.symbolTable.get(name)?.setIsInDunderAll();
@@ -407,7 +410,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitModuleName(node: ModuleNameNode): boolean {
-        const importResult = AnalyzerNodeInfo.getImportInfo(node);
+        const importResult = this._nodeInfo.getImportInfo(node);
         assert(importResult !== undefined);
 
         if (importResult.isNativeLib) {
@@ -488,12 +491,12 @@ export class Binder extends ParseTreeWalker {
         }
 
         // Stash the declaration in the parse node for later access.
-        AnalyzerNodeInfo.setDeclaration(node, classDeclaration);
+        this._nodeInfo.setDeclaration(node, classDeclaration);
 
         let typeParamScope: Scope | undefined;
         if (node.d.typeParams) {
             this.walk(node.d.typeParams);
-            typeParamScope = AnalyzerNodeInfo.getScope(node.d.typeParams);
+            typeParamScope = this._nodeInfo.getScope(node.d.typeParams);
         }
 
         this.walkMultiple(node.d.arguments);
@@ -504,7 +507,7 @@ export class Binder extends ParseTreeWalker {
             /* proxyScope */ undefined,
             /* chainedModuleLevelScopeLookup */ undefined,
             () => {
-                AnalyzerNodeInfo.setScope(node, this._currentScope);
+                this._nodeInfo.setScope(node, this._currentScope);
 
                 this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
                 this._addImplicitSymbolToCurrentScope('__module__', node, 'str');
@@ -553,7 +556,7 @@ export class Binder extends ParseTreeWalker {
 
     override visitFunction(node: FunctionNode): boolean {
         this._createVariableAnnotationFlowNode();
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
 
         const symbol = this._bindNameToScope(this._currentScope, node.d.name);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
@@ -573,7 +576,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         // Stash the declaration in the parse node for later access.
-        AnalyzerNodeInfo.setDeclaration(node, functionDeclaration);
+        this._nodeInfo.setDeclaration(node, functionDeclaration);
 
         // Walk the default values prior to the type parameters.
         node.d.params.forEach((param) => {
@@ -585,7 +588,7 @@ export class Binder extends ParseTreeWalker {
         let typeParamScope: Scope | undefined;
         if (node.d.typeParams) {
             this.walk(node.d.typeParams);
-            typeParamScope = AnalyzerNodeInfo.getScope(node.d.typeParams);
+            typeParamScope = this._nodeInfo.getScope(node.d.typeParams);
         }
 
         this.walkMultiple(node.d.decorators);
@@ -616,7 +619,7 @@ export class Binder extends ParseTreeWalker {
             /* proxyScope */ undefined,
             /* chainedModuleLevelScopeLookup */ undefined,
             () => {
-                AnalyzerNodeInfo.setScope(node, this._currentScope);
+                this._nodeInfo.setScope(node, this._currentScope);
 
                 const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
                 if (enclosingClass) {
@@ -644,7 +647,7 @@ export class Binder extends ParseTreeWalker {
                                 };
 
                                 symbol.addDeclaration(paramDeclaration);
-                                AnalyzerNodeInfo.setDeclaration(paramNode.d.name, paramDeclaration);
+                                this._nodeInfo.setDeclaration(paramNode.d.name, paramDeclaration);
                             }
 
                             this._createFlowAssignment(paramNode.d.name);
@@ -661,7 +664,7 @@ export class Binder extends ParseTreeWalker {
 
                     // Associate the code flow node at the end of the suite with
                     // the suite.
-                    AnalyzerNodeInfo.setAfterFlowNode(node.d.suite, this._currentFlowNode);
+                    this._nodeInfo.setAfterFlowNode(node.d.suite, this._currentFlowNode);
 
                     // Compute the final return flow node and associate it with
                     // the function's parse node. If this node is unreachable, then
@@ -669,10 +672,10 @@ export class Binder extends ParseTreeWalker {
                     this._addAntecedent(this._currentReturnTarget, this._currentFlowNode);
                     const returnFlowNode = this._finishFlowLabel(this._currentReturnTarget);
 
-                    AnalyzerNodeInfo.setAfterFlowNode(node, returnFlowNode);
+                    this._nodeInfo.setAfterFlowNode(node, returnFlowNode);
 
-                    AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
-                    AnalyzerNodeInfo.setCodeFlowComplexity(node, this._codeFlowComplexity);
+                    this._nodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
+                    this._nodeInfo.setCodeFlowComplexity(node, this._codeFlowComplexity);
                 });
             }
         );
@@ -685,7 +688,7 @@ export class Binder extends ParseTreeWalker {
 
     override visitLambda(node: LambdaNode): boolean {
         this._createVariableAnnotationFlowNode();
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
 
         // Analyze the parameter defaults in the context of the parent's scope
         // before we add any names from the function's scope.
@@ -701,7 +704,7 @@ export class Binder extends ParseTreeWalker {
             /* proxyScope */ undefined,
             /* chainedModuleLevelScopeLookup */ undefined,
             () => {
-                AnalyzerNodeInfo.setScope(node, this._currentScope);
+                this._nodeInfo.setScope(node, this._currentScope);
 
                 this._deferBinding(() => {
                     // Create a start node for the lambda.
@@ -721,19 +724,19 @@ export class Binder extends ParseTreeWalker {
                                 };
 
                                 symbol.addDeclaration(paramDeclaration);
-                                AnalyzerNodeInfo.setDeclaration(paramNode.d.name, paramDeclaration);
+                                this._nodeInfo.setDeclaration(paramNode.d.name, paramDeclaration);
                             }
 
                             this._createFlowAssignment(paramNode.d.name);
                             this.walk(paramNode.d.name);
-                            AnalyzerNodeInfo.setFlowNode(paramNode, this._currentFlowNode!);
+                            this._nodeInfo.setFlowNode(paramNode, this._currentFlowNode!);
                         }
                     });
 
                     // Walk the expression that make up the lambda body.
                     this.walk(node.d.expr);
 
-                    AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
+                    this._nodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
                 });
             }
         );
@@ -750,7 +753,7 @@ export class Binder extends ParseTreeWalker {
 
             sortedArgs.forEach((argNode) => {
                 if (this._currentFlowNode) {
-                    AnalyzerNodeInfo.setFlowNode(argNode, this._currentFlowNode);
+                    this._nodeInfo.setFlowNode(argNode, this._currentFlowNode);
                 }
                 this.walk(argNode);
             });
@@ -883,7 +886,7 @@ export class Binder extends ParseTreeWalker {
             };
 
             symbol.addDeclaration(paramDeclaration);
-            AnalyzerNodeInfo.setDeclaration(name, paramDeclaration);
+            this._nodeInfo.setDeclaration(name, paramDeclaration);
 
             if (typeParamsSeen.has(name.d.value)) {
                 this._addSyntaxError(
@@ -901,7 +904,7 @@ export class Binder extends ParseTreeWalker {
             }
         });
 
-        AnalyzerNodeInfo.setScope(node, typeParamScope);
+        this._nodeInfo.setScope(node, typeParamScope);
 
         return false;
     }
@@ -914,7 +917,7 @@ export class Binder extends ParseTreeWalker {
         let typeParamScope: Scope | undefined;
         if (node.d.typeParams) {
             this.walk(node.d.typeParams);
-            typeParamScope = AnalyzerNodeInfo.getScope(node.d.typeParams);
+            typeParamScope = this._nodeInfo.getScope(node.d.typeParams);
         }
 
         const typeAliasDeclaration: TypeAliasDeclaration = {
@@ -933,7 +936,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         // Stash the declaration in the parse node for later access.
-        AnalyzerNodeInfo.setDeclaration(node, typeAliasDeclaration);
+        this._nodeInfo.setDeclaration(node, typeAliasDeclaration);
 
         this._createAssignmentTargetFlowNodes(node.d.name, /* walkTargets */ true, /* unbound */ false);
 
@@ -1122,7 +1125,7 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.d.rightExpr);
         });
 
-        const evaluationNode = ParseTreeUtils.getEvaluationNodeForAssignmentExpression(node);
+        const evaluationNode = ParseTreeUtils.getEvaluationNodeForAssignmentExpression(node, this._nodeInfo);
         if (!evaluationNode) {
             this._addSyntaxError(LocMessage.assignmentExprContext(), node);
             this.walk(node.d.name);
@@ -1131,7 +1134,7 @@ export class Binder extends ParseTreeWalker {
             // because of the behavior defined in PEP 572. Targets of assignment
             // expressions don't bind to a list comprehension's scope but instead
             // bind to its containing scope.
-            const containerScope = AnalyzerNodeInfo.getScope(evaluationNode)!;
+            const containerScope = this._nodeInfo.getScope(evaluationNode)!;
 
             // If we're in a list comprehension (possibly nested), make sure that
             // local for targets don't collide with the target of the assignment
@@ -1395,11 +1398,11 @@ export class Binder extends ParseTreeWalker {
         }
 
         if (node.d.expr) {
-            AnalyzerNodeInfo.setFlowNode(node.d.expr, this._currentFlowNode!);
+            this._nodeInfo.setFlowNode(node.d.expr, this._currentFlowNode!);
             this.walk(node.d.expr);
         }
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
         if (this._currentReturnTarget) {
             this._addAntecedent(this._currentReturnTarget, this._currentFlowNode!);
         }
@@ -1430,17 +1433,17 @@ export class Binder extends ParseTreeWalker {
 
     override visitMemberAccess(node: MemberAccessNode): boolean {
         this.walk(node.d.leftExpr);
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
         return false;
     }
 
     override visitName(node: NameNode): boolean {
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
         return false;
     }
 
     override visitIndex(node: IndexNode): boolean {
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
 
         this.walk(node.d.leftExpr);
 
@@ -1760,7 +1763,7 @@ export class Binder extends ParseTreeWalker {
 
     override visitAwait(node: AwaitNode) {
         // Make sure this is within an async lambda or function.
-        const execScopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+        const execScopeNode = ParseTreeUtils.getExecutionScopeNode(node, this._nodeInfo);
         if (execScopeNode?.nodeType !== ParseNodeType.Function || !execScopeNode.d.isAsync) {
             if (this._fileInfo.ipythonMode && execScopeNode?.nodeType === ParseNodeType.Module) {
                 // Top level await is allowed in ipython mode.
@@ -1879,7 +1882,7 @@ export class Binder extends ParseTreeWalker {
                 }
             }
 
-            const importInfo = AnalyzerNodeInfo.getImportInfo(node.d.module);
+            const importInfo = this._nodeInfo.getImportInfo(node.d.module);
             assert(importInfo !== undefined);
 
             if (symbol) {
@@ -1905,9 +1908,9 @@ export class Binder extends ParseTreeWalker {
     override visitImportFrom(node: ImportFromNode): boolean {
         const typingSymbolsOfInterest = ['Final', 'ClassVar', 'Annotated'];
         const dataclassesSymbolsOfInterest = ['InitVar'];
-        const importInfo = AnalyzerNodeInfo.getImportInfo(node.d.module);
+        const importInfo = this._nodeInfo.getImportInfo(node.d.module);
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
 
         let resolvedPath = Uri.empty();
         if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib) {
@@ -2071,7 +2074,7 @@ export class Binder extends ParseTreeWalker {
                 const importedName = importSymbolNode.d.name.d.value;
                 const nameNode = importSymbolNode.d.alias || importSymbolNode.d.name;
 
-                AnalyzerNodeInfo.setFlowNode(importSymbolNode, this._currentFlowNode!);
+                this._nodeInfo.setFlowNode(importSymbolNode, this._currentFlowNode!);
 
                 const symbol = this._bindNameToScope(this._currentScope, nameNode);
 
@@ -2345,7 +2348,7 @@ export class Binder extends ParseTreeWalker {
             /* proxyScope */ undefined,
             /* chainedModuleLevelScopeLookup */ undefined,
             () => {
-                AnalyzerNodeInfo.setScope(node, this._currentScope);
+                this._nodeInfo.setScope(node, this._currentScope);
 
                 const falseLabel = this._createBranchLabel();
 
@@ -2768,7 +2771,7 @@ export class Binder extends ParseTreeWalker {
     ) {
         const firstNamePartValue = node.d.module.d.nameParts[0].d.value;
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
 
         let uriOfFirstSubmodule: Uri | undefined;
         if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedUris.length > 0) {
@@ -2853,7 +2856,7 @@ export class Binder extends ParseTreeWalker {
 
         // See if there is import info for this part of the path. This allows us
         // to implicitly import all of the modules in a multi-part module name.
-        const implicitImportInfo = AnalyzerNodeInfo.getImportInfo(node.d.module.d.nameParts[0]);
+        const implicitImportInfo = this._nodeInfo.getImportInfo(node.d.module.d.nameParts[0]);
         if (implicitImportInfo && implicitImportInfo.resolvedUris.length) {
             newDecl.uri = implicitImportInfo.resolvedUris[0];
             newDecl.loadSymbolsFromPath = true;
@@ -2913,7 +2916,7 @@ export class Binder extends ParseTreeWalker {
                     // is import info for this part of the path. This allows us to implicitly
                     // import all of the modules in a multi-part module name (e.g. "import a.b.c"
                     // imports "a" and "a.b" and "a.b.c").
-                    const implicitImportInfo = AnalyzerNodeInfo.getImportInfo(node.d.module.d.nameParts[i]);
+                    const implicitImportInfo = this._nodeInfo.getImportInfo(node.d.module.d.nameParts[i]);
                     if (implicitImportInfo && implicitImportInfo.resolvedUris.length) {
                         loaderActions.uri = implicitImportInfo.resolvedUris[i];
                         loaderActions.loadSymbolsFromPath = true;
@@ -2934,7 +2937,7 @@ export class Binder extends ParseTreeWalker {
         let foundUnreachableStatement = false;
 
         for (const statement of statements) {
-            AnalyzerNodeInfo.setFlowNode(statement, this._currentFlowNode!);
+            this._nodeInfo.setFlowNode(statement, this._currentFlowNode!);
 
             if (!foundUnreachableStatement) {
                 foundUnreachableStatement = this._isCodeUnreachable();
@@ -2957,7 +2960,7 @@ export class Binder extends ParseTreeWalker {
                 // subtree, we need to create dummy scopes for them. The type analyzer
                 // depends on scopes being present.
                 if (!this._moduleSymbolOnly) {
-                    const dummyScopeGenerator = new DummyScopeGenerator(this._currentScope);
+                    const dummyScopeGenerator = new DummyScopeGenerator(this._currentScope, this._nodeInfo);
                     dummyScopeGenerator.walk(statement);
                 }
             }
@@ -3566,8 +3569,8 @@ export class Binder extends ParseTreeWalker {
         // introduced in except clauses. If there is no use the previous flow node
         // associated, use the previous flow node (applies in the del case).
         // Otherwise, the node will be evaluated as unbound at this point in the flow.
-        if (!unbound || AnalyzerNodeInfo.getFlowNode(node) === undefined) {
-            AnalyzerNodeInfo.setFlowNode(node, unbound ? prevFlowNode : this._currentFlowNode!);
+        if (!unbound || this._nodeInfo.getFlowNode(node) === undefined) {
+            this._nodeInfo.setFlowNode(node, unbound ? prevFlowNode : this._currentFlowNode!);
         }
     }
 
@@ -3585,7 +3588,7 @@ export class Binder extends ParseTreeWalker {
             this._currentFlowNode = flowNode;
         }
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
     }
 
     private _createFlowExhaustedMatch(node: MatchNode) {
@@ -3601,7 +3604,7 @@ export class Binder extends ParseTreeWalker {
             this._currentFlowNode = flowNode;
         }
 
-        AnalyzerNodeInfo.setAfterFlowNode(node, this._currentFlowNode!);
+        this._nodeInfo.setAfterFlowNode(node, this._currentFlowNode!);
     }
 
     private _isCodeUnreachable() {
@@ -3843,7 +3846,7 @@ export class Binder extends ParseTreeWalker {
         // state so that hits from later cells are correctly marked.
         return (name: string, context?: ChainedModuleLevelLookupContext): SymbolWithScope | undefined => {
             for (const moduleNode of cellChainIndex.getLaterModuleNodes(fileUri) ?? []) {
-                const moduleScope = AnalyzerNodeInfo.getScope(moduleNode);
+                const moduleScope = this._nodeInfo.getScope(moduleNode);
                 if (!moduleScope) {
                     continue;
                 }
@@ -4167,8 +4170,8 @@ export class Binder extends ParseTreeWalker {
         let annotationNode = typeAnnotation;
 
         // Is this a quoted annotation?
-        if (annotationNode.nodeType === ParseNodeType.StringList && annotationNode.d.annotation) {
-            annotationNode = annotationNode.d.annotation;
+        if (annotationNode.nodeType === ParseNodeType.StringList) {
+            annotationNode = this._nodeInfo.getStringAnnotation(annotationNode) ?? annotationNode;
         }
 
         if (annotationNode.nodeType === ParseNodeType.Name) {
@@ -4252,8 +4255,8 @@ export class Binder extends ParseTreeWalker {
 
         while (typeAnnotation) {
             // Is this a quoted annotation?
-            if (typeAnnotation.nodeType === ParseNodeType.StringList && typeAnnotation.d.annotation) {
-                typeAnnotation = typeAnnotation.d.annotation;
+            if (typeAnnotation.nodeType === ParseNodeType.StringList) {
+                typeAnnotation = this._nodeInfo.getStringAnnotation(typeAnnotation) ?? typeAnnotation;
             }
 
             if (
@@ -4365,7 +4368,7 @@ export class Binder extends ParseTreeWalker {
             }
         }
 
-        const classScope = AnalyzerNodeInfo.getScope(classNode)!;
+        const classScope = this._nodeInfo.getScope(classNode)!;
         assert(classScope !== undefined);
 
         return {
@@ -4614,7 +4617,7 @@ export class Binder extends ParseTreeWalker {
             symbol.addDeclaration(specialBuiltInClassDeclaration);
         }
 
-        AnalyzerNodeInfo.setDeclaration(node, specialBuiltInClassDeclaration);
+        this._nodeInfo.setDeclaration(node, specialBuiltInClassDeclaration);
         return true;
     }
 
@@ -4667,7 +4670,7 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.d.expr);
         }
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
     }
 
     private _getUniqueFlowNodeId() {
@@ -4746,7 +4749,10 @@ export class ReturnFinder extends ParseTreeWalker {
 export class DummyScopeGenerator extends ParseTreeWalker {
     private _currentScope: Scope | undefined;
 
-    constructor(currentScope: Scope | undefined) {
+    constructor(
+        currentScope: Scope | undefined,
+        private readonly _nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor
+    ) {
         super();
         this._currentScope = currentScope;
     }
@@ -4756,8 +4762,8 @@ export class DummyScopeGenerator extends ParseTreeWalker {
             this.walk(node.d.suite);
         });
 
-        if (!AnalyzerNodeInfo.getScope(node)) {
-            AnalyzerNodeInfo.setScope(node, newScope);
+        if (!this._nodeInfo.getScope(node)) {
+            this._nodeInfo.setScope(node, newScope);
         }
 
         return false;
@@ -4768,8 +4774,8 @@ export class DummyScopeGenerator extends ParseTreeWalker {
             this.walk(node.d.suite);
         });
 
-        if (!AnalyzerNodeInfo.getScope(node)) {
-            AnalyzerNodeInfo.setScope(node, newScope);
+        if (!this._nodeInfo.getScope(node)) {
+            this._nodeInfo.setScope(node, newScope);
         }
 
         return false;
