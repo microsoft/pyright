@@ -107,11 +107,11 @@ Track changes including:
 Run these focused tests before full-suite reruns when related files change.
 
 - constructor callable and default constructor behavior:
-	- `cd packages/pyright-internal && npm run test:norebuild -- typeEvaluator6.test.ts -t "ConstructorCallable1|ConstructorCallable2|Constructor28" --runInBand`
+	- `cd packages/pyright-internal && pnpm run test:norebuild -- typeEvaluator6.test.ts -t "ConstructorCallable1|ConstructorCallable2|Constructor28" --runInBand`
 - contextmanager / generator behavior:
-	- `cd packages/pyright-internal && npm run test:norebuild -- typeEvaluator2.test.ts -t Solver7 --runInBand`
+	- `cd packages/pyright-internal && pnpm run test:norebuild -- typeEvaluator2.test.ts -t Solver7 --runInBand`
 - positional-only parameter behavior:
-	- `cd packages/pyright-internal && npm run test:norebuild -- typeEvaluator1.test.ts -t Call3 --runInBand`
+	- `cd packages/pyright-internal && pnpm run test:norebuild -- typeEvaluator1.test.ts -t Call3 --runInBand`
 
 ---
 

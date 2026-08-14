@@ -265,12 +265,37 @@ function getFileSystemEntriesWithSymlinkedDirectoriesFromDirEntries(
 // Transforms a relative file spec (one that potentially contains
 // escape characters **, * or ?) and returns a regular expression
 // that can be used for matching against.
+// Returns true if the given text contains a glob wildcard character (`*` or `?`).
+export function containsWildcardCharacter(text: string): boolean {
+    return _wildcardRegex.test(text);
+}
+
+// Translates a single glob path segment (which may contain `*` or `?`, but not
+// the `**` directory wildcard) into a regex fragment that matches a single path
+// segment. This is the canonical per-segment translation used by both
+// `getWildcardRegexPattern` (for `include`/`exclude`) and `extraPaths` glob
+// expansion so the two stay in sync.
+export function getWildcardSegmentRegexFragment(segment: string): string {
+    const escapedSeparator = getRegexEscapedSeparator('/');
+    const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, 'g');
+
+    return segment.replace(reservedCharacterPattern, (match) => {
+        if (match === '*') {
+            return `[^${escapedSeparator}]*`;
+        } else if (match === '?') {
+            return `[^${escapedSeparator}]`;
+        } else {
+            // escaping anything that is not reserved characters - word/space/separator
+            return '\\' + match;
+        }
+    });
+}
+
 export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
     const absolutePath = root.resolvePaths(fileSpec);
     const pathComponents = Array.from(absolutePath.getPathComponents());
     const escapedSeparator = getRegexEscapedSeparator('/');
     const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}][^${escapedSeparator}]*)*?`;
-    const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, 'g');
 
     // Strip the directory separator from the root component.
     if (pathComponents.length > 0) {
@@ -280,25 +305,15 @@ export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
     let regExPattern = '';
     let firstComponent = true;
 
-    for (let component of pathComponents) {
+    for (const component of pathComponents) {
         if (component === '**') {
             regExPattern += doubleAsteriskRegexFragment;
         } else {
             if (!firstComponent) {
-                component = escapedSeparator + component;
+                regExPattern += escapedSeparator;
             }
 
-            regExPattern += component.replace(reservedCharacterPattern, (match) => {
-                if (match === '*') {
-                    return `[^${escapedSeparator}]*`;
-                } else if (match === '?') {
-                    return `[^${escapedSeparator}]`;
-                } else {
-                    // escaping anything that is not reserved characters - word/space/separator
-                    return '\\' + match;
-                }
-            });
-
+            regExPattern += getWildcardSegmentRegexFragment(component);
             firstComponent = false;
         }
     }
@@ -447,6 +462,45 @@ export function getRootUri(csdOrSp: CaseSensitivityDetector | ServiceProvider): 
 export function convertUriToLspUriString(fs: ReadOnlyFileSystem, uri: Uri): string {
     // Convert to a URI string that the LSP client understands (mapped files are only local to the server).
     return fs.getOriginalUri(uri).toString();
+}
+
+// Determines whether two parsed URIs refer to the same logical file.
+//
+// In virtual workspaces the same physical file can be tracked under more than one
+// URI (for example two `vscode-vfs://` URIs that differ only by authority). Comparing
+// the raw URI strings treats these as distinct files and produces duplicate results
+// (e.g. duplicated call hierarchy entries). This helper only merges the two shapes it
+// can safely reconcile:
+//   - Two `file://` URIs are compared by their file-system path (`getFilePath`).
+//   - Two virtual URIs (whose file path is empty) are compared by their scheme, URI
+//     path (`getPath`), query, and fragment. Only the authority is ignored, so virtual
+//     URIs that differ only by authority merge, while URIs that differ by scheme or by
+//     query/fragment (for example notebook cell URIs that carry a `#cellName` fragment)
+//     stay distinct.
+// Any other combination (including a `file://` URI paired with a virtual URI, whose
+// paths are not directly comparable) returns false, so callers should apply an exact
+// string comparison first and only consult this helper when the strings differ.
+export function isSameUriFile(uriA: Uri, uriB: Uri): boolean {
+    const filePathA = uriA.getFilePath();
+    const filePathB = uriB.getFilePath();
+    if (filePathA && filePathB) {
+        return filePathA === filePathB;
+    }
+
+    if (!filePathA && !filePathB) {
+        const pathA = uriA.getPath();
+        const pathB = uriB.getPath();
+        if (pathA && pathB) {
+            return (
+                uriA.scheme === uriB.scheme &&
+                pathA === pathB &&
+                uriA.query === uriB.query &&
+                uriA.fragment === uriB.fragment
+            );
+        }
+    }
+
+    return false;
 }
 
 export namespace UriEx {

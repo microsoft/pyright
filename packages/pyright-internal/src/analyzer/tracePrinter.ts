@@ -28,7 +28,11 @@ export interface TracePrinter {
     printFileOrModuleName(fileUriOrModule: Uri | AbsoluteModuleDescriptor): string;
 }
 
-export function createTracePrinter(roots: Uri[], includeRoots: boolean = false): TracePrinter {
+export function createTracePrinter(
+    roots: Uri[],
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
+    includeRoots: boolean = false
+): TracePrinter {
     function wrap(value: string | undefined, ch = "'") {
         return value ? `${ch}${value}${ch}` : '';
     }
@@ -160,7 +164,7 @@ export function createTracePrinter(roots: Uri[], includeRoots: boolean = false):
             node = node.parent;
         }
 
-        return node.nodeType === ParseNodeType.Module ? AnalyzerNodeInfo.getFileInfo(node) : undefined;
+        return node.nodeType === ParseNodeType.Module ? AnalyzerNodeInfo.getFileInfo(node, nodeInfo) : undefined;
     }
 
     function getText(value: string, max = 30) {

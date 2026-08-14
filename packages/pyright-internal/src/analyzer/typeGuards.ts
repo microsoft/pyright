@@ -21,7 +21,7 @@ import {
     ParseNodeType,
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-import { getFileInfo } from './analyzerNodeInfo';
+import { getInfoReader, AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration, DeclarationType } from './declaration';
@@ -119,6 +119,7 @@ export function getTypeNarrowingCallback(
     reference: ExpressionNode,
     testExpression: ExpressionNode,
     isPositiveTest: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor,
     recursionCount = 0
 ): TypeNarrowingCallback | undefined {
     if (recursionCount > maxTypeRecursionCount) {
@@ -133,6 +134,7 @@ export function getTypeNarrowingCallback(
             reference,
             testExpression,
             isPositiveTest,
+            nodeInfo,
             recursionCount
         );
     }
@@ -700,7 +702,8 @@ export function getTypeNarrowingCallback(
                                     isInstanceCheck,
                                     /* isTypeIsCheck */ false,
                                     isPositiveTest,
-                                    testExpression
+                                    testExpression,
+                                    nodeInfo
                                 ),
                                 isIncomplete,
                             };
@@ -802,7 +805,8 @@ export function getTypeNarrowingCallback(
                                     typeGuardType,
                                     isPositiveTest,
                                     isStrictTypeGuard,
-                                    testExpression
+                                    testExpression,
+                                    nodeInfo
                                 ),
                                 isIncomplete,
                             };
@@ -833,6 +837,7 @@ export function getTypeNarrowingCallback(
         reference,
         testExpression,
         isPositiveTest,
+        nodeInfo,
         recursionCount
     );
     if (narrowingCallback) {
@@ -852,6 +857,7 @@ export function getTypeNarrowingCallback(
                 reference,
                 testExpression.d.expr,
                 !isPositiveTest,
+                nodeInfo,
                 recursionCount
             );
         }
@@ -865,6 +871,7 @@ function getTypeNarrowingCallbackForAliasedCondition(
     reference: ExpressionNode,
     testExpression: ExpressionNode,
     isPositiveTest: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor,
     recursionCount: number
 ) {
     if (
@@ -923,7 +930,7 @@ function getTypeNarrowingCallbackForAliasedCondition(
         return undefined;
     }
 
-    return getTypeNarrowingCallback(evaluator, reference, initNode, isPositiveTest, recursionCount);
+    return getTypeNarrowingCallback(evaluator, reference, initNode, isPositiveTest, nodeInfo, recursionCount);
 }
 
 // Determines whether the symbol is a local variable or parameter within
@@ -935,7 +942,8 @@ function getDeclsForLocalVar(
     reachableFrom: ParseNode,
     requireUnique: boolean
 ): Declaration[] | undefined {
-    const scope = getScopeForNode(name);
+    const nodeInfo = getInfoReader(evaluator);
+    const scope = getScopeForNode(name, nodeInfo);
     if (scope?.type !== ScopeType.Function && scope?.type !== ScopeType.Module) {
         return undefined;
     }
@@ -963,7 +971,7 @@ function getDeclsForLocalVar(
     if (
         decls.some((decl) => {
             const nodeToConsider = decl.type === DeclarationType.Param ? decl.node.d.name! : decl.node;
-            const declScopeNode = ParseTreeUtils.getExecutionScopeNode(nodeToConsider);
+            const declScopeNode = ParseTreeUtils.getExecutionScopeNode(nodeToConsider, nodeInfo);
             if (prevDeclScope && declScopeNode !== prevDeclScope) {
                 return true;
             }
@@ -984,11 +992,19 @@ function getTypeNarrowingCallbackForAssignmentExpression(
     reference: ExpressionNode,
     testExpression: AssignmentExpressionNode,
     isPositiveTest: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor,
     recursionCount: number
 ) {
     return (
-        getTypeNarrowingCallback(evaluator, reference, testExpression.d.rightExpr, isPositiveTest, recursionCount) ??
-        getTypeNarrowingCallback(evaluator, reference, testExpression.d.name, isPositiveTest, recursionCount)
+        getTypeNarrowingCallback(
+            evaluator,
+            reference,
+            testExpression.d.rightExpr,
+            isPositiveTest,
+            nodeInfo,
+            recursionCount
+        ) ??
+        getTypeNarrowingCallback(evaluator, reference, testExpression.d.name, isPositiveTest, nodeInfo, recursionCount)
     );
 }
 
@@ -998,7 +1014,8 @@ function narrowTypeForUserDefinedTypeGuard(
     typeGuardType: Type,
     isPositiveTest: boolean,
     isStrictTypeGuard: boolean,
-    errorNode: ExpressionNode
+    errorNode: ExpressionNode,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
     // For non-strict type guards, always narrow to the typeGuardType
     // in the positive case and don't narrow in the negative case.
@@ -1031,7 +1048,8 @@ function narrowTypeForUserDefinedTypeGuard(
         /* isInstanceCheck */ true,
         /* isTypeIsCheck */ true,
         isPositiveTest,
-        errorNode
+        errorNode,
+        nodeInfo
     );
 }
 
@@ -1353,7 +1371,8 @@ export function narrowTypeForInstanceOrSubclass(
     isInstanceCheck: boolean,
     isTypeIsCheck: boolean,
     isPositiveTest: boolean,
-    errorNode: ExpressionNode
+    errorNode: ExpressionNode,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ) {
     // First try with intersection types disallowed.
     const narrowedType = narrowTypeForInstanceOrSubclassInternal(
@@ -1364,7 +1383,8 @@ export function narrowTypeForInstanceOrSubclass(
         isTypeIsCheck,
         isPositiveTest,
         /* allowIntersections */ false,
-        errorNode
+        errorNode,
+        nodeInfo
     );
 
     if (!isNever(narrowedType)) {
@@ -1380,7 +1400,8 @@ export function narrowTypeForInstanceOrSubclass(
         isTypeIsCheck,
         isPositiveTest,
         /* allowIntersections */ true,
-        errorNode
+        errorNode,
+        nodeInfo
     );
 }
 
@@ -1392,7 +1413,8 @@ function narrowTypeForInstanceOrSubclassInternal(
     isTypeIsCheck: boolean,
     isPositiveTest: boolean,
     allowIntersections: boolean,
-    errorNode: ExpressionNode
+    errorNode: ExpressionNode,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
     const result = mapSubtypes(type, (subtype) => {
         let adjSubtype = subtype;
@@ -1421,7 +1443,8 @@ function narrowTypeForInstanceOrSubclassInternal(
             isTypeIsCheck,
             isPositiveTest,
             allowIntersections,
-            errorNode
+            errorNode,
+            nodeInfo
         );
 
         if (!resultRequiresAdj) {
@@ -1452,7 +1475,8 @@ function narrowTypeForInstance(
     isTypeIsCheck: boolean,
     isPositiveTest: boolean,
     allowIntersections: boolean,
-    errorNode: ExpressionNode
+    errorNode: ExpressionNode,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
     let expandedTypes = mapSubtypes(type, (subtype) => {
         return transformPossibleRecursiveTypeAlias(subtype);
@@ -1468,7 +1492,7 @@ function narrowTypeForInstance(
 
         // If this is an isinstance or issubclass check, the type variables
         // should be converted to "free" type variables.
-        return makeTypeVarsFree(varType, ParseTreeUtils.getTypeVarScopesForNode(errorNode));
+        return makeTypeVarsFree(varType, ParseTreeUtils.getTypeVarScopesForNode(errorNode, nodeInfo));
     };
 
     // Filters the varType by the parameters of the isinstance
@@ -1535,7 +1559,7 @@ function narrowTypeForInstance(
                 if (!isTypeIsCheck) {
                     runtimeVarType = makeTypeVarsFree(
                         runtimeVarType,
-                        ParseTreeUtils.getTypeVarScopesForNode(errorNode)
+                        ParseTreeUtils.getTypeVarScopesForNode(errorNode, nodeInfo)
                     );
                 }
 
@@ -1775,7 +1799,7 @@ function narrowTypeForInstance(
                     // two type is a subclass that is callable. We'll synthesize a
                     // new intersection type.
                     const className = `<callable subtype of ${concreteVarType.shared.name}>`;
-                    const fileInfo = getFileInfo(errorNode);
+                    const fileInfo = nodeInfo.getFileInfo(errorNode);
                     let newClassType = ClassType.createInstantiable(
                         className,
                         ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
@@ -2828,7 +2852,7 @@ export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassTy
         fields.forEach((symbol, name) => {
             if (!symbol.isIgnoredForProtocolMatch()) {
                 let symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
-                symbolType = transformTypeForEnumMember(evaluator, type, name) ?? symbolType;
+                symbolType = transformTypeForEnumMember(evaluator, type, name, getInfoReader(evaluator)) ?? symbolType;
 
                 if (
                     isClassInstance(symbolType) &&
