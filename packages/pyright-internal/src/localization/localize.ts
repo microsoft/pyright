@@ -1658,6 +1658,12 @@ export namespace Localizer {
             );
     }
 
+    export namespace CallHierarchy {
+        export const library = () => getRawString('CallHierarchy.library');
+        export const standardLibrary = () => getRawString('CallHierarchy.standardLibrary');
+        export const workspace = () => getRawString('CallHierarchy.workspace');
+    }
+
     export namespace CodeAction {
         export const createTypeStub = () => getRawString('CodeAction.createTypeStub');
         export const createTypeStubFor = () =>

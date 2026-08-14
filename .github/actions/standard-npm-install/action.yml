@@ -1,15 +1,20 @@
-# Standard npm install using the public npm registry.
+# Standard pnpm install using the public npm registry.
 
-name: npm install (public registry)
+name: pnpm install (public registry)
+description: Install the pnpm workspace from the public npm registry.
 
-on:
-  workflow_call:
+inputs:
+  working-directory:
+    description: Directory in which to run pnpm install
+    default: '.'
+    required: false
 
 runs:
   using: composite
   steps:
-    - uses: ./.github/actions/npm-cache-dir
-
-    - name: Standard npm install
+    - name: Standard pnpm install
       shell: bash
-      run: npm run install:all
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+      run: pnpm run install:all

@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "Library",
+        "standardLibrary": "Standard library",
+        "workspace": "Workspace"
+    },
     "CodeAction": {
         "createTypeStub": "Utwórz typ zastępczy Stub",
         "createTypeStubFor": "Utwórz typ Stub dla „{moduleName}”",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "Zamrożona klasa nie może dziedziczyć po klasie niezamrożonej",
         "dataClassConverterFunction": "Argument typu „{argType}” nie jest prawidłowym konwerterem pola „{fieldName}” typu „{fieldType}”",
         "dataClassConverterOverloads": "Żadne przeciążenia „{funcName}” nie są prawidłowymi konwerterami dla pola „{fieldName}” typu „{fieldType}”",
+        "dataClassDuplicateKwOnly": "„{name}” jest zduplikowanym separatorem KW_ONLY; w klasie danych dozwolony jest tylko jeden",
         "dataClassFieldInheritedDefault": "Pole „{fieldName}” zastępuje pole o tej samej nazwie, ale brakuje wartości domyślnej",
         "dataClassFieldWithDefault": "Pola bez wartości domyślnych nie mogą występować po polach z wartościami domyślnymi",
         "dataClassFieldWithPrivateName": "Pole klasy danych nie może używać nazwy prywatnej",
@@ -293,6 +299,8 @@
         "keywordSubscriptIllegal": "Argumenty słów kluczowych w indeksach podrzędnych nie są obsługiwane",
         "lambdaReturnTypePartiallyUnknown": "Zwracany typ wyrażenia lambda „{returnType}” jest częściowo nieznany",
         "lambdaReturnTypeUnknown": "Zwracany typ wyrażenia lambda jest nieznany",
+        "lazyImportIllegal": "Instrukcja importu z opóźnieniem wymaga języka Python 3.15 lub nowszego",
+        "lazyImportWildcardIllegal": "Importy z symbolami wieloznacznymi nie mogą być używane z „lazy”",
         "listAssignmentMismatch": "Wyrażenia typu „{type}” nie można przypisać do listy docelowej",
         "listInAnnotation": "Wyrażenie List jest niedozwolone w wyrażeniu typu",
         "literalEmptyArgs": "Oczekiwano co najmniej jednego argumentu typu po wartości „Literal”",
@@ -845,6 +853,9 @@
         "useTypeInstead": "Zamiast tego użyj funkcji type[T]",
         "varianceMismatchForClass": "Wariancja argumentu typu „{typeVarName}” jest niezgodna z klasą bazową „{className}”",
         "varianceMismatchForTypeAlias": "Wariancja argumentu typu „{typeVarName}” jest niezgodna z parametrem „{typeAliasParam}”"
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "Nie można zmienić nazwy symbolu „{symbolName}”, ponieważ jest on również zadeklarowany w kodzie nieedytowalnym (bibliotece lub pliku zastępczym), który nie może być modyfikowany. Ukończenie zmiany nazwy spowoduje, że nazwa symbolu „{symbolName}” zostanie częściowo zmieniona. Najpierw rozwiąż deklaracje powodujące konflikt:\r\n{locations}"
     },
     "Service": {
         "longOperation": "Wyliczanie plików źródłowych obszaru roboczego zajmuje dużo czasu. Zamiast tego rozważ otwarcie podfolderu. [Dowiedz się więcej](https://aka.ms/workspace-too-many-files)"

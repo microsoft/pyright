@@ -12,6 +12,7 @@ import { getEmptyRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ImportLookup, ImportLookupResult } from './analyzerFileInfo';
+import { AnalyzerNodeInfoReader } from './analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions, isAliasDeclaration } from './declaration';
 import { getFileInfoFromNode } from './parseTreeUtils';
 import { Symbol } from './symbol';
@@ -185,12 +186,12 @@ export function getNameNodeForDeclaration(declaration: Declaration): NameNode | 
     throw new Error(`Shouldn't reach here`);
 }
 
-export function isDefinedInFile(decl: Declaration, fileUri: Uri) {
+export function isDefinedInFile(decl: Declaration, fileUri: Uri, nodeInfo: AnalyzerNodeInfoReader) {
     if (isAliasDeclaration(decl)) {
         // Alias decl's path points to the original symbol
         // the alias is pointing to. So, we need to get the
         // filepath in that the alias is defined from the node.
-        return getFileInfoFromNode(decl.node)?.fileUri.equals(fileUri);
+        return getFileInfoFromNode(decl.node, nodeInfo)?.fileUri.equals(fileUri);
     }
 
     // Other decls, the path points to the file the symbol is defined in.

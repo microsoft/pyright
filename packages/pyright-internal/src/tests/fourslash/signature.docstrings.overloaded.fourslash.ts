@@ -23,7 +23,7 @@
                 {
                     label: '(x: int) -> int',
                     parameters: ['x: int'],
-                    documentation: 'This is a docstring on the first overload.',
+                    documentation: undefined,
                 },
             ],
             activeParameters: [undefined, 0],
@@ -41,7 +41,7 @@
                 {
                     label: '(x: int) -> int',
                     parameters: ['x: int'],
-                    documentation: 'This is a docstring on the first overload.',
+                    documentation: undefined,
                 },
             ],
             activeParameters: [undefined, 0],

@@ -18,7 +18,12 @@ import { pythonVersion3_13, pythonVersion3_14, pythonVersion3_15 } from '../comm
 import { TextRange } from '../common/textRange';
 import { UriEx } from '../common/uri/uriUtils';
 import { LocMessage } from '../localization/localize';
-import { ParseNodeType, StatementListNode } from '../parser/parseNodes';
+import {
+    getParserStringAnnotation,
+    getParserStringAnnotationInfo,
+    ParseNodeType,
+    StatementListNode,
+} from '../parser/parseNodes';
 import { ParseOptions } from '../parser/parser';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
@@ -115,7 +120,7 @@ test('Inline TypedDict dict key is not a forward-reference annotation', () => {
     // An inline TypedDict field-name key must not be parsed into a
     // forward-reference expression even though the dictionary appears inside a type
     // annotation. Suspending type-annotation parsing for the key leaves its StringList
-    // without a synthesized `annotation` expression, while the value remains a type
+    // without a parser-derived annotation association, while the value remains a type
     // annotation and must still parse its forward reference.
     const code = `
 //// from typing import TypedDict
@@ -127,7 +132,7 @@ test('Inline TypedDict dict key is not a forward-reference annotation', () => {
     const keyStringList = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, 'key'), ParseNodeType.StringList);
     assert.ok(keyStringList, 'Expected the dict key to be a StringList node');
     assert.strictEqual(
-        keyStringList.d.annotation,
+        getParserStringAnnotation(keyStringList),
         undefined,
         'Inline TypedDict key string must not be parsed into a forward-reference annotation'
     );
@@ -135,9 +140,61 @@ test('Inline TypedDict dict key is not a forward-reference annotation', () => {
     const valueStringList = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, 'value'), ParseNodeType.StringList);
     assert.ok(valueStringList, 'Expected the dict value to be a StringList node');
     assert.ok(
-        valueStringList.d.annotation,
+        getParserStringAnnotation(valueStringList),
         'Inline TypedDict value string is a type annotation and must still parse its forward reference'
     );
+});
+
+test('Parser string-annotation side data preserves recursive associations and structural ownership', () => {
+    const source = `value: "list['Data']"\n`;
+    const parserOutput = TestUtils.parseText(source, new DiagnosticSink()).parserOutput;
+    const outerNode = findNodeByOffset(parserOutput.parseTree, source.indexOf('list'));
+    const outerStringList = getFirstAncestorOrSelfOfKind(outerNode, ParseNodeType.StringList);
+    assert.ok(outerStringList);
+
+    const outerAnnotation = parserOutput.stringAnnotations.get(outerStringList);
+    assert.ok(outerAnnotation);
+    const nestedNode = findNodeByOffset(outerAnnotation, source.indexOf('Data'));
+    const nestedStringList = getFirstAncestorOrSelfOfKind(nestedNode, ParseNodeType.StringList);
+    assert.ok(nestedStringList);
+
+    const nestedAnnotation = parserOutput.stringAnnotations.get(nestedStringList);
+    assert.ok(nestedAnnotation);
+    assert.strictEqual(nestedAnnotation.nodeType, ParseNodeType.Name);
+    if (nestedAnnotation.nodeType !== ParseNodeType.Name) {
+        throw new Error('Expected the nested quoted annotation to parse as a name');
+    }
+
+    assert.strictEqual(nestedAnnotation.d.value, 'Data');
+    assert.strictEqual(outerAnnotation.parent, outerStringList);
+    assert.strictEqual(nestedAnnotation.parent, nestedStringList);
+    assert.strictEqual(outerStringList.a, parserOutput.parseTree.a);
+    assert.strictEqual(nestedStringList.a, parserOutput.parseTree.a);
+    assert.strictEqual(parserOutput.stringAnnotations, getParserStringAnnotationInfo(parserOutput.parseTree));
+    assert.deepStrictEqual(Object.keys(outerStringList.d), ['strings', 'hasParens']);
+});
+
+test('Parser string-annotation side data excludes unsupported and non-annotation strings', () => {
+    const cases = [
+        { source: `value = "Ordinary"\n`, needle: 'Ordinary', expected: false },
+        { source: `value: "Esc\\x61ped"\n`, needle: 'Esc', expected: false },
+        { source: `value: r"Raw"\n`, needle: 'Raw', expected: false },
+        { source: `value: b"Bytes"\n`, needle: 'Bytes', expected: false },
+        { source: `value: f"Formatted"\n`, needle: 'Formatted', expected: false },
+        { source: `value: "Positive"\n`, needle: 'Positive', expected: true },
+    ];
+
+    for (const testCase of cases) {
+        const parserOutput = TestUtils.parseText(testCase.source, new DiagnosticSink()).parserOutput;
+        const node = findNodeByOffset(parserOutput.parseTree, testCase.source.indexOf(testCase.needle));
+        const stringList = getFirstAncestorOrSelfOfKind(node, ParseNodeType.StringList);
+        assert.ok(stringList, `Expected a StringList for ${testCase.source.trim()}`);
+        assert.strictEqual(
+            parserOutput.stringAnnotations.get(stringList) !== undefined,
+            testCase.expected,
+            testCase.source.trim()
+        );
+    }
 });
 
 test('ParserRecovery1', () => {
