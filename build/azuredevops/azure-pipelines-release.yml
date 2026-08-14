@@ -324,7 +324,13 @@ extends:
                   RELEASE_TAG: $(EXPECTED_RELEASE_TAG)
 
       - stage: CreateRelease
-        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
+        condition: |
+          and(
+            not(canceled()),
+            eq('${{ parameters.releaseMode }}', 'full'),
+            in(dependencies.BuildVsix.result, 'Succeeded', 'SucceededWithIssues'),
+            in(dependencies.ValidateNpm.result, 'Succeeded', 'SucceededWithIssues')
+          )
         dependsOn:
           - BuildVsix
           - ValidateNpm
@@ -358,7 +364,12 @@ extends:
                     $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
 
       - stage: WaitForValidation
-        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
+        condition: |
+          and(
+            not(canceled()),
+            eq('${{ parameters.releaseMode }}', 'full'),
+            in(dependencies.CreateRelease.result, 'Succeeded', 'SucceededWithIssues')
+          )
         dependsOn:
           - CreateRelease
         jobs:
@@ -378,7 +389,12 @@ extends:
                   onTimeout: 'reject' # require sign-off
 
       - stage: PublishToMarketplace
-        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
+        condition: |
+          and(
+            not(canceled()),
+            eq('${{ parameters.releaseMode }}', 'full'),
+            in(dependencies.WaitForValidation.result, 'Succeeded', 'SucceededWithIssues')
+          )
         dependsOn:
           - WaitForValidation
         jobs:
