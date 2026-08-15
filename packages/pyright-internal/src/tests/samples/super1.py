@@ -47,7 +47,16 @@ class ClassD(ClassB, ClassC):
 
     def method(self):
         def inner():
+            # This should generate an error because the zero-arg form
+            # of super is illegal in a nested function.
             super().method1()
+
+        # This should generate an error because the zero-arg form
+        # of super is illegal in a lambda.
+        lambda: super().method1()
+
+        # Comprehensions execute in the enclosing method and are valid.
+        [super().method1() for _ in [1]]
 
 
 super(ClassD)
