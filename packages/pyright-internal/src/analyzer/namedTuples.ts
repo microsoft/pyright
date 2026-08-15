@@ -10,6 +10,7 @@
 
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
+import { PythonVersion, pythonVersion3_13 } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { LocMessage } from '../localization/localize';
 import { ArgCategory, ExpressionNode, ParamCategory, ParseNodeType } from '../parser/parseNodes';
@@ -44,6 +45,8 @@ import {
     combineTypes,
     isClassInstance,
     isInstantiableClass,
+    isKeywordOnlySeparator,
+    isPositionOnlySeparator,
 } from './types';
 
 // Creates a new custom tuple factory class with named values.
@@ -376,6 +379,14 @@ export function createNamedTupleType(
     classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
     classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
+    synthesizeNamedTupleReplaceMethods(
+        classFields,
+        constructorType,
+        selfParam,
+        addGenericGetAttribute,
+        fileInfo.executionEnvironment.pythonVersion
+    );
+
     const lenType = FunctionType.createSynthesizedInstance('__len__');
     lenType.shared.declaredReturnType = evaluator.getBuiltInObject(errorNode, 'int');
     FunctionType.addParam(lenType, selfParam);
@@ -420,6 +431,50 @@ export function createNamedTupleType(
     computeMroLinearization(classType);
 
     return classType;
+}
+
+function synthesizeNamedTupleReplaceMethods(
+    classFields: Map<string, Symbol>,
+    constructorType: FunctionType,
+    selfParam: FunctionParam,
+    addGenericGetAttribute: boolean,
+    pythonVersion: PythonVersion
+) {
+    const synthesizeDunderReplace = PythonVersion.isGreaterOrEqualTo(pythonVersion, pythonVersion3_13);
+    const replaceType = FunctionType.createSynthesizedInstance(synthesizeDunderReplace ? '__replace__' : '_replace');
+    FunctionType.addParam(replaceType, selfParam);
+    FunctionType.addKeywordOnlyParamSeparator(replaceType);
+    replaceType.shared.declaredReturnType = selfParam._type;
+
+    if (addGenericGetAttribute) {
+        FunctionType.addDefaultParams(replaceType);
+    } else {
+        constructorType.shared.parameters.forEach((param) => {
+            if (!param.name || param.name === 'cls' || param.name === 'self') {
+                return;
+            }
+
+            if (isPositionOnlySeparator(param) || isKeywordOnlySeparator(param)) {
+                return;
+            }
+
+            FunctionType.addParam(
+                replaceType,
+                FunctionParam.create(
+                    param.category,
+                    param._type,
+                    param.flags,
+                    param.name,
+                    AnyType.create(/* isEllipsis */ true)
+                )
+            );
+        });
+    }
+
+    if (synthesizeDunderReplace) {
+        classFields.set('__replace__', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+    }
+    classFields.set('_replace', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
 }
 
 export function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[], isTypeArgExplicit: boolean): boolean {

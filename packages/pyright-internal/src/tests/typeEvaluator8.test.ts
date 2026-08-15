@@ -13,7 +13,13 @@ import * as assert from 'assert';
 import { EvalFlags } from '../analyzer/typeEvaluatorTypes';
 import { ClassType, isClassInstance, isInstantiableClass, UnknownType } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
-import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8, pythonVersion3_12 } from '../common/pythonVersion';
+import {
+    pythonVersion3_10,
+    pythonVersion3_11,
+    pythonVersion3_8,
+    pythonVersion3_12,
+    pythonVersion3_13,
+} from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
@@ -678,6 +684,18 @@ test('NamedTuple11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple11.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+});
+
+test('NamedTupleReplace1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 5);
+
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 5);
 });
 
 test('NamedTuple12', () => {
