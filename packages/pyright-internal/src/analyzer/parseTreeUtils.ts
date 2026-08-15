@@ -704,6 +704,65 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
     return undefined;
 }
 
+// Zero-argument super() is valid only in a method (or a comprehension
+// nested in that method). Nested functions and lambdas raise
+// RuntimeError at runtime because they do not receive the compiler-inserted
+// __class__ cell used by the zero-argument form.
+export function isZeroArgumentSuperCallAllowed(node: ParseNode): boolean {
+    let prevNode: ParseNode | undefined;
+    let curNode = node.parent;
+
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Lambda) {
+            return false;
+        }
+
+        if (curNode.nodeType === ParseNodeType.Function) {
+            // Don't treat a decorator as being "enclosed" in the function.
+            if (curNode.d.decorators.some((decorator) => decorator === prevNode)) {
+                prevNode = curNode;
+                curNode = curNode.parent;
+                continue;
+            }
+
+            let parent: ParseNode | undefined = curNode.parent;
+            while (parent) {
+                if (parent.nodeType === ParseNodeType.Class) {
+                    return true;
+                }
+                if (parent.nodeType === ParseNodeType.Function) {
+                    return false;
+                }
+                parent = parent.parent;
+            }
+
+            return false;
+        }
+
+        if (curNode.nodeType === ParseNodeType.Class) {
+            // super() in a class decorator, type parameter, or base-class
+            // argument is still evaluated in the enclosing scope, not the
+            // class body.
+            if (
+                curNode.d.decorators.some((decorator) => decorator === prevNode) ||
+                curNode.d.arguments.some((arg) => arg === prevNode) ||
+                curNode.d.typeParams === prevNode
+            ) {
+                prevNode = curNode;
+                curNode = curNode.parent;
+                continue;
+            }
+
+            return false;
+        }
+
+        prevNode = curNode;
+        curNode = curNode.parent;
+    }
+
+    return false;
+}
+
 // This is similar to getEnclosingFunction except that it uses evaluation
 // scopes rather than the parse tree to determine whether the specified node
 // is within the scope. That means if the node is within a class decorator

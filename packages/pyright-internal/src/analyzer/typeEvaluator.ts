@@ -9636,9 +9636,15 @@ export function createTypeEvaluator(
             if (enclosingClassType) {
                 targetClassType = enclosingClassType ?? UnknownType.create();
 
-                // Zero-argument forms of super are not allowed within static methods.
-                // This results in a runtime exception.
-                if (enclosingFunction) {
+                // Zero-argument forms of super are not allowed within nested
+                // functions or lambdas. This results in a runtime exception.
+                if (!ParseTreeUtils.isZeroArgumentSuperCallAllowed(node)) {
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.superCallZeroArgForm(),
+                        node.d.leftExpr
+                    );
+                } else if (enclosingFunction) {
                     const functionInfo = getFunctionInfoFromDecorators(
                         evaluatorInterface,
                         enclosingFunction,
