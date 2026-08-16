@@ -409,7 +409,15 @@ export function applyClassDecorator(
         }
 
         if (FunctionType.isBuiltIn(decoratorType, 'runtime_checkable')) {
-            originalClassType.shared.flags |= ClassTypeFlags.RuntimeCheckable;
+            if (!ClassType.isProtocolClass(originalClassType)) {
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.runtimeCheckableNotProtocol(),
+                    decoratorNode.d.expr
+                );
+            } else {
+                originalClassType.shared.flags |= ClassTypeFlags.RuntimeCheckable;
+            }
 
             // Don't call getTypeOfDecorator for runtime_checkable. It appears
             // frequently in stubs, and it's a waste of time to validate its

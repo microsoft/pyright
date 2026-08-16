@@ -1174,6 +1174,10 @@
         "returnTypeMismatch": "Type \"{exprType}\" is not assignable to return type \"{returnType}\"",
         "returnTypePartiallyUnknown": "Return type, \"{returnType}\", is partially unknown",
         "returnTypeUnknown": "Return type is unknown",
+        "runtimeCheckableNotProtocol": {
+            "message": "@runtime_checkable can be applied only to a Protocol class",
+            "comment": "{Locked='@runtime_checkable','Protocol'}"
+        },
         "revealLocalsArgs": {
             "message": "Expected no arguments for \"reveal_locals\" call",
             "comment": "{Locked='reveal_locals'}"

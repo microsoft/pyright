@@ -628,6 +628,12 @@ test('Protocol53', () => {
     TestUtils.validateResults(analysisResults2, 8);
 });
 
+test('Protocol54', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol54.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('ProtocolExplicit1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit1.py']);
 
