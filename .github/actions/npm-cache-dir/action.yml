@@ -34,7 +34,7 @@ runs:
 
     - name: Cache npm cache directory (with .npmrc)
       if: inputs.include-npmrc-hash == 'true'
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: ${{ steps.npm-cache-dir-bash.outputs.dir || steps.npm-cache-dir-pwsh.outputs.dir }}
         key: ${{ runner.os }}-${{ inputs.key-prefix }}-${{ hashFiles('**/.npmrc') }}-${{ hashFiles(inputs.cache-dependency-path) }}
@@ -42,7 +42,7 @@ runs:
 
     - name: Cache npm cache directory
       if: inputs.include-npmrc-hash != 'true'
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: ${{ steps.npm-cache-dir-bash.outputs.dir || steps.npm-cache-dir-pwsh.outputs.dir }}
         key: ${{ runner.os }}-${{ inputs.key-prefix }}-${{ hashFiles(inputs.cache-dependency-path) }}
