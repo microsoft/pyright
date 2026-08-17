@@ -41,15 +41,15 @@ jobs:
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7]
       fail-fast: false
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: pyright_to_test
           fetch-depth: 2
           fetch-tags: false
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.11'
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -106,7 +106,7 @@ jobs:
             | tee diff_${{ matrix.shard-index }}.txt
           ) || [ $? -eq 1 ]
       - name: Upload mypy_primer diff
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mypy_primer_diffs_${{ matrix.shard-index }}
           path: diff_${{ matrix.shard-index }}.txt
@@ -116,7 +116,7 @@ jobs:
           echo ${{ github.event.pull_request.number }} | tee pr_number.txt
       - if: ${{ matrix.shard-index == 0 }}
         name: Upload PR number
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mypy_primer_diffs_pr_number
           path: pr_number.txt
