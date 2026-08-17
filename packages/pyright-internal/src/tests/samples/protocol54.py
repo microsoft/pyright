@@ -52,3 +52,43 @@ if TYPE_CHECKING:
 series_bool: Series[bool] = Series()
 result = series_bool + True
 assert_type(result, Series[bool])
+
+
+# Verify the equivalent case where the protocol member rather than the source
+# member is overloaded.
+class DestinationElement(Generic[S]):
+    def method(self, value: S) -> "DestinationElement[S]":
+        return self
+
+
+class DestinationProtocol(Protocol[T_contra, T]):
+    @overload
+    def method(self: DestinationElement[bool], value: T_contra) -> DestinationElement[T]: ...
+
+    @overload
+    def method(self: DestinationElement[int], value: T_contra) -> DestinationElement[T]: ...
+
+
+class DestinationSeries(DestinationElement[S], Generic[S]):
+    @overload
+    def __add__(
+        self: DestinationProtocol[S_contra, S], other: S_contra
+    ) -> "DestinationSeries[S]": ...
+
+    @overload
+    def __add__(  # pyright: ignore[reportOverlappingOverload]
+        self: "DestinationSeries[bool]", other: int
+    ) -> "DestinationSeries[int]": ...
+
+    def __add__(self, other: object) -> object:
+        return self
+
+
+destination_series_a: DestinationSeries[A] = DestinationSeries()
+
+if TYPE_CHECKING:
+    _ = destination_series_a + b  # pyright: ignore[reportOperatorIssue, reportUnknownVariableType]
+
+destination_series_bool: DestinationSeries[bool] = DestinationSeries()
+destination_result = destination_series_bool + True
+assert_type(destination_result, DestinationSeries[bool])
