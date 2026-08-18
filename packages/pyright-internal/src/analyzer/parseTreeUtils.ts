@@ -11,6 +11,7 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { containsOnlyWhitespace } from '../common/core';
 import { assert, assertNever, fail } from '../common/debug';
 import { convertPositionToOffset, convertTextRangeToRange } from '../common/positionUtils';
+import { PythonVersion, pythonVersion3_12 } from '../common/pythonVersion';
 import { Position, Range, TextRange } from '../common/textRange';
 import { TextRangeCollection, getIndexContaining } from '../common/textRangeCollection';
 import {
@@ -704,60 +705,52 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
     return undefined;
 }
 
-// Zero-argument super() is valid only in a method (or a comprehension
-// nested in that method). Nested functions and lambdas raise
-// RuntimeError at runtime because they do not receive the compiler-inserted
-// __class__ cell used by the zero-argument form.
-export function isZeroArgumentSuperCallAllowed(node: ParseNode): boolean {
-    let prevNode: ParseNode | undefined;
-    let curNode = node.parent;
+// Determines whether a zero-argument `super()` call at the specified node
+// can succeed at runtime. The zero-argument form uses the first argument of
+// the frame that is executing the call along with the compiler-provided
+// `__class__` cell, so the caller must separately verify that an enclosing
+// class is present. This routine verifies only that the executing frame is
+// one that receives a first argument.
+export function isZeroArgSuperCallAllowed(node: ParseNode, pythonVersion: PythonVersion): boolean {
+    // Use the evaluation scope machinery to determine which frame executes
+    // the call. This handles decorators, parameter default values, class
+    // headers, lambdas, and comprehensions.
+    let curNode: ParseNode | undefined = getEvaluationScopeNode(node).node;
 
     while (curNode) {
-        if (curNode.nodeType === ParseNodeType.Lambda) {
-            return false;
-        }
-
-        if (curNode.nodeType === ParseNodeType.Function) {
-            // Don't treat a decorator as being "enclosed" in the function.
-            if (curNode.d.decorators.some((decorator) => decorator === prevNode)) {
-                prevNode = curNode;
-                curNode = curNode.parent;
-                continue;
+        switch (curNode.nodeType) {
+            case ParseNodeType.Function:
+            case ParseNodeType.Lambda: {
+                // The zero-argument form requires that the executing frame
+                // accept a first positional argument.
+                const firstParam = curNode.d.params.length > 0 ? curNode.d.params[0] : undefined;
+                return firstParam?.d.category === ParamCategory.Simple && firstParam.d.name !== undefined;
             }
 
-            let parent: ParseNode | undefined = curNode.parent;
-            while (parent) {
-                if (parent.nodeType === ParseNodeType.Class) {
-                    return true;
-                }
-                if (parent.nodeType === ParseNodeType.Function) {
+            case ParseNodeType.Comprehension: {
+                // A generator expression always executes in its own frame whose
+                // first argument is the implicit iterator, not the method's
+                // "self" argument. List, set, and dict comprehensions likewise
+                // used a separate frame prior to Python 3.12 (PEP 709).
+                if (curNode.d.isGenerator || PythonVersion.isLessThan(pythonVersion, pythonVersion3_12)) {
                     return false;
                 }
-                parent = parent.parent;
+                break;
             }
 
-            return false;
-        }
-
-        if (curNode.nodeType === ParseNodeType.Class) {
-            // super() in a class decorator, type parameter, or base-class
-            // argument is still evaluated in the enclosing scope, not the
-            // class body.
-            if (
-                curNode.d.decorators.some((decorator) => decorator === prevNode) ||
-                curNode.d.arguments.some((arg) => arg === prevNode) ||
-                curNode.d.typeParams === prevNode
-            ) {
-                prevNode = curNode;
-                curNode = curNode.parent;
-                continue;
+            case ParseNodeType.TypeParameterList: {
+                // A type parameter scope is a proxy scope, so continue
+                // searching for the enclosing execution frame.
+                break;
             }
 
-            return false;
+            default: {
+                // A class body or module frame receives no first argument.
+                return false;
+            }
         }
 
-        prevNode = curNode;
-        curNode = curNode.parent;
+        curNode = curNode.parent ? getEvaluationScopeNode(curNode.parent).node : undefined;
     }
 
     return false;

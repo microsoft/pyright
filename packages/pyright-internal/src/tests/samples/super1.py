@@ -46,17 +46,46 @@ class ClassD(ClassB, ClassC):
         super().non_method1()
 
     def method(self):
-        def inner():
-            # This should generate an error because the zero-arg form
-            # of super is illegal in a nested function.
+        def inner1():
+            # This should generate an error because the frame that executes
+            # the zero-arg form of super receives no first argument.
             super().method1()
 
-        # This should generate an error because the zero-arg form
-        # of super is illegal in a lambda.
+        def inner2(obj):
+            # This is allowed because the frame receives a first argument,
+            # so `inner2(self)` succeeds at runtime.
+            super().method1()
+
+        def inner3(value=super().method1()):
+            # Parameter default values are evaluated in the enclosing
+            # method's frame, so this is allowed.
+            pass
+
+        async def inner4():
+            # This should generate an error because the frame that executes
+            # the zero-arg form of super receives no first argument.
+            super().method1()
+
+        async def inner5(obj):
+            # This is allowed because the frame receives a first argument.
+            super().method1()
+
+        # This should generate an error because a lambda with no parameters
+        # receives no first argument.
         lambda: super().method1()
 
-        # Comprehensions execute in the enclosing method and are valid.
+        # This is allowed because the lambda receives a first argument.
+        lambda obj: super().method1()
+
+        # As of Python 3.12, list, set, and dict comprehensions are inlined
+        # into the enclosing frame, so these are allowed.
         [super().method1() for _ in [1]]
+        {super().method1() for _ in [1]}
+        {0: super().method1() for _ in [1]}
+
+        # This should generate an error because a generator expression always
+        # executes in its own frame whose first argument is the iterator.
+        list(super().method1() for _ in [1])
 
 
 super(ClassD)

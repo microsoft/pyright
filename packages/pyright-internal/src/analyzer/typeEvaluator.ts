@@ -9636,28 +9636,31 @@ export function createTypeEvaluator(
             if (enclosingClassType) {
                 targetClassType = enclosingClassType ?? UnknownType.create();
 
-                // Zero-argument forms of super are not allowed within nested
-                // functions or lambdas. This results in a runtime exception.
-                if (!ParseTreeUtils.isZeroArgumentSuperCallAllowed(node)) {
+                const functionInfo = enclosingFunction
+                    ? getFunctionInfoFromDecorators(evaluatorInterface, enclosingFunction, /* isInClass */ true)
+                    : undefined;
+
+                // Zero-argument forms of super are not allowed within static methods.
+                // This results in a runtime exception.
+                if (functionInfo !== undefined && (functionInfo.flags & FunctionTypeFlags.StaticMethod) !== 0) {
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.superCallZeroArgFormStaticMethod(),
+                        node.d.leftExpr
+                    );
+                } else if (
+                    !ParseTreeUtils.isZeroArgSuperCallAllowed(
+                        node,
+                        AnalyzerNodeInfo.getFileInfo(node).executionEnvironment.pythonVersion
+                    )
+                ) {
+                    // The frame that executes the call doesn't receive a first
+                    // argument, so the zero-argument form raises at runtime.
                     addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.superCallZeroArgForm(),
                         node.d.leftExpr
                     );
-                } else if (enclosingFunction) {
-                    const functionInfo = getFunctionInfoFromDecorators(
-                        evaluatorInterface,
-                        enclosingFunction,
-                        /* isInClass */ true
-                    );
-
-                    if ((functionInfo?.flags & FunctionTypeFlags.StaticMethod) !== 0) {
-                        addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.superCallZeroArgFormStaticMethod(),
-                            node.d.leftExpr
-                        );
-                    }
                 }
             } else {
                 addDiagnostic(
