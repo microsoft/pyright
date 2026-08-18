@@ -218,6 +218,7 @@ const isPrintCodeComplexityEnabled = false;
 export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
+    private readonly _nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
     private _isUnboundCheckSuppressed = false;
 
     // A list of all nodes that are defined within the module that
@@ -234,19 +235,27 @@ export class Checker extends ParseTreeWalker {
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
         parseResults: ParserOutput,
-        private _dependentFiles?: ParserOutput[]
+        private _dependentFiles: ParserOutput[] | undefined,
+        nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader
     ) {
-        super();
+        // Forward the reader to the base walker so the structural walk expands both tier-1
+        // (parser-derived) and tier-2 (evaluator-discovered, e.g. `cast("Foo", v)`) string
+        // annotations. The checker runs after type evaluation, so tier-2 annotations exist by
+        // the time it descends; without the reader it would silently skip tier-2 forward-ref
+        // subtrees and drop checker-only diagnostics (reportDeprecated, reportPrivateUsage, ...)
+        // for symbols referenced only inside an evaluator-discovered forward reference.
+        super(nodeInfoReader);
 
+        this._nodeInfo = AnalyzerNodeInfo.createAnalyzerNodeInfoAccessor(nodeInfoReader);
         this._moduleNode = parseResults.parseTree;
-        this._fileInfo = AnalyzerNodeInfo.getFileInfo(this._moduleNode)!;
+        this._fileInfo = this._nodeInfo.getFileInfo(this._moduleNode)!;
     }
 
     check() {
         this._scopedNodes.push(this._moduleNode);
 
         // Report code complexity issues for the module.
-        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(this._moduleNode);
+        const codeComplexity = this._nodeInfo.getCodeFlowComplexity(this._moduleNode);
 
         if (isPrintCodeComplexityEnabled) {
             console.log(
@@ -266,7 +275,7 @@ export class Checker extends ParseTreeWalker {
         this._walkStatementsAndReportUnreachable(this._moduleNode.d.statements);
 
         // Mark symbols accessed by __all__ as accessed.
-        const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(this._moduleNode);
+        const dunderAllInfo = this._nodeInfo.getDunderAllInfo(this._moduleNode);
         if (dunderAllInfo) {
             this._evaluator.markNamesAccessed(this._moduleNode, dunderAllInfo.names);
 
@@ -283,7 +292,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     override walk(node: ParseNode) {
-        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
+        if (!this._nodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
         } else {
             this._evaluator.suppressDiagnostics(node, () => {
@@ -666,7 +675,7 @@ export class Checker extends ParseTreeWalker {
             }
         });
 
-        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
+        const codeComplexity = this._nodeInfo.getCodeFlowComplexity(node);
         const isTooComplexToAnalyze = codeComplexity > maxCodeComplexity;
 
         if (isPrintCodeComplexityEnabled) {
@@ -715,7 +724,7 @@ export class Checker extends ParseTreeWalker {
         // if there is a '__getattr__' function defined when in strict mode.
         // This signifies an incomplete stub file that obscures type errors.
         if (this._fileInfo.isStubFile && node.d.name.d.value === '__getattr__') {
-            const scope = getScopeForNode(node);
+            const scope = getScopeForNode(node, this._nodeInfo);
             if (scope?.type === ScopeType.Module) {
                 this._evaluator.addDiagnostic(
                     DiagnosticRule.reportIncompleteStub,
@@ -969,7 +978,7 @@ export class Checker extends ParseTreeWalker {
         // statement is not allowed to have an argument. A syntax error occurs
         // at runtime in this case.
         if (enclosingFunctionNode?.d.isAsync && node.d.expr) {
-            const functionDecl = AnalyzerNodeInfo.getDeclaration(enclosingFunctionNode);
+            const functionDecl = this._nodeInfo.getDeclaration(enclosingFunctionNode);
             if (functionDecl?.type === DeclarationType.Function && functionDecl.isGenerator) {
                 this._evaluator.addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -988,7 +997,7 @@ export class Checker extends ParseTreeWalker {
                         node
                     );
                 } else {
-                    const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                    const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node, this._nodeInfo);
                     declaredReturnType = this._evaluator.stripTypeGuard(declaredReturnType);
                     let adjReturnType = makeTypeVarsBound(declaredReturnType, liveScopes);
 
@@ -1192,7 +1201,7 @@ export class Checker extends ParseTreeWalker {
             const annotationType = this._evaluator.getTypeOfAnnotation(node.d.leftExpr.d.annotation);
 
             if (isClassInstance(annotationType) && ClassType.isBuiltIn(annotationType, 'TypeAlias')) {
-                const scope = getScopeForNode(node);
+                const scope = getScopeForNode(node, this._nodeInfo);
                 if (scope) {
                     if (
                         scope.type !== ScopeType.Class &&
@@ -1418,7 +1427,7 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        if (node.d.annotation) {
+        if (AnalyzerNodeInfo.getStringAnnotation(node, AnalyzerNodeInfo.getInfoReader(this._evaluator))) {
             this._evaluator.getType(node);
         }
 
@@ -1553,7 +1562,7 @@ export class Checker extends ParseTreeWalker {
         } else {
             this._evaluator.evaluateTypesForStatement(node);
 
-            const importInfo = AnalyzerNodeInfo.getImportInfo(node.d.module);
+            const importInfo = this._nodeInfo.getImportInfo(node.d.module);
             if (
                 importInfo &&
                 importInfo.isImportFound &&
@@ -1624,7 +1633,7 @@ export class Checker extends ParseTreeWalker {
             return false;
         }
 
-        const importResult = AnalyzerNodeInfo.getImportInfo(node);
+        const importResult = this._nodeInfo.getImportInfo(node);
         assert(importResult !== undefined);
 
         this._addMissingModuleSourceDiagnosticIfNeeded(importResult, node);
@@ -1679,7 +1688,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitTypeAlias(node: TypeAliasNode): boolean {
-        const scope = getScopeForNode(node);
+        const scope = getScopeForNode(node, this._nodeInfo);
         if (scope) {
             if (scope.type !== ScopeType.Class && scope.type !== ScopeType.Module && scope.type !== ScopeType.Builtin) {
                 this._evaluator.addDiagnostic(
@@ -2382,7 +2391,7 @@ export class Checker extends ParseTreeWalker {
             const nameType = this._evaluator.getType(nameNode);
             if (nameType && isTypeVar(nameType) && !TypeVarType.isSelf(nameType)) {
                 // Does this name refer to a TypeVar that is scoped to this function?
-                if (nameType.priv.scopeId === ParseTreeUtils.getScopeIdForNode(node)) {
+                if (nameType.priv.scopeId === ParseTreeUtils.getScopeIdForNode(node, this._nodeInfo)) {
                     // We exempt constrained TypeVars, TypeVars that are type arguments of
                     // other types, and ParamSpecs. There are legitimate uses for singleton
                     // instances in these particular cases.
@@ -2754,7 +2763,7 @@ export class Checker extends ParseTreeWalker {
 
         const functionNode = functionType.shared.declaration?.node;
         if (functionNode) {
-            const liveTypeVars = ParseTreeUtils.getTypeVarScopesForNode(functionNode);
+            const liveTypeVars = ParseTreeUtils.getTypeVarScopesForNode(functionNode, this._nodeInfo);
             functionType = makeTypeVarsBound(functionType, liveTypeVars);
         }
 
@@ -2762,7 +2771,7 @@ export class Checker extends ParseTreeWalker {
         // function-local type variables into bound type variables.
         const prevOverloadNode = prevOverload.shared.declaration?.node?.parent;
         if (prevOverloadNode) {
-            const liveTypeVars = ParseTreeUtils.getTypeVarScopesForNode(prevOverloadNode);
+            const liveTypeVars = ParseTreeUtils.getTypeVarScopesForNode(prevOverloadNode, this._nodeInfo);
             prevOverload = makeTypeVarsBound(prevOverload, liveTypeVars);
         }
 
@@ -2791,13 +2800,13 @@ export class Checker extends ParseTreeWalker {
 
         const implNode = implementation.shared.declaration?.node?.parent;
         if (implNode) {
-            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(implNode);
+            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(implNode, this._nodeInfo);
             implBound = makeTypeVarsBound(implementation, liveScopeIds);
         }
 
         const overloadNode = overload.shared.declaration?.node;
         if (overloadNode) {
-            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(overloadNode);
+            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(overloadNode, this._nodeInfo);
             overloadBound = makeTypeVarsBound(overload, liveScopeIds);
         }
 
@@ -3087,7 +3096,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const moduleScope = AnalyzerNodeInfo.getScope(this._moduleNode);
+        const moduleScope = this._nodeInfo.getScope(this._moduleNode);
         if (!moduleScope) {
             return;
         }
@@ -3104,9 +3113,9 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _validateSymbolTables() {
-        const dependentFileInfo = this._dependentFiles?.map((p) => AnalyzerNodeInfo.getFileInfo(p.parseTree));
+        const dependentFileInfo = this._dependentFiles?.map((p) => this._nodeInfo.getFileInfo(p.parseTree));
         for (const scopedNode of this._scopedNodes) {
-            const scope = AnalyzerNodeInfo.getScope(scopedNode);
+            const scope = this._nodeInfo.getScope(scopedNode);
 
             if (scope) {
                 scope.symbolTable.forEach((symbol, name) => {
@@ -3130,7 +3139,7 @@ export class Checker extends ParseTreeWalker {
         // Report unaccessed type parameters.
         const accessedSymbolSet = this._fileInfo.accessedSymbolSet;
         for (const paramList of this._typeParamLists) {
-            const typeParamScope = AnalyzerNodeInfo.getScope(paramList);
+            const typeParamScope = this._nodeInfo.getScope(paramList);
 
             for (const param of paramList.d.params) {
                 const symbol = typeParamScope?.symbolTable.get(param.d.name.d.value);
@@ -3844,6 +3853,13 @@ export class Checker extends ParseTreeWalker {
                     return;
                 }
 
+                // The presence of a decorator can change how the class is used (e.g. it
+                // may be registered or consumed through a decorator side effect), so back
+                // off from reporting it as unaccessed if any decorator is present.
+                if (decl.node.d.decorators.length > 0) {
+                    return;
+                }
+
                 diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedClass;
                 nameNode = decl.node.d.name;
                 rule = DiagnosticRule.reportUnusedClass;
@@ -3858,6 +3874,13 @@ export class Checker extends ParseTreeWalker {
                 // If a stub is exporting a private type, we'll assume that the author
                 // knows what he or she is doing.
                 if (this._fileInfo.isStubFile) {
+                    return;
+                }
+
+                // The presence of a decorator can change how the function is used (e.g. a
+                // Flask `@app.route(...)` handler is registered via a decorator side effect),
+                // so back off from reporting it as unaccessed if any decorator is present.
+                if (decl.node.d.decorators.length > 0) {
                     return;
                 }
 
@@ -4016,7 +4039,8 @@ export class Checker extends ParseTreeWalker {
                 isInstanceCheck,
                 /* isTypeIsCheck */ false,
                 /* isPositiveTest */ false,
-                node
+                node,
+                this._nodeInfo
             );
 
             const narrowedTypePositive = narrowTypeForInstanceOrSubclass(
@@ -4026,7 +4050,8 @@ export class Checker extends ParseTreeWalker {
                 isInstanceCheck,
                 /* isTypeIsCheck */ false,
                 /* isPositiveTest */ true,
-                node
+                node,
+                this._nodeInfo
             );
 
             const isAlwaysTrue = isNever(narrowedTypeNegative);
@@ -4440,7 +4465,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
+        if (!this._nodeInfo.isCodeUnreachable(node)) {
             const type = this._evaluator.getType(node);
 
             if (type) {
@@ -4600,7 +4625,7 @@ export class Checker extends ParseTreeWalker {
     // enum class that has already defined values.
     private _validateEnumClassOverride(node: ClassNode, classType: ClassType) {
         classType.shared.baseClasses.forEach((baseClass, index) => {
-            if (isClass(baseClass) && isEnumClassWithMembers(this._evaluator, baseClass)) {
+            if (isClass(baseClass) && isEnumClassWithMembers(this._evaluator, baseClass, this._nodeInfo)) {
                 this._evaluator.addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
                     LocMessage.enumClassOverride().format({ name: baseClass.shared.name }),
@@ -4618,8 +4643,10 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.typedDictBadVar(), node);
         };
 
+        const nodeInfo = this._nodeInfo;
+
         function validateStatement(statement: StatementNode) {
-            if (AnalyzerNodeInfo.isCodeUnreachable(statement)) {
+            if (nodeInfo.isCodeUnreachable(statement)) {
                 return;
             }
 
@@ -4639,7 +4666,7 @@ export class Checker extends ParseTreeWalker {
             }
 
             if (statement.nodeType === ParseNodeType.If) {
-                const conditionValue = AnalyzerNodeInfo.getStaticConditionValue(statement);
+                const conditionValue = nodeInfo.getStaticConditionValue(statement);
                 if (conditionValue === undefined) {
                     emitBadStatementError(statement);
                     return;
@@ -4784,7 +4811,7 @@ export class Checker extends ParseTreeWalker {
                 this._reportUnknownReturnResult(node, declaredReturnType);
                 this._validateReturnTypeIsNotContravariant(declaredReturnType, returnAnnotation);
 
-                const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node, this._nodeInfo);
                 declaredReturnType = makeTypeVarsBound(declaredReturnType, liveScopes);
             }
 
@@ -4973,6 +5000,7 @@ export class Checker extends ParseTreeWalker {
                 this._evaluator,
                 classType,
                 name,
+                this._nodeInfo,
                 /* ignoreAnnotation */ true
             );
 
@@ -7657,7 +7685,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+        const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node, this._nodeInfo);
         declaredReturnType = makeTypeVarsBound(declaredReturnType, liveScopes);
 
         let generatorType: Type | undefined;
@@ -7816,7 +7844,11 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _reportDuplicateImports() {
-        const importStatements = getTopLevelImports(this._moduleNode);
+        const importStatements = getTopLevelImports(
+            this._moduleNode,
+            /* includeImplicitImports */ false,
+            this._nodeInfo
+        );
 
         const importModuleMap = new Map<string, ImportAsNode>();
 

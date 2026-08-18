@@ -760,6 +760,52 @@ test('hover on mutually-recursive nested functions does not recurse infinitely',
     assert.strictEqual(hover, '```python\n(function) def outer() -> (() -> (() -> ...))\n```');
 });
 
+test('hover displays attribute documentation for dataclass converter fields', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Callable, TypeVar, Union, dataclass_transform
+////
+//// InputT = TypeVar("InputT")
+//// OutputT = TypeVar("OutputT")
+////
+//// def field(*, default: Any) -> Any:
+////     return default
+////
+//// def converted_field(*, converter: Callable[[InputT], OutputT], default: Any) -> Any:
+////     del converter
+////     return default
+////
+//// @dataclass_transform(kw_only_default=True, field_specifiers=(field, converted_field))
+//// class ModelBase:
+////     def __init__(self, **values: Any) -> None:
+////         self.__dict__.update(values)
+////
+//// def to_float(value: Union[float, str]) -> float:
+////     return float(value)
+////
+//// class Model(ModelBase):
+////     plain: float = field(default=0.0)
+////     """Plain field documentation."""
+////
+////     converted: float = converted_field(default=0.0, converter=to_float)
+////     """Converted field documentation."""
+////
+//// model = Model(converted="1.5")
+//// model.[|/*plain*/plain|]
+//// model.[|/*converted*/converted|]
+`;
+
+    const state = parseAndGetTestState(code).state;
+    assert.strictEqual(
+        getHoverText(state, 'plain'),
+        '```python\n(variable) plain: float\n```\n---\nPlain field documentation.'
+    );
+    assert.strictEqual(
+        getHoverText(state, 'converted'),
+        '```python\n(variable) converted: float\n```\n---\nConverted field documentation.'
+    );
+});
+
 function getHoverText(state: TestState, markerName: string): string {
     const marker = state.getMarkerByName(markerName);
     const position = state.convertOffsetToPosition(marker.fileName, marker.position);

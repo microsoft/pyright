@@ -6,8 +6,8 @@
  * The file system used by the Pyright type server. It wraps the real file system in a
  * VirtualFileOverlayFileSystem so that individual files can be transparently redirected to
  * alternate on-disk locations (e.g. merged Django stubs produced by an external client), and
- * exposes that overlay via the `virtualOverlay` getter so the server's virtual-file-redirect
- * handlers (TspSupplemental) can register and remove redirects.
+ * exposes redirect controls so the server's virtual-file-redirect handlers (TspSupplemental)
+ * can register and remove redirects without depending on this concrete wrapper.
  *
  * This is the Pyright-native counterpart to Pylance's `PylanceFileSystem`. Notebook cell URI
  * mapping is optional here (supplied in the notebook phase); when no mapper is provided the
@@ -25,7 +25,22 @@ import { IPyrightFileSystem, PyrightFileSystem } from '../pyrightFileSystem';
 import { INotebookUriMapper, NotebookUriMapper } from './notebookUriMapper';
 import { VirtualFileOverlayFileSystem } from './virtualFileOverlayFileSystem';
 
-export class TypeServerFileSystem implements IPyrightFileSystem {
+export interface TypeServerVirtualFileRedirects {
+    addVirtualFileRedirect(realUri: Uri, virtualUri: Uri): Disposable;
+    removeVirtualFileRedirect(realUri: Uri): void;
+}
+
+export namespace TypeServerVirtualFileRedirects {
+    export function is(fileSystem: FileSystem): fileSystem is FileSystem & TypeServerVirtualFileRedirects {
+        const candidate = fileSystem as Partial<TypeServerVirtualFileRedirects>;
+        return (
+            typeof candidate.addVirtualFileRedirect === 'function' &&
+            typeof candidate.removeVirtualFileRedirect === 'function'
+        );
+    }
+}
+
+export class TypeServerFileSystem implements IPyrightFileSystem, TypeServerVirtualFileRedirects {
     private readonly _fs: IPyrightFileSystem;
     private readonly _virtualOverlay: VirtualFileOverlayFileSystem;
 
@@ -38,17 +53,12 @@ export class TypeServerFileSystem implements IPyrightFileSystem {
         this._fs = new PyrightFileSystem(this._virtualOverlay);
     }
 
-    /**
-     * Returns the virtual file overlay layer. The server's virtual-file-redirect handlers use
-     * this to add/remove per-file redirects that transparently redirect read operations to
-     * alternate on-disk locations.
-     */
-    get virtualOverlay(): VirtualFileOverlayFileSystem {
-        return this._virtualOverlay;
+    addVirtualFileRedirect(realUri: Uri, virtualUri: Uri): Disposable {
+        return this._virtualOverlay.addFileRedirect(realUri, virtualUri);
     }
 
-    static is(obj: any): obj is TypeServerFileSystem {
-        return obj instanceof TypeServerFileSystem;
+    removeVirtualFileRedirect(realUri: Uri): void {
+        this._virtualOverlay.removeFileRedirect(realUri);
     }
 
     mkdirSync(uri: Uri, options?: MkDirOptions): void {

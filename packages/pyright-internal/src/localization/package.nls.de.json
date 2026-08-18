@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "Bibliothek",
+        "standardLibrary": "Standardbibliothek",
+        "workspace": "Arbeitsbereich"
+    },
     "CodeAction": {
         "createTypeStub": "Type Stub erstellen",
         "createTypeStubFor": "Type Stub für \"{moduleName}\" erstellen",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "Eine fixierte Klasse kann nicht von einer nicht fixierten Klasse erben.",
         "dataClassConverterFunction": "Das Argument vom Typ \"{argType}\" ist kein gültiger Konverter für das Feld \"{fieldName}\" vom Typ \"{fieldType}\"",
         "dataClassConverterOverloads": "Keine Überladungen von \"{funcName}\" sind gültige Konverter für das Feld \"{fieldName}\" vom Typ \"{fieldType}\"",
+        "dataClassDuplicateKwOnly": "„{name}“ ist ein doppeltes KW_ONLY Trennzeichen; Innerhalb einer Datenklasse ist nur eine zulässig",
         "dataClassFieldInheritedDefault": "„{fieldName}“ überschreibt ein Feld mit demselben Namen, aber es fehlt ein Standardwert",
         "dataClassFieldWithDefault": "Felder ohne Standardwerte dürfen nicht nach Feldern mit Standardwerten angezeigt werden.",
         "dataClassFieldWithPrivateName": "Das Feld \"Dataclass\" kann keinen privaten Namen verwenden.",
@@ -293,6 +299,8 @@
         "keywordSubscriptIllegal": "Schlüsselwortargumente innerhalb von Tiefskripts werden nicht unterstützt.",
         "lambdaReturnTypePartiallyUnknown": "Der Rückgabetyp des Lambdaausdrucks \"{returnType}\" ist teilweise unbekannt.",
         "lambdaReturnTypeUnknown": "Der Rückgabetyp der Lambdafunktion ist unbekannt.",
+        "lazyImportIllegal": "Für eine verzögerte Importanweisung ist Python 3.15 oder höher erforderlich.",
+        "lazyImportWildcardIllegal": "Platzhalterimporte können nicht mit „lazy“ verwendet werden.",
         "listAssignmentMismatch": "Ein Ausdruck vom Typ \"{type}\" kann der Zielliste nicht zugewiesen werden.",
         "listInAnnotation": "Der Listenausdruck ist im Typausdruck nicht zulässig",
         "literalEmptyArgs": "Nach \"Literal\" wurde mindestens ein Typargument erwartet.",
@@ -845,6 +853,9 @@
         "useTypeInstead": "Verwenden Sie stattdessen type[T].",
         "varianceMismatchForClass": "Die Varianz des Typarguments \"{typeVarName}\" ist nicht mit der Basisklasse \"{className}\" kompatibel",
         "varianceMismatchForTypeAlias": "Die Varianz des Typarguments \"{typeVarName}\" ist nicht mit \"{typeAliasParam}\" kompatibel"
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "„{symbolName}“ kann nicht umbenannt werden, da es auch in nicht bearbeitbarem Code deklariert ist, etwa in einer Bibliothek oder einer Stubdatei, der nicht geändert werden kann. Nach Abschluss der Umbenennung wäre „{symbolName}“ nur teilweise umbenannt. Lösen Sie zuerst die Konflikte bei den folgenden Deklarationen:\r\n{locations}"
     },
     "Service": {
         "longOperation": "Das Aufzählen von Arbeitsbereichsquelldateien nimmt viel Zeit in Anspruch. Erwägen Sie stattdessen, einen Unterordner zu öffnen. [Weitere Informationen](https://aka.ms/workspace-too-many-files)"

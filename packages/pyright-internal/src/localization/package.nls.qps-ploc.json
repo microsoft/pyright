@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "[BRp1R][นั้£ïþrærÿẤğ倪นั้ढूँ]",
+        "standardLibrary": "[KyI3I][นั้§tæñðærð lïþrærÿẤğ倪İЂҰนั้ढूँ]",
+        "workspace": "[7NDuV][นั้WørkspæçëẤğ倪İนั้ढूँ]"
+    },
     "CodeAction": {
         "createTypeStub": "[4i3uH][นั้Çrëætë Tÿpë StubẤğ倪İЂҰนั้ढूँ]",
         "createTypeStubFor": "[oXYb0][นั้Çrëætë Tÿpë Stub Før \"{møðµlëÑæmë}\"Ấğ倪İЂҰक्र्तिृまนั้ढूँ]",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "[KOz4K][นั้Æ frøzëñ çlæss çæññøt ïñhërït frøm æ çlæss thæt ïs ñøt frøzëñẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्นั้ढूँ]",
         "dataClassConverterFunction": "[FxD8r][นั้Ærgµmëñt øf tÿpë \"{ærgTÿpë}\" ïs ñøt æ vælïð çøñvërtër før fïëlð \"{fïëlðÑæmë}\" øf tÿpë \"{fïëlðTÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "dataClassConverterOverloads": "[ZJ0SE][นั้Ñø øvërløæðs øf \"{fµñçÑæmë}\" ærë vælïð çøñvërtërs før fïëlð \"{fïëlðÑæmë}\" øf tÿpë \"{fïëlðTÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्นั้ढूँ]",
+        "dataClassDuplicateKwOnly": "[tW8yV][นั้\"{ñæmë}\" ïs æ ðµplïçætë KW_ØÑ£Ý sëpærætør; øñlÿ øñë ïs ælløwëð wïthïñ æ ðætæçlæssẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "dataClassFieldInheritedDefault": "[BKxvn][นั้\"{fïëlðÑæmë}\" øvërrïðës æ fïëlð øf thë sæmë ñæmë þµt ïs mïssïñg æ ðëfæµlt vælµëẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "dataClassFieldWithDefault": "[iJuju][นั้Fïëlðs wïthøµt ðëfæµlt vælµës çæññøt æppëær æftër fïëlðs wïth ðëfæµlt vælµësẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğนั้ढूँ]",
         "dataClassFieldWithPrivateName": "[miQYb][นั้Ðætæçlæss fïëlð çæññøt µsë prïvætë ñæmëẤğ倪İЂҰक्र्तिृまẤğนั้ढूँ]",
@@ -293,6 +299,8 @@
         "keywordSubscriptIllegal": "[khu47][นั้Këÿwørð ærgµmëñts wïthïñ sµþsçrïpts ærë ñøt sµppørtëðẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "lambdaReturnTypePartiallyUnknown": "[Z5ML1][นั้Rëtµrñ tÿpë øf læmþðæ, \"{rëtµrñTÿpë}\", ïs pærtïællÿ µñkñøwñẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्นั้ढूँ]",
         "lambdaReturnTypeUnknown": "[h4icY][นั้Rëtµrñ tÿpë øf læmþðæ ïs µñkñøwñẤğ倪İЂҰक्र्तिृนั้ढूँ]",
+        "lazyImportIllegal": "[3keQl][นั้£æzÿ ïmpørt stætëmëñt rëqµïrës Pÿthøñ 3.15 ør ñëwërẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
+        "lazyImportWildcardIllegal": "[73LKr][นั้Wïlðçærð ïmpørts çæññøt þë µsëð wïth 'læzÿ'Ấğ倪İЂҰक्र्तिृまẤğ倪นั้ढूँ]",
         "listAssignmentMismatch": "[DZh64][นั้Ëxprëssïøñ wïth tÿpë \"{tÿpë}\" çæññøt þë æssïgñëð tø tærgët lïstẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "listInAnnotation": "[i5U8t][นั้List ëxprëssïøñ ñøt ælløwëð ïñ tÿpë ëxprëssïøñẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "literalEmptyArgs": "[VkrFm][นั้Ëxpëçtëð øñë ør mørë tÿpë ærgµmëñts æftër \"Literal\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
@@ -845,6 +853,9 @@
         "useTypeInstead": "[Zig8D][นั้Üsë type[T] ïñstëæðẤğ倪İЂҰक्นั้ढूँ]",
         "varianceMismatchForClass": "[fqhIl][นั้Værïæñçë øf tÿpë ærgµmëñt \"{tÿpëVærÑæmë}\" ïs ïñçømpætïþlë wïth þæsë çlæss \"{çlæssÑæmë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "varianceMismatchForTypeAlias": "[YSiVx][นั้Værïæñçë øf tÿpë ærgµmëñt \"{tÿpëVærÑæmë}\" ïs ïñçømpætïþlë wïth \"{tÿpëÆlïæsPæræm}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]"
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "[dWHyW][นั้Çæñ't rëñæmë \"{sÿmþølÑæmë}\" þëçæµsë ït ïs ælsø ðëçlærëð ïñ ñøñ-ëðïtæþlë çøðë (æ lïþrærÿ ør stµþ fïlë) thæt çæññøt þë møðïfïëð. Çømplëtïñg thë rëñæmë wøµlð lëævë \"{sÿmþølÑæmë}\" pærtïællÿ rëñæmëð. Rësølvë thë çøñflïçtïñg ðëçlærætïøñ(s) fïrst:Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]\r\n[dWHyW][นั้{løçætïøñs}Ấğ倪İนั้ढूँ]"
     },
     "Service": {
         "longOperation": "[Mvrp3][นั้Ëñµmërætïøñ øf wørkspæçë søµrçë fïlës ïs tækïñg æ løñg tïmë. Çøñsïðër øpëñïñg æ sµþ-følðër ïñstëæð. [£ëærñ mørë](https://ækæ.ms/wørkspæçë-tøø-mæñÿ-fïlës)Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂนั้ढूँ]"
