@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "Library",
+        "standardLibrary": "Standard library",
+        "workspace": "Workspace"
+    },
     "CodeAction": {
         "createTypeStub": "Vytvořit zástupnou proceduru (Stub) typu",
         "createTypeStubFor": "Vytvořit zástupnou proceduru typu (Stub) pro modul {moduleName}",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "Zablokovaná třída nemůže dědit z třídy, která není zablokovaná",
         "dataClassConverterFunction": "Argument typu {argType} není platný převaděč pro pole {fieldName} typu {fieldType}",
         "dataClassConverterOverloads": "Žádná přetížení {funcName} nejsou platné převaděče pro pole {fieldName} typu {fieldType}",
+        "dataClassDuplicateKwOnly": "„{name}“ je duplicitní oddělovač KW_ONLY; V rámci třídy dataclass je povolen pouze jeden.",
         "dataClassFieldInheritedDefault": "{fieldName} přepíše pole se stejným názvem, ale chybí mu výchozí hodnota.",
         "dataClassFieldWithDefault": "Pole bez výchozích hodnot se nemůžou zobrazit po polích s výchozími hodnotami",
         "dataClassFieldWithPrivateName": "Pole datové třídy nemůže používat privátní název",
@@ -293,6 +299,8 @@
         "keywordSubscriptIllegal": "Argumenty klíčových slov v dolních indexech nejsou podporovány",
         "lambdaReturnTypePartiallyUnknown": "Návratový typ lambda {returnType} je částečně neznámý",
         "lambdaReturnTypeUnknown": "Návratový typ výrazu lambda je neznámý",
+        "lazyImportIllegal": "Příkaz pro „lazy“ import vyžaduje Python 3.15 nebo novější",
+        "lazyImportWildcardIllegal": "Importy se zástupnými znaky se nedají použít s „lazy“",
         "listAssignmentMismatch": "Výraz s typem {type} se nedá přiřadit k cílovému seznamu",
         "listInAnnotation": "Výraz List není ve výrazu typu povolený.",
         "literalEmptyArgs": "Za literálem (Literal) se očekával jeden nebo více argumentů typu.",
@@ -845,6 +853,9 @@
         "useTypeInstead": "Místo toho použít type[T]",
         "varianceMismatchForClass": "Odchylka argumentu typu „{typeVarName}“ není kompatibilní se základní třídou „{className}“",
         "varianceMismatchForTypeAlias": "Rozptyl argumentu typu „{typeVarName}“ není kompatibilní s typem „{typeAliasParam}“"
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "Symbol {symbolName} nejde přejmenovat, protože je také deklarovaný v neupravitelném kódu (knihovně nebo souboru zástupné procedury), který se nedá upravit. Dokončení přejmenování by vedlo k tomu, že by symbol „{symbolName}“ byl přejmenován jen částečně. Nejprve vyřešte konfliktní deklarace:\r\n{locations}"
     },
     "Service": {
         "longOperation": "Výčet zdrojových souborů pracovního prostoru trvá dlouho. Zvažte raději otevření podsložky. [Další informace](https://aka.ms/workspace-too-many-files)"

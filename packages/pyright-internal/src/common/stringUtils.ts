@@ -13,20 +13,92 @@ import { compareComparableValues, Comparison } from './core';
 // name. Characters must appear in order.
 // Return true if all typed characters are in symbol
 export function isPatternInSymbol(typedValue: string, symbolName: string): boolean {
-    const typedLower = typedValue.toLocaleLowerCase();
-    const symbolLower = symbolName.toLocaleLowerCase();
-    const typedLength = typedLower.length;
-    const symbolLength = symbolLower.length;
+    // This function is extremely hot: it runs against the entire symbol index
+    // during auto-import and completion filtering. The original implementation
+    // eagerly allocated two fully lower-cased copies of both strings up front
+    // (via toLocaleLowerCase), even when an early character mismatch would
+    // immediately reject the match.
+    //
+    // Fast path: scan character-by-character with charCodeAt (no allocation) and
+    // fold case via a precomputed Latin-1 table (built at module init from
+    // toLocaleLowerCase, so it preserves the original's exact locale-sensitive
+    // behavior) while BOTH current characters fold to a single length-preserving
+    // Latin-1 code unit. The overwhelming majority of Python symbol names and typed
+    // queries are ASCII/Latin-1 identifiers, so this avoids the two
+    // toLocaleLowerCase allocations entirely for the common case. Folds that would
+    // change a string's length fall back to the exact original algorithm below.
+    const typedLength = typedValue.length;
+    const symbolLength = symbolName.length;
     let typedPos = 0;
     let symbolPos = 0;
     while (typedPos < typedLength && symbolPos < symbolLength) {
-        if (typedLower[typedPos] === symbolLower[symbolPos]) {
+        const typedCode = typedValue.charCodeAt(typedPos);
+        const symbolCode = symbolName.charCodeAt(symbolPos);
+
+        // Fold each current character via the precomputed table. Any code point
+        // outside Latin-1 (index > 0xff) is not in the table and always needs the
+        // fallback; a Latin-1 code point maps to NEEDS_FALLBACK when its case fold
+        // is not a single length-preserving Latin-1 code unit under the active
+        // locale (see the table comment below).
+        const typedFold = typedCode <= 0xff ? latin1LowerCaseTable[typedCode] : NEEDS_FALLBACK;
+        const symbolFold = symbolCode <= 0xff ? latin1LowerCaseTable[symbolCode] : NEEDS_FALLBACK;
+
+        if (typedFold === NEEDS_FALLBACK || symbolFold === NEEDS_FALLBACK) {
+            // We hit a character whose case folding can change string length or is
+            // locale-sensitive in a way the per-character table cannot represent
+            // (e.g. non-Latin-1 code points like the ligature ﬁ, Greek, CJK, a
+            // combining mark, or Turkish dotted capital İ). Fall back to the exact
+            // original algorithm: lower-case both FULL strings and match over the
+            // lower-cased strings from the start. Restarting (rather than resuming
+            // at typedPos/symbolPos over original indices) is required for
+            // correctness, because toLocaleLowerCase can produce a different number
+            // of code units than the original string.
+            const typedLower = typedValue.toLocaleLowerCase();
+            const symbolLower = symbolName.toLocaleLowerCase();
+            const typedLowerLength = typedLower.length;
+            const symbolLowerLength = symbolLower.length;
+            let tp = 0;
+            let sp = 0;
+            while (tp < typedLowerLength && sp < symbolLowerLength) {
+                if (typedLower[tp] === symbolLower[sp]) {
+                    tp += 1;
+                }
+                sp += 1;
+            }
+            return tp === typedLowerLength;
+        }
+
+        if (typedFold === symbolFold) {
             typedPos += 1;
         }
         symbolPos += 1;
     }
+
     return typedPos === typedLength;
 }
+
+// Sentinel marking a Latin-1 code point whose case fold cannot be represented as a
+// single length-preserving Latin-1 code unit under the active locale, so matches
+// involving it must take the full-string toLocaleLowerCase fallback.
+const NEEDS_FALLBACK = -1;
+
+// Case-folding lookup table for the Latin-1 range (0x00-0xff). Each entry holds the
+// lower-cased code point produced by String.prototype.toLocaleLowerCase for that
+// code unit under the process locale at module-init time. This preserves the exact
+// behavior of the original toLocaleLowerCase-based implementation — including any
+// locale-sensitive ASCII casing such as the Turkish/Azeri dotless-i rule — while
+// avoiding a per-call allocation. Entries whose fold is not a single code unit
+// (length-changing folds) map to NEEDS_FALLBACK so those matches take the slow path.
+// Building the table once assumes the process locale is stable for its lifetime,
+// which holds for the language server.
+const latin1LowerCaseTable: Int32Array = (() => {
+    const table = new Int32Array(256);
+    for (let i = 0; i < 256; i++) {
+        const lower = String.fromCharCode(i).toLocaleLowerCase();
+        table[i] = lower.length === 1 ? lower.charCodeAt(0) : NEEDS_FALLBACK;
+    }
+    return table;
+})();
 
 // This is a simple, non-cryptographic hash function for text.
 export function hashString(contents: string) {

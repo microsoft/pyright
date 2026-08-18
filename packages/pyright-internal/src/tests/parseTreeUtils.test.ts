@@ -8,6 +8,7 @@
 
 import assert from 'assert';
 
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import {
     findNodeByOffset,
     getDottedName,
@@ -23,10 +24,19 @@ import {
     isImportAlias,
     isImportModuleName,
     isLastNameOfDottedName,
+    isWithinTypeAnnotation,
+    PrintExpressionFlags,
     printExpression,
 } from '../analyzer/parseTreeUtils';
 import { TextRange, rangesAreEqual } from '../common/textRange';
-import { MemberAccessNode, NameNode, ParseNodeType, StringNode, isExpressionNode } from '../parser/parseNodes';
+import {
+    getParserStringAnnotation,
+    MemberAccessNode,
+    NameNode,
+    ParseNodeType,
+    StringNode,
+    isExpressionNode,
+} from '../parser/parseNodes';
 import { TestState, getNodeAtMarker, getNodeForRange, parseAndGetTestState } from './harness/fourslash/testState';
 
 test('isImportModuleName', () => {
@@ -88,6 +98,41 @@ test('getFirstAncestorOrSelfOfKind', () => {
     assert(node.nodeType === ParseNodeType.Call);
     assert(node.start === result.pos);
     assert(TextRange.getEnd(node) === result.end);
+});
+
+test('isWithinTypeAnnotation requires an actual quoted-string association', () => {
+    const code = `
+//// from typing import TypedDict
+////
+//// class Data:
+////     pass
+////
+//// unquoted: /*unquoted*/Data
+//// quoted: "/*quoted*/Data"
+//// td: TypedDict[{"/*key*/field": "/*value*/int"}]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const unquotedNode = getNodeAtMarker(state, 'unquoted');
+    assert.strictEqual(unquotedNode.nodeType, ParseNodeType.Name);
+    assert.strictEqual(isWithinTypeAnnotation(unquotedNode, /* requireQuotedAnnotation */ true), false);
+
+    const quotedStringList = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, 'quoted'), ParseNodeType.StringList);
+    assert.ok(quotedStringList);
+    const quotedAnnotation = getParserStringAnnotation(quotedStringList);
+    assert.ok(quotedAnnotation);
+    assert.strictEqual(isWithinTypeAnnotation(quotedAnnotation, /* requireQuotedAnnotation */ true), true);
+
+    const keyStringList = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, 'key'), ParseNodeType.StringList);
+    assert.ok(keyStringList);
+    assert.strictEqual(getParserStringAnnotation(keyStringList), undefined);
+    assert.strictEqual(isWithinTypeAnnotation(keyStringList, /* requireQuotedAnnotation */ true), false);
+
+    const valueStringList = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, 'value'), ParseNodeType.StringList);
+    assert.ok(valueStringList);
+    const valueAnnotation = getParserStringAnnotation(valueStringList);
+    assert.ok(valueAnnotation);
+    assert.strictEqual(isWithinTypeAnnotation(valueAnnotation, /* requireQuotedAnnotation */ true), true);
 });
 
 test('getDottedNameWithGivenNodeAsLastName', () => {
@@ -317,6 +362,33 @@ test('printExpression', () => {
         assert(isExpressionNode(node));
         assert.strictEqual(printExpression(node), expected);
     }
+});
+
+test('printExpression forward declarations use parser annotations but not owner annotations', () => {
+    const code = `
+//// from typing import cast
+////
+//// class Data:
+////     pass
+////
+//// parser_tier: "/*parser*/list[Data]"
+//// owner_tier = cast("/*owner*/Data", object())
+    `;
+    const state = parseAndGetTestState(code).state;
+    while (state.program.analyze()) {
+        // Continue until analysis completes and the cast annotation is parsed lazily.
+    }
+
+    const parserStringList = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, 'parser'), ParseNodeType.StringList);
+    assert.ok(parserStringList);
+    assert.ok(getParserStringAnnotation(parserStringList));
+    assert.strictEqual(printExpression(parserStringList, PrintExpressionFlags.ForwardDeclarations), 'list[Data]');
+
+    const ownerStringList = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, 'owner'), ParseNodeType.StringList);
+    assert.ok(ownerStringList);
+    assert.strictEqual(getParserStringAnnotation(ownerStringList), undefined);
+    assert.ok(AnalyzerNodeInfo.getStringAnnotation(ownerStringList, state.program.analyzerNodeInfoContext));
+    assert.strictEqual(printExpression(ownerStringList, PrintExpressionFlags.ForwardDeclarations), '"Data"');
 });
 
 test('findNodeByOffset', () => {
