@@ -722,8 +722,10 @@ export function getTypeNarrowingCallback(
             const callMember = lookUpObjectMember(callType, '__call__');
             if (callMember) {
                 const memberType = evaluator.getTypeOfMember(callMember);
-                if (isFunction(memberType) && isFunctionReturnTypeGuard(memberType)) {
-                    isPossiblyTypeGuard = true;
+                if (isFunction(memberType)) {
+                    isPossiblyTypeGuard = isFunctionReturnTypeGuard(memberType);
+                } else if (isOverloaded(memberType)) {
+                    isPossiblyTypeGuard = OverloadedType.getOverloads(memberType).some(isFunctionReturnTypeGuard);
                 }
             }
         }
@@ -752,11 +754,21 @@ export function getTypeNarrowingCallback(
                     }
                 }
 
-                const positionalArgs = testExpression.d.args.filter(
-                    (arg) => arg.d.argCategory === ArgCategory.Simple && !arg.d.name
-                );
-                if (targetParamIndex < positionalArgs.length) {
-                    return positionalArgs[targetParamIndex].d.valueExpr;
+                // Map positional arguments to parameters. If an unpacked argument
+                // appears at or before the target index, the mapping is ambiguous,
+                // so don't attempt to narrow.
+                let positionalIndex = 0;
+                for (const arg of testExpression.d.args) {
+                    if (arg.d.name) {
+                        continue;
+                    }
+                    if (arg.d.argCategory !== ArgCategory.Simple) {
+                        return undefined;
+                    }
+                    if (positionalIndex === targetParamIndex) {
+                        return arg.d.valueExpr;
+                    }
+                    positionalIndex++;
                 }
 
                 return undefined;
@@ -766,7 +778,12 @@ export function getTypeNarrowingCallback(
             if (isFunction(callType)) {
                 arg0Expr = getTargetArgExpr(callType);
             } else if (isOverloaded(callType)) {
+                // Consider only the overloads that return a TypeGuard or TypeIs so
+                // that eligibility and argument mapping come from the same signature.
                 for (const overload of OverloadedType.getOverloads(callType)) {
+                    if (!isFunctionReturnTypeGuard(overload)) {
+                        continue;
+                    }
                     arg0Expr = getTargetArgExpr(overload);
                     if (arg0Expr) {
                         break;
