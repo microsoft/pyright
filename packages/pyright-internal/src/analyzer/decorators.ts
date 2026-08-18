@@ -409,7 +409,12 @@ export function applyClassDecorator(
         }
 
         if (FunctionType.isBuiltIn(decoratorType, 'runtime_checkable')) {
-            if (!ClassType.isProtocolClass(originalClassType)) {
+            // Class decorators are applied bottom-up, so validate the class type
+            // that this decorator actually receives rather than the original
+            // (undecorated) class.
+            const decoratedClassType = isInstantiableClass(inputClassType) ? inputClassType : originalClassType;
+
+            if (!ClassType.isProtocolClass(decoratedClassType)) {
                 evaluator.addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
                     LocMessage.runtimeCheckableNotProtocol(),
