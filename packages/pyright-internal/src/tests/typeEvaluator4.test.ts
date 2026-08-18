@@ -413,11 +413,11 @@ test('DataClassReplace1', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 10);
+    TestUtils.validateResults(analysisResults1, 12);
 
     configOptions.defaultPythonVersion = pythonVersion3_13;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 4);
+    TestUtils.validateResults(analysisResults2, 6);
 });
 
 test('DataClassFrozen1', () => {

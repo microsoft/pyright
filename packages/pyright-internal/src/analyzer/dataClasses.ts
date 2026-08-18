@@ -227,14 +227,14 @@ export function synthesizeDataClassMethods(
     initType.shared.declaredReturnType = evaluator.getNoneType();
 
     // For Python 3.13 and newer, synthesize a __replace__ method.
+    // NamedTuple also provides _replace on all supported Python versions.
+    const synthesizeDunderReplace = PythonVersion.isGreaterOrEqualTo(
+        AnalyzerNodeInfo.getFileInfo(node).executionEnvironment.pythonVersion,
+        pythonVersion3_13
+    );
     let replaceType: FunctionType | undefined;
-    if (
-        PythonVersion.isGreaterOrEqualTo(
-            AnalyzerNodeInfo.getFileInfo(node).executionEnvironment.pythonVersion,
-            pythonVersion3_13
-        )
-    ) {
-        replaceType = FunctionType.createSynthesizedInstance('__replace__');
+    if (synthesizeDunderReplace || isNamedTuple) {
+        replaceType = FunctionType.createSynthesizedInstance(synthesizeDunderReplace ? '__replace__' : '_replace');
         FunctionType.addParam(replaceType, selfParam);
         FunctionType.addKeywordOnlyParamSeparator(replaceType);
         replaceType.shared.declaredReturnType = selfType;
@@ -796,7 +796,12 @@ export function synthesizeDataClassMethods(
         symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
 
         if (replaceType) {
-            symbolTable.set('__replace__', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+            if (synthesizeDunderReplace) {
+                symbolTable.set('__replace__', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+            }
+            if (isNamedTuple && !symbolTable.has('_replace')) {
+                symbolTable.set('_replace', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+            }
         }
     }
 
