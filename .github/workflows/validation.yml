@@ -150,10 +150,10 @@ jobs:
 
       - uses: ./.github/actions/choose-npm-install
 
-      - run: npm publish --dry-run
+      - run: npm pack --dry-run
         working-directory: packages/pyright
 
-      - run: npm publish --dry-run
+      - run: npm pack --dry-run
         working-directory: packages/pyright-typeserver
 
       - run: pnpm run package
