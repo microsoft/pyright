@@ -28393,7 +28393,14 @@ export function createTypeEvaluator(
                         return;
                     }
 
-                    const destParamInfo = destParamMap.get(srcParamInfo.param.name);
+                    const destParamInfo =
+                        destParamMap.get(srcParamInfo.param.name) ??
+                        destParamDetails.params.find(
+                            (paramInfo) =>
+                                paramInfo.param.name === srcParamInfo.param.name &&
+                                paramInfo.kind === ParamKind.Standard &&
+                                paramInfo.param.category === ParamCategory.Simple
+                        );
                     const paramDiag = diag?.createAddendum();
                     const srcParamType = srcParamInfo.type;
 
@@ -28519,6 +28526,43 @@ export function createTypeEvaluator(
                     diag?.createAddendum().addMessage(
                         LocAddendum.namedParamMissingInSource().format({ name: paramName })
                     );
+                    canAssign = false;
+                }
+            });
+
+            // Positional-or-keyword dest parameters can also be passed by name.
+            // If the source has no matching named parameter, the keyword form must
+            // be compatible with the source **kwargs (when present).
+            destParamDetails.params.forEach((destParamInfo) => {
+                if (
+                    destParamInfo.kind !== ParamKind.Standard ||
+                    !destParamInfo.param.name ||
+                    destParamInfo.param.category !== ParamCategory.Simple
+                ) {
+                    return;
+                }
+
+                const srcHasNamed = srcParamDetails.params.some(
+                    (srcParamInfo) =>
+                        srcParamInfo.param.name === destParamInfo.param.name &&
+                        srcParamInfo.param.category === ParamCategory.Simple &&
+                        srcParamInfo.kind !== ParamKind.Positional
+                );
+                if (srcHasNamed || srcParamDetails.kwargsIndex === undefined) {
+                    return;
+                }
+
+                if (
+                    !assignParam(
+                        destParamInfo.type,
+                        srcParamDetails.params[srcParamDetails.kwargsIndex].type,
+                        destParamInfo.index,
+                        diag?.createAddendum(),
+                        constraints,
+                        flags,
+                        recursionCount
+                    )
+                ) {
                     canAssign = false;
                 }
             });
