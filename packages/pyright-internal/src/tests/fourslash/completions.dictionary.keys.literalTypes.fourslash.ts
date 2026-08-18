@@ -148,11 +148,13 @@
                 {
                     label: 'b"key"',
                     kind: Consts.CompletionItemKind.Constant,
+                    textEdit: { range: helper.getPositionRange('marker7'), newText: 'b"key"' },
                     detail: Consts.IndexValueDetail,
                 },
                 {
                     label: 'b"key2"',
                     kind: Consts.CompletionItemKind.Constant,
+                    textEdit: { range: helper.getPositionRange('marker7'), newText: 'b"key2"' },
                     detail: Consts.IndexValueDetail,
                 },
             ],

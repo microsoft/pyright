@@ -40,6 +40,8 @@ export interface ProcessSpawnOptions {
     env?: Record<string, string | undefined>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     stdio?: any;
+    // Hide the spawned process's console window on Windows.
+    windowsHide?: boolean;
 }
 
 /**
@@ -59,6 +61,9 @@ export interface SpawnedProcess {
     readonly stderr: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     on(event: string, listener: (...args: any[]) => void): void;
+    // Optional so hosts backed by something other than a Node child process can omit it.
+    // Node's ChildProcess already satisfies this signature.
+    kill?(signal?: number | string): void;
 }
 
 export interface Host {

@@ -153,7 +153,8 @@ export function getEffectiveCommandLineOptions(
     }
 
     commandLineOptions.configSettings.autoSearchPaths = serverSettings.autoSearchPaths;
-    commandLineOptions.configSettings.extraPaths = serverSettings.extraPaths?.map((e) => e.getFilePath()) ?? [];
+    commandLineOptions.configSettings.useDefaultExcludes = serverSettings.useDefaultExcludes;
+    commandLineOptions.configSettings.extraPaths = serverSettings.extraPathFileSpecs ?? [];
     commandLineOptions.configSettings.diagnosticSeverityOverrides = serverSettings.diagnosticSeverityOverrides;
     commandLineOptions.configSettings.diagnosticBooleanOverrides = serverSettings.diagnosticBooleanOverrides;
 

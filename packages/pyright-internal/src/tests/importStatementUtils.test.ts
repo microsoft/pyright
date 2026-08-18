@@ -699,9 +699,11 @@ function testAddition(
     const marker = state.getMarkerByName(markerName)!;
     const parseResults = state.program.getBoundSourceFile(marker!.fileUri)!.getParseResults()!;
 
-    const importStatement = getTopLevelImports(parseResults.parserOutput.parseTree).orderedImports.find(
-        (i) => i.moduleName === moduleName
-    )!;
+    const importStatement = getTopLevelImports(
+        parseResults.parserOutput.parseTree,
+        /* includeImplicitImports */ false,
+        state.program.analyzerNodeInfoContext
+    ).orderedImports.find((i) => i.moduleName === moduleName)!;
     const edits = getTextEditsForAutoImportSymbolAddition(importNameInfo, importStatement, parseResults);
 
     const ranges = [...state.getRanges().filter((r) => !!r.marker?.data)];
@@ -719,7 +721,11 @@ function testInsertions(
     const marker = state.getMarkerByName(markerName)!;
     const parseResults = state.program.getBoundSourceFile(marker!.fileUri)!.getParseResults()!;
 
-    const importStatements = getTopLevelImports(parseResults.parserOutput.parseTree);
+    const importStatements = getTopLevelImports(
+        parseResults.parserOutput.parseTree,
+        /* includeImplicitImports */ false,
+        state.program.analyzerNodeInfoContext
+    );
     const edits = getTextEditsForAutoImportInsertions(
         importNameInfo,
         importStatements,
@@ -748,7 +754,11 @@ function applyInsertions(
     const sourceFile = state.program.getBoundSourceFile(marker.fileUri)!;
     const parseResults = sourceFile.getParseResults()!;
 
-    const importStatements = getTopLevelImports(parseResults.parserOutput.parseTree);
+    const importStatements = getTopLevelImports(
+        parseResults.parserOutput.parseTree,
+        /* includeImplicitImports */ false,
+        state.program.analyzerNodeInfoContext
+    );
     const edits = getTextEditsForAutoImportInsertions(
         importNameInfo,
         importStatements,
