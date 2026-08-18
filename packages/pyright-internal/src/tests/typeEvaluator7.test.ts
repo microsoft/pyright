@@ -8,6 +8,8 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
 import {
     pythonVersion3_10,
@@ -626,6 +628,17 @@ test('Protocol53', () => {
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['protocol53.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 8);
+});
+
+test('Protocol54', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol54.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+
+    // Verify that the errors are reported on the expected `@runtime_checkable`
+    // decorators rather than on some other (unrelated) declaration.
+    const errorLines = analysisResults[0].errors.map((diag) => diag.range.start.line).sort((a, b) => a - b);
+    assert.deepStrictEqual(errorLines, [13, 24, 45]);
 });
 
 test('ProtocolExplicit1', () => {

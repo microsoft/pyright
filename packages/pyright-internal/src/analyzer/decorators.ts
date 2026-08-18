@@ -409,7 +409,20 @@ export function applyClassDecorator(
         }
 
         if (FunctionType.isBuiltIn(decoratorType, 'runtime_checkable')) {
-            originalClassType.shared.flags |= ClassTypeFlags.RuntimeCheckable;
+            // Class decorators are applied bottom-up, so validate the class type
+            // that this decorator actually receives rather than the original
+            // (undecorated) class.
+            const decoratedClassType = isInstantiableClass(inputClassType) ? inputClassType : originalClassType;
+
+            if (!ClassType.isProtocolClass(decoratedClassType)) {
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.runtimeCheckableNotProtocol(),
+                    decoratorNode.d.expr
+                );
+            } else {
+                originalClassType.shared.flags |= ClassTypeFlags.RuntimeCheckable;
+            }
 
             // Don't call getTypeOfDecorator for runtime_checkable. It appears
             // frequently in stubs, and it's a waste of time to validate its
