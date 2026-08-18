@@ -133,6 +133,10 @@ export function setForceEnglishDiagnostics(force: boolean) {
     forceEnglishDiagnostics = force;
 }
 
+export function getDiagnosticLocale(): string {
+    return forceEnglishDiagnostics ? 'en' : getLocaleFromEnv().toLowerCase();
+}
+
 export function getLocaleFromEnv(): string {
     if (localeOverride) {
         return localeOverride;
@@ -1661,6 +1665,12 @@ export namespace Localizer {
             new ParameterizedString<{ typeVarName: string; typeAliasParam: string }>(
                 getRawString('DiagnosticAddendum.varianceMismatchForTypeAlias')
             );
+    }
+
+    export namespace CallHierarchy {
+        export const library = () => getRawString('CallHierarchy.library');
+        export const standardLibrary = () => getRawString('CallHierarchy.standardLibrary');
+        export const workspace = () => getRawString('CallHierarchy.workspace');
     }
 
     export namespace CodeAction {

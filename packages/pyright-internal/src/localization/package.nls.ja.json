@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "ライブラリ",
+        "standardLibrary": "標準ライブラリ",
+        "workspace": "ワークスペース"
+    },
     "CodeAction": {
         "createTypeStub": "型 Stub を作成する",
         "createTypeStubFor": "\"{moduleName}\" の型 Stub を作成する",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "固定されたクラスは、固定されていないクラスから継承できません",
         "dataClassConverterFunction": "型 \"{argType}\" の引数は、型 \"{fieldType}\" のフィールド \"{fieldName}\" の有効なコンバーターではありません",
         "dataClassConverterOverloads": "{funcName}\" のオーバーロードは、型 \"{fieldType}\" のフィールド \"{fieldName}\" に対して有効なコンバーターではありません",
+        "dataClassDuplicateKwOnly": "\"{name}\" は重複する KW_ONLY 区切りです。データクラス内で許可されるのは 1 つだけです",
         "dataClassFieldInheritedDefault": "\"{fieldName}\" は同じ名前のフィールドをオーバーライドしますが、既定値がありません",
         "dataClassFieldWithDefault": "既定値のないフィールドは、既定値を持つフィールドの後に表示できません",
         "dataClassFieldWithPrivateName": "データクラス フィールドはプライベート名を使用できません",
@@ -293,6 +299,8 @@
         "keywordSubscriptIllegal": "添字内のキーワード引数はサポートされていません",
         "lambdaReturnTypePartiallyUnknown": "ラムダの戻り値の型、\"{returnType}\" が部分的に不明です",
         "lambdaReturnTypeUnknown": "ラムダの戻り値の型が不明です",
+        "lazyImportIllegal": "lazy import ステートメントには Python 3.15 以降が必要です",
+        "lazyImportWildcardIllegal": "ワイルドカード インポートを 'lazy' と共に使用することはできません",
         "listAssignmentMismatch": "型 \"{type}\" の式をターゲット リストに割り当てることはできません",
         "listInAnnotation": "List 式は型式では使用できません",
         "literalEmptyArgs": "\"Literal\" の後に 1 つ以上の型引数が必要です",
@@ -845,6 +853,9 @@
         "useTypeInstead": "代わりに type[T] を使用する",
         "varianceMismatchForClass": "型引数 \"{typeVarName}\" の分散は、基底クラス \"{className}\" と互換性がありません",
         "varianceMismatchForTypeAlias": "型引数 \"{typeVarName}\" の分散は \"{typeAliasParam}\" と互換性がありません"
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "\"{symbolName}\" は、変更できない編集できないコード (ライブラリまたはスタブ ファイル) でも宣言されているため、名前を変更できません。名前の変更を完了すると、\"{symbolName}\" の名前が部分的に変更されたままになります。競合する宣言を最初に解決してください:\r\n{locations}"
     },
     "Service": {
         "longOperation": "ワークスペース ソース ファイルの列挙に時間がかかっています。代わりにサブフォルダーを開く方法を検討してください。[詳細情報](https://aka.ms/workspace-too-many-files)"

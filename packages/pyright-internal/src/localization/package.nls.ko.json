@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "라이브러리",
+        "standardLibrary": "표준 라이브러리",
+        "workspace": "작업 영역"
+    },
     "CodeAction": {
         "createTypeStub": "형식 Stub 만들기",
         "createTypeStubFor": "\"{moduleName}\"에 대한 형식 Stub 만들기",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "고정 클래스는 고정되지 않은 클래스에서 상속할 수 없습니다.",
         "dataClassConverterFunction": "\"{argType}\" 형식의 인수는 \"{fieldType}\" 형식의 \"{fieldName}\" 필드에 유효한 변환기가 아닙니다.",
         "dataClassConverterOverloads": "\"{funcName}\"의 오버로드는 \"{fieldType}\" 형식의 \"{fieldName}\" 필드에 유효한 변환기가 아닙니다.",
+        "dataClassDuplicateKwOnly": "\"{name}\"은(는) 중복된 KW_ONLY 구분 기호입니다. 데이터 클래스 내에서 하나만 사용할 수 있습니다.",
         "dataClassFieldInheritedDefault": "\"{fieldName}\"이(가) 같은 이름의 필드를 재정의하지만 기본값이 없음",
         "dataClassFieldWithDefault": "기본값이 없는 필드는 기본값이 있는 필드 뒤에 나타날 수 없습니다.",
         "dataClassFieldWithPrivateName": "데이터 클래스 필드는 프라이빗 이름을 사용할 수 없습니다.",
@@ -293,6 +299,8 @@
         "keywordSubscriptIllegal": "아래 첨자 내의 키워드 인수는 지원되지 않습니다.",
         "lambdaReturnTypePartiallyUnknown": "람다의 반환 형식 \"{returnType}\"을(를) 부분적으로 알 수 없습니다.",
         "lambdaReturnTypeUnknown": "람다의 반환 형식을 알 수 없습니다.",
+        "lazyImportIllegal": "지연 가져오기 문에는 Python 3.15 이상 필요",
+        "lazyImportWildcardIllegal": "와일드카드 가져오기는 'lazy'와 함께 사용할 수 없습니다.",
         "listAssignmentMismatch": "형식이 \"{type}\"인 식을 대상 목록에 할당할 수 없습니다.",
         "listInAnnotation": "형식 식에는 List 식을 사용할 수 없습니다.",
         "literalEmptyArgs": "‘Literal’ 뒤에 하나 이상의 형식 인수가 필요합니다.",
@@ -845,6 +853,9 @@
         "useTypeInstead": "대신 type[T]를 사용합니다.",
         "varianceMismatchForClass": "‘{typeVarName}’ 형식 인수의 차이는 ‘{className}’ 기본 클래스와 호환되지 않습니다.",
         "varianceMismatchForTypeAlias": "‘{typeVarName}’ 형식 인수의 차이는 ‘{typeAliasParam}’와(과) 호환되지 않습니다."
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "\"{symbolName}\"은(는) 수정할 수 없는 편집할 수 없는 코드(라이브러리 또는 스텁 파일)에도 선언되어 있으므로 이름을 바꿀 수 없습니다. 이름 바꾸기를 완료하면 \"{symbolName}\"의 이름이 부분적으로 바뀝니다. 충돌하는 선언을 먼저 해결합니다.\r\n{locations}"
     },
     "Service": {
         "longOperation": "작업 영역 소스 파일을 열거하는 데는 시간이 오래 걸립니다. 대신 하위 폴더를 여는 것이 좋습니다. [자세히 알아보기](https://aka.ms/workspace-too-many-files)"

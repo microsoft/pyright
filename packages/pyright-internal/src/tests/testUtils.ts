@@ -11,8 +11,10 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { ImportResolver } from '../analyzer/importResolver';
 import { Program } from '../analyzer/program';
+import { Scope } from '../analyzer/scope';
 import { NameTypeWalker } from '../analyzer/testWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { ConfigOptions, ExecutionEnvironment, getStandardDiagnosticRuleSet } from '../common/configOptions';
@@ -36,6 +38,7 @@ import { ParseFileResults, ParseOptions, Parser, ParserOutput } from '../parser/
 export interface FileAnalysisResult {
     fileUri: Uri;
     parseResults?: ParseFileResults | undefined;
+    moduleScope?: Scope | undefined;
     errors: Diagnostic[];
     warnings: Diagnostic[];
     infos: Diagnostic[];
@@ -139,9 +142,13 @@ export function getAnalysisResults(
     return sourceFiles.map((sourceFile, index) => {
         if (sourceFile) {
             const diagnostics = sourceFile.getDiagnostics(configOptions) || [];
+            const parseResults = sourceFile.getParseResults();
             const analysisResult: FileAnalysisResult = {
                 fileUri: sourceFile.getUri(),
-                parseResults: sourceFile.getParseResults(),
+                parseResults,
+                moduleScope: parseResults
+                    ? AnalyzerNodeInfo.getScope(parseResults.parserOutput.parseTree, program.analyzerNodeInfoContext)
+                    : undefined,
                 errors: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Error),
                 warnings: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Warning),
                 infos: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Information),
@@ -156,6 +163,7 @@ export function getAnalysisResults(
             const analysisResult: FileAnalysisResult = {
                 fileUri: Uri.empty(),
                 parseResults: undefined,
+                moduleScope: undefined,
                 errors: [],
                 warnings: [],
                 infos: [],

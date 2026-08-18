@@ -10,6 +10,7 @@
 
 import { CancellationToken, DocumentHighlight, DocumentHighlightKind } from 'vscode-languageserver';
 
+import { getInfoReader } from '../analyzer/analyzerNodeInfo';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ProgramView, ReferenceUseCase } from '../common/extensibility';
@@ -43,7 +44,11 @@ export class DocumentHighlightProvider {
             return undefined;
         }
 
-        const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, offset);
+        const node = ParseTreeUtils.findNodeByOffset(
+            this._parseResults.parserOutput.parseTree,
+            offset,
+            getInfoReader(this._program)
+        );
         if (node === undefined) {
             return undefined;
         }

@@ -2514,7 +2514,11 @@ export function getMembersForClass(classType: ClassType, symbolTable: SymbolTabl
             // Add any new member variables from this class.
             const isClassTypedDict = ClassType.isTypedDictClass(mroClass);
             ClassType.getSymbolTable(mroClass).forEach((symbol, name) => {
-                if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
+                if (
+                    symbol.isClassMember() ||
+                    symbol.isNamedTupleMemberMember() ||
+                    (includeInstanceVars && symbol.isInstanceMember())
+                ) {
                     if (!isClassTypedDict || !isTypedDictMemberAccessedThroughIndex(symbol)) {
                         if (!symbol.isInitVar()) {
                             const existingSymbol = symbolTable.get(name);

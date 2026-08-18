@@ -6,9 +6,11 @@
 
 import assert from 'assert';
 
+import { FileSystem } from '../common/fileSystem';
 import { lib, sitePackages } from '../common/pathConsts';
 import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
 import { PyrightFileSystem } from '../pyrightFileSystem';
+import { ReadOnlyAugmentedFileSystem } from '../readonlyAugmentedFileSystem';
 import { TestFileSystem } from './harness/vfs/filesystem';
 import { Uri } from '../common/uri/uri';
 import { UriEx } from '../common/uri/uriUtils';
@@ -16,6 +18,54 @@ import { PartialStubService } from '../partialStubService';
 
 const libraryRoot = combinePaths(normalizeSlashes('/'), lib, sitePackages);
 const libraryRootUri = UriEx.file(libraryRoot);
+
+test('read-only augmented file system preserves prohibited operations', () => {
+    const realFs = new TestFileSystem(/* ignoreCase */ false, { cwd: normalizeSlashes('/') });
+    const fs = new ReadOnlyAugmentedFileSystem(realFs);
+    const source = UriEx.file(normalizeSlashes('/source'));
+    const destination = UriEx.file(normalizeSlashes('/destination'));
+    const operations = [
+        () => fs.mkdirSync(source),
+        () => fs.chdir(source),
+        () => fs.writeFileSync(source, 'content', 'utf8'),
+        () => fs.rmdirSync(source),
+        () => fs.unlinkSync(source),
+        () => fs.createWriteStream(source),
+        () => fs.copyFileSync(source, destination),
+    ];
+
+    for (const operation of operations) {
+        assert.throws(operation, /^Error: Operation is not allowed\.$/);
+    }
+});
+
+test('read-only augmented file system mapping filter receives its exact backing file system', () => {
+    const originalRoot = UriEx.file(normalizeSlashes('/original'));
+    const mappedRoot = UriEx.file(normalizeSlashes('/mapped'));
+    const originalFile = originalRoot.combinePaths('file.py');
+    const mappedFile = mappedRoot.combinePaths('file.py');
+    const realFs = new TestFileSystem(/* ignoreCase */ false, {
+        cwd: normalizeSlashes('/'),
+        files: { [originalFile.getFilePath()]: 'content' },
+    });
+    const fs = new ReadOnlyAugmentedFileSystem(realFs);
+    let observedFileSystem: FileSystem | undefined;
+    fs.mapDirectory(mappedRoot, originalRoot, (_uri, fileSystem) => {
+        observedFileSystem = fileSystem;
+        return true;
+    });
+
+    assert.strictEqual(fs.readFileSync(mappedFile, 'utf8'), 'content');
+    assert.strictEqual(observedFileSystem, realFs);
+});
+
+test('read-only augmented file system exposes no reset surface', () => {
+    const fs = new ReadOnlyAugmentedFileSystem(
+        new TestFileSystem(/* ignoreCase */ false, { cwd: normalizeSlashes('/') })
+    );
+
+    assert.strictEqual('clear' in fs, false);
+});
 
 test('virtual file exists', () => {
     const files = [

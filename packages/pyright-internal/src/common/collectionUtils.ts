@@ -366,12 +366,20 @@ export function removeArrayElements<T>(array: T[], predicate: (item: T) => boole
 }
 
 export function createMapFromItems<T>(items: T[], keyGetter: (t: T) => string) {
-    return items
-        .map((t) => keyGetter(t))
-        .reduce((map, key, i) => {
-            map.set(key, (map.get(key) || []).concat(items[i]));
-            return map;
-        }, new Map<string, T[]>());
+    // Single O(n) pass. The previous implementation appended with
+    // `(map.get(key) || []).concat(item)`, which rebuilt the whole bucket array
+    // on every insertion and cost O(k^2) for a key that accumulated k items.
+    const map = new Map<string, T[]>();
+    for (const item of items) {
+        const key = keyGetter(item);
+        const existing = map.get(key);
+        if (existing === undefined) {
+            map.set(key, [item]);
+        } else {
+            existing.push(item);
+        }
+    }
+    return map;
 }
 
 export function addIfUnique<T>(arr: T[], t: T, equalityComparer: EqualityComparer<T> = equateValues): T[] {
