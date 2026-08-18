@@ -11,6 +11,7 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { containsOnlyWhitespace } from '../common/core';
 import { assert, assertNever, fail } from '../common/debug';
 import { convertPositionToOffset, convertTextRangeToRange } from '../common/positionUtils';
+import { PythonVersion, pythonVersion3_12 } from '../common/pythonVersion';
 import { Position, Range, TextRange } from '../common/textRange';
 import { TextRangeCollection, getIndexContaining } from '../common/textRangeCollection';
 import {
@@ -702,6 +703,57 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
     }
 
     return undefined;
+}
+
+// Determines whether a zero-argument `super()` call at the specified node
+// can succeed at runtime. The zero-argument form uses the first argument of
+// the frame that is executing the call along with the compiler-provided
+// `__class__` cell, so the caller must separately verify that an enclosing
+// class is present. This routine verifies only that the executing frame is
+// one that receives a first argument.
+export function isZeroArgSuperCallAllowed(node: ParseNode, pythonVersion: PythonVersion): boolean {
+    // Use the evaluation scope machinery to determine which frame executes
+    // the call. This handles decorators, parameter default values, class
+    // headers, lambdas, and comprehensions.
+    let curNode: ParseNode | undefined = getEvaluationScopeNode(node).node;
+
+    while (curNode) {
+        switch (curNode.nodeType) {
+            case ParseNodeType.Function:
+            case ParseNodeType.Lambda: {
+                // The zero-argument form requires that the executing frame
+                // accept a first positional argument.
+                const firstParam = curNode.d.params.length > 0 ? curNode.d.params[0] : undefined;
+                return firstParam?.d.category === ParamCategory.Simple && firstParam.d.name !== undefined;
+            }
+
+            case ParseNodeType.Comprehension: {
+                // A generator expression always executes in its own frame whose
+                // first argument is the implicit iterator, not the method's
+                // "self" argument. List, set, and dict comprehensions likewise
+                // used a separate frame prior to Python 3.12 (PEP 709).
+                if (curNode.d.isGenerator || PythonVersion.isLessThan(pythonVersion, pythonVersion3_12)) {
+                    return false;
+                }
+                break;
+            }
+
+            case ParseNodeType.TypeParameterList: {
+                // A type parameter scope is a proxy scope, so continue
+                // searching for the enclosing execution frame.
+                break;
+            }
+
+            default: {
+                // A class body or module frame receives no first argument.
+                return false;
+            }
+        }
+
+        curNode = curNode.parent ? getEvaluationScopeNode(curNode.parent).node : undefined;
+    }
+
+    return false;
 }
 
 // This is similar to getEnclosingFunction except that it uses evaluation

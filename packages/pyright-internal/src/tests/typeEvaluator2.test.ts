@@ -9,7 +9,13 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
-import { pythonVersion3_10, pythonVersion3_13, pythonVersion3_15, pythonVersion3_9 } from '../common/pythonVersion';
+import {
+    pythonVersion3_10,
+    pythonVersion3_11,
+    pythonVersion3_13,
+    pythonVersion3_15,
+    pythonVersion3_9,
+} from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -177,7 +183,7 @@ test('AugmentedAssignment3', () => {
 test('Super1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super1.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('Super2', () => {
@@ -250,6 +256,14 @@ test('Super13', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super13.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Super14', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super14.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('MissingSuper1', () => {
