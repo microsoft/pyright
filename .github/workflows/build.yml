@@ -1,7 +1,7 @@
 name: 'Build'
 
 env:
-  NODE_VERSION: '22.x' # Shipped with VS Code.
+  NODE_VERSION: '24.15.0' # Shipped with VS Code.
   ARTIFACT_NAME_VSIX: vsix
   VSIX_NAME: vscode-pyright.vsix
 
@@ -15,29 +15,30 @@ jobs:
     if: github.repository == 'microsoft/pyright'
     runs-on: ubuntu-latest
     name: Build
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
-      - uses: ./.github/actions/npm-cache-dir
-
-      - run: npm run install:all
+      - uses: ./.github/actions/cfs-npm-install
 
       - name: Build VSIX
         working-directory: packages/vscode-pyright
         run: |
-          npm run package
+          pnpm run package
           mv pyright-*.vsix ${{ env.VSIX_NAME }}
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ${{ env.ARTIFACT_NAME_VSIX }}
           path: packages/vscode-pyright/${{ env.VSIX_NAME }}
@@ -52,7 +53,7 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: artifacts
 
