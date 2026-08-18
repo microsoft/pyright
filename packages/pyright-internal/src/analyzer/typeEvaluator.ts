@@ -619,6 +619,7 @@ export interface EvaluatorOptions {
     minimumLoggingThreshold: number;
     evaluateUnknownImportsAsAny: boolean;
     verifyTypeCacheEvaluatorFlags: boolean;
+    nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader;
 }
 
 // Describes a "deferred class completion" that is run when a class type is
@@ -664,6 +665,7 @@ export function createTypeEvaluator(
     evaluatorOptions: EvaluatorOptions,
     wrapWithLogger: LogWrapper
 ): TypeEvaluator {
+    const nodeInfo = AnalyzerNodeInfo.createAnalyzerNodeInfoAccessor(evaluatorOptions.nodeInfoReader);
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: SuppressedNodeStackEntry[] = [];
@@ -685,6 +687,26 @@ export function createTypeEvaluator(
     let returnTypeInferenceTypeFormTypeCache: Map<number, TypeFormTypeCacheEntry[]> | undefined;
     const signatureTrackerStack: SignatureTrackerStackEntry[] = [];
     let prefetched: Partial<PrefetchedTypes> | undefined;
+
+    function getScopeForNode(node: ParseNode) {
+        return ScopeUtils.getScopeForNode(node, nodeInfo);
+    }
+
+    function getScopeHierarchy(node: ParseNode, stopScope?: Scope) {
+        return ScopeUtils.getScopeHierarchy(node, stopScope, nodeInfo);
+    }
+
+    function findTopNodeInScope(node: ParseNode, scope: Scope) {
+        return ScopeUtils.findTopNodeInScope(node, scope, nodeInfo);
+    }
+
+    function getScopeIdForNode(node: ParseNode) {
+        return ParseTreeUtils.getScopeIdForNode(node, nodeInfo);
+    }
+
+    function getTypeVarScopesForNode(node: ParseNode) {
+        return ParseTreeUtils.getTypeVarScopesForNode(node, nodeInfo);
+    }
 
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => Promise<T>): Promise<T>;
@@ -818,7 +840,7 @@ export function createTypeEvaluator(
                 const expectedFlags = cacheEntry.flags;
 
                 if (expectedFlags !== undefined && flags !== expectedFlags) {
-                    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                    const fileInfo = nodeInfo.getFileInfo(node);
                     const position = convertOffsetToPosition(node.start, fileInfo.lines);
 
                     const message =
@@ -1146,7 +1168,7 @@ export function createTypeEvaluator(
             // so don't re-enter this block once we start executing it.
             prefetched = {};
 
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            const fileInfo = nodeInfo.getFileInfo(node);
 
             prefetched.objectClass = getBuiltInType(node, 'object');
             prefetched.typeClass = getBuiltInType(node, 'type');
@@ -1306,7 +1328,7 @@ export function createTypeEvaluator(
             !typeResult.type.priv.includeSubclasses &&
             ClassType.isBuiltIn(typeResult.type, 'bytes')
         ) {
-            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.disableBytesTypePromotions) {
+            if (nodeInfo.getFileInfo(node).diagnosticRuleSet.disableBytesTypePromotions) {
                 typeResult = {
                     ...typeResult,
                     type: ClassType.cloneRemoveTypePromotions(typeResult.type),
@@ -1405,7 +1427,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Tuple: {
-                typeResult = getTypeOfTuple(evaluatorInterface, node, flags, inferenceContext);
+                typeResult = getTypeOfTuple(evaluatorInterface, node, flags, inferenceContext, nodeInfo);
                 break;
             }
 
@@ -1449,7 +1471,13 @@ export function createTypeEvaluator(
                     effectiveFlags &= ~EvalFlags.InstantiableType;
                 }
 
-                typeResult = getTypeOfBinaryOperation(evaluatorInterface, node, effectiveFlags, inferenceContext);
+                typeResult = getTypeOfBinaryOperation(
+                    evaluatorInterface,
+                    node,
+                    effectiveFlags,
+                    inferenceContext,
+                    nodeInfo
+                );
                 break;
             }
 
@@ -1475,7 +1503,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Ternary: {
-                typeResult = getTypeOfTernaryOperation(evaluatorInterface, node, flags, inferenceContext);
+                typeResult = getTypeOfTernaryOperation(evaluatorInterface, node, flags, inferenceContext, nodeInfo);
                 break;
             }
 
@@ -1603,7 +1631,7 @@ export function createTypeEvaluator(
         }
 
         if (isTypeCheckingOnly) {
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            const fileInfo = nodeInfo.getFileInfo(node);
 
             if (!fileInfo.isStubFile) {
                 addDiagnostic(
@@ -1911,8 +1939,9 @@ export function createTypeEvaluator(
             updatedFlags |= EvalFlags.NotParsed;
         }
 
-        if (node.d.annotation && (flags & EvalFlags.TypeExpression) !== 0) {
-            return getTypeOfExpression(node.d.annotation, updatedFlags);
+        const annotation = nodeInfo.getStringAnnotation(node);
+        if (annotation && (flags & EvalFlags.TypeExpression) !== 0) {
+            return getTypeOfExpression(annotation, updatedFlags);
         }
 
         if (node.d.strings.length === 1) {
@@ -2080,7 +2109,7 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfAnnotation(node: ExpressionNode, options?: ExpectedTypeOptions): Type {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
 
         // Special-case the typing.pyi file, which contains some special
         // types that the type analyzer needs to interpret differently.
@@ -3643,7 +3672,7 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfModule(node: ParseNode, symbolName: string, nameParts: string[]) {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         const lookupResult = importLookup({ nameParts, importingFileUri: fileInfo.fileUri });
 
         if (!lookupResult) {
@@ -3659,8 +3688,9 @@ export function createTypeEvaluator(
     }
 
     function checkCodeFlowTooComplex(node: ParseNode): boolean {
-        const scopeNode = node.nodeType === ParseNodeType.Function ? node : ParseTreeUtils.getExecutionScopeNode(node);
-        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(scopeNode);
+        const scopeNode =
+            node.nodeType === ParseNodeType.Function ? node : ParseTreeUtils.getExecutionScopeNode(node, nodeInfo);
+        const codeComplexity = nodeInfo.getCodeFlowComplexity(scopeNode);
 
         if (codeComplexity > maxCodeComplexity) {
             let errorRange: TextRange = scopeNode;
@@ -3670,7 +3700,7 @@ export function createTypeEvaluator(
                 errorRange = { start: 0, length: 0 };
             }
 
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            const fileInfo = nodeInfo.getFileInfo(node);
             addDiagnosticForTextRange(
                 fileInfo,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -3697,7 +3727,7 @@ export function createTypeEvaluator(
             return Reachability.Reachable;
         }
 
-        const flowNode = AnalyzerNodeInfo.getFlowNode(node);
+        const flowNode = nodeInfo.getFlowNode(node);
         if (!flowNode) {
             if (node.parent) {
                 return getNodeReachability(node.parent, sourceNode);
@@ -3705,13 +3735,13 @@ export function createTypeEvaluator(
             return Reachability.UnreachableStructural;
         }
 
-        const sourceFlowNode = sourceNode ? AnalyzerNodeInfo.getFlowNode(sourceNode) : undefined;
+        const sourceFlowNode = sourceNode ? nodeInfo.getFlowNode(sourceNode) : undefined;
 
         return codeFlowEngine.getFlowNodeReachability(flowNode, sourceFlowNode);
     }
 
     function getAfterNodeReachability(node: ParseNode): Reachability {
-        const returnFlowNode = AnalyzerNodeInfo.getAfterFlowNode(node);
+        const returnFlowNode = nodeInfo.getAfterFlowNode(node);
         if (!returnFlowNode) {
             return Reachability.UnreachableStructural;
         }
@@ -3725,7 +3755,7 @@ export function createTypeEvaluator(
             return reachability;
         }
 
-        const executionScopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+        const executionScopeNode = ParseTreeUtils.getExecutionScopeNode(node, nodeInfo);
         if (!isFlowNodeReachableUsingNeverNarrowing(executionScopeNode, returnFlowNode)) {
             return Reachability.UnreachableByAnalysis;
         }
@@ -3755,8 +3785,8 @@ export function createTypeEvaluator(
             return true;
         }
 
-        const sourceFlowNode = AnalyzerNodeInfo.getFlowNode(sourceNode);
-        const sinkFlowNode = AnalyzerNodeInfo.getFlowNode(sinkNode);
+        const sourceFlowNode = nodeInfo.getFlowNode(sourceNode);
+        const sinkFlowNode = nodeInfo.getFlowNode(sinkNode);
         if (!sourceFlowNode || !sinkFlowNode) {
             return false;
         }
@@ -3780,7 +3810,7 @@ export function createTypeEvaluator(
         }
 
         if (!isDiagnosticSuppressedForNode(node)) {
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            const fileInfo = nodeInfo.getFileInfo(node);
             const reportTypeReachability = fileInfo.diagnosticRuleSet.enableReachabilityAnalysis;
 
             if (
@@ -3802,7 +3832,7 @@ export function createTypeEvaluator(
 
     function addDeprecated(message: string, node: ParseNode) {
         if (!isDiagnosticSuppressedForNode(node)) {
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            const fileInfo = nodeInfo.getFileInfo(node);
             fileInfo.diagnosticSink.addDeprecatedWithTextRange(message, node);
         }
     }
@@ -3826,7 +3856,7 @@ export function createTypeEvaluator(
         }
 
         if (isNodeReachable(node)) {
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            const fileInfo = nodeInfo.getFileInfo(node);
             return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range ?? node);
         }
 
@@ -3863,7 +3893,7 @@ export function createTypeEvaluator(
     }
 
     function addDiagnostic(rule: DiagnosticRule, message: string, node: ParseNode, range?: TextRange) {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         const diagLevel = fileInfo.diagnosticRuleSet[rule] as DiagnosticLevel;
 
         if (diagLevel === 'none') {
@@ -3874,7 +3904,7 @@ export function createTypeEvaluator(
 
         if (containingFunction) {
             // Should we suppress this diagnostic because it's within an unannotated function?
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            const fileInfo = nodeInfo.getFileInfo(node);
             if (!fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions) {
                 // Is the target node within the body of the function? If so, suppress the diagnostic.
                 if (
@@ -3890,7 +3920,8 @@ export function createTypeEvaluator(
             const functionInfo = getFunctionInfoFromDecorators(
                 evaluatorInterface,
                 containingFunction,
-                !!containingClassNode
+                !!containingClassNode,
+                nodeInfo
             );
 
             if ((functionInfo.flags & FunctionTypeFlags.NoTypeCheck) !== 0) {
@@ -3945,7 +3976,7 @@ export function createTypeEvaluator(
 
         const declarations = symbolWithScope.symbol.getDeclarations();
         let declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol)?.type;
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(nameNode);
+        const fileInfo = nodeInfo.getFileInfo(nameNode);
 
         // If this is a class scope and there is no type declared for this class variable,
         // see if a parent class has a type declared.
@@ -3974,7 +4005,7 @@ export function createTypeEvaluator(
         if (declaredType && !isTypeAlias) {
             let diagAddendum = new DiagnosticAddendum();
 
-            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(nameNode);
+            const liveScopeIds = getTypeVarScopesForNode(nameNode);
             const boundDeclaredType = makeTypeVarsBound(declaredType, liveScopeIds);
             const srcType = makeTypeVarsBound(typeResult.type, liveScopeIds);
 
@@ -4006,7 +4037,7 @@ export function createTypeEvaluator(
             // appears to be a constant, use the strict source type. If it's a member
             // variable that can be overridden by a child class, use the more general
             // version by stripping off the literal and TypeForm.
-            const scope = ScopeUtils.getScopeForNode(nameNode);
+            const scope = getScopeForNode(nameNode);
             if (scope?.type === ScopeType.Class) {
                 if (
                     TypeBase.isInstance(destType) &&
@@ -4163,7 +4194,7 @@ export function createTypeEvaluator(
         srcExprNode?: ExpressionNode
     ) {
         const memberName = node.d.member.d.value;
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
 
         const classDef = ParseTreeUtils.getEnclosingClass(node);
         if (!classDef) {
@@ -4752,8 +4783,8 @@ export function createTypeEvaluator(
     }
 
     function markNamesAccessed(node: ParseNode, names: string[]) {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        const scope = ScopeUtils.getScopeForNode(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
+        const scope = getScopeForNode(node);
 
         if (scope) {
             names.forEach((symbolName) => {
@@ -5081,7 +5112,7 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfName(node: NameNode, flags: EvalFlags): TypeResult {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         const name = node.d.value;
         let symbol: Symbol | undefined;
         let type: Type | undefined;
@@ -5354,7 +5385,7 @@ export function createTypeEvaluator(
 
         if (isTypeVar(type) && type.priv.scopeId && !type.shared.isSynthesized) {
             if (!isTypeVarTuple(type) || !type.priv.isInUnion) {
-                const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
+                const liveScopeIds = getTypeVarScopesForNode(node);
                 type = TypeBase.cloneWithTypeForm(type, convertToInstance(makeTypeVarsBound(type, liveScopeIds)));
             }
         } else if (isInstantiableClass(type) && !type.priv.includeSubclasses && !ClassType.isSpecialBuiltIn(type)) {
@@ -5412,7 +5443,7 @@ export function createTypeEvaluator(
         }
 
         // Disable for assignments in the typings.pyi file, since it defines special forms.
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         if (fileInfo.isTypingStubFile) {
             return type;
         }
@@ -5500,9 +5531,7 @@ export function createTypeEvaluator(
         // for code flow analysis.
         if (
             !decls.every(
-                (decl) =>
-                    decl.type === DeclarationType.Param ||
-                    ScopeUtils.getScopeForNode(decl.node) === symbolWithScope.scope
+                (decl) => decl.type === DeclarationType.Param || getScopeForNode(decl.node) === symbolWithScope.scope
             )
         ) {
             return undefined;
@@ -5515,7 +5544,7 @@ export function createTypeEvaluator(
                 (decl) =>
                     decl.type !== DeclarationType.Variable ||
                     decl.isFinal ||
-                    ScopeUtils.getScopeForNode(decl.node)?.type !== ScopeType.Module
+                    getScopeForNode(decl.node)?.type !== ScopeType.Module
             )
         ) {
             return undefined;
@@ -5523,18 +5552,18 @@ export function createTypeEvaluator(
 
         // If the symbol is a variable captured by an inner function
         // or lambda, see if we can infer the type from the outer scope.
-        const scopeHierarchy = ScopeUtils.getScopeHierarchy(node, symbolWithScope.scope);
+        const scopeHierarchy = getScopeHierarchy(node, symbolWithScope.scope);
 
         if (scopeHierarchy && scopeHierarchy.length >= 2) {
             // Find the parse node associated with the scope that is just inside of the
             // scope that declares the captured variable.
-            const innerScopeNode = ScopeUtils.findTopNodeInScope(node, scopeHierarchy[scopeHierarchy.length - 2]);
+            const innerScopeNode = findTopNodeInScope(node, scopeHierarchy[scopeHierarchy.length - 2]);
             if (
                 innerScopeNode?.nodeType === ParseNodeType.Function ||
                 innerScopeNode?.nodeType === ParseNodeType.Lambda ||
                 innerScopeNode?.nodeType === ParseNodeType.Class
             ) {
-                const innerScopeCodeFlowNode = AnalyzerNodeInfo.getFlowNode(innerScopeNode);
+                const innerScopeCodeFlowNode = nodeInfo.getFlowNode(innerScopeNode);
                 if (innerScopeCodeFlowNode) {
                     // See if any of the assignments of the symbol are reachable
                     // from this node. If so, we cannot apply any narrowing because
@@ -5547,7 +5576,7 @@ export function createTypeEvaluator(
                                 return true;
                             }
 
-                            const declCodeFlowNode = AnalyzerNodeInfo.getFlowNode(decl.node);
+                            const declCodeFlowNode = nodeInfo.getFlowNode(decl.node);
                             if (!declCodeFlowNode) {
                                 return false;
                             }
@@ -5718,7 +5747,7 @@ export function createTypeEvaluator(
                 );
             }
 
-            const scopeIdToAssign = ParseTreeUtils.getScopeIdForNode(enclosingScope);
+            const scopeIdToAssign = getScopeIdForNode(enclosingScope);
 
             return TypeVarType.cloneForScopeId(
                 type,
@@ -5754,7 +5783,7 @@ export function createTypeEvaluator(
 
         const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
         if (enclosingClass) {
-            const liveTypeVarScopeIds = ParseTreeUtils.getTypeVarScopesForNode(enclosingClass);
+            const liveTypeVarScopeIds = getTypeVarScopesForNode(enclosingClass);
             if (!liveTypeVarScopeIds.includes(scopeId)) {
                 addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -6050,7 +6079,7 @@ export function createTypeEvaluator(
 
         if (!skipPartialUnknownCheck) {
             reportPossibleUnknownAssignment(
-                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportUnknownMemberType,
+                nodeInfo.getFileInfo(node).diagnosticRuleSet.reportUnknownMemberType,
                 DiagnosticRule.reportUnknownMemberType,
                 node.d.member,
                 typeResult.type,
@@ -6074,7 +6103,7 @@ export function createTypeEvaluator(
         let baseType = transformPossibleRecursiveTypeAlias(baseTypeResult.type);
         const memberName = node.d.member.d.value;
         let diag = new DiagnosticAddendum();
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         let type: Type | undefined;
         let narrowedTypeForSet: Type | undefined;
         let typeErrors = false;
@@ -6205,7 +6234,8 @@ export function createTypeEvaluator(
                     node,
                     baseType,
                     memberName,
-                    isIncomplete
+                    isIncomplete,
+                    nodeInfo
                 );
 
                 if (enumMemberResult) {
@@ -6695,7 +6725,7 @@ export function createTypeEvaluator(
                     isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType
                 )
             ) {
-                setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(errorNode), memberInfo.symbol, errorNode);
+                setSymbolAccessed(nodeInfo.getFileInfo(errorNode), memberInfo.symbol, errorNode);
             }
 
             // Special-case `__init_subclass` and `__class_getitem__` because
@@ -7391,14 +7421,14 @@ export function createTypeEvaluator(
             // they don't result in runtime exceptions when used in this manner.
             let skipSubscriptCheck = (flags & EvalFlags.VarTypeAnnotation) !== 0;
             if (skipSubscriptCheck) {
-                const scopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+                const scopeNode = ParseTreeUtils.getExecutionScopeNode(node, nodeInfo);
                 if (scopeNode?.nodeType === ParseNodeType.Module) {
                     skipSubscriptCheck = false;
                 }
             }
 
             if (!skipSubscriptCheck) {
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                const fileInfo = nodeInfo.getFileInfo(node);
                 if (
                     isInstantiableClass(baseTypeResult.type) &&
                     ClassType.isBuiltIn(baseTypeResult.type) &&
@@ -8185,7 +8215,7 @@ export function createTypeEvaluator(
 
                     // This feature is currently experimental.
                     const supportsTypedDictTypeArg =
-                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures &&
+                        nodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures &&
                         ClassType.isBuiltIn(concreteSubtype, 'TypedDict');
 
                     let typeArgs = getTypeArgs(node, flags, {
@@ -8725,7 +8755,7 @@ export function createTypeEvaluator(
                 // treated as a type. The others can be regular (non-type) objects.
                 adjFlags =
                     EvalFlags.NoParamSpec | EvalFlags.NoTypeVarTuple | EvalFlags.NoSpecialize | EvalFlags.NoClassVar;
-                if (isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(node))) {
+                if (isAnnotationEvaluationPostponed(nodeInfo.getFileInfo(node))) {
                     adjFlags |= EvalFlags.ForwardRefs;
                 }
 
@@ -8846,7 +8876,7 @@ export function createTypeEvaluator(
         let adjustedFlags =
             flags | EvalFlags.InstantiableType | EvalFlags.ConvertEllipsisToAny | EvalFlags.StrLiteralAsType;
 
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         if (fileInfo.isStubFile) {
             adjustedFlags |= EvalFlags.ForwardRefs;
         }
@@ -8865,7 +8895,7 @@ export function createTypeEvaluator(
         } else if (node.nodeType === ParseNodeType.Dictionary && supportsDictExpression) {
             const inlinedTypeDict =
                 prefetched?.typedDictClass && isInstantiableClass(prefetched.typedDictClass)
-                    ? createTypedDictTypeInlined(evaluatorInterface, node, prefetched.typedDictClass)
+                    ? createTypedDictTypeInlined(evaluatorInterface, node, prefetched.typedDictClass, nodeInfo)
                     : undefined;
             const keyTypeFallback =
                 prefetched?.strClass && isInstantiableClass(prefetched.strClass)
@@ -9068,7 +9098,7 @@ export function createTypeEvaluator(
             const isCyclicalTypeVarCall =
                 isInstantiableClass(baseTypeResult.type) &&
                 ClassType.isBuiltIn(baseTypeResult.type, 'TypeVar') &&
-                AnalyzerNodeInfo.getFileInfo(node).isTypingStubFile;
+                nodeInfo.getFileInfo(node).isTypingStubFile;
             const isTypeFormCall = isInstantiableClass(baseTypeResult.type) && isTypeFormClass(baseTypeResult.type);
 
             if (!isCyclicalTypeVarCall && !isTypeFormCall) {
@@ -9569,7 +9599,7 @@ export function createTypeEvaluator(
         let scope: Scope | undefined;
 
         while (curNode) {
-            scope = ScopeUtils.getScopeForNode(curNode);
+            scope = getScopeForNode(curNode);
 
             // Stop when we get a valid scope that's not a list comprehension
             // scope. That includes lambdas, functions, classes, and modules.
@@ -9610,7 +9640,7 @@ export function createTypeEvaluator(
             addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.superCallArgCount(), node.d.args[2]);
         }
 
-        const enclosingFunction = ParseTreeUtils.getEnclosingFunctionEvaluationScope(node);
+        const enclosingFunction = ParseTreeUtils.getEnclosingFunctionEvaluationScope(node, nodeInfo);
         const enclosingClass = enclosingFunction ? ParseTreeUtils.getEnclosingClass(enclosingFunction) : undefined;
         const enclosingClassType = enclosingClass ? getTypeOfClass(enclosingClass)?.classType : undefined;
 
@@ -9642,7 +9672,8 @@ export function createTypeEvaluator(
                     const functionInfo = getFunctionInfoFromDecorators(
                         evaluatorInterface,
                         enclosingFunction,
-                        /* isInClass */ true
+                        /* isInClass */ true,
+                        nodeInfo
                     );
 
                     if ((functionInfo?.flags & FunctionTypeFlags.StaticMethod) !== 0) {
@@ -9741,7 +9772,7 @@ export function createTypeEvaluator(
                             FunctionParam.isTypeDeclared(methodType.shared.parameters[0])
                         ) {
                             let paramType = FunctionType.getParamType(methodType, 0);
-                            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
+                            const liveScopeIds = getTypeVarScopesForNode(node);
                             paramType = makeTypeVarsBound(paramType, liveScopeIds);
                             implicitBindToType = makeTopLevelTypeVarsConcrete(paramType);
                         }
@@ -11286,7 +11317,13 @@ export function createTypeEvaluator(
             addDiagnostic(DiagnosticRule.reportUntypedNamedTuple, LocMessage.namedTupleNoTypes(), errorNode);
 
             const result: CallResult = {
-                returnType: createNamedTupleType(evaluatorInterface, errorNode, argList, /* includesTypes */ false),
+                returnType: createNamedTupleType(
+                    evaluatorInterface,
+                    errorNode,
+                    argList,
+                    /* includesTypes */ false,
+                    nodeInfo
+                ),
             };
 
             validateArgs(errorNode, argList, { type: type }, constraints, skipUnknownArgCheck, inferenceContext);
@@ -11383,12 +11420,17 @@ export function createTypeEvaluator(
         }
 
         let isAbstract = false;
-        const lastFunctionInfo = getFunctionInfoFromDecorators(evaluatorInterface, lastDecl.node, /* isInClass */ true);
+        const lastFunctionInfo = getFunctionInfoFromDecorators(
+            evaluatorInterface,
+            lastDecl.node,
+            /* isInClass */ true,
+            nodeInfo
+        );
         if ((lastFunctionInfo.flags & FunctionTypeFlags.AbstractMethod) !== 0) {
             isAbstract = true;
         }
 
-        const isStubFile = AnalyzerNodeInfo.getFileInfo(lastDecl.node).isStubFile;
+        const isStubFile = nodeInfo.getFileInfo(lastDecl.node).isStubFile;
 
         // In an overloaded method, the first overload can also be marked abstract.
         // In stub files, there is no implementation, so this is the only way to mark
@@ -11397,7 +11439,12 @@ export function createTypeEvaluator(
         let firstFunctionInfo: FunctionDecoratorInfo | undefined;
 
         if (firstDecl !== lastDecl && firstDecl.type === DeclarationType.Function) {
-            firstFunctionInfo = getFunctionInfoFromDecorators(evaluatorInterface, firstDecl.node, /* isInClass */ true);
+            firstFunctionInfo = getFunctionInfoFromDecorators(
+                evaluatorInterface,
+                firstDecl.node,
+                /* isInClass */ true,
+                nodeInfo
+            );
             if ((firstFunctionInfo.flags & FunctionTypeFlags.AbstractMethod) !== 0) {
                 isAbstract = true;
             }
@@ -11616,7 +11663,13 @@ export function createTypeEvaluator(
 
             if (className === 'NamedTuple') {
                 const result: CallResult = {
-                    returnType: createNamedTupleType(evaluatorInterface, errorNode, argList, /* includesTypes */ true),
+                    returnType: createNamedTupleType(
+                        evaluatorInterface,
+                        errorNode,
+                        argList,
+                        /* includesTypes */ true,
+                        nodeInfo
+                    ),
                 };
 
                 const initTypeResult = getBoundInitMethod(
@@ -11651,7 +11704,7 @@ export function createTypeEvaluator(
                 expandedCallType.shared.fullName === 'typing_extensions.sentinel' ||
                 expandedCallType.shared.fullName === 'typing_extensions.Sentinel'
             ) {
-                return { returnType: createSentinelType(evaluatorInterface, errorNode, argList) };
+                return { returnType: createSentinelType(evaluatorInterface, errorNode, argList, nodeInfo) };
             }
 
             if (ClassType.isSpecialFormClass(expandedCallType)) {
@@ -11665,7 +11718,9 @@ export function createTypeEvaluator(
             }
 
             if (className === 'TypedDict') {
-                return { returnType: createTypedDictType(evaluatorInterface, errorNode, expandedCallType, argList) };
+                return {
+                    returnType: createTypedDictType(evaluatorInterface, errorNode, expandedCallType, argList, nodeInfo),
+                };
             }
 
             if (className === 'auto' && argList.length === 0) {
@@ -11679,11 +11734,11 @@ export function createTypeEvaluator(
             expandedCallType.shared.effectiveMetaclass &&
             isClass(expandedCallType.shared.effectiveMetaclass) &&
             isEnumMetaclass(expandedCallType.shared.effectiveMetaclass) &&
-            !isEnumClassWithMembers(evaluatorInterface, expandedCallType)
+            !isEnumClassWithMembers(evaluatorInterface, expandedCallType, nodeInfo)
         ) {
             return {
                 returnType:
-                    createEnumType(evaluatorInterface, errorNode, expandedCallType, argList) ??
+                    createEnumType(evaluatorInterface, errorNode, expandedCallType, argList, nodeInfo) ??
                     convertToInstance(unexpandedCallType),
             };
         }
@@ -11802,7 +11857,7 @@ export function createTypeEvaluator(
                 newClassName,
                 '',
                 '',
-                AnalyzerNodeInfo.getFileInfo(errorNode).fileUri,
+                nodeInfo.getFileInfo(errorNode).fileUri,
                 ClassTypeFlags.None,
                 ParseTreeUtils.getTypeSourceId(errorNode),
                 ClassType.cloneAsInstantiable(returnType),
@@ -11896,7 +11951,7 @@ export function createTypeEvaluator(
         // Verify that the cast is necessary.
         let castToType = getTypeOfArgExpectingType(argList[0], { typeExpression: true }).type;
 
-        const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
+        const liveScopeIds = getTypeVarScopesForNode(errorNode);
         castToType = makeTypeVarsBound(castToType, liveScopeIds);
 
         let castFromType = getTypeOfArg(argList[1], /* inferenceContext */ undefined).type;
@@ -13149,7 +13204,7 @@ export function createTypeEvaluator(
         expectedType: Type,
         returnType: Type
     ): CallResult {
-        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
+        const liveTypeVarScopes = getTypeVarScopesForNode(errorNode);
         let assignFlags = AssignTypeFlags.PopulateExpectedType;
         if (containsLiteralType(expectedType, /* includeTypeArgs */ true)) {
             assignFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
@@ -13463,7 +13518,7 @@ export function createTypeEvaluator(
             specializedReturnType = ClassType.cloneForPacked(specializedReturnType);
         }
 
-        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
+        const liveTypeVarScopes = getTypeVarScopesForNode(errorNode);
         specializedReturnType = adjustCallableReturnType(errorNode, specializedReturnType, liveTypeVarScopes);
 
         if (specializedInitSelfType) {
@@ -13550,7 +13605,7 @@ export function createTypeEvaluator(
         // Create a new scope ID based on the caller's position. This
         // will guarantee uniqueness. If another caller uses the same
         // call and arguments, the type vars will not conflict.
-        const newScopeId = ParseTreeUtils.getScopeIdForNode(callNode);
+        const newScopeId = getScopeIdForNode(callNode);
         const solution = new ConstraintSolution();
 
         const newTypeParams = typeParams.map((typeVar) => {
@@ -13957,7 +14012,7 @@ export function createTypeEvaluator(
             if (!options?.skipReportError) {
                 // Mismatching parameter types are common in untyped code; don't bother spending time
                 // printing types if the diagnostic is disabled.
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
+                const fileInfo = nodeInfo.getFileInfo(argParam.errorNode);
                 if (
                     fileInfo.diagnosticRuleSet.reportArgumentType !== 'none' &&
                     !canSkipDiagnosticForNode(argParam.errorNode) &&
@@ -14018,7 +14073,7 @@ export function createTypeEvaluator(
 
         if (!options.skipUnknownArgCheck) {
             const simplifiedType = makeTopLevelTypeVarsConcrete(removeUnbound(argType));
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
+            const fileInfo = nodeInfo.getFileInfo(argParam.errorNode);
 
             function getDiagAddendum() {
                 const diagAddendum = new DiagnosticAddendum();
@@ -14197,7 +14252,7 @@ export function createTypeEvaluator(
                     typeVar.shared.defaultType = convertToInstance(argType);
                     typeVar.shared.isDefaultExplicit = true;
 
-                    const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+                    const fileInfo = nodeInfo.getFileInfo(errorNode);
                     if (
                         !fileInfo.isStubFile &&
                         PythonVersion.isLessThan(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_13) &&
@@ -14358,7 +14413,7 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+                    const fileInfo = nodeInfo.getFileInfo(errorNode);
                     if (
                         !fileInfo.isStubFile &&
                         PythonVersion.isLessThan(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_13) &&
@@ -14448,7 +14503,7 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+                    const fileInfo = nodeInfo.getFileInfo(errorNode);
                     if (
                         !fileInfo.isStubFile &&
                         PythonVersion.isLessThan(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_13) &&
@@ -14565,7 +14620,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        const scope = ScopeUtils.getScopeForNode(errorNode);
+        const scope = getScopeForNode(errorNode);
         if (scope) {
             if (scope.type !== ScopeType.Class && scope.type !== ScopeType.Module && scope.type !== ScopeType.Builtin) {
                 addDiagnostic(
@@ -14650,7 +14705,7 @@ export function createTypeEvaluator(
                     } else {
                         entryType = TypeVarType.cloneForScopeId(
                             entryType,
-                            ParseTreeUtils.getScopeIdForNode(nameNode),
+                            getScopeIdForNode(nameNode),
                             nameNode.d.value,
                             TypeVarScopeType.TypeAlias
                         );
@@ -14717,7 +14772,7 @@ export function createTypeEvaluator(
     // in the Python specification: The static type checker will treat
     // the new type as if it were a subclass of the original type.
     function createNewType(errorNode: ExpressionNode, argList: Arg[]): ClassType | undefined {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+        const fileInfo = nodeInfo.getFileInfo(errorNode);
         let className = '';
 
         if (argList.length !== 2) {
@@ -14860,7 +14915,7 @@ export function createTypeEvaluator(
         argList: Arg[],
         metaclass: ClassType
     ): ClassType | undefined {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+        const fileInfo = nodeInfo.getFileInfo(errorNode);
         const arg0Type = getTypeOfArg(argList[0], /* inferenceContext */ undefined).type;
         if (!isClassInstance(arg0Type) || !ClassType.isBuiltIn(arg0Type, 'str')) {
             return undefined;
@@ -15217,7 +15272,7 @@ export function createTypeEvaluator(
                     builtInDict,
                     inferenceContext.expectedType,
                     dictConstraints,
-                    ParseTreeUtils.getTypeVarScopesForNode(node),
+                    getTypeVarScopesForNode(node),
                     node.start
                 )
             ) {
@@ -15330,7 +15385,7 @@ export function createTypeEvaluator(
         );
 
         if (keyTypes.length > 0) {
-            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || hasExpectedType) {
+            if (nodeInfo.getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || hasExpectedType) {
                 keyType = combineTypes(keyTypes);
             } else {
                 keyType = areTypesSame(keyTypes, { ignorePseudoGeneric: true }) ? keyTypes[0] : fallbackType;
@@ -15345,7 +15400,7 @@ export function createTypeEvaluator(
         // are the same type, we'll assume that all values in this dictionary should
         // be the same.
         if (valueTypes.length > 0) {
-            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || hasExpectedType) {
+            if (nodeInfo.getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || hasExpectedType) {
                 valueType = combineTypes(valueTypes);
             } else {
                 valueType = areTypesSame(valueTypes, { ignorePseudoGeneric: true }) ? valueTypes[0] : fallbackType;
@@ -15443,7 +15498,7 @@ export function createTypeEvaluator(
                         expectedTypedDictEntries.knownItems.get(keyType.priv.literalValue as string)?.valueType ??
                         expectedTypedDictEntries.extraItems?.valueType;
                     if (effectiveValueType) {
-                        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                        const liveTypeVarScopes = getTypeVarScopesForNode(node);
                         effectiveValueType = transformExpectedType(effectiveValueType, liveTypeVarScopes, node.start);
                     }
                     entryInferenceContext = makeInferenceContext(effectiveValueType);
@@ -15456,7 +15511,7 @@ export function createTypeEvaluator(
                     let effectiveValueType =
                         expectedValueType ?? (forceStrictInference ? NeverType.createNever() : undefined);
                     if (effectiveValueType) {
-                        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                        const liveTypeVarScopes = getTypeVarScopesForNode(node);
                         effectiveValueType = transformExpectedType(effectiveValueType, liveTypeVarScopes, node.start);
                     }
                     entryInferenceContext = makeInferenceContext(effectiveValueType);
@@ -15852,7 +15907,7 @@ export function createTypeEvaluator(
                 ClassType.cloneAsInstance(expectedClassType),
                 inferenceContext.expectedType,
                 constraints,
-                ParseTreeUtils.getTypeVarScopesForNode(node),
+                getTypeVarScopesForNode(node),
                 node.start
             )
         ) {
@@ -15914,7 +15969,7 @@ export function createTypeEvaluator(
 
         let inferredEntryType: Type = hasExpectedType ? AnyType.create() : UnknownType.create();
         if (entryTypes.length > 0) {
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            const fileInfo = nodeInfo.getFileInfo(node);
             // If there was an expected type or we're using strict list inference,
             // combine the types into a union.
             if (
@@ -16038,7 +16093,7 @@ export function createTypeEvaluator(
             if (functionTypeInfo) {
                 let returnType = FunctionType.getEffectiveReturnType(functionTypeInfo.functionType);
                 if (returnType) {
-                    const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
+                    const liveScopeIds = getTypeVarScopesForNode(node);
                     returnType = makeTypeVarsBound(returnType, liveScopeIds);
 
                     expectedYieldType = getGeneratorYieldType(returnType, !!enclosingFunction.d.isAsync);
@@ -16157,7 +16212,7 @@ export function createTypeEvaluator(
         let expectedParamDetails: ParamListDetails | undefined;
 
         if (expectedType) {
-            const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+            const liveTypeVarScopes = getTypeVarScopesForNode(node);
             expectedType = transformExpectedType(expectedType, liveTypeVarScopes, node.start) as FunctionType;
 
             expectedParamDetails = getParamListDetails(expectedType);
@@ -16165,7 +16220,7 @@ export function createTypeEvaluator(
         }
 
         let functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.PartiallyEvaluated);
-        functionType.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
+        functionType.shared.typeVarScopeId = getScopeIdForNode(node);
 
         return invalidateTypeCacheIfCanceled(() => {
             // Pre-cache the incomplete function type in case the evaluation of the
@@ -16659,7 +16714,7 @@ export function createTypeEvaluator(
 
         TypeBase.setSpecialForm(functionType, ClassType.cloneAsInstance(classType));
         functionType.shared.declaredReturnType = UnknownType.create();
-        functionType.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode);
+        functionType.shared.typeVarScopeId = getScopeIdForNode(errorNode);
 
         if (typeArgs && typeArgs.length > 0) {
             functionType.priv.isCallableWithTypeArgs = true;
@@ -17181,7 +17236,8 @@ export function createTypeEvaluator(
             const functionInfo = getFunctionInfoFromDecorators(
                 evaluatorInterface,
                 enclosingFunction,
-                /* isInClass */ true
+                /* isInClass */ true,
+                nodeInfo
             );
 
             const isInnerFunction = !!ParseTreeUtils.getEnclosingFunction(enclosingFunction);
@@ -17674,7 +17730,7 @@ export function createTypeEvaluator(
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvalFlags
     ): Type {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+        const fileInfo = nodeInfo.getFileInfo(errorNode);
         const types: Type[] = [];
         let allowSingleTypeArg = false;
         let isValidTypeForm = true;
@@ -17934,7 +17990,7 @@ export function createTypeEvaluator(
     }
 
     function createSpecialBuiltInClass(node: ParseNode, assignedName: string, aliasMapEntry: AliasMapEntry): ClassType {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         let specialClassType = ClassType.createInstantiable(
             assignedName,
             ParseTreeUtils.getClassFullName(node, fileInfo.moduleName, assignedName),
@@ -17960,7 +18016,7 @@ export function createTypeEvaluator(
             let typeParam = TypeVarType.createInstance('T');
             typeParam = TypeVarType.cloneForScopeId(
                 typeParam,
-                ParseTreeUtils.getScopeIdForNode(node),
+                getScopeIdForNode(node),
                 assignedName,
                 TypeVarScopeType.Class
             );
@@ -17968,8 +18024,8 @@ export function createTypeEvaluator(
             specialClassType.shared.typeParams.push(typeParam);
         }
 
-        const specialBuiltInClassDeclaration = (AnalyzerNodeInfo.getDeclaration(node) ??
-            (node.parent ? AnalyzerNodeInfo.getDeclaration(node.parent) : undefined)) as
+        const specialBuiltInClassDeclaration = (nodeInfo.getDeclaration(node) ??
+            (node.parent ? nodeInfo.getDeclaration(node.parent) : undefined)) as
             | SpecialBuiltInClassDeclaration
             | undefined;
 
@@ -18200,7 +18256,7 @@ export function createTypeEvaluator(
     }
 
     function evaluateTypesForAssignmentStatement(node: AssignmentNode): void {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
 
         // If the entire statement has already been evaluated, don't
         // re-evaluate it.
@@ -18316,7 +18372,7 @@ export function createTypeEvaluator(
             }
 
             if (declaredType) {
-                const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                const liveTypeVarScopes = getTypeVarScopesForNode(node);
                 declaredType = makeTypeVarsBound(declaredType, liveTypeVarScopes);
             }
 
@@ -18399,8 +18455,8 @@ export function createTypeEvaluator(
     function synthesizeTypeAliasPlaceholder(nameNode: NameNode, isTypeAliasType: boolean = false): TypeVarType {
         const placeholder = TypeVarType.createInstantiable(`__type_alias_${nameNode.d.value}`);
         placeholder.shared.isSynthesized = true;
-        const typeVarScopeId = ParseTreeUtils.getScopeIdForNode(nameNode);
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(nameNode);
+        const typeVarScopeId = getScopeIdForNode(nameNode);
+        const fileInfo = nodeInfo.getFileInfo(nameNode);
 
         placeholder.shared.recursiveAlias = {
             name: nameNode.d.value,
@@ -18459,9 +18515,9 @@ export function createTypeEvaluator(
         writeTypeCache(nameNode, { type: typeAliasTypeVar }, /* flags */ undefined);
 
         // Set a partial type to handle recursive (self-referential) type aliases.
-        const scope = ScopeUtils.getScopeForNode(declNode);
+        const scope = getScopeForNode(declNode);
         const typeAliasSymbol = scope?.lookUpSymbolRecursive(nameNode.d.value);
-        const typeAliasDecl = AnalyzerNodeInfo.getDeclaration(declNode);
+        const typeAliasDecl = nodeInfo.getDeclaration(declNode);
         if (typeAliasDecl && typeAliasSymbol) {
             setSymbolResolutionPartialType(typeAliasSymbol.symbol, typeAliasDecl, typeAliasTypeVar);
         }
@@ -18554,7 +18610,7 @@ export function createTypeEvaluator(
         const className = `<subclass of ${printType(convertToInstance(type1), {
             omitTypeArgsIfUnknown: true,
         })} and ${printType(convertToInstance(type2), { omitTypeArgsIfUnknown: true })}>`;
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+        const fileInfo = nodeInfo.getFileInfo(errorNode);
 
         // The effective metaclass of the intersection is the narrower of the two metaclasses.
         let effectiveMetaclass = type1.shared.effectiveMetaclass;
@@ -18608,9 +18664,9 @@ export function createTypeEvaluator(
         }
 
         // The type wasn't cached, so we need to create a new one.
-        const scope = ScopeUtils.getScopeForNode(node);
+        const scope = getScopeForNode(node);
 
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         let classFlags = ClassTypeFlags.None;
         if (
             scope?.type === ScopeType.Builtin ||
@@ -18650,7 +18706,7 @@ export function createTypeEvaluator(
             ParseTreeUtils.getDocString(node.d.suite.d.statements)
         );
 
-        classType.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
+        classType.shared.typeVarScopeId = getScopeIdForNode(node);
 
         // Is this a special type that supports type promotions according to PEP 484?
         if (typePromotions.has(classType.shared.fullName)) {
@@ -18662,7 +18718,7 @@ export function createTypeEvaluator(
         // to allow these to be resolved.
         const classSymbol = scope?.lookUpSymbol(node.d.name.d.value);
         let classDecl: ClassDeclaration | undefined;
-        const decl = AnalyzerNodeInfo.getDeclaration(node);
+        const decl = nodeInfo.getDeclaration(node);
         if (decl) {
             classDecl = decl as ClassDeclaration;
         }
@@ -19161,7 +19217,7 @@ export function createTypeEvaluator(
             }
 
             // The scope for this class becomes the "fields" for the corresponding type.
-            const innerScope = ScopeUtils.getScopeForNode(node.d.suite);
+            const innerScope = getScopeForNode(node.d.suite);
             classType.shared.fields = innerScope?.symbolTable
                 ? new Map<string, Symbol>(innerScope.symbolTable)
                 : new Map<string, Symbol>();
@@ -19227,11 +19283,11 @@ export function createTypeEvaluator(
                                         getPseudoGenericTypeVarName(param.d.name!.d.value)
                                     );
                                     typeVar.shared.isSynthesized = true;
-                                    typeVar.priv.scopeId = ParseTreeUtils.getScopeIdForNode(initDeclNode);
+                                    typeVar.priv.scopeId = getScopeIdForNode(initDeclNode);
                                     typeVar.shared.boundType = UnknownType.create();
                                     return TypeVarType.cloneForScopeId(
                                         typeVar,
-                                        ParseTreeUtils.getScopeIdForNode(node),
+                                        getScopeIdForNode(node),
                                         node.d.name.d.value,
                                         TypeVarScopeType.Class
                                     );
@@ -19295,7 +19351,7 @@ export function createTypeEvaluator(
             const effectiveMetaclass = computeEffectiveMetaclass(classType, node.d.name);
             const enumMemberSetMayBeDynamicallyModified =
                 ClassType.isEnumClass(classType) &&
-                (AnalyzerNodeInfo.getScope(node)?.hasPotentiallyDynamicSymbolTable ||
+                (nodeInfo.getScope(node)?.hasPotentiallyDynamicSymbolTable ||
                     classType.shared.mro.some(
                         (mroClass) => isClass(mroClass) && ClassType.isEnumMemberSetMayBeDynamicallyModified(mroClass)
                     ));
@@ -19332,7 +19388,7 @@ export function createTypeEvaluator(
                 const decorator = node.d.decorators[i];
 
                 const newDecoratedType = useSignatureTracker(node.parent ?? node, () =>
-                    applyClassDecorator(evaluatorInterface, decoratedType, classType, decorator)
+                    applyClassDecorator(evaluatorInterface, decoratedType, classType, decorator, nodeInfo)
                 );
                 const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
 
@@ -19378,7 +19434,8 @@ export function createTypeEvaluator(
                     node.d.name,
                     classType,
                     initSubclassArgs,
-                    dataClassBehaviors
+                    dataClassBehaviors,
+                    nodeInfo
                 );
             }
 
@@ -19415,7 +19472,7 @@ export function createTypeEvaluator(
                     );
                 }
 
-                synthesizeTypedDictClassMethods(evaluatorInterface, node, classType);
+                synthesizeTypedDictClassMethods(evaluatorInterface, node, classType, nodeInfo);
             }
 
             // Synthesize dataclass methods.
@@ -19449,7 +19506,8 @@ export function createTypeEvaluator(
                         isNamedTupleSubclass,
                         skipSynthesizedInit,
                         hasExistingInitMethod,
-                        skipSynthesizeHash
+                        skipSynthesizeHash,
+                        nodeInfo
                     );
 
                 // If this is a NamedTuple subclass, immediately synthesize dataclass methods
@@ -19676,7 +19734,7 @@ export function createTypeEvaluator(
 
     function evaluateTypeParamList(node: TypeParameterListNode): TypeVarType[] {
         const paramTypes: TypeVarType[] = [];
-        const typeParamScope = AnalyzerNodeInfo.getScope(node);
+        const typeParamScope = nodeInfo.getScope(node);
 
         node.d.params.forEach((param) => {
             const paramSymbol = typeParamScope?.symbolTable.get(param.d.name.d.value);
@@ -20060,7 +20118,14 @@ export function createTypeEvaluator(
 
             const newDecoratedType = useSignatureTracker(node.parent ?? node, () => {
                 assert(decoratedType !== undefined);
-                return applyFunctionDecorator(evaluatorInterface, decoratedType, functionType, decorator, node);
+                return applyFunctionDecorator(
+                    evaluatorInterface,
+                    decoratedType,
+                    functionType,
+                    decorator,
+                    node,
+                    nodeInfo
+                );
             });
 
             const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
@@ -20094,7 +20159,7 @@ export function createTypeEvaluator(
             }
         }
 
-        decoratedType = addOverloadsToFunctionType(evaluatorInterface, node, decoratedType);
+        decoratedType = addOverloadsToFunctionType(evaluatorInterface, node, decoratedType, nodeInfo);
 
         writeTypeCache(node, { type: decoratedType }, EvalFlags.None);
 
@@ -20108,7 +20173,7 @@ export function createTypeEvaluator(
     // Evaluates the type of a "def" statement without applying an async
     // modifier or any decorators.
     function getTypeOfFunctionPredecorated(node: FunctionNode): FunctionType {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
 
         // Is this type already cached?
         const cachedFunctionType = readTypeCache(node.d.name, EvalFlags.None);
@@ -20118,7 +20183,7 @@ export function createTypeEvaluator(
         }
 
         let functionDecl: FunctionDeclaration | undefined;
-        const decl = AnalyzerNodeInfo.getDeclaration(node);
+        const decl = nodeInfo.getDeclaration(node);
         if (decl) {
             functionDecl = decl as FunctionDeclaration;
         }
@@ -20131,7 +20196,7 @@ export function createTypeEvaluator(
             containingClassType = getTypeOfClass(containingClassNode)?.classType;
         }
 
-        const functionInfo = getFunctionInfoFromDecorators(evaluatorInterface, node, !!containingClassNode);
+        const functionInfo = getFunctionInfoFromDecorators(evaluatorInterface, node, !!containingClassNode, nodeInfo);
         let functionFlags = functionInfo.flags;
         if (functionDecl?.isGenerator) {
             functionFlags |= FunctionTypeFlags.Generator;
@@ -20155,13 +20220,13 @@ export function createTypeEvaluator(
             ParseTreeUtils.getDocString(node.d.suite.d.statements)
         );
 
-        functionType.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
+        functionType.shared.typeVarScopeId = getScopeIdForNode(node);
         functionType.shared.deprecatedMessage = functionInfo.deprecationMessage;
         functionType.shared.methodClass = containingClassType;
 
         if (node.d.name.d.value === '__init__' || node.d.name.d.value === '__new__') {
             if (containingClassNode) {
-                functionType.priv.constructorTypeVarScopeId = ParseTreeUtils.getScopeIdForNode(containingClassNode);
+                functionType.priv.constructorTypeVarScopeId = getScopeIdForNode(containingClassNode);
             }
         }
 
@@ -20173,7 +20238,7 @@ export function createTypeEvaluator(
         functionType.shared.declaration = functionDecl;
 
         // Allow recursion by caching and registering the partially-constructed function type.
-        const scope = ScopeUtils.getScopeForNode(node);
+        const scope = getScopeForNode(node);
         const functionSymbol = scope?.lookUpSymbolRecursive(node.d.name.d.value);
         if (functionDecl && functionSymbol) {
             setSymbolResolutionPartialType(functionSymbol.symbol, functionDecl, functionType);
@@ -20446,7 +20511,7 @@ export function createTypeEvaluator(
             }
 
             // Update the types for the nodes associated with the parameters.
-            const scopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
+            const scopeIds = getTypeVarScopesForNode(node);
             paramTypes.forEach((paramType, index) => {
                 const paramNameNode = node.d.params[index].d.name;
                 if (paramNameNode) {
@@ -20559,7 +20624,7 @@ export function createTypeEvaluator(
                 /* honorCodeFlow */ false
             );
             if (symbolWithScope) {
-                setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(param), symbolWithScope.symbol, param.d.name);
+                setSymbolAccessed(nodeInfo.getFileInfo(param), symbolWithScope.symbol, param.d.name);
             }
         }
     }
@@ -20573,7 +20638,7 @@ export function createTypeEvaluator(
             param.d.defaultValue?.nodeType === ParseNodeType.Constant &&
             param.d.defaultValue.d.constType === KeywordType.None &&
             !isOptionalType(type) &&
-            !AnalyzerNodeInfo.getFileInfo(param).diagnosticRuleSet.strictParameterNoneValue
+            !nodeInfo.getFileInfo(param).diagnosticRuleSet.strictParameterNoneValue
         ) {
             return combineTypes([type, getNoneType()]);
         }
@@ -20638,7 +20703,7 @@ export function createTypeEvaluator(
                                 const scopeIds: TypeVarScopeId[] = getTypeVarScopeIds(baseClassMemberInfo.classType);
                                 const solution = buildSolutionFromSpecializedClass(baseClassMemberInfo.classType);
 
-                                scopeIds.push(ParseTreeUtils.getScopeIdForNode(baseClassMethodNode));
+                                scopeIds.push(getScopeIdForNode(baseClassMethodNode));
 
                                 // Replace any unsolved TypeVars with Unknown (including all function-scoped TypeVars).
                                 inferredParamType = applySolvedTypeVars(inferredParamType, solution, {
@@ -20649,7 +20714,7 @@ export function createTypeEvaluator(
                                 });
                             }
 
-                            const fileInfo = AnalyzerNodeInfo.getFileInfo(functionNode);
+                            const fileInfo = nodeInfo.getFileInfo(functionNode);
                             if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile) {
                                 inferredParamType = TypeBase.cloneForAmbiguousType(inferredParamType);
                             }
@@ -20715,7 +20780,7 @@ export function createTypeEvaluator(
         }
 
         if (inferredParamType) {
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(paramValueExpr);
+            const fileInfo = nodeInfo.getFileInfo(paramValueExpr);
             if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile) {
                 inferredParamType = TypeBase.cloneForAmbiguousType(inferredParamType);
             }
@@ -20892,7 +20957,7 @@ export function createTypeEvaluator(
 
             try {
                 let functionDecl: FunctionDeclaration | undefined;
-                const decl = AnalyzerNodeInfo.getDeclaration(node);
+                const decl = nodeInfo.getDeclaration(node);
                 if (decl) {
                     functionDecl = decl as FunctionDeclaration;
                 }
@@ -20901,7 +20966,7 @@ export function createTypeEvaluator(
                 const implicitlyReturnsNone = isAfterNodeReachable(node.d.suite);
 
                 // Infer the return type based on all of the return statements in the function's body.
-                if (AnalyzerNodeInfo.getFileInfo(node).isStubFile) {
+                if (nodeInfo.getFileInfo(node).isStubFile) {
                     // If a return type annotation is missing in a stub file, assume
                     // it's an "unknown" type. In normal source files, we can infer the
                     // type from the implementation.
@@ -21073,7 +21138,7 @@ export function createTypeEvaluator(
                 // cases, we can get very deep stacks when inferring return types
                 // within untyped code.
                 if ((err as any)?.message === 'Maximum call stack size exceeded') {
-                    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                    const fileInfo = nodeInfo.getFileInfo(node);
                     console.error(
                         `Overflowed stack when inferring return type for function: ${
                             node.d.name.d.value
@@ -21404,7 +21469,7 @@ export function createTypeEvaluator(
         }
 
         const aliasNode = node.d.alias || node.d.name;
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
 
         // If this is a redundant form of an import, assume it is an intentional
         // export and mark the symbol as accessed.
@@ -21430,7 +21495,7 @@ export function createTypeEvaluator(
             assert(parentNode && parentNode.nodeType === ParseNodeType.ImportFrom);
             assert(!parentNode.d.isWildcardImport);
 
-            const importInfo = AnalyzerNodeInfo.getImportInfo(parentNode.d.module);
+            const importInfo = nodeInfo.getImportInfo(parentNode.d.module);
             if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib) {
                 const resolvedPath = importInfo.resolvedUris[importInfo.resolvedUris.length - 1];
 
@@ -21498,7 +21563,8 @@ export function createTypeEvaluator(
                     evaluatorInterface,
                     subjectType,
                     caseStatement.d.pattern,
-                    /* isPositiveTest */ false
+                    /* isPositiveTest */ false,
+                    nodeInfo
                 );
             }
         }
@@ -21516,7 +21582,7 @@ export function createTypeEvaluator(
             return;
         }
 
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         const subjectTypeResult = getTypeOfExpression(node.parent.d.expr);
         let subjectType = subjectTypeResult.type;
 
@@ -21526,7 +21592,7 @@ export function createTypeEvaluator(
             if (caseStatement === node) {
                 if (fileInfo.diagnosticRuleSet.reportUnnecessaryComparison !== 'none') {
                     if (!subjectTypeResult.isIncomplete) {
-                        checkForUnusedPattern(evaluatorInterface, node.d.pattern, subjectType);
+                        checkForUnusedPattern(evaluatorInterface, node.d.pattern, subjectType, nodeInfo);
                     }
                 }
                 break;
@@ -21537,7 +21603,8 @@ export function createTypeEvaluator(
                     evaluatorInterface,
                     subjectType,
                     caseStatement.d.pattern,
-                    /* isPositiveTest */ false
+                    /* isPositiveTest */ false,
+                    nodeInfo
                 );
             }
         }
@@ -21546,7 +21613,8 @@ export function createTypeEvaluator(
             evaluatorInterface,
             subjectType,
             !!subjectTypeResult.isIncomplete,
-            node.d.pattern
+            node.d.pattern,
+            nodeInfo
         );
 
         writeTypeCache(
@@ -21565,7 +21633,7 @@ export function createTypeEvaluator(
             // Write back a dummy type so we don't evaluate this node again.
             writeTypeCache(node, { type: AnyType.create() }, EvalFlags.None);
 
-            const flowNode = AnalyzerNodeInfo.getFlowNode(node);
+            const flowNode = nodeInfo.getFlowNode(node);
             if (flowNode && (flowNode.flags & FlowFlags.WildcardImport) !== 0) {
                 const wildcardFlowNode = flowNode as FlowWildcardImport;
                 wildcardFlowNode.names.forEach((name) => {
@@ -21675,7 +21743,7 @@ export function createTypeEvaluator(
 
         assert(aliasDecl.type === DeclarationType.Alias);
 
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
 
         // Try to resolve the alias while honoring external visibility.
         const resolvedAliasInfo = resolveAliasDeclarationWithInfo(aliasDecl, /* resolveLocalNames */ true, {
@@ -22015,7 +22083,7 @@ export function createTypeEvaluator(
                         ? getDeclaredReturnType(enclosingFunctionNode)
                         : undefined;
                     if (declaredReturnType) {
-                        const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
+                        const liveScopeIds = getTypeVarScopesForNode(node);
                         declaredReturnType = makeTypeVarsBound(declaredReturnType, liveScopeIds);
                     }
                     getTypeOfExpression(parent.d.expr, EvalFlags.None, makeInferenceContext(declaredReturnType));
@@ -22074,7 +22142,7 @@ export function createTypeEvaluator(
             const param = functionNode.d.params[paramIndex];
             let annotatedType = getTypeOfParamAnnotation(typeAnnotation, functionNode.d.params[paramIndex].d.category);
 
-            const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(param);
+            const liveTypeVarScopes = getTypeVarScopesForNode(param);
             annotatedType = makeTypeVarsBound(annotatedType, liveTypeVarScopes);
 
             const adjType = transformVariadicParamType(
@@ -22112,12 +22180,13 @@ export function createTypeEvaluator(
         const functionFlags = getFunctionInfoFromDecorators(
             evaluatorInterface,
             functionNode,
-            /* isInClass */ true
+            /* isInClass */ true,
+            nodeInfo
         ).flags;
 
         let inferredParamType =
             inferParamType(functionNode, functionFlags, paramIndex, classInfo?.classType) ?? UnknownType.create();
-        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+        const liveTypeVarScopes = getTypeVarScopesForNode(node);
         inferredParamType = makeTypeVarsBound(inferredParamType, liveTypeVarScopes);
 
         writeTypeCache(
@@ -22344,8 +22413,8 @@ export function createTypeEvaluator(
     ): FlowNodeTypeResult {
         // See if this execution scope requires code flow for this reference expression.
         const referenceKey = createKeyForReference(reference);
-        const executionNode = ParseTreeUtils.getExecutionScopeNode(startNode?.parent ?? reference);
-        const codeFlowExpressions = AnalyzerNodeInfo.getCodeFlowExpressions(executionNode);
+        const executionNode = ParseTreeUtils.getExecutionScopeNode(startNode?.parent ?? reference, nodeInfo);
+        const codeFlowExpressions = nodeInfo.getCodeFlowExpressions(executionNode);
 
         if (
             !codeFlowExpressions ||
@@ -22376,7 +22445,7 @@ export function createTypeEvaluator(
             analyzer = getCodeFlowAnalyzerForNode(executionNode, options?.typeAtStart);
         }
 
-        const flowNode = AnalyzerNodeInfo.getFlowNode(startNode ?? reference);
+        const flowNode = nodeInfo.getFlowNode(startNode ?? reference);
         if (flowNode === undefined) {
             return FlowNodeTypeResult.create(/* type */ undefined, /* isIncomplete */ false);
         }
@@ -22484,8 +22553,7 @@ export function createTypeEvaluator(
                         0
                     ) {
                         const isInlinedTypedDict =
-                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures &&
-                            !!typeArgs;
+                            nodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures && !!typeArgs;
 
                         if (!isInlinedTypedDict) {
                             addDiagnostic(
@@ -22587,11 +22655,11 @@ export function createTypeEvaluator(
             }
         }
 
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+        const fileInfo = nodeInfo.getFileInfo(errorNode);
         if (
             fileInfo.isStubFile ||
             PythonVersion.isGreaterOrEqualTo(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_9) ||
-            isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(errorNode)) ||
+            isAnnotationEvaluationPostponed(nodeInfo.getFileInfo(errorNode)) ||
             (flags & EvalFlags.ForwardRefs) !== 0
         ) {
             // Handle "type" specially, since it needs to act like "Type"
@@ -23029,7 +23097,7 @@ export function createTypeEvaluator(
             flags |= EvalFlags.EnforceClassTypeVarScope;
         }
 
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         if ((isAnnotationEvaluationPostponed(fileInfo) || options?.forwardRefs) && !options?.runtimeTypeExpression) {
             flags |= EvalFlags.ForwardRefs;
         } else if (options?.parsesStringLiteral) {
@@ -23098,7 +23166,7 @@ export function createTypeEvaluator(
     }
 
     function getBuiltInType(node: ParseNode, name: string): Type {
-        const scope = ScopeUtils.getScopeForNode(node);
+        const scope = getScopeForNode(node);
         if (scope) {
             const builtInScope = ScopeUtils.getBuiltInScope(scope);
             const nameType = builtInScope.lookUpSymbol(name);
@@ -23130,8 +23198,8 @@ export function createTypeEvaluator(
         honorCodeFlow: boolean,
         preferGlobalScope = false
     ): SymbolWithScope | undefined {
-        const scopeNodeInfo = ParseTreeUtils.getEvaluationScopeNode(node);
-        const scope = AnalyzerNodeInfo.getScope(scopeNodeInfo.node);
+        const scopeNodeInfo = ParseTreeUtils.getEvaluationScopeNode(node, nodeInfo);
+        const scope = nodeInfo.getScope(scopeNodeInfo.node);
 
         let symbolWithScope = scope?.lookUpSymbolRecursive(name, {
             useProxyScope: !!scopeNodeInfo.useProxyScope,
@@ -23154,22 +23222,22 @@ export function createTypeEvaluator(
             const reachableDecl = symbolWithScope.symbol.getDeclarations().find((decl) => {
                 if (decl.type !== DeclarationType.Alias && decl.type !== DeclarationType.Intrinsic) {
                     // Determine if the declaration is in the same execution scope as the "usageNode" node.
-                    let usageScopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+                    let usageScopeNode = ParseTreeUtils.getExecutionScopeNode(node, nodeInfo);
                     const declNode: ParseNode =
                         decl.type === DeclarationType.Class ||
                         decl.type === DeclarationType.Function ||
                         decl.type === DeclarationType.TypeAlias
                             ? decl.node.d.name
                             : decl.node;
-                    const declScopeNode = ParseTreeUtils.getExecutionScopeNode(declNode);
+                    const declScopeNode = ParseTreeUtils.getExecutionScopeNode(declNode, nodeInfo);
 
                     // If this is a type parameter scope, it will be a proxy for its
                     // containing scope, so we need to use that instead.
-                    const usageScope = AnalyzerNodeInfo.getScope(usageScopeNode);
+                    const usageScope = nodeInfo.getScope(usageScopeNode);
                     if (usageScope?.proxy) {
-                        const typeParamScope = AnalyzerNodeInfo.getScope(usageScopeNode);
+                        const typeParamScope = nodeInfo.getScope(usageScopeNode);
                         if (!typeParamScope?.symbolTable.has(name) && usageScopeNode.parent) {
-                            usageScopeNode = ParseTreeUtils.getExecutionScopeNode(usageScopeNode.parent);
+                            usageScopeNode = ParseTreeUtils.getExecutionScopeNode(usageScopeNode.parent, nodeInfo);
                         }
                     }
 
@@ -23178,7 +23246,7 @@ export function createTypeEvaluator(
                             // If there was no control flow path from the usage back
                             // to the source, see if the usage node is reachable by
                             // any path.
-                            const flowNode = AnalyzerNodeInfo.getFlowNode(node);
+                            const flowNode = nodeInfo.getFlowNode(node);
                             const isReachable =
                                 flowNode &&
                                 codeFlowEngine.getFlowNodeReachability(
@@ -23392,7 +23460,7 @@ export function createTypeEvaluator(
                 const functionDecl = type.shared.declaration;
                 if (functionDecl.type === DeclarationType.Function) {
                     const functionNode = functionDecl.node;
-                    const functionScope = AnalyzerNodeInfo.getScope(functionNode);
+                    const functionScope = nodeInfo.getScope(functionNode);
                     if (functionScope) {
                         const paramSymbol = functionScope.lookUpSymbol(paramName)!;
                         if (paramSymbol) {
@@ -23417,6 +23485,60 @@ export function createTypeEvaluator(
         }
 
         return undefined;
+    }
+
+    // functools.partial(func, kw=value) forwards keyword arguments to the wrapped callable, but
+    // partial's own signature absorbs them through **kwargs, so they don't resolve to a declaration.
+    // Resolve the keyword against the wrapped callable (the first positional argument) instead so IDE
+    // features like go-to-definition and rename bind to the underlying parameter. Returns true when
+    // baseType is functools.partial, so the caller suppresses the default keyword-argument handling.
+    function _tryAddPartialKeywordParamDecls(
+        baseType: Type,
+        callNode: CallNode,
+        paramName: string,
+        decls: Declaration[]
+    ): boolean {
+        if (!isInstantiableClass(baseType) || baseType.shared.fullName !== 'functools.partial') {
+            return false;
+        }
+
+        const wrappedArg = callNode.d.args.find((arg) => arg.d.argCategory === ArgCategory.Simple && !arg.d.name);
+        if (!wrappedArg) {
+            return true;
+        }
+
+        const wrappedType = getType(wrappedArg.d.valueExpr);
+        if (!wrappedType) {
+            return true;
+        }
+
+        if (isFunction(wrappedType)) {
+            const paramDecl = getDeclarationFromKeywordParam(wrappedType, paramName);
+            if (paramDecl) {
+                decls.push(paramDecl);
+            }
+        } else if (isOverloaded(wrappedType)) {
+            OverloadedType.getOverloads(wrappedType).forEach((f) => {
+                const paramDecl = getDeclarationFromKeywordParam(f, paramName);
+                if (paramDecl) {
+                    decls.push(paramDecl);
+                }
+            });
+        } else if (isInstantiableClass(wrappedType)) {
+            const initMethodType = getBoundInitMethod(
+                evaluatorInterface,
+                wrappedArg.d.valueExpr,
+                ClassType.cloneAsInstance(wrappedType)
+            )?.type;
+            if (initMethodType && isFunction(initMethodType)) {
+                const paramDecl = getDeclarationFromKeywordParam(initMethodType, paramName);
+                if (paramDecl) {
+                    decls.push(paramDecl);
+                }
+            }
+        }
+
+        return true;
     }
 
     function _shouldFallBackToClassEntryForKeywordArg(baseType: ClassType, paramName: string) {
@@ -23512,7 +23634,7 @@ export function createTypeEvaluator(
     }
 
     function getDeclInfoForNameNode(node: NameNode, skipUnreachableCode = true): SymbolDeclInfo | undefined {
-        if (skipUnreachableCode && AnalyzerNodeInfo.isCodeUnreachable(node)) {
+        if (skipUnreachableCode && nodeInfo.isCodeUnreachable(node)) {
             return undefined;
         }
 
@@ -23524,7 +23646,7 @@ export function createTypeEvaluator(
         // since the non-aliased name is not in the symbol table.
         const alias = getAliasFromImport(node);
         if (alias) {
-            const scope = ScopeUtils.getScopeForNode(node);
+            const scope = getScopeForNode(node);
             if (scope) {
                 // Look up the alias symbol.
                 const symbolInScope = scope.lookUpSymbolRecursive(alias.d.value);
@@ -23594,7 +23716,7 @@ export function createTypeEvaluator(
             }
         } else if (node.parent && node.parent.nodeType === ParseNodeType.ModuleName) {
             const namePartIndex = node.parent.d.nameParts.findIndex((part) => part === node);
-            const importInfo = AnalyzerNodeInfo.getImportInfo(node.parent);
+            const importInfo = nodeInfo.getImportInfo(node.parent);
             if (
                 namePartIndex >= 0 &&
                 importInfo &&
@@ -23619,7 +23741,9 @@ export function createTypeEvaluator(
                 const baseType = getType(argNode.parent.d.leftExpr);
 
                 if (baseType) {
-                    if (isFunction(baseType) && baseType.shared.declaration) {
+                    if (_tryAddPartialKeywordParamDecls(baseType, argNode.parent, paramName, decls)) {
+                        // functools.partial keyword args are resolved against the wrapped callable.
+                    } else if (isFunction(baseType) && baseType.shared.declaration) {
                         const paramDecl = getDeclarationFromKeywordParam(baseType, paramName);
                         if (paramDecl) {
                             decls.push(paramDecl);
@@ -23663,13 +23787,56 @@ export function createTypeEvaluator(
                     validateInitSubclassArgs(argNode.parent, classTypeResult.classType);
                 }
             }
+        } else if (
+            node.parent &&
+            node.parent.nodeType === ParseNodeType.PatternClassArgument &&
+            node === node.parent.d.name &&
+            node.parent.parent?.nodeType === ParseNodeType.PatternClass
+        ) {
+            // The target node is the keyword name in a class pattern argument
+            // (e.g. `case Foo(prop=...)`). Map it to the corresponding class member
+            // declaration so that find-all-references and rename bind to the attribute.
+            // Only the keyword (left of `=`) is handled here; the capture target on the
+            // right (e.g. the second `prop` in `case Foo(prop=prop)`) is a separate local
+            // binding that is resolved through the normal name-lookup path.
+            const memberName = node.d.value;
+            let classType = getType(node.parent.parent.d.className);
+            if (classType) {
+                classType = makeTopLevelTypeVarsConcrete(classType);
+                doForEachSubtype(classType, (subtype) => {
+                    subtype = makeTopLevelTypeVarsConcrete(subtype);
+
+                    // The class name in a class pattern usually evaluates to an instantiable class,
+                    // but analysis can still yield Unknown/Any (e.g. an unresolved class name), so
+                    // the isInstantiableClass gate skips those subtypes rather than assuming
+                    // every subtype is a class.
+                    if (isInstantiableClass(subtype)) {
+                        // Try to find a member that has a declared type. If so, that
+                        // overrides any inferred types.
+                        let member = lookUpClassMember(subtype, memberName, MemberAccessFlags.DeclaredTypesOnly);
+                        if (!member) {
+                            member = lookUpClassMember(subtype, memberName);
+                        }
+
+                        if (member) {
+                            _addSymbolDeclInfo(
+                                member.symbol,
+                                decls,
+                                synthesizedTypes,
+                                /* preferTypedDeclarations */ true
+                            );
+                        }
+                    }
+                });
+            }
         } else {
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            const fileInfo = nodeInfo.getFileInfo(node);
 
             // Determine if this node is within a quoted type annotation.
             const isWithinTypeAnnotation = ParseTreeUtils.isWithinTypeAnnotation(
                 node,
-                !isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(node))
+                !isAnnotationEvaluationPostponed(nodeInfo.getFileInfo(node)),
+                nodeInfo
             );
 
             // Determine if this is part of a "type" statement.
@@ -23787,7 +23954,7 @@ export function createTypeEvaluator(
                 if (typeAnnotationNode) {
                     let declaredType = getTypeOfParamAnnotation(typeAnnotationNode, declaration.node.d.category);
 
-                    const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(declaration.node);
+                    const liveTypeVarScopes = getTypeVarScopesForNode(declaration.node);
                     declaredType = makeTypeVarsBound(declaredType, liveTypeVarScopes);
 
                     return {
@@ -23851,9 +24018,7 @@ export function createTypeEvaluator(
                             const enclosingClass = ParseTreeUtils.getEnclosingClass(declaration.node);
 
                             if (enclosingClass) {
-                                declaredType = makeTypeVarsFree(declaredType, [
-                                    ParseTreeUtils.getScopeIdForNode(enclosingClass),
-                                ]);
+                                declaredType = makeTypeVarsFree(declaredType, [getScopeIdForNode(enclosingClass)]);
                             }
                         }
 
@@ -24028,9 +24193,7 @@ export function createTypeEvaluator(
 
             typeVar = TypeVarType.cloneForScopeId(
                 typeVar,
-                ParseTreeUtils.getScopeIdForNode(
-                    scopeNode.nodeType === ParseNodeType.TypeAlias ? scopeNode.d.name : scopeNode
-                ),
+                getScopeIdForNode(scopeNode.nodeType === ParseNodeType.TypeAlias ? scopeNode.d.name : scopeNode),
                 scopeNode.d.name.d.value,
                 scopeType
             );
@@ -24044,7 +24207,7 @@ export function createTypeEvaluator(
 
     function getInferredTypeOfDeclaration(symbol: Symbol, decl: Declaration): Type | undefined {
         const resolvedDecl = resolveAliasDeclaration(decl, /* resolveLocalNames */ true, {
-            allowExternallyHiddenAccess: AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile,
+            allowExternallyHiddenAccess: nodeInfo.getFileInfo(decl.node).isStubFile,
         });
 
         // We couldn't resolve the alias. Substitute an unknown
@@ -24151,7 +24314,7 @@ export function createTypeEvaluator(
 
         // If this is part of a "py.typed" package, don't fall back on type inference
         // unless it's marked Final, is a constant, or is a declared type alias.
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(resolvedDecl.node);
+        const fileInfo = nodeInfo.getFileInfo(resolvedDecl.node);
         let isUnambiguousType = !fileInfo.isInPyTypedPackage || fileInfo.isStubFile;
 
         // If this is a py.typed package, determine if this is a case where an unannotated
@@ -24425,7 +24588,7 @@ export function createTypeEvaluator(
             if (decl.type === DeclarationType.Variable) {
                 // Exempt typing.pyi and typingExtensions.pyi, which use variables to
                 // define some special forms.
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(decl.node);
+                const fileInfo = nodeInfo.getFileInfo(decl.node);
 
                 if (!fileInfo.isTypingStubFile && !fileInfo.isTypingExtensionsStubFile) {
                     return true;
@@ -24505,7 +24668,7 @@ export function createTypeEvaluator(
         decls.forEach((decl, index) => {
             const resolvedDecl =
                 resolveAliasDeclaration(decl, /* resolveLocalNames */ true, {
-                    allowExternallyHiddenAccess: AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile,
+                    allowExternallyHiddenAccess: nodeInfo.getFileInfo(decl.node).isStubFile,
                 }) ?? decl;
 
             if (!isPossibleTypeAliasDeclaration(resolvedDecl) && !isExplicitTypeAliasDeclaration(resolvedDecl)) {
@@ -24544,8 +24707,8 @@ export function createTypeEvaluator(
                     // Is the declaration in the same execution scope as the "usageNode" node?
                     // If so, we can skip it because code flow analysis will allow us
                     // to determine the type in this context.
-                    const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode);
-                    const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
+                    const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode, nodeInfo);
+                    const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node, nodeInfo);
                     if (usageScope === declScope) {
                         // Skip declarations that appear after the usage in the source.
                         // Such declarations are typically only reached via loop back-edges,
@@ -24766,8 +24929,8 @@ export function createTypeEvaluator(
                 const filteredTypedDecls = typedDecls.filter((decl) => {
                     if (decl.type !== DeclarationType.Alias) {
                         // Is the declaration in the same execution scope as the "usageNode" node?
-                        const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode);
-                        const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
+                        const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode, nodeInfo);
+                        const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node, nodeInfo);
 
                         if (usageScope === declScope) {
                             // For typed declarations we use the precise flow-graph reachability
@@ -24865,7 +25028,37 @@ export function createTypeEvaluator(
     function getEffectiveReturnTypeResult(type: FunctionType, options?: EffectiveReturnTypeOptions): TypeResult {
         const specializedReturnType = FunctionType.getEffectiveReturnType(type, /* includeInferred */ false);
         if (specializedReturnType && !isUnknown(specializedReturnType)) {
-            return { type: specializedReturnType };
+            // A partially-unknown *inferred* return type (e.g. `Foo | Unknown`) can be
+            // cached on a specialized/bound copy of an unannotated function. Because
+            // `isUnknown` matches only a fully-unknown type, such a partial type would
+            // otherwise short-circuit here and prevent call-site return-type inference
+            // from ever running (e.g. an unannotated factory whose body narrows a
+            // parameter-derived local with `isinstance`). When a call site is available,
+            // fall through so the argument types can refine the inferred return type.
+            //
+            // NOTE: This gate intentionally mirrors a subset of the downstream call-site
+            // refinement guard in `_getInferredReturnTypeResult` (search `isPartlyUnknown(returnType)`),
+            // but tests the cached *specialized* return type here rather than the freshly-inferred
+            // one, and omits the `!isStubDefinition`/`!isPyTypedDefinition`/`!isIncomplete`
+            // conjuncts (not yet known at this point). Keep the two in sync if either is edited.
+            const canRefineWithCallSite =
+                options?.callSiteInfo !== undefined &&
+                !type.shared.declaredReturnType &&
+                FunctionType.hasUnannotatedParams(type) &&
+                isPartlyUnknown(specializedReturnType);
+            if (!canRefineWithCallSite) {
+                return { type: specializedReturnType };
+            }
+
+            // Refine the cached partly-unknown return type using the call site. If the
+            // refinement comes back incomplete -- e.g. a self- or mutually-recursive
+            // factory whose base case returns the isinstance-narrowed local -- fall back
+            // to the already-cached specialized return type rather than propagating the
+            // incomplete result. The cached type is already correct in that case, and
+            // propagating `isIncomplete` would suppress caller-side diagnostics that only
+            // fire on a complete type (for example, `reveal_type`).
+            const refinedResult = getInferredReturnTypeResult(type, options?.callSiteInfo);
+            return refinedResult.isIncomplete ? { type: specializedReturnType } : refinedResult;
         }
 
         return getInferredReturnTypeResult(type, options?.callSiteInfo);
@@ -24909,12 +25102,12 @@ export function createTypeEvaluator(
             } else if (type.shared.declaration) {
                 const functionNode = type.shared.declaration.node;
                 const skipUnannotatedFunction =
-                    !AnalyzerNodeInfo.getFileInfo(functionNode).diagnosticRuleSet.analyzeUnannotatedFunctions &&
+                    !nodeInfo.getFileInfo(functionNode).diagnosticRuleSet.analyzeUnannotatedFunctions &&
                     ParseTreeUtils.isUnannotatedFunction(functionNode);
 
                 // Skip return type inference if we are in "skip unannotated function" mode.
                 if (!skipUnannotatedFunction && !checkCodeFlowTooComplex(functionNode.d.suite)) {
-                    const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
+                    const codeFlowComplexity = nodeInfo.getCodeFlowComplexity(functionNode);
 
                     // For very complex functions that have no annotated parameter types,
                     // don't attempt to infer the return type because it can be extremely
@@ -24994,7 +25187,7 @@ export function createTypeEvaluator(
 
                     if (type.shared.declaration?.node) {
                         // Externalize any TypeVars that appear in the type.
-                        const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(type.shared.declaration.node);
+                        const liveScopeIds = getTypeVarScopesForNode(type.shared.declaration.node);
                         returnType = makeTypeVarsFree(returnType, liveScopeIds);
                     }
                 }
@@ -25012,7 +25205,7 @@ export function createTypeEvaluator(
             return undefined;
         }
         const functionNode = type.shared.declaration.node;
-        const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
+        const codeFlowComplexity = nodeInfo.getCodeFlowComplexity(functionNode);
 
         if (codeFlowComplexity >= maxReturnCallSiteTypeInferenceCodeFlowComplexity) {
             return undefined;
@@ -30058,7 +30251,7 @@ export function createTypeEvaluator(
     // expression tree because we don't want to mutate the latter; the
     // expression tree created by this function is therefore used only temporarily.
     function parseStringAsTypeAnnotation(node: StringListNode, reportErrors: boolean): ExpressionNode | undefined {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         const parser = new Parser();
         const textValue = node.d.strings[0].d.value;
 
@@ -30086,7 +30279,8 @@ export function createTypeEvaluator(
             parseOptions,
             ParseTextMode.Expression,
             /* initialParenDepth */ undefined,
-            fileInfo.typingSymbolAliases
+            fileInfo.typingSymbolAliases,
+            node.a
         );
 
         if (parseResults.parseTree) {
@@ -30096,7 +30290,7 @@ export function createTypeEvaluator(
                 return undefined;
             }
 
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            const fileInfo = nodeInfo.getFileInfo(node);
             parseResults.diagnostics.forEach((diag) => {
                 fileInfo.diagnosticSink.addDiagnosticWithTextRange('error', diag.message, node);
             });
@@ -30106,7 +30300,7 @@ export function createTypeEvaluator(
             // Optionally add the new subtree to the parse tree so it can
             // participate in language server operations like find and replace.
             if (reportErrors) {
-                node.d.annotation = parseResults.parseTree;
+                nodeInfo.setStringAnnotation(node, parseResults.parseTree, parseResults.stringAnnotations);
             }
 
             return parseResults.parseTree;
@@ -30119,7 +30313,7 @@ export function createTypeEvaluator(
     // var can be "narrowed" to a single one of its constraints based on isinstance
     // checks within the code flow.
     function narrowConstrainedTypeVar(node: ParseNode, typeVar: TypeVarType): Type | undefined {
-        const flowNode = AnalyzerNodeInfo.getFlowNode(node);
+        const flowNode = nodeInfo.getFlowNode(node);
 
         if (!flowNode) {
             return undefined;
@@ -30133,7 +30327,7 @@ export function createTypeEvaluator(
     }
 
     function getLineNum(node: ParseNode) {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
         const range = convertOffsetsToRange(node.start, node.start + node.length, fileInfo.lines);
         return (range.start.line + 1).toString();
     }
@@ -30152,6 +30346,7 @@ export function createTypeEvaluator(
 
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,
+        getAnalyzerNodeInfoReader: () => nodeInfo,
         getType,
         getTypeResult,
         getTypeResultForDecorator,
@@ -30263,7 +30458,7 @@ export function createTypeEvaluator(
         printControlFlowGraph,
     };
 
-    const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker);
+    const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker, nodeInfo);
 
     return evaluatorInterface;
 }

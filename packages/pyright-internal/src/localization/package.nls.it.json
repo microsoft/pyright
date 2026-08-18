@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "Libreria",
+        "standardLibrary": "Libreria standard",
+        "workspace": "Area di lavoro"
+    },
     "CodeAction": {
         "createTypeStub": "Crea Stub di tipo",
         "createTypeStubFor": "Crea Stub di tipo per \"{moduleName}\"",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "Una classe bloccata non può ereditare da una classe non bloccata",
         "dataClassConverterFunction": "L'argomento di tipo \"{argType}\" non è un convertitore valido per il campo \"{fieldName}\" di tipo \"{fieldType}\"",
         "dataClassConverterOverloads": "Nessun overload di \"{funcName}\" è un convertitore valido per il campo \"{fieldName}\" di tipo \"{fieldType}\"",
+        "dataClassDuplicateKwOnly": "\"{name}\" è un separatore KW_ONLY duplicato; ne è consentito solo uno all'interno di una dataclass",
         "dataClassFieldInheritedDefault": "\"{fieldName}\" esegue l'override di un campo con lo stesso nome, ma manca un valore predefinito",
         "dataClassFieldWithDefault": "I campi senza valori predefiniti non possono essere visualizzati dopo i campi con valori predefiniti",
         "dataClassFieldWithPrivateName": "Il campo dataclass non può usare un nome privato",
@@ -293,6 +299,8 @@
         "keywordSubscriptIllegal": "Gli argomenti delle parole chiave all'interno di pedici non sono supportati",
         "lambdaReturnTypePartiallyUnknown": "Il tipo restituito dell'espressione lambda \"{returnType}\" è parzialmente sconosciuto",
         "lambdaReturnTypeUnknown": "Il tipo restituito di lambda è sconosciuto",
+        "lazyImportIllegal": "L'istruzione di importazione lazy richiede Python 3.15 o versione successiva",
+        "lazyImportWildcardIllegal": "Le importazioni con caratteri jolly non possono essere usate con \"lazy\"",
         "listAssignmentMismatch": "Non è possibile assegnare l'espressione con tipo \"{type}\" all'elenco di destinazione",
         "listInAnnotation": "Espressione List non consentita nell'espressione type",
         "literalEmptyArgs": "Sono previsti uno o più argomenti di tipo dopo \"Literal\"",
@@ -845,6 +853,9 @@
         "useTypeInstead": "Usare invece type[T]",
         "varianceMismatchForClass": "La varianza dell'argomento tipo \"{typeVarName}\" non è compatibile con la classe di base \"{className}\"",
         "varianceMismatchForTypeAlias": "La varianza dell'argomento tipo \"{typeVarName}\" non è compatibile con \"{typeAliasParam}\""
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "Non è possibile rinominare \"{symbolName}\" perché è anche dichiarato in codice non modificabile (una libreria o un file stub) che non può essere modificato. Completare la ridenominazione lascerebbe \"{symbolName}\" parzialmente rinominato. Risolvere prima le dichiarazioni in conflitto:\r\n{locations}"
     },
     "Service": {
         "longOperation": "L’enumerazione dei file di origine dell’area di lavoro sta richiedendo tempo. Provare ad aprire una sottocartella. [Altre informazioni](https://aka.ms/workspace-too-many-files)"

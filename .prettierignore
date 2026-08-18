@@ -1,4 +1,5 @@
 **/package-lock.json
+**/pnpm-lock.yaml
 **/dist/**
 **/out/**
 **/typeshed-fallback/**

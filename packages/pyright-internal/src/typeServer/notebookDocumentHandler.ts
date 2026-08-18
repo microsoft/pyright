@@ -75,7 +75,7 @@ export class NotebookDocumentHandler {
         private readonly _uriMapper: NotebookUriMapper,
         private readonly _caseDetector: CaseSensitivityDetector,
         private readonly _console: ConsoleInterface,
-        private readonly _getWorkspace: (fileUri: Uri) => Promise<Workspace>
+        protected readonly getWorkspace: (fileUri: Uri) => Promise<Workspace>
     ) {}
 
     test_whenIdle(): Promise<void> {
@@ -99,15 +99,16 @@ export class NotebookDocumentHandler {
                 let notebookData = await chain.old;
 
                 try {
+                    const prefixCellContents = await this.getPrefixCellContents(notebookUri);
                     notebookData = createNotebookData(
                         notebookUri,
                         params.cellTextDocuments,
                         this._uriMapper,
                         this._caseDetector,
-                        getDefaultPrefixCellContents()
+                        prefixCellContents
                     );
 
-                    const workspace = await this._getWorkspace(notebookData.prefixCellUri);
+                    const workspace = await this.getWorkspace(notebookData.prefixCellUri);
 
                     openNotebookCellChain(params.cellTextDocuments, notebookData, this._uriMapper, workspace);
                     verifyCellChainIsLinear(notebookData, workspace, this._console);
@@ -138,7 +139,7 @@ export class NotebookDocumentHandler {
                 const notebookData = await chain.old;
 
                 try {
-                    const workspace = await this._getWorkspace(notebookData.prefixCellUri);
+                    const workspace = await this.getWorkspace(notebookData.prefixCellUri);
 
                     if (params.change.cells?.structure) {
                         updateNotebookStructure(
@@ -193,7 +194,7 @@ export class NotebookDocumentHandler {
                 const notebookData = await chain.old;
 
                 try {
-                    const workspace = await this._getWorkspace(notebookData.prefixCellUri);
+                    const workspace = await this.getWorkspace(notebookData.prefixCellUri);
 
                     const cellPaths = [notebookData.prefixCellUri, ...notebookData.mappedCellUris];
                     cellPaths.forEach((cellPath) => {
@@ -215,6 +216,16 @@ export class NotebookDocumentHandler {
                     }`
                 );
             });
+    }
+
+    /**
+     * Returns the synthetic prefix-cell contents for a notebook. The base implementation returns
+     * Jupyter's implicit `from IPython.display import *`. Subclasses (e.g. Pylance) can override this
+     * to layer in product-specific startup commands. `notebookUri` identifies the notebook whose
+     * prefix cell is being (re)built so overrides can resolve per-notebook configuration.
+     */
+    protected getPrefixCellContents(notebookUri: Uri): Promise<string> {
+        return Promise.resolve(getDefaultPrefixCellContents());
     }
 
     private _getNotebookData(notebookUri: Uri): Promise<NotebookData | undefined> {

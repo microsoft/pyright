@@ -37,13 +37,7 @@ import { addIfNotNull, appendArray } from '../common/collectionUtils';
 import { Uri } from '../common/uri/uri';
 import { ModuleNode, ParseNodeType } from '../parser/parseNodes';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import {
-    ClassIteratorFlags,
-    getClassIterator,
-    getClassMemberIterator,
-    isMaybeDescriptorInstance,
-    MemberAccessFlags,
-} from './typeUtils';
+import { ClassIteratorFlags, getClassIterator, isMaybeDescriptorInstance, MemberAccessFlags } from './typeUtils';
 
 export const DefaultClassIteratorFlagsForFunctions =
     MemberAccessFlags.SkipObjectBaseClass |
@@ -70,112 +64,266 @@ export function isInheritedFromBuiltin(type: FunctionType | OverloadedType, clas
     );
 }
 
-export function getFunctionDocStringInherited(
-    type: FunctionType,
-    resolvedDecl: Declaration | undefined,
-    sourceMapper: SourceMapper,
-    classType?: ClassType
-) {
-    return getFunctionDocStringInheritedInfo(type, resolvedDecl, sourceMapper, classType)?.docString;
-}
+// ===========================================================================
+// Unified spec-ordered docstring resolution (component core).
+//
+// These implement the docstring-resolution-order spec and are the single source
+// of ordering for every callable docstring surface (functions, methods, overloads,
+// constructors). They operate on the FULL member symbol plus the call-matched
+// overload(s) so that Rule A (matched overload -> implementation -> other overloads)
+// applies uniformly, and they walk the MRO (derived-first, excluding builtin bases
+// but always considering the class itself) for inheritance. Stub->source fallback
+// is centralized in _functionDocInfo via _getFunctionDocStringFromDeclarationInfo.
+// ===========================================================================
 
-interface FunctionDocStringInfo {
-    docString: string;
-    forceLiteral?: boolean;
-    sourceDecl?: FunctionDeclaration;
-}
-
-export function getFunctionDocStringInheritedInfo(
-    type: FunctionType,
-    resolvedDecl: Declaration | undefined,
-    sourceMapper: SourceMapper,
-    classType?: ClassType
-) {
-    let docInfo: FunctionDocStringInfo | undefined;
-
-    // Don't allow docs to be inherited from the builtins to other classes;
-    // they typically not helpful (and object's __init__ doc causes issues
-    // with our current docstring traversal).
-    if (!isInheritedFromBuiltin(type, classType) && resolvedDecl && isFunctionDeclaration(resolvedDecl)) {
-        docInfo = _getFunctionDocStringInfo(type, resolvedDecl, sourceMapper);
+// Rule A within one class's member: matched overload -> implementation -> other
+// overloads (declaration order). Returns the first candidate that has a docstring.
+function _selectMemberDocInfo(
+    memberType: Type,
+    matchedOverloads: FunctionType[] | undefined,
+    sourceMapper: SourceMapper
+): FunctionDocStringInfo | undefined {
+    if (isFunction(memberType)) {
+        return _functionDocInfo(memberType, sourceMapper);
     }
 
-    // Search mro
-    if (!docInfo?.docString && classType) {
-        const funcName = type.shared.name;
-        const memberIterator = getClassMemberIterator(classType, funcName, DefaultClassIteratorFlagsForFunctions);
+    if (!isOverloaded(memberType)) {
+        return undefined;
+    }
 
-        for (const classMember of memberIterator) {
-            const decls = classMember.symbol.getDeclarations();
-            if (decls.length > 0) {
-                const inheritedDecl = classMember.symbol.getDeclarations().slice(-1)[0];
-                if (isFunctionDeclaration(inheritedDecl)) {
-                    docInfo = _getFunctionDocStringFromDeclarationInfo(inheritedDecl, sourceMapper);
-                    if (docInfo?.docString) {
-                        break;
+    const overloads = OverloadedType.getOverloads(memberType);
+    const impl = OverloadedType.getImplementation(memberType);
+
+    // Tier 1: the call-matched overload(s). First read the matched overload's OWN docstring
+    // directly; this is robust to declaration-cleared specializations (e.g. a ParamSpec/Callable
+    // transform via applyParamSpecValue clones the overload with shared.docString copied but its
+    // declaration dropped, so identity/declaration matching against the re-fetched symbol would
+    // miss it). Then fall back to the corresponding original overload from the full symbol.
+    if (matchedOverloads && matchedOverloads.length > 0) {
+        // matchedOverloads is a hint forwarded from the caller (e.g. resolveConstructorDocInfo
+        // forwards the same hint to both __init__ and __new__). Only trust a matched overload that
+        // actually belongs to this member; otherwise another member's matched overload could
+        // short-circuit Rule B here. Name is preserved across binding/specialization, so filtering
+        // by name is a safe scope check.
+        const memberName = overloads.length > 0 ? overloads[0].shared.name : undefined;
+        for (const matched of matchedOverloads) {
+            if (memberName !== undefined && matched.shared.name !== memberName) {
+                continue;
+            }
+            const info = _functionDocInfo(matched, sourceMapper);
+            if (info) {
+                return info;
+            }
+        }
+        for (const overload of overloads) {
+            if (_isMatchedOverload(overload, matchedOverloads)) {
+                const info = _functionDocInfo(overload, sourceMapper);
+                if (info) {
+                    return info;
+                }
+            }
+        }
+    }
+
+    // Tier 2: the implementation.
+    if (impl && isFunction(impl)) {
+        const info = _functionDocInfo(impl, sourceMapper);
+        if (info) {
+            return info;
+        }
+    }
+
+    // Tier 3: the remaining overloads, in declaration order.
+    for (const overload of overloads) {
+        const info = _functionDocInfo(overload, sourceMapper);
+        if (info) {
+            return info;
+        }
+    }
+
+    return undefined;
+}
+
+function _isMatchedOverload(overload: FunctionType, matchedOverloads: FunctionType[]): boolean {
+    // Match by object identity first, then by shared declaration. The latter keeps the
+    // matched-overload tier robust to binding/specialization (e.g. a generic `Box[int]()`
+    // whose matched overload is a specialized clone); `shared.declaration` is preserved
+    // across those transforms. If it ever were not, this falls through to the impl/other tiers.
+    return matchedOverloads.some(
+        (m) => m === overload || (!!m.shared.declaration && m.shared.declaration === overload.shared.declaration)
+    );
+}
+
+function _functionDocInfo(type: FunctionType, sourceMapper: SourceMapper): FunctionDocStringInfo | undefined {
+    if (type.shared.docString) {
+        // Leave forceLiteral undefined so downstream formatting can apply its built-in-module
+        // literal heuristic (matching the legacy getFunctionDocStringInheritedInfo behavior).
+        return {
+            docString: type.shared.docString,
+            sourceDecl:
+                type.shared.declaration && isFunctionDeclaration(type.shared.declaration)
+                    ? type.shared.declaration
+                    : undefined,
+        };
+    }
+
+    if (type.shared.declaration) {
+        return _getFunctionDocStringFromDeclarationInfo(type.shared.declaration, sourceMapper);
+    }
+
+    return undefined;
+}
+
+// Resolve ONLY the passed function's own docstring (with stub->source fallback), without borrowing
+// from sibling overloads, the implementation, the class, or the MRO. Used where each overload must
+// show its own docstring (e.g. signature-help enumeration) rather than a symbol-level resolved one.
+export function getFunctionOwnDocString(type: FunctionType, sourceMapper: SourceMapper): string | undefined {
+    return _functionDocInfo(type, sourceMapper)?.docString;
+}
+
+// Resolve a function/method docstring per spec. For a class member, resolve the class's OWN
+// member first (the full, unnarrowed overload set) via Rule A, then walk base classes
+// (excluding builtin bases) for inheritance. For a free function, resolve the passed type.
+// The builtin-inheritance guard and the trailing type.shared.docString fallback mirror the
+// legacy getFunctionDocStringInheritedInfo behavior so builtin docs don't leak into user classes.
+export function resolveMethodDocInfo(
+    type: FunctionType | OverloadedType,
+    classType: ClassType | undefined,
+    matchedOverloads: FunctionType[] | undefined,
+    sourceMapper: SourceMapper,
+    evaluator: TypeEvaluator
+): FunctionDocStringInfo | undefined {
+    const memberName = _memberNameOfType(type);
+
+    // Step 1: the member's own docstring (Rule A over the full overload set on its class), unless
+    // the member is inherited from a builtin (its generic doc should not surface on a user class).
+    if (!isInheritedFromBuiltin(type, classType)) {
+        let ownType: Type = type;
+        if (classType && memberName) {
+            const symbol = ClassType.getSymbolTable(classType).get(memberName);
+            if (symbol) {
+                ownType = evaluator.getEffectiveTypeOfSymbol(symbol);
+            }
+        } else if (!classType && memberName) {
+            // Free/module-level function: re-fetch the full (unnarrowed) overloaded symbol so
+            // sibling overloads are visible when the passed type was narrowed to the matched
+            // overload. Only adopt the re-fetched type when it is overloaded; otherwise keep the
+            // passed type so a decorator / functools.wraps-synthesized function (whose docstring
+            // is not on the raw declared symbol) is not discarded.
+            const primary = isOverloaded(type) ? OverloadedType.getOverloads(type)[0] : type;
+            const declNode = primary?.shared.declaration?.node;
+            if (declNode) {
+                const symbolWithScope = evaluator.lookUpSymbolRecursive(
+                    declNode,
+                    memberName,
+                    /* honorCodeFlow */ false
+                );
+                if (symbolWithScope) {
+                    const refetched = evaluator.getEffectiveTypeOfSymbol(symbolWithScope.symbol);
+                    if (isOverloaded(refetched)) {
+                        ownType = refetched;
                     }
                 }
             }
         }
+
+        const own = _selectMemberDocInfo(ownType, matchedOverloads, sourceMapper);
+        if (own?.docString) {
+            return own;
+        }
     }
 
-    if (docInfo?.docString) {
-        return docInfo;
+    // Step 2: inheritance — walk base classes (exclude builtin bases; the original class was
+    // handled in step 1), applying Rule A per class.
+    if (classType && memberName) {
+        for (const [mroClass] of getClassIterator(classType, ClassIteratorFlags.Default)) {
+            if (!isInstantiableClass(mroClass)) {
+                continue;
+            }
+            if (ClassType.isSameGenericClass(mroClass, classType)) {
+                continue;
+            }
+            if (ClassType.isBuiltIn(mroClass)) {
+                continue;
+            }
+
+            const symbol = ClassType.getSymbolTable(mroClass).get(memberName);
+            if (!symbol) {
+                continue;
+            }
+
+            const info = _selectMemberDocInfo(evaluator.getEffectiveTypeOfSymbol(symbol), undefined, sourceMapper);
+            if (info?.docString) {
+                return info;
+            }
+        }
     }
 
-    if (!type.shared.docString) {
-        return undefined;
+    // Step 3: the passed type's own docstring (last resort, mirrors legacy behavior).
+    if (isFunction(type) && type.shared.docString) {
+        return {
+            docString: type.shared.docString,
+            sourceDecl:
+                type.shared.declaration && isFunctionDeclaration(type.shared.declaration)
+                    ? type.shared.declaration
+                    : undefined,
+        };
     }
 
-    return {
-        docString: type.shared.docString,
-        sourceDecl:
-            type.shared.declaration && isFunctionDeclaration(type.shared.declaration)
-                ? type.shared.declaration
-                : undefined,
-    };
+    return undefined;
 }
 
-export function getOverloadedDocStringsInherited(
-    type: OverloadedType,
-    resolvedDecls: Declaration[],
+function _memberNameOfType(type: FunctionType | OverloadedType): string | undefined {
+    if (isOverloaded(type)) {
+        const overloads = OverloadedType.getOverloads(type);
+        return overloads.length > 0 ? overloads[0].shared.name : undefined;
+    }
+    return type.shared.name;
+}
+
+// Resolve a constructor-method docstring per spec (Phase 1). Walk the MRO and, for each
+// class, resolve its own `__init__` then `__new__` via Rule A. Returns undefined so the
+// caller can fall back to the class docstring (Phase 2).
+export function resolveConstructorDocInfo(
+    classType: ClassType,
+    matchedOverloads: FunctionType[] | undefined,
     sourceMapper: SourceMapper,
-    evaluator: TypeEvaluator,
-    classType?: ClassType
-) {
-    let docStrings: string[] | undefined;
+    evaluator: TypeEvaluator
+): FunctionDocStringInfo | undefined {
+    for (const [mroClass] of getClassIterator(classType, ClassIteratorFlags.Default)) {
+        if (!isInstantiableClass(mroClass)) {
+            continue;
+        }
+        if (!ClassType.isSameGenericClass(mroClass, classType) && ClassType.isBuiltIn(mroClass)) {
+            continue;
+        }
 
-    // Don't allow docs to be inherited from the builtins to other classes;
-    // they typically not helpful (and object's __init__ doc causes issues
-    // with our current docstring traversal).
-    if (!isInheritedFromBuiltin(type, classType)) {
-        for (const resolvedDecl of resolvedDecls) {
-            docStrings = getOverloadedDocStrings(type, resolvedDecl, sourceMapper);
-            if (docStrings && docStrings.length > 0) {
-                return docStrings;
-            }
+        const symbolTable = ClassType.getSymbolTable(mroClass);
+
+        const initSymbol = symbolTable.get('__init__');
+        const initInfo = initSymbol
+            ? _selectMemberDocInfo(evaluator.getEffectiveTypeOfSymbol(initSymbol), matchedOverloads, sourceMapper)
+            : undefined;
+        if (initInfo?.docString) {
+            return initInfo;
+        }
+
+        const newSymbol = symbolTable.get('__new__');
+        const newInfo = newSymbol
+            ? _selectMemberDocInfo(evaluator.getEffectiveTypeOfSymbol(newSymbol), matchedOverloads, sourceMapper)
+            : undefined;
+        if (newInfo?.docString) {
+            return newInfo;
         }
     }
 
-    // Search mro
-    const overloads = OverloadedType.getOverloads(type);
-    if (classType && overloads.length > 0) {
-        const funcName = overloads[0].shared.name;
-        const memberIterator = getClassMemberIterator(classType, funcName, DefaultClassIteratorFlagsForFunctions);
+    return undefined;
+}
 
-        for (const classMember of memberIterator) {
-            const inheritedDecl = classMember.symbol.getDeclarations().slice(-1)[0];
-            const declType = evaluator.getTypeForDeclaration(inheritedDecl)?.type;
-            if (declType) {
-                docStrings = getOverloadedDocStrings(declType, inheritedDecl, sourceMapper);
-                if (docStrings && docStrings.length > 0) {
-                    break;
-                }
-            }
-        }
-    }
-
-    return docStrings ?? [];
+export interface FunctionDocStringInfo {
+    docString: string;
+    forceLiteral?: boolean;
+    sourceDecl?: FunctionDeclaration;
 }
 
 export function getPropertyDocStringInherited(
@@ -291,6 +439,40 @@ export function getClassDocString(
         }
     }
 
+    // Fall back to inheriting a docstring from a base class (approximating
+    // Python's `inspect.getdoc`, but excluding builtin bases). Walk the MRO and
+    // use the nearest base's docstring. Skip builtin classes (e.g. `object`) so
+    // their generic docstrings don't leak, mirroring the method behavior in
+    // getFunctionDocStringInherited. Only inherit when the class truly has no
+    // docstring of its own. An explicit empty docstring (`""`) is recorded on
+    // `classType.shared.docString` and must block inheritance, matching Python
+    // `inspect.getdoc`. Note the empty string is discarded by the resolution
+    // above (helpers use truthy checks), so we consult the class's own docstring
+    // directly rather than the resolved local.
+    //
+    // Known limitation: unlike the class's own docstring (which resolves through
+    // `sourceMapper` to recover `.py` docs behind a `.pyi` stub), this inherited
+    // branch reads `mroClass.shared.docString` directly. So an inherited docstring
+    // surfaces only when the base doesn't ship a doc-less stub. This keeps the
+    // Pyright diff surgical; the async path mirrors the same decision.
+    if (docString === undefined && classType.shared.docString === undefined) {
+        for (const [mroClass] of getClassIterator(classType, ClassIteratorFlags.Default)) {
+            if (!isInstantiableClass(mroClass)) {
+                continue;
+            }
+            if (ClassType.isSameGenericClass(mroClass, classType)) {
+                continue;
+            }
+            if (ClassType.isBuiltIn(mroClass)) {
+                continue;
+            }
+            if (mroClass.shared.docString) {
+                docString = mroClass.shared.docString;
+                break;
+            }
+        }
+    }
+
     return docString;
 }
 
@@ -311,64 +493,6 @@ export function getVariableDocString(
     } else {
         return getVariableInStubFileDocStrings(decl, sourceMapper).find((doc) => doc);
     }
-}
-
-export function getOverloadedDocStrings(type: Type, resolvedDecl: Declaration | undefined, sourceMapper: SourceMapper) {
-    if (!isOverloaded(type)) {
-        return undefined;
-    }
-
-    const docStrings: string[] = [];
-    const overloads = OverloadedType.getOverloads(type);
-    const impl = OverloadedType.getImplementation(type);
-
-    if (overloads.some((o) => o.shared.docString)) {
-        overloads.forEach((overload) => {
-            if (overload.shared.docString) {
-                docStrings.push(overload.shared.docString);
-            }
-        });
-    }
-
-    if (impl && isFunction(impl) && impl.shared.docString) {
-        docStrings.push(impl.shared.docString);
-    }
-
-    // Fallback: try to extract docstrings from per-overload declarations.
-    // This handles cases where overloads are specialized (e.g. via a Callable[P, T]
-    // decorator) and shared.docString was not propagated to the specialized types.
-    if (docStrings.length === 0) {
-        for (const overload of overloads) {
-            if (overload.shared.declaration) {
-                const declDocString = _getFunctionDocStringFromDeclaration(overload.shared.declaration, sourceMapper);
-                if (declDocString) {
-                    docStrings.push(declDocString);
-                }
-            }
-        }
-
-        if (docStrings.length === 0 && impl && isFunction(impl) && impl.shared.declaration) {
-            const declDocString = _getFunctionDocStringFromDeclaration(impl.shared.declaration, sourceMapper);
-            if (declDocString) {
-                docStrings.push(declDocString);
-            }
-        }
-    }
-
-    if (
-        docStrings.length === 0 &&
-        resolvedDecl &&
-        isStubFile(resolvedDecl.uri) &&
-        isFunctionDeclaration(resolvedDecl)
-    ) {
-        const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
-        const docString = _getFunctionOrClassDeclsDocString(implDecls);
-        if (docString) {
-            docStrings.push(docString);
-        }
-    }
-
-    return docStrings;
 }
 
 function _getPropertyDocStringInherited(
@@ -428,39 +552,6 @@ export function getFunctionDocStringFromDeclarationInfo(
     sourceMapper: SourceMapper
 ): FunctionDocStringInfo | undefined {
     return _getFunctionDocStringFromDeclarationInfo(resolvedDecl, sourceMapper);
-}
-
-function _getFunctionDocStringInfo(
-    type: Type,
-    resolvedDecl: FunctionDeclaration | undefined,
-    sourceMapper: SourceMapper
-): FunctionDocStringInfo | undefined {
-    if (!isFunction(type)) {
-        return undefined;
-    }
-
-    if (type.shared.docString) {
-        return {
-            docString: type.shared.docString,
-            sourceDecl:
-                type.shared.declaration && isFunctionDeclaration(type.shared.declaration)
-                    ? type.shared.declaration
-                    : resolvedDecl,
-        };
-    }
-
-    if (resolvedDecl) {
-        const docInfo = _getFunctionDocStringFromDeclarationInfo(resolvedDecl, sourceMapper);
-        if (docInfo) {
-            return docInfo;
-        }
-    }
-
-    if (type.shared.declaration) {
-        return _getFunctionDocStringFromDeclarationInfo(type.shared.declaration, sourceMapper);
-    }
-
-    return undefined;
 }
 
 function _getFunctionDocStringFromDeclarationInfo(

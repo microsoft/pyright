@@ -66,6 +66,143 @@ test('source enumeration reports symlinked include roots', () => {
     );
 });
 
+test('source enumeration reports discovered config files', () => {
+    const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: '/' });
+    fs.mkdirpSync('/projectRoot/pkgA');
+    fs.mkdirpSync('/projectRoot/pkgB');
+    fs.mkdirpSync('/projectRoot/pkgC');
+    fs.writeFileSync(Uri.file('/projectRoot/pyrightconfig.json', fs), '{}');
+    fs.writeFileSync(Uri.file('/projectRoot/pkgA/pyrightconfig.json', fs), '{}');
+    fs.writeFileSync(Uri.file('/projectRoot/pkgB/pyproject.toml', fs), '[tool.pyright]\n');
+    fs.writeFileSync(Uri.file('/projectRoot/pkgC/module.py', fs), 'x = 1');
+
+    const enumerator = new SourceEnumerator(
+        [getFileSpec(Uri.file('/', fs), 'projectRoot')],
+        [],
+        /* autoExcludeVenv */ false,
+        fs,
+        new NullConsole()
+    );
+
+    const result = enumerator.enumerate(/* timeLimitInMs */ 1000);
+
+    assert.strictEqual(result.isComplete, true);
+    assert.deepStrictEqual(
+        enumerator
+            .getDiscoveredConfigFiles()
+            .map((uri) => uri.key)
+            .sort(),
+        [
+            Uri.file('/projectRoot/pkgA/pyrightconfig.json', fs).key,
+            Uri.file('/projectRoot/pkgB/pyproject.toml', fs).key,
+            Uri.file('/projectRoot/pyrightconfig.json', fs).key,
+        ].sort()
+    );
+});
+
+test('source enumeration skips config files inside auto-excluded virtual environments', () => {
+    const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: '/' });
+    fs.mkdirpSync('/projectRoot/env');
+    fs.writeFileSync(Uri.file('/projectRoot/pyrightconfig.json', fs), '{}');
+    // `env` is marked as a virtual environment; with autoExcludeVenv it must not be scanned.
+    fs.writeFileSync(Uri.file('/projectRoot/env/pyvenv.cfg', fs), '');
+    fs.writeFileSync(Uri.file('/projectRoot/env/pyrightconfig.json', fs), '{}');
+
+    const enumerator = new SourceEnumerator(
+        [getFileSpec(Uri.file('/', fs), 'projectRoot')],
+        [],
+        /* autoExcludeVenv */ true,
+        fs,
+        new NullConsole()
+    );
+
+    const result = enumerator.enumerate(/* timeLimitInMs */ 1000);
+
+    assert.strictEqual(result.isComplete, true);
+    assert.deepStrictEqual(
+        enumerator.getDiscoveredConfigFiles().map((uri) => uri.key),
+        [Uri.file('/projectRoot/pyrightconfig.json', fs).key]
+    );
+});
+
+test('explicit include does not rescue a directory detected as a virtual environment', () => {
+    const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: '/' });
+    fs.mkdirpSync('/projectRoot/env');
+    fs.writeFileSync(Uri.file('/projectRoot/module.py', fs), 'x = 1');
+    // `env` looks like a virtual environment. Even though the user explicitly includes it, the
+    // default virtual-environment exclusion takes precedence over `include` (default excludes trump
+    // includes, just like any other exclude), so it stays excluded.
+    fs.writeFileSync(Uri.file('/projectRoot/env/pyvenv.cfg', fs), '');
+    fs.writeFileSync(Uri.file('/projectRoot/env/module.py', fs), 'y = 1');
+
+    const enumerator = new SourceEnumerator(
+        [getFileSpec(Uri.file('/', fs), 'projectRoot'), getFileSpec(Uri.file('/', fs), 'projectRoot/env')],
+        [],
+        /* autoExcludeVenv */ true,
+        fs,
+        new NullConsole()
+    );
+
+    const result = enumerator.enumerate(/* timeLimitInMs */ 1000);
+
+    assert.strictEqual(result.isComplete, true);
+    // The venv source file is not matched and the directory is reported as auto-excluded.
+    assert.ok(!result.matches.has(Uri.file('/projectRoot/env/module.py', fs).key));
+    assert.deepStrictEqual(
+        [...new Set(result.autoExcludedDirs.map((uri) => uri.key))],
+        [Uri.file('/projectRoot/env', fs).key]
+    );
+});
+
+test('source enumeration skips config files under excluded directories', () => {
+    const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: '/' });
+    fs.mkdirpSync('/projectRoot/build');
+    fs.writeFileSync(Uri.file('/projectRoot/pyrightconfig.json', fs), '{}');
+    fs.writeFileSync(Uri.file('/projectRoot/build/pyrightconfig.json', fs), '{}');
+
+    const enumerator = new SourceEnumerator(
+        [getFileSpec(Uri.file('/', fs), 'projectRoot')],
+        [getFileSpec(Uri.file('/projectRoot', fs), 'build')],
+        /* autoExcludeVenv */ false,
+        fs,
+        new NullConsole()
+    );
+
+    const result = enumerator.enumerate(/* timeLimitInMs */ 1000);
+
+    assert.strictEqual(result.isComplete, true);
+    assert.deepStrictEqual(
+        enumerator.getDiscoveredConfigFiles().map((uri) => uri.key),
+        [Uri.file('/projectRoot/pyrightconfig.json', fs).key]
+    );
+});
+
+test('source enumeration skips config files matching an exclude file spec', () => {
+    const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: '/' });
+    fs.mkdirpSync('/projectRoot/pkgA');
+    fs.writeFileSync(Uri.file('/projectRoot/pyrightconfig.json', fs), '{}');
+    // pkgA is not an excluded directory (it is still scanned for sources), but its config
+    // file is explicitly excluded, so it must not be surfaced as a discovered config root.
+    fs.writeFileSync(Uri.file('/projectRoot/pkgA/pyrightconfig.json', fs), '{}');
+    fs.writeFileSync(Uri.file('/projectRoot/pkgA/module.py', fs), 'x = 1');
+
+    const enumerator = new SourceEnumerator(
+        [getFileSpec(Uri.file('/', fs), 'projectRoot')],
+        [getFileSpec(Uri.file('/projectRoot', fs), 'pkgA/pyrightconfig.json')],
+        /* autoExcludeVenv */ false,
+        fs,
+        new NullConsole()
+    );
+
+    const result = enumerator.enumerate(/* timeLimitInMs */ 1000);
+
+    assert.strictEqual(result.isComplete, true);
+    assert.deepStrictEqual(
+        enumerator.getDiscoveredConfigFiles().map((uri) => uri.key),
+        [Uri.file('/projectRoot/pyrightconfig.json', fs).key]
+    );
+});
+
 test('random library file changed, nested search paths', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
 
