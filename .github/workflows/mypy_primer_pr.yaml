@@ -16,7 +16,7 @@
 name: Run mypy_primer on PR
 
 env:
-  NODE_VERSION: '22.x' # Shipped with VS Code.
+  NODE_VERSION: '24.15.0' # Shipped with VS Code.
 
 on:
   # Run on the creation or update of a PR.
@@ -49,11 +49,14 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.11'
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          package_json_file: pyright_to_test/package.json
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: 'pyright_to_test/**/package-lock.json'
+          cache: 'pnpm'
+          cache-dependency-path: 'pyright_to_test/pnpm-lock.yaml'
       - name: Install dependencies
         run: |
           python -m pip install -U pip
@@ -64,6 +67,7 @@ jobs:
           # mypy_primer installs both the PR and base commits. The base commit can contain
           # historical peer dependency conflicts that should not block primer comparisons.
           NPM_CONFIG_LEGACY_PEER_DEPS: 'true'
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
         run: |
           cd pyright_to_test
           echo "new commit"
@@ -78,7 +82,7 @@ jobs:
           # dependency and bundler metadata so the old checkout can install and build.
           mapfile -t BASE_BUILD_FILES < <(
             git ls-tree -r --name-only "$GITHUB_SHA" |
-              grep -E '^(package(-lock)?\.json|packages/[^/]+/package(-lock)?\.json|packages/[^/]+/rspack\.config\.js)$'
+              grep -E '^(package(-lock)?\.json|pnpm-(lock|workspace)\.yaml|packages/[^/]+/package(-lock)?\.json|packages/[^/]+/rspack\.config\.js)$'
           )
           echo "Using build metadata for mypy_primer base:"
           printf '%s\n' "${BASE_BUILD_FILES[@]}"

@@ -1,0 +1,16 @@
+packages:
+  - 'packages/*'
+
+lockfileIncludeTarballUrl: false
+strictDepBuilds: false
+# The pyrx root workspace installs these packages; don't start a second install before scripts.
+verifyDepsBeforeRun: false
+onlyBuiltDependencies:
+  - '@vscode/vsce-sign'
+  - 'esbuild'
+  - 'keytar'
+  - 'nx'
+  - 'unrs-resolver'
+
+overrides:
+  tar: '7.5.11'
