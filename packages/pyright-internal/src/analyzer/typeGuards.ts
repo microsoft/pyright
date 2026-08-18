@@ -702,66 +702,127 @@ export function getTypeNarrowingCallback(
         }
 
         // Look for a TypeGuard function.
-        if (testExpression.d.args.length >= 1) {
-            const arg0Expr = testExpression.d.args[0].d.valueExpr;
-            if (isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
-                // Does this look like it's a custom type guard function?
-                let isPossiblyTypeGuard = false;
+        const isFunctionReturnTypeGuard = (type: FunctionType): boolean => {
+            return (
+                !!type.shared.declaredReturnType &&
+                isClassInstance(type.shared.declaredReturnType) &&
+                ClassType.isBuiltIn(type.shared.declaredReturnType, ['TypeGuard', 'TypeIs'])
+            );
+        };
 
-                const isFunctionReturnTypeGuard = (type: FunctionType) => {
-                    return (
-                        type.shared.declaredReturnType &&
-                        isClassInstance(type.shared.declaredReturnType) &&
-                        ClassType.isBuiltIn(type.shared.declaredReturnType, ['TypeGuard', 'TypeIs'])
-                    );
-                };
+        const callTypeResult = evaluator.getTypeOfExpression(testExpression.d.leftExpr, EvalFlags.CallBaseDefaults);
+        const callType = callTypeResult.type;
 
-                const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.d.leftExpr,
-                    EvalFlags.CallBaseDefaults
-                );
-                const callType = callTypeResult.type;
+        let isPossiblyTypeGuard = false;
+        if (isFunction(callType)) {
+            isPossiblyTypeGuard = isFunctionReturnTypeGuard(callType);
+        } else if (isOverloaded(callType)) {
+            isPossiblyTypeGuard = OverloadedType.getOverloads(callType).some(isFunctionReturnTypeGuard);
+        } else if (isClassInstance(callType)) {
+            const callMember = lookUpObjectMember(callType, '__call__');
+            if (callMember) {
+                const memberType = evaluator.getTypeOfMember(callMember);
+                if (isFunction(memberType)) {
+                    isPossiblyTypeGuard = isFunctionReturnTypeGuard(memberType);
+                } else if (isOverloaded(memberType)) {
+                    isPossiblyTypeGuard = OverloadedType.getOverloads(memberType).some(isFunctionReturnTypeGuard);
+                }
+            }
+        }
 
-                if (isFunction(callType) && isFunctionReturnTypeGuard(callType)) {
-                    isPossiblyTypeGuard = true;
-                } else if (
-                    isOverloaded(callType) &&
-                    OverloadedType.getOverloads(callType).some((o) => isFunctionReturnTypeGuard(o))
-                ) {
-                    isPossiblyTypeGuard = true;
-                } else if (isClassInstance(callType)) {
-                    isPossiblyTypeGuard = true;
+        if (isPossiblyTypeGuard) {
+            const getTargetArgExpr = (fnType: FunctionType): ExpressionNode | undefined => {
+                const isUnbound =
+                    testExpression.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
+                    fnType.priv.boundToType !== undefined &&
+                    isInstantiableClass(fnType.priv.boundToType) &&
+                    !FunctionType.isStaticMethod(fnType) &&
+                    fnType.priv.strippedFirstParamType === undefined;
+
+                const targetParamIndex = isUnbound ? 1 : 0;
+                if (targetParamIndex >= fnType.shared.parameters.length) {
+                    return undefined;
                 }
 
-                if (isPossiblyTypeGuard) {
-                    // Evaluate the type guard call expression.
-                    const functionReturnTypeResult = evaluator.getTypeOfExpression(testExpression);
-                    const functionReturnType = functionReturnTypeResult.type;
-
-                    if (
-                        isClassInstance(functionReturnType) &&
-                        ClassType.isBuiltIn(functionReturnType, ['TypeGuard', 'TypeIs']) &&
-                        functionReturnType.priv.typeArgs &&
-                        functionReturnType.priv.typeArgs.length > 0
-                    ) {
-                        const isStrictTypeGuard = ClassType.isBuiltIn(functionReturnType, 'TypeIs');
-                        const typeGuardType = functionReturnType.priv.typeArgs[0];
-                        const isIncomplete = !!callTypeResult.isIncomplete || !!functionReturnTypeResult.isIncomplete;
-
-                        return (type: Type) => {
-                            return {
-                                type: narrowTypeForUserDefinedTypeGuard(
-                                    evaluator,
-                                    type,
-                                    typeGuardType,
-                                    isPositiveTest,
-                                    isStrictTypeGuard,
-                                    testExpression
-                                ),
-                                isIncomplete,
-                            };
-                        };
+                const targetParam = fnType.shared.parameters[targetParamIndex];
+                if (targetParam.name) {
+                    const kwArg = testExpression.d.args.find(
+                        (arg) => arg.d.argCategory === ArgCategory.Simple && arg.d.name?.d.value === targetParam.name
+                    );
+                    if (kwArg) {
+                        return kwArg.d.valueExpr;
                     }
+                }
+
+                // Map positional arguments to parameters. If an unpacked argument
+                // appears at or before the target index, the mapping is ambiguous,
+                // so don't attempt to narrow.
+                let positionalIndex = 0;
+                for (const arg of testExpression.d.args) {
+                    if (arg.d.name) {
+                        continue;
+                    }
+                    if (arg.d.argCategory !== ArgCategory.Simple) {
+                        return undefined;
+                    }
+                    if (positionalIndex === targetParamIndex) {
+                        return arg.d.valueExpr;
+                    }
+                    positionalIndex++;
+                }
+
+                return undefined;
+            };
+
+            let arg0Expr: ExpressionNode | undefined;
+            if (isFunction(callType)) {
+                arg0Expr = getTargetArgExpr(callType);
+            } else if (isOverloaded(callType)) {
+                // Consider only the overloads that return a TypeGuard or TypeIs so
+                // that eligibility and argument mapping come from the same signature.
+                for (const overload of OverloadedType.getOverloads(callType)) {
+                    if (!isFunctionReturnTypeGuard(overload)) {
+                        continue;
+                    }
+                    arg0Expr = getTargetArgExpr(overload);
+                    if (arg0Expr) {
+                        break;
+                    }
+                }
+            } else if (isClassInstance(callType)) {
+                if (testExpression.d.args.length >= 1) {
+                    arg0Expr = testExpression.d.args[0].d.valueExpr;
+                }
+            }
+
+            if (arg0Expr && isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
+                // Evaluate the type guard call expression.
+                const functionReturnTypeResult = evaluator.getTypeOfExpression(testExpression);
+                const functionReturnType = functionReturnTypeResult.type;
+
+                if (
+                    isClassInstance(functionReturnType) &&
+                    ClassType.isBuiltIn(functionReturnType, ['TypeGuard', 'TypeIs']) &&
+                    functionReturnType.priv.typeArgs &&
+                    functionReturnType.priv.typeArgs.length > 0
+                ) {
+                    const isStrictTypeGuard = ClassType.isBuiltIn(functionReturnType, 'TypeIs');
+                    const typeGuardType = functionReturnType.priv.typeArgs[0];
+                    const isIncomplete = !!callTypeResult.isIncomplete || !!functionReturnTypeResult.isIncomplete;
+
+                    return (type: Type) => {
+                        return {
+                            type: narrowTypeForUserDefinedTypeGuard(
+                                evaluator,
+                                type,
+                                typeGuardType,
+                                isPositiveTest,
+                                isStrictTypeGuard,
+                                testExpression
+                            ),
+                            isIncomplete,
+                        };
+                    };
                 }
             }
         }
