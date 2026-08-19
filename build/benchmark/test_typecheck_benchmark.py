@@ -56,6 +56,23 @@ class TypecheckBenchmarkTest(unittest.TestCase):
 
         self.assertEqual(command, ["node", str(entry_point)])
 
+    def test_pip_pyright_command_uses_active_python_environment(self) -> None:
+        with patch.object(
+            benchmark.subprocess,
+            "run",
+            return_value=unittest.mock.Mock(returncode=0),
+        ) as run:
+            command = benchmark._checker_command("pyright-pip")
+
+        run.assert_called_once_with(
+            [benchmark.sys.executable, "-c", "import pyright"],
+            capture_output=True,
+            timeout=10,
+        )
+        self.assertEqual(
+            command, [benchmark.sys.executable, "-m", "pyright"]
+        )
+
     def test_skip_build_requires_entry_point_and_bundle(self) -> None:
         entry_point = self.root / "index.js"
         bundle = self.root / "dist" / "pyright.js"
@@ -120,6 +137,20 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertEqual(config["include"], ["src"])
         self.assertEqual(config["exclude"], benchmark.PYRIGHT_DEFAULT_EXCLUDES)
         self.assertIs(config["useLibraryCodeForTypes"], True)
+        configs[0].unlink()
+
+    def test_pip_pyright_uses_pyright_config(self) -> None:
+        with patch.object(
+            benchmark,
+            "_checker_command",
+            return_value=[benchmark.sys.executable, "-m", "pyright"],
+        ):
+            command, configs = benchmark._build_checker_command(
+                "pyright-pip", self.root, None
+            )
+
+        self.assertEqual(command[-1], "--stats")
+        self.assertEqual(len(configs), 1)
         configs[0].unlink()
 
     def test_load_install_envs_includes_source_only_packages(self) -> None:

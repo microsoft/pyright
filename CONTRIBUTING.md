@@ -18,4 +18,8 @@ python build/perfCompare.py --metric cpu --num-runs 50 --corpus <path-to-python-
 
 See the script's `--help` and module docstring for options and methodology.
 
-To compare the local Pyright build's speed and peak memory with Pyrefly, ty, mypy, and Zuban on pandas, use `build/benchmark/typecheck_benchmark.py`. See [the benchmark README](build/benchmark/README.md) for prerequisites, usage, and methodology.
+To compare the local Pyright build's speed and peak memory with the latest PyPI release or with
+Pyrefly, ty, mypy, and Zuban on the pinned corpus, use `build/benchmark/typecheck_benchmark.py`.
+Maintainers can also request the hosted regression benchmark on a pull request by commenting
+`/benchmark`. See [the benchmark README](build/benchmark/README.md) for the developer and maintainer
+workflows, prerequisites, and methodology.

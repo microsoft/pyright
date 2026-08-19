@@ -6,15 +6,9 @@ env:
   PYTHON_VERSION: '3.14.6'
 
 on:
-  workflow_dispatch:
   pull_request:
-    paths:
-      - '.github/workflows/typecheck_benchmark_pr.yml'
-      - '.github/workflows/typecheck_benchmark_comment.yml'
-      - 'build/benchmark/**'
-      - 'packages/pyright/**'
-      - 'packages/pyright-internal/src/**'
-      - 'packages/pyright-internal/typeshed-fallback/**'
+    types:
+      - labeled
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -23,6 +17,7 @@ concurrency:
 jobs:
   benchmark:
     name: Compare Pyright performance
+    if: ${{ github.event.label.name == 'run-typecheck-benchmark' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:

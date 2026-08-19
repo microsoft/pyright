@@ -42,6 +42,7 @@ PYRIGHT_ENTRY_POINT = PYRIGHT_PACKAGE_DIR / "index.js"
 PYRIGHT_BUNDLE = PYRIGHT_PACKAGE_DIR / "dist" / "pyright.js"
 
 DEFAULT_TYPE_CHECKERS = ["pyright", "pyrefly", "ty", "mypy", "zuban"]
+AVAILABLE_TYPE_CHECKERS = [*DEFAULT_TYPE_CHECKERS, "pyright-pip"]
 DEFAULT_TIMEOUT = 300
 DEFAULT_MEMORY_LIMIT_MB = 4096
 CLONE_TIMEOUT = 300
@@ -143,6 +144,20 @@ def _pyright_command() -> list[str] | None:
 def _checker_command(checker: str) -> list[str] | None:
     if checker == "pyright":
         return _pyright_command()
+    if checker == "pyright-pip":
+        try:
+            result = subprocess.run(
+                [sys.executable, "-c", "import pyright"],
+                capture_output=True,
+                timeout=10,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        return (
+            [sys.executable, "-m", "pyright"]
+            if result.returncode == 0
+            else None
+        )
     if checker == "mypy":
         try:
             result = subprocess.run(
@@ -659,7 +674,7 @@ def _build_checker_command(
         return None, []
 
     relative_paths = _relative_check_paths(package_path, check_paths)
-    if checker == "pyright":
+    if checker in ("pyright", "pyright-pip"):
         config_path = _write_pyright_config(package_path, relative_paths)
         return [
             *base_command,
@@ -715,7 +730,7 @@ def run_checker(
     if not command:
         error_message = (
             "Not installed"
-            if checker in DEFAULT_TYPE_CHECKERS
+            if checker in AVAILABLE_TYPE_CHECKERS
             else f"Unknown checker: {checker}"
         )
         return {
@@ -1291,7 +1306,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--checkers",
         "-c",
         nargs="+",
-        choices=DEFAULT_TYPE_CHECKERS,
+        choices=AVAILABLE_TYPE_CHECKERS,
         default=DEFAULT_TYPE_CHECKERS,
         help="type checkers to benchmark (default: all)",
     )

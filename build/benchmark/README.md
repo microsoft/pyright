@@ -33,6 +33,12 @@ its standard `**/node_modules`, `**/__pycache__`, and `**/.*` exclusions.
     python -m pip install pyrefly ty mypy zuban
     ```
 
+- To compare the working tree with the latest Pyright release from PyPI:
+
+    ```console
+    python -m pip install --upgrade pyright
+    ```
+
 Use a dedicated virtual environment with pip available. The benchmark clones each package into a
 temporary directory and installs the project and configured dependencies into a package-specific
 target directory outside the source checkout. Checker subprocesses use only that package's target,
@@ -47,6 +53,7 @@ python build/benchmark/typecheck_benchmark.py
 python build/benchmark/typecheck_benchmark.py -c pyright mypy -r 3 -w 1
 python build/benchmark/typecheck_benchmark.py -c pyright --skip-pyright-build
 python build/benchmark/typecheck_benchmark.py -c pyright --local path/to/project
+python build/benchmark/typecheck_benchmark.py -c pyright pyright-pip -r 3 -w 1
 ```
 
 ## Local Pyright build
@@ -56,6 +63,12 @@ before cloning or timing the corpus. Build time is not measured. Every Pyright i
 version detection, uses `node packages/pyright/index.js`; a `pyright` executable on `PATH` is never
 used. The package entry point initializes the production bundle's resource root before loading
 `dist/pyright.js`.
+
+Select `pyright-pip` alongside `pyright` to compare the working tree against the Pyright package
+installed in the active Python environment. `pyright-pip` invokes `python -m pyright`, so it cannot
+accidentally resolve an npm-installed executable from `PATH`. Both variants run over the same prepared
+corpus in one invocation; their versions, timing, and peak memory are reported in adjacent summary
+rows. Upgrade the package first when the comparison should use the latest PyPI release.
 
 Use `--skip-pyright-build` to reuse an existing production bundle. The script rejects this flag if
 `packages/pyright/dist/pyright.js` does not exist.
@@ -70,11 +83,48 @@ Checker configuration files use unique temporary names in the target directory a
 each invocation. Existing `pyrightconfig.json`, mypy, ty, or Pyrefly configuration files are not
 overwritten. The temporary configuration selects the full local directory.
 
+## Developer workflow
+
+To compare working-tree changes with the latest Pyright release on the pinned corpus, install or
+upgrade Pyright in the active virtual environment and select both Pyright variants:
+
+```console
+python -m pip install --upgrade pyright
+python build/benchmark/typecheck_benchmark.py \
+    -c pyright pyright-pip -r 3 -w 1
+```
+
+`pyright` builds and runs the current checkout. `pyright-pip` runs the release through the active
+interpreter with `python -m pyright`. The summary shows each version, timing, and peak memory in
+adjacent rows. Add `--local PATH` for a quick comparison on one existing project; omit it to use the
+full pinned corpus. Use the same machine and active environment for both variants.
+
+Local results should be used for investigation, not compared with the checked-in hosted-runner
+baseline. Machine class, operating system, Python version, and benchmark settings are part of the
+result contract, and the comparator rejects mismatched environments.
+
+## Maintainer workflow
+
+The hosted pull-request benchmark runs only when a maintainer comments exactly `/benchmark` on an
+open pull request. The command must be the entire comment. The trusted command workflow checks that
+the commenter has `write`, `maintain`, or `admin` repository permission and then toggles the
+`run-typecheck-benchmark` label. Users without one of these permissions cannot start the benchmark.
+
+The label event runs the pull request's current head with read-only repository permissions. When the
+run completes, a separate trusted workflow validates that the result belongs to the pull request's
+current head, renders it using default-branch code, and creates or updates one benchmark comment. The
+Actions job summary and `typecheck-benchmark-linux-x64` artifact contain the same candidate results.
+
+Comment `/benchmark` again after pushing a new commit or when rerunning the same head. No benchmark is
+started automatically for later commits. The command workflow must already exist on the repository's
+default branch before comments can trigger it; a pull request that first introduces the workflow
+cannot trigger itself.
+
 ## Options
 
 | Flag | Description |
 | --- | --- |
-| `-c, --checkers NAME [NAME ...]` | Checkers to run; choices are `pyright`, `pyrefly`, `ty`, `mypy`, and `zuban` |
+| `-c, --checkers NAME [NAME ...]` | Checkers to run; choices are `pyright`, `pyright-pip`, `pyrefly`, `ty`, `mypy`, and `zuban` |
 | `-r, --runs N` | Measured runs per checker (default: 5) |
 | `-w, --warmup N` | Warmup runs discarded before measurement (default: 1) |
 | `-t, --timeout SECONDS` | Timeout for each checker invocation (default: 300) |
@@ -116,14 +166,11 @@ must match so results collected with shared and package-specific environments ca
 `--threshold-percent` to select another threshold. Results from different runner classes are
 historical data, not a reliable regression gate.
 
-On pull requests, the benchmark workflow pins Python 3.14.6, caches pip downloads using
-`install_envs.json` as the cache key, and requires a regression to exceed both a 20% relative
-threshold and an absolute variance guard of 1 second for time or 100 MB for peak memory. These are the
-comparator defaults, so the gate and trusted comment renderer share one configuration source. It writes
-the comparison table to the Actions job summary and uploads it with the candidate JSON. A separate
-trusted workflow validates the originating PR and renders the same report from JSON using code from
-the default branch before posting or updating a PR comment. Reports and artifacts are published
-before a failed comparison marks the job unsuccessful.
+On pull requests, the benchmark pins Python 3.14.6, caches pip downloads using `install_envs.json` as
+the cache key, and requires a regression to exceed both a 20% relative threshold and an absolute
+variance guard of 1 second for time or 100 MB for peak memory. These are the comparator defaults, so
+the gate and trusted comment renderer share one configuration source. Reports and artifacts are
+published before a failed comparison marks the job unsuccessful.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
 Each checker performs three measured runs after one warmup over the same pinned corpus. The aggregate

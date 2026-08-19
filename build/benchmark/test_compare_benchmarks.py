@@ -362,6 +362,31 @@ Regression threshold: `10.0%`
             self.assertIn("pnpm-lock.yaml", workflow)
             self.assertNotIn(".github/actions/npm-cache-dir", workflow)
 
+    def test_pr_benchmark_requires_authorized_comment(self) -> None:
+        trigger_workflow = (
+            REPO_ROOT
+            / ".github"
+            / "workflows"
+            / "typecheck_benchmark_trigger.yml"
+        ).read_text(encoding="utf-8")
+        benchmark_workflow = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("issue_comment:", trigger_workflow)
+        self.assertIn("github.event.comment.body == '/benchmark'", trigger_workflow)
+        self.assertIn("github.event.issue.state == 'open'", trigger_workflow)
+        self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
+        self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
+        self.assertIn("issues: write", trigger_workflow)
+        self.assertNotIn("actions/checkout", trigger_workflow)
+        self.assertIn("types:\n      - labeled", benchmark_workflow)
+        self.assertNotIn("paths:", benchmark_workflow)
+        self.assertIn(
+            "github.event.label.name == 'run-typecheck-benchmark'",
+            benchmark_workflow,
+        )
+
     def test_pr_workflow_prefers_trusted_baseline_with_bootstrap_fallback(self) -> None:
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
