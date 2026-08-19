@@ -26,7 +26,7 @@ its standard `**/node_modules`, `**/__pycache__`, and `**/.*` exclusions.
 
 - Python 3.14.6, with pip
 - Git
-- Node.js and npm
+- Node.js and pnpm
 - The non-Pyright checkers you want to measure installed in the active Python environment:
 
     ```console
@@ -34,9 +34,11 @@ its standard `**/node_modules`, `**/__pycache__`, and `**/.*` exclusions.
     ```
 
 Use a dedicated virtual environment with pip available. The benchmark clones each package into a
-temporary directory and installs the project and configured dependencies into the active environment. A
-benchmark that reports a dependency-installation warning is not a valid prepared-environment
-measurement and should be rerun after fixing pip or the package installation.
+temporary directory and installs the project and configured dependencies into a package-specific
+target directory outside the source checkout. Checker subprocesses use only that package's target,
+so installations for earlier corpus entries cannot affect later measurements. A benchmark that
+reports a dependency-installation warning is not a valid prepared-environment measurement and
+should be rerun after fixing pip or the package installation.
 
 From the repository root:
 
@@ -109,7 +111,8 @@ successful result is missing, the environment contract differs, or a result exce
 regression threshold. Package commits, check paths, and excluded directory names must also match.
 Candidate-only package/checker results are reported as not regression-gated and require a regenerated
 baseline before they are protected. Runner class, hosted runner image, CPU count, and the exact Python
-version are part of the environment contract. Use
+version are part of the environment contract. The dependency-isolation mode is also recorded and
+must match so results collected with shared and package-specific environments cannot be compared. Use
 `--threshold-percent` to select another threshold. Results from different runner classes are
 historical data, not a reliable regression gate.
 
