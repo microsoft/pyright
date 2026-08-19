@@ -31,13 +31,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check out trusted baseline
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          path: benchmark-baseline
-          sparse-checkout: build/benchmark/baselines
-
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -51,6 +44,13 @@ jobs:
           cache-dependency-path: '**/package-lock.json'
 
       - uses: ./.github/actions/npm-cache-dir
+
+      - name: Check out trusted baseline
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: benchmark-baseline
+          sparse-checkout: build/benchmark/baselines
 
       - name: Install build prerequisites
         run: |

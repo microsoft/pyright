@@ -330,6 +330,16 @@ Regression threshold: `10.0%`
                 baseline_package["exclude_directories"],
             )
 
+    def test_workflow_runs_local_action_before_trusted_checkout(self) -> None:
+        workflow = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertLess(
+            workflow.index("uses: ./.github/actions/npm-cache-dir"),
+            workflow.index("- name: Check out trusted baseline"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
