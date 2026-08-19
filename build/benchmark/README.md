@@ -18,8 +18,8 @@ source revisions.
 
 Entries can define `exclude_directories` to prune named directories while resolving their check
 paths. The benchmark expands those entries to `.py` and `.pyi` files before invoking any checker, so
-all checkers analyze the same scope. NumPy and pandas exclude their test directories. Generated
-Pyright configurations explicitly retain
+all checkers analyze the same scope. NumPy excludes its test directories; pandas includes its test
+and `_testing` directories. Generated Pyright configurations explicitly retain
 its standard `**/node_modules`, `**/__pycache__`, and `**/.*` exclusions.
 
 ## Prerequisites

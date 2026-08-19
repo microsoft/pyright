@@ -29,18 +29,18 @@
   "timeout_s": 600,
   "aggregate": {
     "pyright": {
-      "packages_tested": 6,
-      "packages_failed": 3,
-      "avg_execution_time_s": 18.98,
-      "p50_execution_time_s": 16.017,
-      "p90_execution_time_s": 38.37,
-      "p95_execution_time_s": 38.934,
+      "packages_tested": 5,
+      "packages_failed": 4,
+      "avg_execution_time_s": 15.327,
+      "p50_execution_time_s": 12.258,
+      "p90_execution_time_s": 31.609,
+      "p95_execution_time_s": 35.554,
       "max_execution_time_s": 39.498,
-      "total_execution_time_s": 113.878,
-      "avg_peak_memory_mb": 983.3,
-      "p50_peak_memory_mb": 997.2,
-      "p90_peak_memory_mb": 1599.2,
-      "p95_peak_memory_mb": 1712.8,
+      "total_execution_time_s": 76.636,
+      "avg_peak_memory_mb": 905.6,
+      "p50_peak_memory_mb": 900.3,
+      "p90_peak_memory_mb": 1533.5,
+      "p95_peak_memory_mb": 1680.0,
       "max_peak_memory_mb": 1826.4
     }
   },
@@ -190,41 +190,18 @@
       "error": null,
       "metrics": {
         "pyright": {
-          "ok": true,
-          "execution_time_s": 37.242,
-          "peak_memory_mb": 1372.1,
+          "ok": false,
+          "execution_time_s": 0.0,
+          "peak_memory_mb": 0.0,
           "oom_killed": false,
-          "runs": 1,
-          "execution_times_s": [
-            37.242
-          ],
-          "peak_memories_mb": [
-            1372.1
-          ],
-          "execution_time_stats": {
-            "min": 37.242,
-            "max": 37.242,
-            "mean": 37.242,
-            "median": 37.242,
-            "stddev": 0.0
-          },
-          "peak_memory_stats": {
-            "min": 1372.1,
-            "max": 1372.1,
-            "mean": 1372.1,
-            "median": 1372.1,
-            "stddev": 0.0
-          }
+          "error_message": "Baseline unavailable after pandas scope change"
         }
       },
       "commit": "982854070758cd2015fc9e64395684546b1c5444",
       "check_paths": [
         "pandas"
       ],
-      "exclude_directories": [
-        "tests",
-        "_testing"
-      ]
+      "exclude_directories": []
     },
     {
       "package_name": "pytest",
