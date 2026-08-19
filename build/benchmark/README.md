@@ -49,7 +49,7 @@ python build/benchmark/typecheck_benchmark.py -c pyright --local path/to/project
 
 ## Local Pyright build
 
-When Pyright is selected, the script automatically runs `npm run build` in `packages/pyright` once
+When Pyright is selected, the script automatically runs `pnpm run build` in `packages/pyright` once
 before cloning or timing the corpus. Build time is not measured. Every Pyright invocation, including
 version detection, uses `node packages/pyright/index.js`; a `pyright` executable on `PATH` is never
 used. The package entry point initializes the production bundle's resource root before loading

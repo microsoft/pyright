@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: '22.x'
+  NODE_VERSION: '24.15.0'
   PYTHON_VERSION: '3.14.6'
 
 jobs:
@@ -47,21 +47,21 @@ jobs:
         if: ${{ matrix.checker != 'pyright' }}
         run: python -m pip install --upgrade '${{ matrix.checker }}'
 
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        if: ${{ matrix.checker == 'pyright' }}
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         if: ${{ matrix.checker == 'pyright' }}
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
-
-      - uses: ./.github/actions/npm-cache-dir
-        if: ${{ matrix.checker == 'pyright' }}
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Build Pyright CLI
         if: ${{ matrix.checker == 'pyright' }}
         run: |
-          npm install
-          npm run build --workspace packages/pyright
+          pnpm install --frozen-lockfile
+          pnpm --dir packages/pyright run build
 
       - name: Run ${{ matrix.checker }} benchmark
         env:

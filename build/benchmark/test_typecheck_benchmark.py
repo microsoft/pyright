@@ -74,6 +74,32 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             f"--skip-pyright-build requires existing local Pyright files: {entry_point}",
         )
 
+    def test_prepare_local_pyright_builds_with_pnpm(self) -> None:
+        entry_point = self.root / "index.js"
+        bundle = self.root / "dist" / "pyright.js"
+        bundle.parent.mkdir()
+
+        def run_build(*args, **kwargs):
+            entry_point.touch()
+            bundle.touch()
+            return unittest.mock.Mock(returncode=0)
+
+        with (
+            patch.object(benchmark, "PYRIGHT_ENTRY_POINT", entry_point),
+            patch.object(benchmark, "PYRIGHT_BUNDLE", bundle),
+            patch.object(benchmark, "PYRIGHT_PACKAGE_DIR", self.root),
+            patch.object(benchmark, "_executable", side_effect=lambda name: name),
+            patch.object(benchmark.subprocess, "run", side_effect=run_build) as run,
+            redirect_stdout(io.StringIO()),
+        ):
+            benchmark.prepare_local_pyright(skip_build=False)
+
+        run.assert_called_once_with(
+            ["pnpm", "run", "build"],
+            cwd=self.root,
+            timeout=benchmark.BUILD_TIMEOUT,
+        )
+
     def test_pyright_config_and_command(self) -> None:
         source_dir = self.root / "src"
         source_dir.mkdir()

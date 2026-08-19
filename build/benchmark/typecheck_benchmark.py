@@ -175,14 +175,14 @@ def prepare_local_pyright(skip_build: bool) -> None:
             )
         return
 
-    npm = _executable("npm")
-    if not npm:
-        raise BenchmarkError("npm is required to build the local Pyright CLI")
+    pnpm = _executable("pnpm")
+    if not pnpm:
+        raise BenchmarkError("pnpm is required to build the local Pyright CLI")
 
     print("Building the local Pyright CLI (excluded from benchmark timings)...")
     try:
         result = subprocess.run(
-            [npm, "run", "build"],
+            [pnpm, "run", "build"],
             cwd=PYRIGHT_PACKAGE_DIR,
             timeout=BUILD_TIMEOUT,
         )
@@ -191,7 +191,7 @@ def prepare_local_pyright(skip_build: bool) -> None:
             f"Pyright build timed out after {BUILD_TIMEOUT} seconds"
         ) from exc
     except OSError as exc:
-        raise BenchmarkError(f"Unable to run npm: {exc}") from exc
+        raise BenchmarkError(f"Unable to run pnpm: {exc}") from exc
 
     if result.returncode != 0:
         raise BenchmarkError(f"Pyright build failed with exit code {result.returncode}")

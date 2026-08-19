@@ -330,15 +330,19 @@ Regression threshold: `10.0%`
                 baseline_package["exclude_directories"],
             )
 
-    def test_workflow_runs_local_action_before_trusted_checkout(self) -> None:
-        workflow = (
-            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
-        ).read_text(encoding="utf-8")
+    def test_workflows_use_current_pnpm_setup(self) -> None:
+        for workflow_name in (
+            "typecheck_benchmark_pr.yml",
+            "typecheck_benchmark_weekly.yml",
+        ):
+            workflow = (
+                REPO_ROOT / ".github" / "workflows" / workflow_name
+            ).read_text(encoding="utf-8")
 
-        self.assertLess(
-            workflow.index("uses: ./.github/actions/npm-cache-dir"),
-            workflow.index("- name: Check out trusted baseline"),
-        )
+            self.assertIn("uses: pnpm/action-setup@", workflow)
+            self.assertIn("cache: 'pnpm'", workflow)
+            self.assertIn("pnpm-lock.yaml", workflow)
+            self.assertNotIn(".github/actions/npm-cache-dir", workflow)
 
 
 if __name__ == "__main__":
