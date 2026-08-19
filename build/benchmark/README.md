@@ -18,8 +18,8 @@ source revisions.
 
 Entries can define `exclude_directories` to prune named directories while resolving their check
 paths. The benchmark expands those entries to `.py` and `.pyi` files before invoking any checker, so
-all checkers analyze the same scope. NumPy excludes its test directories; pandas includes its full
-`pandas` tree, including `tests` and `_testing`. Generated Pyright configurations explicitly retain
+all checkers analyze the same scope. NumPy and pandas exclude their test directories. Generated
+Pyright configurations explicitly retain
 its standard `**/node_modules`, `**/__pycache__`, and `**/.*` exclusions.
 
 ## Prerequisites
@@ -97,7 +97,7 @@ then compare it before submitting a performance-sensitive pull request:
 
 ```console
 python build/benchmark/typecheck_benchmark.py \
-    -c pyright -r 1 -w 0 -t 1800 --memory-limit-mb 8192 \
+    -c pyright -r 1 -w 0 -t 600 --memory-limit-mb 8192 \
     --os-name linux-x64 --output build/benchmark/results
 python build/benchmark/compare_benchmarks.py \
     build/benchmark/baselines/latest-linux-x64.json \
@@ -105,15 +105,18 @@ python build/benchmark/compare_benchmarks.py \
 ```
 
 The comparator reports per-package timing and memory deltas and exits nonzero when a previously
-successful result is missing, the environment contract differs, or a result exceeds the default 10%
+successful result is missing, the environment contract differs, or a result exceeds the default 20%
 regression threshold. Package commits, check paths, and excluded directory names must also match.
-Runner class, CPU count, and the exact Python version are part of the environment contract. Use
+Candidate-only package/checker results are reported as not regression-gated and require a regenerated
+baseline before they are protected. Runner class, hosted runner image, CPU count, and the exact Python
+version are part of the environment contract. Use
 `--threshold-percent` to select another threshold. Results from different runner classes are
 historical data, not a reliable regression gate.
 
 On pull requests, the benchmark workflow pins Python 3.14.6, caches pip downloads using
 `install_envs.json` as the cache key, and requires a regression to exceed both a 20% relative
-threshold and an absolute variance guard of 1 second for time or 100 MB for peak memory. It writes
+threshold and an absolute variance guard of 1 second for time or 100 MB for peak memory. These are the
+comparator defaults, so the gate and trusted comment renderer share one configuration source. It writes
 the comparison table to the Actions job summary and uploads it with the candidate JSON. A separate
 trusted workflow validates the originating PR and renders the same report from JSON using code from
 the default branch before posting or updating a PR comment. Reports and artifacts are published
@@ -137,8 +140,8 @@ reported as OOM if RSS exceeds `--memory-limit-mb`; use `0` to disable the limit
 is read from `/usr/bin/time -l`. Windows memory measurement remains unavailable, so memory values are
 `0` and `memory_measurement` is `unavailable`.
 
-The first discarded invocation captures output and validates that the checker can run. Remaining
-warmups and all measured runs discard output to avoid pipe overhead. `--warmup 0` still performs one
+Every invocation captures output so fatal checker messages cannot be mistaken for ordinary type
+errors. `--warmup 0` still performs one
 uncounted validation pass labeled `Check`; otherwise exactly the requested number of warmups is
 reported and discarded.
 

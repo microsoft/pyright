@@ -93,21 +93,14 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
 
     package_rows: list[str] = []
     for package in packages:
-        successful = {
-            checker: float(metrics[checker][package]["execution_time_s"])
-            for checker in checkers
-            if metrics[checker].get(package, {}).get("ok")
-        }
-        fastest = min(successful, key=successful.get) if successful else None
         cells = []
         for checker in checkers:
             metric = metrics[checker].get(package, {})
             if not metric.get("ok"):
                 cells.append('<td class="failed">Not measured</td>')
                 continue
-            class_name = "fastest" if checker == fastest else ""
             cells.append(
-                f'<td class="{class_name}"><strong>{float(metric["execution_time_s"]):.2f}s</strong>'
+                f'<td><strong>{float(metric["execution_time_s"]):.2f}s</strong>'
                 f'<small>{float(metric.get("peak_memory_mb", 0.0)):.0f} MB</small></td>'
             )
         package_rows.append(
@@ -141,7 +134,6 @@ small {{ display:block; margin-top:3px; color:var(--muted); font-family:"IBM Ple
 .checker {{ display:block; font-size:1.05rem; text-transform:capitalize; }}
 .bar {{ float:left; width:var(--size); min-width:3px; height:8px; margin:6px 10px 0 0; background:var(--blue); }}
 .passed {{ color:var(--green); }} .failed {{ color:var(--red); }}
-.fastest {{ color:var(--green); background:#e6f5ef; }}
 .legend {{ color:var(--muted); font-size:.9rem; }}
 @media (max-width:640px) {{ header {{ padding-top:30px; padding-bottom:30px; }} main {{ padding-inline:14px; }} }}
 </style>
@@ -151,7 +143,7 @@ small {{ display:block; margin-top:3px; color:var(--muted); font-family:"IBM Ple
 <main>
 <section><h2>Run summary</h2><p class="legend">Generated {html.escape(timestamp)} · Python {html.escape(str(environment.get('python_version', 'unknown')))} · {html.escape(str(environment.get('platform_details', environment.get('platform', 'unknown'))))}</p>
 <div class="table-wrap"><table><thead><tr><th>Checker</th><th>Measured</th><th>Failed</th><th>Total time</th><th>Median time</th><th>Median RSS</th></tr></thead><tbody>{''.join(summary_rows)}</tbody></table></div></section>
-<section><h2>Package comparison</h2><p class="legend">Fastest successful checker per package is highlighted. Cells show wall time and peak RSS.</p>
+<section><h2>Package comparison</h2><p class="legend">Each checker runs on a separate hosted runner, so timings are independent trends rather than a fastest-checker ranking. Cells show wall time and peak RSS.</p>
 <div class="table-wrap"><table><thead><tr><th>Package</th>{checker_headers}</tr></thead><tbody>{''.join(package_rows)}</tbody></table></div></section>
 </main>
 </body>

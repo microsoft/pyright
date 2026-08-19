@@ -31,6 +31,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check out trusted baseline
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: benchmark-baseline
+          sparse-checkout: build/benchmark/baselines
+
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -60,7 +67,7 @@ jobs:
           PYTHONNOUSERSITE: '1'
         run: |
           python build/benchmark/typecheck_benchmark.py \
-            -c pyright -r 1 -w 0 -t 1800 --memory-limit-mb 8192 \
+            -c pyright -r 1 -w 0 -t 600 --memory-limit-mb 8192 \
             --skip-pyright-build --os-name linux-x64 \
             --output build/benchmark/results
 
@@ -70,11 +77,9 @@ jobs:
         run: |
           set +e
           python build/benchmark/compare_benchmarks.py \
-            build/benchmark/baselines/latest-linux-x64.json \
+            benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json \
             build/benchmark/results/latest-linux-x64.json \
-            --threshold-percent 20 \
-            --time-noise-floor-seconds 1 \
-            --memory-noise-floor-mb 100 \
+            --fail-on-preparation-error \
             --markdown-output build/benchmark/results/report.md
           comparison_status=$?
           cat build/benchmark/results/report.md >> "$GITHUB_STEP_SUMMARY"

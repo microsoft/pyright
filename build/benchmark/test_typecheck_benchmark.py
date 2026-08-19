@@ -225,7 +225,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             )
 
         self.assertFalse(result["ok"])
-        self.assertIn("exit code 2", result["error_message"])
+        self.assertEqual(result["error_message"], "Fatal error (exit code 2)")
 
     def test_results_include_upstream_provenance_and_memory_limit(self) -> None:
         output_file = benchmark._save_results(
@@ -248,6 +248,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertEqual(output["warmup_runs"], 0)
         self.assertEqual(output["uncounted_validation_runs_per_checker"], 1)
         self.assertEqual(output["python_version"], benchmark.platform.python_version())
+        self.assertEqual(output["runner_image"], "local")
         self.assertEqual(output["architecture"], benchmark.platform.machine())
         self.assertEqual(output["runner_class"], "local")
 
@@ -336,7 +337,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
                 memory_limit_mb=4096,
             )
 
-        self.assertEqual(calls, [True, False, False])
+        self.assertEqual(calls, [True, True, True])
         self.assertEqual(
             stdout.getvalue(),
             "    Running pyright (1 validation check + 2 measured)...\n"
@@ -346,7 +347,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             "      Mean: 1.000s, 2.0 MB (stddev: 0.000s)\n",
         )
 
-    def test_only_first_warmup_captures_output(self) -> None:
+    def test_all_warmups_and_runs_capture_output(self) -> None:
         captures: list[bool] = []
 
         def run_checker(
@@ -382,7 +383,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
                 memory_limit_mb=4096,
             )
 
-        self.assertEqual(captures, [True, False, False])
+        self.assertEqual(captures, [True, True, True])
 
 
 if __name__ == "__main__":

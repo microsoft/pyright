@@ -69,6 +69,10 @@
             "check_paths": [
                 "pandas"
             ],
+            "exclude_directories": [
+                "tests",
+                "_testing"
+            ],
             "install": true,
             "deps": [
                 "numpy",

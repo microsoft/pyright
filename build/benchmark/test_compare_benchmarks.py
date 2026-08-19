@@ -1,8 +1,14 @@
 import io
+import json
+import re
+import tempfile
 import unittest
 from contextlib import redirect_stdout
+from pathlib import Path
 
 import compare_benchmarks
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _result(time: float, memory: float, ok: bool = True) -> dict:
@@ -10,6 +16,7 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
         "platform": "linux",
         "architecture": "x86_64",
         "runner_class": "github-ubuntu-latest",
+        "runner_image": "ubuntu24",
         "cpu_count": 4,
         "python_version": "3.14.6",
         "memory_limit_mb": 8192,
@@ -108,6 +115,22 @@ Regression threshold: `10.0%`
 """,
         )
 
+    def test_rejects_preparation_failure_in_strict_mode(self) -> None:
+        candidate = _result(0.0, 0.0, ok=False)
+        candidate["results"][0]["error"] = "Dependency installation failed"
+        candidate["results"][0]["metrics"] = {}
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                _result(10.0, 100.0),
+                candidate,
+                10.0,
+                fail_on_preparation_error=True,
+            )
+
+        self.assertEqual(
+            failures, ["example/pyright: candidate package preparation failed"]
+        )
+
     def test_rejects_environment_mismatch(self) -> None:
         candidate = _result(10.0, 100.0)
         candidate["python_version"] = "3.13.0"
@@ -119,6 +142,20 @@ Regression threshold: `10.0%`
         self.assertEqual(
             failures,
             ["environment mismatch for python_version: '3.14.6' != '3.13.0'"],
+        )
+
+    def test_rejects_runner_image_mismatch(self) -> None:
+        candidate = _result(10.0, 100.0)
+        candidate["runner_image"] = "ubuntu22"
+
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                _result(10.0, 100.0), candidate, 10.0
+            )
+
+        self.assertEqual(
+            failures,
+            ["environment mismatch for runner_image: 'ubuntu24' != 'ubuntu22'"],
         )
 
     def test_rejects_package_commit_mismatch(self) -> None:
@@ -202,6 +239,96 @@ Regression threshold: `10.0%`
 - environment mismatch for python\\_version: '3\\.14\\.6' \\!= '\\[click\\]\\(https://example\\.com\\)\\\\n\\# heading'
 """,
         )
+
+    def test_reports_candidate_result_without_baseline(self) -> None:
+        candidate = _result(10.0, 100.0)
+        candidate["results"][0]["metrics"]["mypy"] = {
+            "ok": True,
+            "execution_time_s": 20.0,
+            "peak_memory_mb": 200.0,
+        }
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            failures = compare_benchmarks.compare(
+                _result(10.0, 100.0), candidate, 10.0
+            )
+        report = compare_benchmarks.render_markdown(
+            _result(10.0, 100.0), candidate, 10.0
+        )
+
+        self.assertEqual(failures, [])
+        self.assertIn("example              mypy          20.000s", output.getvalue())
+        self.assertIn("N/A", output.getvalue())
+        self.assertIn(
+            "1 candidate result(s) have no baseline and were not regression-gated",
+            report,
+        )
+        self.assertIn(
+            "| example | mypy | 20.000s | N/A | 200.0 MB | N/A | 🟡 No baseline |",
+            report,
+        )
+
+    def test_reports_malformed_metrics_without_crashing(self) -> None:
+        candidate = _result(10.0, 100.0)
+        candidate["results"] = [123]
+
+        report = compare_benchmarks.render_markdown(
+            _result(10.0, 100.0), candidate, 10.0
+        )
+
+        self.assertIn("candidate: results\\[0\\] must be an object", report)
+
+    def test_load_rejects_non_finite_json_numbers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result_file = Path(temp_dir) / "result.json"
+            result_file.write_text('{"results": [], "value": NaN}', encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "non-finite number NaN"):
+                compare_benchmarks._load_results(result_file)
+
+    def test_workflow_profile_matches_checked_in_baseline(self) -> None:
+        workflow = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        ).read_text(encoding="utf-8")
+        timeout_match = re.search(
+            r"typecheck_benchmark\.py \\\s+"
+            r"-c pyright -r 1 -w 0 -t (\d+)",
+            workflow,
+        )
+        self.assertIsNotNone(timeout_match)
+
+        baseline = json.loads(
+            (
+                REPO_ROOT
+                / "build"
+                / "benchmark"
+                / "baselines"
+                / "latest-linux-x64.json"
+            ).read_text(encoding="utf-8")
+        )
+        config = json.loads(
+            (
+                REPO_ROOT / "build" / "benchmark" / "install_envs.json"
+            ).read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(int(timeout_match.group(1)), baseline["timeout_s"])
+        baseline_packages = {
+            package["package_name"]: package for package in baseline["results"]
+        }
+        for package in config["packages"]:
+            package_name = package.get("name") or package["github_url"].rsplit(
+                "/", 1
+            )[-1]
+            baseline_package = baseline_packages[package_name]
+            self.assertEqual(
+                package.get("check_paths", []), baseline_package["check_paths"]
+            )
+            self.assertEqual(
+                package.get("exclude_directories", []),
+                baseline_package["exclude_directories"],
+            )
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 # Pyright Type Checker Benchmark Plan
 
+Status: Complete
+
 ## Problem and approach
 
 Add a type-checking speed and peak-memory benchmark to the Pyright repository, based directly on the original MIT-licensed benchmark in [`lolpack/type_coverage_py`](https://github.com/lolpack/type_coverage_py). During implementation, upstream `main` was checked at commit [`85667d6f090ce9648d88cd7a9777b492f3b95f1c`](https://github.com/lolpack/type_coverage_py/blob/85667d6f090ce9648d88cd7a9777b492f3b95f1c/typecheck_benchmark/daily_runner.py) from 2026-07-06. The benchmark will compare Pyright with other type checkers on real Python packages, initially using only pandas. Unlike the upstream script's PATH-based Pyright invocation, this repository-specific adaptation will build and measure the production CLI from the current Pyright checkout.

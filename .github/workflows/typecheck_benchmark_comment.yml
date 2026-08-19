@@ -76,19 +76,22 @@ jobs:
           import zipfile
           from pathlib import PurePosixPath
 
+          def reject_constant(value):
+              raise ValueError(f'Non-finite JSON number: {value}')
+
           with zipfile.ZipFile('benchmark-report.zip') as archive:
               matches = [
-                  name
-                  for name in archive.namelist()
-                  if PurePosixPath(name).name == 'latest-linux-x64.json'
-                  and '..' not in PurePosixPath(name).parts
+                  info
+                  for info in archive.infolist()
+                  if PurePosixPath(info.filename).name == 'latest-linux-x64.json'
+                  and '..' not in PurePosixPath(info.filename).parts
               ]
               if len(matches) != 1:
                   raise RuntimeError(f'Expected one candidate result, found {len(matches)}')
+              if matches[0].file_size > 5 * 1024 * 1024:
+                  raise RuntimeError('Candidate result exceeds 5 MB')
               contents = archive.read(matches[0])
-          if len(contents) > 5 * 1024 * 1024:
-              raise RuntimeError('Candidate result exceeds 5 MB')
-          data = json.loads(contents)
+          data = json.loads(contents, parse_constant=reject_constant)
           if not isinstance(data, dict):
               raise RuntimeError('Candidate result must be a JSON object')
           with open('candidate.json', 'wb') as output:
@@ -102,9 +105,7 @@ jobs:
           python build/benchmark/compare_benchmarks.py \
             build/benchmark/baselines/latest-linux-x64.json \
             candidate.json \
-            --threshold-percent 20 \
-            --time-noise-floor-seconds 1 \
-            --memory-noise-floor-mb 100 \
+            --fail-on-preparation-error \
             --markdown-output report.md
           if [[ ! -s report.md ]]; then
             printf '%s\n' \

@@ -883,7 +883,6 @@ def _benchmark_directory(
 
         for run_index in range(effective_warmup + runs):
             is_warmup = run_index < effective_warmup
-            capture_output = run_index == 0
             if is_warmup and warmup == 0:
                 label = "Check"
             elif is_warmup:
@@ -897,7 +896,6 @@ def _benchmark_directory(
                 resolved_paths,
                 timeout,
                 memory_limit_mb,
-                capture_output=capture_output,
             )
             if not metric.get("ok"):
                 print(f"failed: {metric.get('error_message', 'Unknown error')}")
@@ -1045,6 +1043,7 @@ def _save_results(
         "platform_details": platform.platform(),
         "architecture": platform.machine(),
         "runner_class": os.environ.get("BENCHMARK_RUNNER_CLASS", "local"),
+        "runner_image": os.environ.get("ImageOS", "local"),
         "python_version": platform.python_version(),
         "cpu_count": os.cpu_count(),
         "upstream_source": UPSTREAM_SOURCE,

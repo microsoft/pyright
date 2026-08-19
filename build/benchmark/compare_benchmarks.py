@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any, TypedDict
+
+DEFAULT_THRESHOLD_PERCENT = 20.0
+DEFAULT_TIME_NOISE_FLOOR_SECONDS = 1.0
+DEFAULT_MEMORY_NOISE_FLOOR_MB = 100.0
 
 
 class ComparisonRow(TypedDict):
@@ -20,10 +25,61 @@ class ComparisonRow(TypedDict):
 
 
 def _load_results(path: Path) -> dict[str, Any]:
+    def reject_constant(value: str) -> None:
+        raise ValueError(f"non-finite number {value}")
+
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        data = json.loads(
+            path.read_text(encoding="utf-8"), parse_constant=reject_constant
+        )
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
         raise ValueError(f"Unable to load {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return data
+
+
+def _is_finite_number(value: object) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(float(value))
+    )
+
+
+def _validate_results(data: dict[str, Any], label: str) -> list[str]:
+    failures: list[str] = []
+    results = data.get("results")
+    if not isinstance(results, list):
+        return [f"{label}: results must be a list"]
+    for package_index, package in enumerate(results):
+        package_label = f"{label}: results[{package_index}]"
+        if not isinstance(package, dict):
+            failures.append(f"{package_label} must be an object")
+            continue
+        package_name = package.get("package_name")
+        if not isinstance(package_name, str) or not package_name:
+            failures.append(f"{package_label}.package_name must be a non-empty string")
+        metrics = package.get("metrics", {})
+        if not isinstance(metrics, dict):
+            failures.append(f"{package_label}.metrics must be an object")
+            continue
+        for checker, checker_metrics in metrics.items():
+            metric_label = f"{package_label}.metrics[{checker!r}]"
+            if not isinstance(checker, str) or not checker:
+                failures.append(f"{package_label}.metrics keys must be non-empty strings")
+                continue
+            if not isinstance(checker_metrics, dict):
+                failures.append(f"{metric_label} must be an object")
+                continue
+            if not isinstance(checker_metrics.get("ok"), bool):
+                failures.append(f"{metric_label}.ok must be a boolean")
+                continue
+            if checker_metrics["ok"]:
+                for field in ("execution_time_s", "peak_memory_mb"):
+                    if not _is_finite_number(checker_metrics.get(field)):
+                        failures.append(f"{metric_label}.{field} must be a finite number")
+    return failures
 
 
 def _metrics_by_package(data: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
@@ -62,13 +118,20 @@ def _analyze(
     threshold_percent: float,
     time_noise_floor_s: float = 0.0,
     memory_noise_floor_mb: float = 0.0,
+    fail_on_preparation_error: bool = False,
 ) -> tuple[list[str], list[ComparisonRow]]:
-    failures: list[str] = []
+    failures = [
+        *_validate_results(baseline, "baseline"),
+        *_validate_results(candidate, "candidate"),
+    ]
     rows: list[ComparisonRow] = []
+    if failures:
+        return failures, rows
     for field in (
         "platform",
         "architecture",
         "runner_class",
+        "runner_image",
         "cpu_count",
         "python_version",
         "memory_limit_mb",
@@ -119,6 +182,10 @@ def _analyze(
             )
             continue
         if new_package.get("error"):
+            if fail_on_preparation_error:
+                failures.append(
+                    f"{package}/{checker}: candidate package preparation failed"
+                )
             rows.append(
                 {
                     "package": package,
@@ -222,6 +289,25 @@ def _analyze(
                 "status": status,
             }
         )
+    for key, new in sorted(candidate_metrics.items()):
+        if key in baseline_metrics:
+            continue
+        package, checker = key
+        rows.append(
+            {
+                "package": package,
+                "checker": checker,
+                "execution_time_s": (
+                    float(new["execution_time_s"]) if new.get("ok") else None
+                ),
+                "time_delta": None,
+                "peak_memory_mb": (
+                    float(new["peak_memory_mb"]) if new.get("ok") else None
+                ),
+                "memory_delta": None,
+                "status": "No baseline",
+            }
+        )
     return failures, rows
 
 
@@ -231,6 +317,7 @@ def compare(
     threshold_percent: float,
     time_noise_floor_s: float = 0.0,
     memory_noise_floor_mb: float = 0.0,
+    fail_on_preparation_error: bool = False,
 ) -> list[str]:
     failures, rows = _analyze(
         baseline,
@@ -238,6 +325,7 @@ def compare(
         threshold_percent,
         time_noise_floor_s,
         memory_noise_floor_mb,
+        fail_on_preparation_error,
     )
     print(
         f"{'Package':<20} {'Checker':<10} {'Time':>10} {'Delta':>9} "
@@ -247,10 +335,16 @@ def compare(
     for row in rows:
         if row["execution_time_s"] is None:
             continue
+        time_delta = (
+            f"{row['time_delta']:+8.1f}%" if row["time_delta"] is not None else f"{'N/A':>9}"
+        )
+        memory_delta = (
+            f"{row['memory_delta']:+8.1f}%" if row["memory_delta"] is not None else f"{'N/A':>9}"
+        )
         print(
             f"{row['package']:<20} {row['checker']:<10} "
-            f"{row['execution_time_s']:>9.3f}s {row['time_delta']:>+8.1f}% "
-            f"{row['peak_memory_mb']:>9.1f}M {row['memory_delta']:>+8.1f}%"
+            f"{row['execution_time_s']:>9.3f}s {time_delta} "
+            f"{row['peak_memory_mb']:>9.1f}M {memory_delta}"
         )
     return failures
 
@@ -261,6 +355,7 @@ def render_markdown(
     threshold_percent: float,
     time_noise_floor_s: float = 0.0,
     memory_noise_floor_mb: float = 0.0,
+    fail_on_preparation_error: bool = False,
 ) -> str:
     failures, rows = _analyze(
         baseline,
@@ -268,6 +363,7 @@ def render_markdown(
         threshold_percent,
         time_noise_floor_s,
         memory_noise_floor_mb,
+        fail_on_preparation_error,
     )
     if failures:
         summary = f"🔴 **{len(failures)} regression check(s) failed.**"
@@ -280,6 +376,12 @@ def render_markdown(
         summary += (
             f"\n\n🟡 **{preparation_failures} package(s) could not be prepared "
             "and were not measured.**"
+        )
+    missing_baselines = sum(row["status"] == "No baseline" for row in rows)
+    if missing_baselines:
+        summary += (
+            f"\n\n🟡 **{missing_baselines} candidate result(s) have no baseline "
+            "and were not regression-gated.**"
         )
     lines = [
         "## Type checker benchmark",
@@ -309,6 +411,7 @@ def render_markdown(
         "Scope changed": "🔴 Scope changed",
         "Preparation failed": "🟡 Preparation failed",
         "Baseline unavailable": "⚪ Baseline unavailable",
+        "No baseline": "🟡 No baseline",
     }
     for row in rows:
         execution_time = (
@@ -345,9 +448,20 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Compare two benchmark result files")
     parser.add_argument("baseline", type=Path)
     parser.add_argument("candidate", type=Path)
-    parser.add_argument("--threshold-percent", type=float, default=10.0)
-    parser.add_argument("--time-noise-floor-seconds", type=float, default=0.0)
-    parser.add_argument("--memory-noise-floor-mb", type=float, default=0.0)
+    parser.add_argument(
+        "--threshold-percent", type=float, default=DEFAULT_THRESHOLD_PERCENT
+    )
+    parser.add_argument(
+        "--time-noise-floor-seconds",
+        type=float,
+        default=DEFAULT_TIME_NOISE_FLOOR_SECONDS,
+    )
+    parser.add_argument(
+        "--memory-noise-floor-mb",
+        type=float,
+        default=DEFAULT_MEMORY_NOISE_FLOOR_MB,
+    )
+    parser.add_argument("--fail-on-preparation-error", action="store_true")
     parser.add_argument("--markdown-output", type=Path)
     args = parser.parse_args(argv)
 
@@ -364,6 +478,7 @@ def main(argv: list[str] | None = None) -> int:
         args.threshold_percent,
         args.time_noise_floor_seconds,
         args.memory_noise_floor_mb,
+        args.fail_on_preparation_error,
     )
     if args.markdown_output:
         args.markdown_output.write_text(
@@ -373,6 +488,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.threshold_percent,
                 args.time_noise_floor_seconds,
                 args.memory_noise_floor_mb,
+                args.fail_on_preparation_error,
             ),
             encoding="utf-8",
         )
