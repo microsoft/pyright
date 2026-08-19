@@ -41,6 +41,8 @@ jobs:
           cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Install build prerequisites
+        env:
+          SKIP_LERNA_BOOTSTRAP: 'yes'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential

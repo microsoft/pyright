@@ -360,6 +360,7 @@ Regression threshold: `10.0%`
             self.assertIn("uses: pnpm/action-setup@", workflow)
             self.assertIn("cache: 'pnpm'", workflow)
             self.assertIn("pnpm-lock.yaml", workflow)
+            self.assertIn("SKIP_LERNA_BOOTSTRAP: 'yes'", workflow)
             self.assertNotIn(".github/actions/npm-cache-dir", workflow)
 
     def test_pr_benchmark_requires_authorized_comment(self) -> None:

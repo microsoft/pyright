@@ -59,6 +59,8 @@ jobs:
 
       - name: Build Pyright CLI
         if: ${{ matrix.checker == 'pyright' }}
+        env:
+          SKIP_LERNA_BOOTSTRAP: 'yes'
         run: |
           pnpm install --frozen-lockfile
           pnpm --dir packages/pyright run build
