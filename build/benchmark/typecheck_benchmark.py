@@ -1094,6 +1094,7 @@ def _save_results(
             else "unavailable"
         ),
         "memory_limit_mb": memory_limit_mb,
+        "node_options": os.environ.get("NODE_OPTIONS", ""),
         "dependency_isolation": DEPENDENCY_ISOLATION,
         "type_checkers": type_checkers,
         "type_checker_versions": versions,

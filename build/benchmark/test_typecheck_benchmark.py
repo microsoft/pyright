@@ -384,6 +384,9 @@ class TypecheckBenchmarkTest(unittest.TestCase):
 
         self.assertEqual(output["upstream_source"], benchmark.UPSTREAM_SOURCE)
         self.assertEqual(output["memory_limit_mb"], 2048)
+        self.assertEqual(
+            output["node_options"], benchmark.os.environ.get("NODE_OPTIONS", "")
+        )
         self.assertEqual(output["warmup_runs"], 0)
         self.assertEqual(output["uncounted_validation_runs_per_checker"], 1)
         self.assertEqual(output["python_version"], benchmark.platform.python_version())

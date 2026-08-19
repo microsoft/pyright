@@ -135,6 +135,7 @@ def _analyze(
         "cpu_count",
         "python_version",
         "memory_limit_mb",
+        "node_options",
         "runs_per_package",
         "warmup_runs",
         "timeout_s",

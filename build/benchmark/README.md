@@ -161,16 +161,16 @@ successful result is missing, the environment contract differs, or a result exce
 regression threshold. Package commits, check paths, and excluded directory names must also match.
 Candidate-only package/checker results are reported as not regression-gated and require a regenerated
 baseline before they are protected. Runner class, hosted runner image, CPU count, and the exact Python
-version are part of the environment contract. The dependency-isolation mode is also recorded and
-must match so results collected with shared and package-specific environments cannot be compared. Use
-`--threshold-percent` to select another threshold. Results from different runner classes are
-historical data, not a reliable regression gate.
+version are part of the environment contract. The dependency-isolation mode and exact `NODE_OPTIONS`
+value are also recorded and must match so results collected with different dependency or Node heap
+settings cannot be compared. Use `--threshold-percent` to select another threshold. Results from
+different runner classes are historical data, not a reliable regression gate.
 
 On pull requests, the benchmark pins Python 3.14.6, caches pip downloads using `install_envs.json` as
-the cache key, and requires a regression to exceed both a 20% relative threshold and an absolute
-variance guard of 1 second for time or 100 MB for peak memory. These are the comparator defaults, so
-the gate and trusted comment renderer share one configuration source. Reports and artifacts are
-published before a failed comparison marks the job unsuccessful.
+the cache key, and runs Pyright with a 5 GiB V8 old-space limit. A regression must exceed both a 20%
+relative threshold and an absolute variance guard of 1 second for time or 100 MB for peak memory.
+These are the comparator defaults, so the gate and trusted comment renderer share one configuration
+source. Reports and artifacts are published before a failed comparison marks the job unsuccessful.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
 Each checker performs three measured runs after one warmup over the same pinned corpus. The aggregate

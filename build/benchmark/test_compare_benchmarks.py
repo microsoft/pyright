@@ -20,6 +20,7 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
         "cpu_count": 4,
         "python_version": "3.14.6",
         "memory_limit_mb": 8192,
+        "node_options": "--max-old-space-size=5120",
         "runs_per_package": 1,
         "warmup_runs": 0,
         "timeout_s": 600,
@@ -173,6 +174,23 @@ Regression threshold: `10.0%`
             [
                 "environment mismatch for dependency_isolation: "
                 "'pip-target-per-package' != 'shared'"
+            ],
+        )
+
+    def test_rejects_node_options_mismatch(self) -> None:
+        candidate = _result(10.0, 100.0)
+        candidate["node_options"] = "--max-old-space-size=6144"
+
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                _result(10.0, 100.0), candidate, 10.0
+            )
+
+        self.assertEqual(
+            failures,
+            [
+                "environment mismatch for node_options: "
+                "'--max-old-space-size=5120' != '--max-old-space-size=6144'"
             ],
         )
 
@@ -361,6 +379,7 @@ Regression threshold: `10.0%`
             self.assertIn("cache: 'pnpm'", workflow)
             self.assertIn("pnpm-lock.yaml", workflow)
             self.assertIn("SKIP_LERNA_BOOTSTRAP: 'yes'", workflow)
+            self.assertIn("--max-old-space-size=5120", workflow)
             self.assertNotIn(".github/actions/npm-cache-dir", workflow)
 
     def test_pr_benchmark_requires_authorized_comment(self) -> None:

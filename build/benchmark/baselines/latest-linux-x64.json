@@ -15,6 +15,7 @@
   },
   "memory_measurement": "/proc/<pid>/status",
   "memory_limit_mb": 8192,
+  "node_options": "",
   "dependency_isolation": "pip-target-per-package",
   "type_checkers": [
     "pyright"
