@@ -6579,6 +6579,12 @@ export function createTypeEvaluator(
         };
     }
 
+    // Determines whether all of the symbol's typed declarations are methods.
+    function isDeclaredAsMethod(symbol: Symbol): boolean {
+        const decls = symbol.getTypedDeclarations();
+        return decls.length > 0 && decls.every((decl) => decl.type === DeclarationType.Function);
+    }
+
     function getTypeOfClassMemberName(
         errorNode: ExpressionNode | undefined,
         classType: ClassType,
@@ -6598,6 +6604,13 @@ export function createTypeEvaluator(
         // a symbol with an inferred type.
         if (!memberInfo) {
             memberInfo = lookUpClassMember(classType, memberName, flags);
+        } else if (memberInfo.skippedUndeclaredType && isDeclaredAsMethod(memberInfo.symbol)) {
+            // A symbol without a declared type was skipped in a class that appears
+            // earlier in the MRO, and the declared symbol we found is a method.
+            // A class-scoped assignment that aliases a method (a common idiom for
+            // defining reflected dunder methods) overrides the base class method,
+            // so use the overriding symbol instead.
+            memberInfo = lookUpClassMember(classType, memberName, flags) ?? memberInfo;
         }
 
         if (!memberInfo) {
