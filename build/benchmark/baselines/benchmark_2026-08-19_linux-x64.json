@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-07-29T23:40:04.246533+00:00",
-  "date": "2026-07-29",
+  "timestamp": "2026-08-19T01:27:41.064972+00:00",
+  "date": "2026-08-19",
   "platform": "linux",
-  "platform_details": "Linux-6.17.0-1020-azure-x86_64-with-glibc2.39",
+  "platform_details": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
   "architecture": "x86_64",
   "runner_class": "github-ubuntu-latest",
   "runner_image": "ubuntu24",
@@ -19,7 +19,7 @@
     "pyright"
   ],
   "type_checker_versions": {
-    "pyright": "1.1.411"
+    "pyright": "1.1.413"
   },
   "package_count": 9,
   "runs_per_package": 1,
@@ -28,19 +28,19 @@
   "timeout_s": 600,
   "aggregate": {
     "pyright": {
-      "packages_tested": 9,
-      "packages_failed": 0,
-      "avg_execution_time_s": 81.244,
-      "p50_execution_time_s": 35.422,
-      "p90_execution_time_s": 217.094,
-      "p95_execution_time_s": 217.495,
-      "max_execution_time_s": 217.896,
-      "total_execution_time_s": 731.196,
-      "avg_peak_memory_mb": 1911.5,
-      "p50_peak_memory_mb": 1436.5,
-      "p90_peak_memory_mb": 4038.8,
-      "p95_peak_memory_mb": 4041.1,
-      "max_peak_memory_mb": 4043.4
+      "packages_tested": 6,
+      "packages_failed": 3,
+      "avg_execution_time_s": 17.456,
+      "p50_execution_time_s": 14.877,
+      "p90_execution_time_s": 35.094,
+      "p95_execution_time_s": 35.772,
+      "max_execution_time_s": 36.45,
+      "total_execution_time_s": 104.735,
+      "avg_peak_memory_mb": 1084.6,
+      "p50_peak_memory_mb": 1052.0,
+      "p90_peak_memory_mb": 1846.9,
+      "p95_peak_memory_mb": 1864.2,
+      "max_peak_memory_mb": 1881.4
     }
   },
   "results": [
@@ -51,28 +51,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 19.695,
-          "peak_memory_mb": 934.2,
+          "execution_time_s": 18.322,
+          "peak_memory_mb": 1177.5,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            19.695
+            18.322
           ],
           "peak_memories_mb": [
-            934.2
+            1177.5
           ],
           "execution_time_stats": {
-            "min": 19.695,
-            "max": 19.695,
-            "mean": 19.695,
-            "median": 19.695,
+            "min": 18.322,
+            "max": 18.322,
+            "mean": 18.322,
+            "median": 18.322,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 934.2,
-            "max": 934.2,
-            "mean": 934.2,
-            "median": 934.2,
+            "min": 1177.5,
+            "max": 1177.5,
+            "mean": 1177.5,
+            "median": 1177.5,
             "stddev": 0.0
           }
         }
@@ -90,28 +90,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 3.235,
-          "peak_memory_mb": 260.1,
+          "execution_time_s": 2.618,
+          "peak_memory_mb": 360.7,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            3.235
+            2.618
           ],
           "peak_memories_mb": [
-            260.1
+            360.7
           ],
           "execution_time_stats": {
-            "min": 3.235,
-            "max": 3.235,
-            "mean": 3.235,
-            "median": 3.235,
+            "min": 2.618,
+            "max": 2.618,
+            "mean": 2.618,
+            "median": 2.618,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 260.1,
-            "max": 260.1,
-            "mean": 260.1,
-            "median": 260.1,
+            "min": 360.7,
+            "max": 360.7,
+            "mean": 360.7,
+            "median": 360.7,
             "stddev": 0.0
           }
         }
@@ -128,31 +128,12 @@
       "error": null,
       "metrics": {
         "pyright": {
-          "ok": true,
-          "execution_time_s": 181.596,
-          "peak_memory_mb": 4043.4,
+          "ok": false,
+          "execution_time_s": 81.389,
+          "peak_memory_mb": 4063.5,
           "oom_killed": false,
-          "runs": 1,
-          "execution_times_s": [
-            181.596
-          ],
-          "peak_memories_mb": [
-            4043.4
-          ],
-          "execution_time_stats": {
-            "min": 181.596,
-            "max": 181.596,
-            "mean": 181.596,
-            "median": 181.596,
-            "stddev": 0.0
-          },
-          "peak_memory_stats": {
-            "min": 4043.4,
-            "max": 4043.4,
-            "mean": 4043.4,
-            "median": 4043.4,
-            "stddev": 0.0
-          }
+          "error_message": "An internal error occurred while type checking file \"/tmp/pyright-typecheck-benchmark-qyi9mykx/homeassistant/homeassistant/components/otbr/websocket_api.py\": TypeError: Cannot read properties of undefined (reading 'isStubFile')",
+          "runs": 0
         }
       },
       "commit": "f002c54d12077d6b906fa624f1c4bba11a71897d",
@@ -168,28 +149,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 35.422,
-          "peak_memory_mb": 1436.5,
+          "execution_time_s": 36.45,
+          "peak_memory_mb": 1881.4,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            35.422
+            36.45
           ],
           "peak_memories_mb": [
-            1436.5
+            1881.4
           ],
           "execution_time_stats": {
-            "min": 35.422,
-            "max": 35.422,
-            "mean": 35.422,
-            "median": 35.422,
+            "min": 36.45,
+            "max": 36.45,
+            "mean": 36.45,
+            "median": 36.45,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 1436.5,
-            "max": 1436.5,
-            "mean": 1436.5,
-            "median": 1436.5,
+            "min": 1881.4,
+            "max": 1881.4,
+            "mean": 1881.4,
+            "median": 1881.4,
             "stddev": 0.0
           }
         }
@@ -209,28 +190,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 39.745,
-          "peak_memory_mb": 1513.8,
+          "execution_time_s": 33.737,
+          "peak_memory_mb": 1812.4,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            39.745
+            33.737
           ],
           "peak_memories_mb": [
-            1513.8
+            1812.4
           ],
           "execution_time_stats": {
-            "min": 39.745,
-            "max": 39.745,
-            "mean": 39.745,
-            "median": 39.745,
+            "min": 33.737,
+            "max": 33.737,
+            "mean": 33.737,
+            "median": 33.737,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 1513.8,
-            "max": 1513.8,
-            "mean": 1513.8,
-            "median": 1513.8,
+            "min": 1812.4,
+            "max": 1812.4,
+            "mean": 1812.4,
+            "median": 1812.4,
             "stddev": 0.0
           }
         }
@@ -251,28 +232,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 13.932,
-          "peak_memory_mb": 758.9,
+          "execution_time_s": 11.431,
+          "peak_memory_mb": 926.6,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            13.932
+            11.431
           ],
           "peak_memories_mb": [
-            758.9
+            926.6
           ],
           "execution_time_stats": {
-            "min": 13.932,
-            "max": 13.932,
-            "mean": 13.932,
-            "median": 13.932,
+            "min": 11.431,
+            "max": 11.431,
+            "mean": 11.431,
+            "median": 11.431,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 758.9,
-            "max": 758.9,
-            "mean": 758.9,
-            "median": 758.9,
+            "min": 926.6,
+            "max": 926.6,
+            "mean": 926.6,
+            "median": 926.6,
             "stddev": 0.0
           }
         }
@@ -291,28 +272,28 @@
       "metrics": {
         "pyright": {
           "ok": true,
-          "execution_time_s": 2.781,
-          "peak_memory_mb": 237.2,
+          "execution_time_s": 2.177,
+          "peak_memory_mb": 348.9,
           "oom_killed": false,
           "runs": 1,
           "execution_times_s": [
-            2.781
+            2.177
           ],
           "peak_memories_mb": [
-            237.2
+            348.9
           ],
           "execution_time_stats": {
-            "min": 2.781,
-            "max": 2.781,
-            "mean": 2.781,
-            "median": 2.781,
+            "min": 2.177,
+            "max": 2.177,
+            "mean": 2.177,
+            "median": 2.177,
             "stddev": 0.0
           },
           "peak_memory_stats": {
-            "min": 237.2,
-            "max": 237.2,
-            "mean": 237.2,
-            "median": 237.2,
+            "min": 348.9,
+            "max": 348.9,
+            "mean": 348.9,
+            "median": 348.9,
             "stddev": 0.0
           }
         }
@@ -329,31 +310,12 @@
       "error": null,
       "metrics": {
         "pyright": {
-          "ok": true,
-          "execution_time_s": 217.896,
-          "peak_memory_mb": 4037.6,
+          "ok": false,
+          "execution_time_s": 102.673,
+          "peak_memory_mb": 4059.5,
           "oom_killed": false,
-          "runs": 1,
-          "execution_times_s": [
-            217.896
-          ],
-          "peak_memories_mb": [
-            4037.6
-          ],
-          "execution_time_stats": {
-            "min": 217.896,
-            "max": 217.896,
-            "mean": 217.896,
-            "median": 217.896,
-            "stddev": 0.0
-          },
-          "peak_memory_stats": {
-            "min": 4037.6,
-            "max": 4037.6,
-            "mean": 4037.6,
-            "median": 4037.6,
-            "stddev": 0.0
-          }
+          "error_message": "An internal error occurred while type checking file \"/tmp/pyright-typecheck-benchmark-qyi9mykx/torch/torch/nn/intrinsic/__init__.py\": Error: Debug Failure. Did not find evaluation scope",
+          "runs": 0
         }
       },
       "commit": "3ee692b380206d788625e0a4474d758f93571ee9",
@@ -368,31 +330,12 @@
       "error": null,
       "metrics": {
         "pyright": {
-          "ok": true,
-          "execution_time_s": 216.894,
-          "peak_memory_mb": 3981.7,
+          "ok": false,
+          "execution_time_s": 80.021,
+          "peak_memory_mb": 4091.9,
           "oom_killed": false,
-          "runs": 1,
-          "execution_times_s": [
-            216.894
-          ],
-          "peak_memories_mb": [
-            3981.7
-          ],
-          "execution_time_stats": {
-            "min": 216.894,
-            "max": 216.894,
-            "mean": 216.894,
-            "median": 216.894,
-            "stddev": 0.0
-          },
-          "peak_memory_stats": {
-            "min": 3981.7,
-            "max": 3981.7,
-            "mean": 3981.7,
-            "median": 3981.7,
-            "stddev": 0.0
-          }
+          "error_message": "An internal error occurred while type checking file \"/tmp/pyright-typecheck-benchmark-qyi9mykx/transformers/src/transformers/models/nanochat/__init__.py\": TypeError: Cannot read properties of undefined (reading 'diagnosticRuleSet')",
+          "runs": 0
         }
       },
       "commit": "2ef79f87a02111f8b49a72fb7d0c86b5b0bf10b7",

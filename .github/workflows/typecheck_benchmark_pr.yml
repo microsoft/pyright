@@ -58,6 +58,21 @@ jobs:
           path: benchmark-baseline
           sparse-checkout: build/benchmark/baselines
 
+      - name: Select benchmark baseline
+        id: baseline
+        run: |
+          trusted=benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json
+          bootstrap=build/benchmark/baselines/latest-linux-x64.json
+          if [[ -f "$trusted" ]]; then
+            echo "path=$trusted" >> "$GITHUB_OUTPUT"
+          elif [[ -f "$bootstrap" ]]; then
+            echo "Using the pull request's initial benchmark baseline"
+            echo "path=$bootstrap" >> "$GITHUB_OUTPUT"
+          else
+            echo "No benchmark baseline is available" >&2
+            exit 1
+          fi
+
       - name: Build Pyright CLI
         working-directory: packages/pyright
         run: pnpm run build
@@ -77,7 +92,7 @@ jobs:
         run: |
           set +e
           python build/benchmark/compare_benchmarks.py \
-            benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json \
+            "${{ steps.baseline.outputs.path }}" \
             build/benchmark/results/latest-linux-x64.json \
             --fail-on-preparation-error \
             --markdown-output build/benchmark/results/report.md

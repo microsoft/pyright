@@ -344,6 +344,21 @@ Regression threshold: `10.0%`
             self.assertIn("pnpm-lock.yaml", workflow)
             self.assertNotIn(".github/actions/npm-cache-dir", workflow)
 
+    def test_pr_workflow_prefers_trusted_baseline_with_bootstrap_fallback(self) -> None:
+        workflow = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        ).read_text(encoding="utf-8")
+
+        trusted = "benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json"
+        bootstrap = "build/benchmark/baselines/latest-linux-x64.json"
+        self.assertLess(
+            workflow.index('if [[ -f "$trusted" ]]'),
+            workflow.index('elif [[ -f "$bootstrap" ]]'),
+        )
+        self.assertIn('echo "path=$trusted" >> "$GITHUB_OUTPUT"', workflow)
+        self.assertIn('echo "path=$bootstrap" >> "$GITHUB_OUTPUT"', workflow)
+        self.assertIn('"${{ steps.baseline.outputs.path }}"', workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
