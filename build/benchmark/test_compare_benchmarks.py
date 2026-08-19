@@ -431,6 +431,9 @@ Regression threshold: `10.0%`
             self.assertIn("pnpm-lock.yaml", workflow)
             self.assertIn("SKIP_LERNA_BOOTSTRAP: 'yes'", workflow)
             self.assertIn("--max-old-space-size=5120", workflow)
+            self.assertIn("timeout-minutes: 10", workflow)
+            self.assertIn("pnpm install --frozen-lockfile --prefer-offline", workflow)
+            self.assertNotIn("apt-get", workflow)
             self.assertNotIn(".github/actions/npm-cache-dir", workflow)
 
     def test_pr_benchmark_requires_authorized_comment(self) -> None:

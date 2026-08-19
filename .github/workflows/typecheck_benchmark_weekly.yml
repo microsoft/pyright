@@ -38,10 +38,11 @@ jobs:
             build/benchmark/install_envs.json
             .github/workflows/typecheck_benchmark_weekly.yml
 
-      - name: Install build prerequisites
+      - name: Verify build prerequisites
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential
+          gcc --version
+          g++ --version
+          make --version
 
       - name: Install ${{ matrix.checker }}
         if: ${{ matrix.checker != 'pyright' }}
@@ -59,10 +60,11 @@ jobs:
 
       - name: Build Pyright CLI
         if: ${{ matrix.checker == 'pyright' }}
+        timeout-minutes: 10
         env:
           SKIP_LERNA_BOOTSTRAP: 'yes'
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile --prefer-offline
           pnpm --dir packages/pyright run build
 
       - name: Run ${{ matrix.checker }} benchmark

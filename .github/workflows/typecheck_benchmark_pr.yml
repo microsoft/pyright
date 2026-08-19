@@ -40,13 +40,17 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: 'pnpm-lock.yaml'
 
-      - name: Install build prerequisites
+      - name: Verify build prerequisites
+        run: |
+          gcc --version
+          g++ --version
+          make --version
+
+      - name: Install JavaScript dependencies
+        timeout-minutes: 10
         env:
           SKIP_LERNA_BOOTSTRAP: 'yes'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Check out trusted baseline
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
