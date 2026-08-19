@@ -103,6 +103,11 @@ extends:
                 displayName: Use Node 24.15.0
                 inputs:
                   version: 24.15.0
+              # The 1ES agent image ships Node but not pnpm, and corepack cannot
+              # fetch it in the restricted-network build, so install the pinned pnpm
+              # via npm (which honors NPM_CONFIG_USERCONFIG for the authenticated feed).
+              - script: npm run installPinnedPackageManager
+                displayName: Install pinned pnpm
               - task: CmdLine@2
                 displayName: pnpm install
                 inputs:
@@ -127,10 +132,6 @@ extends:
                   SourceFolder: packages/vscode-pyright
                   Contents: '$(VSIX_NAME)'
                   TargetFolder: build_output
-
-              - script: |
-                  pnpm install -g @vscode/vsce
-                displayName: 'Install vsce and dependencies'
 
               - script: pnpm exec vsce generate-manifest -i $(VSIX_NAME) -o extension.manifest
                 displayName: 'Generate extension manifest'
@@ -210,6 +211,11 @@ extends:
                 displayName: Use Node 24.15.0
                 inputs:
                   version: 24.15.0
+              # The 1ES agent image ships Node but not pnpm, and corepack cannot
+              # fetch it in the restricted-network build, so install the pinned pnpm
+              # via npm (which honors NPM_CONFIG_USERCONFIG for the authenticated feed).
+              - script: npm run installPinnedPackageManager
+                displayName: Install pinned pnpm
               - task: CmdLine@2
                 displayName: pnpm install
                 inputs:
@@ -438,8 +444,12 @@ extends:
               # Install dependencies and VS Code Extension Manager (vsce >= v2.26.1 needed)
               # Generate + authenticate the CFS feed .npmrc at runtime (ICM 839806358).
               - template: /build/templates/npmAuthenticate.yml@self
+              # This checkout: none job has no workspace to run `pnpm exec` from, so
+              # install the pinned vsce globally; the bare `vsce publish` step below
+              # then finds it on PATH. npm honors NPM_CONFIG_USERCONFIG for the
+              # authenticated feed.
               - script: |
-                  pnpm install -g @vscode/vsce
+                  npm install --ignore-scripts=false -g @vscode/vsce@3.9.2
                 displayName: 'Install vsce and dependencies'
               # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
               # Publish to Marketplace

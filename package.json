@@ -4,6 +4,7 @@
     "packageManager": "pnpm@10.12.2",
     "scripts": {
         "clean": "lerna run --no-bail --stream clean",
+        "installPinnedPackageManager": "node ./build/installPinnedPackageManager.js",
         "install:all": "pnpm install",
         "test": "pnpm --dir packages/pyright-internal test",
         "update:all": "node ./build/updateDeps.js",
