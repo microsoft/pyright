@@ -146,6 +146,31 @@ Regression threshold: `10.0%`
             ["environment mismatch for python_version: '3.14.6' != '3.13.0'"],
         )
 
+    def test_accepts_timeout_limit_change(self) -> None:
+        candidate = _result(10.0, 100.0)
+        candidate["timeout_s"] = 1800
+
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                _result(10.0, 100.0), candidate, 10.0
+            )
+
+        self.assertEqual(failures, [])
+
+    def test_reports_success_without_failed_baseline(self) -> None:
+        baseline = _result(0.0, 0.0, ok=False)
+        candidate = _result(12.0, 345.0)
+
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(baseline, candidate, 10.0)
+
+        self.assertEqual(failures, [])
+        report = compare_benchmarks.render_markdown(baseline, candidate, 10.0)
+        self.assertIn(
+            "| example | pyright | 12.000s | N/A | 345.0 MB | N/A | 🟡 No baseline |",
+            report,
+        )
+
     def test_rejects_runner_image_mismatch(self) -> None:
         candidate = _result(10.0, 100.0)
         candidate["runner_image"] = "ubuntu22"
@@ -349,7 +374,7 @@ Regression threshold: `10.0%`
             ).read_text(encoding="utf-8")
         )
 
-        self.assertEqual(int(timeout_match.group(1)), baseline["timeout_s"])
+        self.assertEqual(int(timeout_match.group(1)), 1800)
         baseline_packages = {
             package["package_name"]: package for package in baseline["results"]
         }

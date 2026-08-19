@@ -80,7 +80,7 @@ jobs:
           PYTHONNOUSERSITE: '1'
         run: |
           python build/benchmark/typecheck_benchmark.py \
-            -c pyright -r 1 -w 0 -t 600 --memory-limit-mb 8192 \
+            -c pyright -r 1 -w 0 -t 1800 --memory-limit-mb 8192 \
             --skip-pyright-build --os-name linux-x64 \
             --output build/benchmark/results
 

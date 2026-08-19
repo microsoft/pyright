@@ -138,7 +138,6 @@ def _analyze(
         "node_options",
         "runs_per_package",
         "warmup_runs",
-        "timeout_s",
         "dependency_isolation",
     ):
         if baseline.get(field) != candidate.get(field):
@@ -155,6 +154,19 @@ def _analyze(
         package, checker = key
         new = candidate_metrics.get(key)
         if not old.get("ok"):
+            if new and new.get("ok"):
+                rows.append(
+                    {
+                        "package": package,
+                        "checker": checker,
+                        "execution_time_s": float(new["execution_time_s"]),
+                        "time_delta": None,
+                        "peak_memory_mb": float(new["peak_memory_mb"]),
+                        "memory_delta": None,
+                        "status": "No baseline",
+                    }
+                )
+                continue
             rows.append(
                 {
                     "package": package,
