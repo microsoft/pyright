@@ -20,7 +20,7 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
         "cpu_count": 4,
         "python_version": "3.14.6",
         "memory_limit_mb": 8192,
-        "node_options": "--max-old-space-size=5120",
+        "node_options": "--max-old-space-size=6144",
         "runs_per_package": 1,
         "warmup_runs": 0,
         "timeout_s": 600,
@@ -230,7 +230,7 @@ Regression threshold: `10.0%`
 
     def test_rejects_node_options_mismatch(self) -> None:
         candidate = _result(10.0, 100.0)
-        candidate["node_options"] = "--max-old-space-size=6144"
+        candidate["node_options"] = "--max-old-space-size=7168"
 
         with redirect_stdout(io.StringIO()):
             failures = compare_benchmarks.compare(
@@ -241,7 +241,7 @@ Regression threshold: `10.0%`
             failures,
             [
                 "environment mismatch for node_options: "
-                "'--max-old-space-size=5120' != '--max-old-space-size=6144'"
+                "'--max-old-space-size=6144' != '--max-old-space-size=7168'"
             ],
         )
 
@@ -430,7 +430,7 @@ Regression threshold: `10.0%`
             self.assertIn("cache: 'pnpm'", workflow)
             self.assertIn("pnpm-lock.yaml", workflow)
             self.assertIn("SKIP_LERNA_BOOTSTRAP: 'yes'", workflow)
-            self.assertIn("--max-old-space-size=5120", workflow)
+            self.assertIn("--max-old-space-size=6144", workflow)
             self.assertIn("timeout-minutes: 10", workflow)
             self.assertIn("pnpm install --frozen-lockfile --prefer-offline", workflow)
             self.assertNotIn("apt-get", workflow)

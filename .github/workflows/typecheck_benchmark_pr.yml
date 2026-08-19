@@ -80,7 +80,7 @@ jobs:
 
       - name: Run benchmark
         env:
-          NODE_OPTIONS: '--max-old-space-size=5120'
+          NODE_OPTIONS: '--max-old-space-size=6144'
           PYTHONNOUSERSITE: '1'
         run: |
           python build/benchmark/typecheck_benchmark.py \

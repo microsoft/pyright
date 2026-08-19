@@ -70,7 +70,7 @@ jobs:
       - name: Run ${{ matrix.checker }} benchmark
         env:
           BENCHMARK_RUNNER_CLASS: 'github-ubuntu-latest'
-          NODE_OPTIONS: ${{ matrix.checker == 'pyright' && '--max-old-space-size=5120' || '' }}
+          NODE_OPTIONS: ${{ matrix.checker == 'pyright' && '--max-old-space-size=6144' || '' }}
           PYTHONNOUSERSITE: '1'
         run: |
           extra_args=()
