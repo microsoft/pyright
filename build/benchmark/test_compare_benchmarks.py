@@ -23,6 +23,7 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
         "runs_per_package": 1,
         "warmup_runs": 0,
         "timeout_s": 600,
+        "dependency_isolation": "pip-target-per-package",
         "results": [
             {
                 "package_name": "example",
@@ -156,6 +157,23 @@ Regression threshold: `10.0%`
         self.assertEqual(
             failures,
             ["environment mismatch for runner_image: 'ubuntu24' != 'ubuntu22'"],
+        )
+
+    def test_rejects_dependency_isolation_mismatch(self) -> None:
+        candidate = _result(10.0, 100.0)
+        candidate["dependency_isolation"] = "shared"
+
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                _result(10.0, 100.0), candidate, 10.0
+            )
+
+        self.assertEqual(
+            failures,
+            [
+                "environment mismatch for dependency_isolation: "
+                "'pip-target-per-package' != 'shared'"
+            ],
         )
 
     def test_rejects_package_commit_mismatch(self) -> None:

@@ -138,6 +138,7 @@ def _analyze(
         "runs_per_package",
         "warmup_runs",
         "timeout_s",
+        "dependency_isolation",
     ):
         if baseline.get(field) != candidate.get(field):
             failures.append(

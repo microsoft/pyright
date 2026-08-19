@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -152,7 +153,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         with (
             patch.object(benchmark, "clone_package", return_value=self.root),
             patch.object(benchmark, "get_package_commit", return_value="abc123"),
-            patch.object(benchmark, "install_deps", return_value=False),
+            patch.object(benchmark, "install_deps", return_value=False) as install,
             patch.object(benchmark, "_benchmark_directory") as run_directory,
         ):
             result = benchmark._benchmark_package(
@@ -161,7 +162,48 @@ class TypecheckBenchmarkTest(unittest.TestCase):
 
         self.assertEqual(result["error"], "Dependency installation failed")
         self.assertEqual(result["commit"], "abc123")
+        install.assert_called_once_with(
+            self.root, package, self.root / "example-dependencies"
+        )
         run_directory.assert_not_called()
+
+    def test_install_deps_uses_package_specific_target(self) -> None:
+        dependency_path = self.root / "dependencies"
+        config = {
+            "install": True,
+            "deps": ["example-dependency"],
+            "install_env": {"EXAMPLE_OPTION": "enabled"},
+        }
+
+        with patch.object(
+            benchmark.subprocess,
+            "run",
+            return_value=unittest.mock.Mock(returncode=0),
+        ) as run:
+            installed = benchmark.install_deps(self.root, config, dependency_path)
+
+        self.assertTrue(installed)
+        self.assertEqual(
+            run.call_args.args[0],
+            [
+                benchmark.sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--target",
+                str(dependency_path),
+                "--ignore-installed",
+                "--no-compile",
+                ".",
+                "example-dependency",
+            ],
+        )
+        environment = run.call_args.kwargs["env"]
+        self.assertEqual(environment["EXAMPLE_OPTION"], "enabled")
+        self.assertEqual(environment["PYTHONNOUSERSITE"], "1")
+        self.assertEqual(
+            environment["PYTHONPATH"].split(os.pathsep)[0], str(dependency_path)
+        )
 
     def test_zuban_uses_positional_paths_without_config(self) -> None:
         source_dir = self.root / "src"
@@ -277,6 +319,9 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertEqual(output["runner_image"], "local")
         self.assertEqual(output["architecture"], benchmark.platform.machine())
         self.assertEqual(output["runner_class"], "local")
+        self.assertEqual(
+            output["dependency_isolation"], benchmark.DEPENDENCY_ISOLATION
+        )
 
     def test_local_mode_builds_pyright_without_clone_or_install(self) -> None:
         package_result: benchmark.PackageResult = {
@@ -336,6 +381,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             timeout: int,
             memory_limit_mb: int,
             capture_output: bool = True,
+            environment: dict[str, str] | None = None,
         ) -> benchmark.TimingMetrics:
             calls.append(capture_output)
             return {
@@ -383,6 +429,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             timeout: int,
             memory_limit_mb: int,
             capture_output: bool = True,
+            environment: dict[str, str] | None = None,
         ) -> benchmark.TimingMetrics:
             captures.append(capture_output)
             return {

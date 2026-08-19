@@ -12,8 +12,8 @@
 
 This benchmark measures speed and peak RSS only. It does not compare diagnostics
 or type-checking precision. Configured projects are cloned into a temporary
-directory and installed into the active Python environment before they are
-checked; --local benchmarks an existing directory without clone or installation.
+directory and installed into package-specific dependency directories before
+they are checked; --local benchmarks an existing directory without clone or installation.
 """
 
 from __future__ import annotations
@@ -57,6 +57,7 @@ UPSTREAM_SOURCE = {
     ),
 }
 PYRIGHT_DEFAULT_EXCLUDES = ["**/node_modules", "**/__pycache__", "**/.*"]
+DEPENDENCY_ISOLATION = "pip-target-per-package"
 
 
 class BenchmarkError(Exception):
@@ -265,6 +266,7 @@ def run_process_with_timeout(
     timeout: int,
     memory_limit_mb: int = DEFAULT_MEMORY_LIMIT_MB,
     capture_output: bool = True,
+    environment: dict[str, str] | None = None,
 ) -> ProcessResult:
     """Run a command with timeout and platform-appropriate memory measurement."""
     use_macos_time = sys.platform == "darwin" and Path("/usr/bin/time").is_file()
@@ -275,6 +277,7 @@ def run_process_with_timeout(
         "stdout": subprocess.PIPE if capture_output else subprocess.DEVNULL,
         "stderr": subprocess.PIPE if need_stderr_pipe else subprocess.DEVNULL,
         "text": True,
+        "env": environment,
     }
     if sys.platform != "win32":
         popen_args["start_new_session"] = True
@@ -474,50 +477,65 @@ def get_package_commit(package_path: Path) -> str | None:
     return commit if result.returncode == 0 and commit else None
 
 
-def install_deps(package_path: Path, config: dict[str, Any]) -> bool:
-    """Install the project and configured dependencies into the active environment."""
+def _dependency_environment(
+    dependency_path: Path, config: dict[str, Any]
+) -> dict[str, str]:
     environment = os.environ.copy()
     environment.update(config.get("install_env", {}))
+    existing_python_path = environment.get("PYTHONPATH")
+    environment["PYTHONPATH"] = os.pathsep.join(
+        part for part in (str(dependency_path), existing_python_path) if part
+    )
+    environment["PYTHONNOUSERSITE"] = "1"
+    return environment
 
-    commands: list[tuple[str, list[str]]] = []
+
+def install_deps(
+    package_path: Path, config: dict[str, Any], dependency_path: Path
+) -> bool:
+    """Install project dependencies into a package-specific directory."""
+    environment = _dependency_environment(dependency_path, config)
+
+    requirements: list[str] = []
     if config.get("install", False):
-        commands.append(
-            (
-                "Installing package (pip install -e .)",
-                [sys.executable, "-m", "pip", "install", "-e", "."],
-            )
-        )
+        requirements.append(".")
 
     deps = config.get("deps", [])
-    if deps:
-        commands.append(
-            (
-                f"Installing dependencies: {', '.join(deps)}",
-                [sys.executable, "-m", "pip", "install", *deps],
-            )
-        )
+    requirements.extend(deps)
+    if not requirements:
+        return True
 
-    for description, command in commands:
-        print(f"  {description}")
-        try:
-            result = subprocess.run(
-                command,
-                cwd=package_path,
-                capture_output=True,
-                text=True,
-                timeout=INSTALL_TIMEOUT,
-                env=environment,
-            )
-        except subprocess.TimeoutExpired:
-            print(f"  Installation timed out after {INSTALL_TIMEOUT} seconds")
-            return False
-        except OSError as exc:
-            print(f"  Unable to run pip: {exc}")
-            return False
-        if result.returncode != 0:
-            details = result.stderr.strip() or result.stdout.strip()
-            print(f"  Installation failed: {details[-500:]}")
-            return False
+    print(f"  Installing isolated dependencies: {', '.join(requirements)}")
+    command = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--target",
+        str(dependency_path),
+        "--ignore-installed",
+        "--no-compile",
+        *requirements,
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=package_path,
+            capture_output=True,
+            text=True,
+            timeout=INSTALL_TIMEOUT,
+            env=environment,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"  Installation timed out after {INSTALL_TIMEOUT} seconds")
+        return False
+    except OSError as exc:
+        print(f"  Unable to run pip: {exc}")
+        return False
+    if result.returncode != 0:
+        details = result.stderr.strip() or result.stdout.strip()
+        print(f"  Installation failed: {details[-500:]}")
+        return False
 
     return True
 
@@ -688,6 +706,7 @@ def run_checker(
     timeout: int,
     memory_limit_mb: int,
     capture_output: bool = True,
+    environment: dict[str, str] | None = None,
 ) -> TimingMetrics:
     """Run one checker once using a minimal checker-specific configuration."""
     command, config_paths = _build_checker_command(
@@ -715,6 +734,7 @@ def run_checker(
                 timeout=timeout,
                 memory_limit_mb=memory_limit_mb,
                 capture_output=capture_output,
+                environment=environment,
             )
         except OSError as exc:
             return {
@@ -857,6 +877,7 @@ def _benchmark_directory(
     warmup: int,
     memory_limit_mb: int,
     local_path: str | None = None,
+    environment: dict[str, str] | None = None,
 ) -> PackageResult:
     metrics: dict[str, TimingMetrics] = {}
     for checker in type_checkers:
@@ -896,6 +917,7 @@ def _benchmark_directory(
                 resolved_paths,
                 timeout,
                 memory_limit_mb,
+                environment=environment,
             )
             if not metric.get("ok"):
                 print(f"failed: {metric.get('error_message', 'Unknown error')}")
@@ -976,7 +998,8 @@ def _benchmark_package(
         }
 
     commit = get_package_commit(package_path)
-    if not install_deps(package_path, package):
+    dependency_path = temp_path / f"{name}-dependencies"
+    if not install_deps(package_path, package, dependency_path):
         return {
             **package_metadata,
             "commit": commit or "unknown",
@@ -1011,6 +1034,7 @@ def _benchmark_package(
         runs=runs,
         warmup=warmup,
         memory_limit_mb=memory_limit_mb,
+        environment=_dependency_environment(dependency_path, package),
     )
     result["commit"] = commit or "unknown"
     result.update(package_metadata)
@@ -1055,6 +1079,7 @@ def _save_results(
             else "unavailable"
         ),
         "memory_limit_mb": memory_limit_mb,
+        "dependency_isolation": DEPENDENCY_ISOLATION,
         "type_checkers": type_checkers,
         "type_checker_versions": versions,
         "package_count": len(results),
