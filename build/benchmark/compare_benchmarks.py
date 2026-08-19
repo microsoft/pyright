@@ -167,6 +167,13 @@ def _analyze(
                     }
                 )
                 continue
+            if fail_on_preparation_error:
+                failures.append(
+                    f"{package}/{checker}: candidate result failed or is missing"
+                )
+                status = "Failed"
+            else:
+                status = "Baseline unavailable"
             rows.append(
                 {
                     "package": package,
@@ -175,7 +182,7 @@ def _analyze(
                     "time_delta": None,
                     "peak_memory_mb": None,
                     "memory_delta": None,
-                    "status": "Baseline unavailable",
+                    "status": status,
                 }
             )
             continue

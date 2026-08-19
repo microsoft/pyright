@@ -170,6 +170,8 @@ The invocation timeout is recorded but is not an environment compatibility field
 threshold does not alter a checker invocation that completed below either threshold. A timed-out
 candidate cannot replace a successful baseline. If a candidate succeeds where the baseline timed out
 or otherwise failed, it is reported as `No baseline` until a new hosted baseline is checked in.
+The pull-request workflow also fails if any candidate package cannot be prepared or any checker
+times out, crashes, or otherwise fails, even when that package has no successful baseline yet.
 
 On pull requests, the benchmark pins Python 3.14.6, caches pip downloads using `install_envs.json` as
 the cache key, runs Pyright with a 5 GiB V8 old-space limit, and allows each invocation up to 30

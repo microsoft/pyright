@@ -171,6 +171,32 @@ Regression threshold: `10.0%`
             report,
         )
 
+    def test_strict_mode_rejects_failure_without_successful_baseline(self) -> None:
+        baseline = _result(0.0, 0.0, ok=False)
+        candidate = _result(0.0, 0.0, ok=False)
+
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                baseline,
+                candidate,
+                10.0,
+                fail_on_preparation_error=True,
+            )
+
+        self.assertEqual(
+            failures, ["example/pyright: candidate result failed or is missing"]
+        )
+        report = compare_benchmarks.render_markdown(
+            baseline,
+            candidate,
+            10.0,
+            fail_on_preparation_error=True,
+        )
+        self.assertIn(
+            "| example | pyright | N/A | N/A | N/A | N/A | 🔴 Failed |",
+            report,
+        )
+
     def test_rejects_runner_image_mismatch(self) -> None:
         candidate = _result(10.0, 100.0)
         candidate["runner_image"] = "ubuntu22"
