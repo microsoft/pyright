@@ -53,6 +53,11 @@ extends:
                 displayName: Use Node 24.15.0
                 inputs:
                   version: 24.15.0
+              # The 1ES agent image ships Node but not pnpm, and corepack cannot
+              # fetch it in the restricted-network build, so install the pinned pnpm
+              # via npm (which honors NPM_CONFIG_USERCONFIG for the authenticated feed).
+              - script: npm run installPinnedPackageManager
+                displayName: Install pinned pnpm
               - task: CmdLine@2
                 displayName: pnpm install
                 inputs:
