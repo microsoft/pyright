@@ -205,6 +205,46 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             environment["PYTHONPATH"].split(os.pathsep)[0], str(dependency_path)
         )
 
+    def test_packages_use_independent_dependency_environments(self) -> None:
+        packages = [
+            {"name": "first", "github_url": "https://example.com/first"},
+            {"name": "second", "github_url": "https://example.com/second"},
+        ]
+        with (
+            patch.object(
+                benchmark,
+                "clone_package",
+                side_effect=[self.root / "first", self.root / "second"],
+            ),
+            patch.object(benchmark, "get_package_commit", return_value="abc123"),
+            patch.object(benchmark, "install_deps", return_value=True) as install,
+            patch.object(
+                benchmark,
+                "_benchmark_directory",
+                side_effect=lambda **kwargs: {
+                    "package_name": kwargs["name"],
+                    "github_url": kwargs["github_url"],
+                    "error": None,
+                    "metrics": {},
+                },
+            ) as run_directory,
+        ):
+            for package in packages:
+                benchmark._benchmark_package(
+                    package, self.root, ["pyright"], 30, 1, 0, 4096
+                )
+
+        install_targets = [call.args[2] for call in install.call_args_list]
+        checker_targets = [
+            Path(call.kwargs["environment"]["PYTHONPATH"].split(os.pathsep)[0])
+            for call in run_directory.call_args_list
+        ]
+        self.assertEqual(
+            install_targets,
+            [self.root / "first-dependencies", self.root / "second-dependencies"],
+        )
+        self.assertEqual(checker_targets, install_targets)
+
     def test_zuban_uses_positional_paths_without_config(self) -> None:
         source_dir = self.root / "src"
         source_dir.mkdir()
