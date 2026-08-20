@@ -326,7 +326,7 @@ test('DataClass3', () => {
 test('DataClass4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass4.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('DataClass5', () => {

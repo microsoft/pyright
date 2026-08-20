@@ -108,3 +108,36 @@ class DC10:
 class DC11(DC10):
     a: str = field()
     b: bool = field()
+
+
+@dataclass
+class DC12:
+    a: int = 0
+
+
+@dataclass
+class DC13(DC12):
+    # Unlike a bare annotation, an assigned field specifier that supplies no
+    # default replaces the inherited entry rather than inheriting its default,
+    # so "a" becomes a required parameter.
+    a: int = field()
+
+
+reveal_type(DC13.__init__, expected_text="(self: DC13, a: int) -> None")
+
+# This should generate an error because "a" no longer has an
+# inherited default value, so it must be provided.
+DC13()
+
+
+@dataclass
+class DC14:
+    a: int = 0
+    b: int = 1
+
+
+@dataclass
+class DC15(DC14):
+    # This should generate an error because "b" drops its inherited default
+    # and would then follow "a", which still has one.
+    b: int = field()
