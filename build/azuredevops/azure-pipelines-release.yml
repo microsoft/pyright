@@ -19,6 +19,10 @@ parameters:
     displayName: Source build ID (required for npmOnly and npmValidateOnly)
     type: number
     default: 0
+  - name: registryValidationOnly
+    displayName: Run registry validation without publishing
+    type: boolean
+    default: false
 resources:
   repositories:
     - repository: MicroBuildTemplate
@@ -43,7 +47,11 @@ variables:
   # committed registry, so this public repo's local/fork installs stay on public npm (ICM 839806358).
   - name: NPM_CONFIG_USERCONFIG
     value: $(Agent.TempDirectory)/cfs.npmrc
-  - ${{ if or(eq(parameters.releaseMode, 'npmOnly'), eq(parameters.releaseMode, 'npmValidateOnly')) }}:
+  - ${{ if parameters.registryValidationOnly }}:
+      # Manual validation can run from a branch without release metadata.
+      - name: EXPECTED_RELEASE_TAG
+        value: ''
+  - ${{ elseif or(eq(parameters.releaseMode, 'npmOnly'), eq(parameters.releaseMode, 'npmValidateOnly')) }}:
       - name: EXPECTED_RELEASE_TAG
         value: ${{ parameters.releaseTag }}
   - ${{ else }}:
@@ -72,7 +80,7 @@ extends:
       - ES365AIMigrationTooling
     stages:
       - stage: BuildVsix
-        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
+        condition: and(not(canceled()), succeeded(), or(eq('${{ parameters.releaseMode }}', 'full'), ${{ parameters.registryValidationOnly }}))
         jobs:
           - job: build_vsix
             displayName: Build VSIX
@@ -188,7 +196,7 @@ extends:
                   TargetFolder: build_output
 
       - stage: BuildNpm
-        condition: and(not(canceled()), succeeded(), eq('${{ parameters.releaseMode }}', 'full'))
+        condition: and(not(canceled()), succeeded(), or(eq('${{ parameters.releaseMode }}', 'full'), ${{ parameters.registryValidationOnly }}))
         dependsOn: # Blank to allow running in parallel with BuildVsix
         jobs:
           - job: build_npm
@@ -239,7 +247,7 @@ extends:
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
       - stage: RecoverNpmArtifact
-        condition: and(not(canceled()), succeeded(), or(eq('${{ parameters.releaseMode }}', 'npmOnly'), eq('${{ parameters.releaseMode }}', 'npmValidateOnly')))
+        condition: and(not(canceled()), succeeded(), not(${{ parameters.registryValidationOnly }}), or(eq('${{ parameters.releaseMode }}', 'npmOnly'), eq('${{ parameters.releaseMode }}', 'npmValidateOnly')))
         dependsOn: []
         jobs:
           - job: recover_npm_artifact
@@ -304,8 +312,11 @@ extends:
           and(
             not(canceled()),
             or(
-              and(eq('${{ parameters.releaseMode }}', 'full'), in(dependencies.BuildNpm.result, 'Succeeded', 'SucceededWithIssues')),
-              and(or(eq('${{ parameters.releaseMode }}', 'npmOnly'), eq('${{ parameters.releaseMode }}', 'npmValidateOnly')), in(dependencies.RecoverNpmArtifact.result, 'Succeeded', 'SucceededWithIssues'))
+              and(
+                or(eq('${{ parameters.releaseMode }}', 'full'), ${{ parameters.registryValidationOnly }}),
+                in(dependencies.BuildNpm.result, 'Succeeded', 'SucceededWithIssues')
+              ),
+              and(not(${{ parameters.registryValidationOnly }}), or(eq('${{ parameters.releaseMode }}', 'npmOnly'), eq('${{ parameters.releaseMode }}', 'npmValidateOnly')), in(dependencies.RecoverNpmArtifact.result, 'Succeeded', 'SucceededWithIssues'))
             )
           )
         dependsOn:
@@ -333,179 +344,199 @@ extends:
                   cd pyrightTest
                   yarn
                   yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
-                  node -e "const actual=require('./node_modules/pyright/package.json').version; const expected=process.env.RELEASE_TAG; if(actual!==expected){console.error('Expected package version '+expected+', got '+actual); process.exit(1)}"
+                  node -e "const actual=require('./node_modules/pyright/package.json').version; const expected=process.env.RELEASE_TAG; if(expected && actual!==expected){console.error('Expected package version '+expected+', got '+actual); process.exit(1)}"
                   node_modules/.bin/pyright --version
                 displayName: Validate npm package
                 env:
                   RELEASE_TAG: $(EXPECTED_RELEASE_TAG)
 
-      - stage: CreateRelease
-        condition: |
-          and(
-            not(canceled()),
-            eq('${{ parameters.releaseMode }}', 'full'),
-            in(dependencies.BuildVsix.result, 'Succeeded', 'SucceededWithIssues'),
-            in(dependencies.ValidateNpm.result, 'Succeeded', 'SucceededWithIssues')
-          )
-        dependsOn:
-          - BuildVsix
-          - ValidateNpm
-        jobs:
-          - job: create_release
-            displayName: Create GitHub Release
-            templateContext:
-              type: releaseJob
-              isProduction: true
-              inputs:
-                - input: pipelineArtifact
-                  artifactName: $(ARTIFACT_NAME_VSIX)
-                  targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)
-                - input: pipelineArtifact
-                  artifactName: $(ARTIFACT_NAME_PACKAGE)
-                  targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)
-            steps:
-              - checkout: none
-              # Generate + authenticate the CFS feed .npmrc at runtime (ICM 839806358).
-              - template: /build/templates/npmAuthenticate.yml@self
-              # Next step fails the build if https://github.com/microsoft/pyright/issues/10350 repros.
-              # Yarn does not reliably honor NPM_CONFIG_USERCONFIG, so also drop the authenticated
-              # CFS .npmrc directly in the working dir where yarn resolves it.
-              - script: |
-                  mkdir pyrightTest
-                  cp "$(Agent.TempDirectory)/cfs.npmrc" pyrightTest/.npmrc
-                  cd pyrightTest
-                  yarn
-                  yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
-                  node_modules/.bin/pyright --version
-                displayName: Validate package archive
-              - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
-                displayName: 'Create GitHub Release'
-                inputs:
-                  gitHubConnection: 'Github-Pylance' # The name of the GitHub service connection
-                  repositoryName: 'microsoft/pyright' # The name of your GitHub repository
-                  action: 'create'
-                  isDraft: true
-                  isPreRelease: false
-                  addChangeLog: true
-                  title: 'Published $(Build.SourceBranchName)'
-                  assets: |
-                    $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)/$(VSIX_NAME)
-                    $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
+      - ${{ if parameters.registryValidationOnly }}:
+          - stage: ValidateMarketplaceTooling
+            condition: and(not(canceled()), in(dependencies.BuildVsix.result, 'Succeeded', 'SucceededWithIssues'))
+            dependsOn:
+              - BuildVsix
+            jobs:
+              - job: validate_marketplace_tooling
+                displayName: Validate marketplace tooling
+                steps:
+                  - checkout: none
+                  - task: UseNode@1
+                    inputs:
+                      version: 24.15.0
+                  - template: /build/templates/npmAuthenticate.yml@self
+                  - script: |
+                      npm install --ignore-scripts=false -g @vscode/vsce@3.9.2
+                    displayName: 'Install vsce and dependencies'
 
-      - stage: WaitForValidation
-        condition: |
-          and(
-            not(canceled()),
-            eq('${{ parameters.releaseMode }}', 'full'),
-            in(dependencies.CreateRelease.result, 'Succeeded', 'SucceededWithIssues')
-          )
-        dependsOn:
-          - CreateRelease
-        jobs:
-          - job: wait_for_validation
-            displayName: Wait for manual validation
-            pool: server
-            templateContext:
-              mb:
-                publish:
-                  enabled: false
-            steps:
-              - task: ManualValidation@0
-                timeoutInMinutes: 120 # task times out in 2 hours
-                inputs:
-                  notifyUsers: '[DevDiv]\Python.Language Server,eric@traut.com'
-                  instructions: 'In the next 2 hours please test the latest draft release of Pyright, then Publish the release in GitHub.'
-                  onTimeout: 'reject' # require sign-off
-
-      - stage: PublishToMarketplace
-        condition: |
-          and(
-            not(canceled()),
-            eq('${{ parameters.releaseMode }}', 'full'),
-            in(dependencies.WaitForValidation.result, 'Succeeded', 'SucceededWithIssues')
-          )
-        dependsOn:
-          - WaitForValidation
-        jobs:
-          - job: publish_extension
-            displayName: Publish extension to marketplace
-            steps:
-              - checkout: none
-              - task: UseNode@1
-                inputs:
-                  version: 24.15.0
-              - task: DownloadPipelineArtifact@2
-                displayName: 'Download Artifacts from Validation Job'
-                inputs:
-                  buildType: 'current'
-                  artifactName: '$(ARTIFACT_NAME_VSIX)'
-                  targetPath: '$(System.ArtifactsDirectory)'
-              # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
-              # Install dependencies and VS Code Extension Manager (vsce >= v2.26.1 needed)
-              # Generate + authenticate the CFS feed .npmrc at runtime (ICM 839806358).
-              - template: /build/templates/npmAuthenticate.yml@self
-              # This checkout: none job has no workspace to run `pnpm exec` from, so
-              # install the pinned vsce globally; the bare `vsce publish` step below
-              # then finds it on PATH. npm honors NPM_CONFIG_USERCONFIG for the
-              # authenticated feed.
-              - script: |
-                  npm install --ignore-scripts=false -g @vscode/vsce@3.9.2
-                displayName: 'Install vsce and dependencies'
-              # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
-              # Publish to Marketplace
-              # see. stackoverflow.com/collectives/ci-cd/articles/76873787/publish-azure-devops-extensions-using-azure-workload-identity
-              # az rest -u https://app.vssps.visualstudio.com/_apis/profile/profiles/me --resource 499b84ac-1321-427f-aa17-267ca6975798
-              - task: AzureCLI@2
-                displayName: 'Publishing with Managed Identity'
-                inputs:
-                  azureSubscription: PyrightPublishPipelineSecureConnectionWithManagedIdentity
-                  scriptType: 'pscore'
-                  scriptLocation: 'inlineScript'
-                  inlineScript: |
-                    $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
-                    vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
-
-      - stage: PublishToNpm
-        condition: |
-          and(
-            not(canceled()),
-            in(dependencies.ValidateNpm.result, 'Succeeded', 'SucceededWithIssues'),
-            or(
-              eq('${{ parameters.releaseMode }}', 'npmOnly'),
+      # Exclude all external publication stages from the compiled validation pipeline.
+      - ${{ if not(parameters.registryValidationOnly) }}:
+          - stage: CreateRelease
+            condition: |
               and(
-                in(dependencies.WaitForValidation.result, 'Succeeded', 'SucceededWithIssues'),
-                in(dependencies.PublishToMarketplace.result, 'Succeeded', 'SucceededWithIssues')
+                not(canceled()),
+                eq('${{ parameters.releaseMode }}', 'full'),
+                in(dependencies.BuildVsix.result, 'Succeeded', 'SucceededWithIssues'),
+                in(dependencies.ValidateNpm.result, 'Succeeded', 'SucceededWithIssues')
               )
-            )
-          )
-        dependsOn:
-          - ValidateNpm
-          - WaitForValidation
-          - PublishToMarketplace
-        jobs:
-          - job: publish_package
-            displayName: Publish package to registry
+            dependsOn:
+              - BuildVsix
+              - ValidateNpm
+            jobs:
+              - job: create_release
+                displayName: Create GitHub Release
+                templateContext:
+                  type: releaseJob
+                  isProduction: true
+                  inputs:
+                    - input: pipelineArtifact
+                      artifactName: $(ARTIFACT_NAME_VSIX)
+                      targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)
+                    - input: pipelineArtifact
+                      artifactName: $(ARTIFACT_NAME_PACKAGE)
+                      targetPath: $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)
+                steps:
+                  - checkout: none
+                  # Generate + authenticate the CFS feed .npmrc at runtime (ICM 839806358).
+                  - template: /build/templates/npmAuthenticate.yml@self
+                  # Next step fails the build if https://github.com/microsoft/pyright/issues/10350 repros.
+                  # Yarn does not reliably honor NPM_CONFIG_USERCONFIG, so also drop the authenticated
+                  # CFS .npmrc directly in the working dir where yarn resolves it.
+                  - script: |
+                      mkdir pyrightTest
+                      cp "$(Agent.TempDirectory)/cfs.npmrc" pyrightTest/.npmrc
+                      cd pyrightTest
+                      yarn
+                      yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
+                      node_modules/.bin/pyright --version
+                    displayName: Validate package archive
+                  - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
+                    displayName: 'Create GitHub Release'
+                    inputs:
+                      gitHubConnection: 'Github-Pylance' # The name of the GitHub service connection
+                      repositoryName: 'microsoft/pyright' # The name of your GitHub repository
+                      action: 'create'
+                      isDraft: true
+                      isPreRelease: false
+                      addChangeLog: true
+                      title: 'Published $(Build.SourceBranchName)'
+                      assets: |
+                        $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)/$(VSIX_NAME)
+                        $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
 
-            pool:
-              name: VSEngSS-MicroBuild2022-1ES # This pool is required to have the certs needed to publish using ESRP.
-              os: windows
-              image: server2022-microbuildVS2022-1es
+          - stage: WaitForValidation
+            condition: |
+              and(
+                not(canceled()),
+                eq('${{ parameters.releaseMode }}', 'full'),
+                in(dependencies.CreateRelease.result, 'Succeeded', 'SucceededWithIssues')
+              )
+            dependsOn:
+              - CreateRelease
+            jobs:
+              - job: wait_for_validation
+                displayName: Wait for manual validation
+                pool: server
+                templateContext:
+                  mb:
+                    publish:
+                      enabled: false
+                steps:
+                  - task: ManualValidation@0
+                    timeoutInMinutes: 120 # task times out in 2 hours
+                    inputs:
+                      notifyUsers: '[DevDiv]\Python.Language Server,eric@traut.com'
+                      instructions: 'In the next 2 hours please test the latest draft release of Pyright, then Publish the release in GitHub.'
+                      onTimeout: 'reject' # require sign-off
 
-            templateContext:
-              type: releaseJob
-              isProduction: true
-              inputs:
-                - input: pipelineArtifact
-                  artifactName: $(ARTIFACT_NAME_PACKAGE)
-                  targetPath: $(Build.StagingDirectory)/dist
+          - stage: PublishToMarketplace
+            condition: |
+              and(
+                not(canceled()),
+                eq('${{ parameters.releaseMode }}', 'full'),
+                in(dependencies.WaitForValidation.result, 'Succeeded', 'SucceededWithIssues')
+              )
+            dependsOn:
+              - WaitForValidation
+            jobs:
+              - job: publish_extension
+                displayName: Publish extension to marketplace
+                steps:
+                  - checkout: none
+                  - task: UseNode@1
+                    inputs:
+                      version: 24.15.0
+                  - task: DownloadPipelineArtifact@2
+                    displayName: 'Download Artifacts from Validation Job'
+                    inputs:
+                      buildType: 'current'
+                      artifactName: '$(ARTIFACT_NAME_VSIX)'
+                      targetPath: '$(System.ArtifactsDirectory)'
+                  # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
+                  # Install dependencies and VS Code Extension Manager (vsce >= v2.26.1 needed)
+                  # Generate + authenticate the CFS feed .npmrc at runtime (ICM 839806358).
+                  - template: /build/templates/npmAuthenticate.yml@self
+                  # This checkout: none job has no workspace to run `pnpm exec` from, so
+                  # install the pinned vsce globally; the bare `vsce publish` step below
+                  # then finds it on PATH. npm honors NPM_CONFIG_USERCONFIG for the
+                  # authenticated feed.
+                  - script: |
+                      npm install --ignore-scripts=false -g @vscode/vsce@3.9.2
+                    displayName: 'Install vsce and dependencies'
+                  # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
+                  # Publish to Marketplace
+                  # see. stackoverflow.com/collectives/ci-cd/articles/76873787/publish-azure-devops-extensions-using-azure-workload-identity
+                  # az rest -u https://app.vssps.visualstudio.com/_apis/profile/profiles/me --resource 499b84ac-1321-427f-aa17-267ca6975798
+                  - task: AzureCLI@2
+                    displayName: 'Publishing with Managed Identity'
+                    inputs:
+                      azureSubscription: PyrightPublishPipelineSecureConnectionWithManagedIdentity
+                      scriptType: 'pscore'
+                      scriptLocation: 'inlineScript'
+                      inlineScript: |
+                        $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
+                        vsce publish --pat $aadToken --packagePath $(System.ArtifactsDirectory)/$(VSIX_NAME) --noVerify --manifestPath $(System.ArtifactsDirectory)/extension.manifest --signaturePath $(System.ArtifactsDirectory)/extension.signature.p7s
 
-            steps:
-              - template: MicroBuild.Publish.yml@MicroBuildTemplate
-                parameters:
-                  intent: PackageDistribution
-                  contentType: npm
-                  contentSource: Folder
-                  folderLocation: $(Build.StagingDirectory)/dist
-                  waitForReleaseCompletion: true
-                  owners: rchiodo@microsoft.com
-                  approvers: brcan@microsoft.com
+          - stage: PublishToNpm
+            condition: |
+              and(
+                not(canceled()),
+                in(dependencies.ValidateNpm.result, 'Succeeded', 'SucceededWithIssues'),
+                or(
+                  eq('${{ parameters.releaseMode }}', 'npmOnly'),
+                  and(
+                    in(dependencies.WaitForValidation.result, 'Succeeded', 'SucceededWithIssues'),
+                    in(dependencies.PublishToMarketplace.result, 'Succeeded', 'SucceededWithIssues')
+                  )
+                )
+              )
+            dependsOn:
+              - ValidateNpm
+              - WaitForValidation
+              - PublishToMarketplace
+            jobs:
+              - job: publish_package
+                displayName: Publish package to registry
+
+                pool:
+                  name: VSEngSS-MicroBuild2022-1ES # This pool is required to have the certs needed to publish using ESRP.
+                  os: windows
+                  image: server2022-microbuildVS2022-1es
+
+                templateContext:
+                  type: releaseJob
+                  isProduction: true
+                  inputs:
+                    - input: pipelineArtifact
+                      artifactName: $(ARTIFACT_NAME_PACKAGE)
+                      targetPath: $(Build.StagingDirectory)/dist
+
+                steps:
+                  - template: MicroBuild.Publish.yml@MicroBuildTemplate
+                    parameters:
+                      intent: PackageDistribution
+                      contentType: npm
+                      contentSource: Folder
+                      folderLocation: $(Build.StagingDirectory)/dist
+                      waitForReleaseCompletion: true
+                      owners: rchiodo@microsoft.com
+                      approvers: brcan@microsoft.com
