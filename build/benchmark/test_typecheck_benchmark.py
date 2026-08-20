@@ -307,7 +307,20 @@ class TypecheckBenchmarkTest(unittest.TestCase):
 
     def test_run_checker_removes_temporary_config(self) -> None:
         process_result: benchmark.ProcessResult = {
-            "stdout": "{}",
+            "stdout": (
+                "Analysis stats\n"
+                "Total files parsed and bound: 1234\n"
+                "Total files checked: 567\n"
+                "\nTiming stats\n"
+                "Find Source Files:    0.1sec\n"
+                "Read Source Files:    0.2sec\n"
+                "Tokenize:             0.3sec\n"
+                "Parse:                0.4sec\n"
+                "Resolve Imports:      0.5sec\n"
+                "Bind:                 0.6sec\n"
+                "Check:                0.7sec\n"
+                "Detect Cycles:        0.8sec\n"
+            ),
             "stderr": "",
             "returncode": 0,
             "timed_out": False,
@@ -330,6 +343,21 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             )
 
         self.assertTrue(result["ok"])
+        self.assertEqual(result["files_parsed"], 1234)
+        self.assertEqual(result["files_checked"], 567)
+        self.assertEqual(
+            result["phase_times_s"],
+            {
+                "find_source_files": 0.1,
+                "read_source_files": 0.2,
+                "tokenize": 0.3,
+                "parse": 0.4,
+                "resolve_imports": 0.5,
+                "bind": 0.6,
+                "check": 0.7,
+                "detect_cycles": 0.8,
+            },
+        )
         self.assertEqual(
             list(self.root.glob(".typecheck-benchmark-pyright-*.json")), []
         )
@@ -388,7 +416,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             output["node_options"], benchmark.os.environ.get("NODE_OPTIONS", "")
         )
         self.assertEqual(output["warmup_runs"], 0)
-        self.assertEqual(output["uncounted_validation_runs_per_checker"], 1)
+        self.assertEqual(output["uncounted_validation_runs_per_checker"], 0)
         self.assertEqual(output["python_version"], benchmark.platform.python_version())
         self.assertEqual(output["runner_image"], "local")
         self.assertEqual(output["architecture"], benchmark.platform.machine())
@@ -445,7 +473,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         clone.assert_not_called()
         install.assert_not_called()
 
-    def test_zero_warmups_uses_one_captured_check(self) -> None:
+    def test_zero_warmups_runs_only_measured_checks(self) -> None:
         calls: list[bool] = []
 
         def run_checker(
@@ -483,11 +511,10 @@ class TypecheckBenchmarkTest(unittest.TestCase):
                 memory_limit_mb=4096,
             )
 
-        self.assertEqual(calls, [True, True, True])
+        self.assertEqual(calls, [True, True])
         self.assertEqual(
             stdout.getvalue(),
-            "    Running pyright (1 validation check + 2 measured)...\n"
-            "      Check... 1.000s, 2.0 MB (discarded)\n"
+            "    Running pyright (2 measured)...\n"
             "      Run 1/2... 1.000s, 2.0 MB\n"
             "      Run 2/2... 1.000s, 2.0 MB\n"
             "      Mean: 1.000s, 2.0 MB (stddev: 0.000s)\n",

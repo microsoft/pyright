@@ -44,6 +44,11 @@ def _package_metrics(data: dict[str, Any], checker: str) -> dict[str, dict[str, 
     }
 
 
+def _phase_time(phase_times: dict[str, Any], name: str) -> str:
+    value = phase_times.get(name)
+    return f"{float(value):.3f}s" if isinstance(value, (int, float)) else "N/A"
+
+
 def render_html(results: dict[str, dict[str, Any]]) -> str:
     if not results:
         raise ValueError("At least one checker result is required")
@@ -107,6 +112,36 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
             f'<tr><th scope="row">{html.escape(package)}</th>{"".join(cells)}</tr>'
         )
 
+    pyright_stats_rows: list[str] = []
+    for package, metric in sorted(metrics.get("pyright", {}).items()):
+        phase_times = metric.get("phase_times_s")
+        if not metric.get("ok") or not isinstance(phase_times, dict):
+            continue
+        pyright_stats_rows.append(
+            f'<tr><th scope="row">{html.escape(package)}</th>'
+            f'<td>{metric.get("files_parsed", "N/A")}</td>'
+            f'<td>{metric.get("files_checked", "N/A")}</td>'
+            f'<td>{_phase_time(phase_times, "find_source_files")}</td>'
+            f'<td>{_phase_time(phase_times, "read_source_files")}</td>'
+            f'<td>{_phase_time(phase_times, "tokenize")}</td>'
+            f'<td>{_phase_time(phase_times, "parse")}</td>'
+            f'<td>{_phase_time(phase_times, "resolve_imports")}</td>'
+            f'<td>{_phase_time(phase_times, "bind")}</td>'
+            f'<td>{_phase_time(phase_times, "check")}</td>'
+            f'<td>{_phase_time(phase_times, "detect_cycles")}</td></tr>'
+        )
+    pyright_stats_section = ""
+    if pyright_stats_rows:
+        pyright_stats_section = (
+            '<section><h2>Pyright analysis stats</h2>'
+            '<p class="legend">File counts and phase timings reported by Pyright <code>--stats</code>.</p>'
+            '<div class="table-wrap"><table><thead><tr><th>Package</th>'
+            '<th>Parsed/bound</th><th>Checked</th><th>Find</th><th>Read</th>'
+            '<th>Tokenize</th><th>Parse</th><th>Imports</th><th>Bind</th>'
+            '<th>Check</th><th>Cycles</th></tr></thead><tbody>'
+            f'{"".join(pyright_stats_rows)}</tbody></table></div></section>'
+        )
+
     checker_headers = "".join(f"<th>{html.escape(checker)}</th>" for checker in checkers)
     return f"""<!doctype html>
 <html lang="en">
@@ -145,6 +180,7 @@ small {{ display:block; margin-top:3px; color:var(--muted); font-family:"IBM Ple
 <div class="table-wrap"><table><thead><tr><th>Checker</th><th>Measured</th><th>Failed</th><th>Total time</th><th>Median time</th><th>Median RSS</th></tr></thead><tbody>{''.join(summary_rows)}</tbody></table></div></section>
 <section><h2>Package comparison</h2><p class="legend">Each checker runs on a separate hosted runner, so timings are independent trends rather than a fastest-checker ranking. Cells show wall time and peak RSS.</p>
 <div class="table-wrap"><table><thead><tr><th>Package</th>{checker_headers}</tr></thead><tbody>{''.join(package_rows)}</tbody></table></div></section>
+{pyright_stats_section}
 </main>
 </body>
 </html>

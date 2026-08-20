@@ -108,6 +108,36 @@ class RenderBenchmarkHtmlTest(unittest.TestCase):
             ],
         )
 
+    def test_renders_pyright_stats_when_available(self) -> None:
+        pyright = _result("pyright", 2.0, 200.0)
+        metrics = pyright["results"][0]["metrics"]["pyright"]
+        metrics.update(
+            {
+                "files_parsed": 456,
+                "files_checked": 123,
+                "phase_times_s": {
+                    "find_source_files": 0.1,
+                    "read_source_files": 0.2,
+                    "tokenize": 0.3,
+                    "parse": 0.4,
+                    "resolve_imports": 0.5,
+                    "bind": 0.6,
+                    "check": 7.8,
+                    "detect_cycles": 0.9,
+                },
+            }
+        )
+
+        report = render_benchmark_html.render_html({"pyright": pyright})
+        parser = _SemanticParser()
+        parser.feed(report)
+
+        self.assertIn("Pyright analysis stats", parser.headings)
+        self.assertIn("Parsed/bound", parser.cells)
+        self.assertIn("456", parser.cells)
+        self.assertIn("123", parser.cells)
+        self.assertIn("7.800s", parser.cells)
+
 
 if __name__ == "__main__":
     unittest.main()

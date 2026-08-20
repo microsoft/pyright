@@ -159,6 +159,9 @@ python build/benchmark/compare_benchmarks.py \
 The comparator reports per-package timing and memory deltas and exits nonzero when a previously
 successful result is missing, the environment contract differs, or a result exceeds the default 20%
 regression threshold. Package commits, check paths, and excluded directory names must also match.
+For Pyright, result JSON and Markdown reports also include the `--stats` file counts and phase timings
+for source discovery, reads, tokenization, parsing, import resolution, binding, checking, and cycle
+detection. This does not enable verbose or per-file logging.
 Candidate-only package/checker results are reported as not regression-gated and require a regenerated
 baseline before they are protected. Runner class, hosted runner image, CPU count, and the exact Python
 version are part of the environment contract. The dependency-isolation mode and exact `NODE_OPTIONS`
@@ -174,8 +177,9 @@ The pull-request workflow also fails if any candidate package cannot be prepared
 times out, crashes, or otherwise fails, even when that package has no successful baseline yet.
 
 On pull requests, the benchmark pins Python 3.14.6, caches pip downloads using `install_envs.json` as
-the cache key, runs Pyright with a 6.5 GiB V8 old-space limit, and allows each invocation up to 30
-minutes. A regression must exceed both a 20% relative threshold and an absolute variance guard of 1
+the cache key, runs Pyright with a 6.5 GiB V8 old-space limit, and runs each package once with no
+discarded warmup. Each invocation may take up to 30 minutes. A regression must exceed both a 20%
+relative threshold and an absolute variance guard of 1
 second for time or 100 MB for peak memory. These are the comparator defaults, so the gate and trusted
 comment renderer share one configuration source. Reports and artifacts are published before a failed
 comparison marks the job unsuccessful.

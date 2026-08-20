@@ -23,6 +23,7 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
         "node_options": "--max-old-space-size=6656",
         "runs_per_package": 1,
         "warmup_runs": 0,
+        "uncounted_validation_runs_per_checker": 0,
         "timeout_s": 600,
         "dependency_isolation": "pip-target-per-package",
         "results": [
@@ -36,6 +37,7 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
                         "ok": ok,
                         "execution_time_s": time,
                         "peak_memory_mb": memory,
+                        "files_checked": 123,
                     }
                 },
             }
@@ -51,6 +53,32 @@ class CompareBenchmarksTest(unittest.TestCase):
             )
 
         self.assertEqual(failures, [])
+
+    def test_report_includes_pyright_stats(self) -> None:
+        candidate = _result(10.0, 100.0)
+        metrics = candidate["results"][0]["metrics"]["pyright"]
+        metrics["files_parsed"] = 456
+        metrics["phase_times_s"] = {
+            "find_source_files": 0.1,
+            "read_source_files": 0.2,
+            "tokenize": 0.3,
+            "parse": 0.4,
+            "resolve_imports": 0.5,
+            "bind": 0.6,
+            "check": 7.8,
+            "detect_cycles": 0.9,
+        }
+
+        report = compare_benchmarks.render_markdown(
+            _result(10.0, 100.0), candidate, 10.0
+        )
+
+        self.assertIn("### Pyright stats", report)
+        self.assertIn(
+            "| example | 456 | 123 | 0.100s | 0.200s | 0.300s | 0.400s | "
+            "0.500s | 0.600s | 7.800s | 0.900s |",
+            report,
+        )
 
     def test_rejects_time_and_memory_regressions(self) -> None:
         with redirect_stdout(io.StringIO()):
@@ -111,9 +139,9 @@ class CompareBenchmarksTest(unittest.TestCase):
 
 Regression threshold: `10.0%`
 
-| Package | Checker | Time | Time delta | Peak memory | Memory delta | Status |
-| --- | --- | ---: | ---: | ---: | ---: | --- |
-| example | pyright | N/A | N/A | N/A | N/A | 🟡 Preparation failed |
+| Package | Checker | Files checked | Time | Time delta | Peak memory | Memory delta | Status |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| example | pyright | N/A | N/A | N/A | N/A | N/A | 🟡 Preparation failed |
 """,
         )
 
@@ -167,7 +195,7 @@ Regression threshold: `10.0%`
         self.assertEqual(failures, [])
         report = compare_benchmarks.render_markdown(baseline, candidate, 10.0)
         self.assertIn(
-            "| example | pyright | 12.000s | N/A | 345.0 MB | N/A | 🟡 No baseline |",
+            "| example | pyright | 123 | 12.000s | N/A | 345.0 MB | N/A | 🟡 No baseline |",
             report,
         )
 
@@ -193,7 +221,7 @@ Regression threshold: `10.0%`
             fail_on_preparation_error=True,
         )
         self.assertIn(
-            "| example | pyright | N/A | N/A | N/A | N/A | 🔴 Failed |",
+            "| example | pyright | N/A | N/A | N/A | N/A | N/A | 🔴 Failed |",
             report,
         )
 
@@ -245,6 +273,23 @@ Regression threshold: `10.0%`
             ],
         )
 
+    def test_rejects_uncounted_validation_run_mismatch(self) -> None:
+        candidate = _result(10.0, 100.0)
+        candidate["uncounted_validation_runs_per_checker"] = 1
+
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                _result(10.0, 100.0), candidate, 10.0
+            )
+
+        self.assertEqual(
+            failures,
+            [
+                "environment mismatch for uncounted_validation_runs_per_checker: "
+                "0 != 1"
+            ],
+        )
+
     def test_rejects_package_commit_mismatch(self) -> None:
         candidate = _result(10.0, 100.0)
         candidate["results"][0]["commit"] = "def456"
@@ -291,9 +336,9 @@ Regression threshold: `10.0%`
 Regression threshold: `10.0%`
 Variance guard: `>1.0s` time and `>100.0 MB` memory
 
-| Package | Checker | Time | Time delta | Peak memory | Memory delta | Status |
-| --- | --- | ---: | ---: | ---: | ---: | --- |
-| example | pyright | 12.000s | +20.0% | 105.0 MB | +5.0% | 🔴 Regression |
+| Package | Checker | Files checked | Time | Time delta | Peak memory | Memory delta | Status |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| example | pyright | 123 | 12.000s | +20.0% | 105.0 MB | +5.0% | 🔴 Regression |
 
 ### Failures
 
@@ -317,9 +362,9 @@ Variance guard: `>1.0s` time and `>100.0 MB` memory
 
 Regression threshold: `10.0%`
 
-| Package | Checker | Time | Time delta | Peak memory | Memory delta | Status |
-| --- | --- | ---: | ---: | ---: | ---: | --- |
-| example | pyright | 10.000s | +0.0% | 100.0 MB | +0.0% | 🟢 Pass |
+| Package | Checker | Files checked | Time | Time delta | Peak memory | Memory delta | Status |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| example | pyright | 123 | 10.000s | +0.0% | 100.0 MB | +0.0% | 🟢 Pass |
 
 ### Failures
 
@@ -352,7 +397,7 @@ Regression threshold: `10.0%`
             report,
         )
         self.assertIn(
-            "| example | mypy | 20.000s | N/A | 200.0 MB | N/A | 🟡 No baseline |",
+            "| example | mypy | N/A | 20.000s | N/A | 200.0 MB | N/A | 🟡 No baseline |",
             report,
         )
 

@@ -14,13 +14,14 @@ DEFAULT_TIME_NOISE_FLOOR_SECONDS = 1.0
 DEFAULT_MEMORY_NOISE_FLOOR_MB = 100.0
 
 
-class ComparisonRow(TypedDict):
+class ComparisonRow(TypedDict, total=False):
     package: str
     checker: str
     execution_time_s: float | None
     time_delta: float | None
     peak_memory_mb: float | None
     memory_delta: float | None
+    files_checked: int | None
     status: str
 
 
@@ -138,6 +139,7 @@ def _analyze(
         "node_options",
         "runs_per_package",
         "warmup_runs",
+        "uncounted_validation_runs_per_checker",
         "dependency_isolation",
     ):
         if baseline.get(field) != candidate.get(field):
@@ -163,6 +165,7 @@ def _analyze(
                         "time_delta": None,
                         "peak_memory_mb": float(new["peak_memory_mb"]),
                         "memory_delta": None,
+                        "files_checked": new.get("files_checked"),
                         "status": "No baseline",
                     }
                 )
@@ -307,6 +310,7 @@ def _analyze(
                 "time_delta": time_delta,
                 "peak_memory_mb": new_memory,
                 "memory_delta": memory_delta,
+                "files_checked": new.get("files_checked"),
                 "status": status,
             }
         )
@@ -326,6 +330,7 @@ def _analyze(
                     float(new["peak_memory_mb"]) if new.get("ok") else None
                 ),
                 "memory_delta": None,
+                "files_checked": new.get("files_checked"),
                 "status": "No baseline",
             }
         )
@@ -350,9 +355,9 @@ def compare(
     )
     print(
         f"{'Package':<20} {'Checker':<10} {'Time':>10} {'Delta':>9} "
-        f"{'Memory':>10} {'Delta':>9}"
+        f"{'Memory':>10} {'Delta':>9} {'Files':>8}"
     )
-    print("-" * 72)
+    print("-" * 81)
     for row in rows:
         if row["execution_time_s"] is None:
             continue
@@ -365,7 +370,8 @@ def compare(
         print(
             f"{row['package']:<20} {row['checker']:<10} "
             f"{row['execution_time_s']:>9.3f}s {time_delta} "
-            f"{row['peak_memory_mb']:>9.1f}M {memory_delta}"
+            f"{row['peak_memory_mb']:>9.1f}M {memory_delta} "
+            f"{row.get('files_checked') if row.get('files_checked') is not None else 'N/A':>8}"
         )
     return failures
 
@@ -419,8 +425,8 @@ def render_markdown(
     lines.extend(
         [
             "",
-            "| Package | Checker | Time | Time delta | Peak memory | Memory delta | Status |",
-            "| --- | --- | ---: | ---: | ---: | ---: | --- |",
+            "| Package | Checker | Files checked | Time | Time delta | Peak memory | Memory delta | Status |",
+            "| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |",
         ]
     )
     status_indicators = {
@@ -453,12 +459,49 @@ def render_markdown(
             if row["memory_delta"] is not None
             else "N/A"
         )
+        files_checked = row.get("files_checked")
+        files_checked_text = str(files_checked) if files_checked is not None else "N/A"
         lines.append(
             f"| {_escape_markdown(row['package'])} | "
-            f"{_escape_markdown(row['checker'])} | {execution_time} | "
+            f"{_escape_markdown(row['checker'])} | {files_checked_text} | {execution_time} | "
             f"{time_delta} | {peak_memory} | {memory_delta} | "
             f"{status_indicators[row['status']]} |"
         )
+    pyright_stats = []
+    for package in candidate.get("results", []):
+        if not isinstance(package, dict):
+            continue
+        checker_metrics = package.get("metrics", {})
+        if not isinstance(checker_metrics, dict):
+            continue
+        metrics = checker_metrics.get("pyright", {})
+        if not isinstance(metrics, dict):
+            continue
+        phase_times = metrics.get("phase_times_s")
+        if metrics.get("ok") and isinstance(phase_times, dict):
+            pyright_stats.append((package.get("package_name", ""), metrics, phase_times))
+    if pyright_stats:
+        lines.extend(
+            [
+                "",
+                "### Pyright stats",
+                "",
+                "| Package | Parsed/bound | Checked | Find | Read | Tokenize | Parse | Imports | Bind | Check | Cycles |",
+                "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for package, metrics, phase_times in pyright_stats:
+            def phase(name: str) -> str:
+                value = phase_times.get(name)
+                return f"{float(value):.3f}s" if _is_finite_number(value) else "N/A"
+
+            lines.append(
+                f"| {_escape_markdown(package)} | {metrics.get('files_parsed', 'N/A')} | "
+                f"{metrics.get('files_checked', 'N/A')} | {phase('find_source_files')} | "
+                f"{phase('read_source_files')} | {phase('tokenize')} | {phase('parse')} | "
+                f"{phase('resolve_imports')} | {phase('bind')} | {phase('check')} | "
+                f"{phase('detect_cycles')} |"
+            )
     if failures:
         lines.extend(["", "### Failures", ""])
         lines.extend(f"- {_escape_markdown(failure)}" for failure in failures)

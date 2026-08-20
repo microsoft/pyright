@@ -82,6 +82,9 @@ class RequiredTimingMetrics(TypedDict):
 
 class TimingMetrics(RequiredTimingMetrics, total=False):
     error_message: str | None
+    files_parsed: int
+    files_checked: int
+    phase_times_s: dict[str, float]
     runs: int
     execution_times_s: list[float]
     peak_memories_mb: list[float]
@@ -663,6 +666,39 @@ def _failure_message(result: ProcessResult) -> str:
     return f"Fatal error (exit code {result['returncode']})"
 
 
+PYRIGHT_PHASE_LABELS = {
+    "find_source_files": "Find Source Files",
+    "read_source_files": "Read Source Files",
+    "tokenize": "Tokenize",
+    "parse": "Parse",
+    "resolve_imports": "Resolve Imports",
+    "bind": "Bind",
+    "check": "Check",
+    "detect_cycles": "Detect Cycles",
+}
+
+
+def _parse_pyright_stats(
+    output: str,
+) -> tuple[int | None, int | None, dict[str, float]]:
+    parsed_match = re.search(r"^Total files parsed and bound:\s+(\d+)$", output, re.MULTILINE)
+    checked_match = re.search(r"^Total files checked:\s+(\d+)$", output, re.MULTILINE)
+    phase_times: dict[str, float] = {}
+    for phase, label in PYRIGHT_PHASE_LABELS.items():
+        match = re.search(
+            rf"^{re.escape(label)}:\s+([0-9]+(?:\.[0-9]+)?)sec$",
+            output,
+            re.MULTILINE,
+        )
+        if match:
+            phase_times[phase] = float(match.group(1))
+    return (
+        int(parsed_match.group(1)) if parsed_match else None,
+        int(checked_match.group(1)) if checked_match else None,
+        phase_times,
+    )
+
+
 def _build_checker_command(
     checker: str,
     package_path: Path,
@@ -804,12 +840,21 @@ def run_checker(
             "error_message": _failure_message(result),
         }
 
-    return {
+    metrics: TimingMetrics = {
         "ok": True,
         "execution_time_s": result["execution_time_s"],
         "peak_memory_mb": result["peak_memory_mb"],
         "oom_killed": False,
     }
+    if checker in ("pyright", "pyright-pip"):
+        files_parsed, files_checked, phase_times = _parse_pyright_stats(combined_output)
+        if files_parsed is not None:
+            metrics["files_parsed"] = files_parsed
+        if files_checked is not None:
+            metrics["files_checked"] = files_checked
+        if phase_times:
+            metrics["phase_times_s"] = phase_times
+    return metrics
 
 
 def compute_percentile(values: Sequence[float], percentile: float) -> float:
@@ -907,24 +952,24 @@ def _benchmark_directory(
             }
             continue
 
-        effective_warmup = max(1, warmup)
         if warmup == 0:
-            run_description = f"1 validation check + {runs} measured"
+            run_description = f"{runs} measured"
         else:
             run_description = f"{warmup} warmup + {runs} measured"
         print(f"    Running {checker} ({run_description})...")
         execution_times: list[float] = []
         peak_memories: list[float] = []
+        parsed_file_counts: list[int] = []
+        checked_file_counts: list[int] = []
+        phase_time_runs: dict[str, list[float]] = {}
         failure: TimingMetrics | None = None
 
-        for run_index in range(effective_warmup + runs):
-            is_warmup = run_index < effective_warmup
-            if is_warmup and warmup == 0:
-                label = "Check"
-            elif is_warmup:
+        for run_index in range(warmup + runs):
+            is_warmup = run_index < warmup
+            if is_warmup:
                 label = f"Warmup {run_index + 1}/{warmup}"
             else:
-                label = f"Run {run_index - effective_warmup + 1}/{runs}"
+                label = f"Run {run_index - warmup + 1}/{runs}"
             print(f"      {label}...", end=" ", flush=True)
             metric = run_checker(
                 checker,
@@ -941,11 +986,24 @@ def _benchmark_directory(
 
             memory = metric.get("peak_memory_mb", 0.0)
             memory_text = f", {memory:.1f} MB" if memory > 0 else ""
+            files_parsed = metric.get("files_parsed")
+            files_checked = metric.get("files_checked")
+            files_text = (
+                f", {files_checked} checked / {files_parsed} parsed"
+                if files_checked is not None and files_parsed is not None
+                else ""
+            )
             suffix = " (discarded)" if is_warmup else ""
-            print(f"{metric['execution_time_s']:.3f}s{memory_text}{suffix}")
+            print(f"{metric['execution_time_s']:.3f}s{memory_text}{files_text}{suffix}")
             if not is_warmup:
                 execution_times.append(metric["execution_time_s"])
                 peak_memories.append(memory)
+                if files_parsed is not None:
+                    parsed_file_counts.append(files_parsed)
+                if files_checked is not None:
+                    checked_file_counts.append(files_checked)
+                for phase, phase_time in metric.get("phase_times_s", {}).items():
+                    phase_time_runs.setdefault(phase, []).append(phase_time)
 
         if failure:
             failure["runs"] = len(execution_times)
@@ -965,10 +1023,24 @@ def _benchmark_directory(
             "execution_time_stats": compute_run_stats(execution_times),
             "peak_memory_stats": compute_run_stats(peak_memories),
         }
+        if parsed_file_counts:
+            result_metric["files_parsed"] = parsed_file_counts[0]
+        if checked_file_counts:
+            result_metric["files_checked"] = checked_file_counts[0]
+        if phase_time_runs:
+            result_metric["phase_times_s"] = {
+                phase: round(statistics.mean(times), 3)
+                for phase, times in phase_time_runs.items()
+            }
         metrics[checker] = result_metric
         memory_text = f", {mean_memory:.1f} MB" if mean_memory > 0 else ""
+        files_text = (
+            f", {checked_file_counts[0]} checked / {parsed_file_counts[0]} parsed"
+            if checked_file_counts and parsed_file_counts
+            else ""
+        )
         print(
-            f"      Mean: {mean_time:.3f}s{memory_text} "
+            f"      Mean: {mean_time:.3f}s{memory_text}{files_text} "
             f"(stddev: {result_metric['execution_time_stats']['stddev']:.3f}s)"
         )
 
@@ -1101,7 +1173,7 @@ def _save_results(
         "package_count": len(results),
         "runs_per_package": runs,
         "warmup_runs": warmup,
-        "uncounted_validation_runs_per_checker": 1 if warmup == 0 else 0,
+        "uncounted_validation_runs_per_checker": 0,
         "timeout_s": timeout,
         "aggregate": aggregate,
         "results": results,
