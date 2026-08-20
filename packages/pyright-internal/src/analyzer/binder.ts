@@ -48,6 +48,7 @@ import {
     GlobalNode,
     IfNode,
     ImportAsNode,
+    ImportFromAsNode,
     ImportFromNode,
     ImportNode,
     IndexNode,
@@ -3071,11 +3072,26 @@ export class Binder extends ParseTreeWalker {
                 if (!this._moduleSymbolOnly) {
                     const dummyScopeGenerator = new DummyScopeGenerator(this._currentScope, this._nodeInfo);
                     dummyScopeGenerator.walk(statement);
+
+                    // Assignments in unreachable code still make names local, matching
+                    // CPython. Bind those names without type-checking the dead code.
+                    this._bindNamesInUnreachableCode(statement);
                 }
             }
         }
 
         return false;
+    }
+
+    private _bindNamesInUnreachableCode(node: ParseNode) {
+        const bindTarget = (target: ExpressionNode) => {
+            this._bindPossibleTupleNamedTarget(target);
+        };
+        const bindName = (name: NameNode) => {
+            this._bindNameToScope(this._currentScope, name);
+        };
+
+        new UnreachableNameBinder(bindTarget, bindName).walk(node);
     }
 
     private _createStartFlowNode() {
@@ -4861,6 +4877,110 @@ export class ReturnFinder extends ParseTreeWalker {
 
     override visitReturn(node: ReturnNode): boolean {
         this._containsReturn = true;
+        return false;
+    }
+}
+
+// Binds assignment targets in unreachable code so they still create local
+// symbols, matching CPython (an assignment after `return` makes the name
+// local for the entire function). Nested functions and classes are skipped
+// because DummyScopeGenerator already created their scopes.
+class UnreachableNameBinder extends ParseTreeWalker {
+    constructor(
+        private readonly _bindTarget: (target: ExpressionNode) => void,
+        private readonly _bindName: (name: NameNode) => void
+    ) {
+        super();
+    }
+
+    override visitAssignment(node: AssignmentNode): boolean {
+        this._bindTarget(node.d.leftExpr);
+        return true;
+    }
+
+    override visitAugmentedAssignment(node: AugmentedAssignmentNode): boolean {
+        this._bindTarget(node.d.leftExpr);
+        return true;
+    }
+
+    override visitTypeAnnotation(node: TypeAnnotationNode): boolean {
+        this._bindTarget(node.d.valueExpr);
+        return true;
+    }
+
+    override visitAssignmentExpression(node: AssignmentExpressionNode): boolean {
+        this._bindName(node.d.name);
+        return true;
+    }
+
+    override visitFor(node: ForNode): boolean {
+        this._bindTarget(node.d.targetExpr);
+        return true;
+    }
+
+    override visitWith(node: WithNode): boolean {
+        node.d.withItems.forEach((item) => {
+            if (item.d.target) {
+                this._bindTarget(item.d.target);
+            }
+        });
+        return true;
+    }
+
+    override visitDel(node: DelNode): boolean {
+        node.d.targets.forEach((target) => {
+            this._bindTarget(target);
+        });
+        return true;
+    }
+
+    override visitExcept(node: ExceptNode): boolean {
+        if (node.d.name) {
+            this._bindName(node.d.name);
+        }
+        return true;
+    }
+
+    override visitImportAs(node: ImportAsNode): boolean {
+        if (node.d.alias) {
+            this._bindName(node.d.alias);
+        } else if (node.d.module.d.nameParts.length > 0) {
+            this._bindName(node.d.module.d.nameParts[0]);
+        }
+        return false;
+    }
+
+    override visitImportFrom(node: ImportFromNode): boolean {
+        node.d.imports.forEach((importSymbolNode) => {
+            this._bindName(importSymbolNode.d.alias || importSymbolNode.d.name);
+        });
+        return false;
+    }
+
+    override visitFunction(node: FunctionNode): boolean {
+        this._bindName(node.d.name);
+        return false;
+    }
+
+    override visitClass(node: ClassNode): boolean {
+        this._bindName(node.d.name);
+        return false;
+    }
+
+    override visitTypeAlias(node: TypeAliasNode): boolean {
+        this._bindName(node.d.name);
+        return false;
+    }
+
+    override visitPatternAs(node: PatternAsNode): boolean {
+        if (node.d.target) {
+            this._bindName(node.d.target);
+        }
+        return true;
+    }
+
+    override visitPatternCapture(node: PatternCaptureNode): boolean {
+        this._bindName(node.d.target);
         return false;
     }
 }
