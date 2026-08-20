@@ -413,6 +413,12 @@ test('DataClass18', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('DataClass19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass19.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('DataClassReplace1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
