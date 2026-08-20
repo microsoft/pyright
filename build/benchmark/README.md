@@ -174,7 +174,7 @@ The pull-request workflow also fails if any candidate package cannot be prepared
 times out, crashes, or otherwise fails, even when that package has no successful baseline yet.
 
 On pull requests, the benchmark pins Python 3.14.6, caches pip downloads using `install_envs.json` as
-the cache key, runs Pyright with a 6 GiB V8 old-space limit, and allows each invocation up to 30
+the cache key, runs Pyright with a 6.5 GiB V8 old-space limit, and allows each invocation up to 30
 minutes. A regression must exceed both a 20% relative threshold and an absolute variance guard of 1
 second for time or 100 MB for peak memory. These are the comparator defaults, so the gate and trusted
 comment renderer share one configuration source. Reports and artifacts are published before a failed
