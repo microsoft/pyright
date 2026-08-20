@@ -472,14 +472,38 @@ Regression threshold: `10.0%`
             ).read_text(encoding="utf-8")
 
             self.assertIn("uses: pnpm/action-setup@", workflow)
+            self.assertIn(
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
+                workflow,
+            )
+            self.assertIn(
+                "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6",
+                workflow,
+            )
             self.assertIn("cache: 'pnpm'", workflow)
             self.assertIn("pnpm-lock.yaml", workflow)
             self.assertIn("SKIP_LERNA_BOOTSTRAP: 'yes'", workflow)
             self.assertIn("--max-old-space-size=6656", workflow)
             self.assertIn("timeout-minutes: 10", workflow)
             self.assertIn("pnpm install --frozen-lockfile --prefer-offline", workflow)
+            self.assertIn(
+                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1",
+                workflow,
+            )
+            self.assertNotIn("actions/upload-artifact@v4", workflow)
+            self.assertNotIn("actions/checkout@v4", workflow)
+            self.assertNotIn("actions/setup-python@v5", workflow)
             self.assertNotIn("apt-get", workflow)
             self.assertNotIn(".github/actions/npm-cache-dir", workflow)
+
+        weekly_workflow = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_weekly.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
+            weekly_workflow,
+        )
+        self.assertNotIn("actions/download-artifact@v4", weekly_workflow)
 
     def test_pr_benchmark_requires_authorized_comment(self) -> None:
         trigger_workflow = (
@@ -491,6 +515,9 @@ Regression threshold: `10.0%`
         benchmark_workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
+        comment_workflow = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_comment.yml"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("issue_comment:", trigger_workflow)
         self.assertIn("github.event.comment.body == '/benchmark'", trigger_workflow)
@@ -499,6 +526,21 @@ Regression threshold: `10.0%`
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
         self.assertIn("issues: write", trigger_workflow)
         self.assertNotIn("actions/checkout", trigger_workflow)
+        self.assertIn(
+            "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
+            trigger_workflow,
+        )
+        self.assertNotIn("actions/github-script@v7", trigger_workflow)
+        self.assertIn(
+            "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
+            comment_workflow,
+        )
+        self.assertIn(
+            "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
+            comment_workflow,
+        )
+        self.assertNotIn("actions/checkout@v4", comment_workflow)
+        self.assertNotIn("actions/github-script@v7", comment_workflow)
         self.assertIn("types:\n      - labeled", benchmark_workflow)
         self.assertNotIn("paths:", benchmark_workflow)
         self.assertIn(
