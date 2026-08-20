@@ -331,6 +331,7 @@ export function synthesizeDataClassMethods(
             let aliasName: string | undefined;
             let variableTypeEvaluator: EntryTypeEvaluator | undefined;
             let hasDefault = false;
+            let hasAssignedValue = false;
             let isDefaultFactory = false;
             let isKeywordOnly = ClassType.isDataClassKeywordOnly(classType) || sawKeywordOnlySeparator;
             let defaultExpr: ExpressionNode | undefined;
@@ -362,6 +363,7 @@ export function synthesizeDataClassMethods(
                 }
 
                 hasDefault = true;
+                hasAssignedValue = true;
                 defaultExpr = statement.d.rightExpr;
 
                 // If the RHS of the assignment is assigning a field instance where the
@@ -578,7 +580,16 @@ export function synthesizeDataClassMethods(
 
                         // While this isn't documented behavior, it appears that the dataclass implementation
                         // causes overridden variables to "inherit" default values from parent classes.
-                        if (!dataClassEntry.hasDefault && oldEntry.hasDefault && oldEntry.includeInInit) {
+                        // This applies only when the override is a bare annotation (`x: int`). If the
+                        // override assigns a field specifier that supplies no default (`x: int = field()`),
+                        // the runtime replaces the entry outright, so the inherited default is dropped and
+                        // the parameter becomes required.
+                        if (
+                            !dataClassEntry.hasDefault &&
+                            !hasAssignedValue &&
+                            oldEntry.hasDefault &&
+                            oldEntry.includeInInit
+                        ) {
                             dataClassEntry.hasDefault = true;
                             dataClassEntry.defaultExpr = oldEntry.defaultExpr;
                             hasDefault = true;
