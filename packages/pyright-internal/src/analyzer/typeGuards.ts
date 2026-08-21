@@ -55,6 +55,7 @@ import {
     isTypeSame,
     isTypeVar,
     isUnpackedTypeVarTuple,
+    isUnion,
     maxTypeRecursionCount,
     OverloadedType,
     TupleTypeArg,
@@ -712,11 +713,23 @@ export function getTypeNarrowingCallback(
                 let isPossiblyTypeGuard = false;
 
                 const isFunctionReturnTypeGuard = (type: FunctionType) => {
-                    return (
-                        type.shared.declaredReturnType &&
-                        isClassInstance(type.shared.declaredReturnType) &&
-                        ClassType.isBuiltIn(type.shared.declaredReturnType, ['TypeGuard', 'TypeIs'])
-                    );
+                    const returnType = type.shared.declaredReturnType;
+                    if (!returnType) {
+                        return false;
+                    }
+                    if (isClassInstance(returnType)) {
+                        return ClassType.isBuiltIn(returnType, ['TypeGuard', 'TypeIs']);
+                    }
+                    if (isUnion(returnType)) {
+                        let isAllGuards = true;
+                        doForEachSubtype(returnType, (subtype) => {
+                            if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, ['TypeGuard', 'TypeIs'])) {
+                                isAllGuards = false;
+                            }
+                        });
+                        return isAllGuards;
+                    }
+                    return false;
                 };
 
                 const callTypeResult = evaluator.getTypeOfExpression(
@@ -741,14 +754,44 @@ export function getTypeNarrowingCallback(
                     const functionReturnTypeResult = evaluator.getTypeOfExpression(testExpression);
                     const functionReturnType = functionReturnTypeResult.type;
 
+                    let typeGuardType: Type | undefined;
+                    let isStrictTypeGuard = false;
+
                     if (
                         isClassInstance(functionReturnType) &&
                         ClassType.isBuiltIn(functionReturnType, ['TypeGuard', 'TypeIs']) &&
                         functionReturnType.priv.typeArgs &&
                         functionReturnType.priv.typeArgs.length > 0
                     ) {
-                        const isStrictTypeGuard = ClassType.isBuiltIn(functionReturnType, 'TypeIs');
-                        const typeGuardType = functionReturnType.priv.typeArgs[0];
+                        isStrictTypeGuard = ClassType.isBuiltIn(functionReturnType, 'TypeIs');
+                        typeGuardType = functionReturnType.priv.typeArgs[0];
+                    } else if (isUnion(functionReturnType)) {
+                        const typeGuardSubtypes: ClassType[] = [];
+                        let isAllGuards = true;
+
+                        doForEachSubtype(functionReturnType, (subtype) => {
+                            if (
+                                isClassInstance(subtype) &&
+                                ClassType.isBuiltIn(subtype, ['TypeGuard', 'TypeIs']) &&
+                                subtype.priv.typeArgs &&
+                                subtype.priv.typeArgs.length > 0
+                            ) {
+                                typeGuardSubtypes.push(subtype);
+                            } else {
+                                isAllGuards = false;
+                            }
+                        });
+
+                        if (isAllGuards && typeGuardSubtypes.length > 0) {
+                            // A union of type guards cannot be strict in the negative case because at runtime
+                            // only one arm of the overload/union is selected. Treating it as strict would
+                            // unsoundly eliminate types in the negative branch.
+                            isStrictTypeGuard = false;
+                            typeGuardType = combineTypes(typeGuardSubtypes.map((subtype) => subtype.priv.typeArgs![0]));
+                        }
+                    }
+
+                    if (typeGuardType) {
                         const isIncomplete = !!callTypeResult.isIncomplete || !!functionReturnTypeResult.isIncomplete;
 
                         return (type: Type) => {
@@ -756,7 +799,7 @@ export function getTypeNarrowingCallback(
                                 type: narrowTypeForUserDefinedTypeGuard(
                                     evaluator,
                                     type,
-                                    typeGuardType,
+                                    typeGuardType!,
                                     isPositiveTest,
                                     isStrictTypeGuard,
                                     testExpression,
