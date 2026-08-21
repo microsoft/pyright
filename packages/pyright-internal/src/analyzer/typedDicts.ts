@@ -1575,6 +1575,7 @@ export function getTypeOfIndexedTypedDict(
                         type: evaluator.printType(baseType),
                     })
                 );
+                allDiagsInvolveNotRequiredKeys = false;
             }
 
             if (usage.method === 'set') {
