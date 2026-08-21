@@ -28291,7 +28291,6 @@ export function createTypeEvaluator(
                 destParam.kind !== ParamKind.Positional &&
                 destParam.kind !== ParamKind.ExpandedArgs &&
                 srcParam.kind === ParamKind.Positional &&
-                srcParamDetails.kwargsIndex === undefined &&
                 !srcParamDetails.params.some(
                     (p) =>
                         p.kind === ParamKind.Keyword &&
@@ -28299,12 +28298,28 @@ export function createTypeEvaluator(
                         p.param.name === destParam.param.name
                 )
             ) {
-                diag?.addMessage(
-                    LocAddendum.namedParamMissingInSource().format({
-                        name: destParam.param.name ?? '',
-                    })
-                );
-                canAssign = false;
+                if (srcParamDetails.kwargsIndex === undefined) {
+                    diag?.addMessage(
+                        LocAddendum.namedParamMissingInSource().format({
+                            name: destParam.param.name ?? '',
+                        })
+                    );
+                    canAssign = false;
+                } else if (
+                    !assignParam(
+                        destParamType,
+                        srcParamDetails.params[srcParamDetails.kwargsIndex].type,
+                        paramIndex,
+                        diag?.createAddendum(),
+                        constraints,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
+                        canAssign = false;
+                    }
+                }
             }
         }
 
@@ -28441,15 +28456,30 @@ export function createTypeEvaluator(
                         const destParamKind = destParamDetails.params[paramIndex].kind;
                         if (
                             destParamKind !== ParamKind.Positional &&
-                            destParamKind !== ParamKind.ExpandedArgs &&
-                            srcParamDetails.kwargsIndex === undefined
+                            destParamKind !== ParamKind.ExpandedArgs
                         ) {
-                            diag?.addMessage(
-                                LocAddendum.namedParamMissingInSource().format({
-                                    name: destParamDetails.params[paramIndex].param.name ?? '',
-                                })
-                            );
-                            canAssign = false;
+                            if (srcParamDetails.kwargsIndex === undefined) {
+                                diag?.addMessage(
+                                    LocAddendum.namedParamMissingInSource().format({
+                                        name: destParamDetails.params[paramIndex].param.name ?? '',
+                                    })
+                                );
+                                canAssign = false;
+                            } else if (
+                                !assignParam(
+                                    destParamDetails.params[paramIndex].type,
+                                    srcParamDetails.params[srcParamDetails.kwargsIndex].type,
+                                    paramIndex,
+                                    diag?.createAddendum(),
+                                    constraints,
+                                    flags,
+                                    recursionCount
+                                )
+                            ) {
+                                if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
+                                    canAssign = false;
+                                }
+                            }
                         }
                     }
                 }
@@ -28586,7 +28616,14 @@ export function createTypeEvaluator(
                         return;
                     }
 
-                    const destParamInfo = destParamMap.get(srcParamInfo.param.name);
+                    const destParamInfo =
+                        destParamMap.get(srcParamInfo.param.name) ??
+                        destParamDetails.params.find(
+                            (paramInfo) =>
+                                paramInfo.param.name === srcParamInfo.param.name &&
+                                paramInfo.kind === ParamKind.Standard &&
+                                paramInfo.param.category === ParamCategory.Simple
+                        );
                     const paramDiag = diag?.createAddendum();
                     const srcParamType = srcParamInfo.type;
 
@@ -28674,7 +28711,12 @@ export function createTypeEvaluator(
                                 })
                             );
                         }
-                        canAssign = false;
+                        if (
+                            destParamInfo.kind !== ParamKind.Standard ||
+                            (flags & AssignTypeFlags.PartialOverloadOverlap) === 0
+                        ) {
+                            canAssign = false;
+                        }
                     }
 
                     if (destParamInfo.defaultType && !srcParamInfo.defaultType) {
