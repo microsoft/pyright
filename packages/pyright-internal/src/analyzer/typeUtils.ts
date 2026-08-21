@@ -1044,10 +1044,11 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined, recu
             }
 
             const solution = buildSolution(type.shared.recursiveAlias.typeParams, aliasInfo.typeArgs);
-            return transformPossibleRecursiveTypeAlias(
+            const transformedType = transformPossibleRecursiveTypeAlias(
                 applySolvedTypeVars(unspecializedType, solution),
                 recursionCount
             );
+            return TypeBase.cloneForTypeAlias(transformedType, aliasInfo);
         }
 
         if (isUnion(type) && type.priv.includesRecursiveTypeAlias) {
