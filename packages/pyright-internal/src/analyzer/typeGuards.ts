@@ -72,6 +72,7 @@ import {
     convertToInstance,
     convertToInstantiable,
     derivesFromAnyOrUnknown,
+    derivesFromStdlibClass,
     doForEachSubtype,
     getSpecializedTupleType,
     getTypeCondition,
@@ -2714,6 +2715,65 @@ function isFilterSuperclass(
     return false;
 }
 
+// Determines whether the specified class is an enum class whose members derive
+// from a primitive type (e.g. IntEnum or StrEnum). Members of such classes
+// compare equal to their underlying primitive value at runtime.
+function isPrimitiveBackedEnumClass(classType: ClassType): boolean {
+    if (!ClassType.isEnumClass(classType)) {
+        return false;
+    }
+
+    return derivesFromStdlibClass(classType, 'int') || derivesFromStdlibClass(classType, 'str');
+}
+
+// Determines whether enumType is a primitive-backed enum class and primitiveType
+// is the primitive type (int or str) from which it derives.
+function isPrimitiveBackedEnumAndPrimitive(enumType: ClassType, primitiveType: ClassType): boolean {
+    if (ClassType.isEnumClass(primitiveType) || !isPrimitiveBackedEnumClass(enumType)) {
+        return false;
+    }
+
+    // Exclude bool, which derives from int but whose literal values are distinct
+    // from the corresponding int literals.
+    if (ClassType.isBuiltIn(primitiveType, 'int')) {
+        return derivesFromStdlibClass(enumType, 'int');
+    }
+
+    if (ClassType.isBuiltIn(primitiveType, 'str')) {
+        return derivesFromStdlibClass(enumType, 'str');
+    }
+
+    return false;
+}
+
+// If the specified type is a literal member of a primitive-backed enum class,
+// returns the corresponding primitive literal type. Otherwise returns the type
+// unmodified.
+function unwrapPrimitiveBackedEnumLiteral(classType: ClassType): ClassType {
+    const literalValue = classType.priv.literalValue;
+    if (!(literalValue instanceof EnumLiteral) || !isPrimitiveBackedEnumClass(classType)) {
+        return classType;
+    }
+
+    const itemType = literalValue.itemType;
+    if (isClassInstance(itemType) && itemType.priv.literalValue !== undefined) {
+        return itemType;
+    }
+
+    return classType;
+}
+
+// Determines whether two literal types compare equal using the `==` operator at
+// runtime. This differs from ClassType.isLiteralValueSame only for members of
+// primitive-backed enum classes, which compare equal to their underlying
+// primitive values.
+function isLiteralValueEqualAtRuntime(type1: ClassType, type2: ClassType): boolean {
+    return ClassType.isLiteralValueSame(
+        unwrapPrimitiveBackedEnumLiteral(type1),
+        unwrapPrimitiveBackedEnumLiteral(type2)
+    );
+}
+
 // Attempts to narrow a type (make it more constrained) based on a comparison
 // (equal or not equal) to a literal value. It also handles "is" or "is not"
 // operators if isIsOperator is true.
@@ -2735,9 +2795,24 @@ function narrowTypeForLiteralComparison(
             return subtype;
         }
 
-        if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
+        // Determine whether this is a comparison between a primitive-backed enum
+        // (e.g. IntEnum or StrEnum) and its underlying primitive type. Such a
+        // comparison can be used for narrowing because the enum member compares
+        // equal to its underlying primitive value at runtime.
+        const isPrimitiveBackedEnumComparison =
+            !isIsOperator &&
+            isClassInstance(subtype) &&
+            (isPrimitiveBackedEnumAndPrimitive(subtype, literalType) ||
+                isPrimitiveBackedEnumAndPrimitive(literalType, subtype));
+
+        if (
+            isClassInstance(subtype) &&
+            (ClassType.isSameGenericClass(literalType, subtype) || isPrimitiveBackedEnumComparison)
+        ) {
             if (subtype.priv.literalValue !== undefined) {
-                const literalValueMatches = ClassType.isLiteralValueSame(subtype, literalType);
+                const literalValueMatches = isPrimitiveBackedEnumComparison
+                    ? isLiteralValueEqualAtRuntime(subtype, literalType)
+                    : ClassType.isLiteralValueSame(subtype, literalType);
                 if (isPositiveTest) {
                     return literalValueMatches ? subtype : undefined;
                 }
@@ -2753,6 +2828,24 @@ function narrowTypeForLiteralComparison(
             }
 
             if (isPositiveTest) {
+                if (isPrimitiveBackedEnumComparison) {
+                    // If the reference type is the enum, attempt to find the member
+                    // whose value matches the primitive literal. If no member can be
+                    // identified (e.g. for an IntFlag class, whose members cannot be
+                    // enumerated), retain the reference type rather than narrowing it
+                    // to the primitive literal type.
+                    if (ClassType.isEnumClass(subtype)) {
+                        const allLiteralTypes = enumerateLiteralsForType(evaluator, subtype);
+                        const match = allLiteralTypes?.find((type) => isLiteralValueEqualAtRuntime(type, literalType));
+                        return match ?? subtype;
+                    }
+
+                    // The reference type is the primitive type, so narrowing it to the
+                    // enum literal would lose its (potentially derived) class. Retain
+                    // the reference type instead.
+                    return subtype;
+                }
+
                 return literalType;
             }
 
@@ -2760,7 +2853,13 @@ function narrowTypeForLiteralComparison(
             // (for bool or enum), we can eliminate all others in a negative test.
             const allLiteralTypes = enumerateLiteralsForType(evaluator, subtype);
             if (allLiteralTypes && allLiteralTypes.length > 0) {
-                return combineTypes(allLiteralTypes.filter((type) => !ClassType.isLiteralValueSame(type, literalType)));
+                return combineTypes(
+                    allLiteralTypes.filter((type) =>
+                        isPrimitiveBackedEnumComparison
+                            ? !isLiteralValueEqualAtRuntime(type, literalType)
+                            : !ClassType.isLiteralValueSame(type, literalType)
+                    )
+                );
             }
 
             return subtype;
