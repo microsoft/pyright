@@ -1264,6 +1264,19 @@ export function getIsInstanceClassTypes(
 
                 if (isInstantiableClass(subtype) && ClassType.isBuiltIn(subtype, 'Callable')) {
                     subtype = convertToInstantiable(getUnknownTypeForCallable());
+                } else if (TypeBase.isInstance(subtype) && ClassType.isBuiltIn(subtype, 'type')) {
+                    if (subtype.priv.typeArgs && subtype.priv.typeArgs.length > 0) {
+                        const typeArg = subtype.priv.typeArgs[0];
+                        if (isAnyOrUnknown(typeArg)) {
+                            foundNonClassType = true;
+                            return;
+                        }
+                        if (isInstantiableClass(typeArg)) {
+                            subtype = typeArg;
+                        } else if (isClass(typeArg) && TypeBase.isInstance(typeArg)) {
+                            subtype = convertToInstantiable(typeArg);
+                        }
+                    }
                 }
             }
 
@@ -1564,8 +1577,12 @@ function narrowTypeForInstance(
                 // note this case specially so we don't do any narrowing, which
                 // will generate false positives.
                 if (filterIsSuperclass) {
-                    if (!isTypeIsCheck && concreteFilterType.priv.includeSubclasses) {
-                        // If the filter type includes subclasses, we can't eliminate
+                    if (
+                        !isTypeIsCheck &&
+                        concreteFilterType.priv.includeSubclasses &&
+                        !ClassType.isFinal(concreteFilterType)
+                    ) {
+                        // If the filter type includes subclasses and is not final, we can't eliminate
                         // this type in the negative direction. We'll relax this for
                         // TypeIs checks.
                         isClassRelationshipIndeterminate = true;
