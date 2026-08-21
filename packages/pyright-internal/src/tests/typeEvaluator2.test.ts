@@ -1013,3 +1013,8 @@ test('Sentinel2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
 });
+
+test('Sentinel3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
