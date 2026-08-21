@@ -1782,6 +1782,7 @@
         },
         "walrusIllegal": "Operator \":=\" requires Python 3.8 or newer",
         "walrusNotAllowed": "Operator \":=\" is not allowed in this context without surrounding parentheses",
+        "walrusNotAllowedInComprehension": "Operator \":=\" is not allowed within a comprehension iterable expression",
         "wildcardInFunction": {
             "message": "Wildcard import not allowed within a class or function",
             "comment": "{Locked='import'}"

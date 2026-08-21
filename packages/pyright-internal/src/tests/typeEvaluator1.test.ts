@@ -1244,3 +1244,22 @@ test('AssignmentExpr9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr9.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('AssignmentExprMessage1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExprMessage1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+
+    // A walrus within a comprehension's iterable expression cannot be fixed by
+    // adding parentheses, so it must use the comprehension-specific message
+    // rather than the generic "requires surrounding parentheses" message.
+    expect(analysisResults[0].errors[0].message).toBe(
+        'Operator ":=" is not allowed within a comprehension iterable expression'
+    );
+
+    // A bare walrus used as a comprehension "if" condition still uses the
+    // generic message because parenthesizing it makes the code legal.
+    expect(analysisResults[0].errors[1].message).toBe(
+        'Operator ":=" is not allowed in this context without surrounding parentheses'
+    );
+});
