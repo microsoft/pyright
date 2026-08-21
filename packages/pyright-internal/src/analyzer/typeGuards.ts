@@ -594,8 +594,39 @@ export function getTypeNarrowingCallback(
                     testExpression.d.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
 
                 return (type: Type) => {
+                    const keyNarrowingInfo = createTypedDictKeyNarrowingInfo(testExpression, type);
+                    let narrowedType = narrowTypeForContainerType(evaluator, type, rightType, adjIsPositiveTest);
+
+                    if (
+                        adjIsPositiveTest &&
+                        keyNarrowingInfo &&
+                        keyNarrowingInfo.literalKeyTypes.length > 1 &&
+                        someSubtypes(
+                            rightType,
+                            (subtype) => isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)
+                        )
+                    ) {
+                        narrowedType = mapSubtypes(narrowedType, (subtype) => {
+                            if (
+                                isClassInstance(subtype) &&
+                                ClassType.isBuiltIn(subtype, 'str') &&
+                                typeof subtype.priv.literalValue === 'string'
+                            ) {
+                                const constraintIndex = keyNarrowingInfo.conditionIndexMap.get(
+                                    subtype.priv.literalValue
+                                );
+                                if (constraintIndex !== undefined) {
+                                    return addConditionToType(subtype, [
+                                        { typeVar: keyNarrowingInfo.conditionTypeVar, constraintIndex },
+                                    ]);
+                                }
+                            }
+                            return subtype;
+                        });
+                    }
+
                     return {
-                        type: narrowTypeForContainerType(evaluator, type, rightType, adjIsPositiveTest),
+                        type: narrowedType,
                         isIncomplete: !!rightTypeResult.isIncomplete,
                     };
                 };
@@ -611,17 +642,57 @@ export function getTypeNarrowingCallback(
                 const leftTypeResult = evaluator.getTypeOfExpression(testExpression.d.leftExpr);
                 const leftType = leftTypeResult.type;
 
-                if (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'str') && isLiteralType(leftType)) {
-                    const adjIsPositiveTest =
-                        testExpression.d.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
+                const keyNarrowingInfo = createTypedDictKeyNarrowingInfo(testExpression, leftType);
+                const adjIsPositiveTest =
+                    testExpression.d.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
+                if (keyNarrowingInfo && (keyNarrowingInfo.literalKeyTypes.length === 1 || adjIsPositiveTest)) {
                     return (type: Type) => {
-                        return {
-                            type: narrowTypeForTypedDictKey(
+                        let narrowedType: Type;
+                        if (keyNarrowingInfo.literalKeyTypes.length === 1) {
+                            narrowedType = narrowTypeForTypedDictKey(
                                 evaluator,
                                 type,
-                                ClassType.cloneAsInstantiable(leftType),
+                                ClassType.cloneAsInstantiable(keyNarrowingInfo.literalKeyTypes[0]),
                                 adjIsPositiveTest
-                            ),
+                            );
+                        } else if (
+                            someSubtypes(
+                                type,
+                                (subtype) => isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)
+                            )
+                        ) {
+                            narrowedType = combineTypes(
+                                keyNarrowingInfo.literalKeyTypes.map((literalKeyType) => {
+                                    let narrowedTypeForKey = narrowTypeForTypedDictKey(
+                                        evaluator,
+                                        type,
+                                        ClassType.cloneAsInstantiable(literalKeyType),
+                                        /* isPositiveTest */ true
+                                    );
+
+                                    // Retain an undeclared key alternative so indexed access can
+                                    // report it rather than silently filtering it out.
+                                    if (isNever(narrowedTypeForKey)) {
+                                        narrowedTypeForKey = type;
+                                    }
+
+                                    const constraintIndex = keyNarrowingInfo.conditionIndexMap.get(
+                                        literalKeyType.priv.literalValue as string
+                                    )!;
+                                    const condition = [{ typeVar: keyNarrowingInfo.conditionTypeVar, constraintIndex }];
+                                    return mapSubtypes(narrowedTypeForKey, (subtype) =>
+                                        TypeCondition.isCompatible(getTypeCondition(subtype), condition)
+                                            ? addConditionToType(subtype, condition)
+                                            : undefined
+                                    );
+                                })
+                            );
+                        } else {
+                            narrowedType = type;
+                        }
+
+                        return {
+                            type: narrowedType,
                             isIncomplete: !!leftTypeResult.isIncomplete,
                         };
                     };
@@ -2261,6 +2332,59 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
             return referenceSubtype;
         });
     });
+}
+
+function getStringLiteralTypes(type: Type): ClassType[] | undefined {
+    const literalTypes: ClassType[] = [];
+    let isValid = true;
+
+    doForEachSubtype(type, (subtype) => {
+        if (
+            isClassInstance(subtype) &&
+            ClassType.isBuiltIn(subtype, 'str') &&
+            typeof subtype.priv.literalValue === 'string'
+        ) {
+            literalTypes.push(subtype);
+        } else {
+            isValid = false;
+        }
+    });
+
+    if (!isValid || literalTypes.length === 0) {
+        return undefined;
+    }
+
+    return literalTypes.sort((a, b) => (a.priv.literalValue as string).localeCompare(b.priv.literalValue as string));
+}
+
+interface TypedDictKeyNarrowingInfo {
+    literalKeyTypes: ClassType[];
+    conditionTypeVar: TypeVarType;
+    conditionIndexMap: Map<string, number>;
+}
+
+function createTypedDictKeyNarrowingInfo(node: ExpressionNode, type: Type): TypedDictKeyNarrowingInfo | undefined {
+    const literalKeyTypes = getStringLiteralTypes(type);
+    if (!literalKeyTypes) {
+        return undefined;
+    }
+
+    const conditionTypeVar = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('__typedDictKeyNarrowing'),
+        `typedDictKeyNarrowing.${node.id}`,
+        /* scopeName */ undefined,
+        /* scopeType */ undefined
+    );
+    conditionTypeVar.shared.isSynthesized = true;
+    literalKeyTypes.forEach((literalKeyType) => TypeVarType.addConstraint(conditionTypeVar, literalKeyType));
+
+    return {
+        literalKeyTypes,
+        conditionTypeVar,
+        conditionIndexMap: new Map(
+            literalKeyTypes.map((keyType, index) => [keyType.priv.literalValue as string, index])
+        ),
+    };
 }
 
 // Attempts to narrow a type based on whether it is a TypedDict with
