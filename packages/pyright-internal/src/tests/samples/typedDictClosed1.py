@@ -35,6 +35,30 @@ def func1(movie: Movie) -> None:
     movie["other2"] = 1
 
 
+def func2(movie: Movie) -> None:
+    # An extra item is not guaranteed to be present, so the negative
+    # branch of the "in" check must remain reachable.
+    if "novel_adaptation" in movie:
+        return
+
+    reveal_type(movie, expected_text="Movie")
+
+    # This should generate a type incompatibility error. If the statements
+    # above are incorrectly marked unreachable, no error is reported here.
+    movie["other3"] = 1
+
+
+def func3(movie: Movie) -> None:
+    # "name" is a required known item, so it is always present and the
+    # negative branch of the "in" check must remain unreachable.
+    if "name" in movie:
+        return
+
+    # This would generate a type incompatibility error if the statement
+    # above were incorrectly considered reachable.
+    movie["other4"] = 1
+
+
 class MovieBase(TypedDict, extra_items=ReadOnly[str | None]):
     name: str
 
