@@ -22,3 +22,5 @@ nav:
       - Overview: feat-shared-runtime-infrastructure.md
   - Type Evaluation:
       - Overview: feat-type-evaluation.md
+  - Unmapped Implementation:
+      - Overview: feat-unmapped-implementation.md
