@@ -1,0 +1,64 @@
+name: Trigger type checker benchmark
+
+on:
+  issue_comment:
+    types:
+      - created
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  trigger:
+    name: Authorize benchmark request
+    if: ${{ github.event.issue.pull_request && github.event.issue.state == 'open' && github.event.comment.body == '/benchmark' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger benchmark for authorized maintainer
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const permission = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.actor,
+            })
+            const allowedPermissions = new Set(['admin', 'maintain', 'write'])
+            if (!allowedPermissions.has(permission.data.permission)) {
+              core.notice(`${context.actor} does not have permission to run the benchmark`)
+              return
+            }
+
+            const label = 'run-typecheck-benchmark'
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+              })
+            } catch (error) {
+              if (error.status !== 404) throw error
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+                color: '1d76db',
+                description: 'Run the type checker performance benchmark',
+              })
+            }
+
+            if (context.payload.issue.labels.some((item) => item.name === label)) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: label,
+              })
+            }
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [label],
+            })

@@ -1,0 +1,114 @@
+name: Type checker benchmark
+
+env:
+  BENCHMARK_RUNNER_CLASS: 'github-ubuntu-latest'
+  NODE_VERSION: '24.15.0'
+  PYTHON_VERSION: '3.14.6'
+
+on:
+  pull_request:
+    types:
+      - labeled
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Compare Pyright performance
+    if: ${{ github.event.label.name == 'run-typecheck-benchmark' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: 'build/benchmark/install_envs.json'
+
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
+
+      - name: Verify build prerequisites
+        run: |
+          gcc --version
+          g++ --version
+          make --version
+
+      - name: Install JavaScript dependencies
+        timeout-minutes: 10
+        env:
+          SKIP_LERNA_BOOTSTRAP: 'yes'
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Check out trusted baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: benchmark-baseline
+          sparse-checkout: build/benchmark/baselines
+
+      - name: Select benchmark baseline
+        id: baseline
+        run: |
+          trusted=benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json
+          bootstrap=build/benchmark/baselines/latest-linux-x64.json
+          if [[ -f "$trusted" ]]; then
+            echo "path=$trusted" >> "$GITHUB_OUTPUT"
+          elif [[ -f "$bootstrap" ]]; then
+            echo "Using the pull request's initial benchmark baseline"
+            echo "path=$bootstrap" >> "$GITHUB_OUTPUT"
+          else
+            echo "No benchmark baseline is available" >&2
+            exit 1
+          fi
+
+      - name: Build Pyright CLI
+        working-directory: packages/pyright
+        run: pnpm run build
+
+      - name: Run benchmark
+        env:
+          NODE_OPTIONS: '--max-old-space-size=6656'
+          PYTHONNOUSERSITE: '1'
+        run: |
+          python build/benchmark/typecheck_benchmark.py \
+            -c pyright -r 1 -w 0 -t 1800 --memory-limit-mb 8192 \
+            --skip-pyright-build --os-name linux-x64 \
+            --output build/benchmark/results
+
+      - name: Compare with baseline
+        id: comparison
+        continue-on-error: true
+        run: |
+          set +e
+          python build/benchmark/compare_benchmarks.py \
+            "${{ steps.baseline.outputs.path }}" \
+            build/benchmark/results/latest-linux-x64.json \
+            --fail-on-preparation-error \
+            --markdown-output build/benchmark/results/report.md
+          comparison_status=$?
+          cat build/benchmark/results/report.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$comparison_status"
+
+      - name: Upload candidate results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typecheck-benchmark-linux-x64
+          path: build/benchmark/results/
+
+      - name: Fail on benchmark regressions
+        if: ${{ steps.comparison.outcome == 'failure' }}
+        run: exit 1
