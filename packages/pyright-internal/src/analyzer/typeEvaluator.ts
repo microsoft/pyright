@@ -16233,6 +16233,10 @@ export function createTypeEvaluator(
             // more sophisticated in the future, but it becomes very complex to handle
             // all of the permutations.
             let sawParamMismatch = false;
+            let sawLambdaArgsParam = false;
+            const positionOnlySeparatorIndex = node.d.params.findIndex(
+                (param) => param.d.category === ParamCategory.Simple && !param.d.name
+            );
 
             node.d.params.forEach((param, index) => {
                 let paramType: Type | undefined;
@@ -16240,13 +16244,24 @@ export function createTypeEvaluator(
                 if (expectedParamDetails && !sawParamMismatch) {
                     if (index < expectedParamDetails.params.length) {
                         const expectedParam = expectedParamDetails.params[index];
+                        const isPositionOnlyParam =
+                            (positionOnlySeparatorIndex >= 0 && index < positionOnlySeparatorIndex) ||
+                            (positionOnlySeparatorIndex < 0 &&
+                                paramsArePositionOnly &&
+                                !!param.d.name &&
+                                isPrivateName(param.d.name.d.value));
+                        const isCompatibleKeywordParam =
+                            expectedParam.kind !== ParamKind.Keyword ||
+                            sawLambdaArgsParam ||
+                            (!isPositionOnlyParam && param.d.name?.d.value === expectedParam.param.name);
 
                         // If the parameter category matches and both of the parameters are
                         // either separators (/ or *) or not separators, copy the type
                         // from the expected parameter.
                         if (
                             expectedParam.param.category === param.d.category &&
-                            !param.d.name === !expectedParam.param.name
+                            !param.d.name === !expectedParam.param.name &&
+                            isCompatibleKeywordParam
                         ) {
                             paramType = expectedParam.type;
                         } else {
@@ -16317,6 +16332,10 @@ export function createTypeEvaluator(
                 );
 
                 FunctionType.addParam(functionType, functionParam);
+
+                if (param.d.category === ParamCategory.ArgsList) {
+                    sawLambdaArgsParam = true;
+                }
             });
 
             if (paramsArePositionOnly && functionType.shared.parameters.length > 0) {
