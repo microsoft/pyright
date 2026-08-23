@@ -261,3 +261,31 @@ def func27(value: Literal[b"a"] | int, a: list[bytearray], b: list[memoryview]):
 
     if value in b:
         reveal_type(value, expected_text='Literal[b"a"]')
+
+
+def func28(val: str | None, container: list[str] | tuple[str, ...]):
+    if val in container:
+        reveal_type(val, expected_text="str")
+    else:
+        reveal_type(val, expected_text="str | None")
+
+
+def func29(val: str | int | None, container: list[str] | set[int]):
+    if val in container:
+        reveal_type(val, expected_text="str | int")
+    else:
+        reveal_type(val, expected_text="str | int | None")
+
+
+def func30(k: str | int, d: dict[str, float]):
+    if k in d.keys():
+        reveal_type(k, expected_text="str")
+    else:
+        reveal_type(k, expected_text="str | int")
+
+
+def func31(v: float | str, d: dict[str, float]):
+    if v in d.values():
+        reveal_type(v, expected_text="float")
+    else:
+        reveal_type(v, expected_text="float | str")
