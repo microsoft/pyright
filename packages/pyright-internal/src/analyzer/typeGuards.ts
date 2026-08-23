@@ -54,6 +54,7 @@ import {
     isParamSpec,
     isTypeSame,
     isTypeVar,
+    isUnion,
     isUnpackedTypeVarTuple,
     maxTypeRecursionCount,
     OverloadedType,
@@ -2199,10 +2200,56 @@ function narrowTypeForContainerType(
     });
 }
 
-export function getElementTypeForContainerNarrowing(containerType: Type) {
-    // We support contains narrowing only for certain built-in types that have been specialized.
-    const supportedContainers = ['list', 'set', 'frozenset', 'deque', 'tuple', 'dict', 'defaultdict', 'OrderedDict'];
-    if (!isClassInstance(containerType) || !ClassType.isBuiltIn(containerType, supportedContainers)) {
+export function getElementTypeForContainerNarrowing(containerType: Type): Type | undefined {
+    if (isUnion(containerType)) {
+        const elementTypes: Type[] = [];
+        for (const subtype of containerType.priv.subtypes) {
+            const elemType = getElementTypeForContainerNarrowing(subtype);
+            if (!elemType) {
+                return undefined;
+            }
+            elementTypes.push(elemType);
+        }
+        return combineTypes(elementTypes);
+    }
+
+    if (!isClassInstance(containerType)) {
+        return undefined;
+    }
+
+    // We support contains narrowing only for certain built-in and stdlib collection types that have been specialized.
+    const supportedContainers = [
+        'list',
+        'set',
+        'frozenset',
+        'deque',
+        'tuple',
+        'dict',
+        'defaultdict',
+        'OrderedDict',
+        'Sequence',
+        'MutableSequence',
+        'Set',
+        'AbstractSet',
+        'MutableSet',
+        'Collection',
+        'Container',
+        'Mapping',
+        'MutableMapping',
+        'KeysView',
+        'ValuesView',
+        'dict_keys',
+        'dict_values',
+    ];
+
+    const isSupported =
+        ClassType.isBuiltIn(containerType, supportedContainers) ||
+        ((containerType.shared.fullName.startsWith('_collections_abc.') ||
+            containerType.shared.fullName.startsWith('collections.abc.') ||
+            containerType.shared.fullName.startsWith('typing.')) &&
+            supportedContainers.includes(containerType.shared.name));
+
+    if (!isSupported) {
         return undefined;
     }
 
@@ -2210,12 +2257,15 @@ export function getElementTypeForContainerNarrowing(containerType: Type) {
         return undefined;
     }
 
-    let elementType = containerType.priv.typeArgs[0];
-    if (isTupleClass(containerType) && containerType.priv.tupleTypeArgs) {
-        elementType = combineTypes(containerType.priv.tupleTypeArgs.map((t) => t.type));
+    if (containerType.shared.name === 'dict_values' || containerType.shared.name === 'ValuesView') {
+        return containerType.priv.typeArgs.length > 1 ? containerType.priv.typeArgs[1] : containerType.priv.typeArgs[0];
     }
 
-    return elementType;
+    if (isTupleClass(containerType) && containerType.priv.tupleTypeArgs) {
+        return combineTypes(containerType.priv.tupleTypeArgs.map((t) => t.type));
+    }
+
+    return containerType.priv.typeArgs[0];
 }
 
 export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, referenceType: Type, elementType: Type) {

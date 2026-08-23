@@ -224,3 +224,32 @@ def func23[T: LiteralString](x: str, y: tuple[T, ...]) -> T:
     if x in y:
         return x
     raise ValueError(f"Invalid value {x!r}")
+
+
+def func24(val: str | None, container: list[str] | tuple[str, ...]):
+    if val in container:
+        reveal_type(val, expected_text="str")
+    else:
+        reveal_type(val, expected_text="str | None")
+
+
+def func25(val: str | int | None, container: list[str] | set[int]):
+    if val in container:
+        reveal_type(val, expected_text="str | int")
+    else:
+        reveal_type(val, expected_text="str | int | None")
+
+
+def func26(k: str | int, d: dict[str, float]):
+    if k in d.keys():
+        reveal_type(k, expected_text="str")
+    else:
+        reveal_type(k, expected_text="str | int")
+
+
+def func27(v: float | str, d: dict[str, float]):
+    if v in d.values():
+        reveal_type(v, expected_text="float")
+    else:
+        reveal_type(v, expected_text="float | str")
+
