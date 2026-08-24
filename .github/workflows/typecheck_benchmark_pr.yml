@@ -43,20 +43,17 @@ jobs:
         with:
           repository: ${{ inputs.head_repository }}
           ref: ${{ inputs.head_sha }}
+          persist-credentials: false
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-          cache-dependency-path: 'build/benchmark/install_envs.json'
 
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Verify build prerequisites
         run: |
@@ -76,6 +73,7 @@ jobs:
           ref: ${{ inputs.base_sha }}
           path: benchmark-baseline
           sparse-checkout: build/benchmark/baselines
+          persist-credentials: false
 
       - name: Select benchmark baseline
         id: baseline
