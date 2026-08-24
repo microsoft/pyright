@@ -3431,9 +3431,22 @@ export function createTypeEvaluator(
                 const iterReturnType = getTypeOfMagicMethodCall(subtype, iterMethodName, [], errorNode)?.type;
 
                 if (!iterReturnType) {
-                    // There was no __iter__. See if we can fall back to
-                    // the __getitem__ method instead.
+                    // There was no callable __iter__. The legacy sequence protocol
+                    // falls back to __getitem__, but CPython does that only when
+                    // __iter__ is missing. An explicit `__iter__ = None` (or any
+                    // non-callable __iter__) makes the object not iterable.
+                    let hasExplicitIterMember = false;
                     if (!isAsync && isClassInstance(subtype)) {
+                        hasExplicitIterMember = !!lookUpObjectMember(
+                            subtype,
+                            iterMethodName,
+                            MemberAccessFlags.SkipInstanceMembers |
+                                MemberAccessFlags.SkipAttributeAccessOverride |
+                                MemberAccessFlags.SkipObjectBaseClass
+                        );
+                    }
+
+                    if (!isAsync && isClassInstance(subtype) && !hasExplicitIterMember) {
                         const getItemReturnType = getTypeOfMagicMethodCall(
                             subtype,
                             '__getitem__',
