@@ -36,6 +36,7 @@ jobs:
             })
             let issueNumber
             let expectedHeadSha
+            let expectedBaseSha
             let report
             if (workflowRun.event === 'pull_request') {
               const pullRequests = workflowRun.pull_requests
@@ -45,15 +46,18 @@ jobs:
               }
               issueNumber = pullRequests[0].number
               expectedHeadSha = workflowRun.head_sha
+              expectedBaseSha = pullRequests[0].base.sha
               report = artifacts.data.artifacts.find(
                 (artifact) => artifact.name === 'typecheck-benchmark-linux-x64'
               )
             } else {
               const dispatchedReports = artifacts.data.artifacts.flatMap((artifact) => {
                 const match = artifact.name.match(
-                  /^typecheck-benchmark-linux-x64-pr-(\d+)-sha-([0-9a-f]{40})$/
+                  /^typecheck-benchmark-linux-x64-pr-(\d+)-head-([0-9a-f]{40})-base-([0-9a-f]{40})$/
                 )
-                return match ? [{ artifact, issueNumber: Number(match[1]), headSha: match[2] }] : []
+                return match
+                  ? [{ artifact, issueNumber: Number(match[1]), headSha: match[2], baseSha: match[3] }]
+                  : []
               })
               if (dispatchedReports.length !== 1) {
                 core.setFailed(`Expected one dispatched benchmark report, found ${dispatchedReports.length}`)
@@ -62,6 +66,7 @@ jobs:
               report = dispatchedReports[0].artifact
               issueNumber = dispatchedReports[0].issueNumber
               expectedHeadSha = dispatchedReports[0].headSha
+              expectedBaseSha = dispatchedReports[0].baseSha
             }
             if (!report) {
               core.setFailed('The benchmark report artifact was not found')
@@ -74,6 +79,10 @@ jobs:
             })
             if (pullRequest.data.head.sha !== expectedHeadSha) {
               core.setFailed('The workflow run head does not match the pull request head')
+              return
+            }
+            if (pullRequest.data.base.sha !== expectedBaseSha) {
+              core.setFailed('The workflow run base does not match the pull request base')
               return
             }
             const download = await github.rest.actions.downloadArtifact({

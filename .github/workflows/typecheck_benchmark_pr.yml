@@ -122,7 +122,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: typecheck-benchmark-linux-x64-pr-${{ inputs.pr_number }}-sha-${{ inputs.head_sha }}
+          name: typecheck-benchmark-linux-x64-pr-${{ inputs.pr_number }}-head-${{ inputs.head_sha }}-base-${{ inputs.base_sha }}
           path: build/benchmark/results/
 
       - name: Fail on benchmark regressions

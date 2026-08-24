@@ -480,8 +480,6 @@ Regression threshold: `10.0%`
                 "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6",
                 workflow,
             )
-            self.assertIn("cache: 'pnpm'", workflow)
-            self.assertIn("pnpm-lock.yaml", workflow)
             self.assertIn("SKIP_LERNA_BOOTSTRAP: 'yes'", workflow)
             self.assertIn("--max-old-space-size=6656", workflow)
             self.assertIn("timeout-minutes: 10", workflow)
@@ -499,6 +497,8 @@ Regression threshold: `10.0%`
         weekly_workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_weekly.yml"
         ).read_text(encoding="utf-8")
+        self.assertIn("cache: 'pnpm'", weekly_workflow)
+        self.assertIn("pnpm-lock.yaml", weekly_workflow)
         self.assertIn(
             "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
             weekly_workflow,
@@ -520,11 +520,20 @@ Regression threshold: `10.0%`
         ).read_text(encoding="utf-8")
 
         self.assertIn("issue_comment:", trigger_workflow)
-        self.assertIn("github.event.comment.body == '/benchmark'", trigger_workflow)
+        self.assertIn(
+            "startsWith(github.event.comment.body, '/benchmark')", trigger_workflow
+        )
+        self.assertIn(
+            "context.payload.comment.body.trim() !== '/benchmark'", trigger_workflow
+        )
         self.assertIn("github.event.issue.state == 'open'", trigger_workflow)
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
-        self.assertIn("issues: write", trigger_workflow)
+        self.assertIn("actions: write", trigger_workflow)
+        self.assertIn("pull-requests: read", trigger_workflow)
+        self.assertIn("createWorkflowDispatch", trigger_workflow)
+        self.assertIn("workflow_id: 'typecheck_benchmark_pr.yml'", trigger_workflow)
+        self.assertIn("base_sha: pullRequest.data.base.sha", trigger_workflow)
         self.assertNotIn("actions/checkout", trigger_workflow)
         self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
@@ -541,12 +550,15 @@ Regression threshold: `10.0%`
         )
         self.assertNotIn("actions/checkout@v4", comment_workflow)
         self.assertNotIn("actions/github-script@v7", comment_workflow)
-        self.assertIn("types:\n      - labeled", benchmark_workflow)
+        self.assertIn("workflow_dispatch:", benchmark_workflow)
         self.assertNotIn("paths:", benchmark_workflow)
-        self.assertIn(
-            "github.event.label.name == 'run-typecheck-benchmark'",
-            benchmark_workflow,
-        )
+        self.assertNotIn("pull_request:", benchmark_workflow)
+        self.assertNotIn("cache: 'pip'", benchmark_workflow)
+        self.assertNotIn("cache: 'pnpm'", benchmark_workflow)
+        self.assertIn("persist-credentials: false", benchmark_workflow)
+        self.assertIn("inputs.base_sha", benchmark_workflow)
+        self.assertIn("-base-${{ inputs.base_sha }}", benchmark_workflow)
+        self.assertIn("pullRequest.data.base.sha !== expectedBaseSha", comment_workflow)
 
     def test_pr_workflow_prefers_trusted_baseline_with_bootstrap_fallback(self) -> None:
         workflow = (
