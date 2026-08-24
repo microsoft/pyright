@@ -41,6 +41,10 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.issue.number,
             })
+            if (!pullRequest.data.merge_commit_sha) {
+              core.setFailed('The pull request does not have a merge commit to benchmark')
+              return
+            }
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -49,7 +53,7 @@ jobs:
               inputs: {
                 pr_number: String(context.issue.number),
                 head_sha: pullRequest.data.head.sha,
-                head_repository: pullRequest.data.head.repo.full_name,
                 base_sha: pullRequest.data.base.sha,
+                merge_sha: pullRequest.data.merge_commit_sha,
               },
             })

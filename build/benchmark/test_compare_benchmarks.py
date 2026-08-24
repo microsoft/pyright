@@ -505,6 +505,16 @@ Regression threshold: `10.0%`
         )
         self.assertNotIn("actions/download-artifact@v4", weekly_workflow)
 
+        pr_workflow = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "run-name: 'Type checker benchmark for PR #${{ inputs.pr_number }}'",
+            pr_workflow,
+        )
+        self.assertIn("PNPM_VERSION: '10.12.2'", pr_workflow)
+        self.assertIn("version: ${{ env.PNPM_VERSION }}", pr_workflow)
+
     def test_pr_benchmark_requires_authorized_comment(self) -> None:
         trigger_workflow = (
             REPO_ROOT
@@ -534,6 +544,7 @@ Regression threshold: `10.0%`
         self.assertIn("createWorkflowDispatch", trigger_workflow)
         self.assertIn("workflow_id: 'typecheck_benchmark_pr.yml'", trigger_workflow)
         self.assertIn("base_sha: pullRequest.data.base.sha", trigger_workflow)
+        self.assertIn("merge_sha: pullRequest.data.merge_commit_sha", trigger_workflow)
         self.assertNotIn("actions/checkout", trigger_workflow)
         self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
@@ -557,8 +568,12 @@ Regression threshold: `10.0%`
         self.assertNotIn("cache: 'pnpm'", benchmark_workflow)
         self.assertIn("persist-credentials: false", benchmark_workflow)
         self.assertIn("inputs.base_sha", benchmark_workflow)
-        self.assertIn("-base-${{ inputs.base_sha }}", benchmark_workflow)
+        self.assertIn("ref: ${{ inputs.merge_sha }}", benchmark_workflow)
+        self.assertIn("-merge-${{ inputs.merge_sha }}", benchmark_workflow)
         self.assertIn("pullRequest.data.base.sha !== expectedBaseSha", comment_workflow)
+        self.assertIn(
+            "pullRequest.data.merge_commit_sha !== expectedMergeSha", comment_workflow
+        )
 
     def test_pr_workflow_prefers_trusted_baseline_with_bootstrap_fallback(self) -> None:
         workflow = (
