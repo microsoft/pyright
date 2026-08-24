@@ -378,7 +378,7 @@ test('empty cache preserves analyzer information for retained parse trees', () =
     const nextParseTree = program.getParseResults(state.activeFile.fileUri)!.parserOutput.parseTree;
     program.emptyCache();
 
-    assert.strictEqual(program.analyzerNodeInfoContext.getFileInfo(parseTree), undefined);
+    assert.ok(program.analyzerNodeInfoContext.getFileInfo(parseTree));
     assert.ok(program.analyzerNodeInfoContext.getFileInfo(nextParseTree));
 });
 

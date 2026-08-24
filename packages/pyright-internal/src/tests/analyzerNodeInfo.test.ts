@@ -80,7 +80,7 @@ test('context getFileInfo fast path handles base-layer register/remove/reregiste
     assert.equal(context.getFileInfo(root), secondFileInfo);
 });
 
-test('context retains removed stores for one cache generation', () => {
+test('context retains stores with reachable parse trees', () => {
     const firstRoot = parseModule('first = 1');
     const secondRoot = parseModule('second = 2');
     const context = new AnalyzerNodeInfoContextImpl();
@@ -91,15 +91,29 @@ test('context retains removed stores for one cache generation', () => {
     context.retainRemovedStore(firstRoot);
     assert.equal(context.getFileInfo(firstRoot), firstFileInfo);
 
-    context.clearRetainedStores();
-    assert.equal(context.getFileInfo(firstRoot), undefined);
-
     context.registerStore(secondRoot, createStoreWithFileInfo(secondRoot, secondFileInfo));
     context.retainRemovedStore(secondRoot);
+    assert.equal(context.getFileInfo(firstRoot), firstFileInfo);
     assert.equal(context.getFileInfo(secondRoot), secondFileInfo);
 
     context.remove(secondRoot);
     assert.equal(context.getFileInfo(secondRoot), undefined);
+});
+
+test('retired stores remain isolated between contexts sharing a parse tree', () => {
+    const root = parseModule('value = 1');
+    const firstContext = new AnalyzerNodeInfoContextImpl();
+    const secondContext = new AnalyzerNodeInfoContextImpl();
+    const firstFileInfo = {} as AnalyzerFileInfo;
+    const secondFileInfo = {} as AnalyzerFileInfo;
+
+    firstContext.registerStore(root, createStoreWithFileInfo(root, firstFileInfo));
+    secondContext.registerStore(root, createStoreWithFileInfo(root, secondFileInfo));
+    firstContext.retainRemovedStore(root);
+    secondContext.retainRemovedStore(root);
+
+    assert.equal(firstContext.getFileInfo(root), firstFileInfo);
+    assert.equal(secondContext.getFileInfo(root), secondFileInfo);
 });
 
 function parseModule(code: string): ModuleNode {

@@ -1155,7 +1155,6 @@ export class Program {
     // Discards any cached information associated with this program.
     emptyCache() {
         this._createNewEvaluator();
-        this._analyzerNodeInfoContext.clearRetainedStores();
         this._discardCachedParseResults();
         this._parsedFileCount = 0;
 

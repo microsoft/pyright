@@ -152,7 +152,6 @@ export interface AnalyzerNodeInfoContext extends AnalyzerNodeInfoReader {
     registerStore(root: ModuleNode, store: AnalyzerNodeInfoStore): void;
     remove(root: ModuleNode): void;
     retainRemovedStore(root: ModuleNode): void;
-    clearRetainedStores(): void;
     enterOverlay(): void;
     // Preserves an overlay-produced store for a tree that survives the overlay.
     promoteToPreviousLayer(root: ModuleNode): void;
@@ -163,6 +162,12 @@ export interface AnalyzerNodeInfoContext extends AnalyzerNodeInfoReader {
 interface AnalyzerNodeInfoContextLayer {
     readonly stores: WeakMap<object, AnalyzerNodeInfoStore>;
     readonly removedKeys: WeakSet<object>;
+}
+
+const _retiredStores = Symbol('retiredAnalyzerNodeInfoStores');
+
+interface RetiredAnalyzerNodeInfoHost {
+    [_retiredStores]?: WeakMap<AnalyzerNodeInfoContextImpl, AnalyzerNodeInfoStore>;
 }
 
 class AnalyzerNodeInfoBindingSessionImpl implements AnalyzerNodeInfoBindingSession {
@@ -223,7 +228,6 @@ class AnalyzerNodeInfoBindingSessionImpl implements AnalyzerNodeInfoBindingSessi
 
 export class AnalyzerNodeInfoContextImpl implements AnalyzerNodeInfoContext {
     private _layers: AnalyzerNodeInfoContextLayer[] = [this._createLayer()];
-    private _retainedStores = new WeakMap<object, AnalyzerNodeInfoStore>();
     private _disposed = false;
     private readonly _currentLayerReader: AnalyzerNodeInfoReader = {
         get: (node) => this._getFromCurrentLayer(node),
@@ -237,17 +241,17 @@ export class AnalyzerNodeInfoContextImpl implements AnalyzerNodeInfoContext {
 
         // Fast path: no edit-mode overlay is active (the steady-state batch/check
         // case always has just the base layer). Skip the layer-walk loop and the
-        // removedKeys tombstone check, but include any store retained for an
-        // in-progress evaluation during the most recent cache clear.
+        // removedKeys tombstone check, but include metadata retained by a parse
+        // tree that remains reachable after its source file drops it.
         const layers = this._layers;
         if (layers.length === 1) {
-            return (layers[0].stores.get(node.a) ?? this._retainedStores.get(node.a))?.get(node);
+            return (layers[0].stores.get(node.a) ?? this._getRetiredStore(node.a))?.get(node);
         }
 
         for (let index = layers.length - 1; index >= 0; index--) {
             const layer = layers[index];
             if (layer.removedKeys.has(node.a)) {
-                return this._retainedStores.get(node.a)?.get(node);
+                return this._getRetiredStore(node.a)?.get(node);
             }
 
             const store = layer.stores.get(node.a);
@@ -256,7 +260,7 @@ export class AnalyzerNodeInfoContextImpl implements AnalyzerNodeInfoContext {
             }
         }
 
-        return this._retainedStores.get(node.a)?.get(node);
+        return this._getRetiredStore(node.a)?.get(node);
     }
 
     getFileInfo(node: ParseNode): AnalyzerFileInfo | undefined {
@@ -266,13 +270,13 @@ export class AnalyzerNodeInfoContextImpl implements AnalyzerNodeInfoContext {
 
         const layers = this._layers;
         if (layers.length === 1) {
-            return (layers[0].stores.get(node.a) ?? this._retainedStores.get(node.a))?.getFileInfo(node);
+            return (layers[0].stores.get(node.a) ?? this._getRetiredStore(node.a))?.getFileInfo(node);
         }
 
         for (let index = layers.length - 1; index >= 0; index--) {
             const layer = layers[index];
             if (layer.removedKeys.has(node.a)) {
-                return this._retainedStores.get(node.a)?.getFileInfo(node);
+                return this._getRetiredStore(node.a)?.getFileInfo(node);
             }
 
             const store = layer.stores.get(node.a);
@@ -281,7 +285,7 @@ export class AnalyzerNodeInfoContextImpl implements AnalyzerNodeInfoContext {
             }
         }
 
-        return this._retainedStores.get(node.a)?.getFileInfo(node);
+        return this._getRetiredStore(node.a)?.getFileInfo(node);
     }
 
     getCurrentLayerReader(): AnalyzerNodeInfoReader {
@@ -309,7 +313,7 @@ export class AnalyzerNodeInfoContextImpl implements AnalyzerNodeInfoContext {
         const layer = this._layers[this._layers.length - 1];
         layer.removedKeys.delete(root.a);
         layer.stores.set(root.a, store);
-        this._retainedStores.delete(root.a);
+        this._deleteRetiredStore(root.a);
     }
 
     remove(root: ModuleNode): void {
@@ -317,7 +321,7 @@ export class AnalyzerNodeInfoContextImpl implements AnalyzerNodeInfoContext {
         const layer = this._layers[this._layers.length - 1];
         layer.stores.delete(root.a);
         layer.removedKeys.add(root.a);
-        this._retainedStores.delete(root.a);
+        this._deleteRetiredStore(root.a);
     }
 
     retainRemovedStore(root: ModuleNode): void {
@@ -325,15 +329,12 @@ export class AnalyzerNodeInfoContextImpl implements AnalyzerNodeInfoContext {
         const layer = this._layers[this._layers.length - 1];
         const store = layer.stores.get(root.a);
         if (store) {
-            this._retainedStores.set(root.a, store);
+            const host = root.a as RetiredAnalyzerNodeInfoHost;
+            host[_retiredStores] ??= new WeakMap<AnalyzerNodeInfoContextImpl, AnalyzerNodeInfoStore>();
+            host[_retiredStores].set(this, store);
         }
         layer.stores.delete(root.a);
         layer.removedKeys.add(root.a);
-    }
-
-    clearRetainedStores(): void {
-        this._throwIfDisposed();
-        this._retainedStores = new WeakMap<object, AnalyzerNodeInfoStore>();
     }
 
     enterOverlay(): void {
@@ -370,7 +371,6 @@ export class AnalyzerNodeInfoContextImpl implements AnalyzerNodeInfoContext {
 
     dispose(): void {
         this._layers = [];
-        this._retainedStores = new WeakMap<object, AnalyzerNodeInfoStore>();
         this._disposed = true;
     }
 
@@ -379,6 +379,14 @@ export class AnalyzerNodeInfoContextImpl implements AnalyzerNodeInfoContext {
             stores: new WeakMap<object, AnalyzerNodeInfoStore>(),
             removedKeys: new WeakSet<object>(),
         };
+    }
+
+    private _getRetiredStore(key: object) {
+        return (key as RetiredAnalyzerNodeInfoHost)[_retiredStores]?.get(this);
+    }
+
+    private _deleteRetiredStore(key: object) {
+        (key as RetiredAnalyzerNodeInfoHost)[_retiredStores]?.delete(this);
     }
 
     private _getFromCurrentLayer(node: ParseNode): AnalyzerNodeInfo | undefined {
