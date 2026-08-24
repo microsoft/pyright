@@ -332,6 +332,7 @@ export function synthesizeDataClassMethods(
             let variableTypeEvaluator: EntryTypeEvaluator | undefined;
             let hasDefault = false;
             let isDefaultFactory = false;
+            let isFieldSpecifierWithoutDefault = false;
             let isKeywordOnly = ClassType.isDataClassKeywordOnly(classType) || sawKeywordOnlySeparator;
             let defaultExpr: ExpressionNode | undefined;
             let includeInInit = true;
@@ -436,6 +437,8 @@ export function synthesizeDataClassMethods(
                         if (defaultFactoryArg?.d.valueExpr) {
                             defaultExpr = defaultFactoryArg.d.valueExpr;
                         }
+
+                        isFieldSpecifierWithoutDefault = !hasDefault;
 
                         const aliasArg = statement.d.rightExpr.d.args.find((arg) => arg.d.name?.d.value === 'alias');
                         if (aliasArg) {
@@ -576,9 +579,15 @@ export function synthesizeDataClassMethods(
                     if (insertIndex >= 0) {
                         const oldEntry = fullDataClassEntries[insertIndex];
 
-                        // While this isn't documented behavior, it appears that the dataclass implementation
-                        // causes overridden variables to "inherit" default values from parent classes.
-                        if (!dataClassEntry.hasDefault && oldEntry.hasDefault && oldEntry.includeInInit) {
+                        // A bare annotation (`x: int`) inherits a parent field's default at
+                        // runtime. An explicit `field()` with no default or default_factory
+                        // does not, so the synthesized __init__ parameter is required.
+                        if (
+                            !dataClassEntry.hasDefault &&
+                            oldEntry.hasDefault &&
+                            oldEntry.includeInInit &&
+                            !isFieldSpecifierWithoutDefault
+                        ) {
                             dataClassEntry.hasDefault = true;
                             dataClassEntry.defaultExpr = oldEntry.defaultExpr;
                             hasDefault = true;
