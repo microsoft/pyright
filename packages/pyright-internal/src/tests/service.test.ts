@@ -360,6 +360,20 @@ test('excluded but still part of program', () => {
     );
 });
 
+test('empty cache preserves analyzer information for retained parse trees', () => {
+    const state = parseAndGetTestState('//// value = 1', '/projectRoot').state;
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze());
+
+    const parseTree = program.getParseResults(state.activeFile.fileUri)!.parserOutput.parseTree;
+    assert.ok(program.analyzerNodeInfoContext.getFileInfo(parseTree));
+
+    program.emptyCache();
+
+    assert.ok(program.analyzerNodeInfoContext.getFileInfo(parseTree));
+});
+
 test('py.typed marker file', () => {
     const code = `
 // @filename: myPkg/__init__.py

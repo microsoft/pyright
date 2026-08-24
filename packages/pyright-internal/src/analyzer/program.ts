@@ -1751,10 +1751,10 @@ export class Program {
     }
 
     private _dropParseAndBindInfo(sourceFile: SourceFile) {
-        const parseTree = sourceFile.dropParseAndBindInfo();
-        if (parseTree) {
-            this._analyzerNodeInfoContext.remove(parseTree);
-        }
+        sourceFile.dropParseAndBindInfo();
+
+        // Types and declarations can retain parse nodes after the source file drops its
+        // parse tree. Keep their analyzer information available until the tree is collected.
     }
 
     private _addToSourceFileListAndMap(fileInfo: SourceFileInfo) {
