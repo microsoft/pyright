@@ -1155,6 +1155,7 @@ export class Program {
     // Discards any cached information associated with this program.
     emptyCache() {
         this._createNewEvaluator();
+        this._analyzerNodeInfoContext.clearRetainedStores();
         this._discardCachedParseResults();
         this._parsedFileCount = 0;
 
@@ -1251,7 +1252,10 @@ export class Program {
     // It does not discard cached index results or diagnostics for files.
     private _discardCachedParseResults() {
         for (const sourceFileInfo of this._sourceFileList) {
-            this._dropParseAndBindInfo(sourceFileInfo.sourceFile);
+            const parseTree = sourceFileInfo.sourceFile.dropParseAndBindInfo();
+            if (parseTree) {
+                this._analyzerNodeInfoContext.retainRemovedStore(parseTree);
+            }
         }
     }
 
@@ -1751,10 +1755,10 @@ export class Program {
     }
 
     private _dropParseAndBindInfo(sourceFile: SourceFile) {
-        sourceFile.dropParseAndBindInfo();
-
-        // Types and declarations can retain parse nodes after the source file drops its
-        // parse tree. Keep their analyzer information available until the tree is collected.
+        const parseTree = sourceFile.dropParseAndBindInfo();
+        if (parseTree) {
+            this._analyzerNodeInfoContext.remove(parseTree);
+        }
     }
 
     private _addToSourceFileListAndMap(fileInfo: SourceFileInfo) {

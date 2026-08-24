@@ -372,6 +372,14 @@ test('empty cache preserves analyzer information for retained parse trees', () =
     program.emptyCache();
 
     assert.ok(program.analyzerNodeInfoContext.getFileInfo(parseTree));
+
+    while (program.analyze());
+
+    const nextParseTree = program.getParseResults(state.activeFile.fileUri)!.parserOutput.parseTree;
+    program.emptyCache();
+
+    assert.strictEqual(program.analyzerNodeInfoContext.getFileInfo(parseTree), undefined);
+    assert.ok(program.analyzerNodeInfoContext.getFileInfo(nextParseTree));
 });
 
 test('py.typed marker file', () => {
