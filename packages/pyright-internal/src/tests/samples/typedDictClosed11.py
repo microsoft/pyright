@@ -97,3 +97,26 @@ def func7(td: Right) -> None:
     if "right" in td:
         reveal_type(td, expected_text="Right")
         reveal_type(td["right"], expected_text="int")
+
+
+def func8(td: Baz) -> None:
+    # "extra_items" constrains the type of the extra keys, not which of them
+    # are present, so an "in" check for a key that is not a known item cannot
+    # eliminate the type in either branch.
+    if "other" in td:
+        reveal_type(td, expected_text="Baz")
+    else:
+        reveal_type(td, expected_text="Baz")
+
+        # This should generate an error because "baz" is an int.
+        td["baz"] = ""
+
+
+def func9(td: Baz) -> None:
+    if "other" not in td:
+        reveal_type(td, expected_text="Baz")
+
+        # This should generate an error because "baz" is an int.
+        td["baz"] = ""
+    else:
+        reveal_type(td, expected_text="Baz")

@@ -2281,7 +2281,8 @@ function narrowTypeForTypedDictKey(
 
             if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
                 const entries = getTypedDictMembersForClass(evaluator, subtype, /* allowNarrowed */ true);
-                const tdEntry = entries.knownItems.get(literalKey.priv.literalValue as string) ?? entries.extraItems;
+                const knownEntry = entries.knownItems.get(literalKey.priv.literalValue as string);
+                const tdEntry = knownEntry ?? entries.extraItems;
 
                 if (isPositiveTest) {
                     // The code that is commented out below implements the behavior that is technically
@@ -2335,7 +2336,15 @@ function narrowTypeForTypedDictKey(
                         )
                     );
                 } else {
-                    return tdEntry !== undefined && (tdEntry.isRequired || tdEntry.isProvided) ? undefined : subtype;
+                    if (!knownEntry) {
+                        // The key is not one of the known items, so it can be supplied
+                        // only through an "extra items" entry, which says nothing about
+                        // whether this particular key is present. Its absence is therefore
+                        // consistent with the type, and the subtype cannot be eliminated.
+                        return subtype;
+                    }
+
+                    return knownEntry.isRequired || knownEntry.isProvided ? undefined : subtype;
                 }
             }
 
