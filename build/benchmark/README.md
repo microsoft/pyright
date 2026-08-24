@@ -107,13 +107,14 @@ result contract, and the comparator rejects mismatched environments.
 
 The hosted pull-request benchmark runs only when a maintainer comments exactly `/benchmark` on an
 open pull request. The command must be the entire comment. The trusted command workflow checks that
-the commenter has `write`, `maintain`, or `admin` repository permission and then toggles the
-`run-typecheck-benchmark` label. Users without one of these permissions cannot start the benchmark.
+the commenter has `write`, `maintain`, or `admin` repository permission and then explicitly dispatches
+the benchmark with the pull request's current head and base commits. Users without one of these
+permissions cannot start the benchmark.
 
-The label event runs the pull request's current head with read-only repository permissions. When the
-run completes, a separate trusted workflow validates that the result belongs to the pull request's
-current head, renders it using default-branch code, and creates or updates one benchmark comment. The
-Actions job summary and `typecheck-benchmark-linux-x64` artifact contain the same candidate results.
+The dispatched workflow runs the pull request's current head with read-only repository permissions.
+When the run completes, a separate trusted workflow validates that the result belongs to the pull
+request's current head, renders it using default-branch code, and creates or updates one benchmark
+comment. The Actions job summary and benchmark artifact contain the same candidate results.
 
 Comment `/benchmark` again after pushing a new commit or when rerunning the same head. No benchmark is
 started automatically for later commits. The command workflow must already exist on the repository's
@@ -176,10 +177,10 @@ or otherwise failed, it is reported as `No baseline` until a new hosted baseline
 The pull-request workflow also fails if any candidate package cannot be prepared or any checker
 times out, crashes, or otherwise fails, even when that package has no successful baseline yet.
 
-On pull requests, the benchmark pins Python 3.14.6, caches pip downloads using `install_envs.json` as
-the cache key, runs Pyright with a 6.5 GiB V8 old-space limit, and runs each package once with no
-discarded warmup. Each invocation may take up to 30 minutes. A regression must exceed both a 20%
-relative threshold and an absolute variance guard of 1
+On pull requests, the benchmark pins Python 3.14.6, disables shared dependency caches because it
+executes untrusted pull-request code, runs Pyright with a 6.5 GiB V8 old-space limit, and runs each
+package once with no discarded warmup. Each invocation may take up to 30 minutes. A regression must
+exceed both a 20% relative threshold and an absolute variance guard of 1
 second for time or 100 MB for peak memory. These are the comparator defaults, so the gate and trusted
 comment renderer share one configuration source. Reports and artifacts are published before a failed
 comparison marks the job unsuccessful.
