@@ -17,6 +17,13 @@ BAD_CALL3 = Sentinel(1)
 
 MISSING = Sentinel("MISSING")
 
+
+def accept_sentinel(value: Sentinel) -> None:
+    pass
+
+
+accept_sentinel(MISSING)
+
 type TA1 = int | MISSING
 
 TA2: TypeAlias = int | MISSING

@@ -20,6 +20,7 @@ export function createSentinelType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     argList: Arg[],
+    sentinelBaseClass: ClassType,
     nodeInfo: AnalyzerNodeInfoAccessor
 ): Type | undefined {
     let className = '';
@@ -70,10 +71,10 @@ export function createSentinelType(
         ClassTypeFlags.Final | ClassTypeFlags.ValidTypeAliasClass,
         getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
-        evaluator.getTypeClassType()
+        sentinelBaseClass.shared.effectiveMetaclass
     );
 
-    classType.shared.baseClasses.push(evaluator.getObjectType());
+    classType.shared.baseClasses.push(sentinelBaseClass);
     computeMroLinearization(classType);
     classType = ClassType.cloneWithLiteral(classType, new SentinelLiteral(fullClassName, className));
 
