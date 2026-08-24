@@ -491,6 +491,7 @@ export class SourceFile {
         this._writableData.parsedFileContentsHash = undefined;
         this._writableData.moduleSymbolTable = undefined;
         this._writableData.isBindingNeeded = true;
+        this._writableData.importInfo = [];
         this._writableData.imports = [];
         return parseTree;
     }

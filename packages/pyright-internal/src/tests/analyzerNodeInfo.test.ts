@@ -87,9 +87,12 @@ test('context retains stores with reachable parse trees', () => {
     const firstFileInfo = {} as AnalyzerFileInfo;
     const secondFileInfo = {} as AnalyzerFileInfo;
 
-    context.registerStore(firstRoot, createStoreWithFileInfo(firstRoot, firstFileInfo));
+    const firstStore = createStoreWithFileInfo(firstRoot, firstFileInfo);
+    firstStore.getOrCreate(firstRoot).codeFlowComplexity = 1;
+    context.registerStore(firstRoot, firstStore);
     context.retainRemovedStore(firstRoot);
     assert.equal(context.getFileInfo(firstRoot), firstFileInfo);
+    assert.equal(context.get(firstRoot)?.codeFlowComplexity, 1);
 
     context.registerStore(secondRoot, createStoreWithFileInfo(secondRoot, secondFileInfo));
     context.retainRemovedStore(secondRoot);
