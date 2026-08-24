@@ -8,17 +8,23 @@ on:
 permissions:
   contents: read
   issues: write
+  pull-requests: write
 
 jobs:
   trigger:
     name: Authorize benchmark request
-    if: ${{ github.event.issue.pull_request && github.event.issue.state == 'open' && github.event.comment.body == '/benchmark' }}
+    if: ${{ github.event.issue.pull_request && github.event.issue.state == 'open' && startsWith(github.event.comment.body, '/benchmark') }}
     runs-on: ubuntu-latest
     steps:
       - name: Trigger benchmark for authorized maintainer
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
+            if (context.payload.comment.body.trim() !== '/benchmark') {
+              core.notice('The benchmark command must be the entire comment')
+              return
+            }
+
             const permission = await github.rest.repos.getCollaboratorPermissionLevel({
               owner: context.repo.owner,
               repo: context.repo.repo,
