@@ -126,5 +126,13 @@ class VariadicKeywordOnlyCallback(Protocol):
 
 variadic_keyword_only_callback: VariadicKeywordOnlyCallback = lambda *args, value: assert_type(value, int)
 
+# The bare `*` separator should not consume the contextual parameter index.
+bare_keyword_only_callback: KeywordOnlyIntCallback = lambda *, value: assert_type(value, int)
+
+# This should generate an error because the keyword-only parameter name differs.
+variadic_keyword_only_callback_different_name: VariadicKeywordOnlyCallback = lambda *args, other: reveal_type(
+    other, expected_text="Unknown"
+)
+
 # This should generate an error.
 position_only_keyword_callback: KeywordOnlyIntCallback = lambda value, /: value
