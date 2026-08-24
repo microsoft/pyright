@@ -1251,7 +1251,10 @@ export class Program {
     // It does not discard cached index results or diagnostics for files.
     private _discardCachedParseResults() {
         for (const sourceFileInfo of this._sourceFileList) {
-            this._dropParseAndBindInfo(sourceFileInfo.sourceFile);
+            const parseTree = sourceFileInfo.sourceFile.dropParseAndBindInfo();
+            if (parseTree) {
+                this._analyzerNodeInfoContext.retainRemovedStore(parseTree);
+            }
         }
     }
 
