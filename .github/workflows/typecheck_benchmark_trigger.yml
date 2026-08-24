@@ -6,9 +6,9 @@ on:
       - created
 
 permissions:
+  actions: write
   contents: read
-  issues: write
-  pull-requests: write
+  pull-requests: read
 
 jobs:
   trigger:
@@ -36,35 +36,20 @@ jobs:
               return
             }
 
-            const label = 'run-typecheck-benchmark'
-            try {
-              await github.rest.issues.getLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: label,
-              })
-            } catch (error) {
-              if (error.status !== 404) throw error
-              await github.rest.issues.createLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: label,
-                color: '1d76db',
-                description: 'Run the type checker performance benchmark',
-              })
-            }
-
-            if (context.payload.issue.labels.some((item) => item.name === label)) {
-              await github.rest.issues.removeLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                name: label,
-              })
-            }
-            await github.rest.issues.addLabels({
+            const pullRequest = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
-              labels: [label],
+              pull_number: context.issue.number,
+            })
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'typecheck_benchmark_pr.yml',
+              ref: context.payload.repository.default_branch,
+              inputs: {
+                pr_number: String(context.issue.number),
+                head_sha: pullRequest.data.head.sha,
+                head_repository: pullRequest.data.head.repo.full_name,
+                base_sha: pullRequest.data.base.sha,
+              },
             })

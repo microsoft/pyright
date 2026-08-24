@@ -1,4 +1,5 @@
 name: Type checker benchmark
+run-name: Type checker benchmark for PR #${{ inputs.pr_number }}
 
 env:
   BENCHMARK_RUNNER_CLASS: 'github-ubuntu-latest'
@@ -6,18 +7,32 @@ env:
   PYTHON_VERSION: '3.14.6'
 
 on:
-  pull_request:
-    types:
-      - labeled
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number
+        required: true
+        type: string
+      head_sha:
+        description: Pull request head commit
+        required: true
+        type: string
+      head_repository:
+        description: Pull request head repository
+        required: true
+        type: string
+      base_sha:
+        description: Pull request base commit
+        required: true
+        type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
   benchmark:
     name: Compare Pyright performance
-    if: ${{ github.event.label.name == 'run-typecheck-benchmark' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
@@ -25,6 +40,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ inputs.head_repository }}
+          ref: ${{ inputs.head_sha }}
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -55,7 +73,7 @@ jobs:
       - name: Check out trusted baseline
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          ref: ${{ inputs.base_sha }}
           path: benchmark-baseline
           sparse-checkout: build/benchmark/baselines
 
@@ -106,7 +124,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: typecheck-benchmark-linux-x64
+          name: typecheck-benchmark-linux-x64-pr-${{ inputs.pr_number }}-sha-${{ inputs.head_sha }}
           path: build/benchmark/results/
 
       - name: Fail on benchmark regressions
