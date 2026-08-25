@@ -8,6 +8,7 @@ import assert from 'assert';
 
 import { CancellationToken } from 'vscode-jsonrpc';
 import { InvalidatedReason } from '../analyzer/backgroundAnalysisProgram';
+import { getNextServiceId } from '../analyzer/service';
 import { SourceEnumerator } from '../analyzer/sourceEnumerator';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { NullConsole } from '../common/console';
@@ -29,6 +30,107 @@ test('random library file changed', () => {
         ),
         true
     );
+});
+
+test('service clone preserves effective configuration', () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////     "stubPath": "custom-stubs",
+////     "extraPaths": ["shared"],
+////     "executionEnvironments": [
+////         { "root": "src", "extraPaths": ["src-extra"] },
+////         { "root": "tests", "extraPaths": ["test-extra"] }
+////     ]
+//// }
+//
+// @filename: src/main.py
+//// import sample
+//
+// @filename: sample/__init__.py
+// @library: true
+//// def answer(): return 42
+`;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const options = new CommandLineOptions('/projectRoot', /* fromLanguageServer */ true);
+    options.languageServerSettings.pythonPath = '/custom/python';
+    state.workspace.service.setOptions(options);
+
+    const clone = state.workspace.service.clone('test clone', getNextServiceId('test clone'));
+
+    try {
+        const originalConfig = state.workspace.service.getConfigOptions();
+        const cloneConfig = clone.getConfigOptions();
+        assert.strictEqual(cloneConfig.projectRoot.toString(), originalConfig.projectRoot.toString());
+        assert.strictEqual(cloneConfig.stubPath?.toString(), originalConfig.stubPath?.toString());
+        assert.strictEqual(cloneConfig.pythonPath?.toString(), originalConfig.pythonPath?.toString());
+        assert.deepStrictEqual(
+            cloneConfig.defaultExtraPaths?.map((uri) => uri.toString()),
+            originalConfig.defaultExtraPaths?.map((uri) => uri.toString())
+        );
+        assert.deepStrictEqual(
+            cloneConfig.executionEnvironments.map((env) => ({
+                root: env.root?.toString(),
+                extraPaths: env.extraPaths.map((uri) => uri.toString()),
+            })),
+            originalConfig.executionEnvironments.map((env) => ({
+                root: env.root?.toString(),
+                extraPaths: env.extraPaths.map((uri) => uri.toString()),
+            }))
+        );
+    } finally {
+        clone.dispose();
+    }
+});
+
+test('service clone preserves directly configured options', () => {
+    const code = `
+// @filename: sample/__init__.py
+// @library: true
+//// def answer(): return 42
+`;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+
+    const originalConfig = state.workspace.service.getConfigOptions();
+    const clone = state.workspace.service.clone('test clone', getNextServiceId('test clone'));
+
+    try {
+        assert.strictEqual(clone.getConfigOptions(), originalConfig);
+        assert.strictEqual(clone.getImportResolver().getConfigOptions(), originalConfig);
+    } finally {
+        clone.dispose();
+    }
+});
+
+test('service clone program mutations do not affect the parent', () => {
+    const code = `
+// @filename: main.py
+//// value = 1
+//
+// @filename: sample/__init__.py
+// @library: true
+//// def answer(): return 42
+`;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const parent = state.workspace.service;
+    const parentConfig = parent.getConfigOptions();
+    const parentConfigSnapshot = { ...parentConfig };
+    const parentUserFiles = parent.getUserFiles();
+    const parentAllowedImportsSpy = jest.spyOn(parent.test_program, 'setAllowedThirdPartyImports');
+    const clone = parent.clone('test clone', getNextServiceId('test clone'));
+    const sampleUri = Uri.file('/sample/__init__.py', state.serviceProvider);
+
+    try {
+        clone.backgroundAnalysisProgram.setAllowedThirdPartyImports(['sample']);
+        clone.backgroundAnalysisProgram.setTrackedFiles([sampleUri]);
+
+        assert.strictEqual(parentAllowedImportsSpy.mock.calls.length, 0);
+        assert.deepStrictEqual(parent.getUserFiles(), parentUserFiles);
+        assert.deepStrictEqual({ ...parent.getConfigOptions() }, parentConfigSnapshot);
+        assert.deepStrictEqual(clone.getUserFiles(), [sampleUri]);
+    } finally {
+        clone.dispose();
+    }
 });
 
 test('random library file starting with . changed', () => {

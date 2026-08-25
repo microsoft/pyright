@@ -63,6 +63,7 @@ import {
     TypeCondition,
     TypeFlags,
     TypeSameOptions,
+    UnionableType,
     TypeVarScopeId,
     TypeVarScopeType,
     TypeVarTupleType,
@@ -3466,6 +3467,219 @@ export function simplifyFunctionToParamSpec(type: FunctionType): FunctionType | 
     }
 
     return type;
+}
+
+// Recursively transforms two structurally-aligned type trees. The callback
+// decides whether an aligned node should be replaced; this function owns only
+// the traversal and cloning needed to preserve the source tree's shape.
+export function transformTypePair(
+    sourceType: Type,
+    targetType: Type,
+    transformNode: (sourceNode: Type, targetNode: Type) => Type | undefined
+): Type {
+    return transformTypePairRecursive(sourceType, targetType, transformNode, new Set<Type>(), 0);
+}
+
+function transformTypePairRecursive(
+    sourceType: Type,
+    targetType: Type,
+    transformNode: (sourceNode: Type, targetNode: Type) => Type | undefined,
+    pendingTypes: Set<Type>,
+    recursionCount: number
+): Type {
+    const replacementType = transformNode(sourceType, targetType);
+    if (replacementType) {
+        return replacementType;
+    }
+
+    if (recursionCount > maxTypeRecursionCount || pendingTypes.has(sourceType)) {
+        return sourceType;
+    }
+
+    pendingTypes.add(sourceType);
+    try {
+        if (isFunction(sourceType) && isFunction(targetType)) {
+            if (sourceType.shared.parameters.length !== targetType.shared.parameters.length) {
+                return sourceType;
+            }
+
+            const parameterTypes = sourceType.shared.parameters.map((_, index) =>
+                transformTypePairRecursive(
+                    FunctionType.getParamType(sourceType, index),
+                    FunctionType.getParamType(targetType, index),
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                )
+            );
+            const parameterDefaultTypes = sourceType.shared.parameters.map((_, index) => {
+                const sourceDefaultType = FunctionType.getParamDefaultType(sourceType, index);
+                const targetDefaultType = FunctionType.getParamDefaultType(targetType, index);
+                return sourceDefaultType && targetDefaultType
+                    ? transformTypePairRecursive(
+                          sourceDefaultType,
+                          targetDefaultType,
+                          transformNode,
+                          pendingTypes,
+                          recursionCount + 1
+                      )
+                    : sourceDefaultType;
+            });
+            const sourceReturnType = FunctionType.getEffectiveReturnType(sourceType);
+            const targetReturnType = FunctionType.getEffectiveReturnType(targetType);
+            const returnType =
+                sourceReturnType && targetReturnType
+                    ? transformTypePairRecursive(
+                          sourceReturnType,
+                          targetReturnType,
+                          transformNode,
+                          pendingTypes,
+                          recursionCount + 1
+                      )
+                    : sourceReturnType;
+
+            if (
+                parameterTypes.every((type, index) => type === FunctionType.getParamType(sourceType, index)) &&
+                parameterDefaultTypes.every(
+                    (type, index) => type === FunctionType.getParamDefaultType(sourceType, index)
+                ) &&
+                returnType === sourceReturnType
+            ) {
+                return sourceType;
+            }
+
+            const transformedType = FunctionType.clone(sourceType);
+            transformedType.priv.specializedTypes = {
+                parameterTypes,
+                parameterDefaultTypes,
+                returnType,
+            };
+            return transformedType;
+        }
+
+        if (isTypeVar(sourceType) && isTypeVar(targetType)) {
+            if (sourceType.shared.constraints.length !== targetType.shared.constraints.length) {
+                return sourceType;
+            }
+
+            const constraints = sourceType.shared.constraints.map((constraint, index) =>
+                transformTypePairRecursive(
+                    constraint,
+                    targetType.shared.constraints[index],
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                )
+            );
+            const boundType =
+                sourceType.shared.boundType && targetType.shared.boundType
+                    ? transformTypePairRecursive(
+                          sourceType.shared.boundType,
+                          targetType.shared.boundType,
+                          transformNode,
+                          pendingTypes,
+                          recursionCount + 1
+                      )
+                    : sourceType.shared.boundType;
+            const defaultType = transformTypePairRecursive(
+                sourceType.shared.defaultType,
+                targetType.shared.defaultType,
+                transformNode,
+                pendingTypes,
+                recursionCount + 1
+            );
+
+            if (
+                constraints.every((type, index) => type === sourceType.shared.constraints[index]) &&
+                boundType === sourceType.shared.boundType &&
+                defaultType === sourceType.shared.defaultType
+            ) {
+                return sourceType;
+            }
+
+            const transformedType = TypeBase.cloneType(sourceType);
+            transformedType.shared = {
+                ...sourceType.shared,
+                constraints,
+                boundType,
+                defaultType,
+            };
+            return transformedType;
+        }
+
+        if (isUnion(sourceType) && isUnion(targetType)) {
+            if (sourceType.priv.subtypes.length !== targetType.priv.subtypes.length) {
+                return sourceType;
+            }
+
+            const subtypes: UnionableType[] = sourceType.priv.subtypes.map((subtype, index) => {
+                const transformedSubtype = transformTypePairRecursive(
+                    subtype,
+                    targetType.priv.subtypes[index],
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                );
+                return isNever(transformedSubtype) || isUnion(transformedSubtype) ? subtype : transformedSubtype;
+            });
+            if (subtypes.every((type, index) => type === sourceType.priv.subtypes[index])) {
+                return sourceType;
+            }
+
+            const transformedType = TypeBase.cloneType(sourceType);
+            transformedType.priv.subtypes = subtypes;
+            return transformedType;
+        }
+
+        if (isClass(sourceType) && isClass(targetType)) {
+            if (
+                sourceType.shared.fullName !== targetType.shared.fullName ||
+                TypeBase.isInstance(sourceType) !== TypeBase.isInstance(targetType) ||
+                sourceType.priv.typeArgs?.length !== targetType.priv.typeArgs?.length ||
+                sourceType.priv.tupleTypeArgs?.length !== targetType.priv.tupleTypeArgs?.length
+            ) {
+                return sourceType;
+            }
+
+            const typeArgs = sourceType.priv.typeArgs?.map((typeArg, index) =>
+                transformTypePairRecursive(
+                    typeArg,
+                    targetType.priv.typeArgs![index],
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                )
+            );
+            const tupleTypeArgs = sourceType.priv.tupleTypeArgs?.map((tupleTypeArg, index) => ({
+                ...tupleTypeArg,
+                type: transformTypePairRecursive(
+                    tupleTypeArg.type,
+                    targetType.priv.tupleTypeArgs![index].type,
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                ),
+            }));
+
+            if (
+                !typeArgs?.some((type, index) => type !== sourceType.priv.typeArgs![index]) &&
+                !tupleTypeArgs?.some(
+                    (tupleTypeArg, index) => tupleTypeArg.type !== sourceType.priv.tupleTypeArgs![index].type
+                )
+            ) {
+                return sourceType;
+            }
+
+            const transformedType = TypeBase.cloneType(sourceType);
+            transformedType.priv.typeArgs = typeArgs;
+            transformedType.priv.tupleTypeArgs = tupleTypeArgs;
+            return transformedType;
+        }
+
+        return sourceType;
+    } finally {
+        pendingTypes.delete(sourceType);
+    }
 }
 
 // Recursively walks a type and calls a callback for each TypeVar, allowing

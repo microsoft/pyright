@@ -19,7 +19,7 @@ import {
 import { InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 import { ImportResolver } from './analyzer/importResolver';
 import { OpenFileOptions, Program } from './analyzer/program';
-import { TypeStubWriter } from './analyzer/typeStubWriter';
+import { generateTypeStubFiles, TypeStubGenerationPlan, TypeStubGenerationResult } from './analyzer/typeStubGeneration';
 import {
     BackgroundThreadBase,
     InitializationData,
@@ -66,12 +66,7 @@ export interface IBackgroundAnalysis extends Disposable {
     analyzeFile(fileUri: Uri, token: CancellationToken): Promise<boolean>;
     analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<Diagnostic[]>;
     getDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]>;
-    writeTypeStub(
-        targetImportPath: Uri,
-        targetIsSingleFile: boolean,
-        stubPath: Uri,
-        token: CancellationToken
-    ): Promise<any>;
+    generateTypeStubFiles(plan: TypeStubGenerationPlan, token: CancellationToken): Promise<TypeStubGenerationResult>;
     invalidateAndForceReanalysis(reason: InvalidatedReason): void;
     restart(): void;
     shutdown(): void;
@@ -243,33 +238,27 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
         return convertDiagnostics(result);
     }
 
-    async writeTypeStub(
-        targetImportPath: Uri,
-        targetIsSingleFile: boolean,
-        stubPath: Uri,
+    async generateTypeStubFiles(
+        plan: TypeStubGenerationPlan,
         token: CancellationToken
-    ): Promise<any> {
+    ): Promise<TypeStubGenerationResult> {
         throwIfCancellationRequested(token);
 
         const { port1, port2 } = new MessageChannel();
-        const waiter = getBackgroundWaiter(port1);
+        const waiter = getBackgroundWaiter<TypeStubGenerationResult>(port1);
 
         const cancellationId = getCancellationTokenId(token);
         this.enqueueRequest({
-            requestType: 'writeTypeStub',
-            data: serialize({
-                targetImportPath,
-                targetIsSingleFile,
-                stubPath,
-                cancellationId,
-            }),
+            requestType: 'generateTypeStubFiles',
+            data: serialize({ plan, cancellationId }),
             port: port2,
         });
 
-        await waiter;
+        const result = await waiter;
 
         port2.close();
         port1.close();
+        return result;
     }
 
     invalidateAndForceReanalysis(reason: InvalidatedReason) {
@@ -483,12 +472,12 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
                 break;
             }
 
-            case 'writeTypeStub': {
+            case 'generateTypeStubFiles': {
                 run(() => {
-                    const { targetImportPath, targetIsSingleFile, stubPath, cancellationId } = deserialize(msg.data);
+                    const { plan, cancellationId } = deserialize(msg.data);
                     const token = getCancellationTokenFromId(cancellationId);
 
-                    this.handleWriteTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
+                    return this.handleGenerateTypeStubFiles(plan, token);
                 }, msg.port!);
                 break;
             }
@@ -640,20 +629,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         return this.program.getDiagnosticsForRange(fileUri, range);
     }
 
-    protected handleWriteTypeStub(
-        targetImportPath: Uri,
-        targetIsSingleFile: boolean,
-        stubPath: Uri,
-        token: CancellationToken
-    ) {
-        new TypeStubWriter(this.program).writeTypeStub(
-            {
-                targetImportPath,
-                targetIsSingleFile,
-                outputPath: stubPath,
-            },
-            token
-        );
+    protected handleGenerateTypeStubFiles(plan: TypeStubGenerationPlan, token: CancellationToken) {
+        return generateTypeStubFiles(this.program, plan, token);
     }
 
     protected handleSetImportResolver(hostKind: HostKind) {
@@ -866,7 +843,7 @@ export type BackgroundRequestKind =
     | 'invalidateAndForceReanalysis'
     | 'restart'
     | 'getDiagnosticsForRange'
-    | 'writeTypeStub'
+    | 'generateTypeStubFiles'
     | 'setImportResolver'
     | 'shutdown'
     | 'addInterimFile'

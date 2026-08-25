@@ -1266,6 +1266,14 @@ export namespace ClassType {
         return !!(classType.shared.flags & ClassTypeFlags.EnumMemberSetMayBeDynamicallyModified);
     }
 
+    export function isNamedTupleClass(classType: ClassType) {
+        return classType.shared.namedTupleEntries !== undefined;
+    }
+
+    export function isDefinedAtSource(classType: ClassType, fileUri: Uri, typeSourceId: TypeSourceId) {
+        return classType.shared.fileUri.equals(fileUri) && classType.shared.typeSourceId === typeSourceId;
+    }
+
     export function isPropertyClass(classType: ClassType) {
         return !!(classType.shared.flags & ClassTypeFlags.PropertyClass);
     }

@@ -414,12 +414,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }
     }
 
-    updateOptionsAndRestartService(
-        workspace: Workspace,
-        serverSettings: ServerSettings,
-        typeStubTargetImportName?: string
-    ) {
-        AnalyzerServiceExecutor.runWithOptions(workspace, serverSettings, { typeStubTargetImportName });
+    updateOptionsAndRestartService(workspace: Workspace, serverSettings: ServerSettings) {
+        AnalyzerServiceExecutor.runWithOptions(workspace, serverSettings);
         workspace.searchPathsToWatch = workspace.service.librarySearchUrisToWatch ?? [];
     }
     protected get workspaceDiagnosticsReporter() {

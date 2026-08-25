@@ -1,7 +1,7 @@
 {
   "graph_path": "packages/pyright/.rpg/rpg_encoder.json",
-  "graph_repo_sha": "af737e1f2106f0fcd1e4c921a347f7873066cad4",
-  "graph_generated_at": "2026-06-30T03:45:39.077Z",
+  "graph_repo_sha": "e0be7309f03087ff2de8caaf2deb469dd00881d3",
+  "graph_generated_at": "2026-08-20T06:55:06.201Z",
   "renderer_version": 1,
   "files": [
     {
@@ -10,103 +10,119 @@
     },
     {
       "path": "README.md",
-      "sha256": "3b49a3b8fa79696c8ac1bbc271fff6154aa92fc13759aacc087afa619856be3f"
+      "sha256": "fbce3f456e8813c2f9da1ccdf790f4c8029ffbb6e04c9a8615341281785529f5"
     },
     {
       "path": "feature-map.md",
-      "sha256": "d0b45ce6dd004cdeef8cd1834c8c1b6a0fd572aa5f8c7427ea3ff9e83f1378b1"
+      "sha256": "770d5231e58fda95c9b96c1ed4f72184be922a392bd7f5a7a256fab6c423537b"
     },
     {
       "path": "features/.pages",
-      "sha256": "3fcee5050993206e91df815e4927033cecee1205e6defa8835e45670993cad20"
+      "sha256": "97dca89c1c80d394d1dfbde7a10367d028413e04e65c573463169bf8146a65bb"
     },
     {
       "path": "features/feat-cli-and-vs-code-extension.md",
-      "sha256": "e84edbf0b8b621477b5b4feb8a22dd21ce4d82cdcefd90354115401dfc25858d"
+      "sha256": "21326ac198aa0865bdb1e5bfeeb2d5d85afb9e05214cb0353048a25e9f7c612c"
     },
     {
       "path": "features/feat-constraint-solving-and-type-variables.md",
-      "sha256": "7d007155dfd7df8da21819129f9edc72eeb8fdc955d282203c43008c72f94990"
+      "sha256": "5638566897a1edd146263b9b0841c44e231d8730bf84a1df31116a58231e59dd"
     },
     {
       "path": "features/feat-diagnostics-and-configuration.md",
-      "sha256": "6234d51d0548c497a5cbb0fd1ef4d67d630f932e80c8cef56f19028e3ab0b28a"
+      "sha256": "cfaf8ee279e1b9250b7104476f372705ccd7fd91a67af89755112f56ba6dc509"
     },
     {
       "path": "features/feat-documentation-and-comments.md",
-      "sha256": "2bd4228f76cc7d9edf30f4f0752f3de7e9d627cf88da1c7c537576ff5c983802"
+      "sha256": "66bef7cc5507320b16f355bdff41fbd4922dbc54e7a355e41fcfc222be488d27"
     },
     {
       "path": "features/feat-flow-narrowing-and-type-guards.md",
-      "sha256": "e5d45eaf85b69a4c85db0f5e7f379a58c2e2ca27356fb0a7defdba74b867ab95"
+      "sha256": "0e8575e1aa8b1f737e4155b2910257f23bca4859689429863fcc6ea492cef63e"
     },
     {
       "path": "features/feat-import-resolution-and-packaging.md",
-      "sha256": "ed538c8981eb6f9bd8dc14d02b0d5851e8768834c4ff4f7745c52a49c4f67d29"
+      "sha256": "0fa6594e25eb008817a956b30da4a6bf2599bf78a75181dad65a37ab1896e93f"
     },
     {
       "path": "features/feat-language-service-providers.md",
-      "sha256": "97087c7ad903739c1aeab7096cf103aa5f877c493542518202432eff5f0ff54b"
+      "sha256": "f5fb99b0447f7cc8fed5c3b064fe8993ed5140042c80c89baecb6659b1cb8903"
     },
     {
       "path": "features/feat-parser-binder-and-symbols.md",
-      "sha256": "1c2f8c1b6ee8e1a976720964752f4bef1280b384c350f1b67f5bb1699b35cd17"
+      "sha256": "ed184b7c6c6c010b520d22a95815c981eeab570bd70b9a3cfff5f2c91623e29a"
     },
     {
       "path": "features/feat-program-analysis-and-scheduling.md",
-      "sha256": "2b5dc721130e5b8e99d06bbe93e8fb410b7cf6de38afca35bd542a583cf309e6"
+      "sha256": "2be6c534eade2ca604aec04a752c626fbaf0627d6796787109c75a619c614b8b"
     },
     {
       "path": "features/feat-shared-runtime-infrastructure.md",
-      "sha256": "74bee69303072454f8cb518050f6dab4f717c70e19625fa17cc804cfe001bc59"
+      "sha256": "c937f85213c33746e5894e36cdadffeac364a94978cf7d218b6c9dfaea3fd31f"
     },
     {
       "path": "features/feat-type-evaluation.md",
-      "sha256": "2870507edd4fac7d4900eb6124021b6c034690653b2ebe427e8dea30b25a21ed"
+      "sha256": "b0ebd0002fadd751b20f25968a8aaf0ecb88f1ce2ae3aee7563ddff05c1bf0c4"
+    },
+    {
+      "path": "features/feat-unmapped-implementation.md",
+      "sha256": "8b2352cc6d878caaa276048e1818454aca0c7e35cae114894dafbac32006a49a"
     },
     {
       "path": "pyright-engineering-map.md",
-      "sha256": "bde5cc64b7208d4775e56bd1989e0db5517217e5c37ae6d26e994c2585c705a1"
+      "sha256": "08fea7776d988bc28d3e37c07f7f8fd964a616880e8a685f7428a3ab6781229d"
     },
     {
       "path": "subsystems/.pages",
-      "sha256": "1446864c9b25f8403c7a04a5c3d918698c547496aa3eb3c5e1a9bdc7417e3843"
+      "sha256": "0f6227f58099e84cd8f66dd25ac443d40b6f6e06f316bb1ca2ecc90330fe941c"
     },
     {
       "path": "subsystems/analyzer.md",
-      "sha256": "4b400e54ff5b7928d1d7b31e777f8caecf2bc62551ff916ef63881a0528f9c4c"
+      "sha256": "95de040c118cb0688f88250c8d83ed4416d45d4b2d4bdfb49b4cc62625052c58"
     },
     {
       "path": "subsystems/commands.md",
-      "sha256": "ec9163039654cf6d5fdc65419758888311f619c3395379a345cbf40003483ac5"
+      "sha256": "12c50073d93ad8b8b2a4f3323864b8c55eee5737646e9f18f8f92c0d4e6a0f70"
     },
     {
       "path": "subsystems/common.md",
-      "sha256": "16a2e9aa908bfe38754c7cb6e762e2814ae1a67931b8928732e089a8eb872d6e"
+      "sha256": "8c74916216e3ea79db1f0f26de20f9bf1e35f07250518fd7eea45175f6adaf68"
     },
     {
       "path": "subsystems/languageservice.md",
-      "sha256": "e14eb80152d6ceb095bbc938862dc323891758bd7d8751cf3a0fb6ecfb5ae07a"
+      "sha256": "ff5b7446f8c4ac4b7a73fbf665200a2f0488b98f07e01caa0ad86df9e6f9bb70"
     },
     {
       "path": "subsystems/localization.md",
-      "sha256": "d89def6773a47a8f3ef46e0aaf706fac329e50f5834934128840a6dfad0ac4e1"
+      "sha256": "3a7cc7eafb9042c9dd843cb7501fea9b5d92b334012616d569db8d228e8b861d"
+    },
+    {
+      "path": "subsystems/node.md",
+      "sha256": "399133ed1ff5e05951a8d5b0e94051e9e9e8589a5879463c136d4c00d44a204c"
     },
     {
       "path": "subsystems/parser.md",
-      "sha256": "d3034e48c7fb81f10102df4514ee1bdca3c6d8233f8e8e74643873f8732a878b"
+      "sha256": "74efb88cbd65f19d15d798d6ecc64b664eae44d8c8aa0bf28a69506516cdead2"
     },
     {
       "path": "subsystems/pprof.md",
-      "sha256": "ad141c94430bf2789597d04d964b6cde0a119ec04d404a5e5c3bbd8b792ba34f"
+      "sha256": "309cce4c5f317ef46cc1d9080f1528183b7543408e6e34f884b8757d50c7a4bb"
+    },
+    {
+      "path": "subsystems/protocol.md",
+      "sha256": "c473638078c9555fadeea86c0c40fe51e3492612c51485bb0a15403071843f4f"
     },
     {
       "path": "subsystems/src.md",
-      "sha256": "fc09f654579f9b2b545bc044d535d16c18f431570a1afa103473685a7fa2e263"
+      "sha256": "5a9805aa6cf524b9ad4f2789029785028657faff7fce6d8d31520ffc6c01c6e8"
+    },
+    {
+      "path": "subsystems/typeserver.md",
+      "sha256": "92b34c5803844d6d5536bcf3bf0addc16f7e9304a4cac96f3f1c6d9788ea328f"
     },
     {
       "path": "subsystems/uri.md",
-      "sha256": "f560800a11404a12f5ccd32c7df2a0790c60c95e91be6334b39ddeb7b2731bb8"
+      "sha256": "ff1eed89dbed439ea9c3c7e4f4d93df584a1eab2df49daefbdc2977643cb5ece"
     }
   ]
 }

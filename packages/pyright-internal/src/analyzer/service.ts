@@ -42,7 +42,6 @@ import {
     getFileSpec,
     hasPythonExtension,
     isDirectory,
-    isFile,
     tryStat,
 } from '../common/uri/uriUtils';
 import { AnalysisCompleteCallback } from './analysis';
@@ -52,7 +51,7 @@ import {
     InvalidatedReason,
 } from './backgroundAnalysisProgram';
 import { ImportLogger } from './importLogger';
-import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor } from './importResolver';
+import { ImportResolver, ImportResolverFactory } from './importResolver';
 import { ChangedRange, MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import {
@@ -102,11 +101,9 @@ export interface AnalyzerServiceOptions {
     shouldRunAnalysis: () => boolean;
 }
 
-export interface TypeStubTargetInfo {
-    outputPath: Uri;
-    stubPath: Uri;
-    targetImportPath: Uri;
-    targetIsSingleFile: boolean;
+interface AnalyzerServiceCloneOptions {
+    backgroundAnalysis?: IBackgroundAnalysis;
+    fileSystem?: FileSystem;
 }
 
 interface ConfigFileContents {
@@ -128,8 +125,6 @@ export class AnalyzerService {
 
     private _instanceName: string;
     private _executionRootUri: Uri;
-    private _typeStubTargetUri: Uri | undefined;
-    private _typeStubTargetIsSingleFile = false;
     private _sourceFileWatcher: FileWatcher | undefined;
     private _reloadConfigTimer: any;
     private _libraryReanalysisTimer: any;
@@ -237,19 +232,18 @@ export class AnalyzerService {
         this._instanceName = instanceName;
     }
 
-    clone(
-        instanceName: string,
-        serviceId: string,
-        backgroundAnalysis?: IBackgroundAnalysis,
-        fileSystem?: FileSystem
-    ): AnalyzerService {
+    clone(instanceName: string, serviceId: string, options: AnalyzerServiceCloneOptions = {}): AnalyzerService {
+        // Share the current effective configuration, but keep transient tracked-file and import state on each Program.
         const service = new AnalyzerService(instanceName, this._serviceProvider, {
             ...this.options,
             serviceId,
-            backgroundAnalysis,
+            backgroundAnalysis: options.backgroundAnalysis,
+            configOptions: this._configOptions,
             skipScanningUserFiles: true,
-            fileSystem,
+            fileSystem: options.fileSystem,
         });
+        service.backgroundAnalysisProgram.setConfigOptions(service.getConfigOptions());
+        service.backgroundAnalysisProgram.setImportResolver(service.getImportResolver());
 
         // Cloned service will use whatever user files the service currently has.
         const userFiles = this.getUserFiles();
@@ -506,32 +500,6 @@ export class AnalyzerService {
         return this._shouldHandleLibraryFileWatchChanges(uri, libSearchUris);
     }
 
-    getTypeStubTargetInfo(): TypeStubTargetInfo {
-        const stubPath =
-            this._configOptions.stubPath ??
-            this.fs.realCasePath(this._configOptions.projectRoot.resolvePaths(defaultStubsDirectory));
-
-        if (!this._typeStubTargetUri || !this._typeStubTargetImportName) {
-            const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
-            this._console.error(errMsg);
-            throw new Error(errMsg);
-        }
-
-        const typeStubInputTargetParts = this._typeStubTargetImportName.split('.');
-        if (typeStubInputTargetParts[0].length === 0) {
-            const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
-            this._console.error(errMsg);
-            throw new Error(errMsg);
-        }
-
-        return {
-            outputPath: stubPath.resolvePaths(typeStubInputTargetParts[0]),
-            stubPath,
-            targetImportPath: this._typeStubTargetUri,
-            targetIsSingleFile: this._typeStubTargetIsSingleFile,
-        };
-    }
-
     invalidateAndScheduleReanalysis(reason: InvalidatedReason) {
         this.invalidateAndForceReanalysis(reason);
         this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
@@ -771,10 +739,6 @@ export class AnalyzerService {
 
     private get _verboseOutput(): boolean {
         return !!this._configOptions.verboseOutput;
-    }
-
-    private get _typeStubTargetImportName() {
-        return this._commandLineOptions?.languageServerSettings.typeStubTargetImportName;
     }
 
     // Calculates the effective options based on the command-line options,
@@ -1411,74 +1375,7 @@ export class AnalyzerService {
     // have changed. Unconditional dirtying is needed in the case where
     // configuration options have changed.
     private _updateTrackedFileList(markFilesDirtyUnconditionally: boolean) {
-        // Are we in type stub generation mode? If so, we need to search
-        // for a different set of files.
-        if (this._typeStubTargetImportName) {
-            const execEnv = this._configOptions.findExecEnvironment(this._executionRootUri);
-            const moduleDescriptor = createImportedModuleDescriptor(this._typeStubTargetImportName);
-            const importResult = this._backgroundAnalysisProgram.importResolver.resolveImport(
-                Uri.empty(),
-                execEnv,
-                moduleDescriptor
-            );
-
-            if (importResult.isImportFound) {
-                const filesToImport: Uri[] = [];
-
-                // Determine the directory that contains the root package.
-                const finalResolvedPath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
-                const isFinalPathFile = isFile(this.fs, finalResolvedPath);
-                const isFinalPathInitFile =
-                    isFinalPathFile && finalResolvedPath.stripAllExtensions().fileName === '__init__';
-
-                let rootPackagePath = finalResolvedPath;
-
-                if (isFinalPathFile) {
-                    // If the module is a __init__.pyi? file, use its parent directory instead.
-                    rootPackagePath = rootPackagePath.getDirectory();
-                }
-
-                for (let i = importResult.resolvedUris.length - 2; i >= 0; i--) {
-                    if (!importResult.resolvedUris[i].isEmpty()) {
-                        rootPackagePath = importResult.resolvedUris[i];
-                    } else {
-                        // If there was no file corresponding to this portion
-                        // of the name path, assume that it's contained
-                        // within its parent directory.
-                        rootPackagePath = rootPackagePath.getDirectory();
-                    }
-                }
-
-                if (isDirectory(this.fs, rootPackagePath)) {
-                    this._typeStubTargetUri = rootPackagePath;
-                } else if (isFile(this.fs, rootPackagePath)) {
-                    // This can occur if there is a "dir/__init__.py" at the same level as a
-                    // module "dir/module.py" that is specifically targeted for stub generation.
-                    this._typeStubTargetUri = rootPackagePath.getDirectory();
-                }
-
-                if (finalResolvedPath.isEmpty()) {
-                    this._typeStubTargetIsSingleFile = false;
-                } else {
-                    filesToImport.push(finalResolvedPath);
-                    this._typeStubTargetIsSingleFile = importResult.resolvedUris.length === 1 && !isFinalPathInitFile;
-                }
-
-                // Add the implicit import paths.
-                importResult.filteredImplicitImports?.forEach((implicitImport) => {
-                    if (ImportResolver.isSupportedImportSourceFile(implicitImport.uri)) {
-                        filesToImport.push(implicitImport.uri);
-                    }
-                });
-
-                this._backgroundAnalysisProgram.setAllowedThirdPartyImports([this._typeStubTargetImportName]);
-                this._backgroundAnalysisProgram.setTrackedFiles(filesToImport);
-            } else {
-                this._console.error(`Import '${this._typeStubTargetImportName}' not found`);
-            }
-
-            this._requireTrackedFileUpdate = false;
-        } else if (!this.options.skipScanningUserFiles) {
+        if (!this.options.skipScanningUserFiles) {
             // Allocate a new source enumerator. We'll call this
             // repeatedly until all source files are found.
             this._sourceEnumerator = new SourceEnumerator(
