@@ -1141,3 +1141,9 @@ test('EnumGenNextValue1', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('EnumNarrowing1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumNarrowing1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
