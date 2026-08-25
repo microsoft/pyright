@@ -416,7 +416,7 @@ test('DataClass18', () => {
 test('DataClass19', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass19.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('DataClassReplace1', () => {
