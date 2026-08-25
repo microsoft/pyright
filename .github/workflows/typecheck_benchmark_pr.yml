@@ -1,9 +1,10 @@
 name: Type checker benchmark
-run-name: Type checker benchmark for PR #${{ inputs.pr_number }}
+run-name: 'Type checker benchmark for PR #${{ inputs.pr_number }}'
 
 env:
   BENCHMARK_RUNNER_CLASS: 'github-ubuntu-latest'
   NODE_VERSION: '24.15.0'
+  PNPM_VERSION: '10.12.2'
   PYTHON_VERSION: '3.14.6'
 
 on:
@@ -17,12 +18,12 @@ on:
         description: Pull request head commit
         required: true
         type: string
-      head_repository:
-        description: Pull request head repository
-        required: true
-        type: string
       base_sha:
         description: Pull request base commit
+        required: true
+        type: string
+      merge_sha:
+        description: Pull request merge commit
         required: true
         type: string
 
@@ -41,8 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          repository: ${{ inputs.head_repository }}
-          ref: ${{ inputs.head_sha }}
+          ref: ${{ inputs.merge_sha }}
           persist-credentials: false
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -50,6 +50,8 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
@@ -122,7 +124,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: typecheck-benchmark-linux-x64-pr-${{ inputs.pr_number }}-head-${{ inputs.head_sha }}-base-${{ inputs.base_sha }}
+          name: typecheck-benchmark-linux-x64-pr-${{ inputs.pr_number }}-head-${{ inputs.head_sha }}-base-${{ inputs.base_sha }}-merge-${{ inputs.merge_sha }}
           path: build/benchmark/results/
 
       - name: Fail on benchmark regressions

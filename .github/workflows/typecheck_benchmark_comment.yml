@@ -37,6 +37,7 @@ jobs:
             let issueNumber
             let expectedHeadSha
             let expectedBaseSha
+            let expectedMergeSha
             let report
             if (workflowRun.event === 'pull_request') {
               const pullRequests = workflowRun.pull_requests
@@ -53,10 +54,18 @@ jobs:
             } else {
               const dispatchedReports = artifacts.data.artifacts.flatMap((artifact) => {
                 const match = artifact.name.match(
-                  /^typecheck-benchmark-linux-x64-pr-(\d+)-head-([0-9a-f]{40})-base-([0-9a-f]{40})$/
+                  /^typecheck-benchmark-linux-x64-pr-(\d+)-head-([0-9a-f]{40})-base-([0-9a-f]{40})-merge-([0-9a-f]{40})$/
                 )
                 return match
-                  ? [{ artifact, issueNumber: Number(match[1]), headSha: match[2], baseSha: match[3] }]
+                  ? [
+                      {
+                        artifact,
+                        issueNumber: Number(match[1]),
+                        headSha: match[2],
+                        baseSha: match[3],
+                        mergeSha: match[4],
+                      },
+                    ]
                   : []
               })
               if (dispatchedReports.length !== 1) {
@@ -67,6 +76,7 @@ jobs:
               issueNumber = dispatchedReports[0].issueNumber
               expectedHeadSha = dispatchedReports[0].headSha
               expectedBaseSha = dispatchedReports[0].baseSha
+              expectedMergeSha = dispatchedReports[0].mergeSha
             }
             if (!report) {
               core.setFailed('The benchmark report artifact was not found')
@@ -83,6 +93,10 @@ jobs:
             }
             if (pullRequest.data.base.sha !== expectedBaseSha) {
               core.setFailed('The workflow run base does not match the pull request base')
+              return
+            }
+            if (expectedMergeSha && pullRequest.data.merge_commit_sha !== expectedMergeSha) {
+              core.setFailed('The workflow run merge commit does not match the pull request merge commit')
               return
             }
             const download = await github.rest.actions.downloadArtifact({

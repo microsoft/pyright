@@ -108,13 +108,14 @@ result contract, and the comparator rejects mismatched environments.
 The hosted pull-request benchmark runs only when a maintainer comments exactly `/benchmark` on an
 open pull request. The command must be the entire comment. The trusted command workflow checks that
 the commenter has `write`, `maintain`, or `admin` repository permission and then explicitly dispatches
-the benchmark with the pull request's current head and base commits. Users without one of these
-permissions cannot start the benchmark.
+the benchmark with the pull request's current head, base, and synthetic merge commits. Users without
+one of these permissions cannot start the benchmark.
 
-The dispatched workflow runs the pull request's current head with read-only repository permissions.
-When the run completes, a separate trusted workflow validates that the result belongs to the pull
-request's current head, renders it using default-branch code, and creates or updates one benchmark
-comment. The Actions job summary and benchmark artifact contain the same candidate results.
+The dispatched workflow runs the pull request's synthetic merge commit, so all mergeable open pull
+requests use the current pnpm build metadata from the base branch. It uses read-only repository
+permissions. When the run completes, a separate trusted workflow validates the result's head, base,
+and merge commits, renders it using default-branch code, and creates or updates one benchmark comment.
+The Actions job summary and benchmark artifact contain the same candidate results.
 
 Comment `/benchmark` again after pushing a new commit or when rerunning the same head. No benchmark is
 started automatically for later commits. The command workflow must already exist on the repository's
