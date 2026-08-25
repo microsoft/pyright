@@ -113,9 +113,10 @@ one of these permissions cannot start the benchmark.
 
 The dispatched workflow runs the pull request's synthetic merge commit, so all mergeable open pull
 requests use the current pnpm build metadata from the base branch. It uses read-only repository
-permissions. When the run completes, a separate trusted workflow validates the result's head, base,
-and merge commits, renders it using default-branch code, and creates or updates one benchmark comment.
-The Actions job summary and benchmark artifact contain the same candidate results.
+permissions. When the run completes, a separate trusted job validates the result's head, base, and
+merge commits, renders it using default-branch code, and creates or updates one benchmark comment.
+The trusted job runs on a separate runner with pull-request write permission. The Actions job summary
+and benchmark artifact contain the same candidate results.
 
 Comment `/benchmark` again after pushing a new commit or when rerunning the same head. No benchmark is
 started automatically for later commits. The command workflow must already exist on the repository's

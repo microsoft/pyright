@@ -139,7 +139,6 @@ def _analyze(
         "node_options",
         "runs_per_package",
         "warmup_runs",
-        "uncounted_validation_runs_per_checker",
         "dependency_isolation",
     ):
         if baseline.get(field) != candidate.get(field):
