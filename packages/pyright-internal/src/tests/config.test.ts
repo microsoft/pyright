@@ -816,7 +816,6 @@ describe(`config test'}`, () => {
         commandLineOptions.languageServerSettings.watchForSourceChanges = true;
         commandLineOptions.languageServerSettings.watchForLibraryChanges = true;
         commandLineOptions.languageServerSettings.watchForConfigChanges = true;
-        commandLineOptions.languageServerSettings.typeStubTargetImportName = 'test';
         commandLineOptions.languageServerSettings.checkOnlyOpenFiles = true;
         commandLineOptions.languageServerSettings.disableTaggedHints = true;
         commandLineOptions.languageServerSettings.pythonPath = 'test_python_path';

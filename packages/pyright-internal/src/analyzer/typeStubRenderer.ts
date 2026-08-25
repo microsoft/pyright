@@ -8,13 +8,7 @@
  * and analyzed python source file.
  */
 
-import { CancellationToken } from 'vscode-languageserver';
-
-import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { ProgramView, SourceFileInfo } from '../common/extensibility';
-import { FileSystem } from '../common/fileSystem';
 import { Uri } from '../common/uri/uri';
-import { isFile, makeDirectories } from '../common/uri/uriUtils';
 import {
     ArgCategory,
     AssignmentNode,
@@ -48,7 +42,6 @@ import {
 import { OperatorType } from '../parser/tokenizerTypes';
 import { ParseFileResults } from '../parser/parser';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { getInfoReader } from './analyzerNodeInfo';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { getScopeForNode } from './scopeUtils';
@@ -163,119 +156,16 @@ class ImportSymbolWalker extends ParseTreeWalker {
     }
 }
 
-export class TypeStubWriter {
-    constructor(private readonly _program: ProgramView) {}
-
-    writeTypeStub(request: TypeStubWriteRequest, token: CancellationToken) {
-        const fileSystem = this._program.serviceProvider.fs();
-        const stubPath = request.stubPath ?? request.outputPath;
-
-        this._ensureTypeStubOutputPath(fileSystem, request.outputPath, stubPath);
-
-        if (isFile(fileSystem, request.targetImportPath)) {
-            const sourceFileInfo = this._program.getSourceFileInfo(request.targetImportPath);
-            if (!sourceFileInfo) {
-                throw new Error(`Could not find source file '${request.targetImportPath.toUserVisibleString()}'`);
-            }
-
-            this._writeTypeStubForSourceFile(sourceFileInfo, sourceFileInfo.uri.fileName, request, fileSystem, token);
-            return;
-        }
-
-        for (const sourceFileInfo of this._program.getSourceFileInfoList()) {
-            throwIfCancellationRequested(token);
-
-            const relativePath = request.targetImportPath.getRelativePath(sourceFileInfo.uri);
-            if (relativePath === undefined) {
-                continue;
-            }
-
-            this._writeTypeStubForSourceFile(sourceFileInfo, relativePath, request, fileSystem, token);
-        }
-    }
-
-    private _writeTypeStubForSourceFile(
-        sourceFileInfo: SourceFileInfo,
-        relativePath: string,
-        request: TypeStubWriteRequest,
-        fileSystem: FileSystem,
-        token: CancellationToken
-    ) {
-        throwIfCancellationRequested(token);
-
-        this._program.analyzeFile(sourceFileInfo.uri, token);
-
-        let typeStubPath = request.outputPath.resolvePaths(relativePath);
-        if (request.targetIsSingleFile) {
-            typeStubPath = typeStubPath.getDirectory().initPyiUri;
-        } else {
-            typeStubPath = typeStubPath.replaceExtension('.pyi');
-        }
-
-        const typeStubDir = typeStubPath.getDirectory();
-
-        try {
-            makeDirectories(fileSystem, typeStubDir, request.outputPath);
-        } catch {
-            throw new Error(`Could not create directory for '${typeStubDir}'`);
-        }
-
-        const parseResults = this._program.getParseResults(sourceFileInfo.uri);
-        if (!parseResults) {
-            throw new Error(`Could not bind file '${sourceFileInfo.uri.toUserVisibleString()}' for stub generation`);
-        }
-
-        const evaluator = this._program.evaluator;
-        if (!evaluator) {
-            throw new Error('Type evaluator unavailable for stub generation');
-        }
-
-        const treeWalker = new TypeStubTreeWalker(
-            typeStubPath,
-            parseResults,
-            fileSystem,
-            evaluator,
-            getInfoReader(this._program)
-        );
-        treeWalker.write();
-
-        this._program.handleMemoryHighUsage();
-    }
-
-    private _ensureTypeStubOutputPath(fileSystem: FileSystem, outputPath: Uri, stubPath: Uri) {
-        try {
-            if (!fileSystem.existsSync(stubPath)) {
-                // Use recursive to handle callers that pass outputPath as
-                // stubPath (e.g. BackgroundAnalysisProgram.writeTypeStub)
-                // where parent directories may not yet exist.
-                fileSystem.mkdirSync(stubPath, { recursive: true });
-            }
-        } catch {
-            const errMsg = `Could not create typings directory '${stubPath.toUserVisibleString()}'`;
-            this._program.console.error(errMsg);
-            throw new Error(errMsg);
-        }
-
-        try {
-            if (!fileSystem.existsSync(outputPath)) {
-                makeDirectories(fileSystem, outputPath, stubPath);
-            }
-        } catch {
-            const errMsg = `Could not create typings subdirectory '${outputPath.toUserVisibleString()}'`;
-            this._program.console.error(errMsg);
-            throw new Error(errMsg);
-        }
-    }
+export function renderTypeStubFile(
+    stubPath: Uri,
+    parseResults: ParseFileResults,
+    evaluator: TypeEvaluator,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+): string {
+    return new TypeStubRenderer(stubPath, parseResults, evaluator, nodeInfo).render();
 }
 
-interface TypeStubWriteRequest {
-    targetImportPath: Uri;
-    targetIsSingleFile: boolean;
-    outputPath: Uri;
-    stubPath?: Uri;
-}
-
-class TypeStubTreeWalker extends ParseTreeWalker {
+class TypeStubRenderer extends ParseTreeWalker {
     private _indentAmount = 0;
     private _includeAllImports = false;
     private _typeStubText = '';
@@ -293,11 +183,10 @@ class TypeStubTreeWalker extends ParseTreeWalker {
     constructor(
         private readonly _stubPath: Uri,
         private readonly _parseResults: ParseFileResults,
-        private readonly _fileSystem: FileSystem,
         private readonly _evaluator: TypeEvaluator,
         private readonly _nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
     ) {
-        super();
+        super(_nodeInfo);
 
         // As a heuristic, we'll include all of the import statements
         // in "__init__.pyi" files even if they're not locally referenced
@@ -307,13 +196,12 @@ class TypeStubTreeWalker extends ParseTreeWalker {
         }
     }
 
-    write() {
+    render(): string {
         this._lineEnd = this._parseResults.tokenizerOutput.predominantEndOfLineSequence;
         this._tab = this._parseResults.tokenizerOutput.predominantTabSequence;
 
         this.walk(this._parseResults.parserOutput.parseTree);
-
-        this._writeFile();
+        return this._getFileContents();
     }
 
     override walk(node: ParseNode) {
@@ -930,11 +818,10 @@ class TypeStubTreeWalker extends ParseTreeWalker {
         return importStr;
     }
 
-    private _writeFile() {
+    private _getFileContents() {
         let finalText = this._printHeaderDocString();
         finalText += this._printTrackedImports();
         finalText += this._typeStubText;
-
-        this._fileSystem.writeFileSync(this._stubPath, finalText, 'utf8');
+        return finalText;
     }
 }

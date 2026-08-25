@@ -11822,6 +11822,9 @@ export function createTypeEvaluator(
         const overloadsUsedForCall = constructorResult.overloadsUsedForCall;
         const argumentErrors = constructorResult.argumentErrors;
         const isTypeIncomplete = constructorResult.isTypeIncomplete;
+        const usesBuiltInTypeNew = overloadsUsedForCall?.some((overload) =>
+            FunctionType.isBuiltIn(overload, 'builtins.type.__new__')
+        );
 
         let returnType = constructorResult.returnType;
 
@@ -11876,11 +11879,25 @@ export function createTypeEvaluator(
                 ClassType.cloneAsInstantiable(returnType),
                 ClassType.cloneAsInstantiable(returnType)
             );
-            newClassType.shared.baseClasses.push(getBuiltInType(errorNode, 'object'));
+            if (usesBuiltInTypeNew && argList.length >= 2) {
+                const baseTupleType = getTypeOfArg(argList[1], /* inferenceContext */ undefined).type;
+                if (isClassInstance(baseTupleType)) {
+                    const baseClasses = getBaseClassesFromTypeCall(baseTupleType);
+                    if (baseClasses) {
+                        newClassType.shared.baseClasses.push(...baseClasses);
+                    }
+                }
+            }
+
+            if (newClassType.shared.baseClasses.length === 0) {
+                newClassType.shared.baseClasses.push(getBuiltInType(errorNode, 'object'));
+            }
             newClassType.shared.effectiveMetaclass = expandedCallType;
             newClassType.shared.declaration = returnType.shared.declaration;
 
-            computeMroLinearization(newClassType);
+            if (!computeMroLinearization(newClassType)) {
+                addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.methodOrdering(), errorNode);
+            }
             returnType = newClassType;
         }
 
@@ -14922,6 +14939,17 @@ export function createTypeEvaluator(
         return classType;
     }
 
+    function getBaseClassesFromTypeCall(baseTupleType: ClassType): Type[] | undefined {
+        if (!isTupleClass(baseTupleType) || baseTupleType.priv.tupleTypeArgs === undefined) {
+            return undefined;
+        }
+
+        return baseTupleType.priv.tupleTypeArgs.map((typeArg) => {
+            const specializedType = makeTopLevelTypeVarsConcrete(typeArg.type);
+            return isEffectivelyInstantiable(specializedType) ? specializedType : UnknownType.create();
+        });
+    }
+
     // Implements the semantics of the multi-parameter variant of the "type" call.
     function createClassFromMetaclass(
         errorNode: ExpressionNode,
@@ -14935,10 +14963,13 @@ export function createTypeEvaluator(
         }
         const className = (arg0Type.priv.literalValue as string) || '_';
 
-        const arg1Type = getTypeOfArg(argList[1], /* inferenceContext */ undefined).type;
+        const baseTupleType = getTypeOfArg(argList[1], /* inferenceContext */ undefined).type;
+        if (!isClassInstance(baseTupleType)) {
+            return undefined;
+        }
 
-        // TODO - properly handle case where tuple of base classes is provided.
-        if (!isClassInstance(arg1Type) || !isTupleClass(arg1Type) || arg1Type.priv.tupleTypeArgs === undefined) {
+        const baseClasses = getBaseClassesFromTypeCall(baseTupleType);
+        if (!baseClasses) {
             return undefined;
         }
 
@@ -14950,17 +14981,9 @@ export function createTypeEvaluator(
             ClassTypeFlags.ValidTypeAliasClass,
             ParseTreeUtils.getTypeSourceId(errorNode),
             metaclass,
-            arg1Type.shared.effectiveMetaclass
+            baseTupleType.shared.effectiveMetaclass
         );
-        arg1Type.priv.tupleTypeArgs.forEach((typeArg) => {
-            const specializedType = makeTopLevelTypeVarsConcrete(typeArg.type);
-
-            if (isEffectivelyInstantiable(specializedType)) {
-                classType.shared.baseClasses.push(specializedType);
-            } else {
-                classType.shared.baseClasses.push(UnknownType.create());
-            }
-        });
+        classType.shared.baseClasses.push(...baseClasses);
 
         if (!computeMroLinearization(classType)) {
             addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.methodOrdering(), errorNode);

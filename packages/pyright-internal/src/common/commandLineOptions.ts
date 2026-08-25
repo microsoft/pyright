@@ -122,9 +122,6 @@ export class CommandLineLanguageServerOptions {
     // Watch for changes in config files.
     watchForConfigChanges?: boolean | undefined;
 
-    // Type stub import target (for creation of type stubs).
-    typeStubTargetImportName?: string | undefined;
-
     // Indicates that only open files should be checked.
     checkOnlyOpenFiles?: boolean | undefined;
 
