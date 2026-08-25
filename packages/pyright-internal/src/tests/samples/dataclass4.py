@@ -141,3 +141,15 @@ class DC15(DC14):
     # This should generate an error because "b" drops its inherited default
     # and would then follow "a", which still has one.
     b: int = field()
+
+
+@dataclass
+class DC16(DC12):
+    # An assigned field specifier with init=False removes the parameter from
+    # __init__ entirely rather than dropping the inherited default, so the
+    # attribute keeps the base class value.
+    a: int = field(init=False)
+
+
+reveal_type(DC16.__init__, expected_text="(self: DC16) -> None")
+reveal_type(DC16().a, expected_text="int")
