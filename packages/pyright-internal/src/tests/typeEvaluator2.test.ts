@@ -399,7 +399,7 @@ test('Unbound6', () => {
 test('Unbound7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound7.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('LiteralForLoop1', () => {

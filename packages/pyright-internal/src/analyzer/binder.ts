@@ -48,7 +48,6 @@ import {
     GlobalNode,
     IfNode,
     ImportAsNode,
-    ImportFromAsNode,
     ImportFromNode,
     ImportNode,
     IndexNode,
@@ -3084,6 +3083,13 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _bindNamesInUnreachableCode(node: ParseNode) {
+        // Directives apply to the entire scope, so process global and
+        // nonlocal declarations before binding any names.
+        new UnreachableDirectiveFinder(
+            (globalNode) => this.visitGlobal(globalNode),
+            (nonlocalNode) => this.visitNonlocal(nonlocalNode)
+        ).walk(node);
+
         const bindTarget = (target: ExpressionNode) => {
             this._bindPossibleTupleNamedTarget(target);
         };
@@ -4881,10 +4887,50 @@ export class ReturnFinder extends ParseTreeWalker {
     }
 }
 
+// Discovers and processes `global` and `nonlocal` directives in unreachable code.
+// Directives must be evaluated before binding names to ensure that later
+// assignments do not bind as locals in the current scope. Nested function,
+// class, and lambda bodies are skipped because their directives belong to
+// nested scopes.
+class UnreachableDirectiveFinder extends ParseTreeWalker {
+    constructor(
+        private readonly _bindGlobal: (node: GlobalNode) => void,
+        private readonly _bindNonlocal: (node: NonlocalNode) => void
+    ) {
+        super();
+    }
+
+    override visitGlobal(node: GlobalNode): boolean {
+        this._bindGlobal(node);
+        return false;
+    }
+
+    override visitNonlocal(node: NonlocalNode): boolean {
+        this._bindNonlocal(node);
+        return false;
+    }
+
+    override visitFunction(node: FunctionNode): boolean {
+        return false;
+    }
+
+    override visitClass(node: ClassNode): boolean {
+        return false;
+    }
+
+    override visitLambda(node: LambdaNode): boolean {
+        return false;
+    }
+}
+
 // Binds assignment targets in unreachable code so they still create local
 // symbols, matching CPython (an assignment after `return` makes the name
-// local for the entire function). Nested functions and classes are skipped
-// because DummyScopeGenerator already created their scopes.
+// local for the entire function).
+// Header expressions for nested functions, classes, and lambdas (decorators,
+// parameter defaults/annotations, type parameters, and class bases/arguments)
+// are evaluated in the enclosing scope, so they are walked to catch assignment
+// expressions (:=). Nested bodies are skipped because DummyScopeGenerator
+// already created their scopes and they belong to nested scopes.
 class UnreachableNameBinder extends ParseTreeWalker {
     constructor(
         private readonly _bindTarget: (target: ExpressionNode) => void,
@@ -4959,11 +5005,57 @@ class UnreachableNameBinder extends ParseTreeWalker {
 
     override visitFunction(node: FunctionNode): boolean {
         this._bindName(node.d.name);
+
+        this.walkMultiple(node.d.decorators);
+
+        node.d.params.forEach((param) => {
+            if (param.d.defaultValue) {
+                this.walk(param.d.defaultValue);
+            }
+            if (param.d.annotation) {
+                this.walk(param.d.annotation);
+            }
+            if (param.d.annotationComment) {
+                this.walk(param.d.annotationComment);
+            }
+        });
+
+        if (node.d.typeParams) {
+            this.walk(node.d.typeParams);
+        }
+
+        if (node.d.returnAnnotation) {
+            this.walk(node.d.returnAnnotation);
+        }
+
+        if (node.d.funcAnnotationComment) {
+            this.walk(node.d.funcAnnotationComment);
+        }
+
         return false;
     }
 
     override visitClass(node: ClassNode): boolean {
         this._bindName(node.d.name);
+
+        this.walkMultiple(node.d.decorators);
+
+        if (node.d.typeParams) {
+            this.walk(node.d.typeParams);
+        }
+
+        this.walkMultiple(node.d.arguments);
+
+        return false;
+    }
+
+    override visitLambda(node: LambdaNode): boolean {
+        node.d.params.forEach((param) => {
+            if (param.d.defaultValue) {
+                this.walk(param.d.defaultValue);
+            }
+        });
+
         return false;
     }
 
