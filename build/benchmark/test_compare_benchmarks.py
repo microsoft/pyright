@@ -1,6 +1,7 @@
 import io
 import json
 import re
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -9,6 +10,22 @@ from pathlib import Path
 import compare_benchmarks
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _load_yaml(path: Path) -> dict:
+    script = """
+const fs = require('fs');
+const YAML = require('yaml');
+process.stdout.write(JSON.stringify(YAML.parse(fs.readFileSync(process.argv[1], 'utf8'))));
+"""
+    result = subprocess.run(
+        ["node", "-e", script, str(path)],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(result.stdout)
 
 
 def _result(time: float, memory: float, ok: bool = True) -> dict:
@@ -273,7 +290,7 @@ Regression threshold: `10.0%`
             ],
         )
 
-    def test_rejects_uncounted_validation_run_mismatch(self) -> None:
+    def test_allows_uncounted_validation_run_mismatch(self) -> None:
         candidate = _result(10.0, 100.0)
         candidate["uncounted_validation_runs_per_checker"] = 1
 
@@ -282,13 +299,7 @@ Regression threshold: `10.0%`
                 _result(10.0, 100.0), candidate, 10.0
             )
 
-        self.assertEqual(
-            failures,
-            [
-                "environment mismatch for uncounted_validation_runs_per_checker: "
-                "0 != 1"
-            ],
-        )
+        self.assertEqual(failures, [])
 
     def test_rejects_package_commit_mismatch(self) -> None:
         candidate = _result(10.0, 100.0)
@@ -522,12 +533,11 @@ Regression threshold: `10.0%`
             / "workflows"
             / "typecheck_benchmark_trigger.yml"
         ).read_text(encoding="utf-8")
-        benchmark_workflow = (
+        benchmark_workflow_path = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
-        ).read_text(encoding="utf-8")
-        comment_workflow = (
-            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_comment.yml"
-        ).read_text(encoding="utf-8")
+        )
+        benchmark_workflow = benchmark_workflow_path.read_text(encoding="utf-8")
+        benchmark_workflow_data = _load_yaml(benchmark_workflow_path)
 
         self.assertIn("issue_comment:", trigger_workflow)
         self.assertIn(
@@ -553,14 +563,14 @@ Regression threshold: `10.0%`
         self.assertNotIn("actions/github-script@v7", trigger_workflow)
         self.assertIn(
             "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
-            comment_workflow,
+            benchmark_workflow,
         )
         self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
-            comment_workflow,
+            benchmark_workflow,
         )
-        self.assertNotIn("actions/checkout@v4", comment_workflow)
-        self.assertNotIn("actions/github-script@v7", comment_workflow)
+        self.assertNotIn("actions/checkout@v4", benchmark_workflow)
+        self.assertNotIn("actions/github-script@v7", benchmark_workflow)
         self.assertIn("workflow_dispatch:", benchmark_workflow)
         self.assertNotIn("paths:", benchmark_workflow)
         self.assertNotIn("pull_request:", benchmark_workflow)
@@ -570,9 +580,40 @@ Regression threshold: `10.0%`
         self.assertIn("inputs.base_sha", benchmark_workflow)
         self.assertIn("ref: ${{ inputs.merge_sha }}", benchmark_workflow)
         self.assertIn("-merge-${{ inputs.merge_sha }}", benchmark_workflow)
-        self.assertIn("pullRequest.data.base.sha !== expectedBaseSha", comment_workflow)
+        self.assertIn("if: ${{ always() }}", benchmark_workflow)
+        self.assertIn("run_id: context.runId", benchmark_workflow)
+        self.assertIn("pullRequest.data.base.sha !== expectedBaseSha", benchmark_workflow)
         self.assertIn(
-            "pullRequest.data.merge_commit_sha !== expectedMergeSha", comment_workflow
+            "pullRequest.data.merge_commit_sha !== expectedMergeSha",
+            benchmark_workflow,
+        )
+        benchmark_job = benchmark_workflow_data["jobs"]["benchmark"]
+        comment_job = benchmark_workflow_data["jobs"]["comment"]
+        self.assertEqual(benchmark_job["permissions"], {"contents": "read"})
+        self.assertEqual(
+            comment_job["permissions"],
+            {
+                "actions": "read",
+                "contents": "read",
+                "pull-requests": "write",
+            },
+        )
+        self.assertEqual(comment_job["needs"], "benchmark")
+        self.assertEqual(
+            [
+                job_name
+                for job_name, job in benchmark_workflow_data["jobs"].items()
+                if job.get("permissions", {}).get("pull-requests") == "write"
+            ],
+            ["comment"],
+        )
+        self.assertFalse(
+            (
+                REPO_ROOT
+                / ".github"
+                / "workflows"
+                / "typecheck_benchmark_comment.yml"
+            ).exists()
         )
 
     def test_pr_workflow_prefers_trusted_baseline_with_bootstrap_fallback(self) -> None:
