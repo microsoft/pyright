@@ -71,6 +71,9 @@ importers:
       word-wrap:
         specifier: 1.2.5
         version: 1.2.5
+      yaml:
+        specifier: 2.9.0
+        version: 2.9.0
       yargs:
         specifier: ^16.2.0
         version: 16.2.2
