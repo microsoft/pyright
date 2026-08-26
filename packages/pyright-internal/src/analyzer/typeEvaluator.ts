@@ -28692,6 +28692,25 @@ export function createTypeEvaluator(
                         return;
                     }
 
+                    // A keyword-only source parameter was matched to a positional-or-keyword
+                    // dest parameter. The dest parameter can be called positionally, but a
+                    // keyword-only source parameter with no default would be left unsatisfied.
+                    if (
+                        destParamInfo.kind === ParamKind.Standard &&
+                        srcParamInfo.kind === ParamKind.Keyword &&
+                        !srcParamInfo.defaultType
+                    ) {
+                        if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
+                            paramDiag?.addMessage(
+                                LocAddendum.functionParamDefaultMissing().format({
+                                    name: srcParamInfo.param.name,
+                                })
+                            );
+                            canAssign = false;
+                            return;
+                        }
+                    }
+
                     // If we're performing a partial overload match and both the source
                     // and dest parameters provide defaults, assume that there could
                     // be a match.

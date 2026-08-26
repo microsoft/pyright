@@ -23,6 +23,10 @@ class IntArgsIntKwargs(Protocol):
     def __call__(self, *args: int, **kwargs: int) -> None: ...
 
 
+class IntArgsIntKwonlyNoDefault(Protocol):
+    def __call__(self, *args: int, a: int) -> None: ...
+
+
 class IntPosorkw(Protocol):
     def __call__(self, a: int) -> None: ...
 
@@ -42,4 +46,9 @@ def func3(cb: IntArgsBoolKwargs):
 
 
 def func4(cb: IntArgsIntKwargs):
+    x: IntPosorkw = cb
+
+
+def func5(cb: IntArgsIntKwonlyNoDefault):
+    # This should generate an error
     x: IntPosorkw = cb
