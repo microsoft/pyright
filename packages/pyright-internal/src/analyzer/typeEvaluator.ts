@@ -28168,6 +28168,43 @@ export function createTypeEvaluator(
         }
     }
 
+    // Determines whether the source's variadic **kwargs keyword parameter
+    // is assignable to the keyword form of a destination positional-or-keyword
+    // parameter.
+    function assignNamedParam(
+        destDetails: ParamListDetails,
+        srcDetails: ParamListDetails,
+        paramIndex: number,
+        diag: DiagnosticAddendum | undefined,
+        constraints: ConstraintTracker,
+        flags: AssignTypeFlags,
+        recursionCount: number
+    ): boolean {
+        const destParam = destDetails.params[paramIndex];
+        if (srcDetails.kwargsIndex === undefined) {
+            diag?.addMessage(
+                LocAddendum.namedParamMissingInSource().format({
+                    name: destParam.param.name ?? '',
+                })
+            );
+            return false;
+        } else if (
+            !assignParam(
+                destParam.type,
+                srcDetails.params[srcDetails.kwargsIndex].type,
+                paramIndex,
+                diag?.createAddendum(),
+                constraints,
+                flags,
+                recursionCount
+            )
+        ) {
+            return (flags & AssignTypeFlags.PartialOverloadOverlap) !== 0;
+        } else {
+            return true;
+        }
+    }
+
     function assignFunction(
         destType: FunctionType,
         srcType: FunctionType,
@@ -28327,7 +28364,6 @@ export function createTypeEvaluator(
                 destParam.kind !== ParamKind.Positional &&
                 destParam.kind !== ParamKind.ExpandedArgs &&
                 srcParam.kind === ParamKind.Positional &&
-                srcParamDetails.kwargsIndex === undefined &&
                 !srcParamDetails.params.some(
                     (p) =>
                         p.kind === ParamKind.Keyword &&
@@ -28335,12 +28371,19 @@ export function createTypeEvaluator(
                         p.param.name === destParam.param.name
                 )
             ) {
-                diag?.addMessage(
-                    LocAddendum.namedParamMissingInSource().format({
-                        name: destParam.param.name ?? '',
-                    })
-                );
-                canAssign = false;
+                if (
+                    !assignNamedParam(
+                        destParamDetails,
+                        srcParamDetails,
+                        paramIndex,
+                        diag,
+                        constraints,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    canAssign = false;
+                }
             }
         }
 
@@ -28475,17 +28518,20 @@ export function createTypeEvaluator(
                         }
 
                         const destParamKind = destParamDetails.params[paramIndex].kind;
-                        if (
-                            destParamKind !== ParamKind.Positional &&
-                            destParamKind !== ParamKind.ExpandedArgs &&
-                            srcParamDetails.kwargsIndex === undefined
-                        ) {
-                            diag?.addMessage(
-                                LocAddendum.namedParamMissingInSource().format({
-                                    name: destParamDetails.params[paramIndex].param.name ?? '',
-                                })
-                            );
-                            canAssign = false;
+                        if (destParamKind !== ParamKind.Positional && destParamKind !== ParamKind.ExpandedArgs) {
+                            if (
+                                !assignNamedParam(
+                                    destParamDetails,
+                                    srcParamDetails,
+                                    paramIndex,
+                                    diag,
+                                    constraints,
+                                    flags,
+                                    recursionCount
+                                )
+                            ) {
+                                canAssign = false;
+                            }
                         }
                     }
                 }
@@ -28622,7 +28668,14 @@ export function createTypeEvaluator(
                         return;
                     }
 
-                    const destParamInfo = destParamMap.get(srcParamInfo.param.name);
+                    const destParamInfo =
+                        destParamMap.get(srcParamInfo.param.name) ??
+                        destParamDetails.params.find(
+                            (paramInfo) =>
+                                paramInfo.param.name === srcParamInfo.param.name &&
+                                paramInfo.kind === ParamKind.Standard &&
+                                paramInfo.param.category === ParamCategory.Simple
+                        );
                     const paramDiag = diag?.createAddendum();
                     const srcParamType = srcParamInfo.type;
 
@@ -28675,6 +28728,25 @@ export function createTypeEvaluator(
                         return;
                     }
 
+                    // A keyword-only source parameter was matched to a positional-or-keyword
+                    // dest parameter. The dest parameter can be called positionally, but a
+                    // keyword-only source parameter with no default would be left unsatisfied.
+                    if (
+                        destParamInfo.kind === ParamKind.Standard &&
+                        srcParamInfo.kind === ParamKind.Keyword &&
+                        !srcParamInfo.defaultType
+                    ) {
+                        if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
+                            paramDiag?.addMessage(
+                                LocAddendum.functionParamDefaultMissing().format({
+                                    name: srcParamInfo.param.name,
+                                })
+                            );
+                            canAssign = false;
+                            return;
+                        }
+                    }
+
                     // If we're performing a partial overload match and both the source
                     // and dest parameters provide defaults, assume that there could
                     // be a match.
@@ -28710,7 +28782,12 @@ export function createTypeEvaluator(
                                 })
                             );
                         }
-                        canAssign = false;
+                        if (
+                            destParamInfo.kind !== ParamKind.Standard ||
+                            (flags & AssignTypeFlags.PartialOverloadOverlap) === 0
+                        ) {
+                            canAssign = false;
+                        }
                     }
 
                     if (destParamInfo.defaultType && !srcParamInfo.defaultType) {
