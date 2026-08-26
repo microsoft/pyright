@@ -28132,6 +28132,43 @@ export function createTypeEvaluator(
         }
     }
 
+    // Determines whether the source's variadic **kwargs keyword parameter
+    // is assignable to the keyword form of a destination positional-or-keyword
+    // parameter.
+    function assignNamedParam(
+        destDetails: ParamListDetails,
+        srcDetails: ParamListDetails,
+        paramIndex: number,
+        diag: DiagnosticAddendum | undefined,
+        constraints: ConstraintTracker,
+        flags: AssignTypeFlags,
+        recursionCount: number
+    ): boolean {
+        const destParam = destDetails.params[paramIndex];
+        if (srcDetails.kwargsIndex === undefined) {
+            diag?.addMessage(
+                LocAddendum.namedParamMissingInSource().format({
+                    name: destParam.param.name ?? '',
+                })
+            );
+            return false;
+        } else if (
+            !assignParam(
+                destParam.type,
+                srcDetails.params[srcDetails.kwargsIndex].type,
+                paramIndex,
+                diag?.createAddendum(),
+                constraints,
+                flags,
+                recursionCount
+            )
+        ) {
+            return (flags & AssignTypeFlags.PartialOverloadOverlap) !== 0;
+        } else {
+            return true;
+        }
+    }
+
     function assignFunction(
         destType: FunctionType,
         srcType: FunctionType,
@@ -28298,27 +28335,18 @@ export function createTypeEvaluator(
                         p.param.name === destParam.param.name
                 )
             ) {
-                if (srcParamDetails.kwargsIndex === undefined) {
-                    diag?.addMessage(
-                        LocAddendum.namedParamMissingInSource().format({
-                            name: destParam.param.name ?? '',
-                        })
-                    );
-                    canAssign = false;
-                } else if (
-                    !assignParam(
-                        destParamType,
-                        srcParamDetails.params[srcParamDetails.kwargsIndex].type,
+                if (
+                    !assignNamedParam(
+                        destParamDetails,
+                        srcParamDetails,
                         paramIndex,
-                        diag?.createAddendum(),
+                        diag,
                         constraints,
                         flags,
                         recursionCount
                     )
                 ) {
-                    if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
-                        canAssign = false;
-                    }
+                    canAssign = false;
                 }
             }
         }
@@ -28454,31 +28482,19 @@ export function createTypeEvaluator(
                         }
 
                         const destParamKind = destParamDetails.params[paramIndex].kind;
-                        if (
-                            destParamKind !== ParamKind.Positional &&
-                            destParamKind !== ParamKind.ExpandedArgs
-                        ) {
-                            if (srcParamDetails.kwargsIndex === undefined) {
-                                diag?.addMessage(
-                                    LocAddendum.namedParamMissingInSource().format({
-                                        name: destParamDetails.params[paramIndex].param.name ?? '',
-                                    })
-                                );
-                                canAssign = false;
-                            } else if (
-                                !assignParam(
-                                    destParamDetails.params[paramIndex].type,
-                                    srcParamDetails.params[srcParamDetails.kwargsIndex].type,
+                        if (destParamKind !== ParamKind.Positional && destParamKind !== ParamKind.ExpandedArgs) {
+                            if (
+                                !assignNamedParam(
+                                    destParamDetails,
+                                    srcParamDetails,
                                     paramIndex,
-                                    diag?.createAddendum(),
+                                    diag,
                                     constraints,
                                     flags,
                                     recursionCount
                                 )
                             ) {
-                                if ((flags & AssignTypeFlags.PartialOverloadOverlap) === 0) {
-                                    canAssign = false;
-                                }
+                                canAssign = false;
                             }
                         }
                     }
