@@ -928,6 +928,14 @@ test('MatchMapping3', () => {
     );
 });
 
+test('MatchClassFinal', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClassFinal.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1); // 1 error for the non-exhaustive match
+});
+
 test('MatchLiteral1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
