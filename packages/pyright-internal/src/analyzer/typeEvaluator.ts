@@ -11717,7 +11717,9 @@ export function createTypeEvaluator(
                 expandedCallType.shared.fullName === 'typing_extensions.sentinel' ||
                 expandedCallType.shared.fullName === 'typing_extensions.Sentinel'
             ) {
-                return { returnType: createSentinelType(evaluatorInterface, errorNode, argList, nodeInfo) };
+                return {
+                    returnType: createSentinelType(evaluatorInterface, errorNode, argList, expandedCallType, nodeInfo),
+                };
             }
 
             if (ClassType.isSpecialFormClass(expandedCallType)) {
