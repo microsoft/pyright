@@ -1791,7 +1791,8 @@ export function getCodeFlowEngine(
                 // Track the number of subtypes we've examined.
                 subtypeCount++;
 
-                // Any or Unknown can never establish a guaranteed NoReturn result.
+                // Any and Unknown can represent callables that return normally, so this call
+                // cannot be proven not to return.
                 if (isAnyOrUnknown(callSubtype)) {
                     return false;
                 }
