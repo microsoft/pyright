@@ -1339,7 +1339,10 @@ function narrowTypeBasedOnValuePattern(
                                 isInstantiableClass(valueSubtypeExpanded) &&
                                 isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded)
                             ) {
-                                if (ClassType.isFinal(subjectSubtypeExpanded) || !subjectSubtypeExpanded.priv.includeSubclasses) {
+                                if (
+                                    ClassType.isFinal(subjectSubtypeExpanded) ||
+                                    !subjectSubtypeExpanded.priv.includeSubclasses
+                                ) {
                                     return undefined;
                                 }
                             }
