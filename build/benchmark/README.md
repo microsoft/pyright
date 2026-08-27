@@ -146,17 +146,12 @@ By default, results are written to the ignored `build/benchmark/results/` direct
 writes a UTC-dated file such as `benchmark_2026-07-28.json` and updates `latest.json`. With
 `--os-name macos`, the names are `benchmark_2026-07-28_macos.json` and `latest-macos.json`.
 
-Checked-in reference runs live in `build/benchmark/baselines/`. Generate a candidate with the same
-OS label, run count, warmup count, memory limit, Python version, and package commits as its baseline,
-then compare it before submitting a performance-sensitive pull request:
+To compare two locally generated results, use the same OS label, run count, warmup count, memory
+limit, Python version, and package commits for both runs:
 
 ```console
-python build/benchmark/typecheck_benchmark.py \
-    -c pyright -r 1 -w 0 -t 600 --memory-limit-mb 8192 \
-    --os-name linux-x64 --output build/benchmark/results
 python build/benchmark/compare_benchmarks.py \
-    build/benchmark/baselines/latest-linux-x64.json \
-    build/benchmark/results/latest-linux-x64.json
+    path/to/base-result.json path/to/candidate-result.json
 ```
 
 The comparator reports per-package timing and memory deltas and exits nonzero when a previously
@@ -165,27 +160,38 @@ regression threshold. Package commits, check paths, and excluded directory names
 For Pyright, result JSON and Markdown reports also include the `--stats` file counts and phase timings
 for source discovery, reads, tokenization, parsing, import resolution, binding, checking, and cycle
 detection. This does not enable verbose or per-file logging.
-Candidate-only package/checker results are reported as not regression-gated and require a regenerated
-baseline before they are protected. Runner class, hosted runner image, CPU count, and the exact Python
-version are part of the environment contract. The dependency-isolation mode and exact `NODE_OPTIONS`
-value are also recorded and must match so results collected with different dependency or Node heap
+Candidate-only package/checker results are reported as not regression-gated. Runner class, hosted
+runner image, CPU count, and the exact Python version are part of the environment contract. The
+dependency-isolation mode, benchmark profile hash, and exact `NODE_OPTIONS` value are also recorded
+and must match so results collected with different corpus, benchmark code, dependency, or Node heap
 settings cannot be compared. Use `--threshold-percent` to select another threshold. Results from
 different runner classes are historical data, not a reliable regression gate.
 
 The invocation timeout is recorded but is not an environment compatibility field: raising a kill
-threshold does not alter a checker invocation that completed below either threshold. A timed-out
-candidate cannot replace a successful baseline. If a candidate succeeds where the baseline timed out
-or otherwise failed, it is reported as `No baseline` until a new hosted baseline is checked in.
-The pull-request workflow also fails if any candidate package cannot be prepared or any checker
-times out, crashes, or otherwise fails, even when that package has no successful baseline yet.
+threshold does not alter a checker invocation that completed below either threshold. The pull-request
+workflow fails if either revision cannot prepare a package or if Pyright times out, crashes, or
+otherwise fails.
 
-On pull requests, the benchmark pins Python 3.14.6, disables shared dependency caches because it
-executes untrusted pull-request code, runs Pyright with a 6.5 GiB V8 old-space limit, and runs each
-package once with no discarded warmup. Each invocation may take up to 30 minutes. A regression must
-exceed both a 20% relative threshold and an absolute variance guard of 1
-second for time or 100 MB for peak memory. These are the comparator defaults, so the gate and trusted
-comment renderer share one configuration source. Reports and artifacts are published before a failed
-comparison marks the job unsuccessful.
+On pull requests, the workflow compares the synthetic merge commit with the exact base commit from
+which GitHub created that merge. It never compares against a moving `main` reference. The base result
+is cached under an exact key containing its commit and hosted measurement profile. A missing, expired,
+or invalid cache entry causes a fresh base build and benchmark; prefix and fallback cache matches are
+not used. Only the job that checks out trusted base code can populate this shared cache. The job that
+executes pull-request code cannot write it.
+
+Both revisions use Python 3.14.6, a 6.5 GiB V8 old-space limit, one measured run, no discarded warmup,
+and a 30-minute invocation timeout. A regression must exceed both a 20% relative threshold and an
+absolute variance guard of 1 second for time or 100 MB for peak memory. If a pull request changes the
+benchmark script, package corpus, package pins, checked paths, exclusions, or measurement environment,
+both revisions must still complete successfully, but the report marks them as not comparable and does
+not apply a performance regression gate. Once that change is merged, its commit becomes the base for
+later pull requests and is cached normally; no checked-in baseline update is required.
+
+The base result, candidate result, and comparison are attached to the workflow run and rendered in the
+Actions job summary and the existing benchmark pull-request comment. Publishing results does not
+commit files, push a branch, or modify the pull request's head SHA, so it does not retrigger code tests.
+The report comment also cannot dispatch another benchmark: the trigger accepts only a newly created
+comment whose entire trimmed body is `/benchmark`, whereas later reports update the marker comment.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
 Each checker performs three measured runs after one warmup over the same pinned corpus. The aggregate
@@ -211,8 +217,8 @@ uncounted validation pass labeled `Check`; otherwise exactly the requested numbe
 reported and discarded.
 
 Dependency installation failures mark the package as unmeasured and skip its checker runs. The PR
-report displays these preparation failures, but they do not count as performance regressions. If none
-of a package's configured check paths exist, the benchmark warns and checks the full repository.
+benchmark treats these preparation failures as errors. If none of a package's configured check paths
+exist, the benchmark warns and checks the full repository.
 
 ## Relationship to `perfCompare.py`
 

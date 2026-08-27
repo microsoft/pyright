@@ -21,5 +21,8 @@ See the script's `--help` and module docstring for options and methodology.
 To compare the local Pyright build's speed and peak memory with the latest PyPI release or with
 Pyrefly, ty, mypy, and Zuban on the pinned corpus, use `build/benchmark/typecheck_benchmark.py`.
 Maintainers can also request the hosted regression benchmark on a pull request by commenting
-`/benchmark`. See [the benchmark README](build/benchmark/README.md) for the developer and maintainer
-workflows, prerequisites, and methodology.
+`/benchmark`. The hosted workflow compares the pull request's synthetic merge commit with its exact
+base commit and reuses a validated commit-keyed base result when available. Results are attached to
+the workflow and added to the existing pull-request comment without changing the pull-request branch
+or retriggering code tests. See [the benchmark README](build/benchmark/README.md) for the developer
+and maintainer workflows, cache behavior, prerequisites, and methodology.

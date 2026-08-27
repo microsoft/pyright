@@ -13,6 +13,21 @@ DEFAULT_THRESHOLD_PERCENT = 20.0
 DEFAULT_TIME_NOISE_FLOOR_SECONDS = 1.0
 DEFAULT_MEMORY_NOISE_FLOOR_MB = 100.0
 
+ENVIRONMENT_FIELDS = (
+    "platform",
+    "architecture",
+    "runner_class",
+    "runner_image",
+    "cpu_count",
+    "python_version",
+    "memory_limit_mb",
+    "node_options",
+    "runs_per_package",
+    "warmup_runs",
+    "dependency_isolation",
+    "benchmark_profile_hash",
+)
+
 
 class ComparisonRow(TypedDict, total=False):
     package: str
@@ -98,8 +113,56 @@ def _packages_by_name(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {
         package["package_name"]: package
         for package in data.get("results", [])
-        if package.get("package_name")
+        if isinstance(package, dict) and package.get("package_name")
     }
+
+
+def _compatibility_failures(
+    baseline: dict[str, Any], candidate: dict[str, Any]
+) -> list[str]:
+    failures: list[str] = []
+    for field in ENVIRONMENT_FIELDS:
+        if baseline.get(field) != candidate.get(field):
+            failures.append(
+                f"environment mismatch for {field}: "
+                f"{baseline.get(field)!r} != {candidate.get(field)!r}"
+            )
+
+    baseline_packages = _packages_by_name(baseline)
+    candidate_packages = _packages_by_name(candidate)
+    if baseline_packages.keys() != candidate_packages.keys():
+        failures.append(
+            "benchmark package set changed from "
+            f"{sorted(baseline_packages)} to {sorted(candidate_packages)}"
+        )
+    for package_name in sorted(baseline_packages.keys() & candidate_packages.keys()):
+        old_package = baseline_packages[package_name]
+        new_package = candidate_packages[package_name]
+        if old_package.get("commit") != new_package.get("commit"):
+            failures.append(
+                f"{package_name}: package commit changed from "
+                f"{old_package.get('commit')} to {new_package.get('commit')}"
+            )
+        for field in ("check_paths", "exclude_directories"):
+            if old_package.get(field, []) != new_package.get(field, []):
+                failures.append(
+                    f"{package_name}: package {field} changed from "
+                    f"{old_package.get(field, [])} to {new_package.get(field, [])}"
+                )
+    return failures
+
+
+def _measurement_failures(data: dict[str, Any], label: str) -> list[str]:
+    failures: list[str] = []
+    for package in data.get("results", []):
+        package_name = package.get("package_name", "unknown")
+        if package.get("error"):
+            failures.append(f"{label}: {package_name} package preparation failed")
+            continue
+        metrics = package.get("metrics", {}).get("pyright")
+        if not isinstance(metrics, dict) or not metrics.get("ok"):
+            failures.append(f"{label}: {package_name}/pyright result failed or is missing")
+    return failures
 
 
 def _percent_change(baseline: float, candidate: float) -> float:
@@ -120,27 +183,32 @@ def _analyze(
     time_noise_floor_s: float = 0.0,
     memory_noise_floor_mb: float = 0.0,
     fail_on_preparation_error: bool = False,
+    baseline_revision: str | None = None,
+    candidate_revision: str | None = None,
+    allow_incompatible: bool = False,
 ) -> tuple[list[str], list[ComparisonRow]]:
     failures = [
         *_validate_results(baseline, "baseline"),
         *_validate_results(candidate, "candidate"),
     ]
     rows: list[ComparisonRow] = []
+    for data, label, expected_revision in (
+        (baseline, "baseline", baseline_revision),
+        (candidate, "candidate", candidate_revision),
+    ):
+        if expected_revision and data.get("source_revision") != expected_revision:
+            failures.append(
+                f"{label}: source revision {data.get('source_revision')!r} "
+                f"does not match {expected_revision!r}"
+            )
     if failures:
         return failures, rows
-    for field in (
-        "platform",
-        "architecture",
-        "runner_class",
-        "runner_image",
-        "cpu_count",
-        "python_version",
-        "memory_limit_mb",
-        "node_options",
-        "runs_per_package",
-        "warmup_runs",
-        "dependency_isolation",
-    ):
+    compatibility_failures = _compatibility_failures(baseline, candidate)
+    if allow_incompatible and compatibility_failures:
+        failures.extend(_measurement_failures(baseline, "baseline"))
+        failures.extend(_measurement_failures(candidate, "candidate"))
+        return failures, rows
+    for field in ENVIRONMENT_FIELDS:
         if baseline.get(field) != candidate.get(field):
             failures.append(
                 f"environment mismatch for {field}: "
@@ -343,6 +411,9 @@ def compare(
     time_noise_floor_s: float = 0.0,
     memory_noise_floor_mb: float = 0.0,
     fail_on_preparation_error: bool = False,
+    baseline_revision: str | None = None,
+    candidate_revision: str | None = None,
+    allow_incompatible: bool = False,
 ) -> list[str]:
     failures, rows = _analyze(
         baseline,
@@ -351,6 +422,9 @@ def compare(
         time_noise_floor_s,
         memory_noise_floor_mb,
         fail_on_preparation_error,
+        baseline_revision,
+        candidate_revision,
+        allow_incompatible,
     )
     print(
         f"{'Package':<20} {'Checker':<10} {'Time':>10} {'Delta':>9} "
@@ -382,6 +456,9 @@ def render_markdown(
     time_noise_floor_s: float = 0.0,
     memory_noise_floor_mb: float = 0.0,
     fail_on_preparation_error: bool = False,
+    baseline_revision: str | None = None,
+    candidate_revision: str | None = None,
+    allow_incompatible: bool = False,
 ) -> str:
     failures, rows = _analyze(
         baseline,
@@ -390,7 +467,28 @@ def render_markdown(
         time_noise_floor_s,
         memory_noise_floor_mb,
         fail_on_preparation_error,
+        baseline_revision,
+        candidate_revision,
+        allow_incompatible,
     )
+    compatibility_failures = _compatibility_failures(baseline, candidate)
+    if allow_incompatible and compatibility_failures and not failures:
+        lines = [
+            "## Type checker benchmark",
+            "",
+            "🟡 **Performance results are not comparable because the benchmark profile changed.**",
+        ]
+        if baseline_revision and candidate_revision:
+            lines.extend(
+                [
+                    "",
+                    f"Base commit: `{baseline_revision}`",
+                    f"Candidate merge commit: `{candidate_revision}`",
+                ]
+            )
+        lines.extend(["", "### Compatibility changes", ""])
+        lines.extend(f"- {_escape_markdown(failure)}" for failure in compatibility_failures)
+        return "\n".join(lines) + "\n"
     if failures:
         summary = f"🔴 **{len(failures)} regression check(s) failed.**"
     else:
@@ -416,6 +514,13 @@ def render_markdown(
         "",
         f"Regression threshold: `{threshold_percent:.1f}%`",
     ]
+    if baseline_revision and candidate_revision:
+        lines.extend(
+            [
+                f"Base commit: `{baseline_revision}`",
+                f"Candidate merge commit: `{candidate_revision}`",
+            ]
+        )
     if time_noise_floor_s > 0 or memory_noise_floor_mb > 0:
         lines.append(
             f"Variance guard: `>{time_noise_floor_s:.1f}s` time and "
@@ -525,6 +630,9 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_MEMORY_NOISE_FLOOR_MB,
     )
     parser.add_argument("--fail-on-preparation-error", action="store_true")
+    parser.add_argument("--baseline-revision")
+    parser.add_argument("--candidate-revision")
+    parser.add_argument("--allow-incompatible", action="store_true")
     parser.add_argument("--markdown-output", type=Path)
     args = parser.parse_args(argv)
 
@@ -542,6 +650,9 @@ def main(argv: list[str] | None = None) -> int:
         args.time_noise_floor_seconds,
         args.memory_noise_floor_mb,
         args.fail_on_preparation_error,
+        args.baseline_revision,
+        args.candidate_revision,
+        args.allow_incompatible,
     )
     if args.markdown_output:
         args.markdown_output.write_text(
@@ -552,6 +663,9 @@ def main(argv: list[str] | None = None) -> int:
                 args.time_noise_floor_seconds,
                 args.memory_noise_floor_mb,
                 args.fail_on_preparation_error,
+                args.baseline_revision,
+                args.candidate_revision,
+                args.allow_incompatible,
             ),
             encoding="utf-8",
         )

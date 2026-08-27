@@ -43,6 +43,7 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
         "uncounted_validation_runs_per_checker": 0,
         "timeout_s": 600,
         "dependency_isolation": "pip-target-per-package",
+        "benchmark_profile_hash": "profile-v1",
         "results": [
             {
                 "package_name": "example",
@@ -430,48 +431,97 @@ Regression threshold: `10.0%`
             with self.assertRaisesRegex(ValueError, "non-finite number NaN"):
                 compare_benchmarks._load_results(result_file)
 
-    def test_workflow_profile_matches_checked_in_baseline(self) -> None:
+    def test_rejects_unexpected_source_revision(self) -> None:
+        baseline = _result(10.0, 100.0)
+        candidate = _result(10.0, 100.0)
+        baseline["source_revision"] = "a" * 40
+        candidate["source_revision"] = "b" * 40
+
+        failures = compare_benchmarks.compare(
+            baseline,
+            candidate,
+            10.0,
+            baseline_revision="c" * 40,
+            candidate_revision="b" * 40,
+        )
+
+        self.assertEqual(
+            failures,
+            [
+                "baseline: source revision "
+                f"{'a' * 40!r} does not match {'c' * 40!r}"
+            ],
+        )
+
+    def test_report_identifies_compared_revisions(self) -> None:
+        baseline = _result(10.0, 100.0)
+        candidate = _result(10.0, 100.0)
+        baseline_revision = "a" * 40
+        candidate_revision = "b" * 40
+        baseline["source_revision"] = baseline_revision
+        candidate["source_revision"] = candidate_revision
+
+        report = compare_benchmarks.render_markdown(
+            baseline,
+            candidate,
+            10.0,
+            baseline_revision=baseline_revision,
+            candidate_revision=candidate_revision,
+        )
+
+        self.assertIn(f"Base commit: `{baseline_revision}`", report)
+        self.assertIn(f"Candidate merge commit: `{candidate_revision}`", report)
+
+    def test_allows_successful_benchmark_profile_change(self) -> None:
+        candidate = _result(10.0, 100.0)
+        candidate["benchmark_profile_hash"] = "profile-v2"
+
+        failures = compare_benchmarks.compare(
+            _result(10.0, 100.0),
+            candidate,
+            10.0,
+            allow_incompatible=True,
+        )
+        report = compare_benchmarks.render_markdown(
+            _result(10.0, 100.0),
+            candidate,
+            10.0,
+            allow_incompatible=True,
+        )
+
+        self.assertEqual(failures, [])
+        self.assertIn("Performance results are not comparable", report)
+        self.assertIn(r"benchmark\_profile\_hash", report)
+
+    def test_incompatible_results_still_require_successful_measurements(self) -> None:
+        candidate = _result(0.0, 0.0, ok=False)
+        candidate["benchmark_profile_hash"] = "profile-v2"
+
+        failures = compare_benchmarks.compare(
+            _result(10.0, 100.0),
+            candidate,
+            10.0,
+            allow_incompatible=True,
+        )
+
+        self.assertEqual(
+            failures, ["candidate: example/pyright result failed or is missing"]
+        )
+
+    def test_pr_workflow_uses_matching_base_and_candidate_profiles(self) -> None:
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
-        timeout_match = re.search(
+        timeout_matches = re.findall(
             r"typecheck_benchmark\.py \\\s+"
             r"-c pyright -r 1 -w 0 -t (\d+)",
             workflow,
         )
-        self.assertIsNotNone(timeout_match)
-
-        baseline = json.loads(
-            (
-                REPO_ROOT
-                / "build"
-                / "benchmark"
-                / "baselines"
-                / "latest-linux-x64.json"
-            ).read_text(encoding="utf-8")
-        )
-        config = json.loads(
-            (
-                REPO_ROOT / "build" / "benchmark" / "install_envs.json"
-            ).read_text(encoding="utf-8")
-        )
-
-        self.assertEqual(int(timeout_match.group(1)), 1800)
-        baseline_packages = {
-            package["package_name"]: package for package in baseline["results"]
-        }
-        for package in config["packages"]:
-            package_name = package.get("name") or package["github_url"].rsplit(
-                "/", 1
-            )[-1]
-            baseline_package = baseline_packages[package_name]
-            self.assertEqual(
-                package.get("check_paths", []), baseline_package["check_paths"]
-            )
-            self.assertEqual(
-                package.get("exclude_directories", []),
-                baseline_package["exclude_directories"],
-            )
+        self.assertEqual(timeout_matches, ["1800", "1800"])
+        self.assertIn("data['source_revision'] = os.environ['BASE_SHA']", workflow)
+        self.assertIn("data['source_revision'] = os.environ['MERGE_SHA']", workflow)
+        self.assertIn("data['benchmark_profile_hash'] = profile.hexdigest()", workflow)
+        self.assertNotIn("build/benchmark/baselines/", workflow)
 
     def test_workflows_use_current_pnpm_setup(self) -> None:
         for workflow_name in (
@@ -587,9 +637,13 @@ Regression threshold: `10.0%`
             "pullRequest.data.merge_commit_sha !== expectedMergeSha",
             benchmark_workflow,
         )
-        benchmark_job = benchmark_workflow_data["jobs"]["benchmark"]
+        base_job = benchmark_workflow_data["jobs"]["base-benchmark"]
+        candidate_job = benchmark_workflow_data["jobs"]["candidate-benchmark"]
+        comparison_job = benchmark_workflow_data["jobs"]["comparison"]
         comment_job = benchmark_workflow_data["jobs"]["comment"]
-        self.assertEqual(benchmark_job["permissions"], {"contents": "read"})
+        self.assertEqual(base_job["permissions"], {"contents": "read"})
+        self.assertEqual(candidate_job["permissions"], {"contents": "read"})
+        self.assertEqual(comparison_job["permissions"], {"contents": "read"})
         self.assertEqual(
             comment_job["permissions"],
             {
@@ -598,7 +652,7 @@ Regression threshold: `10.0%`
                 "pull-requests": "write",
             },
         )
-        self.assertEqual(comment_job["needs"], "benchmark")
+        self.assertEqual(comment_job["needs"], "comparison")
         self.assertEqual(
             [
                 job_name
@@ -616,20 +670,31 @@ Regression threshold: `10.0%`
             ).exists()
         )
 
-    def test_pr_workflow_prefers_trusted_baseline_with_bootstrap_fallback(self) -> None:
+    def test_pr_workflow_caches_only_the_base_result(self) -> None:
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
-
-        trusted = "benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json"
-        bootstrap = "build/benchmark/baselines/latest-linux-x64.json"
-        self.assertLess(
-            workflow.index('if [[ -f "$trusted" ]]'),
-            workflow.index('elif [[ -f "$bootstrap" ]]'),
+        workflow_data = _load_yaml(
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         )
-        self.assertIn('echo "path=$trusted" >> "$GITHUB_OUTPUT"', workflow)
-        self.assertIn('echo "path=$bootstrap" >> "$GITHUB_OUTPUT"', workflow)
-        self.assertIn('"${{ steps.baseline.outputs.path }}"', workflow)
+        base_job = json.dumps(workflow_data["jobs"]["base-benchmark"])
+        candidate_job = json.dumps(workflow_data["jobs"]["candidate-benchmark"])
+
+        self.assertIn("actions/cache/restore@0057852", base_job)
+        self.assertIn("actions/cache/save@0057852", base_job)
+        self.assertNotIn("restore-keys", base_job)
+        self.assertNotIn("actions/cache/", candidate_job)
+        self.assertIn("ref: ${{ inputs.base_sha }}", workflow)
+        self.assertIn("ref: ${{ inputs.merge_sha }}", workflow)
+        self.assertIn("--baseline-revision", workflow)
+        self.assertIn("--candidate-revision", workflow)
+        self.assertIn("--allow-incompatible", workflow)
+        self.assertIn("issues.listComments", workflow)
+        self.assertIn("updateComment", workflow)
+        self.assertIn("comment.user?.login === 'github-actions[bot]'", workflow)
+        self.assertIn("ref: ${{ github.sha }}", workflow)
+        self.assertNotIn("git push", workflow)
+        self.assertNotIn("contents: write", workflow)
 
 
 if __name__ == "__main__":
