@@ -1335,6 +1335,15 @@ function narrowTypeBasedOnValuePattern(
                         // If this is a negative test, see if it's an enum value.
                         if (!isPositiveTest) {
                             if (
+                                isInstantiableClass(subjectSubtypeExpanded) &&
+                                isInstantiableClass(valueSubtypeExpanded) &&
+                                isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded)
+                            ) {
+                                if (ClassType.isFinal(subjectSubtypeExpanded) || !subjectSubtypeExpanded.priv.includeSubclasses) {
+                                    return undefined;
+                                }
+                            }
+                            if (
                                 isClassInstance(subjectSubtypeExpanded) &&
                                 isClassInstance(valueSubtypeExpanded) &&
                                 isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded)
