@@ -628,7 +628,7 @@ test('MatchClassFinal', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClassFinal.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 1); // 1 error for the non-exhaustive match
+    TestUtils.validateResults(analysisResults, 2); // 1 error for non-final, 1 error for custom metaclass
 });
 
 test('MatchLiteral1', () => {
