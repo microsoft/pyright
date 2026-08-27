@@ -1339,15 +1339,17 @@ function narrowTypeBasedOnValuePattern(
                                 isInstantiableClass(valueSubtypeExpanded) &&
                                 isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded)
                             ) {
-                                // A value pattern compares with ==, not identity. Ensure that the
-                                // class has standard equality semantics by checking if its metaclass
-                                // is the standard type (or ABCMeta) and hasn't been overridden with a
-                                // custom metaclass that might implement a custom __eq__.
                                 const metaclass = subjectSubtypeExpanded.shared.effectiveMetaclass;
+                                let eqClass: ClassType | undefined;
+                                if (metaclass && isInstantiableClass(metaclass)) {
+                                    const eqMember = lookUpClassMember(metaclass, '__eq__');
+                                    if (eqMember && isClass(eqMember.classType)) {
+                                        eqClass = eqMember.classType;
+                                    }
+                                }
+
                                 const isStandardEquality =
-                                    !metaclass ||
-                                    (isClass(metaclass) &&
-                                        ClassType.isBuiltIn(metaclass, ['type', 'ABCMeta', 'EnumMeta']));
+                                    !eqClass || ClassType.isBuiltIn(eqClass, ['type', 'object', 'ABCMeta', 'EnumMeta']);
 
                                 if (
                                     isStandardEquality &&

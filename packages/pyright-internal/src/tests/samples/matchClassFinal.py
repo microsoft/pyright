@@ -63,3 +63,25 @@ def non_exhaustive_custom_meta(inst: C1 | D1):
             pass
         case NS3.D1:
             pass
+
+class MetaNoOverride(type):
+    pass
+
+@final
+class E1(metaclass=MetaNoOverride):
+    pass
+
+@final
+class F1(metaclass=MetaNoOverride):
+    pass
+
+class NS4:
+    E1 = E1
+    F1 = F1
+
+def exhaustive_custom_meta_no_override(inst: E1 | F1):
+    match type(inst):
+        case NS4.E1:
+            pass
+        case NS4.F1:
+            pass
