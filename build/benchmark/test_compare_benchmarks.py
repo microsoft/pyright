@@ -509,25 +509,32 @@ Regression threshold: `10.0%`
         )
 
     def test_pr_workflow_uses_matching_base_and_candidate_profiles(self) -> None:
-        workflow = (
+        candidate_workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        ).read_text(encoding="utf-8")
+        report_workflow = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_report.yml"
         ).read_text(encoding="utf-8")
         timeout_matches = re.findall(
             r"typecheck_benchmark\.py \\\s+"
             r"-c pyright -r 1 -w 0 -t (\d+)",
-            workflow,
+            candidate_workflow + report_workflow,
         )
         self.assertEqual(timeout_matches, ["1800", "1800"])
-        self.assertIn("data['source_revision'] = os.environ['BASE_SHA']", workflow)
-        self.assertIn("data['source_revision'] = os.environ['MERGE_SHA']", workflow)
-        self.assertEqual(workflow.count("data['source_commit_subject']"), 2)
-        self.assertEqual(workflow.count("data['source_commit_timestamp']"), 2)
-        self.assertIn("data['benchmark_profile_hash'] = profile.hexdigest()", workflow)
-        self.assertIn("build/benchmark/baselines/latest-linux-x64.json", workflow)
+        self.assertIn("data['source_revision'] = os.environ['MERGE_SHA']", candidate_workflow)
+        self.assertIn("data['source_head_revision']", candidate_workflow)
+        self.assertIn("data['source_base_revision']", candidate_workflow)
+        self.assertIn("data['source_revision'] = os.environ['BASE_SHA']", report_workflow)
+        for workflow in (candidate_workflow, report_workflow):
+            self.assertIn("data['source_commit_subject']", workflow)
+            self.assertIn("data['source_commit_timestamp']", workflow)
+            self.assertIn("data['benchmark_profile_hash'] = profile.hexdigest()", workflow)
+        self.assertIn("build/benchmark/baselines/latest-linux-x64.json", report_workflow)
 
     def test_workflows_use_current_pnpm_setup(self) -> None:
         for workflow_name in (
             "typecheck_benchmark_pr.yml",
+            "typecheck_benchmark_report.yml",
             "typecheck_benchmark_weekly.yml",
         ):
             workflow = (
@@ -572,7 +579,7 @@ Regression threshold: `10.0%`
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
         self.assertIn(
-            "run-name: 'Type checker benchmark for PR #${{ inputs.pr_number }}'",
+            "run-name: 'Type checker benchmark candidate for PR #${{ github.event.pull_request.number }}'",
             pr_workflow,
         )
         self.assertIn("PNPM_VERSION: '10.12.2'", pr_workflow)
@@ -590,6 +597,11 @@ Regression threshold: `10.0%`
         )
         benchmark_workflow = benchmark_workflow_path.read_text(encoding="utf-8")
         benchmark_workflow_data = _load_yaml(benchmark_workflow_path)
+        report_workflow_path = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_report.yml"
+        )
+        report_workflow = report_workflow_path.read_text(encoding="utf-8")
+        report_workflow_data = _load_yaml(report_workflow_path)
 
         self.assertIn("issue_comment:", trigger_workflow)
         self.assertIn(
@@ -601,11 +613,17 @@ Regression threshold: `10.0%`
         self.assertIn("github.event.issue.state == 'open'", trigger_workflow)
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
-        self.assertIn("actions: write", trigger_workflow)
+        self.assertIn("issues: write", trigger_workflow)
         self.assertIn("pull-requests: read", trigger_workflow)
-        self.assertIn("createWorkflowDispatch", trigger_workflow)
-        self.assertIn("workflow_id: 'typecheck_benchmark_pr.yml'", trigger_workflow)
-        self.assertNotIn("head_sha:", trigger_workflow)
+        self.assertIn("actions: write", trigger_workflow)
+        self.assertIn("actions.listWorkflowRuns", trigger_workflow)
+        self.assertIn("actions.reRunWorkflow", trigger_workflow)
+        self.assertIn("issues.addLabels", trigger_workflow)
+        self.assertIn("issues.removeLabel", trigger_workflow)
+        self.assertIn("issues.createLabel", trigger_workflow)
+        self.assertNotIn("createWorkflowDispatch", trigger_workflow)
+        self.assertNotIn("workflow_dispatch:", trigger_workflow)
+        self.assertNotIn("inputs:", trigger_workflow)
         self.assertNotIn("base_sha:", trigger_workflow)
         self.assertNotIn("merge_sha:", trigger_workflow)
         self.assertNotIn("actions/checkout", trigger_workflow)
@@ -618,47 +636,46 @@ Regression threshold: `10.0%`
             "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
             benchmark_workflow,
         )
-        self.assertIn(
-            "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
-            benchmark_workflow,
-        )
         self.assertNotIn("actions/checkout@v4", benchmark_workflow)
-        self.assertNotIn("actions/github-script@v7", benchmark_workflow)
-        self.assertIn("workflow_dispatch:", benchmark_workflow)
+        self.assertIn("pull_request:", benchmark_workflow)
+        self.assertIn("- synchronize", benchmark_workflow)
+        self.assertNotIn("- labeled", benchmark_workflow)
+        self.assertIn("Number(process.env.RUN_ATTEMPT) > 1", benchmark_workflow)
+        self.assertIn("label.name === 'benchmark-requested'", benchmark_workflow)
+        self.assertIn("needs.authorize.outputs.requested == 'true'", benchmark_workflow)
+        self.assertNotIn("workflow_dispatch:", benchmark_workflow)
         self.assertNotIn("paths:", benchmark_workflow)
-        self.assertNotIn("pull_request:", benchmark_workflow)
         self.assertNotIn("cache: 'pip'", benchmark_workflow)
         self.assertNotIn("cache: 'pnpm'", benchmark_workflow)
         self.assertIn("persist-credentials: false", benchmark_workflow)
-        self.assertNotIn("inputs.head_sha", benchmark_workflow)
-        self.assertNotIn("inputs.base_sha", benchmark_workflow)
-        self.assertNotIn("inputs.merge_sha", benchmark_workflow)
-        self.assertIn("github.rest.pulls.get", benchmark_workflow)
-        self.assertIn("ref: ${{ needs.metadata.outputs.base-sha }}", benchmark_workflow)
-        self.assertIn("ref: ${{ needs.metadata.outputs.merge-sha }}", benchmark_workflow)
-        self.assertIn("-merge-${{ needs.metadata.outputs.merge-sha }}", benchmark_workflow)
-        self.assertIn("if: ${{ always() && needs.metadata.result == 'success' }}", benchmark_workflow)
-        self.assertIn("run_id: context.runId", benchmark_workflow)
-        self.assertIn("pullRequest.data.base.sha !== expectedBaseSha", benchmark_workflow)
-        self.assertIn(
-            "pullRequest.data.merge_commit_sha !== expectedMergeSha",
-            benchmark_workflow,
-        )
-        metadata_job = benchmark_workflow_data["jobs"]["metadata"]
-        base_job = benchmark_workflow_data["jobs"]["base-benchmark"]
         candidate_job = benchmark_workflow_data["jobs"]["candidate-benchmark"]
-        comparison_job = benchmark_workflow_data["jobs"]["comparison"]
-        comment_job = benchmark_workflow_data["jobs"]["comment"]
-        persist_job = benchmark_workflow_data["jobs"]["persist-base-result"]
+        self.assertEqual(
+            benchmark_workflow_data["permissions"],
+            {"contents": "read", "issues": "read"},
+        )
+        self.assertNotIn("permissions", candidate_job)
+        self.assertNotIn("actions/cache", benchmark_workflow)
+        self.assertNotIn("contents: write", benchmark_workflow)
+
+        self.assertIn("workflow_run:", report_workflow)
+        self.assertIn("Type checker benchmark candidate", report_workflow)
+        self.assertIn("github.event.workflow_run.run_attempt > 1", report_workflow)
+        self.assertIn("github.event.workflow_run.id", report_workflow)
+        self.assertIn("ref: ${{ github.sha }}", report_workflow)
+        self.assertNotIn("workflow_dispatch:", report_workflow)
+        metadata_job = report_workflow_data["jobs"]["metadata"]
+        base_job = report_workflow_data["jobs"]["base-benchmark"]
+        comparison_job = report_workflow_data["jobs"]["comparison"]
+        comment_job = report_workflow_data["jobs"]["comment"]
+        persist_job = report_workflow_data["jobs"]["persist-base-result"]
+        self.assertEqual(report_workflow_data["permissions"], {})
         self.assertEqual(metadata_job["permissions"], {"pull-requests": "read"})
         self.assertEqual(base_job["permissions"], {"contents": "read"})
-        self.assertEqual(candidate_job["permissions"], {"contents": "read"})
-        self.assertEqual(comparison_job["permissions"], {"contents": "read"})
+        self.assertEqual(comparison_job["permissions"], {"actions": "read", "contents": "read"})
         self.assertEqual(
             comment_job["permissions"],
             {
                 "actions": "read",
-                "contents": "read",
                 "pull-requests": "write",
             },
         )
@@ -670,7 +687,7 @@ Regression threshold: `10.0%`
         self.assertEqual(
             [
                 job_name
-                for job_name, job in benchmark_workflow_data["jobs"].items()
+                for job_name, job in report_workflow_data["jobs"].items()
                 if job.get("permissions", {}).get("pull-requests") == "write"
             ],
             ["comment"],
@@ -678,44 +695,37 @@ Regression threshold: `10.0%`
         self.assertEqual(
             [
                 job_name
-                for job_name, job in benchmark_workflow_data["jobs"].items()
+                for job_name, job in report_workflow_data["jobs"].items()
                 if job.get("permissions", {}).get("contents") == "write"
             ],
             ["persist-base-result"],
         )
-        self.assertFalse(
-            (
-                REPO_ROOT
-                / ".github"
-                / "workflows"
-                / "typecheck_benchmark_comment.yml"
-            ).exists()
-        )
+        self.assertIn("github.event.workflow_run.conclusion == 'success'", report_workflow)
 
     def test_pr_workflow_caches_only_the_base_result(self) -> None:
-        workflow = (
+        candidate_workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
-        workflow_data = _load_yaml(
-            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        report_workflow_path = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_report.yml"
         )
+        workflow = report_workflow_path.read_text(encoding="utf-8")
+        workflow_data = _load_yaml(report_workflow_path)
         base_job = json.dumps(workflow_data["jobs"]["base-benchmark"])
-        candidate_job = json.dumps(workflow_data["jobs"]["candidate-benchmark"])
 
         self.assertIn("actions/cache/restore@0057852", base_job)
         self.assertIn("actions/cache/save@0057852", base_job)
         self.assertIn("typecheck-benchmark-base-v2-", base_job)
         self.assertNotIn("restore-keys", base_job)
-        self.assertNotIn("actions/cache/", candidate_job)
-        self.assertIn("ref: ${{ needs.metadata.outputs.base-sha }}", workflow)
-        self.assertIn("ref: ${{ needs.metadata.outputs.merge-sha }}", workflow)
+        self.assertNotIn("actions/cache/", candidate_workflow)
+        self.assertIn("ref: ${{ github.sha }}", workflow)
+        self.assertNotIn("actions/checkout", workflow_data["jobs"]["persist-base-result"])
         self.assertIn("--baseline-revision", workflow)
         self.assertIn("--candidate-revision", workflow)
         self.assertIn("--allow-incompatible", workflow)
         self.assertIn("issues.listComments", workflow)
         self.assertIn("updateComment", workflow)
         self.assertIn("comment.user?.login === 'github-actions[bot]'", workflow)
-        self.assertIn("ref: ${{ github.sha }}", workflow)
         self.assertNotIn("git push", workflow)
         persist_job = workflow_data["jobs"]["persist-base-result"]
         persist_job_text = json.dumps(persist_job)

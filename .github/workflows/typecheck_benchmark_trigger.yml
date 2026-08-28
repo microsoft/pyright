@@ -7,7 +7,7 @@ on:
 
 permissions:
   actions: write
-  contents: read
+  issues: write
   pull-requests: read
 
 jobs:
@@ -36,12 +36,70 @@ jobs:
               return
             }
 
-            await github.rest.actions.createWorkflowDispatch({
+            const label = 'benchmark-requested'
+            const pullRequest = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'typecheck_benchmark_pr.yml',
-              ref: context.payload.repository.default_branch,
-              inputs: {
-                pr_number: String(context.issue.number),
-              },
+              pull_number: context.issue.number,
+            })
+            if (!pullRequest.data.merge_commit_sha) {
+              core.setFailed('The pull request must be mergeable before it can be benchmarked')
+              return
+            }
+            let candidateRun
+            for (let attempt = 0; attempt < 12; attempt++) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'typecheck_benchmark_pr.yml',
+                event: 'pull_request',
+                head_sha: pullRequest.data.head.sha,
+                per_page: 100,
+              })
+              candidateRun = runs.data.workflow_runs.find(
+                (run) => run.pull_requests.some((item) => item.number === context.issue.number)
+              )
+              if (candidateRun?.status === 'completed') break
+              await new Promise((resolve) => setTimeout(resolve, 5000))
+            }
+            if (!candidateRun || candidateRun.status !== 'completed') {
+              core.setFailed('The pull request validation workflow is not ready; retry /benchmark shortly')
+              return
+            }
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+              })
+            } catch (error) {
+              if (error.status !== 404) throw error
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+                color: '1d76db',
+                description: 'Run the hosted type checker benchmark',
+              })
+            }
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: label,
+              })
+            } catch (error) {
+              if (error.status !== 404) throw error
+            }
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [label],
+            })
+            await github.rest.actions.reRunWorkflow({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: candidateRun.id,
             })

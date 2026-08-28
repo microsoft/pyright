@@ -107,16 +107,19 @@ result contract, and the comparator rejects mismatched environments.
 
 The hosted pull-request benchmark runs only when a maintainer comments exactly `/benchmark` on an
 open pull request. The command must be the entire comment. The trusted command workflow checks that
-the commenter has `write`, `maintain`, or `admin` repository permission and then explicitly dispatches
-the benchmark with the pull request's current head, base, and synthetic merge commits. Users without
-one of these permissions cannot start the benchmark.
+the commenter has `write`, `maintain`, or `admin` repository permission and then toggles the
+`benchmark-requested` label and reruns the current commit's existing pull-request workflow. Users
+without one of these permissions cannot start the benchmark. The initial workflow run for each pull
+request commit performs only the request check; measured work is restricted to authorized reruns.
 
-The dispatched workflow runs the pull request's synthetic merge commit, so all mergeable open pull
-requests use the current pnpm build metadata from the base branch. It uses read-only repository
-permissions. When the run completes, a separate trusted job validates the result's head, base, and
-merge commits, renders it using default-branch code, and creates or updates one benchmark comment.
-The trusted job runs on a separate runner with pull-request write permission. The Actions job summary
-and benchmark artifact contain the same candidate results.
+The authorized rerun executes an unprivileged `pull_request` workflow that runs the pull request's
+synthetic merge commit with read-only repository and issue permissions. It cannot read or write the
+shared benchmark cache. When it completes, a separate trusted `workflow_run` workflow accepts only
+rerun attempts, uses only default-branch code to validate the candidate artifact and pull request
+revisions, benchmarks or restores the exact base commit, renders the comparison, and creates or
+updates one benchmark comment. Candidate output is treated only as bounded JSON data and is never
+executed by the trusted workflow. The Actions job summary and benchmark artifact contain the same
+candidate results.
 
 Comment `/benchmark` again after pushing a new commit or when rerunning the same head. No benchmark is
 started automatically for later commits. The command workflow must already exist on the repository's
@@ -179,12 +182,15 @@ threshold does not alter a checker invocation that completed below either thresh
 workflow fails if either revision cannot prepare a package or if Pyright times out, crashes, or
 otherwise fails.
 
-On pull requests, the workflow compares the synthetic merge commit with the exact base commit from
-which GitHub created that merge. It never compares against a moving `main` reference. The base result
-is cached under an exact key containing its commit and hosted measurement profile. A missing, expired,
-or invalid cache entry causes a fresh base build and benchmark; prefix and fallback cache matches are
-not used. Only the job that checks out trusted base code can populate this shared cache. The job that
-executes pull-request code cannot write it.
+On pull requests, the workflow compares the synthetic merge commit with the exact default-branch
+commit validated against the pull request base. If the pull request or default branch changes before
+the trusted workflow validates those revisions, the report stops and a new `/benchmark` request is
+required. The base result is cached under an exact key containing its commit and hosted measurement
+profile. A missing, expired, or invalid cache entry causes a fresh base build and benchmark; prefix
+and fallback cache matches are not used. Only the job that checks out trusted default-branch code can
+populate this shared cache. The job that executes pull-request code cannot write it. A newly measured
+base result is also committed to the checked-in dated and `latest` baseline files on same-repository
+pull requests after confirming that the pull request head has not changed.
 
 Both revisions use Python 3.14.6, a 6.5 GiB V8 old-space limit, one measured run, no discarded warmup,
 and a 30-minute invocation timeout. A regression must exceed both a 20% relative threshold and an
