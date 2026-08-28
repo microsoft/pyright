@@ -1,5 +1,6 @@
 # This sample tests the handling of Sentinel as described in PEP 661.
 
+from dataclasses import dataclass
 from typing import Literal, TypeAlias
 from typing_extensions import Sentinel, TypeForm  # pyright: ignore[reportMissingModuleSource]
 
@@ -63,3 +64,33 @@ def func3(x: Literal[0, 3, "hi"] | MISSING) -> None:
 
 t1 = type(MISSING)
 reveal_type(t1, expected_text="type[MISSING]")
+
+
+# Attribute access on a sentinel instance should resolve through the
+# regular MRO rather than being treated as an unknown descriptor.
+reveal_type(MISSING.__eq__, expected_text="(value: object, /) -> bool")
+
+
+@dataclass
+class DC1:
+    name: str | MISSING = MISSING
+
+
+class ClassA:
+    value: int | MISSING
+
+
+def func4(dc: DC1, a: ClassA) -> None:
+    reveal_type(dc.name, expected_text="str | MISSING")
+    reveal_type(a.value, expected_text="int | MISSING")
+
+    if dc.name is MISSING:
+        reveal_type(dc.name, expected_text="MISSING")
+    else:
+        reveal_type(dc.name, expected_text="str")
+
+    if dc.name is not MISSING:
+        reveal_type(dc.name, expected_text="str")
+
+    if a.value is not MISSING:
+        reveal_type(a.value, expected_text="int")
