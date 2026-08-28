@@ -14,35 +14,65 @@ on:
         description: Pull request number
         required: true
         type: string
-      head_sha:
-        description: Pull request head commit
-        required: true
-        type: string
-      base_sha:
-        description: Pull request base commit
-        required: true
-        type: string
-      merge_sha:
-        description: Pull request merge commit
-        required: true
-        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
+  metadata:
+    name: Resolve pull request revisions
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      head-sha: ${{ steps.pull-request.outputs.head-sha }}
+      head-ref: ${{ steps.pull-request.outputs.head-ref }}
+      head-repository: ${{ steps.pull-request.outputs.head-repository }}
+      base-sha: ${{ steps.pull-request.outputs.base-sha }}
+      merge-sha: ${{ steps.pull-request.outputs.merge-sha }}
+    steps:
+      - name: Read pull request metadata
+        id: pull-request
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          script: |
+            const issueNumber = Number(process.env.PR_NUMBER)
+            if (!Number.isSafeInteger(issueNumber) || issueNumber <= 0) {
+              core.setFailed('The pull request number is invalid')
+              return
+            }
+            const pullRequest = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: issueNumber,
+            })
+            if (pullRequest.data.state !== 'open' || !pullRequest.data.merge_commit_sha) {
+              core.setFailed('The pull request is not open or does not have a merge commit')
+              return
+            }
+            core.setOutput('head-sha', pullRequest.data.head.sha)
+            core.setOutput('head-ref', pullRequest.data.head.ref)
+            core.setOutput('head-repository', pullRequest.data.head.repo.full_name)
+            core.setOutput('base-sha', pullRequest.data.base.sha)
+            core.setOutput('merge-sha', pullRequest.data.merge_commit_sha)
+
   base-benchmark:
     name: Benchmark base commit
+    needs: metadata
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
       contents: read
+    outputs:
+      cached: ${{ steps.cached-result.outputs.valid }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.base_sha }}
+          ref: ${{ needs.metadata.outputs.base-sha }}
           persist-credentials: false
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -53,11 +83,11 @@ jobs:
         id: cache-key
         shell: bash
         env:
-          BASE_SHA: ${{ inputs.base_sha }}
+          BASE_SHA: ${{ needs.metadata.outputs.base-sha }}
         run: |
           profile="${ImageOS}-${ImageVersion}-$(uname -m)-cpu$(nproc)-python${PYTHON_VERSION}-node${NODE_VERSION}-pnpm${PNPM_VERSION}-r1-w0-m8192-heap6656"
           profile="$(printf '%s' "$profile" | tr -c 'A-Za-z0-9_.-' '-')"
-          echo "value=typecheck-benchmark-base-v1-${BASE_SHA}-${profile}" >> "$GITHUB_OUTPUT"
+          echo "value=typecheck-benchmark-base-v2-${BASE_SHA}-${profile}" >> "$GITHUB_OUTPUT"
 
       - name: Restore cached base result
         id: base-cache
@@ -70,11 +100,11 @@ jobs:
         id: cached-result
         shell: bash
         env:
-          BASE_SHA: ${{ inputs.base_sha }}
+          BASE_SHA: ${{ needs.metadata.outputs.base-sha }}
         run: |
           result=build/benchmark/base-results/latest-linux-x64.json
           if [[ "${{ steps.base-cache.outputs.cache-hit }}" == "true" ]] && \
-            python -c "import hashlib,json,sys; data=json.load(open(sys.argv[1], encoding='utf-8')); digest=hashlib.sha256(b''.join(open(path, 'rb').read() for path in sys.argv[3:])).hexdigest(); sys.exit(data.get('source_revision') != sys.argv[2] or data.get('benchmark_profile_hash') != digest)" \
+            python -c "import hashlib,json,sys; data=json.load(open(sys.argv[1], encoding='utf-8')); digest=hashlib.sha256(b''.join(open(path, 'rb').read() for path in sys.argv[3:])).hexdigest(); sys.exit(data.get('source_revision') != sys.argv[2] or not data.get('source_commit_subject') or not data.get('source_commit_timestamp') or data.get('benchmark_profile_hash') != digest)" \
               "$result" "$BASE_SHA" build/benchmark/typecheck_benchmark.py \
               build/benchmark/install_envs.json && \
             python build/benchmark/compare_benchmarks.py "$result" "$result" \
@@ -128,17 +158,24 @@ jobs:
       - name: Record base revision
         if: ${{ steps.cached-result.outputs.valid != 'true' }}
         env:
-          BASE_SHA: ${{ inputs.base_sha }}
+          BASE_SHA: ${{ needs.metadata.outputs.base-sha }}
         run: |
           python - <<'PY'
           import hashlib
           import json
           import os
+            import subprocess
           from pathlib import Path
 
           path = Path('build/benchmark/base-results/latest-linux-x64.json')
           data = json.loads(path.read_text(encoding='utf-8'))
           data['source_revision'] = os.environ['BASE_SHA']
+            data['source_commit_subject'] = subprocess.check_output(
+              ['git', 'show', '-s', '--format=%s', os.environ['BASE_SHA']], text=True
+            ).strip()
+            data['source_commit_timestamp'] = subprocess.check_output(
+              ['git', 'show', '-s', '--format=%cI', os.environ['BASE_SHA']], text=True
+            ).strip()
           profile = hashlib.sha256()
           for profile_path in (
               Path('build/benchmark/typecheck_benchmark.py'),
@@ -151,7 +188,7 @@ jobs:
 
       - name: Validate base result
         env:
-          BASE_SHA: ${{ inputs.base_sha }}
+          BASE_SHA: ${{ needs.metadata.outputs.base-sha }}
         run: |
           python build/benchmark/compare_benchmarks.py \
             build/benchmark/base-results/latest-linux-x64.json \
@@ -170,11 +207,12 @@ jobs:
       - name: Upload base result
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: typecheck-benchmark-base-${{ inputs.base_sha }}
+          name: typecheck-benchmark-base-${{ needs.metadata.outputs.base-sha }}
           path: build/benchmark/base-results/latest-linux-x64.json
 
   candidate-benchmark:
     name: Benchmark pull request merge
+    needs: metadata
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
@@ -183,7 +221,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.merge_sha }}
+          ref: ${{ needs.metadata.outputs.merge-sha }}
           persist-credentials: false
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -226,17 +264,24 @@ jobs:
 
       - name: Record candidate revision and profile
         env:
-          MERGE_SHA: ${{ inputs.merge_sha }}
+          MERGE_SHA: ${{ needs.metadata.outputs.merge-sha }}
         run: |
           python - <<'PY'
           import hashlib
           import json
           import os
+            import subprocess
           from pathlib import Path
 
           path = Path('build/benchmark/candidate-results/latest-linux-x64.json')
           data = json.loads(path.read_text(encoding='utf-8'))
           data['source_revision'] = os.environ['MERGE_SHA']
+            data['source_commit_subject'] = subprocess.check_output(
+              ['git', 'show', '-s', '--format=%s', os.environ['MERGE_SHA']], text=True
+            ).strip()
+            data['source_commit_timestamp'] = subprocess.check_output(
+              ['git', 'show', '-s', '--format=%cI', os.environ['MERGE_SHA']], text=True
+            ).strip()
           profile = hashlib.sha256()
           for profile_path in (
               Path('build/benchmark/typecheck_benchmark.py'),
@@ -250,12 +295,12 @@ jobs:
       - name: Upload candidate result
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: typecheck-benchmark-candidate-${{ inputs.merge_sha }}
+          name: typecheck-benchmark-candidate-${{ needs.metadata.outputs.merge-sha }}
           path: build/benchmark/candidate-results/latest-linux-x64.json
 
   comparison:
     name: Compare Pyright performance
-    needs: [base-benchmark, candidate-benchmark]
+    needs: [metadata, base-benchmark, candidate-benchmark]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -269,21 +314,21 @@ jobs:
       - name: Download base result
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: typecheck-benchmark-base-${{ inputs.base_sha }}
+          name: typecheck-benchmark-base-${{ needs.metadata.outputs.base-sha }}
           path: benchmark-report/base
 
       - name: Download candidate result
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: typecheck-benchmark-candidate-${{ inputs.merge_sha }}
+          name: typecheck-benchmark-candidate-${{ needs.metadata.outputs.merge-sha }}
           path: benchmark-report/candidate
 
       - name: Compare with base commit
         id: comparison
         continue-on-error: true
         env:
-          BASE_SHA: ${{ inputs.base_sha }}
-          MERGE_SHA: ${{ inputs.merge_sha }}
+          BASE_SHA: ${{ needs.metadata.outputs.base-sha }}
+          MERGE_SHA: ${{ needs.metadata.outputs.merge-sha }}
         run: |
           set +e
           python build/benchmark/compare_benchmarks.py \
@@ -301,7 +346,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: typecheck-benchmark-linux-x64-pr-${{ inputs.pr_number }}-head-${{ inputs.head_sha }}-base-${{ inputs.base_sha }}-merge-${{ inputs.merge_sha }}
+          name: typecheck-benchmark-linux-x64-pr-${{ inputs.pr_number }}-head-${{ needs.metadata.outputs.head-sha }}-base-${{ needs.metadata.outputs.base-sha }}-merge-${{ needs.metadata.outputs.merge-sha }}
           path: benchmark-report/
 
       - name: Fail on benchmark regressions
@@ -310,8 +355,8 @@ jobs:
 
   comment:
     name: Comment benchmark results
-    needs: comparison
-    if: ${{ always() }}
+    needs: [metadata, comparison]
+    if: ${{ always() && needs.metadata.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -328,9 +373,9 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
-          EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
-          EXPECTED_BASE_SHA: ${{ inputs.base_sha }}
-          EXPECTED_MERGE_SHA: ${{ inputs.merge_sha }}
+          EXPECTED_HEAD_SHA: ${{ needs.metadata.outputs.head-sha }}
+          EXPECTED_BASE_SHA: ${{ needs.metadata.outputs.base-sha }}
+          EXPECTED_MERGE_SHA: ${{ needs.metadata.outputs.merge-sha }}
         with:
           script: |
             const fs = require('fs')
@@ -432,8 +477,8 @@ jobs:
             candidate.json \
             --fail-on-preparation-error \
             --allow-incompatible \
-            --baseline-revision "${{ inputs.base_sha }}" \
-            --candidate-revision "${{ inputs.merge_sha }}" \
+            --baseline-revision "${{ needs.metadata.outputs.base-sha }}" \
+            --candidate-revision "${{ needs.metadata.outputs.merge-sha }}" \
             --markdown-output report.md
           if [[ ! -s report.md ]]; then
             printf '%s\n' \
@@ -480,3 +525,103 @@ jobs:
                 body,
               })
             }
+
+  persist-base-result:
+    name: Update pull request baseline
+    needs: [metadata, base-benchmark, comment]
+    if: >-
+      ${{ !cancelled() && needs.base-benchmark.result == 'success' &&
+      needs.base-benchmark.outputs.cached != 'true' &&
+      needs.metadata.outputs.head-repository == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download base result
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: typecheck-benchmark-base-${{ needs.metadata.outputs.base-sha }}
+          path: benchmark-result
+
+      - name: Commit baseline to pull request branch
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          EXPECTED_HEAD_SHA: ${{ needs.metadata.outputs.head-sha }}
+          HEAD_REF: ${{ needs.metadata.outputs.head-ref }}
+          BASE_SHA: ${{ needs.metadata.outputs.base-sha }}
+        with:
+          script: |
+            const fs = require('fs')
+            const path = 'benchmark-result/latest-linux-x64.json'
+            const contents = fs.readFileSync(path, 'utf8')
+            const result = JSON.parse(contents)
+            const expectedHeadSha = process.env.EXPECTED_HEAD_SHA
+            const headRef = process.env.HEAD_REF
+            const baseSha = process.env.BASE_SHA
+            if (
+              result.source_revision !== baseSha ||
+              typeof result.source_commit_subject !== 'string' ||
+              result.source_commit_subject.length === 0 ||
+              Number.isNaN(Date.parse(result.source_commit_timestamp)) ||
+              Number.isNaN(Date.parse(result.timestamp)) ||
+              !/^\d{4}-\d{2}-\d{2}$/.test(result.date)
+            ) {
+              core.setFailed('The base benchmark result metadata is invalid')
+              return
+            }
+
+            const currentRef = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${headRef}`,
+            })
+            if (currentRef.data.object.sha !== expectedHeadSha) {
+              core.notice('The pull request head changed; skipping the baseline update')
+              return
+            }
+
+            const parent = await github.rest.git.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: expectedHeadSha,
+            })
+            const blob = await github.rest.git.createBlob({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              content: Buffer.from(contents).toString('base64'),
+              encoding: 'base64',
+            })
+            const tree = await github.rest.git.createTree({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base_tree: parent.data.tree.sha,
+              tree: [
+                {
+                  path: 'build/benchmark/baselines/latest-linux-x64.json',
+                  mode: '100644',
+                  type: 'blob',
+                  sha: blob.data.sha,
+                },
+                {
+                  path: `build/benchmark/baselines/benchmark_${result.date}_linux-x64.json`,
+                  mode: '100644',
+                  type: 'blob',
+                  sha: blob.data.sha,
+                },
+              ],
+            })
+            const commit = await github.rest.git.createCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              message: `Update benchmark baseline for ${baseSha.slice(0, 12)}`,
+              tree: tree.data.sha,
+              parents: [expectedHeadSha],
+            })
+            await github.rest.git.updateRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${headRef}`,
+              sha: commit.data.sha,
+              force: false,
+            })

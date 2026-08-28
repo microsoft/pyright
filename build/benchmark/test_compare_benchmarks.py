@@ -520,8 +520,10 @@ Regression threshold: `10.0%`
         self.assertEqual(timeout_matches, ["1800", "1800"])
         self.assertIn("data['source_revision'] = os.environ['BASE_SHA']", workflow)
         self.assertIn("data['source_revision'] = os.environ['MERGE_SHA']", workflow)
+        self.assertEqual(workflow.count("data['source_commit_subject']"), 2)
+        self.assertEqual(workflow.count("data['source_commit_timestamp']"), 2)
         self.assertIn("data['benchmark_profile_hash'] = profile.hexdigest()", workflow)
-        self.assertNotIn("build/benchmark/baselines/", workflow)
+        self.assertIn("build/benchmark/baselines/latest-linux-x64.json", workflow)
 
     def test_workflows_use_current_pnpm_setup(self) -> None:
         for workflow_name in (
@@ -603,8 +605,9 @@ Regression threshold: `10.0%`
         self.assertIn("pull-requests: read", trigger_workflow)
         self.assertIn("createWorkflowDispatch", trigger_workflow)
         self.assertIn("workflow_id: 'typecheck_benchmark_pr.yml'", trigger_workflow)
-        self.assertIn("base_sha: pullRequest.data.base.sha", trigger_workflow)
-        self.assertIn("merge_sha: pullRequest.data.merge_commit_sha", trigger_workflow)
+        self.assertNotIn("head_sha:", trigger_workflow)
+        self.assertNotIn("base_sha:", trigger_workflow)
+        self.assertNotIn("merge_sha:", trigger_workflow)
         self.assertNotIn("actions/checkout", trigger_workflow)
         self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
@@ -627,20 +630,27 @@ Regression threshold: `10.0%`
         self.assertNotIn("cache: 'pip'", benchmark_workflow)
         self.assertNotIn("cache: 'pnpm'", benchmark_workflow)
         self.assertIn("persist-credentials: false", benchmark_workflow)
-        self.assertIn("inputs.base_sha", benchmark_workflow)
-        self.assertIn("ref: ${{ inputs.merge_sha }}", benchmark_workflow)
-        self.assertIn("-merge-${{ inputs.merge_sha }}", benchmark_workflow)
-        self.assertIn("if: ${{ always() }}", benchmark_workflow)
+        self.assertNotIn("inputs.head_sha", benchmark_workflow)
+        self.assertNotIn("inputs.base_sha", benchmark_workflow)
+        self.assertNotIn("inputs.merge_sha", benchmark_workflow)
+        self.assertIn("github.rest.pulls.get", benchmark_workflow)
+        self.assertIn("ref: ${{ needs.metadata.outputs.base-sha }}", benchmark_workflow)
+        self.assertIn("ref: ${{ needs.metadata.outputs.merge-sha }}", benchmark_workflow)
+        self.assertIn("-merge-${{ needs.metadata.outputs.merge-sha }}", benchmark_workflow)
+        self.assertIn("if: ${{ always() && needs.metadata.result == 'success' }}", benchmark_workflow)
         self.assertIn("run_id: context.runId", benchmark_workflow)
         self.assertIn("pullRequest.data.base.sha !== expectedBaseSha", benchmark_workflow)
         self.assertIn(
             "pullRequest.data.merge_commit_sha !== expectedMergeSha",
             benchmark_workflow,
         )
+        metadata_job = benchmark_workflow_data["jobs"]["metadata"]
         base_job = benchmark_workflow_data["jobs"]["base-benchmark"]
         candidate_job = benchmark_workflow_data["jobs"]["candidate-benchmark"]
         comparison_job = benchmark_workflow_data["jobs"]["comparison"]
         comment_job = benchmark_workflow_data["jobs"]["comment"]
+        persist_job = benchmark_workflow_data["jobs"]["persist-base-result"]
+        self.assertEqual(metadata_job["permissions"], {"pull-requests": "read"})
         self.assertEqual(base_job["permissions"], {"contents": "read"})
         self.assertEqual(candidate_job["permissions"], {"contents": "read"})
         self.assertEqual(comparison_job["permissions"], {"contents": "read"})
@@ -652,7 +662,11 @@ Regression threshold: `10.0%`
                 "pull-requests": "write",
             },
         )
-        self.assertEqual(comment_job["needs"], "comparison")
+        self.assertEqual(
+            persist_job["permissions"],
+            {"actions": "read", "contents": "write"},
+        )
+        self.assertEqual(comment_job["needs"], ["metadata", "comparison"])
         self.assertEqual(
             [
                 job_name
@@ -660,6 +674,14 @@ Regression threshold: `10.0%`
                 if job.get("permissions", {}).get("pull-requests") == "write"
             ],
             ["comment"],
+        )
+        self.assertEqual(
+            [
+                job_name
+                for job_name, job in benchmark_workflow_data["jobs"].items()
+                if job.get("permissions", {}).get("contents") == "write"
+            ],
+            ["persist-base-result"],
         )
         self.assertFalse(
             (
@@ -682,10 +704,11 @@ Regression threshold: `10.0%`
 
         self.assertIn("actions/cache/restore@0057852", base_job)
         self.assertIn("actions/cache/save@0057852", base_job)
+        self.assertIn("typecheck-benchmark-base-v2-", base_job)
         self.assertNotIn("restore-keys", base_job)
         self.assertNotIn("actions/cache/", candidate_job)
-        self.assertIn("ref: ${{ inputs.base_sha }}", workflow)
-        self.assertIn("ref: ${{ inputs.merge_sha }}", workflow)
+        self.assertIn("ref: ${{ needs.metadata.outputs.base-sha }}", workflow)
+        self.assertIn("ref: ${{ needs.metadata.outputs.merge-sha }}", workflow)
         self.assertIn("--baseline-revision", workflow)
         self.assertIn("--candidate-revision", workflow)
         self.assertIn("--allow-incompatible", workflow)
@@ -694,7 +717,32 @@ Regression threshold: `10.0%`
         self.assertIn("comment.user?.login === 'github-actions[bot]'", workflow)
         self.assertIn("ref: ${{ github.sha }}", workflow)
         self.assertNotIn("git push", workflow)
-        self.assertNotIn("contents: write", workflow)
+        persist_job = workflow_data["jobs"]["persist-base-result"]
+        persist_job_text = json.dumps(persist_job)
+        self.assertNotIn("actions/checkout", persist_job_text)
+        self.assertIn("needs.base-benchmark.outputs.cached != 'true'", persist_job["if"])
+        self.assertIn("needs.metadata.outputs.head-repository == github.repository", persist_job["if"])
+        self.assertIn("!cancelled()", persist_job["if"])
+        self.assertIn("github.rest.git.createCommit", workflow)
+        self.assertIn("github.rest.git.updateRef", workflow)
+        self.assertIn("currentRef.data.object.sha !== expectedHeadSha", workflow)
+        self.assertIn("build/benchmark/baselines/latest-linux-x64.json", workflow)
+        self.assertIn("build/benchmark/baselines/benchmark_${result.date}_linux-x64.json", workflow)
+        self.assertTrue(
+            (REPO_ROOT / "build" / "benchmark" / "baselines" / "latest-linux-x64.json").exists()
+        )
+        baseline = json.loads(
+            (
+                REPO_ROOT
+                / "build"
+                / "benchmark"
+                / "baselines"
+                / "latest-linux-x64.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertRegex(baseline["source_revision"], r"^[0-9a-f]{40}$")
+        self.assertTrue(baseline["source_commit_subject"])
+        self.assertTrue(baseline["source_commit_timestamp"])
 
 
 if __name__ == "__main__":

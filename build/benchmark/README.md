@@ -146,13 +146,20 @@ By default, results are written to the ignored `build/benchmark/results/` direct
 writes a UTC-dated file such as `benchmark_2026-07-28.json` and updates `latest.json`. With
 `--os-name macos`, the names are `benchmark_2026-07-28_macos.json` and `latest-macos.json`.
 
-To compare two locally generated results, use the same OS label, run count, warmup count, memory
-limit, Python version, and package commits for both runs:
+Checked-in reference runs live in `build/benchmark/baselines/`. To compare two locally generated
+results, use the same OS label, run count, warmup count, memory limit, Python version, and package
+commits for both runs:
 
 ```console
 python build/benchmark/compare_benchmarks.py \
     path/to/base-result.json path/to/candidate-result.json
 ```
+
+`build/benchmark/benchmark_history.ipynb` loads the dated checked-in baselines, graphs package timing
+and peak-memory trends, compares the latest run with an earlier commit, and can export a static
+dashboard under `docs/benchmark-results/`. Install its optional dependencies with
+`python -m pip install -r build/benchmark/requirements-notebook.txt`. Exports and result-file
+enrichment are disabled by default and can be enabled independently in the notebook configuration.
 
 The comparator reports per-package timing and memory deltas and exits nonzero when a previously
 successful result is missing, the environment contract differs, or a result exceeds the default 20%
@@ -185,24 +192,29 @@ absolute variance guard of 1 second for time or 100 MB for peak memory. If a pul
 benchmark script, package corpus, package pins, checked paths, exclusions, or measurement environment,
 both revisions must still complete successfully, but the report marks them as not comparable and does
 not apply a performance regression gate. Once that change is merged, its commit becomes the base for
-later pull requests and is cached normally; no checked-in baseline update is required.
+later pull requests and is cached normally.
 
 The base result, candidate result, and comparison are attached to the workflow run and rendered in the
-Actions job summary and the existing benchmark pull-request comment. Publishing results does not
-commit files, push a branch, or modify the pull request's head SHA, so it does not retrigger code tests.
-The report comment also cannot dispatch another benchmark: the trigger accepts only a newly created
-comment whose entire trimmed body is `/benchmark`, whereas later reports update the marker comment.
+Actions job summary and existing benchmark pull-request comment. When the exact base result was not
+already cached, the workflow commits it as both the dated baseline and `latest-linux-x64.json` on a
+same-repository pull-request branch. The write-scoped job uses the GitHub API without checking out or
+executing pull-request code, and skips the update if the pull-request head has changed. Fork pull
+requests retain the result as an artifact because the repository token cannot update their branches.
+The baseline commit changes the pull-request head and can retrigger push-based checks. The report
+comment cannot dispatch another benchmark: the trigger accepts only a newly created comment whose
+entire trimmed body is `/benchmark`, whereas later reports update the marker comment.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
 Each checker performs three measured runs after one warmup over the same pinned corpus. The aggregate
 job stores each raw JSON result with a self-contained `index.html` comparison for 90 days; its Actions
 job summary links directly to the downloadable report artifact.
 
-The top-level JSON records the timestamp, platform, checker versions, run settings, aggregate
-statistics, per-package results, configured memory limit, and an `upstream_source` object containing
-the original repository, exact commit, and source-file URL. Each package result records the cloned
-repository commit. Each successful checker result contains the measured wall times and peak-memory
-values, plus min, max, mean, median, and standard deviation.
+The top-level JSON records the benchmark timestamp, benchmarked Pyright commit SHA, commit subject,
+commit timestamp, platform, checker versions, run settings, aggregate statistics, per-package
+results, configured memory limit, and an `upstream_source` object containing the original repository,
+exact commit, and source-file URL. Each package result records the cloned repository commit. Each
+successful checker result contains the measured wall times and peak-memory values, plus min, max,
+mean, median, and standard deviation.
 Aggregate data contains package counts and mean, p50, p90, p95, maximum, and total timing or memory
 statistics.
 

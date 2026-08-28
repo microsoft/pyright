@@ -23,6 +23,7 @@ Pyrefly, ty, mypy, and Zuban on the pinned corpus, use `build/benchmark/typechec
 Maintainers can also request the hosted regression benchmark on a pull request by commenting
 `/benchmark`. The hosted workflow compares the pull request's synthetic merge commit with its exact
 base commit and reuses a validated commit-keyed base result when available. Results are attached to
-the workflow and added to the existing pull-request comment without changing the pull-request branch
-or retriggering code tests. See [the benchmark README](build/benchmark/README.md) for the developer
-and maintainer workflows, cache behavior, prerequisites, and methodology.
+the workflow and added to the existing pull-request comment. When it measures a previously uncached
+base commit, it also commits the new baseline files to a same-repository pull-request branch. See
+[the benchmark README](build/benchmark/README.md) for the developer and maintainer workflows, cache
+behavior, prerequisites, and methodology.
