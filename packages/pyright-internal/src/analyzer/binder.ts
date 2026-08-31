@@ -5107,6 +5107,13 @@ class UnreachableNameBinder extends ParseTreeWalker {
 
     override visitTypeAlias(node: TypeAliasNode): boolean {
         this._bindName(node.d.name);
+
+        if (node.d.typeParams) {
+            this.walk(node.d.typeParams);
+        }
+
+        this.walk(node.d.expr);
+
         return false;
     }
 
