@@ -1,5 +1,6 @@
 import optparse
-from collections.abc import Callable, Collection, Iterator, Mapping
+from _typeshed import Incomplete
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
 from typing import Any, Literal, NamedTuple, Protocol, TypedDict, type_check_only
 from typing_extensions import NotRequired
 
@@ -105,7 +106,7 @@ class _Params(TypedDict, total=False):
     listformats: bool | None
     outtmpl: str | Mapping[str, str] | None
     outtmpl_na_placeholder: str | None
-    paths: str | None
+    paths: dict[str, str] | None
     restrictfilenames: bool | None
     windowsfilenames: bool | None
     ignoreerrors: bool | Literal["only_download"] | None
@@ -210,7 +211,7 @@ class _Params(TypedDict, total=False):
     download_ranges: Callable[[Any, YoutubeDL], Iterator[_DownloadRange]] | None
     force_keyframes_at_cuts: bool | None
     list_thumbnails: str | None
-    playlist_items: Collection[int] | None
+    playlist_items: str | None
     match_filter: NotRequired[Callable[[Mapping[str, Any], bool], str | None] | Callable[[Mapping[str, Any]], str | None] | None]
     color: _Color | None
     ffmpeg_location: str | None
@@ -223,6 +224,7 @@ class _Params(TypedDict, total=False):
     write_pages: bool | None
     external_downloader_args: Literal["default"] | Mapping[str, Collection[str]] | Collection[str] | None
     postprocessor_args: Mapping[str, Collection[str]] | Collection[str] | None
+    postprocessor_hooks: Iterable[Callable[[dict[str, Any]], object]]
     geo_verification_proxy: str | None
     geo_bypass: bool | None
     geo_bypass_country: str | None
@@ -230,6 +232,7 @@ class _Params(TypedDict, total=False):
     useid: bool | None
     compat_opts: dict[str, Any] | None
     logger: _LoggerProtocol
+    post_hooks: Iterable[Callable[[Incomplete], object]]
     # Undocumented fields below.
     _deprecation_warnings: Collection[str] | None
     _warnings: Collection[str] | None

@@ -86,6 +86,7 @@ ServiceProvider.prototype.console = function () {
     }
     return this.get(ServiceKeys.console);
 };
+
 ServiceProvider.prototype.partialStubs = function () {
     const result = this.tryGet(ServiceKeys.partialStubs);
     if (!result) {
@@ -93,6 +94,7 @@ ServiceProvider.prototype.partialStubs = function () {
     }
     return this.get(ServiceKeys.partialStubs);
 };
+
 ServiceProvider.prototype.tmp = function () {
     return this.tryGet(ServiceKeys.tempFile);
 };

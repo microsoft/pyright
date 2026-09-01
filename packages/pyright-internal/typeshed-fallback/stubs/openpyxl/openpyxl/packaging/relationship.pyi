@@ -21,6 +21,7 @@ class Relationship(Serialisable):
     TargetMode: String[Literal[True]]
     Id: String[Literal[True]]
     id: Alias
+
     @overload
     def __init__(
         self, Id: str, Type: Unused = None, *, type: str, Target: str | None = None, TargetMode: str | None = None
@@ -34,7 +35,7 @@ class Relationship(Serialisable):
 
 class RelationshipList(ElementList[Relationship]):
     expected_type: type[Relationship]
-    def find(self, content_type: str) -> Generator[Relationship, None, None]: ...
+    def find(self, content_type: str) -> Generator[Relationship]: ...
     def get(self, key: str) -> Relationship: ...
     def to_dict(self) -> dict[Incomplete, Relationship]: ...
 

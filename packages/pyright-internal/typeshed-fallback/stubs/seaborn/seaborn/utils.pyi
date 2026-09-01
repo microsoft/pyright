@@ -1,8 +1,8 @@
 import datetime as dt
 from _typeshed import Incomplete, SupportsGetItem
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import Any, Literal, SupportsIndex, TypeVar, overload
-from typing_extensions import TypeAlias, deprecated
+from typing import Any, Literal, SupportsIndex, TypeAlias, TypeVar, overload
+from typing_extensions import deprecated
 
 import numpy as np
 import pandas as pd
@@ -103,11 +103,13 @@ def load_dataset(name: str, cache: bool = True, data_home: str | None = None, **
 def axis_ticklabels_overlap(labels: Iterable[Text]) -> bool: ...
 def axes_ticklabels_overlap(ax: Axes) -> tuple[bool, bool]: ...
 def locator_to_legend_entries(locator: Locator, limits: Iterable[float], dtype) -> tuple[list[Incomplete], list[str]]: ...
+
 @overload
 def relative_luminance(color: ColorType) -> float: ...  # type: ignore[overload-overlap]
 @overload
 def relative_luminance(color: Sequence[ColorType]) -> NDArray[np.float64]: ...
 @overload
 def relative_luminance(color: ColorType | Sequence[ColorType] | ArrayLike) -> float | NDArray[np.float64]: ...
+
 def to_utf8(obj: object) -> str: ...
 def adjust_legend_subtitles(legend: Legend) -> None: ...  # not public API

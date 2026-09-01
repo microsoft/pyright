@@ -34,6 +34,8 @@ export function createVfsInfoFromFourSlashData(projectRoot: string, testData: Fo
             } catch (e: any) {
                 throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
             }
+            // Also add the config file to VFS so it can be read by code that needs to access it
+            files[file.fileName] = new vfs.File(file.content, { meta: file.fileOptions, encoding: 'utf8' });
         } else {
             files[file.fileName] = new vfs.File(file.content, { meta: file.fileOptions, encoding: 'utf8' });
 

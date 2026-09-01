@@ -1,6 +1,5 @@
 from _typeshed import FileDescriptorOrPath
-from collections.abc import Callable
-from os import _Environ
+from collections.abc import Callable, Mapping
 from typing import AnyStr
 
 from .spawnbase import SpawnBase, _Logfile
@@ -14,7 +13,7 @@ class spawn(SpawnBase[AnyStr]):
     STDERR_FILENO: int
     str_last_chars: int
     cwd: FileDescriptorOrPath | None
-    env: _Environ[str]
+    env: Mapping[str, str] | None
     echo: bool
     ignore_sighup: bool
     command: str
@@ -30,7 +29,7 @@ class spawn(SpawnBase[AnyStr]):
         searchwindowsize: int | None = None,
         logfile: _Logfile | None = None,
         cwd: FileDescriptorOrPath | None = None,
-        env: _Environ[str] | None = None,
+        env: Mapping[str, str] | None = None,
         ignore_sighup: bool = False,
         echo: bool = True,
         preexec_fn: Callable[[], None] | None = None,
@@ -54,10 +53,12 @@ class spawn(SpawnBase[AnyStr]):
     def sendcontrol(self, char: str) -> int: ...
     def sendeof(self) -> None: ...
     def sendintr(self) -> None: ...
+
     @property
     def flag_eof(self) -> bool: ...
     @flag_eof.setter
     def flag_eof(self, value: bool) -> None: ...
+
     def eof(self) -> bool: ...
     def terminate(self, force: bool = False) -> bool: ...
     status: int | None
@@ -84,7 +85,7 @@ def spawnu(
     searchwindowsize: int | None = None,
     logfile: _Logfile | None = None,
     cwd: FileDescriptorOrPath | None = None,
-    env: _Environ[str] | None = None,
+    env: Mapping[str, str] | None = None,
     ignore_sighup: bool = False,
     echo: bool = True,
     preexec_fn: Callable[[], None] | None = None,

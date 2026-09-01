@@ -17,6 +17,7 @@
     - [Locale Configuration](configuration.md#locale-configuration)
   - [Language Server Settings](settings.md)
   - [Command Line Interface](command-line.md)
+  - [Type Server (TSP)](type-server.md)
   - [Controlling Behavior With Comments](comments.md)
   - [Continuous Integration](ci-integration.md)
   

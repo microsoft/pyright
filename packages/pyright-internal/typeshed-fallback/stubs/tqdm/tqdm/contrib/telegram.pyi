@@ -23,6 +23,7 @@ _T = TypeVar("_T")
 
 class tqdm_telegram(tqdm_auto[_T]):
     tgio: Incomplete
+
     @overload
     def __init__(
         self,
@@ -52,8 +53,9 @@ class tqdm_telegram(tqdm_auto[_T]):
         colour: str | None = ...,
         delay: float | None = ...,
         gui: bool = ...,
-        token: str = ...,
-        chat_id: str = ...,
+        *,
+        token: str | None = None,
+        chat_id: str | None = None,
         **kwargs,
     ) -> None: ...
     @overload
@@ -85,10 +87,12 @@ class tqdm_telegram(tqdm_auto[_T]):
         colour: str | None = ...,
         delay: float | None = ...,
         gui: bool = ...,
-        token: str = ...,
-        chat_id: str = ...,
+        *,
+        token: str | None = None,
+        chat_id: str | None = None,
         **kwargs,
     ) -> None: ...
+
     def display(  # type: ignore[override]
         self, *, msg: str | None = ..., pos: int | None = ..., close: bool = ..., bar_style=..., check_delay: bool = ...
     ) -> None: ...

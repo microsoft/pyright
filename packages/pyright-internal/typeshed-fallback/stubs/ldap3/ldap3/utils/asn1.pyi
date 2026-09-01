@@ -1,7 +1,6 @@
 from _typeshed import Incomplete, IndexableBuffer, SliceableBuffer, Unused
 from collections.abc import Callable, Mapping
-from typing import Any, Final, TypeVar, overload
-from typing_extensions import TypeAlias
+from typing import Any, Final, TypeAlias, TypeVar, overload
 
 from pyasn1.codec.ber.encoder import AbstractItemEncoder
 from pyasn1.type.tag import TagSet
@@ -25,12 +24,14 @@ customTypeMap: dict[int, AbstractItemEncoder]
 
 def compute_ber_size(data): ...
 def decode_message_fast(message): ...
+
 @overload
 def decode_sequence(message: _B, start: int, stop: int, context_decoders: Mapping[int, Callable[[_B, int, int], _R]]) -> _R: ...
 @overload
 def decode_sequence(
     message: _SupportsGetItemBuffer, start: int, stop: int, context_decoders: None = None
 ) -> _AllDecodersReturnType: ...
+
 def decode_integer(message, start: int, stop: int, context_decoders: Unused = None): ...
 def decode_octet_string(message, start: int, stop: int, context_decoders: Unused = None): ...
 def decode_boolean(message, start: int, stop: int, context_decoders: Unused = None): ...

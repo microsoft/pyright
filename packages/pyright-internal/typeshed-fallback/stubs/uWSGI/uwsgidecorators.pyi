@@ -1,11 +1,12 @@
 from collections.abc import Callable
-from typing import Any, Generic, Literal, TypeVar, overload
-from typing_extensions import ParamSpec
+from typing import Any, Generic, Literal, ParamSpec, TypeVar, overload
+from typing_extensions import TypeVarTuple, Unpack
 
 from uwsgi import _RPCCallable
 
 _T = TypeVar("_T")
 _T2 = TypeVar("_T2")
+_Ts = TypeVarTuple("_Ts")
 _SR = TypeVar("_SR", bound=Literal[0, -1, -2] | None)
 _SignalCallbackT = TypeVar("_SignalCallbackT", bound=Callable[[int], Any])
 _RPCCallableT = TypeVar("_RPCCallableT", bound=_RPCCallable)
@@ -23,10 +24,12 @@ def postfork_chain_hook() -> None: ...
 class postfork(Generic[_P, _T]):
     wid: int
     f: Callable[_P, _T] | None
+
     @overload
     def __init__(self: postfork[..., Any], f: int) -> None: ...
     @overload
     def __init__(self: postfork[_P, _T], f: Callable[_P, _T]) -> None: ...  # pyright: ignore[reportInvalidTypeVarUse]  #11780
+
     @overload
     def __call__(self, f: Callable[_P2, _T2], /) -> postfork[_P2, _T2]: ...
     @overload
@@ -51,14 +54,17 @@ def spool_decorate(
 def spool_decorate(
     f: None = None, pass_arguments: bool = False, _class: type[_spoolraw[..., Any]] = ...
 ) -> Callable[[Callable[_P, _SR]], _spoolraw[_P, _SR]]: ...
+
 @overload
 def spoolraw(f: Callable[_P, _SR], pass_arguments: bool = False) -> _spoolraw[_P, _SR]: ...
 @overload
 def spoolraw(f: None = None, pass_arguments: bool = False) -> Callable[[Callable[_P, _SR]], _spoolraw[_P, _SR]]: ...
+
 @overload
 def spool(f: Callable[_P, _SR], pass_arguments: bool = False) -> _spool[_P, _SR]: ...
 @overload
 def spool(f: None = None, pass_arguments: bool = False) -> Callable[[Callable[_P, _SR]], _spool[_P, _SR]]: ...
+
 @overload
 def spoolforever(f: Callable[_P, _SR], pass_arguments: bool = False) -> _spoolforever[_P, _SR]: ...
 @overload
@@ -67,11 +73,14 @@ def spoolforever(f: None = None, pass_arguments: bool = False) -> Callable[[Call
 class mulefunc(Generic[_P, _T]):
     fname: str | None
     mule: int
+
     @overload
     def __init__(self: mulefunc[..., Any], f: int) -> None: ...
     @overload
     def __init__(self: mulefunc[_P, _T], f: Callable[_P, _T]) -> None: ...  # pyright: ignore[reportInvalidTypeVarUse]  #11780
+
     def real_call(self, *args: _P.args, **kwargs: _P.kwargs) -> None: ...
+
     @overload
     def __call__(self, f: Callable[_P2, _T2], /) -> mulefunc[_P2, _T2]: ...
     @overload
@@ -166,13 +175,10 @@ class lock(Generic[_P, _T]):
     def __init__(self, f: Callable[_P, _T]) -> None: ...
     def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _T: ...
 
-# FIXME: Technically this only allows positional arguments, but there is not really
-#        an adequate way yet to express this, once bound on ParamSpec does something
-#        we could probably enforce this
-class thread(Generic[_P, _T]):
-    f: Callable[_P, _T]
-    def __init__(self, f: Callable[_P, _T]) -> None: ...
-    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> Callable[_P, _T]: ...
+class thread(Generic[Unpack[_Ts], _T]):
+    f: Callable[[Unpack[_Ts]], _T]
+    def __init__(self, f: Callable[[Unpack[_Ts]], _T]) -> None: ...
+    def __call__(self, *args: Unpack[_Ts]) -> Callable[[Unpack[_Ts]], _T]: ...
 
 class harakiri:
     s: int

@@ -12,15 +12,18 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import {
     Declaration,
     DeclarationType,
+    isClassDeclaration,
     isFunctionDeclaration,
     isUnresolvedAliasDeclaration,
+    isVariableDeclaration,
 } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { SourceMapper, isStubFile } from '../analyzer/sourceMapper';
+import { SourceMapper, isAliasFactoryCallee, isStubFile } from '../analyzer/sourceMapper';
 import { SynthesizedTypeInfo } from '../analyzer/symbol';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { doForEachSubtype } from '../analyzer/typeUtils';
@@ -35,7 +38,7 @@ import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
 import { Position, rangesAreEqual } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
-import { ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ExpressionNode, isExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
 
 export enum DefinitionFilter {
@@ -48,7 +51,8 @@ export function addDeclarationsToDefinitions(
     evaluator: TypeEvaluator,
     sourceMapper: SourceMapper,
     declarations: Declaration[] | undefined,
-    definitions: DocumentRange[]
+    definitions: DocumentRange[],
+    filter = DefinitionFilter.All
 ) {
     if (!declarations) {
         return;
@@ -110,13 +114,17 @@ export function addDeclarationsToDefinitions(
             // Add matching source module
             sourceMapper
                 .findModules(resolvedDecl.uri)
-                .map((m) => getFileInfo(m)?.fileUri)
+                .map((m) => getFileInfo(m, sourceMapper.analyzerNodeInfo)?.fileUri)
                 .filter(isDefined)
                 .forEach((f) => _addIfUnique(definitions, _createModuleEntry(f)));
             return;
         }
 
-        const implDecls = sourceMapper.findDeclarations(resolvedDecl);
+        const implDecls = _filterSourceMappedDeclarations(
+            filter,
+            resolvedDecl,
+            sourceMapper.findDeclarations(resolvedDecl)
+        );
         for (const implDecl of implDecls) {
             if (implDecl && !implDecl.uri.isEmpty()) {
                 _addIfUnique(definitions, {
@@ -193,7 +201,7 @@ class DefinitionProviderBase {
     }
 
     protected resolveDeclarations(declarations: Declaration[] | undefined, definitions: DocumentRange[]) {
-        addDeclarationsToDefinitions(this.evaluator, this.sourceMapper, declarations, definitions);
+        addDeclarationsToDefinitions(this.evaluator, this.sourceMapper, declarations, definitions, this._filter);
     }
 
     protected addSynthesizedTypes(synthTypes: SynthesizedTypeInfo[], definitions: DocumentRange[]) {
@@ -202,14 +210,14 @@ class DefinitionProviderBase {
                 continue;
             }
 
-            const fileInfo = getFileInfo(synthType.node);
+            const fileInfo = getFileInfo(synthType.node, this.sourceMapper.analyzerNodeInfo);
             const range = convertOffsetsToRange(
                 synthType.node.start,
                 synthType.node.start + synthType.node.length,
                 fileInfo.lines
             );
 
-            definitions.push({ uri: fileInfo.fileUri, range });
+            _addIfUnique(definitions, { uri: fileInfo.fileUri, range });
         }
     }
 }
@@ -224,7 +232,7 @@ export class DefinitionProvider extends DefinitionProviderBase {
     ) {
         const sourceMapper = program.getSourceMapper(fileUri, token);
         const parseResults = program.getParseResults(fileUri);
-        const { node, offset } = _tryGetNode(parseResults, position);
+        const { node, offset } = _tryGetNode(parseResults, position, AnalyzerNodeInfo.getInfoReader(program));
 
         super(sourceMapper, program.evaluator!, program.serviceProvider, node, offset, filter, token);
     }
@@ -263,7 +271,7 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
     constructor(program: ProgramView, fileUri: Uri, position: Position, token: CancellationToken) {
         const sourceMapper = program.getSourceMapper(fileUri, token, /*mapCompiled*/ false, /*preferStubs*/ true);
         const parseResults = program.getParseResults(fileUri);
-        const { node, offset } = _tryGetNode(parseResults, position);
+        const { node, offset } = _tryGetNode(parseResults, position, AnalyzerNodeInfo.getInfoReader(program));
 
         super(sourceMapper, program.evaluator!, program.serviceProvider, node, offset, DefinitionFilter.All, token);
         this._fileUri = fileUri;
@@ -313,7 +321,11 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
     }
 }
 
-function _tryGetNode(parseResults: ParseFileResults | undefined, position: Position) {
+function _tryGetNode(
+    parseResults: ParseFileResults | undefined,
+    position: Position,
+    reader?: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+) {
     if (!parseResults) {
         return { node: undefined, offset: 0 };
     }
@@ -323,7 +335,7 @@ function _tryGetNode(parseResults: ParseFileResults | undefined, position: Posit
         return { node: undefined, offset: 0 };
     }
 
-    return { node: ParseTreeUtils.findNodeByOffset(parseResults.parserOutput.parseTree, offset), offset };
+    return { node: ParseTreeUtils.findNodeByOffset(parseResults.parserOutput.parseTree, offset, reader), offset };
 }
 
 function _createModuleEntry(uri: Uri): DocumentRange {
@@ -334,6 +346,71 @@ function _createModuleEntry(uri: Uri): DocumentRange {
             end: { line: 0, character: 0 },
         },
     };
+}
+
+// The PreferSource drop path below is intentionally duplicated byte-for-byte in the Pylance async
+// producer (asyncDefinitionProvider.ts) per the sync↔async parity policy, which prefers mechanically
+// comparable copies over a shared abstraction. Only the cross-boundary drift risk — the literal `_alias`
+// callee recognizer — is shared (isAliasFactoryCallee); keep any change here mirrored in the async copy.
+function _filterSourceMappedDeclarations(
+    filter: DefinitionFilter,
+    resolvedDecl: Declaration,
+    implDecls: Declaration[]
+): Declaration[] {
+    if (filter !== DefinitionFilter.PreferSource || !_isKnownTypingStubDeclaration(resolvedDecl)) {
+        return implDecls;
+    }
+
+    // Only strip the alias variable when a NON-STUB class/function implementation is also present. If the
+    // sole class/function candidate is itself a stub, keep every candidate so PreferSource can still return
+    // the non-stub `typing.py` alias variable instead of regressing to the stub-only set (the original #8035 bug).
+    if (
+        !implDecls.some(
+            (implDecl) => (isClassDeclaration(implDecl) || isFunctionDeclaration(implDecl)) && !isStubFile(implDecl.uri)
+        )
+    ) {
+        return implDecls;
+    }
+
+    return implDecls.filter((implDecl) => !_isTypingAliasFactoryVariableDeclaration(implDecl));
+}
+
+function _isKnownTypingStubDeclaration(decl: Declaration): boolean {
+    // Scope strictly to the stdlib/typeshed `typing.pyi` stub (mirrors SourceFile.isTypingStubFile) so that a
+    // user module that shadows `typing` with its own `typing.pyi` never triggers PreferSource alias pruning.
+    return decl.uri.pathEndsWith('stdlib/typing.pyi');
+}
+
+function _isTypingAliasFactoryVariableDeclaration(decl: Declaration): boolean {
+    if (!isVariableDeclaration(decl) || !_isKnownTypingModule(decl.moduleName)) {
+        return false;
+    }
+
+    const expression = _getDirectAssignmentExpression(decl.inferredTypeSource);
+    if (!expression || expression.nodeType !== ParseNodeType.Call) {
+        return false;
+    }
+
+    // typeshed declares the stdlib collections-ABC aliases as bare `_alias(...)` factory calls in
+    // `typing` (e.g. `Iterable = _alias(collections.abc.Iterable, 1)`). The drop path stays strict
+    // (bare `Name` callee only, no member access) so it never discards unrelated `x._alias(...)` user
+    // code; if typeshed renames `_alias`, the shared recognizer safely no-ops.
+    return isAliasFactoryCallee(expression.d.leftExpr);
+}
+
+function _getDirectAssignmentExpression(inferredTypeSource: ParseNode | undefined): ExpressionNode | undefined {
+    // For the targeted plain `Iterable = _alias(...)` assignments the binder records `inferredTypeSource`
+    // as the RHS expression directly, so it is the bare `_alias(...)` call node. Other statement forms
+    // (for/with/comprehension/match capture) record a non-expression statement node instead; the
+    // `isExpressionNode` gate intentionally ignores those, since they are never typing-alias factories.
+    // This is deliberately narrower than sourceMapper.ts's similarly-purposed RHS extraction (which also
+    // unwraps Assignment/AssignmentExpression nodes); the distinct name avoids implying identical semantics
+    // with that authoritative helper. Widening it here is unnecessary for the targeted shape.
+    return inferredTypeSource && isExpressionNode(inferredTypeSource) ? inferredTypeSource : undefined;
+}
+
+function _isKnownTypingModule(moduleName: string): boolean {
+    return moduleName === 'typing';
 }
 
 function _addIfUnique(definitions: DocumentRange[], itemToAdd: DocumentRange) {

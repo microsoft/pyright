@@ -47,6 +47,20 @@ test('Private1', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('Private2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportPrivateUsage = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['private4.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Private3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportPrivateUsage = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['private6.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Constant1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -194,6 +208,12 @@ test('With5', () => {
 
 test('With6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with6.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('With7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with7.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

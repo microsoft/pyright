@@ -6,6 +6,7 @@
 ////     { "root": "python33", "pythonVersion": "3.3" },
 ////     { "root": "python35", "pythonVersion": "3.5" },
 ////     { "root": "python310", "pythonVersion": "3.10" },
+////     { "root": "python315", "pythonVersion": "3.15" },
 ////   ]
 //// }
 
@@ -20,6 +21,10 @@
 // @filename: python310/test.py
 //// def foo():
 ////     [|/*python310*/|]
+
+// @filename: python315/test.py
+//// def foo():
+////     [|/*python315*/|]
 
 {
     helper.openFiles(helper.getMarkers().map((m) => m.fileName));
@@ -50,6 +55,17 @@
                 { label: 'match', kind: Consts.CompletionItemKind.Keyword },
             ],
         },
+        python315: {
+            completions: [
+                { label: 'def', kind: Consts.CompletionItemKind.Keyword },
+                { label: 'import', kind: Consts.CompletionItemKind.Keyword },
+                { label: 'async', kind: Consts.CompletionItemKind.Keyword },
+                { label: 'await', kind: Consts.CompletionItemKind.Keyword },
+                { label: 'case', kind: Consts.CompletionItemKind.Keyword },
+                { label: 'match', kind: Consts.CompletionItemKind.Keyword },
+                { label: 'lazy', kind: Consts.CompletionItemKind.Keyword },
+            ],
+        },
     });
 
     // @ts-ignore
@@ -60,13 +76,18 @@
                 { label: 'await', kind: Consts.CompletionItemKind.Keyword },
                 { label: 'case', kind: Consts.CompletionItemKind.Keyword },
                 { label: 'match', kind: Consts.CompletionItemKind.Keyword },
+                { label: 'lazy', kind: Consts.CompletionItemKind.Keyword },
             ],
         },
         python35: {
             completions: [
                 { label: 'case', kind: Consts.CompletionItemKind.Keyword },
                 { label: 'match', kind: Consts.CompletionItemKind.Keyword },
+                { label: 'lazy', kind: Consts.CompletionItemKind.Keyword },
             ],
+        },
+        python310: {
+            completions: [{ label: 'lazy', kind: Consts.CompletionItemKind.Keyword }],
         },
     });
 }

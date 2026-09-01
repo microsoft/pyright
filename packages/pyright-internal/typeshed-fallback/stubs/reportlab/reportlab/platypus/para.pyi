@@ -1,7 +1,7 @@
 from _typeshed import Incomplete, Unused
 from collections.abc import Callable, Mapping
-from typing import Any, Final, Literal, Protocol, TypedDict, TypeVar, overload, type_check_only
-from typing_extensions import TypeAlias, Unpack
+from typing import Any, Final, Literal, Protocol, TypeAlias, TypedDict, TypeVar, overload, type_check_only
+from typing_extensions import Unpack
 
 from reportlab.lib.colors import Color
 from reportlab.lib.styles import ParagraphStyle, PropertySet, StyleSheet1
@@ -85,10 +85,12 @@ def simpleJustifyAlign(line: list[_Op], currentLength: float, maxLength: float) 
 def readBool(text: str) -> _BoolInt: ...
 def readAlignment(text: str) -> Literal[0, 1, 2, 4] | None: ...
 def readLength(text: str) -> float: ...
+
 @overload
 def lengthSequence(s: str, converter: Callable[[str], float] = ...) -> list[float]: ...
 @overload
 def lengthSequence(s: str, converter: Callable[[str], _T]) -> list[_T]: ...
+
 def readColor(text: str | None) -> Color | None: ...
 
 class StyleAttributeConverters:

@@ -10,9 +10,16 @@ variables:
     value: 'real'
   - name: TeamName
     value: Pyright
+  # Route all npm/pnpm installs through the runtime-generated, authenticated CFS feed
+  # .npmrc (created by build/templates/npmAuthenticate.yml) instead of a committed
+  # registry, so this public repo's local/fork installs stay on public npm (ICM 839806358).
+  - name: NPM_CONFIG_USERCONFIG
+    value: $(Agent.TempDirectory)/cfs.npmrc
 extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
   parameters:
+    settings:
+      networkIsolationPolicy: Good, CFSClean, GitHub
     sdl:
       sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
     pool:
@@ -40,19 +47,26 @@ extends:
                 submodules: true
                 fetchTags: true
                 persistCredentials: True
-              - task: NodeTool@0
-                displayName: Use Node 18.x
+              # Generate + authenticate the CFS feed .npmrc at runtime (ICM 839806358).
+              - template: /build/templates/npmAuthenticate.yml@self
+              - task: UseNode@1
+                displayName: Use Node 24.15.0
                 inputs:
-                  versionSpec: 18.x
+                  version: 24.15.0
+              # The 1ES agent image ships Node but not pnpm, and corepack cannot
+              # fetch it in the restricted-network build, so install the pinned pnpm
+              # via npm (which honors NPM_CONFIG_USERCONFIG for the authenticated feed).
+              - script: npm run installPinnedPackageManager
+                displayName: Install pinned pnpm
               - task: CmdLine@2
-                displayName: npm install
+                displayName: pnpm install
                 inputs:
-                  script: npm run install:all
+                  script: pnpm run install:all
               - task: CmdLine@2
                 displayName: Package VSIX
                 inputs:
                   script: |
-                    npm run package
+                    pnpm run package
                   workingDirectory: packages/vscode-pyright
               - task: CopyFiles@2
                 displayName: 'Copy vsix to: build_output'

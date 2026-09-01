@@ -2,8 +2,7 @@ import re
 from _typeshed import Incomplete, SupportsLenAndGetItem
 from collections.abc import Iterable, Mapping
 from logging import Logger
-from typing import Any, Final, Literal, TypeVar, overload
-from typing_extensions import TypeAlias
+from typing import Any, Final, Literal, TypeAlias, TypeVar, overload
 
 _T = TypeVar("_T")
 _V = TypeVar("_V")
@@ -36,6 +35,7 @@ def generate_client_id(length: int = 30, chars: SupportsLenAndGetItem[str] = ...
 def add_params_to_qs(query: str, params: dict[str, str] | Iterable[tuple[str, str]]) -> str: ...
 def add_params_to_uri(uri: str, params: dict[str, str] | Iterable[tuple[str, str]], fragment: bool = False) -> str: ...
 def safe_string_equals(a: str, b: str) -> bool: ...
+
 @overload
 def to_unicode(data: str | bytes, encoding: str = "UTF-8") -> str: ...
 @overload
@@ -46,16 +46,20 @@ def to_unicode(data: _T, encoding: str = "UTF-8") -> _T: ...
 class CaseInsensitiveDict(dict[str, Incomplete]):
     proxy: dict[str, str]
     def __init__(self, data: dict[str, Incomplete]) -> None: ...
+
     @overload
     def __contains__(self, k: str) -> bool: ...
     @overload
     def __contains__(self, k: object) -> bool: ...
+
     def __delitem__(self, k: str) -> None: ...
     def __getitem__(self, k: str): ...
+
     @overload
     def get(self, k: str, default: None = None) -> Incomplete | None: ...
     @overload
     def get(self, k: str, default): ...
+
     def __setitem__(self, k: str, v) -> None: ...
     def update(self, *args, **kwargs) -> None: ...
 
@@ -67,6 +71,36 @@ class Request:
     decoded_body: list[tuple[str, str]] | None
     oauth_params: list[str]
     validator_log: dict[str, Any]  # value type depends on the key
+    access_token: Incomplete | None
+    client: Incomplete | None
+    client_id: Incomplete | None
+    client_secret: Incomplete | None
+    code: Incomplete | None
+    code_challenge: Incomplete | None
+    code_challenge_method: Incomplete | None
+    code_verifier: Incomplete | None
+    extra_credentials: Incomplete | None
+    grant_type: Incomplete | None
+    redirect_uri: Incomplete | None
+    refresh_token: Incomplete | None
+    request_token: Incomplete | None
+    response_type: Incomplete | None
+    scope: Incomplete | None
+    scopes: Incomplete | None
+    state: Incomplete | None
+    token: Incomplete | None
+    user: Incomplete | None
+    token_type_hint: Incomplete | None
+    response_mode: Incomplete | None
+    nonce: Incomplete | None
+    display: Incomplete | None
+    prompt: Incomplete | None
+    claims: Incomplete | None
+    max_age: Incomplete | None
+    ui_locales: Incomplete | None
+    id_token_hint: Incomplete | None
+    login_hint: Incomplete | None
+    acr_values: Incomplete | None
     def __init__(
         self,
         uri: str,

@@ -1,8 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Generator, Iterable
 from os import PathLike
-from typing import TypeVar
-from typing_extensions import TypeAlias
+from typing import TypeAlias, TypeVar
 
 _DirNode: TypeAlias = Incomplete  # scantree.DirNode
 _RecursionPath: TypeAlias = Incomplete  # scantree.RecursionPath
@@ -71,7 +70,7 @@ class Filter:
     def match_patterns(self) -> tuple[str, ...]: ...
     def include(self, recursion_path: _RecursionPath) -> bool: ...
     def match_file(self, filepath: str | PathLike[str]) -> bool: ...
-    def __call__(self, paths: Iterable[_RP]) -> Generator[_RP, None, None]: ...
+    def __call__(self, paths: Iterable[_RP]) -> Generator[_RP]: ...
 
 def get_match_patterns(
     match: Iterable[str] | None = None,

@@ -72,7 +72,7 @@ export function compareValues(a: number | undefined, b: number | undefined): Com
 /**
  * Tests whether a value is an array.
  */
-export function isArray<T extends any[]>(value: any): value is T {
+export function isArray<T extends any[] | readonly any[]>(value: any): value is T {
     return Array.isArray ? Array.isArray(value) : value instanceof Array;
 }
 
@@ -190,6 +190,14 @@ export function cloneStr(str: string): string {
     // to ensure we get a copy of the string to prevent the original string from being retained in memory.
     // For example, the import resolution cache in importResolver might hold onto the full original file content
     // because seemingly innocent the import name  (e.g., `foo` in `import foo`) is in the cache.
+
+    // V8 uses a SlicedString representation for substrings only above a small length threshold (currently 13),
+    // so short strings can be returned as-is without retaining the original text in memory.
+    // https://github.com/v8/v8/blob/02558d5a88c8f06ff064e3b6b332f342e1ab6143/src/objects/string.h#L1054
+    if (str.length < 13) {
+        return str;
+    }
+
     return Buffer.from(str, 'utf8').toString('utf8');
 }
 

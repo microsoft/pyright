@@ -1,6 +1,6 @@
 from collections.abc import Collection
-from typing import NoReturn, overload
-from typing_extensions import Self, TypeAlias
+from typing import NoReturn, TypeAlias, overload
+from typing_extensions import Self
 
 from .base import BaseGeometry
 from .linestring import LineString, _ConvertibleToLineString
@@ -23,6 +23,7 @@ class InteriorRingSequence:
     def __iter__(self) -> Self: ...
     def __next__(self) -> LinearRing: ...
     def __len__(self) -> int: ...
+
     @overload
     def __getitem__(self, key: int) -> LinearRing: ...
     @overload

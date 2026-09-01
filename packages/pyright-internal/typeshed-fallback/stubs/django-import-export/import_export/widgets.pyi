@@ -11,6 +11,7 @@ class Widget:
     coerce_to_string: bool
     def __init__(self, coerce_to_string: bool = True) -> None: ...
     def clean(self, value: Any, row: Mapping[str, Any] | None = None, **kwargs: Any) -> Any: ...
+
     @overload
     @deprecated("The 'obj' parameter is deprecated and will be removed in a future release.")
     def render(self, value: Any, obj: Model, **kwargs: Any) -> Any: ...
@@ -57,15 +58,31 @@ class JSONWidget(Widget): ...
 _ModelT = TypeVar("_ModelT", bound=Model)
 
 class ForeignKeyWidget(Widget, Generic[_ModelT]):
-    model: _ModelT
+    model: type[_ModelT]
     field: str
     key_is_id: bool
     use_natural_foreign_keys: bool
     def __init__(
-        self, model: _ModelT, field: str = "pk", use_natural_foreign_keys: bool = False, key_is_id: bool = False, **kwargs: Any
+        self,
+        model: type[_ModelT],
+        field: str = "pk",
+        use_natural_foreign_keys: bool = False,
+        key_is_id: bool = False,
+        **kwargs: Any,
     ) -> None: ...
     def get_queryset(self, value: Any, row: Mapping[str, Any], *args: Any, **kwargs: Any) -> QuerySet[_ModelT]: ...
+    def get_instance_by_natural_key(self, value: str | bytes | bytearray) -> _ModelT: ...
+    def get_instance_by_lookup_fields(self, value: Any, row: Mapping[str, Any], **kwargs: Any) -> _ModelT: ...
     def get_lookup_kwargs(self, value: Any, row: Mapping[str, Any] | None = None, **kwargs: Any) -> dict[str, Any]: ...
+
+class _CachedQuerySetWrapper(Generic[_ModelT]):
+    queryset: QuerySet[_ModelT]
+    model: type[_ModelT]
+    def __init__(self, queryset: QuerySet[_ModelT]) -> None: ...
+    def get(self, **lookup_fields: Any) -> _ModelT: ...  # instance can have different fields
+
+class CachedForeignKeyWidget(ForeignKeyWidget[_ModelT]):
+    def get_instance_by_lookup_fields(self, value: Any, row: Mapping[str, Any], **kwargs: Any) -> _ModelT: ...
 
 class ManyToManyWidget(Widget, Generic[_ModelT]):
     model: _ModelT

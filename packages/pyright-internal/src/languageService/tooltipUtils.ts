@@ -9,18 +9,20 @@
  */
 
 import { getBoundCallMethod } from '../analyzer/constructors';
-import { Declaration, DeclarationType, VariableDeclaration } from '../analyzer/declaration';
+import { Declaration, DeclarationType, FunctionDeclaration, VariableDeclaration } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { SourceMapper } from '../analyzer/sourceMapper';
+import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
 import {
+    FunctionDocStringInfo,
     getClassDocString,
-    getFunctionDocStringInherited,
+    getFunctionDocStringFromDeclarationInfo,
     getModuleDocString,
     getModuleDocStringFromUris,
-    getOverloadedDocStringsInherited,
     getPropertyDocStringInherited,
     getVariableDocString,
+    resolveConstructorDocInfo,
+    resolveMethodDocInfo,
 } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { MemberAccessFlags, lookUpClassMember } from '../analyzer/typeUtils';
@@ -33,6 +35,7 @@ import {
     TypeCategory,
     UnknownType,
     combineTypes,
+    isClass,
     isClassInstance,
     isFunction,
     isFunctionOrOverloaded,
@@ -41,8 +44,17 @@ import {
     isOverloaded,
 } from '../analyzer/types';
 import { SignatureDisplayType } from '../common/configOptions';
-import { isDefined } from '../common/core';
-import { ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import {
+    ArgCategory,
+    CallNode,
+    DecoratorNode,
+    ExpressionNode,
+    FunctionNode,
+    MemberAccessNode,
+    NameNode,
+    ParseNode,
+    ParseNodeType,
+} from '../parser/parseNodes';
 
 // The number of spaces to indent each parameter, after moving to a newline in tooltips.
 const functionParamIndentOffset = 4;
@@ -54,7 +66,8 @@ export function getToolTipForType(
     evaluator: TypeEvaluator,
     isProperty: boolean,
     functionSignatureDisplay: SignatureDisplayType,
-    typeNode?: ExpressionNode
+    typeNode?: ExpressionNode,
+    sourceMapper?: SourceMapper
 ): string {
     // Support __call__ method for class instances to show the signature of the method
     if (type.category === TypeCategory.Class && isClassInstance(type) && typeNode) {
@@ -73,9 +86,23 @@ export function getToolTipForType(
     let signatureString = '';
     if (isOverloaded(type)) {
         signatureString = label.length > 0 ? `(${label})\n` : '';
-        signatureString += `${getOverloadedTooltip(type, evaluator, functionSignatureDisplay)}`;
+        signatureString += `${getOverloadedTooltip(
+            type,
+            evaluator,
+            functionSignatureDisplay,
+            /* columnThreshold */ 70,
+            sourceMapper
+        )}`;
     } else if (isFunction(type)) {
-        signatureString = `${getFunctionTooltip(label, name, type, evaluator, isProperty, functionSignatureDisplay)}`;
+        signatureString = `${getFunctionTooltip(
+            label,
+            name,
+            type,
+            evaluator,
+            isProperty,
+            functionSignatureDisplay,
+            sourceMapper
+        )}`;
     } else {
         signatureString = label.length > 0 ? `(${label}) ` : '';
         signatureString += `${name}: ${evaluator.printType(type)}`;
@@ -89,7 +116,8 @@ export function getOverloadedTooltip(
     type: OverloadedType,
     evaluator: TypeEvaluator,
     functionSignatureDisplay: SignatureDisplayType,
-    columnThreshold = 70
+    columnThreshold = 70,
+    sourceMapper?: SourceMapper
 ) {
     let content = '';
     const overloads = OverloadedType.getOverloads(type).map((o) =>
@@ -99,7 +127,8 @@ export function getOverloadedTooltip(
             o,
             evaluator,
             /* isProperty */ false,
-            functionSignatureDisplay
+            functionSignatureDisplay,
+            sourceMapper
         )
     );
 
@@ -127,12 +156,16 @@ export function getFunctionTooltip(
     type: FunctionType,
     evaluator: TypeEvaluator,
     isProperty = false,
-    functionSignatureDisplay: SignatureDisplayType
+    functionSignatureDisplay: SignatureDisplayType,
+    sourceMapper?: SourceMapper
 ) {
     const labelFormatted = label.length === 0 ? '' : `(${label}) `;
     const indentStr =
         functionSignatureDisplay === SignatureDisplayType.formatted ? '\n' + ' '.repeat(functionParamIndentOffset) : '';
-    const funcParts = evaluator.printFunctionParts(type);
+    let funcParts = evaluator.printFunctionParts(type);
+    if (sourceMapper) {
+        funcParts = replaceStubEllipsisDefaultValues(type, funcParts, sourceMapper);
+    }
     const paramSignature = `${formatSignature(funcParts, indentStr, functionSignatureDisplay)} -> ${funcParts[1]}`;
 
     if (TypeBase.isInstantiable(type)) {
@@ -150,6 +183,102 @@ export function getFunctionTooltip(
     }
 
     return `${labelFormatted}${defKeyword}${functionName}${sep}${paramSignature}`;
+}
+
+// When a callable's declaration is in a stub file, the stub often encodes defaults as `...`.
+// This best-effort helper replaces those ellipses with corresponding source default values
+// from the implementation file, if they are safe to display.
+export function replaceStubEllipsisDefaultValues(
+    type: FunctionType,
+    funcParts: [string[], string],
+    sourceMapper: SourceMapper
+): [string[], string] {
+    const decl = type.shared.declaration;
+    if (!decl || !isStubFile(decl.uri)) {
+        return funcParts;
+    }
+
+    const stubEllipsisParamNames = new Set(
+        type.shared.parameters
+            .filter((p) => !!p.name && p.defaultExpr?.nodeType === ParseNodeType.Ellipsis)
+            .map((p) => p.name!)
+    );
+    if (stubEllipsisParamNames.size === 0) {
+        return funcParts;
+    }
+
+    if (!funcParts[0].some((p) => p.endsWith('...'))) {
+        return funcParts;
+    }
+
+    const implDecls = sourceMapper.findFunctionDeclarations(decl);
+    const implDecl = implDecls.find((d) => d.node.nodeType === ParseNodeType.Function);
+    if (!implDecl) {
+        return funcParts;
+    }
+
+    const defaultValueMap = new Map<string, string>();
+    for (const param of implDecl.node.d.params) {
+        const paramName = param.d.name?.d.value;
+        const defaultValue = param.d.defaultValue;
+        if (paramName && defaultValue) {
+            defaultValueMap.set(paramName, ParseTreeUtils.printExpression(defaultValue));
+        }
+    }
+
+    if (defaultValueMap.size === 0) {
+        return funcParts;
+    }
+
+    const updatedParams = funcParts[0].map((paramString) => {
+        if (!paramString.endsWith('...')) {
+            return paramString;
+        }
+
+        const paramName = _tryGetPrintedParamName(paramString);
+        if (!paramName || !stubEllipsisParamNames.has(paramName)) {
+            return paramString;
+        }
+
+        const sourceDefaultValue = defaultValueMap.get(paramName);
+        if (!sourceDefaultValue) {
+            return paramString;
+        }
+
+        if (!_isSafeSourceDefaultValueText(sourceDefaultValue)) {
+            return paramString;
+        }
+
+        // Use a replacer function to avoid `$` sequences in the replacement string being interpreted.
+        return paramString.replace(/\.\.\.$/, () => sourceDefaultValue);
+    });
+
+    return [updatedParams, funcParts[1]];
+}
+
+const _maxSubstitutedDefaultValueLength = 100;
+
+function _isSafeSourceDefaultValueText(text: string): boolean {
+    if (text.length === 0) {
+        return false;
+    }
+
+    if (text.length > _maxSubstitutedDefaultValueLength) {
+        return false;
+    }
+
+    if (text.includes('\n') || text.includes('\r')) {
+        return false;
+    }
+
+    return true;
+}
+
+function _tryGetPrintedParamName(paramString: string): string | undefined {
+    const trimmed = paramString.trimStart();
+    const withoutStars = trimmed.replace(/^\*\*?/, '');
+    const match = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(withoutStars);
+    return match?.[1];
 }
 
 export function getConstructorTooltip(
@@ -194,35 +323,82 @@ function formatSignature(
 }
 
 export function getFunctionDocStringFromType(type: FunctionType, sourceMapper: SourceMapper, evaluator: TypeEvaluator) {
-    const decl = type.shared.declaration;
-    const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
-    const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
-
-    return getFunctionDocStringInherited(type, decl, sourceMapper, classResults?.classType);
+    return getFunctionDocStringFromTypeInfo(type, sourceMapper, evaluator)?.text;
 }
 
-export function getOverloadedDocStringsFromType(
-    type: OverloadedType,
+interface DocumentationPartInfo {
+    forceLiteral?: boolean;
+    text: string;
+    sourceDecl?: Declaration;
+}
+
+// Resolve a constructor-call docstring in spec order: Phase 1 = constructor-method docstrings
+// across the MRO (resolveConstructorDocInfo), Phase 2 = the class docstring. `methodType` is the
+// call-narrowed constructor whose overloads are the matched-overload hint for Rule A.
+export function getConstructorDocInfo(
+    classType: ClassType,
+    methodType: FunctionType | OverloadedType,
+    resolvedDecl: Declaration | undefined,
     sourceMapper: SourceMapper,
     evaluator: TypeEvaluator
-) {
-    const overloads = OverloadedType.getOverloads(type);
-    if (overloads.length === 0) {
-        return [];
+): DocumentationPartInfo | undefined {
+    const matchedOverloads = isOverloaded(methodType) ? OverloadedType.getOverloads(methodType) : [methodType];
+
+    const ctorInfo = resolveConstructorDocInfo(classType, matchedOverloads, sourceMapper, evaluator);
+    if (ctorInfo?.docString) {
+        return {
+            text: ctorInfo.docString,
+            sourceDecl: ctorInfo.sourceDecl ?? resolvedDecl,
+            forceLiteral: ctorInfo.forceLiteral,
+        };
     }
 
-    const decl = overloads[0].shared.declaration;
+    const classDoc = getClassDocString(classType, resolvedDecl, sourceMapper);
+    return classDoc ? { text: classDoc, sourceDecl: resolvedDecl } : undefined;
+}
+
+function getFunctionDocStringFromTypeInfo(
+    type: FunctionType,
+    sourceMapper: SourceMapper,
+    evaluator: TypeEvaluator
+): DocumentationPartInfo | undefined {
+    // A @functools.wraps-decorated function surfaces the wrapped function's docstring
+    // (matches the async pylance path). Single-level: pull the docstring from the wrapped
+    // function itself without recursively re-applying @wraps.
+    const decl = type.shared.declaration;
+    if (decl && decl.type === DeclarationType.Function) {
+        const wrappedType = getWrappedFunctionType(decl, evaluator);
+        if (wrappedType) {
+            const wrappedDoc =
+                wrappedType.shared.docString ??
+                (wrappedType.shared.declaration
+                    ? getFunctionDocStringFromDeclarationInfo(wrappedType.shared.declaration, sourceMapper)?.docString
+                    : undefined);
+            if (wrappedDoc) {
+                return { text: wrappedDoc, sourceDecl: decl };
+            }
+        }
+    }
+
+    const docInfo = getMethodDocInfo(type, sourceMapper, evaluator);
+    return docInfo
+        ? { text: docInfo.docString, sourceDecl: docInfo.sourceDecl, forceLiteral: docInfo.forceLiteral }
+        : undefined;
+}
+
+// Resolve a function/method/overloaded docstring via the unified spec-ordered component. The
+// matched-overload hint is the (possibly call-narrowed) type's overload set; the class used for
+// MRO inheritance is the enclosing class of the member's declaration.
+function getMethodDocInfo(
+    type: FunctionType | OverloadedType,
+    sourceMapper: SourceMapper,
+    evaluator: TypeEvaluator
+): FunctionDocStringInfo | undefined {
+    const overloads = isOverloaded(type) ? OverloadedType.getOverloads(type) : [type];
+    const decl = overloads.length > 0 ? overloads[0].shared.declaration : undefined;
     const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
     const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
-
-    return getOverloadedDocStringsInherited(
-        type,
-        overloads.map((o) => o.shared.declaration).filter(isDefined),
-        sourceMapper,
-        evaluator,
-
-        classResults?.classType
-    );
+    return resolveMethodDocInfo(type, classResults?.classType, overloads, sourceMapper, evaluator);
 }
 
 export function getDocumentationPartForTypeAlias(
@@ -270,42 +446,107 @@ export function getDocumentationPartForType(
     evaluator: TypeEvaluator,
     boundObjectOrClass?: ClassType | undefined
 ) {
+    return getDocumentationPartForTypeInfo(sourceMapper, type, resolvedDecl, evaluator, boundObjectOrClass)?.text;
+}
+
+function getDocumentationPartForTypeInfo(
+    sourceMapper: SourceMapper,
+    type: Type,
+    resolvedDecl: Declaration | undefined,
+    evaluator: TypeEvaluator,
+    boundObjectOrClass?: ClassType | undefined
+): DocumentationPartInfo | undefined {
     if (isModule(type)) {
         const doc = getModuleDocString(type, resolvedDecl, sourceMapper);
         if (doc) {
-            return doc;
+            return { text: doc, sourceDecl: resolvedDecl };
         }
     } else if (isInstantiableClass(type)) {
         const doc = getClassDocString(type, resolvedDecl, sourceMapper);
         if (doc) {
-            return doc;
+            return { text: doc, sourceDecl: resolvedDecl };
         }
-    } else if (isFunction(type)) {
-        const functionType = boundObjectOrClass
-            ? evaluator.bindFunctionToClassOrObject(boundObjectOrClass, type)
-            : type;
-        if (functionType && isFunction(functionType)) {
-            const doc = getFunctionDocStringFromType(functionType, sourceMapper, evaluator);
-            if (doc) {
-                return doc;
+    } else if (isFunction(type) || isOverloaded(type)) {
+        const boundType = boundObjectOrClass ? evaluator.bindFunctionToClassOrObject(boundObjectOrClass, type) : type;
+        if (boundType && isFunction(boundType)) {
+            // Route single functions through getFunctionDocStringFromTypeInfo so a
+            // @functools.wraps-decorated function surfaces the wrapped function's docstring.
+            const docInfo = getFunctionDocStringFromTypeInfo(boundType, sourceMapper, evaluator);
+            if (docInfo) {
+                return docInfo;
             }
-        }
-    } else if (isOverloaded(type)) {
-        const functionType = boundObjectOrClass
-            ? evaluator.bindFunctionToClassOrObject(boundObjectOrClass, type)
-            : type;
-        if (functionType && isOverloaded(functionType)) {
-            const doc = getOverloadedDocStringsFromType(functionType, sourceMapper, evaluator).find((d) => d);
-
-            if (doc) {
-                return doc;
+        } else if (boundType && isOverloaded(boundType)) {
+            const docInfo = getMethodDocInfo(boundType, sourceMapper, evaluator);
+            if (docInfo) {
+                return {
+                    text: docInfo.docString,
+                    sourceDecl: docInfo.sourceDecl ?? resolvedDecl,
+                    forceLiteral: docInfo.forceLiteral,
+                };
             }
         }
     }
     return undefined;
 }
 
-export function getDocumentationPartsForTypeAndDecl(
+// Last-resort fallback for a callable-instance variable/attribute whose own docstring is empty:
+// surface its __call__ docstring (method rules), consistent with the __call__ signature already
+// shown for such values. A plain (non-callable) instance has NO type-docstring fallback — a
+// variable/attribute is a value reference, so its declared type's class docstring (which is about
+// the type, not the reference) is intentionally not shown. Builtin instance types are excluded.
+function getCallableInstanceDocInfo(
+    sourceMapper: SourceMapper,
+    type: Type,
+    resolvedDecl: Declaration | undefined,
+    evaluator: TypeEvaluator
+): DocumentationPartInfo | undefined {
+    if (!isClassInstance(type) || resolvedDecl?.type !== DeclarationType.Variable || ClassType.isBuiltIn(type)) {
+        return undefined;
+    }
+
+    // Only surface the __call__ fallback for source-defined user callables. A stub-defined library
+    // callable held in a variable (e.g. `handler = SomeLibCallable()`) would otherwise dump its full
+    // library __call__ docstring on plain variable hover.
+    const classDeclUri = type.shared.declaration?.uri;
+    if (!classDeclUri || isStubFile(classDeclUri)) {
+        return undefined;
+    }
+
+    const callMember = lookUpClassMember(type, '__call__');
+    if (!callMember) {
+        return undefined;
+    }
+
+    // lookUpClassMember consults the metaclass first, so a class with a custom metaclass can
+    // surface the metaclass's (or type's) __call__ even when the instance itself is not callable.
+    // Only treat __call__ as a callable-instance fallback when it is defined within the instance
+    // type's own MRO.
+    const callDefiningClass = callMember.classType;
+    if (
+        !isClass(callDefiningClass) ||
+        !type.shared.mro.some(
+            (mroClass) => isClass(mroClass) && ClassType.isSameGenericClass(mroClass, callDefiningClass)
+        )
+    ) {
+        return undefined;
+    }
+
+    const callType = evaluator.getTypeOfMember(callMember);
+    if (!isFunction(callType) && !isOverloaded(callType)) {
+        return undefined;
+    }
+
+    const docInfo = getMethodDocInfo(callType, sourceMapper, evaluator);
+    return docInfo?.docString
+        ? {
+              text: docInfo.docString,
+              sourceDecl: docInfo.sourceDecl ?? resolvedDecl,
+              forceLiteral: docInfo.forceLiteral,
+          }
+        : undefined;
+}
+
+export function getDocumentationPartsForTypeAndDeclWithSource(
     sourceMapper: SourceMapper,
     type: Type | undefined,
     resolvedDecl: Declaration | undefined,
@@ -315,12 +556,36 @@ export function getDocumentationPartsForTypeAndDecl(
         symbol?: Symbol;
         boundObjectOrClass?: ClassType | undefined;
     }
-): string | undefined {
+): DocumentationPartInfo | undefined {
     // Get the alias first
     const aliasDoc = getDocumentationPartForTypeAlias(sourceMapper, resolvedDecl, evaluator, optional?.symbol);
 
+    // If this is a decorated function, the apparent type may not be a Function/Overloaded
+    // (e.g. a callable Protocol/class instance). In that case, fall back to the docstring
+    // from the function declaration so hover is consistent with signature help.
+    //
+    // Avoid applying this fallback when we already have alias docs (e.g. @property),
+    // or when the function is wrapped via functools.wraps (wrapped-function docs
+    // are handled elsewhere and wrappers without docs should remain doc-less).
+    if (
+        !aliasDoc &&
+        resolvedDecl?.type === DeclarationType.Function &&
+        type &&
+        !isFunction(type) &&
+        !isOverloaded(type) &&
+        !_isFunctoolsWrapsDecoratedFunction(resolvedDecl)
+    ) {
+        const declDocInfo = getFunctionDocStringFromDeclarationInfo(resolvedDecl, sourceMapper);
+        if (declDocInfo) {
+            return {
+                text: declDocInfo.docString,
+                sourceDecl: declDocInfo.sourceDecl,
+            };
+        }
+    }
+
     // Combine this with the type doc
-    let typeDoc: string | undefined;
+    let typeDoc: DocumentationPartInfo | undefined;
     if (resolvedDecl?.type === DeclarationType.Alias) {
         // Handle another alias decl special case.
         // ex) import X.Y
@@ -341,17 +606,150 @@ export function getDocumentationPartsForTypeAndDecl(
             }
         }
 
-        typeDoc = getModuleDocStringFromUris([resolvedDecl.uri], sourceMapper);
+        const moduleDoc = getModuleDocStringFromUris([resolvedDecl.uri], sourceMapper);
+        typeDoc = moduleDoc ? { text: moduleDoc, sourceDecl: resolvedDecl } : undefined;
     }
 
     typeDoc =
         typeDoc ??
         (type
-            ? getDocumentationPartForType(sourceMapper, type, resolvedDecl, evaluator, optional?.boundObjectOrClass)
+            ? getDocumentationPartForTypeInfo(sourceMapper, type, resolvedDecl, evaluator, optional?.boundObjectOrClass)
             : undefined);
 
+    // Spec: a callable-instance variable/attribute with no assignment/member docstring and no
+    // type-level doc surfaces its __call__ docstring (method rules). Plain value references get
+    // no type-docstring fallback.
+    if (!aliasDoc && !typeDoc && type) {
+        typeDoc = getCallableInstanceDocInfo(sourceMapper, type, resolvedDecl, evaluator);
+    }
+
     // Combine with a new line if they both exist
-    return aliasDoc && typeDoc && aliasDoc !== typeDoc ? `${aliasDoc}\n\n${typeDoc}` : aliasDoc || typeDoc;
+    if (aliasDoc && typeDoc) {
+        if (aliasDoc !== typeDoc.text) {
+            return { text: `${aliasDoc}\n\n${typeDoc.text}` };
+        }
+
+        return typeDoc;
+    }
+
+    if (aliasDoc) {
+        return { text: aliasDoc, sourceDecl: resolvedDecl };
+    }
+
+    return typeDoc;
+}
+
+export function getDocumentationPartsForTypeAndDecl(
+    sourceMapper: SourceMapper,
+    type: Type | undefined,
+    resolvedDecl: Declaration | undefined,
+    evaluator: TypeEvaluator,
+    optional?: {
+        name?: string;
+        symbol?: Symbol;
+        boundObjectOrClass?: ClassType | undefined;
+    }
+): string | undefined {
+    return getDocumentationPartsForTypeAndDeclWithSource(sourceMapper, type, resolvedDecl, evaluator, optional)?.text;
+}
+
+/**
+ * If the given function declaration is decorated with `@functools.wraps(wrapped)`,
+ * returns the type of the wrapped function. Otherwise returns `undefined`.
+ * This allows hover and other tools to show the original function's signature.
+ */
+export function getWrappedFunctionType(decl: FunctionDeclaration, evaluator: TypeEvaluator): FunctionType | undefined {
+    const functionNode = decl.node;
+    if (!functionNode || functionNode.nodeType !== ParseNodeType.Function) {
+        return undefined;
+    }
+
+    for (const decoratorNode of functionNode.d.decorators) {
+        if (decoratorNode.d.expr.nodeType !== ParseNodeType.Call) {
+            continue;
+        }
+
+        const decoratorCall = decoratorNode.d.expr;
+        const decoratorType = evaluator.getType(decoratorCall.d.leftExpr);
+        if (!decoratorType || !isFunction(decoratorType)) {
+            continue;
+        }
+
+        if (decoratorType.shared.moduleName !== 'functools' || decoratorType.shared.name !== 'wraps') {
+            continue;
+        }
+
+        const wrappedFuncArg = decoratorCall.d.args.length > 0 ? decoratorCall.d.args[0] : undefined;
+        if (!wrappedFuncArg || wrappedFuncArg.d.argCategory !== ArgCategory.Simple || !wrappedFuncArg.d.valueExpr) {
+            continue;
+        }
+
+        const wrappedFuncType = evaluator.getType(wrappedFuncArg.d.valueExpr);
+        if (!wrappedFuncType) {
+            continue;
+        }
+
+        if (isFunction(wrappedFuncType)) {
+            return wrappedFuncType;
+        }
+
+        if (isOverloaded(wrappedFuncType)) {
+            const impl = OverloadedType.getImplementation(wrappedFuncType);
+            if (impl && isFunction(impl)) {
+                return impl;
+            }
+            const overloads = OverloadedType.getOverloads(wrappedFuncType);
+            if (overloads.length > 0) {
+                return overloads[0];
+            }
+        }
+    }
+
+    return undefined;
+}
+function _isFunctoolsWrapsDecoratedFunction(decl: Declaration): boolean {
+    if (decl.type !== DeclarationType.Function) {
+        return false;
+    }
+
+    const node = decl.node;
+    if (!node || node.nodeType !== ParseNodeType.Function) {
+        return false;
+    }
+
+    const functionNode = node as FunctionNode;
+    for (const decoratorNode of functionNode.d.decorators) {
+        if (_isFunctoolsWrapsDecorator(decoratorNode)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function _isFunctoolsWrapsDecorator(decoratorNode: DecoratorNode): boolean {
+    let decoratorExpr: ExpressionNode = decoratorNode.d.expr;
+    if (decoratorExpr.nodeType === ParseNodeType.Call) {
+        decoratorExpr = (decoratorExpr as CallNode).d.leftExpr;
+    }
+
+    // Detect @functools.wraps(...)
+    if (decoratorExpr.nodeType === ParseNodeType.MemberAccess) {
+        const memberAccess = decoratorExpr as MemberAccessNode;
+        if (memberAccess.d.member.d.value !== 'wraps') {
+            return false;
+        }
+
+        const leftExpr = memberAccess.d.leftExpr;
+        return leftExpr.nodeType === ParseNodeType.Name && (leftExpr as NameNode).d.value === 'functools';
+    }
+
+    // Best-effort detection for @wraps(...) when wraps is directly in scope.
+    if (decoratorExpr.nodeType === ParseNodeType.Name) {
+        return (decoratorExpr as NameNode).d.value === 'wraps';
+    }
+
+    return false;
 }
 
 export function getAutoImportText(name: string, from?: string, alias?: string): string {

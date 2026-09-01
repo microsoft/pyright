@@ -3,8 +3,7 @@ import sys
 # sys.platform.startswith("aix"):
 if sys.platform != "linux" and sys.platform != "win32" and sys.platform != "darwin":
     from collections.abc import Callable
-    from typing import Final, Literal, NamedTuple, TypeVar, overload
-    from typing_extensions import ParamSpec
+    from typing import Final, Literal, NamedTuple, ParamSpec, TypeVar, overload
 
     from psutil._common import (
         NIC_DUPLEX_FULL as NIC_DUPLEX_FULL,
@@ -73,6 +72,7 @@ if sys.platform != "linux" and sys.platform != "win32" and sys.platform != "darw
     def net_connections(kind: str, _pid: Literal[-1] = -1) -> list[ntp.sconn]: ...
     @overload
     def net_connections(kind: str, _pid: int = -1) -> list[ntp.pconn]: ...
+
     def net_if_stats() -> dict[str, ntp.snicstats]: ...
     def boot_time() -> float: ...
     def users() -> list[ntp.suser]: ...

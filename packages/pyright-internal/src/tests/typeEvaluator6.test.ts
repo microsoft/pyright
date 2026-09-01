@@ -8,6 +8,8 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import * as assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -65,7 +67,11 @@ test('OverloadCall5', () => {
 
 test('OverloadCall6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall6.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 2, 0, undefined, undefined, undefined, 1);
+    assert.deepStrictEqual(analysisResults[0].deprecateds[0].range, {
+        start: { line: 286, character: 16 },
+        end: { line: 286, character: 42 },
+    });
 });
 
 test('OverloadCall7', () => {
@@ -88,6 +94,16 @@ test('OverloadCall10', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('OverloadCall11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall11.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('OverloadCall12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall12.py']);
+    TestUtils.validateResults(analysisResults, 5, 0, undefined, undefined, undefined, 1);
+});
+
 test('OverloadOverride1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverride1.py']);
     TestUtils.validateResults(analysisResults, 1);
@@ -103,6 +119,11 @@ test('OverloadImpl2', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('OverloadImpl3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadImpl3.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('OverloadOverlap1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -112,7 +133,7 @@ test('OverloadOverlap1', () => {
 
     configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 16);
+    TestUtils.validateResults(analysisResults, 18);
 });
 
 test('TypeGuard1', () => {
@@ -149,6 +170,11 @@ test('TypeIs3', () => {
 
 test('TypeIs4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs5.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
@@ -431,6 +457,43 @@ test('TypeVarTuple30', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeVarTuple31', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple31.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 0, 1);
+
+    // The constructor call's inferred type should be fully concrete. In
+    // particular, the solved "OO" TypeVar from "unpack_then" must not escape
+    // into the result. Rather than pinning the full (brittle) nested-tuple
+    // expansion, assert the concrete outer shape and the absence of the leaked
+    // TypeVar so the fix stays self-evident without coupling to the exact
+    // type-printer output.
+    const revealedType = analysisResults[0].infos[0].message;
+    assert.ok(
+        revealedType.startsWith('Type of "inferred" is "ForwardRefParser['),
+        `Unexpected inferred type: ${revealedType}`
+    );
+    assert.ok(!/\bOO\b/.test(revealedType), `"OO" TypeVar escaped into inferred type: ${revealedType}`);
+});
+
+test('TypeVarTuple32', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple32.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeVarTuple33', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple33.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 9);
+});
+
 test('Match1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -469,6 +532,15 @@ test('MatchSequence2', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('MatchSequenceVariadic', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequenceVariadic.py'], configOptions);
+    // After fix: should be 4 errors and 0 unreachable code
+    TestUtils.validateResults(analysisResults, 4, 0, undefined, undefined, 0);
 });
 
 test('MatchClass1', () => {
@@ -1017,4 +1089,14 @@ test('Decorator7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator7.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('DisjointBase1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase1.py']);
+    TestUtils.validateResults(analysisResults, 15);
+});
+
+test('DisjointBase2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase2.py']);
+    TestUtils.validateResults(analysisResults, 11);
 });

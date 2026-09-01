@@ -26,9 +26,15 @@ export abstract class DynamicFeature {
         // Default is no-op
     }
 
+    /** Unregister the current registration. Called internally by register() to clean up before re-registering. */
     dispose() {
         this._lastRegistration?.dispose();
         this._lastRegistration = undefined;
+    }
+
+    /** Fully disable this feature so it can be re-enabled on the next update(). */
+    disable() {
+        this.dispose();
     }
 
     protected abstract registerFeature(): Promise<Disposable>;

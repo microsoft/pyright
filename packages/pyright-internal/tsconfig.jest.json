@@ -1,0 +1,31 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "vscode-languageserver": [
+                "./node_modules/vscode-languageserver/lib/common/api"
+            ],
+            "vscode-languageserver/node": [
+                "./node_modules/vscode-languageserver/lib/node/main"
+            ],
+            "vscode-languageserver-protocol": [
+                "./node_modules/vscode-languageserver-protocol/lib/common/api"
+            ],
+            "vscode-languageserver-textdocument": [
+                "./node_modules/vscode-languageserver-textdocument/lib/umd/main"
+            ],
+            "vscode-languageserver-types": [
+                "./node_modules/vscode-languageserver-types/lib/umd/main"
+            ],
+            "vscode-jsonrpc": [
+                "./node_modules/vscode-jsonrpc/lib/common/api"
+            ],
+            "vscode-jsonrpc/node": [
+                "./node_modules/vscode-jsonrpc/lib/node/main"
+            ]
+        },
+        "target": "es2019",
+        "preserveConstEnums": false
+    }
+}

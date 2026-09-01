@@ -1,7 +1,6 @@
 from _typeshed import Incomplete
 from collections.abc import Callable, Iterable
-from typing import Any, Literal, overload
-from typing_extensions import TypeAlias
+from typing import Any, Literal, TypeAlias, overload
 
 import pandas as pd
 from matplotlib.axes import Axes
@@ -58,6 +57,7 @@ def lmplot(
     line_kws: dict[str, Any] | None = None,
     facet_kws: dict[str, Any] | None = None,
 ) -> FacetGrid: ...
+
 @overload
 def regplot(
     data: None = None,
@@ -124,6 +124,7 @@ def regplot(
     line_kws: dict[str, Any] | None = None,
     ax: Axes | None = None,
 ) -> Axes: ...
+
 @overload
 def residplot(
     data: None = None,

@@ -293,3 +293,20 @@ def func22(x: tuple[*tuple[int, ...], float, str]):
     reveal_type(x[-1], expected_text="str")
     reveal_type(x[-2], expected_text="float")
     reveal_type(x[-3], expected_text="int")
+
+
+def func31(a: tuple[int, int, *tuple[Any, ...]]) -> tuple[int, int]:
+    return a
+
+
+def func32(a: tuple[int, int, *tuple[Any, ...]]) -> tuple[int, ...]:
+    return a
+
+
+def func33(a: tuple[int, int, int, *tuple[Any, ...]]) -> tuple[int, ...]:
+    return a
+
+
+def func34(a: tuple[int, int, *tuple[Any, ...]]) -> tuple[int]:
+    # This should generate an error.
+    return a

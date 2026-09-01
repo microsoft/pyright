@@ -25,6 +25,7 @@ import {
     ExecutionScopeNode,
     ExpressionNode,
     FunctionNode,
+    getParserStringAnnotation,
     ImportFromNode,
     IndexNode,
     LambdaNode,
@@ -48,7 +49,6 @@ import { OperatorTypeNameMap, ParseNodeTypeNameMap } from '../parser/parseNodeUt
 import { ParseFileResults } from '../parser/parser';
 import { Tokenizer, TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
-import { getScope } from './analyzerNodeInfo';
 import { ParseTreeWalker, getChildNodes } from './parseTreeWalker';
 import { TypeVarScopeId } from './types';
 
@@ -66,6 +66,7 @@ export const enum PrintExpressionFlags {
 export interface EvaluationScopeInfo {
     node: EvaluationScopeNode;
     useProxyScope?: boolean;
+    useChainedModuleLevelScopes?: boolean;
 }
 
 // Returns the depth of the node as measured from the root
@@ -86,25 +87,36 @@ export function getNodeDepth(node: ParseNode): number {
 export function findNodeByPosition(
     node: ParseNode,
     position: Position,
-    lines: TextRangeCollection<TextRange>
+    lines: TextRangeCollection<TextRange>,
+    reader?: AnalyzerNodeInfo.AnalyzerNodeInfoReader
 ): ParseNode | undefined {
     const offset = convertPositionToOffset(position, lines);
     if (offset === undefined) {
         return undefined;
     }
 
-    return findNodeByOffset(node, offset);
+    return findNodeByOffset(node, offset, reader);
 }
 
 // Returns the deepest node that contains the specified offset.
-export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | undefined {
+export function findNodeByOffset(
+    node: ParseNode,
+    offset: number,
+    reader?: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+): ParseNode | undefined {
     if (!TextRange.overlaps(node, offset)) {
         return undefined;
     }
 
+    // When a reader is provided, descend into evaluator-discovered (tier-2) string
+    // annotations too. Otherwise getChildNodes defaults to parser-tier annotations.
+    const getStringAnnotation = reader
+        ? (n: StringListNode) => AnalyzerNodeInfo.getStringAnnotation(n, reader)
+        : undefined;
+
     // The range is found within this node. See if we can localize it
     // further by checking its children.
-    let children = getChildNodes(node);
+    let children = getChildNodes(node, getStringAnnotation);
     if (isCompliantWithNodeRangeRules(node) && children.length > 20) {
         // Use binary search to find the child to visit. This should be helpful
         // when there are many siblings, such as statements in a module/suite
@@ -139,7 +151,7 @@ export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | u
             continue;
         }
 
-        const containingChild = findNodeByOffset(child, offset);
+        const containingChild = findNodeByOffset(child, offset, reader);
         if (containingChild) {
             // For augmented assignments, prefer the dest expression, which is a clone
             // of the left expression but is used to hold the type of the operation result.
@@ -269,8 +281,9 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.StringList: {
-            if (flags & PrintExpressionFlags.ForwardDeclarations && node.d.annotation) {
-                return printExpression(node.d.annotation, flags);
+            const annotation = getParserStringAnnotation(node);
+            if (flags & PrintExpressionFlags.ForwardDeclarations && annotation) {
+                return printExpression(annotation, flags);
             } else {
                 return node.d.strings
                     .map((str) => {
@@ -708,8 +721,11 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
 // is within the scope. That means if the node is within a class decorator
 // (for example), it will be considered part of its parent node rather than
 // the class node.
-export function getEnclosingFunctionEvaluationScope(node: ParseNode): FunctionNode | undefined {
-    let curNode = getEvaluationScopeNode(node).node;
+export function getEnclosingFunctionEvaluationScope(
+    node: ParseNode,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+): FunctionNode | undefined {
+    let curNode = getEvaluationScopeNode(node, nodeInfo).node;
 
     while (curNode) {
         if (curNode.nodeType === ParseNodeType.Function) {
@@ -720,7 +736,7 @@ export function getEnclosingFunctionEvaluationScope(node: ParseNode): FunctionNo
             return undefined;
         }
 
-        curNode = getEvaluationScopeNode(curNode.parent).node;
+        curNode = getEvaluationScopeNode(curNode.parent, nodeInfo).node;
     }
 
     return undefined;
@@ -812,13 +828,14 @@ export function getEnclosingSuiteOrModule(
 }
 
 export function getEvaluationNodeForAssignmentExpression(
-    node: AssignmentExpressionNode
+    node: AssignmentExpressionNode,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
 ): LambdaNode | FunctionNode | ModuleNode | ClassNode | undefined {
     // PEP 572 indicates that the evaluation node for an assignment expression
     // target within a list comprehension is contained within a lambda,
     // function or module, but not a class.
     let sawComprehension = false;
-    let curNode: ParseNode | undefined = getEvaluationScopeNode(node).node;
+    let curNode: ParseNode | undefined = getEvaluationScopeNode(node, nodeInfo).node;
 
     while (curNode !== undefined) {
         switch (curNode.nodeType) {
@@ -832,7 +849,7 @@ export function getEvaluationNodeForAssignmentExpression(
 
             case ParseNodeType.Comprehension:
                 sawComprehension = true;
-                curNode = getEvaluationScopeNode(curNode.parent!).node;
+                curNode = getEvaluationScopeNode(curNode.parent!, nodeInfo).node;
                 break;
 
             default:
@@ -845,12 +862,16 @@ export function getEvaluationNodeForAssignmentExpression(
 
 // Returns the parse node corresponding to the scope that is used to evaluate
 // a symbol referenced in the specified node.
-export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
+export function getEvaluationScopeNode(
+    node: ParseNode,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+): EvaluationScopeInfo {
     let prevNode: ParseNode | undefined;
     let prevPrevNode: ParseNode | undefined;
     let curNode: ParseNode | undefined = node;
     let isParamNameNode = false;
     let isParamDefaultNode = false;
+    let useChainedModuleLevelScopes = false;
 
     while (curNode) {
         if (curNode.nodeType === ParseNodeType.Parameter) {
@@ -868,7 +889,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
         // the enclosing scope instead.
         switch (curNode.nodeType) {
             case ParseNodeType.TypeParameterList: {
-                return { node: curNode, useProxyScope: true };
+                return { node: curNode, useProxyScope: true, useChainedModuleLevelScopes };
             }
 
             case ParseNodeType.Function: {
@@ -893,15 +914,15 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
                     }
 
                     if (isParamNameNode) {
-                        if (getScope(curNode) !== undefined) {
+                        if (AnalyzerNodeInfo.getScope(curNode, nodeInfo) !== undefined) {
                             return { node: curNode };
                         }
                     }
                 }
 
                 if (prevNode === curNode.d.suite) {
-                    if (getScope(curNode) !== undefined) {
-                        return { node: curNode };
+                    if (AnalyzerNodeInfo.getScope(curNode, nodeInfo) !== undefined) {
+                        return { node: curNode, useChainedModuleLevelScopes: true };
                     }
                 }
 
@@ -910,8 +931,8 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
                 // they are evaluated within the function's parent scope.
                 if (curNode.d.typeParams) {
                     const scopeNode = curNode.d.typeParams;
-                    if (getScope(scopeNode) !== undefined) {
-                        return { node: scopeNode, useProxyScope: true };
+                    if (AnalyzerNodeInfo.getScope(scopeNode, nodeInfo) !== undefined) {
+                        return { node: scopeNode, useProxyScope: true, useChainedModuleLevelScopes };
                     }
                 }
                 break;
@@ -920,13 +941,13 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
             case ParseNodeType.Lambda: {
                 if (curNode.d.params.some((param) => param === prevNode)) {
                     if (isParamNameNode) {
-                        if (getScope(curNode) !== undefined) {
+                        if (AnalyzerNodeInfo.getScope(curNode, nodeInfo) !== undefined) {
                             return { node: curNode };
                         }
                     }
                 } else if (!prevNode || prevNode === curNode.d.expr) {
-                    if (getScope(curNode) !== undefined) {
-                        return { node: curNode };
+                    if (AnalyzerNodeInfo.getScope(curNode, nodeInfo) !== undefined) {
+                        return { node: curNode, useChainedModuleLevelScopes: true };
                     }
                 }
                 break;
@@ -943,25 +964,30 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
                 }
 
                 if (prevNode === curNode.d.suite) {
-                    if (getScope(curNode) !== undefined) {
+                    if (AnalyzerNodeInfo.getScope(curNode, nodeInfo) !== undefined) {
                         return { node: curNode };
                     }
                 }
+
+                // Class header expressions (bases, keyword args, type params) are
+                // evaluated in the enclosing scope. Enable chained lookup so that
+                // earlier-cell globals are visible in those positions.
+                useChainedModuleLevelScopes = true;
 
                 // All other nodes in the class are evaluated in the context
                 // of the type parameter scope if it's present. Otherwise,
                 // they are evaluated within the class' parent scope.
                 if (curNode.d.typeParams) {
                     const scopeNode = curNode.d.typeParams;
-                    if (getScope(scopeNode) !== undefined) {
-                        return { node: scopeNode, useProxyScope: true };
+                    if (AnalyzerNodeInfo.getScope(scopeNode, nodeInfo) !== undefined) {
+                        return { node: scopeNode, useProxyScope: true, useChainedModuleLevelScopes: true };
                     }
                 }
                 break;
             }
 
             case ParseNodeType.Comprehension: {
-                if (getScope(curNode) !== undefined) {
+                if (AnalyzerNodeInfo.getScope(curNode, nodeInfo) !== undefined) {
                     // The iterable expression of the first subnode of a list comprehension
                     // is evaluated within the scope of its parent.
                     const isFirstIterableExpr =
@@ -970,7 +996,14 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
                         curNode.d.forIfNodes[0].d.iterableExpr === prevPrevNode;
 
                     if (!isFirstIterableExpr) {
-                        return { node: curNode };
+                        // Only enable chained scopes for comprehensions inside
+                        // functions/lambdas; module-level comprehensions already
+                        // see earlier-cell symbols through normal binding.
+                        return {
+                            node: curNode,
+                            useChainedModuleLevelScopes:
+                                !!getEnclosingFunction(curNode) || !!getEnclosingLambda(curNode),
+                        };
                     }
                 }
                 break;
@@ -979,7 +1012,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
             case ParseNodeType.TypeAlias: {
                 if (prevNode === curNode.d.expr && curNode.d.typeParams) {
                     const scopeNode = curNode.d.typeParams;
-                    if (getScope(scopeNode) !== undefined) {
+                    if (AnalyzerNodeInfo.getScope(scopeNode, nodeInfo) !== undefined) {
                         return { node: scopeNode };
                     }
                 }
@@ -987,8 +1020,8 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
             }
 
             case ParseNodeType.Module: {
-                if (getScope(curNode) !== undefined) {
-                    return { node: curNode };
+                if (AnalyzerNodeInfo.getScope(curNode, nodeInfo) !== undefined) {
+                    return { node: curNode, useChainedModuleLevelScopes };
                 }
                 break;
             }
@@ -1039,8 +1072,11 @@ export function getTypeVarScopeNode(node: ParseNode): TypeParameterScopeNode | u
 
 // Returns the parse node corresponding to the scope that is used
 // for executing the code referenced in the specified node.
-export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
-    let evaluationScope = getEvaluationScopeNode(node).node;
+export function getExecutionScopeNode(
+    node: ParseNode,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+): ExecutionScopeNode {
+    let evaluationScope = getEvaluationScopeNode(node, nodeInfo).node;
 
     // Classes are not considered execution scope because they are executed
     // within the context of their containing module or function. Likewise,
@@ -1052,7 +1088,7 @@ export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
         evaluationScope.nodeType === ParseNodeType.Class ||
         evaluationScope.nodeType === ParseNodeType.Comprehension
     ) {
-        evaluationScope = getEvaluationScopeNode(evaluationScope.parent!).node;
+        evaluationScope = getEvaluationScopeNode(evaluationScope.parent!, nodeInfo).node;
     }
 
     return evaluationScope;
@@ -1405,7 +1441,11 @@ export function isWithinDefaultParamInitializer(node: ParseNode) {
     return false;
 }
 
-export function isWithinTypeAnnotation(node: ParseNode, requireQuotedAnnotation: boolean) {
+export function isWithinTypeAnnotation(
+    node: ParseNode,
+    requireQuotedAnnotation: boolean,
+    nodeInfo?: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+) {
     let curNode: ParseNode | undefined = node;
     let prevNode: ParseNode | undefined;
     let isQuoted = false;
@@ -1438,7 +1478,13 @@ export function isWithinTypeAnnotation(node: ParseNode, requireQuotedAnnotation:
             return true;
         }
 
-        if (curNode.nodeType === ParseNodeType.StringList && prevNode === curNode.d.annotation) {
+        const stringAnnotation =
+            curNode.nodeType === ParseNodeType.StringList
+                ? nodeInfo
+                    ? AnalyzerNodeInfo.getStringAnnotation(curNode, nodeInfo)
+                    : getParserStringAnnotation(curNode)
+                : undefined;
+        if (stringAnnotation && prevNode === stringAnnotation) {
             isQuoted = true;
         }
 
@@ -1791,6 +1837,13 @@ export function getCallNodeAndActiveParamIndex(
             }
         }
 
+        // If no terminating comma or close paren was found (e.g., an incomplete
+        // call with no closing parenthesis), extend end past the call boundary so
+        // the argument is still considered active at the cursor position.
+        if (end === TextRange.getEnd(arg)) {
+            end = endPosition + 1;
+        }
+
         if (insertionOffset < end) {
             activeIndex = index;
             activeOrFake = insertionOffset >= start;
@@ -2067,9 +2120,9 @@ export function getModuleNode(node: ParseNode) {
     return current;
 }
 
-export function getFileInfoFromNode(node: ParseNode) {
+export function getFileInfoFromNode(node: ParseNode, reader: AnalyzerNodeInfo.AnalyzerNodeInfoReader) {
     const current = getModuleNode(node);
-    return current ? AnalyzerNodeInfo.getFileInfo(current) : undefined;
+    return current ? AnalyzerNodeInfo.getFileInfo(current, reader) : undefined;
 }
 
 export function isFunctionSuiteEmpty(node: FunctionNode) {
@@ -2275,6 +2328,25 @@ export function getFirstNameOfDottedName(node: MemberAccessNode | NameNode): Nam
 
     if (node.d.leftExpr.nodeType === ParseNodeType.Name || node.d.leftExpr.nodeType === ParseNodeType.MemberAccess) {
         return getFirstNameOfDottedName(node.d.leftExpr);
+    }
+
+    return undefined;
+}
+
+// Returns the MemberAccessNode at or directly enclosing the given node: the node
+// itself when it is a member access, otherwise its parent when that is a member
+// access. Used by code actions that operate on `a.b` style access.
+export function getEnclosingMemberAccessNode(node: ParseNode | undefined): MemberAccessNode | undefined {
+    if (!node) {
+        return undefined;
+    }
+
+    if (node.nodeType === ParseNodeType.MemberAccess) {
+        return node;
+    }
+
+    if (node.parent?.nodeType === ParseNodeType.MemberAccess) {
+        return node.parent;
     }
 
     return undefined;
@@ -2571,6 +2643,15 @@ export function getVariableDocStringNode(node: ExpressionNode): StringListNode |
         }
     }
 
+    // Chained assignments (e.g. `a = b = c = value`) parse into nested Assignment
+    // nodes where only the outermost node's parent is the StatementList that can
+    // hold the trailing PEP 258 attribute docstring. Walk up through the chain so
+    // every target (a, b, c) resolves the same docstring. This is a no-op for
+    // non-chained assignments.
+    while (curNode.nodeType === ParseNodeType.Assignment && curNode.parent?.nodeType === ParseNodeType.Assignment) {
+        curNode = curNode.parent;
+    }
+
     const parentNode = curNode.parent;
     if (parentNode?.nodeType !== ParseNodeType.StatementList) {
         return undefined;
@@ -2626,7 +2707,7 @@ export function getVariableDocStringNode(node: ExpressionNode): StringListNode |
 // Creates an ID that identifies this parse node in a way that will
 // not change each time the file is parsed (unless, of course, the
 // file contents change).
-export function getScopeIdForNode(node: ParseNode): string {
+export function getScopeIdForNode(node: ParseNode, nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader): string {
     let name = '';
     if (node.nodeType === ParseNodeType.Class) {
         name = node.d.name.d.value;
@@ -2634,13 +2715,16 @@ export function getScopeIdForNode(node: ParseNode): string {
         name = node.d.name.d.value;
     }
 
-    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+    const fileInfo = AnalyzerNodeInfo.getFileInfo(node, nodeInfo);
     return `${fileInfo.fileId}.${node.start.toString()}-${name}`;
 }
 
 // Walks up the parse tree and finds all scopes that can provide
 // a context for a TypeVar and returns the scope ID for each.
-export function getTypeVarScopesForNode(node: ParseNode): TypeVarScopeId[] {
+export function getTypeVarScopesForNode(
+    node: ParseNode,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+): TypeVarScopeId[] {
     const scopeIds: TypeVarScopeId[] = [];
 
     let curNode: ParseNode | undefined = node;
@@ -2650,7 +2734,7 @@ export function getTypeVarScopesForNode(node: ParseNode): TypeVarScopeId[] {
             break;
         }
 
-        scopeIds.push(getScopeIdForNode(curNode));
+        scopeIds.push(getScopeIdForNode(curNode, nodeInfo));
         curNode = curNode.parent;
     }
 

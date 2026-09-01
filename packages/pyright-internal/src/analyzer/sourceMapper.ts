@@ -15,7 +15,15 @@ import { ExecutionEnvironment } from '../common/configOptions';
 import { isDefined } from '../common/core';
 import { assert, assertNever } from '../common/debug';
 import { Uri } from '../common/uri/uri';
-import { ClassNode, ModuleNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import {
+    CallNode,
+    ClassNode,
+    ExpressionNode,
+    isExpressionNode,
+    ModuleNode,
+    ParseNode,
+    ParseNodeType,
+} from '../parser/parseNodes';
 import {
     AliasDeclaration,
     ClassDeclaration,
@@ -36,9 +44,10 @@ import { SourceFile } from './sourceFile';
 import { SourceFileInfo } from './sourceFileInfo';
 import { isUserCode } from './sourceFileInfoUtils';
 import { buildImportTree } from './sourceMapperUtils';
+import { Symbol } from './symbol';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import { lookUpClassMember } from './typeUtils';
-import { ClassType, isFunction, isInstantiableClass, isOverloaded, OverloadedType } from './types';
+import { ClassType, isFunction, isInstantiableClass, isOverloaded, OverloadedType, Type, TypeCategory } from './types';
 
 type ClassOrFunctionOrVariableDeclaration =
     | ClassDeclaration
@@ -55,6 +64,7 @@ export class SourceMapper {
         private _importResolver: ImportResolver,
         private _execEnv: ExecutionEnvironment,
         private _evaluator: TypeEvaluator,
+        private _nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
         private _fileBinder: ShadowFileBinder,
         private _boundSourceGetter: BoundSourceGetter,
         private _mapCompiled: boolean,
@@ -62,6 +72,10 @@ export class SourceMapper {
         private _fromFile: SourceFileInfo | undefined,
         private _cancelToken: CancellationToken
     ) {}
+
+    get analyzerNodeInfo(): AnalyzerNodeInfo.AnalyzerNodeInfoReader {
+        return this._nodeInfo;
+    }
 
     findModules(stubFileUri: Uri): ModuleNode[] {
         const sourceFiles = this._isStubThatShouldBeMappedToImplementation(stubFileUri)
@@ -273,7 +287,7 @@ export class SourceMapper {
         const result: T[] = [];
         const classDecls = this._findClassDeclarationsByName(sourceFile, className, recursiveDeclCache);
 
-        for (const classDecl of classDecls.filter((d) => isClassDeclaration(d)).map((d) => d)) {
+        for (const classDecl of this._getClassDeclarationsForMemberLookup(classDecls, recursiveDeclCache)) {
             const classResults = this._evaluator.getTypeOfClass(classDecl.node);
             if (!classResults) {
                 continue;
@@ -288,6 +302,55 @@ export class SourceMapper {
         }
 
         return result;
+    }
+
+    private _getClassDeclarationsForMemberLookup(
+        declarations: ClassOrFunctionOrVariableDeclaration[],
+        recursiveDeclCache: Set<string>
+    ): ClassDeclaration[] {
+        const directClassDeclarations = declarations.filter((decl): decl is ClassDeclaration =>
+            isClassDeclaration(decl)
+        );
+        if (directClassDeclarations.length > 0) {
+            return directClassDeclarations;
+        }
+
+        const result: ClassDeclaration[] = [];
+
+        for (const declaration of declarations) {
+            const resolvedDeclarations = this._getClassDeclarationsFromMemberContainer(declaration, recursiveDeclCache);
+            appendArray(result, resolvedDeclarations);
+        }
+
+        return result;
+    }
+
+    private _getClassDeclarationsFromMemberContainer(
+        declaration: ClassOrFunctionOrVariableDeclaration,
+        recursiveDeclCache: Set<string>
+    ): ClassDeclaration[] {
+        const resolvedDeclarations: ClassOrFunctionOrVariableDeclaration[] = [];
+
+        if (isVariableDeclaration(declaration)) {
+            const aliasOriginExpression = this._getAliasOriginExpression(declaration);
+            if (aliasOriginExpression) {
+                // Keep the exploratory alias-origin walk isolated so a failed attempt doesn't block the normal
+                // declaration-resolution fallback below.
+                this._addDeclarationsForAliasOriginExpression(
+                    aliasOriginExpression,
+                    resolvedDeclarations,
+                    new Set(recursiveDeclCache)
+                );
+            }
+        }
+
+        if (resolvedDeclarations.length === 0) {
+            this._addClassOrFunctionDeclarations(declaration, resolvedDeclarations, new Set(recursiveDeclCache));
+        }
+
+        return resolvedDeclarations.filter((resolvedDecl): resolvedDecl is ClassDeclaration =>
+            isClassDeclaration(resolvedDecl)
+        );
     }
 
     private _findFieldDeclarationsByName(
@@ -476,9 +539,44 @@ export class SourceMapper {
         const decls = this._lookUpSymbolDeclarations(parentNode, className);
         if (decls.length === 0 && parentNode.nodeType === ParseNodeType.Module) {
             this._addDeclarationsFollowingWildcardImports(parentNode, className, result, recursiveDeclCache);
+            this._addDeclarationsFollowingImportAliases(parentNode, className, result, recursiveDeclCache);
         } else {
             for (const decl of decls) {
                 this._addClassOrFunctionDeclarations(decl, result, recursiveDeclCache);
+            }
+        }
+
+        // When alias declarations were found but couldn't be resolved to class
+        // declarations (e.g., due to circular re-exports between stubs like
+        // typing.pyi ↔ _collections_abc.pyi), try looking for the class directly
+        // in the source files of the module that the alias imports from.
+        if (result.length === 0) {
+            for (const decl of decls) {
+                if (
+                    isAliasDeclaration(decl) &&
+                    !decl.uri.isEmpty() &&
+                    this._isStubThatShouldBeMappedToImplementation(decl.uri)
+                ) {
+                    const aliasSourceFiles = this._getBoundSourceFilesFromStubFile(decl.uri);
+                    const importedName = decl.symbolName ?? className;
+                    for (const aliasSourceFile of aliasSourceFiles) {
+                        const moduleNode = aliasSourceFile.getParserOutput()?.parseTree;
+                        if (moduleNode) {
+                            appendArray(
+                                result,
+                                this._findClassDeclarations(
+                                    aliasSourceFile,
+                                    importedName,
+                                    moduleNode,
+                                    recursiveDeclCache
+                                )
+                            );
+                        }
+                    }
+                    if (result.length > 0) {
+                        break;
+                    }
+                }
             }
         }
 
@@ -497,6 +595,11 @@ export class SourceMapper {
             } else {
                 result.push(decl);
             }
+        } else if (isClassDeclaration(decl) || isFunctionDeclaration(decl)) {
+            // The stub-variable name resolved directly to a runtime class/function (e.g. a
+            // typeshed `name: _SomeProtocol` mapped to a `def name`/`class name`); map it to
+            // the implementation instead of dropping it.
+            this._addClassOrFunctionDeclarations(decl, result, recursiveDeclCache);
         } else if (isAliasDeclaration(decl)) {
             const resolvedDecl = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
             if (resolvedDecl) {
@@ -542,21 +645,188 @@ export class SourceMapper {
             // Import resolver can't resolve an import that only exists in the lib but not in the stub in certain circumstance.
             const nodeToBind = decl.typeAliasName ?? decl.node;
             const type = this._evaluator.getType(nodeToBind);
-            if (!type) {
-                return;
-            }
+            const addedResolvedDeclarations = type
+                ? this._addDeclarationsForType(decl.uri, type, result, recursiveDeclCache)
+                : false;
 
-            if (isFunction(type) && type.shared.declaration) {
-                this._addClassOrFunctionDeclarations(type.shared.declaration, result, recursiveDeclCache);
-            } else if (isOverloaded(type)) {
-                const overloads = OverloadedType.getOverloads(type);
-                for (const overloadDecl of overloads.map((o) => o.shared.declaration).filter(isDefined)) {
-                    this._addClassOrFunctionDeclarations(overloadDecl, result, recursiveDeclCache);
+            if (!addedResolvedDeclarations) {
+                const aliasOriginExpression = this._getAliasOriginExpression(decl);
+                if (aliasOriginExpression) {
+                    const aliasOriginType = this._evaluator.getType(aliasOriginExpression);
+                    const addedAliasOriginDeclarations = aliasOriginType
+                        ? this._addDeclarationsForType(decl.uri, aliasOriginType, result, recursiveDeclCache)
+                        : false;
+
+                    if (!addedAliasOriginDeclarations) {
+                        this._addDeclarationsForAliasOriginExpression(
+                            aliasOriginExpression,
+                            result,
+                            recursiveDeclCache
+                        );
+                    }
                 }
-            } else if (isInstantiableClass(type)) {
-                this._addClassTypeDeclarations(decl.uri, type, result, recursiveDeclCache);
             }
         }
+    }
+
+    private _addDeclarationsForType(
+        declUri: Uri,
+        type: Type,
+        result: ClassOrFunctionOrVariableDeclaration[],
+        recursiveDeclCache: Set<string>
+    ): boolean {
+        if (isFunction(type) && type.shared.declaration) {
+            this._addClassOrFunctionDeclarations(type.shared.declaration, result, recursiveDeclCache);
+            return true;
+        }
+
+        if (isOverloaded(type)) {
+            const overloads = OverloadedType.getOverloads(type);
+            const overloadDecls = overloads.map((o) => o.shared.declaration).filter(isDefined);
+            for (const overloadDecl of overloadDecls) {
+                this._addClassOrFunctionDeclarations(overloadDecl, result, recursiveDeclCache);
+            }
+
+            return overloadDecls.length > 0;
+        }
+
+        if (isInstantiableClass(type)) {
+            const resultLengthBefore = result.length;
+            this._addClassTypeDeclarations(declUri, type, result, recursiveDeclCache);
+            return result.length > resultLengthBefore;
+        }
+
+        return false;
+    }
+
+    private _getAliasOriginExpression(decl: VariableDeclaration): ExpressionNode | undefined {
+        const typeSourceExpression = this._getVariableTypeSourceExpression(decl.inferredTypeSource);
+        if (!typeSourceExpression || typeSourceExpression.nodeType !== ParseNodeType.Call) {
+            return undefined;
+        }
+
+        if (!this._isAliasOriginFactoryCall(typeSourceExpression, decl.moduleName)) {
+            return undefined;
+        }
+
+        return typeSourceExpression.d.args[0]?.d.valueExpr;
+    }
+
+    private _getVariableTypeSourceExpression(inferredTypeSource: ParseNode | undefined): ExpressionNode | undefined {
+        if (!inferredTypeSource) {
+            return undefined;
+        }
+
+        if (inferredTypeSource.nodeType === ParseNodeType.Assignment) {
+            return inferredTypeSource.d.rightExpr;
+        }
+
+        if (inferredTypeSource.nodeType === ParseNodeType.AssignmentExpression) {
+            return inferredTypeSource.d.rightExpr;
+        }
+
+        return isExpressionNode(inferredTypeSource) ? inferredTypeSource : undefined;
+    }
+
+    private _addDeclarationsForAliasOriginExpression(
+        aliasOriginExpression: ExpressionNode,
+        result: ClassOrFunctionOrVariableDeclaration[],
+        recursiveDeclCache: Set<string>
+    ): boolean {
+        const dottedName =
+            aliasOriginExpression.nodeType === ParseNodeType.Name ||
+            aliasOriginExpression.nodeType === ParseNodeType.MemberAccess
+                ? ParseTreeUtils.getDottedName(aliasOriginExpression)
+                : undefined;
+        const symbolParts = dottedName?.map((name) => name.d.value);
+        if (!symbolParts || symbolParts.length === 0) {
+            return false;
+        }
+
+        const moduleNode = ParseTreeUtils.getEnclosingModule(aliasOriginExpression);
+        let currentSymbol = AnalyzerNodeInfo.getScope(moduleNode, this._nodeInfo)?.lookUpSymbol(symbolParts[0]);
+        if (!currentSymbol) {
+            return false;
+        }
+
+        for (let index = 1; index < symbolParts.length; index++) {
+            let type = this._evaluator.getEffectiveTypeOfSymbol(currentSymbol);
+            if (type.category !== TypeCategory.Module && type.category !== TypeCategory.Class) {
+                type = this._getRedirectedTypeFromSymbol(currentSymbol) ?? type;
+            }
+
+            if (type.category === TypeCategory.Module) {
+                currentSymbol = this._lookUpModuleSymbol(type.priv.fileUri, symbolParts[index]);
+            } else if (type.category === TypeCategory.Class) {
+                currentSymbol = lookUpClassMember(type, symbolParts[index])?.symbol;
+            } else {
+                return false;
+            }
+
+            if (!currentSymbol) {
+                return false;
+            }
+        }
+
+        const declarations = currentSymbol.getDeclarations();
+        for (const declaration of declarations) {
+            this._addClassOrFunctionDeclarations(declaration, result, recursiveDeclCache);
+        }
+
+        return declarations.length > 0;
+    }
+
+    private _getRedirectedTypeFromSymbol(currentSymbol: Symbol): Type | undefined {
+        for (const declaration of currentSymbol.getDeclarations()) {
+            if (!isVariableDeclaration(declaration)) {
+                continue;
+            }
+
+            const redirectedExpression = this._getVariableTypeSourceExpression(declaration.inferredTypeSource);
+            if (!redirectedExpression) {
+                continue;
+            }
+
+            const redirectedType = this._evaluator.getType(redirectedExpression);
+            if (
+                redirectedType &&
+                (redirectedType.category === TypeCategory.Module || redirectedType.category === TypeCategory.Class)
+            ) {
+                return redirectedType;
+            }
+        }
+
+        return undefined;
+    }
+
+    private _lookUpModuleSymbol(fileUri: Uri, symbolName: string): Symbol | undefined {
+        for (const sourceFile of this._getSourceFiles(fileUri)) {
+            const moduleNode = sourceFile.getParserOutput()?.parseTree;
+            const symbol = moduleNode
+                ? AnalyzerNodeInfo.getScope(moduleNode, this._nodeInfo)?.lookUpSymbol(symbolName)
+                : undefined;
+            if (symbol) {
+                return symbol;
+            }
+        }
+
+        return undefined;
+    }
+
+    private _isAliasOriginFactoryCall(callNode: CallNode, moduleName: string): boolean {
+        if (moduleName !== 'typing' && moduleName !== 'typing_extensions' && moduleName !== '_typing') {
+            return false;
+        }
+
+        if (!callNode.d.args[0]?.d.valueExpr) {
+            return false;
+        }
+
+        // CPython uses a private `_alias(origin, parameterCount)` helper in typing.py to expose some stdlib
+        // collection aliases. Source mapping uses the origin argument to recover declarations from the real
+        // implementation module when the direct stub-to-source declaration path has no result. Member-access
+        // forms (e.g. `typing._alias(...)`) are tolerated here because widening the source search is safe.
+        return isAliasFactoryCallee(callNode.d.leftExpr, /* allowMemberAccess */ true);
     }
 
     private _handleSpecialBuiltInModule(decl: AliasDeclaration) {
@@ -585,7 +855,7 @@ export class SourceMapper {
             return decl;
         }
 
-        const fileInfo = ParseTreeUtils.getFileInfoFromNode(decl.node);
+        const fileInfo = ParseTreeUtils.getFileInfoFromNode(decl.node, this._nodeInfo);
         if (!fileInfo) {
             return decl;
         }
@@ -670,7 +940,7 @@ export class SourceMapper {
     ) {
         // Symbol exists in a stub doesn't exist in a python file. Use some heuristic
         // to find one from sources.
-        const table = AnalyzerNodeInfo.getScope(moduleNode)?.symbolTable;
+        const table = AnalyzerNodeInfo.getScope(moduleNode, this._nodeInfo)?.symbolTable;
         if (!table) {
             return;
         }
@@ -739,12 +1009,73 @@ export class SourceMapper {
         }
     }
 
+    private _addDeclarationsFollowingImportAliases(
+        moduleNode: ModuleNode,
+        symbolName: string,
+        result: ClassOrFunctionOrVariableDeclaration[],
+        recursiveDeclCache: Set<string>
+    ) {
+        // Symbol exists in a stub but doesn't exist in the corresponding python file.
+        // If the implementation module explicitly imports the symbol under a different
+        // local name (e.g. `from ._private import Foo as _Foo`), map the stub name to
+        // the resolved import target.
+        const fileInfo = ParseTreeUtils.getFileInfoFromNode(moduleNode, this._nodeInfo);
+        const uniqueId = `@${fileInfo?.fileUri.key ?? '<unknown>'}/importAliases/${symbolName}`;
+        if (recursiveDeclCache.has(uniqueId)) {
+            return;
+        }
+
+        recursiveDeclCache.add(uniqueId);
+
+        const table = AnalyzerNodeInfo.getScope(moduleNode, this._nodeInfo)?.symbolTable;
+        if (!table) {
+            recursiveDeclCache.delete(uniqueId);
+            return;
+        }
+
+        for (const symbol of table.values()) {
+            for (const decl of symbol.getDeclarations()) {
+                if (!isAliasDeclaration(decl) || decl.uri.isEmpty() || !decl.node) {
+                    continue;
+                }
+
+                // Ignore wildcard imports; those are handled by _addDeclarationsFollowingWildcardImports.
+                if (decl.node.nodeType === ParseNodeType.ImportFrom && decl.node.d.isWildcardImport) {
+                    continue;
+                }
+
+                if (
+                    decl.node.nodeType !== ParseNodeType.ImportAs &&
+                    decl.node.nodeType !== ParseNodeType.ImportFrom &&
+                    decl.node.nodeType !== ParseNodeType.ImportFromAs
+                ) {
+                    continue;
+                }
+
+                const adjustedDecl = this._handleSpecialBuiltInModule(decl);
+                const resolvedDecl = this._evaluator.resolveAliasDeclaration(
+                    adjustedDecl,
+                    /* resolveLocalNames */ true
+                );
+                if (!resolvedDecl || isAliasDeclaration(resolvedDecl)) {
+                    continue;
+                }
+
+                if (isClassDeclaration(resolvedDecl) && resolvedDecl.node.d.name.d.value === symbolName) {
+                    this._addClassOrFunctionDeclarations(resolvedDecl, result, recursiveDeclCache);
+                }
+            }
+        }
+
+        recursiveDeclCache.delete(uniqueId);
+    }
+
     private _lookUpSymbolDeclarations(node: ParseNode | undefined, symbolName: string): Declaration[] {
         if (node === undefined) {
             return [];
         }
 
-        const containingScope = AnalyzerNodeInfo.getScope(node);
+        const containingScope = AnalyzerNodeInfo.getScope(node, this._nodeInfo);
         const symbol = containingScope?.lookUpSymbol(symbolName);
         const decls = symbol?.getDeclarations();
 
@@ -805,4 +1136,20 @@ export class SourceMapper {
 
 export function isStubFile(uri: Uri): boolean {
     return uri.lastExtension === '.pyi';
+}
+
+export function isAliasFactoryCallee(callTarget: ExpressionNode, allowMemberAccess = false): boolean {
+    // typeshed exposes some stdlib collection aliases through CPython's private `_alias(...)` factory in
+    // `typing`. This recognizes the factory callee by name. Member-access forms (e.g. `typing._alias(...)`)
+    // are only matched when `allowMemberAccess` is set, because callers that *drop* declarations must stay
+    // strict to avoid discarding unrelated `x._alias(...)` user code.
+    if (callTarget.nodeType === ParseNodeType.Name) {
+        return callTarget.d.value === '_alias';
+    }
+
+    if (allowMemberAccess && callTarget.nodeType === ParseNodeType.MemberAccess) {
+        return callTarget.d.member.d.value === '_alias';
+    }
+
+    return false;
 }

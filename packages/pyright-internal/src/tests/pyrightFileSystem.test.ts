@@ -6,9 +6,11 @@
 
 import assert from 'assert';
 
+import { FileSystem } from '../common/fileSystem';
 import { lib, sitePackages } from '../common/pathConsts';
 import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
 import { PyrightFileSystem } from '../pyrightFileSystem';
+import { ReadOnlyAugmentedFileSystem } from '../readonlyAugmentedFileSystem';
 import { TestFileSystem } from './harness/vfs/filesystem';
 import { Uri } from '../common/uri/uri';
 import { UriEx } from '../common/uri/uriUtils';
@@ -16,6 +18,54 @@ import { PartialStubService } from '../partialStubService';
 
 const libraryRoot = combinePaths(normalizeSlashes('/'), lib, sitePackages);
 const libraryRootUri = UriEx.file(libraryRoot);
+
+test('read-only augmented file system preserves prohibited operations', () => {
+    const realFs = new TestFileSystem(/* ignoreCase */ false, { cwd: normalizeSlashes('/') });
+    const fs = new ReadOnlyAugmentedFileSystem(realFs);
+    const source = UriEx.file(normalizeSlashes('/source'));
+    const destination = UriEx.file(normalizeSlashes('/destination'));
+    const operations = [
+        () => fs.mkdirSync(source),
+        () => fs.chdir(source),
+        () => fs.writeFileSync(source, 'content', 'utf8'),
+        () => fs.rmdirSync(source),
+        () => fs.unlinkSync(source),
+        () => fs.createWriteStream(source),
+        () => fs.copyFileSync(source, destination),
+    ];
+
+    for (const operation of operations) {
+        assert.throws(operation, /^Error: Operation is not allowed\.$/);
+    }
+});
+
+test('read-only augmented file system mapping filter receives its exact backing file system', () => {
+    const originalRoot = UriEx.file(normalizeSlashes('/original'));
+    const mappedRoot = UriEx.file(normalizeSlashes('/mapped'));
+    const originalFile = originalRoot.combinePaths('file.py');
+    const mappedFile = mappedRoot.combinePaths('file.py');
+    const realFs = new TestFileSystem(/* ignoreCase */ false, {
+        cwd: normalizeSlashes('/'),
+        files: { [originalFile.getFilePath()]: 'content' },
+    });
+    const fs = new ReadOnlyAugmentedFileSystem(realFs);
+    let observedFileSystem: FileSystem | undefined;
+    fs.mapDirectory(mappedRoot, originalRoot, (_uri, fileSystem) => {
+        observedFileSystem = fileSystem;
+        return true;
+    });
+
+    assert.strictEqual(fs.readFileSync(mappedFile, 'utf8'), 'content');
+    assert.strictEqual(observedFileSystem, realFs);
+});
+
+test('read-only augmented file system exposes no reset surface', () => {
+    const fs = new ReadOnlyAugmentedFileSystem(
+        new TestFileSystem(/* ignoreCase */ false, { cwd: normalizeSlashes('/') })
+    );
+
+    assert.strictEqual('clear' in fs, false);
+});
 
 test('virtual file exists', () => {
     const files = [
@@ -57,6 +107,35 @@ test('virtual file exists', () => {
     assert(fakeFile.isFile());
 
     assert(!fs.existsSync(libraryRootUri.combinePaths('myLib-stubs')));
+});
+
+test('mapped symlinks reflect their targets', () => {
+    const testFs = new TestFileSystem(/* ignoreCase */ false, { cwd: normalizeSlashes('/') });
+    const stubPackage = combinePaths(libraryRoot, 'myLib-stubs');
+    const stubSource = combinePaths(normalizeSlashes('/'), 'wheel', 'partialStub.pyi');
+    const markerSource = combinePaths(normalizeSlashes('/'), 'wheel', 'py.typed');
+    const missingStub = combinePaths(stubPackage, 'missing.pyi');
+
+    testFs.mkdirpSync(combinePaths(libraryRoot, 'myLib'));
+    testFs.writeFileSync(Uri.file(combinePaths(libraryRoot, 'myLib', 'partialStub.py'), testFs), 'def test(): pass');
+    testFs.mkdirpSync(stubPackage);
+    testFs.mkdirpSync(getDirectoryPath(stubSource));
+    testFs.writeFileSync(Uri.file(stubSource, testFs), 'def test(): ...');
+    testFs.writeFileSync(Uri.file(markerSource, testFs), 'partial\n');
+    testFs.symlinkSync(stubSource, combinePaths(stubPackage, 'partialStub.pyi'));
+    testFs.symlinkSync(markerSource, combinePaths(stubPackage, 'py.typed'));
+    testFs.symlinkSync(combinePaths(normalizeSlashes('/'), 'wheel', 'missing.pyi'), missingStub);
+
+    const fs = new PyrightFileSystem(testFs);
+    const ps = new PartialStubService(fs);
+    ps.processPartialStubPackages([libraryRootUri], [libraryRootUri]);
+
+    const entries = fs.readdirEntriesSync(libraryRootUri.combinePaths('myLib'));
+    assert.strictEqual(2, entries.length);
+    const stubFile = entries.find((entry) => entry.name === 'partialStub.pyi');
+    assert.ok(stubFile, 'Expected partialStub.pyi');
+    assert(stubFile.isFile());
+    assert(!entries.some((entry) => entry.name === 'missing.pyi'));
 });
 
 test('virtual file coexists with real', () => {

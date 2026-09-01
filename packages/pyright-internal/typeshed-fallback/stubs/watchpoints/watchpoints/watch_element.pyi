@@ -1,8 +1,7 @@
 import ast
 from collections.abc import Callable, Iterable
 from types import FrameType
-from typing import Any, Literal, TypeVar
-from typing_extensions import TypeAlias
+from typing import Any, Literal, TypeAlias, TypeVar
 
 from .watch_print import WatchPrint
 
@@ -49,8 +48,10 @@ class WatchElement:
     def changed(self, frame: FrameType) -> tuple[bool, bool]: ...
     def obj_changed(self, other: object) -> bool: ...
     def same(self, other: object) -> bool: ...
+
     @property
     def track(self) -> _TrackKind: ...
     @track.setter
     def track(self, val: _TrackKind) -> None: ...
+
     def update(self) -> None: ...

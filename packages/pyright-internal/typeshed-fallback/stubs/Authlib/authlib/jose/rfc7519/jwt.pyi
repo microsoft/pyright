@@ -1,8 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Callable
 from re import Pattern
-from typing import Any, Final, Generic, TypedDict, TypeVar, overload, type_check_only
-from typing_extensions import TypeAlias
+from typing import Any, Final, Generic, TypeAlias, TypedDict, TypeVar, overload, type_check_only
 
 from ..rfc7517 import KeySet
 from .claims import JWTClaims
@@ -18,6 +17,7 @@ class JsonWebToken:
     def __init__(self, algorithms, private_headers=None) -> None: ...
     def check_sensitive_data(self, payload) -> None: ...
     def encode(self, header, payload, key, check: bool = True) -> bytes: ...
+
     @overload
     def decode(
         self,
@@ -51,5 +51,6 @@ def prepare_raw_key(raw: KeySet) -> KeySet: ...
 def prepare_raw_key(raw: str) -> dict[str, Any] | str: ...  # dict is a JSON object
 @overload
 def prepare_raw_key(raw: _TL) -> _Keys[_TL]: ...
+
 def find_encode_key(key, header): ...
 def create_load_key(key: KeySet | _Keys[Incomplete] | Incomplete) -> _LoadKey: ...

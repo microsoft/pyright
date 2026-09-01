@@ -17,6 +17,13 @@ import { TextRange } from './textRange';
 export class TextRangeCollection<T extends TextRange> {
     private _items: T[];
 
+    // Index most recently returned by getItemContaining. Offsets converted in
+    // bulk (e.g. one per completion item or reference) cluster on the same or an
+    // adjacent line, so remembering the last hit lets consecutive lookups skip the
+    // binary search. It is only ever used as a hint that is re-validated on each
+    // call, so it never changes the returned result.
+    private _lastHitIndex = 0;
+
     constructor(items: T[]) {
         this._items = items;
     }

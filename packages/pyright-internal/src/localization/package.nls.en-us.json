@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "Library",
+        "standardLibrary": "Standard library",
+        "workspace": "Workspace"
+    },
     "CodeAction": {
         "createTypeStub": {
             "message": "Create Type Stub",
@@ -233,6 +238,7 @@
         "dataClassBaseClassNotFrozen": "A frozen class cannot inherit from a class that is not frozen",
         "dataClassConverterFunction": "Argument of type \"{argType}\" is not a valid converter for field \"{fieldName}\" of type \"{fieldType}\"",
         "dataClassConverterOverloads": "No overloads of \"{funcName}\" are valid converters for field \"{fieldName}\" of type \"{fieldType}\"",
+        "dataClassDuplicateKwOnly": "\"{name}\" is a duplicate KW_ONLY separator; only one is allowed within a dataclass",
         "dataClassFieldInheritedDefault": "\"{fieldName}\" overrides a field of the same name but is missing a default value",
         "dataClassFieldWithDefault": "Fields without default values cannot appear after fields with default values",
         "dataClassFieldWithPrivateName": "Dataclass field cannot use private name",
@@ -301,6 +307,19 @@
         "dictInAnnotation": "Dictionary expression not allowed in type expression",
         "dictKeyValuePairs": "Dictionary entries must contain key/value pairs",
         "dictUnpackIsNotMapping": "Expected mapping for dictionary unpack operator",
+        "disjointBaseFunction": {
+            "message": "@disjoint_base cannot be applied to a function",
+            "comment": "{Locked='@disjoint_base'}"
+        },
+        "disjointBaseIncompatible": "Base classes have incompatible disjoint bases: {bases}",
+        "disjointBaseProtocol": {
+            "message": "@disjoint_base cannot be applied to a Protocol class",
+            "comment": "{Locked='@disjoint_base','Protocol'}"
+        },
+        "disjointBaseTypedDict": {
+            "message": "@disjoint_base cannot be applied to a TypedDict class",
+            "comment": "{Locked='@disjoint_base','TypedDict'}"
+        },
         "dunderAllSymbolNotPresent": {
             "message": "\"{name}\" is specified in __all__ but is not present in module",
             "comment": "{Locked='__all__'}"
@@ -704,6 +723,8 @@
         "keywordSubscriptIllegal": "Keyword arguments within subscripts are not supported",
         "lambdaReturnTypePartiallyUnknown": "Return type of lambda, \"{returnType}\", is partially unknown",
         "lambdaReturnTypeUnknown": "Return type of lambda is unknown",
+        "lazyImportIllegal": "Lazy import statement requires Python 3.15 or newer",
+        "lazyImportWildcardIllegal": "Wildcard imports cannot be used with 'lazy'",
         "listAssignmentMismatch": "Expression with type \"{type}\" cannot be assigned to target list",
         "listInAnnotation": {
             "message": "List expression not allowed in type expression",
@@ -2162,6 +2183,9 @@
         },
         "varianceMismatchForClass": "Variance of type argument \"{typeVarName}\" is incompatible with base class \"{className}\"",
         "varianceMismatchForTypeAlias": "Variance of type argument \"{typeVarName}\" is incompatible with \"{typeAliasParam}\""
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "Can't rename \"{symbolName}\" because it is also declared in non-editable code (a library or stub file) that cannot be modified. Completing the rename would leave \"{symbolName}\" partially renamed. Resolve the conflicting declaration(s) first:\n{locations}"
     },
     "Service": {
         "longOperation": "Enumeration of workspace source files is taking a long time. Consider opening a sub-folder instead. [Learn more](https://aka.ms/workspace-too-many-files)"

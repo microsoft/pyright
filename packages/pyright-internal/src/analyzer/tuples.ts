@@ -11,6 +11,7 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocAddendum, LocMessage } from '../localization/localize';
 import { ExpressionNode, ParseNodeType, SliceNode, TupleNode } from '../parser/parseNodes';
+import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { getTypeVarScopesForNode } from './parseTreeUtils';
@@ -65,7 +66,8 @@ export function getTypeOfTuple(
     evaluator: TypeEvaluator,
     node: TupleNode,
     flags: EvalFlags,
-    inferenceContext?: InferenceContext | undefined
+    inferenceContext: InferenceContext | undefined,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): TypeResult {
     if ((flags & EvalFlags.TypeExpression) !== 0 && node.parent?.nodeType !== ParseNodeType.Argument) {
         // This is allowed inside of an index trailer, specifically
@@ -105,7 +107,13 @@ export function getTypeOfTuple(
 
                 if (!matchingSubtype) {
                     const subtypeResult = evaluator.useSpeculativeMode(node, () => {
-                        return getTypeOfTupleWithContext(evaluator, node, flags, makeInferenceContext(subtype));
+                        return getTypeOfTupleWithContext(
+                            evaluator,
+                            node,
+                            flags,
+                            makeInferenceContext(subtype),
+                            nodeInfo
+                        );
                     });
 
                     if (subtypeResult && evaluator.assignType(subtype, subtypeResult.type)) {
@@ -121,7 +129,7 @@ export function getTypeOfTuple(
 
     let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
     if (expectedType) {
-        const result = getTypeOfTupleWithContext(evaluator, node, flags, makeInferenceContext(expectedType));
+        const result = getTypeOfTupleWithContext(evaluator, node, flags, makeInferenceContext(expectedType), nodeInfo);
 
         if (result && !result.typeErrors) {
             return result;
@@ -145,7 +153,8 @@ export function getTypeOfTupleWithContext(
     evaluator: TypeEvaluator,
     node: TupleNode,
     flags: EvalFlags,
-    inferenceContext: InferenceContext
+    inferenceContext: InferenceContext,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): TypeResult | undefined {
     inferenceContext.expectedType = transformPossibleRecursiveTypeAlias(inferenceContext.expectedType);
     if (!isClassInstance(inferenceContext.expectedType)) {
@@ -182,7 +191,7 @@ export function getTypeOfTupleWithContext(
                 ClassType.cloneAsInstance(tupleClass),
                 inferenceContext.expectedType,
                 tupleConstraints,
-                getTypeVarScopesForNode(node),
+                getTypeVarScopesForNode(node, nodeInfo),
                 node.start
             )
         ) {
@@ -377,7 +386,7 @@ export function adjustTupleTypeArgs(
     const destUnboundedOrVariadicIndex = destTypeArgs.findIndex(
         (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
     );
-    const srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
+    let srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
     const srcVariadicIndex = srcTypeArgs.findIndex((t) => isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type));
 
     if (srcUnboundedIndex >= 0) {
@@ -391,6 +400,9 @@ export function adjustTupleTypeArgs(
 
             if (srcTypeArgs.length > destTypeArgs.length) {
                 srcTypeArgs.splice(srcUnboundedIndex, 1);
+
+                // Invalidate the stale index after removal.
+                srcUnboundedIndex = -1;
             }
         } else if (destUnboundedOrVariadicIndex < 0) {
             // If the source contains an unbounded type but the dest does not, it's incompatible.

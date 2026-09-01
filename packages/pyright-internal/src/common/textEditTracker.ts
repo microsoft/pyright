@@ -8,7 +8,7 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { getFileInfo } from '../analyzer/analyzerNodeInfo';
+import { AnalyzerNodeInfoReader, getFileInfo } from '../analyzer/analyzerNodeInfo';
 import {
     getAllImportNames,
     getContainingImportStatement,
@@ -44,7 +44,7 @@ export class TextEditTracker {
 
     private readonly _pendingNodeToRemove: NodeToRemove[] = [];
 
-    constructor(private _mergeOnlyDuplications = true) {
+    constructor(private readonly _nodeInfo: AnalyzerNodeInfoReader, private _mergeOnlyDuplications = true) {
         // Empty
     }
 
@@ -73,7 +73,7 @@ export class TextEditTracker {
     }
 
     addEditWithTextRange(parseFileResults: ParseFileResults, range: TextRange, replacementText: string) {
-        const filePath = getFileInfo(parseFileResults.parserOutput.parseTree).fileUri;
+        const filePath = getFileInfo(parseFileResults.parserOutput.parseTree, this._nodeInfo).fileUri;
 
         const existing = parseFileResults.text.substr(range.start, range.length);
         if (existing === replacementText) {
@@ -92,7 +92,7 @@ export class TextEditTracker {
                 ? (importToDelete.parent as ImportNode).d.list
                 : (importToDelete.parent as ImportFromNode).d.imports;
 
-        const filePath = getFileInfo(parseFileResults.parserOutput.parseTree).fileUri;
+        const filePath = getFileInfo(parseFileResults.parserOutput.parseTree, this._nodeInfo).fileUri;
         const ranges = getTextRangeForImportNameDeletion(
             parseFileResults,
             imports,
@@ -182,7 +182,7 @@ export class TextEditTracker {
         importGroup: ImportGroup,
         importNameInfo?: ImportNameInfo[]
     ) {
-        const fileUri = getFileInfo(parseFileResults.parserOutput.parseTree).fileUri;
+        const fileUri = getFileInfo(parseFileResults.parserOutput.parseTree, this._nodeInfo).fileUri;
 
         this.addEdits(
             ...getTextEditsForAutoImportInsertion(
@@ -222,7 +222,7 @@ export class TextEditTracker {
             return false;
         }
 
-        const fileUri = getFileInfo(parseFileResults.parserOutput.parseTree).fileUri;
+        const fileUri = getFileInfo(parseFileResults.parserOutput.parseTree, this._nodeInfo).fileUri;
 
         const edits = getTextEditsForAutoImportSymbolAddition(importNameInfo, imported, parseFileResults);
         if (imported.node !== updateOptions.currentFromImport) {
@@ -344,8 +344,9 @@ export class TextEditTracker {
                 // As a default behavior, we will just remove the node
                 this._pendingNodeToRemove.pop();
 
-                const info = getFileInfo(peekNodeToRemove.parseFileResults.parserOutput.parseTree);
-                this.addEdit(info.fileUri, convertTextRangeToRange(peekNodeToRemove.node, info.lines), '');
+                const fileUri = this._getFileUri(peekNodeToRemove);
+                const lines = peekNodeToRemove.parseFileResults.tokenizerOutput.lines;
+                this.addEdit(fileUri, convertTextRangeToRange(peekNodeToRemove.node, lines), '');
             }
         }
     }
@@ -357,7 +358,8 @@ export class TextEditTracker {
         }
 
         const module = nodeToRemove.parseFileResults.parserOutput.parseTree;
-        const info = getFileInfo(module);
+        const fileUri = this._getFileUri(nodeToRemove);
+        const lines = nodeToRemove.parseFileResults.tokenizerOutput.lines;
         const importNode = getContainingImportStatement(ParseTreeUtils.findNodeByOffset(module, node.start), token);
         if (!importNode) {
             return false;
@@ -372,11 +374,7 @@ export class TextEditTracker {
         );
 
         if (nameNodes.length === nodesRemoved.length) {
-            this.addEdit(
-                info.fileUri,
-                ParseTreeUtils.getFullStatementRange(importNode, nodeToRemove.parseFileResults),
-                ''
-            );
+            this.addEdit(fileUri, ParseTreeUtils.getFullStatementRange(importNode, nodeToRemove.parseFileResults), '');
 
             // Remove nodes that are handled from queue.
             this._removeNodesHandled(nodesRemoved);
@@ -399,10 +397,21 @@ export class TextEditTracker {
         }
 
         const editSpans = getTextRangeForImportNameDeletion(nodeToRemove.parseFileResults, nameNodes, ...indices);
-        editSpans.forEach((e) => this.addEdit(info.fileUri, convertTextRangeToRange(e, info.lines), ''));
+        editSpans.forEach((e) => this.addEdit(fileUri, convertTextRangeToRange(e, lines), ''));
 
         this._removeNodesHandled(nodesRemoved);
         return true;
+    }
+
+    private _getFileUri(nodeToRemove: NodeToRemove): Uri {
+        // Prefer an explicit fileUri carried on the NodeToRemove. Callers that operate against an
+        // external type-server snapshot must provide it, because the per-snapshot `AnalyzerFileInfo`
+        // is not stored on the parse tree node (parse trees are shared across snapshots and cannot
+        // be mutated). Fall back to the parse-tree-attached info for the sync/in-proc paths.
+        return (
+            nodeToRemove.fileUri ??
+            getFileInfo(nodeToRemove.parseFileResults.parserOutput.parseTree, this._nodeInfo).fileUri
+        );
     }
 
     private _removeNodesHandled(nodesRemoved: NodeToRemove[]) {
@@ -436,4 +445,7 @@ interface UpdateOption {
 interface NodeToRemove {
     node: ParseNode;
     parseFileResults: ParseFileResults;
+    // Optional. Required when operating against an external type-server snapshot where
+    // per-snapshot `AnalyzerFileInfo` is not attached to the parse tree.
+    fileUri?: Uri;
 }

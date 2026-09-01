@@ -30,6 +30,7 @@ import {
     StringNode,
 } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
+import { AnalyzerNodeInfoReader } from './analyzerNodeInfo';
 import { CodeFlowReferenceExpressionNode, FlowNode } from './codeFlowTypes';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration } from './declaration';
@@ -412,6 +413,11 @@ export interface ExpectedTypeOptions {
 export interface ExpectedTypeResult {
     type: Type;
     node: ParseNode;
+    candidates: Type[];
+}
+
+export function ensureExpectedTypeCandidates<T>(type: T, candidates: readonly T[]): T[] {
+    return candidates.length > 0 ? [...candidates] : [type];
 }
 
 export interface FunctionResult {
@@ -527,6 +533,7 @@ export interface PrintTypeOptions {
     printUnknownWithAny?: boolean;
     printTypeVarVariance?: boolean;
     omitTypeArgsIfUnknown?: boolean;
+    disablePep604?: boolean;
 }
 
 export interface DeclaredSymbolTypeInfo {
@@ -648,6 +655,7 @@ export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
     runWithCancellationToken<T>(token: CancellationToken, callback: () => Promise<T>): Promise<T>;
 
+    getAnalyzerNodeInfoReader: () => AnalyzerNodeInfoReader;
     getType: (node: ExpressionNode) => Type | undefined;
     getTypeResult: (node: ExpressionNode) => TypeResult | undefined;
     getTypeResultForDecorator: (node: DecoratorNode) => TypeResult | undefined;

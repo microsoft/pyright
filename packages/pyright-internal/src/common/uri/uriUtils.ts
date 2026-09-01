@@ -67,6 +67,10 @@ export interface FileSystemEntries {
     directories: Uri[];
 }
 
+export interface FileSystemEntriesWithSymlinkedDirectories extends FileSystemEntries {
+    symlinkedDirectories: Uri[];
+}
+
 export function forEachAncestorDirectory(
     directory: Uri,
     callback: (directory: Uri) => Uri | undefined
@@ -99,7 +103,7 @@ export function makeDirectories(fs: FileSystem, dir: Uri, startingFrom: Uri) {
     for (let i = relativeToComponents.length; i < pathComponents.length; i++) {
         curPath = curPath.combinePaths(pathComponents[i]);
         if (!fs.existsSync(curPath)) {
-            fs.mkdirSync(curPath);
+            fs.mkdirSync(curPath, { recursive: true });
         }
     }
 }
@@ -122,6 +126,30 @@ export function directoryExists(fs: ReadOnlyFileSystem, uri: Uri): boolean {
 
 export function isDirectory(fs: ReadOnlyFileSystem, uri: Uri): boolean {
     return tryStat(fs, uri)?.isDirectory() ?? false;
+}
+
+// True when `uri` resolves to an existing directory on the given file system. `fs` is an explicit
+// parameter so callers that decide a usable cwd/workspace root must name the file system they are
+// validating against, rather than relying on a coincidental match between independent fs handles.
+export function isUsableDirectory(fs: ReadOnlyFileSystem, uri: Uri): boolean {
+    return fs.existsSync(uri) && isDirectory(fs, uri);
+}
+
+// Returns the file-system path of `uri` only when it is usable as a working directory: it is
+// defined, has a non-empty file path, and resolves to an existing directory on `fs`. Otherwise
+// returns undefined. `fs` is explicit so each caller names the file system it validates against
+// when normalizing a cwd / workspace root.
+export function getUsableUriPath(fs: ReadOnlyFileSystem, uri: Uri | undefined): string | undefined {
+    if (!uri) {
+        return undefined;
+    }
+
+    const uriPath = uri.getFilePath();
+    if (!uriPath) {
+        return undefined;
+    }
+
+    return isUsableDirectory(fs, uri) ? uriPath : undefined;
 }
 
 export function isFile(fs: ReadOnlyFileSystem, uri: Uri, treatZipDirectoryAsFile = false): boolean {
@@ -158,9 +186,25 @@ export function tryRealpath(fs: ReadOnlyFileSystem, uri: Uri): Uri | undefined {
 
 export function getFileSystemEntries(fs: ReadOnlyFileSystem, uri: Uri): FileSystemEntries {
     try {
-        return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(uri), fs, uri);
+        const { files, directories } = getFileSystemEntriesWithSymlinkedDirectoriesFromDirEntries(
+            fs.readdirEntriesSync(uri),
+            fs,
+            uri
+        );
+        return { files, directories };
     } catch (e: any) {
         return { files: [], directories: [] };
+    }
+}
+
+export function getFileSystemEntriesWithSymlinkedDirectories(
+    fs: ReadOnlyFileSystem,
+    uri: Uri
+): FileSystemEntriesWithSymlinkedDirectories {
+    try {
+        return getFileSystemEntriesWithSymlinkedDirectoriesFromDirEntries(fs.readdirEntriesSync(uri), fs, uri);
+    } catch (e: any) {
+        return { files: [], directories: [], symlinkedDirectories: [] };
     }
 }
 
@@ -170,6 +214,15 @@ export function getFileSystemEntriesFromDirEntries(
     fs: ReadOnlyFileSystem,
     uri: Uri
 ): FileSystemEntries {
+    const { files, directories } = getFileSystemEntriesWithSymlinkedDirectoriesFromDirEntries(dirEntries, fs, uri);
+    return { files, directories };
+}
+
+function getFileSystemEntriesWithSymlinkedDirectoriesFromDirEntries(
+    dirEntries: Iterable<Dirent>,
+    fs: ReadOnlyFileSystem,
+    uri: Uri
+): FileSystemEntriesWithSymlinkedDirectories {
     const entries = Array.isArray(dirEntries) ? dirEntries.slice() : Array.from(dirEntries);
     entries.sort((a, b) => {
         if (a.name < b.name) {
@@ -182,6 +235,7 @@ export function getFileSystemEntriesFromDirEntries(
     });
     const files: Uri[] = [];
     const directories: Uri[] = [];
+    const symlinkedDirectories: Uri[] = [];
     for (const entry of entries) {
         // This is necessary because on some file system node fails to exclude
         // "." and "..". See https://github.com/nodejs/node/issues/4002
@@ -200,21 +254,48 @@ export function getFileSystemEntriesFromDirEntries(
                 files.push(entryUri);
             } else if (stat?.isDirectory()) {
                 directories.push(entryUri);
+                symlinkedDirectories.push(entryUri);
             }
         }
     }
-    return { files, directories };
+
+    return { files, directories, symlinkedDirectories };
 }
 
 // Transforms a relative file spec (one that potentially contains
 // escape characters **, * or ?) and returns a regular expression
 // that can be used for matching against.
+// Returns true if the given text contains a glob wildcard character (`*` or `?`).
+export function containsWildcardCharacter(text: string): boolean {
+    return _wildcardRegex.test(text);
+}
+
+// Translates a single glob path segment (which may contain `*` or `?`, but not
+// the `**` directory wildcard) into a regex fragment that matches a single path
+// segment. This is the canonical per-segment translation used by both
+// `getWildcardRegexPattern` (for `include`/`exclude`) and `extraPaths` glob
+// expansion so the two stay in sync.
+export function getWildcardSegmentRegexFragment(segment: string): string {
+    const escapedSeparator = getRegexEscapedSeparator('/');
+    const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, 'g');
+
+    return segment.replace(reservedCharacterPattern, (match) => {
+        if (match === '*') {
+            return `[^${escapedSeparator}]*`;
+        } else if (match === '?') {
+            return `[^${escapedSeparator}]`;
+        } else {
+            // escaping anything that is not reserved characters - word/space/separator
+            return '\\' + match;
+        }
+    });
+}
+
 export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
     const absolutePath = root.resolvePaths(fileSpec);
     const pathComponents = Array.from(absolutePath.getPathComponents());
     const escapedSeparator = getRegexEscapedSeparator('/');
     const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}][^${escapedSeparator}]*)*?`;
-    const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, 'g');
 
     // Strip the directory separator from the root component.
     if (pathComponents.length > 0) {
@@ -224,25 +305,15 @@ export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
     let regExPattern = '';
     let firstComponent = true;
 
-    for (let component of pathComponents) {
+    for (const component of pathComponents) {
         if (component === '**') {
             regExPattern += doubleAsteriskRegexFragment;
         } else {
             if (!firstComponent) {
-                component = escapedSeparator + component;
+                regExPattern += escapedSeparator;
             }
 
-            regExPattern += component.replace(reservedCharacterPattern, (match) => {
-                if (match === '*') {
-                    return `[^${escapedSeparator}]*`;
-                } else if (match === '?') {
-                    return `[^${escapedSeparator}]`;
-                } else {
-                    // escaping anything that is not reserved characters - word/space/separator
-                    return '\\' + match;
-                }
-            });
-
+            regExPattern += getWildcardSegmentRegexFragment(component);
             firstComponent = false;
         }
     }
@@ -391,6 +462,45 @@ export function getRootUri(csdOrSp: CaseSensitivityDetector | ServiceProvider): 
 export function convertUriToLspUriString(fs: ReadOnlyFileSystem, uri: Uri): string {
     // Convert to a URI string that the LSP client understands (mapped files are only local to the server).
     return fs.getOriginalUri(uri).toString();
+}
+
+// Determines whether two parsed URIs refer to the same logical file.
+//
+// In virtual workspaces the same physical file can be tracked under more than one
+// URI (for example two `vscode-vfs://` URIs that differ only by authority). Comparing
+// the raw URI strings treats these as distinct files and produces duplicate results
+// (e.g. duplicated call hierarchy entries). This helper only merges the two shapes it
+// can safely reconcile:
+//   - Two `file://` URIs are compared by their file-system path (`getFilePath`).
+//   - Two virtual URIs (whose file path is empty) are compared by their scheme, URI
+//     path (`getPath`), query, and fragment. Only the authority is ignored, so virtual
+//     URIs that differ only by authority merge, while URIs that differ by scheme or by
+//     query/fragment (for example notebook cell URIs that carry a `#cellName` fragment)
+//     stay distinct.
+// Any other combination (including a `file://` URI paired with a virtual URI, whose
+// paths are not directly comparable) returns false, so callers should apply an exact
+// string comparison first and only consult this helper when the strings differ.
+export function isSameUriFile(uriA: Uri, uriB: Uri): boolean {
+    const filePathA = uriA.getFilePath();
+    const filePathB = uriB.getFilePath();
+    if (filePathA && filePathB) {
+        return filePathA === filePathB;
+    }
+
+    if (!filePathA && !filePathB) {
+        const pathA = uriA.getPath();
+        const pathB = uriB.getPath();
+        if (pathA && pathB) {
+            return (
+                uriA.scheme === uriB.scheme &&
+                pathA === pathB &&
+                uriA.query === uriB.query &&
+                uriA.fragment === uriB.fragment
+            );
+        }
+    }
+
+    return false;
 }
 
 export namespace UriEx {

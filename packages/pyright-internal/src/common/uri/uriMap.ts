@@ -27,10 +27,10 @@ export class UriMap<T> implements Map<Uri, T> {
             callbackfn(this._values.get(k)!, v, this);
         });
     }
-    values(): IterableIterator<T> {
+    values(): MapIterator<T> {
         return this._values.values();
     }
-    [Symbol.iterator](): IterableIterator<[Uri, T]> {
+    [Symbol.iterator](): MapIterator<[Uri, T]> {
         return this.entries();
     }
     get(key: Uri | undefined): T | undefined {
@@ -54,14 +54,15 @@ export class UriMap<T> implements Map<Uri, T> {
         return this._values.delete(key.key);
     }
 
-    entries(): IterableIterator<[Uri, T]> {
+    entries(): MapIterator<[Uri, T]> {
         const keys = this._keys.entries();
         const values = this._values.entries();
 
-        return new (class implements IterableIterator<[Uri, T]> {
-            [Symbol.iterator](): IterableIterator<[Uri, T]> {
+        return new (class implements MapIterator<[Uri, T]> {
+            [Symbol.iterator](): MapIterator<[Uri, T]> {
                 return this;
             }
+            [Symbol.dispose](): void {}
             next(...args: [] | [undefined]): IteratorResult<[Uri, T], any> {
                 const key = keys.next();
                 const value = values.next();
@@ -73,7 +74,7 @@ export class UriMap<T> implements Map<Uri, T> {
         })();
     }
 
-    keys(): IterableIterator<Uri> {
+    keys(): MapIterator<Uri> {
         return this._keys.values();
     }
 }

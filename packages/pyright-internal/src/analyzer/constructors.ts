@@ -40,6 +40,7 @@ import {
     isInstantiableClass,
     isNever,
     isOverloaded,
+    isPositionOnlySeparator,
     isTypeVar,
     isUnknown,
 } from './types';
@@ -509,21 +510,34 @@ function validateInitMethod(
         inferenceContext ? { ...inferenceContext, returnTypeOverride } : undefined
     );
 
-    let adjustedClassType = type;
-    if (
-        callResult.specializedInitSelfType &&
-        isClassInstance(callResult.specializedInitSelfType) &&
-        ClassType.isSameGenericClass(callResult.specializedInitSelfType, adjustedClassType)
-    ) {
-        adjustedClassType = ClassType.cloneAsInstantiable(callResult.specializedInitSelfType);
-    }
+    // Overload evaluation keeps the ordinary __init__ return as a placeholder
+    // and carries argument-dependent constructed types through this separate field,
+    // including when union-expanded argument lists are combined.
+    const returnType = callResult.specializedInitSelfType
+        ? mapSubtypes(callResult.specializedInitSelfType, (specializedInitSelfSubtype) => {
+              let adjustedClassType = type;
+              if (
+                  isClassInstance(specializedInitSelfSubtype) &&
+                  ClassType.isSameGenericClass(specializedInitSelfSubtype, adjustedClassType)
+              ) {
+                  adjustedClassType = ClassType.cloneAsInstantiable(specializedInitSelfSubtype);
+              }
 
-    const returnType = applyExpectedTypeForConstructor(
-        evaluator,
-        adjustedClassType,
-        /* inferenceContext */ undefined,
-        constraints
-    );
+              if (
+                  !type.priv.isTypeArgExplicit &&
+                  (isAny(specializedInitSelfSubtype) || isUnknown(specializedInitSelfSubtype))
+              ) {
+                  return specializedInitSelfSubtype;
+              }
+
+              return applyExpectedTypeForConstructor(
+                  evaluator,
+                  adjustedClassType,
+                  /* inferenceContext */ undefined,
+                  constraints
+              );
+          })
+        : applyExpectedTypeForConstructor(evaluator, type, /* inferenceContext */ undefined, constraints);
 
     if (callResult.isTypeIncomplete) {
         isTypeIncomplete = true;
@@ -1092,13 +1106,22 @@ function shouldSkipInitEvaluation(evaluator: TypeEvaluator, classType: ClassType
 }
 
 // Determine whether the __new__ method is the placeholder signature
-// of "def __new__(cls, *args, **kwargs) -> Self".
+// of "def __new__(cls, *args, **kwargs) -> Self" or
+// "def __new__(cls, /, *args, **kwargs) -> Self".
 function isDefaultNewMethod(newMethod?: Type): boolean {
     if (!newMethod || !isFunction(newMethod)) {
         return false;
     }
 
-    const params = newMethod.shared.parameters;
+    let params = newMethod.shared.parameters;
+
+    // After binding, cls is stripped. A positional-only separator may remain
+    // if the original signature was "def __new__(cls, /, *args, **kwargs)".
+    // Skip the separator when checking for the default pattern.
+    if (params.length > 0 && isPositionOnlySeparator(params[0])) {
+        params = params.slice(1);
+    }
+
     if (params.length !== 2) {
         return false;
     }

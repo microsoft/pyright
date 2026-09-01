@@ -18,8 +18,10 @@ import {
     Range,
     TextEdit,
 } from 'vscode-languageserver';
+import { ApplyKind } from 'vscode-languageserver-types';
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
+import { getInfoReader } from '../analyzer/analyzerNodeInfo';
 import {
     Declaration,
     DeclarationType,
@@ -30,7 +32,7 @@ import {
 } from '../analyzer/declaration';
 import { isDefinedInFile } from '../analyzer/declarationUtils';
 import { transformTypeForEnumMember } from '../analyzer/enums';
-import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
+import { ImportResolver } from '../analyzer/importResolver';
 import { ImportResult } from '../analyzer/importResult';
 import { getParamListDetails, ParamKind } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -42,8 +44,8 @@ import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclarationForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { getTypedDictMembersForClass } from '../analyzer/typedDicts';
 import { getModuleDocStringFromUris, isBuiltInModule } from '../analyzer/typeDocStringUtils';
-import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { printLiteralValue } from '../analyzer/typePrinter';
+import { CallSignatureInfo, ExpectedTypeResult, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { isLiteralValueTruncated, printLiteralValue } from '../analyzer/typePrinter';
 import {
     ClassType,
     combineTypes,
@@ -69,6 +71,7 @@ import {
     isLiteralType,
     isMaybeDescriptorInstance,
     isNoneInstance,
+    isProperty,
     lookUpClassMember,
     MemberAccessFlags,
 } from '../analyzer/typeUtils';
@@ -80,7 +83,7 @@ import { fail } from '../common/debug';
 import { ProgramView } from '../common/extensibility';
 import { fromLSPAny, toLSPAny } from '../common/lspUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
-import { PythonVersion, pythonVersion3_10, pythonVersion3_5 } from '../common/pythonVersion';
+import { PythonVersion, pythonVersion3_10, pythonVersion3_15, pythonVersion3_5 } from '../common/pythonVersion';
 import '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position, TextRange } from '../common/textRange';
@@ -90,6 +93,7 @@ import { convertToTextEdits } from '../common/workspaceEditUtils';
 import { Localizer } from '../localization/localize';
 import {
     ArgCategory,
+    CaseNode,
     DecoratorNode,
     DictionaryKeyEntryNode,
     DictionaryNode,
@@ -100,6 +104,7 @@ import {
     ImportFromNode,
     IndexNode,
     isExpressionNode,
+    MatchNode,
     ModuleNameNode,
     NameNode,
     ParamCategory,
@@ -124,11 +129,14 @@ import {
 import { AutoImporter, AutoImportResult, buildModuleSymbolsMap } from './autoImporter';
 import {
     CompletionDetail,
+    detectTrailingOverlap,
     getCompletionItemDocumentation,
     getTypeDetail,
     SymbolDetail,
+    TrailingOverlap,
 } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
+import { getImportFromTarget, getModuleNameCompletionSuggestions } from './importStatementCandidates';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
 
 namespace Keywords {
@@ -175,7 +183,12 @@ namespace Keywords {
 
     const python3_10: string[] = [...python3_5, 'case', 'match'];
 
+    const python3_15: string[] = [...python3_10, 'lazy'];
+
     export function forVersion(version: PythonVersion): string[] {
+        if (PythonVersion.isGreaterOrEqualTo(version, pythonVersion3_15)) {
+            return python3_15;
+        }
         if (PythonVersion.isGreaterOrEqualTo(version, pythonVersion3_10)) {
             return python3_10;
         }
@@ -184,9 +197,49 @@ namespace Keywords {
         }
         return base;
     }
+
+    // Keywords that can only begin a statement and can never begin an expression,
+    // so they are suppressed in the expression-only slots recognized here. (Some
+    // of these, like `from`, can still appear *within* an expression form such as
+    // `yield from <expr>`, but never as the start of one.) Keywords like `if`,
+    // `else`, `for`, `in`, `lambda`, `yield`, and `await` are intentionally
+    // excluded because they can appear inside expressions (ternaries,
+    // comprehensions, lambdas, etc.).
+    // Keep in sync with the counterpart in
+    // pylance-internal/src/languageService/asyncCompletionProvider.ts.
+    const statementOnlyKeywords: ReadonlySet<string> = new Set([
+        'assert',
+        'break',
+        'case',
+        'class',
+        'continue',
+        'def',
+        'del',
+        'elif',
+        'except',
+        'finally',
+        'from',
+        'global',
+        'import',
+        'match',
+        'nonlocal',
+        'pass',
+        'raise',
+        'return',
+        'try',
+        'type',
+        'while',
+        'with',
+    ]);
+
+    // Returns the version-appropriate keywords that are valid in an expression
+    // context (i.e. the full keyword set minus the statement-only keywords).
+    export function expressionKeywordsForVersion(version: PythonVersion): string[] {
+        return forVersion(version).filter((keyword) => !statementOnlyKeywords.has(keyword));
+    }
 }
 
-enum SortCategory {
+export enum SortCategory {
     // The order of the following is important. We use
     // this to order the completion suggestions.
 
@@ -202,6 +255,9 @@ enum SortCategory {
     // A literal string.
     LiteralValue,
 
+    // A class that is one of the subject's union members in a `match`/`case` pattern.
+    MatchClassPattern,
+
     // A named parameter in a call expression.
     NamedParameter,
 
@@ -216,6 +272,12 @@ enum SortCategory {
 
     // An enum member.
     EnumMember,
+
+    // A symbol declared directly on the object or class being accessed.
+    DeclaredSymbol,
+
+    // A private symbol declared directly on the object or class being accessed.
+    DeclaredPrivateSymbol,
 
     // A normal symbol.
     NormalSymbol,
@@ -248,6 +310,41 @@ export interface CompletionOptions {
     readonly snippet: boolean;
     readonly lazyEdit: boolean;
     readonly triggerCharacter?: string;
+    // When true, the client supports `CompletionList.itemDefaults.data` (LSP 3.17) and
+    // `CompletionList.applyKind` merge semantics (LSP 3.18), so the shared completion item
+    // `data` (uri/position) can be hoisted into `itemDefaults.data` instead of being repeated
+    // on every item.
+    readonly completionItemDataDefault?: boolean;
+}
+
+// Publishes the shared completion item `data` fields (uri/position) once via
+// `CompletionList.itemDefaults.data` and requests a shallow merge via `CompletionList.applyKind`,
+// so each item only needs to carry its per-item data. Items are built without the shared fields in
+// the first place (see `createCompletionItemData`), so there is nothing to strip here. The client
+// reconstructs the full `data` (merging the defaults back in) before issuing a resolve request, so
+// the resolve handler is unaffected.
+//
+// The caller must only invoke this when the client advertises both
+// `completionList.itemDefaults` containing `data` and `completionList.applyKindSupport`.
+//
+// Note: `applyKind` only configures `data` (Merge); other itemDefaults (e.g. a future
+// `commitCharacters` default) would fall back to the client default of `Replace` unless this
+// object is extended. For data-less items (keywords, string literals) the shared `itemDefaults.data`
+// still applies via the client merge, but they have nothing to resolve. The resolve dispatch
+// short-circuits them by item kind so the merge doesn't drag them into a needless resolve
+// round-trip: keywords are identified by `CompletionItemKind.Keyword`, and string literals by
+// `CompletionItemKind.Constant` with no `symbolLabel` (data-bearing name completions always carry
+// a `symbolLabel`). Named-parameter items (`Variable`, no `symbolLabel`) are not kind-short-circuited
+// and may still reach resolve via the merge, but resolve is a no-op for them; the MRU is updated only
+// when a completion is accepted.
+export function hoistCompletionItemDataDefault(list: CompletionList, fileUri: Uri, position: Position): void {
+    if (list.items.length === 0) {
+        return;
+    }
+
+    const sharedData: CompletionItemData = { uri: fileUri.toString(), position };
+    list.itemDefaults = { ...list.itemDefaults, data: toLSPAny(sharedData) };
+    list.applyKind = { ...list.applyKind, data: ApplyKind.Merge };
 }
 
 interface RecentCompletionInfo {
@@ -283,6 +380,7 @@ export class CompletionProvider {
     protected readonly execEnv: ExecutionEnvironment;
     protected readonly parseResults: ParseFileResults;
     protected readonly sourceMapper: SourceMapper;
+    protected readonly nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader;
 
     // If we're being asked to resolve a completion item, we run the
     // original completion algorithm and look for this symbol.
@@ -299,6 +397,7 @@ export class CompletionProvider {
 
         this.parseResults = this.program.getParseResults(this.fileUri)!;
         this.sourceMapper = this.program.getSourceMapper(this.fileUri, this.cancellationToken, /* mapCompiled */ true);
+        this.nodeInfo = getInfoReader(this.program);
     }
 
     getCompletions(): CompletionList | null {
@@ -307,31 +406,37 @@ export class CompletionProvider {
         }
 
         const completionMap = this._getCompletions();
-        return CompletionList.create(completionMap?.toArray());
+        const completionList = CompletionList.create(completionMap?.toArray());
+        if (this.options.completionItemDataDefault) {
+            hoistCompletionItemDataDefault(completionList, this.fileUri, this.position);
+        }
+        return completionList;
     }
 
-    // When the user selects a completion, this callback is invoked,
-    // allowing us to record what was selected. This allows us to
-    // build our MRU cache so we can better predict entries.
-    resolveCompletionItem(completionItem: CompletionItem) {
-        throwIfCancellationRequested(this.cancellationToken);
+    // Single source of truth for which completion item kinds participate in the MRU cache.
+    // Keyword items and data-less string-literal `Constant` items (no `symbolLabel`) carry no
+    // server-side identity: they are never resolved and were never recorded in the MRU. Every other
+    // kind can feed the MRU when accepted. Both the resolve short-circuit (languageService.ts) and the
+    // accept-command attach gate (asynchronousFeatures.ts) key off this predicate so MRU membership is
+    // defined in one place instead of as two hand-synced inverse checks.
+    static feedsMru(kind: CompletionItemKind | undefined, hasSymbolLabel: boolean): boolean {
+        return kind !== CompletionItemKind.Keyword && !(kind === CompletionItemKind.Constant && !hasSymbolLabel);
+    }
 
-        const completionItemData = this.getCompletionItemData(completionItem);
-
-        const label = completionItem.label;
-        let autoImportText = '';
-        if (completionItemData.autoImportText) {
-            autoImportText = completionItemData.autoImportText;
-        }
-
+    // Records an accepted completion in the MRU cache so we can better predict entries.
+    // This is called when a completion is actually committed (via the accept command), not when
+    // it is merely highlighted/previewed. Recording on highlight would let an inline preview that
+    // resolves on every keystroke reorder the list and make results oscillate.
+    static recordCompletionAccepted(label: string, autoImportText: string) {
         const curIndex = CompletionProvider._mostRecentCompletions.findIndex(
             (item) => item.label === label && item.autoImportText === autoImportText
         );
 
         if (curIndex > 0) {
             // If there's an existing entry with the same name that's not at the
-            // beginning of the array, remove it.
-            CompletionProvider._mostRecentCompletions = CompletionProvider._mostRecentCompletions.splice(curIndex, 1);
+            // beginning of the array, remove it in place. (Array.splice mutates the
+            // array and returns the removed elements, so it must not be reassigned.)
+            CompletionProvider._mostRecentCompletions.splice(curIndex, 1);
         }
 
         if (curIndex !== 0) {
@@ -343,6 +448,15 @@ export class CompletionProvider {
             // Prevent the MRU list from growing indefinitely.
             CompletionProvider._mostRecentCompletions.pop();
         }
+    }
+
+    // When the user highlights/previews a completion, this callback is invoked so we can fill in
+    // additional details (documentation, auto-import edits). It must NOT mutate the MRU cache; MRU
+    // updates happen only when a completion is accepted (see recordCompletionAccepted).
+    resolveCompletionItem(completionItem: CompletionItem) {
+        throwIfCancellationRequested(this.cancellationToken);
+
+        const completionItemData = this.getCompletionItemData(completionItem);
 
         if (!completionItemData.symbolLabel) {
             return;
@@ -412,6 +526,29 @@ export class CompletionProvider {
 
     protected getCompletionItemData(item: CompletionItem): CompletionItemData {
         return fromLSPAny<CompletionItemData>(item.data);
+    }
+
+    // Builds the `data` payload for a completion item. When the client supports `itemDefaults.data`
+    // (completionItemDataDefault), the shared `uri`/`position` live once in
+    // `CompletionList.itemDefaults.data` (see hoistCompletionItemDataDefault), so we never write them
+    // per item in the first place (rather than writing then stripping them); an item left with no
+    // per-item fields carries no `data` at all. Otherwise we inline `uri`/`position` on each item.
+    protected createCompletionItemData(data: Partial<CompletionItemData>) {
+        if (!this.options.completionItemDataDefault) {
+            return toLSPAny({ uri: this.fileUri.toString(), position: this.position, ...data });
+        }
+
+        return Object.keys(data).length > 0 ? toLSPAny(data) : undefined;
+    }
+
+    protected addAdditionalExpressionCompletions(
+        parseNode: ParseNode,
+        priorWord: string,
+        completionMap: CompletionMap
+    ): void {
+        // Default implementation is a no-op.
+        // Subclasses can override to inject additional completion items that are not produced by the
+        // core completion algorithm (e.g. product-specific synthesized completions).
     }
 
     protected getMethodOverrideCompletions(
@@ -606,6 +743,15 @@ export class CompletionProvider {
         return TextEdit.replace(range, text);
     }
 
+    protected createReplaceEditWithOverlap(priorWord: string, overlap: TrailingOverlap | undefined, text: string) {
+        const range: Range = {
+            start: { line: this.position.line, character: this.position.character - priorWord.length },
+            end: { line: this.position.line, character: this.position.character + (overlap?.consumedChars ?? 0) },
+        };
+
+        return TextEdit.replace(range, text);
+    }
+
     protected shouldProcessDeclaration(declaration: Declaration | undefined) {
         // By default, we allow all symbol/decl to be included in the completion.
         return true;
@@ -665,7 +811,7 @@ export class CompletionProvider {
 
             // This call can be expensive to perform on every completion item
             // that we return, so we do it lazily in the "resolve" callback.
-            const type = this.evaluator.getEffectiveTypeOfSymbol(symbol);
+            const type = this._getTypeOfSymbol(symbol, detail, name);
             if (!type) {
                 // Can't resolve. so bail out.
                 return;
@@ -713,12 +859,13 @@ export class CompletionProvider {
             // Handle enum members specially. Enum members normally look like
             // variables, but the are declared using assignment expressions
             // within an enum class.
-            if (this._isEnumMember(detail.boundObjectOrClass, name)) {
+            if (this.isEnumMember(detail.boundObjectOrClass, name)) {
                 itemKind = CompletionItemKind.EnumMember;
             }
 
             this.addNameToCompletions(detail.autoImportAlias ?? name, itemKind, priorWord, completionMap, {
                 autoImportText,
+                declaredOnBoundObjectOrClass: detail.declaredOnBoundObjectOrClass,
                 extraCommitChars: detail.extraCommitChars,
                 funcParensDisabled: detail.funcParensDisabled,
                 edits: detail.edits,
@@ -729,6 +876,7 @@ export class CompletionProvider {
             if (synthesizedType) {
                 const itemKind: CompletionItemKind = this._convertTypeToItemKind(synthesizedType);
                 this.addNameToCompletions(name, itemKind, priorWord, completionMap, {
+                    declaredOnBoundObjectOrClass: detail.declaredOnBoundObjectOrClass,
                     extraCommitChars: detail.extraCommitChars,
                     funcParensDisabled: detail.funcParensDisabled,
                     edits: detail.edits,
@@ -737,7 +885,11 @@ export class CompletionProvider {
         }
     }
 
-    protected getMemberAccessCompletions(leftExprNode: ExpressionNode, priorWord: string): CompletionMap | undefined {
+    protected getMemberAccessCompletions(
+        leftExprNode: ExpressionNode,
+        priorWord: string,
+        preserveEnumMembers = false
+    ): CompletionMap | undefined {
         const symbolTable = new Map<string, Symbol>();
         const completionMap = new CompletionMap();
 
@@ -756,16 +908,28 @@ export class CompletionProvider {
 
         doForEachSubtype(leftType, (subtype) => {
             subtype = this.evaluator.makeTopLevelTypeVarsConcrete(subtype);
+            let resolvedClassSubtype: ClassType | undefined;
 
             if (isClass(subtype)) {
-                const instance = TypeBase.isInstance(subtype);
-                getMembersForClass(subtype, symbolTable, instance);
+                if (preserveEnumMembers && ClassType.isEnumClass(subtype) && TypeBase.isInstance(subtype)) {
+                    // Preserve enum members by switching back to the class view before member enumeration.
+                    resolvedClassSubtype = ClassType.cloneAsInstantiable(subtype);
+                } else {
+                    resolvedClassSubtype = subtype;
+                }
 
-                if (ClassType.isEnumClass(subtype) && instance) {
+                const instance = TypeBase.isInstance(resolvedClassSubtype);
+                getMembersForClass(resolvedClassSubtype, symbolTable, instance);
+
+                if (ClassType.isEnumClass(resolvedClassSubtype) && instance && !preserveEnumMembers) {
                     // Don't show enum member out of another enum member
-                    // ex) Enum.Member. <= shouldn't show `Member` again.
+                    // ex) Enum.Member. <= shouldn't show `Member` again. This pruning stays separate
+                    // from the clone above because the clone only changes which members are enumerated.
+                    // Note: when preserveEnumMembers=true, the cloneAsInstantiable above already makes
+                    // instance=false, so this block is independently unreachable. The explicit
+                    // !preserveEnumMembers guard is defense-in-depth for clarity.
                     for (const name of symbolTable.keys()) {
-                        if (this._isEnumMember(subtype, name)) {
+                        if (this.isEnumMember(resolvedClassSubtype, name)) {
                             symbolTable.delete(name);
                         }
                     }
@@ -790,7 +954,7 @@ export class CompletionProvider {
                 priorWord,
                 leftExprNode,
                 /* isInImport */ false,
-                isClass(subtype) ? subtype : undefined,
+                resolvedClassSubtype,
                 completionMap
             );
         });
@@ -926,10 +1090,7 @@ export class CompletionProvider {
             this.addExtraCommitChar(completionItem);
         }
 
-        const completionItemData: CompletionItemData = {
-            uri: this.fileUri.toString(),
-            position: this.position,
-        };
+        const completionItemData: Partial<CompletionItemData> = {};
 
         if (detail?.funcParensDisabled || !this.options.snippet) {
             completionItemData.funcParensDisabled = true;
@@ -939,14 +1100,12 @@ export class CompletionProvider {
             completionItemData.moduleUri = detail.moduleUri.toString();
         }
 
-        completionItem.data = toLSPAny(completionItemData);
-
         if (detail?.sortText || detail?.itemDetail) {
             completionItem.sortText = detail.sortText;
             completionItem.detail = detail.itemDetail;
         } else if (detail?.autoImportText) {
             // Force auto-import entries to the end.
-            completionItem.sortText = this._makeSortText(
+            completionItem.sortText = this.makeSortText(
                 SortCategory.AutoImport,
                 `${name}.${this._formatInteger(detail.autoImportText.source.length, 2)}.${
                     detail.autoImportText.source
@@ -961,17 +1120,22 @@ export class CompletionProvider {
             }
         } else if (itemKind === CompletionItemKind.EnumMember) {
             // Handle enum members separately so they are sorted above other symbols.
-            completionItem.sortText = this._makeSortText(SortCategory.EnumMember, name);
+            completionItem.sortText = this.makeSortText(SortCategory.EnumMember, name);
         } else if (SymbolNameUtils.isDunderName(name)) {
             // Force dunder-named symbols to appear after all other symbols.
-            completionItem.sortText = this._makeSortText(SortCategory.DunderSymbol, name);
+            completionItem.sortText = this.makeSortText(SortCategory.DunderSymbol, name);
         } else if (filter === '' && SymbolNameUtils.isPrivateOrProtectedName(name)) {
             // Distinguish between normal and private symbols only if there is
             // currently no filter text. Once we get a single character to filter
             // upon, we'll no longer differentiate.
-            completionItem.sortText = this._makeSortText(SortCategory.PrivateSymbol, name);
+            completionItem.sortText = this.makeSortText(
+                detail?.declaredOnBoundObjectOrClass ? SortCategory.DeclaredPrivateSymbol : SortCategory.PrivateSymbol,
+                name
+            );
+        } else if (filter === '' && detail?.declaredOnBoundObjectOrClass) {
+            completionItem.sortText = this.makeSortText(SortCategory.DeclaredSymbol, name);
         } else {
-            completionItem.sortText = this._makeSortText(SortCategory.NormalSymbol, name);
+            completionItem.sortText = this.makeSortText(SortCategory.NormalSymbol, name);
         }
 
         completionItemData.symbolLabel = name;
@@ -1059,6 +1223,8 @@ export class CompletionProvider {
             }
         }
 
+        completionItem.data = this.createCompletionItemData(completionItemData);
+
         completionMap.set(completionItem);
     }
 
@@ -1080,8 +1246,90 @@ export class CompletionProvider {
         };
     }
 
+    // Extension hook for `match`/`case` pattern-slot completions. The base implementation does
+    // nothing (it returns undefined so the normal expression path continues); a subclass
+    // (Pylance) overrides this to provide slot-aware pattern completions. When it returns a
+    // completion map (possibly empty, to deliberately suppress suggestions) the caller short-
+    // circuits and uses it; when it returns undefined the cursor is not in a pattern slot.
+    protected tryGetMatchCasePatternCompletions(
+        _node: ParseNode,
+        _priorWord: string,
+        _priorText: string,
+        _postText: string
+    ): CompletionMap | undefined {
+        return undefined;
+    }
+
+    protected isEnumMember(containingType: ClassType | undefined, name: string) {
+        if (!containingType || !ClassType.isEnumClass(containingType)) {
+            return false;
+        }
+
+        const symbolType = transformTypeForEnumMember(
+            this.evaluator,
+            containingType,
+            name,
+            getInfoReader(this.evaluator)
+        );
+
+        return (
+            symbolType &&
+            isClassInstance(symbolType) &&
+            ClassType.isSameGenericClass(
+                symbolType,
+                TypeBase.isInstance(containingType) ? containingType : ClassType.cloneAsInstance(containingType)
+            ) &&
+            symbolType.priv.literalValue instanceof EnumLiteral
+        );
+    }
+
     private get _fileContents() {
         return this.parseResults?.text ?? '';
+    }
+
+    private _getTypeOfSymbol(symbol: Symbol, detail: SymbolDetail, memberName: string): Type | undefined {
+        const originalType = this.evaluator.getEffectiveTypeOfSymbol(symbol);
+        if (!originalType) {
+            return undefined;
+        }
+
+        // If this completion item came from a member access on an object
+        // (as opposed to a name completion), compute the accessed type
+        // so descriptors report the correct type via __get__.
+        //
+        // Note that we intentionally exclude `property` here. `getTypeDetail` already
+        // understands `property` and includes the `(property)` suffix in hover/docs.
+        if (!detail.boundObjectOrClass || !TypeBase.isInstance(detail.boundObjectOrClass)) {
+            return originalType;
+        }
+
+        if (isProperty(originalType) || !isMaybeDescriptorInstance(originalType, /* requireSetter */ false)) {
+            return originalType;
+        }
+
+        const offset = convertPositionToOffset(this.position, this.parseResults.tokenizerOutput.lines);
+        if (offset === undefined) {
+            return originalType;
+        }
+
+        const node = ParseTreeUtils.findNodeByOffset(this.parseResults.parserOutput.parseTree, offset, this.nodeInfo);
+        const memberAccessNode = node
+            ? ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.MemberAccess)
+            : undefined;
+        if (!memberAccessNode || memberAccessNode.nodeType !== ParseNodeType.MemberAccess) {
+            return originalType;
+        }
+
+        const boundType = this.evaluator.getTypeOfBoundMember(
+            memberAccessNode,
+            detail.boundObjectOrClass,
+            memberName,
+            /* usage */ undefined,
+            /* diag */ undefined,
+            MemberAccessFlags.Default
+        );
+
+        return boundType?.type ?? originalType;
     }
 
     private _getCompletions(): CompletionMap | undefined {
@@ -1090,7 +1338,7 @@ export class CompletionProvider {
             return undefined;
         }
 
-        let node = ParseTreeUtils.findNodeByOffset(this.parseResults.parserOutput.parseTree, offset);
+        let node = ParseTreeUtils.findNodeByOffset(this.parseResults.parserOutput.parseTree, offset, this.nodeInfo);
 
         // See if we're inside a string literal or an f-string statement.
         const token = ParseTreeUtils.getTokenOverlapping(this.parseResults.tokenizerOutput.tokens, offset);
@@ -1133,8 +1381,27 @@ export class CompletionProvider {
                     sawComma = true;
                 }
 
-                const curNode = ParseTreeUtils.findNodeByOffset(this.parseResults.parserOutput.parseTree, curOffset);
+                const curNode = ParseTreeUtils.findNodeByOffset(
+                    this.parseResults.parserOutput.parseTree,
+                    curOffset,
+                    this.nodeInfo
+                );
                 if (curNode && curNode !== initialNode) {
+                    if (
+                        (curNode.nodeType === ParseNodeType.StringList ||
+                            curNode.nodeType === ParseNodeType.String ||
+                            curNode.nodeType === ParseNodeType.FormatString) &&
+                        !(TextRange.contains(curNode, offset) || TextRange.getEnd(curNode) === offset)
+                    ) {
+                        // When completing after something like a trailing comma, ParseTreeUtils may return the
+                        // preceding string node even though the cursor is outside the string.
+                        //
+                        // In that case, intentionally stop scanning and keep the existing context node
+                        // (typically a call). Continuing would only move further into the previous argument and
+                        // could select an even more misleading context.
+                        break;
+                    }
+
                     if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
                         node = curNode;
 
@@ -1380,6 +1647,13 @@ export class CompletionProvider {
             return this.getMemberAccessCompletions(curNode.parent.d.leftExpr, priorWord);
         }
 
+        if (this._isRecoveredPatternMemberAccessName(curNode, priorWord, priorText)) {
+            // Pass curNode (the Name node) rather than a MemberAccess leftExpr: the type evaluator
+            // resolves the Name to the same class type, and no MemberAccess parent exists in this
+            // recovered-pattern context.
+            return this.getMemberAccessCompletions(curNode, priorWord, /* preserveEnumMembers */ true);
+        }
+
         if (curNode.parent.nodeType === ParseNodeType.Except && curNode === curNode.parent.d.name) {
             return undefined;
         }
@@ -1456,6 +1730,20 @@ export class CompletionProvider {
         }
 
         return false;
+    }
+
+    private _isRecoveredPatternMemberAccessName(curNode: NameNode, priorWord: string, priorText: string) {
+        if (priorWord.length > 0 || !priorText.endsWith('.')) {
+            return false;
+        }
+
+        // Parser recovery keeps `case Direction.` as a `PatternCapture > Name`, so detect the
+        // trailing-dot text shape directly instead of waiting for a `MemberAccess` node.
+        if (curNode.parent?.nodeType !== ParseNodeType.PatternCapture) {
+            return false;
+        }
+
+        return !!ParseTreeUtils.getFirstAncestorOrSelfOfKind(curNode.parent, ParseNodeType.Case);
     }
 
     private _isWithinComment(offset: number): boolean {
@@ -1556,7 +1844,8 @@ export class CompletionProvider {
                     const previousOffset = TextRange.getEnd(prevToken);
                     const previousNode = ParseTreeUtils.findNodeByOffset(
                         this.parseResults.parserOutput.parseTree,
-                        previousOffset
+                        previousOffset,
+                        this.nodeInfo
                     );
                     if (
                         previousNode?.nodeType !== ParseNodeType.Error ||
@@ -1589,6 +1878,20 @@ export class CompletionProvider {
                 let completionResults = this._getLiteralCompletions(node, offset, priorWord, priorText, postText);
 
                 if (!completionResults) {
+                    if (
+                        node.d.category === ErrorExpressionCategory.MissingIndexOrSlice &&
+                        this.options.triggerCharacter === '[' &&
+                        !this._isSubscriptInTypeContext(node)
+                    ) {
+                        // When `[` auto-triggers a subscript and there are no literal key
+                        // suggestions, return undefined so the caller produces an empty
+                        // CompletionList instead of noisy generic expression completions.
+                        // Skip this suppression inside type-like contexts (annotations,
+                        // class bases, type aliases) where generic subscripts are the
+                        // expected workflow.
+                        return undefined;
+                    }
+
                     completionResults = this._getExpressionCompletions(node, priorWord, priorText, postText);
                 }
 
@@ -1631,7 +1934,7 @@ export class CompletionProvider {
     private _createSingleKeywordCompletion(keyword: string): CompletionMap {
         const completionItem = CompletionItem.create(keyword);
         completionItem.kind = CompletionItemKind.Keyword;
-        completionItem.sortText = this._makeSortText(SortCategory.LikelyKeyword, keyword);
+        completionItem.sortText = this.makeSortText(SortCategory.LikelyKeyword, keyword);
         const completionMap = new CompletionMap();
         completionMap.set(completionItem);
         return completionMap;
@@ -1683,7 +1986,7 @@ export class CompletionProvider {
             });
 
             this.addNameToCompletions(text, CompletionItemKind.Reference, priorWord, completionMap, {
-                sortText: this._makeSortText(SortCategory.LikelyKeyword, text),
+                sortText: this.makeSortText(SortCategory.LikelyKeyword, text),
             });
             return;
         }
@@ -1734,7 +2037,7 @@ export class CompletionProvider {
         )}`;
 
         this.addNameToCompletions(text, CompletionItemKind.Reference, priorWord, completionMap, {
-            sortText: this._makeSortText(SortCategory.LikelyKeyword, text),
+            sortText: this.makeSortText(SortCategory.LikelyKeyword, text),
         });
     }
 
@@ -1786,7 +2089,7 @@ export class CompletionProvider {
     }
 
     private _getMethodOverloadsCompletions(priorWord: string, partialName: NameNode): CompletionMap | undefined {
-        const symbolTable = getSymbolTable(this.evaluator, partialName);
+        const symbolTable = getSymbolTable(this.evaluator, partialName, this.nodeInfo);
         if (!symbolTable) {
             return undefined;
         }
@@ -1823,7 +2126,11 @@ export class CompletionProvider {
 
         return completionMap;
 
-        function getSymbolTable(evaluator: TypeEvaluator, partialName: NameNode) {
+        function getSymbolTable(
+            evaluator: TypeEvaluator,
+            partialName: NameNode,
+            nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+        ) {
             const enclosingClass = ParseTreeUtils.getEnclosingClass(partialName, false);
             if (enclosingClass) {
                 const classResults = evaluator.getTypeOfClass(enclosingClass);
@@ -1844,7 +2151,7 @@ export class CompletionProvider {
             // For function overload, we only care about top level functions
             const moduleNode = ParseTreeUtils.getEnclosingModule(partialName);
             if (moduleNode) {
-                const moduleScope = AnalyzerNodeInfo.getScope(moduleNode);
+                const moduleScope = AnalyzerNodeInfo.getScope(moduleNode, nodeInfo);
                 return moduleScope?.symbolTable;
             }
 
@@ -1928,6 +2235,67 @@ export class CompletionProvider {
         return this._getExpressionCompletions(parseNode, priorWord, priorText, postText);
     }
 
+    // Returns true when `node` occupies a slot that can only contain an
+    // expression (never the start of a statement), so statement-only keywords
+    // must be suppressed. Biased toward a superset: only well-understood
+    // expression slots return true; anything uncertain returns false so the
+    // full keyword set is offered (it's better to leak a wrong keyword than to
+    // drop a valid one). Keep in sync with the counterpart in
+    // pylance-internal/src/languageService/asyncCompletionProvider.ts.
+    private _isExpressionOnlySlot(node: ParseNode): boolean {
+        const parent = node.parent;
+        if (!parent) {
+            return false;
+        }
+
+        switch (parent.nodeType) {
+            case ParseNodeType.For:
+                // The iterable of `for target in <iterable>` (but not the target).
+                return parent.d.iterableExpr === node;
+
+            case ParseNodeType.ComprehensionFor:
+                // The iterable of a comprehension `... for target in <iterable>`.
+                return parent.d.iterableExpr === node;
+
+            case ParseNodeType.Assignment:
+                // The right-hand side of `target = <value>` (but not the target).
+                return parent.d.rightExpr === node;
+
+            case ParseNodeType.AssignmentExpression:
+                // The right-hand side of a walrus `name := <value>`.
+                return parent.d.rightExpr === node;
+
+            case ParseNodeType.Argument:
+                // Any `ArgumentNode` slot: call arguments, subscript index items,
+                // class bases, and decorator arguments. A statement-only keyword
+                // is never valid in any of these, so suppressing it is always safe.
+                return true;
+
+            case ParseNodeType.Return:
+                // The value of `return <expr>`.
+                return parent.d.expr === node;
+
+            case ParseNodeType.While:
+                // The condition of `while <expr>:`.
+                return parent.d.testExpr === node;
+
+            case ParseNodeType.If:
+                // The condition of `if <expr>:` / `elif <expr>:` (elif is a
+                // nested `IfNode`).
+                return parent.d.testExpr === node;
+
+            case ParseNodeType.Case:
+                // The guard of `case <pattern> if <expr>:`. The guard is a real
+                // expression (not a pattern), but a statement-only keyword is never
+                // valid there. The pattern slot itself is handled separately via
+                // `tryGetMatchCasePatternCompletions`.
+                return parent.d.guardExpr === node;
+
+            default:
+                return false;
+        }
+    }
+
     private _getExpressionCompletions(
         parseNode: ParseNode,
         priorWord: string,
@@ -1935,6 +2303,21 @@ export class CompletionProvider {
         postText: string
     ): CompletionMap | undefined {
         const isIndexArgument = this._isIndexArgument(parseNode);
+
+        // A `match`/`case` pattern slot is not an arbitrary expression: only a restricted
+        // grammar is valid there. When the cursor sits in such a slot, build a tailored
+        // completion set (filtered/narrowed to what can form a pattern) and short-circuit
+        // the generic symbol/keyword dump below. This runs before the numeric-literal and
+        // `with ... as` guards so that pattern slots whose node-resolution lands on a numeric
+        // element (e.g. `case (1, ‸)`, where the cursor resolves to the `1` literal) still get
+        // slot-aware completions. The base implementation returns undefined; Pylance overrides
+        // `tryGetMatchCasePatternCompletions` to provide the slot-aware set (and intentionally
+        // returns undefined when the cursor is inside the numeric literal being typed, e.g.
+        // `case 3.‸`, so the numeric guard below still suppresses completions there).
+        const matchCaseCompletions = this.tryGetMatchCasePatternCompletions(parseNode, priorWord, priorText, postText);
+        if (matchCaseCompletions) {
+            return matchCaseCompletions;
+        }
 
         // If the user typed a "." as part of a number, don't present
         // any completion options.
@@ -1969,21 +2352,28 @@ export class CompletionProvider {
             priorWord,
             priorText,
             postText,
-            /* atArgument */ false,
+            /* atArgument */ this._isInsideContainerArgument(parseNode),
             completionMap
         );
 
         // Add symbols that are in scope.
-        this._addSymbols(parseNode, priorWord, completionMap);
+        this.addSymbols(parseNode, priorWord, completionMap);
 
-        // Add keywords.
-        this._findMatchingKeywords(Keywords.forVersion(this.execEnv.pythonVersion), priorWord).map((keyword) => {
+        this.addAdditionalExpressionCompletions(parseNode, priorWord, completionMap);
+
+        // Add keywords. In slots that can only contain an expression, suppress
+        // keywords that are only valid at the start of a statement (e.g. don't
+        // offer `raise` in the iterable of a `for ... in`).
+        const keywords = this._isExpressionOnlySlot(parseNode)
+            ? Keywords.expressionKeywordsForVersion(this.execEnv.pythonVersion)
+            : Keywords.forVersion(this.execEnv.pythonVersion);
+        this.findMatchingKeywords(keywords, priorWord).map((keyword) => {
             if (completionMap.has(keyword)) {
                 return;
             }
             const completionItem = CompletionItem.create(keyword);
             completionItem.kind = CompletionItemKind.Keyword;
-            completionItem.sortText = this._makeSortText(SortCategory.Keyword, keyword);
+            completionItem.sortText = this.makeSortText(SortCategory.Keyword, keyword);
             completionMap.set(completionItem);
         });
 
@@ -2019,6 +2409,38 @@ export class CompletionProvider {
         );
     }
 
+    private _isInsideContainerArgument(node: ParseNode): boolean {
+        // Walk up from the cursor node. If we reach a collection literal
+        // (list/dict/set/tuple) before reaching the enclosing call's argument,
+        // the cursor is inside a collection value rather than at an argument slot,
+        // so keyword-argument (named parameter) completions should be suppressed.
+        //
+        // A parenthesized single expression (e.g. `f(x=(value))`) is intentionally NOT a
+        // container: it parses as the inner expression, not a Tuple node, so the walk stops
+        // at the Argument/Call. Only an actual tuple literal (which has a comma) counts here.
+        //
+        // This is only consulted when the cursor is inside a call; the caller early-returns
+        // when there is no enclosing call, so a `true` result outside call context is a no-op.
+        let current: ParseNode | undefined = node;
+        while (current) {
+            switch (current.nodeType) {
+                case ParseNodeType.List:
+                case ParseNodeType.Dictionary:
+                case ParseNodeType.Set:
+                case ParseNodeType.Tuple:
+                    return true;
+
+                case ParseNodeType.Argument:
+                case ParseNodeType.Call:
+                    return false;
+            }
+
+            current = current.parent;
+        }
+
+        return false;
+    }
+
     private _addCallArgumentCompletions(
         parseNode: ParseNode,
         priorWord: string,
@@ -2050,10 +2472,9 @@ export class CompletionProvider {
 
             if (comparePositions(this.position, callNameEnd) > 0) {
                 if (!atArgument) {
-                    this._addNamedParameters(signatureInfo, priorWord, completionMap);
+                    this._addNamedParameters(signatureInfo, priorWord, postText, completionMap);
                 }
 
-                // Add literals that apply to this parameter.
                 this._addLiteralValuesForArgument(signatureInfo, priorWord, priorText, postText, completionMap);
             }
         }
@@ -2079,12 +2500,14 @@ export class CompletionProvider {
             }
 
             const paramType = FunctionType.getParamType(type, paramIndex);
-            this._addLiteralValuesForTargetType(paramType, priorWord, priorText, postText, completionMap);
+            this.addLiteralValuesForTargetType(paramType, priorWord, priorText, postText, completionMap);
             return undefined;
         });
     }
 
-    private _addLiteralValuesForTargetType(
+    // Kept in place (rather than relocated above the private accessors) to minimize the subrepo diff.
+    // eslint-disable-next-line @typescript-eslint/member-ordering
+    protected addLiteralValuesForTargetType(
         type: Type,
         priorWord: string,
         priorText: string,
@@ -2092,21 +2515,66 @@ export class CompletionProvider {
         completionMap: CompletionMap
     ) {
         const quoteValue = this._getQuoteInfo(priorWord, priorText);
+
+        // When the cursor is inside a string/bytes token, only offer the
+        // matching literal kind so a `b"..."` context doesn't surface str
+        // literals (and vice versa) for a mixed `Literal[b"x", "y"]`.
+        const insideStringToken = this._stringLiteralContainer !== undefined;
+        const insideBytesToken =
+            insideStringToken && (this._stringLiteralContainer!.flags & StringTokenFlags.Bytes) !== 0;
+
+        // The bytes re-wrap below hard-codes a single-char `b` prefix. A raw-bytes
+        // token (`rb"..."`/`br"..."`, prefixLength > 1) is outside the documented
+        // `b`-only scope; its multi-char prefix would make the replacement range
+        // off by one and leave a dangling prefix char, so don't offer bytes
+        // completions inside it.
+        const insideMultiCharPrefixToken = insideStringToken && this._stringLiteralContainer!.prefixLength > 1;
+
         this._getSubTypesWithLiteralValues(type).forEach((v) => {
-            if (ClassType.isBuiltIn(v, 'str')) {
-                const value = printLiteralValue(v, quoteValue.quoteCharacter);
-                if (quoteValue.stringValue === undefined) {
-                    this.addNameToCompletions(value, CompletionItemKind.Constant, priorWord, completionMap, {
-                        sortText: this._makeSortText(SortCategory.LiteralValue, v.priv.literalValue as string),
-                    });
-                } else {
-                    this._addStringLiteralToCompletions(
-                        value.substr(1, value.length - 2),
-                        quoteValue,
-                        postText,
-                        completionMap
-                    );
+            const isStr = ClassType.isBuiltIn(v, 'str');
+            const isBytes = ClassType.isBuiltIn(v, 'bytes');
+            if (!isStr && !isBytes) {
+                return;
+            }
+
+            if (insideStringToken) {
+                if (isBytes && !insideBytesToken) {
+                    return;
                 }
+                if (isStr && insideBytesToken) {
+                    return;
+                }
+                if (isBytes && insideMultiCharPrefixToken) {
+                    return;
+                }
+            }
+
+            // `printLiteralValue` truncates long literals to a `…`-suffixed form.
+            // That is fine for a label, but the same text is used for the inserted
+            // source here, and inserting `…` would produce invalid, wrong code.
+            // Skip offering the completion rather than writing a broken value.
+            if (isLiteralValueTruncated(v)) {
+                return;
+            }
+
+            // Bytes literals are printed as `b"..."`; the `b` prefix must be
+            // stripped before re-wrapping and accounted for in the range.
+            const prefix = isBytes ? 'b' : '';
+            const value = printLiteralValue(v, quoteValue.quoteCharacter);
+            if (quoteValue.stringValue === undefined) {
+                this.addNameToCompletions(value, CompletionItemKind.Constant, priorWord, completionMap, {
+                    sortText: this.makeSortText(SortCategory.LiteralValue, v.priv.literalValue as string),
+                });
+            } else {
+                this._addStringLiteralToCompletions(
+                    value.substr(prefix.length + 1, value.length - prefix.length - 2),
+                    quoteValue,
+                    postText,
+                    completionMap,
+                    /* detail */ undefined,
+                    prefix,
+                    isBytes ? '"' : quoteValue.quoteCharacter
+                );
             }
         });
     }
@@ -2205,6 +2673,15 @@ export class CompletionProvider {
                     return;
                 }
 
+                // printLiteralValue truncates long str/bytes literals to a `…`-suffixed
+                // form. Since bare-bracket keys are inserted verbatim (str/bytes keys now
+                // route through _addStringLiteralToCompletions with a textEdit), offering
+                // a truncated key would write invalid, wrong source. Skip it (mirrors the
+                // annotation-path guard in addLiteralValuesForTargetType).
+                if (isLiteralValueTruncated(v)) {
+                    return;
+                }
+
                 keys.push(printLiteralValue(v, this.parseResults.tokenizerOutput.predominantSingleQuoteCharacter));
             });
 
@@ -2234,12 +2711,12 @@ export class CompletionProvider {
 
         let startingNode: ParseNode = indexNode.d.leftExpr;
         if (declaration.node) {
-            const scopeRoot = ParseTreeUtils.getEvaluationScopeNode(declaration.node).node;
+            const scopeRoot = ParseTreeUtils.getEvaluationScopeNode(declaration.node, this.nodeInfo).node;
 
             // Find the lowest tree to search the symbol.
             if (
-                ParseTreeUtils.getFileInfoFromNode(startingNode)?.fileUri.equals(
-                    ParseTreeUtils.getFileInfoFromNode(scopeRoot)?.fileUri
+                ParseTreeUtils.getFileInfoFromNode(startingNode, this.nodeInfo)?.fileUri.equals(
+                    ParseTreeUtils.getFileInfoFromNode(scopeRoot, this.nodeInfo)?.fileUri
                 )
             ) {
                 startingNode = scopeRoot;
@@ -2306,6 +2783,51 @@ export class CompletionProvider {
         return Array.from(keys);
     }
 
+    private _isSubscriptInTypeContext(node: ParseNode): boolean {
+        // Standard type annotation contexts: TypeAnnotation, Parameter annotation, return annotation.
+        if (ParseTreeUtils.isWithinTypeAnnotation(node, /* requireQuotedAnnotation */ false)) {
+            return true;
+        }
+
+        // PEP 695 type alias: `type MyAlias = list[...]`
+        if (ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeAlias)) {
+            return true;
+        }
+
+        // Class bases: `class Foo(list[...])` or `class Foo(Generic[...])`
+        let curNode = node.parent;
+        while (curNode) {
+            if (curNode.nodeType === ParseNodeType.Argument && curNode.parent?.nodeType === ParseNodeType.Class) {
+                return true;
+            }
+            if (
+                curNode.nodeType === ParseNodeType.Suite ||
+                curNode.nodeType === ParseNodeType.Function ||
+                curNode.nodeType === ParseNodeType.Lambda
+            ) {
+                break;
+            }
+            curNode = curNode.parent;
+        }
+
+        // Old-style TypeAlias assignment: `MyAlias: TypeAlias = list[...]`
+        const assignmentNode = ParseTreeUtils.getParentNodeOfType<ParseNode>(node, ParseNodeType.Assignment);
+        if (assignmentNode && assignmentNode.nodeType === ParseNodeType.Assignment) {
+            const leftExpr = assignmentNode.d.leftExpr;
+            if (leftExpr.nodeType === ParseNodeType.TypeAnnotation) {
+                const annotation = leftExpr.d.annotation;
+                if (
+                    (annotation.nodeType === ParseNodeType.Name && annotation.d.value === 'TypeAlias') ||
+                    (annotation.nodeType === ParseNodeType.MemberAccess && annotation.d.member.d.value === 'TypeAlias')
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private _getLiteralCompletions(
         parseNode: StringNode | ErrorNode,
         offset: number,
@@ -2314,7 +2836,11 @@ export class CompletionProvider {
         postText: string
     ): CompletionMap | undefined {
         if (this.options.triggerCharacter === '"' || this.options.triggerCharacter === "'") {
-            if (parseNode.start !== offset - 1) {
+            // A prefixed string (e.g. b"" or r"") starts at the prefix, so the opening quote is
+            // offset by the prefix length. Account for that so typing the opening quote of a
+            // b"..." still triggers literal completions (matching plain str behavior).
+            const prefixLength = parseNode.nodeType === ParseNodeType.String ? parseNode.d.token.prefixLength : 0;
+            if (parseNode.start + prefixLength !== offset - 1) {
                 // If completion is triggered by typing " or ', it must be the one that starts a string
                 // literal. In another word, it can't be something inside of another string or comment
                 return undefined;
@@ -2341,6 +2867,105 @@ export class CompletionProvider {
             return false;
         }
 
+        // a: DictType = { .... }
+        // a[/* here */] or a['/* here */'] or a[variable/*here*/]
+        // Check subscript/index context BEFORE assignment context to prioritize TypedDict keys
+        const argument = parentAndChild.parent;
+        if (argument.nodeType === ParseNodeType.Argument && argument.parent?.nodeType === ParseNodeType.Index) {
+            const priorTextInString = parseNode.nodeType === ParseNodeType.String ? priorText : '';
+            if (
+                this._tryAddTypedDictKeysFromIndexer(
+                    argument.parent,
+                    priorWord,
+                    priorTextInString,
+                    postText,
+                    completionMap
+                )
+            ) {
+                return true;
+            }
+
+            const quoteInfo = this._getQuoteInfo(priorWord, priorTextInString);
+            const keys = this._getIndexKeys(argument.parent, parseNode);
+
+            // When the cursor is inside a string/bytes token, only offer the matching
+            // literal kind so a `b"..."` context doesn't surface str keys (and vice versa).
+            const insideBytesToken =
+                parseNode.nodeType === ParseNodeType.String &&
+                this._stringLiteralContainer !== undefined &&
+                (this._stringLiteralContainer.flags & StringTokenFlags.Bytes) !== 0;
+
+            // The bytes re-wrap below hard-codes a single-char `b` prefix. A raw-bytes
+            // token (`rb"..."`/`br"..."`, prefixLength > 1) is outside the documented
+            // `b`-only scope; its multi-char prefix would make the replacement range
+            // off by one and leave a dangling prefix char, so don't offer bytes keys
+            // inside it. Mirrors the annotation-path guard.
+            const insideMultiCharPrefixToken =
+                parseNode.nodeType === ParseNodeType.String &&
+                this._stringLiteralContainer !== undefined &&
+                this._stringLiteralContainer.prefixLength > 1;
+
+            let keyFound = false;
+            for (const key of keys) {
+                if (completionMap.has(key)) {
+                    // Don't add key if it already exists in the completion.
+                    // ex) key = "dictKey"
+                    //     dict[key] = 1
+                    //     print(dict[<key will come from symbol table provider>]))
+                    continue;
+                }
+
+                // Index keys are printed via printLiteralValue (str as `"..."`, bytes as
+                // `b"..."`) or collected as raw source text. Recognize an optional bytes
+                // prefix; f/r/u prefixes never denote a distinct completable value here
+                // (f-strings can't be keys/Literals, and raw/unicode normalize to str).
+                const isBytesLiteral = /^[bB]["'].*["']$/.test(key);
+                const stringLiteral = isBytesLiteral || /^["'].*["']$/.test(key);
+                if (parseNode.nodeType === ParseNodeType.String && !stringLiteral) {
+                    continue;
+                }
+
+                if (parseNode.nodeType === ParseNodeType.String) {
+                    if (isBytesLiteral && !insideBytesToken) {
+                        continue;
+                    }
+                    if (!isBytesLiteral && insideBytesToken) {
+                        continue;
+                    }
+                    if (isBytesLiteral && insideMultiCharPrefixToken) {
+                        continue;
+                    }
+                }
+
+                keyFound = true;
+                if (stringLiteral) {
+                    // Bytes keys carry a `b`/`B` prefix; strip it (and the quotes) and
+                    // re-wrap using the key's own quote so raw/embedded quotes stay valid.
+                    const prefix = isBytesLiteral ? key[0] : '';
+                    const keyWithoutQuote = key.substr(prefix.length + 1, key.length - prefix.length - 2);
+
+                    this._addStringLiteralToCompletions(
+                        keyWithoutQuote,
+                        quoteInfo,
+                        postText,
+                        completionMap,
+                        indexValueDetail,
+                        prefix,
+                        isBytesLiteral ? key[prefix.length] : undefined
+                    );
+                } else {
+                    this.addNameToCompletions(key, CompletionItemKind.Constant, priorWord, completionMap, {
+                        sortText: this.makeSortText(SortCategory.LiteralValue, key),
+                        itemDetail: indexValueDetail,
+                    });
+                }
+            }
+
+            if (keyFound) {
+                return true;
+            }
+        }
+
         // See if the type evaluator can determine the expected type for this node.
         // ex) a: Literal["str"] = /* here */
         const nodeForExpectedType =
@@ -2357,15 +2982,17 @@ export class CompletionProvider {
 
         if (nodeForExpectedType) {
             const expectedTypeResult = this.evaluator.getExpectedType(nodeForExpectedType);
-            if (expectedTypeResult && containsLiteralType(expectedTypeResult.type)) {
-                this._addLiteralValuesForTargetType(
-                    expectedTypeResult.type,
+            if (
+                expectedTypeResult &&
+                this._addLiteralValuesForExpectedTypes(
+                    nodeForExpectedType,
+                    expectedTypeResult,
                     priorWord,
                     priorText,
                     postText,
                     completionMap
-                );
-
+                )
+            ) {
                 if (!inCallArg) {
                     return true;
                 }
@@ -2405,65 +3032,6 @@ export class CompletionProvider {
             }
         }
 
-        // a: DictType = { .... }
-        // a[/* here */] or a['/* here */'] or a[variable/*here*/]
-        const argument = parentAndChild.parent;
-        if (argument.nodeType === ParseNodeType.Argument && argument.parent?.nodeType === ParseNodeType.Index) {
-            const priorTextInString = parseNode.nodeType === ParseNodeType.String ? priorText : '';
-            if (
-                this._tryAddTypedDictKeysFromIndexer(
-                    argument.parent,
-                    priorWord,
-                    priorTextInString,
-                    postText,
-                    completionMap
-                )
-            ) {
-                return true;
-            }
-
-            const quoteInfo = this._getQuoteInfo(priorWord, priorTextInString);
-            const keys = this._getIndexKeys(argument.parent, parseNode);
-
-            let keyFound = false;
-            for (const key of keys) {
-                if (completionMap.has(key)) {
-                    // Don't add key if it already exists in the completion.
-                    // ex) key = "dictKey"
-                    //     dict[key] = 1
-                    //     print(dict[<key will come from symbol table provider>]))
-                    continue;
-                }
-
-                const stringLiteral = /^["|'].*["|']$/.test(key);
-                if (parseNode.nodeType === ParseNodeType.String && !stringLiteral) {
-                    continue;
-                }
-
-                keyFound = true;
-                if (stringLiteral) {
-                    const keyWithoutQuote = key.substr(1, key.length - 2);
-
-                    this._addStringLiteralToCompletions(
-                        keyWithoutQuote,
-                        quoteInfo,
-                        postText,
-                        completionMap,
-                        indexValueDetail
-                    );
-                } else {
-                    this.addNameToCompletions(key, CompletionItemKind.Constant, priorWord, completionMap, {
-                        sortText: this._makeSortText(SortCategory.LiteralValue, key),
-                        itemDetail: indexValueDetail,
-                    });
-                }
-            }
-
-            if (keyFound) {
-                return true;
-            }
-        }
-
         // if c == "/* here */"
         const comparison = parentAndChild.parent;
         const supportedOperators = [OperatorType.Assign, OperatorType.Equals, OperatorType.NotEquals];
@@ -2472,9 +3040,23 @@ export class CompletionProvider {
             supportedOperators.includes(comparison.d.operator)
         ) {
             const type = this.evaluator.getType(comparison.d.leftExpr);
-            if (type && containsLiteralType(type)) {
-                this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
-                return true;
+            if (type) {
+                if (containsLiteralType(type)) {
+                    this.addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
+                    return true;
+                }
+
+                const enumValueLiteralType = getStringLiteralValueTypeFromEnumType(this.evaluator, type);
+                if (enumValueLiteralType) {
+                    this.addLiteralValuesForTargetType(
+                        enumValueLiteralType,
+                        priorWord,
+                        priorText,
+                        postText,
+                        completionMap
+                    );
+                    return true;
+                }
             }
         }
 
@@ -2486,45 +3068,13 @@ export class CompletionProvider {
         ) {
             const type = this.evaluator.getType(assignmentExpression.d.name);
             if (type && containsLiteralType(type)) {
-                this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
+                this.addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
             }
         }
 
-        // For now, we only support simple cases. no complex pattern matching.
-        // match c:
-        //     case /* here */
-        const caseNode = parentAndChild.parent;
-        if (
-            caseNode.nodeType === ParseNodeType.Case &&
-            caseNode.d.pattern.nodeType === ParseNodeType.Error &&
-            caseNode.d.pattern.d.category === ErrorExpressionCategory.MissingPattern &&
-            caseNode.d.suite === parentAndChild.child &&
-            caseNode.parent?.nodeType === ParseNodeType.Match
-        ) {
-            const type = this.evaluator.getType(caseNode.parent.d.expr);
-            if (type && containsLiteralType(type)) {
-                this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
-                return true;
-            }
-        }
-
-        // match c:
-        //     case "/* here */"
-        //     case Sym/*here*/
-        const patternLiteral = parentAndChild.parent;
-        if (
-            (patternLiteral.nodeType === ParseNodeType.PatternLiteral ||
-                patternLiteral.nodeType === ParseNodeType.PatternCapture) &&
-            patternLiteral.parent?.nodeType === ParseNodeType.PatternAs &&
-            patternLiteral.parent.parent?.nodeType === ParseNodeType.Case &&
-            patternLiteral.parent.parent.parent?.nodeType === ParseNodeType.Match
-        ) {
-            const type = this.evaluator.getType(patternLiteral.parent.parent.parent.d.expr);
-            if (type && containsLiteralType(type)) {
-                this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
-                return true;
-            }
+        if (this._tryAddMatchCaseLiteralCompletions(parentAndChild, priorWord, priorText, postText, completionMap)) {
+            return true;
         }
 
         if (parseNode.nodeType === ParseNodeType.String) {
@@ -2535,6 +3085,45 @@ export class CompletionProvider {
         }
 
         return false;
+
+        function getStringLiteralValueTypeFromEnumType(evaluator: TypeEvaluator, type: Type): Type | undefined {
+            const enumValueTypes: Type[] = [];
+
+            doForEachSubtype(type, (subtype) => {
+                if (!isClassInstance(subtype) || !ClassType.isEnumClass(subtype)) {
+                    return;
+                }
+
+                const enumClassType = ClassType.cloneAsInstantiable(subtype);
+                const enumMemberSymbols: SymbolTable = new Map<string, Symbol>();
+                getMembersForClass(enumClassType, enumMemberSymbols, /* includeInstanceVars */ false);
+
+                enumMemberSymbols.forEach((_, name) => {
+                    const enumMemberType = transformTypeForEnumMember(
+                        evaluator,
+                        enumClassType,
+                        name,
+                        getInfoReader(evaluator)
+                    );
+                    if (!enumMemberType || !isClassInstance(enumMemberType)) {
+                        return;
+                    }
+
+                    const literalValue = enumMemberType.priv.literalValue;
+                    if (!(literalValue instanceof EnumLiteral)) {
+                        return;
+                    }
+
+                    doForEachSubtype(literalValue.itemType, (valueSubtype) => {
+                        if (isClassInstance(valueSubtype) && typeof valueSubtype.priv.literalValue === 'string') {
+                            enumValueTypes.push(valueSubtype);
+                        }
+                    });
+                });
+            });
+
+            return enumValueTypes.length > 0 ? combineTypes(enumValueTypes) : undefined;
+        }
 
         function getParentSkippingStringList(node: ParseNode): { parent: ParseNode; child: ParseNode } | undefined {
             if (!node.parent) {
@@ -2555,6 +3144,176 @@ export class CompletionProvider {
 
             return { parent: node.parent.parent, child: node.parent };
         }
+    }
+
+    private _tryAddMatchCaseLiteralCompletions(
+        parentAndChild: { parent: ParseNode; child: ParseNode },
+        priorWord: string,
+        priorText: string,
+        postText: string,
+        completionMap: CompletionMap
+    ): boolean {
+        // Basic literal-completion support for an empty case slot (`case /* here */`) or a `case`
+        // pattern that is already a literal or a capture name (`case "..."` / `case Sym`). Richer
+        // slot-aware pattern completions are provided by the subclass override of
+        // `tryGetMatchCasePatternCompletions`.
+        // match c:
+        //     case /* here */
+        //     case "/* here */"
+        //     case Sym/*here*/
+
+        const parent = parentAndChild.parent;
+        let matchNode: MatchNode | undefined;
+        let caseNode: CaseNode | undefined;
+
+        if (
+            parent.nodeType === ParseNodeType.Case &&
+            parent.d.pattern.nodeType === ParseNodeType.Error &&
+            parent.d.pattern.d.category === ErrorExpressionCategory.MissingPattern &&
+            parent.d.suite === parentAndChild.child &&
+            parent.parent?.nodeType === ParseNodeType.Match
+        ) {
+            // Empty case slot: `case /* here */`. Offer the subject type's literal values.
+            matchNode = parent.parent;
+            caseNode = parent;
+        } else if (
+            (parent.nodeType === ParseNodeType.PatternLiteral || parent.nodeType === ParseNodeType.PatternCapture) &&
+            parent.parent?.nodeType === ParseNodeType.PatternAs &&
+            parent.parent.parent?.nodeType === ParseNodeType.Case &&
+            parent.parent.parent.parent?.nodeType === ParseNodeType.Match
+        ) {
+            matchNode = parent.parent.parent.parent;
+            caseNode = parent.parent.parent;
+        } else {
+            return false;
+        }
+
+        const type = this.getFilteredMatchSubjectTypeForCaseCompletions(matchNode, caseNode);
+        if (!type) {
+            return false;
+        }
+
+        if (containsLiteralType(type)) {
+            this.addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
+            return true;
+        }
+
+        return false;
+    }
+
+    private _addLiteralValuesForExpectedTypes(
+        expressionNode: ParseNode,
+        expectedTypeResult: ExpectedTypeResult,
+        priorWord: string,
+        priorText: string,
+        postText: string,
+        completionMap: CompletionMap
+    ): boolean {
+        if (!this._canUseExpectedTypeForLiteralCompletion(expressionNode, expectedTypeResult.node)) {
+            return false;
+        }
+
+        let addedLiteralValues = false;
+
+        for (const candidateType of expectedTypeResult.candidates) {
+            if (!containsLiteralType(candidateType)) {
+                continue;
+            }
+
+            this.addLiteralValuesForTargetType(candidateType, priorWord, priorText, postText, completionMap);
+            addedLiteralValues = true;
+        }
+
+        return addedLiteralValues;
+    }
+
+    private _canUseExpectedTypeForLiteralCompletion(expressionNode: ParseNode, expectedTypeNode: ParseNode): boolean {
+        return expressionNode === expectedTypeNode;
+    }
+
+    // Kept in place (rather than relocated above the private accessors) to minimize the subrepo diff.
+    // eslint-disable-next-line @typescript-eslint/member-ordering
+    protected getFilteredMatchSubjectTypeForCaseCompletions(
+        matchNode: MatchNode,
+        currentCaseNode: CaseNode
+    ): Type | undefined {
+        const getPriorCaseStringLiteralValues = () => {
+            const values = new Set<string>();
+
+            const currentIndex = matchNode.d.cases.findIndex((c) => c === currentCaseNode);
+            if (currentIndex <= 0) {
+                return values;
+            }
+
+            for (let i = 0; i < currentIndex; i++) {
+                const caseNode = matchNode.d.cases[i];
+
+                // Be conservative: a guard means the case may not actually match.
+                if (caseNode.d.guardExpr) {
+                    continue;
+                }
+
+                addStringLiteralValuesFromPattern(caseNode.d.pattern, values);
+            }
+
+            return values;
+        };
+
+        const addStringLiteralValuesFromPattern = (pattern: ParseNode, values: Set<string>) => {
+            if (pattern.nodeType === ParseNodeType.PatternLiteral) {
+                addStringLiteralValuesFromExpression(pattern.d.expr, values);
+                return;
+            }
+
+            if (pattern.nodeType === ParseNodeType.PatternAs) {
+                pattern.d.orPatterns.forEach((orPattern) => {
+                    addStringLiteralValuesFromPattern(orPattern, values);
+                });
+            }
+        };
+
+        const addStringLiteralValuesFromExpression = (expr: ExpressionNode, values: Set<string>) => {
+            if (expr.nodeType === ParseNodeType.String) {
+                values.add(expr.d.value);
+                return;
+            }
+
+            if (expr.nodeType === ParseNodeType.StringList) {
+                // Be conservative: only treat it as covered if all pieces are plain string literals.
+                if (expr.d.strings.every((s) => s.nodeType === ParseNodeType.String)) {
+                    values.add(expr.d.strings.map((s) => s.d.value).join(''));
+                }
+            }
+        };
+
+        const type = this.evaluator.getType(matchNode.d.expr);
+        if (!type || !containsLiteralType(type)) {
+            return type;
+        }
+
+        const priorCaseLiteralValues = getPriorCaseStringLiteralValues();
+        if (priorCaseLiteralValues.size === 0) {
+            return type;
+        }
+
+        const remainingSubtypes: Type[] = [];
+        doForEachSubtype(type, (subtype) => {
+            if (
+                isClassInstance(subtype) &&
+                isLiteralType(subtype) &&
+                ClassType.isBuiltIn(subtype, 'str') &&
+                typeof subtype.priv.literalValue === 'string' &&
+                priorCaseLiteralValues.has(subtype.priv.literalValue)
+            ) {
+                return;
+            }
+
+            remainingSubtypes.push(subtype);
+        });
+
+        // If we've filtered everything out, don't offer any redundant literal completions.
+        // Other (non-literal) completion behaviors can still contribute suggestions.
+        return remainingSubtypes.length > 0 ? combineTypes(remainingSubtypes) : undefined;
     }
 
     private _tryAddTypedDictKeys(
@@ -2582,19 +3341,53 @@ export class CompletionProvider {
         const quoteInfo = this._getQuoteInfo(priorWord, priorText);
         const excludes = new Set(existingKeys);
 
+        // Collect the value type(s) for each key across all TypedDict subtypes. A key
+        // shared by a union of TypedDicts must advertise the union of its value types
+        // (that is the type produced by actually subscripting the union), not just the
+        // first subtype's value type.
+        const keyValueTypes = new Map<string, Type[]>();
         typedDicts.forEach((typedDict) => {
             getTypedDictMembersForClass(this.evaluator, typedDict, /* allowNarrowed */ true).knownItems.forEach(
-                (_, key) => {
+                (entry, key) => {
                     // Unions of TypedDicts may define the same key.
                     if (excludes.has(key) || completionMap.has(key)) {
                         return;
                     }
 
-                    excludes.add(key);
+                    let valueTypes = keyValueTypes.get(key);
+                    if (!valueTypes) {
+                        valueTypes = [];
+                        keyValueTypes.set(key, valueTypes);
+                    }
 
-                    this._addStringLiteralToCompletions(key, quoteInfo, postText, completionMap);
+                    valueTypes.push(entry.valueType);
                 }
             );
+        });
+
+        keyValueTypes.forEach((valueTypes, key) => {
+            // Short-circuit before the (relatively expensive) printType call on this hot
+            // path: skip keys that _addStringLiteralToCompletions would immediately drop,
+            // either because the typed prefix filters them out or because the quoted label
+            // already exists. These guards mirror the early returns in that helper.
+            if (!StringUtils.isPatternInSymbol(quoteInfo.filterText || '', key)) {
+                return;
+            }
+            const quotedLabel = `${quoteInfo.quoteCharacter}${key}${quoteInfo.quoteCharacter}`;
+            if (completionMap.has(quotedLabel)) {
+                return;
+            }
+
+            const valueType = valueTypes.length === 1 ? valueTypes[0] : combineTypes(valueTypes);
+            // The value type is surfaced as the completion item's detail. It must be set
+            // eagerly here: TypedDict key items carry no symbol, so resolveCompletionItem
+            // bails early and never lazily fills detail.
+            const valueTypeText = this.evaluator.printType(valueType, {
+                enforcePythonSyntax: true,
+                expandTypeAlias: false,
+            });
+
+            this._addStringLiteralToCompletions(key, quoteInfo, postText, completionMap, valueTypeText);
         });
 
         return true;
@@ -2723,13 +3516,20 @@ export class CompletionProvider {
         quoteInfo: QuoteInfo,
         postText: string | undefined,
         completionMap: CompletionMap,
-        detail?: string
+        detail?: string,
+        prefix = '',
+        valueQuoteCharacter?: string
     ) {
         if (!StringUtils.isPatternInSymbol(quoteInfo.filterText || '', value)) {
             return;
         }
 
-        const valueWithQuotes = `${quoteInfo.quoteCharacter}${value}${quoteInfo.quoteCharacter}`;
+        // The quote used to wrap the inserted literal must match how `value` was
+        // escaped. Bytes literals are always printed double-quoted (escaping only
+        // `"`), so they must be re-wrapped in double quotes even inside a single-
+        // quoted token; otherwise an embedded `'` would produce invalid source.
+        const wrapQuoteCharacter = valueQuoteCharacter ?? quoteInfo.quoteCharacter;
+        const valueWithQuotes = `${prefix}${wrapQuoteCharacter}${value}${wrapQuoteCharacter}`;
         if (completionMap.has(valueWithQuotes)) {
             return;
         }
@@ -2737,20 +3537,34 @@ export class CompletionProvider {
         const completionItem = CompletionItem.create(valueWithQuotes);
 
         completionItem.kind = CompletionItemKind.Constant;
-        completionItem.sortText = this._makeSortText(SortCategory.LiteralValue, valueWithQuotes);
+        completionItem.sortText = this.makeSortText(SortCategory.LiteralValue, valueWithQuotes);
+
+        // When the inserted literal is wrapped in a different quote than the
+        // surrounding token (bytes are always double-quoted, even inside a
+        // single-quoted `b'...'` token), the label/insert text uses `"` while the
+        // text under the cursor uses `'`. The client fuzzy-filters the typed
+        // single-quoted text against the double-quoted label and would drop the
+        // item. Provide a filterText that matches the surrounding token's quote so
+        // the completion survives client-side filtering.
+        if (wrapQuoteCharacter !== quoteInfo.quoteCharacter) {
+            completionItem.filterText = `${prefix}${quoteInfo.quoteCharacter}${value}${quoteInfo.quoteCharacter}`;
+        }
+
         let rangeStartCol = this.position.character;
         if (quoteInfo.stringValue !== undefined) {
-            rangeStartCol -= quoteInfo.stringValue.length + 1;
+            rangeStartCol -= quoteInfo.stringValue.length + 1 + prefix.length;
         } else if (quoteInfo.priorWord) {
             rangeStartCol -= quoteInfo.priorWord.length;
         }
 
         // If the text after the insertion point is the closing quote,
-        // replace it.
+        // extend the replacement range so we don't end up with a duplicated
+        // quote after the completion is applied.
         let rangeEndCol = this.position.character;
         if (postText !== undefined) {
-            if (postText.startsWith(quoteInfo.quoteCharacter)) {
-                rangeEndCol++;
+            const overlap = detectTrailingOverlap(quoteInfo.quoteCharacter, postText, 'adjacent');
+            if (overlap) {
+                rangeEndCol += overlap.consumedChars;
             }
         }
 
@@ -2776,25 +3590,21 @@ export class CompletionProvider {
 
         // Access the imported module information, which is hanging
         // off the ImportFromNode.
-        const importInfo = AnalyzerNodeInfo.getImportInfo(importFromNode.d.module);
+        const importFromTarget = getImportFromTarget(this.program, importFromNode);
+        const importInfo = importFromTarget.importInfo;
         if (!importInfo) {
             return undefined;
         }
 
         const completionMap = new CompletionMap();
-        const resolvedPath =
-            importInfo.resolvedUris.length > 0
-                ? importInfo.resolvedUris[importInfo.resolvedUris.length - 1]
-                : Uri.empty();
 
-        const parseResults = this.program.getParseResults(resolvedPath);
-        if (!parseResults) {
+        if (!importFromTarget.hasParseResults) {
             // Add the implicit imports.
             this._addImplicitImportsToCompletion(importInfo, importFromNode, priorWord, completionMap);
             return completionMap;
         }
 
-        const symbolTable = AnalyzerNodeInfo.getScope(parseResults.parserOutput.parseTree)?.symbolTable;
+        const symbolTable = importFromTarget.symbolTable;
         if (!symbolTable) {
             return completionMap;
         }
@@ -2841,7 +3651,9 @@ export class CompletionProvider {
         });
     }
 
-    private _findMatchingKeywords(keywordList: string[], partialMatch: string): string[] {
+    // Kept in place (rather than relocated above the private accessors) to minimize the subrepo diff.
+    // eslint-disable-next-line @typescript-eslint/member-ordering
+    protected findMatchingKeywords(keywordList: string[], partialMatch: string): string[] {
         return keywordList.filter((keyword) => {
             if (partialMatch) {
                 return StringUtils.isPatternInSymbol(partialMatch, keyword);
@@ -2851,7 +3663,12 @@ export class CompletionProvider {
         });
     }
 
-    private _addNamedParameters(signatureInfo: CallSignatureInfo, priorWord: string, completionMap: CompletionMap) {
+    private _addNamedParameters(
+        signatureInfo: CallSignatureInfo,
+        priorWord: string,
+        postText: string,
+        completionMap: CompletionMap
+    ) {
         const argNameSet = new Set<string>();
 
         signatureInfo.signatures.forEach((signature) => {
@@ -2886,13 +3703,17 @@ export class CompletionProvider {
                 const completionItem = CompletionItem.create(label);
                 completionItem.kind = CompletionItemKind.Variable;
 
-                const completionItemData: CompletionItemData = {
-                    uri: this.fileUri.toString(),
-                    position: this.position,
-                };
-                completionItem.data = toLSPAny(completionItemData);
-                completionItem.sortText = this._makeSortText(SortCategory.NamedParameter, argName);
+                completionItem.data = this.createCompletionItemData({});
+                completionItem.sortText = this.makeSortText(SortCategory.NamedParameter, argName);
                 completionItem.filterText = argName;
+
+                // If the text immediately after the cursor already starts with
+                // `=`, extend the replacement range so we don't end up with
+                // `argName==` after the completion is applied (pylance-release#4808).
+                const overlap = detectTrailingOverlap('=', postText, 'adjacent');
+                if (overlap) {
+                    completionItem.textEdit = this.createReplaceEditWithOverlap(priorWord, overlap, label);
+                }
 
                 completionMap.set(completionItem);
             }
@@ -2918,17 +3739,24 @@ export class CompletionProvider {
         });
     }
 
-    private _addSymbols(node: ParseNode, priorWord: string, completionMap: CompletionMap) {
+    // Kept in place (rather than relocated above the private accessors) to minimize the subrepo diff.
+    // eslint-disable-next-line @typescript-eslint/member-ordering
+    protected addSymbols(
+        node: ParseNode,
+        priorWord: string,
+        completionMap: CompletionMap,
+        includeSymbolCallback?: (symbol: Symbol, name: string) => boolean
+    ) {
         let curNode: ParseNode | undefined = node;
 
         while (curNode) {
             // Does this node have a scope associated with it?
-            let scope = getScopeForNode(curNode);
+            let scope = getScopeForNode(curNode, this.nodeInfo);
             if (scope) {
                 while (scope) {
                     this._addSymbolsForSymbolTable(
                         scope.symbolTable,
-                        () => true,
+                        includeSymbolCallback ?? (() => true),
                         priorWord,
                         node,
                         /* isInImport */ false,
@@ -2946,15 +3774,21 @@ export class CompletionProvider {
                             if (isInstantiableClass(baseClass)) {
                                 this._addSymbolsForSymbolTable(
                                     ClassType.getSymbolTable(baseClass),
-                                    (symbol) => {
+                                    (symbol, name) => {
                                         if (!symbol.isClassMember()) {
                                             return false;
                                         }
 
                                         // Return only variables, not methods or classes.
-                                        return symbol
-                                            .getDeclarations()
-                                            .some((decl) => decl.type === DeclarationType.Variable);
+                                        if (
+                                            !symbol
+                                                .getDeclarations()
+                                                .some((decl) => decl.type === DeclarationType.Variable)
+                                        ) {
+                                            return false;
+                                        }
+
+                                        return includeSymbolCallback ? includeSymbolCallback(symbol, name) : true;
                                     },
                                     priorWord,
                                     node,
@@ -2985,12 +3819,19 @@ export class CompletionProvider {
         const insideTypeAnnotation =
             ParseTreeUtils.isWithinAnnotationComment(node) ||
             ParseTreeUtils.isWithinTypeAnnotation(node, /* requireQuotedAnnotation */ false);
+        // `boundSymbolTable` holds only the fields declared directly on the leaf `boundObjectOrClass`,
+        // whereas `symbolTable` is the merged-MRO table that also includes inherited members. The
+        // declared-vs-inherited check below relies on this distinction, so callers must keep passing the
+        // leaf type here even if they iterate per-MRO-class; otherwise inherited members would be
+        // mis-bucketed as directly declared.
+        const boundSymbolTable = boundObjectOrClass ? ClassType.getSymbolTable(boundObjectOrClass) : undefined;
         symbolTable.forEach((symbol, name) => {
             // If there are no declarations or the symbol is not
             // exported from this scope, don't include it in the
             // suggestion list unless we are in the same file.
             const hidden =
-                !isVisibleExternally(symbol) && !symbol.getDeclarations().some((d) => isDefinedInFile(d, this.fileUri));
+                !isVisibleExternally(symbol) &&
+                !symbol.getDeclarations().some((d) => isDefinedInFile(d, this.fileUri, this.nodeInfo));
             if (!hidden && includeSymbolCallback(symbol, name)) {
                 // Don't add a symbol more than once. It may have already been
                 // added from an inner scope's symbol table.
@@ -2998,8 +3839,10 @@ export class CompletionProvider {
                     // Skip func parens for classes when not a direct assignment or an argument (passed as a value)
                     const skipForClass = !this._shouldShowAutoParensForClass(symbol, node);
                     const skipForDecorator = node.parent?.nodeType === ParseNodeType.Decorator;
+                    const declaredOnBoundObjectOrClass = boundSymbolTable?.has(name);
                     this.addSymbol(name, symbol, priorWord, completionMap, {
                         boundObjectOrClass,
+                        declaredOnBoundObjectOrClass,
                         funcParensDisabled: isInImport || insideTypeAnnotation || skipForClass || skipForDecorator,
                         extraCommitChars: !isInImport && !!priorWord,
                     });
@@ -3035,7 +3878,9 @@ export class CompletionProvider {
         );
     }
 
-    private _makeSortText(sortCategory: SortCategory, name: string, autoImportText = ''): string {
+    // Kept in place (rather than relocated above the private accessors) to minimize the subrepo diff.
+    // eslint-disable-next-line @typescript-eslint/member-ordering
+    protected makeSortText(sortCategory: SortCategory, name: string, autoImportText = ''): string {
         const recentListIndex = this._getRecentListIndex(name, autoImportText);
 
         // If the label is in the recent list, modify the category
@@ -3047,6 +3892,8 @@ export class CompletionProvider {
                 sortCategory = SortCategory.RecentImportModuleName;
             } else if (
                 sortCategory === SortCategory.Keyword ||
+                sortCategory === SortCategory.DeclaredSymbol ||
+                sortCategory === SortCategory.DeclaredPrivateSymbol ||
                 sortCategory === SortCategory.NormalSymbol ||
                 sortCategory === SortCategory.PrivateSymbol ||
                 sortCategory === SortCategory.DunderSymbol
@@ -3149,14 +3996,7 @@ export class CompletionProvider {
     }
 
     private _getImportModuleCompletions(node: ModuleNameNode): CompletionMap {
-        const moduleDescriptor: ImportedModuleDescriptor = {
-            leadingDots: node.d.leadingDots,
-            hasTrailingDot: node.d.hasTrailingDot || false,
-            nameParts: node.d.nameParts.map((part) => part.d.value),
-            importedSymbols: new Set<string>(),
-        };
-
-        const completions = this.importResolver.getCompletionSuggestions(this.fileUri, this.execEnv, moduleDescriptor);
+        const completions = getModuleNameCompletionSuggestions(this.importResolver, this.fileUri, this.execEnv, node);
 
         const completionMap = new CompletionMap();
 
@@ -3171,13 +4011,16 @@ export class CompletionProvider {
             const keyword = 'import';
             const completionItem = CompletionItem.create(keyword);
             completionItem.kind = CompletionItemKind.Keyword;
-            completionItem.sortText = this._makeSortText(SortCategory.Keyword, keyword);
+            completionItem.sortText = this.makeSortText(SortCategory.Keyword, keyword);
             completionMap.set(completionItem);
         }
 
         completions.forEach((modulePath, completionName) => {
+            const sortCategory = completionName.startsWith('_')
+                ? SortCategory.PrivateSymbol
+                : SortCategory.ImportModuleName;
             this.addNameToCompletions(completionName, CompletionItemKind.Module, '', completionMap, {
-                sortText: this._makeSortText(SortCategory.ImportModuleName, completionName),
+                sortText: this.makeSortText(sortCategory, completionName),
                 moduleUri: modulePath,
             });
         });
@@ -3189,24 +4032,6 @@ export class CompletionProvider {
         // Do cheap check using only nodes that will cover 99.9% cases
         // before doing more expensive type evaluation.
         return decl.isMethod && decl.node.d.decorators.length > 0;
-    }
-
-    private _isEnumMember(containingType: ClassType | undefined, name: string) {
-        if (!containingType || !ClassType.isEnumClass(containingType)) {
-            return false;
-        }
-
-        const symbolType = transformTypeForEnumMember(this.evaluator, containingType, name);
-
-        return (
-            symbolType &&
-            isClassInstance(symbolType) &&
-            ClassType.isSameGenericClass(
-                symbolType,
-                TypeBase.isInstance(containingType) ? containingType : ClassType.cloneAsInstance(containingType)
-            ) &&
-            symbolType.priv.literalValue instanceof EnumLiteral
-        );
     }
 }
 

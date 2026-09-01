@@ -1,8 +1,8 @@
 import weakref
 from collections.abc import Callable, Iterable, Sequence
 from types import FrameType, TracebackType
-from typing import Any, ClassVar, Generic, TypeVar, overload
-from typing_extensions import ParamSpec, Self, disjoint_base
+from typing import Any, ClassVar, Generic, ParamSpec, TypeVar, overload
+from typing_extensions import Self, disjoint_base
 
 import greenlet
 from gevent._types import _Loop
@@ -19,6 +19,7 @@ class Greenlet(greenlet.greenlet, Generic[_P, _T]):
     args: tuple[Any, ...]
     kwargs: dict[str, Any]
     value: _T | None
+
     @overload
     def __init__(
         self: Greenlet[_P, _T],  # pyright: ignore[reportInvalidTypeVarUse]  #11780
@@ -28,6 +29,7 @@ class Greenlet(greenlet.greenlet, Generic[_P, _T]):
     ) -> None: ...
     @overload
     def __init__(self: Greenlet[[], None]) -> None: ...
+
     @readproperty
     def name(self) -> str: ...
     @property
@@ -60,18 +62,21 @@ class Greenlet(greenlet.greenlet, Generic[_P, _T]):
     def unlink_all(self) -> None: ...
     def ready(self) -> bool: ...
     def run(self) -> Any: ...
+
     @overload
     @classmethod
     def spawn(cls, run: Callable[_P, _T], /, *args: _P.args, **kwargs: _P.kwargs) -> Self: ...
     @overload
     @classmethod
     def spawn(cls) -> Greenlet[[], None]: ...
+
     @overload
     @classmethod
     def spawn_later(cls, seconds: float, run: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> Self: ...
     @overload
     @classmethod
     def spawn_later(cls, seconds: float) -> Greenlet[[], None]: ...
+
     def start(self) -> None: ...
     def start_later(self, seconds: float) -> None: ...
     def successful(self) -> bool: ...

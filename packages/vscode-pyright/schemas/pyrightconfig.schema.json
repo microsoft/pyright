@@ -47,7 +47,7 @@
       "examples": [
         "Linux"
       ],
-      "pattern": "^(Linux|Windows|Darwin|All)$"
+      "pattern": "^(Linux|Windows|Darwin|iOS|Android|All)$"
     },
     "disableBytesTypePromotions": {
       "type": "boolean",

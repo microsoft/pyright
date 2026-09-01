@@ -1,37 +1,50 @@
 from _typeshed import Incomplete
+from weakref import ReferenceType
 
-from reportlab.pdfbase.pdfdoc import PDFObject
+from reportlab.lib.colors import Color
+from reportlab.pdfbase.pdfdoc import PDFDictionary, PDFObject, PDFStream
 
 __all__ = ("AcroForm",)
 
+visibilities: dict[str, int]
+orientations: dict[str, list[Incomplete]]
+fieldFlagValues: dict[str, int]
+annotationFlagValues: dict[str, int]
+
+def bsPDF(borderWidth: int, borderStyle: str, dashLen) -> PDFDictionary: ...
+def escPDF(s) -> str: ...
+def makeFlags(s: int | str, d: dict[str, int] = ...) -> int: ...
+
 class PDFFromString(PDFObject):
-    def __init__(self, s) -> None: ...
-    def format(self, document): ...
+    def __init__(self, s: str | bytes) -> None: ...
+    def format(self, document) -> bytes: ...
 
 class RadioGroup(PDFObject):
     TU: Incomplete
-    Ff: Incomplete
-    kids: Incomplete
+    Ff: int
+    kids: list[Incomplete]
     T: Incomplete
     V: Incomplete
     def __init__(self, name, tooltip: str = "", fieldFlags: str = "noToggleToOff required radio") -> None: ...
-    def format(self, doc): ...
+    def format(self, doc) -> bytes: ...
 
 class AcroForm(PDFObject):
-    formFontNames: Incomplete
-    referenceMap: Incomplete
-    fonts: Incomplete
-    fields: Incomplete
+    formFontNames: dict[str, str]
+    referenceMap: dict[Incomplete, Incomplete]
+    fonts: dict[str, str]
+    fields: list[Incomplete]
     sigFlags: Incomplete
-    extras: Incomplete
+    extras: dict[Incomplete, Incomplete]
     def __init__(self, canv, **kwds) -> None: ...
     @property
-    def canv(self): ...
-    def fontRef(self, f): ...
-    def format(self, doc): ...
+    def useDefault(self) -> object: ...
+    @property
+    def canv(self) -> ReferenceType[Incomplete]: ...
+    def fontRef(self, f) -> str: ...
+    def format(self, doc) -> bytes: ...
     def colorTuple(self, c): ...
-    def streamFillColor(self, c): ...
-    def streamStrokeColor(self, c): ...
+    def streamFillColor(self, c) -> str: ...
+    def streamStrokeColor(self, c) -> str: ...
     def checkboxAP(
         self,
         key,
@@ -41,20 +54,22 @@ class AcroForm(PDFObject):
         fillColor=None,
         borderColor=None,
         textColor=None,
-        borderWidth: int = 1,
+        borderWidth: int | None = None,
         borderStyle: str = "solid",
         size: int = 20,
         dashLen: int = 3,
-    ): ...
+    ) -> PDFStream: ...
     @staticmethod
-    def circleArcStream(size, r, arcs=(0, 1, 2, 3), rotated: bool = False): ...
-    def zdMark(self, c, size, ds, iFontName): ...
+    def circleArcStream(size, r, arcs=(0, 1, 2, 3), rotated: bool = False) -> str: ...
+    def zdMark(self, c, size, ds, iFontName) -> str: ...
     def getRef(self, obj): ...
-    def getRefStr(self, obj): ...
+    def getRefStr(self, obj) -> str: ...
+    def setDefault(self, name: str, value: Color | float | None) -> None: ...
+    def getDefaults(
+        self, textColor, borderColor, fillColor, borderWidth
+    ) -> tuple[Incomplete, Incomplete, Incomplete, Incomplete]: ...
     @staticmethod
-    def stdColors(t, b, f): ...
-    @staticmethod
-    def varyColors(key, t, b, f): ...
+    def varyColors(key, t, b, f) -> tuple[Incomplete, Incomplete, Incomplete]: ...
     def checkForceBorder(
         self, x, y, width, height, forceBorder, shape, borderStyle, borderWidth, borderColor, fillColor
     ) -> None: ...
@@ -63,10 +78,10 @@ class AcroForm(PDFObject):
         checked: bool = False,
         buttonStyle: str = "check",
         shape: str = "square",
-        fillColor=None,
-        borderColor=None,
-        textColor=None,
-        borderWidth: int = 1,
+        fillColor=...,
+        borderColor=...,
+        textColor=...,
+        borderWidth: int = ...,
         borderStyle: str = "solid",
         size: int = 20,
         x: int = 0,
@@ -85,10 +100,10 @@ class AcroForm(PDFObject):
         selected: bool = False,
         buttonStyle: str = "circle",
         shape: str = "circle",
-        fillColor=None,
-        borderColor=None,
-        textColor=None,
-        borderWidth: int = 1,
+        fillColor=...,
+        borderColor=...,
+        textColor=...,
+        borderWidth: int = ...,
         borderStyle: str = "solid",
         size: int = 20,
         x: int = 0,
@@ -101,7 +116,7 @@ class AcroForm(PDFObject):
         relative: bool = False,
         dashLen: int = 3,
     ) -> None: ...
-    def makeStream(self, width, height, stream, **D): ...
+    def makeStream(self, width, height, stream, **D) -> PDFStream: ...
     def txAP(
         self,
         key,
@@ -113,7 +128,7 @@ class AcroForm(PDFObject):
         fillColor=None,
         borderColor=None,
         textColor=None,
-        borderWidth: int = 1,
+        borderWidth: int | None = None,
         borderStyle: str = "solid",
         width: int = 120,
         height: int = 36,
@@ -123,15 +138,15 @@ class AcroForm(PDFObject):
         I=[],
         sel_bg: str = "0.600006 0.756866 0.854904 rg",
         sel_fg: str = "0 g",
-    ): ...
-    def makeFont(self, fontName): ...
+    ) -> PDFStream: ...
+    def makeFont(self, fontName: str | None) -> tuple[str, str]: ...
     def textfield(
         self,
         value: str = "",
-        fillColor=None,
-        borderColor=None,
-        textColor=None,
-        borderWidth: int = 1,
+        fillColor=...,
+        borderColor=...,
+        textColor=...,
+        borderWidth: int = ...,
         borderStyle: str = "solid",
         width: int = 120,
         height: int = 36,
@@ -144,17 +159,17 @@ class AcroForm(PDFObject):
         forceBorder: bool = False,
         relative: bool = False,
         maxlen: int = 100,
-        fontName=None,
+        fontName: str | None = None,
         fontSize=None,
         dashLen: int = 3,
-    ): ...
+    ) -> None: ...
     def listbox(
         self,
         value: str = "",
-        fillColor=None,
-        borderColor=None,
-        textColor=None,
-        borderWidth: int = 1,
+        fillColor=...,
+        borderColor=...,
+        textColor=...,
+        borderWidth: int = ...,
         borderStyle: str = "solid",
         width: int = 120,
         height: int = 36,
@@ -166,19 +181,19 @@ class AcroForm(PDFObject):
         fieldFlags: str = "",
         forceBorder: bool = False,
         relative: bool = False,
-        fontName=None,
+        fontName: str | None = None,
         fontSize=None,
         dashLen: int = 3,
         maxlen=None,
         options=[],
-    ): ...
+    ) -> None: ...
     def choice(
         self,
         value: str = "",
-        fillColor=None,
-        borderColor=None,
-        textColor=None,
-        borderWidth: int = 1,
+        fillColor=...,
+        borderColor=...,
+        textColor=...,
+        borderWidth: int = ...,
         borderStyle: str = "solid",
         width: int = 120,
         height: int = 36,
@@ -190,25 +205,136 @@ class AcroForm(PDFObject):
         fieldFlags: str = "combo",
         forceBorder: bool = False,
         relative: bool = False,
-        fontName=None,
+        fontName: str | None = None,
         fontSize=None,
         dashLen: int = 3,
         maxlen=None,
         options=[],
-    ): ...
-    def checkboxRelative(self, **kwds) -> None: ...
-    def radioRelative(self, **kwds) -> None: ...
-    def textfieldRelative(self, **kwds) -> None: ...
-    def listboxRelative(self, **kwds) -> None: ...
-    def choiceRelative(self, **kwds) -> None: ...
+    ) -> None: ...
+    def checkboxRelative(
+        self,
+        *,
+        checked: bool = False,
+        buttonStyle: str = "check",
+        shape: str = "square",
+        fillColor=...,
+        borderColor=...,
+        textColor=...,
+        borderWidth: int = ...,
+        borderStyle: str = "solid",
+        size: int = 20,
+        x: int = 0,
+        y: int = 0,
+        tooltip=None,
+        name=None,
+        annotationFlags: str = "print",
+        fieldFlags: str = "required",
+        forceBorder: bool = False,
+        dashLen: int = 3,
+    ) -> None: ...
+    def radioRelative(
+        self,
+        *,
+        value=None,
+        selected: bool = False,
+        buttonStyle: str = "circle",
+        shape: str = "circle",
+        fillColor=...,
+        borderColor=...,
+        textColor=...,
+        borderWidth: int = ...,
+        borderStyle: str = "solid",
+        size: int = 20,
+        x: int = 0,
+        y: int = 0,
+        tooltip=None,
+        name=None,
+        annotationFlags: str = "print",
+        fieldFlags: str = "noToggleToOff required radio",
+        forceBorder: bool = False,
+        dashLen: int = 3,
+    ) -> None: ...
+    def textfieldRelative(
+        self,
+        *,
+        value: str = "",
+        fillColor=...,
+        borderColor=...,
+        textColor=...,
+        borderWidth: int = ...,
+        borderStyle: str = "solid",
+        width: int = 120,
+        height: int = 36,
+        x: int = 0,
+        y: int = 0,
+        tooltip=None,
+        name=None,
+        annotationFlags: str = "print",
+        fieldFlags: str = "",
+        forceBorder: bool = False,
+        maxlen: int = 100,
+        fontName: str | None = None,
+        fontSize=None,
+        dashLen: int = 3,
+    ) -> None: ...
+    def listboxRelative(
+        self,
+        *,
+        value: str = "",
+        fillColor=...,
+        borderColor=...,
+        textColor=...,
+        borderWidth: int = ...,
+        borderStyle: str = "solid",
+        width: int = 120,
+        height: int = 36,
+        x: int = 0,
+        y: int = 0,
+        tooltip=None,
+        name=None,
+        annotationFlags: str = "print",
+        fieldFlags: str = "",
+        forceBorder: bool = False,
+        maxlen: int = 100,
+        fontName: str | None = None,
+        fontSize=None,
+        dashLen: int = 3,
+    ) -> None: ...
+    def choiceRelative(
+        self,
+        *,
+        value: str = "",
+        fillColor=...,
+        borderColor=...,
+        textColor=...,
+        borderWidth: int = ...,
+        borderStyle: str = "solid",
+        width: int = 120,
+        height: int = 36,
+        x: int = 0,
+        y: int = 0,
+        tooltip=None,
+        name=None,
+        annotationFlags: str = "print",
+        fieldFlags: str = "",
+        forceBorder: bool = False,
+        maxlen: int = 100,
+        fontName: str | None = None,
+        fontSize=None,
+        dashLen: int = 3,
+    ) -> None: ...
     @property
-    def encRefStr(self): ...
+    def encRefStr(self) -> str: ...
 
 class CBMark:
-    opNames: Incomplete
-    opCount: Incomplete
+    opNames: list[str]
+    opCount: tuple[int, ...]
     ops: Incomplete
+    xmin: Incomplete
+    ymin: Incomplete
+    xmax: Incomplete
+    ymax: Incomplete
     points: Incomplete
     slack: Incomplete
     def __init__(self, ops, points, bounds, slack: float = 0.05) -> None: ...
-    def scaledRender(self, size, ds: int = 0): ...
+    def scaledRender(self, size, ds: int = 0) -> str: ...

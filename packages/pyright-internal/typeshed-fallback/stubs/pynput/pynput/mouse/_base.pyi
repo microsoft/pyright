@@ -46,10 +46,12 @@ class Button(enum.Enum):
 
 class Controller:
     def __init__(self) -> None: ...
+
     @property
     def position(self) -> tuple[int, int]: ...
     @position.setter
     def position(self, position: tuple[int, int]) -> None: ...
+
     def scroll(self, dx: int, dy: int) -> None: ...
     def press(self, button: Button) -> None: ...
     def release(self, button: Button) -> None: ...
@@ -86,9 +88,31 @@ class Listener(AbstractListener):
 
     def __init__(
         self,
-        on_move: Callable[[int, int], bool | None] | None = None,
-        on_click: Callable[[int, int, Button, bool], bool | None] | None = None,
-        on_scroll: Callable[[int, int, int, int], bool | None] | None = None,
+        on_move: (
+            Callable[[], bool | None]
+            | Callable[[int], bool | None]
+            | Callable[[int, int], bool | None]
+            | Callable[[int, int, bool], bool | None]
+            | None
+        ) = None,
+        on_click: (
+            Callable[[], bool | None]
+            | Callable[[int], bool | None]
+            | Callable[[int, int], bool | None]
+            | Callable[[int, int, Button], bool | None]
+            | Callable[[int, int, Button, bool], bool | None]
+            | Callable[[int, int, Button, bool, bool], bool | None]
+            | None
+        ) = None,
+        on_scroll: (
+            Callable[[], bool | None]
+            | Callable[[int], bool | None]
+            | Callable[[int, int], bool | None]
+            | Callable[[int, int, int], bool | None]
+            | Callable[[int, int, int, int], bool | None]
+            | Callable[[int, int, int, int, bool], bool | None]
+            | None
+        ) = None,
         suppress: bool = False,
         **kwargs: Any,
     ) -> None: ...

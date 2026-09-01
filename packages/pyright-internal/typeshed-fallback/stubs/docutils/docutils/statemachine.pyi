@@ -1,8 +1,8 @@
 import sys
 from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
 from re import Match, Pattern
-from typing import Any, ClassVar, Final, Generic, SupportsIndex, TypeVar, overload
-from typing_extensions import Self, TypeAlias
+from typing import Any, ClassVar, Final, Generic, SupportsIndex, TypeAlias, TypeVar, overload
+from typing_extensions import Self
 
 _T = TypeVar("_T")
 _Context = TypeVar("_Context")
@@ -10,7 +10,7 @@ _TransitionResult: TypeAlias = tuple[_Context, str | None, list[str]]
 _TransitionMethod: TypeAlias = Callable[[Match[str], _Context, str], _TransitionResult[_Context]]
 _Observer: TypeAlias = Callable[[StateMachine[_Context]], None]
 
-__docformat__: Final = "reStructuredText"
+__docformat__: Final = "restructuredtext"
 
 class StateMachine(Generic[_Context]):
     input_lines: StringList | None
@@ -135,14 +135,17 @@ class ViewList(Generic[_T]):
     def __ge__(self, other: Any) -> bool: ...
     def __contains__(self, item: _T) -> bool: ...
     def __len__(self) -> int: ...
+
     @overload
     def __getitem__(self, i: slice) -> Self: ...
     @overload
     def __getitem__(self, i: SupportsIndex) -> _T: ...
+
     @overload
     def __setitem__(self, i: slice, item: Self) -> None: ...
     @overload
     def __setitem__(self, i: SupportsIndex, item: _T) -> None: ...
+
     def __delitem__(self, i: SupportsIndex) -> None: ...
     def __add__(self, other: Self) -> Self: ...
     def __radd__(self, other: Self) -> Self: ...

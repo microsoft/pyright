@@ -1,8 +1,8 @@
 from _typeshed import Incomplete, SupportsKeysAndGetItem
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager
-from typing import Any, ClassVar, overload, type_check_only
-from typing_extensions import TypeAlias, deprecated
+from typing import Any, ClassVar, TypeAlias, overload, type_check_only
+from typing_extensions import deprecated
 
 from referencing.jsonschema import Schema, SchemaRegistry
 from referencing.typing import URI
@@ -47,16 +47,19 @@ class _Validator(Validator):
     )
     def resolver(self): ...
     def evolve(self, **changes) -> _Validator: ...
+
     @overload
     def iter_errors(self, instance) -> Generator[Incomplete]: ...
     @overload
     @deprecated("Passing a schema to Validator.iter_errors is deprecated and will be removed in a future release.")
     def iter_errors(self, instance, _schema: Schema | None) -> Generator[Incomplete]: ...
+
     def descend(
         self, instance, schema: Schema, path: Incomplete | None = ..., schema_path: Incomplete | None = ..., resolver=None
     ) -> Generator[Incomplete]: ...
     def validate(self, *args, **kwargs) -> None: ...
     def is_type(self, instance, type) -> bool: ...
+
     @overload
     def is_valid(self, instance) -> bool: ...
     @overload
@@ -96,6 +99,14 @@ class Draft202012Validator(_Validator):
 
 _Handler: TypeAlias = Callable[[str], Incomplete]
 
+@deprecated(
+    "jsonschema.RefResolver is deprecated as of v4.18.0, in favor of the "
+    "https://github.com/python-jsonschema/referencing library, which "
+    "provides more compliant referencing behavior as well as more "
+    "flexible APIs for customization. A future release will remove "
+    "RefResolver. Please file a feature request (on referencing) if you "
+    "are missing an API for the kind of customization you need."
+)
 class RefResolver:
     referrer: dict[str, Incomplete]
     cache_remote: Incomplete
@@ -105,7 +116,7 @@ class RefResolver:
         self,
         base_uri: str,
         referrer: dict[str, Incomplete],
-        store: SupportsKeysAndGetItem[str, str] | Iterable[tuple[str, str]] = ...,
+        store: Mapping[str, Mapping[str, Any]] | Iterable[tuple[str, Mapping[str, Any]]] = ...,
         cache_remote: bool = True,
         handlers: SupportsKeysAndGetItem[str, _Handler] | Iterable[tuple[str, _Handler]] = (),
         urljoin_cache=None,

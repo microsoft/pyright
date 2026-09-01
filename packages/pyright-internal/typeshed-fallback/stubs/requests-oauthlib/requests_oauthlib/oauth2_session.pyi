@@ -1,10 +1,10 @@
 from _typeshed import Incomplete
 from logging import Logger
-from typing import Any, Literal, Protocol, TypedDict, overload, type_check_only
-from typing_extensions import TypeAlias
+from typing import Any, Literal, Protocol, TypeAlias, TypedDict, overload, type_check_only
 
 import requests
 from oauthlib.oauth2 import Client
+from requests import _types
 from requests.cookies import RequestsCookieJar
 
 _Token: TypeAlias = dict[str, Incomplete]  # oauthlib.oauth2.Client.token
@@ -54,27 +54,33 @@ class OAuth2Session(requests.Session):
         pkce=None,
         **kwargs,
     ) -> None: ...
+
     @property
     def scope(self) -> Incomplete | None: ...  # oauthlib.oauth2.Client.scope
     @scope.setter
     def scope(self, value: Incomplete | None) -> None: ...
+
     def new_state(self): ...
+
     @property
     def client_id(self) -> Incomplete | None: ...  # oauthlib.oauth2.Client.client_id
     @client_id.setter
     def client_id(self, value: Incomplete | None) -> None: ...
     @client_id.deleter
     def client_id(self) -> None: ...
+
     @property
     def token(self): ...  # oauthlib.oauth2.Client.token
     @token.setter
     def token(self, value) -> None: ...
+
     @property
     def access_token(self): ...  # oauthlib.oauth2.Client.access_token
     @access_token.setter
     def access_token(self, value) -> None: ...
     @access_token.deleter
     def access_token(self) -> None: ...
+
     @property
     def authorized(self) -> bool: ...
     def authorization_url(self, url: str, state=None, **kwargs) -> tuple[str, str]: ...
@@ -115,25 +121,26 @@ class OAuth2Session(requests.Session):
         self,
         method: str | bytes,
         url: str | bytes,
-        data: requests.sessions._Data | None = None,
-        headers: requests.sessions._HeadersUpdateMapping | None = None,
+        data: _types.DataType = None,
+        headers: _types.HeadersType = None,
         withhold_token: bool = False,
         client_id=None,
         client_secret=None,
-        files: requests.sessions._Files | None = None,
+        files: _types.FilesType = None,
         *,
-        params: requests.sessions._Params | None = None,
-        cookies: None | RequestsCookieJar | requests.sessions._TextMapping = None,
-        auth: requests.sessions._Auth | None = None,
-        timeout: requests.sessions._Timeout | None = None,
+        params: _types.ParamsType = None,
+        cookies: None | RequestsCookieJar | dict[str, str] = None,
+        auth: _types.AuthType = None,
+        timeout: _types.TimeoutType = None,
         allow_redirects: bool = True,
-        proxies: requests.sessions._TextMapping | None = None,
-        hooks: requests.sessions._HooksInput | None = None,
+        proxies: dict[str, str] | None = None,
+        hooks: _types.HooksInputType | None = None,
         stream: bool | None = None,
-        verify: requests.sessions._Verify | None = None,
-        cert: requests.sessions._Cert | None = None,
+        verify: _types.VerifyType | None = None,
+        cert: _types.CertType = None,
         json=None,
     ) -> requests.Response: ...
+
     @overload
     def register_compliance_hook(self, hook_type: Literal["access_token_response"], hook: _AccessTokenResponseHook) -> None: ...
     @overload

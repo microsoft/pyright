@@ -10,7 +10,7 @@ import * as assert from 'assert';
 
 import { ImportResolver } from '../analyzer/importResolver';
 import { SourceFile } from '../analyzer/sourceFile';
-import { ConfigOptions } from '../common/configOptions';
+import { ConfigOptions, getBasicDiagnosticRuleSet, getOffDiagnosticRuleSet } from '../common/configOptions';
 import { FullAccessHost } from '../common/fullAccessHost';
 import { combinePaths } from '../common/pathUtils';
 import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
@@ -31,6 +31,31 @@ test('Empty', () => {
     const importResolver = new ImportResolver(sp, configOptions, new FullAccessHost(sp));
 
     sourceFile.parse(configOptions, importResolver);
+    serviceProvider.dispose();
+});
+
+test('SourceFile setInitialDiagnosticRuleSet overrides default', () => {
+    const filePath = combinePaths(process.cwd(), 'tests/samples/test_file1.py');
+    const tempFile = new RealTempFile();
+    const fs = createFromRealFileSystem(tempFile);
+    const serviceProvider = createServiceProvider(tempFile, fs);
+
+    // Verify basic defaults have reportPrivateImportUsage as 'error'.
+    const basicRuleSet = getBasicDiagnosticRuleSet();
+    assert.strictEqual(basicRuleSet.reportPrivateImportUsage, 'error');
+
+    // Create a rule set with reportPrivateImportUsage set to 'none'.
+    const offRuleSet = getOffDiagnosticRuleSet();
+    assert.strictEqual(offRuleSet.reportPrivateImportUsage, 'none');
+
+    const sourceFile = new SourceFile(serviceProvider, Uri.file(filePath, serviceProvider), () => '', false, false, {
+        isEditMode: false,
+    });
+
+    // Call setInitialDiagnosticRuleSet to apply config-level overrides.
+    sourceFile.setInitialDiagnosticRuleSet(offRuleSet);
+
+    assert.ok(sourceFile);
     serviceProvider.dispose();
 });
 

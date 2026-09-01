@@ -1,0 +1,4 @@
+version = "0.7.*"
+upstream-repository = "https://github.com/bobthemighty/punq"
+
+[tool.stubtest]

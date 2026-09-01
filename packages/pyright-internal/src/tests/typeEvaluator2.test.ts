@@ -9,7 +9,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
-import { pythonVersion3_10, pythonVersion3_13, pythonVersion3_9 } from '../common/pythonVersion';
+import { pythonVersion3_10, pythonVersion3_13, pythonVersion3_15, pythonVersion3_9 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -77,6 +77,12 @@ test('CallbackProtocol11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callbackProtocol11.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('CallbackProtocol12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callbackProtocol12.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Assignment1', () => {
@@ -305,6 +311,14 @@ test('NewType7', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('NewType8', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportUnreachable = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newTypeIsLiteral1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('isInstance1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance1.py']);
 
@@ -385,6 +399,20 @@ test('Unbound5', () => {
 test('Unbound6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound6.py']);
 
+    TestUtils.validateResults(analysisResults, 8);
+});
+
+test('LiteralForLoop1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportPossiblyUnboundVariable = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literalForLoop1.py'], configOptions);
+
+    // Expected errors:
+    // 2 errors for empty list/tuple literals (c and d are possibly unbound)
+    // 2 errors for non-literal iterable and string literal (e and f are possibly unbound)
+    // 2 errors for starred expression and list comprehension (g and h are possibly unbound)
+    // 1 error for all-continue loop (x is possibly unbound in this degenerate case)
+    // 1 error for for-else with unconditional break (z is possibly unbound — else skipped)
     TestUtils.validateResults(analysisResults, 8);
 });
 
@@ -981,9 +1009,13 @@ test('SolverUnknown1', () => {
 });
 
 test('Sentinel1', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel1.py']);
+    TestUtils.validateResults(analysisResults, 5);
+});
 
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel1.py'], configOptions);
+test('Sentinel2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_15;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
 });

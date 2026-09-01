@@ -11,7 +11,12 @@ import { isMainThread } from 'worker_threads';
 
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
-import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
+import {
+    ConfigOptions,
+    DiagnosticRuleSet,
+    ExecutionEnvironment,
+    getBasicDiagnosticRuleSet,
+} from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory, TaskListToken, convertLevelToCategory } from '../common/diagnostic';
@@ -30,19 +35,19 @@ import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import { LocMessage } from '../localization/localize';
-import { ModuleNode } from '../parser/parseNodes';
+import { getParserStringAnnotationInfo, ModuleNode, ParseNode } from '../parser/parseNodes';
 import { ModuleImport, ParseFileResults, ParseOptions, Parser, ParserOutput } from '../parser/parser';
 import { IgnoreComment, Tokenizer, TokenizerOutput } from '../parser/tokenizer';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Binder } from './binder';
+import { CellChainIndexProvider } from './cellChainIndex';
 import { Checker } from './checker';
 import { CircularDependency } from './circularDependency';
 import * as CommentUtils from './commentUtils';
 import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
-import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { Scope } from './scope';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
@@ -58,6 +63,12 @@ export const maxSourceFileSize = 50 * 1024 * 1024;
 interface ResolveImportResult {
     imports: ImportResult[];
     builtinsImportResult?: ImportResult | undefined;
+    importInfo: ImportInfoRecord[];
+}
+
+interface ImportInfoRecord {
+    node: ParseNode;
+    importResult: ImportResult;
 }
 
 // Indicates whether IPython syntax is supported and if so, what
@@ -86,9 +97,9 @@ class WriteableData {
     // might have changed.
     semanticVersion = 0;
 
-    // Length and hash of the file the last time it was read from disk.
+    // Length and fingerprint of the latest file contents supplied by disk or the client.
     lastFileContentLength: number | undefined = undefined;
-    lastFileContentHash: number | undefined = undefined;
+    lastFileContentHash: StringUtils.StringFingerprint | undefined = undefined;
 
     // Client's version of the file. Undefined implies that contents
     // need to be read from disk.
@@ -98,11 +109,8 @@ class WriteableData {
     // Version of file contents that have been analyzed.
     analyzedFileContentsVersion = -1;
 
-    // Do we need to walk the parse tree and clean
-    // the binder information hanging from it?
-    parseTreeNeedsCleaning = false;
-
     parsedFileContents: string | undefined;
+    parsedFileContentsHash: StringUtils.StringFingerprint | undefined;
     tokenizerLines: TextRangeCollection<TextRange> | undefined;
     tokenizerOutput: TokenizerOutput | undefined;
     lineCount: number | undefined;
@@ -127,6 +135,7 @@ class WriteableData {
     // above information. This needs to be recomputed any time the
     // above change.
     accumulatedDiagnostics: Diagnostic[] = [];
+    diagnosticsWithoutFileIgnore: Diagnostic[] = [];
 
     // Circular dependencies that have been reported in this file.
     circularDependencies: CircularDependency[] = [];
@@ -147,6 +156,7 @@ class WriteableData {
     // Information about implicit and explicit imports from this file.
     imports: ImportResult[] | undefined;
     builtinsImport: ImportResult | undefined;
+    importInfo: ImportInfoRecord[] = [];
     // True if the file appears to have been deleted.
     isFileDeleted = false;
 
@@ -166,12 +176,11 @@ class WriteableData {
  isCheckingNeeded=${this.isCheckingNeeded},
  isFileDeleted=${this.isFileDeleted},
  hitMaxImportDepth=${this.hitMaxImportDepth},
- parseTreeNeedsCleaning=${this.parseTreeNeedsCleaning},
  fileContentsVersion=${this.fileContentsVersion},
  analyzedFileContentsVersion=${this.analyzedFileContentsVersion},
  clientDocumentVersion=${this.clientDocumentVersion},
  lastFileContentLength=${this.lastFileContentLength},
- lastFileContentHash=${this.lastFileContentHash},
+ lastFileContentHash=${JSON.stringify(this.lastFileContentHash)},
  typeIgnoreAll=${this.typeIgnoreAll},
  imports=${this.imports?.length},
  builtinsImport=${this.builtinsImport?.importName},
@@ -193,6 +202,8 @@ class WriteableData {
 
 export interface SourceFileEditMode {
     readonly isEditMode: boolean;
+    readonly isClonedProgram?: boolean;
+    readonly analysisContextOwner?: object;
 }
 
 export class SourceFile {
@@ -314,6 +325,13 @@ export class SourceFile {
         this._ipythonMode = ipythonMode ?? IPythonMode.None;
     }
 
+    // Sets the initial diagnostic rule set from the execution environment's
+    // config-level overrides. This should be called immediately after
+    // construction so the file has the correct rules before parse/bind.
+    setInitialDiagnosticRuleSet(ruleSet: DiagnosticRuleSet) {
+        this._diagnosticRuleSet = { ...ruleSet };
+    }
+
     getIPythonMode(): IPythonMode {
         return this._ipythonMode;
     }
@@ -375,6 +393,10 @@ export class SourceFile {
         return this._writableData.accumulatedDiagnostics;
     }
 
+    getDiagnosticsWithoutFileIgnore(): Diagnostic[] {
+        return this._writableData.diagnosticsWithoutFileIgnore;
+    }
+
     getImports(): ImportResult[] {
         return this._writableData.imports || [];
     }
@@ -420,7 +442,7 @@ export class SourceFile {
             return true;
         }
 
-        // Read in the latest file contents and see if the hash matches
+        // Read in the latest file contents and see if the fingerprint matches
         // that of the previous contents.
         try {
             // Read the file's contents.
@@ -431,7 +453,11 @@ export class SourceFile {
                     return true;
                 }
 
-                if (StringUtils.hashString(fileContents) !== this._writableData.lastFileContentHash) {
+                const contentHash = StringUtils.getStringFingerprint(fileContents);
+                if (
+                    !this._writableData.lastFileContentHash ||
+                    !StringUtils.areStringFingerprintsEqual(contentHash, this._writableData.lastFileContentHash)
+                ) {
                     return true;
                 }
             } else {
@@ -448,22 +474,26 @@ export class SourceFile {
     // Drop parse and binding info to save memory. It is used
     // in cases where memory is low. When info is needed, the file
     // will be re-parsed and rebound.
-    dropParseAndBindInfo(): void {
+    dropParseAndBindInfo(): ModuleNode | undefined {
         // If we are actively binding or checking this file, we can't
         // safely drop parse and binding info.
         if (this._writableData.isBindingInProgress || this._writableData.isCheckingInProgress) {
-            return;
+            return undefined;
         }
 
         this._fireFileDirtyEvent();
 
+        const parseTree = this._writableData.parserOutput?.parseTree;
         this._writableData.parserOutput = undefined;
         this._writableData.tokenizerLines = undefined;
         this._writableData.tokenizerOutput = undefined;
         this._writableData.parsedFileContents = undefined;
+        this._writableData.parsedFileContentsHash = undefined;
         this._writableData.moduleSymbolTable = undefined;
         this._writableData.isBindingNeeded = true;
+        this._writableData.importInfo = [];
         this._writableData.imports = [];
+        return parseTree;
     }
 
     markDirty(): void {
@@ -478,7 +508,7 @@ export class SourceFile {
         this._fireFileDirtyEvent();
     }
 
-    markReanalysisRequired(forceRebinding: boolean): void {
+    markReanalysisRequired(forceRebinding: boolean, nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader): void {
         // Keep the parse info, but reset the analysis to the beginning.
         this._writableData.semanticVersion++;
         this._writableData.isCheckingNeeded = true;
@@ -489,13 +519,13 @@ export class SourceFile {
         if (this._writableData.parserOutput) {
             if (
                 this._writableData.parserOutput.containsWildcardImport ||
-                AnalyzerNodeInfo.getDunderAllInfo(this._writableData.parserOutput.parseTree) !== undefined ||
+                AnalyzerNodeInfo.getDunderAllInfo(this._writableData.parserOutput.parseTree, nodeInfoReader) !==
+                    undefined ||
                 forceRebinding
             ) {
                 // We don't need to rebuild index data since wildcard
                 // won't affect user file indices. User file indices
                 // don't contain import alias info.
-                this._writableData.parseTreeNeedsCleaning = true;
                 this._writableData.isBindingNeeded = true;
                 this._writableData.moduleSymbolTable = undefined;
             }
@@ -546,7 +576,7 @@ export class SourceFile {
                 throw new Error('File larger than max');
             }
 
-            return this.fileSystem.readFileSync(this._uri, 'utf8');
+            return this.readFileContents();
         } catch (error) {
             return undefined;
         }
@@ -567,12 +597,13 @@ export class SourceFile {
             this._writableData.clientDocumentVersion = version;
             this._writableData.clientDocumentContents = contents;
 
-            const contentsHash = StringUtils.hashString(contents);
+            const contentsHash = StringUtils.getStringFingerprint(contents);
 
             // Have the contents of the file changed?
             if (
                 contents.length !== this._writableData.lastFileContentLength ||
-                contentsHash !== this._writableData.lastFileContentHash
+                !this._writableData.lastFileContentHash ||
+                !StringUtils.areStringFingerprintsEqual(contentsHash, this._writableData.lastFileContentHash)
             ) {
                 this.markDirty();
             }
@@ -626,7 +657,8 @@ export class SourceFile {
         const tokenizeContents = this._tokenizeContents.bind(this);
         const parsedFileContents = this._writableData.parsedFileContents;
         const contentHash =
-            this._writableData.lastFileContentHash || StringUtils.hashString(this._writableData.parsedFileContents);
+            this._writableData.parsedFileContentsHash ??
+            StringUtils.getStringFingerprint(this._writableData.parsedFileContents);
         let tokenizerOutput: TokenizerOutput | undefined = this._writableData.tokenizerOutput;
 
         return {
@@ -696,6 +728,7 @@ export class SourceFile {
 
             const diagSink = this.createDiagnosticSink();
             let fileContents = this.getOpenFileContents();
+            let contentHash = fileContents !== undefined ? this._writableData.lastFileContentHash : undefined;
             if (fileContents === undefined) {
                 try {
                     const startTime = timingStats.readFileTime.totalTime;
@@ -706,14 +739,16 @@ export class SourceFile {
                             throw new Error("Can't get file content");
                         }
 
-                        // Remember the length and hash for comparison purposes.
+                        // Remember the length and fingerprint for comparison purposes.
                         this._writableData.lastFileContentLength = fileContents.length;
-                        this._writableData.lastFileContentHash = StringUtils.hashString(fileContents);
+                        contentHash = StringUtils.getStringFingerprint(fileContents);
+                        this._writableData.lastFileContentHash = contentHash;
                     });
                     logState.add(`fs read ${timingStats.readFileTime.totalTime - startTime}ms`);
                 } catch (error) {
                     diagSink.addError(`Source file could not be read`, getEmptyRange());
                     fileContents = '';
+                    contentHash = StringUtils.getStringFingerprint(fileContents);
 
                     if (!this.fileSystem.existsSync(this._uri)) {
                         this._writableData.isFileDeleted = true;
@@ -722,19 +757,22 @@ export class SourceFile {
             }
 
             try {
+                contentHash ??= StringUtils.getStringFingerprint(fileContents!);
                 // Parse the token stream, building the abstract syntax tree.
                 const parseFileResults = this._parseFile(
                     configOptions,
                     this._uri,
                     fileContents!,
                     this._ipythonMode !== IPythonMode.None,
-                    diagSink
+                    diagSink,
+                    contentHash
                 );
 
                 assert(parseFileResults !== undefined && parseFileResults.tokenizerOutput !== undefined);
                 this._writableData.parserOutput = parseFileResults.parserOutput;
                 this._writableData.tokenizerLines = parseFileResults.tokenizerOutput.lines;
                 this._writableData.parsedFileContents = fileContents;
+                this._writableData.parsedFileContentsHash = parseFileResults.contentHash;
                 this._writableData.typeIgnoreLines = parseFileResults.tokenizerOutput.typeIgnoreLines;
                 this._writableData.typeIgnoreAll = parseFileResults.tokenizerOutput.typeIgnoreAll;
                 this._writableData.pyrightIgnoreLines = parseFileResults.tokenizerOutput.pyrightIgnoreLines;
@@ -756,13 +794,14 @@ export class SourceFile {
 
                     this._writableData.imports = importResult.imports;
                     this._writableData.builtinsImport = importResult.builtinsImportResult;
+                    this._writableData.importInfo = importResult.importInfo;
 
                     this._writableData.parseDiagnostics = diagSink.fetchAndClear();
 
                     this._writableData.taskListDiagnostics = [];
                     this._addTaskListDiagnostics(
                         configOptions.taskListTokens,
-                        parseFileResults.tokenizerOutput,
+                        parseFileResults,
                         this._writableData.taskListDiagnostics
                     );
                 });
@@ -806,10 +845,13 @@ export class SourceFile {
 
                 // Create dummy parse results.
                 this._writableData.parsedFileContents = '';
+                this._writableData.parsedFileContentsHash = StringUtils.getStringFingerprint('');
                 this._writableData.tokenizerLines = new TextRangeCollection<TextRange>([]);
 
+                const parseTree = ModuleNode.create({ start: 0, length: 0 });
                 this._writableData.parserOutput = {
-                    parseTree: ModuleNode.create({ start: 0, length: 0 }),
+                    parseTree,
+                    stringAnnotations: getParserStringAnnotationInfo(parseTree),
                     importedModules: [],
                     futureImports: new Set<string>(),
                     containsWildcardImport: false,
@@ -832,6 +874,7 @@ export class SourceFile {
 
                 this._writableData.imports = undefined;
                 this._writableData.builtinsImport = undefined;
+                this._writableData.importInfo = [];
 
                 const diagSink = this.createDiagnosticSink();
                 diagSink.addError(
@@ -851,7 +894,6 @@ export class SourceFile {
             this._writableData.analyzedFileContentsVersion = this._writableData.fileContentsVersion;
             this._writableData.isBindingNeeded = true;
             this._writableData.isCheckingNeeded = true;
-            this._writableData.parseTreeNeedsCleaning = false;
             this._writableData.hitMaxImportDepth = undefined;
 
             this._recomputeDiagnostics(configOptions);
@@ -864,7 +906,9 @@ export class SourceFile {
         configOptions: ConfigOptions,
         importLookup: ImportLookup,
         builtinsScope: Scope | undefined,
-        futureImports: Set<string>
+        futureImports: Set<string>,
+        cellChainIndex: CellChainIndexProvider | undefined,
+        nodeInfoContext: AnalyzerNodeInfo.AnalyzerNodeInfoContext
     ) {
         assert(!this.isParseRequired(), 'Bind called before parsing');
         assert(this.isBindingRequired(), 'Bind called unnecessarily');
@@ -872,17 +916,31 @@ export class SourceFile {
         assert(this._writableData.parserOutput !== undefined, 'Parse results not available');
 
         return this._logTracker.log(`binding: ${this._getPathForLogging(this._uri)}`, () => {
+            let bound = false;
             try {
                 // Perform name binding.
                 timingStats.bindTime.timeOperation(() => {
-                    this._cleanParseTreeIfRequired();
+                    const parseTree = this._writableData.parserOutput!.parseTree;
+                    const bindingSession = nodeInfoContext.beginWrite(parseTree);
+                    const nodeInfo = AnalyzerNodeInfo.createAnalyzerNodeInfoAccessor(bindingSession, bindingSession);
+                    this._writableData.importInfo.forEach((record) =>
+                        nodeInfo.setImportInfo(record.node, record.importResult)
+                    );
 
                     const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope, futureImports);
-                    AnalyzerNodeInfo.setFileInfo(this._writableData.parserOutput!.parseTree, fileInfo);
+                    nodeInfo.setFileInfo(parseTree, fileInfo);
 
-                    const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
+                    const binder = new Binder(fileInfo, configOptions.indexGenerationMode, cellChainIndex, nodeInfo);
                     this._writableData.isBindingInProgress = true;
-                    binder.bindModule(this._writableData.parserOutput!.parseTree);
+                    binder.bindModule(parseTree);
+
+                    const bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
+                    const moduleScope = nodeInfo.getScope(parseTree);
+                    assert(moduleScope !== undefined, 'Module scope not returned by binder');
+
+                    nodeInfoContext.publish(bindingSession);
+                    this._writableData.moduleSymbolTable = moduleScope.symbolTable;
+                    this._writableData.bindDiagnostics = bindDiagnostics;
 
                     // If we're in "test mode" (used for unit testing), run an additional
                     // "test walker" over the parse tree to validate its internal consistency.
@@ -890,12 +948,8 @@ export class SourceFile {
                         const testWalker = new TestWalker();
                         testWalker.walk(this._writableData.parserOutput!.parseTree);
                     }
-
-                    this._writableData.bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
-                    const moduleScope = AnalyzerNodeInfo.getScope(this._writableData.parserOutput!.parseTree);
-                    assert(moduleScope !== undefined, 'Module scope not returned by binder');
-                    this._writableData.moduleSymbolTable = moduleScope!.symbolTable;
                 });
+                bound = true;
             } catch (e: any) {
                 const message: string =
                     (e.stack ? e.stack.toString() : undefined) ||
@@ -925,10 +979,11 @@ export class SourceFile {
             }
 
             // Prepare for the next stage of the analysis.
-            this._writableData.isCheckingNeeded = true;
+            this._writableData.isCheckingNeeded = bound;
             this._writableData.isBindingNeeded = false;
 
             this._recomputeDiagnostics(configOptions);
+            return bound;
         });
     }
 
@@ -937,7 +992,8 @@ export class SourceFile {
         importLookup: ImportLookup,
         importResolver: ImportResolver,
         evaluator: TypeEvaluator,
-        dependentFiles?: ParserOutput[]
+        dependentFiles: ParserOutput[] | undefined,
+        nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader
     ) {
         assert(!this.isParseRequired(), `Check called before parsing: state=${this._writableData.debugPrint()}`);
         assert(!this.isBindingRequired(), `Check called before binding: state=${this._writableData.debugPrint()}`);
@@ -950,17 +1006,19 @@ export class SourceFile {
             try {
                 timingStats.typeCheckerTime.timeOperation(() => {
                     const checkDuration = new Duration();
+                    const nodeInfo = AnalyzerNodeInfo.createAnalyzerNodeInfoAccessor(nodeInfoReader);
                     const checker = new Checker(
                         importResolver,
                         evaluator,
                         this._writableData.parserOutput!,
-                        dependentFiles
+                        dependentFiles,
+                        nodeInfo
                     );
                     this._writableData.isCheckingInProgress = true;
                     checker.check();
                     this._writableData.isCheckingNeeded = false;
 
-                    const fileInfo = AnalyzerNodeInfo.getFileInfo(this._writableData.parserOutput!.parseTree)!;
+                    const fileInfo = nodeInfo.getFileInfo(this._writableData.parserOutput!.parseTree)!;
                     this._writableData.checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
                     this._writableData.checkTime = checkDuration.getDurationInMilliseconds();
                 });
@@ -1016,6 +1074,19 @@ export class SourceFile {
 
     protected createTextRangeDiagnosticSink(lines: TextRangeCollection<TextRange>): TextRangeDiagnosticSink {
         return new TextRangeDiagnosticSink(lines);
+    }
+
+    protected readFileContents(): string {
+        return this.fileSystem.readFileSync(this._uri, 'utf8');
+    }
+
+    protected parseFileContents(
+        fileContents: string,
+        parseOptions: ParseOptions,
+        diagSink: DiagnosticSink,
+        contentHash: StringUtils.StringFingerprint
+    ): ParseFileResults {
+        return new Parser().parseSourceFile(fileContents, parseOptions, diagSink, contentHash);
     }
 
     // Creates a short string that can be used to uniquely identify
@@ -1290,6 +1361,11 @@ export class SourceFile {
             );
         }
 
+        // Capture the fully-filtered diagnostics before any file-level ignore clears them, so
+        // consumers that need the unsuppressed list (e.g. ignored-file quick fixes) can access it.
+        // For non-ignored files this is the same array reference as accumulatedDiagnostics below.
+        this._writableData.diagnosticsWithoutFileIgnore = diagList;
+
         // If the file is in the ignore list, clear the diagnostic list.
         if (configOptions.ignore.find((ignoreFileSpec) => this._uri.matchesRegex(ignoreFileSpec.regExp))) {
             diagList = [];
@@ -1315,12 +1391,15 @@ export class SourceFile {
     // to the specified diagnostic list.
     private _addTaskListDiagnostics(
         taskListTokens: TaskListToken[] | undefined,
-        tokenizerOutput: TokenizerOutput,
+        parseFileResults: ParseFileResults,
         diagList: Diagnostic[]
     ) {
         if (!taskListTokens || taskListTokens.length === 0 || !diagList) {
             return;
         }
+
+        const tokenizerOutput = parseFileResults.tokenizerOutput;
+        const fileContents = parseFileResults.text;
 
         for (let i = 0; i < tokenizerOutput.tokens.count; i++) {
             const token = tokenizerOutput.tokens.getItemAt(i);
@@ -1331,36 +1410,65 @@ export class SourceFile {
             }
 
             for (const comment of token.comments) {
-                for (const token of taskListTokens) {
-                    // Check if the comment matches the task list token.
-                    // The comment must start with zero or more whitespace characters,
-                    // followed by the taskListToken (case insensitive),
-                    // followed by (0+ whitespace + EOL) OR (1+ NON-alphanumeric characters)
-                    const regexStr = '^[\\s]*' + token.text + '([\\s]*$|[\\W]+)';
-                    const regex = RegExp(regexStr, 'i'); // case insensitive
+                for (const taskToken of taskListTokens) {
+                    // Match: optional leading whitespace, then taskToken.text (case-insensitive),
+                    // then either (whitespace to end) or (non-alphanumeric char).
+                    const commentStart = comment.start;
+                    const commentEnd = commentStart + comment.length;
+                    const taskText = taskToken.text;
+                    const taskLen = taskText.length;
 
-                    // If the comment doesn't match, skip it.
-                    if (!regex.test(comment.value)) {
+                    // Skip leading whitespace within the source text range.
+                    let pos = commentStart;
+                    while (pos < commentEnd) {
+                        const ch = fileContents.charCodeAt(pos);
+                        if (ch === 0x20 || ch === 0x09 || ch === 0x0a || ch === 0x0d || ch === 0x0c || ch === 0x0b) {
+                            pos++;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    // Check if the task token text matches (case-insensitive).
+                    if (pos + taskLen > commentEnd) {
                         continue;
                     }
 
-                    // Calculate the range for the diagnostic. This allows navigation
-                    // to the comment via double clicking the item in the task list pane.
-                    let rangeStart = comment.start;
+                    let matched = true;
+                    for (let k = 0; k < taskLen; k++) {
+                        const a = fileContents.charCodeAt(pos + k);
+                        const b = taskText.charCodeAt(k);
+                        if (a !== b && (a | 0x20) !== (b | 0x20)) {
+                            matched = false;
+                            break;
+                        }
+                    }
+                    if (!matched) {
+                        continue;
+                    }
 
-                    // The comment technically starts right after the comment identifier(#),
-                    // but we want the caret right before the task list token (since there
-                    // might be whitespace before it).
-                    const indexOfToken = comment.value.toLowerCase().indexOf(token.text.toLowerCase());
-                    rangeStart += indexOfToken;
+                    // After the token, require whitespace-to-end or a non-word character.
+                    const afterPos = pos + taskLen;
+                    if (afterPos < commentEnd) {
+                        const ch = fileContents.charCodeAt(afterPos);
+                        // Check if ch is a word character [a-zA-Z0-9_]
+                        const isWord =
+                            (ch >= 0x61 && ch <= 0x7a) ||
+                            (ch >= 0x41 && ch <= 0x5a) ||
+                            (ch >= 0x30 && ch <= 0x39) ||
+                            ch === 0x5f;
+                        if (isWord) {
+                            continue;
+                        }
+                    }
 
+                    // Match succeeded. pos is the offset of the task token in the source text.
                     const rangeEnd = TextRange.getEnd(comment);
-                    const range = convertOffsetsToRange(rangeStart, rangeEnd, tokenizerOutput.lines!);
+                    const range = convertOffsetsToRange(pos, rangeEnd, tokenizerOutput.lines!);
 
-                    // Add the diagnostic to the list and trim whitespace from the comment so
-                    // it's easier to read in the task list.
+                    const commentValue = comment.value;
                     diagList.push(
-                        new Diagnostic(DiagnosticCategory.TaskItem, comment.value.trim(), range, token.priority)
+                        new Diagnostic(DiagnosticCategory.TaskItem, commentValue.trim(), range, taskToken.priority)
                     );
                 }
             }
@@ -1401,22 +1509,13 @@ export class SourceFile {
         return fileInfo;
     }
 
-    private _cleanParseTreeIfRequired() {
-        if (this._writableData.parserOutput) {
-            if (this._writableData.parseTreeNeedsCleaning) {
-                const cleanerWalker = new ParseTreeCleanerWalker(this._writableData.parserOutput.parseTree);
-                cleanerWalker.clean();
-                this._writableData.parseTreeNeedsCleaning = false;
-            }
-        }
-    }
-
     private _resolveImports(
         importResolver: ImportResolver,
         moduleImports: ModuleImport[],
         execEnv: ExecutionEnvironment
     ): ResolveImportResult {
         const imports: ImportResult[] = [];
+        const importInfo: ImportInfoRecord[] = [];
 
         const resolveAndAddIfNotSelf = (nameParts: string[], skipMissingImport = false) => {
             const importResult = importResolver.resolveImport(this._uri, execEnv, {
@@ -1466,7 +1565,7 @@ export class SourceFile {
             // name node in the parse tree so we can access it later
             // (for hover and definition support).
             if (moduleImport.nameParts.length === moduleImport.nameNode.d.nameParts.length) {
-                AnalyzerNodeInfo.setImportInfo(moduleImport.nameNode, importResult);
+                importInfo.push({ node: moduleImport.nameNode, importResult });
             } else {
                 // For implicit imports of higher-level modules within a multi-part
                 // module name, the moduleImport.nameParts will refer to the subset
@@ -1474,16 +1573,17 @@ export class SourceFile {
                 // case, store the import info on the name part node.
                 assert(moduleImport.nameParts.length > 0);
                 assert(moduleImport.nameParts.length - 1 < moduleImport.nameNode.d.nameParts.length);
-                AnalyzerNodeInfo.setImportInfo(
-                    moduleImport.nameNode.d.nameParts[moduleImport.nameParts.length - 1],
-                    importResult
-                );
+                importInfo.push({
+                    node: moduleImport.nameNode.d.nameParts[moduleImport.nameParts.length - 1],
+                    importResult,
+                });
             }
         }
 
         return {
             imports,
             builtinsImportResult,
+            importInfo,
         };
     }
 
@@ -1496,7 +1596,8 @@ export class SourceFile {
         fileUri: Uri,
         fileContents: string,
         useNotebookMode: boolean,
-        diagSink: DiagnosticSink
+        diagSink: DiagnosticSink,
+        contentHash: StringUtils.StringFingerprint
     ): ParseFileResults {
         // Use the configuration options to determine the environment zin which
         // this source file will be executed.
@@ -1511,11 +1612,10 @@ export class SourceFile {
         parseOptions.skipFunctionAndClassBody = configOptions.indexGenerationMode ?? false;
 
         // Parse the token stream, building the abstract syntax tree.
-        const parser = new Parser();
-        return parser.parseSourceFile(fileContents, parseOptions, diagSink);
+        return this.parseFileContents(fileContents, parseOptions, diagSink, contentHash);
     }
 
-    private _tokenizeContents(fileContents: string, contentHash: number): TokenizerOutput {
+    private _tokenizeContents(fileContents: string, contentHash: StringUtils.StringFingerprint): TokenizerOutput {
         const tokenizer = new Tokenizer();
         const output = tokenizer.tokenize(fileContents);
 
@@ -1523,7 +1623,8 @@ export class SourceFile {
         // Because the tokenizer is lazy, ensure that the state remains unchanged before caching its output.
         if (
             this._writableData.clientDocumentContents !== undefined &&
-            this._writableData.lastFileContentHash === contentHash
+            this._writableData.lastFileContentHash &&
+            StringUtils.areStringFingerprintsEqual(this._writableData.lastFileContentHash, contentHash)
         ) {
             this._writableData.tokenizerOutput = output;
 

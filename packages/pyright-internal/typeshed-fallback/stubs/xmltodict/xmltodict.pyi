@@ -1,7 +1,6 @@
 from _typeshed import ReadableBuffer, SupportsRead, SupportsWrite
 from collections.abc import Callable, Container, Generator, Mapping
-from typing import Any, overload
-from typing_extensions import TypeAlias
+from typing import Any, TypeAlias, overload
 
 class ParsingInterrupted(Exception): ...
 
@@ -25,7 +24,7 @@ class _DictSAXHandler:
     dict_constructor: type
     strip_whitespace: bool
     namespace_separator: str
-    namespaces: dict[str, str] | None
+    namespaces: Mapping[str, str | None] | None
     namespace_declarations: dict[str, str]
     force_list: bool | Container[str] | Callable[[tuple[str, _AttrDict | None], str, str], bool] | None
     comment_key: str
@@ -42,7 +41,7 @@ class _DictSAXHandler:
         dict_constructor: type = ...,
         strip_whitespace: bool = True,
         namespace_separator: str = ":",
-        namespaces: dict[str, str] | None = None,
+        namespaces: Mapping[str, str | None] | None = None,
         force_list: bool | Container[str] | Callable[[tuple[str, _AttrDict | None], str, str], bool] | None = None,
         comment_key: str = "#comment",
     ) -> None: ...
@@ -72,10 +71,11 @@ def parse(
     postprocessor: Callable[[list[tuple[str, _AttrDict | None]], str, _AttrValue], tuple[str, _AttrValue]] | None = None,
     dict_constructor: type = ...,
     strip_whitespace: bool = True,
-    namespaces: dict[str, str] | None = None,
+    namespaces: Mapping[str, str | None] | None = None,
     force_list: bool | Container[str] | Callable[[tuple[str, _AttrDict | None], str, str], bool] | None = None,
     comment_key: str = "#comment",
 ) -> dict[str, Any]: ...
+
 @overload
 def unparse(
     input_dict: Mapping[str, Any],
@@ -95,7 +95,7 @@ def unparse(
     newl: str = "\n",
     indent: str | int = "\t",
     namespace_separator: str = ":",
-    namespaces: Mapping[str, str] | None = None,
+    namespaces: Mapping[str, str | None] | None = None,
     expand_iter: str | None = None,
 ) -> None: ...
 @overload
@@ -117,6 +117,6 @@ def unparse(
     newl: str = "\n",
     indent: str | int = "\t",
     namespace_separator: str = ":",
-    namespaces: Mapping[str, str] | None = None,
+    namespaces: Mapping[str, str | None] | None = None,
     expand_iter: str | None = None,
 ) -> str: ...

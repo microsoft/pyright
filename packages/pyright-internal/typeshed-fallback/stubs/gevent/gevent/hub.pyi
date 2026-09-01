@@ -1,7 +1,6 @@
 from collections.abc import Callable
 from types import TracebackType
-from typing import Any, Generic, Protocol, TextIO, TypeVar, overload, type_check_only
-from typing_extensions import ParamSpec
+from typing import Any, Generic, ParamSpec, Protocol, TextIO, TypeVar, overload, type_check_only
 
 import gevent._hub_local
 import gevent._waiter
@@ -29,6 +28,7 @@ class _DefaultReturnProperty(Protocol[_T]):
     def __get__(self, obj: None, owner: type[object] | None = None) -> property: ...
     @overload
     def __get__(self, obj: object, owner: type[object] | None = None) -> _T: ...
+
     def __set__(self, obj: object, value: _T | None) -> None: ...
     def __del__(self) -> None: ...
 
@@ -47,10 +47,12 @@ class signal(Generic[_P]):
     args: tuple[Any, ...]
     kwargs: dict[str, Any]
     def __init__(self, signalnum: int, handler: Callable[_P, object], *args: _P.args, **kwargs: _P.kwargs) -> None: ...
+
     @property
     def ref(self) -> bool: ...
     @ref.setter
     def ref(self, value: bool) -> None: ...
+
     def cancel(self) -> None: ...
     def handle(self) -> None: ...
 
@@ -66,10 +68,12 @@ class Hub(WaitOperationsGreenlet):
     loop: _Loop
     format_context: Callable[[object], str]
     minimal_ident: int
+
     @overload
     def __init__(self, loop: _Loop, default: None = None) -> None: ...
     @overload
     def __init__(self, loop: None = None, default: bool | None = None) -> None: ...
+
     @Lazy
     def ident_registry(self) -> IdentRegistry: ...
     @property

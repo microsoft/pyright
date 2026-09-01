@@ -1,7 +1,6 @@
 import datetime
 from _typeshed import Incomplete
-from typing import Any, Literal, TypedDict, overload, type_check_only
-from typing_extensions import TypeAlias
+from typing import Any, Literal, TypeAlias, TypedDict, overload, type_check_only
 
 from docker._types import WaitContainerResponse
 from docker.types.daemon import CancellableStream
@@ -24,15 +23,50 @@ class _TopResult(TypedDict):
 _Container: TypeAlias = _HasId | _HasID | str
 
 class ContainerApiMixin:
+    @overload
     def attach(
         self,
         container: _Container,
         stdout: bool = True,
         stderr: bool = True,
-        stream: bool = False,
+        stream: Literal[False] = False,
         logs: bool = False,
-        demux: bool = False,
-    ): ...
+        demux: Literal[False] = False,
+    ) -> bytes: ...
+    @overload
+    def attach(
+        self,
+        container: _Container,
+        stdout: bool = True,
+        stderr: bool = True,
+        stream: Literal[False] = False,
+        logs: bool = False,
+        *,
+        demux: Literal[True],
+    ) -> tuple[bytes | None, bytes | None]: ...
+    @overload
+    def attach(
+        self,
+        container: _Container,
+        stdout: bool = True,
+        stderr: bool = True,
+        *,
+        stream: Literal[True],
+        logs: bool = False,
+        demux: Literal[False] = False,
+    ) -> CancellableStream[bytes]: ...
+    @overload
+    def attach(
+        self,
+        container: _Container,
+        stdout: bool = True,
+        stderr: bool = True,
+        *,
+        stream: Literal[True],
+        logs: bool = False,
+        demux: Literal[True],
+    ) -> CancellableStream[tuple[bytes | None, bytes | None]]: ...
+
     def attach_socket(self, container: _Container, params=None, ws: bool = False): ...
     def commit(
         self,
@@ -99,6 +133,7 @@ class ContainerApiMixin:
     ) -> tuple[Incomplete, Incomplete]: ...
     def inspect_container(self, container: _Container): ...
     def kill(self, container: _Container, signal: str | int | None = None) -> None: ...
+
     @overload
     def logs(
         self,
@@ -139,6 +174,7 @@ class ContainerApiMixin:
         follow: bool | None = None,
         until: datetime.datetime | float | None = None,
     ) -> bytes: ...
+
     def pause(self, container: _Container) -> None: ...
     def port(self, container: _Container, private_port: int): ...
     def put_archive(self, container: _Container, path: str, data) -> bool: ...

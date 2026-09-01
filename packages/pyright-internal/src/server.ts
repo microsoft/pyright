@@ -26,7 +26,7 @@ import { getCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions, SignatureDisplayType } from './common/configOptions';
 import { ConsoleWithLogLevel, LogLevel, convertLogLevel } from './common/console';
 import { isDebugMode, isDefined, isString } from './common/core';
-import { resolvePathWithEnvVariables } from './common/envVarUtils';
+import { resolvePathStringWithEnvVariables, resolvePathWithEnvVariables } from './common/envVarUtils';
 import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
 import { FileSystem } from './common/fileSystem';
 import { FullAccessHost } from './common/fullAccessHost';
@@ -125,7 +125,7 @@ export class PyrightServer extends LanguageServerBase {
                 }
             }
 
-            const pythonAnalysisSection = await this.getConfiguration(workspace.rootUri, 'python.analysis');
+            const pythonAnalysisSection = pythonSection?.analysis;
             if (pythonAnalysisSection) {
                 const typeshedPaths = pythonAnalysisSection.typeshedPaths;
                 if (typeshedPaths && Array.isArray(typeshedPaths) && typeshedPaths.length > 0) {
@@ -166,9 +166,9 @@ export class PyrightServer extends LanguageServerBase {
 
                 const extraPaths = pythonAnalysisSection.extraPaths;
                 if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
-                    serverSettings.extraPaths = extraPaths
+                    serverSettings.extraPathFileSpecs = extraPaths
                         .filter((p) => p && isString(p))
-                        .map((p) => resolvePathWithEnvVariables(workspace, p, workspaces))
+                        .map((p) => resolvePathStringWithEnvVariables(workspace, p, workspaces))
                         .filter(isDefined);
                 }
 

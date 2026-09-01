@@ -1,7 +1,6 @@
 from _typeshed import SupportsItems
 from collections.abc import Collection, Iterator, MutableMapping
-from typing import Any, Literal, Protocol, TypeVar, overload, type_check_only
-from typing_extensions import TypeAlias
+from typing import Any, Literal, Protocol, TypeAlias, TypeVar, overload, type_check_only
 
 from markupsafe import Markup
 from wtforms.fields.core import Field, UnboundField
@@ -38,10 +37,12 @@ _MultiDictLike: TypeAlias = _MultiDictLikeWithGetall | _MultiDictLikeWithGetlist
 
 class DefaultMeta:
     def bind_field(self, form: BaseForm, unbound_field: UnboundField[_FieldT], options: MutableMapping[str, Any]) -> _FieldT: ...
+
     @overload
     def wrap_formdata(self, form: BaseForm, formdata: None) -> None: ...
     @overload
     def wrap_formdata(self, form: BaseForm, formdata: _MultiDictLike) -> _MultiDictLikeWithGetlist: ...
+
     def render_field(self, field: Field, render_kw: SupportsItems[str, Any]) -> Markup: ...
     csrf: bool
     csrf_field_name: str

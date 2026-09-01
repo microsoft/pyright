@@ -8,7 +8,11 @@
 
 import { MarkupKind } from 'vscode-languageserver-types';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
-import { extractAttributeDocumentation, extractParameterDocumentation } from '../analyzer/docStringUtils';
+import {
+    extractAttributeDocumentation,
+    extractParameterDocumentation,
+    extractReturnDocumentation,
+} from '../analyzer/docStringUtils';
 import { Uri } from './uri/uri';
 
 export interface DocStringService {
@@ -26,6 +30,11 @@ export interface DocStringService {
         format?: MarkupKind,
         forceLiteral?: boolean
     ): string | undefined;
+    extractReturnDocumentation(
+        functionDocString: string,
+        format?: MarkupKind,
+        forceLiteral?: boolean
+    ): string | undefined;
     clone(): DocStringService;
 }
 
@@ -35,7 +44,8 @@ export namespace DocStringService {
             !!value.convertDocStringToMarkdown &&
             !!value.convertDocStringToPlainText &&
             !!value.extractParameterDocumentation &&
-            !!value.extractAttributeDocumentation
+            !!value.extractAttributeDocumentation &&
+            !!value.extractReturnDocumentation
         );
     }
 }
@@ -55,6 +65,10 @@ export class PyrightDocStringService implements DocStringService {
 
     extractAttributeDocumentation(classDocString: string, attrName: string): string | undefined {
         return extractAttributeDocumentation(classDocString, attrName);
+    }
+
+    extractReturnDocumentation(functionDocString: string): string | undefined {
+        return extractReturnDocumentation(functionDocString);
     }
 
     clone() {

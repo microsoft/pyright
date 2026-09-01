@@ -3,6 +3,10 @@
 from typing import Any, Optional
 
 
+# An opaque condition to make variables Optional after `if`.
+def cond() -> bool: ...
+
+
 class Foo:
     def __init__(self):
         self.value = 3
@@ -23,7 +27,7 @@ class Foo:
 
 
 a = None
-if 1:
+if cond():
     a = Foo()
 
 # If "reportOptionalMemberAccess" is enabled,
@@ -36,7 +40,7 @@ def foo():
 
 
 b = None
-if 1:
+if cond():
     b = foo
 
 # If "reportOptionalCall" is enabled,
@@ -45,7 +49,7 @@ b()
 
 
 c = None
-if 1:
+if cond():
     c = [3, 4, 5]
 
 # If "reportOptionalSubscript" is enabled,
@@ -61,13 +65,13 @@ for val in c:
 # If "reportOptionalContextManager" is enabled,
 # this should generate an error.
 cm = None
-if 1:
+if cond():
     cm = Foo()
 with cm as val:
     pass
 
 e = None
-if 1:
+if cond():
     e = 4
 
 # If "reportOptionalOperand" is enabled,

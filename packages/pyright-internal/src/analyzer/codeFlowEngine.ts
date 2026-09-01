@@ -15,7 +15,7 @@ import { ConsoleInterface } from '../common/console';
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { ArgCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { getFileInfo, getImportInfo } from './analyzerNodeInfo';
+import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
     createKeyForReference,
@@ -37,6 +37,7 @@ import {
 } from './codeFlowTypes';
 import { formatControlFlowGraph } from './codeFlowUtils';
 import { getBoundCallMethod, getBoundNewMethod } from './constructors';
+import { DeclarationType } from './declaration';
 import { isMatchingExpression, isPartialMatchingExpression, printExpression } from './parseTreeUtils';
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
@@ -67,6 +68,8 @@ import {
     UnknownType,
 } from './types';
 import {
+    applySolvedTypeVars,
+    buildSolution,
     cleanIncompleteUnknown,
     derivesFromStdlibClass,
     doForEachSubtype,
@@ -199,7 +202,8 @@ const enablePrintConvergenceLimitHit = false;
 
 export function getCodeFlowEngine(
     evaluator: TypeEvaluator,
-    speculativeTypeTracker: SpeculativeTypeTracker
+    speculativeTypeTracker: SpeculativeTypeTracker,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): CodeFlowEngine {
     const isReachableRecursionSet = new Set<number>();
     const reachabilityCache = new Map<number, ReachabilityCacheEntry>();
@@ -701,7 +705,8 @@ export function getCodeFlowEngine(
                                     !!(
                                         conditionalFlowNode.flags &
                                         (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition)
-                                    )
+                                    ),
+                                    nodeInfo
                                 );
 
                                 if (typeNarrowingCallback) {
@@ -760,7 +765,8 @@ export function getCodeFlowEngine(
                                             !!(
                                                 conditionalFlowNode.flags &
                                                 (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition)
-                                            )
+                                            ),
+                                            nodeInfo
                                         );
 
                                         if (typeNarrowingCallback) {
@@ -997,7 +1003,10 @@ export function getCodeFlowEngine(
 
                 while (true) {
                     let sawIncomplete = false;
-                    let sawPending = false;
+                    // A reentrant reachability query can start with an existing pending subtype.
+                    let sawPending =
+                        reference === undefined &&
+                        (cacheEntry.incompleteSubtypes?.some((subtype) => subtype.isPending) ?? false);
                     let isProvenReachable =
                         reference === undefined &&
                         cacheEntry.incompleteSubtypes?.some((subtype) => subtype.type !== undefined);
@@ -1380,7 +1389,11 @@ export function getCodeFlowEngine(
                                 evaluator,
                                 conditionalFlowNode.reference!,
                                 conditionalFlowNode.expression,
-                                !!(conditionalFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition))
+                                !!(
+                                    conditionalFlowNode.flags &
+                                    (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition)
+                                ),
+                                nodeInfo
                             );
 
                             if (typeNarrowingCallback) {
@@ -1725,7 +1738,7 @@ export function getCodeFlowEngine(
     // type, thus preventing further traversal of the code flow graph.
     function isCallNoReturn(evaluator: TypeEvaluator, flowNode: FlowCall) {
         const node = flowNode.node;
-        const fileInfo = getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
 
         // Assume that calls within a pyi file are not "NoReturn" calls.
         if (fileInfo.isStubFile) {
@@ -1978,6 +1991,16 @@ export function getCodeFlowEngine(
                         }
                     }
 
+                    // Generic context managers can declare __exit__ as returning a TypeVar
+                    // that isn't necessarily the first type parameter. Specialize the declared
+                    // return type using the context manager instance's type arguments.
+                    if (cmType.shared.typeParams.length > 0 && cmType.priv.typeArgs) {
+                        returnType = applySolvedTypeVars(
+                            returnType,
+                            buildSolution(cmType.shared.typeParams, cmType.priv.typeArgs)
+                        );
+                    }
+
                     cmSwallowsExceptions = false;
                     if (isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool')) {
                         if (returnType.priv.literalValue === undefined || returnType.priv.literalValue === true) {
@@ -1997,14 +2020,34 @@ export function getCodeFlowEngine(
     }
 
     function getTypeFromWildcardImport(flowNode: FlowWildcardImport, name: string): Type {
-        const importInfo = getImportInfo(flowNode.node.d.module);
+        const importInfo = nodeInfo.getImportInfo(flowNode.node.d.module);
         assert(importInfo !== undefined && importInfo.isImportFound);
         assert(flowNode.node.d.isWildcardImport);
 
         const symbolWithScope = evaluator.lookUpSymbolRecursive(flowNode.node, name, /* honorCodeFlow */ false);
         assert(symbolWithScope !== undefined);
         const decls = symbolWithScope!.symbol.getDeclarations();
-        const wildcardDecl = decls.find((decl) => decl.node === flowNode.node);
+
+        // Normally the wildcard import contributes its own alias declaration, so we can
+        // identify it by the import node directly. But wildcard-imported multipart modules
+        // may be merged into an existing alias declaration (for example, when
+        // `import mylib.a` is followed by `from x import *` and `x` imports `mylib.b`).
+        // In that case, fall back to the merged multipart alias so code flow preserves the
+        // imported module type instead of degrading the name to Unknown.
+        //
+        // First-match is safe here because the binder merges all multipart imports for the
+        // same base name into a single symbol whose module info carries the union of all
+        // submodule paths. Every surviving alias declaration for that symbol therefore
+        // carries equivalent module info after the merge.
+        const wildcardDecl =
+            decls.find((decl) => decl.node === flowNode.node) ??
+            decls.find(
+                (decl) =>
+                    decl.type === DeclarationType.Alias &&
+                    !decl.symbolName &&
+                    decl.firstNamePart === name &&
+                    decl.loadSymbolsFromPath
+            );
 
         if (!wildcardDecl) {
             return UnknownType.create();
@@ -2021,13 +2064,13 @@ export function getCodeFlowEngine(
     ) {
         let referenceText = '';
         if (reference) {
-            const fileInfo = getFileInfo(reference);
+            const fileInfo = nodeInfo.getFileInfo(reference);
             const pos = convertOffsetToPosition(reference.start, fileInfo.lines);
             referenceText = `${printExpression(reference)}[${pos.line + 1}:${pos.character + 1}]`;
         }
 
         logger.log(`${callName}@${flowNode.id}: ${referenceText || '(none)'}`);
-        logger.log(formatControlFlowGraph(flowNode));
+        logger.log(formatControlFlowGraph(flowNode, nodeInfo));
     }
 
     return {

@@ -1,7 +1,6 @@
 import concurrent.futures
 from collections.abc import Callable
-from typing import Any, Generic, TypeVar
-from typing_extensions import ParamSpec, TypeAlias
+from typing import Any, Generic, ParamSpec, TypeAlias, TypeVar
 
 from gevent._threading import Queue
 from gevent._types import _AsyncWatcher, _Watcher
@@ -33,14 +32,17 @@ class ThreadPool(GroupMappingMixin):
     task_queue: Queue[_TaskItem]
     fork_watcher: _Watcher
     def __init__(self, maxsize: int, hub: Hub | None = None, idle_task_timeout: int = -1) -> None: ...
+
     @property
     def maxsize(self) -> int: ...
     @maxsize.setter
     def maxsize(self, value: int) -> None: ...
+
     @property
     def size(self) -> int: ...
     @size.setter
     def size(self, value: int) -> None: ...
+
     def __len__(self) -> int: ...
     def join(self) -> None: ...
     def kill(self) -> None: ...

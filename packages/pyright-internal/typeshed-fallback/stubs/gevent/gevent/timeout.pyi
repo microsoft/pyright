@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from types import TracebackType
-from typing import Any, Literal, Protocol, TypeVar, overload, type_check_only
-from typing_extensions import ParamSpec, Self
+from typing import Any, Literal, ParamSpec, Protocol, TypeVar, overload, type_check_only
+from typing_extensions import Self
 
 from gevent._types import _TimerWatcher
 
@@ -28,6 +28,7 @@ class Timeout(BaseException):
         priority: int = -1,
     ) -> None: ...
     def start(self) -> None: ...
+
     @overload
     @classmethod
     def start_new(
@@ -36,6 +37,7 @@ class Timeout(BaseException):
     @overload
     @classmethod
     def start_new(cls, timeout: _TimeoutT) -> _TimeoutT: ...
+
     @property
     def pending(self) -> bool: ...
     def cancel(self) -> None: ...

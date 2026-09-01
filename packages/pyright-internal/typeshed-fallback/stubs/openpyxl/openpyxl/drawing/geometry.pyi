@@ -1,6 +1,5 @@
 from _typeshed import ConvertibleToFloat, ConvertibleToInt, Incomplete, Unused
-from typing import ClassVar, Literal, overload
-from typing_extensions import TypeAlias
+from typing import ClassVar, Literal, TypeAlias, overload
 
 from openpyxl.descriptors.base import Alias, Bool, Float, Integer, MinMax, NoneSet, Set, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import Coordinate, ExtensionList, Percentage
@@ -531,6 +530,7 @@ class CustomGeometry2D(Serialisable):
     cxnLst: Typed[ConnectionSiteList, Literal[True]]
     pathLst: Typed[Path2DList, Literal[False]]
     rect: GeomRect | None
+
     @overload
     def __init__(
         self,

@@ -12,10 +12,18 @@ import * as os from 'os';
 import * as path from 'path';
 
 import { expandPathVariables } from '../common/envVarUtils';
+import { FileSystem } from '../common/fileSystem';
 import { isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
 import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
 import { Uri } from '../common/uri/uri';
-import { UriEx, deduplicateFolders, getWildcardRegexPattern, getWildcardRoot } from '../common/uri/uriUtils';
+import {
+    UriEx,
+    deduplicateFolders,
+    getWildcardRegexPattern,
+    getWildcardRoot,
+    isSameUriFile,
+    makeDirectories,
+} from '../common/uri/uriUtils';
 import * as vfs from './harness/vfs/filesystem';
 import { TestCaseSensitivityDetector } from './harness/testHost';
 
@@ -910,6 +918,63 @@ test('convert UNC path', () => {
     assert(path.getPath().indexOf('server') > 0);
 });
 
+test('isSameUriFile file scheme', () => {
+    // Two file:// URIs are compared by their file-system path.
+    const a = Uri.parse('file:///a/b/c.py', caseDetector);
+    const b = Uri.parse('file:///a/b/c.py', caseDetector);
+    const c = Uri.parse('file:///a/b/d.py', caseDetector);
+    assert.strictEqual(isSameUriFile(a, b), true);
+    assert.strictEqual(isSameUriFile(a, c), false);
+});
+
+test('isSameUriFile virtual scheme differing authority', () => {
+    // Two virtual URIs that differ only by authority (the #5811 scenario) are
+    // compared by their URI path, so they are treated as the same file.
+    const a = Uri.parse('vscode-vfs://authorityA/repo/x.py', caseDetector);
+    const b = Uri.parse('vscode-vfs://authorityB/repo/x.py', caseDetector);
+    const c = Uri.parse('vscode-vfs://authorityB/repo/y.py', caseDetector);
+    assert.strictEqual(isSameUriFile(a, b), true);
+    assert.strictEqual(isSameUriFile(a, c), false);
+});
+
+test('isSameUriFile virtual scheme differing fragment', () => {
+    // Notebook-mapped virtual URIs can carry a #cellName fragment. Two virtual URIs
+    // that share a path but differ by fragment refer to different logical resources
+    // (e.g. different notebook cells) and must not merge.
+    const cell1 = Uri.parse('vscode-vfs://authorityA/repo/nb.ipynb#cell1', caseDetector);
+    const cell1Other = Uri.parse('vscode-vfs://authorityB/repo/nb.ipynb#cell1', caseDetector);
+    const cell2 = Uri.parse('vscode-vfs://authorityA/repo/nb.ipynb#cell2', caseDetector);
+    // Same fragment, differing only by authority still merges (the #5811 fix).
+    assert.strictEqual(isSameUriFile(cell1, cell1Other), true);
+    // Differing fragment stays distinct.
+    assert.strictEqual(isSameUriFile(cell1, cell2), false);
+});
+
+test('isSameUriFile virtual scheme differing query', () => {
+    // Virtual URIs that share a path but differ by query must not merge.
+    const a = Uri.parse('vscode-vfs://authorityA/repo/x.py?a=1', caseDetector);
+    const b = Uri.parse('vscode-vfs://authorityA/repo/x.py?a=2', caseDetector);
+    assert.strictEqual(isSameUriFile(a, b), false);
+});
+
+test('isSameUriFile differing virtual schemes', () => {
+    // Virtual URIs that share a path but use different schemes are distinct resources
+    // and must not merge.
+    const a = Uri.parse('vscode-vfs://authority/repo/x.py', caseDetector);
+    const b = Uri.parse('untitled://authority/repo/x.py', caseDetector);
+    assert.strictEqual(isSameUriFile(a, b), false);
+});
+
+test('isSameUriFile mixed file and virtual scheme', () => {
+    // A file:// URI paired with a virtual URI must never merge, even when the
+    // logical file appears the same. getFilePath() is non-empty on one side and
+    // empty on the other, so the anti-over-merge guard returns false.
+    const fileUri = Uri.parse('file:///repo/x.py', caseDetector);
+    const virtualUri = Uri.parse('vscode-vfs://authorityA/repo/x.py', caseDetector);
+    assert.strictEqual(isSameUriFile(fileUri, virtualUri), false);
+    assert.strictEqual(isSameUriFile(virtualUri, fileUri), false);
+});
+
 function lowerCaseDrive(entries: string[]) {
     return entries.map((p) => (process.platform === 'win32' ? p[0].toLowerCase() + p.slice(1) : p));
 }
@@ -969,6 +1034,45 @@ test('Web URIs dont exist', () => {
     const stat = fs.statSync(uri);
     assert(!stat.isFile());
     tempFile.dispose();
+});
+
+test('makeDirectories tolerates stale existsSync results for existing directories', () => {
+    const createdPaths = new Set<string>();
+    const mkdirCalls: { filePath: string; recursive: boolean }[] = [];
+    const fs = {
+        existsSync: () => false,
+        mkdirSync: (uri: Uri, options?: { recursive: boolean }) => {
+            const filePath = normalizeSlashes(uri.getFilePath());
+            const alreadyExists = createdPaths.has(filePath);
+
+            if (alreadyExists && !options?.recursive) {
+                throw new Error(`EEXIST: ${filePath}`);
+            }
+
+            mkdirCalls.push({ filePath, recursive: options?.recursive ?? false });
+            createdPaths.add(filePath);
+        },
+    } as unknown as FileSystem;
+
+    const root = UriEx.file('/root');
+    const nested = root.combinePaths('pkg-stubs', 'subdir');
+
+    makeDirectories(fs, nested, root);
+    makeDirectories(fs, nested, root);
+
+    const expectedPaths = [
+        normalizeSlashes('/root/pkg-stubs'),
+        normalizeSlashes('/root/pkg-stubs/subdir'),
+        normalizeSlashes('/root/pkg-stubs'),
+        normalizeSlashes('/root/pkg-stubs/subdir'),
+    ];
+
+    assert.deepStrictEqual(
+        mkdirCalls.map((call) => call.filePath),
+        expectedPaths
+    );
+    assert(mkdirCalls.every((call) => call.recursive));
+    assert(createdPaths.has(normalizeSlashes('/root/pkg-stubs/subdir')));
 });
 
 test('constant uri test', () => {

@@ -6,8 +6,7 @@ if sys.platform != "linux" and sys.platform != "win32" and sys.platform != "darw
     from collections import defaultdict
     from collections.abc import Callable
     from contextlib import AbstractContextManager
-    from typing import Final, NamedTuple, TypeVar, overload
-    from typing_extensions import ParamSpec
+    from typing import Final, NamedTuple, ParamSpec, TypeVar, overload
 
     from psutil._common import (
         FREEBSD as FREEBSD,
@@ -207,6 +206,7 @@ if sys.platform != "linux" and sys.platform != "win32" and sys.platform != "darw
         def cpu_affinity_get(self) -> list[int]: ...  # only FreeBSD
         def cpu_affinity_set(self, cpus: list[int]) -> None: ...  # only FreeBSD
         def memory_maps(self) -> list[tuple[str, str, str, int, int, int, int]]: ...  # only FreeBSD
+
         @overload
         def rlimit(self, resource: int, limits: tuple[int, int]) -> None: ...  # only FreeBSD
         @overload

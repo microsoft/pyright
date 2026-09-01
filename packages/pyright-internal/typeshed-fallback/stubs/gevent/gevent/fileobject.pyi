@@ -1,6 +1,5 @@
 import sys
-from typing import Any
-from typing_extensions import TypeAlias
+from typing import Any, TypeAlias
 
 from gevent._fileobjectcommon import FileObjectBlock as FileObjectBlock, FileObjectThread as FileObjectThread
 
@@ -25,6 +24,7 @@ if sys.platform != "win32":
     class FileObjectPosix(FileObjectBase[_IOT, AnyStr]):
         default_bufsize = io.DEFAULT_BUFFER_SIZE
         fileio: io.RawIOBase
+
         # Text mode: always binds a TextIOWrapper
         @overload
         def __init__(

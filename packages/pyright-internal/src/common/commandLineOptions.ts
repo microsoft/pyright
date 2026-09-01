@@ -64,8 +64,8 @@ export class CommandLineConfigOptions {
     // Name for the virtual environment.
     pythonEnvironmentName?: string | undefined;
 
-    // Python platform indicator (darwin, linux, win32)
-    pythonPlatform?: 'Darwin' | 'Linux' | 'Windows' | undefined;
+    // Python platform indicator (darwin, linux, win32, ios, android)
+    pythonPlatform?: 'Darwin' | 'Linux' | 'Windows' | 'iOS' | 'Android' | undefined;
 
     // Python version string (3.3, 3.4, etc.)
     pythonVersion?: PythonVersion | undefined;
@@ -83,6 +83,12 @@ export class CommandLineConfigOptions {
     // add them as extra paths if the user has not explicitly defined
     // execution environments.
     autoSearchPaths?: boolean | undefined;
+
+    // Whether to add the built-in default excludes (e.g. '**/node_modules',
+    // '**/__pycache__', '**/.*', plus auto-detected virtual environments).
+    // Defaults to true when undefined. When false, no default excludes are
+    // added and virtual-environment auto-detection is disabled.
+    useDefaultExcludes?: boolean | undefined;
 
     // Extra paths to add to the default execution environment
     // when user has not explicitly defined execution environments.
@@ -115,9 +121,6 @@ export class CommandLineLanguageServerOptions {
 
     // Watch for changes in config files.
     watchForConfigChanges?: boolean | undefined;
-
-    // Type stub import target (for creation of type stubs).
-    typeStubTargetImportName?: string | undefined;
 
     // Indicates that only open files should be checked.
     checkOnlyOpenFiles?: boolean | undefined;

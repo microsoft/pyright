@@ -30,6 +30,9 @@ export interface IndexAliasData {
     readonly moduleUri: Uri;
     readonly kind: SymbolKind;
     readonly itemKind?: CompletionItemKind | undefined;
+    // Range of the original symbol's definition in moduleUri.
+    // Present when the alias was resolved during indexing.
+    readonly selectionRange?: Range | undefined;
 }
 
 export const enum IndexSymbolVisibilityFlags {
@@ -66,6 +69,7 @@ export class SymbolIndexer {
         fileInfo: AnalyzerFileInfo,
         parseResults: ParseFileResults,
         indexOptions: IndexOptions,
+        nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
         token: CancellationToken
     ): IndexSymbolData[] {
         // Here are the rule of what symbols are indexed for a file.
@@ -82,6 +86,7 @@ export class SymbolIndexer {
             parseResults.parserOutput.parseTree,
             indexOptions,
             indexSymbolData,
+            nodeInfo,
             token
         );
 
@@ -95,11 +100,12 @@ function collectSymbolIndexData(
     node: AnalyzerNodeInfo.ScopedNode,
     indexOptions: IndexOptions,
     indexSymbolData: IndexSymbolData[],
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
     token: CancellationToken
 ) {
     throwIfCancellationRequested(token);
 
-    const scope = AnalyzerNodeInfo.getScope(node);
+    const scope = AnalyzerNodeInfo.getScope(node, nodeInfo);
     if (!scope) {
         return;
     }
@@ -136,6 +142,7 @@ function collectSymbolIndexData(
             isVisibleExternally(symbol),
             name,
             indexSymbolData,
+            nodeInfo,
             token
         );
     });
@@ -149,6 +156,7 @@ function collectSymbolIndexDataForName(
     externallyVisible: boolean,
     name: string,
     indexSymbolData: IndexSymbolData[],
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
     token: CancellationToken
 ) {
     const symbolKind = getSymbolKind(declaration, undefined, name);
@@ -161,7 +169,7 @@ function collectSymbolIndexDataForName(
     const children: IndexSymbolData[] = [];
 
     if (declaration.type === DeclarationType.Class || declaration.type === DeclarationType.Function) {
-        collectSymbolIndexData(fileInfo, parseResults, declaration.node, indexOptions, children, token);
+        collectSymbolIndexData(fileInfo, parseResults, declaration.node, indexOptions, children, nodeInfo, token);
 
         range = convertOffsetsToRange(
             declaration.node.start,

@@ -1,5 +1,4 @@
-from typing import Any, Final, TypeVar, overload
-from typing_extensions import TypeAlias
+from typing import Any, Final, TypeAlias, TypeVar, overload
 
 _T = TypeVar("_T")
 
@@ -11,6 +10,7 @@ ICAL_TYPE: TypeAlias = str | bytes
 
 def from_unicode(value: ICAL_TYPE, encoding: str = "utf-8") -> bytes: ...
 def to_unicode(value: ICAL_TYPE, encoding: str = "utf-8-sig") -> str: ...
+
 @overload
 def data_encode(data: ICAL_TYPE, encoding: str = "utf-8") -> bytes: ...
 @overload

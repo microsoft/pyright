@@ -19,6 +19,7 @@ import {
 import { InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 import { ImportResolver } from './analyzer/importResolver';
 import { OpenFileOptions, Program } from './analyzer/program';
+import { generateTypeStubFiles, TypeStubGenerationPlan, TypeStubGenerationResult } from './analyzer/typeStubGeneration';
 import {
     BackgroundThreadBase,
     InitializationData,
@@ -57,7 +58,7 @@ export interface IBackgroundAnalysis extends Disposable {
     ensurePartialStubPackages(executionRoot: string | undefined): void;
     setFileOpened(fileUri: Uri, version: number | null, contents: string, options: OpenFileOptions): void;
     updateChainedUri(fileUri: Uri, chainedUri: Uri | undefined): void;
-    setFileClosed(fileUri: Uri, isTracked?: boolean): void;
+    setFileClosed(fileUri: Uri): void;
     addInterimFile(fileUri: Uri): void;
     markAllFilesDirty(evenIfContentsAreSame: boolean): void;
     markFilesDirty(fileUris: Uri[], evenIfContentsAreSame: boolean): void;
@@ -65,12 +66,7 @@ export interface IBackgroundAnalysis extends Disposable {
     analyzeFile(fileUri: Uri, token: CancellationToken): Promise<boolean>;
     analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<Diagnostic[]>;
     getDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]>;
-    writeTypeStub(
-        targetImportPath: Uri,
-        targetIsSingleFile: boolean,
-        stubPath: Uri,
-        token: CancellationToken
-    ): Promise<any>;
+    generateTypeStubFiles(plan: TypeStubGenerationPlan, token: CancellationToken): Promise<TypeStubGenerationResult>;
     invalidateAndForceReanalysis(reason: InvalidatedReason): void;
     restart(): void;
     shutdown(): void;
@@ -148,8 +144,8 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
         });
     }
 
-    setFileClosed(fileUri: Uri, isTracked?: boolean) {
-        this.enqueueRequest({ requestType: 'setFileClosed', data: serialize({ fileUri, isTracked }) });
+    setFileClosed(fileUri: Uri) {
+        this.enqueueRequest({ requestType: 'setFileClosed', data: serialize({ fileUri }) });
     }
 
     addInterimFile(fileUri: Uri) {
@@ -242,33 +238,27 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
         return convertDiagnostics(result);
     }
 
-    async writeTypeStub(
-        targetImportPath: Uri,
-        targetIsSingleFile: boolean,
-        stubPath: Uri,
+    async generateTypeStubFiles(
+        plan: TypeStubGenerationPlan,
         token: CancellationToken
-    ): Promise<any> {
+    ): Promise<TypeStubGenerationResult> {
         throwIfCancellationRequested(token);
 
         const { port1, port2 } = new MessageChannel();
-        const waiter = getBackgroundWaiter(port1);
+        const waiter = getBackgroundWaiter<TypeStubGenerationResult>(port1);
 
         const cancellationId = getCancellationTokenId(token);
         this.enqueueRequest({
-            requestType: 'writeTypeStub',
-            data: serialize({
-                targetImportPath,
-                targetIsSingleFile,
-                stubPath,
-                cancellationId,
-            }),
+            requestType: 'generateTypeStubFiles',
+            data: serialize({ plan, cancellationId }),
             port: port2,
         });
 
-        await waiter;
+        const result = await waiter;
 
         port2.close();
         port1.close();
+        return result;
     }
 
     invalidateAndForceReanalysis(reason: InvalidatedReason) {
@@ -482,12 +472,12 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
                 break;
             }
 
-            case 'writeTypeStub': {
+            case 'generateTypeStubFiles': {
                 run(() => {
-                    const { targetImportPath, targetIsSingleFile, stubPath, cancellationId } = deserialize(msg.data);
+                    const { plan, cancellationId } = deserialize(msg.data);
                     const token = getCancellationTokenFromId(cancellationId);
 
-                    this.handleWriteTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
+                    return this.handleGenerateTypeStubFiles(plan, token);
                 }, msg.port!);
                 break;
             }
@@ -531,8 +521,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             }
 
             case 'setFileClosed': {
-                const { fileUri, isTracked } = deserialize(msg.data);
-                this.handleSetFileClosed(fileUri, isTracked);
+                const { fileUri } = deserialize(msg.data);
+                this.handleSetFileClosed(fileUri);
                 break;
             }
 
@@ -639,22 +629,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         return this.program.getDiagnosticsForRange(fileUri, range);
     }
 
-    protected handleWriteTypeStub(
-        targetImportPath: Uri,
-        targetIsSingleFile: boolean,
-        stubPath: Uri,
-        token: CancellationToken
-    ) {
-        analyzeProgram(
-            this.program,
-            /* maxTime */ undefined,
-            this._configOptions,
-            nullCallback,
-            this.getConsole(),
-            token
-        );
-
-        this.program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
+    protected handleGenerateTypeStubFiles(plan: TypeStubGenerationPlan, token: CancellationToken) {
+        return generateTypeStubFiles(this.program, plan, token);
     }
 
     protected handleSetImportResolver(hostKind: HostKind) {
@@ -719,8 +695,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         this.program.updateChainedUri(fileUri, chainedFileUri);
     }
 
-    protected handleSetFileClosed(fileUri: Uri, isTracked: boolean | undefined) {
-        const diagnostics = this.program.setFileClosed(fileUri, isTracked);
+    protected handleSetFileClosed(fileUri: Uri) {
+        const diagnostics = this.program.setFileClosed(fileUri);
         this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
     }
 
@@ -867,7 +843,7 @@ export type BackgroundRequestKind =
     | 'invalidateAndForceReanalysis'
     | 'restart'
     | 'getDiagnosticsForRange'
-    | 'writeTypeStub'
+    | 'generateTypeStubFiles'
     | 'setImportResolver'
     | 'shutdown'
     | 'addInterimFile'

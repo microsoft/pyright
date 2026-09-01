@@ -1,8 +1,9 @@
-from collections.abc import Collection, Iterator, KeysView
+from _typeshed import SupportsItems
+from collections.abc import Iterator, KeysView
 from enum import Enum
 from http.cookiejar import Cookie, CookiePolicy, MozillaCookieJar
-from http.cookies import SimpleCookie
-from typing import Final, TextIO, TypeVar
+from http.cookies import Morsel, SimpleCookie
+from typing import Any, Final, TextIO, TypeVar
 
 from . import _LoggerProtocol
 from .minicurses import MultilinePrinter
@@ -101,4 +102,4 @@ class DataParser:
 def pbkdf2_sha1(password: bytes, salt: bytes, iterations: int, key_length: int) -> bytes: ...
 
 class LenientSimpleCookie(SimpleCookie):
-    def load(self, data: str | Collection[str]) -> None: ...
+    def load(self, data: str | SupportsItems[str, str | Morsel[Any]]) -> None: ...

@@ -676,3 +676,36 @@ def test_tuple_subexpressions(d: D):
         case (int(), int()):
             reveal_type(d.x, expected_text="int")
             reveal_type(d.y, expected_text="int")
+
+
+def test_unpacked_variadic_regression(
+    subj: tuple[int] | tuple[str, str] | tuple[int, Unpack[tuple[str, ...]], int],
+):
+    """Regression test: pattern matching should not mark the third case unreachable.
+    
+    Previously, the (x, y) pattern would remove the unpacked variadic tuple entry
+    and treat it as a definite match, causing the (x, y, z) pattern to be unreachable.
+    The fix ensures isPotentialNoMatch remains true after removal, preventing premature
+    elimination during negative narrowing.
+    """
+    match subj:
+        case (x,):
+            # First case narrows to tuple[int]
+            reveal_type(subj, expected_text="tuple[int]")
+            reveal_type(x, expected_text="int")
+
+        case (x, y):
+            # Second case narrows to tuple[str, str] | tuple[int, int]
+            # (the unpacked tuple with 0 elements in the middle)
+            reveal_type(subj, expected_text="tuple[str, str] | tuple[int, int]")
+            reveal_type(x, expected_text="str | int")
+            reveal_type(y, expected_text="str | int")
+
+        case (x, y, z):
+            # Third case should be reachable and narrow to tuple[int, str, int]
+            # (the unpacked tuple with 1 element in the middle)
+            reveal_type(subj, expected_text="tuple[int, str, int]")
+            reveal_type(x, expected_text="int")
+            reveal_type(y, expected_text="str")
+            reveal_type(z, expected_text="int")
+

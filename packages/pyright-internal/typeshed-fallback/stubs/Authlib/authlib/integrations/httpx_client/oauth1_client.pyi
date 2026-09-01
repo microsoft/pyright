@@ -1,7 +1,6 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
-from typing import NoReturn
-from typing_extensions import TypeAlias
+from typing import NoReturn, TypeAlias
 
 from authlib.oauth1 import ClientAuth
 from authlib.oauth1.client import OAuth1Client as _OAuth1Client
@@ -12,7 +11,7 @@ _Request: TypeAlias = Incomplete  # actual type is httpx.Request
 # Inherits from httpx.Auth
 class OAuth1Auth(ClientAuth):
     requires_request_body: bool
-    def auth_flow(self, request: _Request) -> Generator[_Request, _Response, None]: ...
+    def auth_flow(self, request: _Request) -> Generator[_Request, _Response]: ...
 
 # Inherits from httpx.AsyncClient
 class AsyncOAuth1Client(_OAuth1Client):

@@ -2,6 +2,7 @@
     "extends": "../../tsconfig.json",
     "compilerOptions": {
         "outDir": "./out",
+        "rootDir": "../..",
         "paths": {
             "pyright-internal/*": [
                 "../pyright-internal/src/*"

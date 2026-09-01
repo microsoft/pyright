@@ -27,7 +27,7 @@ import { EditableProgram, ProgramView } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
-import { configFileName, defaultStubsDirectory } from '../common/pathConsts';
+import { configFileName, defaultExcludes, defaultStubsDirectory, pyprojectTomlName } from '../common/pathConsts';
 import { getFileName, isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { ServiceKeys } from '../common/serviceKeys';
@@ -42,8 +42,6 @@ import {
     getFileSpec,
     hasPythonExtension,
     isDirectory,
-    isFile,
-    makeDirectories,
     tryStat,
 } from '../common/uri/uriUtils';
 import { AnalysisCompleteCallback } from './analysis';
@@ -53,7 +51,7 @@ import {
     InvalidatedReason,
 } from './backgroundAnalysisProgram';
 import { ImportLogger } from './importLogger';
-import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor } from './importResolver';
+import { ImportResolver, ImportResolverFactory } from './importResolver';
 import { ChangedRange, MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import {
@@ -70,6 +68,14 @@ import { IPythonMode } from './sourceFile';
 const _userActivityBackoffTimeInMs = 250;
 
 const _gitDirectory = normalizeSlashes('/.git/');
+
+const _pyTypedMarkerFileName = 'py.typed';
+
+// Matches URI scheme prefixes like "memfs:/..." or "zowe-uss://...". URI schemes require 2+
+// leading letters so single-letter prefixes like "C:" (Windows drive letters) are not matched.
+// We also require a "/" (or "//") after the scheme delimiter so that legitimate relative paths
+// that merely contain a colon (e.g. POSIX "foo:bar") are not mistaken for URIs and dropped.
+const _uriSchemeRegex = /^[a-zA-Z]{2,}[\w+.-]*:\/\/?/;
 
 export interface LibraryReanalysisTimeProvider {
     (): number;
@@ -91,8 +97,13 @@ export interface AnalyzerServiceOptions {
     fileSystem?: FileSystem;
     onInvalidated?: (reason: InvalidatedReason) => void;
     // Optional callback fired once when initial source file enumeration completes.
-    onSourceEnumerationComplete?: () => void;
+    onSourceEnumerationComplete?: (enumerator: SourceEnumerator) => void;
     shouldRunAnalysis: () => boolean;
+}
+
+interface AnalyzerServiceCloneOptions {
+    backgroundAnalysis?: IBackgroundAnalysis;
+    fileSystem?: FileSystem;
 }
 
 interface ConfigFileContents {
@@ -114,8 +125,6 @@ export class AnalyzerService {
 
     private _instanceName: string;
     private _executionRootUri: Uri;
-    private _typeStubTargetUri: Uri | undefined;
-    private _typeStubTargetIsSingleFile = false;
     private _sourceFileWatcher: FileWatcher | undefined;
     private _reloadConfigTimer: any;
     private _libraryReanalysisTimer: any;
@@ -223,19 +232,18 @@ export class AnalyzerService {
         this._instanceName = instanceName;
     }
 
-    clone(
-        instanceName: string,
-        serviceId: string,
-        backgroundAnalysis?: IBackgroundAnalysis,
-        fileSystem?: FileSystem
-    ): AnalyzerService {
+    clone(instanceName: string, serviceId: string, options: AnalyzerServiceCloneOptions = {}): AnalyzerService {
+        // Share the current effective configuration, but keep transient tracked-file and import state on each Program.
         const service = new AnalyzerService(instanceName, this._serviceProvider, {
             ...this.options,
             serviceId,
-            backgroundAnalysis,
+            backgroundAnalysis: options.backgroundAnalysis,
+            configOptions: this._configOptions,
             skipScanningUserFiles: true,
-            fileSystem,
+            fileSystem: options.fileSystem,
         });
+        service.backgroundAnalysisProgram.setConfigOptions(service.getConfigOptions());
+        service.backgroundAnalysisProgram.setImportResolver(service.getImportResolver());
 
         // Cloned service will use whatever user files the service currently has.
         const userFiles = this.getUserFiles();
@@ -347,23 +355,15 @@ export class AnalyzerService {
         return this._program.getOwnedFiles().map((i) => i.uri);
     }
 
-    setFileOpened(
-        uri: Uri,
-        version: number | null,
-        contents: string,
-        ipythonMode = IPythonMode.None,
-        chainedFileUri?: Uri
-    ) {
+    setFileOpened(uri: Uri, version: number | null, contents: string, ipythonMode?: IPythonMode, chainedFileUri?: Uri) {
         // Open the file. Notebook cells are always tracked as they aren't 3rd party library files.
         // This is how it's worked in the past since each notebook used to have its own
         // workspace and the workspace include setting marked all cells as tracked.
-        // In check-only-open-files mode, treat all opened documents as tracked even if they
-        // are not owned by this workspace. This ensures in-memory edits to dependency files
-        // (e.g. files imported via extraPaths in another workspace) invalidate the program
-        // and are reflected immediately in language features like hover/rename.
+        // Untitled files also exist only in memory and should be treated as virtual.
+        const isVirtual = ipythonMode !== IPythonMode.None || uri.isUntitled();
         this._backgroundAnalysisProgram.setFileOpened(uri, version, contents, {
-            isTracked: this.isTracked(uri) || this.checkOnlyOpenFiles || ipythonMode !== IPythonMode.None,
-            ipythonMode,
+            isVirtual,
+            ipythonMode: ipythonMode ?? IPythonMode.None,
             chainedFileUri: chainedFileUri,
         });
         this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
@@ -382,20 +382,19 @@ export class AnalyzerService {
         uri: Uri,
         version: number | null,
         contents: string,
-        ipythonMode = IPythonMode.None,
+        ipythonMode?: IPythonMode,
         changedRange?: ChangedRange
     ) {
         this._backgroundAnalysisProgram.updateOpenFileContents(uri, version, contents, {
-            isTracked: this.isTracked(uri) || this.checkOnlyOpenFiles || ipythonMode !== IPythonMode.None,
-            ipythonMode,
+            ipythonMode: ipythonMode ?? IPythonMode.None,
             chainedFileUri: undefined,
             changedRange,
         });
         this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    setFileClosed(uri: Uri, isTracked?: boolean) {
-        this._backgroundAnalysisProgram.setFileClosed(uri, isTracked);
+    setFileClosed(uri: Uri) {
+        this._backgroundAnalysisProgram.setFileClosed(uri);
         this.scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
@@ -486,37 +485,19 @@ export class AnalyzerService {
         );
 
         const results = enumerator.enumerate(0);
-        return this._getTrackedFileList(results.matches);
+        return Array.from(results.matches.values());
     }
 
     test_shouldHandleSourceFileWatchChanges(uri: Uri, isFile: boolean) {
         return this._shouldHandleSourceFileWatchChanges(uri, isFile);
     }
 
+    test_setOnInvalidatedCallback(onInvalidated: ((reason: InvalidatedReason) => void) | undefined) {
+        this.options.onInvalidated = onInvalidated;
+    }
+
     test_shouldHandleLibraryFileWatchChanges(uri: Uri, libSearchUris: Uri[]) {
         return this._shouldHandleLibraryFileWatchChanges(uri, libSearchUris);
-    }
-
-    writeTypeStub(token: CancellationToken): void {
-        const typingsSubdirUri = this._getTypeStubFolder();
-
-        this._program.writeTypeStub(
-            this._typeStubTargetUri ?? Uri.empty(),
-            this._typeStubTargetIsSingleFile,
-            typingsSubdirUri,
-            token
-        );
-    }
-
-    writeTypeStubInBackground(token: CancellationToken): Promise<any> {
-        const typingsSubdirUri = this._getTypeStubFolder();
-
-        return this._backgroundAnalysisProgram.writeTypeStub(
-            this._typeStubTargetUri ?? Uri.empty(),
-            this._typeStubTargetIsSingleFile,
-            typingsSubdirUri,
-            token
-        );
     }
 
     invalidateAndScheduleReanalysis(reason: InvalidatedReason) {
@@ -576,15 +557,14 @@ export class AnalyzerService {
 
             fileMap = enumResults.matches;
 
-            const fileList = this._getTrackedFileList(fileMap);
-            this._backgroundAnalysisProgram.setTrackedFiles(fileList);
+            this._backgroundAnalysisProgram.setTrackedFiles(Array.from(fileMap.values()));
 
             // Source file enumeration is complete. Proceed with analysis.
             this._sourceEnumerator = undefined;
 
             if (this.options.onSourceEnumerationComplete) {
                 try {
-                    this.options.onSourceEnumerationComplete();
+                    this.options.onSourceEnumerationComplete(enumerator);
                 } catch (e) {
                     // Swallow exceptions to avoid impacting normal analysis.
                     this._console.error(
@@ -761,10 +741,6 @@ export class AnalyzerService {
         return !!this._configOptions.verboseOutput;
     }
 
-    private get _typeStubTargetImportName() {
-        return this._commandLineOptions?.languageServerSettings.typeStubTargetImportName;
-    }
-
     // Calculates the effective options based on the command-line options,
     // an optional config file, and default values.
     private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions): ConfigOptions {
@@ -843,7 +819,10 @@ export class AnalyzerService {
         const configOptions = new ConfigOptions(projectRoot);
 
         // If we found a config file, load it and apply its settings.
-        const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
+        const configs = this._getExtendedConfigurations(
+            configFilePath ?? pyprojectFilePath,
+            !configFilePath ? pyprojectFilePath?.getDirectory() : undefined
+        );
         if (configs && configs.length > 0) {
             // With a pyrightconfig.json set, we want the typeCheckingMode to always be standard
             // as that's what the Pyright CLI will expect. Command line options (if not a language server) and
@@ -861,8 +840,8 @@ export class AnalyzerService {
                 );
             }
 
-            // Set the configFileSource since we have a config file.
-            configOptions.configFileSource = configFilePath ?? pyprojectFilePath;
+            // Set the configFileSource since we have a config file (set by `_getExtendedConfigurations`)
+            configOptions.configFileSource = this._primaryConfigFileUri;
 
             // When not in language server mode, command line options override config file options.
             if (!commandLineOptions.fromLanguageServer) {
@@ -896,7 +875,8 @@ export class AnalyzerService {
                 configOptions.setupExecutionEnvironments(
                     config.configFileJsonObj,
                     config.configFileDirUri,
-                    this.serviceProvider.console()
+                    this.serviceProvider.console(),
+                    this.fs
                 );
             }
         }
@@ -911,8 +891,6 @@ export class AnalyzerService {
         executionRoot: Uri,
         commandLineOptions: CommandLineOptions
     ) {
-        const defaultExcludes = ['**/node_modules', '**/__pycache__', '**/.*'];
-
         // If no include paths were provided, assume that all files within
         // the project should be included.
         if (configOptions.include.length === 0) {
@@ -920,18 +898,39 @@ export class AnalyzerService {
             configOptions.include.push(getFileSpec(projectRoot, '.'));
         }
 
-        // If there was no explicit set of excludes, add a few common ones to
-        // avoid long scan times.
-        if (configOptions.exclude.length === 0) {
-            defaultExcludes.forEach((exclude) => {
-                this._console.info(`Auto-excluding ${exclude}`);
-                configOptions.exclude.push(getFileSpec(projectRoot, exclude));
-            });
+        // Record whether the user explicitly provided any excludes before we (optionally) add
+        // the default excludes below. Consumers (e.g. Pylance's workspace routing) use this to
+        // distinguish files orphaned only by implicit defaults from files the user explicitly
+        // excluded.
+        configOptions.userSpecifiedExcludes = configOptions.exclude.length > 0;
 
-            if (configOptions.autoExcludeVenv === undefined) {
-                configOptions.autoExcludeVenv = true;
-            }
+        // Add the built-in default excludes unless the user turned them off via the
+        // `useDefaultExcludes` setting (defaults to on). When enabled, these defaults are applied
+        // additively on top of any user-specified excludes and, like any other exclude, take
+        // precedence over `include` — a directory auto-detected as a virtual environment stays
+        // excluded even when it is explicitly included. When disabled, no default excludes are
+        // added and virtual-environment auto-detection is left off, so nothing is auto-excluded.
+        const useDefaultExcludes = commandLineOptions.configSettings.useDefaultExcludes ?? true;
+        if (useDefaultExcludes) {
+            // Deduplicate against patterns the user already listed (by compiled regex source) so
+            // specifying a custom exclude never silently drops — or duplicates — the defaults.
+            const existingExcludeRegExps = new Set(configOptions.exclude.map((spec) => spec.regExp.source));
+            defaultExcludes.forEach((exclude) => {
+                const fileSpec = getFileSpec(projectRoot, exclude);
+                if (existingExcludeRegExps.has(fileSpec.regExp.source)) {
+                    return;
+                }
+
+                this._console.info(`Auto-excluding ${exclude}`);
+                existingExcludeRegExps.add(fileSpec.regExp.source);
+                configOptions.exclude.push(fileSpec);
+            });
         }
+
+        // Virtual-environment auto-detection is part of the default-exclude set, so it follows the
+        // same `useDefaultExcludes` gate. Assigning it unconditionally (rather than behind an
+        // `=== undefined` guard) is idempotent because this method is its single writer.
+        configOptions.autoExcludeVenv = useDefaultExcludes;
 
         if (!configOptions.defaultExtraPaths) {
             configOptions.ensureDefaultExtraPaths(
@@ -1128,14 +1127,26 @@ export class AnalyzerService {
         }
 
         commandLineOptions.includeFileSpecs.forEach((fileSpec) => {
+            // Skip file specs that look like URI schemes (e.g., "zowe-uss:", "memfs:").
+            if (_uriSchemeRegex.test(fileSpec)) {
+                return;
+            }
             configOptions.include.push(getFileSpec(projectRoot, fileSpec));
         });
 
         commandLineOptions.excludeFileSpecs.forEach((fileSpec) => {
+            // Skip file specs that look like URI schemes (e.g., "zowe-uss:", "memfs:").
+            if (_uriSchemeRegex.test(fileSpec)) {
+                return;
+            }
             configOptions.exclude.push(getFileSpec(projectRoot, fileSpec));
         });
 
         commandLineOptions.ignoreFileSpecs.forEach((fileSpec) => {
+            // Skip file specs that look like URI schemes (e.g., "zowe-uss:", "memfs:").
+            if (_uriSchemeRegex.test(fileSpec)) {
+                return;
+            }
             configOptions.ignore.push(getFileSpec(projectRoot, fileSpec));
         });
 
@@ -1152,6 +1163,11 @@ export class AnalyzerService {
         if (commandLineOptions.includeFileSpecsOverride) {
             configOptions.include = [];
             commandLineOptions.includeFileSpecsOverride.forEach((include) => {
+                // Skip overrides that look like URI schemes (e.g., "memfs:/", "zowe-uss://").
+                // Otherwise they get passed to Uri.file() and corrupt the include specs.
+                if (_uriSchemeRegex.test(include)) {
+                    return;
+                }
                 configOptions.include.push(
                     getFileSpec(Uri.file(include, this.serviceProvider, /* checkRelative */ true), '.')
                 );
@@ -1202,7 +1218,12 @@ export class AnalyzerService {
 
     // Loads the config JSON object from the specified config file along with any
     // chained config files specified in the "extends" property (recursively).
-    private _getExtendedConfigurations(primaryConfigFileUri: Uri | undefined): ConfigFileContents[] | undefined {
+    // If pyprojectSearchDir is provided and the primary file is a pyproject.toml with no
+    // [tool.pyright] section, falls back to searching ancestor dirs from pyprojectSearchDir.
+    private _getExtendedConfigurations(
+        primaryConfigFileUri: Uri | undefined,
+        pyprojectSearchDir?: Uri
+    ): ConfigFileContents[] | undefined {
         this._primaryConfigFileUri = primaryConfigFileUri;
         this._extendedConfigFileUris = [];
 
@@ -1252,56 +1273,25 @@ export class AnalyzerService {
             curConfigFileUri = baseConfigUri;
         }
 
+        // If a pyproject.toml was found but had no [tool.pyright] section, fall back to
+        // searching ancestor directories as if that pyproject.toml didn't exist.
+        if (configJsonObjs.length === 0 && pyprojectSearchDir) {
+            const parentDir = pyprojectSearchDir.getDirectory();
+            if (!parentDir.equals(pyprojectSearchDir)) {
+                const fallback =
+                    findConfigFileHereOrUp(this.fs, parentDir) ?? findPyprojectTomlFileHereOrUp(this.fs, parentDir);
+                if (fallback) {
+                    return this._getExtendedConfigurations(
+                        fallback,
+                        // Provide the next pyprojectSearchDir, so we can continue
+                        // searching upward
+                        fallback.lastExtension.endsWith('.toml') ? fallback.getDirectory() : undefined
+                    );
+                }
+            }
+        }
+
         return configJsonObjs;
-    }
-
-    private _getTypeStubFolder() {
-        const stubPath =
-            this._configOptions.stubPath ??
-            this.fs.realCasePath(this._configOptions.projectRoot.resolvePaths(defaultStubsDirectory));
-
-        if (!this._typeStubTargetUri || !this._typeStubTargetImportName) {
-            const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
-            this._console.error(errMsg);
-            throw new Error(errMsg);
-        }
-
-        const typeStubInputTargetParts = this._typeStubTargetImportName.split('.');
-        if (typeStubInputTargetParts[0].length === 0) {
-            // We should never get here because the import resolution
-            // would have failed.
-            const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
-            this._console.error(errMsg);
-            throw new Error(errMsg);
-        }
-
-        try {
-            // Generate a new typings directory if necessary.
-            if (!this.fs.existsSync(stubPath)) {
-                this.fs.mkdirSync(stubPath);
-            }
-        } catch (e: any) {
-            const errMsg = `Could not create typings directory '${stubPath.toUserVisibleString()}'`;
-            this._console.error(errMsg);
-            throw new Error(errMsg);
-        }
-
-        // Generate a typings subdirectory hierarchy.
-        const typingsSubdirPath = stubPath.resolvePaths(typeStubInputTargetParts[0]);
-        const typingsSubdirHierarchy = stubPath.resolvePaths(...typeStubInputTargetParts);
-
-        try {
-            // Generate a new typings subdirectory if necessary.
-            if (!this.fs.existsSync(typingsSubdirHierarchy)) {
-                makeDirectories(this.fs, typingsSubdirHierarchy, stubPath);
-            }
-        } catch (e: any) {
-            const errMsg = `Could not create typings subdirectory '${typingsSubdirHierarchy.toUserVisibleString()}'`;
-            this._console.error(errMsg);
-            throw new Error(errMsg);
-        }
-
-        return typingsSubdirPath;
     }
 
     private _parseJsonConfigFile(configPath: Uri): object | undefined {
@@ -1379,96 +1369,13 @@ export class AnalyzerService {
         return undefined;
     }
 
-    // Given a file map returned by the source enumerator, this function
-    // adds any open files that match the include file spec and returns a
-    // final deduped file list.
-    private _getTrackedFileList(fileMap: Map<string, Uri>): Uri[] {
-        // And scan all matching open files. We need to do this since some of files are not backed by
-        // files in file system but only exist in memory (ex, virtual workspace)
-        this._backgroundAnalysisProgram.program
-            .getOpened()
-            .map((o) => o.uri)
-            .filter((f) => f.isUntitled() || matchFileSpecs(this._program.configOptions, f))
-            .forEach((f) => fileMap.set(f.key, f));
-
-        const fileList = Array.from(fileMap.values());
-        return fileList;
-    }
-
     // If markFilesDirtyUnconditionally is true, we need to reparse
     // and reanalyze all files in the program. If false, we will
     // reparse and reanalyze only those files whose on-disk contents
     // have changed. Unconditional dirtying is needed in the case where
     // configuration options have changed.
     private _updateTrackedFileList(markFilesDirtyUnconditionally: boolean) {
-        // Are we in type stub generation mode? If so, we need to search
-        // for a different set of files.
-        if (this._typeStubTargetImportName) {
-            const execEnv = this._configOptions.findExecEnvironment(this._executionRootUri);
-            const moduleDescriptor = createImportedModuleDescriptor(this._typeStubTargetImportName);
-            const importResult = this._backgroundAnalysisProgram.importResolver.resolveImport(
-                Uri.empty(),
-                execEnv,
-                moduleDescriptor
-            );
-
-            if (importResult.isImportFound) {
-                const filesToImport: Uri[] = [];
-
-                // Determine the directory that contains the root package.
-                const finalResolvedPath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
-                const isFinalPathFile = isFile(this.fs, finalResolvedPath);
-                const isFinalPathInitFile =
-                    isFinalPathFile && finalResolvedPath.stripAllExtensions().fileName === '__init__';
-
-                let rootPackagePath = finalResolvedPath;
-
-                if (isFinalPathFile) {
-                    // If the module is a __init__.pyi? file, use its parent directory instead.
-                    rootPackagePath = rootPackagePath.getDirectory();
-                }
-
-                for (let i = importResult.resolvedUris.length - 2; i >= 0; i--) {
-                    if (!importResult.resolvedUris[i].isEmpty()) {
-                        rootPackagePath = importResult.resolvedUris[i];
-                    } else {
-                        // If there was no file corresponding to this portion
-                        // of the name path, assume that it's contained
-                        // within its parent directory.
-                        rootPackagePath = rootPackagePath.getDirectory();
-                    }
-                }
-
-                if (isDirectory(this.fs, rootPackagePath)) {
-                    this._typeStubTargetUri = rootPackagePath;
-                } else if (isFile(this.fs, rootPackagePath)) {
-                    // This can occur if there is a "dir/__init__.py" at the same level as a
-                    // module "dir/module.py" that is specifically targeted for stub generation.
-                    this._typeStubTargetUri = rootPackagePath.getDirectory();
-                }
-
-                if (finalResolvedPath.isEmpty()) {
-                    this._typeStubTargetIsSingleFile = false;
-                } else {
-                    filesToImport.push(finalResolvedPath);
-                    this._typeStubTargetIsSingleFile = importResult.resolvedUris.length === 1 && !isFinalPathInitFile;
-                }
-
-                // Add the implicit import paths.
-                importResult.filteredImplicitImports?.forEach((implicitImport) => {
-                    if (ImportResolver.isSupportedImportSourceFile(implicitImport.uri)) {
-                        filesToImport.push(implicitImport.uri);
-                    }
-                });
-
-                this._backgroundAnalysisProgram.setAllowedThirdPartyImports([this._typeStubTargetImportName]);
-                this._backgroundAnalysisProgram.setTrackedFiles(filesToImport);
-            } else {
-                this._console.error(`Import '${this._typeStubTargetImportName}' not found`);
-            }
-
-            this._requireTrackedFileUpdate = false;
-        } else if (!this.options.skipScanningUserFiles) {
+        if (!this.options.skipScanningUserFiles) {
             // Allocate a new source enumerator. We'll call this
             // repeatedly until all source files are found.
             this._sourceEnumerator = new SourceEnumerator(
@@ -1542,6 +1449,14 @@ export class AnalyzerService {
                         return;
                     }
 
+                    // The presence or absence of a PEP 561 marker file can change import resolution results.
+                    // Treat all events for `py.typed` as structural changes that require invalidation.
+                    if (eventInfo.isFile && uri.fileName === _pyTypedMarkerFileName) {
+                        this.invalidateAndForceReanalysis(InvalidatedReason.SourceWatcherChanged);
+                        this.scheduleReanalysis(/* requireTrackedFileUpdate */ true);
+                        return;
+                    }
+
                     // This is for performance optimization. If the change only pertains to the content of one file,
                     // then it can't affect the 'import resolution' result. All we need to do is reanalyze the related files
                     // (those that have a transitive dependency on this file).
@@ -1591,7 +1506,7 @@ export class AnalyzerService {
                 // If we got 'change', but can't access the path, then we consider it as delete.
                 if (!stats) {
                     // See whether it is a file that got deleted.
-                    const isFile = !!program.getSourceFile(path);
+                    const isFile = !!program.getSourceFile(path) || path.fileName === _pyTypedMarkerFileName;
 
                     // If not, check whether it is a part of the workspace at all.
                     if (!isFile && !program.containsSourceFileIn(path)) {
@@ -1613,14 +1528,23 @@ export class AnalyzerService {
 
     private _shouldHandleSourceFileWatchChanges(path: Uri, isFile: boolean) {
         if (isFile) {
-            if (!hasPythonExtension(path) || isTemporaryFile(path)) {
+            const isPyTypedMarkerFile = path.fileName === _pyTypedMarkerFileName;
+
+            if (!isPyTypedMarkerFile && (!hasPythonExtension(path) || isTemporaryFile(path))) {
                 return false;
             }
 
             // Check whether the file change can affect semantics. If the file changed is not a user file or already a part of
             // the program (since we lazily load library files or extra path files when they are used), then the change can't
             // affect semantics. so just bail out.
-            if (!this.isTracked(path) && !this._program.getSourceFileInfo(path)) {
+            if (!isPyTypedMarkerFile && !this.isTracked(path) && !this._program.getSourceFileInfo(path)) {
+                return false;
+            }
+
+            if (
+                isPyTypedMarkerFile &&
+                !canPyTypedMarkerAffectSemantics(this._program, this._configOptions, this.fs, path)
+            ) {
                 return false;
             }
 
@@ -1645,6 +1569,32 @@ export class AnalyzerService {
         }
 
         return true;
+
+        function canPyTypedMarkerAffectSemantics(
+            program: Program,
+            configOptions: ConfigOptions,
+            fs: FileSystem,
+            path: Uri
+        ) {
+            const parentPath = path.getDirectory();
+
+            // Respect include/exclude rules (including the default exclusion of dot-folders).
+            if (!matchFileSpecs(program.configOptions, parentPath, /* isFile */ false)) {
+                return false;
+            }
+
+            // If the directory containing the marker isn't already a workspace package folder (or doesn't contain
+            // any tracked source files), it can't affect import resolution or type evaluation.
+            const hasInit =
+                parentPath.startsWith(configOptions.projectRoot) &&
+                (fs.existsSync(parentPath.initPyUri) || fs.existsSync(parentPath.initPyiUri));
+
+            const hasPythonSourceFileInParent = program
+                .getSourceFileInfoList()
+                .some((fileInfo) => hasPythonExtension(fileInfo.uri) && fileInfo.uri.startsWith(parentPath));
+
+            return hasInit || hasPythonSourceFileInParent;
+        }
 
         function isTemporaryFile(path: Uri) {
             // Determine if this is an add or delete event related to a temporary
@@ -1861,7 +1811,7 @@ export class AnalyzerService {
 
                 if (event === 'add' || event === 'change') {
                     const fileName = getFileName(path);
-                    if (fileName === configFileName) {
+                    if (fileName === configFileName || fileName === pyprojectTomlName) {
                         if (this._verboseOutput) {
                             this._console.info(`Received fs event '${event}' for config file`);
                         }

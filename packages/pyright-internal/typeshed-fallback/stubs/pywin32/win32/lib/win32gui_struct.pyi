@@ -1,9 +1,10 @@
 from _typeshed import Incomplete, ReadableBuffer
 from array import array
-from typing import NamedTuple
+from typing import NamedTuple, type_check_only
 
 is64bit: bool
 
+@type_check_only
 class _WMNOTIFY(NamedTuple):
     hwndFrom: Incomplete
     idFrom: Incomplete
@@ -11,6 +12,7 @@ class _WMNOTIFY(NamedTuple):
 
 def UnpackWMNOTIFY(lparam: int) -> _WMNOTIFY: ...
 
+@type_check_only
 class _NMITEMACTIVATE(NamedTuple):
     hwndFrom: Incomplete
     idFrom: Incomplete
@@ -38,6 +40,7 @@ def PackMENUITEMINFO(
     dwTypeData: Incomplete | None = ...,
 ) -> tuple[array[int], list[Incomplete]]: ...
 
+@type_check_only
 class _MENUITEMINFO(NamedTuple):
     fType: int | None
     fState: int | None
@@ -60,6 +63,7 @@ def PackMENUINFO(
     fMask: int = ...,
 ) -> array[int]: ...
 
+@type_check_only
 class _MENUINFO(NamedTuple):
     dwStyle: Incomplete | None
     cyMax: Incomplete | None
@@ -73,6 +77,7 @@ def PackTVINSERTSTRUCT(parent, insertAfter, tvitem) -> tuple[bytes, list[Incompl
 def PackTVITEM(hitem, state, stateMask, text, image, selimage, citems, param) -> tuple[array[int], list[Incomplete]]: ...
 def EmptyTVITEM(hitem, mask: Incomplete | None = ..., text_buf_size: int = ...) -> tuple[array[int], list[Incomplete]]: ...
 
+@type_check_only
 class _TVITEM(NamedTuple):
     item_hItem: Incomplete
     item_state: Incomplete | None
@@ -85,6 +90,7 @@ class _TVITEM(NamedTuple):
 
 def UnpackTVITEM(buffer: ReadableBuffer) -> _TVITEM: ...
 
+@type_check_only
 class _TVNOTIFY(NamedTuple):
     hwndFrom: Incomplete
     id: Incomplete
@@ -95,6 +101,7 @@ class _TVNOTIFY(NamedTuple):
 
 def UnpackTVNOTIFY(lparam: int) -> _TVNOTIFY: ...
 
+@type_check_only
 class _TVDISPINFO(NamedTuple):
     hwndFrom: Incomplete
     id: Incomplete
@@ -113,6 +120,7 @@ def PackLVITEM(
     indent: Incomplete | None = ...,
 ) -> tuple[array[int], list[Incomplete]]: ...
 
+@type_check_only
 class _LVITEM(NamedTuple):
     item_item: Incomplete
     item_subItem: Incomplete
@@ -125,6 +133,7 @@ class _LVITEM(NamedTuple):
 
 def UnpackLVITEM(buffer: ReadableBuffer) -> _LVITEM: ...
 
+@type_check_only
 class _LVDISPINFO(NamedTuple):
     hwndFrom: Incomplete
     id: Incomplete
@@ -133,6 +142,7 @@ class _LVDISPINFO(NamedTuple):
 
 def UnpackLVDISPINFO(lparam: int) -> _LVDISPINFO: ...
 
+@type_check_only
 class _UnpackLVNOTIFY(NamedTuple):
     hwndFrom: Incomplete
     id: Incomplete
@@ -158,6 +168,7 @@ def PackLVCOLUMN(
     order: Incomplete | None = ...,
 ) -> tuple[array[int], list[Incomplete]]: ...
 
+@type_check_only
 class _LVCOLUMN(NamedTuple):
     fmt: Incomplete | None
     cx: Incomplete | None
@@ -170,6 +181,7 @@ def UnpackLVCOLUMN(lparam: ReadableBuffer) -> _LVCOLUMN: ...
 def EmptyLVCOLUMN(mask: Incomplete | None = ..., text_buf_size: int = ...) -> tuple[array[int], list[Incomplete]]: ...
 def PackLVHITTEST(pt) -> tuple[array[int], None]: ...
 
+@type_check_only
 class _LVHITTEST(NamedTuple):
     pt: tuple[Incomplete, Incomplete]
     flags: Incomplete

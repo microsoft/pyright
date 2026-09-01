@@ -1,8 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeVar
-from typing_extensions import ParamSpec, TypeAlias
+from typing import Any, Generic, Literal, ParamSpec, TypeAlias, TypeVar
 
 import tensorflow as tf
 from tensorflow.python.training.tracking.autotrackable import AutoTrackable
@@ -18,6 +17,13 @@ class Asset:
     def __init__(self, path: str | Path | tf.Tensor) -> None: ...
 
 class LoadOptions:
+    __slots__ = (
+        "allow_partial_checkpoint",
+        "experimental_io_device",
+        "experimental_skip_checkpoint",
+        "experimental_variable_policy",
+        "experimental_load_function_aliases",
+    )
     allow_partial_checkpoint: bool
     experimental_io_device: str | None
     experimental_skip_checkpoint: bool

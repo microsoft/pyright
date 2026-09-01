@@ -1,9 +1,9 @@
+from _typeshed import Incomplete
 from collections.abc import Awaitable
 from typing import Any, ClassVar, Protocol, TypedDict, type_check_only
 
 from asgiref.typing import ASGIReceiveCallable, ASGISendCallable, Scope, WebSocketScope
 from channels.auth import UserLazyObject
-from channels.db import database_sync_to_async
 from channels.layers import BaseChannelLayer
 from django.contrib.sessions.backends.base import SessionBase
 from django.utils.functional import LazyObject
@@ -12,7 +12,7 @@ from django.utils.functional import LazyObject
 # We subclass both for type checking purposes to expose SessionBase attributes,
 # and suppress mypy's "misc" error with `# type: ignore[misc]`.
 @type_check_only
-class _LazySession(SessionBase, LazyObject):  # type: ignore[misc]
+class _LazySession(SessionBase, LazyObject[Incomplete]):  # type: ignore[misc]
     _wrapped: SessionBase
 
 @type_check_only
@@ -39,6 +39,7 @@ class _ChannelScope(WebSocketScope, total=False):
 # Accepts any ASGI message dict with a required "type" key (str),
 # but allows additional arbitrary keys for flexibility.
 def get_handler_name(message: dict[str, Any]) -> str: ...
+
 @type_check_only
 class _ASGIApplicationProtocol(Protocol):
     consumer_class: AsyncConsumer
@@ -70,6 +71,5 @@ class SyncConsumer(AsyncConsumer):
 
     # Since we're overriding asynchronous methods with synchronous ones,
     # we need to use `# type: ignore[override]` to suppress mypy errors.
-    @database_sync_to_async
-    def dispatch(self, message: dict[str, Any]) -> None: ...  # type: ignore[override]
+    async def dispatch(self, message: dict[str, Any]) -> None: ...  # type: ignore[override]
     def send(self, message: dict[str, Any]) -> None: ...  # type: ignore[override]

@@ -2,10 +2,10 @@
 from abc import ABCMeta, abstractmethod
 from collections.abc import Mapping
 from logging import Logger
-from typing import Any, Protocol
-from typing_extensions import TypeAlias
+from typing import Any, Protocol, TypeAlias, type_check_only
 
 # from fonttools.ttLib.ttGlyphSet
+@type_check_only
 class _TTGlyph(Protocol):
     def __init__(self, glyphSet: _TTGlyphSet, glyphName: str) -> None: ...
     def draw(self, pen) -> None: ...

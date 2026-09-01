@@ -63,6 +63,10 @@ export class SourceFileInfo implements extensibility.SourceFileInfo {
     get isOpenByClient() {
         return this._writableData.isOpenByClient;
     }
+
+    get isVirtual() {
+        return this._writableData.isVirtual;
+    }
     get uri() {
         return this.sourceFile.getUri();
     }
@@ -145,6 +149,11 @@ export class SourceFileInfo implements extensibility.SourceFileInfo {
         this._writableData.isOpenByClient = value;
     }
 
+    set isVirtual(value: boolean) {
+        this._cachePreEditState();
+        this._writableData.isVirtual = value;
+    }
+
     mutate(callback: (s: WriteableData) => void) {
         this._cachePreEditState();
         callback(this._writableData);
@@ -177,6 +186,7 @@ export class SourceFileInfo implements extensibility.SourceFileInfo {
         return {
             isTracked: args.isTracked ?? false,
             isOpenByClient: args.isOpenByClient ?? false,
+            isVirtual: args.isVirtual ?? false,
             builtinsImport: args.builtinsImport,
             chainedSourceFile: args.chainedSourceFile,
             diagnosticsVersion: args.diagnosticsVersion,
@@ -192,6 +202,7 @@ export class SourceFileInfo implements extensibility.SourceFileInfo {
         return {
             isTracked: data.isTracked,
             isOpenByClient: data.isOpenByClient,
+            isVirtual: data.isVirtual,
             builtinsImport: data.builtinsImport,
             chainedSourceFile: data.chainedSourceFile,
             diagnosticsVersion: data.diagnosticsVersion,
@@ -212,6 +223,7 @@ interface EditModeTracker {
 interface OptionalArguments {
     isTracked?: boolean;
     isOpenByClient?: boolean;
+    isVirtual?: boolean;
     diagnosticsVersion?: number | undefined;
     builtinsImport?: SourceFileInfo | undefined;
     chainedSourceFile?: SourceFileInfo | undefined;
@@ -238,6 +250,7 @@ interface WriteableData {
     // and its relation to other source files in the program.
     isTracked: boolean;
     isOpenByClient: boolean;
+    isVirtual: boolean;
     imports: SourceFileInfo[];
     importedBy: SourceFileInfo[];
     shadows: SourceFileInfo[];

@@ -1,9 +1,8 @@
 import datetime
 from _io import _BufferedReaderStream
-from _typeshed import Incomplete
 from collections.abc import Iterable, Iterator, Mapping
 from socket import SocketIO
-from typing import Literal, NamedTuple, TypedDict, overload, type_check_only
+from typing import Any, Literal, NamedTuple, TypedDict, overload, type_check_only
 from typing_extensions import NotRequired
 
 from docker._types import ContainerWeightDevice, WaitContainerResponse
@@ -38,13 +37,46 @@ class Container(Model):
     @property
     def health(self) -> str: ...
     @property
-    def ports(self) -> dict[Incomplete, Incomplete]: ...
+    def ports(self) -> dict[str, list[dict[str, str]] | None]: ...
+
+    @overload
     def attach(
-        self, **kwargs
-    ) -> str | tuple[str | None, str | None] | CancellableStream[str] | CancellableStream[tuple[str | None, str | None]]: ...
+        self,
+        *,
+        stdout: bool = True,
+        stderr: bool = True,
+        stream: Literal[False] = False,
+        logs: bool = False,
+        demux: Literal[False] = False,
+    ) -> bytes: ...
+    @overload
+    def attach(
+        self,
+        *,
+        stdout: bool = True,
+        stderr: bool = True,
+        stream: Literal[False] = False,
+        logs: bool = False,
+        demux: Literal[True],
+    ) -> tuple[bytes | None, bytes | None]: ...
+    @overload
+    def attach(
+        self,
+        *,
+        stdout: bool = True,
+        stderr: bool = True,
+        stream: Literal[True],
+        logs: bool = False,
+        demux: Literal[False] = False,
+    ) -> CancellableStream[bytes]: ...
+    @overload
+    def attach(
+        self, *, stdout: bool = True, stderr: bool = True, stream: Literal[True], logs: bool = False, demux: Literal[True]
+    ) -> CancellableStream[tuple[bytes | None, bytes | None]]: ...
+
     def attach_socket(self, **kwargs) -> SocketIO | _BufferedReaderStream | SSHSocket: ...
     def commit(self, repository: str | None = None, tag: str | None = None, **kwargs) -> Image: ...
-    def diff(self) -> list[dict[str, Incomplete]]: ...
+    def diff(self) -> list[dict[str, int | str]]: ...
     def exec_run(
         self,
         cmd: str | list[str],
@@ -64,8 +96,9 @@ class Container(Model):
     def export(self, chunk_size: int | None = 2097152) -> str: ...
     def get_archive(
         self, path: str, chunk_size: int | None = 2097152, encode_stream: bool = False
-    ) -> tuple[Incomplete, Incomplete]: ...
+    ) -> tuple[Iterator[bytes], dict[str, Any] | None]: ...
     def kill(self, signal: str | int | None = None) -> None: ...
+
     @overload
     def logs(
         self,
@@ -92,6 +125,7 @@ class Container(Model):
         follow: bool | None = None,
         until: datetime.datetime | float | None = None,
     ) -> bytes: ...
+
     def pause(self) -> None: ...
     def put_archive(self, path: str, data) -> bool: ...
     def remove(self, *, v: bool = False, link: bool = False, force: bool = False) -> None: ...
@@ -99,7 +133,7 @@ class Container(Model):
     def resize(self, height: int, width: int) -> None: ...
     def restart(self, *, timeout: float | None = 10) -> None: ...
     def start(self) -> None: ...
-    def stats(self, **kwargs) -> Iterator[dict[str, Incomplete]] | dict[str, Incomplete]: ...
+    def stats(self, **kwargs) -> Iterator[dict[str, Any]] | dict[str, Any]: ...
     def stop(self, *, timeout: float | None = None) -> None: ...
     def top(self, *, ps_args: str | None = None) -> _TopResult: ...
     def unpause(self) -> None: ...
@@ -124,6 +158,7 @@ class Container(Model):
 
 class ContainerCollection(Collection[Container]):
     model: type[Container]
+
     @overload
     def run(
         self,
@@ -150,22 +185,22 @@ class ContainerCollection(Collection[Container]):
         cpuset_cpus: str | None = None,
         cpuset_mems: str | None = None,
         detach: Literal[False] = False,
-        device_cgroup_rules: list[Incomplete] | None = None,
+        device_cgroup_rules: list[str] | None = None,
         device_read_bps: list[Mapping[str, str | int]] | None = None,
         device_read_iops: list[Mapping[str, str | int]] | None = None,
         device_write_bps: list[Mapping[str, str | int]] | None = None,
         device_write_iops: list[Mapping[str, str | int]] | None = None,
         devices: list[str] | None = None,
         device_requests: list[DeviceRequest] | None = None,
-        dns: list[Incomplete] | None = None,
-        dns_opt: list[Incomplete] | None = None,
-        dns_search: list[Incomplete] | None = None,
-        domainname: str | list[Incomplete] | None = None,
+        dns: list[str] | None = None,
+        dns_opt: list[str] | None = None,
+        dns_search: list[str] | None = None,
+        domainname: str | list[str] | None = None,
         entrypoint: str | list[str] | None = None,
         environment: dict[str, str] | list[str] | None = None,
         extra_hosts: dict[str, str] | None = None,
         group_add: Iterable[str | int] | None = None,
-        healthcheck: dict[Incomplete, Incomplete] | None = None,
+        healthcheck: dict[str, Any] | None = None,
         hostname: str | None = None,
         init: bool | None = None,
         init_path: str | None = None,
@@ -175,7 +210,7 @@ class ContainerCollection(Collection[Container]):
         labels: dict[str, str] | list[str] | None = None,
         links: dict[str, str] | dict[str, None] | dict[str, str | None] | Iterable[tuple[str, str | None]] | None = None,
         log_config: LogConfig | None = None,
-        lxc_conf: dict[Incomplete, Incomplete] | None = None,
+        lxc_conf: dict[str, str] | None = None,
         mac_address: str | None = None,
         mem_limit: str | int | None = None,
         mem_reservation: str | int | None = None,
@@ -203,9 +238,9 @@ class ContainerCollection(Collection[Container]):
         shm_size: str | int | None = None,
         stdin_open: bool = False,
         stop_signal: str | None = None,
-        storage_opt: dict[Incomplete, Incomplete] | None = None,
+        storage_opt: dict[str, str] | None = None,
         stream: bool = False,
-        sysctls: dict[Incomplete, Incomplete] | None = None,
+        sysctls: dict[str, str] | None = None,
         tmpfs: dict[str, str] | None = None,
         tty: bool = False,
         ulimits: list[Ulimit] | None = None,
@@ -245,22 +280,22 @@ class ContainerCollection(Collection[Container]):
         cpuset_cpus: str | None = None,
         cpuset_mems: str | None = None,
         detach: Literal[True],
-        device_cgroup_rules: list[Incomplete] | None = None,
+        device_cgroup_rules: list[str] | None = None,
         device_read_bps: list[Mapping[str, str | int]] | None = None,
         device_read_iops: list[Mapping[str, str | int]] | None = None,
         device_write_bps: list[Mapping[str, str | int]] | None = None,
         device_write_iops: list[Mapping[str, str | int]] | None = None,
         devices: list[str] | None = None,
         device_requests: list[DeviceRequest] | None = None,
-        dns: list[Incomplete] | None = None,
-        dns_opt: list[Incomplete] | None = None,
-        dns_search: list[Incomplete] | None = None,
-        domainname: str | list[Incomplete] | None = None,
+        dns: list[str] | None = None,
+        dns_opt: list[str] | None = None,
+        dns_search: list[str] | None = None,
+        domainname: str | list[str] | None = None,
         entrypoint: str | list[str] | None = None,
         environment: dict[str, str] | list[str] | None = None,
         extra_hosts: dict[str, str] | None = None,
         group_add: Iterable[str | int] | None = None,
-        healthcheck: dict[Incomplete, Incomplete] | None = None,
+        healthcheck: dict[str, Any] | None = None,
         hostname: str | None = None,
         init: bool | None = None,
         init_path: str | None = None,
@@ -270,7 +305,7 @@ class ContainerCollection(Collection[Container]):
         labels: dict[str, str] | list[str] | None = None,
         links: dict[str, str] | dict[str, None] | dict[str, str | None] | Iterable[tuple[str, str | None]] | None = None,
         log_config: LogConfig | None = None,
-        lxc_conf: dict[Incomplete, Incomplete] | None = None,
+        lxc_conf: dict[str, str] | None = None,
         mac_address: str | None = None,
         mem_limit: str | int | None = None,
         mem_reservation: str | int | None = None,
@@ -298,9 +333,9 @@ class ContainerCollection(Collection[Container]):
         shm_size: str | int | None = None,
         stdin_open: bool = False,
         stop_signal: str | None = None,
-        storage_opt: dict[Incomplete, Incomplete] | None = None,
+        storage_opt: dict[str, str] | None = None,
         stream: bool = False,
-        sysctls: dict[Incomplete, Incomplete] | None = None,
+        sysctls: dict[str, str] | None = None,
         tmpfs: dict[str, str] | None = None,
         tty: bool = False,
         ulimits: list[Ulimit] | None = None,
@@ -314,7 +349,8 @@ class ContainerCollection(Collection[Container]):
         volumes_from: list[str] | None = None,
         working_dir: str | None = None,
     ) -> Container: ...
-    def create(  # type:ignore[override]
+
+    def create(  # type: ignore[override]
         self,
         image: str | Image,
         command: str | list[str] | None = None,
@@ -336,22 +372,22 @@ class ContainerCollection(Collection[Container]):
         cpuset_cpus: str | None = None,
         cpuset_mems: str | None = None,
         detach: bool = False,
-        device_cgroup_rules: list[Incomplete] | None = None,
+        device_cgroup_rules: list[str] | None = None,
         device_read_bps: list[Mapping[str, str | int]] | None = None,
         device_read_iops: list[Mapping[str, str | int]] | None = None,
         device_write_bps: list[Mapping[str, str | int]] | None = None,
         device_write_iops: list[Mapping[str, str | int]] | None = None,
         devices: list[str] | None = None,
         device_requests: list[DeviceRequest] | None = None,
-        dns: list[Incomplete] | None = None,
-        dns_opt: list[Incomplete] | None = None,
-        dns_search: list[Incomplete] | None = None,
-        domainname: str | list[Incomplete] | None = None,
+        dns: list[str] | None = None,
+        dns_opt: list[str] | None = None,
+        dns_search: list[str] | None = None,
+        domainname: str | list[str] | None = None,
         entrypoint: str | list[str] | None = None,
         environment: dict[str, str] | list[str] | None = None,
         extra_hosts: dict[str, str] | None = None,
         group_add: Iterable[str | int] | None = None,
-        healthcheck: dict[Incomplete, Incomplete] | None = None,
+        healthcheck: dict[str, Any] | None = None,
         hostname: str | None = None,
         init: bool | None = None,
         init_path: str | None = None,
@@ -361,7 +397,7 @@ class ContainerCollection(Collection[Container]):
         labels: dict[str, str] | list[str] | None = None,
         links: dict[str, str] | dict[str, None] | dict[str, str | None] | Iterable[tuple[str, str | None]] | None = None,
         log_config: LogConfig | None = None,
-        lxc_conf: dict[Incomplete, Incomplete] | None = None,
+        lxc_conf: dict[str, str] | None = None,
         mac_address: str | None = None,
         mem_limit: str | int | None = None,
         mem_reservation: str | int | None = None,
@@ -389,9 +425,9 @@ class ContainerCollection(Collection[Container]):
         shm_size: str | int | None = None,
         stdin_open: bool = False,
         stop_signal: str | None = None,
-        storage_opt: dict[Incomplete, Incomplete] | None = None,
+        storage_opt: dict[str, str] | None = None,
         stream: bool = False,
-        sysctls: dict[Incomplete, Incomplete] | None = None,
+        sysctls: dict[str, str] | None = None,
         tmpfs: dict[str, str] | None = None,
         tty: bool = False,
         ulimits: list[Ulimit] | None = None,
@@ -410,17 +446,17 @@ class ContainerCollection(Collection[Container]):
         self,
         all: bool = False,
         before: str | None = None,
-        filters: dict[str, Incomplete] | None = None,
+        filters: dict[str, str | list[str] | bool] | None = None,
         limit: int = -1,
         since: str | None = None,
         sparse: bool = False,
         ignore_removed: bool = False,
     ) -> list[Container]: ...
-    def prune(self, filters: dict[str, Incomplete] | None = None) -> dict[str, Incomplete]: ...
+    def prune(self, filters: dict[str, Any] | None = None) -> dict[str, Any]: ...
 
 RUN_CREATE_KWARGS: list[str]
 RUN_HOST_CONFIG_KWARGS: list[str]
 
 class ExecResult(NamedTuple):
-    exit_code: Incomplete
-    output: Incomplete
+    exit_code: int | None
+    output: bytes | Iterator[bytes]

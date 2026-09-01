@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "库",
+        "standardLibrary": "标准库",
+        "workspace": "工作区"
+    },
     "CodeAction": {
         "createTypeStub": "创建类型 Stub",
         "createTypeStubFor": "为 \"{moduleName}\" 创建类型 Stub",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "冻结类不能从未冻结的类继承",
         "dataClassConverterFunction": "类型“{argType}”的参数不是类型为“{fieldType}”的字段“{fieldName}”的有效转换器",
         "dataClassConverterOverloads": "“{funcName}”的重载不是类型为“{fieldType}”的字段“{fieldName}”的有效转换器",
+        "dataClassDuplicateKwOnly": "“{name}”是重复的 KW_ONLY 分隔符；在数据类中只允许一个",
         "dataClassFieldInheritedDefault": "“{fieldName}”替代同名字段，但缺少默认值",
         "dataClassFieldWithDefault": "没有默认值的字段不能出现在具有默认值的字段之后",
         "dataClassFieldWithPrivateName": "数据类字段不能使用专用名称",
@@ -139,6 +145,10 @@
         "dictInAnnotation": "类型表达式中不允许使用字典表达式",
         "dictKeyValuePairs": "字典条目必须包含键/值对",
         "dictUnpackIsNotMapping": "字典解包运算符的预期映射",
+        "disjointBaseFunction": "@disjoint_base cannot be applied to a function",
+        "disjointBaseIncompatible": "Base classes have incompatible disjoint bases: {bases}",
+        "disjointBaseProtocol": "@disjoint_base cannot be applied to a Protocol class",
+        "disjointBaseTypedDict": "@disjoint_base cannot be applied to a TypedDict class",
         "dunderAllSymbolNotPresent": "\"{name}\"已在__all__中指定，但在模块中不存在",
         "duplicateArgsParam": "只允许一个 \"*\" 参数",
         "duplicateBaseClass": "不允许重复的基类",
@@ -283,7 +293,7 @@
         "internalTypeCheckingError": "类型检查文件“{file}”时发生内部错误:{message}",
         "invalidIdentifierChar": "标识符中的字符无效",
         "invalidStubStatement": "语句在类型 stub 文件中无意义",
-        "invalidTokenChars": "令牌中的字符\"{text}\"无效",
+        "invalidTokenChars": "标记中的字符“{text}”无效",
         "isInstanceInvalidType": "\"isinstance\" 的第二个参数必须是类或类的 tuple",
         "isSubclassInvalidType": "\"issubclass\" 的第二个参数必须是类或类的 tuple",
         "keyValueInSet": "不允许在 set 内使用键/值对",
@@ -293,6 +303,8 @@
         "keywordSubscriptIllegal": "不支持下标中的关键字参数",
         "lambdaReturnTypePartiallyUnknown": "lambda 的返回类型“{returnType}”部分未知",
         "lambdaReturnTypeUnknown": "lambda 的返回类型未知",
+        "lazyImportIllegal": "延迟导入语句需要 Python 3.15 或更高版本",
+        "lazyImportWildcardIllegal": "通配符导入不能与 \"lazy\" 一起使用",
         "listAssignmentMismatch": "无法将 \"{type}\" 类型的表达式分配给目标列表",
         "listInAnnotation": "类型表达式中不允许使用 List 表达式",
         "literalEmptyArgs": "“Literal”后应有一个或多个类型参数",
@@ -845,6 +857,9 @@
         "useTypeInstead": "改用 type[T]",
         "varianceMismatchForClass": "类型参数\"{typeVarName}\"的差异与基类\"{className}\"不兼容",
         "varianceMismatchForTypeAlias": "类型参数\"{typeVarName}\"的差异与\"{typeAliasParam}\"不兼容"
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "无法重命名“{symbolName}”，因为它也在不可编辑的代码中声明(无法修改的库或存根文件)。完成重命名会使“{symbolName}”处于部分重命名状态。请先解决存在冲突的声明:\r\n{locations}"
     },
     "Service": {
         "longOperation": "枚举工作区源文件需要很长时间。请考虑打开子文件夹。[了解详细信息](https://aka.ms/workspace-too-many-files)"

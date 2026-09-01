@@ -17,6 +17,15 @@ Try Pyright in your browser using the [Pyright Playground](https://pyright-play.
 Refer to [the documentation](https://microsoft.github.io/pyright) for installation, configuration, and usage details.
 
 
+## Environment variables
+
+If Pyright fails to create a temporary directory (for example in remote/server environments where the OS temp directory doesn't exist or isn't writable), you can override the temp directory root:
+
+- `PYRIGHT_TMPDIR`: Absolute path to a directory that Pyright can use for temporary files/directories. Pyright will create it if needed.
+
+Pyright otherwise relies on the platform temp directory (for example `TMPDIR`, `TMP`, `TEMP`, or the OS default).
+
+
 ## Community
 Do you have questions about Pyright or Python type annotations in general? Post your questions in [the discussion section](https://github.com/microsoft/pyright/discussions).
 

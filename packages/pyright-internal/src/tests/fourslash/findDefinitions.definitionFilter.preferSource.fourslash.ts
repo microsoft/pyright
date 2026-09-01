@@ -13,13 +13,41 @@
 ////
 //// [|/*marker*/func1|]('')
 
+// @filename: mylib/__init__.py
+// @library: true
+//// from ._private import Foo as _Foo
+//// foo = _Foo()
+
+// @filename: mylib/_private.py
+// @library: true
+//// class Foo:
+////     def [|func|](self) -> int:
+////         return 1
+
+// @filename: typings/mylib/__init__.pyi
+//// class Foo:
+////     def [|/*ignore2*/func|](self) -> int: ...
+////
+//// foo: Foo
+
+// @filename: test2.py
+//// from mylib import foo
+//// foo.[|/*marker2*/func|]()
+
 {
     const ranges = helper.getRanges().filter((r) => !r.marker);
+    const testLib1Ranges = ranges.filter((r) => r.fileName.replace(/\\/g, '/').endsWith('testLib1/__init__.py'));
+    const myLibRanges = ranges.filter((r) => r.fileName.replace(/\\/g, '/').endsWith('mylib/_private.py'));
 
     helper.verifyFindDefinitions(
         {
             marker: {
-                definitions: ranges.map((r) => {
+                definitions: testLib1Ranges.map((r) => {
+                    return { path: r.fileName, range: helper.convertPositionRange(r) };
+                }),
+            },
+            marker2: {
+                definitions: myLibRanges.map((r) => {
                     return { path: r.fileName, range: helper.convertPositionRange(r) };
                 }),
             },

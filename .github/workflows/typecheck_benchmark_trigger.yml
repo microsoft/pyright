@@ -1,0 +1,59 @@
+name: Trigger type checker benchmark
+
+on:
+  issue_comment:
+    types:
+      - created
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+
+jobs:
+  trigger:
+    name: Authorize benchmark request
+    if: ${{ github.event.issue.pull_request && github.event.issue.state == 'open' && startsWith(github.event.comment.body, '/benchmark') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger benchmark for authorized maintainer
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            if (context.payload.comment.body.trim() !== '/benchmark') {
+              core.notice('The benchmark command must be the entire comment')
+              return
+            }
+
+            const permission = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.actor,
+            })
+            const allowedPermissions = new Set(['admin', 'maintain', 'write'])
+            if (!allowedPermissions.has(permission.data.permission)) {
+              core.notice(`${context.actor} does not have permission to run the benchmark`)
+              return
+            }
+
+            const pullRequest = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            })
+            if (!pullRequest.data.merge_commit_sha) {
+              core.setFailed('The pull request does not have a merge commit to benchmark')
+              return
+            }
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'typecheck_benchmark_pr.yml',
+              ref: context.payload.repository.default_branch,
+              inputs: {
+                pr_number: String(context.issue.number),
+                head_sha: pullRequest.data.head.sha,
+                base_sha: pullRequest.data.base.sha,
+                merge_sha: pullRequest.data.merge_commit_sha,
+              },
+            })

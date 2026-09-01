@@ -1,6 +1,5 @@
 from _typeshed import ConvertibleToFloat, ConvertibleToInt
-from typing import ClassVar, Literal, overload
-from typing_extensions import TypeAlias
+from typing import ClassVar, Literal, TypeAlias, overload
 
 from openpyxl.descriptors.base import Bool, Float, Integer, Set, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable
@@ -66,6 +65,7 @@ class ColorChangeEffect(Serialisable):
     useA: Bool[Literal[True]]
     clrFrom: Typed[Color, Literal[False]]
     clrTo: Typed[Color, Literal[False]]
+
     @overload
     def __init__(self, useA: _ConvertibleToBool | None = None, *, clrFrom: Color, clrTo: Color) -> None: ...
     @overload
@@ -150,6 +150,7 @@ class OuterShadow(ColorChoice):
     # schemeClr = ColorChoice.schemeClr
     # prstClr = ColorChoice.prstClr
     __elements__: ClassVar[tuple[str, ...]]
+
     @overload
     def __init__(
         self,

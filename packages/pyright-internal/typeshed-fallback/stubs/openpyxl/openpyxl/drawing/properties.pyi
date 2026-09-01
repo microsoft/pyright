@@ -1,6 +1,5 @@
 from _typeshed import Incomplete, Unused
-from typing import ClassVar, Literal, overload
-from typing_extensions import TypeAlias
+from typing import ClassVar, Literal, TypeAlias, overload
 
 from openpyxl.descriptors.base import Bool, NoneSet, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
@@ -86,6 +85,7 @@ class NonVisualDrawingProps(Serialisable):
     extLst: Typed[ExtensionList, Literal[True]]
     # Source incorrectly uses a list here instead of a tuple
     __elements__: ClassVar[list[str]]  # type: ignore[assignment]
+
     @overload
     def __init__(
         self,

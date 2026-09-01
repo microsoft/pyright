@@ -112,6 +112,7 @@ import { ServiceProvider } from './common/serviceProvider';
 import { Position, Range } from './common/textRange';
 import { Uri } from './common/uri/uri';
 import { convertUriToLspUriString } from './common/uri/uriUtils';
+import { hasWorkspaceEditChanges } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
 import { CompletionItemData, CompletionProvider } from './languageService/completionProvider';
@@ -181,6 +182,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     private _workspaceDiagnosticsReporter: ResultProgressReporter<WorkspaceDiagnosticReportPartialResult> | undefined;
     private _workspaceDiagnosticsProgressReporter: ProgressReporter | undefined;
     private _workspaceDiagnosticsResolve: ((value: WorkspaceDiagnosticReport) => void) | undefined;
+    protected isDisposed = false;
 
     protected client: ClientCapabilities = {
         hasConfigurationCapability: false,
@@ -196,6 +198,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         hasDocumentChangeCapability: false,
         hasDocumentAnnotationCapability: false,
         hasCompletionCommitCharCapability: false,
+        hasCompletionItemDataDefaultCapability: false,
         hoverContentFormat: MarkupKind.PlainText,
         completionDocFormat: MarkupKind.PlainText,
         completionSupportsSnippet: false,
@@ -273,6 +276,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     dispose() {
+        this.isDisposed = true;
         this.workspaceFactory.clear();
         this.openFileMap.clear();
         this.dynamicFeatures.unregister();
@@ -307,6 +311,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             serviceId,
             fileSystem: services?.fs ?? this.serverOptions.serviceProvider.fs(),
             onInvalidated: (reason) => {
+                // Don't send requests if the server is disposed.
+                if (this.isDisposed) {
+                    return;
+                }
                 // If we're in openFilesOnly mode and the client supports pull diagnostics, request a refresh. In
                 // workspace mode we just use the 'push' notification to respond to the workspace diagnostics
                 if (this.client.supportsPullDiagnostics && service.checkOnlyOpenFiles) {
@@ -406,12 +414,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }
     }
 
-    updateOptionsAndRestartService(
-        workspace: Workspace,
-        serverSettings: ServerSettings,
-        typeStubTargetImportName?: string
-    ) {
-        AnalyzerServiceExecutor.runWithOptions(workspace, serverSettings, { typeStubTargetImportName });
+    updateOptionsAndRestartService(workspace: Workspace, serverSettings: ServerSettings) {
+        AnalyzerServiceExecutor.runWithOptions(workspace, serverSettings);
         workspace.searchPathsToWatch = workspace.service.librarySearchUrisToWatch ?? [];
     }
     protected get workspaceDiagnosticsReporter() {
@@ -593,7 +597,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.client.hasDocumentAnnotationCapability = !!capabilities.workspace?.workspaceEdit?.changeAnnotationSupport;
         this.client.hasCompletionCommitCharCapability =
             !!capabilities.textDocument?.completion?.completionList?.itemDefaults &&
-            !!capabilities.textDocument.completion.completionItem?.commitCharactersSupport;
+            !!capabilities.textDocument?.completion?.completionItem?.commitCharactersSupport;
+        this.client.hasCompletionItemDataDefaultCapability =
+            !!capabilities.textDocument?.completion?.completionList?.itemDefaults?.includes('data') &&
+            !!capabilities.textDocument?.completion?.completionList?.applyKindSupport;
 
         this.client.hoverContentFormat = this._getCompatibleMarkupKind(capabilities.textDocument?.hover?.contentFormat);
         this.client.completionDocFormat = this._getCompatibleMarkupKind(
@@ -962,6 +969,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                     snippet: this.client.completionSupportsSnippet,
                     lazyEdit: false,
                     triggerCharacter: params?.context?.triggerCharacter,
+                    completionItemDataDefault: this.client.hasCompletionItemDataDefaultCapability,
                 },
                 token
             ).getCompletions();
@@ -1134,13 +1142,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected async onDidCloseTextDocument(params: DidCloseTextDocumentParams) {
         const uri = this.convertLspUriStringToUri(params.textDocument.uri);
 
+        // Stop tracking the document as open before any async work so that a request handled
+        // immediately after this close (e.g. a pull-diagnostics re-pull) observes the file as closed.
+        this.openFileMap.delete(uri.key);
+
         // Send this close to all the workspaces that might contain this file.
         const workspaces = await this.getContainingWorkspacesForFile(uri);
         workspaces.forEach((w) => {
             w.service.setFileClosed(uri);
         });
-
-        this.openFileMap.delete(uri.key);
     }
 
     protected async onDiagnostics(params: DocumentDiagnosticParams, token: CancellationToken) {
@@ -1160,6 +1170,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             !canNavigateToFile(workspace.service.fs, uri) ||
             token.isCancellationRequested
         ) {
+            return result;
+        }
+
+        // In open-files-only mode, only report diagnostics for files the client currently has open.
+        // A library/out-of-workspace file may have been transiently opened (e.g. via go-to-definition)
+        // and analyzed; once the client closes it, a re-pull must clear those diagnostics by returning
+        // an empty `full` report rather than re-analyzing the now-closed file.
+        if (workspace.service.checkOnlyOpenFiles && !this.openFileMap.has(uri.key)) {
             return result;
         }
 
@@ -1262,7 +1280,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         const executeCommand = async (token: CancellationToken) => {
             const result = await this.executeCommand(params, token);
-            if (WorkspaceEdit.is(result)) {
+            if (WorkspaceEdit.is(result) && hasWorkspaceEditChanges(result)) {
                 // Tell client to apply edits.
                 // Do not await; the client isn't expecting a result.
                 this.connection.workspace.applyEdit({
@@ -1272,7 +1290,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 });
             }
 
-            if (CommandResult.is(result)) {
+            if (CommandResult.is(result) && hasWorkspaceEditChanges(result.edits)) {
                 // Tell client to apply edits.
                 // Await so that we return after the edit is complete.
                 await this.connection.workspace.applyEdit({

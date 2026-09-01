@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable, Iterator, Sequence
-from typing import Any
-from typing_extensions import Self, TypeAlias
+from typing import Any, TypeAlias
+from typing_extensions import Self
 
 from wtforms.fields.core import Field, _Filter, _FormT, _Validator, _Widget
 from wtforms.form import BaseForm
@@ -46,7 +46,7 @@ class SelectFieldBase(Field):
 
 class SelectField(SelectFieldBase):
     coerce: Callable[[Any], Any]
-    choices: list[_Choice] | _GroupedChoices
+    choices: Sequence[_Choice] | _GroupedChoices | None
     validate_choice: bool
     def __init__(
         self,

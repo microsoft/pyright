@@ -63,23 +63,35 @@ export function getUnescapedString(stringToken: StringToken | FStringMiddleToken
         };
     }
 
-    const charCodes: number[] = [];
-    for (let index = 0; index < escapedString.length; index++) {
-        charCodes.push(escapedString.charCodeAt(index));
-    }
-
     const isBytes = (stringToken.flags & StringTokenFlags.Bytes) !== 0;
 
+    // Scan once for the characters that force the slow (unescaping) path. Building a
+    // number[] of every char code up front (one per character of every non-raw string
+    // literal in the file) is a significant source of GC pressure during parsing, and
+    // the common case (no escapes/newlines) only needs a cheap charCodeAt scan. The
+    // slow path below reads char codes directly from `escapedString` as well.
+    let hasEscapeOrNewLine = false;
+    let nonAsciiInBytes = false;
+    for (let index = 0; index < escapedString.length; index++) {
+        const curChar = escapedString.charCodeAt(index);
+        if (curChar === Char.CarriageReturn || curChar === Char.LineFeed || curChar === Char.Backslash) {
+            hasEscapeOrNewLine = true;
+            // `nonAsciiInBytes` below is only consulted by the fast-path return, which
+            // we won't take once an escape/newline is found (the slow path recomputes
+            // it), so there's no need to keep scanning.
+            break;
+        }
+        if (isBytes && curChar >= 128) {
+            nonAsciiInBytes = true;
+        }
+    }
+
     // Handle the common case in an expedited manner.
-    if (
-        !charCodes.some(
-            (curChar) => curChar === Char.CarriageReturn || curChar === Char.LineFeed || curChar === Char.Backslash
-        )
-    ) {
+    if (!hasEscapeOrNewLine) {
         return {
             value: escapedString,
             unescapeErrors: [],
-            nonAsciiInBytes: isBytes && charCodes.some((curChar) => curChar >= 128),
+            nonAsciiInBytes,
         };
     }
 
@@ -102,11 +114,11 @@ export function getUnescapedString(stringToken: StringToken | FStringMiddleToken
     };
 
     const getEscapedCharacter = (offset = 0) => {
-        if (strOffset + offset >= charCodes.length) {
+        if (strOffset + offset >= escapedString.length) {
             return Char.EndOfText;
         }
 
-        return charCodes[strOffset + offset];
+        return escapedString.charCodeAt(strOffset + offset);
     };
 
     const scanHexEscape = (digitCount: number) => {

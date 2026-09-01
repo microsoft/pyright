@@ -21,7 +21,7 @@ import {
     UnaryOperationNode,
 } from '../parser/parseNodes';
 import { OperatorType } from '../parser/tokenizerTypes';
-import { getFileInfo } from './analyzerNodeInfo';
+import { getInfoReader, AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { getEnclosingLambda, isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
 import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
@@ -249,7 +249,8 @@ export function getTypeOfBinaryOperation(
     evaluator: TypeEvaluator,
     node: BinaryOperationNode,
     flags: EvalFlags,
-    inferenceContext: InferenceContext | undefined
+    inferenceContext: InferenceContext | undefined,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): TypeResult {
     const leftExpression = node.d.leftExpr;
     let rightExpression = node.d.rightExpr;
@@ -266,7 +267,7 @@ export function getTypeOfBinaryOperation(
             operatorSupportsChaining(rightExpression.d.operator)
         ) {
             // Evaluate the right expression so it is type checked.
-            getTypeOfBinaryOperation(evaluator, rightExpression, flags, inferenceContext);
+            getTypeOfBinaryOperation(evaluator, rightExpression, flags, inferenceContext, nodeInfo);
 
             // Use the left side of the right expression for comparison purposes.
             rightExpression = rightExpression.d.leftExpr;
@@ -381,7 +382,8 @@ export function getTypeOfBinaryOperation(
                 leftTypeResult,
                 rightTypeResult,
                 adjustedRightType,
-                adjustedLeftType
+                adjustedLeftType,
+                nodeInfo
             );
         }
     }
@@ -769,9 +771,10 @@ export function getTypeOfTernaryOperation(
     evaluator: TypeEvaluator,
     node: TernaryNode,
     flags: EvalFlags,
-    inferenceContext: InferenceContext | undefined
+    inferenceContext: InferenceContext | undefined,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): TypeResult {
-    const fileInfo = getFileInfo(node);
+    const fileInfo = nodeInfo.getFileInfo(node);
 
     if ((flags & EvalFlags.TypeExpression) !== 0) {
         evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.ternaryNotAllowed(), node);
@@ -822,11 +825,12 @@ function createUnionType(
     leftTypeResult: TypeResult,
     rightTypeResult: TypeResult,
     adjustedRightType: Type,
-    adjustedLeftType: Type
+    adjustedLeftType: Type,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): TypeResult {
     const leftExpression = node.d.leftExpr;
     const rightExpression = node.d.rightExpr;
-    const fileInfo = getFileInfo(node);
+    const fileInfo = nodeInfo.getFileInfo(node);
     const unionNotationSupported =
         fileInfo.isStubFile ||
         (flags & EvalFlags.ForwardRefs) !== 0 ||
@@ -1168,7 +1172,7 @@ function isExpressionLocalVariable(evaluator: TypeEvaluator, node: ExpressionNod
         return false;
     }
 
-    const currentScope = getScopeForNode(node);
+    const currentScope = getScopeForNode(node, getInfoReader(evaluator));
     return currentScope === symbolWithScope.scope;
 }
 

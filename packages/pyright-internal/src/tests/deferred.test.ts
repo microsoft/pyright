@@ -33,7 +33,7 @@ test('Deferred - reject', (done) => {
     const def = createDeferred<number>();
     def.promise
         .then((value) => {
-            assert.fail(value, 'Error', 'Was expecting promise to get rejected, however it was resolved', '');
+            assert.fail(`Was expecting promise to get rejected, however it was resolved with ${value}`);
             done();
         })
         .catch((reason) => {

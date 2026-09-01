@@ -194,7 +194,10 @@ test('Coroutines4', () => {
 test('Loop1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop1.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    // With the change to treat non-empty list literals as guaranteed to execute,
+    // func2 no longer generates an error (data is definitely list[int]).
+    // func3 still generates 1 error (data is potentially None in while loop).
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Loop2', () => {
@@ -515,6 +518,12 @@ test('ForLoop2', () => {
     TestUtils.validateResults(analysisResults, 7);
 });
 
+test('ForLoop3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoop3.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Comprehension1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['comprehension1.py']);
 
@@ -646,7 +655,7 @@ test('TypeAlias4', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_9;
     const analysisResults3_9 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
-    TestUtils.validateResults(analysisResults3_9, 1);
+    TestUtils.validateResults(analysisResults3_9, 12);
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults3_10 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
@@ -865,6 +874,12 @@ test('RecursiveTypeAlias16', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('RecursiveTypeAlias17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias17.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Classes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes1.py']);
 
@@ -874,7 +889,7 @@ test('Classes1', () => {
 test('Classes3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes3.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('Classes4', () => {
@@ -949,6 +964,13 @@ test('MethodOverride1', () => {
     TestUtils.validateResults(analysisResults, 43);
 });
 
+test('MethodOverrideCallable1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverrideCallable1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MethodOverride2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -996,6 +1018,14 @@ test('MethodOverride6', () => {
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 3);
+});
+
+test('MethodOverride7', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride7.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Enum1', () => {
@@ -1088,6 +1118,18 @@ test('Enum14', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('Enum15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum15.py']);
+
+    TestUtils.validateResults(analysisResults, 31);
+});
+
+test('Enum16', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum16.py']);
+
+    TestUtils.validateResults(analysisResults, 38);
+});
+
 test('EnumAuto1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumAuto1.py']);
 
@@ -1096,6 +1138,12 @@ test('EnumAuto1', () => {
 
 test('EnumGenNextValue1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumGenNextValue1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('EnumNarrowing1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumNarrowing1.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

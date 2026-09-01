@@ -22,6 +22,14 @@ import { AnalysisResults } from './analyzer/analysis';
 import { PackageTypeReport, TypeKnownStatus } from './analyzer/packageTypeReport';
 import { PackageTypeVerifier } from './analyzer/packageTypeVerifier';
 import { AnalyzerService } from './analyzer/service';
+import {
+    collectTypeStubSourceFileUris,
+    createTypeStubGenerationPlan,
+    generateTypeStubFiles,
+    ResolvedTypeStubTargetWithSources,
+    resolveTypeStubTarget,
+} from './analyzer/typeStubGeneration';
+import { writeGeneratedTypeStubFiles } from './analyzer/typeStubOutput';
 import { maxSourceFileSize } from './analyzer/sourceFile';
 import { SourceFileInfo } from './analyzer/sourceFileInfo';
 import { initializeDependencies } from './common/asyncInitialization';
@@ -296,11 +304,17 @@ async function processArgs(): Promise<ExitStatus> {
     }
 
     if (args.pythonplatform) {
-        if (args.pythonplatform === 'Darwin' || args.pythonplatform === 'Linux' || args.pythonplatform === 'Windows') {
+        if (
+            args.pythonplatform === 'Darwin' ||
+            args.pythonplatform === 'Linux' ||
+            args.pythonplatform === 'Windows' ||
+            args.pythonplatform === 'iOS' ||
+            args.pythonplatform === 'Android'
+        ) {
             options.configSettings.pythonPlatform = args.pythonplatform;
         } else {
             console.error(
-                `'${args.pythonplatform}' is not a supported Python platform; specify Darwin, Linux, or Windows`
+                `'${args.pythonplatform}' is not a supported Python platform; specify Darwin, Linux, Windows, iOS, or Android.`
             );
             return ExitStatus.ParameterError;
         }
@@ -344,10 +358,6 @@ async function processArgs(): Promise<ExitStatus> {
 
     if (args['typeshedpath']) {
         options.configSettings.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshedpath']));
-    }
-
-    if (args.createstub) {
-        options.languageServerSettings.typeStubTargetImportName = args.createstub;
     }
 
     if (args.skipunannotated) {
@@ -420,6 +430,7 @@ async function processArgs(): Promise<ExitStatus> {
         hostFactory: () => new FullAccessHost(serviceProvider),
         // Refresh service 2 seconds after the last library file change is detected.
         libraryReanalysisTimeProvider: () => 2 * 1000,
+        skipScanningUserFiles: !!args.createstub,
         shouldRunAnalysis: () => true,
     });
 
@@ -453,8 +464,14 @@ async function runSingleThreaded(
 ) {
     const watch = args.watch !== undefined;
     const treatWarningsAsErrors = !!args.warnings;
+    let typeStubTarget: ResolvedTypeStubTargetWithSources | undefined;
 
     const exitStatus = createDeferred<ExitStatus>();
+    const reportTypeStubError = (error: unknown) => {
+        const message = error instanceof Error ? error.message : '';
+        console.error(`Error occurred when creating type stub: ${message}`);
+        exitStatus.resolve(ExitStatus.FatalError);
+    };
 
     service.setCompletionCallback((results) => {
         if (results.fatalErrorOccurred) {
@@ -498,17 +515,23 @@ async function runSingleThreaded(
 
         if (args.createstub) {
             try {
-                service.writeTypeStub(cancellationNone);
-                service.dispose();
+                try {
+                    if (!typeStubTarget) {
+                        throw new Error(`Import '${args.createstub}' could not be resolved`);
+                    }
+                    const plan = createTypeStubGenerationPlan(typeStubTarget);
+                    const result = generateTypeStubFiles(
+                        service.backgroundAnalysisProgram.program,
+                        plan,
+                        cancellationNone
+                    );
+                    writeGeneratedTypeStubFiles(service.fs, result.files);
+                } finally {
+                    service.dispose();
+                }
                 console.info(`Type stub was created for '${args.createstub}'`);
             } catch (err) {
-                let errMessage = '';
-                if (err instanceof Error) {
-                    errMessage = err.message;
-                }
-
-                console.error(`Error occurred when creating type stub: ${errMessage}`);
-                exitStatus.resolve(ExitStatus.FatalError);
+                reportTypeStubError(err);
                 return;
             }
             exitStatus.resolve(ExitStatus.NoErrors);
@@ -546,6 +569,23 @@ async function runSingleThreaded(
 
     // This will trigger the analyzer.
     service.setOptions(options);
+    if (args.createstub) {
+        try {
+            typeStubTarget = resolveTypeStubTarget(
+                service.getImportResolver(),
+                service.getConfigOptions(),
+                args.createstub
+            );
+            service.backgroundAnalysisProgram.setAllowedThirdPartyImports([args.createstub]);
+            service.backgroundAnalysisProgram.setTrackedFiles([
+                ...collectTypeStubSourceFileUris(service.fs, typeStubTarget, cancellationNone),
+            ]);
+        } catch (error) {
+            service.dispose();
+            reportTypeStubError(error);
+            return exitStatus.promise;
+        }
+    }
     service.enumerateSourceFiles(0);
 
     return await exitStatus.promise;
@@ -560,6 +600,7 @@ async function runMultiThreaded(
     output: ConsoleInterface
 ) {
     const workers: ChildProcess[] = [];
+    const workersShutdown = new Set<ChildProcess>();
     const startTime = Date.now();
     const treatWarningsAsErrors = !!args.warnings;
     const exitStatus = createDeferred<ExitStatus>();
@@ -627,6 +668,7 @@ async function runMultiThreaded(
             pendingAnalysisCount++;
         } else {
             // Kill the worker since there's nothing left to do.
+            workersShutdown.add(worker);
             worker.kill();
 
             if (pendingAnalysisCount === 0) {
@@ -733,6 +775,15 @@ async function runMultiThreaded(
 
         worker.on('error', (err) => {
             output.error(`Failed to start child process: ${err}`);
+            exitStatus.resolve(ExitStatus.FatalError);
+        });
+
+        worker.on('exit', (code, signal) => {
+            if (workersShutdown.has(worker)) {
+                return;
+            }
+
+            output.error(`Worker process exited unexpectedly: exit code=${code}, signal=${signal}`);
             exitStatus.resolve(ExitStatus.FatalError);
         });
 
@@ -1129,7 +1180,7 @@ function printUsage() {
             '  --level <LEVEL>                    Minimum diagnostic level (error or warning)\n' +
             '  --outputjson                       Output results in JSON format\n' +
             '  -p,--project <FILE OR DIRECTORY>   Use the configuration file at this location\n' +
-            '  --pythonplatform <PLATFORM>        Analyze for a specific platform (Darwin, Linux, Windows)\n' +
+            '  --pythonplatform <PLATFORM>        Analyze for a specific platform (Darwin, Linux, Windows, iOS, Android)\n' +
             '  --pythonpath <FILE>                Path to the Python interpreter\n' +
             '  --pythonversion <VERSION>          Analyze for a specific version (3.3, 3.4, etc.)\n' +
             '  --skipunannotated                  Skip analysis of functions with no type annotations\n' +

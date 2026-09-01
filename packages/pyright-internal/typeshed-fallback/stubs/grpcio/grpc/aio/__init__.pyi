@@ -1,11 +1,22 @@
 import abc
 import asyncio
-from _typeshed import Incomplete
-from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Generator, Iterable, Iterator, Mapping, Sequence
+from _typeshed import Incomplete, MaybeNone
+from collections.abc import (
+    AsyncIterable,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Collection,
+    Generator,
+    Iterable,
+    Iterator,
+    Mapping,
+    Sequence,
+)
 from concurrent import futures
 from types import TracebackType
-from typing import Any, Generic, NoReturn, TypeVar, overload, type_check_only
-from typing_extensions import Self, TypeAlias
+from typing import Any, Generic, NoReturn, TypeAlias, TypeVar, overload, type_check_only
+from typing_extensions import Self
 
 from grpc import (
     CallCredentials,
@@ -41,7 +52,10 @@ class AioRpcError(RpcError):
         debug_error_string: str | None = None,
     ) -> None: ...
     def debug_error_string(self) -> str: ...
-    def initial_metadata(self) -> Metadata: ...
+    def initial_metadata(self) -> Metadata | MaybeNone: ...
+    # AioRpcError returns the async Metadata, overriding the synchronous
+    # grpc.RpcError.trailing_metadata() -> tuple[_Metadatum, ...].
+    def trailing_metadata(self) -> Metadata | MaybeNone: ...  # type: ignore[override]
 
 # Create Client:
 
@@ -375,12 +389,15 @@ class ServerInterceptor(metaclass=abc.ABCMeta):
     # This method (not the class) is generic over _TRequest and _TResponse
     # and the types must satisfy the no-op implementation of
     # `return await continuation(handler_call_details)`.
+    # The return is Optional: per the runtime docstring, an interceptor
+    # may return None to signal that the RPC is not serviced, and the
+    # continuation propagates that None down the chain.
     @abc.abstractmethod
     async def intercept_service(
         self,
-        continuation: Callable[[HandlerCallDetails], Awaitable[RpcMethodHandler[_TRequest, _TResponse]]],
+        continuation: Callable[[HandlerCallDetails], Awaitable[RpcMethodHandler[_TRequest, _TResponse] | None]],
         handler_call_details: HandlerCallDetails,
-    ) -> RpcMethodHandler[_TRequest, _TResponse]: ...
+    ) -> RpcMethodHandler[_TRequest, _TResponse] | None: ...
 
 # Multi-Callable Interfaces:
 
@@ -442,7 +459,7 @@ _MetadatumType: TypeAlias = tuple[_MetadataKey, _MetadataValue]
 _MetadataType: TypeAlias = Metadata | Sequence[_MetadatumType]
 _T = TypeVar("_T")
 
-class Metadata(Mapping[_MetadataKey, _MetadataValue]):
+class Metadata(Collection[_MetadatumType]):
     def __init__(self, *args: tuple[_MetadataKey, _MetadataValue]) -> None: ...
     @classmethod
     def from_tuple(cls, raw_metadata: tuple[_MetadataKey, _MetadataValue]) -> Metadata: ...
@@ -452,13 +469,15 @@ class Metadata(Mapping[_MetadataKey, _MetadataValue]):
     def __setitem__(self, key: _MetadataKey, value: _MetadataValue) -> None: ...
     def __delitem__(self, key: _MetadataKey) -> None: ...
     def delete_all(self, key: _MetadataKey) -> None: ...
-    def __iter__(self) -> Iterator[_MetadataKey]: ...
+    def __iter__(self) -> Iterator[_MetadatumType]: ...
+
     @overload
     def get(self, key: _MetadataKey, default: None = None) -> _MetadataValue | None: ...
     @overload
     def get(self, key: _MetadataKey, default: _MetadataValue) -> _MetadataValue: ...
     @overload
     def get(self, key: _MetadataKey, default: _T) -> _MetadataValue | _T: ...
+
     def get_all(self, key: _MetadataKey) -> list[_MetadataValue]: ...
     def set_all(self, key: _MetadataKey, values: list[_MetadataValue]) -> None: ...
     def __contains__(self, key: object) -> bool: ...

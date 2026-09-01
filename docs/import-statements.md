@@ -9,7 +9,7 @@ An import statement instructs the Python import loader to perform several operat
 4. Look up attribute `Foo` within module `b`.
 5. Assign the value of attribute `Foo` to a local variable called `Bar`.
 
-If another source file were to subsequently execute the statement `import a`, it would observe `b` in the namespace of `a` as a side effect of step 3 in the the earlier import operation. Relying on such side effects leads to fragile code because a change in execution ordering or a modification to one module can break code in another module. Reliance on such side effects is therefore considered a bug by Pyright, which intentionally does not attempt to model such side effects.
+If another source file were to subsequently execute the statement `import a`, it would observe `b` in the namespace of `a` as a side effect of step 3 in the earlier import operation. Relying on such side effects leads to fragile code because a change in execution ordering or a modification to one module can break code in another module. Reliance on such side effects is therefore considered a bug by Pyright, which intentionally does not attempt to model such side effects.
 
 ### Implicit Module Loads
 

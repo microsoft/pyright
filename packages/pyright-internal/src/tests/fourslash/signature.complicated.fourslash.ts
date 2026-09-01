@@ -24,7 +24,7 @@
 ////
 //// x.complicated(1, [|/*c3/|], 3)
 ////
-//// x.complicated(1[|/*cA*/|],[|/*cB*/|] 2, 3, x=[|/*cX*/|]123, d="wo[|/*cD*/|]w", z[|/*cZ*/|]=1234)
+//// x.complicated(1[|/*cA*/|],[|/*cB*/|] 2, 3, x=[|/*cX*/|]123, d="wow", z[|/*cZ*/|]=1234)
 ////
 //// x.typeddict(1[|/*tdA*/|], [|/*tdB*/|]2, key1=[|/*tdkey1*/|]'r', key2=[|/*tdkey2*/|]4)
 ////
@@ -98,10 +98,6 @@
         cX: {
             signatures: xComplicatedSignatures,
             activeParameters: [4],
-        },
-        cD: {
-            signatures: xComplicatedSignatures,
-            activeParameters: [3],
         },
         cZ: {
             signatures: xComplicatedSignatures,

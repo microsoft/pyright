@@ -126,3 +126,21 @@ Thumbs.db
 
 # Potential venv
 .venv
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Agent files
+serena/
+.beads/
+AGENTS.md
+
+# Generated benchmark output
+packages/pyright-internal/src/tests/benchmarks/.generated/
+
+# perfCompare.py cached commit bundles
+/build/perfCompare/
+
+# Cross-type-checker benchmark results
+/build/benchmark/results/

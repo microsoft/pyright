@@ -63,6 +63,7 @@ import {
     TypeCondition,
     TypeFlags,
     TypeSameOptions,
+    UnionableType,
     TypeVarScopeId,
     TypeVarScopeType,
     TypeVarTupleType,
@@ -234,9 +235,9 @@ export interface AddConditionOptions {
 
 // There are cases where tuple types can be infinitely nested. The
 // recursion count limit will eventually be hit, but this will create
-// deep types that will effectively hang the analyzer. To prevent this,
-// we'll limit the depth of the tuple type arguments. This value is
-// large enough that we should never hit it in legitimate circumstances.
+// deep types that are expensive to construct. As a performance safeguard,
+// we limit the depth of the tuple type arguments. This value is large
+// enough that we should never hit it in legitimate circumstances.
 const maxTupleTypeArgRecursionDepth = 10;
 
 // Tracks whether a function signature has been seen before within
@@ -1397,15 +1398,41 @@ export function isMaybeDescriptorInstance(type: Type, requireSetter = false): bo
         return false;
     }
 
-    if (!ClassType.getSymbolTable(type).has('__get__')) {
+    // Traverse MRO so descriptor subclasses are detected
+    const getMember = lookUpObjectMember(type, '__get__');
+    if (!getMember) {
         return false;
     }
 
-    if (requireSetter && !ClassType.getSymbolTable(type).has('__set__')) {
-        return false;
+    if (requireSetter) {
+        const setMember = lookUpObjectMember(type, '__set__');
+        if (!setMember) {
+            return false;
+        }
     }
 
     return true;
+}
+
+// Checks whether an instantiable class type (i.e. the class itself, not an instance of it)
+// is a descriptor class — one that defines __get__. This is the counterpart to
+// isMaybeDescriptorInstance: that function handles declared types in instance form
+// (ClassInstance), while this one handles declared types in instantiable form
+// (InstantiableClass), which occurs when a type annotation refers to the class object itself.
+// Unlike isMaybeDescriptorInstance, which uses lookUpObjectMember (which only produces
+// results for ClassInstance arguments), this function calls lookUpClassMember directly —
+// because lookUpObjectMember returns undefined for non-ClassInstance types, making it
+// unsuitable for the InstantiableClass argument this function receives.
+export function isMaybeDescriptorClass(type: Type): boolean {
+    if (isUnion(type)) {
+        return type.priv.subtypes.some((subtype) => isMaybeDescriptorClass(subtype));
+    }
+
+    if (!isInstantiableClass(type)) {
+        return false;
+    }
+
+    return !!lookUpClassMember(type, '__get__');
 }
 
 export function isTupleGradualForm(type: Type) {
@@ -1416,6 +1443,17 @@ export function isTupleGradualForm(type: Type) {
         type.priv.tupleTypeArgs.length === 1 &&
         isAnyOrUnknown(type.priv.tupleTypeArgs[0].type) &&
         type.priv.tupleTypeArgs[0].isUnbounded
+    );
+}
+
+// Returns true for classes that are generic in stubs but not subscriptable
+// at runtime (e.g. operator.attrgetter, operator.itemgetter). These lack
+// __class_getitem__ and are not builtins.
+export function isStubOnlySubscriptable(classType: ClassType) {
+    return (
+        ClassType.isDefinedInStub(classType) &&
+        !ClassType.isBuiltIn(classType) &&
+        !classType.shared.fields.has('__class_getitem__')
     );
 }
 
@@ -1492,7 +1530,7 @@ export function partiallySpecializeType(
                         contextClassType,
                         typeClassType,
                         selfClass
-                    ) as FunctionType,
+                    ) as FunctionType | OverloadedType,
                     classType: methodInfo.classType,
                 };
             }
@@ -2477,7 +2515,11 @@ export function getMembersForClass(classType: ClassType, symbolTable: SymbolTabl
             // Add any new member variables from this class.
             const isClassTypedDict = ClassType.isTypedDictClass(mroClass);
             ClassType.getSymbolTable(mroClass).forEach((symbol, name) => {
-                if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
+                if (
+                    symbol.isClassMember() ||
+                    symbol.isNamedTupleMemberMember() ||
+                    (includeInstanceVars && symbol.isInstanceMember())
+                ) {
                     if (!isClassTypedDict || !isTypedDictMemberAccessedThroughIndex(symbol)) {
                         if (!symbol.isInitVar()) {
                             const existingSymbol = symbolTable.get(name);
@@ -3427,6 +3469,219 @@ export function simplifyFunctionToParamSpec(type: FunctionType): FunctionType | 
     return type;
 }
 
+// Recursively transforms two structurally-aligned type trees. The callback
+// decides whether an aligned node should be replaced; this function owns only
+// the traversal and cloning needed to preserve the source tree's shape.
+export function transformTypePair(
+    sourceType: Type,
+    targetType: Type,
+    transformNode: (sourceNode: Type, targetNode: Type) => Type | undefined
+): Type {
+    return transformTypePairRecursive(sourceType, targetType, transformNode, new Set<Type>(), 0);
+}
+
+function transformTypePairRecursive(
+    sourceType: Type,
+    targetType: Type,
+    transformNode: (sourceNode: Type, targetNode: Type) => Type | undefined,
+    pendingTypes: Set<Type>,
+    recursionCount: number
+): Type {
+    const replacementType = transformNode(sourceType, targetType);
+    if (replacementType) {
+        return replacementType;
+    }
+
+    if (recursionCount > maxTypeRecursionCount || pendingTypes.has(sourceType)) {
+        return sourceType;
+    }
+
+    pendingTypes.add(sourceType);
+    try {
+        if (isFunction(sourceType) && isFunction(targetType)) {
+            if (sourceType.shared.parameters.length !== targetType.shared.parameters.length) {
+                return sourceType;
+            }
+
+            const parameterTypes = sourceType.shared.parameters.map((_, index) =>
+                transformTypePairRecursive(
+                    FunctionType.getParamType(sourceType, index),
+                    FunctionType.getParamType(targetType, index),
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                )
+            );
+            const parameterDefaultTypes = sourceType.shared.parameters.map((_, index) => {
+                const sourceDefaultType = FunctionType.getParamDefaultType(sourceType, index);
+                const targetDefaultType = FunctionType.getParamDefaultType(targetType, index);
+                return sourceDefaultType && targetDefaultType
+                    ? transformTypePairRecursive(
+                          sourceDefaultType,
+                          targetDefaultType,
+                          transformNode,
+                          pendingTypes,
+                          recursionCount + 1
+                      )
+                    : sourceDefaultType;
+            });
+            const sourceReturnType = FunctionType.getEffectiveReturnType(sourceType);
+            const targetReturnType = FunctionType.getEffectiveReturnType(targetType);
+            const returnType =
+                sourceReturnType && targetReturnType
+                    ? transformTypePairRecursive(
+                          sourceReturnType,
+                          targetReturnType,
+                          transformNode,
+                          pendingTypes,
+                          recursionCount + 1
+                      )
+                    : sourceReturnType;
+
+            if (
+                parameterTypes.every((type, index) => type === FunctionType.getParamType(sourceType, index)) &&
+                parameterDefaultTypes.every(
+                    (type, index) => type === FunctionType.getParamDefaultType(sourceType, index)
+                ) &&
+                returnType === sourceReturnType
+            ) {
+                return sourceType;
+            }
+
+            const transformedType = FunctionType.clone(sourceType);
+            transformedType.priv.specializedTypes = {
+                parameterTypes,
+                parameterDefaultTypes,
+                returnType,
+            };
+            return transformedType;
+        }
+
+        if (isTypeVar(sourceType) && isTypeVar(targetType)) {
+            if (sourceType.shared.constraints.length !== targetType.shared.constraints.length) {
+                return sourceType;
+            }
+
+            const constraints = sourceType.shared.constraints.map((constraint, index) =>
+                transformTypePairRecursive(
+                    constraint,
+                    targetType.shared.constraints[index],
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                )
+            );
+            const boundType =
+                sourceType.shared.boundType && targetType.shared.boundType
+                    ? transformTypePairRecursive(
+                          sourceType.shared.boundType,
+                          targetType.shared.boundType,
+                          transformNode,
+                          pendingTypes,
+                          recursionCount + 1
+                      )
+                    : sourceType.shared.boundType;
+            const defaultType = transformTypePairRecursive(
+                sourceType.shared.defaultType,
+                targetType.shared.defaultType,
+                transformNode,
+                pendingTypes,
+                recursionCount + 1
+            );
+
+            if (
+                constraints.every((type, index) => type === sourceType.shared.constraints[index]) &&
+                boundType === sourceType.shared.boundType &&
+                defaultType === sourceType.shared.defaultType
+            ) {
+                return sourceType;
+            }
+
+            const transformedType = TypeBase.cloneType(sourceType);
+            transformedType.shared = {
+                ...sourceType.shared,
+                constraints,
+                boundType,
+                defaultType,
+            };
+            return transformedType;
+        }
+
+        if (isUnion(sourceType) && isUnion(targetType)) {
+            if (sourceType.priv.subtypes.length !== targetType.priv.subtypes.length) {
+                return sourceType;
+            }
+
+            const subtypes: UnionableType[] = sourceType.priv.subtypes.map((subtype, index) => {
+                const transformedSubtype = transformTypePairRecursive(
+                    subtype,
+                    targetType.priv.subtypes[index],
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                );
+                return isNever(transformedSubtype) || isUnion(transformedSubtype) ? subtype : transformedSubtype;
+            });
+            if (subtypes.every((type, index) => type === sourceType.priv.subtypes[index])) {
+                return sourceType;
+            }
+
+            const transformedType = TypeBase.cloneType(sourceType);
+            transformedType.priv.subtypes = subtypes;
+            return transformedType;
+        }
+
+        if (isClass(sourceType) && isClass(targetType)) {
+            if (
+                sourceType.shared.fullName !== targetType.shared.fullName ||
+                TypeBase.isInstance(sourceType) !== TypeBase.isInstance(targetType) ||
+                sourceType.priv.typeArgs?.length !== targetType.priv.typeArgs?.length ||
+                sourceType.priv.tupleTypeArgs?.length !== targetType.priv.tupleTypeArgs?.length
+            ) {
+                return sourceType;
+            }
+
+            const typeArgs = sourceType.priv.typeArgs?.map((typeArg, index) =>
+                transformTypePairRecursive(
+                    typeArg,
+                    targetType.priv.typeArgs![index],
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                )
+            );
+            const tupleTypeArgs = sourceType.priv.tupleTypeArgs?.map((tupleTypeArg, index) => ({
+                ...tupleTypeArg,
+                type: transformTypePairRecursive(
+                    tupleTypeArg.type,
+                    targetType.priv.tupleTypeArgs![index].type,
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                ),
+            }));
+
+            if (
+                !typeArgs?.some((type, index) => type !== sourceType.priv.typeArgs![index]) &&
+                !tupleTypeArgs?.some(
+                    (tupleTypeArg, index) => tupleTypeArg.type !== sourceType.priv.tupleTypeArgs![index].type
+                )
+            ) {
+                return sourceType;
+            }
+
+            const transformedType = TypeBase.cloneType(sourceType);
+            transformedType.priv.typeArgs = typeArgs;
+            transformedType.priv.tupleTypeArgs = tupleTypeArgs;
+            return transformedType;
+        }
+
+        return sourceType;
+    } finally {
+        pendingTypes.delete(sourceType);
+    }
+}
+
 // Recursively walks a type and calls a callback for each TypeVar, allowing
 // it to be replaced with something else.
 export class TypeVarTransformer {
@@ -3697,7 +3952,13 @@ export class TypeVarTransformer {
 
         // Handle tuples specially.
         if (ClassType.isTupleClass(classType)) {
-            if (getContainerDepth(classType) > maxTupleTypeArgRecursionDepth) {
+            // As a performance safeguard, bail out early on very deeply nested
+            // tuples (the recursion count limit would eventually stop us, but
+            // constructing such deep types is expensive). Only do this when there
+            // are no type variables left to substitute; bailing out while type
+            // variables remain would return the unspecialized class and let those
+            // TypeVars "escape" unsolved (see microsoft/pyright#11472).
+            if (getContainerDepth(classType) > maxTupleTypeArgRecursionDepth && !requiresSpecialization(classType)) {
                 return classType;
             }
 

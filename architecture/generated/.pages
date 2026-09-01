@@ -1,0 +1,6 @@
+title: Generated
+nav:
+  - Pyright Engineering Map: pyright-engineering-map.md
+  - Semantic feature graph: feature-map.md
+  - Files by analyzer area: subsystems
+  - ... | README.md

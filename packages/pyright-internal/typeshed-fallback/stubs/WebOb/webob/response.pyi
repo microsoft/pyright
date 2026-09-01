@@ -2,8 +2,8 @@ from _typeshed import SupportsItems, SupportsRead
 from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
 from collections.abc import Iterable, Iterator, Sequence
 from datetime import timedelta
-from typing import IO, Any, Literal, Protocol, TypedDict, TypeVar, overload, type_check_only
-from typing_extensions import Self, TypeAlias
+from typing import IO, Any, Literal, Protocol, TypeAlias, TypedDict, TypeVar, overload, type_check_only
+from typing_extensions import Self
 
 from webob._types import AsymmetricProperty, AsymmetricPropertyWithDelete, SymmetricProperty, SymmetricPropertyWithDelete
 from webob.byterange import ContentRange
@@ -134,10 +134,12 @@ class Response:
     ) -> None: ...
     def delete_cookie(self, name: str | bytes, path: str = "/", domain: str | None = None) -> None: ...
     def unset_cookie(self, name: str | bytes, strict: bool = True) -> None: ...
+
     @overload
     def merge_cookies(self, resp: _ResponseT) -> _ResponseT: ...
     @overload
     def merge_cookies(self, resp: WSGIApplication) -> WSGIApplication: ...
+
     cache_control: AsymmetricProperty[_ResponseCacheControl, _ResponseCacheControl | _ResponseCacheControlDict | str | None]
     cache_expires: AsymmetricProperty[_ResponseCacheExpires, timedelta | int | bool | None]
     def encode_content(self, encoding: Literal["gzip", "identity"] = "gzip", lazy: bool = False) -> None: ...

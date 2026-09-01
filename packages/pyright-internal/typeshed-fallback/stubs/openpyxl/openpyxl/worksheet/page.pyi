@@ -1,6 +1,6 @@
 from _typeshed import ConvertibleToFloat, ConvertibleToInt, Incomplete
-from typing import ClassVar, Literal
-from typing_extensions import Self, TypeAlias
+from typing import ClassVar, Literal, TypeAlias
+from typing_extensions import Self
 
 from openpyxl.descriptors.base import Bool, Float, Integer, NoneSet, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable, _ChildSerialisableTreeElement
@@ -58,14 +58,17 @@ class PrintPageSetup(Serialisable):
     def __bool__(self) -> bool: ...
     @property
     def sheet_properties(self) -> PageSetupProperties | None: ...
+
     @property
     def fitToPage(self) -> bool | None: ...
     @fitToPage.setter
     def fitToPage(self, value: _ConvertibleToBool | None) -> None: ...
+
     @property
     def autoPageBreaks(self) -> bool | None: ...
     @autoPageBreaks.setter
     def autoPageBreaks(self, value: _ConvertibleToBool | None) -> None: ...
+
     @classmethod
     def from_tree(cls, node: _ChildSerialisableTreeElement) -> Self: ...
 

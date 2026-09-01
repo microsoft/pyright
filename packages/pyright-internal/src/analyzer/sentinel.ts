@@ -10,7 +10,7 @@
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
 import { ArgCategory, ExpressionNode, ParseNodeType } from '../parser/parseNodes';
-import { getFileInfo } from './analyzerNodeInfo';
+import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { getClassFullName, getTypeSourceId } from './parseTreeUtils';
 import { Arg, TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassType, ClassTypeFlags, SentinelLiteral, Type, TypeBase } from './types';
@@ -19,7 +19,9 @@ import { computeMroLinearization } from './typeUtils';
 export function createSentinelType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: Arg[]
+    argList: Arg[],
+    sentinelBaseClass: ClassType,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type | undefined {
     let className = '';
 
@@ -59,7 +61,7 @@ export function createSentinelType(
         return undefined;
     }
 
-    const fileInfo = getFileInfo(errorNode);
+    const fileInfo = nodeInfo.getFileInfo(errorNode);
     const fullClassName = getClassFullName(errorNode, fileInfo.moduleName, className);
     let classType = ClassType.createInstantiable(
         className,
@@ -69,19 +71,16 @@ export function createSentinelType(
         ClassTypeFlags.Final | ClassTypeFlags.ValidTypeAliasClass,
         getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
-        evaluator.getTypeClassType()
+        sentinelBaseClass.shared.effectiveMetaclass
     );
 
-    classType.shared.baseClasses.push(evaluator.getObjectType());
+    classType.shared.baseClasses.push(sentinelBaseClass);
     computeMroLinearization(classType);
     classType = ClassType.cloneWithLiteral(classType, new SentinelLiteral(fullClassName, className));
 
     let instanceType = ClassType.cloneAsInstance(classType);
 
-    // Is TypeForm supported?
-    if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
-        instanceType = TypeBase.cloneWithTypeForm(instanceType, instanceType);
-    }
+    instanceType = TypeBase.cloneWithTypeForm(instanceType, instanceType);
 
     return instanceType;
 }

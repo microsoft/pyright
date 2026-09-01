@@ -1,6 +1,5 @@
 from _typeshed import ConvertibleToFloat, Incomplete, Unused
-from typing import ClassVar, Literal, overload
-from typing_extensions import TypeAlias
+from typing import ClassVar, Literal, TypeAlias, overload
 
 from openpyxl.chart._3d import Surface, View3D
 from openpyxl.chart.legend import Legend
@@ -79,6 +78,7 @@ class ExternalData(Serialisable):
     tagname: ClassVar[str]
     autoUpdate: NestedBool[Literal[True]]
     id: String[Literal[False]]
+
     @overload
     def __init__(
         self, autoUpdate: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None, *, id: str
@@ -105,6 +105,7 @@ class ChartSpace(Serialisable):
     userShapes: Incomplete
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
+
     @overload
     def __init__(
         self,
@@ -142,4 +143,5 @@ class ChartSpace(Serialisable):
         userShapes=None,
         extLst: Unused = None,
     ) -> None: ...
+
     def to_tree(self, tagname: Unused = None, idx: Unused = None, namespace: Unused = None) -> Element: ...

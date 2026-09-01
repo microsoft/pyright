@@ -4,6 +4,17 @@
  * Licensed under the MIT license.
  *
  * Platform-independent helper functions for crypto.
+ *
+ * randomBytesHex uses platform CSPRNGs (Node's crypto.randomBytes or the Web
+ * Crypto API's getRandomValues). Both are cryptographically secure, so the
+ * output is safe for generating secrets such as auth tokens. A pure-JS
+ * fallback is intentionally *not* provided — insecure randomness must never
+ * be silently substituted for secrets. If neither platform API is available
+ * the function fails loudly.
+ *
+ * Contrast with sha256 (in pylance-internal's crypto.ts), which *can* safely
+ * fall back to a JS polyfill because SHA-256 is a deterministic algorithm —
+ * any correct implementation produces identical output for the same input.
  */
 
 import { fail } from './debug';

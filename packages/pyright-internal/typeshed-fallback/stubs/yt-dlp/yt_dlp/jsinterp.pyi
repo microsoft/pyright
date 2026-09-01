@@ -1,14 +1,14 @@
 import collections
 import types
 from collections.abc import Callable, Collection, Iterable, Mapping
-from typing import Any, NoReturn
-from typing_extensions import TypeAlias
+from typing import Any, NoReturn, TypeAlias
 
 from yt_dlp.extractor.common import InfoExtractor
 from yt_dlp.utils._utils import function_with_repr
 
 from .utils import ExtractorError
 
+def int_to_int32(n: int) -> int: ...
 def js_number_to_string(val: float, radix: int = 10) -> str: ...
 
 class JS_Undefined: ...

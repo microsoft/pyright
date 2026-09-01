@@ -28,6 +28,7 @@ function getHeapStatisticsFunc(): () => HeapInfo {
         heap_size_limit: 0,
         malloced_memory: 0,
         peak_malloced_memory: 0,
+        total_allocated_bytes: 0,
         does_zap_garbage: 0,
         number_of_native_contexts: 0,
         number_of_detached_contexts: 0,

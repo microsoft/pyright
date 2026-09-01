@@ -21,6 +21,11 @@ export class PullDiagnosticsDynamicFeature extends DynamicFeature {
         super('pull diagnostics');
     }
 
+    override disable() {
+        super.disable();
+        this._registered = false;
+    }
+
     override update(settings: ServerSettings): void {
         // There is one caveat with these settings. These settings can be set
         // per workspace, but these features apply to the entire language server.

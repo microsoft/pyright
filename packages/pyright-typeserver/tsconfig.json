@@ -1,0 +1,13 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "outDir": "./out",
+        "rootDir": "../..",
+        "paths": {
+            "pyright-internal/*": ["../pyright-internal/src/*"]
+        },
+        "typeRoots": ["./node_modules/@types", "../pyright-internal/typings"]
+    },
+    "include": ["src/**/*", "**/*.js", "../pyright-internal/typings/*.d.ts"],
+    "exclude": ["node_modules", "dist", "out", "pyright-typeserver.js"]
+}

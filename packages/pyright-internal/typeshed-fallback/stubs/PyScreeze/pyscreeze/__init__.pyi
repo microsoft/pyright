@@ -1,8 +1,7 @@
 import sys
 from _typeshed import ConvertibleToFloat, Incomplete, StrOrBytesPath, Unused
 from collections.abc import Callable, Generator
-from typing import Final, NamedTuple, TypeVar, overload
-from typing_extensions import ParamSpec, TypeAlias
+from typing import Final, NamedTuple, ParamSpec, TypeAlias, TypeVar, overload
 
 from PIL import Image
 
@@ -108,7 +107,7 @@ def locateAllOnScreen(
     region: tuple[int, int, int, int] | None = None,
     step: int = 1,
     confidence: ConvertibleToFloat = 0.999,
-) -> Generator[Box, None, None]: ...
+) -> Generator[Box]: ...
 
 # _locateAll_pillow
 @overload
@@ -120,7 +119,7 @@ def locateAllOnScreen(
     region: tuple[int, int, int, int] | None = None,
     step: int = 1,
     confidence: None = None,
-) -> Generator[Box, None, None]: ...
+) -> Generator[Box]: ...
 
 # _locateAll_opencv
 @overload
@@ -147,6 +146,7 @@ def locateCenterOnScreen(
     step: int = 1,
     confidence: None = None,
 ) -> Point | None: ...
+
 def locateOnScreenNear(image: str | Image.Image | _MatLike, x: int, y: int) -> Box: ...
 def locateCenterOnScreenNear(image: str | Image.Image | _MatLike, x: int, y: int) -> Point | None: ...
 
@@ -173,6 +173,7 @@ def locateOnWindow(
     step: int = 1,
     confidence: None = None,
 ) -> Box | None: ...
+
 def showRegionOnScreen(
     region: tuple[int, int, int, int], outlineColor: str = "red", filename: str = "_showRegionOnScreen.png"
 ) -> None: ...
@@ -202,7 +203,7 @@ def locateAll(
     region: tuple[int, int, int, int] | None = None,
     step: int = 1,
     confidence: ConvertibleToFloat = 0.999,
-) -> Generator[Box, None, None]: ...
+) -> Generator[Box]: ...
 
 # _locateAll_pillow
 @overload
@@ -214,4 +215,4 @@ def locateAll(
     region: tuple[int, int, int, int] | None = None,
     step: int = 1,
     confidence: None = None,
-) -> Generator[Box, None, None]: ...
+) -> Generator[Box]: ...

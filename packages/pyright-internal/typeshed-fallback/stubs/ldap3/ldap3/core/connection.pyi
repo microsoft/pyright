@@ -1,8 +1,8 @@
 from _collections_abc import Generator, dict_keys
 from _typeshed import Incomplete, ReadableBuffer
 from types import TracebackType
-from typing import Literal
-from typing_extensions import Self, TypeAlias
+from typing import Literal, TypeAlias
+from typing_extensions import Self
 
 from pyasn1.type.base import Asn1Item
 
@@ -110,10 +110,12 @@ class Connection:
         source_port_list=None,
     ) -> None: ...
     def repr_with_sensitive_data_stripped(self): ...
+
     @property
     def stream(self): ...
     @stream.setter
     def stream(self, value) -> None: ...
+
     @property
     def usage(self): ...
     def __enter__(self) -> Self: ...

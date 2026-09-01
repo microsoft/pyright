@@ -1,6 +1,6 @@
 from collections.abc import Iterable
-from typing import Any, Literal, TypedDict, overload, type_check_only
-from typing_extensions import NotRequired, TypeAlias
+from typing import Any, Literal, TypeAlias, TypedDict, overload, type_check_only
+from typing_extensions import NotRequired
 
 from asgiref.typing import ASGIVersions
 from channels.testing.application import ApplicationCommunicator
@@ -50,5 +50,6 @@ class WebsocketCommunicator(ApplicationCommunicator):
     async def send_json_to(self, data: dict[str, Any]) -> None: ...
     @overload
     async def send_json_to(self, data: Any) -> None: ...
+
     async def receive_json_from(self, timeout: float = 1) -> Any: ...
     async def disconnect(self, code: int = 1000, timeout: float = 1) -> None: ...

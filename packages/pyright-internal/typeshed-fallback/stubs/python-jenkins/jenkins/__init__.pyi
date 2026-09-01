@@ -1,12 +1,12 @@
 from _typeshed import Incomplete
 from collections.abc import Mapping, MutableMapping, Sequence
 from re import Pattern
-from typing import Any, Final, Literal, TypedDict, overload, type_check_only
-from typing_extensions import Required, TypeAlias, deprecated
+from typing import Any, Final, Literal, TypeAlias, TypedDict, overload, type_check_only
+from typing_extensions import Required, deprecated
 
 import requests
+from requests._types import AuthType
 from requests.models import Request, Response
-from requests.sessions import _Auth
 
 LAUNCHER_SSH: Final[str]
 LAUNCHER_COMMAND: Final[str]
@@ -103,7 +103,7 @@ class _Job(TypedDict, total=False):
 
 class Jenkins:
     server: str
-    auth: _Auth | None
+    auth: AuthType | None
     crumb: Mapping[str, Incomplete] | bool | Incomplete
     timeout: int
     def __init__(
@@ -154,6 +154,7 @@ class Jenkins:
     def create_job(self, name: str, config_xml: str) -> None: ...
     def get_job_config(self, name: str) -> str: ...
     def reconfig_job(self, name: str, config_xml: str) -> None: ...
+
     @overload
     def build_job_url(
         self,
@@ -169,6 +170,7 @@ class Jenkins:
     def build_job_url(
         self, name: str, parameters: dict[str, Incomplete] | list[tuple[str, Incomplete]] | None = None, *, token: str
     ) -> str: ...
+
     @overload
     def build_job(
         self,
@@ -184,6 +186,7 @@ class Jenkins:
     def build_job(
         self, name: str, parameters: dict[str, Incomplete] | list[tuple[str, Incomplete]] | None = None, *, token: str
     ) -> int: ...
+
     def run_script(self, script: str, node: str | None = None) -> str: ...
     def install_plugin(self, name: str, include_dependencies: bool = True) -> bool: ...
     def stop_build(self, name: str, number: int) -> None: ...

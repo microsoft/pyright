@@ -6,10 +6,10 @@
 
 import assert from 'assert';
 import { CancellationToken } from 'vscode-languageserver';
-import { CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
+import { ApplyKind, CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
 
 import { Uri } from '../common/uri/uri';
-import { CompletionOptions, CompletionProvider } from '../languageService/completionProvider';
+import { CompletionItemData, CompletionOptions, CompletionProvider } from '../languageService/completionProvider';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
 test('completion import statement tooltip', async () => {
@@ -387,6 +387,7 @@ test('include literals in expression completion', async () => {
                 {
                     kind: CompletionItemKind.Constant,
                     label: "'A'",
+                    detail: 'str',
                     textEdit: { range: state.getPositionRange('marker'), newText: "'A'" },
                 },
             ],
@@ -416,6 +417,7 @@ test('include literals in set key', async () => {
                 {
                     kind: CompletionItemKind.Constant,
                     label: "'A'",
+                    detail: 'str',
                     textEdit: { range: state.getPositionRange('marker'), newText: "'A'" },
                 },
             ],
@@ -445,6 +447,7 @@ test('include literals in dict key', async () => {
                 {
                     kind: CompletionItemKind.Constant,
                     label: '"A"',
+                    detail: 'str',
                     textEdit: { range: state.getPositionRange('marker'), newText: '"A"' },
                 },
             ],
@@ -916,11 +919,11 @@ test('completion MRU affects sort order', async () => {
     };
 
     const completionProviderTestAccess = CompletionProvider as unknown as {
-        mostRecentCompletions: RecentCompletionInfo[];
+        [key: string]: RecentCompletionInfo[];
     };
 
     // Reset MRU list to keep the test deterministic.
-    completionProviderTestAccess.mostRecentCompletions = [];
+    completionProviderTestAccess._mostRecentCompletions = [];
 
     const code = `
 // @filename: test.py
@@ -954,11 +957,11 @@ test('completion MRU affects sort order', async () => {
     assert(truly1?.sortText);
     assert(trueDivide1?.sortText);
 
-    // Not in MRU list yet: normal symbol category (09) and recent index (9999).
-    assert(truly1.sortText.startsWith('09.9999.'));
-    assert(trueDivide1.sortText.startsWith('09.9999.'));
+    // Not in MRU list yet: both share the same category, so neither is promoted.
+    assert.strictEqual(truly1.sortText.split('.')[0], trueDivide1.sortText.split('.')[0]);
 
-    provider1.resolveCompletionItem(truly1);
+    // Accepting 'truly' records it in the MRU. (MRU is updated on accept, not on passive resolve.)
+    CompletionProvider.recordCompletionAccepted('truly', '');
 
     const provider2 = new CompletionProvider(state.program, uri, position, options, CancellationToken.None);
     const result2 = provider2.getCompletions();
@@ -969,12 +972,82 @@ test('completion MRU affects sort order', async () => {
     assert(truly2?.sortText);
     assert(trueDivide2?.sortText);
 
-    // Now the selected item is in MRU: promoted to RecentKeywordOrSymbol category (05) with index (0000).
-    assert(truly2.sortText.startsWith('05.0000.'));
-    assert(trueDivide2.sortText.startsWith('09.9999.'));
+    // Now the selected item is in MRU and is promoted to an earlier category. Compare relative
+    // ordering instead of hard-coding enum-derived SortCategory prefixes (which shift whenever a new
+    // SortCategory is inserted).
+    assert(truly2.sortText < truly1.sortText); // promoted ahead of its own pre-MRU position
+    assert(truly2.sortText < trueDivide2.sortText); // and ahead of the non-MRU sibling
+    assert.strictEqual(trueDivide2.sortText.split('.')[0], trueDivide1.sortText.split('.')[0]); // sibling unchanged
 
     // Reset MRU list so it doesn't affect other tests.
-    completionProviderTestAccess.mostRecentCompletions = [];
+    completionProviderTestAccess._mostRecentCompletions = [];
+});
+
+test('passive resolve does not change MRU sort order', async () => {
+    type RecentCompletionInfo = {
+        label: string;
+        autoImportText: string;
+    };
+
+    const completionProviderTestAccess = CompletionProvider as unknown as {
+        [key: string]: RecentCompletionInfo[];
+    };
+
+    // Reset MRU list to keep the test deterministic.
+    completionProviderTestAccess._mostRecentCompletions = [];
+
+    const code = `
+// @filename: test.py
+//// true_divide = 0
+//// truly = 0
+//// tru/*marker*/
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFiles(state.testData.files.map((f) => f.fileName));
+
+    while (state.workspace.service.test_program.analyze());
+
+    const filePath = marker.fileName;
+    const uri = Uri.file(filePath, state.serviceProvider);
+    const position = state.convertOffsetToPosition(filePath, marker.position);
+
+    const options: CompletionOptions = {
+        format: 'markdown',
+        snippet: false,
+        lazyEdit: false,
+    };
+
+    const provider1 = new CompletionProvider(state.program, uri, position, options, CancellationToken.None);
+    const result1 = provider1.getCompletions();
+    assert(result1);
+
+    const truly1 = result1.items.find((i) => i.label === 'truly');
+    const trueDivide1 = result1.items.find((i) => i.label === 'true_divide');
+    assert(truly1?.sortText);
+    assert(trueDivide1?.sortText);
+    assert.strictEqual(truly1.sortText.split('.')[0], trueDivide1.sortText.split('.')[0]);
+
+    // Passive resolve (fired per keystroke while previewing inline suggestions) must NOT mutate the
+    // MRU; otherwise the ranking oscillates as the user types.
+    await provider1.resolveCompletionItem(truly1);
+
+    const provider2 = new CompletionProvider(state.program, uri, position, options, CancellationToken.None);
+    const result2 = provider2.getCompletions();
+    assert(result2);
+
+    const truly2 = result2.items.find((i) => i.label === 'truly');
+    const trueDivide2 = result2.items.find((i) => i.label === 'true_divide');
+    assert(truly2?.sortText);
+    assert(trueDivide2?.sortText);
+
+    // Sort order is unchanged because resolve did not record anything in the MRU.
+    assert.strictEqual(truly2.sortText.split('.')[0], trueDivide2.sortText.split('.')[0]);
+    assert.strictEqual(completionProviderTestAccess._mostRecentCompletions.length, 0);
+
+    // Reset MRU list so it doesn't affect other tests.
+    completionProviderTestAccess._mostRecentCompletions = [];
 });
 
 test('override generic', async () => {
@@ -1282,6 +1355,43 @@ test('default Enum member', async () => {
     });
 });
 
+test('str-backed Enum comparison suggests member values', async () => {
+    const code = `
+// @filename: test.py
+//// from enum import Enum
+////
+//// class Mode(str, Enum):
+////     Train = "train"
+////     Test = "test"
+////
+//// config: Mode = Mode("train")
+////
+//// if config == [|"/*marker*/"|]:
+////     pass
+`;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"train"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"train"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"test"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"test"' },
+                },
+            ],
+        },
+    });
+});
+
 test('TypeDict literal values', async () => {
     const code = `
 // @filename: test.py
@@ -1335,6 +1445,33 @@ test('typed dict key constructor completion', async () => {
                 {
                     kind: CompletionItemKind.Variable,
                     label: 'key1=',
+                },
+            ],
+        },
+    });
+});
+
+test('functional NamedTuple fields are included in class completions', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, NamedTuple
+////
+//// Point = NamedTuple("Point", [("x", Any), ("y", Any)])
+//// Point.[|/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    label: 'x',
+                    kind: CompletionItemKind.Variable,
+                },
+                {
+                    label: 'y',
+                    kind: CompletionItemKind.Variable,
                 },
             ],
         },
@@ -1549,6 +1686,280 @@ test('overloaded Literal[...] suggestions in call arguments', async () => {
     });
 });
 
+test('collection literal suggestions in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Collection, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["nan"]] = ()) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str:
+////     return ''
+////
+//// dumps(None, allow=[[|"/*marker*/"|]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
+test('collection literal suggestions include all literal overload element candidates', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Collection, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["nan"]] = ()) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["inf"]] = ()) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str:
+////     return ''
+////
+//// dumps(None, allow=[[|"/*marker*/"|]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"inf"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"inf"' },
+                },
+            ],
+        },
+    });
+});
+
+test('collection literal suggestions exclude deeply nested containers in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Collection, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["nan"]] = ()) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str:
+////     return ''
+////
+//// dumps(None, allow=[[[[|"/*marker*/"|]]]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('excluded', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
+test('typing list literal suggestions in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, List, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: List[Literal["nan"]]) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: List[str]) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: List[str]) -> str:
+////     return ''
+////
+//// dumps(None, allow=[[|"/*marker*/"|]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
+test('mapping value literal suggestions include all overload candidates', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Literal, Mapping, overload
+////
+//// @overload
+//// def encode(obj: Any, *, mapping: Mapping[str, Literal["nan"]] = ...) -> str: ...
+//// @overload
+//// def encode(obj: Any, *, mapping: Mapping[str, Literal["inf"]] = ...) -> str: ...
+////
+//// def encode(obj: Any, *, mapping: Mapping[str, str] = ...) -> str:
+////     return ''
+////
+//// encode(None, mapping={"key": [|"/*marker*/"|]})
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"inf"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"inf"' },
+                },
+            ],
+        },
+    });
+});
+
+test('sequence literal suggestions in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Literal, Sequence, overload
+////
+//// @overload
+//// def encode(obj: Any, *, seq: Sequence[Literal["nan"]] = ...) -> str: ...
+//// @overload
+//// def encode(obj: Any, *, seq: Sequence[str] = ...) -> str: ...
+////
+//// def encode(obj: Any, *, seq: Sequence[str] = ...) -> str:
+////     return ''
+////
+//// encode(None, seq=[[|"/*marker*/"|]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
+test('collection literal suggestions include comprehensions in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Collection, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["nan"]] = ()) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str:
+////     return ''
+////
+//// dumps(None, allow=[[|"/*marker*/"|] for _ in range(1)])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
+test('collection literal suggestions exclude lambdas in call arguments', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Any, Collection, Literal, overload
+////
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[Literal["nan"]] = ()) -> str: ...
+//// @overload
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str: ...
+////
+//// def dumps(obj: Any, *, allow: Collection[str] = ()) -> str:
+////     return ''
+////
+//// dumps(None, allow=[lambda: [|"/*marker*/"|]])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    state.openFile(marker.fileName);
+
+    await state.verifyCompletion('excluded', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"nan"',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"nan"' },
+                },
+            ],
+        },
+    });
+});
+
 test('nested TypedDict completion with Unpack - without other fields', async () => {
     const code = `
 // @filename: test.py
@@ -1576,11 +1987,13 @@ test('nested TypedDict completion with Unpack - without other fields', async () 
                 {
                     kind: CompletionItemKind.Constant,
                     label: "'a'",
+                    detail: 'int',
                     textEdit: { range: state.getPositionRange('marker'), newText: "'a'" },
                 },
                 {
                     kind: CompletionItemKind.Constant,
                     label: "'b'",
+                    detail: 'str',
                     textEdit: { range: state.getPositionRange('marker'), newText: "'b'" },
                 },
             ],
@@ -1615,11 +2028,13 @@ test('nested TypedDict completion with Unpack - with other fields', async () => 
                 {
                     kind: CompletionItemKind.Constant,
                     label: '"a"',
+                    detail: 'int',
                     textEdit: { range: state.getPositionRange('marker'), newText: '"a"' },
                 },
                 {
                     kind: CompletionItemKind.Constant,
                     label: '"b"',
+                    detail: 'str',
                     textEdit: { range: state.getPositionRange('marker'), newText: '"b"' },
                 },
             ],
@@ -1650,14 +2065,151 @@ test('simple nested TypedDict completion - no Unpack', async () => {
                 {
                     kind: CompletionItemKind.Constant,
                     label: "'a'",
+                    detail: 'int',
                     textEdit: { range: state.getPositionRange('marker'), newText: "'a'" },
                 },
                 {
                     kind: CompletionItemKind.Constant,
                     label: "'b'",
+                    detail: 'str',
                     textEdit: { range: state.getPositionRange('marker'), newText: "'b'" },
                 },
             ],
         },
     });
+});
+
+test('TypedDict subscript completion with Literal assignment target', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import Literal, TypedDict, TypeAlias
+//// 
+//// SomeLiterals: TypeAlias = Literal["literal1", "literal2"]
+//// 
+//// class Settings(TypedDict):
+////     value: SomeLiterals
+//// 
+//// class Test:
+////     def __init__(self) -> None:
+////         self.settings: Settings = {"value": "literal1"}
+////     
+////     def meth(self, literal: SomeLiterals):
+////         literal = self.settings[[|/*marker*/|]]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Constant,
+                    label: '"value"',
+                    detail: 'SomeLiterals',
+                    textEdit: { range: state.getPositionRange('marker'), newText: '"value"' },
+                },
+            ],
+        },
+    });
+
+    await state.verifyCompletion('excluded', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    label: '"literal1"',
+                    kind: CompletionItemKind.Constant,
+                },
+                {
+                    label: '"literal2"',
+                    kind: CompletionItemKind.Constant,
+                },
+            ],
+        },
+    });
+});
+
+test('completion itemDefaults.data hoist when capability enabled', async () => {
+    const code = `
+// @filename: test.py
+//// def my_function(): ...
+//// my_/*marker*/
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    const filePath = marker.fileName;
+    const uri = Uri.file(filePath, state.serviceProvider);
+    const position = state.convertOffsetToPosition(filePath, marker.position);
+
+    const options: CompletionOptions = {
+        format: 'markdown',
+        snippet: false,
+        lazyEdit: false,
+        completionItemDataDefault: true,
+    };
+
+    const result = new CompletionProvider(
+        state.program,
+        uri,
+        position,
+        options,
+        CancellationToken.None
+    ).getCompletions();
+
+    assert(result);
+    assert(result.items.length > 0);
+
+    // The shared `uri`/`position` are hoisted into `itemDefaults.data`, and the client is told to
+    // merge it back per item via `applyKind.data === Merge`.
+    assert.deepStrictEqual(result.itemDefaults?.data, { uri: uri.toString(), position });
+    assert.strictEqual(result.applyKind?.data, ApplyKind.Merge);
+
+    const item = result.items.find((i) => i.label === 'my_function');
+    assert(item);
+
+    // Per-item data no longer carries the duplicated `uri`/`position`, but retains item-specific fields.
+    const itemData = item.data as Partial<CompletionItemData>;
+    assert.strictEqual(itemData.uri, undefined);
+    assert.strictEqual(itemData.position, undefined);
+    assert.strictEqual(itemData.symbolLabel, 'my_function');
+});
+
+test('completion itemDefaults.data not hoisted when capability disabled', async () => {
+    const code = `
+// @filename: test.py
+//// def my_function(): ...
+//// my_/*marker*/
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    const filePath = marker.fileName;
+    const uri = Uri.file(filePath, state.serviceProvider);
+    const position = state.convertOffsetToPosition(filePath, marker.position);
+
+    const options: CompletionOptions = {
+        format: 'markdown',
+        snippet: false,
+        lazyEdit: false,
+    };
+
+    const result = new CompletionProvider(
+        state.program,
+        uri,
+        position,
+        options,
+        CancellationToken.None
+    ).getCompletions();
+
+    assert(result);
+    assert.strictEqual(result.itemDefaults?.data, undefined);
+    assert.strictEqual(result.applyKind, undefined);
+
+    const item = result.items.find((i) => i.label === 'my_function');
+    assert(item);
+
+    // Without the capability, each item still carries the full `uri`/`position` payload.
+    const itemData = item.data as Partial<CompletionItemData>;
+    assert.strictEqual(itemData.uri, uri.toString());
+    assert.deepStrictEqual(itemData.position, position);
 });

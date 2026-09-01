@@ -10,7 +10,7 @@
 import { ConsoleInterface } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
 import { Uri } from '../common/uri/uri';
-import { FileSpec, getFileSystemEntries, tryRealpath, tryStat } from '../common/uri/uriUtils';
+import { FileSpec, getFileSystemEntriesWithSymlinkedDirectories, tryRealpath, tryStat } from '../common/uri/uriUtils';
 
 export interface SourceEnumerateResult {
     matches: Map<string, Uri>;
@@ -19,6 +19,20 @@ export interface SourceEnumerateResult {
 }
 
 const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg'], ['conda-meta']];
+
+// Thresholds that define a "slow" enumeration. Kept at module scope so both the
+// long-operation console warning and the `wasSlowEnumeration` getter derive
+// "slow" from the same condition rather than from whether the warning was logged.
+const longOperationLimitInMs = 10000;
+const nFilesToSuggestSubfolder = 50;
+
+// Configuration file names that mark a directory as a candidate "nearest
+// configuration" root. These are collected during the normal source-file walk
+// (see `getDiscoveredConfigFiles`) so Pylance can create virtual workspaces
+// without performing a second traversal. Whether a `pyproject.toml` actually
+// qualifies (i.e. has a `[tool.pyright]` section) is decided by the caller.
+const pyrightConfigFileName = 'pyrightconfig.json';
+const pyprojectTomlFileName = 'pyproject.toml';
 
 interface DirToExplore {
     uri: Uri;
@@ -36,6 +50,21 @@ export class SourceEnumerator {
     private _numFilesVisited = 0;
     private _loggedLongOperationError = false;
     private _seenDirs = new Set<string>();
+    // Real (symlink-resolved) paths of the include roots. A symlink that resolves
+    // outside every include root (e.g. a link to filesystem root "/" or "C:\") is
+    // not a cycle, so `_seenDirs` won't catch it; without this bound the whole
+    // filesystem would be enumerated and Pylance would hang. See issue #6006.
+    private readonly _includeRoots: Uri[];
+    // This tracks symlinked directory roots across the entire enumeration cycle,
+    // potentially spanning multiple include roots, so Pylance can later filter
+    // workspace indexing against the full discovered set.
+    private readonly _symlinkedDirectoryRoots = new Map<string, Uri>();
+    // Candidate "nearest configuration" files (pyrightconfig.json / pyproject.toml)
+    // encountered during the walk, keyed by file uri. Surfaced to Pylance so it can
+    // create virtual workspaces without re-walking the tree. Directories that are
+    // auto-excluded (venvs) or excluded by config are never read, so configs under
+    // them are naturally skipped.
+    private readonly _discoveredConfigFiles = new Map<string, Uri>();
 
     constructor(
         include: FileSpec[],
@@ -46,7 +75,32 @@ export class SourceEnumerator {
     ) {
         this._includesToExplore = include.slice(0).reverse();
 
+        // Resolve include roots to their real paths up front (an include root may
+        // itself be a symlink) so we can bound enumeration to directories that
+        // physically live under one of the workspace's include roots.
+        this._includeRoots = include.map((spec) => tryRealpath(_fs, spec.wildcardRoot) ?? spec.wildcardRoot);
+
         this._console.log(`Searching for source files`);
+    }
+
+    get wasSlowEnumeration(): boolean {
+        // Derived from the elapsed-time / file-count threshold rather than from
+        // `_loggedLongOperationError` so "slow" stays independent of whether the
+        // console warning was logged. Sibling changes that alter the logging
+        // behavior (e.g. suppressing repeats) then can't silently disable this.
+        return this._isSlowEnumeration();
+    }
+
+    getSymlinkedDirectoryRoots(): Uri[] {
+        return Array.from(this._symlinkedDirectoryRoots.values());
+    }
+
+    // Returns the configuration files (pyrightconfig.json / pyproject.toml)
+    // discovered during enumeration. The caller decides which ones actually
+    // qualify as a configuration root (e.g. a pyproject.toml must contain a
+    // [tool.pyright] section).
+    getDiscoveredConfigFiles(): Uri[] {
+        return Array.from(this._discoveredConfigFiles.values());
     }
 
     // Enumerates as many files as possible within the specified
@@ -70,12 +124,9 @@ export class SourceEnumerator {
         this._elapsedTimeInMs += Date.now() - startTime;
 
         if (!this._loggedLongOperationError) {
-            const longOperationLimitInMs = 10000;
-            const nFilesToSuggestSubfolder = 50;
-
             // If this is taking a long time, log an error to help the user
             // diagnose and mitigate the problem.
-            if (this._elapsedTimeInMs >= longOperationLimitInMs && this._numFilesVisited >= nFilesToSuggestSubfolder) {
+            if (this._isSlowEnumeration()) {
                 this._console.error(
                     `Enumeration of workspace source files is taking longer than ${
                         longOperationLimitInMs * 0.001
@@ -102,6 +153,26 @@ export class SourceEnumerator {
         };
     }
 
+    private _isSlowEnumeration(): boolean {
+        return this._elapsedTimeInMs >= longOperationLimitInMs && this._numFilesVisited >= nFilesToSuggestSubfolder;
+    }
+
+    private _recordSymlinkedDirectoryRoot(root: Uri): void {
+        for (const existingRoot of this._symlinkedDirectoryRoots.values()) {
+            if (root.isChild(existingRoot)) {
+                return;
+            }
+        }
+
+        for (const [key, existingRoot] of this._symlinkedDirectoryRoots.entries()) {
+            if (existingRoot.isChild(root)) {
+                this._symlinkedDirectoryRoots.delete(key);
+            }
+        }
+
+        this._symlinkedDirectoryRoots.set(root.key, root);
+    }
+
     // Performs the next enumeration action. Returns true if complete.
     private _doNext(): boolean {
         const dirToExplore = this._dirsToExplore.pop();
@@ -126,11 +197,24 @@ export class SourceEnumerator {
             return;
         }
 
+        if (realDirPath.key !== dir.uri.key) {
+            this._recordSymlinkedDirectoryRoot(dir.uri);
+        }
+
         if (this._seenDirs.has(realDirPath.key)) {
             this._console.info(`Skipping recursive symlink "${dir.uri}" -> "${realDirPath}"`);
             return;
         }
         this._seenDirs.add(realDirPath.key);
+
+        // A symlink that resolves outside every include root is not a recursive
+        // cycle (so `_seenDirs` won't catch it), but following it would pull in
+        // directories that don't belong to the workspace -- in the worst case a
+        // link to filesystem root "/" would enumerate the entire disk (issue #6006).
+        // Skip silently: external symlinks are legitimate and shouldn't be noisy.
+        if (this._includeRoots.length > 0 && !this._includeRoots.some((root) => realDirPath.startsWith(root))) {
+            return;
+        }
 
         if (this._autoExcludeVenv) {
             if (envMarkers.some((f) => this._fs.existsSync(dir.uri.resolvePaths(...f)))) {
@@ -140,12 +224,31 @@ export class SourceEnumerator {
             }
         }
 
-        const { files, directories } = getFileSystemEntries(this._fs, dir.uri);
+        const { files, directories, symlinkedDirectories } = getFileSystemEntriesWithSymlinkedDirectories(
+            this._fs,
+            dir.uri
+        );
+
+        for (const symlinkedDir of symlinkedDirectories) {
+            this._recordSymlinkedDirectoryRoot(symlinkedDir);
+        }
 
         for (const file of files) {
             if (FileSpec.matchIncludeFileSpec(dir.includeRegExp, this._excludes, file)) {
                 this._numFilesVisited++;
                 this._matches.set(file.key, file);
+            }
+
+            // Collect candidate configuration files. They are not `.py`/`.pyi`, so they
+            // never match include specs, but we still honor `exclude` specs: skip any
+            // config file explicitly excluded by the user (directory-level excludes and
+            // venv auto-exclusion already prevent us from reading excluded directories).
+            const fileName = file.fileName;
+            if (
+                (fileName === pyrightConfigFileName || fileName === pyprojectTomlFileName) &&
+                !FileSpec.isInPath(file, this._excludes)
+            ) {
+                this._discoveredConfigFiles.set(file.key, file);
             }
         }
 
@@ -168,6 +271,15 @@ export class SourceEnumerator {
         }
 
         this._seenDirs.clear();
+
+        // Skip enumeration for non-file URI schemes (e.g., memfs:, zowe-uss:).
+        // These require async file system access that isn't available here.
+        if (includeSpec.wildcardRoot.scheme !== 'file' && includeSpec.wildcardRoot.scheme !== '') {
+            this._console.info(
+                `Skipping file enumeration for non-file URI scheme "${includeSpec.wildcardRoot.scheme}".`
+            );
+            return;
+        }
 
         const stat = tryStat(this._fs, includeSpec.wildcardRoot);
         if (stat?.isFile()) {

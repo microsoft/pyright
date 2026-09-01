@@ -4,8 +4,7 @@ from collections.abc import Mapping
 from datetime import timedelta
 from logging.config import _DictConfigArgs
 from socket import SocketKind
-from typing import Annotated, Any, ClassVar, Literal, TypedDict, type_check_only
-from typing_extensions import TypeAlias
+from typing import Annotated, Any, ClassVar, Literal, TypeAlias, TypedDict, type_check_only
 
 from gunicorn.http import Request
 from gunicorn.http.wsgi import Response
@@ -60,6 +59,7 @@ _SyslogAddressType: TypeAlias = (
 )
 
 def parse_syslog_address(addr: str) -> _SyslogAddressType: ...
+
 @type_check_only
 class _LogLevels(TypedDict):
     critical: _CriticalIntType
@@ -151,6 +151,8 @@ class Logger:
         extra: Mapping[str, object] | None = None,
     ) -> None: ...
     def atoms(self, resp: Response, req: Request, environ: _EnvironType, request_time: timedelta) -> _AtomsDict: ...
+    @property
+    def access_log_enabled(self) -> bool: ...
     def access(self, resp: Response, req: Request, environ: _EnvironType, request_time: timedelta) -> None: ...
     def now(self) -> str: ...
     def reopen_files(self) -> None: ...

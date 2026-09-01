@@ -4,8 +4,7 @@ if sys.platform == "win32":
     import enum
     from collections.abc import Callable, Iterable, Iterator
     from signal import Signals
-    from typing import Final, Literal, TypedDict, TypeVar, overload, type_check_only
-    from typing_extensions import ParamSpec
+    from typing import Final, Literal, ParamSpec, TypedDict, TypeVar, overload, type_check_only
 
     from psutil import _psutil_windows
     from psutil._common import (
@@ -46,12 +45,12 @@ if sys.platform == "win32":
 
     # These noqas workaround https://github.com/astral-sh/ruff/issues/10874
     class Priority(enum.IntEnum):
-        ABOVE_NORMAL_PRIORITY_CLASS = _psutil_windows.ABOVE_NORMAL_PRIORITY_CLASS  # noqa: F811
-        BELOW_NORMAL_PRIORITY_CLASS = _psutil_windows.BELOW_NORMAL_PRIORITY_CLASS  # noqa: F811
-        HIGH_PRIORITY_CLASS = _psutil_windows.HIGH_PRIORITY_CLASS  # noqa: F811
-        IDLE_PRIORITY_CLASS = _psutil_windows.IDLE_PRIORITY_CLASS  # noqa: F811
-        NORMAL_PRIORITY_CLASS = _psutil_windows.NORMAL_PRIORITY_CLASS  # noqa: F811
-        REALTIME_PRIORITY_CLASS = _psutil_windows.REALTIME_PRIORITY_CLASS  # noqa: F811
+        ABOVE_NORMAL_PRIORITY_CLASS = _psutil_windows.ABOVE_NORMAL_PRIORITY_CLASS
+        BELOW_NORMAL_PRIORITY_CLASS = _psutil_windows.BELOW_NORMAL_PRIORITY_CLASS
+        HIGH_PRIORITY_CLASS = _psutil_windows.HIGH_PRIORITY_CLASS
+        IDLE_PRIORITY_CLASS = _psutil_windows.IDLE_PRIORITY_CLASS
+        NORMAL_PRIORITY_CLASS = _psutil_windows.NORMAL_PRIORITY_CLASS
+        REALTIME_PRIORITY_CLASS = _psutil_windows.REALTIME_PRIORITY_CLASS
 
     class IOPriority(enum.IntEnum):
         IOPRIO_VERYLOW = 0
@@ -87,10 +86,12 @@ if sys.platform == "win32":
     def cpu_stats() -> ntp.scpustats: ...
     def cpu_freq() -> list[ntp.scpufreq]: ...
     def getloadavg() -> tuple[float, float, float]: ...
+
     @overload
     def net_connections(kind: str, _pid: Literal[-1] = -1) -> list[ntp.sconn]: ...
     @overload
     def net_connections(kind: str, _pid: int = -1) -> list[ntp.pconn]: ...
+
     def net_if_stats() -> dict[str, ntp.snicstats]: ...
     def net_io_counters() -> dict[str, tuple[int, int, int, int, int, int, int, int]]: ...
     def net_if_addrs() -> list[tuple[str, int, str, str | None, None, None]]: ...
@@ -99,6 +100,7 @@ if sys.platform == "win32":
     def users() -> list[ntp.suser]: ...
     def win_service_iter() -> Iterator[WindowsService]: ...
     def win_service_get(name: str) -> WindowsService: ...
+
     @type_check_only
     class _WindowsServiceAttrs(TypedDict):
         name: str
@@ -129,10 +131,12 @@ if sys.platform == "win32":
     ppid_map = _psutil_windows.ppid_map
 
     def is_permission_err(exc: OSError) -> bool: ...
+
     @overload
     def convert_oserror(exc: PermissionError, pid: int | None = None, name: str | None = None) -> AccessDenied: ...
     @overload
     def convert_oserror(exc: OSError, pid: int | None = None, name: str | None = None) -> AccessDenied | NoSuchProcess: ...
+
     def wrap_exceptions(fun: Callable[_P, _R]) -> Callable[_P, _R]: ...
     def retry_error_partial_copy(fun: Callable[_P, _R]) -> Callable[_P, _R]: ...
 

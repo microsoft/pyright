@@ -20,6 +20,7 @@ import { Uri } from '../common/uri/uri';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { ImportResolver } from './importResolver';
 import { MaxAnalysisTime, OpenFileOptions, Program } from './program';
+import { generateTypeStubFiles, TypeStubGenerationPlan, TypeStubGenerationResult } from './typeStubGeneration';
 
 export enum InvalidatedReason {
     Reanalyzed,
@@ -130,9 +131,9 @@ export class BackgroundAnalysisProgram {
         this.markFilesDirty([uri], /* evenIfContentsAreSame */ true);
     }
 
-    setFileClosed(fileUri: Uri, isTracked?: boolean) {
-        this._backgroundAnalysis?.setFileClosed(fileUri, isTracked);
-        const diagnostics = this._program.setFileClosed(fileUri, isTracked);
+    setFileClosed(fileUri: Uri) {
+        this._backgroundAnalysis?.setFileClosed(fileUri);
+        const diagnostics = this._program.setFileClosed(fileUri);
         this._reportDiagnosticsForRemovedFiles(diagnostics);
     }
 
@@ -200,25 +201,15 @@ export class BackgroundAnalysisProgram {
         return this._program.getDiagnosticsForRange(fileUri, range);
     }
 
-    async writeTypeStub(
-        targetImportUri: Uri,
-        targetIsSingleFile: boolean,
-        stubUri: Uri,
+    async generateTypeStubFiles(
+        plan: TypeStubGenerationPlan,
         token: CancellationToken
-    ): Promise<any> {
+    ): Promise<TypeStubGenerationResult> {
         if (this._backgroundAnalysis) {
-            return this._backgroundAnalysis.writeTypeStub(targetImportUri, targetIsSingleFile, stubUri, token);
+            return this._backgroundAnalysis.generateTypeStubFiles(plan, token);
         }
 
-        analyzeProgram(
-            this._program,
-            /* maxTime */ undefined,
-            this._configOptions,
-            this._onAnalysisCompletion,
-            this._serviceProvider.console(),
-            token
-        );
-        return this._program.writeTypeStub(targetImportUri, targetIsSingleFile, stubUri, token);
+        return generateTypeStubFiles(this._program, plan, token);
     }
 
     invalidateAndForceReanalysis(reason: InvalidatedReason, refreshOptions?: RefreshOptions) {

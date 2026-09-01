@@ -1,6 +1,6 @@
 from _typeshed import SupportsRead
 from datetime import date, datetime, time, tzinfo
-from typing_extensions import TypeAlias
+from typing import TypeAlias
 
 _Readable: TypeAlias = SupportsRead[str | bytes]
 _TakesAscii: TypeAlias = str | bytes | _Readable
@@ -8,7 +8,7 @@ _TakesAscii: TypeAlias = str | bytes | _Readable
 __all__ = ["isoparse", "isoparser"]
 
 class isoparser:
-    def __init__(self, sep: str | bytes | None = None): ...
+    def __init__(self, sep: str | bytes | None = None) -> None: ...
     def isoparse(self, dt_str: _TakesAscii) -> datetime: ...
     def parse_isodate(self, datestr: _TakesAscii) -> date: ...
     def parse_isotime(self, timestr: _TakesAscii) -> time: ...
