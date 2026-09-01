@@ -3523,7 +3523,12 @@ export class Parser {
             return leftExpr;
         }
 
-        if (!this._assignmentExpressionsAllowed || disallowAssignmentExpression) {
+        if (!this._assignmentExpressionsAllowed) {
+            // Assignment expressions are disallowed anywhere within the iterable
+            // expression of a comprehension's "for" clause, even if parenthesized.
+            // This differs from the "requires surrounding parentheses" case below.
+            this._addSyntaxError(LocMessage.walrusNotAllowedInComprehension(), walrusToken);
+        } else if (disallowAssignmentExpression) {
             this._addSyntaxError(LocMessage.walrusNotAllowed(), walrusToken);
         }
 
