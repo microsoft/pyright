@@ -10,10 +10,16 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 
 ## Measuring performance changes
 
-To check whether a change affects type-checking performance, use `build/perfCompare.py`. It builds the production CLI bundle at each of two or more commits and times repeated runs over a fixed corpus, reporting robust paired deltas. Example:
+To check whether a change affects Pyright's type-checking performance, use `build/perfCompare.py`. It builds the production CLI bundle at each of two or more commits and times repeated runs over a fixed corpus, reporting robust paired deltas. Example:
 
 ```
 python build/perfCompare.py --metric cpu --num-runs 50 --corpus <path-to-python-project> main HEAD
 ```
 
 See the script's `--help` and module docstring for options and methodology.
+
+To compare the local Pyright build's speed and peak memory with the latest PyPI release or with
+Pyrefly, ty, mypy, and Zuban on the pinned corpus, use `build/benchmark/typecheck_benchmark.py`.
+Maintainers can also request the hosted regression benchmark on a pull request by commenting
+`/benchmark`. See [the benchmark README](build/benchmark/README.md) for the developer and maintainer
+workflows, prerequisites, and methodology.

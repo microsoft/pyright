@@ -60,11 +60,13 @@
                 {
                     label: "'name'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'str',
                     textEdit: { range: marker3Range, newText: "'name'" },
                 },
                 {
                     label: "'age'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: marker3Range, newText: "'age'" },
                 },
             ],
@@ -74,11 +76,13 @@
                 {
                     label: "'name'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'str',
                     textEdit: { range: marker4Range, newText: "'name'" },
                 },
                 {
                     label: "'age'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: marker4Range, newText: "'age'" },
                 },
             ],
@@ -88,11 +92,13 @@
                 {
                     label: "'name'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'str',
                     textEdit: { range: marker5Range, newText: "'name'" },
                 },
                 {
                     label: "'age'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: marker5Range, newText: "'age'" },
                 },
             ],
@@ -102,11 +108,13 @@
                 {
                     label: "'name'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'str',
                     textEdit: { range: marker6Range, newText: "'name'" },
                 },
                 {
                     label: "'age'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: marker6Range, newText: "'age'" },
                 },
             ],
@@ -116,11 +124,13 @@
                 {
                     label: "'name'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'str',
                     textEdit: { range: marker7Range, newText: "'name'" },
                 },
                 {
                     label: "'age'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: marker7Range, newText: "'age'" },
                 },
             ],
@@ -133,11 +143,13 @@
                 {
                     label: "'name'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'str',
                     textEdit: { range: marker9Range, newText: "'name'" },
                 },
                 {
                     label: "'age'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: marker9Range, newText: "'age'" },
                 },
             ],
@@ -150,11 +162,13 @@
                 {
                     label: "'name'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'str',
                     textEdit: { range: marker11Range, newText: "'name'" },
                 },
                 {
                     label: "'age'",
                     kind: Consts.CompletionItemKind.Constant,
+                    detail: 'int',
                     textEdit: { range: marker11Range, newText: "'age'" },
                 },
             ],

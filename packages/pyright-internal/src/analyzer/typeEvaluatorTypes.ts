@@ -30,6 +30,7 @@ import {
     StringNode,
 } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
+import { AnalyzerNodeInfoReader } from './analyzerNodeInfo';
 import { CodeFlowReferenceExpressionNode, FlowNode } from './codeFlowTypes';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration } from './declaration';
@@ -654,6 +655,7 @@ export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
     runWithCancellationToken<T>(token: CancellationToken, callback: () => Promise<T>): Promise<T>;
 
+    getAnalyzerNodeInfoReader: () => AnalyzerNodeInfoReader;
     getType: (node: ExpressionNode) => Type | undefined;
     getTypeResult: (node: ExpressionNode) => TypeResult | undefined;
     getTypeResultForDecorator: (node: DecoratorNode) => TypeResult | undefined;

@@ -11,6 +11,7 @@
 
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import {
     Declaration,
     DeclarationType,
@@ -50,6 +51,7 @@ import { ParseFileResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
 import {
     getClassAndConstructorTypes,
+    getConstructorDocInfo,
     getConstructorTooltip,
     getDocumentationPartsForTypeAndDeclWithSource,
     getToolTipForType,
@@ -165,35 +167,47 @@ function addReturnResultsPart(
     });
 }
 
+// Returns true only when non-empty rendered documentation is appended to parts.
+// A source docstring can still return false when rendering produces no content.
 export function addDocumentationResultsPart(
     serviceProvider: ServiceProvider,
     docString: string | undefined,
     format: MarkupKind,
     parts: HoverTextPart[],
     resolvedDecl: Declaration | undefined,
-    forceLiteralOverride?: boolean
-) {
+    forceLiteralOverride?: boolean,
+    sourceFileUri?: Uri
+): boolean {
     if (!docString) {
-        return;
+        return false;
     }
 
     if (format === MarkupKind.Markdown) {
-        const forceLiteral = forceLiteralOverride ?? isBuiltInModule(resolvedDecl?.uri);
+        const documentationUri = resolvedDecl?.uri ?? sourceFileUri;
+        const forceLiteral = forceLiteralOverride ?? isBuiltInModule(documentationUri);
         const markDown = serviceProvider
             .docStringService()
-            .convertDocStringToMarkdown(docString, forceLiteral, resolvedDecl?.uri);
+            .convertDocStringToMarkdown(docString, forceLiteral, documentationUri);
+        if (!markDown.trim()) {
+            return false;
+        }
 
-        if (parts.length > 0 && markDown.length > 0) {
+        if (parts.length > 0) {
             parts.push({ text: getDocumentationSeparator(parts[parts.length - 1]) });
         }
 
         parts.push({ text: markDown, python: false });
-        return;
+        return true;
     }
 
     if (format === MarkupKind.PlainText) {
-        parts.push({ text: serviceProvider.docStringService().convertDocStringToPlainText(docString), python: false });
-        return;
+        const plainText = serviceProvider.docStringService().convertDocStringToPlainText(docString);
+        if (!plainText.trim()) {
+            return false;
+        }
+
+        parts.push({ text: plainText, python: false });
+        return true;
     }
 
     fail(`Unsupported markup type: ${format}`);
@@ -317,7 +331,11 @@ export class HoverProvider {
             return null;
         }
 
-        const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, offset);
+        const node = ParseTreeUtils.findNodeByOffset(
+            this._parseResults.parserOutput.parseTree,
+            offset,
+            AnalyzerNodeInfo.getInfoReader(this._program)
+        );
         if (node === undefined) {
             return null;
         }
@@ -342,7 +360,14 @@ export class HoverProvider {
                 declInfo?.synthesizedTypes.forEach((type) => {
                     this._addResultsForSynthesizedType(results.parts, type, nameNode);
                 });
-                this._addDocumentationPart(results.parts, node, /* resolvedDecl */ undefined);
+                const documentationAdded = this._addDocumentationPart(
+                    results.parts,
+                    node,
+                    /* resolvedDecl */ undefined
+                );
+                if (!documentationAdded) {
+                    this._addDocumentationForSynthesizedTypes(results.parts, declInfo.synthesizedTypes);
+                }
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
@@ -588,6 +613,38 @@ export class HoverProvider {
         }
     }
 
+    private _addDocumentationForSynthesizedTypes(parts: HoverTextPart[], synthesizedTypes: SynthesizedTypeInfo[]) {
+        for (const typeInfo of synthesizedTypes) {
+            if (!typeInfo.node) {
+                continue;
+            }
+
+            const docNode = ParseTreeUtils.getVariableDocStringNode(typeInfo.node);
+            if (!docNode) {
+                continue;
+            }
+
+            const docString = docNode.d.strings.map((stringNode) => stringNode.d.value).join('');
+            const sourceFileUri = AnalyzerNodeInfo.getFileInfo(
+                typeInfo.node,
+                AnalyzerNodeInfo.getInfoReader(this._program)
+            )?.fileUri;
+            if (
+                addDocumentationResultsPart(
+                    this._program.serviceProvider,
+                    docString,
+                    this._format,
+                    parts,
+                    undefined,
+                    undefined,
+                    sourceFileUri
+                )
+            ) {
+                return;
+            }
+        }
+    }
+
     private _tryAddPartsForTypedDictKey(node: StringNode, type: Type, parts: HoverTextPart[]) {
         // If the expected type is a TypedDict and the current node is a key entry then we can provide a tooltip
         // with the type of the TypedDict key and its docstring, if available.
@@ -649,10 +706,24 @@ export class HoverProvider {
                 /* python */ true
             );
 
-            const addedDoc = this._addDocumentationPartForType(parts, result.methodType, declaration);
-
-            if (!addedDoc) {
-                this._addDocumentationPartForType(parts, result.classType, declaration);
+            // Select the constructor docstring via the unified component (Phase 1 constructor-method
+            // docstrings across the MRO, then Phase 2 the class docstring).
+            const docInfo = getConstructorDocInfo(
+                result.classType,
+                result.methodType,
+                declaration,
+                this._sourceMapper,
+                this._evaluator
+            );
+            if (docInfo?.text) {
+                addDocumentationResultsPart(
+                    this._program.serviceProvider,
+                    docInfo.text,
+                    this._format,
+                    parts,
+                    docInfo.sourceDecl ?? declaration,
+                    docInfo.forceLiteral
+                );
             }
             return true;
         }
@@ -670,9 +741,13 @@ export class HoverProvider {
         return ': ' + this._evaluator.printType(type, options);
     }
 
-    private _addDocumentationPart(parts: HoverTextPart[], node: NameNode, resolvedDecl: Declaration | undefined) {
+    private _addDocumentationPart(
+        parts: HoverTextPart[],
+        node: NameNode,
+        resolvedDecl: Declaration | undefined
+    ): boolean {
         const type = this._getType(node);
-        this._addDocumentationPartForType(parts, type, resolvedDecl, node.d.value);
+        return this._addDocumentationPartForType(parts, type, resolvedDecl, node.d.value);
     }
 
     private _addDocumentationPartForType(
@@ -691,7 +766,7 @@ export class HoverProvider {
             }
         );
 
-        addDocumentationResultsPart(
+        return addDocumentationResultsPart(
             this._program.serviceProvider,
             documentation?.text,
             this._format,
@@ -699,7 +774,6 @@ export class HoverProvider {
             resolvedDecl,
             documentation?.forceLiteral
         );
-        return !!documentation?.text;
     }
 
     private _addResultsPart(parts: HoverTextPart[], text: string, python = false) {

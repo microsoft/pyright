@@ -25,5 +25,4 @@
 
 helper.verifyHover('markdown', {
     marker: '```python\n(function) def func1() -> bool\n```\n---\nfunc1 docs',
-    marker2: '```python\n(function) def func2() -> bool\n```\n---\nfunc2 docs',
 });

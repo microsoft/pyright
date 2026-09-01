@@ -1,24 +1,25 @@
 {
     "name": "pyright-root",
     "private": true,
+    "packageManager": "pnpm@10.12.2",
     "scripts": {
-        "postinstall": "node ./build/skipBootstrap.js || npm run install:others",
         "clean": "lerna run --no-bail --stream clean",
-        "install:all": "npm install",
-        "install:others": "cross-env SKIP_LERNA_BOOTSTRAP=yes lerna exec --no-bail npm install",
+        "installPinnedPackageManager": "node ./build/installPinnedPackageManager.js",
+        "install:all": "pnpm install",
+        "test": "pnpm --dir packages/pyright-internal test",
         "update:all": "node ./build/updateDeps.js",
-        "build:extension:dev": "cd packages/vscode-pyright && npm run webpack",
-        "build:cli:dev": "cd packages/pyright && npm run webpack",
-        "watch:extension": "cd packages/vscode-pyright && npm run webpack-dev",
-        "watch:testserver": "cd packages/pyright-internal && npm run webpack:testserver:watch",
-        "check": "npm run check:syncpack && npm run check:eslint && npm run check:prettier",
+        "build:extension:dev": "pnpm --dir packages/vscode-pyright run webpack",
+        "build:cli:dev": "pnpm --dir packages/pyright run webpack",
+        "watch:extension": "pnpm --dir packages/vscode-pyright run webpack-dev",
+        "watch:testserver": "pnpm --dir packages/pyright-internal run webpack:testserver:watch",
+        "check": "pnpm run check:syncpack && pnpm run check:eslint && pnpm run check:prettier",
         "check:syncpack": "syncpack lint",
-        "fix:syncpack": "syncpack fix && npm run install:all",
+        "fix:syncpack": "syncpack fix && pnpm run install:all",
         "check:eslint": "cross-env ESLINT_USE_FLAT_CONFIG=false eslint .",
         "fix:eslint": "cross-env ESLINT_USE_FLAT_CONFIG=false eslint --fix .",
         "check:prettier": "prettier -c .",
         "fix:prettier": "prettier --write .",
-        "typecheck": "npx lerna exec --stream --no-bail --ignore=pyright -- \"tsc --noEmit\""
+        "typecheck": "pnpm exec lerna exec --stream --no-bail --ignore=pyright -- \"tsc --noEmit\""
     },
     "devDependencies": {
         "@types/glob": "^8.1.0",
@@ -41,9 +42,7 @@
         "tmp": "^0.2.7",
         "typescript": "~6.0.3",
         "word-wrap": "1.2.5",
+        "yaml": "2.9.0",
         "yargs": "^16.2.0"
-    },
-    "overrides": {
-        "tar": "7.5.11"
     }
 }

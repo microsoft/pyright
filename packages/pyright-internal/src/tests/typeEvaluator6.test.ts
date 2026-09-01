@@ -67,7 +67,11 @@ test('OverloadCall5', () => {
 
 test('OverloadCall6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall6.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 2, 0, undefined, undefined, undefined, 1);
+    assert.deepStrictEqual(analysisResults[0].deprecateds[0].range, {
+        start: { line: 286, character: 16 },
+        end: { line: 286, character: 42 },
+    });
 });
 
 test('OverloadCall7', () => {
@@ -88,6 +92,16 @@ test('OverloadCall9', () => {
 test('OverloadCall10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall10.py']);
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('OverloadCall11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall11.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('OverloadCall12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall12.py']);
+    TestUtils.validateResults(analysisResults, 5, 0, undefined, undefined, undefined, 1);
 });
 
 test('OverloadOverride1', () => {
@@ -119,7 +133,7 @@ test('OverloadOverlap1', () => {
 
     configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 16);
+    TestUtils.validateResults(analysisResults, 18);
 });
 
 test('TypeGuard1', () => {
@@ -156,6 +170,11 @@ test('TypeIs3', () => {
 
 test('TypeIs4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs5.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
@@ -457,6 +476,22 @@ test('TypeVarTuple31', () => {
         `Unexpected inferred type: ${revealedType}`
     );
     assert.ok(!/\bOO\b/.test(revealedType), `"OO" TypeVar escaped into inferred type: ${revealedType}`);
+});
+
+test('TypeVarTuple32', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple32.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeVarTuple33', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple33.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('Match1', () => {
@@ -1054,4 +1089,14 @@ test('Decorator7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator7.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('DisjointBase1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase1.py']);
+    TestUtils.validateResults(analysisResults, 15);
+});
+
+test('DisjointBase2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase2.py']);
+    TestUtils.validateResults(analysisResults, 11);
 });

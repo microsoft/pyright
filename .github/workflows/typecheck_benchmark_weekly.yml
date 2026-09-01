@@ -1,0 +1,135 @@
+name: Weekly type checker benchmark
+
+on:
+  schedule:
+    - cron: '0 5 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24.15.0'
+  PYTHON_VERSION: '3.14.6'
+
+jobs:
+  benchmark:
+    name: Benchmark ${{ matrix.checker }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        checker:
+          - pyright
+          - pyrefly
+          - ty
+          - mypy
+          - zuban
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: |
+            build/benchmark/install_envs.json
+            .github/workflows/typecheck_benchmark_weekly.yml
+
+      - name: Verify build prerequisites
+        run: |
+          gcc --version
+          g++ --version
+          make --version
+
+      - name: Install ${{ matrix.checker }}
+        if: ${{ matrix.checker != 'pyright' }}
+        run: python -m pip install --upgrade '${{ matrix.checker }}'
+
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        if: ${{ matrix.checker == 'pyright' }}
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        if: ${{ matrix.checker == 'pyright' }}
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
+
+      - name: Build Pyright CLI
+        if: ${{ matrix.checker == 'pyright' }}
+        timeout-minutes: 10
+        env:
+          SKIP_LERNA_BOOTSTRAP: 'yes'
+        run: |
+          pnpm install --frozen-lockfile --prefer-offline
+          pnpm --dir packages/pyright run build
+
+      - name: Run ${{ matrix.checker }} benchmark
+        env:
+          BENCHMARK_RUNNER_CLASS: 'github-ubuntu-latest'
+          NODE_OPTIONS: ${{ matrix.checker == 'pyright' && '--max-old-space-size=6656' || '' }}
+          PYTHONNOUSERSITE: '1'
+        run: |
+          extra_args=()
+          if [[ '${{ matrix.checker }}' == 'pyright' ]]; then
+            extra_args+=(--skip-pyright-build)
+          fi
+          python build/benchmark/typecheck_benchmark.py \
+            -c '${{ matrix.checker }}' -r 3 -w 1 -t 1800 \
+            --memory-limit-mb 8192 --os-name linux-x64 \
+            --output build/benchmark/results \
+            "${extra_args[@]}"
+
+      - name: Upload ${{ matrix.checker }} results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: weekly-typecheck-${{ matrix.checker }}
+          path: build/benchmark/results/*.json
+          if-no-files-found: error
+          retention-days: 14
+
+  report:
+    name: Build comparison report
+    needs: benchmark
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Download checker results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: weekly-typecheck-*
+          path: weekly-results
+
+      - name: Render HTML comparison
+        run: |
+          mapfile -t results < <(find weekly-results -name 'latest-linux-x64.json' -print | sort)
+          if (( ${#results[@]} == 0 )); then
+            echo 'No benchmark result artifacts were produced' >&2
+            exit 1
+          fi
+          python build/benchmark/render_benchmark_html.py \
+            "${results[@]}" --output weekly-report/index.html
+          cp --parents "${results[@]}" weekly-report
+
+      - name: Upload weekly report
+        id: report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: weekly-typecheck-report-${{ github.run_number }}
+          path: weekly-report/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Link report from summary
+        run: |
+          printf '%s\n' \
+            '## Weekly type checker benchmark' \
+            '' \
+            '[Download the HTML report and raw JSON results](${{ steps.report.outputs.artifact-url }})' \
+            >> "$GITHUB_STEP_SUMMARY"

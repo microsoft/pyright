@@ -25,7 +25,7 @@ import {
     ParseNodeType,
 } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
-import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { ConstraintTracker } from './constraintTracker';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -84,9 +84,10 @@ export function createTypedDictType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     typedDictClass: ClassType,
-    argList: Arg[]
+    argList: Arg[],
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): ClassType {
-    const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+    const fileInfo = nodeInfo.getFileInfo(errorNode);
 
     // TypedDict supports two different syntaxes:
     // Point2D = TypedDict('Point2D', {'x': int, 'y': int, 'label': str})
@@ -144,7 +145,13 @@ export function createTypedDictType(
         ) {
             usingDictSyntax = true;
 
-            getTypedDictFieldsFromDictSyntax(evaluator, entriesArg.valueExpression, classFields, /* isInline */ false);
+            getTypedDictFieldsFromDictSyntax(
+                evaluator,
+                entriesArg.valueExpression,
+                classFields,
+                /* isInline */ false,
+                nodeInfo
+            );
         } else if (entriesArg.name) {
             const entrySet = new Set<string>();
             for (let i = 1; i < argList.length; i++) {
@@ -249,7 +256,7 @@ export function createTypedDictType(
         }
     }
 
-    synthesizeTypedDictClassMethods(evaluator, errorNode, classType);
+    synthesizeTypedDictClassMethods(evaluator, errorNode, classType, nodeInfo);
 
     // Validate that the assigned variable name is consistent with the provided name.
     if (errorNode.parent?.nodeType === ParseNodeType.Assignment && className) {
@@ -276,9 +283,10 @@ export function createTypedDictType(
 export function createTypedDictTypeInlined(
     evaluator: TypeEvaluator,
     dictNode: DictionaryNode,
-    typedDictClass: ClassType
+    typedDictClass: ClassType,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): ClassType {
-    const fileInfo = AnalyzerNodeInfo.getFileInfo(dictNode);
+    const fileInfo = nodeInfo.getFileInfo(dictNode);
     const className = '<TypedDict>';
 
     const classType = ClassType.createInstantiable(
@@ -294,8 +302,14 @@ export function createTypedDictTypeInlined(
     classType.shared.baseClasses.push(typedDictClass);
     computeMroLinearization(classType);
 
-    getTypedDictFieldsFromDictSyntax(evaluator, dictNode, ClassType.getSymbolTable(classType), /* isInline */ true);
-    synthesizeTypedDictClassMethods(evaluator, dictNode, classType);
+    getTypedDictFieldsFromDictSyntax(
+        evaluator,
+        dictNode,
+        ClassType.getSymbolTable(classType),
+        /* isInline */ true,
+        nodeInfo
+    );
+    synthesizeTypedDictClassMethods(evaluator, dictNode, classType, nodeInfo);
 
     return classType;
 }
@@ -303,7 +317,8 @@ export function createTypedDictTypeInlined(
 export function synthesizeTypedDictClassMethods(
     evaluator: TypeEvaluator,
     node: ClassNode | ExpressionNode,
-    classType: ClassType
+    classType: ClassType,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ) {
     assert(ClassType.isTypedDictClass(classType));
 
@@ -457,7 +472,7 @@ export function synthesizeTypedDictClassMethods(
         ) {
             const getOverload = FunctionType.createSynthesizedInstance('get', FunctionTypeFlags.Overloaded);
             FunctionType.addParam(getOverload, selfParam);
-            getOverload.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
+            getOverload.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node, nodeInfo);
             FunctionType.addParam(
                 getOverload,
                 FunctionParam.create(ParamCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
@@ -512,7 +527,7 @@ export function synthesizeTypedDictClassMethods(
             const popOverload2 = FunctionType.createSynthesizedInstance('pop', FunctionTypeFlags.Overloaded);
             FunctionType.addParam(popOverload2, selfParam);
             FunctionType.addParam(popOverload2, keyParam);
-            popOverload2.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
+            popOverload2.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node, nodeInfo);
             const defaultTypeVar = createDefaultTypeVar(popOverload2);
 
             let defaultParamType: Type;
@@ -975,10 +990,11 @@ function getTypedDictFieldsFromDictSyntax(
     evaluator: TypeEvaluator,
     entryDict: DictionaryNode,
     classFields: SymbolTable,
-    isInline: boolean
+    isInline: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ) {
     const entrySet = new Set<string>();
-    const fileInfo = AnalyzerNodeInfo.getFileInfo(entryDict);
+    const fileInfo = nodeInfo.getFileInfo(entryDict);
 
     entryDict.d.items.forEach((entry) => {
         if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {

@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "Kitaplık",
+        "standardLibrary": "Standart kitaplık",
+        "workspace": "Çalışma alanı"
+    },
     "CodeAction": {
         "createTypeStub": "Create Type Stub",
         "createTypeStubFor": "Create Type Stub For \"{moduleName}\"",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "Dondurulmuş sınıf, dondurulmuş olmayan bir sınıftan devralamaz",
         "dataClassConverterFunction": "\"{argType}\" türündeki bağımsız değişken, \"{fieldName}\" türündeki \"{fieldType}\" alanı için geçerli bir dönüştürücü değil",
         "dataClassConverterOverloads": "\"{funcName}\" işlevinin aşırı yüklemelerinden hiçbiri \"{fieldType}\" türündeki \"{fieldName}\" alanı için geçerli dönüştürücüler değil",
+        "dataClassDuplicateKwOnly": "\"{name}\" yinelenen bir KW_ONLY ayırıcısıdır; bir veri sınıfı içinde yalnızca bir tane kullanılabilir",
         "dataClassFieldInheritedDefault": "\"{fieldName}\", aynı ada sahip bir alanı geçersiz kılıyor ancak varsayılan değeri yok",
         "dataClassFieldWithDefault": "Varsayılan değerleri olmayan alanlar, varsayılan değerleri olan alanlardan sonra gelemez",
         "dataClassFieldWithPrivateName": "Veri sınıfı alanı özel ad kullanamıyor",
@@ -139,6 +145,10 @@
         "dictInAnnotation": "Tür ifadesinde sözlük ifadesi kullanılamaz",
         "dictKeyValuePairs": "Sözlük girdileri anahtar/değer çiftleri içermelidir",
         "dictUnpackIsNotMapping": "Sözlük açma işleci için eşleme bekleniyordu",
+        "disjointBaseFunction": "@disjoint_base cannot be applied to a function",
+        "disjointBaseIncompatible": "Base classes have incompatible disjoint bases: {bases}",
+        "disjointBaseProtocol": "@disjoint_base cannot be applied to a Protocol class",
+        "disjointBaseTypedDict": "@disjoint_base cannot be applied to a TypedDict class",
         "dunderAllSymbolNotPresent": "\"{name}\" __all__ ile belirtildi ancak modülde yok",
         "duplicateArgsParam": "Yalnızca bir \"*\" parametresi kullanılabilir",
         "duplicateBaseClass": "Yinelenen temel sınıfa izin verilmiyor",
@@ -293,6 +303,8 @@
         "keywordSubscriptIllegal": "Alt simge içindeki anahtar sözcük bağımsız değişkenleri desteklenmiyor",
         "lambdaReturnTypePartiallyUnknown": "Lambdanın \"{returnType}\" dönüş türü kısmen bilinmiyor",
         "lambdaReturnTypeUnknown": "Lambdanın dönüş türü bilinmiyor",
+        "lazyImportIllegal": "Gecikmeli içeri aktarma deyimi için Python 3.15 veya daha yeni bir sürümü gerekiyor",
+        "lazyImportWildcardIllegal": "Joker karakterli içeri aktarmalar 'lazy' ile birlikte kullanılamaz",
         "listAssignmentMismatch": "\"{type}\" türündeki ifade hedef listesine atanamaz",
         "listInAnnotation": "List expression not allowed in type expression",
         "literalEmptyArgs": "\"Literal\" sonrasında bir veya daha fazla tür bağımsız değişkeni bekleniyordu",
@@ -845,6 +857,9 @@
         "useTypeInstead": "Bunun yerine type[T] kullanın",
         "varianceMismatchForClass": "\"{typeVarName}\" tür bağımsız değişkeni \"{className}\" taban sınıfıyla uyumsuz",
         "varianceMismatchForTypeAlias": "\"{typeVarName}\" tür bağımsız değişkeninin varyansı, \"{typeAliasParam}\" ile uyumsuz"
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "\"{symbolName}\" yeniden adlandırılamaz çünkü değiştirilemeyen düzenlenemez kodda da (bir kitaplık veya saplama dosyası) bildirilmiştir. Yeniden adlandırma tamamlanırsa \"{symbolName}\" kısmen yeniden adlandırılmış olarak kalır. Önce çakışan bildirimleri çözün:\r\n{locations}"
     },
     "Service": {
         "longOperation": "Çalışma alanı kaynak dosyalarının numaralandırılması uzun zaman alıyor. Bunun yerine bir alt klasör açabilirsiniz. [Daha fazla bilgi edinin](https://aka.ms/workspace-too-many-files)"
