@@ -42,6 +42,7 @@ import {
     getFileSpec,
     hasPythonExtension,
     isDirectory,
+    tryRealpath,
     tryStat,
 } from '../common/uri/uriUtils';
 import { AnalysisCompleteCallback } from './analysis';
@@ -126,6 +127,7 @@ export class AnalyzerService {
     private _instanceName: string;
     private _executionRootUri: Uri;
     private _sourceFileWatcher: FileWatcher | undefined;
+    private readonly _sourceFileWatcherSymlinkDirectories = new UriMap<true>();
     private _reloadConfigTimer: any;
     private _libraryReanalysisTimer: any;
     private _primaryConfigFileUri: Uri | undefined;
@@ -488,8 +490,8 @@ export class AnalyzerService {
         return Array.from(results.matches.values());
     }
 
-    test_shouldHandleSourceFileWatchChanges(uri: Uri, isFile: boolean) {
-        return this._shouldHandleSourceFileWatchChanges(uri, isFile);
+    test_shouldHandleSourceFileWatchChanges(uri: Uri, isFile: boolean, event?: FileWatcherEventType) {
+        return this._shouldHandleSourceFileWatchChanges(uri, isFile, event);
     }
 
     test_setOnInvalidatedCallback(onInvalidated: ((reason: InvalidatedReason) => void) | undefined) {
@@ -1439,13 +1441,20 @@ export class AnalyzerService {
                     // Make sure path is the true case.
                     uri = this.fs.realCasePath(uri);
 
-                    const eventInfo = getEventInfo(this.fs, this._console, this._program, event, uri);
+                    const eventInfo = getEventInfo(
+                        this.fs,
+                        this._console,
+                        this._program,
+                        event,
+                        uri,
+                        this._sourceFileWatcherSymlinkDirectories.has(uri)
+                    );
                     if (!eventInfo) {
                         // no-op event, return.
                         return;
                     }
 
-                    if (!this._shouldHandleSourceFileWatchChanges(uri, eventInfo.isFile)) {
+                    if (!this._shouldHandleSourceFileWatchChanges(uri, eventInfo.isFile, eventInfo.event)) {
                         return;
                     }
 
@@ -1487,8 +1496,9 @@ export class AnalyzerService {
             console: ConsoleInterface,
             program: Program,
             event: FileWatcherEventType,
-            path: Uri
-        ) {
+            path: Uri,
+            wasSymlinkedDirectory: boolean
+        ): { event: FileWatcherEventType; isFile: boolean } | undefined {
             // Due to the way we implemented file watcher, we will only get 2 events; 'add' and 'change'.
             // Here, we will convert those 2 to 3 events. 'add', 'change' and 'unlink';
             const stats = tryStat(fs, path);
@@ -1509,7 +1519,7 @@ export class AnalyzerService {
                     const isFile = !!program.getSourceFile(path) || path.fileName === _pyTypedMarkerFileName;
 
                     // If not, check whether it is a part of the workspace at all.
-                    if (!isFile && !program.containsSourceFileIn(path)) {
+                    if (!isFile && !program.containsSourceFileIn(path) && !wasSymlinkedDirectory) {
                         // There is no source file under the given path. There is nothing we need to do.
                         return undefined;
                     }
@@ -1526,7 +1536,9 @@ export class AnalyzerService {
         }
     }
 
-    private _shouldHandleSourceFileWatchChanges(path: Uri, isFile: boolean) {
+    private _shouldHandleSourceFileWatchChanges(path: Uri, isFile: boolean, event?: FileWatcherEventType) {
+        const wasSymlinkedDirectory = event === 'unlink' && this._sourceFileWatcherSymlinkDirectories.delete(path);
+
         if (isFile) {
             const isPyTypedMarkerFile = path.fileName === _pyTypedMarkerFileName;
 
@@ -1558,14 +1570,24 @@ export class AnalyzerService {
         }
 
         const parentPath = path.getDirectory();
+        const realPath = event === 'add' ? tryRealpath(this.fs, path) : undefined;
+        const realParentPath = realPath ? tryRealpath(this.fs, parentPath) : undefined;
+        const isSymlinkedDirectory =
+            !!realPath && !!realParentPath && realPath.key !== realParentPath.combinePaths(path.fileName).key;
+
+        // Remember added symlink leaves before applying package filters so their removal can be classified as an unlink.
+        if (isSymlinkedDirectory) {
+            this._sourceFileWatcherSymlinkDirectories.set(path, true);
+        }
+
         const hasInit =
             parentPath.startsWith(this._configOptions.projectRoot) &&
             (this.fs.existsSync(parentPath.initPyUri) || this.fs.existsSync(parentPath.initPyiUri));
 
-        // We don't have any file under the given path and its parent folder doesn't have __init__ then this folder change
-        // doesn't have any meaning to us.
+        // A newly-added symlink can make a previously unresolved import resolvable even when the program doesn't
+        // contain files under its lexical path yet.
         if (!hasInit && !this._program.containsSourceFileIn(path)) {
-            return false;
+            return wasSymlinkedDirectory || isSymlinkedDirectory;
         }
 
         return true;
