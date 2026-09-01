@@ -11,6 +11,7 @@ import { printType, PrintTypeFlags } from '../analyzer/typePrinter';
 import * as PyrightTypes from '../analyzer/types';
 import { PythonVersion, pythonVersion3_10, pythonVersion3_11 } from '../common/pythonVersion';
 import { ParamCategory } from '../parser/parseNodes';
+import { Tokenizer } from '../parser/tokenizer';
 
 import { ITypeServerEvaluator } from './typeServerEvaluator';
 
@@ -33,6 +34,8 @@ interface StubGenerationContext {
     methodClass?: PyrightTypes.ClassType; // Class type if generating stub for a method
     targetMethodName?: string; // If provided, adds marker to this specific method instead of the class
     selfTypeVarName?: string; // If set, replace 'Self' with this TypeVar name
+    classStubNames: Map<PyrightTypes.ClassType, string>;
+    usedClassStubNames: Set<string>;
 }
 
 /**
@@ -50,6 +53,25 @@ export interface StubGenerationResult {
     primaryDefinitionOffset: number; // Character offset to the primary definition in stubContent
 }
 
+function getClassStubName(type: PyrightTypes.ClassType, context: StubGenerationContext): string {
+    const existing = context.classStubNames.get(type);
+    if (existing) {
+        return existing;
+    }
+
+    const sanitized = Tokenizer.isPythonIdentifier(type.shared.name)
+        ? type.shared.name
+        : type.shared.name.replace(/[^\p{ID_Continue}_]/gu, '_');
+    const baseName = Tokenizer.isPythonIdentifier(sanitized) ? sanitized : `_${sanitized || 'generated_class'}`;
+    let name = baseName;
+    for (let suffix = 2; context.usedClassStubNames.has(name); suffix++) {
+        name = `${baseName}_${suffix}`;
+    }
+    context.classStubNames.set(type, name);
+    context.usedClassStubNames.add(name);
+    return name;
+}
+
 export function generateStubFromTypeVar(
     typeVar: PyrightTypes.TypeVarType,
     options: StubGenerationOptions
@@ -58,6 +80,8 @@ export function generateStubFromTypeVar(
         imports: { imports: new Map() },
         pythonVersion: options.pythonVersion,
         moduleImports: new Map(),
+        classStubNames: new Map(),
+        usedClassStubNames: new Set(),
     };
 
     const typeVarName = typeVar.shared.name || 'T';
@@ -139,6 +163,8 @@ export function generateStubFromFunctionType(
         pythonVersion: options.pythonVersion,
         moduleImports: new Map(),
         methodClass: type.shared.methodClass,
+        classStubNames: new Map(),
+        usedClassStubNames: new Set(),
     };
 
     const lines: string[] = [];
@@ -518,6 +544,8 @@ export function generateStubFromClassType(
         pythonVersion: options.pythonVersion,
         moduleImports: new Map(),
         targetMethodName,
+        classStubNames: new Map(),
+        usedClassStubNames: new Set(),
     };
 
     const lines: string[] = [];
@@ -561,7 +589,8 @@ export function generateStubFromClassType(
         primaryDefinitionOffset = match.index;
     } else {
         // Find the class definition - look for "class <ClassName>"
-        const classPattern = new RegExp(`\\bclass ${type.shared.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'm');
+        const className = getClassStubName(type, context);
+        const classPattern = new RegExp(`\\bclass ${className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'm');
         const match = stubContent.match(classPattern);
         if (!match || match.index === undefined) {
             throw new Error(`Failed to find class '${type.shared.name}' in generated stub`);
@@ -659,7 +688,7 @@ function generateClassStub(
     // Start class definition
     const parts: string[] = [];
     parts.push('class ');
-    parts.push(type.shared.name);
+    parts.push(getClassStubName(type, context));
 
     // Add type parameters for generic classes
     if (type.shared.typeParams && type.shared.typeParams.length > 0) {
@@ -677,13 +706,13 @@ function generateClassStub(
     // Check if any base classes are synthesized (no declaration) and need their stubs generated
     // We need to do this check before generating the base class list so we know which ones
     // to reference with simple names vs fully qualified names
-    const synthesizedBaseClasses = new Set<string>();
+    const synthesizedBaseClasses = new Set<PyrightTypes.ClassType>();
     const baseClassStubs: string[] = [];
     if (type.shared.baseClasses && type.shared.baseClasses.length > 0) {
         for (const bc of type.shared.baseClasses) {
             if (PyrightTypes.isClass(bc) && !bc.shared.declaration && bc.shared.name !== 'object') {
                 // Track this as a synthesized base class
-                synthesizedBaseClasses.add(bc.shared.name);
+                synthesizedBaseClasses.add(bc);
                 // Generate stub for synthesized base class
                 const baseStub = generateClassStub(evaluator, bc, context);
                 let bcStr = pyrightTypeToString(bc, context);
@@ -710,8 +739,8 @@ function generateClassStub(
                     bcStr = typeWrapperMatch[1];
                 }
                 // If this base class had its stub generated inline, use just the simple name
-                if (PyrightTypes.isClass(bc) && synthesizedBaseClasses.has(bc.shared.name)) {
-                    return bc.shared.name;
+                if (PyrightTypes.isClass(bc) && synthesizedBaseClasses.has(bc)) {
+                    return getClassStubName(bc, context);
                 }
                 return bcStr;
             })
@@ -873,7 +902,7 @@ function generateTypedDictStub(type: PyrightTypes.ClassType, context: StubGenera
     // TypedDict class definition
     const parts: string[] = [];
     parts.push('class ');
-    parts.push(type.shared.name);
+    parts.push(getClassStubName(type, context));
     parts.push('(TypedDict');
 
     // Add total=False if not all fields are required
@@ -917,7 +946,7 @@ function generateNamedTupleStub(
     // NamedTuple class definition
     const parts: string[] = [];
     parts.push('class ');
-    parts.push(type.shared.name);
+    parts.push(getClassStubName(type, context));
     parts.push('(NamedTuple):');
     lines.push(parts.join(''));
 
