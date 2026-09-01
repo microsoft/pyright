@@ -137,3 +137,23 @@ def test_computed_enum_var_equals_int_literal(v: ComputedValue):
         assert_type(v, ComputedValue)
     else:
         assert_type(v, Literal[ComputedValue.FIRST])
+
+
+def test_match_int_literal_pattern(v: ComputedValue):
+    # A literal pattern goes through the same comparison. SECOND has a known
+    # value that matches, but FIRST's value is unknown and could be 40 too,
+    # so FIRST must survive into the matching case and the fallback.
+    match v:
+        case 40:
+            assert_type(v, ComputedValue)
+        case _:
+            assert_type(v, ComputedValue)
+
+
+def test_match_auto_int_literal_pattern(v: AutoValue):
+    # Neither member's value is known, so a literal pattern narrows nothing.
+    match v:
+        case 1:
+            assert_type(v, AutoValue)
+        case _:
+            assert_type(v, AutoValue)
