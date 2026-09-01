@@ -364,6 +364,51 @@ test('printExpression', () => {
     }
 });
 
+test('printExpression slice', () => {
+    const code = `
+//// x = [1, 2, 3]
+//// [|/*marker1*/x[:]|]
+//// [|/*marker2*/x[1:]|]
+//// [|/*marker3*/x[:1]|]
+//// [|/*marker4*/x[1:2]|]
+//// [|/*marker5*/x[::2]|]
+//// [|/*marker6*/x[1::2]|]
+//// [|/*marker7*/x[::-1]|]
+//// [|/*marker8*/x[1:2:3]|]
+    `;
+    const state = parseAndGetTestState(code).state;
+    checkExpression('marker1', 'x[:]');
+    checkExpression('marker2', 'x[1:]');
+    checkExpression('marker3', 'x[:1]');
+    checkExpression('marker4', 'x[1:2]');
+    checkExpression('marker5', 'x[::2]');
+    checkExpression('marker6', 'x[1::2]');
+    checkExpression('marker7', 'x[::-1]');
+    checkExpression('marker8', 'x[1:2:3]');
+
+    function checkExpression(marker: string, expected: string) {
+        const node = getNodeForRange(state, marker);
+        assert(isExpressionNode(node));
+        assert.strictEqual(printExpression(node), expected);
+    }
+});
+
+test('printExpression set', () => {
+    const code = `
+//// [|/*marker1*/{1}|]
+//// [|/*marker2*/{1, 2}|]
+    `;
+    const state = parseAndGetTestState(code).state;
+    checkExpression('marker1', '{1}');
+    checkExpression('marker2', '{1, 2}');
+
+    function checkExpression(marker: string, expected: string) {
+        const node = getNodeForRange(state, marker);
+        assert(isExpressionNode(node));
+        assert.strictEqual(printExpression(node), expected);
+    }
+});
+
 test('printExpression forward declarations use parser annotations but not owner annotations', () => {
     const code = `
 //// from typing import cast
