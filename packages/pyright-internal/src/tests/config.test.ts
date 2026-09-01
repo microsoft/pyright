@@ -9,6 +9,7 @@
 
 import assert from 'assert';
 
+import { ImportResolver } from '../analyzer/importResolver';
 import { AnalyzerService } from '../analyzer/service';
 import { deserialize, serialize } from '../backgroundThreadBase';
 import { CommandLineOptions, DiagnosticSeverityOverrides } from '../common/commandLineOptions';
@@ -78,7 +79,113 @@ describe(`config test'}`, () => {
         assert.deepStrictEqual(fileNames, ['sample1.py', 'sample2.py', 'sample3.py']);
     });
 
-    test('FindFilesVirtualEnvAutoDetectInclude', () => {
+    test('FindFilesExcludesEditableInstallShadow', () => {
+        // Build the project entirely in an in-memory vfs (no explicit 'exclude'), so the service
+        // default excludes apply. This runs the real AnalyzerService.setOptions path (which runs
+        // `_ensureDefaultOptions`) rather than the fourslash harness, which constructs ConfigOptions
+        // directly and never applies the service default excludes.
+        const projectRoot = normalizeSlashes('/src');
+        const fs = new TestFileSystem(/* ignoreCase */ true, {
+            cwd: normalizeSlashes('/'),
+            files: {
+                [normalizeSlashes('/src/sample.py')]: 'x = 1\n',
+                // Name merely contains the substring `__editable__`; must NOT match `**/__editable__.*`.
+                [normalizeSlashes('/src/not__editable__helper.py')]: 'y = 2\n',
+                // `build/` itself is not excluded, only the `__editable__.*` directory under it.
+                [normalizeSlashes('/src/build/keep.py')]: 'z = 3\n',
+                // Auto-generated PEP 660 "strict" editable-install shadow copy; must be excluded.
+                [normalizeSlashes('/src/build/__editable__.mypkg-1.0/mypkg/__init__.py')]: '',
+                [normalizeSlashes('/src/build/__editable__.mypkg-1.0/mypkg/mod.py')]:
+                    'def target() -> int:\n    return 1\n',
+            },
+        });
+
+        const cons = new NullConsole();
+        const serviceProvider = createServiceProvider(fs, cons, tempFile);
+        const host = new TestAccessHost();
+        const service = new AnalyzerService('<default>', serviceProvider, {
+            console: cons,
+            hostFactory: () => host,
+            shouldRunAnalysis: () => false,
+        });
+
+        try {
+            const commandLineOptions = new CommandLineOptions(projectRoot, /* fromLanguageServer */ true);
+            service.setOptions(commandLineOptions);
+
+            const fileNames = service
+                .test_getFileNamesFromFileSpecs()
+                .map((p) => p.fileName)
+                .sort();
+            assert.deepStrictEqual(fileNames, ['keep.py', 'not__editable__helper.py', 'sample.py']);
+        } finally {
+            service.dispose();
+        }
+    });
+
+    test('EditableInstallShadowExcludedButImportable', () => {
+        // Locks the invariant asserted by the `**/__editable__.*` default-exclude comment in
+        // `_ensureDefaultOptions`: excluding the PEP 660 "strict" editable-install shadow tree from
+        // project enumeration must NOT make its modules un-importable. The strict `.pth` keeps the
+        // shadow dir on the import search path, so `import mypkg.mod` still resolves through search
+        // paths even though the shadow files are no longer tracked as project source files.
+        const projectRoot = normalizeSlashes('/src');
+        const shadowRoot = normalizeSlashes('/src/build/__editable__.mypkg-1.0');
+        const shadowModPath = normalizeSlashes('/src/build/__editable__.mypkg-1.0/mypkg/mod.py');
+        const fs = new TestFileSystem(/* ignoreCase */ true, {
+            cwd: normalizeSlashes('/'),
+            files: {
+                [normalizeSlashes('/src/sample.py')]: 'import mypkg.mod\n',
+                [normalizeSlashes('/src/build/__editable__.mypkg-1.0/mypkg/__init__.py')]: '',
+                [shadowModPath]: 'def target() -> int:\n    return 1\n',
+            },
+        });
+
+        const cons = new NullConsole();
+        const serviceProvider = createServiceProvider(fs, cons, tempFile);
+        const host = new TestAccessHost();
+        const service = new AnalyzerService('<default>', serviceProvider, {
+            console: cons,
+            hostFactory: () => host,
+            shouldRunAnalysis: () => false,
+        });
+
+        try {
+            const commandLineOptions = new CommandLineOptions(projectRoot, /* fromLanguageServer */ true);
+            service.setOptions(commandLineOptions);
+
+            // Enumeration: the shadow tree is excluded, so only the real project file is tracked.
+            const enumerated = service.test_getFileNamesFromFileSpecs();
+            assert.deepStrictEqual(enumerated.map((p) => p.fileName).sort(), ['sample.py']);
+            assert.ok(
+                !enumerated.some((p) => p.getFilePath().includes('__editable__.mypkg-1.0')),
+                'the editable-install shadow tree must not be enumerated'
+            );
+
+            // Importability: with the shadow dir on the import search path (as the strict `.pth`
+            // provides), `import mypkg.mod` still resolves into the shadow tree even though it was
+            // excluded from enumeration above.
+            const configOptions = new ConfigOptions(UriEx.file(projectRoot));
+            configOptions.defaultExtraPaths = [UriEx.file(shadowRoot)];
+            const importResolver = new ImportResolver(serviceProvider, configOptions, host);
+            const sampleUri = UriEx.file(normalizeSlashes('/src/sample.py'));
+            const importResult = importResolver.resolveImport(sampleUri, configOptions.findExecEnvironment(sampleUri), {
+                leadingDots: 0,
+                nameParts: ['mypkg', 'mod'],
+                importedSymbols: new Set<string>(),
+            });
+
+            assert.ok(importResult.isImportFound, 'the excluded shadow module must remain importable via search paths');
+            assert.strictEqual(
+                importResult.resolvedUris.filter((f) => !f.isEmpty() && f.getFilePath() === shadowModPath).length,
+                1
+            );
+        } finally {
+            service.dispose();
+        }
+    });
+
+    test('FindFilesVirtualEnvAutoDetectWithUserExclude', () => {
         const cwd = normalizePath(process.cwd());
         const service = createAnalyzer();
         const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ true);
@@ -86,12 +193,33 @@ describe(`config test'}`, () => {
 
         service.setOptions(commandLineOptions);
 
-        // Config file defines 'exclude' folder so virtual env will be included
+        // The config file defines an 'exclude' folder. Virtual env auto-detection remains
+        // enabled even when the user specifies custom excludes (the excludes are additive),
+        // so myVenv is still auto-excluded.
         const fileList = service.test_getFileNamesFromFileSpecs();
 
         // There are 3 python files in the workspace, outside of myVenv
-        // There is 1 more python file in excluded folder
-        // There is 1 python file in myVenv, which should be included
+        // There is 1 more python file in the user-excluded folder (excluded)
+        // There is 1 python file in myVenv, which is auto-excluded
+        const fileNames = fileList.map((p) => p.fileName).sort();
+        assert.deepStrictEqual(fileNames, ['sample1.py', 'sample2.py', 'sample3.py']);
+    });
+
+    test('FindFilesVirtualEnvNotAutoDetectedWhenDefaultExcludesDisabled', () => {
+        const cwd = normalizePath(process.cwd());
+        const service = createAnalyzer();
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ true);
+        commandLineOptions.configFilePath = 'src/tests/samples/project_with_venv_auto_detect_include';
+        // Turn off the built-in default excludes; virtual-environment auto-detection is disabled
+        // along with them, so myVenv is scanned again.
+        commandLineOptions.configSettings.useDefaultExcludes = false;
+
+        service.setOptions(commandLineOptions);
+
+        const fileList = service.test_getFileNamesFromFileSpecs();
+
+        // myVenv is no longer auto-excluded, so library1.py is scanned. The user-specified
+        // 'exclude' folder is still excluded (explicit user excludes are unaffected by the setting).
         const fileNames = fileList.map((p) => p.fileName).sort();
         assert.deepStrictEqual(fileNames, ['library1.py', 'sample1.py', 'sample2.py', 'sample3.py']);
     });
@@ -135,9 +263,10 @@ describe(`config test'}`, () => {
         const configOptions = service.test_getConfigOptions(commandLineOptions);
 
         // The config file specifies four file specs in the include array
-        // and one in the exclude array.
+        // and one in the exclude array. The 4 default excludes are always applied
+        // additively, so the exclude array contains 1 user + 4 defaults = 5.
         assert.strictEqual(configOptions.include.length, 4, `failed creating options from ${cwd}`);
-        assert.strictEqual(configOptions.exclude.length, 1);
+        assert.strictEqual(configOptions.exclude.length, 5);
         assert.strictEqual(
             configOptions.projectRoot.getFilePath(),
             service.fs
@@ -149,6 +278,24 @@ describe(`config test'}`, () => {
 
         // We should receive two final files that match the include/exclude rules.
         assert.strictEqual(fileList.length, 2);
+    });
+
+    test('DefaultExcludesDisabledByUseDefaultExcludes', () => {
+        const cwd = normalizePath(process.cwd());
+        const nullConsole = new NullConsole();
+        const service = createAnalyzer(nullConsole);
+        const commandLineOptions = new CommandLineOptions(cwd, /* fromLanguageServer */ false);
+        commandLineOptions.configFilePath = 'src/tests/samples/project4';
+        // Turn off the built-in default excludes.
+        commandLineOptions.configSettings.useDefaultExcludes = false;
+        service.setOptions(commandLineOptions);
+
+        const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+        // Only the user's single exclude remains; none of the 4 default excludes are added.
+        assert.strictEqual(configOptions.exclude.length, 1);
+        // Virtual-environment auto-detection is disabled along with the default excludes.
+        assert.strictEqual(configOptions.autoExcludeVenv, false);
     });
 
     test('ConfigBadJson', () => {
@@ -669,7 +816,6 @@ describe(`config test'}`, () => {
         commandLineOptions.languageServerSettings.watchForSourceChanges = true;
         commandLineOptions.languageServerSettings.watchForLibraryChanges = true;
         commandLineOptions.languageServerSettings.watchForConfigChanges = true;
-        commandLineOptions.languageServerSettings.typeStubTargetImportName = 'test';
         commandLineOptions.languageServerSettings.checkOnlyOpenFiles = true;
         commandLineOptions.languageServerSettings.disableTaggedHints = true;
         commandLineOptions.languageServerSettings.pythonPath = 'test_python_path';

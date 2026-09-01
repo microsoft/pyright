@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "Bibliothèque",
+        "standardLibrary": "Bibliothèque Standard",
+        "workspace": "Espace de travail"
+    },
     "CodeAction": {
         "createTypeStub": "Créer un Stub de type",
         "createTypeStubFor": "Créer un Stub de type pour « {moduleName} »",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "Une classe figée ne peut pas hériter d’une classe qui n’est pas figée",
         "dataClassConverterFunction": "L’argument de type « {argType} » n’est pas un convertisseur valide pour le champ « {fieldName} » de type « {fieldType} »",
         "dataClassConverterOverloads": "Aucune surcharge de « {funcName} » n’est valide pour le champ « {fieldName} » de type « {fieldType} »",
+        "dataClassDuplicateKwOnly": "« {name} » est un séparateur KW_ONLY dupliqué; un seul est autorisé dans une classe de données",
         "dataClassFieldInheritedDefault": "« {fieldName} » remplace un champ du même nom mais n’a pas de valeur par défaut",
         "dataClassFieldWithDefault": "Les champs sans valeurs par défaut ne peuvent pas apparaître après les champs avec des valeurs par défaut",
         "dataClassFieldWithPrivateName": "Le champ Dataclass ne peut pas utiliser de nom privé",
@@ -139,6 +145,10 @@
         "dictInAnnotation": "Expression de dictionnaire non autorisée dans l'expression de type",
         "dictKeyValuePairs": "Les entrées de dictionnaire doivent contenir des paires clé/valeur",
         "dictUnpackIsNotMapping": "Mappage attendu pour l’opérateur de décompression de dictionnaire",
+        "disjointBaseFunction": "@disjoint_base cannot be applied to a function",
+        "disjointBaseIncompatible": "Base classes have incompatible disjoint bases: {bases}",
+        "disjointBaseProtocol": "@disjoint_base cannot be applied to a Protocol class",
+        "disjointBaseTypedDict": "@disjoint_base cannot be applied to a TypedDict class",
         "dunderAllSymbolNotPresent": "« {name} » est spécifié dans __all__ mais n’est pas présent dans le module",
         "duplicateArgsParam": "Un seul paramètre « * » est autorisé",
         "duplicateBaseClass": "Classe de base en double non autorisée",
@@ -293,6 +303,8 @@
         "keywordSubscriptIllegal": "Les arguments de mot-clé dans les indices ne sont pas pris en charge",
         "lambdaReturnTypePartiallyUnknown": "Le type de retour de lambda, « {returnType} », est partiellement inconnu",
         "lambdaReturnTypeUnknown": "Le type de retour de lambda est inconnu",
+        "lazyImportIllegal": "L’utilisation de la syntaxe d’importation différée nécessite Python 3.15 ou une version plus récente",
+        "lazyImportWildcardIllegal": "Les importations de caractères génériques ne peuvent pas être utilisées avec « lazy »",
         "listAssignmentMismatch": "Impossible d’affecter l’expression de type « {type} » à la liste cible",
         "listInAnnotation": "Expression de List non autorisée dans l’expression de type",
         "literalEmptyArgs": "Attendu un ou plusieurs arguments de type après \"Literal\"",
@@ -845,6 +857,9 @@
         "useTypeInstead": "Utiliser type[T] à la place",
         "varianceMismatchForClass": "La variance de l'argument de type \"{typeVarName}\" est incompatible avec la classe de base \"{className}\"",
         "varianceMismatchForTypeAlias": "La variance de l'argument de type \"{typeVarName}\" est incompatible avec \"{typeAliasParam}\""
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "Nous ne pouvons pas renommer « {symbolName} », car il est également déclaré dans du code non modifiable (une bibliothèque ou un fichier stub) qui ne peut pas être modifié. Terminer le changement de nom laisserait « {symbolName} » partiellement renommé. Résolvez d’abord la ou les déclarations en conflit :\r\n{locations}"
     },
     "Service": {
         "longOperation": "L’énumération des fichiers sources de l’espace de travail prend beaucoup de temps. Envisagez plutôt d’ouvrir un sous-dossier. [En savoir plus](https://aka.ms/workspace-too-many-files)"

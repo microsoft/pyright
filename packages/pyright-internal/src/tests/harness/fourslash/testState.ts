@@ -194,7 +194,12 @@ export class TestState {
             const configDirUri = Uri.file(projectRoot, this.serviceProvider);
             configOptions.initializeTypeCheckingMode('standard');
             configOptions.initializeFromJson(this.rawConfigJson, configDirUri, this.serviceProvider, testAccessHost);
-            configOptions.setupExecutionEnvironments(this.rawConfigJson, configDirUri, this.serviceProvider.console());
+            configOptions.setupExecutionEnvironments(
+                this.rawConfigJson,
+                configDirUri,
+                this.serviceProvider.console(),
+                this.serviceProvider.fs()
+            );
             this._applyTestConfigOptions(configOptions);
         }
 

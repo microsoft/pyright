@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "Библиотека",
+        "standardLibrary": "Стандартная библиотека",
+        "workspace": "Рабочая область"
+    },
     "CodeAction": {
         "createTypeStub": "Создать Stub типа",
         "createTypeStubFor": "Создать Stub типа для \"{moduleName}\"",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "Незафиксированный класс не может наследоваться от зафиксированного класса",
         "dataClassConverterFunction": "Аргумент типа \"{argType}\" не является допустимым преобразователем для поля \"{fieldName}\" типа \"{fieldType}\"",
         "dataClassConverterOverloads": "Ни одна перегрузка \"{funcName}\" не является допустимым преобразователем поля \"{fieldName}\" типа \"{fieldType}\"",
+        "dataClassDuplicateKwOnly": "\"{name}\" — повторяющийся разделитель KW_ONLY; в dataclass допускается только один",
         "dataClassFieldInheritedDefault": "\"{fieldName}\" переопределяет поле с тем же именем, но в нем отсутствует значение по умолчанию",
         "dataClassFieldWithDefault": "Поля без значений по умолчанию не могут отображаться после полей со значениями по умолчанию.",
         "dataClassFieldWithPrivateName": "Поле класса данных не может использовать закрытое имя",
@@ -139,6 +145,10 @@
         "dictInAnnotation": "Словарное выражение не разрешено в выражении типа",
         "dictKeyValuePairs": "Записи словаря должны содержать пары \"ключ-значение\"",
         "dictUnpackIsNotMapping": "Ожидается сопоставление для оператора распаковки словаря",
+        "disjointBaseFunction": "@disjoint_base cannot be applied to a function",
+        "disjointBaseIncompatible": "Base classes have incompatible disjoint bases: {bases}",
+        "disjointBaseProtocol": "@disjoint_base cannot be applied to a Protocol class",
+        "disjointBaseTypedDict": "@disjoint_base cannot be applied to a TypedDict class",
         "dunderAllSymbolNotPresent": "\"{name}\" указано в методе __all__, но отсутствует в модуле",
         "duplicateArgsParam": "Разрешен только один параметр \"*\"",
         "duplicateBaseClass": "Дублирование базового класса не допускается",
@@ -293,6 +303,8 @@
         "keywordSubscriptIllegal": "Аргументы ключевых слов в нижних индексах не поддерживаются",
         "lambdaReturnTypePartiallyUnknown": "Тип возвращаемого лямбдой значения \"{returnType}\" частично неизвестен",
         "lambdaReturnTypeUnknown": "Тип значения, возвращаемого лямбдой, неизвестен",
+        "lazyImportIllegal": "Оператор импорта lazy требует Python версии 3.15 или более поздней",
+        "lazyImportWildcardIllegal": "Импорты с подстановочными знаками нельзя использовать с \"lazy\"",
         "listAssignmentMismatch": "Выражение с типом \"{type}\" нельзя присвоить целевому списку",
         "listInAnnotation": "List выражение не разрешено в выражении типа",
         "literalEmptyArgs": "Ожидается один или несколько аргументов типа после \"Literal\"",
@@ -845,6 +857,9 @@
         "useTypeInstead": "Используйте вместо этого type[T]",
         "varianceMismatchForClass": "Вариант аргумента типа \"{typeVarName}\" несовместим с базовым классом \"{className}\"",
         "varianceMismatchForTypeAlias": "Отклонение аргумента типа \"{typeVarName}\" несовместимо с \"{typeAliasParam}\""
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "Невозможно переименовать \"{symbolName}\", так как этот символ также объявлен в коде, недоступном для редактирования (в библиотеке или файле-заглушке), который нельзя изменить. Завершение переименования приведет к тому, что \"{symbolName}\" будет переименован только частично. Сначала устраните конфликтующие объявления:\r\n{locations}"
     },
     "Service": {
         "longOperation": "Перечисление исходных файлов рабочей области занимает много времени. Вместо этого рассмотрите возможность открыть вложенную папку. [Подробнее](https://aka.ms/workspace-too-many-files)"

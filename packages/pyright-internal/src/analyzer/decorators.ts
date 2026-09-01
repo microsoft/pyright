@@ -9,8 +9,10 @@
  */
 
 import { appendArray } from '../common/collectionUtils';
+import { DiagnosticRule } from '../common/diagnosticRules';
+import { LocMessage } from '../localization/localize';
 import { ArgCategory, CallNode, DecoratorNode, FunctionNode, ParamCategory, ParseNodeType } from '../parser/parseNodes';
-import { getDeclaration, getFileInfo } from './analyzerNodeInfo';
+import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import {
     applyDataClassDecorator,
     getDataclassDecoratorBehaviors,
@@ -54,9 +56,10 @@ export interface FunctionDecoratorInfo {
 export function getFunctionInfoFromDecorators(
     evaluator: TypeEvaluator,
     node: FunctionNode,
-    isInClass: boolean
+    isInClass: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): FunctionDecoratorInfo {
-    const fileInfo = getFileInfo(node);
+    const fileInfo = nodeInfo.getFileInfo(node);
     let flags = FunctionTypeFlags.None;
     let deprecationMessage: string | undefined;
 
@@ -130,9 +133,10 @@ export function applyFunctionDecorator(
     inputFunctionType: Type,
     undecoratedType: FunctionType,
     decoratorNode: DecoratorNode,
-    functionNode: FunctionNode
+    functionNode: FunctionNode,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
-    const fileInfo = getFileInfo(decoratorNode);
+    const fileInfo = nodeInfo.getFileInfo(decoratorNode);
 
     // Some stub files (e.g. builtins.pyi) rely on forward declarations of decorators.
     let evaluatorFlags = fileInfo.isStubFile ? EvalFlags.ForwardRefs : EvalFlags.None;
@@ -142,6 +146,15 @@ export function applyFunctionDecorator(
 
     const decoratorTypeResult = evaluator.getTypeOfExpression(decoratorNode.d.expr, evaluatorFlags);
     const decoratorType = decoratorTypeResult.type;
+
+    if (isFunction(decoratorType) && FunctionType.isBuiltIn(decoratorType, 'disjoint_base')) {
+        evaluator.addDiagnostic(
+            DiagnosticRule.reportGeneralTypeIssues,
+            LocMessage.disjointBaseFunction(),
+            decoratorNode.d.expr
+        );
+        return inputFunctionType;
+    }
 
     // Special-case the "overload" because it has no definition. Older versions of typeshed
     // defined "overload" as an object, but newer versions define it as a function.
@@ -169,7 +182,8 @@ export function applyFunctionDecorator(
             ) {
                 undecoratedType.shared.decoratorDataClassBehaviors = validateDataClassTransformDecorator(
                     evaluator,
-                    decoratorNode.d.expr
+                    decoratorNode.d.expr,
+                    nodeInfo
                 );
                 return inputFunctionType;
             }
@@ -186,7 +200,7 @@ export function applyFunctionDecorator(
               )
             : inputFunctionType;
 
-    let returnType = getTypeOfDecorator(evaluator, decoratorNode, decoratorArg);
+    let returnType = getTypeOfDecorator(evaluator, decoratorNode, decoratorArg, nodeInfo);
 
     // Check for some built-in decorator types with known semantics.
     if (isFunction(decoratorType)) {
@@ -211,14 +225,14 @@ export function applyFunctionDecorator(
                 if (memberName === 'setter') {
                     if (isFunction(inputFunctionType)) {
                         validatePropertyMethod(evaluator, inputFunctionType, decoratorNode);
-                        return clonePropertyWithSetter(evaluator, baseType, inputFunctionType, functionNode);
+                        return clonePropertyWithSetter(evaluator, baseType, inputFunctionType, functionNode, nodeInfo);
                     } else {
                         return inputFunctionType;
                     }
                 } else if (memberName === 'deleter') {
                     if (isFunction(inputFunctionType)) {
                         validatePropertyMethod(evaluator, inputFunctionType, decoratorNode);
-                        return clonePropertyWithDeleter(evaluator, baseType, inputFunctionType, functionNode);
+                        return clonePropertyWithDeleter(evaluator, baseType, inputFunctionType, functionNode, nodeInfo);
                     } else {
                         return inputFunctionType;
                     }
@@ -262,12 +276,12 @@ export function applyFunctionDecorator(
         if (ClassType.isPropertyClass(decoratorType)) {
             if (isFunction(inputFunctionType)) {
                 validatePropertyMethod(evaluator, inputFunctionType, decoratorNode);
-                return createProperty(evaluator, decoratorNode, decoratorType, inputFunctionType);
+                return createProperty(evaluator, decoratorNode, decoratorType, inputFunctionType, nodeInfo);
             } else if (isClassInstance(inputFunctionType)) {
                 const boundMethod = evaluator.getBoundMagicMethod(inputFunctionType, '__call__');
 
                 if (boundMethod && isFunction(boundMethod)) {
-                    return createProperty(evaluator, decoratorNode, decoratorType, boundMethod);
+                    return createProperty(evaluator, decoratorNode, decoratorType, boundMethod, nodeInfo);
                 }
 
                 return UnknownType.create();
@@ -297,9 +311,10 @@ export function applyClassDecorator(
     evaluator: TypeEvaluator,
     inputClassType: Type,
     originalClassType: ClassType,
-    decoratorNode: DecoratorNode
+    decoratorNode: DecoratorNode,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
-    const fileInfo = getFileInfo(decoratorNode);
+    const fileInfo = nodeInfo.getFileInfo(decoratorNode);
     let flags = fileInfo.isStubFile ? EvalFlags.ForwardRefs : EvalFlags.None;
     if (decoratorNode.d.expr.nodeType !== ParseNodeType.Call) {
         flags |= EvalFlags.CallBaseDefaults;
@@ -319,7 +334,8 @@ export function applyClassDecorator(
             ) {
                 originalClassType.shared.classDataClassTransform = validateDataClassTransformDecorator(
                     evaluator,
-                    decoratorNode.d.expr
+                    decoratorNode.d.expr,
+                    nodeInfo
                 );
             }
         }
@@ -343,7 +359,14 @@ export function applyClassDecorator(
         }
 
         if (dataclassBehaviors) {
-            applyDataClassDecorator(evaluator, decoratorNode, originalClassType, dataclassBehaviors, callNode);
+            applyDataClassDecorator(
+                evaluator,
+                decoratorNode,
+                originalClassType,
+                dataclassBehaviors,
+                callNode,
+                nodeInfo
+            );
             return true;
         }
 
@@ -358,11 +381,32 @@ export function applyClassDecorator(
                 decoratorNode,
                 originalClassType,
                 dataclassBehaviors,
-                /* callNode */ undefined
+                /* callNode */ undefined,
+                nodeInfo
             );
             return inputClassType;
         }
     } else if (isFunction(decoratorType)) {
+        if (FunctionType.isBuiltIn(decoratorType, 'disjoint_base')) {
+            if (ClassType.isTypedDictClass(originalClassType)) {
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.disjointBaseTypedDict(),
+                    decoratorNode.d.expr
+                );
+            } else if (ClassType.isProtocolClass(originalClassType)) {
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.disjointBaseProtocol(),
+                    decoratorNode.d.expr
+                );
+            } else {
+                originalClassType.shared.flags |= ClassTypeFlags.DisjointBase;
+            }
+
+            return inputClassType;
+        }
+
         if (FunctionType.isBuiltIn(decoratorType, 'final')) {
             originalClassType.shared.flags |= ClassTypeFlags.Final;
 
@@ -400,12 +444,17 @@ export function applyClassDecorator(
         }
     }
 
-    return getTypeOfDecorator(evaluator, decoratorNode, inputClassType);
+    return getTypeOfDecorator(evaluator, decoratorNode, inputClassType, nodeInfo);
 }
 
-function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, functionOrClassType: Type): Type {
+function getTypeOfDecorator(
+    evaluator: TypeEvaluator,
+    node: DecoratorNode,
+    functionOrClassType: Type,
+    nodeInfo: AnalyzerNodeInfoAccessor
+): Type {
     // Evaluate the type of the decorator expression.
-    let flags = getFileInfo(node).isStubFile ? EvalFlags.ForwardRefs : EvalFlags.None;
+    let flags = nodeInfo.getFileInfo(node).isStubFile ? EvalFlags.ForwardRefs : EvalFlags.None;
     if (node.d.expr.nodeType !== ParseNodeType.Call) {
         flags |= EvalFlags.CallBaseDefaults;
     }
@@ -492,11 +541,16 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
 // method searches for prior function nodes that are marked as @overload
 // and creates an OverloadedType that includes this function and
 // all previous ones.
-export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: FunctionNode, type: Type): Type {
+export function addOverloadsToFunctionType(
+    evaluator: TypeEvaluator,
+    node: FunctionNode,
+    type: Type,
+    nodeInfo: AnalyzerNodeInfoAccessor
+): Type {
     let functionDecl: FunctionDeclaration | undefined;
     let implementation: Type | undefined;
 
-    const decl = getDeclaration(node);
+    const decl = nodeInfo.getDeclaration(node);
     if (decl) {
         functionDecl = decl as FunctionDeclaration;
     }

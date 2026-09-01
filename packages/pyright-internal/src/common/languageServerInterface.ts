@@ -30,7 +30,8 @@ export interface ServerSettings {
     disableTaggedHints?: boolean | undefined;
     disableOrganizeImports?: boolean | undefined;
     autoSearchPaths?: boolean | undefined;
-    extraPaths?: Uri[] | undefined;
+    useDefaultExcludes?: boolean | undefined;
+    extraPathFileSpecs?: string[] | undefined;
     watchForSourceChanges?: boolean | undefined;
     watchForLibraryChanges?: boolean | undefined;
     watchForConfigChanges?: boolean | undefined;

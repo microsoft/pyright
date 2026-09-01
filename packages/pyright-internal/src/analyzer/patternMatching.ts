@@ -28,6 +28,7 @@ import {
     PatternSequenceNode,
     PatternValueNode,
 } from '../parser/parseNodes';
+import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
@@ -140,11 +141,12 @@ export function narrowTypeBasedOnPattern(
     evaluator: TypeEvaluator,
     type: Type,
     pattern: PatternAtomNode,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
     switch (pattern.nodeType) {
         case ParseNodeType.PatternSequence: {
-            return narrowTypeBasedOnSequencePattern(evaluator, type, pattern, isPositiveTest);
+            return narrowTypeBasedOnSequencePattern(evaluator, type, pattern, isPositiveTest, nodeInfo);
         }
 
         case ParseNodeType.PatternLiteral: {
@@ -152,15 +154,15 @@ export function narrowTypeBasedOnPattern(
         }
 
         case ParseNodeType.PatternClass: {
-            return narrowTypeBasedOnClassPattern(evaluator, type, pattern, isPositiveTest);
+            return narrowTypeBasedOnClassPattern(evaluator, type, pattern, isPositiveTest, nodeInfo);
         }
 
         case ParseNodeType.PatternAs: {
-            return narrowTypeBasedOnAsPattern(evaluator, type, pattern, isPositiveTest);
+            return narrowTypeBasedOnAsPattern(evaluator, type, pattern, isPositiveTest, nodeInfo);
         }
 
         case ParseNodeType.PatternMapping: {
-            return narrowTypeBasedOnMappingPattern(evaluator, type, pattern, isPositiveTest);
+            return narrowTypeBasedOnMappingPattern(evaluator, type, pattern, isPositiveTest, nodeInfo);
         }
 
         case ParseNodeType.PatternValue: {
@@ -180,7 +182,12 @@ export function narrowTypeBasedOnPattern(
 
 // Determines whether this pattern (or part of the pattern) in
 // this case statement will never be matched.
-export function checkForUnusedPattern(evaluator: TypeEvaluator, pattern: PatternAtomNode, subjectType: Type): void {
+export function checkForUnusedPattern(
+    evaluator: TypeEvaluator,
+    pattern: PatternAtomNode,
+    subjectType: Type,
+    nodeInfo: AnalyzerNodeInfoAccessor
+): void {
     if (isNever(subjectType)) {
         reportUnnecessaryPattern(evaluator, pattern, subjectType);
     } else if (pattern.nodeType === ParseNodeType.PatternAs && pattern.d.orPatterns.length > 1) {
@@ -190,17 +197,30 @@ export function checkForUnusedPattern(evaluator: TypeEvaluator, pattern: Pattern
                 evaluator,
                 subjectType,
                 orPattern,
-                /* isPositiveTest */ true
+                /* isPositiveTest */ true,
+                nodeInfo
             );
 
             if (isNever(subjectTypeMatch)) {
                 reportUnnecessaryPattern(evaluator, orPattern, subjectType);
             }
 
-            subjectType = narrowTypeBasedOnPattern(evaluator, subjectType, orPattern, /* isPositiveTest */ false);
+            subjectType = narrowTypeBasedOnPattern(
+                evaluator,
+                subjectType,
+                orPattern,
+                /* isPositiveTest */ false,
+                nodeInfo
+            );
         });
     } else {
-        const subjectTypeMatch = narrowTypeBasedOnPattern(evaluator, subjectType, pattern, /* isPositiveTest */ true);
+        const subjectTypeMatch = narrowTypeBasedOnPattern(
+            evaluator,
+            subjectType,
+            pattern,
+            /* isPositiveTest */ true,
+            nodeInfo
+        );
 
         if (isNever(subjectTypeMatch)) {
             reportUnnecessaryPattern(evaluator, pattern, subjectType);
@@ -212,11 +232,12 @@ function narrowTypeBasedOnSequencePattern(
     evaluator: TypeEvaluator,
     type: Type,
     pattern: PatternSequenceNode,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
     let usingTupleExpansion = false;
     type = transformPossibleRecursiveTypeAlias(type);
-    let sequenceInfo = getSequencePatternInfo(evaluator, pattern, type);
+    let sequenceInfo = getSequencePatternInfo(evaluator, pattern, type, nodeInfo);
 
     // Further narrow based on pattern entry types.
     sequenceInfo = sequenceInfo.filter((entry) => {
@@ -278,7 +299,13 @@ function narrowTypeBasedOnSequencePattern(
             );
 
             unnarrowedEntryTypes.push(entryType);
-            const narrowedEntryType = narrowTypeBasedOnPattern(evaluator, entryType, sequenceEntry, isPositiveTest);
+            const narrowedEntryType = narrowTypeBasedOnPattern(
+                evaluator,
+                entryType,
+                sequenceEntry,
+                isPositiveTest,
+                nodeInfo
+            );
 
             if (isPositiveTest) {
                 if (index === pattern.d.starEntryIndex) {
@@ -427,13 +454,20 @@ function narrowTypeBasedOnAsPattern(
     evaluator: TypeEvaluator,
     type: Type,
     pattern: PatternAsNode,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
     let remainingType = type;
 
     if (!isPositiveTest) {
         pattern.d.orPatterns.forEach((subpattern) => {
-            remainingType = narrowTypeBasedOnPattern(evaluator, remainingType, subpattern, /* isPositiveTest */ false);
+            remainingType = narrowTypeBasedOnPattern(
+                evaluator,
+                remainingType,
+                subpattern,
+                /* isPositiveTest */ false,
+                nodeInfo
+            );
         });
         return remainingType;
     }
@@ -443,9 +477,16 @@ function narrowTypeBasedOnAsPattern(
             evaluator,
             remainingType,
             subpattern,
-            /* isPositiveTest */ true
+            /* isPositiveTest */ true,
+            nodeInfo
         );
-        remainingType = narrowTypeBasedOnPattern(evaluator, remainingType, subpattern, /* isPositiveTest */ false);
+        remainingType = narrowTypeBasedOnPattern(
+            evaluator,
+            remainingType,
+            subpattern,
+            /* isPositiveTest */ false,
+            nodeInfo
+        );
         return narrowedSubtype;
     });
     return combineTypes(narrowedTypes);
@@ -455,7 +496,8 @@ function narrowTypeBasedOnMappingPattern(
     evaluator: TypeEvaluator,
     type: Type,
     pattern: PatternMappingNode,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
     type = transformPossibleRecursiveTypeAlias(type);
 
@@ -545,7 +587,8 @@ function narrowTypeBasedOnMappingPattern(
                         evaluator,
                         evaluator.getBuiltInObject(pattern, 'str'),
                         mappingEntry.d.keyPattern,
-                        isPositiveTest
+                        isPositiveTest,
+                        nodeInfo
                     );
 
                     if (isNever(narrowedKeyType)) {
@@ -569,7 +612,8 @@ function narrowTypeBasedOnMappingPattern(
                                     evaluator,
                                     valueEntry.valueType,
                                     mappingEntry.d.valuePattern,
-                                    /* isPositiveTest */ true
+                                    /* isPositiveTest */ true,
+                                    nodeInfo
                                 );
                                 if (!isNever(narrowedValueType)) {
                                     // If this is a "NotRequired" entry that has not yet been demonstrated
@@ -617,13 +661,15 @@ function narrowTypeBasedOnMappingPattern(
                         evaluator,
                         mappingSubtypeInfo.dictTypeArgs.key,
                         mappingEntry.d.keyPattern,
-                        isPositiveTest
+                        isPositiveTest,
+                        nodeInfo
                     );
                     const narrowedValueType = narrowTypeBasedOnPattern(
                         evaluator,
                         mappingSubtypeInfo.dictTypeArgs.value,
                         mappingEntry.d.valuePattern,
-                        isPositiveTest
+                        isPositiveTest,
+                        nodeInfo
                     );
                     if (isNever(narrowedKeyType) || isNever(narrowedValueType)) {
                         isPlausibleMatch = false;
@@ -819,7 +865,8 @@ function narrowTypeBasedOnClassPattern(
     evaluator: TypeEvaluator,
     type: Type,
     pattern: PatternClassNode,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
     let exprType = evaluator.getTypeOfExpression(pattern.d.className, EvalFlags.CallBaseDefaults).type;
 
@@ -933,7 +980,8 @@ function narrowTypeBasedOnClassPattern(
                         index,
                         positionalArgNames,
                         subjectSubtypeExpanded,
-                        isPositiveTest
+                        isPositiveTest,
+                        nodeInfo
                     );
 
                     if (!isNever(narrowedArgType)) {
@@ -1138,7 +1186,8 @@ function narrowTypeBasedOnClassPattern(
                                 index,
                                 positionalArgNames,
                                 resultType,
-                                isPositiveTest
+                                isPositiveTest,
+                                nodeInfo
                             );
 
                             if (isNever(narrowedArgType)) {
@@ -1190,7 +1239,8 @@ function narrowTypeOfClassPatternArg(
     argIndex: number,
     positionalArgNames: string[],
     matchType: Type,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ) {
     let argName: string | undefined;
 
@@ -1261,7 +1311,7 @@ function narrowTypeOfClassPatternArg(
         }
     }
 
-    return narrowTypeBasedOnPattern(evaluator, argType, arg.d.pattern, isPositiveTest);
+    return narrowTypeBasedOnPattern(evaluator, argType, arg.d.pattern, isPositiveTest, nodeInfo);
 }
 
 function narrowTypeBasedOnValuePattern(
@@ -1453,7 +1503,8 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
 function getSequencePatternInfo(
     evaluator: TypeEvaluator,
     pattern: PatternSequenceNode,
-    type: Type
+    type: Type,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): SequencePatternInfo[] {
     const patternEntryCount = pattern.d.entries.length;
     const patternStarEntryIndex = pattern.d.starEntryIndex;
@@ -1601,7 +1652,8 @@ function getSequencePatternInfo(
                                 evaluator,
                                 typeArg,
                                 subPattern,
-                                /* isPositiveTest */ true
+                                /* isPositiveTest */ true,
+                                nodeInfo
                             );
 
                             if (isNever(narrowedType)) {
@@ -1654,7 +1706,8 @@ function getSequencePatternInfo(
                                     evaluator,
                                     typeArg,
                                     subPattern,
-                                    /* isPositiveTest */ true
+                                    /* isPositiveTest */ true,
+                                    nodeInfo
                                 );
 
                                 if (isNever(narrowedType)) {
@@ -1723,7 +1776,7 @@ function getSequencePatternInfo(
                         ClassType.cloneAsInstance(sequenceType),
                         subtype,
                         sequenceConstraints,
-                        getTypeVarScopesForNode(pattern),
+                        getTypeVarScopesForNode(pattern, nodeInfo),
                         pattern.start
                     )
                 ) {
@@ -1837,14 +1890,15 @@ export function assignTypeToPatternTargets(
     evaluator: TypeEvaluator,
     type: Type,
     isTypeIncomplete: boolean,
-    pattern: PatternAtomNode
+    pattern: PatternAtomNode,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
     // Further narrow the type based on this pattern.
-    const narrowedType = narrowTypeBasedOnPattern(evaluator, type, pattern, /* positiveTest */ true);
+    const narrowedType = narrowTypeBasedOnPattern(evaluator, type, pattern, /* positiveTest */ true, nodeInfo);
 
     switch (pattern.nodeType) {
         case ParseNodeType.PatternSequence: {
-            const sequenceInfo = getSequencePatternInfo(evaluator, pattern, narrowedType).filter(
+            const sequenceInfo = getSequencePatternInfo(evaluator, pattern, narrowedType, nodeInfo).filter(
                 (seqInfo) => !seqInfo.isDefiniteNoMatch
             );
 
@@ -1863,7 +1917,7 @@ export function assignTypeToPatternTargets(
                     )
                 );
 
-                assignTypeToPatternTargets(evaluator, entryType, isTypeIncomplete, entry);
+                assignTypeToPatternTargets(evaluator, entryType, isTypeIncomplete, entry, nodeInfo);
             });
             break;
         }
@@ -1879,7 +1933,7 @@ export function assignTypeToPatternTargets(
 
             let runningNarrowedType = narrowedType;
             pattern.d.orPatterns.forEach((orPattern) => {
-                assignTypeToPatternTargets(evaluator, runningNarrowedType, isTypeIncomplete, orPattern);
+                assignTypeToPatternTargets(evaluator, runningNarrowedType, isTypeIncomplete, orPattern, nodeInfo);
 
                 // OR patterns are evaluated left to right, so we can narrow
                 // the type as we go.
@@ -1887,7 +1941,8 @@ export function assignTypeToPatternTargets(
                     evaluator,
                     runningNarrowedType,
                     orPattern,
-                    /* positiveTest */ false
+                    /* positiveTest */ false,
+                    nodeInfo
                 );
             });
             break;
@@ -1941,7 +1996,8 @@ export function assignTypeToPatternTargets(
                                 evaluator,
                                 evaluator.getBuiltInObject(pattern, 'str'),
                                 mappingEntry.d.keyPattern,
-                                /* isPositiveTest */ true
+                                /* isPositiveTest */ true,
+                                nodeInfo
                             );
                             keyTypes.push(keyType);
 
@@ -1971,7 +2027,8 @@ export function assignTypeToPatternTargets(
                                 evaluator,
                                 mappingSubtypeInfo.dictTypeArgs.key,
                                 mappingEntry.d.keyPattern,
-                                /* isPositiveTest */ true
+                                /* isPositiveTest */ true,
+                                nodeInfo
                             );
                             keyTypes.push(keyType);
                             valueTypes.push(
@@ -1979,7 +2036,8 @@ export function assignTypeToPatternTargets(
                                     evaluator,
                                     mappingSubtypeInfo.dictTypeArgs.value,
                                     mappingEntry.d.valuePattern,
-                                    /* isPositiveTest */ true
+                                    /* isPositiveTest */ true,
+                                    nodeInfo
                                 )
                             );
                         } else if (mappingEntry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
@@ -1993,8 +2051,20 @@ export function assignTypeToPatternTargets(
                 const valueType = combineTypes(valueTypes);
 
                 if (mappingEntry.nodeType === ParseNodeType.PatternMappingKeyEntry) {
-                    assignTypeToPatternTargets(evaluator, keyType, isTypeIncomplete, mappingEntry.d.keyPattern);
-                    assignTypeToPatternTargets(evaluator, valueType, isTypeIncomplete, mappingEntry.d.valuePattern);
+                    assignTypeToPatternTargets(
+                        evaluator,
+                        keyType,
+                        isTypeIncomplete,
+                        mappingEntry.d.keyPattern,
+                        nodeInfo
+                    );
+                    assignTypeToPatternTargets(
+                        evaluator,
+                        valueType,
+                        isTypeIncomplete,
+                        mappingEntry.d.valuePattern,
+                        nodeInfo
+                    );
                 } else if (mappingEntry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
                     const dictClass = evaluator.getBuiltInType(pattern, 'dict');
                     const strType = evaluator.getBuiltInObject(pattern, 'str');
@@ -2042,7 +2112,8 @@ export function assignTypeToPatternTargets(
                                     index,
                                     positionalArgNames,
                                     ClassType.cloneAsInstantiable(expandedSubtype),
-                                    /* isPositiveTest */ true
+                                    /* isPositiveTest */ true,
+                                    nodeInfo
                                 );
                                 argTypes[index].push(narrowedArgType);
                             });
@@ -2058,7 +2129,13 @@ export function assignTypeToPatternTargets(
             });
 
             pattern.d.args.forEach((arg, index) => {
-                assignTypeToPatternTargets(evaluator, combineTypes(argTypes[index]), isTypeIncomplete, arg.d.pattern);
+                assignTypeToPatternTargets(
+                    evaluator,
+                    combineTypes(argTypes[index]),
+                    isTypeIncomplete,
+                    arg.d.pattern,
+                    nodeInfo
+                );
             });
             break;
         }

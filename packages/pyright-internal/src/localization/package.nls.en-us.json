@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "Library",
+        "standardLibrary": "Standard library",
+        "workspace": "Workspace"
+    },
     "CodeAction": {
         "createTypeStub": {
             "message": "Create Type Stub",
@@ -302,6 +307,19 @@
         "dictInAnnotation": "Dictionary expression not allowed in type expression",
         "dictKeyValuePairs": "Dictionary entries must contain key/value pairs",
         "dictUnpackIsNotMapping": "Expected mapping for dictionary unpack operator",
+        "disjointBaseFunction": {
+            "message": "@disjoint_base cannot be applied to a function",
+            "comment": "{Locked='@disjoint_base'}"
+        },
+        "disjointBaseIncompatible": "Base classes have incompatible disjoint bases: {bases}",
+        "disjointBaseProtocol": {
+            "message": "@disjoint_base cannot be applied to a Protocol class",
+            "comment": "{Locked='@disjoint_base','Protocol'}"
+        },
+        "disjointBaseTypedDict": {
+            "message": "@disjoint_base cannot be applied to a TypedDict class",
+            "comment": "{Locked='@disjoint_base','TypedDict'}"
+        },
         "dunderAllSymbolNotPresent": {
             "message": "\"{name}\" is specified in __all__ but is not present in module",
             "comment": "{Locked='__all__'}"

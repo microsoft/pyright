@@ -1,16 +1,24 @@
-# Does an npm install using our private Azure Artifacts registry which requires OIDC authentication.
+# Does an pnpm install using our private Azure Artifacts registry which requires OIDC authentication.
 # Workflows that use this action must add the id-token: write permission.
 
-name: npm install (CFS)
+name: pnpm install (CFS)
+description: Authenticate to the CFS npm registry and install the pnpm workspace.
 
-on:
-  workflow_call:
+inputs:
+  working-directory:
+    description: Directory in which to run pnpm install
+    default: '.'
+    required: false
+  skip-playwright-browser-download:
+    description: Skip Playwright browser downloads during dependency installation
+    default: '1'
+    required: false
 
 runs:
   using: composite
   steps:
     - name: Azure OIDC Login
-      uses: azure/login@v2
+      uses: azure/login@d54469830ea7d513b7371e02a077c3ee5cb7b112 # v3
       with:
         # These are not secret values and are safe to commit to the repository
         client-id: 92c669e8-02ad-4ce6-ad73-f222fc7177e2
@@ -20,37 +28,40 @@ runs:
     - name: Setup CFS Credentials
       shell: bash
       id: npm-auth
-      # The resource guid is the app id of Azure DevOps
       run: |
-        echo "token=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 | jq -r .accessToken)" >> $GITHUB_OUTPUT
+        token="$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 | jq -r .accessToken)"
+        echo "::add-mask::$token"
+        echo "token=$token" >> "$GITHUB_OUTPUT"
 
-    - uses: ./.github/actions/cfs-npm-authenticate
-      with:
-        working-directory: .
-        token: ${{ steps.npm-auth.outputs.token }}
+    - name: Create temporary npm configuration
+      shell: bash
+      env:
+        CFS_TOKEN: ${{ steps.npm-auth.outputs.token }}
+      run: |
+        auth_dir="${{ runner.temp }}/cfs-npm-auth"
+        npmrc="$auth_dir/.npmrc"
+        feed_url="//devdiv.pkgs.visualstudio.com/DevDiv/_packaging/Pylance_PublicPackages"
+        mkdir -p "$auth_dir"
+        {
+          echo "registry=https:$feed_url/npm/registry/"
+          echo
+          echo "$feed_url/npm/registry/:username=github-actions"
+          echo "$feed_url/npm/registry/:_authToken=$CFS_TOKEN"
+          echo "$feed_url/npm/registry/:email=actions@github.com"
+          echo "$feed_url/npm:username=github-actions"
+          echo "$feed_url/npm:_authToken=$CFS_TOKEN"
+          echo "$feed_url/npm:email=actions@github.com"
+        } > "$npmrc"
 
-    - uses: ./.github/actions/cfs-npm-authenticate
-      with:
-        working-directory: packages/pyright
-        token: ${{ steps.npm-auth.outputs.token }}
-
-    - uses: ./.github/actions/cfs-npm-authenticate
-      with:
-        working-directory: packages/pyright-internal
-        token: ${{ steps.npm-auth.outputs.token }}
-
-    - uses: ./.github/actions/cfs-npm-authenticate
-      with:
-        working-directory: packages/vscode-pyright
-        token: ${{ steps.npm-auth.outputs.token }}
-
-    - uses: ./.github/actions/cfs-npm-cache
-
-    - run: npm run install:all
+    - name: Install pnpm dependencies
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      env:
+        NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/cfs-npm-auth/.npmrc
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: ${{ inputs.skip-playwright-browser-download }}
+      run: pnpm install --frozen-lockfile --prefer-offline
 
-    - name: Cleanup .npmrc
+    - name: Cleanup temporary npm configuration
+      if: always()
       shell: bash
-      run: rm .npmrc
-      working-directory: ${{ inputs.working-directory }}
+      run: rm -rf "${{ runner.temp }}/cfs-npm-auth"

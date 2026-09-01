@@ -133,6 +133,10 @@ export function setForceEnglishDiagnostics(force: boolean) {
     forceEnglishDiagnostics = force;
 }
 
+export function getDiagnosticLocale(): string {
+    return forceEnglishDiagnostics ? 'en' : getLocaleFromEnv().toLowerCase();
+}
+
 export function getLocaleFromEnv(): string {
     if (localeOverride) {
         return localeOverride;
@@ -432,6 +436,11 @@ export namespace Localizer {
         export const dictInAnnotation = () => getRawString('Diagnostic.dictInAnnotation');
         export const dictKeyValuePairs = () => getRawString('Diagnostic.dictKeyValuePairs');
         export const dictUnpackIsNotMapping = () => getRawString('Diagnostic.dictUnpackIsNotMapping');
+        export const disjointBaseFunction = () => getRawString('Diagnostic.disjointBaseFunction');
+        export const disjointBaseIncompatible = () =>
+            new ParameterizedString<{ bases: string }>(getRawString('Diagnostic.disjointBaseIncompatible'));
+        export const disjointBaseProtocol = () => getRawString('Diagnostic.disjointBaseProtocol');
+        export const disjointBaseTypedDict = () => getRawString('Diagnostic.disjointBaseTypedDict');
         export const delTargetExpr = () => getRawString('Diagnostic.delTargetExpr');
         export const dunderAllSymbolNotPresent = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.dunderAllSymbolNotPresent'));
@@ -1656,6 +1665,12 @@ export namespace Localizer {
             new ParameterizedString<{ typeVarName: string; typeAliasParam: string }>(
                 getRawString('DiagnosticAddendum.varianceMismatchForTypeAlias')
             );
+    }
+
+    export namespace CallHierarchy {
+        export const library = () => getRawString('CallHierarchy.library');
+        export const standardLibrary = () => getRawString('CallHierarchy.standardLibrary');
+        export const workspace = () => getRawString('CallHierarchy.workspace');
     }
 
     export namespace CodeAction {

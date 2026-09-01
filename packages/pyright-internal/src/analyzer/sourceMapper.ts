@@ -64,6 +64,7 @@ export class SourceMapper {
         private _importResolver: ImportResolver,
         private _execEnv: ExecutionEnvironment,
         private _evaluator: TypeEvaluator,
+        private _nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
         private _fileBinder: ShadowFileBinder,
         private _boundSourceGetter: BoundSourceGetter,
         private _mapCompiled: boolean,
@@ -71,6 +72,10 @@ export class SourceMapper {
         private _fromFile: SourceFileInfo | undefined,
         private _cancelToken: CancellationToken
     ) {}
+
+    get analyzerNodeInfo(): AnalyzerNodeInfo.AnalyzerNodeInfoReader {
+        return this._nodeInfo;
+    }
 
     findModules(stubFileUri: Uri): ModuleNode[] {
         const sourceFiles = this._isStubThatShouldBeMappedToImplementation(stubFileUri)
@@ -739,7 +744,7 @@ export class SourceMapper {
         }
 
         const moduleNode = ParseTreeUtils.getEnclosingModule(aliasOriginExpression);
-        let currentSymbol = AnalyzerNodeInfo.getScope(moduleNode)?.lookUpSymbol(symbolParts[0]);
+        let currentSymbol = AnalyzerNodeInfo.getScope(moduleNode, this._nodeInfo)?.lookUpSymbol(symbolParts[0]);
         if (!currentSymbol) {
             return false;
         }
@@ -797,7 +802,9 @@ export class SourceMapper {
     private _lookUpModuleSymbol(fileUri: Uri, symbolName: string): Symbol | undefined {
         for (const sourceFile of this._getSourceFiles(fileUri)) {
             const moduleNode = sourceFile.getParserOutput()?.parseTree;
-            const symbol = moduleNode ? AnalyzerNodeInfo.getScope(moduleNode)?.lookUpSymbol(symbolName) : undefined;
+            const symbol = moduleNode
+                ? AnalyzerNodeInfo.getScope(moduleNode, this._nodeInfo)?.lookUpSymbol(symbolName)
+                : undefined;
             if (symbol) {
                 return symbol;
             }
@@ -848,7 +855,7 @@ export class SourceMapper {
             return decl;
         }
 
-        const fileInfo = ParseTreeUtils.getFileInfoFromNode(decl.node);
+        const fileInfo = ParseTreeUtils.getFileInfoFromNode(decl.node, this._nodeInfo);
         if (!fileInfo) {
             return decl;
         }
@@ -933,7 +940,7 @@ export class SourceMapper {
     ) {
         // Symbol exists in a stub doesn't exist in a python file. Use some heuristic
         // to find one from sources.
-        const table = AnalyzerNodeInfo.getScope(moduleNode)?.symbolTable;
+        const table = AnalyzerNodeInfo.getScope(moduleNode, this._nodeInfo)?.symbolTable;
         if (!table) {
             return;
         }
@@ -1012,7 +1019,7 @@ export class SourceMapper {
         // If the implementation module explicitly imports the symbol under a different
         // local name (e.g. `from ._private import Foo as _Foo`), map the stub name to
         // the resolved import target.
-        const fileInfo = ParseTreeUtils.getFileInfoFromNode(moduleNode);
+        const fileInfo = ParseTreeUtils.getFileInfoFromNode(moduleNode, this._nodeInfo);
         const uniqueId = `@${fileInfo?.fileUri.key ?? '<unknown>'}/importAliases/${symbolName}`;
         if (recursiveDeclCache.has(uniqueId)) {
             return;
@@ -1020,7 +1027,7 @@ export class SourceMapper {
 
         recursiveDeclCache.add(uniqueId);
 
-        const table = AnalyzerNodeInfo.getScope(moduleNode)?.symbolTable;
+        const table = AnalyzerNodeInfo.getScope(moduleNode, this._nodeInfo)?.symbolTable;
         if (!table) {
             recursiveDeclCache.delete(uniqueId);
             return;
@@ -1068,7 +1075,7 @@ export class SourceMapper {
             return [];
         }
 
-        const containingScope = AnalyzerNodeInfo.getScope(node);
+        const containingScope = AnalyzerNodeInfo.getScope(node, this._nodeInfo);
         const symbol = containingScope?.lookUpSymbol(symbolName);
         const decls = symbol?.getDeclarations();
 
