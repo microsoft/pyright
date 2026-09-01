@@ -32,7 +32,7 @@ from typing import (
     Unpack,
 )
 import typing
-from typing_extensions import ReadOnly, TypeForm, TypeIs
+from typing_extensions import ReadOnly, TypeForm, TypeIs  # pyright: ignore[reportMissingModuleSource]
 
 type TA1 = int | str
 type TA2[T] = list[T] | T

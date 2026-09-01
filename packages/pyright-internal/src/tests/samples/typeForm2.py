@@ -24,7 +24,7 @@ from typing import (
     Unpack,
 )
 import typing as tp
-from typing_extensions import TypeForm, TypeIs, ReadOnly
+from typing_extensions import TypeForm, TypeIs, ReadOnly  # pyright: ignore[reportMissingModuleSource]
 
 T = TypeVar("T")
 
