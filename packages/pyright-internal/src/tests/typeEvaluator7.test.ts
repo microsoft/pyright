@@ -513,7 +513,17 @@ test('Protocol35', () => {
 test('Protocol36', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol36.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 7);
+    const protocolErrors = analysisResults[0].errors.filter((error) =>
+        error.message.includes('FullNestedSequence[SupportsArray]')
+    );
+    expect(protocolErrors).toHaveLength(4);
+    const unionCallError = protocolErrors.filter((error) => error.message.startsWith('Argument of type'));
+    expect(unionCallError).toHaveLength(1);
+    expect(unionCallError[0].message).toContain('__getitem__');
+    expect(unionCallError[0].message).not.toContain('__iter__');
+    expect(protocolErrors.some((error) => error.message.includes('__iter__'))).toBe(true);
+    expect(protocolErrors.some((error) => error.message.includes('__reversed__'))).toBe(true);
 });
 
 test('Protocol37', () => {
