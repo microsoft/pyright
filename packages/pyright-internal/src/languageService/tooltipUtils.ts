@@ -25,7 +25,7 @@ import {
     resolveMethodDocInfo,
 } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { MemberAccessFlags, lookUpClassMember } from '../analyzer/typeUtils';
+import { MemberAccessFlags, convertToInstance, lookUpClassMember } from '../analyzer/typeUtils';
 import {
     ClassType,
     FunctionType,
@@ -52,7 +52,6 @@ import {
     FunctionNode,
     MemberAccessNode,
     NameNode,
-    ParseNode,
     ParseNodeType,
 } from '../parser/parseNodes';
 
@@ -790,37 +789,36 @@ export function combineExpressionTypes(typeNodes: ExpressionNode[], evaluator: T
     return result;
 }
 
-export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvaluator) {
-    // If the class is used as part of a call (i.e. it is being
-    // instantiated), include the constructor arguments within the
-    // hover text.
-    let callLeftNode: ParseNode | undefined = node;
+export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvaluator, includeUncalled = false) {
+    let classExpressionNode: ExpressionNode = node;
 
     // Allow the left to be a member access chain (e.g. a.b.c) if the
     // node in question is the last item in the chain.
-    if (callLeftNode?.parent?.nodeType === ParseNodeType.MemberAccess && node === callLeftNode.parent.d.member) {
-        callLeftNode = node.parent;
-        // Allow the left to be a generic class constructor (e.g. foo[int]())
-    } else if (callLeftNode?.parent?.nodeType === ParseNodeType.Index) {
-        callLeftNode = node.parent;
+    if (node.parent?.nodeType === ParseNodeType.MemberAccess && node === node.parent.d.member) {
+        classExpressionNode = node.parent;
     }
 
-    if (
-        !callLeftNode ||
-        !callLeftNode.parent ||
-        callLeftNode.parent.nodeType !== ParseNodeType.Call ||
-        callLeftNode.parent.d.leftExpr !== callLeftNode
-    ) {
+    // Allow the left to be a generic class constructor (e.g. foo[int]()).
+    if (classExpressionNode.parent?.nodeType === ParseNodeType.Index) {
+        classExpressionNode = classExpressionNode.parent;
+    }
+
+    const callNode =
+        classExpressionNode.parent?.nodeType === ParseNodeType.Call &&
+        classExpressionNode.parent.d.leftExpr === classExpressionNode
+            ? classExpressionNode.parent
+            : undefined;
+    if (!callNode && !includeUncalled) {
         return;
     }
 
     // Get the init method for this class.
-    const classType = getTypeForToolTip(evaluator, node);
+    const classType = getTypeForToolTip(evaluator, callNode ? node : classExpressionNode);
     if (!isInstantiableClass(classType)) {
         return;
     }
 
-    const instanceType = getTypeForToolTip(evaluator, callLeftNode.parent);
+    const instanceType = callNode ? getTypeForToolTip(evaluator, callNode) : convertToInstance(classType);
     if (!isClassInstance(instanceType)) {
         return;
     }
@@ -870,7 +868,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
         }
     }
 
-    return { methodType, classType };
+    return { methodType, classType, isCall: !!callNode };
 }
 
 export function bindFunctionToClassOrObjectToolTip(

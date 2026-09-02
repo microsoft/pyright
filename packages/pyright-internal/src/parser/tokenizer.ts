@@ -1755,12 +1755,11 @@ export class Tokenizer {
         const length = this._cs.position - start;
         const sourceText = this._cs.getText();
         const end = start + length;
+        const comment = Comment.create(start, length, sourceText.slice(start, end));
 
         // Fast pre-filter: any ignore directive must contain the substring 'ignore'.
-        // indexOf is a highly-optimized native call and lets us skip the full
-        // directive scan for the vast majority of comments (which are free-form text).
-        const ignoreIdx = sourceText.indexOf('ignore', start);
-        if (ignoreIdx >= 0 && ignoreIdx < end) {
+        // Search only the current comment so comment-heavy files remain linear in size.
+        if (comment.value.includes('ignore')) {
             const typeIgnoreMatch = matchIgnoreDirective(sourceText, start, end, 'type');
             if (typeIgnoreMatch) {
                 const commentStart = typeIgnoreMatch.index;
@@ -1808,7 +1807,6 @@ export class Tokenizer {
             }
         }
 
-        const comment = Comment.create(start, length, sourceText.slice(start, end));
         this._addComments(comment);
     }
 

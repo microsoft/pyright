@@ -604,6 +604,80 @@ test('random folder changed', () => {
     );
 });
 
+test('new folder is ignored when it is not a symlink', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const folderUri = Uri.file('/projectRoot/newFolder', state.serviceProvider);
+    state.testFS.mkdirpSync(folderUri.getFilePath());
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'add'),
+        false
+    );
+});
+
+test('new folder under a symlinked parent is ignored', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    state.testFS.mkdirpSync('/projectRoot/realParent/newFolder');
+    state.testFS.symlinkSync('/projectRoot/realParent', '/projectRoot/linkParent');
+    const folderUri = Uri.file('/projectRoot/linkParent/newFolder', state.serviceProvider);
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'add'),
+        false
+    );
+});
+
+test('new symlinked folder is handled for its add and unlink events', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const folderUri = Uri.file('/projectRoot/exporter', state.serviceProvider);
+    state.testFS.mkdirpSync('/projectRoot/non_linked');
+    state.testFS.symlinkSync('/projectRoot/non_linked', folderUri.getFilePath());
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'add'),
+        true
+    );
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'change'),
+        false
+    );
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'unlink'),
+        true
+    );
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'unlink'),
+        false
+    );
+});
+
+test('new symlinked folder under a regular package is handled when removed', () => {
+    const code = `
+// @filename: package/__init__.py
+//// # empty
+    `;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const cmdOptions = new CommandLineOptions(state.workspace.rootUri, false);
+    cmdOptions.languageServerSettings.watchForSourceChanges = true;
+    state.workspace.service.setOptions(cmdOptions);
+
+    let invalidatedReason: InvalidatedReason | undefined;
+    state.workspace.service.test_setOnInvalidatedCallback((reason) => {
+        invalidatedReason = reason;
+    });
+
+    const folderUri = Uri.file('/projectRoot/package/exporter', state.serviceProvider);
+    state.testFS.mkdirpSync('/projectRoot/non_linked');
+    state.testFS.symlinkSync('/projectRoot/non_linked', folderUri.getFilePath());
+    state.testFS.fireFileWatcherEvent(folderUri.toString(), 'add');
+    assert.strictEqual(invalidatedReason, InvalidatedReason.SourceWatcherChanged);
+
+    invalidatedReason = undefined;
+    state.testFS.unlinkSync(folderUri);
+    state.testFS.fireFileWatcherEvent(folderUri.toString(), 'change');
+    assert.strictEqual(invalidatedReason, InvalidatedReason.SourceWatcherChanged);
+});
+
 test('excluded folder changed', () => {
     const code = `
 // @filename: pyrightconfig.json
