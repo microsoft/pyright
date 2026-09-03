@@ -41,6 +41,7 @@ import {
     applySolvedTypeVars,
     ClassMember,
     containsLiteralType,
+    derivesFromClassRecursive,
     lookUpClassMember,
     makeFunctionTypeVarsBound,
     MemberAccessFlags,
@@ -378,9 +379,19 @@ function assignToProtocolInternal(
 
     let selfType: ClassType | TypeVarType | undefined;
     if (isClass(srcType)) {
-        // If the srcType is conditioned on "self", use "Self" as the selfType.
-        // Otherwise use the class type for selfType.
-        const synthCond = srcType.props?.condition?.find((c) => TypeVarType.isSelf(c.typeVar));
+        const srcClassType = srcType;
+
+        // If the srcType is conditioned on its own "self", use "Self" as the
+        // selfType. A condition from an enclosing expression's Self type should
+        // not affect the specialization of this class.
+        const synthCond = srcClassType.props?.condition?.find((c) => {
+            const boundType = c.typeVar.shared.boundType;
+            if (!TypeVarType.isSelf(c.typeVar) || !boundType || !isClass(boundType)) {
+                return false;
+            }
+
+            return derivesFromClassRecursive(srcClassType, boundType, /* ignoreUnknown */ true);
+        });
         if (synthCond) {
             selfType = synthesizeTypeVarForSelfCls(
                 TypeBase.cloneForCondition(srcType, undefined),
