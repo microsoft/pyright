@@ -124,6 +124,11 @@ test('OverloadImpl3', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('OverloadImpl4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadImpl4.py']);
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('OverloadOverlap1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
