@@ -109,6 +109,11 @@ test('OverloadOverride1', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('OverloadOverride2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverride2.py']);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('OverloadImpl1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadImpl1.py']);
     TestUtils.validateResults(analysisResults, 6);
