@@ -444,7 +444,36 @@ export function applyClassDecorator(
         }
     }
 
-    return getTypeOfDecorator(evaluator, decoratorNode, inputClassType, nodeInfo);
+    const returnType = getTypeOfDecorator(evaluator, decoratorNode, inputClassType, nodeInfo);
+
+    const inputPreservesClassIdentity =
+        isInstantiableClass(inputClassType) &&
+        (ClassType.isSameGenericClass(inputClassType, originalClassType) ||
+            originalClassType.shared.decoratorPreservesClassIdentity === true);
+    const decoratorParamName =
+        isFunction(decoratorType) && decoratorType.shared.parameters.length === 1
+            ? decoratorType.shared.parameters[0].name
+            : undefined;
+    const decoratorDeclaration = isFunction(decoratorType) ? decoratorType.shared.declaration : undefined;
+    const decoratorParamSymbol =
+        decoratorParamName && decoratorDeclaration
+            ? nodeInfo.getScope(decoratorDeclaration.node)?.lookUpSymbol(decoratorParamName)
+            : undefined;
+    originalClassType.shared.decoratorPreservesClassIdentity =
+        inputPreservesClassIdentity &&
+        isFunction(decoratorType) &&
+        isInstantiableClass(returnType) &&
+        decoratorParamName !== undefined &&
+        decoratorParamSymbol?.getDeclarations().every((decl) => decl.type === DeclarationType.Param) === true &&
+        decoratorDeclaration?.node.d.decorators.length === 0 &&
+        !!decoratorDeclaration?.returnStatements?.length &&
+        !evaluator.isAfterNodeReachable(decoratorDeclaration.node.d.suite) &&
+        decoratorDeclaration.returnStatements.every(
+            (returnNode) =>
+                returnNode.d.expr?.nodeType === ParseNodeType.Name && returnNode.d.expr.d.value === decoratorParamName
+        );
+
+    return returnType;
 }
 
 function getTypeOfDecorator(

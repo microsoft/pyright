@@ -11758,12 +11758,40 @@ export function createTypeEvaluator(
             };
         }
 
-        if (ClassType.supportsAbstractMethods(expandedCallType)) {
-            const abstractSymbols = getAbstractSymbols(expandedCallType);
+        let concreteDecoratedClassType: ClassType | undefined;
+        if (expandedCallType.priv.includeSubclasses && errorNode.nodeType === ParseNodeType.Call) {
+            const callTargetNode = errorNode.d.leftExpr;
+            const symbolDeclarations =
+                callTargetNode.nodeType === ParseNodeType.Name
+                    ? lookUpSymbolRecursive(callTargetNode, callTargetNode.d.value, /* honorCodeFlow */ true)
+                          ?.symbol.getDeclarations()
+                          .filter((decl) => decl.node.start <= callTargetNode.start)
+                    : undefined;
+            const activeDeclaration =
+                symbolDeclarations?.length === 1
+                    ? resolveAliasDeclaration(symbolDeclarations[0], /* resolveLocalNames */ true)
+                    : undefined;
+            const classDeclaration = activeDeclaration?.type === DeclarationType.Class ? activeDeclaration : undefined;
+
+            if (classDeclaration?.type === DeclarationType.Class) {
+                const classTypeInfo = getTypeOfClass(classDeclaration.node);
+                if (
+                    classTypeInfo?.classType.shared.decoratorPreservesClassIdentity &&
+                    isInstantiableClass(classTypeInfo.decoratedType) &&
+                    ClassType.isSameGenericClass(classTypeInfo.decoratedType, expandedCallType)
+                ) {
+                    concreteDecoratedClassType = classTypeInfo.classType;
+                }
+            }
+        }
+
+        const abstractClassType = concreteDecoratedClassType ?? expandedCallType;
+        if (ClassType.supportsAbstractMethods(abstractClassType)) {
+            const abstractSymbols = getAbstractSymbols(abstractClassType);
 
             if (
                 abstractSymbols.length > 0 &&
-                !expandedCallType.priv.includeSubclasses &&
+                (!expandedCallType.priv.includeSubclasses || concreteDecoratedClassType !== undefined) &&
                 !isTypeVar(unexpandedCallType)
             ) {
                 // If the class is abstract, it can't be instantiated.
@@ -11793,7 +11821,7 @@ export function createTypeEvaluator(
                 addDiagnostic(
                     DiagnosticRule.reportAbstractUsage,
                     LocMessage.instantiateAbstract().format({
-                        type: expandedCallType.shared.name,
+                        type: abstractClassType.shared.name,
                     }) + diagAddendum.getString(),
                     errorNode
                 );
