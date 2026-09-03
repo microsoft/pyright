@@ -236,6 +236,7 @@ import {
 } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
 import * as TypePrinter from './typePrinter';
+import { TypeWalker } from './typeWalker';
 import {
     AnyType,
     ClassType,
@@ -6949,7 +6950,12 @@ export function createTypeEvaluator(
             MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
         );
 
-        if (!methodTypeResult || methodTypeResult.typeErrors) {
+        const deferredMethodType =
+            usage.method === 'get'
+                ? getDescriptorGetMethodWithDeferredSelfSpecialization(concreteMemberType, subDiag)
+                : undefined;
+
+        if ((!methodTypeResult || methodTypeResult.typeErrors) && !deferredMethodType) {
             // Provide special error messages for properties.
             if (ClassType.isPropertyClass(concreteMemberType) && usage.method !== 'get') {
                 const message =
@@ -6965,10 +6971,10 @@ export function createTypeEvaluator(
             return { type: memberType };
         }
 
-        const methodClassType = methodTypeResult.classType;
-        let methodType = methodTypeResult.type;
+        const methodClassType = methodTypeResult?.classType ?? concreteMemberType;
+        let methodType = deferredMethodType ?? methodTypeResult!.type;
 
-        if (methodTypeResult.typeErrors || !methodClassType) {
+        if (!methodClassType) {
             if (diag && subDiag) {
                 diag.addAddendum(subDiag);
             }
@@ -7163,6 +7169,87 @@ export function createTypeEvaluator(
             isAsymmetricAccessor,
             memberAccessDeprecationInfo: deprecationInfo,
         };
+    }
+
+    function getDescriptorGetMethodWithDeferredSelfSpecialization(
+        concreteMemberType: ClassType,
+        diag: DiagnosticAddendum | undefined
+    ): FunctionType | OverloadedType | undefined {
+        const member = lookUpClassMember(concreteMemberType, '__get__');
+        if (!member || !isInstantiableClass(member.unspecializedClassType)) {
+            return undefined;
+        }
+
+        const unspecializedClassType = member.unspecializedClassType;
+        const declaringClassType = member.classType;
+        if (!isInstantiableClass(declaringClassType)) {
+            return undefined;
+        }
+        const declaringObjectType = ClassType.cloneAsInstance(declaringClassType);
+
+        const unspecializedMethodType = getEffectiveTypeOfSymbol(member.symbol);
+        if (!isFunctionOrOverloaded(unspecializedMethodType)) {
+            return undefined;
+        }
+
+        // A class ParamSpec used in Concatenate within the self annotation needs to be
+        // solved from the concrete descriptor, rather than specialized before self is bound.
+        const classParamSpecs = ClassType.getTypeParams(unspecializedClassType).filter(isParamSpec);
+        if (classParamSpecs.length === 0) {
+            return undefined;
+        }
+
+        const signatures = isFunction(unspecializedMethodType)
+            ? [unspecializedMethodType]
+            : OverloadedType.getOverloads(unspecializedMethodType);
+
+        const shouldDefer = signatures.some((signature) => {
+            if (signature.shared.parameters.length === 0) {
+                return false;
+            }
+
+            const selfParamType = FunctionType.getParamType(signature, 0);
+            if (!isClassInstance(selfParamType) || !ClassType.isSameGenericClass(selfParamType, declaringObjectType)) {
+                return false;
+            }
+
+            class ConcatenateParamSpecWalker extends TypeWalker {
+                found = false;
+
+                override visitFunction(type: FunctionType): void {
+                    const paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
+                    if (
+                        paramSpec &&
+                        FunctionType.cloneRemoveParamSpecArgsKwargs(type).shared.parameters.length > 0 &&
+                        classParamSpecs.some((classParamSpec) => isTypeSame(paramSpec, classParamSpec))
+                    ) {
+                        this.found = true;
+                        this.cancelWalk();
+                        return;
+                    }
+
+                    super.visitFunction(type);
+                }
+            }
+
+            const walker = new ConcatenateParamSpecWalker();
+            selfParamType.priv.typeArgs?.forEach((typeArg) => walker.walk(typeArg));
+
+            return walker.found;
+        });
+
+        if (!shouldDefer) {
+            return undefined;
+        }
+
+        return bindFunctionToClassOrObject(
+            declaringObjectType,
+            unspecializedMethodType,
+            declaringClassType,
+            /* treatConstructorAsClassMethod */ false,
+            concreteMemberType,
+            diag
+        );
     }
 
     function bindMethodForMemberAccess(
