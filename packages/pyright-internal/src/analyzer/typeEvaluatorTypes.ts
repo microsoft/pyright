@@ -649,6 +649,10 @@ export const enum AssignTypeFlags {
     // When assigning callables, should a kwargs with an unpacked TypedDict
     // disallow additional named arguments if it does not have extraItems?
     DisallowExtraKwargsForTd = 1 << 17,
+
+    // When validating an overload implementation, ensure that an unbounded
+    // *args parameter doesn't mask a required implementation parameter.
+    EnforceOverloadImplCallDomain = 1 << 18,
 }
 
 export interface TypeEvaluator {

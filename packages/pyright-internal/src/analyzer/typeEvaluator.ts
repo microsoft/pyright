@@ -28218,7 +28218,9 @@ export function createTypeEvaluator(
         let canAssign = true;
         const checkReturnType = (flags & AssignTypeFlags.SkipReturnTypeCheck) === 0;
         const isContra = (flags & AssignTypeFlags.Contravariant) !== 0;
+        const enforceOverloadImplCallDomain = (flags & AssignTypeFlags.EnforceOverloadImplCallDomain) !== 0;
         flags &= ~AssignTypeFlags.SkipReturnTypeCheck;
+        flags &= ~AssignTypeFlags.EnforceOverloadImplCallDomain;
 
         const destParamSpec = FunctionType.getParamSpecFromArgsKwargs(destType);
         if (destParamSpec) {
@@ -28263,6 +28265,25 @@ export function createTypeEvaluator(
 
             // Skip over the *args parameter since it's handled separately below.
             if (paramIndex === destParamDetails.argsIndex) {
+                const srcParam = srcParamDetails.params[paramIndex];
+
+                // An unbounded *args parameter can consume zero arguments. It therefore
+                // cannot satisfy a required parameter in the source callable, even
+                // though it can provide the parameter's type when arguments are present.
+                if (
+                    enforceOverloadImplCallDomain &&
+                    !destParamDetails.hasUnpackedTypeVarTuple &&
+                    srcParam.param.category === ParamCategory.Simple &&
+                    !srcParam.defaultType
+                ) {
+                    diag?.createAddendum().addMessage(
+                        LocAddendum.functionParamDefaultMissing().format({
+                            name: srcParam.param.name ?? '',
+                        })
+                    );
+                    canAssign = false;
+                }
+
                 if (!isUnpackedTypeVarTuple(destParamDetails.params[destParamDetails.argsIndex].type)) {
                     skippedPosParamIndices.push(paramIndex);
                 }
