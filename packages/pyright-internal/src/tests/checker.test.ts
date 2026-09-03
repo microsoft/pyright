@@ -553,6 +553,13 @@ test('UninitializedVariable3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('UninitializedVariable4', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportUninitializedInstanceVariable = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['uninitializedVariable4.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('DeprecatedAlias1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

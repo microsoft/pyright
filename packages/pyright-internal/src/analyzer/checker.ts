@@ -5328,7 +5328,7 @@ export class Checker extends ParseTreeWalker {
             const decls = localSymbol.getDeclarations();
 
             // If the symbol is assigned (or at least declared) within the
-            // class body or within the __init__ method, it can be ignored.
+            // class body or within the __init__ or __new__ method, it can be ignored.
             if (
                 decls.find((decl) => {
                     const containingClass = ParseTreeUtils.getEnclosingClassOrFunction(decl.node);
@@ -5364,7 +5364,7 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
 
-                    if (containingClass.d.name.d.value === '__init__') {
+                    if (['__init__', '__new__'].includes(containingClass.d.name.d.value)) {
                         return true;
                     }
 
