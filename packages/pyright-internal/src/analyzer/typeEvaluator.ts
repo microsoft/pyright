@@ -29129,20 +29129,37 @@ export function createTypeEvaluator(
             });
         }
 
-        // For an overloaded method overriding an overloaded method, the overrides
-        // must all match and be in the correct order. It is OK if the base method
-        // has additional overloads that are not present in the override.
+        // For an overloaded method overriding an overloaded method, all base overloads
+        // must match in the correct order. The override can have additional overloads.
 
         let previousMatchIndex = -1;
         const baseOverloads = OverloadedType.getOverloads(baseMethod);
+        const matchedBaseOverloadIndices = new Set<number>();
+        const getCallDomainType = (overload: FunctionType) => {
+            // Remove the implicit receiver because it belongs to different classes
+            // and isn't part of the overload's call domain.
+            return FunctionType.clone(
+                overload,
+                FunctionType.isInstanceMethod(overload) ||
+                    FunctionType.isClassMethod(overload) ||
+                    FunctionType.isConstructorMethod(overload)
+            );
+        };
+        const baseCallDomainTypes = baseOverloads.map(getCallDomainType);
+        const overlapFlags =
+            AssignTypeFlags.SkipReturnTypeCheck |
+            AssignTypeFlags.OverloadOverlap |
+            AssignTypeFlags.DisallowExtraKwargsForTd;
 
         for (const overrideOverload of OverloadedType.getOverloads(overrideMethod)) {
-            let possibleMatchIndex: number | undefined;
+            const compatibleBaseOverloadIndices: number[] = [];
+            const incompatibleOverlappingBaseIndices: number[] = [];
+            const overrideCallDomainType = getCallDomainType(overrideOverload);
 
-            let matchIndex = baseOverloads.findIndex((baseOverload, index) => {
+            baseOverloads.forEach((baseOverload, index) => {
                 // If the override isn't applicable for this base class, skip the check.
                 if (baseClass && !isOverrideMethodApplicable(baseOverload, baseClass)) {
-                    return false;
+                    return;
                 }
 
                 const isCompatible = validateOverrideMethodInternal(
@@ -29152,47 +29169,86 @@ export function createTypeEvaluator(
                     enforceParamNames
                 );
 
-                // If the override is compatible but the match is one that is below the previous
-                // matched index, keep looking for additional matches. Record the fact that
-                // we found at least one match.
-                if (isCompatible && index <= previousMatchIndex && possibleMatchIndex === undefined) {
-                    possibleMatchIndex = index;
+                if (isCompatible) {
+                    compatibleBaseOverloadIndices.push(index);
+                } else {
+                    if (
+                        assignType(
+                            baseCallDomainTypes[index],
+                            overrideCallDomainType,
+                            /* diag */ undefined,
+                            /* constraints */ undefined,
+                            overlapFlags | AssignTypeFlags.PartialOverloadOverlap
+                        ) ||
+                        assignType(
+                            overrideCallDomainType,
+                            baseCallDomainTypes[index],
+                            /* diag */ undefined,
+                            /* constraints */ undefined,
+                            overlapFlags | AssignTypeFlags.PartialOverloadOverlap
+                        )
+                    ) {
+                        incompatibleOverlappingBaseIndices.push(index);
+                    }
+                }
+            });
+
+            const hasUnshadowedIncompatibleOverlap = incompatibleOverlappingBaseIndices.some((overlapIndex) => {
+                // A prior override already handles this base domain, so it shadows
+                // the overlapping portion of the current override.
+                if (matchedBaseOverloadIndices.has(overlapIndex)) {
                     return false;
                 }
 
-                return isCompatible;
+                // An earlier compatible base overload shadows a later base overload
+                // if it covers the entire call domain of the current override.
+                return !compatibleBaseOverloadIndices.some((compatibleIndex) => {
+                    return (
+                        compatibleIndex < overlapIndex &&
+                        assignType(
+                            overrideCallDomainType,
+                            baseCallDomainTypes[compatibleIndex],
+                            /* diag */ undefined,
+                            /* constraints */ undefined,
+                            overlapFlags
+                        )
+                    );
+                });
             });
 
-            if (matchIndex < 0 && possibleMatchIndex !== undefined) {
-                matchIndex = possibleMatchIndex;
+            if (hasUnshadowedIncompatibleOverlap) {
+                diag.addMessage(LocAddendum.overrideOverloadNoMatch());
+                return false;
             }
 
-            if (matchIndex < 0) {
-                break;
+            const newlyCoveredBaseIndices = compatibleBaseOverloadIndices.filter(
+                (index) => !matchedBaseOverloadIndices.has(index)
+            );
+
+            if (newlyCoveredBaseIndices.length === 0) {
+                continue;
             }
 
-            if (matchIndex < previousMatchIndex) {
+            if (newlyCoveredBaseIndices.some((index) => index < previousMatchIndex)) {
                 diag.addMessage(LocAddendum.overrideOverloadOrder());
                 return false;
             }
 
-            previousMatchIndex = matchIndex;
+            previousMatchIndex = Math.max(...newlyCoveredBaseIndices);
+            newlyCoveredBaseIndices.forEach((index) => matchedBaseOverloadIndices.add(index));
         }
 
-        if (previousMatchIndex < baseOverloads.length - 1) {
-            const unmatchedOverloads = baseOverloads.slice(previousMatchIndex + 1);
-
-            // See if all of the remaining overrides are nonapplicable.
-            if (
-                !baseClass ||
-                unmatchedOverloads.some((overload) => {
-                    return isOverrideMethodApplicable(overload, baseClass);
-                })
-            ) {
-                // We didn't find matches for all of the base overloads.
-                diag.addMessage(LocAddendum.overrideOverloadNoMatch());
-                return false;
-            }
+        if (
+            baseOverloads.some((overload, index) => {
+                return (
+                    !matchedBaseOverloadIndices.has(index) &&
+                    (!baseClass || isOverrideMethodApplicable(overload, baseClass))
+                );
+            })
+        ) {
+            // We didn't find matches for all of the base overloads.
+            diag.addMessage(LocAddendum.overrideOverloadNoMatch());
+            return false;
         }
 
         return true;
