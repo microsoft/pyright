@@ -30,6 +30,7 @@ import {
     isFunctionOrOverloaded,
     isInstantiableClass,
     isOverloaded,
+    isTypeVar,
     isTypeSame,
     ModuleType,
     OverloadedType,
@@ -912,7 +913,7 @@ function assignToProtocolInternal(
 // return type is exactly `Leaf | Protocol[Leaf]`. This makes element compatibility a necessary
 // condition of the full protocol assignment. If that condition fails, the source sequence cannot
 // satisfy __getitem__. Every uncertain case falls back to the normal structural protocol walk.
-function tryFastRejectSequenceProtocol(
+export function tryFastRejectSequenceProtocol(
     evaluator: TypeEvaluator,
     destType: ClassType,
     srcType: ClassType | ModuleType,
@@ -939,7 +940,11 @@ function tryFastRejectSequenceProtocol(
 
     const srcElementType = srcType.priv.typeArgs?.[0];
 
-    if (!srcElementType || isAnyOrUnknown(srcElementType)) {
+    if (
+        !srcElementType ||
+        isAnyOrUnknown(srcElementType) ||
+        (isTypeVar(srcElementType) && TypeVarType.isUnification(srcElementType))
+    ) {
         return undefined;
     }
 

@@ -8,6 +8,11 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import * as assert from 'assert';
+
+import { tryFastRejectSequenceProtocol } from '../analyzer/protocols';
+import { AssignTypeFlags } from '../analyzer/typeEvaluatorTypes';
+import { ClassType, isClassInstance, TypeVarType } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import {
     pythonVersion3_10,
@@ -18,6 +23,8 @@ import {
     pythonVersion3_8,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { ParseNodeType } from '../parser/parseNodes';
+import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
 
 test('GenericType1', () => {
@@ -524,6 +531,56 @@ test('Protocol36', () => {
     expect(unionCallError[0].message).not.toContain('__iter__');
     expect(protocolErrors.some((error) => error.message.includes('__iter__'))).toBe(true);
     expect(protocolErrors.some((error) => error.message.includes('__reversed__'))).toBe(true);
+});
+
+test('Protocol36UnificationTypeVar', () => {
+    const code = `
+// @filename: test.py
+//// from collections.abc import Iterator
+//// from typing import Any, cast, Protocol, TypeVar
+////
+//// T_co = TypeVar("T_co", covariant=True)
+////
+//// class SupportsArray(Protocol):
+////     def __array__(self) -> object: ...
+////
+//// class FullNestedSequence(Protocol[T_co]):
+////     def __len__(self, /) -> int: ...
+////     def __getitem__(self, index: int, /) -> T_co | "FullNestedSequence[T_co]": ...
+////     def __contains__(self, value: object, /) -> bool: ...
+////     def __iter__(self, /) -> Iterator[T_co | "FullNestedSequence[T_co]"]: ...
+////     def __reversed__(self, /) -> Iterator[T_co | "FullNestedSequence[T_co]"]: ...
+////     def count(self, value: Any, /) -> int: ...
+////     def index(self, value: Any, /) -> int: ...
+////
+//// source = /*source*/[1]
+//// destination = /*destination*/cast(FullNestedSequence[SupportsArray], None)
+    `;
+    const state = parseAndGetTestState(code).state;
+    const sourceNode = getNodeAtMarker(state, 'source');
+    const destinationNode = getNodeAtMarker(state, 'destination');
+    assert.strictEqual(sourceNode.nodeType, ParseNodeType.List);
+    assert.strictEqual(destinationNode.nodeType, ParseNodeType.Name);
+    assert.strictEqual(destinationNode.parent?.nodeType, ParseNodeType.Call);
+
+    const sourceType = state.program.evaluator!.getTypeOfExpression(sourceNode).type;
+    const destinationType = state.program.evaluator!.getTypeOfExpression(destinationNode.parent).type;
+    assert.ok(isClassInstance(sourceType));
+    assert.ok(isClassInstance(destinationType));
+
+    const typeVar = TypeVarType.cloneAsUnificationVar(TypeVarType.createInstance('T'));
+    const sourceWithUnificationTypeVar = ClassType.specialize(sourceType, [typeVar]);
+    assert.strictEqual(
+        tryFastRejectSequenceProtocol(
+            state.program.evaluator!,
+            destinationType,
+            sourceWithUnificationTypeVar,
+            undefined,
+            AssignTypeFlags.Default,
+            0
+        ),
+        undefined
+    );
 });
 
 test('Protocol37', () => {
