@@ -590,6 +590,12 @@ test('Comprehension11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Comprehension12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['comprehension12.py']);
+
+    TestUtils.validateResults(analysisResults, 10);
+});
+
 test('Literals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals1.py']);
 
