@@ -4055,7 +4055,8 @@ export function createTypeEvaluator(
                 if (
                     TypeBase.isInstance(destType) &&
                     !isConstantName(nameValue) &&
-                    !isFinalVariable(symbolWithScope.symbol)
+                    !isFinalVariable(symbolWithScope.symbol) &&
+                    !isSentinelLiteral(destType)
                 ) {
                     destType = stripTypeForm(stripLiteralValue(destType));
                 }
@@ -24855,6 +24856,12 @@ export function createTypeEvaluator(
                                 ClassType.isEnumClass(type) &&
                                 isDeclInEnumClass(evaluatorInterface, decl)
                             ) {
+                                isConstant = true;
+                            }
+
+                            // Sentinel objects are singletons; retaining the literal is sound
+                            // even when the binding is not a CONSTANT_NAME or Final.
+                            if (isSentinelLiteral(type)) {
                                 isConstant = true;
                             }
 
