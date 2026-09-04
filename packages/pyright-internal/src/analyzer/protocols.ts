@@ -21,7 +21,9 @@ import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbo
 import { AssignTypeFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
+    combineTypes,
     FunctionType,
+    isAnyOrUnknown,
     isClass,
     isClassInstance,
     isFunction,
@@ -29,6 +31,7 @@ import {
     isInstantiableClass,
     isOverloaded,
     isTypeSame,
+    isTypeVar,
     ModuleType,
     OverloadedType,
     Type,
@@ -57,6 +60,16 @@ interface ProtocolAssignmentStackEntry {
     destType: ClassType;
 }
 
+const sequenceProtocolMemberNames = new Set([
+    '__len__',
+    '__getitem__',
+    '__contains__',
+    '__iter__',
+    '__reversed__',
+    'count',
+    'index',
+]);
+
 interface ProtocolCompatibility {
     // Specialized source type or undefined if this entry applies
     // to all specializations
@@ -69,10 +82,13 @@ interface ProtocolCompatibility {
     preConstraints: ConstraintTracker | undefined;
     postConstraints: ConstraintTracker | undefined;
     isCompatible: boolean;
+    isFastRejection: boolean;
 }
 
 interface ProtocolCompatibilityCheckState {
     isOverloadedTypeBindingFailure: boolean;
+    isFastRejection: boolean;
+    isUniversalCompatibilityCheck: boolean;
 }
 
 const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
@@ -134,9 +150,23 @@ export function assignClassToProtocol(
     protocolAssignmentStack.push({ srcType, destType });
     let isCompatible = true;
     const clonedConstraints = constraints?.clone();
+    const checkState: ProtocolCompatibilityCheckState = {
+        isOverloadedTypeBindingFailure: false,
+        isFastRejection: false,
+        isUniversalCompatibilityCheck: false,
+    };
 
     try {
-        isCompatible = assignToProtocolInternal(evaluator, destType, srcType, diag, constraints, flags, recursionCount);
+        isCompatible = assignToProtocolInternal(
+            evaluator,
+            destType,
+            srcType,
+            diag,
+            constraints,
+            flags,
+            recursionCount,
+            checkState
+        );
     } catch (e) {
         // We'd normally use "finally" here, but the TS debugger does such
         // a poor job dealing with finally, we'll use a catch instead.
@@ -147,7 +177,7 @@ export function assignClassToProtocol(
     protocolAssignmentStack.pop();
 
     // Cache the results for next time.
-    if (!compat) {
+    if (!compat || (compat.isFastRejection && !checkState.isFastRejection)) {
         setProtocolCompatibility(
             evaluator,
             destType,
@@ -156,6 +186,7 @@ export function assignClassToProtocol(
             clonedConstraints,
             constraints?.clone(),
             isCompatible,
+            checkState.isFastRejection,
             recursionCount
         );
     }
@@ -292,6 +323,7 @@ function setProtocolCompatibility(
     preConstraints: ConstraintTracker | undefined,
     postConstraints: ConstraintTracker | undefined,
     isCompatible: boolean,
+    isFastRejection: boolean,
     recursionCount: number
 ) {
     let map = srcType.shared.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
@@ -313,7 +345,13 @@ function setProtocolCompatibility(
 
     if (
         !isCompatible &&
-        !entries.some((entry) => entry.flags === flags && ClassType.isSameGenericClass(entry.destType, destType))
+        !isFastRejection &&
+        !entries.some(
+            (entry) =>
+                !entry.isFastRejection &&
+                entry.flags === flags &&
+                ClassType.isSameGenericClass(entry.destType, destType)
+        )
     ) {
         const genericDestType = requiresTypeArgs(destType)
             ? selfSpecializeClass(destType, { overrideTypeArgs: true })
@@ -323,6 +361,8 @@ function setProtocolCompatibility(
             : srcType;
         const checkState: ProtocolCompatibilityCheckState = {
             isOverloadedTypeBindingFailure: false,
+            isFastRejection: false,
+            isUniversalCompatibilityCheck: true,
         };
 
         // An overload can use its "self" annotation to filter by specialization,
@@ -344,6 +384,21 @@ function setProtocolCompatibility(
         }
     }
 
+    if (!isFastRejection) {
+        const fastEntryIndex = entries.findIndex(
+            (entry) =>
+                entry.isFastRejection &&
+                entry.flags === flags &&
+                isTypeSame(entry.destType, destType, { honorIsTypeArgExplicit: true, honorTypeForm: true }) &&
+                entry.srcType !== undefined &&
+                isTypeSame(entry.srcType, srcType, { honorIsTypeArgExplicit: true, honorTypeForm: true }) &&
+                isConstraintTrackerSame(preConstraints, entry.preConstraints)
+        );
+        if (fastEntryIndex >= 0) {
+            entries.splice(fastEntryIndex, 1);
+        }
+    }
+
     const newEntry: ProtocolCompatibility = {
         destType,
         srcType: isAlwaysIncompatible ? undefined : srcType,
@@ -351,6 +406,7 @@ function setProtocolCompatibility(
         preConstraints,
         postConstraints,
         isCompatible,
+        isFastRejection,
     };
 
     entries.push(newEntry);
@@ -417,6 +473,27 @@ function assignToProtocolInternal(
         const typedDictClassType = evaluator.getTypedDictClassType();
         if (typedDictClassType && isInstantiableClass(typedDictClassType)) {
             srcType = typedDictClassType;
+        }
+    }
+
+    if (
+        !checkState?.isUniversalCompatibilityCheck &&
+        (!diag || evaluator.isSpeculativeModeInUse(/* node */ undefined))
+    ) {
+        const mismatchedMember = tryFastRejectSequenceProtocol(
+            evaluator,
+            destType,
+            srcType,
+            constraints,
+            flags,
+            recursionCount
+        );
+        if (mismatchedMember) {
+            if (checkState) {
+                checkState.isFastRejection = true;
+            }
+            diag?.createAddendum().addMessage(LocAddendum.memberTypeMismatch().format({ name: mismatchedMember }));
+            return false;
         }
     }
 
@@ -848,6 +925,147 @@ function assignToProtocolInternal(
     }
 
     return typesAreConsistent;
+}
+
+// Some recursive sequence protocols describe an element as either a leaf value or another
+// instance of the same protocol. Proving that a list of complex element types does not match
+// such a protocol through the normal member-by-member walk can be disproportionately expensive.
+//
+// This is a negative-only fast path. It first verifies the protocol's specialized __getitem__
+// return type is exactly `Leaf | Protocol[Leaf]`. This makes element compatibility a necessary
+// condition of the full protocol assignment. If that condition fails, the source sequence cannot
+// satisfy __getitem__. Every uncertain case falls back to the normal structural protocol walk.
+export function tryFastRejectSequenceProtocol(
+    evaluator: TypeEvaluator,
+    destType: ClassType,
+    srcType: ClassType | ModuleType,
+    constraints: ConstraintTracker | undefined,
+    flags: AssignTypeFlags,
+    recursionCount: number
+): '__getitem__' | undefined {
+    if (!isClassInstance(srcType) || !ClassType.isBuiltIn(srcType, 'list')) {
+        return undefined;
+    }
+
+    if (destType.shared.typeParams.length !== 1 || !destType.priv.typeArgs || destType.priv.typeArgs.length !== 1) {
+        return undefined;
+    }
+
+    const destTypeParam = destType.shared.typeParams[0];
+    if (TypeVarType.getVariance(destTypeParam) !== Variance.Covariant) {
+        return undefined;
+    }
+
+    if (!isSequenceLikeProtocol(destType)) {
+        return undefined;
+    }
+
+    const srcElementType = srcType.priv.typeArgs?.[0];
+
+    if (!srcElementType || isAnyOrUnknown(srcElementType) || isTypeVar(srcElementType)) {
+        return undefined;
+    }
+
+    const destElementType = destType.priv.typeArgs[0];
+    if (isAnyOrUnknown(destElementType) || isTypeVar(destElementType)) {
+        return undefined;
+    }
+
+    const recursiveDestElementType = combineTypes([destElementType, ClassType.cloneAsInstance(destType)]);
+    if (!hasRecursiveSequenceGetItem(evaluator, destType, recursiveDestElementType)) {
+        return undefined;
+    }
+
+    // The reduced check can solve TypeVars while testing a generic overload. Keep those speculative
+    // solutions isolated; a fast rejection must not modify constraints observable by the caller.
+    const constraintsClone = constraints?.clone();
+    let assignTypeFlags = flags & (AssignTypeFlags.OverloadOverlap | AssignTypeFlags.PartialOverloadOverlap);
+    if (containsLiteralType(srcElementType, /* includeTypeArgs */ true)) {
+        assignTypeFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
+    }
+
+    if (
+        !evaluator.assignType(
+            recursiveDestElementType,
+            srcElementType,
+            /* diag */ undefined,
+            constraintsClone,
+            assignTypeFlags,
+            recursionCount
+        )
+    ) {
+        return '__getitem__';
+    }
+
+    return undefined;
+}
+
+function hasRecursiveSequenceGetItem(
+    evaluator: TypeEvaluator,
+    classType: ClassType,
+    expectedReturnType: Type
+): boolean {
+    const memberInfo = lookUpClassMember(classType, '__getitem__');
+    if (!memberInfo || !isInstantiableClass(memberInfo.classType)) {
+        return false;
+    }
+
+    let memberType = evaluator.getDeclaredTypeOfSymbol(memberInfo.symbol)?.type;
+    if (!memberType) {
+        return false;
+    }
+
+    memberType = partiallySpecializeType(memberType, classType, evaluator.getTypeClassType());
+    if (!isFunction(memberType)) {
+        return false;
+    }
+
+    const boundMemberType = evaluator.bindFunctionToClassOrObject(
+        ClassType.cloneAsInstance(classType),
+        memberType,
+        classType,
+        /* treatConstructorAsClassMethod */ undefined,
+        /* firstParamType */ undefined,
+        /* diag */ undefined,
+        /* recursionCount */ 0
+    );
+    if (!boundMemberType || !isFunction(boundMemberType)) {
+        return false;
+    }
+
+    const returnType = FunctionType.getEffectiveReturnType(boundMemberType);
+    return !!returnType && isTypeSame(returnType, expectedReturnType);
+}
+
+// Restrict the semantic check above to the standard read-only sequence protocol surface. This is
+// a scope guard rather than the correctness proof: protocols with these names but different
+// __getitem__ semantics are rejected by hasRecursiveSequenceGetItem and use normal matching.
+function isSequenceLikeProtocol(classType: ClassType): boolean {
+    const requiredMemberNames = new Set<string>();
+
+    classType.shared.mro.forEach((mroClass) => {
+        if (!isInstantiableClass(mroClass) || !ClassType.isProtocolClass(mroClass)) {
+            return;
+        }
+
+        ClassType.getSymbolTable(mroClass).forEach((symbol, name) => {
+            if (!symbol.isClassMember() || symbol.isIgnoredForProtocolMatch()) {
+                return;
+            }
+
+            requiredMemberNames.add(name);
+        });
+    });
+
+    if (
+        !requiredMemberNames.has('__len__') ||
+        !requiredMemberNames.has('__getitem__') ||
+        !requiredMemberNames.has('__iter__')
+    ) {
+        return false;
+    }
+
+    return Array.from(requiredMemberNames).every((name) => sequenceProtocolMemberNames.has(name));
 }
 
 // Given a (possibly-specialized) destType and an optional constraint tracker,
