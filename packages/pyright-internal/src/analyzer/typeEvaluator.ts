@@ -16271,25 +16271,50 @@ export function createTypeEvaluator(
             // more sophisticated in the future, but it becomes very complex to handle
             // all of the permutations.
             let sawParamMismatch = false;
+            let expectedParamIndex = 0;
+            const positionOnlySeparatorIndex = node.d.params.findIndex(
+                (param) => param.d.category === ParamCategory.Simple && !param.d.name
+            );
 
             node.d.params.forEach((param, index) => {
                 let paramType: Type | undefined;
 
                 if (expectedParamDetails && !sawParamMismatch) {
-                    if (index < expectedParamDetails.params.length) {
-                        const expectedParam = expectedParamDetails.params[index];
+                    const isKeywordOnlySeparator = param.d.category === ParamCategory.ArgsList && !param.d.name;
+
+                    if (isKeywordOnlySeparator) {
+                        if (
+                            expectedParamIndex < expectedParamDetails.params.length &&
+                            expectedParamDetails.params[expectedParamIndex].kind !== ParamKind.Keyword
+                        ) {
+                            sawParamMismatch = true;
+                        }
+                    } else if (expectedParamIndex < expectedParamDetails.params.length) {
+                        const expectedParam = expectedParamDetails.params[expectedParamIndex];
+                        const isPositionOnlyParam =
+                            (positionOnlySeparatorIndex >= 0 && index < positionOnlySeparatorIndex) ||
+                            (positionOnlySeparatorIndex < 0 &&
+                                paramsArePositionOnly &&
+                                !!param.d.name &&
+                                isPrivateName(param.d.name.d.value));
+                        const isCompatibleKeywordParam =
+                            expectedParam.kind !== ParamKind.Keyword ||
+                            (!isPositionOnlyParam && param.d.name?.d.value === expectedParam.param.name);
 
                         // If the parameter category matches and both of the parameters are
                         // either separators (/ or *) or not separators, copy the type
                         // from the expected parameter.
                         if (
                             expectedParam.param.category === param.d.category &&
-                            !param.d.name === !expectedParam.param.name
+                            !param.d.name === !expectedParam.param.name &&
+                            isCompatibleKeywordParam
                         ) {
                             paramType = expectedParam.type;
                         } else {
                             sawParamMismatch = true;
                         }
+
+                        expectedParamIndex++;
                     } else if (param.d.defaultValue) {
                         // If the lambda param has a default value but there is no associated
                         // parameter in the expected type, assume that the default value is
