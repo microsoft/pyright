@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 from http import HTTPStatus
-from typing import Annotated, Literal, TypeVar
+from typing import Annotated, ClassVar, Literal, TypeVar
 
 # pyright: reportIncompatibleMethodOverride=false
 
@@ -52,6 +52,21 @@ def test_class_var(value_to_match: str):
         case MyClass.class_var_1 as a1:
             reveal_type(a1, expected_text="Never")
             reveal_type(value_to_match, expected_text="Never")
+
+
+class CrossTypePattern:
+    def __eq__(self, other: object) -> bool: ...
+
+
+class CrossTypePatterns:
+    value: ClassVar[CrossTypePattern]
+
+
+def test_cross_type_value_pattern(value_to_match: str):
+    match value_to_match:
+        case CrossTypePatterns.value as a1:
+            reveal_type(a1, expected_text="str")
+            reveal_type(value_to_match, expected_text="str")
 
 
 TInt = TypeVar("TInt", bound=MyEnum1)
