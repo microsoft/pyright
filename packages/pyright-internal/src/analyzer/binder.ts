@@ -3071,11 +3071,33 @@ export class Binder extends ParseTreeWalker {
                 if (!this._moduleSymbolOnly) {
                     const dummyScopeGenerator = new DummyScopeGenerator(this._currentScope, this._nodeInfo);
                     dummyScopeGenerator.walk(statement);
+
+                    // Assignments in unreachable code still make names local, matching
+                    // CPython. Bind those names without type-checking the dead code.
+                    this._bindNamesInUnreachableCode(statement);
                 }
             }
         }
 
         return false;
+    }
+
+    private _bindNamesInUnreachableCode(node: ParseNode) {
+        // Directives apply to the entire scope, so process global and
+        // nonlocal declarations before binding any names.
+        new UnreachableDirectiveFinder(
+            (globalNode) => this.visitGlobal(globalNode),
+            (nonlocalNode) => this.visitNonlocal(nonlocalNode)
+        ).walk(node);
+
+        const bindTarget = (target: ExpressionNode) => {
+            this._bindPossibleTupleNamedTarget(target);
+        };
+        const bindName = (name: NameNode) => {
+            this._bindNameToScope(this._currentScope, name);
+        };
+
+        new UnreachableNameBinder(bindTarget, bindName).walk(node);
     }
 
     private _createStartFlowNode() {
@@ -4861,6 +4883,203 @@ export class ReturnFinder extends ParseTreeWalker {
 
     override visitReturn(node: ReturnNode): boolean {
         this._containsReturn = true;
+        return false;
+    }
+}
+
+// Discovers and processes `global` and `nonlocal` directives in unreachable code.
+// Directives must be evaluated before binding names to ensure that later
+// assignments do not bind as locals in the current scope. Nested function,
+// class, and lambda bodies are skipped because their directives belong to
+// nested scopes.
+class UnreachableDirectiveFinder extends ParseTreeWalker {
+    constructor(
+        private readonly _bindGlobal: (node: GlobalNode) => void,
+        private readonly _bindNonlocal: (node: NonlocalNode) => void
+    ) {
+        super();
+    }
+
+    override visitGlobal(node: GlobalNode): boolean {
+        this._bindGlobal(node);
+        return false;
+    }
+
+    override visitNonlocal(node: NonlocalNode): boolean {
+        this._bindNonlocal(node);
+        return false;
+    }
+
+    override visitFunction(node: FunctionNode): boolean {
+        return false;
+    }
+
+    override visitClass(node: ClassNode): boolean {
+        return false;
+    }
+
+    override visitLambda(node: LambdaNode): boolean {
+        return false;
+    }
+}
+
+// Binds assignment targets in unreachable code so they still create local
+// symbols, matching CPython (an assignment after `return` makes the name
+// local for the entire function).
+// Header expressions for nested functions, classes, and lambdas (decorators,
+// parameter defaults/annotations, type parameters, and class bases/arguments)
+// are evaluated in the enclosing scope, so they are walked to catch assignment
+// expressions (:=). Nested bodies are skipped because DummyScopeGenerator
+// already created their scopes and they belong to nested scopes.
+class UnreachableNameBinder extends ParseTreeWalker {
+    constructor(
+        private readonly _bindTarget: (target: ExpressionNode) => void,
+        private readonly _bindName: (name: NameNode) => void
+    ) {
+        super();
+    }
+
+    override visitAssignment(node: AssignmentNode): boolean {
+        this._bindTarget(node.d.leftExpr);
+        return true;
+    }
+
+    override visitAugmentedAssignment(node: AugmentedAssignmentNode): boolean {
+        this._bindTarget(node.d.leftExpr);
+        return true;
+    }
+
+    override visitTypeAnnotation(node: TypeAnnotationNode): boolean {
+        this._bindTarget(node.d.valueExpr);
+        return true;
+    }
+
+    override visitAssignmentExpression(node: AssignmentExpressionNode): boolean {
+        this._bindName(node.d.name);
+        return true;
+    }
+
+    override visitFor(node: ForNode): boolean {
+        this._bindTarget(node.d.targetExpr);
+        return true;
+    }
+
+    override visitWith(node: WithNode): boolean {
+        node.d.withItems.forEach((item) => {
+            if (item.d.target) {
+                this._bindTarget(item.d.target);
+            }
+        });
+        return true;
+    }
+
+    override visitDel(node: DelNode): boolean {
+        node.d.targets.forEach((target) => {
+            this._bindTarget(target);
+        });
+        return true;
+    }
+
+    override visitExcept(node: ExceptNode): boolean {
+        if (node.d.name) {
+            this._bindName(node.d.name);
+        }
+        return true;
+    }
+
+    override visitImportAs(node: ImportAsNode): boolean {
+        if (node.d.alias) {
+            this._bindName(node.d.alias);
+        } else if (node.d.module.d.nameParts.length > 0) {
+            this._bindName(node.d.module.d.nameParts[0]);
+        }
+        return false;
+    }
+
+    override visitImportFrom(node: ImportFromNode): boolean {
+        node.d.imports.forEach((importSymbolNode) => {
+            this._bindName(importSymbolNode.d.alias || importSymbolNode.d.name);
+        });
+        return false;
+    }
+
+    override visitFunction(node: FunctionNode): boolean {
+        this._bindName(node.d.name);
+
+        this.walkMultiple(node.d.decorators);
+
+        node.d.params.forEach((param) => {
+            if (param.d.defaultValue) {
+                this.walk(param.d.defaultValue);
+            }
+            if (param.d.annotation) {
+                this.walk(param.d.annotation);
+            }
+            if (param.d.annotationComment) {
+                this.walk(param.d.annotationComment);
+            }
+        });
+
+        if (node.d.typeParams) {
+            this.walk(node.d.typeParams);
+        }
+
+        if (node.d.returnAnnotation) {
+            this.walk(node.d.returnAnnotation);
+        }
+
+        if (node.d.funcAnnotationComment) {
+            this.walk(node.d.funcAnnotationComment);
+        }
+
+        return false;
+    }
+
+    override visitClass(node: ClassNode): boolean {
+        this._bindName(node.d.name);
+
+        this.walkMultiple(node.d.decorators);
+
+        if (node.d.typeParams) {
+            this.walk(node.d.typeParams);
+        }
+
+        this.walkMultiple(node.d.arguments);
+
+        return false;
+    }
+
+    override visitLambda(node: LambdaNode): boolean {
+        node.d.params.forEach((param) => {
+            if (param.d.defaultValue) {
+                this.walk(param.d.defaultValue);
+            }
+        });
+
+        return false;
+    }
+
+    override visitTypeAlias(node: TypeAliasNode): boolean {
+        this._bindName(node.d.name);
+
+        if (node.d.typeParams) {
+            this.walk(node.d.typeParams);
+        }
+
+        this.walk(node.d.expr);
+
+        return false;
+    }
+
+    override visitPatternAs(node: PatternAsNode): boolean {
+        if (node.d.target) {
+            this._bindName(node.d.target);
+        }
+        return true;
+    }
+
+    override visitPatternCapture(node: PatternCaptureNode): boolean {
+        this._bindName(node.d.target);
         return false;
     }
 }
