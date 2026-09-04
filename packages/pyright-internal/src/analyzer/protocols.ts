@@ -30,8 +30,8 @@ import {
     isFunctionOrOverloaded,
     isInstantiableClass,
     isOverloaded,
-    isTypeVar,
     isTypeSame,
+    isTypeVar,
     ModuleType,
     OverloadedType,
     Type,
@@ -940,16 +940,12 @@ export function tryFastRejectSequenceProtocol(
 
     const srcElementType = srcType.priv.typeArgs?.[0];
 
-    if (
-        !srcElementType ||
-        isAnyOrUnknown(srcElementType) ||
-        (isTypeVar(srcElementType) && TypeVarType.isUnification(srcElementType))
-    ) {
+    if (!srcElementType || isAnyOrUnknown(srcElementType) || isTypeVar(srcElementType)) {
         return undefined;
     }
 
     const destElementType = destType.priv.typeArgs[0];
-    if (isAnyOrUnknown(destElementType)) {
+    if (isAnyOrUnknown(destElementType) || isTypeVar(destElementType)) {
         return undefined;
     }
 

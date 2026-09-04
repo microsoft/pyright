@@ -12,7 +12,7 @@ import * as assert from 'assert';
 
 import { tryFastRejectSequenceProtocol } from '../analyzer/protocols';
 import { AssignTypeFlags } from '../analyzer/typeEvaluatorTypes';
-import { ClassType, isClassInstance, TypeVarType } from '../analyzer/types';
+import { AnyType, ClassType, isClassInstance, TypeVarType, UnknownType } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import {
     pythonVersion3_10,
@@ -533,7 +533,7 @@ test('Protocol36', () => {
     expect(protocolErrors.some((error) => error.message.includes('__reversed__'))).toBe(true);
 });
 
-test('Protocol36UnificationTypeVar', () => {
+test('Protocol36UncertainElementType', () => {
     const code = `
 // @filename: test.py
 //// from collections.abc import Iterator
@@ -553,33 +553,92 @@ test('Protocol36UnificationTypeVar', () => {
 ////     def count(self, value: Any, /) -> int: ...
 ////     def index(self, value: Any, /) -> int: ...
 ////
-//// source = /*source*/[1]
-//// destination = /*destination*/cast(FullNestedSequence[SupportsArray], None)
+//// def identity[T](value: T) -> T:
+////     return value
+////
+//// def check[T](value: T):
+////     source = /*source*/[value]
+////     nested_source = /*nestedSource*/[[value]]
+////     concrete_source = /*concreteSource*/[1]
+////     generic_callable_source = /*genericCallableSource*/[identity]
+////     destination = /*destination*/cast(FullNestedSequence[SupportsArray], None)
     `;
     const state = parseAndGetTestState(code).state;
     const sourceNode = getNodeAtMarker(state, 'source');
+    const nestedSourceNode = getNodeAtMarker(state, 'nestedSource');
+    const concreteSourceNode = getNodeAtMarker(state, 'concreteSource');
+    const genericCallableSourceNode = getNodeAtMarker(state, 'genericCallableSource');
     const destinationNode = getNodeAtMarker(state, 'destination');
     assert.strictEqual(sourceNode.nodeType, ParseNodeType.List);
+    assert.strictEqual(nestedSourceNode.nodeType, ParseNodeType.List);
+    assert.strictEqual(concreteSourceNode.nodeType, ParseNodeType.List);
+    assert.strictEqual(genericCallableSourceNode.nodeType, ParseNodeType.List);
     assert.strictEqual(destinationNode.nodeType, ParseNodeType.Name);
     assert.strictEqual(destinationNode.parent?.nodeType, ParseNodeType.Call);
 
     const sourceType = state.program.evaluator!.getTypeOfExpression(sourceNode).type;
+    const nestedSourceType = state.program.evaluator!.getTypeOfExpression(nestedSourceNode).type;
+    const concreteSourceType = state.program.evaluator!.getTypeOfExpression(concreteSourceNode).type;
+    const genericCallableSourceType = state.program.evaluator!.getTypeOfExpression(genericCallableSourceNode).type;
     const destinationType = state.program.evaluator!.getTypeOfExpression(destinationNode.parent).type;
     assert.ok(isClassInstance(sourceType));
+    assert.ok(isClassInstance(nestedSourceType));
+    assert.ok(isClassInstance(concreteSourceType));
+    assert.ok(isClassInstance(genericCallableSourceType));
     assert.ok(isClassInstance(destinationType));
 
     const typeVar = TypeVarType.cloneAsUnificationVar(TypeVarType.createInstance('T'));
-    const sourceWithUnificationTypeVar = ClassType.specialize(sourceType, [typeVar]);
+    const sourceWithUnificationTypeVar = ClassType.specialize(concreteSourceType, [typeVar]);
+    const listOfAny = ClassType.specialize(concreteSourceType, [AnyType.create()]);
+    const listOfUnknown = ClassType.specialize(concreteSourceType, [UnknownType.create()]);
+    const uncertainSources = [sourceType, sourceWithUnificationTypeVar, listOfAny, listOfUnknown];
+
+    for (const uncertainSource of uncertainSources) {
+        assert.strictEqual(
+            tryFastRejectSequenceProtocol(
+                state.program.evaluator!,
+                destinationType,
+                uncertainSource,
+                undefined,
+                AssignTypeFlags.Default,
+                0
+            ),
+            undefined
+        );
+    }
+
     assert.strictEqual(
         tryFastRejectSequenceProtocol(
             state.program.evaluator!,
             destinationType,
-            sourceWithUnificationTypeVar,
+            concreteSourceType,
             undefined,
             AssignTypeFlags.Default,
             0
         ),
-        undefined
+        '__getitem__'
+    );
+    assert.strictEqual(
+        tryFastRejectSequenceProtocol(
+            state.program.evaluator!,
+            destinationType,
+            nestedSourceType,
+            undefined,
+            AssignTypeFlags.Default,
+            0
+        ),
+        '__getitem__'
+    );
+    assert.strictEqual(
+        tryFastRejectSequenceProtocol(
+            state.program.evaluator!,
+            destinationType,
+            genericCallableSourceType,
+            undefined,
+            AssignTypeFlags.Default,
+            0
+        ),
+        '__getitem__'
     );
 });
 
