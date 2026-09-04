@@ -377,6 +377,22 @@ export function getTypeNarrowingCallback(
                             };
                         };
                     }
+
+                    // Look for X == <class> or X != <class>.
+                    if (isInstantiableClass(rightType)) {
+                        return (type: Type) => {
+                            return {
+                                type: narrowTypeForClassComparison(
+                                    evaluator,
+                                    type,
+                                    rightType,
+                                    adjIsPositiveTest,
+                                    /* isIsOperator */ false
+                                ),
+                                isIncomplete: !!rightTypeResult.isIncomplete,
+                            };
+                        };
+                    }
                 }
 
                 // Look for X[<literal>] == <literal> or X[<literal>] != <literal>
@@ -2664,16 +2680,46 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
     return combineTypes(typesToCombine);
 }
 
+function hasCustomEqualityMetaclass(classType: ClassType): boolean {
+    const metaclass = classType.shared.effectiveMetaclass;
+    if (metaclass && isClass(metaclass)) {
+        if (
+            lookUpClassMember(
+                metaclass,
+                '__eq__',
+                MemberAccessFlags.SkipTypeBaseClass | MemberAccessFlags.SkipObjectBaseClass
+            ) ||
+            lookUpClassMember(
+                metaclass,
+                '__ne__',
+                MemberAccessFlags.SkipTypeBaseClass | MemberAccessFlags.SkipObjectBaseClass
+            )
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Attempts to narrow a type based on a comparison with a class using "is" or
-// "is not". This pattern is sometimes used for sentinels.
+// "is not", or "==" or "!=".
 function narrowTypeForClassComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
     classType: ClassType,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    isIsOperator = true
 ): Type {
+    if (!isIsOperator && hasCustomEqualityMetaclass(classType)) {
+        return referenceType;
+    }
+
     return mapSubtypes(referenceType, (subtype) => {
         let concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+        if (!isIsOperator && isInstantiableClass(concreteSubtype) && hasCustomEqualityMetaclass(concreteSubtype)) {
+            return subtype;
+        }
 
         if (isPositiveTest) {
             if (
@@ -2693,6 +2739,9 @@ function narrowTypeForClassComparison(
 
             if (isClass(concreteSubtype)) {
                 if (TypeBase.isInstance(concreteSubtype)) {
+                    if (!isIsOperator) {
+                        return subtype;
+                    }
                     return ClassType.isBuiltIn(concreteSubtype, 'object') ? classType : undefined;
                 }
 
