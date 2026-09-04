@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Pyright benchmark history</title>
+        <style>
+            :root {
+                --ink: #18222c;
+                --paper: #f4f7f5;
+                --line: #cdd8d3;
+                --good: #087f5b;
+                --bad: #c92a2a;
+                --stable: #495057;
+            }
+            body {
+                margin: 0;
+                background: var(--paper);
+                color: var(--ink);
+                font-family: Segoe UI, sans-serif;
+            }
+            header,
+            main {
+                max-width: 1180px;
+                margin: auto;
+                padding: 28px;
+            }
+            header {
+                border-bottom: 4px solid #e67700;
+            }
+            h1,
+            h2 {
+                font-family: Georgia, serif;
+            }
+            section {
+                margin: 32px 0;
+            }
+            img {
+                max-width: 100%;
+                height: auto;
+                background: white;
+                border: 1px solid var(--line);
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                background: white;
+            }
+            th,
+            td {
+                padding: 10px;
+                border: 1px solid var(--line);
+                text-align: right;
+            }
+            th:first-child,
+            td:first-child {
+                text-align: left;
+            }
+            .good {
+                color: var(--good);
+            }
+            .bad {
+                color: var(--bad);
+            }
+            .stable {
+                color: var(--stable);
+            }
+            code {
+                overflow-wrap: anywhere;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1>Pyright benchmark history</h1>
+            <p>Latest: <code>075161cd9160dbefff81e8ec4b28a3be4786bfcb</code> Increase benchmark heap headroom</p>
+            <p>Collected 2026-08-20 02:07:10.843078+00:00</p>
+        </header>
+        <main>
+            <section>
+                <h2>Execution time</h2>
+                <img src="execution_time_s.svg" alt="Execution time trend chart" />
+            </section>
+            <section>
+                <h2>Peak memory</h2>
+                <img src="peak_memory_mb.svg" alt="Peak memory trend chart" />
+            </section>
+            <section>
+                <h2>Latest compared with baseline</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Package</th>
+                            <th>Metric</th>
+                            <th>Baseline</th>
+                            <th>Latest</th>
+                            <th>Change</th>
+                            <th>Assessment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>ansible</td>
+                            <td>Execution time</td>
+                            <td>21.66 seconds</td>
+                            <td>21.66 seconds</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>ansible</td>
+                            <td>Peak memory</td>
+                            <td>1110.70 MiB</td>
+                            <td>1110.70 MiB</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>click</td>
+                            <td>Execution time</td>
+                            <td>2.91 seconds</td>
+                            <td>2.91 seconds</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>click</td>
+                            <td>Peak memory</td>
+                            <td>361.00 MiB</td>
+                            <td>361.00 MiB</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>homeassistant</td>
+                            <td>Execution time</td>
+                            <td>158.34 seconds</td>
+                            <td>158.34 seconds</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>homeassistant</td>
+                            <td>Peak memory</td>
+                            <td>6192.10 MiB</td>
+                            <td>6192.10 MiB</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>numpy</td>
+                            <td>Execution time</td>
+                            <td>43.44 seconds</td>
+                            <td>43.44 seconds</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>numpy</td>
+                            <td>Peak memory</td>
+                            <td>1850.00 MiB</td>
+                            <td>1850.00 MiB</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>pandas</td>
+                            <td>Execution time</td>
+                            <td>989.16 seconds</td>
+                            <td>989.16 seconds</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>pandas</td>
+                            <td>Peak memory</td>
+                            <td>4434.00 MiB</td>
+                            <td>4434.00 MiB</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>pytest</td>
+                            <td>Execution time</td>
+                            <td>12.57 seconds</td>
+                            <td>12.57 seconds</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>pytest</td>
+                            <td>Peak memory</td>
+                            <td>930.90 MiB</td>
+                            <td>930.90 MiB</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>requests</td>
+                            <td>Execution time</td>
+                            <td>2.30 seconds</td>
+                            <td>2.30 seconds</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>requests</td>
+                            <td>Peak memory</td>
+                            <td>347.20 MiB</td>
+                            <td>347.20 MiB</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>torch</td>
+                            <td>Execution time</td>
+                            <td>153.78 seconds</td>
+                            <td>153.78 seconds</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>torch</td>
+                            <td>Peak memory</td>
+                            <td>4891.90 MiB</td>
+                            <td>4891.90 MiB</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>transformers</td>
+                            <td>Execution time</td>
+                            <td>134.54 seconds</td>
+                            <td>134.54 seconds</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                        <tr>
+                            <td>transformers</td>
+                            <td>Peak memory</td>
+                            <td>5130.00 MiB</td>
+                            <td>5130.00 MiB</td>
+                            <td>+0.0%</td>
+                            <td class="stable">Stable</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </body>
+</html>

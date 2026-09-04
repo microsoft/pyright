@@ -1,0 +1,5 @@
+ipykernel>=6.30
+matplotlib>=3.10
+nbconvert>=7.16
+pandas>=2.3
+seaborn>=0.13

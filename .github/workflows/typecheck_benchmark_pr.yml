@@ -1,5 +1,5 @@
-name: Type checker benchmark
-run-name: 'Type checker benchmark for PR #${{ inputs.pr_number }}'
+name: Type checker benchmark candidate
+run-name: 'Type checker benchmark candidate for PR #${{ github.event.pull_request.number }}'
 
 env:
   BENCHMARK_RUNNER_CLASS: 'github-ubuntu-latest'
@@ -8,41 +8,54 @@ env:
   PYTHON_VERSION: '3.14.6'
 
 on:
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: Pull request number
-        required: true
-        type: string
-      head_sha:
-        description: Pull request head commit
-        required: true
-        type: string
-      base_sha:
-        description: Pull request base commit
-        required: true
-        type: string
-      merge_sha:
-        description: Pull request merge commit
-        required: true
-        type: string
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+  issues: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.pr_number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  benchmark:
-    name: Compare Pyright performance
+  authorize:
+    name: Check benchmark request
+    runs-on: ubuntu-latest
+    outputs:
+      requested: ${{ steps.request.outputs.requested }}
+    steps:
+      - name: Check request label
+        id: request
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        with:
+          script: |
+            const pullRequest = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            })
+            const requested = Number(process.env.RUN_ATTEMPT) > 1 && pullRequest.data.labels.some(
+              (label) => label.name === 'benchmark-requested'
+            )
+            core.setOutput('requested', requested)
+
+  candidate-benchmark:
+    name: Benchmark pull request merge
+    needs: authorize
+    if: ${{ needs.authorize.outputs.requested == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
-    permissions:
-      contents: read
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.merge_sha }}
           persist-credentials: false
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -69,34 +82,11 @@ jobs:
           SKIP_LERNA_BOOTSTRAP: 'yes'
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Check out trusted baseline
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ inputs.base_sha }}
-          path: benchmark-baseline
-          sparse-checkout: build/benchmark/baselines
-          persist-credentials: false
-
-      - name: Select benchmark baseline
-        id: baseline
-        run: |
-          trusted=benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json
-          bootstrap=build/benchmark/baselines/latest-linux-x64.json
-          if [[ -f "$trusted" ]]; then
-            echo "path=$trusted" >> "$GITHUB_OUTPUT"
-          elif [[ -f "$bootstrap" ]]; then
-            echo "Using the pull request's initial benchmark baseline"
-            echo "path=$bootstrap" >> "$GITHUB_OUTPUT"
-          else
-            echo "No benchmark baseline is available" >&2
-            exit 1
-          fi
-
       - name: Build Pyright CLI
         working-directory: packages/pyright
         run: pnpm run build
 
-      - name: Run benchmark
+      - name: Benchmark pull request merge
         env:
           NODE_OPTIONS: '--max-old-space-size=6656'
           PYTHONNOUSERSITE: '1'
@@ -104,176 +94,45 @@ jobs:
           python build/benchmark/typecheck_benchmark.py \
             -c pyright -r 1 -w 0 -t 1800 --memory-limit-mb 8192 \
             --skip-pyright-build --os-name linux-x64 \
-            --output build/benchmark/results
+            --output build/benchmark/candidate-results
 
-      - name: Compare with baseline
-        id: comparison
-        continue-on-error: true
-        run: |
-          set +e
-          python build/benchmark/compare_benchmarks.py \
-            "${{ steps.baseline.outputs.path }}" \
-            build/benchmark/results/latest-linux-x64.json \
-            --fail-on-preparation-error \
-            --markdown-output build/benchmark/results/report.md
-          comparison_status=$?
-          cat build/benchmark/results/report.md >> "$GITHUB_STEP_SUMMARY"
-          exit "$comparison_status"
-
-      - name: Upload candidate results
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: typecheck-benchmark-linux-x64-pr-${{ inputs.pr_number }}-head-${{ inputs.head_sha }}-base-${{ inputs.base_sha }}-merge-${{ inputs.merge_sha }}
-          path: build/benchmark/results/
-
-      - name: Fail on benchmark regressions
-        if: ${{ steps.comparison.outcome == 'failure' }}
-        run: exit 1
-
-  comment:
-    name: Comment benchmark results
-    needs: benchmark
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-
-      - name: Download benchmark results
-        id: download
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      - name: Record candidate revisions and profile
         env:
-          PR_NUMBER: ${{ inputs.pr_number }}
-          EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
-          EXPECTED_BASE_SHA: ${{ inputs.base_sha }}
-          EXPECTED_MERGE_SHA: ${{ inputs.merge_sha }}
-        with:
-          script: |
-            const fs = require('fs')
-            const issueNumber = Number(process.env.PR_NUMBER)
-            const expectedHeadSha = process.env.EXPECTED_HEAD_SHA
-            const expectedBaseSha = process.env.EXPECTED_BASE_SHA
-            const expectedMergeSha = process.env.EXPECTED_MERGE_SHA
-            const shaPattern = /^[0-9a-f]{40}$/
-            if (
-              !Number.isSafeInteger(issueNumber) ||
-              issueNumber <= 0 ||
-              !shaPattern.test(expectedHeadSha) ||
-              !shaPattern.test(expectedBaseSha) ||
-              !shaPattern.test(expectedMergeSha)
-            ) {
-              core.setFailed('The benchmark dispatch inputs are invalid')
-              return
-            }
-            const artifactName =
-              `typecheck-benchmark-linux-x64-pr-${issueNumber}` +
-              `-head-${expectedHeadSha}-base-${expectedBaseSha}-merge-${expectedMergeSha}`
-            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: context.runId,
-              per_page: 100,
-            })
-            const reports = artifacts.filter((artifact) => artifact.name === artifactName)
-            if (reports.length !== 1) {
-              core.setFailed(`Expected one benchmark report artifact, found ${reports.length}`)
-              return
-            }
-            const pullRequest = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: issueNumber,
-            })
-            if (pullRequest.data.head.sha !== expectedHeadSha) {
-              core.setFailed('The workflow run head does not match the pull request head')
-              return
-            }
-            if (pullRequest.data.base.sha !== expectedBaseSha) {
-              core.setFailed('The workflow run base does not match the pull request base')
-              return
-            }
-            if (pullRequest.data.merge_commit_sha !== expectedMergeSha) {
-              core.setFailed('The workflow run merge commit does not match the pull request merge commit')
-              return
-            }
-            const download = await github.rest.actions.downloadArtifact({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              artifact_id: reports[0].id,
-              archive_format: 'zip',
-            })
-            fs.writeFileSync('benchmark-report.zip', Buffer.from(download.data))
-            core.setOutput('pr-number', issueNumber)
-
-      - name: Extract candidate results
-        if: ${{ steps.download.outputs.pr-number != '' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MERGE_SHA: ${{ github.sha }}
         run: |
           python - <<'PY'
+          import hashlib
           import json
-          import zipfile
-          from pathlib import PurePosixPath
+          import os
+          import subprocess
+          from pathlib import Path
 
-          def reject_constant(value):
-              raise ValueError(f'Non-finite JSON number: {value}')
-
-          with zipfile.ZipFile('benchmark-report.zip') as archive:
-              matches = [
-                  info
-                  for info in archive.infolist()
-                  if PurePosixPath(info.filename).name == 'latest-linux-x64.json'
-                  and '..' not in PurePosixPath(info.filename).parts
-              ]
-              if len(matches) != 1:
-                  raise RuntimeError(f'Expected one candidate result, found {len(matches)}')
-              if matches[0].file_size > 5 * 1024 * 1024:
-                  raise RuntimeError('Candidate result exceeds 5 MB')
-              contents = archive.read(matches[0])
-          data = json.loads(contents, parse_constant=reject_constant)
-          if not isinstance(data, dict):
-              raise RuntimeError('Candidate result must be a JSON object')
-          with open('candidate.json', 'wb') as output:
-              output.write(contents)
+          path = Path('build/benchmark/candidate-results/latest-linux-x64.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          data['source_revision'] = os.environ['MERGE_SHA']
+          data['source_head_revision'] = os.environ['HEAD_SHA']
+          data['source_base_revision'] = os.environ['BASE_SHA']
+          data['source_commit_subject'] = subprocess.check_output(
+              ['git', 'show', '-s', '--format=%s', os.environ['MERGE_SHA']], text=True
+          ).strip()
+          data['source_commit_timestamp'] = subprocess.check_output(
+              ['git', 'show', '-s', '--format=%cI', os.environ['MERGE_SHA']], text=True
+          ).strip()
+          profile = hashlib.sha256()
+          for profile_path in (
+              Path('build/benchmark/typecheck_benchmark.py'),
+              Path('build/benchmark/install_envs.json'),
+          ):
+              profile.update(profile_path.read_bytes())
+          data['benchmark_profile_hash'] = profile.hexdigest()
+          path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
           PY
 
-      - name: Render benchmark report
-        if: ${{ steps.download.outputs.pr-number != '' }}
-        run: |
-          set +e
-          python build/benchmark/compare_benchmarks.py \
-            build/benchmark/baselines/latest-linux-x64.json \
-            candidate.json \
-            --fail-on-preparation-error \
-            --markdown-output report.md
-          if [[ ! -s report.md ]]; then
-            printf '%s\n' \
-              '## Type checker benchmark' \
-              '' \
-              '🔴 **The benchmark results could not be compared. See the workflow run for details.**' \
-              > report.md
-          fi
-
-      - name: Post benchmark comment
-        if: ${{ steps.download.outputs.pr-number != '' }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          PR_NUMBER: ${{ steps.download.outputs.pr-number }}
+      - name: Upload candidate result
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          script: |
-            const fs = require('fs')
-            const marker = '<!-- typecheck-benchmark-report -->'
-            const report = fs.readFileSync('report.md', 'utf8')
-            const issueNumber = Number(process.env.PR_NUMBER)
-            const body = `${marker}\n${report}`
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              body,
-            })
+          name: typecheck-benchmark-candidate
+          path: build/benchmark/candidate-results/latest-linux-x64.json
+          retention-days: 1
