@@ -921,10 +921,6 @@ export function tryFastRejectSequenceProtocol(
     flags: AssignTypeFlags,
     recursionCount: number
 ): '__getitem__' | undefined {
-    if ((flags & AssignTypeFlags.ArgAssignmentFirstPass) !== 0) {
-        return undefined;
-    }
-
     if (!isClassInstance(srcType) || !ClassType.isBuiltIn(srcType, 'list')) {
         return undefined;
     }

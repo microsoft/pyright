@@ -622,17 +622,6 @@ test('Protocol36UncertainElementType', () => {
         tryFastRejectSequenceProtocol(
             state.program.evaluator!,
             destinationType,
-            concreteSourceType,
-            undefined,
-            AssignTypeFlags.ArgAssignmentFirstPass,
-            0
-        ),
-        undefined
-    );
-    assert.strictEqual(
-        tryFastRejectSequenceProtocol(
-            state.program.evaluator!,
-            destinationType,
             nestedSourceType,
             undefined,
             AssignTypeFlags.Default,
