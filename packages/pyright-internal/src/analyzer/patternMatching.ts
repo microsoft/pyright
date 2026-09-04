@@ -1335,6 +1335,31 @@ function narrowTypeBasedOnValuePattern(
                         // If this is a negative test, see if it's an enum value.
                         if (!isPositiveTest) {
                             if (
+                                isInstantiableClass(subjectSubtypeExpanded) &&
+                                isInstantiableClass(valueSubtypeExpanded) &&
+                                isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded)
+                            ) {
+                                const metaclass = subjectSubtypeExpanded.shared.effectiveMetaclass;
+                                let eqClass: ClassType | undefined;
+                                if (metaclass && isInstantiableClass(metaclass)) {
+                                    const eqMember = lookUpClassMember(metaclass, '__eq__');
+                                    if (eqMember && isClass(eqMember.classType)) {
+                                        eqClass = eqMember.classType;
+                                    }
+                                }
+
+                                const isStandardEquality =
+                                    !eqClass || ClassType.isBuiltIn(eqClass, ['type', 'object', 'ABCMeta', 'EnumMeta']);
+
+                                if (
+                                    isStandardEquality &&
+                                    (ClassType.isFinal(subjectSubtypeExpanded) ||
+                                        !subjectSubtypeExpanded.priv.includeSubclasses)
+                                ) {
+                                    return undefined;
+                                }
+                            }
+                            if (
                                 isClassInstance(subjectSubtypeExpanded) &&
                                 isClassInstance(valueSubtypeExpanded) &&
                                 isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded)
