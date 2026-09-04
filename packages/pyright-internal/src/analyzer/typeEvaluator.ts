@@ -7056,8 +7056,8 @@ export function createTypeEvaluator(
 
         // Determine if we're calling __set__ on an asymmetric descriptor or property.
         let isAsymmetricAccessor = false;
-        if (usage.method === 'set' && isClass(methodClassType)) {
-            if (isAsymmetricDescriptorClass(methodClassType)) {
+        if (usage.method === 'set') {
+            if (isAsymmetricDescriptorClass(concreteMemberType)) {
                 isAsymmetricAccessor = true;
             }
         }
@@ -7235,8 +7235,10 @@ export function createTypeEvaluator(
 
         let isAsymmetric = false;
 
-        const getterSymbolResult = lookUpClassMember(classType, '__get__', MemberAccessFlags.SkipBaseClasses);
-        const setterSymbolResult = lookUpClassMember(classType, '__set__', MemberAccessFlags.SkipBaseClasses);
+        // Accessors can be defined at different levels of the descriptor's MRO.
+        // Compare the effective inherited getter and setter types.
+        const getterSymbolResult = lookUpClassMember(classType, '__get__');
+        const setterSymbolResult = lookUpClassMember(classType, '__set__');
 
         if (!getterSymbolResult || !setterSymbolResult) {
             isAsymmetric = false;
