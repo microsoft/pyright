@@ -10,10 +10,13 @@
 
 import * as assert from 'assert';
 
-import { tryFastRejectSequenceProtocol } from '../analyzer/protocols';
+import { ConstraintTracker } from '../analyzer/constraintTracker';
+import { assignClassToProtocol, tryFastRejectSequenceProtocol } from '../analyzer/protocols';
 import { AssignTypeFlags } from '../analyzer/typeEvaluatorTypes';
-import { AnyType, ClassType, isClassInstance, TypeVarType, UnknownType } from '../analyzer/types';
+import { AnyType, ClassType, isClassInstance, isTypeVar, TypeVarType, UnknownType } from '../analyzer/types';
+import { makeTypeVarsFree } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticAddendum } from '../common/diagnostic';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -26,6 +29,64 @@ import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
+
+test('SolveAndApplyConstraintsConcreteType', () => {
+    const code = `
+// @filename: test.py
+//// type Alias[T] = int
+////
+//// concrete = /*concrete*/[1]
+////
+//// def check[T](value: list[tuple[T, int]], alias: Alias[T]):
+////     /*generic*/value
+////     /*alias*/alias
+    `;
+    const state = parseAndGetTestState(code).state;
+    const evaluator = state.program.evaluator!;
+    const concreteNode = getNodeAtMarker(state, 'concrete');
+    const genericNode = getNodeAtMarker(state, 'generic');
+    const aliasNode = getNodeAtMarker(state, 'alias');
+    assert.strictEqual(concreteNode.nodeType, ParseNodeType.List);
+    assert.strictEqual(genericNode.nodeType, ParseNodeType.Name);
+    assert.strictEqual(aliasNode.nodeType, ParseNodeType.Name);
+    const concreteType = evaluator.getTypeOfExpression(concreteNode).type;
+    const genericType = evaluator.getTypeOfExpression(genericNode).type;
+    const aliasType = evaluator.getTypeOfExpression(aliasNode).type;
+    assert.ok(isClassInstance(concreteType));
+    assert.ok(isClassInstance(genericType));
+    const tupleType = genericType.priv.typeArgs![0];
+    assert.ok(isClassInstance(tupleType));
+    const typeVar = tupleType.priv.tupleTypeArgs![0].type;
+    assert.ok(isTypeVar(typeVar));
+    const freeTypeVar = typeVar.priv.freeTypeVar;
+    assert.ok(freeTypeVar?.priv.scopeId);
+    const elementType = concreteType.priv.typeArgs![0];
+    const constraints = new ConstraintTracker();
+    constraints.setBounds(freeTypeVar, elementType);
+    const visitConstraints = jest.spyOn(constraints, 'doForEachConstraintSet');
+
+    for (const type of [concreteType, AnyType.create(), UnknownType.create()]) {
+        assert.strictEqual(evaluator.solveAndApplyConstraints(type, constraints), type);
+    }
+    expect(visitConstraints).not.toHaveBeenCalled();
+
+    assert.strictEqual(
+        evaluator.printType(evaluator.solveAndApplyConstraints(genericType, constraints)),
+        'list[tuple[T@check, int]]'
+    );
+    const freeGenericType = makeTypeVarsFree(genericType, [freeTypeVar.priv.scopeId]);
+    const specializedType = evaluator.solveAndApplyConstraints(freeGenericType, constraints);
+    assert.strictEqual(evaluator.printType(specializedType), 'list[tuple[int, int]]');
+    expect(visitConstraints).toHaveBeenCalled();
+    visitConstraints.mockClear();
+
+    const freeAliasType = makeTypeVarsFree(aliasType, [freeTypeVar.priv.scopeId]);
+    const specializedAlias = evaluator.solveAndApplyConstraints(freeAliasType, constraints);
+    assert.ok(specializedAlias.props?.typeAliasInfo?.typeArgs);
+    assert.strictEqual(evaluator.printType(specializedAlias.props.typeAliasInfo.typeArgs[0]), 'int');
+    expect(visitConstraints).toHaveBeenCalled();
+    visitConstraints.mockRestore();
+});
 
 test('GenericType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericType1.py']);
@@ -640,6 +701,46 @@ test('Protocol36UncertainElementType', () => {
         ),
         '__getitem__'
     );
+
+    const getFastCacheEntryCount = () => {
+        const protocolCache = concreteSourceType.shared.protocolCompatibility as
+            | Map<string, { isFastRejection?: boolean }[]>
+            | undefined;
+        return protocolCache
+            ? Array.from(protocolCache.values()).reduce(
+                  (count, entries) => count + entries.filter((entry) => entry.isFastRejection).length,
+                  0
+              )
+            : 0;
+    };
+
+    assert.strictEqual(
+        assignClassToProtocol(
+            state.program.evaluator!,
+            ClassType.cloneAsInstantiable(destinationType),
+            concreteSourceType,
+            undefined,
+            undefined,
+            AssignTypeFlags.Default,
+            0
+        ),
+        false
+    );
+    assert.strictEqual(getFastCacheEntryCount(), 1);
+
+    assert.strictEqual(
+        assignClassToProtocol(
+            state.program.evaluator!,
+            ClassType.cloneAsInstantiable(destinationType),
+            concreteSourceType,
+            new DiagnosticAddendum(),
+            undefined,
+            AssignTypeFlags.Default,
+            0
+        ),
+        false
+    );
+    assert.strictEqual(getFastCacheEntryCount(), 0);
 });
 
 test('Protocol37', () => {

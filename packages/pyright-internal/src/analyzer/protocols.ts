@@ -82,6 +82,7 @@ interface ProtocolCompatibility {
     preConstraints: ConstraintTracker | undefined;
     postConstraints: ConstraintTracker | undefined;
     isCompatible: boolean;
+    isFastRejection: boolean;
 }
 
 interface ProtocolCompatibilityCheckState {
@@ -176,7 +177,7 @@ export function assignClassToProtocol(
     protocolAssignmentStack.pop();
 
     // Cache the results for next time.
-    if (!compat) {
+    if (!compat || (compat.isFastRejection && !checkState.isFastRejection)) {
         setProtocolCompatibility(
             evaluator,
             destType,
@@ -345,7 +346,12 @@ function setProtocolCompatibility(
     if (
         !isCompatible &&
         !isFastRejection &&
-        !entries.some((entry) => entry.flags === flags && ClassType.isSameGenericClass(entry.destType, destType))
+        !entries.some(
+            (entry) =>
+                !entry.isFastRejection &&
+                entry.flags === flags &&
+                ClassType.isSameGenericClass(entry.destType, destType)
+        )
     ) {
         const genericDestType = requiresTypeArgs(destType)
             ? selfSpecializeClass(destType, { overrideTypeArgs: true })
@@ -378,6 +384,21 @@ function setProtocolCompatibility(
         }
     }
 
+    if (!isFastRejection) {
+        const fastEntryIndex = entries.findIndex(
+            (entry) =>
+                entry.isFastRejection &&
+                entry.flags === flags &&
+                isTypeSame(entry.destType, destType, { honorIsTypeArgExplicit: true, honorTypeForm: true }) &&
+                entry.srcType !== undefined &&
+                isTypeSame(entry.srcType, srcType, { honorIsTypeArgExplicit: true, honorTypeForm: true }) &&
+                isConstraintTrackerSame(preConstraints, entry.preConstraints)
+        );
+        if (fastEntryIndex >= 0) {
+            entries.splice(fastEntryIndex, 1);
+        }
+    }
+
     const newEntry: ProtocolCompatibility = {
         destType,
         srcType: isAlwaysIncompatible ? undefined : srcType,
@@ -385,6 +406,7 @@ function setProtocolCompatibility(
         preConstraints,
         postConstraints,
         isCompatible,
+        isFastRejection,
     };
 
     entries.push(newEntry);
