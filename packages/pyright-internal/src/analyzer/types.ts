@@ -4079,7 +4079,13 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
 
             // If the typeToAdd is a TypedDict that is the same class as the
             // existing type, see if one of them is a proper subset of the other.
-            if (ClassType.isTypedDictClass(type) && ClassType.isSameGenericClass(type, typeToAdd)) {
+            // Preserve variants with distinct type conditions because they encode
+            // correlations between narrowed keys and values.
+            if (
+                ClassType.isTypedDictClass(type) &&
+                ClassType.isSameGenericClass(type, typeToAdd) &&
+                TypeCondition.isSame(type.props?.condition, typeToAdd.props?.condition)
+            ) {
                 // Do not proceed if the TypedDicts are generic and have different type arguments.
                 if (!type.priv.typeArgs && !typeToAdd.priv.typeArgs) {
                     if (ClassType.isTypedDictNarrower(typeToAdd, type)) {
