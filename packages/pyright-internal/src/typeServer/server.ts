@@ -597,7 +597,10 @@ export class TypeServer extends LanguageServerBase {
                 diagnosticsVersion = sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
 
                 if (sourceFile) {
-                    serverDiagnostics = await workspace.service.analyzeFileAndGetDiagnostics(uri, token);
+                    const { diagnostics, requiringAnalysisCount } =
+                        await workspace.service.analyzeFileAndGetDiagnostics(uri, token);
+                    serverDiagnostics = diagnostics;
+                    this.refreshDisplayedAnalysisProgress(requiringAnalysisCount);
                 }
 
                 const sourceFileAfter = workspace.service.getSourceFile(uri);

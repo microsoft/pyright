@@ -78,7 +78,7 @@ import {
 } from 'vscode-languageserver';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { AnalysisResults } from './analyzer/analysis';
+import { AnalysisResults, RequiringAnalysisCount } from './analyzer/analysis';
 import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
@@ -1193,7 +1193,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
                 // Then reanalyze the file (this should go to the background thread so this thread can handle other requests).
                 if (sourceFile) {
-                    serverDiagnostics = await workspace.service.analyzeFileAndGetDiagnostics(uri, token);
+                    const analysisResult = await workspace.service.analyzeFileAndGetDiagnostics(uri, token);
+                    serverDiagnostics = analysisResult.diagnostics;
+                    this.refreshDisplayedAnalysisProgress(analysisResult.requiringAnalysisCount);
                 }
 
                 // If any text edits came in, make sure we reanalyze the file. Diagnostics version should be reset to zero
@@ -1375,11 +1377,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.sendProgressMessage(results.requiringAnalysisCount.files, results.requiringAnalysisCount.cells);
     }
 
-    protected getAnalysisProgressReporter(): ProgressReporter {
-        if (this._workspaceDiagnosticsProgressReporter) {
-            return this._workspaceDiagnosticsProgressReporter;
+    protected refreshDisplayedAnalysisProgress(requiringAnalysisCount: RequiringAnalysisCount) {
+        if (this.getAnalysisProgressReporter().isDisplayingProgress()) {
+            this.sendProgressMessage(requiringAnalysisCount.files, requiringAnalysisCount.cells);
         }
-        return this._progressReporter;
     }
 
     protected sendProgressMessage(fileCount: number, cellCount?: number) {
@@ -1400,6 +1401,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             reporter.begin();
         }
         reporter.report(progressMessage);
+    }
+
+    protected getAnalysisProgressReporter(): ProgressReporter {
+        if (this._workspaceDiagnosticsProgressReporter) {
+            return this._workspaceDiagnosticsProgressReporter;
+        }
+        return this._progressReporter;
     }
 
     protected onWorkspaceCreated(workspace: Workspace) {

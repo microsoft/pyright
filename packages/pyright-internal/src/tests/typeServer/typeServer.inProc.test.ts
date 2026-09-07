@@ -17,7 +17,7 @@
 
 import assert from 'assert';
 
-import { NotebookCellKind } from 'vscode-languageserver-protocol';
+import { DocumentDiagnosticRequest, NotebookCellKind } from 'vscode-languageserver-protocol';
 
 import { ClassType, isClass, OverloadResultType, TypeCategory } from '../../analyzer/types';
 import { UriEx } from '../../common/uri/uriUtils';
@@ -29,6 +29,7 @@ import { ProtocolTypeFactory } from '../../typeServer/typeServerConversionUtils'
 import { WellKnownWorkspaceKinds } from '../../workspaceFactory';
 import { getNodeAtMarker, parseAndGetTestState } from '../harness/fourslash/testState';
 import { distlibFolder } from '../harness/vfs/factory';
+import { CustomLSP } from '../lsp/customLsp';
 import { initializeDependenciesForInProcTests, withInProcTypeServer } from './inProcTypeServerTestUtils';
 
 jest.setTimeout(120000);
@@ -465,6 +466,53 @@ describe('TypeServer in-proc protocol', () => {
             const params = await received;
             assert(params.new > params.old);
             assert(params.old >= initialSnapshot);
+        });
+    });
+
+    test('document diagnostic pull does not begin analysis progress', async () => {
+        const code = `
+// @filename: main.py
+//// /*open*/x: int = 'bad'
+`;
+
+        await withInProcTypeServer(code, async (context) => {
+            await context.openFileForMarker('open');
+            let progressBegan = false;
+            context.onNotification('pyright/beginProgress', () => {
+                progressBegan = true;
+            });
+
+            await context.sendRequest(DocumentDiagnosticRequest.type, {
+                textDocument: { uri: context.getFileUriForMarker('open').toString() },
+            });
+
+            assert(!progressBegan);
+        });
+    });
+
+    test('document diagnostic pull ends active analysis progress once no files remain', async () => {
+        const code = `
+// @filename: main.py
+//// /*open*/x: int = 'bad'
+`;
+
+        await withInProcTypeServer(code, async (context) => {
+            await context.openFileForMarker('open');
+            const progressBegan = new Promise<void>((resolve) => {
+                context.onNotification('pyright/beginProgress', () => resolve());
+            });
+            const progressEnded = new Promise<void>((resolve) => {
+                context.onNotification('pyright/endProgress', () => resolve());
+            });
+
+            context.sendNotification(CustomLSP.Notifications.StartAnalysisProgress, { fileCount: 1 });
+            await progressBegan;
+
+            await context.sendRequest(DocumentDiagnosticRequest.type, {
+                textDocument: { uri: context.getFileUriForMarker('open').toString() },
+            });
+
+            await progressEnded;
         });
     });
 });

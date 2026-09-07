@@ -41,7 +41,10 @@ import {
     PyrightServerInfo,
     runPyrightServer,
     sleep,
+    startAnalysisProgress,
     waitForDiagnostics,
+    waitForProgressReporter,
+    waitForProgressReporterEnd,
 } from './lsp/languageServerTestUtils';
 
 describe(`Basic language server tests`, () => {
@@ -540,6 +543,49 @@ describe(`Basic language server tests`, () => {
 
                     assert.strictEqual(info.progressReporters.length, progressReporterCount);
                 });
+
+                test.each([
+                    { name: 'in-process analysis', supportsBackgroundThread: false },
+                    { name: 'background analysis', supportsBackgroundThread: true },
+                ])(
+                    'document diagnostic pulls update active analysis progress: $name',
+                    async ({ supportsBackgroundThread }) => {
+                        const code = `
+// @filename: first.py
+//// /*first*/x: int = 'bad'
+// @filename: second.py
+//// /*second*/y: int = 'bad'
+        `;
+                        const info = await runLanguageServer(
+                            DEFAULT_WORKSPACE_ROOT,
+                            code,
+                            /* callInitialize */ true,
+                            undefined,
+                            undefined,
+                            supportsBackgroundThread,
+                            supportsPullDiagnostics
+                        );
+
+                        await openFile(info, 'first');
+                        await openFile(info, 'second');
+
+                        startAnalysisProgress(info, 2);
+                        const reporter = await waitForProgressReporter(info, info.progressReporters.length + 1);
+                        const firstUri = info.testData.markerPositions.get('first')!.fileUri.toString();
+                        const secondUri = info.testData.markerPositions.get('second')!.fileUri.toString();
+
+                        await info.connection.sendRequest(DocumentDiagnosticRequest.type, {
+                            textDocument: { uri: firstUri },
+                        });
+
+                        assert.ok(!info.progressReporterEnded.has(reporter));
+
+                        await info.connection.sendRequest(DocumentDiagnosticRequest.type, {
+                            textDocument: { uri: secondUri },
+                        });
+                        await waitForProgressReporterEnd(info, reporter);
+                    }
+                );
 
                 // Regression test: in open-files-only mode, diagnostics for a library/out-of-workspace
                 // file that was transiently opened (e.g. via go-to-definition) must clear once the client
