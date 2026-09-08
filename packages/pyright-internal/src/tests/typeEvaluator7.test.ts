@@ -8,7 +8,14 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import * as assert from 'assert';
+
+import { ConstraintTracker } from '../analyzer/constraintTracker';
+import { assignClassToProtocol, tryFastRejectSequenceProtocol } from '../analyzer/protocols';
+import { AssignTypeFlags } from '../analyzer/typeEvaluatorTypes';
+import { AnyType, ClassType, isClassInstance, TypeVarType, UnknownType } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticAddendum } from '../common/diagnostic';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -18,6 +25,8 @@ import {
     pythonVersion3_8,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { ParseNodeType } from '../parser/parseNodes';
+import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
 
 test('GenericType1', () => {
@@ -513,7 +522,381 @@ test('Protocol35', () => {
 test('Protocol36', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol36.py']);
 
+    TestUtils.validateResults(analysisResults, 7);
+    const protocolErrors = analysisResults[0].errors.filter((error) =>
+        error.message.includes('FullNestedSequence[SupportsArray]')
+    );
+    expect(protocolErrors).toHaveLength(4);
+    const unionCallError = protocolErrors.filter((error) => error.message.startsWith('Argument of type'));
+    expect(unionCallError).toHaveLength(1);
+    expect(unionCallError[0].message).toContain('__getitem__');
+    expect(unionCallError[0].message).not.toContain('__iter__');
+    expect(protocolErrors.some((error) => error.message.includes('__iter__'))).toBe(true);
+    expect(protocolErrors.some((error) => error.message.includes('__reversed__'))).toBe(true);
+});
+
+test('Protocol36Overloads', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol36Overloads.py']);
+
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Protocol36Slice', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol36Slice.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Protocol36UncertainElementType', () => {
+    const code = `
+// @filename: test.py
+//// from collections.abc import Iterator
+//// from typing import Any, cast, Protocol, TypeVar
+////
+//// T_co = TypeVar("T_co", covariant=True)
+////
+//// class SupportsArray(Protocol):
+////     def __array__(self) -> object: ...
+////
+//// class FullNestedSequence(Protocol[T_co]):
+////     def __len__(self, /) -> int: ...
+////     def __getitem__(self, index: int, /) -> T_co | "FullNestedSequence[T_co]": ...
+////     def __contains__(self, value: object, /) -> bool: ...
+////     def __iter__(self, /) -> Iterator[T_co | "FullNestedSequence[T_co]"]: ...
+////     def __reversed__(self, /) -> Iterator[T_co | "FullNestedSequence[T_co]"]: ...
+////     def count(self, value: Any, /) -> int: ...
+////     def index(self, value: Any, /) -> int: ...
+////
+//// def identity[T](value: T) -> T:
+////     return value
+////
+//// def check[T](value: T):
+////     source = /*source*/[value]
+////     nested_source = /*nestedSource*/[[value]]
+////     concrete_source = /*concreteSource*/[1]
+////     generic_callable_source = /*genericCallableSource*/[identity]
+////     destination = /*destination*/cast(FullNestedSequence[SupportsArray], None)
+    `;
+    const state = parseAndGetTestState(code).state;
+    const sourceNode = getNodeAtMarker(state, 'source');
+    const nestedSourceNode = getNodeAtMarker(state, 'nestedSource');
+    const concreteSourceNode = getNodeAtMarker(state, 'concreteSource');
+    const genericCallableSourceNode = getNodeAtMarker(state, 'genericCallableSource');
+    const destinationNode = getNodeAtMarker(state, 'destination');
+    assert.strictEqual(sourceNode.nodeType, ParseNodeType.List);
+    assert.strictEqual(nestedSourceNode.nodeType, ParseNodeType.List);
+    assert.strictEqual(concreteSourceNode.nodeType, ParseNodeType.List);
+    assert.strictEqual(genericCallableSourceNode.nodeType, ParseNodeType.List);
+    assert.strictEqual(destinationNode.nodeType, ParseNodeType.Name);
+    assert.strictEqual(destinationNode.parent?.nodeType, ParseNodeType.Call);
+
+    const sourceType = state.program.evaluator!.getTypeOfExpression(sourceNode).type;
+    const nestedSourceType = state.program.evaluator!.getTypeOfExpression(nestedSourceNode).type;
+    const concreteSourceType = state.program.evaluator!.getTypeOfExpression(concreteSourceNode).type;
+    const genericCallableSourceType = state.program.evaluator!.getTypeOfExpression(genericCallableSourceNode).type;
+    const destinationType = state.program.evaluator!.getTypeOfExpression(destinationNode.parent).type;
+    assert.ok(isClassInstance(sourceType));
+    assert.ok(isClassInstance(nestedSourceType));
+    assert.ok(isClassInstance(concreteSourceType));
+    assert.ok(isClassInstance(genericCallableSourceType));
+    assert.ok(isClassInstance(destinationType));
+
+    const typeVar = TypeVarType.cloneAsUnificationVar(TypeVarType.createInstance('T'));
+    const sourceWithUnificationTypeVar = ClassType.specialize(concreteSourceType, [typeVar]);
+    const listOfAny = ClassType.specialize(concreteSourceType, [AnyType.create()]);
+    const listOfUnknown = ClassType.specialize(concreteSourceType, [UnknownType.create()]);
+    const uncertainSources = [sourceType, sourceWithUnificationTypeVar, listOfAny, listOfUnknown];
+
+    for (const uncertainSource of uncertainSources) {
+        assert.strictEqual(
+            tryFastRejectSequenceProtocol(
+                state.program.evaluator!,
+                destinationType,
+                uncertainSource,
+                undefined,
+                AssignTypeFlags.Default,
+                0
+            ),
+            undefined
+        );
+    }
+
+    const uncertainElements = [sourceType.priv.typeArgs![0], typeVar, AnyType.create(), UnknownType.create()];
+    for (const uncertainElement of uncertainElements) {
+        const constraints = new ConstraintTracker();
+        constraints.setBounds(typeVar, concreteSourceType.priv.typeArgs![0]);
+        const originalConstraints = constraints.clone();
+        assert.strictEqual(
+            tryFastRejectSequenceProtocol(
+                state.program.evaluator!,
+                ClassType.specialize(destinationType, [uncertainElement]),
+                concreteSourceType,
+                constraints,
+                AssignTypeFlags.Default,
+                0
+            ),
+            undefined
+        );
+        assert.ok(constraints.isSame(originalConstraints));
+    }
+
+    assert.strictEqual(
+        tryFastRejectSequenceProtocol(
+            state.program.evaluator!,
+            destinationType,
+            concreteSourceType,
+            undefined,
+            AssignTypeFlags.Default,
+            0
+        ),
+        '__getitem__'
+    );
+    assert.strictEqual(
+        tryFastRejectSequenceProtocol(
+            state.program.evaluator!,
+            destinationType,
+            nestedSourceType,
+            undefined,
+            AssignTypeFlags.Default,
+            0
+        ),
+        '__getitem__'
+    );
+    assert.strictEqual(
+        tryFastRejectSequenceProtocol(
+            state.program.evaluator!,
+            destinationType,
+            genericCallableSourceType,
+            undefined,
+            AssignTypeFlags.Default,
+            0
+        ),
+        '__getitem__'
+    );
+
+    const getFastCacheEntryCount = () => {
+        const protocolCache = concreteSourceType.shared.protocolCompatibility as
+            | Map<string, { isFastRejection?: boolean }[]>
+            | undefined;
+        return protocolCache
+            ? Array.from(protocolCache.values()).reduce(
+                  (count, entries) => count + entries.filter((entry) => entry.isFastRejection).length,
+                  0
+              )
+            : 0;
+    };
+
+    assert.strictEqual(
+        assignClassToProtocol(
+            state.program.evaluator!,
+            ClassType.cloneAsInstantiable(destinationType),
+            concreteSourceType,
+            undefined,
+            undefined,
+            AssignTypeFlags.Default,
+            0
+        ),
+        false
+    );
+    assert.strictEqual(getFastCacheEntryCount(), 1);
+
+    assert.strictEqual(
+        assignClassToProtocol(
+            state.program.evaluator!,
+            ClassType.cloneAsInstantiable(destinationType),
+            concreteSourceType,
+            new DiagnosticAddendum(),
+            undefined,
+            AssignTypeFlags.Default,
+            0
+        ),
+        false
+    );
+    assert.strictEqual(getFastCacheEntryCount(), 0);
+
+    for (const gradualList of [listOfAny, listOfUnknown]) {
+        const nestedList = ClassType.specialize(concreteSourceType, [gradualList]);
+        const originalTypeText = state.program.evaluator!.printType(nestedList);
+        assert.strictEqual(
+            tryFastRejectSequenceProtocol(
+                state.program.evaluator!,
+                destinationType,
+                nestedList,
+                undefined,
+                AssignTypeFlags.Default,
+                0
+            ),
+            undefined
+        );
+        assert.strictEqual(
+            assignClassToProtocol(
+                state.program.evaluator!,
+                ClassType.cloneAsInstantiable(destinationType),
+                nestedList,
+                new DiagnosticAddendum(),
+                undefined,
+                AssignTypeFlags.Default,
+                0
+            ),
+            true
+        );
+        assert.strictEqual(state.program.evaluator!.printType(nestedList), originalTypeText);
+    }
+});
+
+test.each([false, true])('Protocol36CacheReuse positiveFirst=%s', (positiveFirst) => {
+    const code = `
+// @filename: test.py
+//// from collections.abc import Iterator
+//// from typing import Protocol, TypeVar
+////
+//// T_co = TypeVar("T_co", covariant=True)
+////
+//// class NestedSequence(Protocol[T_co]):
+////     def __len__(self, /) -> int: ...
+////     def __getitem__(self, index: int, /) -> T_co | "NestedSequence[T_co]": ...
+////     def __iter__(self, /) -> Iterator[T_co | "NestedSequence[T_co]"]: ...
+////
+//// def check(source: list[int], destination: NestedSequence[str]):
+////     /*source*/source
+////     /*destination*/destination
+    `;
+    const state = parseAndGetTestState(code).state;
+    const evaluator = state.program.evaluator!;
+    const sourceNode = getNodeAtMarker(state, 'source');
+    const destinationNode = getNodeAtMarker(state, 'destination');
+    assert.strictEqual(sourceNode.nodeType, ParseNodeType.Name);
+    assert.strictEqual(destinationNode.nodeType, ParseNodeType.Name);
+    const sourceType = evaluator.getTypeOfExpression(sourceNode).type;
+    const destinationType = evaluator.getTypeOfExpression(destinationNode).type;
+    assert.ok(isClassInstance(sourceType));
+    assert.ok(isClassInstance(destinationType));
+    const elementType = sourceType.priv.typeArgs![0];
+    const rejectedType = ClassType.cloneAsInstantiable(destinationType);
+    const acceptedType = ClassType.specialize(rejectedType, [elementType]);
+    const typeParam = destinationType.shared.typeParams[0];
+    const genericType = ClassType.specialize(rejectedType, [typeParam]);
+    const constraints = new ConstraintTracker();
+    constraints.setBounds(typeParam, elementType);
+    const originalConstraints = constraints.clone();
+    const assign = (destination: ClassType, diag?: DiagnosticAddendum, tracker = constraints) =>
+        assignClassToProtocol(evaluator, destination, sourceType, diag, tracker, AssignTypeFlags.Default, 0);
+
+    if (positiveFirst) {
+        assert.strictEqual(assign(acceptedType), true);
+    }
+
+    assert.strictEqual(assign(rejectedType), false);
+    assert.ok(constraints.isSame(originalConstraints));
+    assert.strictEqual(assign(rejectedType), false);
+    assert.ok(constraints.isSame(originalConstraints));
+    assert.strictEqual(assign(acceptedType), true);
+
+    const diagnostics = new DiagnosticAddendum();
+    assert.strictEqual(assign(rejectedType, diagnostics), false);
+    expect(diagnostics.getString()).toContain('"int" is not assignable to "str"');
+    assert.ok(constraints.isSame(originalConstraints));
+    assert.strictEqual(assign(rejectedType), false);
+    assert.strictEqual(assign(acceptedType), true);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+        const inferredConstraints = new ConstraintTracker();
+        assert.strictEqual(assign(genericType, undefined, inferredConstraints), true);
+        assert.strictEqual(
+            evaluator.printType(evaluator.solveAndApplyConstraints(typeParam, inferredConstraints)),
+            'int'
+        );
+    }
+});
+
+test.each([
+    ['list[int]', false],
+    ['list[list[int]]', false],
+    ['list[ArrayImpl]', true],
+    ['list[list[ArrayImpl]]', true],
+    ['list[list[Any]]', true],
+    ['list[Callable[[int], int]]', false],
+    ['list[Callable[[T], T]]', false],
+    ['list[tuple[T, int]]', false],
+] as const)('Protocol36StructuralComparison %s', (annotation, expected) => {
+    const compare = (withDiagnostics: boolean) => {
+        const code = `
+// @filename: test.py
+//// from collections.abc import Callable, Iterator
+//// from typing import Any, Protocol, TypeVar
+////
+//// T_co = TypeVar("T_co", covariant=True)
+////
+//// class SupportsArray(Protocol):
+////     def __array__(self) -> object: ...
+////
+//// class ArrayImpl:
+////     def __array__(self) -> object: ...
+////
+//// class NestedSequence(Protocol[T_co]):
+////     def __len__(self, /) -> int: ...
+////     def __getitem__(self, index: int, /) -> T_co | "NestedSequence[T_co]": ...
+////     def __iter__(self, /) -> Iterator[T_co | "NestedSequence[T_co]"]: ...
+////
+//// def check[T](source: ${annotation}, destination: NestedSequence[SupportsArray], valid: list[ArrayImpl]):
+////     /*source*/source
+////     /*destination*/destination
+////     /*valid*/valid
+        `;
+        const state = parseAndGetTestState(code).state;
+        const evaluator = state.program.evaluator!;
+        const types = ['source', 'destination', 'valid'].map((marker) => {
+            const node = getNodeAtMarker(state, marker);
+            assert.strictEqual(node.nodeType, ParseNodeType.Name);
+            const type = evaluator.getTypeOfExpression(node).type;
+            assert.ok(isClassInstance(type));
+            return type;
+        });
+        const [sourceType, destinationType, validType] = types;
+        const destination = ClassType.cloneAsInstantiable(destinationType);
+        const typeParam = destination.shared.typeParams[0];
+        const constraints = new ConstraintTracker();
+        const originalConstraints = constraints.clone();
+        assert.strictEqual(evaluator.isSpeculativeModeInUse(undefined), false);
+        const diagnostics = withDiagnostics ? new DiagnosticAddendum() : undefined;
+        const compatible = assignClassToProtocol(
+            evaluator,
+            destination,
+            sourceType,
+            diagnostics,
+            constraints,
+            AssignTypeFlags.Default,
+            0
+        );
+        assert.strictEqual(compatible, expected);
+        assert.ok(constraints.isSame(originalConstraints));
+        if (diagnostics && !expected) {
+            expect(diagnostics.getString()).not.toBe('');
+        }
+
+        const genericDestination = ClassType.specialize(destination, [typeParam]);
+        const inferredTypes: string[] = [];
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const inferredConstraints = new ConstraintTracker();
+            assert.strictEqual(
+                assignClassToProtocol(
+                    evaluator,
+                    genericDestination,
+                    validType,
+                    undefined,
+                    inferredConstraints,
+                    AssignTypeFlags.Default,
+                    0
+                ),
+                true
+            );
+            inferredTypes.push(evaluator.printType(evaluator.solveAndApplyConstraints(typeParam, inferredConstraints)));
+        }
+        expect(inferredTypes).toEqual(['ArrayImpl', 'ArrayImpl']);
+        return { compatible, inferredTypes };
+    };
+
+    expect(compare(false)).toEqual(compare(true));
 });
 
 test('Protocol37', () => {
