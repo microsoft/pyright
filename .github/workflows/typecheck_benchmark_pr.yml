@@ -4,7 +4,6 @@ run-name: 'Type checker benchmark for PR #${{ inputs.pr_number }}'
 env:
   BENCHMARK_RUNNER_CLASS: 'github-ubuntu-latest'
   NODE_VERSION: '24.15.0'
-  PNPM_VERSION: '10.12.2'
   PYTHON_VERSION: '3.14.6'
 
 on:
@@ -50,8 +49,6 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
