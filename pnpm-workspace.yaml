@@ -14,3 +14,6 @@ allowBuilds:
 
 overrides:
   tar: '7.5.11'
+  nx: '22.7.8'
+  '@nx/devkit': '22.7.8'
+  ip-address: '10.4.0'
