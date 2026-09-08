@@ -15,7 +15,7 @@ Try Pyright in your browser using the [Pyright Playground](https://pyright-play.
 ## Documentation
 
 Refer to [the documentation](https://microsoft.github.io/pyright) for installation, configuration, and usage details.
-
+test
 
 ## Environment variables
 
