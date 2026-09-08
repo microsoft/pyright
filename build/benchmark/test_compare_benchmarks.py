@@ -523,8 +523,11 @@ Regression threshold: `10.0%`
             "run-name: 'Type checker benchmark for PR #${{ inputs.pr_number }}'",
             pr_workflow,
         )
-        self.assertIn("PNPM_VERSION: '10.12.2'", pr_workflow)
-        self.assertIn("version: ${{ env.PNPM_VERSION }}", pr_workflow)
+        self.assertNotIn("PNPM_VERSION:", pr_workflow)
+        self.assertNotRegex(
+            pr_workflow,
+            r"uses: pnpm/action-setup@[^\n]+\n\s+with:\n\s+version:",
+        )
 
     def test_pr_benchmark_requires_authorized_comment(self) -> None:
         trigger_workflow = (
