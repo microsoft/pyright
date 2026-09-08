@@ -11,13 +11,20 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { ParseNodeType } from '../parser/parseNodes';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 
+function readBuiltinsStub() {
+    return readFileSync(resolve(__dirname, '../../typeshed-fallback/stdlib/builtins.pyi'), 'utf8').replace(
+        /\r\n/g,
+        '\n'
+    );
+}
+
 test.each([
     [false, false],
     [false, true],
     [true, false],
     [true, true],
 ])('ProtocolRequirementListStub erased=%s diagnostics=%s', (erased, diagnostics) => {
-    let builtinsStub = readFileSync(resolve(__dirname, '../../typeshed-fallback/stdlib/builtins.pyi'), 'utf8');
+    let builtinsStub = readBuiltinsStub();
     if (erased) {
         const listStart = builtinsStub.indexOf('class list(MutableSequence[_T]):');
         assert.ok(listStart >= 0);
@@ -97,7 +104,7 @@ ${builtinsStub
 test.each([false, true].flatMap((overlap) => ['Leaf[int]', 'int'].map((element) => ({ overlap, element }))))(
     'ProtocolRequirementIndexOverlap overlap=$overlap element=$element',
     ({ overlap, element }) => {
-        let builtinsStub = readFileSync(resolve(__dirname, '../../typeshed-fallback/stdlib/builtins.pyi'), 'utf8');
+        let builtinsStub = readBuiltinsStub();
         if (overlap) {
             const intDeclaration = '@disjoint_base\nclass int:';
             assert.ok(builtinsStub.includes(intDeclaration));
@@ -180,10 +187,7 @@ describe.each(['stock', 'erased', 'extraOverload', 'explicitSelf', 'unknownRetur
     'ProtocolRequirementListContract %s',
     (contract) => {
         test.each([false, true])('concrete=%s', (concrete) => {
-            const builtinsStub = readFileSync(
-                resolve(__dirname, '../../typeshed-fallback/stdlib/builtins.pyi'),
-                'utf8'
-            );
+            const builtinsStub = readBuiltinsStub();
             const listStart = builtinsStub.indexOf('class list(MutableSequence[_T]):');
             const listEnd = builtinsStub.indexOf('\nclass ', listStart + 1);
             assert.ok(listStart >= 0 && listEnd > listStart);
