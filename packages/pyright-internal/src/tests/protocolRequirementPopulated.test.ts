@@ -11,13 +11,17 @@ import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testS
 
 test.each(
     ['generic', 'concrete', 'callable'].flatMap((targetKind) =>
-        ['literal', 'integer', 'none', 'empty'].map((upper) => ({ targetKind, upper }))
+        ['literal', 'integer', 'none', 'empty'].flatMap((upper) =>
+            [false, true].map((multipleSets) => ({ targetKind, upper, multipleSets }))
+        )
     )
-)('ProtocolRequirementPopulated target=$targetKind upper=$upper', ({ targetKind, upper }) => {
-    const rejectedAnnotation =
-        targetKind === 'generic' ? 'Leaf[T]' : targetKind === 'concrete' ? 'Leaf[int]' : 'Callable[[], str]';
-    const run = (diagnostics: boolean) => {
-        const state = parseAndGetTestState(`
+)(
+    'ProtocolRequirementPopulated target=$targetKind upper=$upper multipleSets=$multipleSets',
+    ({ targetKind, upper, multipleSets }) => {
+        const rejectedAnnotation =
+            targetKind === 'generic' ? 'Leaf[T]' : targetKind === 'concrete' ? 'Leaf[int]' : 'Callable[[], str]';
+        const run = (diagnostics: boolean, speculative = false) => {
+            const state = parseAndGetTestState(`
 // @filename: test.py
 //// from collections.abc import Callable, Iterator
 //// from typing import Literal, Protocol, TypeVar
@@ -39,116 +43,138 @@ test.each(
 ////     /*text*/text
 ////     /*container*/container
         `).state;
-        const evaluator = state.program.evaluator!;
-        const typeAt = (marker: string) => {
-            const node = getNodeAtMarker(state, marker);
-            assert.strictEqual(node.nodeType, ParseNodeType.Name);
-            return evaluator.getTypeOfExpression(node).type;
-        };
-        const source = typeAt('source');
-        const rejected = typeAt('rejected');
-        const accepted = typeAt('accepted');
-        const variable = typeAt('variable');
-        assert.ok(isClassInstance(source) && isClassInstance(rejected) && isClassInstance(accepted));
-        assert.ok(isTypeVar(variable));
-        const freeVariable = variable.priv.freeTypeVar;
-        assert.ok(freeVariable?.priv.scopeId);
-        const scopes = [freeVariable.priv.scopeId];
-        const target = makeTypeVarsFree(ClassType.cloneAsInstantiable(rejected), scopes);
-        const container = makeTypeVarsFree(typeAt('container'), scopes);
-        const initial = new ConstraintTracker();
-        if (upper !== 'empty') {
-            initial.setBounds(freeVariable, typeAt('literal'), upper === 'none' ? undefined : typeAt(upper), false);
-        }
-        initial.getMainConstraintSet().addScopeId('caller');
-        const observe = (tracker: ConstraintTracker) => ({
-            solved: evaluator.printType(evaluator.solveAndApplyConstraints(freeVariable, tracker)),
-            nested: evaluator.printType(evaluator.solveAndApplyConstraints(container, tracker)),
-            score: tracker.getScore(),
-            sets: tracker.getConstraintSets().map((set) => ({
-                scopes: [...set.getScopeIds()],
-                bounds: set.getTypeVars().map((entry) => ({
-                    lower: entry.lowerBound && evaluator.printType(entry.lowerBound),
-                    upper: entry.upperBound && evaluator.printType(entry.upperBound),
-                    retain: entry.retainLiterals,
-                })),
-            })),
-        });
-        const before = observe(initial);
-        assert.strictEqual(
-            tryFastRejectSequenceProtocol(evaluator, target, source, initial, AssignTypeFlags.Default, 0),
-            targetKind === 'generic' && upper !== 'empty' ? undefined : '__getitem__'
-        );
-        assert.deepStrictEqual(observe(initial), before);
-        const results = [];
-        for (const warm of [false, true]) {
-            const constraints = initial.clone();
-            if (warm) {
-                constraints.getMainConstraintSet().addScopeId('second');
+            const evaluator = state.program.evaluator!;
+            const typeAt = (marker: string) => {
+                const node = getNodeAtMarker(state, marker);
+                assert.strictEqual(node.nodeType, ParseNodeType.Name);
+                return evaluator.getTypeOfExpression(node).type;
+            };
+            const source = typeAt('source');
+            const rejected = typeAt('rejected');
+            const accepted = typeAt('accepted');
+            const variable = typeAt('variable');
+            assert.ok(isClassInstance(source) && isClassInstance(rejected) && isClassInstance(accepted));
+            assert.ok(isTypeVar(variable));
+            const freeVariable = variable.priv.freeTypeVar;
+            assert.ok(freeVariable?.priv.scopeId);
+            const scopes = [freeVariable.priv.scopeId];
+            const target = makeTypeVarsFree(ClassType.cloneAsInstantiable(rejected), scopes);
+            const container = makeTypeVarsFree(typeAt('container'), scopes);
+            const initial = new ConstraintTracker();
+            if (upper !== 'empty') {
+                initial.setBounds(freeVariable, typeAt('literal'), upper === 'none' ? undefined : typeAt(upper), false);
             }
-            const diagnostic = diagnostics ? new DiagnosticAddendum() : undefined;
-            for (let repetition = 0; repetition < 2; repetition++) {
+            initial.getMainConstraintSet().addScopeId('caller');
+            if (multipleSets) {
+                const alternative = initial.getMainConstraintSet().clone();
+                alternative.addScopeId('alternative');
+                if (upper !== 'empty') {
+                    alternative.setBounds(freeVariable, typeAt('other'), typeAt('integer'), true);
+                }
+                initial.addConstraintSets([initial.getMainConstraintSet(), alternative]);
+            }
+            const observe = (tracker: ConstraintTracker) => ({
+                solved: evaluator.printType(evaluator.solveAndApplyConstraints(freeVariable, tracker)),
+                nested: evaluator.printType(evaluator.solveAndApplyConstraints(container, tracker)),
+                score: tracker.getScore(),
+                sets: tracker.getConstraintSets().map((set) => ({
+                    scopes: [...set.getScopeIds()],
+                    bounds: set.getTypeVars().map((entry) => ({
+                        lower: entry.lowerBound && evaluator.printType(entry.lowerBound),
+                        upper: entry.upperBound && evaluator.printType(entry.upperBound),
+                        retain: entry.retainLiterals,
+                    })),
+                })),
+            });
+            const before = observe(initial);
+            assert.strictEqual(
+                tryFastRejectSequenceProtocol(evaluator, target, source, initial, AssignTypeFlags.Default, 0),
+                targetKind === 'generic' && upper !== 'empty' ? undefined : '__getitem__'
+            );
+            assert.deepStrictEqual(observe(initial), before);
+            const results = [];
+            for (const warm of [false, true]) {
+                const constraints = initial.clone();
+                if (warm) {
+                    constraints.getMainConstraintSet().addScopeId('second');
+                }
+                const diagnostic = diagnostics ? new DiagnosticAddendum() : undefined;
+                for (let repetition = 0; repetition < 2; repetition++) {
+                    const assign = (): boolean =>
+                        assignClassToProtocol(
+                            evaluator,
+                            target,
+                            source,
+                            diagnostic,
+                            constraints,
+                            AssignTypeFlags.Default,
+                            0
+                        );
+                    assert.strictEqual(
+                        speculative ? evaluator.useSpeculativeMode(getNodeAtMarker(state, 'source'), assign) : assign(),
+                        false
+                    );
+                    const observation = observe(constraints);
+                    if (upper !== 'empty') {
+                        assert.strictEqual(observation.solved, upper === 'literal' ? 'Literal[7]' : 'int');
+                    }
+                    if (targetKind !== 'generic' || upper === 'empty') {
+                        assert.deepStrictEqual(observation, {
+                            ...before,
+                            sets: before.sets.map((set, index) => ({
+                                ...set,
+                                scopes: warm && index === 0 ? [...set.scopes, 'second'] : set.scopes,
+                            })),
+                        });
+                    }
+                    results.push(observation);
+                }
+                for (const flags of [
+                    AssignTypeFlags.Default,
+                    AssignTypeFlags.Invariant,
+                    AssignTypeFlags.Contravariant,
+                ]) {
+                    for (const transfer of ['clone', 'signature', 'copy', 'bounds']) {
+                        let continued = constraints.clone();
+                        if (transfer === 'signature') {
+                            continued = constraints.cloneWithSignature('caller');
+                        } else if (transfer === 'copy') {
+                            continued.copyFromClone(constraints);
+                        } else if (transfer === 'bounds') {
+                            continued = new ConstraintTracker();
+                            continued.copyBounds(constraints.getMainConstraintSet().getTypeVar(freeVariable)!);
+                        }
+                        for (const marker of ['literal', 'other', 'integer', 'text']) {
+                            results.push({
+                                assigned: evaluator.assignType(
+                                    freeVariable,
+                                    typeAt(marker),
+                                    undefined,
+                                    continued,
+                                    flags
+                                ),
+                                observation: observe(continued),
+                            });
+                        }
+                    }
+                }
                 assert.strictEqual(
                     assignClassToProtocol(
                         evaluator,
-                        target,
+                        ClassType.cloneAsInstantiable(accepted),
                         source,
-                        diagnostic,
+                        undefined,
                         constraints,
                         AssignTypeFlags.Default,
                         0
                     ),
-                    false
+                    true
                 );
-                const observation = observe(constraints);
-                if (upper !== 'empty') {
-                    assert.strictEqual(observation.solved, upper === 'literal' ? 'Literal[7]' : 'int');
-                }
-                if (targetKind !== 'generic' || upper === 'empty') {
-                    assert.deepStrictEqual(observation, {
-                        ...before,
-                        sets: before.sets.map((set) => ({
-                            ...set,
-                            scopes: warm ? [...set.scopes, 'second'] : set.scopes,
-                        })),
-                    });
-                }
-                results.push(observation);
+                results.push(observe(constraints));
             }
-            for (const flags of [AssignTypeFlags.Default, AssignTypeFlags.Invariant, AssignTypeFlags.Contravariant]) {
-                for (const transfer of ['clone', 'signature', 'copy', 'bounds']) {
-                    let continued = constraints.clone();
-                    if (transfer === 'signature') {
-                        continued = constraints.cloneWithSignature('caller');
-                    } else if (transfer === 'copy') {
-                        continued.copyFromClone(constraints);
-                    } else if (transfer === 'bounds') {
-                        continued = new ConstraintTracker();
-                        continued.copyBounds(constraints.getMainConstraintSet().getTypeVar(freeVariable)!);
-                    }
-                    for (const marker of ['literal', 'other', 'integer', 'text']) {
-                        results.push({
-                            assigned: evaluator.assignType(freeVariable, typeAt(marker), undefined, continued, flags),
-                            observation: observe(continued),
-                        });
-                    }
-                }
-            }
-            assert.strictEqual(
-                assignClassToProtocol(
-                    evaluator,
-                    ClassType.cloneAsInstantiable(accepted),
-                    source,
-                    undefined,
-                    constraints,
-                    AssignTypeFlags.Default,
-                    0
-                ),
-                true
-            );
-            results.push(observe(constraints));
-        }
-        return results;
-    };
-    assert.deepStrictEqual(run(false), run(true));
-});
+            return results;
+        };
+        assert.deepStrictEqual(run(false), run(true));
+        assert.deepStrictEqual(run(true, true), run(true));
+    }
+);
