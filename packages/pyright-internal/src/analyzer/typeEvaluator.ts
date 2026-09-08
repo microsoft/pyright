@@ -6111,7 +6111,8 @@ export function createTypeEvaluator(
         node: MemberAccessNode,
         baseTypeResult: TypeResult,
         usage: EvaluatorUsage,
-        flags: EvalFlags
+        flags: EvalFlags,
+        allowFunctionSignatureAssignment = true
     ): TypeResult {
         let baseType = transformPossibleRecursiveTypeAlias(baseTypeResult.type);
         const memberName = node.d.member.d.value;
@@ -6491,6 +6492,11 @@ export function createTypeEvaluator(
             case TypeCategory.Function:
             case TypeCategory.Overloaded: {
                 const hasSelf = isMethodType(baseType);
+                const functionTypes = isFunction(baseType) ? [baseType] : OverloadedType.getOverloads(baseType);
+                const isBuiltinsFunction = functionTypes.some(
+                    (functionType) =>
+                        FunctionType.isBuiltIn(functionType) && functionType.shared.moduleName === 'builtins'
+                );
 
                 if (memberName === '__self__' && hasSelf) {
                     // Handle "__self__" specially because MethodType defines
@@ -6513,7 +6519,8 @@ export function createTypeEvaluator(
                         node,
                         { type: altType ? convertToInstance(altType) : UnknownType.create() },
                         usage,
-                        flags
+                        flags,
+                        !hasSelf && !isBuiltinsFunction
                     ).type;
                 }
                 break;
@@ -6530,7 +6537,15 @@ export function createTypeEvaluator(
                 isFunctionOrOverloaded(baseType) ||
                 (isClassInstance(baseType) && ClassType.isBuiltIn(baseType, ['function', 'FunctionType']));
 
-            if (!baseTypeResult.isIncomplete) {
+            // These signature metadata attributes can be assigned on function objects at runtime.
+            const isFunctionSignatureAssignment =
+                allowFunctionSignatureAssignment &&
+                usage.method === 'set' &&
+                (memberName === '__signature__' || memberName === '__text_signature__') &&
+                isClassInstance(baseType) &&
+                ClassType.isBuiltIn(baseType, ['function', 'FunctionType']);
+
+            if (!baseTypeResult.isIncomplete && !isFunctionSignatureAssignment) {
                 let diagMessage = LocMessage.memberAccess();
                 if (usage.method === 'set') {
                     diagMessage = LocMessage.memberSet();

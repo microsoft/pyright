@@ -1015,13 +1015,13 @@ test('FunctionMember1', () => {
 
     configOptions.diagnosticRuleSet.reportFunctionMemberAccess = 'error';
     const analysisResult2 = TestUtils.typeAnalyzeSampleFiles(['functionMember1.py'], configOptions);
-    TestUtils.validateResults(analysisResult2, 3);
+    TestUtils.validateResults(analysisResult2, 7);
 });
 
 test('FunctionMember2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionMember2.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Annotations1', () => {
