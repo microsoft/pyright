@@ -672,6 +672,7 @@
         "variadicTypeParamTooManyClass": "泛型类最多可以有一个 TypeVarTuple 类型参数，但收到多个 ({names})",
         "walrusIllegal": "运算符 \":=\" 需要 Python 3.8 或更高版本",
         "walrusNotAllowed": "此上下文中不允许使用运算符 \":=\"，且不带括号",
+        "walrusNotAllowedInComprehension": "在推导可迭代表达式中不允许使用操作符 \":=\"",
         "wildcardInFunction": "类或函数中不允许使用通配符 import",
         "wildcardLibraryImport": "不允许从库中 import 通配符",
         "wildcardPatternTypePartiallyUnknown": "通配符模式捕获的类型部分未知",

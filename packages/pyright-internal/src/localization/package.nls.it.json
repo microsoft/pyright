@@ -672,6 +672,7 @@
         "variadicTypeParamTooManyClass": "La classe generica può avere al massimo un parametro di tipo TypeVarTuple, ma ne ha ricevuti più ({names})",
         "walrusIllegal": "L'operatore \":=\" richiede Python 3.8 o versione successiva",
         "walrusNotAllowed": "L'operatore \":=\" non è consentito in questo contesto senza parentesi circostanti",
+        "walrusNotAllowedInComprehension": "L'operatore \":=\" non è consentito all'interno di un'espressione di comprensione iterabile",
         "wildcardInFunction": "Wildcard import non consentito all'interno di una classe o di una funzione",
         "wildcardLibraryImport": "Wildcard import da una libreria non consentito",
         "wildcardPatternTypePartiallyUnknown": "Il tipo acquisito dal modello con caratteri jolly è parzialmente sconosciuto",

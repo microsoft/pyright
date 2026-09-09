@@ -672,6 +672,7 @@
         "variadicTypeParamTooManyClass": "Универсальный класс может иметь не более одного параметра типа TypeVarTuple, но получил несколько ({names})",
         "walrusIllegal": "Оператор \":=\" может использоваться в Python версии не ниже 3.8",
         "walrusNotAllowed": "Оператор \":=\" не допускается в этом контексте без окружающих круглых скобок",
+        "walrusNotAllowedInComprehension": "Оператор \":=\" не разрешен в выражении итерируемого объекта comprehension",
         "wildcardInFunction": "import с подстановочными знаками в классе или функции запрещен",
         "wildcardLibraryImport": "import подстановочных знаков из библиотеки запрещен",
         "wildcardPatternTypePartiallyUnknown": "Тип, захваченный шаблоном подстановки, частично неизвестен",

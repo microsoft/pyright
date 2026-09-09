@@ -672,6 +672,7 @@
         "variadicTypeParamTooManyClass": "Die generische Klasse darf höchstens einen TypeVarTuple-Typparameter aufweisen, es wurden jedoch mehrere ({names}) empfangen.",
         "walrusIllegal": "Der Operator \":=\" erfordert Python 3.8 oder höher.",
         "walrusNotAllowed": "Der Operator \":=\" ist in diesem Kontext ohne umgebende Klammern nicht zulässig.",
+        "walrusNotAllowedInComprehension": "Der Operator „:=“ ist innerhalb eines iterierbaren Verständnisausdrucks nicht zulässig.",
         "wildcardInFunction": "Der Platzhalterimport ist innerhalb einer Klasse oder Funktion nicht zulässig.",
         "wildcardLibraryImport": "Der Platzhalterimport aus einer Bibliothek ist nicht zulässig.",
         "wildcardPatternTypePartiallyUnknown": "Der durch das Platzhaltermuster erfasste Typ ist teilweise unbekannt.",

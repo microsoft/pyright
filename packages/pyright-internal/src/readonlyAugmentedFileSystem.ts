@@ -51,6 +51,10 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
             : this._mapping.readFileSync(uri, encoding);
     }
 
+    readFileRangeSync(uri: Uri, offset: number, length: number): Buffer {
+        return this._mapping.readFileRangeSync(uri, offset, length);
+    }
+
     writeFileSync(uri: Uri, data: string | Buffer, encoding: BufferEncoding | null): void {
         throw new Error('Operation is not allowed.');
     }

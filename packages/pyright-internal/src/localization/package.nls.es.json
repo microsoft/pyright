@@ -672,6 +672,7 @@
         "variadicTypeParamTooManyClass": "La clase genérica puede tener como máximo un parámetro de tipo TypeVarTuple pero recibió múltiples ({names})",
         "walrusIllegal": "El operador \":=\" requiere Python 3.8 o posterior",
         "walrusNotAllowed": "El operador \":=\" no está permitido en este contexto sin paréntesis alrededor",
+        "walrusNotAllowedInComprehension": "No se permite el operador \":=\" dentro de una expresión iterable de comprensión",
         "wildcardInFunction": "No se permite la importación de comodines dentro de una clase o función",
         "wildcardLibraryImport": "No se permite la importación de caracteres comodín desde una biblioteca",
         "wildcardPatternTypePartiallyUnknown": "El tipo capturado por el patrón comodín es parcialmente desconocido",
