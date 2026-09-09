@@ -5,6 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  js-yaml@>=3.0.0 <3.15.2: 3.15.2
+  js-yaml@>=4.0.0 <4.3.2: 4.3.2
   tar: 7.5.11
 
 importers:
@@ -3362,16 +3364,12 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha1-GSA/tZmR35jjoocFDUZHzerzJJk=}
 
-  js-yaml@3.15.1:
-    resolution: {integrity: sha1-JLyVAo82HNqqhHRbBqEJxEhnc8A=}
+  js-yaml@3.15.2:
+    resolution: {integrity: sha1-P4OCOsa+F/Vw8jsuze83d/9eo2Q=}
     hasBin: true
 
-  js-yaml@4.1.1:
-    resolution: {integrity: sha1-hUwpJGdwW2mUduGi3swMijRYgGs=}
-    hasBin: true
-
-  js-yaml@4.3.1:
-    resolution: {integrity: sha1-ASFsAB1n9I4s1WDXCMevIQkKOEg=}
+  js-yaml@4.3.2:
+    resolution: {integrity: sha1-jkT7FKJkPFlya7FXh7XxUSyz0/s=}
     hasBin: true
 
   jsesc@3.1.0:
@@ -5557,7 +5555,7 @@ snapshots:
       globals: 14.0.0
       ignore: 5.3.2
       import-fresh: 3.3.1
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       minimatch: 3.1.5
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
@@ -5739,7 +5737,7 @@ snapshots:
       camelcase: 5.3.1
       find-up: 4.1.0
       get-package-type: 0.1.0
-      js-yaml: 3.15.1
+      js-yaml: 3.15.2
       resolve-from: 5.0.0
 
   '@istanbuljs/schema@0.1.6': {}
@@ -6431,7 +6429,7 @@ snapshots:
       '@textlint/types': 15.7.1
       chalk: 4.1.2
       debug: 4.4.3(supports-color@8.1.1)
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       lodash: 4.18.1
       pluralize: 2.0.0
       string-width: 4.2.3
@@ -7416,7 +7414,7 @@ snapshots:
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.1
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 5.9.3
@@ -8643,16 +8641,12 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@3.15.1:
+  js-yaml@3.15.2:
     dependencies:
       argparse: 1.0.10
       esprima: 4.0.1
 
-  js-yaml@4.1.1:
-    dependencies:
-      argparse: 2.0.1
-
-  js-yaml@4.3.1:
+  js-yaml@4.3.2:
     dependencies:
       argparse: 2.0.1
 
@@ -8766,7 +8760,7 @@ snapshots:
       inquirer: 12.9.6(@types/node@25.9.4)
       is-ci: 3.0.1
       jest-diff: 30.4.1
-      js-yaml: 4.1.1
+      js-yaml: 4.3.2
       libnpmaccess: 10.0.3(supports-color@8.1.1)
       libnpmpublish: 11.1.2(supports-color@8.1.1)
       load-json-file: 6.2.0
@@ -9721,7 +9715,7 @@ snapshots:
   rc-config-loader@4.1.4(supports-color@8.1.1):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       json5: 2.2.3
       require-from-string: 2.0.2
     transitivePeerDependencies:

@@ -894,6 +894,10 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
         return Promise.resolve(this.readFileSync(fileUri, encoding || 'utf8'));
     }
 
+    readFileRangeSync(fileUri: Uri, offset: number, length: number): Buffer {
+        return this.readFileSync(fileUri).subarray(offset, offset + length);
+    }
+
     createReadStream(path: Uri): ReadStream {
         throw new Error('Not implemented in test file system.');
     }

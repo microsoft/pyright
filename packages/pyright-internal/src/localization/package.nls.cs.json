@@ -672,6 +672,7 @@
         "variadicTypeParamTooManyClass": "Obecná třída může mít maximálně jeden parametr typu TypeVarTuple, ale přijala více ({names})",
         "walrusIllegal": "Operátor := vyžaduje Python 3.8 nebo novější",
         "walrusNotAllowed": "Operátor := není v tomto kontextu povolen bez okolních závorek",
+        "walrusNotAllowedInComprehension": "Operátor „:=“ není povolen v iterovatelném výrazu pro generování kolekce.",
         "wildcardInFunction": "V rámci třídy nebo funkce není povolen import se zástupnými znaky.",
         "wildcardLibraryImport": "Není povolený import se zástupnými znaky z knihovny.",
         "wildcardPatternTypePartiallyUnknown": "Typ zachycený vzorem se zástupnými znaky je částečně neznámý",

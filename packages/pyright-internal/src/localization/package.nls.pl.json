@@ -672,6 +672,7 @@
         "variadicTypeParamTooManyClass": "Klasa ogólna może mieć co najwyżej jeden parametr typu TypeVarTuple, ale otrzymał wiele ({names})",
         "walrusIllegal": "Operator „:=” wymaga języka Python w wersji 3.8 lub nowszej",
         "walrusNotAllowed": "Operator „:=” jest niedozwolony w tym kontekście bez otaczających nawiasów",
+        "walrusNotAllowedInComprehension": "Operator „:=” jest niedozwolony w iterowalnym wyrażeniu rozumowania",
         "wildcardInFunction": "Wildcard import not allowed within a class or function",
         "wildcardLibraryImport": "Wildcard import from a library not allowed",
         "wildcardPatternTypePartiallyUnknown": "Typ przechwycony przez wzorzec symboli wieloznacznych jest częściowo nieznany",

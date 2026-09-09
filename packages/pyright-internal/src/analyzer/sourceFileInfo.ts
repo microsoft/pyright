@@ -103,10 +103,6 @@ export class SourceFileInfo implements extensibility.SourceFileInfo {
         return this._writableData.importedBy;
     }
 
-    get areImportsComputed(): boolean {
-        return !this.sourceFile.isParseRequired();
-    }
-
     get shadows(): readonly SourceFileInfo[] {
         return this._writableData.shadows;
     }

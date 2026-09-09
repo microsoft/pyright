@@ -672,6 +672,7 @@
         "variadicTypeParamTooManyClass": "Genel sınıf en fazla bir TypeVarTuple tür parametresine sahip olabilir ancak birden fazlası {names}) alındı",
         "walrusIllegal": "\":=\" işleci için Python 3.8 veya daha yeni bir sürümü gerekiyor",
         "walrusNotAllowed": "Çevreleyen parantezler olmadan bu bağlamda \":=\" işlecine izin verilmiyor",
+        "walrusNotAllowedInComprehension": "\":=\" işleci, bir comprehension yinelemeli ifadesi içinde kullanılamaz",
         "wildcardInFunction": "Wildcard import not allowed within a class or function",
         "wildcardLibraryImport": "Wildcard import from a library not allowed",
         "wildcardPatternTypePartiallyUnknown": "Joker karakter deseni tarafından yakalanan tür kısmen bilinmiyor",
