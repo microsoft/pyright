@@ -30,10 +30,10 @@ from _typeshed import (
     SupportsRichComparisonT,
     SupportsWrite,
 )
-from collections.abc import Awaitable, Callable, Iterable, Iterator, MutableSet, Reversible, Set as AbstractSet, Sized
+from collections.abc import Awaitable, Callable, Iterable, Iterator, MutableSet, Set as AbstractSet, Sized
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
 from os import PathLike
-from types import CellType, CodeType, EllipsisType, GenericAlias, NotImplementedType, TracebackType
+from types import CellType, CodeType, EllipsisType, GenericAlias, NotImplementedType, TracebackType, UnionType
 
 # mypy crashes if any of {ByteString, Sequence, MutableSequence, Mapping, MutableMapping}
 # are imported from collections.abc in builtins.pyi
@@ -218,7 +218,7 @@ class type:
     ) -> _typeshed.Self: ...
 
     def __call__(self, *args: Any, **kwds: Any) -> Any: ...
-    def __subclasses__(self: _typeshed.Self) -> list[_typeshed.Self]: ...
+    def __subclasses__(self: type[_T]) -> list[type[_T]]: ...
     # Note: the documentation doesn't specify what the return type is, the standard
     # implementation seems to be returning a list.
     def mro(self) -> list[type]: ...
@@ -281,6 +281,7 @@ class int:
             *,
             signed: bool = False,
         ) -> Self: ...
+
     else:
         def to_bytes(self, length: SupportsIndex, byteorder: Literal["little", "big"], *, signed: bool = False) -> bytes: ...
         @classmethod
@@ -344,6 +345,7 @@ class int:
     def __floor__(self) -> int: ...
     if sys.version_info >= (3, 14):
         def __round__(self, ndigits: SupportsIndex | None = None, /) -> int: ...
+
     else:
         def __round__(self, ndigits: SupportsIndex = ..., /) -> int: ...
 
@@ -770,6 +772,7 @@ class bytes(Sequence[int]):
     def partition(self, sep: ReadableBuffer, /) -> tuple[bytes, bytes, bytes]: ...
     if sys.version_info >= (3, 15):
         def replace(self, old: ReadableBuffer, new: ReadableBuffer, /, count: SupportsIndex = -1) -> bytes: ...
+
     else:
         def replace(self, old: ReadableBuffer, new: ReadableBuffer, count: SupportsIndex = -1, /) -> bytes: ...
 
@@ -890,6 +893,7 @@ class bytearray(MutableSequence[int]):
     def removesuffix(self, suffix: ReadableBuffer, /) -> bytearray: ...
     if sys.version_info >= (3, 15):
         def replace(self, old: ReadableBuffer, new: ReadableBuffer, /, count: SupportsIndex = -1) -> bytearray: ...
+
     else:
         def replace(self, old: ReadableBuffer, new: ReadableBuffer, count: SupportsIndex = -1, /) -> bytearray: ...
 
@@ -1042,6 +1046,7 @@ class memoryview(Sequence[_I]):
     if sys.version_info >= (3, 14):
         def index(self, value: object, start: SupportsIndex = 0, stop: SupportsIndex = sys.maxsize, /) -> int: ...
         def count(self, value: object, /) -> int: ...
+
     else:
         # These are inherited from the Sequence ABC, but don't actually exist on memoryview.
         # See https://github.com/python/cpython/issues/125420
@@ -1128,6 +1133,7 @@ class slice(Generic[_StartT_co, _StopT_co, _StepT_co]):
     def __eq__(self, value: object, /) -> bool: ...
     if sys.version_info >= (3, 12):
         def __hash__(self) -> int: ...
+
     else:
         __hash__: ClassVar[None]  # type: ignore[assignment]
 
@@ -1202,6 +1208,7 @@ class function:
             closure: tuple[CellType, ...] | None = None,
             kwdefaults: dict[str, object] | None = None,
         ) -> Self: ...
+
     else:
         def __new__(
             cls,
@@ -1359,6 +1366,7 @@ class dict(MutableMapping[_KT, _VT]):
         def __ror__(self, value: dict[_T1, _T2], /) -> dict[_KT | _T1, _VT | _T2]: ...
         @overload
         def __ror__(self, value: frozendict[_T1, _T2], /) -> frozendict[_KT | _T1, _VT | _T2]: ...
+
     else:
         def __or__(self, value: dict[_T1, _T2], /) -> dict[_KT | _T1, _VT | _T2]: ...
         def __ror__(self, value: dict[_T1, _T2], /) -> dict[_KT | _T1, _VT | _T2]: ...
@@ -1389,7 +1397,6 @@ if sys.version_info >= (3, 15):
             cls: type[frozendict[str, _VT]], iterable: Iterable[tuple[str, _VT]], /, **kwargs: _VT
         ) -> frozendict[str, _VT]: ...
 
-        def __init__(self) -> None: ...
         def copy(self) -> frozendict[_KT, _VT]: ...
 
         @overload
@@ -2105,7 +2112,7 @@ _SupportsSomeKindOfPow = (  # noqa: Y026  # TODO: Use TypeAlias once mypy bugs a
 )
 
 # TODO: `pow(int, int, Literal[0])` fails at runtime,
-# but adding a `NoReturn` overload isn't a good solution for expressing that (see #8566).
+# but adding a `Never` overload isn't a good solution for expressing that (see #8566).
 @overload
 def pow(base: int, exp: int, mod: int) -> int: ...
 @overload
@@ -2146,15 +2153,19 @@ def pow(base: _SupportsSomeKindOfPow, exp: complex, mod: None = None) -> complex
 
 quit: _sitebuiltins.Quitter
 
+@type_check_only
+class _SupportsReversed(Protocol[_T_co]):
+    def __reversed__(self) -> _T_co: ...
+
 @disjoint_base
-class reversed(Generic[_T]):
+class reversed(Generic[_T_co]):
     @overload
-    def __new__(cls, sequence: Reversible[_T], /) -> Iterator[_T]: ...  # type: ignore[misc]
+    def __new__(cls, sequence: _SupportsReversed[_T], /) -> _T: ...  # type: ignore[misc]
     @overload
-    def __new__(cls, sequence: SupportsLenAndGetItem[_T], /) -> Iterator[_T]: ...  # type: ignore[misc]
+    def __new__(cls, sequence: SupportsLenAndGetItem[_T_co], /) -> Self: ...
 
     def __iter__(self) -> Self: ...
-    def __next__(self) -> _T: ...
+    def __next__(self) -> _T_co: ...
     def __length_hint__(self) -> int: ...
 
 def repr(obj: object, /) -> str: ...
@@ -2185,11 +2196,13 @@ if sys.version_info >= (3, 15):
     class sentinel:
         __name__: str
         __module__: str
-        def __new__(cls, name: str, /, *, repr: str | None = None) -> Self: ...
-        def __copy__(self, /) -> Self: ...
-        def __deepcopy__(self, memo: Any, /) -> Self: ...
-        def __or__(self, other: Any, /) -> Any: ...
-        def __ror__(self, other: Any, /) -> Any: ...
+        def __new__(cls, name: str, /, *, repr: str | None = None) -> sentinel: ...
+        def __copy__(self, /) -> sentinel: ...
+        def __deepcopy__(self, memo: Any, /) -> sentinel: ...
+        # `other` can be any legal form for unions.
+        # `x | x` creates a `sentinel` instance if `x` is a sentinel, not a `UnionType` instance.
+        def __or__(self, other: Any, /) -> UnionType | sentinel: ...
+        def __ror__(self, other: Any, /) -> UnionType | sentinel: ...
 
 @overload
 def sorted(
@@ -2299,14 +2312,13 @@ NotImplemented: NotImplementedType
 
 @disjoint_base
 class BaseException:
-    """Common base class for all exceptions"""
     args: tuple[Any, ...]
     __cause__: BaseException | None
     __context__: BaseException | None
     __suppress_context__: bool
     __traceback__: TracebackType | None
     def __init__(self, *args: object) -> None: ...
-    def __new__(cls, *args: Any, **kwds: Any) -> Self: ...
+    def __new__(cls, /, *args: Any, **kwds: Any) -> Self: ...
     def __setstate__(self, state: dict[str, Any] | None, /) -> None: ...
     def with_traceback(self, tb: TracebackType | None, /) -> Self: ...
     # Necessary for security-focused static analyzers (e.g, pysa)
@@ -2318,28 +2330,21 @@ class BaseException:
         __notes__: list[str]
         def add_note(self, note: str, /) -> None: ...
 
-class GeneratorExit(BaseException):
-    """Request that a generator exit."""
-
-class KeyboardInterrupt(BaseException):
-    """Program interrupted by user."""
+class GeneratorExit(BaseException): ...
+class KeyboardInterrupt(BaseException): ...
 
 @disjoint_base
 class SystemExit(BaseException):
-    """Request to exit from the interpreter."""
     code: sys._ExitCode
 
-class Exception(BaseException):
-    """Common base class for all non-exit exceptions."""
+class Exception(BaseException): ...
 
 @disjoint_base
 class StopIteration(Exception):
-    """Signal the end from iterator.__next__()."""
     value: Any
 
 @disjoint_base
 class OSError(Exception):
-    """Base class for I/O related errors."""
     errno: int | None
     strerror: str | None
     # filename, filename2 are actually str | bytes | None
@@ -2353,28 +2358,20 @@ IOError = OSError
 if sys.platform == "win32":
     WindowsError = OSError
 
-class ArithmeticError(Exception):
-    """Base class for arithmetic errors."""
-
-class AssertionError(Exception):
-    """Assertion failed."""
+class ArithmeticError(Exception): ...
+class AssertionError(Exception): ...
 
 @disjoint_base
 class AttributeError(Exception):
-    """Attribute not found."""
     def __init__(self, *args: object, name: str | None = None, obj: object = None) -> None: ...
     name: str | None
     obj: object
 
-class BufferError(Exception):
-    """Buffer error."""
-
-class EOFError(Exception):
-    """Read beyond end of file."""
+class BufferError(Exception): ...
+class EOFError(Exception): ...
 
 @disjoint_base
 class ImportError(Exception):
-    """Import can't find module, or can't find name in module."""
     def __init__(self, *args: object, name: str | None = None, path: str | None = None) -> None: ...
     name: str | None
     path: str | None
@@ -2383,33 +2380,22 @@ class ImportError(Exception):
         name_from: str | None  # undocumented
 
 if sys.version_info >= (3, 15):
-    class ImportCycleError(ImportError):
-        """Import produces a cycle."""
+    class ImportCycleError(ImportError): ...
 
-class LookupError(Exception):
-    """Base class for lookup errors."""
-
-class MemoryError(Exception):
-    """Out of memory."""
+class LookupError(Exception): ...
+class MemoryError(Exception): ...
 
 @disjoint_base
 class NameError(Exception):
-    """Name not found globally."""
     def __init__(self, *args: object, name: str | None = None) -> None: ...
     name: str | None
 
-class ReferenceError(Exception):
-    """Weak ref proxy used after referent went away."""
-
-class RuntimeError(Exception):
-    """Unspecified run-time error."""
-
-class StopAsyncIteration(Exception):
-    """Signal the end from iterator.__anext__()."""
+class ReferenceError(Exception): ...
+class RuntimeError(Exception): ...
+class StopAsyncIteration(Exception): ...
 
 @disjoint_base
 class SyntaxError(Exception):
-    """Invalid syntax."""
     msg: str
     filename: str | None
     lineno: int | None
@@ -2436,104 +2422,42 @@ class SyntaxError(Exception):
     # If you provide more than two arguments, it still creates the SyntaxError, but
     # the arguments from the info tuple are not parsed. This form is omitted.
 
-class SystemError(Exception):
-    """Internal error in the Python interpreter.
-
-    Please report this to the Python maintainer, along with the traceback,
-    the Python version, and the hardware/OS platform and version.
-    """
-
-class TypeError(Exception):
-    """Inappropriate argument type."""
-
-class ValueError(Exception):
-    """Inappropriate argument value (of correct type)."""
-
-class FloatingPointError(ArithmeticError):
-    """Floating-point operation failed."""
-
-class OverflowError(ArithmeticError):
-    """Result too large to be represented."""
-
-class ZeroDivisionError(ArithmeticError):
-    """Second argument to a division or modulo operation was zero."""
-
-class ModuleNotFoundError(ImportError):
-    """Module not found."""
-
-class IndexError(LookupError):
-    """Sequence index out of range."""
-
-class KeyError(LookupError):
-    """Mapping key not found."""
-
-class UnboundLocalError(NameError):
-    """Local name referenced but not bound to a value."""
+class SystemError(Exception): ...
+class TypeError(Exception): ...
+class ValueError(Exception): ...
+class FloatingPointError(ArithmeticError): ...
+class OverflowError(ArithmeticError): ...
+class ZeroDivisionError(ArithmeticError): ...
+class ModuleNotFoundError(ImportError): ...
+class IndexError(LookupError): ...
+class KeyError(LookupError): ...
+class UnboundLocalError(NameError): ...
 
 class BlockingIOError(OSError):
-    """I/O operation would block."""
     characters_written: int
 
-class ChildProcessError(OSError):
-    """Child process error."""
-
-class ConnectionError(OSError):
-    """Connection error."""
-
-class BrokenPipeError(ConnectionError):
-    """Broken pipe."""
-
-class ConnectionAbortedError(ConnectionError):
-    """Connection aborted."""
-
-class ConnectionRefusedError(ConnectionError):
-    """Connection refused."""
-
-class ConnectionResetError(ConnectionError):
-    """Connection reset."""
-
-class FileExistsError(OSError):
-    """File already exists."""
-
-class FileNotFoundError(OSError):
-    """File not found."""
-
-class InterruptedError(OSError):
-    """Interrupted by signal."""
-
-class IsADirectoryError(OSError):
-    """Operation doesn't work on directories."""
-
-class NotADirectoryError(OSError):
-    """Operation only works on directories."""
-
-class PermissionError(OSError):
-    """Not enough permissions."""
-
-class ProcessLookupError(OSError):
-    """Process not found."""
-
-class TimeoutError(OSError):
-    """Timeout expired."""
-
-class NotImplementedError(RuntimeError):
-    """Method or function hasn't been implemented yet."""
-
-class RecursionError(RuntimeError):
-    """Recursion limit exceeded."""
-
-class IndentationError(SyntaxError):
-    """Improper indentation."""
-
-class TabError(IndentationError):
-    """Improper mixture of spaces and tabs."""
-
-class UnicodeError(ValueError):
-    """Unicode related error."""
+class ChildProcessError(OSError): ...
+class ConnectionError(OSError): ...
+class BrokenPipeError(ConnectionError): ...
+class ConnectionAbortedError(ConnectionError): ...
+class ConnectionRefusedError(ConnectionError): ...
+class ConnectionResetError(ConnectionError): ...
+class FileExistsError(OSError): ...
+class FileNotFoundError(OSError): ...
+class InterruptedError(OSError): ...
+class IsADirectoryError(OSError): ...
+class NotADirectoryError(OSError): ...
+class PermissionError(OSError): ...
+class ProcessLookupError(OSError): ...
+class TimeoutError(OSError): ...
+class NotImplementedError(RuntimeError): ...
+class RecursionError(RuntimeError): ...
+class IndentationError(SyntaxError): ...
+class TabError(IndentationError): ...
+class UnicodeError(ValueError): ...
 
 @disjoint_base
 class UnicodeDecodeError(UnicodeError):
-    """Unicode decoding error."""
     encoding: str
     object: bytes
     start: int
@@ -2543,7 +2467,6 @@ class UnicodeDecodeError(UnicodeError):
 
 @disjoint_base
 class UnicodeEncodeError(UnicodeError):
-    """Unicode encoding error."""
     encoding: str
     object: str
     start: int
@@ -2553,7 +2476,6 @@ class UnicodeEncodeError(UnicodeError):
 
 @disjoint_base
 class UnicodeTranslateError(UnicodeError):
-    """Unicode translation error."""
     encoding: None
     object: str
     start: int
@@ -2561,41 +2483,18 @@ class UnicodeTranslateError(UnicodeError):
     reason: str
     def __init__(self, object: str, start: int, end: int, reason: str, /) -> None: ...
 
-class Warning(Exception):
-    """Base class for warning categories."""
-
-class UserWarning(Warning):
-    """Base class for warnings generated by user code."""
-
-class DeprecationWarning(Warning):
-    """Base class for warnings about deprecated features."""
-
-class SyntaxWarning(Warning):
-    """Base class for warnings about dubious syntax."""
-
-class RuntimeWarning(Warning):
-    """Base class for warnings about dubious runtime behavior."""
-
-class FutureWarning(Warning):
-    """Base class for warnings about constructs that will change semantically in the future."""
-
-class PendingDeprecationWarning(Warning):
-    """Base class for warnings about features which will be deprecated in the future."""
-
-class ImportWarning(Warning):
-    """Base class for warnings about probable mistakes in module imports"""
-
-class UnicodeWarning(Warning):
-    """Base class for warnings about Unicode related problems, mostly related to conversion problems."""
-
-class BytesWarning(Warning):
-    """Base class for warnings about bytes and buffer related problems, mostly related to conversion from str or comparing to str."""
-
-class ResourceWarning(Warning):
-    """Base class for warnings about resource usage."""
-
-class EncodingWarning(Warning):
-    """Base class for warnings about encodings."""
+class Warning(Exception): ...
+class UserWarning(Warning): ...
+class DeprecationWarning(Warning): ...
+class SyntaxWarning(Warning): ...
+class RuntimeWarning(Warning): ...
+class FutureWarning(Warning): ...
+class PendingDeprecationWarning(Warning): ...
+class ImportWarning(Warning): ...
+class UnicodeWarning(Warning): ...
+class BytesWarning(Warning): ...
+class ResourceWarning(Warning): ...
+class EncodingWarning(Warning): ...
 
 if sys.version_info >= (3, 11):
     _BaseExceptionT_co = TypeVar("_BaseExceptionT_co", bound=BaseException, covariant=True, default=BaseException)
@@ -2606,7 +2505,6 @@ if sys.version_info >= (3, 11):
     # See `check_exception_group.py` for use-cases and comments.
     @disjoint_base
     class BaseExceptionGroup(BaseException, Generic[_BaseExceptionT_co]):
-        """A combination of multiple unrelated exceptions."""
         def __new__(cls, message: str, exceptions: Sequence[_BaseExceptionT_co], /) -> Self: ...
         def __init__(self, message: str, exceptions: Sequence[_BaseExceptionT_co], /) -> None: ...
         @property
@@ -2649,7 +2547,6 @@ if sys.version_info >= (3, 11):
         def __class_getitem__(cls, item: Any, /) -> GenericAlias: ...
 
     class ExceptionGroup(BaseExceptionGroup[_ExceptionT_co], Exception):
-        """A combination of multiple unrelated exceptions."""
         def __new__(cls, message: str, exceptions: Sequence[_ExceptionT_co], /) -> Self: ...
         def __init__(self, message: str, exceptions: Sequence[_ExceptionT_co], /) -> None: ...
         @property
@@ -2675,5 +2572,4 @@ if sys.version_info >= (3, 11):
         ) -> tuple[ExceptionGroup[_ExceptionT_co] | None, ExceptionGroup[_ExceptionT_co] | None]: ...
 
 if sys.version_info >= (3, 13):
-    class PythonFinalizationError(RuntimeError):
-        """Operation blocked during Python finalization."""
+    class PythonFinalizationError(RuntimeError): ...

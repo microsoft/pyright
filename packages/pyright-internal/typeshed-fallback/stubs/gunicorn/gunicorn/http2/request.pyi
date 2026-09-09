@@ -3,9 +3,11 @@ from collections.abc import Iterator
 from typing import Literal
 
 from gunicorn.config import Config
+from gunicorn.http.message import HeaderPolicy
 from gunicorn.http2.stream import HTTP2Stream
 
 from .._types import _AddressType
+from ..asgi.parser import _ProxyProtocolInfo, _ProxyProtocolInfoUnknown
 
 class HTTP2Body:
     def __init__(self, data: ReadableBuffer) -> None: ...
@@ -16,7 +18,7 @@ class HTTP2Body:
     def __len__(self) -> int: ...
     def close(self) -> None: ...
 
-class HTTP2Request:
+class HTTP2Request(HeaderPolicy):
     stream: HTTP2Stream
     cfg: Config
     peer_addr: _AddressType
@@ -33,7 +35,7 @@ class HTTP2Request:
     body: HTTP2Body
     must_close: bool
     req_number: int
-    proxy_protocol_info: dict[str, str | int | None] | None  # TODO: Use TypedDict
+    proxy_protocol_info: _ProxyProtocolInfo | _ProxyProtocolInfoUnknown | None
     priority_weight: int
     priority_depends_on: int
 

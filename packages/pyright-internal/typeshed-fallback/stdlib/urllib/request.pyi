@@ -1,13 +1,13 @@
 import ssl
 import sys
-from _typeshed import ReadableBuffer, StrOrBytesPath, SupportsRead
+from _typeshed import ReadableBuffer, StrOrBytesPath, SupportsItems, SupportsRead
 from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from email.message import Message
 from http.client import HTTPConnection, HTTPMessage, HTTPResponse
 from http.cookiejar import CookieJar
 from re import Pattern
-from typing import IO, Any, ClassVar, Literal, NoReturn, Protocol, TypeAlias, TypeVar, overload, type_check_only
-from typing_extensions import deprecated
+from typing import IO, Any, ClassVar, Literal, Protocol, TypeAlias, TypeVar, overload, type_check_only
+from typing_extensions import Never, deprecated
 from urllib.error import HTTPError as HTTPError
 from urllib.response import addclosehook, addinfourl
 
@@ -139,7 +139,7 @@ class Request:
         self,
         url: str,
         data: _DataType = None,
-        headers: MutableMapping[str, str] = {},
+        headers: SupportsItems[str, str] = {},
         origin_req_host: str | None = None,
         unverifiable: bool = False,
         method: str | None = None,
@@ -336,7 +336,7 @@ class CacheFTPHandler(FTPHandler):
     def clear_cache(self) -> None: ...  # undocumented
 
 class UnknownHandler(BaseHandler):
-    def unknown_open(self, req: Request) -> NoReturn: ...
+    def unknown_open(self, req: Request) -> Never: ...
 
 class HTTPErrorProcessor(BaseHandler):
     def http_response(self, request: Request, response: HTTPResponse) -> _UrlopenRet: ...
