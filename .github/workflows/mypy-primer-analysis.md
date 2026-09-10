@@ -171,9 +171,13 @@ not a PR approval, a merge recommendation, or an instruction to modify code.
 ## Evidence and coverage
 
 1. Read the manifest first. Its `projects` inventory and counts are deterministic
-   and include every changed project across all eight shards. Its `groups` contain
-   per-rule counts and up to three abbreviated examples in each direction, not a
-   replacement for the complete raw evidence. Raw diffs are under
+   and include every changed project across all eight shards, including projects
+   with only diagnostic-detail changes. `added`/`removed` count diagnostic headers;
+   `detailLinesAdded`/`detailLinesRemoved` count indented detail lines separately.
+   Its `groups` summarize diagnostic headers and `detailGroups` summarize detail
+   lines, with counts by explicitly present rule and up to three abbreviated
+   examples in each direction. `unspecified` means the line has no rule label.
+   These summaries are not a replacement for the complete raw evidence. Raw diffs are under
    `/tmp/gh-aw/primer-input/raw/mypy_primer_diffs_N/diff_N.txt`. Do not analyze the
    truncated PR comment instead.
 2. Read the PR diff and relevant Pyright implementation/tests. `source.headSha`
@@ -186,7 +190,12 @@ not a PR approval, a merge recommendation, or an instruction to modify code.
 3. Group changes by diagnostic rule and inferred-type transition. Distinguish
    added/removed diagnostics from message rewrites at the same location. Explain
    representative groups, including any group you could not investigate, for every
-   changed project. Do not let one large project hide the others.
+   changed project. Do not let one large project hide the others. Concise diffs
+   omit unchanged headers and context: detail lines may lack a location, severity,
+   or rule, and must not be assigned to a nearby header without additional evidence.
+   Zero added/removed headers does not mean no change. Explain detail-only type
+   transitions and disclose missing context; do not fabricate diagnostic counts
+   or locations. Treat detail-only precision loss as potentially significant.
 4. Prioritize added `reportAssertTypeFailure` diagnostics, loss of precision to
    `Any`/`Unknown`, and removed attribute/argument/operator errors that might have
    disappeared because of lost precision. More errors can also mean restored

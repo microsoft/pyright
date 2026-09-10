@@ -20,10 +20,13 @@ interface SourceRun {
     pullRequests: number[];
 }
 
-interface Diagnostic {
-    severity: string;
+interface DiffLine {
     text: string;
     rule: string;
+}
+
+interface Diagnostic extends DiffLine {
+    severity: string;
 }
 
 interface ProjectDiff {
@@ -32,14 +35,14 @@ interface ProjectDiff {
     shard: number;
     added: Diagnostic[];
     removed: Diagnostic[];
+    detailsAdded: DiffLine[];
+    detailsRemoved: DiffLine[];
 }
 
-interface Manifest {
+interface Manifest extends ReturnType<typeof summarizeDiffs> {
     repository: string;
     source: SourceRun;
     prNumber: number;
-    projects: { name: string; url: string; shard: number; added: number; removed: number }[];
-    groups: ReturnType<typeof summarizeDiffs>['groups'];
 }
 
 const shardCount = 8;
@@ -227,7 +230,6 @@ async function isCurrentPullRequest(request: Request, repository: string, source
 export function parseDiff(contents: string, shard: number): ProjectDiff[] {
     const projects: ProjectDiff[] = [];
     let project: ProjectDiff | undefined;
-    let previous: Partial<Record<'+' | '-', Diagnostic>> = {};
     let totals: Partial<Record<'+' | '-', number[]>> = {};
     const finishProject = () => {
         if (!project) {
@@ -256,9 +258,16 @@ export function parseDiff(contents: string, shard: number): ProjectDiff[] {
         const header = /^([\w.-]{1,80}) \((https:\/\/github\.com\/[\w.-]+\/[\w.-]+)\)$/.exec(line);
         if (header) {
             finishProject();
-            project = { name: header[1], url: header[2], shard, added: [], removed: [] };
+            project = {
+                name: header[1],
+                url: header[2],
+                shard,
+                added: [],
+                removed: [],
+                detailsAdded: [],
+                detailsRemoved: [],
+            };
             projects.push(project);
-            previous = {};
             totals = {};
             continue;
         }
@@ -277,23 +286,48 @@ export function parseDiff(contents: string, shard: number): ProjectDiff[] {
             totals[sign] = total.slice(1).map(Number);
             continue;
         }
-        const diagnostic = /^[+-]\s+(.+:\d+:\d+ - (error|warning|information): .+)$/.exec(line);
+        const rule = /\((report\w+)\)$/.exec(line)?.[1] ?? 'unspecified';
+        const diagnostic = /^[+-] {3}(\S.*:\d+:\d+ - (error|warning|information): .+)$/.exec(line);
         if (diagnostic) {
-            const entry = { severity: diagnostic[2], text: diagnostic[1], rule: 'unspecified' };
+            const entry = { severity: diagnostic[2], text: diagnostic[1], rule };
             (sign === '+' ? project.added : project.removed).push(entry);
-            previous[sign] = entry;
-        } else if (!previous[sign]) {
-            throw new Error(`Unrecognized diagnostic for ${project.name}`);
+        } else if (/^[+-] {3}[ \u00a0]{2,}\S/.test(line)) {
+            // Concise diffs omit unchanged headers and context, so even a nearby
+            // header cannot reliably identify the diagnostic owning this line.
+            (sign === '+' ? project.detailsAdded : project.detailsRemoved).push({ text: line.slice(1), rule });
         } else {
-            previous[sign]!.text += `\n${line.slice(1)}`;
-        }
-        const rule = /\((report\w+)\)$/.exec(line);
-        if (rule) {
-            previous[sign]!.rule = rule[1];
+            throw new Error(`Unrecognized diagnostic for ${project.name}`);
         }
     }
     finishProject();
     return projects;
+}
+
+function groupChanges(added: DiffLine[], removed: DiffLine[]) {
+    const groups = new Map<
+        string,
+        { added: number; removed: number; examplesAdded: string[]; examplesRemoved: string[] }
+    >();
+    for (const [direction, entries] of [
+        ['added', added],
+        ['removed', removed],
+    ] as const) {
+        for (const entry of entries) {
+            const group = groups.get(entry.rule) ?? {
+                added: 0,
+                removed: 0,
+                examplesAdded: [],
+                examplesRemoved: [],
+            };
+            group[direction]++;
+            const examples = direction === 'added' ? group.examplesAdded : group.examplesRemoved;
+            if (examples.length < 3) {
+                examples.push(entry.text.slice(0, 400));
+            }
+            groups.set(entry.rule, group);
+        }
+    }
+    return Object.fromEntries(groups);
 }
 
 export function summarizeDiffs(projects: ProjectDiff[]) {
@@ -304,31 +338,16 @@ export function summarizeDiffs(projects: ProjectDiff[]) {
             shard: project.shard,
             added: project.added.length,
             removed: project.removed.length,
+            detailLinesAdded: project.detailsAdded.length,
+            detailLinesRemoved: project.detailsRemoved.length,
         })),
         groups: Object.fromEntries(
-            projects.map((project) => {
-                const groups = new Map<
-                    string,
-                    { added: number; removed: number; examplesAdded: string[]; examplesRemoved: string[] }
-                >();
-                for (const direction of ['added', 'removed'] as const) {
-                    for (const diagnostic of project[direction]) {
-                        const group = groups.get(diagnostic.rule) ?? {
-                            added: 0,
-                            removed: 0,
-                            examplesAdded: [],
-                            examplesRemoved: [],
-                        };
-                        group[direction]++;
-                        const examples = direction === 'added' ? group.examplesAdded : group.examplesRemoved;
-                        if (examples.length < 3) {
-                            examples.push(diagnostic.text.split('\n')[0].slice(0, 400));
-                        }
-                        groups.set(diagnostic.rule, group);
-                    }
-                }
-                return [project.name, Object.fromEntries(groups)] as const;
-            })
+            projects.map((project) => [project.name, groupChanges(project.added, project.removed)] as const)
+        ),
+        detailGroups: Object.fromEntries(
+            projects.map(
+                (project) => [project.name, groupChanges(project.detailsAdded, project.detailsRemoved)] as const
+            )
         ),
     };
 }
@@ -389,12 +408,13 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
         `Advisory AI analysis of [primer run ${manifest.source.runId}, attempt ${manifest.source.runAttempt}](${runUrl})`,
         `for commit \`${manifest.source.headSha}\`. This is not an approval or proof of correctness.`,
         '',
-        'Counts are diagnostic records, not diff lines; additions/removals can include changed messages.',
+        'Added/removed counts are diagnostic headers; message rewrites can appear on both sides.',
+        'Detail lines are counted separately, without assuming a location or association with nearby headers.',
         '',
     ];
     const rows = [
-        '| Project | Added | Removed | Assessment | Confidence | Explanation |',
-        '| --- | ---: | ---: | --- | --- | --- |',
+        '| Project | Added | Removed | Detail lines + / - | Assessment | Confidence | Explanation |',
+        '| --- | ---: | ---: | ---: | --- | --- | --- |',
     ];
     const details: string[] = [];
     for (const project of manifest.projects) {
@@ -426,6 +446,7 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
         }
         rows.push(
             `| ${escapeMarkdown(project.name)} | ${project.added} | ${project.removed} | ` +
+                `${project.detailLinesAdded} / ${project.detailLinesRemoved} | ` +
                 `${assessment} | ${confidence} | ${summary} |`
         );
         details.push(

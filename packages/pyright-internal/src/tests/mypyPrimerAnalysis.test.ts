@@ -30,6 +30,90 @@ const sample = [
     '+     Details (reportArgumentType)',
 ].join('\n');
 
+const expectedProject = {
+    name: 'example',
+    url: 'https://github.com/example/project',
+    shard: 0,
+    added: [
+        {
+            severity: 'error',
+            rule: 'unspecified',
+            text: '.../projects/example/test.py:1:1 - error: New message',
+        },
+    ],
+    removed: [
+        {
+            severity: 'error',
+            rule: 'unspecified',
+            text: '.../projects/example/test.py:1:1 - error: Old message',
+        },
+    ],
+    detailsAdded: [{ text: '     Details (reportArgumentType)', rule: 'reportArgumentType' }],
+    detailsRemoved: [{ text: '     Details (reportArgumentType)', rule: 'reportArgumentType' }],
+};
+
+// Reduced forms of the headerless pip and xarray changes in PR #11601's primer artifacts.
+const detailOnlySample = [
+    'example (https://github.com/example/project)',
+    '-   \u00a0\u00a0Return type mismatch: override returns "Match[str] | None"',
+    '+   \u00a0\u00a0Return type mismatch: override returns "Unknown"',
+    '-     Operator "+" not supported when expected type is "NDArray[Any]" (reportOperatorIssue)',
+    '+     Operator "+" not supported when expected type is "ndarray[_AnyShape, dtype[Any]]" (reportOperatorIssue)',
+].join('\n');
+const expectedDetailOnlyProject = {
+    ...expectedProject,
+    added: [],
+    removed: [],
+    detailsAdded: [
+        { text: '   \u00a0\u00a0Return type mismatch: override returns "Unknown"', rule: 'unspecified' },
+        {
+            text: '     Operator "+" not supported when expected type is "ndarray[_AnyShape, dtype[Any]]" (reportOperatorIssue)',
+            rule: 'reportOperatorIssue',
+        },
+    ],
+    detailsRemoved: [
+        { text: '   \u00a0\u00a0Return type mismatch: override returns "Match[str] | None"', rule: 'unspecified' },
+        {
+            text: '     Operator "+" not supported when expected type is "NDArray[Any]" (reportOperatorIssue)',
+            rule: 'reportOperatorIssue',
+        },
+    ],
+};
+const expectedDetailOnlySummary = {
+    projects: [
+        {
+            name: 'example',
+            url: 'https://github.com/example/project',
+            shard: 0,
+            added: 0,
+            removed: 0,
+            detailLinesAdded: 2,
+            detailLinesRemoved: 2,
+        },
+    ],
+    groups: { example: {} },
+    detailGroups: {
+        example: {
+            unspecified: {
+                added: 1,
+                removed: 1,
+                examplesAdded: ['   \u00a0\u00a0Return type mismatch: override returns "Unknown"'],
+                examplesRemoved: ['   \u00a0\u00a0Return type mismatch: override returns "Match[str] | None"'],
+            },
+            reportOperatorIssue: {
+                added: 1,
+                removed: 1,
+                examplesAdded: [
+                    '     Operator "+" not supported when expected type is "ndarray[_AnyShape, dtype[Any]]" (reportOperatorIssue)',
+                ],
+                examplesRemoved: [
+                    '     Operator "+" not supported when expected type is "NDArray[Any]" (reportOperatorIssue)',
+                ],
+            },
+        },
+    },
+};
+
 const expectedReportHeading = [
     `<!-- pyright-primer-analysis:${headSha}:42:1 -->`,
     '## mypy_primer analysis',
@@ -37,12 +121,14 @@ const expectedReportHeading = [
     'Advisory AI analysis of [primer run 42, attempt 1](https://github.com/microsoft/pyright/actions/runs/42)',
     `for commit \`${headSha}\`. This is not an approval or proof of correctness.`,
     '',
-    'Counts are diagnostic records, not diff lines; additions/removals can include changed messages.',
+    'Added/removed counts are diagnostic headers; message rewrites can appear on both sides.',
+    'Detail lines are counted separately, without assuming a location or association with nearby headers.',
     '',
-    '| Project | Added | Removed | Assessment | Confidence | Explanation |',
-    '| --- | ---: | ---: | --- | --- | --- |',
+    '| Project | Added | Removed | Detail lines + / - | Assessment | Confidence | Explanation |',
+    '| --- | ---: | ---: | ---: | --- | --- | --- |',
 ];
-const expectedReportRow = '| example | 1 | 1 | Needs human review | low | The argument error changed its wording. |';
+const expectedReportRow =
+    '| example | 1 | 1 | 1 / 1 | Needs human review | low | The argument error changed its wording. |';
 const expectedReportDetails = [
     '### example',
     '',
@@ -73,7 +159,7 @@ const expectedReport = {
     fullReport: [...expectedReportHeading, expectedReportRow, '', ...expectedReportDetails].join('\n'),
 };
 
-function fixture() {
+function fixture(contents = sample) {
     const source = {
         runId: 42,
         runAttempt: 1,
@@ -82,7 +168,7 @@ function fixture() {
         headBranch: 'feature',
         pullRequests: [7],
     };
-    const manifest = { repository, source, prNumber: 7, ...summarizeDiffs(parseDiff(sample, 0)) };
+    const manifest = { repository, source, prNumber: 7, ...summarizeDiffs(parseDiff(contents, 0)) };
     const pr = {
         number: 7,
         state: 'open',
@@ -170,25 +256,66 @@ describe('mypy_primer analysis', () => {
     }
 
     test('counts diagnostic records, not file headings or continuation lines', () => {
-        expect(parseDiff(sample.replace(/\n/g, '\r\n'), 3)).toStrictEqual([
+        expect(parseDiff(sample.replace(/\n/g, '\r\n'), 3)).toStrictEqual([{ ...expectedProject, shard: 3 }]);
+    });
+
+    test('preserves headerless details and groups only explicitly present rules', () => {
+        const projects = parseDiff(detailOnlySample, 0);
+        expect(projects).toStrictEqual([expectedDetailOnlyProject]);
+        expect(summarizeDiffs(projects)).toStrictEqual(expectedDetailOnlySummary);
+    });
+
+    test.each(['+', '-'])('accepts one-sided %s detail changes without inventing diagnostics', (sign) => {
+        const contents = [
+            'example (https://github.com/example/project)',
+            `${sign}     Changed detail (reportArgumentType)`,
+        ].join('\n');
+        const detail = { text: '     Changed detail (reportArgumentType)', rule: 'reportArgumentType' };
+        expect(parseDiff(contents, 0)).toStrictEqual([
             {
-                name: 'example',
-                url: 'https://github.com/example/project',
-                shard: 3,
-                added: [
+                ...expectedProject,
+                added: [],
+                removed: [],
+                detailsAdded: sign === '+' ? [detail] : [],
+                detailsRemoved: sign === '-' ? [detail] : [],
+            },
+        ]);
+    });
+
+    test('does not attach detail changes to nearby headers or leak them across projects', () => {
+        const contents = [
+            sample.replace(
+                '- .../projects/example/test.py',
+                '-     Earlier detail (reportGeneralTypeIssues)\n- .../projects/example/test.py'
+            ),
+            '+ .../projects/example/other.py',
+            '+     other.py:3:4 - error: Nested description (reportOperatorIssue)',
+            'second (https://github.com/example/second)',
+            '-     Unlocated detail',
+        ].join('\n');
+        expect(parseDiff(contents, 0)).toStrictEqual([
+            {
+                ...expectedProject,
+                detailsAdded: [
+                    ...expectedProject.detailsAdded,
                     {
-                        severity: 'error',
-                        rule: 'reportArgumentType',
-                        text: '.../projects/example/test.py:1:1 - error: New message\n     Details (reportArgumentType)',
+                        text: '     other.py:3:4 - error: Nested description (reportOperatorIssue)',
+                        rule: 'reportOperatorIssue',
                     },
                 ],
-                removed: [
-                    {
-                        severity: 'error',
-                        rule: 'reportArgumentType',
-                        text: '.../projects/example/test.py:1:1 - error: Old message\n     Details (reportArgumentType)',
-                    },
+                detailsRemoved: [
+                    { text: '     Earlier detail (reportGeneralTypeIssues)', rule: 'reportGeneralTypeIssues' },
+                    ...expectedProject.detailsRemoved,
                 ],
+            },
+            {
+                name: 'second',
+                url: 'https://github.com/example/second',
+                shard: 0,
+                added: [],
+                removed: [],
+                detailsAdded: [],
+                detailsRemoved: [{ text: '     Unlocated detail', rule: 'unspecified' }],
             },
         ]);
     });
@@ -196,11 +323,41 @@ describe('mypy_primer analysis', () => {
     test('keeps the complete project inventory before bounded diagnostic examples', () => {
         const diagnostics = parseDiff(sample, 0);
         diagnostics[0].added.push(...Array.from({ length: 20 }, () => diagnostics[0].added[0]));
+        diagnostics[0].detailsAdded.push(...Array.from({ length: 20 }, () => diagnostics[0].detailsAdded[0]));
         const summary = summarizeDiffs(diagnostics);
-        expect(summary.projects[0].added).toBe(21);
-        expect(summary.groups.example.reportArgumentType.added).toBe(21);
-        expect(summary.groups.example.reportArgumentType.examplesAdded).toHaveLength(3);
-        expect(summary.projects[0]).not.toHaveProperty('groups');
+        expect(summary).toStrictEqual({
+            projects: [
+                {
+                    name: 'example',
+                    url: 'https://github.com/example/project',
+                    shard: 0,
+                    added: 21,
+                    removed: 1,
+                    detailLinesAdded: 21,
+                    detailLinesRemoved: 1,
+                },
+            ],
+            groups: {
+                example: {
+                    unspecified: {
+                        added: 21,
+                        removed: 1,
+                        examplesAdded: Array(3).fill('.../projects/example/test.py:1:1 - error: New message'),
+                        examplesRemoved: ['.../projects/example/test.py:1:1 - error: Old message'],
+                    },
+                },
+            },
+            detailGroups: {
+                example: {
+                    reportArgumentType: {
+                        added: 21,
+                        removed: 1,
+                        examplesAdded: Array(3).fill('     Details (reportArgumentType)'),
+                        examplesRemoved: ['     Details (reportArgumentType)'],
+                    },
+                },
+            },
+        });
     });
 
     test('accepts empty shards and reconciles changed totals', () => {
@@ -218,6 +375,22 @@ describe('mypy_primer analysis', () => {
     test('rejects malformed output instead of silently omitting projects', () => {
         expect(() => parseDiff('unexpected output', 0)).toThrow('Unrecognized');
         expect(() => parseDiff(sample.replace('Old message', 'Old message\nnot a diff line'), 0)).toThrow();
+    });
+
+    test.each(['+ unrecognized output', '-   not a diagnostic header', '+     '])(
+        'rejects malformed signed output: %s',
+        (line) => {
+            expect(() => parseDiff(`${sample}\n${line}`, 0)).toThrow(new Error('Unrecognized diagnostic for example'));
+        }
+    );
+
+    test('detail changes cannot account for missing diagnostic headers in the totals', () => {
+        expect(() =>
+            parseDiff(
+                `${detailOnlySample}\n- 0 errors, 0 warnings, 0 informations\n+ 1 error, 0 warnings, 0 informations`,
+                0
+            )
+        ).toThrow(new Error('Diagnostic counts do not match the totals for example'));
     });
 
     test('requires all artifacts from the exact successful PR run and attempt', async () => {
@@ -257,6 +430,65 @@ describe('mypy_primer analysis', () => {
         await expect(prepareAnalysis(f.request, repository, f.source, directory)).resolves.toEqual(f.manifest);
         f.pr.head.sha = 'b'.repeat(40);
         await expect(prepareAnalysis(f.request, repository, f.source, directory)).resolves.toBeUndefined();
+    });
+
+    test('prepares and renders a detail-only project without treating zero headers as no changes', async () => {
+        writeShards(detailOnlySample);
+        const f = fixture(detailOnlySample);
+        const manifest = await prepareAnalysis(f.request, repository, f.source, directory);
+        expect(manifest).toStrictEqual({
+            repository,
+            source: f.source,
+            prNumber: 7,
+            ...expectedDetailOnlySummary,
+        });
+        if (!manifest) {
+            throw new Error('Preparation unexpectedly skipped the detail-only project');
+        }
+        f.report.projects[0] = {
+            name: 'example',
+            assessment: 'needs-review',
+            confidence: 'low',
+            summary: 'Only diagnostic details changed.',
+            explanation: 'The return type changed from Match[str] | None to Unknown.',
+            unresolved: 'Diagnostic headers and locations are absent from the concise diff.',
+            evidence: [],
+        };
+        const expectedDetails = [
+            '### example',
+            '',
+            'The return type changed from Match\\[str\\] \\| None to Unknown.',
+            '',
+            '**Unresolved / coverage limits:** Diagnostic headers and locations are absent from the concise diff.',
+            '',
+            '',
+        ];
+        const expectedRow = '| example | 0 | 0 | 2 / 2 | Needs human review | low | Only diagnostic details changed. |';
+        const expected = {
+            body: [
+                ...expectedReportHeading,
+                expectedRow,
+                '',
+                '<details>',
+                '<summary>Evidence and limitations by project</summary>',
+                '',
+                ...expectedDetails,
+                '</details>',
+                '',
+                ...expectedReportFooter,
+            ].join('\n'),
+            fullReport: [...expectedReportHeading, expectedRow, '', ...expectedDetails].join('\n'),
+        };
+        expect(renderReport(manifest, f.report, 100)).toStrictEqual(expected);
+        expect(() => renderReport(manifest, { projects: [] }, 100)).toThrow(
+            new Error('The analysis must cover every changed project exactly once')
+        );
+        const path = join(directory, 'report.md');
+        await expect(publishAnalysis(f.request, manifest, f.output(), 100, path, true)).resolves.toBe(
+            'Staged: report saved without posting a comment'
+        );
+        expect(readFileSync(path, 'utf8')).toBe(expected.fullReport);
+        expect(f.request.mock.calls.filter(([route]) => /^(POST|PATCH) /.test(route))).toStrictEqual([]);
     });
 
     test('does not trust the PR number artifact', async () => {
@@ -310,7 +542,7 @@ describe('mypy_primer analysis', () => {
         expect(result.fullReport.length).toBeGreaterThan(60000);
         const expectedRows = names.map(
             (_, index) =>
-                `| project\\_${index} | 1 | 1 | Needs human review | low | The argument error changed its wording. |`
+                `| project\\_${index} | 1 | 1 | 1 / 1 | Needs human review | low | The argument error changed its wording. |`
         );
         const expectedDetails = names.flatMap((_, index) => [
             `### project\\_${index}`,

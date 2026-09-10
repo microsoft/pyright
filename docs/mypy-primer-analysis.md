@@ -10,7 +10,17 @@ counts, an assessment, confidence, and a short explanation, followed by expandab
 evidence and limitations when they fit. The linked workflow run's
 `mypy-primer-analysis-report` artifact always contains the complete explanation,
 evidence, and limitations for every project. The original raw diff remains
-available. Message rewrites can count as both additions and removals.
+available. Added/removed counts refer to diagnostic headers; message rewrites can
+count on both sides. A separate column counts added/removed indented detail lines,
+including projects where no diagnostic header changed.
+
+Concise primer diffs omit unchanged headers and context. The parser therefore
+preserves detail lines separately rather than attributing them to a nearby
+diagnostic or inventing a location or severity. The manifest's `groups` summarize
+headers, and `detailGroups` summarize detail lines; each uses only rule labels
+explicitly present on that line, or `unspecified` when absent. Both retain bounded
+examples, with complete evidence in the raw artifacts. Detail-only projects still
+require an assessment, even with zero added/removed headers.
 
 Assessments distinguish expected improvements, newly exposed typing issues,
 possible regressions, and changes needing human review. Neither fewer diagnostics
