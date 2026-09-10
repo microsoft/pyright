@@ -461,6 +461,16 @@ test('DuplicateDeclaration2', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('DuplicateDeclaration3', () => {
+    const results = TestUtils.typeAnalyzeSampleFiles(['duplicateDeclaration3.py']);
+    TestUtils.validateResults(results, 0, 0);
+});
+
+test('DuplicateDeclaration4', () => {
+    const results = TestUtils.typeAnalyzeSampleFiles(['duplicateDeclaration4.py']);
+    TestUtils.validateResults(results, 10, 0);
+});
+
 test('Strings1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['strings1.py'], configOptions);
