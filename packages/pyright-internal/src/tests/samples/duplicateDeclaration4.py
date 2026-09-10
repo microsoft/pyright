@@ -18,6 +18,10 @@ def incompatible(condition: bool) -> None:
         # This should generate an error because the parameter names differ.
         def named[T](value: T) -> T:
             return value
+
+        # This should generate an error because the type parameter default differs.
+        def defaulted[T = int](value: T | None = None) -> T | None:
+            return value
     else:
         def result[T](value: T) -> set[T]:
             return {value}
@@ -30,6 +34,9 @@ def incompatible(condition: bool) -> None:
 
         def named[T](other: T) -> T:
             return other
+
+        def defaulted[U = str](value: U | None = None) -> U | None:
+            return value
 
 
 def outer[T](condition: bool) -> None:

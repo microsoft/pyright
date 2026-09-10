@@ -42,13 +42,13 @@ def conditional_generics(condition: bool) -> None:
         def pack[*Ts](*values: *Ts) -> tuple[*Ts]:
             return values
     else:
-        def pep695[T](value: T) -> list[T]:
+        def pep695[U](value: U) -> list[U]:
             return [value]
 
-        def decorate[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+        def decorate[**Q, S](func: Callable[Q, S]) -> Callable[Q, S]:
             return func
 
-        def pack[*Ts](*values: *Ts) -> tuple[*Ts]:
+        def pack[*Us](*values: *Us) -> tuple[*Us]:
             return values
 
     assert_type(pep695(1), list[int])
@@ -62,6 +62,6 @@ class GenericMethods[U]:
             def captured[T](value: T) -> tuple[U, T]:
                 return outer, value
         else:
-            def captured[T](value: T) -> tuple[U, T]:
+            def captured[V](value: V) -> tuple[U, V]:
                 return outer, value
         assert_type(captured(1), tuple[U, int])

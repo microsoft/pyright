@@ -3650,32 +3650,103 @@ export class Checker extends ParseTreeWalker {
                 // both have the same signatures.
                 if (!isInSameStatementList && primaryType && otherType) {
                     let adjustedOtherType = otherType;
+                    let typeParamsMatch = true;
                     if (
                         isFunction(primaryType) &&
                         isFunction(otherType) &&
                         primaryType.shared.typeVarScopeId &&
-                        otherType.shared.typeParams.length > 0
+                        otherType.shared.typeVarScopeId
                     ) {
-                        // The declarations bind their own generic parameters in different scopes.
-                        // Align only those local scopes; captured TypeVars must remain distinct.
-                        const solution = new ConstraintSolution();
-                        otherType.shared.typeParams.forEach((typeParam) => {
-                            if (typeParam.priv.scopeId === otherType.shared.typeVarScopeId) {
-                                solution.setType(
-                                    typeParam,
-                                    TypeVarType.cloneForScopeId(
-                                        typeParam,
-                                        primaryType.shared.typeVarScopeId!,
-                                        typeParam.priv.scopeName,
-                                        typeParam.priv.scopeType
+                        const primaryTypeParams = primaryType.shared.typeParams.filter(
+                            (typeParam) => typeParam.priv.scopeId === primaryType.shared.typeVarScopeId
+                        );
+                        const otherTypeParams = otherType.shared.typeParams.filter(
+                            (typeParam) => typeParam.priv.scopeId === otherType.shared.typeVarScopeId
+                        );
+                        typeParamsMatch = primaryTypeParams.length === otherTypeParams.length;
+
+                        if (typeParamsMatch && otherTypeParams.length > 0) {
+                            // Local type parameter names are not part of a generic function signature.
+                            // Align parameters by position, but verify their metadata before substitution.
+                            const solution = new ConstraintSolution();
+                            otherTypeParams.forEach((typeParam, index) => {
+                                solution.setType(typeParam, primaryTypeParams[index]);
+                            });
+
+                            for (let index = 0; index < primaryTypeParams.length; index++) {
+                                const primaryTypeParam = primaryTypeParams[index];
+                                const otherTypeParam = otherTypeParams[index];
+
+                                if (
+                                    primaryTypeParam.shared.kind !== otherTypeParam.shared.kind ||
+                                    primaryTypeParam.shared.isSynthesized !== otherTypeParam.shared.isSynthesized ||
+                                    primaryTypeParam.shared.declaredVariance !== otherTypeParam.shared.declaredVariance
+                                ) {
+                                    typeParamsMatch = false;
+                                    break;
+                                }
+
+                                const primaryBound = primaryTypeParam.shared.boundType;
+                                const otherBound = otherTypeParam.shared.boundType
+                                    ? applySolvedTypeVars(otherTypeParam.shared.boundType, solution)
+                                    : undefined;
+                                if (
+                                    !!primaryBound !== !!otherBound ||
+                                    (primaryBound && otherBound && !isTypeSame(primaryBound, otherBound))
+                                ) {
+                                    typeParamsMatch = false;
+                                    break;
+                                }
+
+                                if (
+                                    primaryTypeParam.shared.constraints.length !==
+                                    otherTypeParam.shared.constraints.length
+                                ) {
+                                    typeParamsMatch = false;
+                                    break;
+                                }
+                                if (
+                                    primaryTypeParam.shared.constraints.some(
+                                        (constraint, constraintIndex) =>
+                                            !isTypeSame(
+                                                constraint,
+                                                applySolvedTypeVars(
+                                                    otherTypeParam.shared.constraints[constraintIndex],
+                                                    solution
+                                                )
+                                            )
                                     )
-                                );
+                                ) {
+                                    typeParamsMatch = false;
+                                    break;
+                                }
+
+                                if (
+                                    primaryTypeParam.shared.isDefaultExplicit !==
+                                    otherTypeParam.shared.isDefaultExplicit
+                                ) {
+                                    typeParamsMatch = false;
+                                    break;
+                                }
+                                if (
+                                    primaryTypeParam.shared.isDefaultExplicit &&
+                                    !isTypeSame(
+                                        primaryTypeParam.shared.defaultType,
+                                        applySolvedTypeVars(otherTypeParam.shared.defaultType, solution)
+                                    )
+                                ) {
+                                    typeParamsMatch = false;
+                                    break;
+                                }
                             }
-                        });
-                        adjustedOtherType = applySolvedTypeVars(otherType, solution);
+
+                            if (typeParamsMatch) {
+                                adjustedOtherType = applySolvedTypeVars(otherType, solution);
+                            }
+                        }
                     }
 
-                    if (isTypeSame(primaryType, adjustedOtherType)) {
+                    if (typeParamsMatch && isTypeSame(primaryType, adjustedOtherType)) {
                         duplicateIsOk = true;
                     }
                 }
