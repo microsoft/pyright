@@ -8,7 +8,7 @@
 
 import * as assert from 'assert';
 
-import { transformTypePair } from '../analyzer/typeUtils';
+import { mapSignatures, transformTypePair } from '../analyzer/typeUtils';
 import {
     AnyType,
     ClassType,
@@ -18,7 +18,9 @@ import {
     FunctionTypeFlags,
     isClass,
     isFunction,
+    isOverloaded,
     isTypeVar,
+    OverloadedType,
     Type,
     TypeVarScopeType,
     TypeVarType,
@@ -28,6 +30,26 @@ import {
 } from '../analyzer/types';
 import { Uri } from '../common/uri/uri';
 import { ParamCategory } from '../parser/parseNodes';
+
+test('Map signatures preserves expanded overloads and their order', () => {
+    const unknown = UnknownType.create();
+    const any = AnyType.create();
+    const first = createFunction(unknown, unknown, unknown);
+    const second = createFunction(any, any, any);
+    const implementation = createFunction(unknown, any, unknown);
+    const expandedFirst = createFunction(unknown, unknown, any);
+    const expandedSecond = createFunction(any, any, unknown);
+    const original = OverloadedType.create([first, second], implementation);
+    const replacement = OverloadedType.create([expandedFirst, expandedSecond]);
+
+    const mapped = mapSignatures(original, (signature) => (signature === first ? replacement : signature));
+
+    assert.ok(mapped && isOverloaded(mapped));
+    assert.deepStrictEqual(OverloadedType.getOverloads(mapped), [expandedFirst, expandedSecond, second]);
+    assert.strictEqual(OverloadedType.getImplementation(mapped), implementation);
+    assert.deepStrictEqual(OverloadedType.getOverloads(original), [first, second]);
+    assert.strictEqual(mapSignatures(first, () => replacement), replacement);
+});
 
 test('Transform aligned function types', () => {
     const sourceLeaf = UnknownType.create();

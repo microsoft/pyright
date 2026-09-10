@@ -114,6 +114,15 @@ test('OverloadCall13', () => {
     });
 });
 
+test('OverloadCall14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall14.py']);
+    TestUtils.validateResults(analysisResults, 6);
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === 'reportAttributeAccessIssue').length,
+        1
+    );
+});
+
 test('OverloadOverride1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverride1.py']);
     TestUtils.validateResults(analysisResults, 1);

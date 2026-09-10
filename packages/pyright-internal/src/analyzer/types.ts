@@ -1801,6 +1801,10 @@ export interface FunctionDetailsPriv {
     // the class or object to which the function was bound.
     boundToType?: ClassType | undefined;
 
+    // An additional signature inferred while binding a protocol-annotated self.
+    // These must not preempt later declared overloads on an ambiguous receiver.
+    isAdditionalProtocolSelfOverload?: boolean;
+
     // The flags for the function prior to binding
     preBoundFlags?: FunctionTypeFlags;
 

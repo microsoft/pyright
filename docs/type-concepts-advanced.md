@@ -335,6 +335,8 @@ Some functions or methods can return one of several different types. In cases wh
 
 6. If no overloads remain and all unions have been expanded, a diagnostic is generated indicating that the supplied arguments are incompatible with all overload signatures.
 
+Binding a method whose `self` parameter is annotated with a generic protocol can infer several correlated parameter and return types. Pyright preserves these as bound overloads so that operations supported by concrete specializations remain available on gradual receivers. If an additional inferred signature becomes the first match, unresolved receiver ambiguity does not allow it to hide later declared overloads. Ordinary protocol argument inference and legacy first-match handling for original signatures remain unchanged.
+
 
 ### Class and Instance Variables
 

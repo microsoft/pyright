@@ -10802,6 +10802,12 @@ export function createTypeEvaluator(
                         : false;
 
                 if (coverage === undefined) {
+                    if (matches[0].overload.priv.isAdditionalProtocolSelfOverload) {
+                        // An additional binding must not hide later declared overloads.
+                        // Preserve legacy inference when an original signature matches first.
+                        continue;
+                    }
+
                     materializationCheckSupported = false;
                     break;
                 }
@@ -30163,7 +30169,7 @@ export function createTypeEvaluator(
         recursionCount: number,
         firstParamType: ClassType | TypeVarType | undefined,
         stripFirstParam = true
-    ): FunctionType | undefined {
+    ): FunctionType | OverloadedType | undefined {
         const constraints = new ConstraintTracker();
 
         if (firstParamType) {
@@ -30215,7 +30221,11 @@ export function createTypeEvaluator(
                             firstParamType,
                             subDiag?.createAddendum(),
                             constraints,
-                            AssignTypeFlags.AllowUnspecifiedTypeArgs,
+                            AssignTypeFlags.AllowUnspecifiedTypeArgs |
+                                (isClass(memberTypeFirstParamType) &&
+                                ClassType.isProtocolClass(memberTypeFirstParamType)
+                                    ? AssignTypeFlags.PreserveProtocolTypeArgs
+                                    : AssignTypeFlags.Default),
                             recursionCount
                         )
                     ) {
@@ -30255,14 +30265,20 @@ export function createTypeEvaluator(
         getEffectiveReturnType(memberType);
 
         const specializedFunction = solveAndApplyConstraints(memberType, constraints);
-        if (isFunction(specializedFunction)) {
-            return FunctionType.clone(specializedFunction, stripFirstParam, baseType);
-        }
-
-        if (isOverloaded(specializedFunction)) {
-            // For overloaded functions, use the first overload. This isn't
-            // strictly correct, but this is an extreme edge case.
-            return FunctionType.clone(OverloadedType.getOverloads(specializedFunction)[0], stripFirstParam, baseType);
+        if (isFunctionOrOverloaded(specializedFunction)) {
+            // A protocol-annotated self can infer multiple correlated signatures.
+            // Preserve them all so call arguments can select the matching one.
+            const selfParamType = firstParamType ? FunctionType.getParamType(memberType, 0) : undefined;
+            const hasProtocolSelf = selfParamType && isClass(selfParamType) && ClassType.isProtocolClass(selfParamType);
+            let isFirstSignature = true;
+            return mapSignatures(specializedFunction, (signature) => {
+                const boundSignature = FunctionType.clone(signature, stripFirstParam, baseType);
+                if (hasProtocolSelf && !isFirstSignature) {
+                    boundSignature.priv.isAdditionalProtocolSelfOverload = true;
+                }
+                isFirstSignature = false;
+                return boundSignature;
+            });
         }
 
         return undefined;
