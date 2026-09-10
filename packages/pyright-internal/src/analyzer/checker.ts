@@ -92,6 +92,7 @@ import { UnescapeError, UnescapeErrorType, getUnescapedString } from '../parser/
 import { OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { getBoundCallMethod, getBoundInitMethod, getBoundNewMethod } from './constructors';
 import { addInheritedDataClassEntries } from './dataClasses';
@@ -3647,8 +3648,36 @@ export class Checker extends ParseTreeWalker {
 
                 // If both declarations are functions, it's OK if they
                 // both have the same signatures.
-                if (!isInSameStatementList && primaryType && otherType && isTypeSame(primaryType, otherType)) {
-                    duplicateIsOk = true;
+                if (!isInSameStatementList && primaryType && otherType) {
+                    let adjustedOtherType = otherType;
+                    if (
+                        isFunction(primaryType) &&
+                        isFunction(otherType) &&
+                        primaryType.shared.typeVarScopeId &&
+                        otherType.shared.typeParams.length > 0
+                    ) {
+                        // The declarations bind their own generic parameters in different scopes.
+                        // Align only those local scopes; captured TypeVars must remain distinct.
+                        const solution = new ConstraintSolution();
+                        otherType.shared.typeParams.forEach((typeParam) => {
+                            if (typeParam.priv.scopeId === otherType.shared.typeVarScopeId) {
+                                solution.setType(
+                                    typeParam,
+                                    TypeVarType.cloneForScopeId(
+                                        typeParam,
+                                        primaryType.shared.typeVarScopeId!,
+                                        typeParam.priv.scopeName,
+                                        typeParam.priv.scopeType
+                                    )
+                                );
+                            }
+                        });
+                        adjustedOtherType = applySolvedTypeVars(otherType, solution);
+                    }
+
+                    if (isTypeSame(primaryType, adjustedOtherType)) {
+                        duplicateIsOk = true;
+                    }
                 }
 
                 if (primaryDecl.type === DeclarationType.TypeParam) {
