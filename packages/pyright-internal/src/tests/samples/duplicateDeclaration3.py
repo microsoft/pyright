@@ -41,6 +41,9 @@ def conditional_generics(condition: bool) -> None:
 
         def pack[*Ts](*values: *Ts) -> tuple[*Ts]:
             return values
+
+        def defaulted[T = int](value: T | None = None) -> T | None:
+            return value
     else:
         def pep695[U](value: U) -> list[U]:
             return [value]
@@ -50,6 +53,9 @@ def conditional_generics(condition: bool) -> None:
 
         def pack[*Us](*values: *Us) -> tuple[*Us]:
             return values
+
+        def defaulted[U = int](value: U | None = None) -> U | None:
+            return value
 
     assert_type(pep695(1), list[int])
     assert_type(decorate(example)(1, label="test"), bool)

@@ -39,6 +39,21 @@ def incompatible(condition: bool) -> None:
             return value
 
 
+def parameter_optionality(condition: bool) -> None:
+    if condition:
+        def required_first[T](value: T, required: int) -> T:
+            return value
+
+        def optional_first[T](value: T, optional: int = 0) -> T:
+            return value
+    else:
+        def required_first[U](value: U, required: int = 0) -> U:
+            return value
+
+        def optional_first[U](value: U, optional: int) -> U:
+            return value
+
+
 def outer[T](condition: bool) -> None:
     if condition:
         # This should generate an error because T belongs to the outer function.

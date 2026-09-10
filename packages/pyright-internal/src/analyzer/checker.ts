@@ -3746,7 +3746,16 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
 
-                    if (typeParamsMatch && isTypeSame(primaryType, adjustedOtherType)) {
+                    let parameterOptionalityMatches = true;
+                    if (isFunction(primaryType) && isFunction(adjustedOtherType)) {
+                        parameterOptionalityMatches = primaryType.shared.parameters.every(
+                            (_param, index) =>
+                                !!FunctionType.getParamDefaultType(primaryType, index) ===
+                                !!FunctionType.getParamDefaultType(adjustedOtherType, index)
+                        );
+                    }
+
+                    if (typeParamsMatch && parameterOptionalityMatches && isTypeSame(primaryType, adjustedOtherType)) {
                         duplicateIsOk = true;
                     }
                 }

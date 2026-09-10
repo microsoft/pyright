@@ -468,7 +468,7 @@ test('DuplicateDeclaration3', () => {
 
 test('DuplicateDeclaration4', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['duplicateDeclaration4.py']);
-    TestUtils.validateResults(results, 8, 0);
+    TestUtils.validateResults(results, 10, 0);
 });
 
 test('Strings1', () => {
