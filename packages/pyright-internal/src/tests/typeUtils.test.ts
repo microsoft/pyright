@@ -48,7 +48,10 @@ test('Map signatures preserves expanded overloads and their order', () => {
     assert.deepStrictEqual(OverloadedType.getOverloads(mapped), [expandedFirst, expandedSecond, second]);
     assert.strictEqual(OverloadedType.getImplementation(mapped), implementation);
     assert.deepStrictEqual(OverloadedType.getOverloads(original), [first, second]);
-    assert.strictEqual(mapSignatures(first, () => replacement), replacement);
+    assert.strictEqual(
+        mapSignatures(first, () => replacement),
+        replacement
+    );
 });
 
 test('Transform aligned function types', () => {
