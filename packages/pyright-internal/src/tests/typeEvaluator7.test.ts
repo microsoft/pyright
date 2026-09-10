@@ -1075,6 +1075,11 @@ test('TryExcept12', () => {
     TestUtils.validateResults(analysisResults2, 1);
 });
 
+test('TryExcept13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept13.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('exceptionGroup1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

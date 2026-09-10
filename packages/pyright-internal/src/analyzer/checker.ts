@@ -3647,7 +3647,20 @@ export class Checker extends ParseTreeWalker {
 
                 // If both declarations are functions, it's OK if they
                 // both have the same signatures.
-                if (!isInSameStatementList && primaryType && otherType && isTypeSame(primaryType, otherType)) {
+                // Generic functions in alternate branches have distinct local type
+                // variables, so compare their assignability in both directions.
+                if (
+                    !isInSameStatementList &&
+                    primaryType &&
+                    otherType &&
+                    (isTypeSame(primaryType, otherType) ||
+                        (isFunction(primaryType) &&
+                            isFunction(otherType) &&
+                            primaryType.shared.typeParams.length > 0 &&
+                            primaryType.shared.typeParams.length === otherType.shared.typeParams.length &&
+                            this._evaluator.assignType(primaryType, otherType) &&
+                            this._evaluator.assignType(otherType, primaryType)))
+                ) {
                     duplicateIsOk = true;
                 }
 
