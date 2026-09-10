@@ -8,12 +8,13 @@
  * (structural subtyping) classes.
  */
 
+import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { defaultMaxDiagnosticDepth, DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
 import { ConstraintSolution } from './constraintSolution';
 import { assignTypeVar } from './constraintSolver';
-import { ConstraintTracker } from './constraintTracker';
+import { ConstraintSet, ConstraintTracker } from './constraintTracker';
 import { DeclarationType } from './declaration';
 import { assignProperty } from './properties';
 import { Symbol } from './symbol';
@@ -822,28 +823,63 @@ function assignToProtocolInternal(
 
     // If the dest protocol has type parameters, make sure the source type arguments match.
     if (typesAreConsistent && destType.shared.typeParams.length > 0) {
-        // Create a specialized version of the protocol defined by the dest and
-        // make sure the resulting type args can be assigned.
+        // An overloaded member can infer multiple correlated sets of protocol
+        // type arguments. Specializing a class with all sets uses only the first.
         const genericProtocolType = ClassType.specialize(destType, undefined);
-        const specializedProtocolType = evaluator.solveAndApplyConstraints(
-            genericProtocolType,
-            protocolConstraints
-        ) as ClassType;
+        const constraintSets =
+            (flags & AssignTypeFlags.PreserveProtocolTypeArgs) !== 0
+                ? protocolConstraints.getConstraintSets()
+                : [protocolConstraints.getMainConstraintSet()];
+        const matchingConstraints: ConstraintSet[] = [];
+        const typeArgDiag = constraintSets.length === 1 ? diag : diag ? new DiagnosticAddendum() : undefined;
+        let typeArgsAreConsistent = false;
 
-        if (destType.priv.typeArgs) {
-            if (
-                !evaluator.assignTypeArgs(destType, specializedProtocolType, diag, constraints, flags, recursionCount)
-            ) {
-                typesAreConsistent = false;
-            }
-        } else if (constraints) {
-            for (const typeParam of destType.shared.typeParams) {
-                const typeArgEntry = protocolConstraints.getMainConstraintSet().getTypeVar(typeParam);
+        for (const constraintSet of constraintSets) {
+            const singleProtocolConstraints = new ConstraintTracker();
+            singleProtocolConstraints.addConstraintSets([constraintSet]);
+            const constraintsClone = constraintSets.length === 1 ? constraints : constraints?.clone();
 
-                if (typeArgEntry) {
-                    constraints.copyBounds(typeArgEntry);
+            if (destType.priv.typeArgs) {
+                const specializedProtocolType = evaluator.solveAndApplyConstraints(
+                    genericProtocolType,
+                    singleProtocolConstraints
+                ) as ClassType;
+
+                if (
+                    !evaluator.assignTypeArgs(
+                        destType,
+                        specializedProtocolType,
+                        typeArgDiag,
+                        constraintsClone,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    continue;
+                }
+            } else if (constraintsClone) {
+                for (const typeParam of destType.shared.typeParams) {
+                    const typeArgEntry = constraintSet.getTypeVar(typeParam);
+
+                    if (typeArgEntry) {
+                        constraintsClone.copyBounds(typeArgEntry);
+                    }
                 }
             }
+
+            typeArgsAreConsistent = true;
+            if (constraintsClone) {
+                appendArray(matchingConstraints, constraintsClone.getConstraintSets());
+            }
+        }
+
+        if (!typeArgsAreConsistent) {
+            typesAreConsistent = false;
+            if (typeArgDiag && typeArgDiag !== diag) {
+                diag?.addAddendum(typeArgDiag);
+            }
+        } else if (constraints) {
+            constraints.addConstraintSets(matchingConstraints);
         }
     }
 

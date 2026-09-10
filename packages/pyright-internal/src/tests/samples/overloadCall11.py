@@ -19,4 +19,4 @@ def overloaded(value: Any) -> list[Any]:
 
 
 def check(value: list[Any]) -> None:
-    reveal_type(overloaded(value), expected_text="Any")
+    reveal_type(overloaded(value), expected_text="list[Any]")

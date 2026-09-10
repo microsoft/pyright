@@ -465,7 +465,7 @@ export function mapSubtypes(
 // caller to replace one or more signatures with new ones.
 export function mapSignatures(
     type: FunctionType | OverloadedType,
-    callback: (type: FunctionType) => FunctionType | undefined
+    callback: (type: FunctionType) => FunctionType | OverloadedType | undefined
 ): OverloadedType | FunctionType | undefined {
     if (isFunction(type)) {
         return callback(type);
@@ -480,7 +480,9 @@ export function mapSignatures(
             changeMade = true;
         }
 
-        if (newOverload) {
+        if (newOverload && isOverloaded(newOverload)) {
+            newSignatures.push(...OverloadedType.getOverloads(newOverload));
+        } else if (newOverload) {
             newSignatures.push(newOverload);
         }
     });

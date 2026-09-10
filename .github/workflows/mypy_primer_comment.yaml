@@ -93,6 +93,10 @@ jobs:
               repo: context.repo.repo,
               body
             })
+            fs.writeFileSync('primer-analysis-context.json', JSON.stringify({
+              runId: context.payload.workflow_run.id,
+              runAttempt: context.payload.workflow_run.run_attempt,
+            }))
             return prNumber
 
       - name: Hide old comments
@@ -102,3 +106,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           leave_visible: 1
           issue_number: ${{ steps.post-comment.outputs.result }}
+
+      - name: Hand off the source run to advisory analysis
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mypy_primer_analysis_context
+          path: primer-analysis-context.json
+          if-no-files-found: error

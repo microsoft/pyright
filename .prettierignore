@@ -7,3 +7,4 @@
 *.json
 *.md
 **/.github/ISSUE_TEMPLATE/**
+.github/workflows/*.lock.yml

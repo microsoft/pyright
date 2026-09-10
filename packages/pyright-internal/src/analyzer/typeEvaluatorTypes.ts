@@ -649,6 +649,10 @@ export const enum AssignTypeFlags {
     // When assigning callables, should a kwargs with an unpacked TypedDict
     // disallow additional named arguments if it does not have extraItems?
     DisallowExtraKwargsForTd = 1 << 17,
+
+    // Retain alternative protocol type arguments when specializing a bound
+    // method so its call arguments can select the appropriate signature.
+    PreserveProtocolTypeArgs = 1 << 18,
 }
 
 export interface TypeEvaluator {

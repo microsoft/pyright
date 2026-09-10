@@ -11,6 +11,7 @@
 import * as assert from 'assert';
 
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
@@ -102,6 +103,41 @@ test('OverloadCall11', () => {
 test('OverloadCall12', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall12.py']);
     TestUtils.validateResults(analysisResults, 5, 0, undefined, undefined, undefined, 1);
+});
+
+test('OverloadCall13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall13.py']);
+    TestUtils.validateResults(analysisResults, 6);
+    const expectedClasses = [
+        'Container[Any]',
+        'Container[Unknown]',
+        'Container[int]',
+        'list[Any]',
+        'list[Any]',
+        'Constructed[Any]',
+    ];
+    analysisResults[0].errors.forEach((diagnostic, index) => {
+        assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportAttributeAccessIssue);
+        assert.strictEqual(
+            diagnostic.message,
+            `Cannot access attribute "nonexistent_member" for class "${expectedClasses[index]}"\n` +
+                '\u00a0\u00a0Attribute "nonexistent_member" is unknown'
+        );
+    });
+});
+
+test('OverloadCall14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall14.py']);
+    TestUtils.validateResults(analysisResults, 6);
+    const attributeErrors = analysisResults[0].errors.filter(
+        (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
+    );
+    assert.strictEqual(attributeErrors.length, 1);
+    assert.strictEqual(
+        attributeErrors[0].message,
+        'Cannot access attribute "nonexistent_member" for class "Container[int]"\n' +
+            '\u00a0\u00a0Attribute "nonexistent_member" is unknown'
+    );
 });
 
 test('OverloadOverride1', () => {
