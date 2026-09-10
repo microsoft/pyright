@@ -142,7 +142,7 @@ importers:
         version: 3.3.1
       smol-toml:
         specifier: ^1.6.1
-        version: 1.7.1
+        version: 1.7.2
       source-map-support:
         specifier: ^0.5.21
         version: 0.5.21
@@ -4490,8 +4490,8 @@ packages:
     resolution: {integrity: sha512-dWUG8F5sIIARXih1DTaQAX4SsiTXhInKf1buxdY9DIg4ZYPZK5nGM1VRIYmEbDbsHt7USo99xSLFu5Q1IqTmsg==}
     engines: {node: '>= 18'}
 
-  smol-toml@1.7.1:
-    resolution: {integrity: sha512-PPlsspAZ4jbMBu5DMFhfUGDQLu/vrL4SyBROVS37x8ynnVmFIs1VPBz1Co8Xks3TvpIaZXmU85y4DrQ+UyVFoQ==}
+  smol-toml@1.7.2:
+    resolution: {integrity: sha512-pXFZ9B2WinEPzxWkMmlYE/oYx2BP+qLrE95wP8tCuK901uLSMGdCb6QSr82z+wnhXkG4+cO+OMLbZB2Cn+97zw==}
     engines: {node: '>= 18'}
 
   socks-proxy-agent@8.0.5:
@@ -10011,7 +10011,7 @@ snapshots:
 
   smol-toml@1.6.1: {}
 
-  smol-toml@1.7.1: {}
+  smol-toml@1.7.2: {}
 
   socks-proxy-agent@8.0.5(supports-color@7.2.0):
     dependencies:
