@@ -30,6 +30,49 @@ const sample = [
     '+     Details (reportArgumentType)',
 ].join('\n');
 
+const expectedReportHeading = [
+    `<!-- pyright-primer-analysis:${headSha}:42:1 -->`,
+    '## mypy_primer analysis',
+    '',
+    'Advisory AI analysis of [primer run 42, attempt 1](https://github.com/microsoft/pyright/actions/runs/42)',
+    `for commit \`${headSha}\`. This is not an approval or proof of correctness.`,
+    '',
+    'Counts are diagnostic records, not diff lines; additions/removals can include changed messages.',
+    '',
+    '| Project | Added | Removed | Assessment | Confidence | Explanation |',
+    '| --- | ---: | ---: | --- | --- | --- |',
+];
+const expectedReportRow = '| example | 1 | 1 | Needs human review | low | The argument error changed its wording. |';
+const expectedReportDetails = [
+    '### example',
+    '',
+    'The error remains at the same location. Its cause has not been established.',
+    '',
+    '**Unresolved / coverage limits:** Exact dependency revision unavailable.',
+    '',
+    '',
+];
+const expectedReportFooter = [
+    '**Full evidence and limitations:** download `mypy-primer-analysis-report` from ' +
+        '[this analysis run](https://github.com/microsoft/pyright/actions/runs/100).',
+    'The original raw primer comment is unchanged. Treat uncertainty and possible regressions as requests for human review.',
+];
+const expectedReport = {
+    body: [
+        ...expectedReportHeading,
+        expectedReportRow,
+        '',
+        '<details>',
+        '<summary>Evidence and limitations by project</summary>',
+        '',
+        ...expectedReportDetails,
+        '</details>',
+        '',
+        ...expectedReportFooter,
+    ].join('\n'),
+    fullReport: [...expectedReportHeading, expectedReportRow, '', ...expectedReportDetails].join('\n'),
+};
+
 function fixture() {
     const source = {
         runId: 42,
@@ -127,12 +170,27 @@ describe('mypy_primer analysis', () => {
     }
 
     test('counts diagnostic records, not file headings or continuation lines', () => {
-        const [project] = parseDiff(sample.replace(/\n/g, '\r\n'), 3);
-        expect(project.shard).toBe(3);
-        expect(project.added).toHaveLength(1);
-        expect(project.removed).toHaveLength(1);
-        expect(project.added[0].rule).toBe('reportArgumentType');
-        expect(project.added[0].text).toContain('Details');
+        expect(parseDiff(sample.replace(/\n/g, '\r\n'), 3)).toStrictEqual([
+            {
+                name: 'example',
+                url: 'https://github.com/example/project',
+                shard: 3,
+                added: [
+                    {
+                        severity: 'error',
+                        rule: 'reportArgumentType',
+                        text: '.../projects/example/test.py:1:1 - error: New message\n     Details (reportArgumentType)',
+                    },
+                ],
+                removed: [
+                    {
+                        severity: 'error',
+                        rule: 'reportArgumentType',
+                        text: '.../projects/example/test.py:1:1 - error: Old message\n     Details (reportArgumentType)',
+                    },
+                ],
+            },
+        ]);
     });
 
     test('keeps the complete project inventory before bounded diagnostic examples', () => {
@@ -234,11 +292,7 @@ describe('mypy_primer analysis', () => {
     test('renders authoritative counts and preserves limitations in the full report', () => {
         const f = fixture();
         const result = renderReport(f.manifest, f.report, 100);
-        expect(result.body).toContain('| example | 1 | 1 | Needs human review | low |');
-        expect(result.body).toContain(headSha);
-        expect(result.body).toContain('actions/runs/42');
-        expect(result.body).toContain('<summary>Evidence and limitations by project</summary>');
-        expect(result.fullReport).toContain('Exact dependency revision unavailable');
+        expect(result).toStrictEqual(expectedReport);
     });
 
     test('large reports retain every project in the comment and full artifact', () => {
@@ -253,12 +307,24 @@ describe('mypy_primer analysis', () => {
         };
         const result = renderReport(manifest, report, 100);
         expect(result.body.length).toBeLessThan(60000);
-        expect(result.body).not.toContain('<details>');
         expect(result.fullReport.length).toBeGreaterThan(60000);
-        for (const name of names) {
-            expect(result.body).toContain(`| ${name.replace('_', '\\_')} |`);
-            expect(result.fullReport).toContain(`### ${name.replace('_', '\\_')}`);
-        }
+        const expectedRows = names.map(
+            (_, index) =>
+                `| project\\_${index} | 1 | 1 | Needs human review | low | The argument error changed its wording. |`
+        );
+        const expectedDetails = names.flatMap((_, index) => [
+            `### project\\_${index}`,
+            '',
+            'x'.repeat(1800),
+            '',
+            '**Unresolved / coverage limits:** Exact dependency revision unavailable.',
+            '',
+            '',
+        ]);
+        expect(result).toStrictEqual({
+            body: [...expectedReportHeading, ...expectedRows, '', ...expectedReportFooter].join('\n'),
+            fullReport: [...expectedReportHeading, ...expectedRows, '', ...expectedDetails].join('\n'),
+        });
     });
 
     test('rejects missing projects, unsupported classifications, and uncited certainty', () => {
@@ -276,7 +342,11 @@ describe('mypy_primer analysis', () => {
     test('escapes report text and rejects unsafe evidence links', () => {
         const f = fixture();
         f.report.projects[0].summary = '<script> @someone | injected row';
-        expect(renderReport(f.manifest, f.report, 100).body).toContain('\\<script\\> &#64;someone \\| injected row');
+        const escapedSummary = '\\<script\\> &#64;someone \\| injected row';
+        expect(renderReport(f.manifest, f.report, 100)).toStrictEqual({
+            body: expectedReport.body.replace('The argument error changed its wording.', escapedSummary),
+            fullReport: expectedReport.fullReport.replace('The argument error changed its wording.', escapedSummary),
+        });
         const report = {
             projects: [
                 { ...f.report.projects[0], evidence: [{ url: 'https://github.com@evil.example/', detail: 'Unsafe' }] },
@@ -288,8 +358,10 @@ describe('mypy_primer analysis', () => {
     test('staged reports never mutate GitHub', async () => {
         const f = fixture();
         const path = join(directory, 'report.md');
-        await expect(publishAnalysis(f.request, f.manifest, f.output(), 100, path, true)).resolves.toContain('Staged');
-        expect(readFileSync(path, 'utf8')).toContain('Unresolved / coverage limits');
+        await expect(publishAnalysis(f.request, f.manifest, f.output(), 100, path, true)).resolves.toBe(
+            'Staged: report saved without posting a comment'
+        );
+        expect(readFileSync(path, 'utf8')).toBe(expectedReport.fullReport);
         expect(f.request.mock.calls.some(([route]) => /^(POST|PATCH) /.test(route))).toBe(false);
     });
 
@@ -309,18 +381,23 @@ describe('mypy_primer analysis', () => {
         f.pr.head.sha = 'b'.repeat(40);
         await expect(
             publishAnalysis(f.request, f.manifest, f.output(), 100, join(directory, 'report.md'), false)
-        ).resolves.toContain('head changed');
+        ).resolves.toBe('Skipped: the PR is closed or its head changed during analysis');
         expect(f.request.mock.calls.some(([route]) => /^(POST|PATCH) /.test(route))).toBe(false);
     });
 
     test('posts only to the verified PR and does not replace raw primer comments', async () => {
         const f = fixture();
         f.comments.push({ id: 55, user: { login: 'github-actions[bot]' }, body: 'Diff from mypy_primer' });
-        await publishAnalysis(f.request, f.manifest, f.output(), 100, join(directory, 'report.md'), false);
+        await expect(
+            publishAnalysis(f.request, f.manifest, f.output(), 100, join(directory, 'report.md'), false)
+        ).resolves.toBe('Published: advisory analysis of every changed project');
         const calls = f.request.mock.calls.filter(([route]) => /^(POST|PATCH) /.test(route));
-        expect(calls).toHaveLength(1);
-        expect(calls[0][0]).toMatch(/^POST /);
-        expect(calls[0][1]).toMatchObject({ owner: 'microsoft', repo: 'pyright', issue_number: 7 });
+        expect(calls).toStrictEqual([
+            [
+                'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
+                { owner: 'microsoft', repo: 'pyright', issue_number: 7, body: expectedReport.body },
+            ],
+        ]);
     });
 
     test('updates an existing report instead of duplicating it', async () => {
@@ -330,11 +407,16 @@ describe('mypy_primer analysis', () => {
             user: { login: 'github-actions[bot]' },
             body: `<!-- pyright-primer-analysis:${headSha}:42:1 -->`,
         });
-        await publishAnalysis(f.request, f.manifest, f.output(), 100, join(directory, 'report.md'), false);
+        await expect(
+            publishAnalysis(f.request, f.manifest, f.output(), 100, join(directory, 'report.md'), false)
+        ).resolves.toBe('Published: advisory analysis of every changed project');
         const calls = f.request.mock.calls.filter(([route]) => /^(POST|PATCH) /.test(route));
-        expect(calls).toHaveLength(1);
-        expect(calls[0][0]).toMatch(/^PATCH /);
-        expect(calls[0][1]).toMatchObject({ owner: 'microsoft', repo: 'pyright', comment_id: 55 });
+        expect(calls).toStrictEqual([
+            [
+                'PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}',
+                { owner: 'microsoft', repo: 'pyright', comment_id: 55, body: expectedReport.body },
+            ],
+        ]);
     });
 
     test('rechecks the head after listing existing comments', async () => {
@@ -348,7 +430,7 @@ describe('mypy_primer analysis', () => {
         });
         await expect(
             publishAnalysis(f.request, f.manifest, f.output(), 100, join(directory, 'report.md'), false)
-        ).resolves.toContain('while existing comments');
+        ).resolves.toBe('Skipped: the PR changed while existing comments were being read');
         expect(f.request.mock.calls.some(([route]) => /^(POST|PATCH) /.test(route))).toBe(false);
     });
 
@@ -361,7 +443,7 @@ describe('mypy_primer analysis', () => {
         });
         await expect(
             publishAnalysis(f.request, f.manifest, f.output(), 100, join(directory, 'report.md'), false)
-        ).resolves.toContain('newer');
+        ).resolves.toBe('Skipped: a newer primer analysis has already been posted for this commit');
         expect(f.request.mock.calls.some(([route]) => /^(POST|PATCH) /.test(route))).toBe(false);
     });
 

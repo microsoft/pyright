@@ -108,18 +108,35 @@ test('OverloadCall12', () => {
 test('OverloadCall13', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall13.py']);
     TestUtils.validateResults(analysisResults, 6);
-    analysisResults[0].errors.forEach((diagnostic) => {
+    const expectedClasses = [
+        'Container[Any]',
+        'Container[Unknown]',
+        'Container[int]',
+        'list[Any]',
+        'list[Any]',
+        'Constructed[Any]',
+    ];
+    analysisResults[0].errors.forEach((diagnostic, index) => {
         assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportAttributeAccessIssue);
-        assert.ok(diagnostic.message.includes('"nonexistent_member"'));
+        assert.strictEqual(
+            diagnostic.message,
+            `Cannot access attribute "nonexistent_member" for class "${expectedClasses[index]}"\n` +
+                '\u00a0\u00a0Attribute "nonexistent_member" is unknown'
+        );
     });
 });
 
 test('OverloadCall14', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall14.py']);
     TestUtils.validateResults(analysisResults, 6);
+    const attributeErrors = analysisResults[0].errors.filter(
+        (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
+    );
+    assert.strictEqual(attributeErrors.length, 1);
     assert.strictEqual(
-        analysisResults[0].errors.filter((diag) => diag.getRule() === 'reportAttributeAccessIssue').length,
-        1
+        attributeErrors[0].message,
+        'Cannot access attribute "nonexistent_member" for class "Container[int]"\n' +
+            '\u00a0\u00a0Attribute "nonexistent_member" is unknown'
     );
 });
 
