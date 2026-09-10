@@ -514,6 +514,11 @@ export function addConstraintsForExpectedType(
 
 // Sentinels identify singleton types, so widening a TypeVar must preserve them.
 function stripLiteralsForInference(evaluator: TypeEvaluator, type: Type): Type {
+    // Preserve stripLiteralValue's fast path for unions that don't contain sentinels.
+    if (isUnion(type) && !type.priv.subtypes.some(isSentinelLiteral)) {
+        return stripTypeForm(evaluator.stripLiteralValue(type));
+    }
+
     return stripTypeForm(
         mapSubtypes(type, (subtype) => (isSentinelLiteral(subtype) ? subtype : evaluator.stripLiteralValue(subtype)))
     );
