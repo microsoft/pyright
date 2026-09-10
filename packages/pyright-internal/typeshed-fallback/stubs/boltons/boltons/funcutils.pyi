@@ -1,6 +1,10 @@
 import functools
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
+from collections.abc import Callable
 from functools import total_ordering as total_ordering
+from typing import TypeVar
+
+_R = TypeVar("_R")
 
 NO_DEFAULT: Incomplete
 
@@ -26,14 +30,14 @@ def copy_function(orig, copy_dict: bool = True): ...
 def partial_ordering(cls): ...
 
 class InstancePartial(functools.partial[Incomplete]):
-    def __get__(self, obj, obj_type): ...
+    def __get__(self, obj, obj_type): ...  # type: ignore[override]
 
 class CachedInstancePartial(functools.partial[Incomplete]):
     __name__: Incomplete
     def __set_name__(self, obj_type, name) -> None: ...
     __doc__: Incomplete
     __module__: Incomplete
-    def __get__(self, obj, obj_type): ...
+    def __get__(self, obj, obj_type): ...  # type: ignore[override]
 
 partial = CachedInstancePartial
 
@@ -60,4 +64,5 @@ class FunctionBuilder:
 class MissingArgument(ValueError): ...
 class ExistingArgument(ValueError): ...
 
-def noop(*args, **kwargs) -> None: ...
+def noop(*args: Unused, **kwargs: Unused) -> None: ...
+def once(func: Callable[[], _R]) -> Callable[[], _R]: ...

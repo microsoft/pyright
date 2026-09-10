@@ -3,7 +3,7 @@ import sys
 import types
 from _typeshed import ReadableBuffer, StrPath
 from abc import ABCMeta, abstractmethod
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from importlib import _bootstrap_external
 from importlib._abc import Loader as Loader
 from importlib.machinery import ModuleSpec
@@ -41,10 +41,19 @@ class InspectLoader(Loader):
     @abstractmethod
     def get_source(self, fullname: str) -> str | None: ...
     def exec_module(self, module: types.ModuleType) -> None: ...
-    @staticmethod
-    def source_to_code(
-        data: ReadableBuffer | str | _ast.Module | _ast.Expression | _ast.Interactive, path: bytes | StrPath = "<string>"
-    ) -> types.CodeType: ...
+
+    if sys.version_info >= (3, 15):
+        @staticmethod
+        def source_to_code(
+            data: ReadableBuffer | str | _ast.Module | _ast.Expression | _ast.Interactive,
+            path: bytes | StrPath = "<string>",
+            fullname: str | None = None,
+        ) -> types.CodeType: ...
+    else:
+        @staticmethod
+        def source_to_code(
+            data: ReadableBuffer | str | _ast.Module | _ast.Expression | _ast.Interactive, path: bytes | StrPath = "<string>"
+        ) -> types.CodeType: ...
 
 class ExecutionLoader(InspectLoader):
     @abstractmethod
@@ -68,6 +77,8 @@ class MetaPathFinder(metaclass=ABCMeta):
     def find_spec(
         self, fullname: str, path: Sequence[str] | None, target: types.ModuleType | None = ..., /
     ) -> ModuleSpec | None: ...
+    if sys.version_info >= (3, 15):
+        def discover(self, parent: ModuleSpec | None = None) -> Iterable[ModuleSpec]: ...
 
 class PathEntryFinder(metaclass=ABCMeta):
     if sys.version_info < (3, 12):
@@ -79,6 +90,8 @@ class PathEntryFinder(metaclass=ABCMeta):
     def invalidate_caches(self) -> None: ...
     # Not defined on the actual class, but expected to exist.
     def find_spec(self, fullname: str, target: types.ModuleType | None = ...) -> ModuleSpec | None: ...
+    if sys.version_info >= (3, 15):
+        def discover(self, parent: ModuleSpec | None = None) -> Iterable[ModuleSpec]: ...
 
 class FileLoader(_bootstrap_external.FileLoader, ResourceLoader, ExecutionLoader, metaclass=ABCMeta):
     name: str
@@ -86,7 +99,9 @@ class FileLoader(_bootstrap_external.FileLoader, ResourceLoader, ExecutionLoader
     def __init__(self, fullname: str, path: str) -> None: ...
     def get_data(self, path: str) -> bytes: ...
     def get_filename(self, fullname: str | None = None) -> str: ...
-    def load_module(self, fullname: str | None = None) -> types.ModuleType: ...
+    if sys.version_info < (3, 15):
+        @deprecated("Deprecated since Python 3.10; removed in Python 3.15. Use `exec_module()` instead.")
+        def load_module(self, fullname: str | None = None) -> types.ModuleType: ...
 
 if sys.version_info < (3, 11):
     class ResourceReader(metaclass=ABCMeta):
