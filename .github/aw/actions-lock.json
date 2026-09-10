@@ -1,0 +1,19 @@
+{
+  "entries": {
+    "actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0": {
+      "repo": "actions/download-artifact",
+      "version": "634f93cb2916e3fdff6788551b99b062d0335ce0",
+      "sha": "634f93cb2916e3fdff6788551b99b062d0335ce0"
+    },
+    "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02": {
+      "repo": "actions/upload-artifact",
+      "version": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "sha": "ea165f8d65b6e75b540449e92b4886f43607fa02"
+    },
+    "github/gh-aw-actions/setup@v0.86.2": {
+      "repo": "github/gh-aw-actions/setup",
+      "version": "v0.86.2",
+      "sha": "6aab9e5b5c91c615506061f09bedd81a23babe3c"
+    }
+  }
+}
