@@ -3748,11 +3748,15 @@ export class Checker extends ParseTreeWalker {
 
                     let parameterOptionalityMatches = true;
                     if (isFunction(primaryType) && isFunction(adjustedOtherType)) {
-                        parameterOptionalityMatches = primaryType.shared.parameters.every(
-                            (_param, index) =>
-                                !!FunctionType.getParamDefaultType(primaryType, index) ===
-                                !!FunctionType.getParamDefaultType(adjustedOtherType, index)
-                        );
+                        const primaryParameters = primaryType.shared.parameters;
+                        const otherParameters = adjustedOtherType.shared.parameters;
+                        parameterOptionalityMatches =
+                            primaryParameters.length === otherParameters.length &&
+                            primaryParameters.every(
+                                (_param, index) =>
+                                    !!FunctionType.getParamDefaultType(primaryType, index) ===
+                                    !!FunctionType.getParamDefaultType(adjustedOtherType, index)
+                            );
                     }
 
                     if (typeParamsMatch && parameterOptionalityMatches && isTypeSame(primaryType, adjustedOtherType)) {
