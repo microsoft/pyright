@@ -36,6 +36,7 @@ import {
     ComprehensionIfNode,
     ComprehensionNode,
     DelNode,
+    DecoratorNode,
     DictionaryNode,
     ErrorNode,
     ExceptNode,
@@ -406,6 +407,12 @@ export class Checker extends ParseTreeWalker {
         this._scopedNodes.push(node);
 
         return false;
+    }
+
+    override visitDecorator(node: DecoratorNode): boolean {
+        // Class type evaluation can defer identity-factory arguments, so full checking must validate the expression.
+        this._evaluator.getTypeOfExpression(node.d.expr);
+        return true;
     }
 
     override visitFunction(node: FunctionNode): boolean {

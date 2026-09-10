@@ -672,6 +672,7 @@
         "variadicTypeParamTooManyClass": "一般類別最多只能有一個 TypeVarTuple 類型參數，但收到多個 ({names})",
         "walrusIllegal": "運算子 \":=\" 需要 Python 3.8 或更新版本",
         "walrusNotAllowed": "此內容中不允許未使用括弧括住的運算子 \":=\"",
+        "walrusNotAllowedInComprehension": "在理解可反覆運算的運算式內不允許使用運算子 \":=\"",
         "wildcardInFunction": "類別或函式內不允許萬用字元 import",
         "wildcardLibraryImport": "不允許從程式庫 import 萬用字元",
         "wildcardPatternTypePartiallyUnknown": "萬用字元模式擷取的類型部分未知",

@@ -78,7 +78,6 @@ export interface SourceFileInfo {
 
     readonly imports: readonly SourceFileInfo[];
     readonly importedBy: readonly SourceFileInfo[];
-    readonly areImportsComputed: boolean;
     readonly shadows: readonly SourceFileInfo[];
     readonly shadowedBy: readonly SourceFileInfo[];
 }

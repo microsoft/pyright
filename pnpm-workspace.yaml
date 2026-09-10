@@ -13,6 +13,8 @@ allowBuilds:
   unrs-resolver: true
 
 overrides:
+  'js-yaml@>=3.0.0 <3.15.2': '3.15.2'
+  'js-yaml@>=4.0.0 <4.3.2': '4.3.2'
   tar: '7.5.11'
   nx: '22.7.8'
   '@nx/devkit': '22.7.8'

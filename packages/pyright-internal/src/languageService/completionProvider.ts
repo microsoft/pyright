@@ -1260,6 +1260,10 @@ export class CompletionProvider {
         return undefined;
     }
 
+    protected getAdditionalIndexKeys(_indexNode: IndexNode, _invocationNode: ParseNode): string[] {
+        return [];
+    }
+
     protected isEnumMember(containingType: ClassType | undefined, name: string) {
         if (!containingType || !ClassType.isEnumClass(containingType)) {
             return false;
@@ -2730,7 +2734,7 @@ export class CompletionProvider {
             startingNode
         );
 
-        const keys: Set<string> = new Set<string>();
+        const keys = new Set<string>(this.getAdditionalIndexKeys(indexNode, invocationNode));
         for (const result of results) {
             const node =
                 result.node.parent?.nodeType === ParseNodeType.TypeAnnotation ? result.node.parent : result.node;

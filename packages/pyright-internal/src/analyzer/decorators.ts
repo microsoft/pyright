@@ -20,14 +20,15 @@ import {
 } from './dataClasses';
 import { DeclarationType, FunctionDeclaration } from './declaration';
 import { convertDocStringToPlainText } from './docStringConversion';
+import { getParamListDetails } from './parameterUtils';
 import {
     clonePropertyWithDeleter,
     clonePropertyWithSetter,
     createProperty,
     validatePropertyMethod,
 } from './properties';
-import { Arg, EvalFlags, TypeEvaluator } from './typeEvaluatorTypes';
-import { isPartlyUnknown, isProperty } from './typeUtils';
+import { Arg, EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { getTypeVarArgsRecursive, isPartlyUnknown, isProperty } from './typeUtils';
 import {
     ClassType,
     ClassTypeFlags,
@@ -44,6 +45,8 @@ import {
     isFunction,
     isInstantiableClass,
     isOverloaded,
+    isTypeSame,
+    isTypeVar,
 } from './types';
 
 export interface FunctionDecoratorInfo {
@@ -319,6 +322,15 @@ export function applyClassDecorator(
     if (decoratorNode.d.expr.nodeType !== ParseNodeType.Call) {
         flags |= EvalFlags.CallBaseDefaults;
     }
+
+    if (decoratorNode.d.expr.nodeType === ParseNodeType.Call) {
+        const identityDecoratorType = getIdentityDecoratorFactoryType(evaluator, decoratorNode.d.expr, flags);
+        if (identityDecoratorType) {
+            getTypeOfDecorator(evaluator, decoratorNode, inputClassType, nodeInfo, identityDecoratorType);
+            return inputClassType;
+        }
+    }
+
     const decoratorType = evaluator.getTypeOfExpression(decoratorNode.d.expr, flags).type;
 
     if (decoratorNode.d.expr.nodeType === ParseNodeType.Call) {
@@ -451,7 +463,8 @@ function getTypeOfDecorator(
     evaluator: TypeEvaluator,
     node: DecoratorNode,
     functionOrClassType: Type,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    nodeInfo: AnalyzerNodeInfoAccessor,
+    decoratorTypeResultOverride?: TypeResult
 ): Type {
     // Evaluate the type of the decorator expression.
     let flags = nodeInfo.getFileInfo(node).isStubFile ? EvalFlags.ForwardRefs : EvalFlags.None;
@@ -459,7 +472,7 @@ function getTypeOfDecorator(
         flags |= EvalFlags.CallBaseDefaults;
     }
 
-    const decoratorTypeResult = evaluator.getTypeOfExpression(node.d.expr, flags);
+    const decoratorTypeResult = decoratorTypeResultOverride ?? evaluator.getTypeOfExpression(node.d.expr, flags);
 
     // Special-case the combination of a classmethod decorator applied
     // to a property. This is allowed in Python 3.9, but it's not reflected
@@ -535,6 +548,63 @@ function getTypeOfDecorator(
     }
 
     return returnType;
+}
+
+function getIdentityDecoratorFactoryType(
+    evaluator: TypeEvaluator,
+    callNode: CallNode,
+    flags: EvalFlags
+): TypeResult | undefined {
+    const factoryTypeResult = evaluator.getTypeOfExpression(callNode.d.leftExpr, flags | EvalFlags.CallBaseDefaults);
+    const factoryType = factoryTypeResult.type;
+    if (
+        !isFunction(factoryType) ||
+        factoryType.shared.name === '__dataclass_transform__' ||
+        FunctionType.isBuiltIn(factoryType, 'dataclass_transform') ||
+        getDataclassDecoratorBehaviors(factoryType)
+    ) {
+        return undefined;
+    }
+
+    const decoratorType = FunctionType.getEffectiveReturnType(factoryType, /* includeInferred */ false);
+    if (!decoratorType || !isFunction(decoratorType)) {
+        return undefined;
+    }
+
+    const decoratorParams = getParamListDetails(decoratorType).params;
+    if (decoratorParams.length !== 1) {
+        return undefined;
+    }
+
+    const decoratorParam = decoratorParams[0];
+    const decoratorParamType = decoratorParam.type;
+    const decoratorReturnType = FunctionType.getEffectiveReturnType(decoratorType, /* includeInferred */ false);
+    if (
+        decoratorParam.param.category !== ParamCategory.Simple ||
+        decoratorParam.defaultType !== undefined ||
+        !isTypeVar(decoratorParamType) ||
+        !decoratorReturnType ||
+        !isTypeVar(decoratorReturnType) ||
+        !isTypeSame(decoratorParamType, decoratorReturnType, { ignoreTypeFlags: true })
+    ) {
+        return undefined;
+    }
+
+    const factoryParamTypeVars = factoryType.shared.parameters.flatMap((_, index) =>
+        getTypeVarArgsRecursive(FunctionType.getParamType(factoryType, index))
+    );
+    const decoratorTypeVars = getTypeVarArgsRecursive(decoratorType);
+    if (
+        decoratorTypeVars.some((decoratorTypeVar) =>
+            factoryParamTypeVars.some((factoryTypeVar) =>
+                isTypeSame(decoratorTypeVar, factoryTypeVar, { ignoreTypeFlags: true })
+            )
+        )
+    ) {
+        return undefined;
+    }
+
+    return { type: decoratorType, isIncomplete: factoryTypeResult.isIncomplete };
 }
 
 // Given a function node and the function type associated with it, this

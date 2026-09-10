@@ -672,6 +672,7 @@
         "variadicTypeParamTooManyClass": "ジェネリック クラスには最大 1 つの TypeVarTuple 型パラメーターを指定できますが、複数の ({names}) を受け取りました",
         "walrusIllegal": "演算子 \":=\" には Python 3.8 以降が必要です",
         "walrusNotAllowed": "演算子 \":=\" は、かっこを囲まないこのコンテキストでは使用できません",
+        "walrusNotAllowedInComprehension": "内包表現のイテラブル式内では、演算子 \":=\" は使用できません",
         "wildcardInFunction": "ワイルドカードの import は、クラス内または関数内では許可されません",
         "wildcardLibraryImport": "ライブラリからのワイルドカードの import は許可されていません",
         "wildcardPatternTypePartiallyUnknown": "ワイルドカード パターンによってキャプチャされた型は部分的に不明です",

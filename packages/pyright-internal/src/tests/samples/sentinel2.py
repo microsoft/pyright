@@ -1,7 +1,7 @@
 # This sample tests the handling of the sentinel builtin added in Python 3.15.
 
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, assert_type
 
 # This should generate an error because the names don't match.
 BAD_NAME1 = sentinel("OTHER")
@@ -68,3 +68,19 @@ def func4(dc: DC1, a: ClassA) -> None:
 
     if a.value is not MISSING:
         reveal_type(a.value, expected_text="int")
+
+
+def identity[T](value: T) -> T:
+    return value
+
+
+assert_type(identity(MISSING), MISSING)
+
+
+def round_trip(value: int | MISSING) -> None:
+    result = identity(value)
+    assert_type(result, int | MISSING)
+    if result is not MISSING:
+        assert_type(result, int)
+    else:
+        assert_type(result, MISSING)
