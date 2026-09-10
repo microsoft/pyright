@@ -44,10 +44,10 @@ def check_pandas_operators(
     index_unknown: Index,
     index_str: Index[str],
 ) -> None:
-    reveal_type(series_any + 1, expected_text="Any")
-    reveal_type(series_unknown + 1, expected_text="Unknown")
-    reveal_type(index_any * 2, expected_text="Any")
-    reveal_type(index_unknown * 2, expected_text="Unknown")
+    reveal_type(series_any + 1, expected_text="Series[Any]")
+    reveal_type(series_unknown + 1, expected_text="Series[Unknown]")
+    reveal_type(index_any * 2, expected_text="Index[Any]")
+    reveal_type(index_unknown * 2, expected_text="Index[Unknown]")
 
     concrete_series = series_int + 1
     reveal_type(concrete_series, expected_text="Series[int]")
@@ -128,8 +128,8 @@ def check_shape_overloads(
     rotations_unknown: list[Rotation],
     rotations_scalar: list[Rotation[tuple[()]]],
 ) -> None:
-    reveal_type(Rotation.concatenate(rotations_any), expected_text="Any")
-    reveal_type(Rotation.concatenate(rotations_unknown), expected_text="Unknown")
+    reveal_type(Rotation.concatenate(rotations_any), expected_text="Rotation[Any]")
+    reveal_type(Rotation.concatenate(rotations_unknown), expected_text="Rotation[Unknown]")
     reveal_type(Rotation.concatenate(rotations_scalar), expected_text="Rotation[tuple[int]]")
 
 
@@ -204,8 +204,8 @@ class InferredTable(Generic[_T]):
 
 
 def check_constructors(values_any: list[Any], values_unknown: list, values_int: list[int]) -> None:
-    reveal_type(Table(values_any), expected_text="Any")
-    reveal_type(Table(values_unknown), expected_text="Unknown")
+    reveal_type(Table(values_any), expected_text="Table[Any]")
+    reveal_type(Table(values_unknown), expected_text="Table[Unknown]")
     reveal_type(Table(values_int), expected_text="Table[int]")
     reveal_type(Table[int](values_any), expected_text="Table[int]")
 
@@ -222,12 +222,13 @@ def check_constructor_union(
     values_partially_specialized: list[Any] | set[float],
     values_inferred: list[int] | set[str],
 ) -> None:
-    reveal_type(Table(values_any), expected_text="Any | Table[bytes]")
-    reveal_type(Table(values_unknown), expected_text="Unknown | Table[bytes]")
+    reveal_type(Table(values_any), expected_text="Table[Any] | Table[bytes]")
+    reveal_type(Table(values_unknown), expected_text="Table[Unknown] | Table[bytes]")
     reveal_type(Table(values_int), expected_text="Table[int] | Table[bytes]")
-    reveal_type(AmbiguousTable(values_gradual), expected_text="Any | Unknown")
+    reveal_type(AmbiguousTable(values_gradual), expected_text="AmbiguousTable[Any] | AmbiguousTable[Unknown]")
     reveal_type(
-        PartiallySpecializedTable(values_partially_specialized), expected_text="Any | PartiallySpecializedTable[float]"
+        PartiallySpecializedTable(values_partially_specialized),
+        expected_text="PartiallySpecializedTable[Any] | PartiallySpecializedTable[float]",
     )
     reveal_type(InferredTable(values_inferred), expected_text="InferredTable[int] | InferredTable[str]")
     reveal_type(table.__init__(values_any), expected_text="None")

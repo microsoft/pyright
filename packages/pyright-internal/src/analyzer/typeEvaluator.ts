@@ -10171,10 +10171,10 @@ export function createTypeEvaluator(
                         (ambiguousMatchIncludesNestedAny || ambiguousMatchIncludesNestedUnknown) &&
                         possibleMatchResults.some((result) => !!result.specializedInitSelfType);
 
-                    possibleMatchResults.forEach((result) => {
-                        const resultType = isInitSelfMaterializationAmbiguity
-                            ? getEffectiveOverloadReturnType(result)
-                            : result.returnType;
+                    const matchReturnTypes = possibleMatchResults.map((result) =>
+                        isInitSelfMaterializationAmbiguity ? getEffectiveOverloadReturnType(result) : result.returnType
+                    );
+                    matchReturnTypes.forEach((resultType) => {
                         let isSubtypeSubsumed = false;
 
                         for (let dedupedIndex = 0; dedupedIndex < dedupedMatchResults.length; dedupedIndex++) {
@@ -10210,12 +10210,17 @@ export function createTypeEvaluator(
 
                     let returnType = combinedTypes;
                     if (ambiguousMatchIncludesNestedUnknown) {
-                        returnType = UnknownType.createPossibleType(
-                            combinedTypes,
+                        returnType = getCommonGradualReturnType(
+                            matchReturnTypes,
+                            /* useUnknown */ true,
                             possibleMatchInvolvesIncompleteUnknown
                         );
                     } else if (ambiguousMatchIncludesNestedAny && !ambiguousMatchIncludesTopLevelAnyOrUnknown) {
-                        returnType = AnyType.create();
+                        returnType = getCommonGradualReturnType(
+                            matchReturnTypes,
+                            /* useUnknown */ false,
+                            possibleMatchInvolvesIncompleteUnknown
+                        );
                     } else if (dedupedMatchResults.length > 1) {
                         // If one or more of the deduped types is Any or contains Any,
                         // we will assume that the person who defined the overload really
@@ -10299,6 +10304,110 @@ export function createTypeEvaluator(
                     : finalCallResult.specializedInitSelfType,
             overloadsUsedForCall,
         };
+    }
+
+    // Preserve shared generic structure without forming a union, which would reject
+    // operations supported by only some of the ambiguous overload return types.
+    function getCommonGradualReturnType(
+        types: Type[],
+        useUnknown: boolean,
+        isTypeIncomplete: boolean,
+        recursionCount = 0
+    ): Type {
+        const gradualType = useUnknown
+            ? UnknownType.createPossibleType(combineTypes(types), isTypeIncomplete)
+            : AnyType.create();
+        if (recursionCount > maxTypeRecursionCount) {
+            return gradualType;
+        }
+
+        if (areTypesSame(types, {})) {
+            return types[0];
+        }
+
+        if (!types.every(isClassInstance)) {
+            return gradualType;
+        }
+
+        const firstType = types[0];
+        if (
+            !areTypesSame(
+                types.map((type) => ClassType.specialize(type, undefined)),
+                {}
+            )
+        ) {
+            return gradualType;
+        }
+
+        const combineTypeArgs = (typeArgs: Type[]) =>
+            getCommonGradualReturnType(typeArgs, useUnknown, isTypeIncomplete, recursionCount + 1);
+        let commonType: ClassType;
+
+        if (isTupleClass(firstType)) {
+            const tupleTypeArgs = types.map((type) => type.priv.tupleTypeArgs);
+            const firstTupleTypeArgs = firstType.priv.tupleTypeArgs;
+            if (
+                !firstTupleTypeArgs ||
+                !tupleTypeArgs.every(
+                    (args): args is TupleTypeArg[] =>
+                        !!args &&
+                        args.length === firstTupleTypeArgs.length &&
+                        args.every(
+                            (arg, index) =>
+                                arg.isUnbounded === firstTupleTypeArgs[index].isUnbounded &&
+                                arg.isOptional === firstTupleTypeArgs[index].isOptional &&
+                                !isUnpacked(arg.type)
+                        )
+                )
+            ) {
+                return gradualType;
+            }
+
+            commonType = specializeTupleClass(
+                firstType,
+                firstTupleTypeArgs.map((arg, index) => ({
+                    ...arg,
+                    type: combineTypeArgs(tupleTypeArgs.map((args) => args[index].type)),
+                })),
+                /* isTypeArgExplicit */ true,
+                !!firstType.priv.isUnpacked
+            );
+        } else {
+            const typeParams = ClassType.getTypeParams(firstType);
+            const typeArgs = types.map((type) => type.priv.typeArgs);
+            if (
+                typeParams.length === 0 ||
+                typeParams.some((param) => isParamSpec(param) || isTypeVarTuple(param)) ||
+                !typeArgs.every((args): args is Type[] => !!args && args.length === typeParams.length)
+            ) {
+                return gradualType;
+            }
+
+            // Non-invariant receivers still use legacy overload ordering, so widening
+            // them could reject operations supported by an original specialization.
+            inferVarianceForClass(firstType);
+            if (
+                typeParams.some(
+                    (param, index) =>
+                        TypeVarType.getVariance(param) !== Variance.Invariant &&
+                        !areTypesSame(
+                            typeArgs.map((args) => args[index]),
+                            {}
+                        )
+                )
+            ) {
+                return gradualType;
+            }
+
+            commonType = ClassType.specialize(
+                firstType,
+                typeParams.map((_, index) => combineTypeArgs(typeArgs.map((args) => args[index])))
+            );
+        }
+
+        // An alias for one original specialization no longer describes the merged type.
+        TypeBase.setTypeAliasInfo(commonType, undefined);
+        return types.every((type) => assignType(type, commonType)) ? commonType : gradualType;
     }
 
     // Determines whether one or more overloads can be eliminated because they

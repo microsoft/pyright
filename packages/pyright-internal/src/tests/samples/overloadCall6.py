@@ -124,11 +124,11 @@ def overload5(x: list[str] | list[int]) -> list[str] | list[int]:
 
 
 def func6(y: list[Any]):
-    reveal_type(overload5(y), expected_text="Any")
+    reveal_type(overload5(y), expected_text="list[Any]")
 
 
 def func6_unknown(y: list):
-    reveal_type(overload5(y), expected_text="Unknown")
+    reveal_type(overload5(y), expected_text="list[Unknown]")
 
 
 @overload
@@ -299,7 +299,7 @@ class ClassWithOverloadedInit(Generic[_T]):
 
 
 def func6_overloaded_init(x: list[Any]):
-    reveal_type(ClassWithOverloadedInit(x), expected_text="Any")
+    reveal_type(ClassWithOverloadedInit(x), expected_text="ClassWithOverloadedInit[Any]")
 
 
 class ExplicitClassWithOverloadedInit(Generic[_T]):
@@ -344,7 +344,7 @@ class ClassA(Generic[_T]):
 
 
 def func7(a: ClassA[Any]):
-    reveal_type(a.m1(), expected_text="Any")
+    reveal_type(a.m1(), expected_text="ClassA[Any]")
 
 
 class ClassB(Generic[_T]):
@@ -359,7 +359,7 @@ class ClassB(Generic[_T]):
 
 
 def func8(b: ClassB[Any]):
-    reveal_type(b.m1(b), expected_text="Any")
+    reveal_type(b.m1(b), expected_text="ClassB[Any]")
 
 
 _T1 = TypeVar("_T1")
@@ -478,7 +478,7 @@ def overload10(x) -> Any:
 
 def func18(a: Any, b: list[Any], c: list[str], d: list[int]):
     reveal_type(overload10(a), expected_text="list[int]")
-    reveal_type(overload10(b), expected_text="Any")
+    reveal_type(overload10(b), expected_text="list[Any]")
     reveal_type(overload10(c), expected_text="list[Any]")
     reveal_type(overload10(d), expected_text="list[int]")
 

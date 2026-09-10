@@ -11,6 +11,7 @@
 import * as assert from 'assert';
 
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
@@ -102,6 +103,15 @@ test('OverloadCall11', () => {
 test('OverloadCall12', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall12.py']);
     TestUtils.validateResults(analysisResults, 5, 0, undefined, undefined, undefined, 1);
+});
+
+test('OverloadCall13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall13.py']);
+    TestUtils.validateResults(analysisResults, 6);
+    analysisResults[0].errors.forEach((diagnostic) => {
+        assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportAttributeAccessIssue);
+        assert.ok(diagnostic.message.includes('"nonexistent_member"'));
+    });
 });
 
 test('OverloadOverride1', () => {
