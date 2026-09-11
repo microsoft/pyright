@@ -104,7 +104,7 @@ jobs:
     steps:
       - name: Setup Scripts
         id: setup
-        uses: github/gh-aw-actions/setup@6aab9e5b5c91c615506061f09bedd81a23babe3c # v0.86.2
+        uses: github/gh-aw-actions/setup@be41add0f204de343293628bb99a72a3894cfd7a # v0.88.4
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
           job-name: ${{ github.job }}
@@ -393,7 +393,7 @@ jobs:
     steps:
       - name: Setup Scripts
         id: setup
-        uses: github/gh-aw-actions/setup@6aab9e5b5c91c615506061f09bedd81a23babe3c # v0.86.2
+        uses: github/gh-aw-actions/setup@be41add0f204de343293628bb99a72a3894cfd7a # v0.88.4
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
           job-name: ${{ github.job }}
@@ -424,7 +424,7 @@ jobs:
         with:
           name: activation
           path: /tmp/gh-aw
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # 634f93cb2916e3fdff6788551b99b062d0335ce0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # 634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
           name: primer-analysis-input
           path: /tmp/gh-aw/primer-input
@@ -896,7 +896,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.workflow_sha }}
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # 634f93cb2916e3fdff6788551b99b062d0335ce0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # 634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
           github-token: ${{ github.token }}
           name: mypy_primer_analysis_context
@@ -914,7 +914,7 @@ jobs:
             const source = await loadSource(github.request.bind(github), `${context.repo.owner}/${context.repo.repo}`, handoff);
             fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'primer-source.json'), JSON.stringify(source));
             return source.runId;
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # 634f93cb2916e3fdff6788551b99b062d0335ce0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # 634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/primer-input/raw
@@ -940,7 +940,7 @@ jobs:
             core.setOutput('has_changes', String(manifest.projects.length > 0));
             core.notice(`${manifest.projects.length} changed projects; all eight shards accounted for`);
       - if: steps.prepare.outputs.has_changes == 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           if-no-files-found: error
           name: primer-analysis-input
@@ -972,7 +972,7 @@ jobs:
     steps:
       - name: Setup Scripts
         id: setup
-        uses: github/gh-aw-actions/setup@6aab9e5b5c91c615506061f09bedd81a23babe3c # v0.86.2
+        uses: github/gh-aw-actions/setup@be41add0f204de343293628bb99a72a3894cfd7a # v0.88.4
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
           job-name: ${{ github.job }}
@@ -1188,7 +1188,7 @@ jobs:
     steps:
       - name: Setup Scripts
         id: setup
-        uses: github/gh-aw-actions/setup@6aab9e5b5c91c615506061f09bedd81a23babe3c # v0.86.2
+        uses: github/gh-aw-actions/setup@be41add0f204de343293628bb99a72a3894cfd7a # v0.88.4
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
           job-name: ${{ github.job }}
@@ -1450,7 +1450,7 @@ jobs:
     steps:
       - name: Setup Scripts
         id: setup
-        uses: github/gh-aw-actions/setup@6aab9e5b5c91c615506061f09bedd81a23babe3c # v0.86.2
+        uses: github/gh-aw-actions/setup@be41add0f204de343293628bb99a72a3894cfd7a # v0.88.4
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
           job-name: ${{ github.job }}
@@ -1485,13 +1485,13 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.workflow_sha }}
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # 634f93cb2916e3fdff6788551b99b062d0335ce0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # 634f93cb2916e3fdff6788551b99b062d0335ce0
         env:
           GH_AW_AGENT_OUTPUT: ${{ runner.temp }}/gh-aw/safe-jobs/agent_output.json
         with:
           name: primer-analysis-input
           path: ${{ runner.temp }}/primer-input
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # 634f93cb2916e3fdff6788551b99b062d0335ce0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # 634f93cb2916e3fdff6788551b99b062d0335ce0
         env:
           GH_AW_AGENT_OUTPUT: ${{ runner.temp }}/gh-aw/safe-jobs/agent_output.json
         with:
@@ -1522,7 +1522,7 @@ jobs:
             );
             core.notice(result);
             await core.summary.addRaw(result).write();
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ea165f8d65b6e75b540449e92b4886f43607fa02
         env:
           GH_AW_AGENT_OUTPUT: ${{ runner.temp }}/gh-aw/safe-jobs/agent_output.json
         with:
