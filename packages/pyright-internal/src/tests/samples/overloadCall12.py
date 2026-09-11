@@ -1,5 +1,5 @@
-# This sample tests overload materialization using patterns found in
-# real-world libraries and applications.
+# This sample records known limitations restored by the overload rollback
+# (#11601/#11621/#11732), alongside unchanged concrete and unambiguous controls.
 
 import re
 from collections.abc import Callable, Sequence
@@ -44,10 +44,11 @@ def check_pandas_operators(
     index_unknown: Index,
     index_str: Index[str],
 ) -> None:
-    reveal_type(series_any + 1, expected_text="Series[Any]")
-    reveal_type(series_unknown + 1, expected_text="Series[Unknown]")
-    reveal_type(index_any * 2, expected_text="Index[Any]")
-    reveal_type(index_unknown * 2, expected_text="Index[Unknown]")
+    # Known rollback limitation (#11601/#11732): gradual self loses the str alternatives.
+    reveal_type(series_any + 1, expected_text="Series[int]")
+    reveal_type(series_unknown + 1, expected_text="Series[int]")
+    reveal_type(index_any * 2, expected_text="Index[int]")
+    reveal_type(index_unknown * 2, expected_text="Index[int]")
 
     concrete_series = series_int + 1
     reveal_type(concrete_series, expected_text="Series[int]")
@@ -70,8 +71,9 @@ class Flow(Generic[_P, _R]):
 
 
 def check_flow(flow_any: Flow[[], Any], flow_unknown: Flow, flow_int: Flow[[], int]) -> None:
-    reveal_type(flow_any(), expected_text="Any")
-    reveal_type(flow_unknown(), expected_text="Unknown")
+    # Known rollback limitation (#11601): the Never-specialized first signature wins.
+    reveal_type(flow_any(), expected_text="None")
+    reveal_type(flow_unknown(), expected_text="None")
     reveal_type(flow_int(), expected_text="int")
     reveal_type(flow_int() + 1, expected_text="int")
 
@@ -96,7 +98,8 @@ def check_optional_mapper(
     mapper_int: EnumMapper[int, str],
     value: Any,
 ) -> None:
-    reveal_type(mapper_any.from_wire(value), expected_text="str")
+    # Known rollback limitation (#11601): optional/top-level Any matching retains None.
+    reveal_type(mapper_any.from_wire(value), expected_text="str | None")
     reveal_type(mapper_unknown.from_wire(value), expected_text="Unknown")
     reveal_type(mapper_int.from_wire(1), expected_text="str")
     reveal_type(mapper_int.from_wire(1).upper(), expected_text="str")
@@ -128,8 +131,9 @@ def check_shape_overloads(
     rotations_unknown: list[Rotation],
     rotations_scalar: list[Rotation[tuple[()]]],
 ) -> None:
-    reveal_type(Rotation.concatenate(rotations_any), expected_text="Rotation[Any]")
-    reveal_type(Rotation.concatenate(rotations_unknown), expected_text="Rotation[Unknown]")
+    # Known rollback limitation (#11601/#11732): other possible shapes are discarded.
+    reveal_type(Rotation.concatenate(rotations_any), expected_text="Rotation[tuple[int]]")
+    reveal_type(Rotation.concatenate(rotations_unknown), expected_text="Rotation[tuple[int]]")
     reveal_type(Rotation.concatenate(rotations_scalar), expected_text="Rotation[tuple[int]]")
 
 
@@ -139,10 +143,11 @@ def check_pattern(
     pattern_str: re.Pattern[str],
     text: str,
 ) -> None:
-    reveal_type(pattern.match(text), expected_text="Unknown")
-    reveal_type(pattern.sub("", text), expected_text="Unknown")
-    reveal_type(pattern_any.match(text), expected_text="Any")
-    reveal_type(pattern_any.sub("", text), expected_text="Any")
+    # Known rollback limitation (#11601): gradual Pattern self selects the str signatures.
+    reveal_type(pattern.match(text), expected_text="Match[str] | None")
+    reveal_type(pattern.sub("", text), expected_text="str")
+    reveal_type(pattern_any.match(text), expected_text="Match[str] | None")
+    reveal_type(pattern_any.sub("", text), expected_text="str")
     reveal_type(pattern_str.match(text), expected_text="Match[str] | None")
     reveal_type(pattern_str.sub("", text), expected_text="str")
 
@@ -204,8 +209,9 @@ class InferredTable(Generic[_T]):
 
 
 def check_constructors(values_any: list[Any], values_unknown: list, values_int: list[int]) -> None:
-    reveal_type(Table(values_any), expected_text="Table[Any]")
-    reveal_type(Table(values_unknown), expected_text="Table[Unknown]")
+    # Known rollback limitation (#11601/#11732): only the first inferred self is retained.
+    reveal_type(Table(values_any), expected_text="Table[int]")
+    reveal_type(Table(values_unknown), expected_text="Table[int]")
     reveal_type(Table(values_int), expected_text="Table[int]")
     reveal_type(Table[int](values_any), expected_text="Table[int]")
 
@@ -222,15 +228,19 @@ def check_constructor_union(
     values_partially_specialized: list[Any] | set[float],
     values_inferred: list[int] | set[str],
 ) -> None:
-    reveal_type(Table(values_any), expected_text="Table[Any] | Table[bytes]")
-    reveal_type(Table(values_unknown), expected_text="Table[Unknown] | Table[bytes]")
-    reveal_type(Table(values_int), expected_text="Table[int] | Table[bytes]")
-    reveal_type(AmbiguousTable(values_gradual), expected_text="AmbiguousTable[Any] | AmbiguousTable[Unknown]")
+    # Known rollback limitation (#11621): union expansion loses later constructed branches,
+    # including Table[bytes] even when the list branch is concrete.
+    reveal_type(Table(values_any), expected_text="Table[int]")
+    reveal_type(Table(values_unknown), expected_text="Table[int]")
+    reveal_type(Table(values_int), expected_text="Table[int]")
+    reveal_type(AmbiguousTable(values_gradual), expected_text="AmbiguousTable[int]")
     reveal_type(
         PartiallySpecializedTable(values_partially_specialized),
-        expected_text="PartiallySpecializedTable[Any] | PartiallySpecializedTable[float]",
+        expected_text="PartiallySpecializedTable[int]",
     )
-    reveal_type(InferredTable(values_inferred), expected_text="InferredTable[int] | InferredTable[str]")
+    # This should generate three errors: the rollback reuses incompatible constraints
+    # across the valid list[int] and set[str] branches instead of constructing their union.
+    reveal_type(InferredTable(values_inferred), expected_text="InferredTable[str]")
     reveal_type(table.__init__(values_any), expected_text="None")
 
 
@@ -351,9 +361,10 @@ def keyword_default_case(value: list[Any], *, name: str, scale: int = 0) -> int 
 
 
 def check_keyword_default(values_any: list[Any], values_unknown: list) -> None:
-    reveal_type(keyword_default_case(name="value", value=values_any), expected_text="Any")
-    reveal_type(keyword_default_case(name="value", value=values_unknown), expected_text="Unknown")
-    reveal_type(keyword_default_case(name="value", value=values_any, scale=1), expected_text="Any")
+    # Known rollback limitation (#11601): keyword/default alignment no longer materializes list elements.
+    reveal_type(keyword_default_case(name="value", value=values_any), expected_text="int")
+    reveal_type(keyword_default_case(name="value", value=values_unknown), expected_text="int")
+    reveal_type(keyword_default_case(name="value", value=values_any, scale=1), expected_text="int")
 
 
 _TBound = TypeVar("_TBound", bound=int)
@@ -505,8 +516,9 @@ def check_supported_and_unsupported_shapes(
     reveal_type(callable_case(values_unknown), expected_text="int")
     reveal_type(union_case(values_any), expected_text="int")
     reveal_type(union_case(values_unknown), expected_text="int")
-    reveal_type(tuple_case(tuple_values), expected_text="Any")
-    reveal_type(tuple_case(tuple_unknown_values), expected_text="Unknown")
+    # Known rollback limitation (#11601): nested tuple materializations select the int branch.
+    reveal_type(tuple_case(tuple_values), expected_text="int")
+    reveal_type(tuple_case(tuple_unknown_values), expected_text="int")
     reveal_type(tuple_union_case(tuple_union_values), expected_text="int")
 
 
@@ -548,6 +560,6 @@ def deprecated_case(value: list[Any]) -> int | str:
 
 
 def check_deprecated(values: list[Any], string_values: list[str]) -> None:
-    # This should generate a deprecation warning.
-    reveal_type(deprecated_case(values), expected_text="Any")
+    # Known rollback limitation (#11601): first-match int inference still reports deprecation.
+    reveal_type(deprecated_case(values), expected_text="int")
     reveal_type(deprecated_case(string_values), expected_text="str")
