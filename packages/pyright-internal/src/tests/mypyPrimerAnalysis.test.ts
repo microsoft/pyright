@@ -679,6 +679,29 @@ describe('mypy_primer analysis', () => {
         expect(f.request.mock.calls.some(([route]) => /^(POST|PATCH) /.test(route))).toBe(false);
     });
 
+    test('compiled workflow runtime matches the compiler resolution lock', () => {
+        const content = readFileSync(
+            join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'),
+            'utf8'
+        );
+        const metadata = parseDocument(content.split('\n')[0].replace('# gh-aw-metadata: ', ''));
+        const compilerVersion = metadata.get('compiler_version');
+        expect(compilerVersion).toMatch(/^v\d+\.\d+\.\d+$/);
+        const actionsLock = parseDocument(
+            readFileSync(join(__dirname, '../../../../.github/aw/actions-lock.json'), 'utf8')
+        );
+        const runtimeActions = [...content.matchAll(/^\s+uses: (github\/gh-aw-actions\/[^@\s]+)@(\S+)/gm)];
+        expect(runtimeActions.length).toBeGreaterThan(0);
+        for (const [, repository, sha] of runtimeActions) {
+            const key = `${repository}@${compilerVersion}`;
+            const resolvedSha = actionsLock.getIn(['entries', key, 'sha']);
+            expect(resolvedSha).toMatch(/^[a-f0-9]{40}$/);
+            expect(actionsLock.getIn(['entries', key, 'repo'])).toBe(repository);
+            expect(actionsLock.getIn(['entries', key, 'version'])).toBe(compilerVersion);
+            expect(sha).toBe(resolvedSha);
+        }
+    });
+
     test('compiled workflow keeps the agent read-only and gates publication on threat detection', () => {
         const workflow = parseDocument(
             readFileSync(join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'), 'utf8')

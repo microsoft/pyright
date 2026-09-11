@@ -43,14 +43,35 @@ They can be adjusted in `.github/workflows/mypy-primer-analysis.md`. The agent m
 mark insufficiently investigated projects as needing review rather than inventing
 evidence to meet its budget.
 
-The workflow is compiled with GitHub Agentic Workflows v0.86.2:
+The workflow is compiled with GitHub Agentic Workflows v0.86.2. Use that exact
+compiler version for regeneration; check the installed version first:
 
 ```text
+gh aw version
 gh aw compile mypy-primer-analysis --validate
 ```
 
-Commit the Markdown source and generated lock file together; do not edit the lock
-file manually. For `gh aw compile --staged`, the publisher reads the staged flag
+The compiler owns the `github/gh-aw-actions/setup` runtime as well as the generated
+script calls. `.github/aw/actions-lock.json` records its version-to-SHA resolution;
+the generated metadata, runtime pin, and compiler version must agree. A standalone
+runtime bump can remove scripts that the existing generated workflow still calls
+(for example, v0.86.2's `install_ripgrep.sh` is absent from v0.88.4). Dependabot
+therefore ignores only `github/gh-aw-actions`; unrelated action updates remain
+enabled. The existing primer workflow tests also check compiler/runtime consistency.
+
+To upgrade, deliberately select the compiler version, regenerate with its matching
+runtime, and review the generated diff and resolution lock together. Do not override
+the runtime independently or manually edit `.lock.yml`. Keep authored workflow
+changes, any resolution-lock changes, and regenerated output together in the same
+commit. Check permissions, tools, container/action pins, and the threat-detection
+and publisher gates; rerun the primer tests and compile again to confirm stable
+output. If Dependabot updated other actions in the generated workflow, reconcile
+their authored Markdown pins before regeneration rather than silently downgrading
+them. Local compilation does not prove a live comment was posted: `workflow_run`
+uses the trusted default-branch workflow, so a PR-only repair cannot fix an existing
+run on `main`.
+
+For `gh aw compile --staged`, the publisher reads the staged flag
 from the trusted activation artifact: v0.86.2 does not propagate that flag's
 environment variable into custom output jobs. Missing activation metadata fails
 closed rather than defaulting to live publication.
