@@ -29240,6 +29240,22 @@ export function createTypeEvaluator(
                     return undefined;
                 }
 
+                // Preserve the declared unbounded form when a tuple literal is
+                // assigned to it. Narrowing an explicitly annotated
+                // tuple[T, ...] to a fixed tuple of literals can make otherwise
+                // valid operations fail because the literal tuple's element
+                // types are bound independently for each operand.
+                if (
+                    isClassInstance(declaredSubtype) &&
+                    isTupleClass(declaredSubtype) &&
+                    isUnboundedTupleClass(declaredSubtype) &&
+                    isClassInstance(assignedSubtype) &&
+                    isTupleClass(assignedSubtype) &&
+                    !isUnboundedTupleClass(assignedSubtype)
+                ) {
+                    return declaredSubtype;
+                }
+
                 // Retain unknowns for code flow analysis convergence and for
                 // unknown type reporting in strict mode.
                 if (isUnknown(assignedSubtype)) {
