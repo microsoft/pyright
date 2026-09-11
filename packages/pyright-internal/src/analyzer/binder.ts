@@ -121,7 +121,7 @@ import {
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getWildcardImportNames } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
-import { ParseTreeWalker } from './parseTreeWalker';
+import { ParseTreeWalker, getChildNodes } from './parseTreeWalker';
 import { CellChainIndexProvider } from './cellChainIndex';
 import {
     ChainedModuleLevelLookupContext,
@@ -140,6 +140,12 @@ interface MemberAccessInfo {
     methodNode: FunctionNode;
     classScope: Scope;
     isInstanceMember: boolean;
+}
+
+interface NewMethodInstanceAnalysis {
+    instanceAssignment: AssignmentNode | undefined;
+    writeCount: number;
+    returnedInstanceNodes: ReturnNode[];
 }
 
 interface DeferredBindingTask {
@@ -318,6 +324,8 @@ export class Binder extends ParseTreeWalker {
 
     // List of string nodes associated with the "__all__" symbol.
     private _dunderAllStringNodes: StringNode[] = [];
+
+    private _newMethodInstanceAnalysisCache = new WeakMap<FunctionNode, Map<string, NewMethodInstanceAnalysis>>();
 
     // One or more statements are manipulating __all__ in a manner that a
     // static analyzer doesn't understand.
@@ -4450,6 +4458,11 @@ export class Binder extends ParseTreeWalker {
 
         if (leftSymbolName === className) {
             isInstanceMember = false;
+        } else if (
+            leftSymbolName !== firstParamName &&
+            this._isConcreteInstanceNameInNewMethod(node, methodNode, leftSymbolName, firstParamName)
+        ) {
+            isInstanceMember = true;
         } else {
             if (leftSymbolName !== firstParamName) {
                 return undefined;
@@ -4501,6 +4514,159 @@ export class Binder extends ParseTreeWalker {
             classScope,
             isInstanceMember,
         };
+    }
+
+    private _isConcreteInstanceNameInNewMethod(
+        node: MemberAccessNode,
+        methodNode: FunctionNode,
+        instanceName: string,
+        classParamName: string
+    ) {
+        if (methodNode.d.name.d.value !== '__new__') {
+            return false;
+        }
+
+        let memberAssignment: ParseNode | undefined = node;
+        while (memberAssignment && memberAssignment.nodeType !== ParseNodeType.Assignment) {
+            memberAssignment = memberAssignment.parent;
+        }
+
+        if (
+            !memberAssignment ||
+            memberAssignment.parent?.nodeType !== ParseNodeType.StatementList ||
+            memberAssignment.parent.parent !== methodNode.d.suite
+        ) {
+            return false;
+        }
+
+        const analysis = this._getNewMethodInstanceAnalysis(methodNode, instanceName);
+
+        if (
+            analysis.writeCount !== 1 ||
+            !analysis.instanceAssignment ||
+            analysis.instanceAssignment.parent?.nodeType !== ParseNodeType.StatementList ||
+            analysis.instanceAssignment.parent.parent !== methodNode.d.suite ||
+            analysis.instanceAssignment.start >= memberAssignment.start ||
+            !this._isConcreteInstanceCreationCall(analysis.instanceAssignment.d.rightExpr, classParamName)
+        ) {
+            return false;
+        }
+
+        return (
+            analysis.returnedInstanceNodes.length > 0 &&
+            analysis.returnedInstanceNodes.every((returnNode) => returnNode.start > memberAssignment.start) &&
+            analysis.returnedInstanceNodes.some(
+                (returnNode) =>
+                    returnNode.parent?.nodeType === ParseNodeType.StatementList &&
+                    returnNode.parent.parent === methodNode.d.suite
+            )
+        );
+    }
+
+    private _getNewMethodInstanceAnalysis(methodNode: FunctionNode, instanceName: string) {
+        let methodCache = this._newMethodInstanceAnalysisCache.get(methodNode);
+        if (methodCache) {
+            return (
+                methodCache.get(instanceName) ?? {
+                    instanceAssignment: undefined,
+                    writeCount: 0,
+                    returnedInstanceNodes: [],
+                }
+            );
+        }
+
+        methodCache = this._analyzeNewMethodInstanceNames(methodNode);
+        this._newMethodInstanceAnalysisCache.set(methodNode, methodCache);
+        return (
+            methodCache.get(instanceName) ?? {
+                instanceAssignment: undefined,
+                writeCount: 0,
+                returnedInstanceNodes: [],
+            }
+        );
+    }
+
+    private _analyzeNewMethodInstanceNames(methodNode: FunctionNode) {
+        const analysisByName = new Map<string, NewMethodInstanceAnalysis>();
+
+        const getAnalysis = (name: string) => {
+            let analysis = analysisByName.get(name);
+            if (!analysis) {
+                analysis = {
+                    instanceAssignment: undefined,
+                    writeCount: 0,
+                    returnedInstanceNodes: [],
+                };
+                analysisByName.set(name, analysis);
+            }
+            return analysis;
+        };
+
+        const visitNode = (curNode: ParseNode) => {
+            if (
+                curNode !== methodNode &&
+                (curNode.nodeType === ParseNodeType.Function ||
+                    curNode.nodeType === ParseNodeType.Class ||
+                    curNode.nodeType === ParseNodeType.Lambda)
+            ) {
+                return;
+            }
+
+            if (
+                curNode.nodeType === ParseNodeType.Name &&
+                !(curNode.parent?.nodeType === ParseNodeType.MemberAccess && curNode.parent.d.member === curNode) &&
+                ParseTreeUtils.isWriteAccess(curNode)
+            ) {
+                const analysis = getAnalysis(curNode.d.value);
+                analysis.writeCount++;
+
+                let assignmentNode: ParseNode | undefined = curNode;
+                while (assignmentNode && assignmentNode.nodeType !== ParseNodeType.Assignment) {
+                    assignmentNode = assignmentNode.parent;
+                }
+
+                if (assignmentNode?.nodeType === ParseNodeType.Assignment) {
+                    analysis.instanceAssignment = assignmentNode;
+                }
+            } else if (curNode.nodeType === ParseNodeType.Return && curNode.d.expr?.nodeType === ParseNodeType.Name) {
+                getAnalysis(curNode.d.expr.d.value).returnedInstanceNodes.push(curNode);
+            }
+
+            getChildNodes(curNode).forEach((child) => {
+                if (child) {
+                    visitNode(child);
+                }
+            });
+        };
+
+        visitNode(methodNode);
+        return analysisByName;
+    }
+
+    private _isConcreteInstanceCreationCall(node: ExpressionNode, classParamName: string) {
+        if (
+            node.nodeType !== ParseNodeType.Call ||
+            node.d.args.length !== 1 ||
+            node.d.args[0].d.argCategory !== ArgCategory.Simple ||
+            node.d.args[0].d.name ||
+            node.d.args[0].d.valueExpr.nodeType !== ParseNodeType.Name ||
+            node.d.args[0].d.valueExpr.d.value !== classParamName ||
+            node.d.leftExpr.nodeType !== ParseNodeType.MemberAccess ||
+            node.d.leftExpr.d.member.d.value !== '__new__'
+        ) {
+            return false;
+        }
+
+        const newBaseExpr = node.d.leftExpr.d.leftExpr;
+        if (newBaseExpr.nodeType === ParseNodeType.Name) {
+            return newBaseExpr.d.value === 'object';
+        }
+
+        return (
+            newBaseExpr.nodeType === ParseNodeType.Call &&
+            newBaseExpr.d.leftExpr.nodeType === ParseNodeType.Name &&
+            newBaseExpr.d.leftExpr.d.value === 'super'
+        );
     }
 
     private _addImplicitImportsToLoaderActions(importResult: ImportResult, loaderActions: ModuleLoaderActions) {
