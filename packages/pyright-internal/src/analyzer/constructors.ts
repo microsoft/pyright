@@ -510,21 +510,18 @@ function validateInitMethod(
         inferenceContext ? { ...inferenceContext, returnTypeOverride } : undefined
     );
 
-    let adjustedClassType = type;
-    if (
-        callResult.specializedInitSelfType &&
-        isClassInstance(callResult.specializedInitSelfType) &&
-        ClassType.isSameGenericClass(callResult.specializedInitSelfType, adjustedClassType)
-    ) {
-        adjustedClassType = ClassType.cloneAsInstantiable(callResult.specializedInitSelfType);
-    }
-
-    const returnType = applyExpectedTypeForConstructor(
-        evaluator,
-        adjustedClassType,
-        /* inferenceContext */ undefined,
-        constraints
-    );
+    const returnType = mapSubtypes(callResult.specializedInitSelfType ?? type, (selfType) => {
+        const adjustedClassType =
+            isClassInstance(selfType) && ClassType.isSameGenericClass(selfType, type)
+                ? ClassType.cloneAsInstantiable(selfType)
+                : type;
+        return applyExpectedTypeForConstructor(
+            evaluator,
+            adjustedClassType,
+            /* inferenceContext */ undefined,
+            constraints
+        );
+    });
 
     if (callResult.isTypeIncomplete) {
         isTypeIncomplete = true;

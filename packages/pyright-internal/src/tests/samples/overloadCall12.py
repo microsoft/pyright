@@ -228,19 +228,18 @@ def check_constructor_union(
     values_partially_specialized: list[Any] | set[float],
     values_inferred: list[int] | set[str],
 ) -> None:
-    # Known rollback limitation (#11621): union expansion loses later constructed branches,
-    # including Table[bytes] even when the list branch is concrete.
-    reveal_type(Table(values_any), expected_text="Table[int]")
-    reveal_type(Table(values_unknown), expected_text="Table[int]")
-    reveal_type(Table(values_int), expected_text="Table[int]")
+    # Union-expanded constructors preserve each branch and its own constraints.
+    # Known rollback limitation (#11601/#11732): each gradual list still selects int, not str.
+    reveal_type(Table(values_any), expected_text="Table[int] | Table[bytes]")
+    reveal_type(Table(values_unknown), expected_text="Table[int] | Table[bytes]")
+    reveal_type(Table(values_int), expected_text="Table[int] | Table[bytes]")
     reveal_type(AmbiguousTable(values_gradual), expected_text="AmbiguousTable[int]")
     reveal_type(
         PartiallySpecializedTable(values_partially_specialized),
-        expected_text="PartiallySpecializedTable[int]",
+        expected_text="PartiallySpecializedTable[int] | PartiallySpecializedTable[float]",
     )
-    # This should generate three errors: the rollback reuses incompatible constraints
-    # across the valid list[int] and set[str] branches instead of constructing their union.
-    reveal_type(InferredTable(values_inferred), expected_text="InferredTable[str]")
+    # Replaying one branch must not reuse another branch's incompatible constraints.
+    reveal_type(InferredTable(values_inferred), expected_text="InferredTable[int] | InferredTable[str]")
     reveal_type(table.__init__(values_any), expected_text="None")
 
 

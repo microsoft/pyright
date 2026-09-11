@@ -10024,6 +10024,7 @@ export function createTypeEvaluator(
         inferenceContext: InferenceContext | undefined
     ): CallResult {
         const returnTypes: Type[] = [];
+        const specializedInitSelfTypes: Type[] = [];
         let matchedOverloads: MatchedOverloadInfo[] = [];
         let isTypeIncomplete = false;
         let overloadsUsedForCall: FunctionType[] = [];
@@ -10096,6 +10097,25 @@ export function createTypeEvaluator(
                         }
                     } else {
                         returnTypes.push(callResult.returnType);
+                        // Each definitive union branch needs its own constructed type;
+                        // __init__ return types alone cannot represent the specialization.
+                        const boundToType = overload.priv.boundToType;
+                        if (
+                            expandedArgTypes.length > 1 &&
+                            overload.shared.name === '__init__' &&
+                            boundToType &&
+                            isClassInstance(boundToType)
+                        ) {
+                            specializedInitSelfTypes.push(
+                                callResult.specializedInitSelfType ??
+                                    solveAndApplyConstraints(boundToType, effectiveConstraints, {
+                                        replaceUnsolved: {
+                                            scopeIds: getTypeVarScopeIds(boundToType),
+                                            tupleClassType: getTupleClassType(),
+                                        },
+                                    })
+                            );
+                        }
                         isDefinitiveMatchFound = true;
                         break;
                     }
@@ -10183,15 +10203,18 @@ export function createTypeEvaluator(
 
         // We found a match for all of the expanded argument lists. Copy the
         // resulting type var context back into the caller's type var context.
-        // Use the type var context from the last matched overload because it
-        // includes the type var solutions for all earlier matched overloads.
+        // Constructor results for separate union branches are carried through
+        // specializedInitSelfTypes rather than the last branch's constraints.
         if (constraints && isDefinitiveMatchFound) {
             constraints.copyFromClone(matchedOverloads[matchedOverloads.length - 1].constraints);
         }
 
         // And run through the first expanded argument list one more time to
-        // populate the type cache.
-        const finalConstraints = constraints ?? matchedOverloads[0].constraints;
+        // populate the type cache, without applying a different branch's constraints.
+        const finalConstraints =
+            expandedArgTypes.length > 1
+                ? matchedOverloads[0].constraints
+                : constraints ?? matchedOverloads[0].constraints;
         const finalCallResult = validateArgTypesWithContext(
             errorNode,
             matchedOverloads[0].matchResults,
@@ -10209,7 +10232,10 @@ export function createTypeEvaluator(
             anyOrUnknownArg: finalCallResult.anyOrUnknownArg,
             returnType: combineTypes(returnTypes),
             isTypeIncomplete,
-            specializedInitSelfType: finalCallResult.specializedInitSelfType,
+            specializedInitSelfType:
+                specializedInitSelfTypes.length === expandedArgTypes.length
+                    ? combineTypes(specializedInitSelfTypes)
+                    : finalCallResult.specializedInitSelfType,
             overloadsUsedForCall,
         };
     }

@@ -128,17 +128,14 @@ test('OverloadCall11', () => {
 
 test('OverloadCall12', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall12.py']);
-    TestUtils.validateResults(analysisResults, 8, 0, undefined, undefined, undefined, 1);
-    // The three constructor diagnostics are a rollback limitation on otherwise valid union branches.
+    TestUtils.validateResults(analysisResults, 5, 0, undefined, undefined, undefined, 1);
+    // Union-expanded constructors must not add errors to these unrelated negative controls.
     assert.deepStrictEqual(
         analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
         [
             [59, DiagnosticRule.reportOperatorIssue],
-            [243, DiagnosticRule.reportArgumentType],
-            [243, DiagnosticRule.reportCallIssue],
-            [243, DiagnosticRule.reportArgumentType],
-            [316, DiagnosticRule.reportCallIssue],
-            [316, DiagnosticRule.reportArgumentType],
+            [315, DiagnosticRule.reportCallIssue],
+            [315, DiagnosticRule.reportArgumentType],
             [81, DiagnosticRule.reportCallIssue],
             [219, DiagnosticRule.reportArgumentType],
         ]
@@ -1070,6 +1067,57 @@ test('Constructor33', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor33.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Constructor34', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor34.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [
+            diagnostic.range.start.line + 1,
+            diagnostic.getRule(),
+            diagnostic.message,
+        ]),
+        [
+            [
+                25,
+                DiagnosticRule.reportAttributeAccessIssue,
+                'Cannot assign to attribute "_data" for class "CacheControl*"\n' +
+                    '\u00a0\u00a0Type "dict[tuple[str, str | None], _VT@dict] | dict[str, str | None] | dict[tuple[str, str | None], Unknown] | MutableMapping[str, str | None] | MutableMapping[tuple[str, str | None], Unknown]" is not assignable to type "MutableMapping[str, str | None]"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0"MutableMapping[tuple[str, str | None], Unknown]" is not assignable to "MutableMapping[str, str | None]"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Type parameter "_KT@MutableMapping" is invariant, but "tuple[str, str | None]" is not the same as "str"',
+            ],
+            [
+                36,
+                DiagnosticRule.reportArgumentType,
+                'Argument of type "Literal[1]" cannot be assigned to parameter "key" of type "str" in function "__setitem__"\n' +
+                    '\u00a0\u00a0"Literal[1]" is not assignable to "str"',
+            ],
+            [
+                38,
+                DiagnosticRule.reportArgumentType,
+                'Argument of type "Literal[1]" cannot be assigned to parameter "value" of type "str | None" in function "__setitem__"\n' +
+                    '\u00a0\u00a0Type "Literal[1]" is not assignable to type "str | None"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0"Literal[1]" is not assignable to "str"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0"Literal[1]" is not assignable to "None"',
+            ],
+            [
+                40,
+                DiagnosticRule.reportAttributeAccessIssue,
+                'Cannot access attribute "nonexistent_member" for class "dict[str, str | None]"\n' +
+                    '\u00a0\u00a0Attribute "nonexistent_member" is unknown',
+            ],
+            [116, DiagnosticRule.reportCallIssue, 'No overloads for "__init__" match the provided arguments'],
+            [
+                116,
+                DiagnosticRule.reportArgumentType,
+                'Argument of type "list[int] | set[str]" cannot be assigned to parameter "values" of type "set[int]" in function "__init__"\n' +
+                    '\u00a0\u00a0Type "list[int] | set[str]" is not assignable to type "set[int]"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0"list[int]" is not assignable to "set[int]"',
+            ],
+        ]
+    );
 });
 
 test('ConstructorCallable1', () => {
