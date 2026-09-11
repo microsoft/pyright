@@ -21,6 +21,10 @@ class ClassC(Generic[T3]):
     pass
 
 
+class ClassD[T5: (int, Never)]:
+    pass
+
+
 def func1(value: ClassA[T1]) -> T1:
     raise NotImplementedError
 
@@ -53,6 +57,10 @@ def func8(value: T4) -> T4:
     raise NotImplementedError
 
 
+def func9[T5: (int, Never)](value: ClassD[T5]) -> T5:
+    raise NotImplementedError
+
+
 def accepts_never(value: Never) -> None:
     pass
 
@@ -64,6 +72,7 @@ def get_never() -> Never:
 assert_type(func1(ClassA[Never]()), Never)
 assert_type(func2(ClassB[Never]()), Never)
 assert_type(func3(ClassC[Never]()), Never)
+assert_type(func9(ClassD[Never]()), Never)
 assert_type(func4((ClassA[Never](),)), Never)
 assert_type(func5(ClassA[Never](), ClassA[Never]()), Never)
 
