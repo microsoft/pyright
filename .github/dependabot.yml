@@ -5,6 +5,9 @@ updates:
     groups:
       github-actions:
         patterns: ['*']
+    # gh-aw owns this runtime and its generated script calls; upgrade them together.
+    ignore:
+      - dependency-name: 'github/gh-aw-actions'
     schedule:
       interval: 'weekly'
     cooldown:

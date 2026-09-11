@@ -44,7 +44,7 @@ jobs:
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: mypy_primer_analysis_context
           run-id: ${{ github.event.workflow_run.id }}
@@ -62,7 +62,7 @@ jobs:
             const source = await loadSource(github.request.bind(github), `${context.repo.owner}/${context.repo.repo}`, handoff);
             fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'primer-source.json'), JSON.stringify(source));
             return source.runId;
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: mypy_primer_diffs_*
           run-id: ${{ steps.source.outputs.result }}
@@ -87,14 +87,14 @@ jobs:
             fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2));
             core.setOutput('has_changes', String(manifest.projects.length > 0));
             core.notice(`${manifest.projects.length} changed projects; all eight shards accounted for`);
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: steps.prepare.outputs.has_changes == 'true'
         with:
           name: primer-analysis-input
           path: ${{ runner.temp }}/primer-input
           if-no-files-found: error
 steps:
-  - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+  - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
     with:
       name: primer-analysis-input
       path: /tmp/gh-aw/primer-input
@@ -123,11 +123,11 @@ safe-outputs:
           with:
             ref: ${{ github.workflow_sha }}
             persist-credentials: false
-        - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
           with:
             name: primer-analysis-input
             path: ${{ runner.temp }}/primer-input
-        - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
           with:
             name: activation
             path: ${{ runner.temp }}/primer-activation
@@ -155,7 +155,7 @@ safe-outputs:
               );
               core.notice(result);
               await core.summary.addRaw(result).write();
-        - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
           with:
             name: mypy-primer-analysis-report
             path: ${{ runner.temp }}/mypy-primer-analysis.md

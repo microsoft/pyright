@@ -1,5 +1,6 @@
-# This sample tests preservation of correlated overloads inferred from a
-# protocol-annotated self parameter, including on gradual generic receivers.
+# This sample records the known loss of correlated protocol-self alternatives
+# after rolling back #11732. Valid operations on either concrete materialization
+# should remain supported; the current errors below document the limitation.
 
 from __future__ import annotations
 
@@ -69,36 +70,45 @@ def check(
 ) -> None:
     assert_type(concrete.op("value"), Container[int])
     assert_type(gradual._proto("value"), ItemOps[int])
-    assert_type(gradual.op("value"), Container[int])
+    # Each str argument below should generate a current error: only the first (int, str)
+    # protocol binding survives on gradual receivers. Its return is not proof of a valid call.
+    assert_type(gradual.op("value"), Container[str])
     assert_type(gradual.op(1), Container[str])
-    assert_type(unknown.op("value"), Container[int])
+    assert_type(unknown.op("value"), Container[str])
     assert_type(unknown.op(1), Container[str])
-    assert_type(choose(value), Container[Any])
-    assert_type(choose(value).op("value"), Container[int])
+    # Known rollback limitation (#11601/#11732): choose also drops the str receiver.
+    assert_type(choose(value), Container[int])
+    assert_type(choose(value).op("value"), Container[str])
     assert_type(choose(value).op(1), Container[str])
-    assert_type(Container.op(gradual, "value"), Container[int])
+    assert_type(Container.op(gradual, "value"), Container[str])
 
-    assert_type(gradual.converted("value"), Container[int])
+    # These valid str operations remain rejected, including keyword-selected and stored methods.
+    assert_type(gradual.converted("value"), Container[str])
     assert_type(gradual.converted(1), Container[str])
-    assert_type(gradual.converted("value", wrapped=False), int)
+    # This should generate two errors because the second correlated binding was lost.
+    reveal_type(gradual.converted("value", wrapped=False), expected_text="Unknown")
     assert_type(gradual.converted(1, wrapped=False), str)
     bound = gradual.converted
-    assert_type(bound("value", wrapped=False), int)
+    # This should generate the same two errors through the stored bound method.
+    reveal_type(bound("value", wrapped=False), expected_text="Unknown")
     assert_type(bound(1, wrapped=False), str)
-    assert_type(choose(value) // "value", Container[int])
+    # This should generate an operator error for a valid str materialization.
+    reveal_type(choose(value) // "value", expected_text="Unknown")
     assert_type(choose(value) // 1, Container[str])
     assert_type(choose(value) // b"value", Container[bytes])
     assert_type(concrete.mixed("value"), Container[int])
-    assert_type(gradual.mixed("value"), Container[Any])
+    # Known rollback limitation: the later declared overload wins after losing the str binding.
+    assert_type(gradual.mixed("value"), Container[bytes])
     assert_type(infer_result(gradual), str)
 
-    # This should generate two errors because no overload accepts bytes.
+    # This should generate an argument error because no protocol binding accepts bytes.
     gradual.op(b"invalid")
 
     # This should generate an error because the concrete receiver requires str.
     concrete.op(1)
 
-    # This should generate an error because the container type is preserved.
+    # This should generate the current str-argument error AND a missing-member error;
+    # rollback inference preserves a container, but incorrectly selects Container[str].
     choose(value).op("value").nonexistent_member()
 
     # This should generate an error because no operator overload accepts object.

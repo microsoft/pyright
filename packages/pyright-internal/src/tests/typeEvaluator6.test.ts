@@ -70,8 +70,8 @@ test('OverloadCall6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall6.py']);
     TestUtils.validateResults(analysisResults, 2, 0, undefined, undefined, undefined, 1);
     assert.deepStrictEqual(analysisResults[0].deprecateds[0].range, {
-        start: { line: 286, character: 16 },
-        end: { line: 286, character: 42 },
+        start: { line: 290, character: 16 },
+        end: { line: 290, character: 42 },
     });
 });
 
@@ -97,45 +97,144 @@ test('OverloadCall10', () => {
 
 test('OverloadCall11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall11.py']);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
+    // These diagnostics record the restored conformance gap, not the required overload semantics.
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => ({
+            rule: diagnostic.getRule(),
+            range: diagnostic.range,
+            message: diagnostic.message,
+        })),
+        [
+            {
+                rule: DiagnosticRule.reportAssignmentType,
+                range: { start: { line: 28, character: 28 }, end: { line: 28, character: 34 } },
+                message:
+                    'Type "list[int]" is not assignable to declared type "list[str]"\n' +
+                    '\u00a0\u00a0"list[int]" is not assignable to "list[str]"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0Type parameter "_T@list" is invariant, but "int" is not the same as "str"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0Consider switching from "list" to "Sequence" which is covariant',
+            },
+            {
+                rule: DiagnosticRule.reportArgumentType,
+                range: { start: { line: 31, character: 18 }, end: { line: 31, character: 25 } },
+                message:
+                    'Argument of type "Literal[\'value\']" cannot be assigned to parameter "object" of type "int" in function "append"\n' +
+                    '\u00a0\u00a0"Literal[\'value\']" is not assignable to "int"',
+            },
+        ]
+    );
 });
 
 test('OverloadCall12', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall12.py']);
     TestUtils.validateResults(analysisResults, 5, 0, undefined, undefined, undefined, 1);
+    // Union-expanded constructors must not add errors to these unrelated negative controls.
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [59, DiagnosticRule.reportOperatorIssue],
+            [315, DiagnosticRule.reportCallIssue],
+            [315, DiagnosticRule.reportArgumentType],
+            [81, DiagnosticRule.reportCallIssue],
+            [219, DiagnosticRule.reportArgumentType],
+        ]
+    );
 });
 
 test('OverloadCall13', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall13.py']);
-    TestUtils.validateResults(analysisResults, 6);
-    const expectedClasses = [
-        'Container[Any]',
-        'Container[Unknown]',
-        'Container[int]',
-        'list[Any]',
-        'list[Any]',
-        'Constructed[Any]',
+    TestUtils.validateResults(analysisResults, 12, 0, 11, undefined, 0);
+    // Both Never calls and the previously unreachable Unknown fallbacks must be analyzed.
+    assert.deepStrictEqual(
+        analysisResults[0].infos.map((diagnostic) => diagnostic.message),
+        [
+            'Type of "unknown_result" is "Container[Any]"',
+            'Type of "unknown_result.item()" is "Any"',
+            'Type of "nested(unknown)" is "dict[str, list[int]]"',
+            'Type of "different_shapes(unknown)" is "tuple[int]"',
+            'Type of "different_families(unknown)" is "list[int]"',
+            'Type of "unconstrained_result(unknown)" is "list[int]"',
+            'Type of "optional_result(unknown)" is "list[int] | None"',
+            'Type of "never_result(value)" is "Never"',
+            'Type of "never_result(unknown)" is "Never"',
+            'Type of "Constructed(unknown)" is "Constructed[int]"',
+            'Type of "covariant_result(unknown)" is "Covariant[int]"',
+        ]
+    );
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [39, DiagnosticRule.reportAttributeAccessIssue],
+            [40, DiagnosticRule.reportAttributeAccessIssue],
+            [41, DiagnosticRule.reportAttributeAccessIssue],
+            [62, DiagnosticRule.reportAssignmentType],
+            [70, DiagnosticRule.reportAttributeAccessIssue],
+            [87, DiagnosticRule.reportAssignmentType],
+            [94, DiagnosticRule.reportAttributeAccessIssue],
+            [181, DiagnosticRule.reportAttributeAccessIssue],
+            [209, DiagnosticRule.reportAttributeAccessIssue],
+            [212, DiagnosticRule.reportAttributeAccessIssue],
+            [65, DiagnosticRule.reportArgumentType],
+            [91, DiagnosticRule.reportArgumentType],
+        ]
+    );
+    const expectedAttributes = [
+        ['nonexistent_member', 'Container[Any]'],
+        ['nonexistent_member', 'Container[Any]'],
+        ['nonexistent_member', 'Container[int]'],
+        ['nonexistent_member', 'list[int]'],
+        ['nonexistent_member', 'list[int]'],
+        ['nonexistent_member', 'Constructed[int]'],
+        ['upper', 'int'],
+        ['upper', 'int'],
     ];
-    analysisResults[0].errors.forEach((diagnostic, index) => {
-        assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportAttributeAccessIssue);
+    const attributeErrors = analysisResults[0].errors.filter(
+        (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
+    );
+    assert.strictEqual(attributeErrors.length, expectedAttributes.length);
+    attributeErrors.forEach((diagnostic, index) => {
+        const [attribute, className] = expectedAttributes[index];
         assert.strictEqual(
             diagnostic.message,
-            `Cannot access attribute "nonexistent_member" for class "${expectedClasses[index]}"\n` +
-                '\u00a0\u00a0Attribute "nonexistent_member" is unknown'
+            `Cannot access attribute "${attribute}" for class "${className}"\n` +
+                `\u00a0\u00a0Attribute "${attribute}" is unknown`
         );
     });
 });
 
 test('OverloadCall14', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall14.py']);
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 16);
+    // Preserve both invalid-call controls and the supported operations rejected by the rollback.
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [75, DiagnosticRule.reportArgumentType],
+            [77, DiagnosticRule.reportArgumentType],
+            [81, DiagnosticRule.reportArgumentType],
+            [83, DiagnosticRule.reportArgumentType],
+            [86, DiagnosticRule.reportArgumentType],
+            [89, DiagnosticRule.reportCallIssue],
+            [89, DiagnosticRule.reportArgumentType],
+            [93, DiagnosticRule.reportCallIssue],
+            [93, DiagnosticRule.reportArgumentType],
+            [96, DiagnosticRule.reportOperatorIssue],
+            [112, DiagnosticRule.reportArgumentType],
+            [112, DiagnosticRule.reportAttributeAccessIssue],
+            [115, DiagnosticRule.reportOperatorIssue],
+            [121, DiagnosticRule.reportAssignmentType],
+            [105, DiagnosticRule.reportArgumentType],
+            [108, DiagnosticRule.reportArgumentType],
+        ]
+    );
     const attributeErrors = analysisResults[0].errors.filter(
         (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
     );
     assert.strictEqual(attributeErrors.length, 1);
     assert.strictEqual(
         attributeErrors[0].message,
-        'Cannot access attribute "nonexistent_member" for class "Container[int]"\n' +
+        'Cannot access attribute "nonexistent_member" for class "Container[str]"\n' +
             '\u00a0\u00a0Attribute "nonexistent_member" is unknown'
     );
 });
@@ -968,6 +1067,57 @@ test('Constructor33', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor33.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Constructor34', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor34.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [
+            diagnostic.range.start.line + 1,
+            diagnostic.getRule(),
+            diagnostic.message,
+        ]),
+        [
+            [
+                25,
+                DiagnosticRule.reportAttributeAccessIssue,
+                'Cannot assign to attribute "_data" for class "CacheControl*"\n' +
+                    '\u00a0\u00a0Type "dict[tuple[str, str | None], _VT@dict] | dict[str, str | None] | dict[tuple[str, str | None], Unknown] | MutableMapping[str, str | None] | MutableMapping[tuple[str, str | None], Unknown]" is not assignable to type "MutableMapping[str, str | None]"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0"MutableMapping[tuple[str, str | None], Unknown]" is not assignable to "MutableMapping[str, str | None]"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Type parameter "_KT@MutableMapping" is invariant, but "tuple[str, str | None]" is not the same as "str"',
+            ],
+            [
+                36,
+                DiagnosticRule.reportArgumentType,
+                'Argument of type "Literal[1]" cannot be assigned to parameter "key" of type "str" in function "__setitem__"\n' +
+                    '\u00a0\u00a0"Literal[1]" is not assignable to "str"',
+            ],
+            [
+                38,
+                DiagnosticRule.reportArgumentType,
+                'Argument of type "Literal[1]" cannot be assigned to parameter "value" of type "str | None" in function "__setitem__"\n' +
+                    '\u00a0\u00a0Type "Literal[1]" is not assignable to type "str | None"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0"Literal[1]" is not assignable to "str"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0"Literal[1]" is not assignable to "None"',
+            ],
+            [
+                40,
+                DiagnosticRule.reportAttributeAccessIssue,
+                'Cannot access attribute "nonexistent_member" for class "dict[str, str | None]"\n' +
+                    '\u00a0\u00a0Attribute "nonexistent_member" is unknown',
+            ],
+            [116, DiagnosticRule.reportCallIssue, 'No overloads for "__init__" match the provided arguments'],
+            [
+                116,
+                DiagnosticRule.reportArgumentType,
+                'Argument of type "list[int] | set[str]" cannot be assigned to parameter "values" of type "set[int]" in function "__init__"\n' +
+                    '\u00a0\u00a0Type "list[int] | set[str]" is not assignable to type "set[int]"\n' +
+                    '\u00a0\u00a0\u00a0\u00a0"list[int]" is not assignable to "set[int]"',
+            ],
+        ]
+    );
 });
 
 test('ConstructorCallable1', () => {

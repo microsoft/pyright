@@ -1,5 +1,6 @@
-# This sample tests preservation of generic return types when overloads are
-# ambiguous because of Any or Unknown, including specialized self parameters.
+# This sample records known limitations restored by rolling back #11601/#11732.
+# Ambiguous results should permit assignments and operations supported by either
+# retained materialization. The expected first-match types below do not meet that requirement.
 
 from typing import Any, Generic, Never, TypeAlias, TypeVar, assert_type, overload
 
@@ -27,9 +28,10 @@ def check_copy(value: Container[Any], unknown: Container, concrete: Container[in
     int_result: Container[int] = result
     float_result: Container[float] = result
 
+    # Known rollback limitation: the first Never-specialized self erases Unknown to Any.
     unknown_result = unknown.copy()
-    reveal_type(unknown_result, expected_text="Container[Unknown]")
-    reveal_type(unknown_result.item(), expected_text="Unknown")
+    reveal_type(unknown_result, expected_text="Container[Any]")
+    reveal_type(unknown_result.item(), expected_text="Any")
     assert_type(concrete.copy(), Container[int])
     assert_type(concrete.copy().item(), int)
 
@@ -53,13 +55,16 @@ def nested(value: Any) -> dict[str, list[Any]]:
 
 def check_nested(value: list[Any], unknown: list) -> None:
     result = nested(value)
-    assert_type(result, dict[str, list[Any]])
+    # Known rollback limitation: only the int materialization survives.
+    assert_type(result, dict[str, list[int]])
     int_result: IntResult = result
+    # This should generate an error despite str being a retained materialization.
     str_result: StrResult = result
     result["key"].append(1)
+    # This should generate an error: the rollback rejects a supported mutation.
     result["key"].append("value")
-    assert_type(result["key"][0], Any)
-    reveal_type(nested(unknown), expected_text="dict[str, list[Unknown]]")
+    assert_type(result["key"][0], int)
+    reveal_type(nested(unknown), expected_text="dict[str, list[int]]")
 
     # This should generate an error for the nonexistent attribute.
     result["key"].nonexistent_member()
@@ -75,11 +80,14 @@ def tuple_result(value: Any) -> tuple[str, list[Any]]:
 
 def check_tuple(value: list[Any]) -> None:
     result = tuple_result(value)
-    assert_type(result, tuple[str, list[Any]])
+    # Known rollback limitation: tuple structure remains, but its list loses str.
+    assert_type(result, tuple[str, list[int]])
     int_result: tuple[str, list[int]] = result
+    # This should generate an error despite str being a retained materialization.
     str_result: tuple[str, list[str]] = result
     result[0].upper()
     result[1].append(1)
+    # This should generate an error: the rollback rejects a supported mutation.
     result[1].append("value")
 
     # This should generate an error for the nonexistent attribute.
@@ -127,16 +135,26 @@ def never_result(value: Any) -> Any:
 
 
 def check_fallbacks(value: list[Any], unknown: list) -> None:
-    assert_type(different_shapes(value), Any)
-    assert_type(different_families(value), Any)
-    assert_type(unconstrained_result(value), Any)
-    assert_type(optional_result(value), Any)
-    assert_type(never_result(value), Any)
-    reveal_type(different_shapes(unknown), expected_text="Unknown")
-    reveal_type(different_families(unknown), expected_text="Unknown")
-    reveal_type(unconstrained_result(unknown), expected_text="Unknown")
-    reveal_type(optional_result(unknown), expected_text="Unknown")
-    reveal_type(never_result(unknown), expected_text="Unknown")
+    # Known rollback limitation: unsupported common shapes also select only the first result.
+    assert_type(different_shapes(value), tuple[int])
+    assert_type(different_families(value), list[int])
+    assert_type(unconstrained_result(value), list[int])
+    assert_type(optional_result(value), list[int] | None)
+    reveal_type(different_shapes(unknown), expected_text="tuple[int]")
+    reveal_type(different_families(unknown), expected_text="list[int]")
+    reveal_type(unconstrained_result(unknown), expected_text="list[int]")
+    reveal_type(optional_result(unknown), expected_text="list[int] | None")
+
+
+# Keep Never calls in separate functions so neither hides the other Unknown,
+# fallback, or operation controls as unreachable after the rollback.
+def check_never_any(value: list[Any]) -> None:
+    # Known rollback limitation: a possible list[str] result is incorrectly treated as Never.
+    reveal_type(never_result(value), expected_text="Never")
+
+
+def check_never_unknown(unknown: list) -> None:
+    reveal_type(never_result(unknown), expected_text="Never")
 
 
 class Constructed(Generic[_T]):
@@ -153,9 +171,10 @@ class Constructed(Generic[_T]):
 
 def check_constructor(value: list[Any], unknown: list) -> None:
     result = Constructed(value)
-    assert_type(result, Constructed[Any])
-    assert_type(result.item(), Any)
-    reveal_type(Constructed(unknown), expected_text="Constructed[Unknown]")
+    # Known rollback limitation: inferred construction drops the str alternative.
+    assert_type(result, Constructed[int])
+    assert_type(result.item(), int)
+    reveal_type(Constructed(unknown), expected_text="Constructed[int]")
     assert_type(Constructed[int](value), Constructed[int])
 
     # This should generate an error for the nonexistent attribute.
@@ -183,10 +202,13 @@ def covariant_result(value: Any) -> Any:
 
 
 def check_covariant(value: list[Any], unknown: list, concrete: Covariant[str]) -> None:
-    assert_type(covariant_result(value), Any)
-    reveal_type(covariant_result(unknown), expected_text="Unknown")
+    # Known rollback limitation: first-match Covariant[int] rejects operations on Covariant[str].
+    assert_type(covariant_result(value), Covariant[int])
+    reveal_type(covariant_result(unknown), expected_text="Covariant[int]")
+    # This should generate an error despite str.upper being supported by a materialization.
     covariant_result(value).get().upper()
     covariant_result(value).get().bit_length()
+    # This should generate the same error for the independently checked Unknown path.
     covariant_result(unknown).get().upper()
     covariant_result(unknown).get().bit_length()
     assert_type(concrete.get(), str)

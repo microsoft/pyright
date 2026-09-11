@@ -124,11 +124,13 @@ def overload5(x: list[str] | list[int]) -> list[str] | list[int]:
 
 
 def func6(y: list[Any]):
-    reveal_type(overload5(y), expected_text="list[Any]")
+    # Known rollback limitation (#11601/#11732): first-match inference omits str materializations.
+    reveal_type(overload5(y), expected_text="list[int]")
 
 
 def func6_unknown(y: list):
-    reveal_type(overload5(y), expected_text="list[Unknown]")
+    # The same rollback limitation applies to nested Unknown.
+    reveal_type(overload5(y), expected_text="list[int]")
 
 
 @overload
@@ -176,7 +178,8 @@ def overload5_covariant_base(x: Sequence[object]) -> object:
 
 
 def func6_covariant_base(y: list[Any]):
-    reveal_type(overload5_covariant_base(y), expected_text="Any")
+    # Known rollback limitation (#11601): Sequence[int] does not cover every materialization.
+    reveal_type(overload5_covariant_base(y), expected_text="int")
 
 
 @overload
@@ -242,7 +245,8 @@ def overload5_unknown(x: list[Any]) -> int:
 
 
 def func6_nested_unknown(x: list):
-    reveal_type(overload5_unknown(x), expected_text="Unknown")
+    # Known rollback limitation (#11601): the first literal return excludes later results.
+    reveal_type(overload5_unknown(x), expected_text="Literal[1]")
 
 
 @overload
@@ -299,7 +303,8 @@ class ClassWithOverloadedInit(Generic[_T]):
 
 
 def func6_overloaded_init(x: list[Any]):
-    reveal_type(ClassWithOverloadedInit(x), expected_text="ClassWithOverloadedInit[Any]")
+    # Known rollback limitation (#11601/#11732): inferred self selects only the int constructor.
+    reveal_type(ClassWithOverloadedInit(x), expected_text="ClassWithOverloadedInit[int]")
 
 
 class ExplicitClassWithOverloadedInit(Generic[_T]):
@@ -344,7 +349,8 @@ class ClassA(Generic[_T]):
 
 
 def func7(a: ClassA[Any]):
-    reveal_type(a.m1(), expected_text="ClassA[Any]")
+    # Known rollback limitation (#11601/#11732): gradual self no longer retains both results.
+    reveal_type(a.m1(), expected_text="ClassA[int]")
 
 
 class ClassB(Generic[_T]):
@@ -359,7 +365,8 @@ class ClassB(Generic[_T]):
 
 
 def func8(b: ClassB[Any]):
-    reveal_type(b.m1(b), expected_text="ClassB[Any]")
+    # Known rollback limitation (#11601/#11732): gradual self and argument select the int branch.
+    reveal_type(b.m1(b), expected_text="ClassB[int]")
 
 
 _T1 = TypeVar("_T1")
@@ -478,7 +485,8 @@ def overload10(x) -> Any:
 
 def func18(a: Any, b: list[Any], c: list[str], d: list[int]):
     reveal_type(overload10(a), expected_text="list[int]")
-    reveal_type(overload10(b), expected_text="list[Any]")
+    # Known rollback limitation (#11601/#11732): the later covering overload is not retained.
+    reveal_type(overload10(b), expected_text="list[int]")
     reveal_type(overload10(c), expected_text="list[Any]")
     reveal_type(overload10(d), expected_text="list[int]")
 
