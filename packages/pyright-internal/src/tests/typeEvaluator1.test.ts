@@ -531,6 +531,12 @@ test('TypeNarrowingTupleLength1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeNarrowingTupleLength2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTupleLength2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeNarrowingIn1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn1.py']);
 

@@ -14,7 +14,7 @@
 import { ConsoleInterface } from '../common/console';
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { ArgCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ArgCategory, CallNode, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
@@ -74,6 +74,7 @@ import {
     derivesFromStdlibClass,
     doForEachSubtype,
     isIncompleteUnknown,
+    isTupleClass,
     isTypeAliasPlaceholder,
     mapSubtypes,
 } from './typeUtils';
@@ -113,6 +114,137 @@ export interface CodeFlowAnalyzer {
         reference: CodeFlowReferenceExpressionNode | undefined,
         options?: FlowNodeTypeOptions
     ) => FlowNodeTypeResult;
+}
+
+function isCallPotentiallyMutatingReference(
+    callNode: CallNode,
+    reference: CodeFlowReferenceExpressionNode,
+    antecedent: FlowNode
+) {
+    if (reference.nodeType !== ParseNodeType.MemberAccess && reference.nodeType !== ParseNodeType.Index) {
+        return false;
+    }
+
+    const referenceBase = reference.d.leftExpr;
+    const callTarget = callNode.d.leftExpr;
+    const callReceiver = callTarget.nodeType === ParseNodeType.MemberAccess ? callTarget.d.leftExpr : callTarget;
+
+    if (isExpressionPotentialAliasForReference(callReceiver, referenceBase, antecedent)) {
+        return true;
+    }
+
+    return callNode.d.args.some((arg) =>
+        isExpressionPotentialAliasForReference(arg.d.valueExpr, referenceBase, antecedent)
+    );
+}
+
+function isExpressionPotentialAliasForReference(
+    expression: ExpressionNode,
+    referenceBase: ExpressionNode,
+    flowNode: FlowNode
+): boolean {
+    const pendingStates = [{ expression, flowNode }];
+    const exploredStates = new Set<string>();
+
+    while (pendingStates.length > 0) {
+        const state = pendingStates.pop()!;
+        if (
+            isMatchingExpression(referenceBase, state.expression) ||
+            isPartialMatchingExpression(referenceBase, state.expression)
+        ) {
+            return true;
+        }
+
+        if (state.expression.nodeType !== ParseNodeType.Name) {
+            continue;
+        }
+
+        const stateKey = `${state.expression.id}:${state.flowNode.id}`;
+        if (exploredStates.has(stateKey)) {
+            continue;
+        }
+        exploredStates.add(stateKey);
+
+        if (state.flowNode.flags & FlowFlags.Assignment) {
+            const assignmentFlowNode = state.flowNode as FlowAssignment;
+            if (isMatchingExpression(state.expression, assignmentFlowNode.node)) {
+                // Follow simple local aliases so "alias = obj; alias.mutate()" invalidates "obj.member".
+                const assignmentNode = assignmentFlowNode.node.parent;
+                if (assignmentNode?.nodeType === ParseNodeType.Assignment) {
+                    pendingStates.push({
+                        expression: assignmentNode.d.rightExpr,
+                        flowNode: assignmentFlowNode.antecedent,
+                    });
+                }
+                continue;
+            }
+        }
+
+        if (state.flowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
+            const labelNode = state.flowNode as FlowLabel;
+            labelNode.antecedents.forEach((antecedent) => {
+                pendingStates.push({ expression: state.expression, flowNode: antecedent });
+            });
+            continue;
+        }
+
+        if (
+            state.flowNode.flags &
+            (FlowFlags.Assignment |
+                FlowFlags.Call |
+                FlowFlags.TrueCondition |
+                FlowFlags.FalseCondition |
+                FlowFlags.TrueNeverCondition |
+                FlowFlags.FalseNeverCondition |
+                FlowFlags.VariableAnnotation)
+        ) {
+            const antecedent = (state.flowNode as FlowAssignment | FlowCall | FlowCondition | FlowVariableAnnotation)
+                .antecedent;
+            pendingStates.push({ expression: state.expression, flowNode: antecedent });
+        }
+    }
+
+    return false;
+}
+
+function isTupleShapeNarrowed(typeAtStart: Type, narrowedType: Type) {
+    if (isTypeSame(typeAtStart, narrowedType)) {
+        return false;
+    }
+
+    const originalTupleShapes = new Set<string>();
+    const narrowedTupleShapes = new Set<string>();
+
+    doForEachSubtype(typeAtStart, (subtype) => {
+        if (isClassInstance(subtype) && isTupleClass(subtype)) {
+            originalTupleShapes.add(getTupleShapeKey(subtype));
+        }
+    });
+
+    doForEachSubtype(narrowedType, (subtype) => {
+        if (isClassInstance(subtype) && isTupleClass(subtype)) {
+            narrowedTupleShapes.add(getTupleShapeKey(subtype));
+        }
+    });
+
+    if (originalTupleShapes.size === 0 || narrowedTupleShapes.size === 0) {
+        return false;
+    }
+
+    return (
+        originalTupleShapes.size !== narrowedTupleShapes.size ||
+        [...originalTupleShapes].some((shape) => !narrowedTupleShapes.has(shape))
+    );
+}
+
+function getTupleShapeKey(tupleType: ClassType) {
+    if (!tupleType.priv.tupleTypeArgs) {
+        return 'unspecialized';
+    }
+
+    return tupleType.priv.tupleTypeArgs
+        .map((typeArg) => (typeArg.isUnbounded ? '*' : typeArg.isOptional ? '?' : '1'))
+        .join('');
 }
 
 export interface CodeFlowEngine {
@@ -516,6 +648,31 @@ export function getCodeFlowEngine(
                         // so we can assume that the code before this is unreachable.
                         if (isCallNoReturn(evaluator, callFlowNode)) {
                             return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
+                        }
+
+                        if (
+                            reference &&
+                            options?.typeAtStart?.type &&
+                            isCallPotentiallyMutatingReference(callFlowNode.node, reference, callFlowNode.antecedent)
+                        ) {
+                            const flowTypeResult = preventRecursion(curFlowNode, () =>
+                                getTypeFromFlowNode(callFlowNode.antecedent)
+                            );
+
+                            // Preserve normal member narrowing behavior, but discard tuple shape information
+                            // that may have been invalidated by reassignment through the receiver or an argument.
+                            if (
+                                flowTypeResult.type &&
+                                isTupleShapeNarrowed(options.typeAtStart!.type, flowTypeResult.type)
+                            ) {
+                                return setCacheEntry(
+                                    curFlowNode,
+                                    options.typeAtStart.type,
+                                    !!options.typeAtStart.isIncomplete || flowTypeResult.isIncomplete
+                                );
+                            }
+
+                            return setCacheEntry(curFlowNode, flowTypeResult.type, flowTypeResult.isIncomplete);
                         }
 
                         curFlowNode = callFlowNode.antecedent;
