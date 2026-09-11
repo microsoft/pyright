@@ -358,6 +358,14 @@ test('TypedDictReadOnly2', () => {
     TestUtils.validateResults(analysisResults, 17);
 });
 
+test('TypedDictReadOnly3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportTypedDictNotRequiredAccess = 'none';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('TypedDictClosed1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed1.py']);
     TestUtils.validateResults(analysisResults, 7);
