@@ -111,3 +111,17 @@ def func8(a: memoryview, b: bytes, c: bytearray):
 
     if b == c:
         ...
+
+
+def func9(a: memoryview, b: bytes, c: bytearray):
+    # Distinct bytes-like types are never identical, so identity comparisons
+    # ("is" and "is not") should generate an unnecessary comparison error.
+    if a is b:
+        ...
+
+    if a is not c:
+        ...
+
+    if b is c:
+        ...
+

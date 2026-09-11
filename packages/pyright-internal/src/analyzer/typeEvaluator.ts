@@ -27497,18 +27497,16 @@ export function createTypeEvaluator(
         );
     }
 
-    // The "bytes" entry of "typePromotions" (see below) groups together the
-    // "bytes-like" types that support cross-type content comparisons via
-    // "==" and "!=", even though they're otherwise unrelated (non-overlapping)
-    // types. Unlike the numeric promotions ("int" -> "float" -> "complex"),
-    // where two disjoint literal subtypes (e.g. "Literal[1]" and "Literal[2]")
-    // must still be treated as non-comparable, every pairing within this
-    // group is mutually comparable, so it's safe to treat fullName membership
-    // in this specific set as sufficient without consulting literal values.
-    const bytesLikeTypeNames = new Set(['builtins.bytes', ...(typePromotions.get('builtins.bytes') ?? [])]);
-
+    // Types like "bytes", "bytearray" and "memoryview" support cross-type
+    // content comparisons via "==" and "!=", even though they're otherwise
+    // unrelated (non-overlapping) types. Use derivesFromStdlibClass to check
+    // membership in this group across the MRO.
     function isBytesLikeType(type: ClassType) {
-        return type.shared.mro.some((mroClass) => isClass(mroClass) && bytesLikeTypeNames.has(mroClass.shared.fullName));
+        return (
+            derivesFromStdlibClass(type, 'bytes') ||
+            derivesFromStdlibClass(type, 'bytearray') ||
+            derivesFromStdlibClass(type, 'memoryview')
+        );
     }
 
     // Determines whether the two types are both members of the "bytes-like"
@@ -27638,7 +27636,7 @@ export function createTypeEvaluator(
                     // elsewhere for assignability), so reuse that same list here
                     // regardless of the "disableBytesTypePromotions" setting, since
                     // comparability isn't affected by that assignability toggle.
-                    if (isTypePromotionRelated(leftType, rightType)) {
+                    if (!assumeIsOperator && isTypePromotionRelated(leftType, rightType)) {
                         return true;
                     }
 
