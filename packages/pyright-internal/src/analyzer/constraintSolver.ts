@@ -1067,14 +1067,12 @@ function assignConstrainedTypeVar(
         // must all map to the same constraint. For example, Union[str, bytes]
         // cannot be assigned to AnyStr.
         let unconditionalConstraintIndex: number | undefined;
-        let foundCompatibleConstraint = false;
 
         // Find the narrowest constrained type that is compatible.
         constrainedType = mapSubtypes(concreteSrcType, (srcSubtype) => {
             let constrainedSubtype: Type | undefined;
 
             if (isAnyOrUnknown(srcSubtype)) {
-                foundCompatibleConstraint = true;
                 return srcSubtype;
             }
 
@@ -1119,8 +1117,6 @@ function assignConstrainedTypeVar(
                 if ((flags & AssignTypeFlags.Contravariant) === 0) {
                     isCompatible = false;
                 }
-            } else {
-                foundCompatibleConstraint = true;
             }
 
             // If this subtype isn't conditional, make sure it maps to the same
@@ -1139,7 +1135,9 @@ function assignConstrainedTypeVar(
             return constrainedSubtype;
         });
 
-        if (!foundCompatibleConstraint || !isCompatible) {
+        const isExplicitNeverConstraint =
+            isNever(concreteSrcType) && destType.shared.constraints.some((constraint) => isNever(constraint));
+        if ((isNever(constrainedType) && !isExplicitNeverConstraint) || !isCompatible) {
             constrainedType = undefined;
         }
 
