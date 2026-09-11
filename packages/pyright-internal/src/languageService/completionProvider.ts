@@ -373,6 +373,8 @@ const maxRecentCompletions = 128;
 export class CompletionProvider {
     private static _mostRecentCompletions: RecentCompletionInfo[] = [];
 
+    private _isIncomplete = false;
+
     // Indicates whether invocation position is inside of string literal
     // token or an f-string expression.
     private _stringLiteralContainer: StringToken | FStringStartToken | undefined = undefined;
@@ -406,7 +408,7 @@ export class CompletionProvider {
         }
 
         const completionMap = this._getCompletions();
-        const completionList = CompletionList.create(completionMap?.toArray());
+        const completionList = CompletionList.create(completionMap?.toArray(), this._isIncomplete);
         if (this.options.completionItemDataDefault) {
             hoistCompletionItemDataDefault(completionList, this.fileUri, this.position);
         }
@@ -992,6 +994,13 @@ export class CompletionProvider {
         if (!this.configOptions.autoImportCompletions) {
             // If auto import on the server is turned off or this particular invocation
             // is turned off (ex, notebook), don't do any thing.
+            return;
+        }
+
+        // Auto-import candidates require a nonempty filter. Avoid the expensive index scan
+        // until the client has one, and tell it that a later request can add candidates.
+        if (!priorWord) {
+            this._isIncomplete = true;
             return;
         }
 
