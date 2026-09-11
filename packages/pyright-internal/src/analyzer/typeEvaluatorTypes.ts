@@ -843,6 +843,7 @@ export interface TypeEvaluator {
     getNoneType: () => Type;
     getUnionClassType(): Type;
     getTypeClassType(): ClassType | undefined;
+    getFunctionClassType(type: FunctionType | OverloadedType): ClassType | undefined;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     getTypeCheckerInternalsType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;

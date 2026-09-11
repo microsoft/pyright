@@ -11,6 +11,7 @@
 import { assert } from '../common/debug';
 import { defaultMaxDiagnosticDepth, DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
+import { ParamCategory } from '../parser/parseNodes';
 import { ConstraintSolution } from './constraintSolution';
 import { assignTypeVar } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
@@ -21,7 +22,10 @@ import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbo
 import { AssignTypeFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
+    combineTypes,
+    FunctionParam,
     FunctionType,
+    isAnyOrUnknown,
     isClass,
     isClassInstance,
     isFunction,
@@ -29,6 +33,8 @@ import {
     isInstantiableClass,
     isOverloaded,
     isTypeSame,
+    isTypeVar,
+    isUnion,
     ModuleType,
     OverloadedType,
     Type,
@@ -57,6 +63,16 @@ interface ProtocolAssignmentStackEntry {
     destType: ClassType;
 }
 
+const sequenceProtocolMemberNames = new Set([
+    '__len__',
+    '__getitem__',
+    '__contains__',
+    '__iter__',
+    '__reversed__',
+    'count',
+    'index',
+]);
+
 interface ProtocolCompatibility {
     // Specialized source type or undefined if this entry applies
     // to all specializations
@@ -69,10 +85,13 @@ interface ProtocolCompatibility {
     preConstraints: ConstraintTracker | undefined;
     postConstraints: ConstraintTracker | undefined;
     isCompatible: boolean;
+    isFastRejection: boolean;
 }
 
 interface ProtocolCompatibilityCheckState {
     isOverloadedTypeBindingFailure: boolean;
+    isFastRejection: boolean;
+    isUniversalCompatibilityCheck: boolean;
 }
 
 const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
@@ -134,9 +153,23 @@ export function assignClassToProtocol(
     protocolAssignmentStack.push({ srcType, destType });
     let isCompatible = true;
     const clonedConstraints = constraints?.clone();
+    const checkState: ProtocolCompatibilityCheckState = {
+        isOverloadedTypeBindingFailure: false,
+        isFastRejection: false,
+        isUniversalCompatibilityCheck: false,
+    };
 
     try {
-        isCompatible = assignToProtocolInternal(evaluator, destType, srcType, diag, constraints, flags, recursionCount);
+        isCompatible = assignToProtocolInternal(
+            evaluator,
+            destType,
+            srcType,
+            diag,
+            constraints,
+            flags,
+            recursionCount,
+            checkState
+        );
     } catch (e) {
         // We'd normally use "finally" here, but the TS debugger does such
         // a poor job dealing with finally, we'll use a catch instead.
@@ -147,7 +180,7 @@ export function assignClassToProtocol(
     protocolAssignmentStack.pop();
 
     // Cache the results for next time.
-    if (!compat) {
+    if (!compat || (compat.isFastRejection && !checkState.isFastRejection)) {
         setProtocolCompatibility(
             evaluator,
             destType,
@@ -156,6 +189,7 @@ export function assignClassToProtocol(
             clonedConstraints,
             constraints?.clone(),
             isCompatible,
+            checkState.isFastRejection,
             recursionCount
         );
     }
@@ -292,6 +326,7 @@ function setProtocolCompatibility(
     preConstraints: ConstraintTracker | undefined,
     postConstraints: ConstraintTracker | undefined,
     isCompatible: boolean,
+    isFastRejection: boolean,
     recursionCount: number
 ) {
     let map = srcType.shared.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
@@ -313,7 +348,13 @@ function setProtocolCompatibility(
 
     if (
         !isCompatible &&
-        !entries.some((entry) => entry.flags === flags && ClassType.isSameGenericClass(entry.destType, destType))
+        !isFastRejection &&
+        !entries.some(
+            (entry) =>
+                !entry.isFastRejection &&
+                entry.flags === flags &&
+                ClassType.isSameGenericClass(entry.destType, destType)
+        )
     ) {
         const genericDestType = requiresTypeArgs(destType)
             ? selfSpecializeClass(destType, { overrideTypeArgs: true })
@@ -323,6 +364,8 @@ function setProtocolCompatibility(
             : srcType;
         const checkState: ProtocolCompatibilityCheckState = {
             isOverloadedTypeBindingFailure: false,
+            isFastRejection: false,
+            isUniversalCompatibilityCheck: true,
         };
 
         // An overload can use its "self" annotation to filter by specialization,
@@ -344,6 +387,21 @@ function setProtocolCompatibility(
         }
     }
 
+    if (!isFastRejection) {
+        const fastEntryIndex = entries.findIndex(
+            (entry) =>
+                entry.isFastRejection &&
+                entry.flags === flags &&
+                isTypeSame(entry.destType, destType, { honorIsTypeArgExplicit: true, honorTypeForm: true }) &&
+                entry.srcType !== undefined &&
+                isTypeSame(entry.srcType, srcType, { honorIsTypeArgExplicit: true, honorTypeForm: true }) &&
+                isConstraintTrackerSame(preConstraints, entry.preConstraints)
+        );
+        if (fastEntryIndex >= 0) {
+            entries.splice(fastEntryIndex, 1);
+        }
+    }
+
     const newEntry: ProtocolCompatibility = {
         destType,
         srcType: isAlwaysIncompatible ? undefined : srcType,
@@ -351,6 +409,7 @@ function setProtocolCompatibility(
         preConstraints,
         postConstraints,
         isCompatible,
+        isFastRejection,
     };
 
     entries.push(newEntry);
@@ -366,7 +425,20 @@ function isConstraintTrackerSame(context1: ConstraintTracker | undefined, contex
         return context1 === context2;
     }
 
-    return context1.isSame(context2);
+    if (!context1.isSame(context2)) {
+        return false;
+    }
+
+    return context1.getConstraintSets().every((set, index) => {
+        const other = context2.getConstraintSet(index);
+        const scopes = Array.from(set.getScopeIds());
+        const otherScopes = Array.from(other.getScopeIds());
+        return (
+            scopes.length === otherScopes.length &&
+            scopes.every((scope, scopeIndex) => scope === otherScopes[scopeIndex]) &&
+            set.getTypeVars().every((entry) => entry.retainLiterals === other.getTypeVar(entry.typeVar)?.retainLiterals)
+        );
+    });
 }
 
 function assignToProtocolInternal(
@@ -417,6 +489,27 @@ function assignToProtocolInternal(
         const typedDictClassType = evaluator.getTypedDictClassType();
         if (typedDictClassType && isInstantiableClass(typedDictClassType)) {
             srcType = typedDictClassType;
+        }
+    }
+
+    if (
+        !checkState?.isUniversalCompatibilityCheck &&
+        (!diag || evaluator.isSpeculativeModeInUse(/* node */ undefined))
+    ) {
+        const mismatchedMember = tryFastRejectSequenceProtocol(
+            evaluator,
+            destType,
+            srcType,
+            constraints,
+            flags,
+            recursionCount
+        );
+        if (mismatchedMember) {
+            if (checkState) {
+                checkState.isFastRejection = true;
+            }
+            diag?.createAddendum().addMessage(LocAddendum.memberTypeMismatch().format({ name: mismatchedMember }));
+            return false;
         }
     }
 
@@ -848,6 +941,314 @@ function assignToProtocolInternal(
     }
 
     return typesAreConsistent;
+}
+
+// Some recursive sequence protocols describe an element as either a leaf value or another
+// instance of the same protocol. Proving that a list of complex element types does not match
+// such a protocol through the normal member-by-member walk can be disproportionately expensive.
+//
+// This is a negative-only fast path. It first verifies the protocol's specialized __getitem__
+// return type is exactly `Leaf | Protocol[Leaf]`. This makes element compatibility a necessary
+// condition of the full protocol assignment. If that condition fails, the source sequence cannot
+// satisfy __getitem__. Every uncertain case falls back to the normal structural protocol walk.
+export function tryFastRejectSequenceProtocol(
+    evaluator: TypeEvaluator,
+    destType: ClassType,
+    srcType: ClassType | ModuleType,
+    constraints: ConstraintTracker | undefined,
+    flags: AssignTypeFlags,
+    recursionCount: number
+): '__getitem__' | undefined {
+    if (!isClassInstance(srcType) || !ClassType.isBuiltIn(srcType, 'list')) {
+        return undefined;
+    }
+
+    if (destType.shared.typeParams.length !== 1 || !destType.priv.typeArgs || destType.priv.typeArgs.length !== 1) {
+        return undefined;
+    }
+
+    const destTypeParam = destType.shared.typeParams[0];
+    if (TypeVarType.getVariance(destTypeParam) !== Variance.Covariant) {
+        return undefined;
+    }
+
+    if (!isSequenceLikeProtocol(destType)) {
+        return undefined;
+    }
+
+    const srcElementType = srcType.priv.typeArgs?.[0];
+
+    if (!srcElementType || isAnyOrUnknown(srcElementType) || isTypeVar(srcElementType)) {
+        return undefined;
+    }
+
+    const listIndexContract = getListElementIndexContract(evaluator, srcType);
+    if (!listIndexContract) {
+        return undefined;
+    }
+
+    if (
+        !(constraints && !constraints.isEmpty() && requiresSpecialization(destType.priv.typeArgs[0])) &&
+        hasMissingLeafAndSequenceMembers(evaluator, destType, srcType)
+    ) {
+        const expected = combineTypes([destType.priv.typeArgs[0], ClassType.cloneAsInstance(destType)]);
+        if (hasRecursiveSequenceGetItem(evaluator, destType, expected, listIndexContract.sliceIndexType)) {
+            return '__getitem__';
+        }
+    }
+
+    const destElementType = destType.priv.typeArgs[0];
+    if (
+        isAnyOrUnknown(destElementType) ||
+        isTypeVar(destElementType) ||
+        (constraints && requiresSpecialization(destElementType))
+    ) {
+        return undefined;
+    }
+
+    const recursiveDestElementType = combineTypes([destElementType, ClassType.cloneAsInstance(destType)]);
+    if (!hasRecursiveSequenceGetItem(evaluator, destType, recursiveDestElementType, listIndexContract.sliceIndexType)) {
+        return undefined;
+    }
+
+    // The reduced check can solve TypeVars while testing a generic overload. Keep those speculative
+    // solutions isolated; a fast rejection must not modify constraints observable by the caller.
+    const constraintsClone = constraints?.clone();
+    let assignTypeFlags = flags & (AssignTypeFlags.OverloadOverlap | AssignTypeFlags.PartialOverloadOverlap);
+    if (containsLiteralType(srcElementType, /* includeTypeArgs */ true)) {
+        assignTypeFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
+    }
+
+    if (
+        !evaluator.assignType(
+            recursiveDestElementType,
+            srcElementType,
+            /* diag */ undefined,
+            constraintsClone,
+            assignTypeFlags,
+            recursionCount
+        )
+    ) {
+        return '__getitem__';
+    }
+
+    return undefined;
+}
+
+function getListElementIndexContract(
+    evaluator: TypeEvaluator,
+    source: ClassType
+): { sliceIndexType: ClassType } | undefined {
+    if (source.shared.typeParams.length !== 1) {
+        return undefined;
+    }
+    const member = lookUpClassMember(source, '__getitem__');
+    if (
+        !member ||
+        !isInstantiableClass(member.classType) ||
+        !ClassType.isSameGenericClass(member.classType, ClassType.cloneAsInstantiable(source))
+    ) {
+        return undefined;
+    }
+    const memberType = evaluator.getDeclaredTypeOfSymbol(member.symbol)?.type;
+    if (!memberType || !isOverloaded(memberType)) {
+        return undefined;
+    }
+    const overloads = OverloadedType.getOverloads(memberType);
+    if (overloads.length !== 2) {
+        return undefined;
+    }
+    const indexTypes = overloads.map((overload) => {
+        const parameters = overload.shared.parameters;
+        if (
+            parameters.filter((parameter) => parameter.name).length !== 2 ||
+            parameters.some((parameter) => parameter.category !== ParamCategory.Simple) ||
+            !parameters[0]?.name ||
+            !parameters[1]?.name ||
+            !FunctionType.isInstanceMethod(overload) ||
+            FunctionParam.isTypeDeclared(parameters[0])
+        ) {
+            return undefined;
+        }
+        return FunctionType.getParamType(overload, 1);
+    });
+    const returnType = FunctionType.getEffectiveReturnType(overloads[0]);
+    if (
+        !!indexTypes[0] &&
+        isClassInstance(indexTypes[0]) &&
+        indexTypes[0].shared.fullName === 'typing.SupportsIndex' &&
+        !!indexTypes[1] &&
+        isClassInstance(indexTypes[1]) &&
+        ClassType.isBuiltIn(indexTypes[1], 'slice') &&
+        !!returnType &&
+        isTypeSame(returnType, source.shared.typeParams[0])
+    ) {
+        return { sliceIndexType: indexTypes[1] };
+    }
+    return undefined;
+}
+
+function hasMissingLeafAndSequenceMembers(
+    evaluator: TypeEvaluator,
+    destination: ClassType,
+    source: ClassType | ModuleType
+): boolean {
+    if (!isClassInstance(source) || !ClassType.isBuiltIn(source, 'list')) {
+        return false;
+    }
+    const element = source.priv.typeArgs?.[0];
+    if (!element) {
+        return false;
+    }
+    const elements = isUnion(element) ? element.priv.subtypes : [element];
+    if (!elements.length) {
+        return false;
+    }
+    const leaf = destination.priv.typeArgs?.[0];
+    if (
+        !leaf ||
+        !isClassInstance(leaf) ||
+        !ClassType.isProtocolClass(leaf) ||
+        !leaf.shared.mro.every(isInstantiableClass)
+    ) {
+        return false;
+    }
+    const members = new Set<string>();
+    for (const base of leaf.shared.mro) {
+        if (!isInstantiableClass(base) || !ClassType.isProtocolClass(base)) {
+            continue;
+        }
+        ClassType.getSymbolTable(base).forEach((symbol, name) => {
+            if (
+                symbol.isClassMember() &&
+                !symbol.isIgnoredForProtocolMatch() &&
+                name !== '__slots__' &&
+                name !== '__class_getitem__'
+            ) {
+                members.add(name);
+            }
+        });
+    }
+    if (members.size !== 1 || members.has('__call__')) {
+        return false;
+    }
+    const memberName = Array.from(members)[0];
+    const member = lookUpClassMember(leaf, memberName);
+    if (!member || !evaluator.getDeclaredTypeOfSymbol(member.symbol)) {
+        return false;
+    }
+    return elements.every((elementType) => {
+        let elementClass: ClassType | undefined;
+        if (isFunctionOrOverloaded(elementType)) {
+            elementClass = evaluator.getFunctionClassType(elementType);
+        } else if (
+            isClassInstance(elementType) &&
+            !ClassType.isProtocolClass(elementType) &&
+            !ClassType.isTypedDictClass(elementType) &&
+            !requiresSpecialization(elementType) &&
+            !elementType.props?.condition?.length
+        ) {
+            elementClass = ClassType.cloneAsInstantiable(elementType);
+            const attributeAccess = lookUpClassMember(elementClass, '__getattribute__');
+            if (
+                lookUpClassMember(elementClass, '__getattr__') ||
+                (attributeAccess &&
+                    (!isInstantiableClass(attributeAccess.classType) ||
+                        !ClassType.isBuiltIn(attributeAccess.classType, 'object')))
+            ) {
+                return false;
+            }
+        }
+        return (
+            elementClass &&
+            elementClass.shared.mro.every(isInstantiableClass) &&
+            !lookUpClassMember(elementClass, memberName) &&
+            !lookUpClassMember(elementClass, '__getitem__')
+        );
+    });
+}
+
+function hasRecursiveSequenceGetItem(
+    evaluator: TypeEvaluator,
+    classType: ClassType,
+    expectedReturnType: Type,
+    sliceIndexType: ClassType
+): boolean {
+    const memberInfo = lookUpClassMember(classType, '__getitem__');
+    if (!memberInfo || !isInstantiableClass(memberInfo.classType)) {
+        return false;
+    }
+
+    let memberType = evaluator.getDeclaredTypeOfSymbol(memberInfo.symbol)?.type;
+    if (!memberType) {
+        return false;
+    }
+
+    memberType = partiallySpecializeType(memberType, classType, evaluator.getTypeClassType());
+    if (!isFunction(memberType)) {
+        return false;
+    }
+
+    const boundMemberType = evaluator.bindFunctionToClassOrObject(
+        ClassType.cloneAsInstance(classType),
+        memberType,
+        classType,
+        /* treatConstructorAsClassMethod */ undefined,
+        /* firstParamType */ undefined,
+        /* diag */ undefined,
+        /* recursionCount */ 0
+    );
+    if (!boundMemberType || !isFunction(boundMemberType)) {
+        return false;
+    }
+
+    const indexParam = boundMemberType.shared.parameters[0];
+    if (!indexParam || indexParam.category !== ParamCategory.Simple || !indexParam.name) {
+        return false;
+    }
+
+    const indexType = FunctionType.getParamType(boundMemberType, 0);
+    if (!isClassInstance(indexType) || !ClassType.isBuiltIn(indexType, 'int')) {
+        return false;
+    }
+
+    if (evaluator.assignType(sliceIndexType, indexType)) {
+        return false;
+    }
+
+    const returnType = FunctionType.getEffectiveReturnType(boundMemberType);
+    return !!returnType && isTypeSame(returnType, expectedReturnType);
+}
+
+// Restrict the semantic check above to the standard read-only sequence protocol surface. This is
+// a scope guard rather than the correctness proof: protocols with these names but different
+// __getitem__ semantics are rejected by hasRecursiveSequenceGetItem and use normal matching.
+function isSequenceLikeProtocol(classType: ClassType): boolean {
+    const requiredMemberNames = new Set<string>();
+
+    classType.shared.mro.forEach((mroClass) => {
+        if (!isInstantiableClass(mroClass) || !ClassType.isProtocolClass(mroClass)) {
+            return;
+        }
+
+        ClassType.getSymbolTable(mroClass).forEach((symbol, name) => {
+            if (!symbol.isClassMember() || symbol.isIgnoredForProtocolMatch()) {
+                return;
+            }
+
+            requiredMemberNames.add(name);
+        });
+    });
+
+    if (
+        !requiredMemberNames.has('__len__') ||
+        !requiredMemberNames.has('__getitem__') ||
+        !requiredMemberNames.has('__iter__')
+    ) {
+        return false;
+    }
+
+    return Array.from(requiredMemberNames).every((name) => sequenceProtocolMemberNames.has(name));
 }
 
 // Given a (possibly-specialized) destType and an optional constraint tracker,
