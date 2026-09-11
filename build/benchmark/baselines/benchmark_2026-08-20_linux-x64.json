@@ -1,6 +1,9 @@
 {
   "timestamp": "2026-08-20T02:07:10.843078+00:00",
   "date": "2026-08-20",
+  "source_revision": "075161cd9160dbefff81e8ec4b28a3be4786bfcb",
+  "source_commit_subject": "Increase benchmark heap headroom",
+  "source_commit_timestamp": "2026-08-19T18:10:07-07:00",
   "platform": "linux",
   "platform_details": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
   "architecture": "x86_64",
