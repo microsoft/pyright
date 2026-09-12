@@ -224,3 +224,14 @@ def func23[T: LiteralString](x: str, y: tuple[T, ...]) -> T:
     if x in y:
         return x
     raise ValueError(f"Invalid value {x!r}")
+
+
+def func24(a: bytes | int, b: list[bytearray], c: bytearray | str, d: list[memoryview]):
+    # bytes-like types (bytes, bytearray, memoryview) are mutually comparable,
+    # so container narrowing does not eliminate them against each other.
+    if a in b:
+        reveal_type(a, expected_text="bytes")
+
+    if c in d:
+        reveal_type(c, expected_text="bytearray")
+

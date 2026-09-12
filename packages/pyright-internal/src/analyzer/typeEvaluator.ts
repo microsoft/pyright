@@ -27091,6 +27091,30 @@ export function createTypeEvaluator(
         );
     }
 
+    // Types like "bytes", "bytearray" and "memoryview" support cross-type
+    // content comparisons via "==" and "!=", even though they're otherwise
+    // unrelated (non-overlapping) types. Use derivesFromStdlibClass to check
+    // membership in this group across the MRO.
+    function isBytesLikeType(type: ClassType) {
+        return (
+            derivesFromStdlibClass(type, 'bytes') ||
+            derivesFromStdlibClass(type, 'bytearray') ||
+            derivesFromStdlibClass(type, 'memoryview')
+        );
+    }
+
+    // Determines whether the two types are both members of the "bytes-like"
+    // group of types ("bytes", "bytearray" and "memoryview"). Pyright models
+    // this relationship as a "type promotion" (used elsewhere for
+    // assignability), but that grouping is also useful for determining
+    // whether two otherwise-disjoint built-in types can be compared with
+    // "==" or "!=", since these types share compatible "__eq__" semantics
+    // regardless of whether the "disableBytesTypePromotions" setting allows
+    // the assignment.
+    function isTypePromotionRelated(leftType: ClassType, rightType: ClassType) {
+        return isBytesLikeType(leftType) && isBytesLikeType(rightType);
+    }
+
     // Determines whether the two types are potentially comparable -- i.e.
     // their types overlap in such a way that it makes sense for them to
     // be compared with an == or != operator. The functional also supports
@@ -27197,6 +27221,17 @@ export function createTypeEvaluator(
                         }
 
                         return boolVal === (intVal === 1);
+                    }
+
+                    // Types like "bytes", "bytearray" and "memoryview" are otherwise
+                    // disjoint but are still comparable with "==" and "!=" because
+                    // their "__eq__" methods support cross-type content comparisons.
+                    // Pyright models this relationship as a "type promotion" (used
+                    // elsewhere for assignability), so reuse that same list here
+                    // regardless of the "disableBytesTypePromotions" setting, since
+                    // comparability isn't affected by that assignability toggle.
+                    if (!assumeIsOperator && isTypePromotionRelated(leftType, rightType)) {
+                        return true;
                     }
 
                     return false;
