@@ -458,6 +458,12 @@ test('Operator12', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Operator13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator13.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

@@ -28,7 +28,9 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { EvalFlags, MagicMethodDeprecationInfo, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
+    MemberAccessFlags,
     convertToInstantiable,
+    derivesFromClassRecursive,
     getLiteralTypeClassName,
     getTypeCondition,
     getUnionSubtypeCount,
@@ -38,6 +40,7 @@ import {
     isUnboundedTupleClass,
     isUnionableType,
     lookUpClassMember,
+    lookUpObjectMember,
     makeInferenceContext,
     mapSubtypes,
     preserveUnknown,
@@ -1245,6 +1248,60 @@ function validateContainmentOperation(
     return { type, magicMethodDeprecationInfo: deprecatedInfo };
 }
 
+// Python evaluates a binary operation by calling the left operand's magic
+// method first, but there is an exception to this rule: if the right operand's
+// type is a proper subclass of the left operand's type and it overrides the
+// reflected magic method, the reflected method is called first.
+function isReflectedOperatorPrioritized(
+    leftType: Type,
+    rightType: Type,
+    magicMethodName: string,
+    altMagicMethodName: string
+): boolean {
+    if (!isClassInstance(leftType) || !isClassInstance(rightType)) {
+        return false;
+    }
+
+    // The right operand's class must be a proper subclass of the left operand's class.
+    if (ClassType.isSameGenericClass(leftType, rightType)) {
+        return false;
+    }
+
+    if (
+        !derivesFromClassRecursive(
+            ClassType.cloneAsInstantiable(rightType),
+            ClassType.cloneAsInstantiable(leftType),
+            /* ignoreUnknown */ true
+        )
+    ) {
+        return false;
+    }
+
+    // The right operand's class must override the reflected magic method.
+    const rightAltMember = lookUpObjectMember(rightType, altMagicMethodName, MemberAccessFlags.SkipInstanceMembers);
+    if (!rightAltMember) {
+        return false;
+    }
+
+    const leftAltMember = lookUpObjectMember(leftType, altMagicMethodName, MemberAccessFlags.SkipInstanceMembers);
+    if (
+        leftAltMember &&
+        isClass(leftAltMember.classType) &&
+        isClass(rightAltMember.classType) &&
+        ClassType.isSameGenericClass(leftAltMember.classType, rightAltMember.classType)
+    ) {
+        return false;
+    }
+
+    // If the left operand's class doesn't implement the normal form of the
+    // operator, there's nothing to prioritize over.
+    if (!lookUpObjectMember(leftType, magicMethodName, MemberAccessFlags.SkipInstanceMembers)) {
+        return false;
+    }
+
+    return true;
+}
+
 function validateArithmeticOperation(
     evaluator: TypeEvaluator,
     operator: OperatorType,
@@ -1304,7 +1361,29 @@ function validateArithmeticOperation(
                     }
 
                     const magicMethodName = binaryOperatorMap[operator][0];
-                    let resultTypeResult = evaluator.getTypeOfMagicMethodCall(
+                    let resultTypeResult: TypeResult | undefined;
+
+                    // If the right operand's type is a proper subclass of the left
+                    // operand's type and overrides the reflected magic method, Python
+                    // gives the reflected form of the operator priority.
+                    if (
+                        isReflectedOperatorPrioritized(
+                            leftSubtypeExpanded,
+                            rightSubtypeExpanded,
+                            magicMethodName,
+                            binaryOperatorMap[operator][1]
+                        )
+                    ) {
+                        resultTypeResult = evaluator.getTypeOfMagicMethodCall(
+                            convertFunctionToObject(evaluator, rightSubtypeUnexpanded),
+                            binaryOperatorMap[operator][1],
+                            [{ type: leftSubtypeUnexpanded, isIncomplete: leftTypeResult.isIncomplete }],
+                            errorNode,
+                            inferenceContext
+                        );
+                    }
+
+                    resultTypeResult ??= evaluator.getTypeOfMagicMethodCall(
                         convertFunctionToObject(evaluator, leftSubtypeUnexpanded),
                         magicMethodName,
                         [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
