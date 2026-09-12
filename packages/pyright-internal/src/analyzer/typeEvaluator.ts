@@ -23696,6 +23696,7 @@ export function createTypeEvaluator(
                     );
                 } else if (node.d.typeParamKind === TypeParamKind.TypeVar) {
                     typeVar.shared.constraints = constraints;
+                    typeVar.shared.hasExplicitNeverConstraint = constraints.some((constraint) => isNever(constraint));
                 }
             } else {
                 const boundType = getTypeOfExpressionExpectingType(node.d.boundExpr, {
