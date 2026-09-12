@@ -34,6 +34,7 @@ import { getLastTypedDeclarationForSymbol } from './symbolUtils';
 import {
     Arg,
     AssignTypeFlags,
+    CallResult,
     EvaluatorUsage,
     TypeEvaluator,
     TypeResult,
@@ -52,7 +53,10 @@ import {
     isClass,
     isClassInstance,
     isInstantiableClass,
+    isMethodType,
     isNever,
+    isOverloaded,
+    isUnion,
     maxTypeRecursionCount,
     NeverType,
     OverloadedType,
@@ -1625,6 +1629,242 @@ export function getTypeOfIndexedTypedDict(
     }
 
     return { type: resultingType, isIncomplete: !!indexTypeResult.isIncomplete };
+}
+
+export function getTypedDictClassFromMethod(
+    type: FunctionType | OverloadedType
+): { classType: ClassType; methodName: string; isBound: boolean } | undefined {
+    const overload = isOverloaded(type) ? OverloadedType.getOverloads(type)[0] : type;
+    if (!overload || !FunctionType.isSynthesizedMethod(overload)) {
+        return undefined;
+    }
+
+    const name = overload.shared?.name;
+    if (name !== 'get' && name !== 'pop' && name !== 'setdefault') {
+        return undefined;
+    }
+
+    const isBound = isMethodType(overload);
+    let boundType: Type | undefined;
+    if (isBound) {
+        boundType = overload.priv.strippedFirstParamType;
+    } else if (overload.shared?.parameters && overload.shared.parameters.length > 0) {
+        boundType = FunctionType.getParamType(overload, 0);
+    }
+
+    if (boundType && isClassInstance(boundType) && ClassType.isTypedDictClass(boundType)) {
+        return { classType: boundType, methodName: name, isBound };
+    }
+
+    return undefined;
+}
+
+export function applyTypedDictMethodTransform(
+    evaluator: TypeEvaluator,
+    errorNode: ExpressionNode,
+    argList: Arg[],
+    typedDictClass: ClassType,
+    methodName: string,
+    isBound: boolean
+): CallResult | undefined {
+    // Validate argument counts and shape:
+    // Bound call: 1 or 2 positional args for get/pop, 2 for setdefault.
+    // Unbound call: 2 or 3 positional args for get/pop, 3 for setdefault.
+    const minArgs = isBound ? (methodName === 'setdefault' ? 2 : 1) : methodName === 'setdefault' ? 3 : 2;
+    const maxArgs = isBound ? 2 : 3;
+    if (argList.length < minArgs || argList.length > maxArgs) {
+        return undefined;
+    }
+
+    // Require all arguments to be simple positional (no keyword names, no *args/**kwargs)
+    if (!argList.every((arg) => !arg.name && arg.argCategory === ArgCategory.Simple)) {
+        return undefined;
+    }
+
+    const keyIndex = isBound ? 0 : 1;
+    const defaultIndex = isBound ? 1 : 2;
+
+    // Validate receiver type for unbound method calls
+    if (!isBound) {
+        const selfArg = argList[0];
+        const selfNode = selfArg.valueExpression ?? errorNode;
+        const selfType = (selfArg.typeResult ?? evaluator.getTypeOfExpression(selfNode)).type;
+        const expectedSelfType = ClassType.cloneAsInstance(typedDictClass);
+        if (!evaluator.assignType(expectedSelfType, selfType)) {
+            return undefined;
+        }
+    }
+
+    const keyArg = argList[keyIndex];
+    const keyNode = keyArg.valueExpression ?? errorNode;
+    const keyTypeResult = keyArg.typeResult ?? evaluator.getTypeOfExpression(keyNode);
+    const keyType = keyTypeResult.type;
+
+    if (!isUnion(keyType)) {
+        return undefined;
+    }
+
+    // Verify all key subtypes are valid string types. If any subtype is not assignable to str,
+    // fall back to standard overload validation so argument type errors are reported.
+    const strType = evaluator.getBuiltInObject(errorNode, 'str');
+    let hasInvalidKeySubtype = false;
+    mapSubtypes(keyType, (keySubtype) => {
+        if (isAnyOrUnknown(keySubtype)) {
+            return keySubtype;
+        }
+        if (!evaluator.assignType(strType, keySubtype)) {
+            hasInvalidKeySubtype = true;
+        }
+        return keySubtype;
+    });
+
+    if (hasInvalidKeySubtype) {
+        return undefined;
+    }
+
+    let isTypeIncomplete = !!keyTypeResult.isIncomplete;
+    const defaultArg = argList.length > defaultIndex ? argList[defaultIndex] : undefined;
+    if (defaultArg?.typeResult?.isIncomplete) {
+        isTypeIncomplete = true;
+    }
+    if (!isBound && argList[0].typeResult?.isIncomplete) {
+        isTypeIncomplete = true;
+    }
+
+    const defaultNode = defaultArg?.valueExpression ?? errorNode;
+    const defaultType = defaultArg
+        ? (defaultArg.typeResult ?? evaluator.getTypeOfExpression(defaultNode)).type
+        : undefined;
+
+    const entries = getTypedDictMembersForClass(evaluator, typedDictClass, /* allowNarrowed */ methodName === 'get');
+    let argumentErrors = false;
+
+    const returnType = mapSubtypes(keyType, (keySubtype) => {
+        if (isAnyOrUnknown(keySubtype)) {
+            return keySubtype;
+        }
+
+        if (isClassInstance(keySubtype) && ClassType.isBuiltIn(keySubtype, 'str')) {
+            if (keySubtype.priv.literalValue === undefined) {
+                if (methodName === 'get') {
+                    if (ClassType.isTypedDictEffectivelyClosed(typedDictClass)) {
+                        const extraType = entries.extraItems?.valueType ?? NeverType.createNever();
+                        return defaultType
+                            ? combineTypes([extraType, defaultType])
+                            : combineTypes([extraType, evaluator.getNoneType()]);
+                    }
+                    return defaultType
+                        ? combineTypes([AnyType.create(), defaultType])
+                        : combineTypes([AnyType.create(), evaluator.getNoneType()]);
+                } else if (methodName === 'pop') {
+                    return defaultType ? combineTypes([UnknownType.create(), defaultType]) : UnknownType.create();
+                } else {
+                    return UnknownType.create();
+                }
+            }
+
+            const entryName = keySubtype.priv.literalValue as string;
+            const entry = entries.knownItems.get(entryName) ?? entries.extraItems;
+
+            if (methodName === 'get') {
+                if (entry && !isNever(entry.valueType)) {
+                    if (entry.isRequired || entry.isProvided) {
+                        return entry.valueType;
+                    }
+                    return combineTypes([entry.valueType, defaultType ?? evaluator.getNoneType()]);
+                }
+                if (ClassType.isTypedDictEffectivelyClosed(typedDictClass)) {
+                    const extraType = entries.extraItems?.valueType;
+                    if (extraType) {
+                        return combineTypes([extraType, defaultType ?? evaluator.getNoneType()]);
+                    }
+                    return defaultType ?? evaluator.getNoneType();
+                }
+                return combineTypes([AnyType.create(), defaultType ?? evaluator.getNoneType()]);
+            } else if (methodName === 'pop') {
+                if (entry && !isNever(entry.valueType)) {
+                    if (entry.isReadOnly) {
+                        evaluator.addDiagnostic(
+                            DiagnosticRule.reportTypedDictNotRequiredAccess,
+                            LocAddendum.keyReadOnly().format({
+                                name: entryName,
+                                type: evaluator.printType(typedDictClass),
+                            }),
+                            keyNode
+                        );
+                        argumentErrors = true;
+                        return UnknownType.create();
+                    }
+                    if (entry.isRequired) {
+                        return entry.valueType;
+                    }
+                    return defaultType ? combineTypes([entry.valueType, defaultType]) : entry.valueType;
+                }
+                if (defaultType) {
+                    return defaultType;
+                }
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocAddendum.keyUndefined().format({
+                        name: entryName,
+                        type: evaluator.printType(typedDictClass),
+                    }),
+                    keyNode
+                );
+                argumentErrors = true;
+                return UnknownType.create();
+            } else if (methodName === 'setdefault') {
+                if (entry && !isNever(entry.valueType)) {
+                    if (entry.isReadOnly) {
+                        evaluator.addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocAddendum.keyReadOnly().format({
+                                name: entryName,
+                                type: evaluator.printType(typedDictClass),
+                            }),
+                            keyNode
+                        );
+                        argumentErrors = true;
+                        return UnknownType.create();
+                    }
+                    if (defaultType && defaultArg) {
+                        const diag = new DiagnosticAddendum();
+                        if (!evaluator.assignType(entry.valueType, defaultType, diag)) {
+                            evaluator.addDiagnostic(
+                                DiagnosticRule.reportArgumentType,
+                                LocMessage.argAssignmentParam().format({
+                                    paramName: 'default',
+                                    paramType: evaluator.printType(entry.valueType),
+                                    argType: evaluator.printType(defaultType),
+                                }) + diag.getString(),
+                                defaultNode
+                            );
+                            argumentErrors = true;
+                        }
+                    }
+                    return entry.valueType;
+                }
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocAddendum.keyUndefined().format({
+                        name: entryName,
+                        type: evaluator.printType(typedDictClass),
+                    }),
+                    keyNode
+                );
+                argumentErrors = true;
+                return UnknownType.create();
+            }
+        }
+
+        return UnknownType.create();
+    });
+
+    return {
+        returnType,
+        argumentErrors,
+        isTypeIncomplete,
+    };
 }
 
 // If the specified type has a non-required key, this method marks the

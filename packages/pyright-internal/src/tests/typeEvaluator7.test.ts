@@ -815,6 +815,9 @@ test('TypedDict27', () => {
 });
 
 test('TypedDict28', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict28.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_13;
     configOptions.defaultPythonPlatform = 'Linux';
