@@ -4087,6 +4087,15 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
                     } else if (ClassType.isTypedDictNarrower(type, typeToAdd)) {
                         unionType.priv.subtypes[i] = typeToAdd;
                         return;
+                    } else {
+                        // If neither narrowed form subsumes the other, retain
+                        // the un-narrowed TypedDict shape rather than exposing
+                        // a union of incompatible presence states.
+                        unionType.priv.subtypes[i] = ClassType.cloneForNarrowedTypedDictEntries(
+                            type,
+                            undefined
+                        );
+                        return;
                     }
                 }
             }
