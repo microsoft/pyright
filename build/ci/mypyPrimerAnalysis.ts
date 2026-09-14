@@ -43,6 +43,7 @@ interface Manifest extends ReturnType<typeof summarizeDiffs> {
     repository: string;
     source: SourceRun;
     prNumber: number;
+    preview?: boolean;
 }
 
 const shardCount = 8;
@@ -181,13 +182,19 @@ export async function loadSource(request: Request, repository: string, handoff: 
     };
 }
 
-async function isCurrentPullRequest(request: Request, repository: string, source: SourceRun, prNumber: number) {
+async function isCurrentPullRequest(
+    request: Request,
+    repository: string,
+    source: SourceRun,
+    prNumber: number,
+    preview = false
+) {
     const parameters = { ...repositoryParameters(repository), pull_number: prNumber };
     const pr = record((await request('GET /repos/{owner}/{repo}/pulls/{pull_number}', parameters)).data);
     if (pr.number !== prNumber || record(record(pr.base).repo).full_name !== repository) {
         throw new Error('The PR does not belong to the source repository');
     }
-    if (pr.state !== 'open') {
+    if (pr.state !== 'open' && !(preview && pr.state === 'closed')) {
         return false;
     }
     const head = record(pr.head);
@@ -199,13 +206,14 @@ async function isCurrentPullRequest(request: Request, repository: string, source
     }
 
     // Fork runs can omit pull_requests, and commit-to-PR lookups can also be empty.
-    // Query open PRs by the run's head branch, then require an exact, unique match.
+    // Query the run's head branch, then require an exact, unique match.
+    // Only artifact-only previews may include closed PRs.
     let associated = source.pullRequests;
     if (!associated.length) {
         const headOwner = repositoryParameters(source.headRepository).owner;
         const prs = await pages(request, 'GET /repos/{owner}/{repo}/pulls', {
             ...repositoryParameters(repository),
-            state: 'open',
+            state: preview ? 'all' : 'open',
             head: `${headOwner}:${source.headBranch}`,
         });
         associated = prs
@@ -213,7 +221,7 @@ async function isCurrentPullRequest(request: Request, repository: string, source
             .filter((candidate) => {
                 const candidateHead = record(candidate.head);
                 return (
-                    candidate.state === 'open' &&
+                    (candidate.state === 'open' || (preview && candidate.state === 'closed')) &&
                     candidateHead.sha === source.headSha &&
                     candidateHead.ref === source.headBranch &&
                     record(candidateHead.repo).full_name === source.headRepository &&
@@ -223,7 +231,8 @@ async function isCurrentPullRequest(request: Request, repository: string, source
             .map((candidate) => positiveInteger(candidate.number));
         if (associated.length !== 1) {
             throw new Error(
-                `The fork run cannot be associated with a unique open PR: found ${associated.length} matches for ` +
+                `The fork run cannot be associated with a unique ${preview ? 'open or closed' : 'open'} PR: ` +
+                    `found ${associated.length} matches for ` +
                     `${source.headRepository}:${source.headBranch} at ${source.headSha}`
             );
         }
@@ -363,14 +372,15 @@ export async function prepareAnalysis(
     request: Request,
     repository: string,
     source: SourceRun,
-    directory: string
+    directory: string,
+    preview = false
 ): Promise<Manifest | undefined> {
     const prText = readInput(join(directory, 'mypy_primer_diffs_pr_number', 'pr_number.txt')).trim();
     if (!/^[1-9]\d*$/.test(prText)) {
         throw new Error('Invalid PR number artifact');
     }
     const prNumber = positiveInteger(Number(prText));
-    if (!(await isCurrentPullRequest(request, repository, source, prNumber))) {
+    if (!(await isCurrentPullRequest(request, repository, source, prNumber, preview))) {
         return undefined;
     }
     const projects: ProjectDiff[] = [];
@@ -385,7 +395,7 @@ export async function prepareAnalysis(
     if (projects.length > 100 || new Set(projects.map((project) => project.name)).size !== projects.length) {
         throw new Error('Too many projects or duplicate project sections');
     }
-    return { repository, source, prNumber, ...summarizeDiffs(projects) };
+    return { repository, source, prNumber, ...summarizeDiffs(projects), ...(preview ? { preview: true } : {}) };
 }
 
 function escapeMarkdown(value: string): string {
@@ -407,14 +417,19 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
     }
     const runUrl = `https://github.com/${manifest.repository}/actions/runs/${manifest.source.runId}`;
     const analysisUrl = `https://github.com/${manifest.repository}/actions/runs/${positiveInteger(analysisRunId)}`;
-    const marker = `${reportPrefix}${manifest.source.headSha}:${manifest.source.runId}:${manifest.source.runAttempt} -->`;
-    const heading = [
+    const markerPrefix = manifest.preview ? '<!-- pyright-primer-analysis-preview:' : reportPrefix;
+    const marker = `${markerPrefix}${manifest.source.headSha}:${manifest.source.runId}:${manifest.source.runAttempt} -->`;
+    const provenance = [
         marker,
-        '## mypy_primer analysis',
+        manifest.preview ? '## mypy_primer analysis preview' : '## mypy_primer analysis',
         '',
+        ...(manifest.preview ? ['**Preview only. No PR comment was posted.**', ''] : []),
         `Advisory AI analysis of [primer run ${manifest.source.runId}, attempt ${manifest.source.runAttempt}](${runUrl})`,
         `for commit \`${manifest.source.headSha}\`. This is not an approval or proof of correctness.`,
         '',
+    ];
+    const heading = [
+        ...provenance,
         'Added/removed counts are diagnostic headers; message rewrites can appear on both sides.',
         'Detail lines are counted separately, without assuming a location or association with nearby headers.',
         '',
@@ -487,7 +502,19 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
         '',
         ...footer,
     ].join('\n');
-    const body = expandedBody.length <= 60000 ? expandedBody : compactBody;
+    let body = expandedBody.length <= 60000 ? expandedBody : compactBody;
+    const onlyProject = manifest.projects.length === 1 ? manifest.projects[0] : undefined;
+    if (onlyProject?.name === 'sympy' && onlyProject.url === 'https://github.com/sympy/sympy') {
+        body = [
+            ...provenance,
+            '**Only SymPy changed.** These differences are treated as non-blocking primer noise; no other project changed.',
+            '',
+            `Recorded changes: ${onlyProject.added} added / ${onlyProject.removed} removed diagnostic headers; ` +
+                `${onlyProject.detailLinesAdded} added / ${onlyProject.detailLinesRemoved} removed detail lines.`,
+            '',
+            ...footer,
+        ].join('\n');
+    }
     if (body.length > 60000) {
         throw new Error('The report exceeds the comment limit; refusing to omit projects');
     }
@@ -534,6 +561,9 @@ export async function publishAnalysis(
     reportPath: string,
     staged: boolean
 ) {
+    if (manifest.preview) {
+        throw new Error('Preview analyses cannot publish PR comments');
+    }
     const rendered = validateSubmittedReport(manifest, agentOutput, analysisRunId);
     writeFileSync(reportPath, rendered.fullReport);
     const currentSource = await loadSource(request, manifest.repository, manifest.source);
