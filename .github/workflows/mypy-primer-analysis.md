@@ -23,6 +23,7 @@ network:
   allowed: [defaults, github]
 checkout: false
 tools:
+  cli-proxy: false
   github:
     toolsets: [repos, pull_requests, actions]
     read-only: true
@@ -167,6 +168,10 @@ safe-outputs:
 Help the Pyright reviewer understand the ecosystem effect of the exact PR commit
 identified in `/tmp/gh-aw/primer-input/manifest.json`. This is advisory analysis,
 not a PR approval, a merge recommendation, or an instruction to modify code.
+
+Use native file-reading tools for local artifacts and MCP tools for GitHub reads
+and report submission. Shell execution and file editing are disabled; do not
+invoke `github` or `safeoutputs` as shell commands.
 
 ## Evidence and coverage
 

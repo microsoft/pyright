@@ -7,7 +7,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { parseDocument } from 'yaml';
+import { isMap, isSeq, parseDocument } from 'yaml';
 
 import {
     getStagedMode,
@@ -823,5 +823,54 @@ describe('mypy_primer analysis', () => {
         expect(String(publishingSteps)).toContain('needs.detection.outputs.detection_conclusion');
         expect(String(publishingSteps)).toContain('getStagedMode(activation,');
         expect(String(publishingSteps)).toContain('primer-activation');
+    });
+
+    test('compiled workflow exposes GitHub and safe outputs through MCP without CLI-only instructions', () => {
+        const source = parseDocument(
+            readFileSync(join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.md'), 'utf8').split(
+                /^---\r?$/m
+            )[1]
+        );
+        expect(source.getIn(['tools', 'cli-proxy'])).toBe(false);
+        expect(source.getIn(['tools', 'bash'])).toBe(false);
+        expect(source.getIn(['tools', 'edit'])).toBe(false);
+        expect(source.getIn(['tools', 'github', 'read-only'])).toBe(true);
+        expect(source.get('max-ai-credits')).toBe(25);
+
+        const content = readFileSync(
+            join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'),
+            'utf8'
+        );
+        const metadata = parseDocument(content.split('\n')[0].replace('# gh-aw-metadata: ', ''));
+        expect(metadata.get('compiler_version')).toBe('v0.88.7');
+        expect(content.includes('mcp_cli_tools')).toBe(false);
+        expect(content.includes('GH_AW_MCP_CLI_SERVERS')).toBe(false);
+
+        const workflow = parseDocument(content);
+        const agentSteps = workflow.getIn(['jobs', 'agent', 'steps'], true);
+        if (!isSeq(agentSteps)) {
+            throw new Error('Missing agent steps');
+        }
+        const getStep = (id: string) => {
+            const step = agentSteps.items.find((item) => isMap(item) && item.get('id') === id);
+            if (!isMap(step)) {
+                throw new Error(`Missing agent step: ${id}`);
+            }
+            return step;
+        };
+        const gateway = getStep('start-mcp-gateway').get('run');
+        expect(gateway).toContain('export GH_AW_ENGINE="copilot"');
+        expect(gateway).toContain('"github": {');
+        expect(gateway).toContain('"safeoutputs": {');
+        expect(gateway).toContain('"GITHUB_READ_ONLY": "1"');
+
+        const execution = getStep('agentic_execution').get('run');
+        expect(execution).toContain('export GH_AW_MCP_CONFIG="$HOME/.copilot/mcp-config.json"');
+        expect(execution).toContain('--allow-tool github');
+        expect(execution).toContain('--allow-tool safeoutputs');
+        expect(execution).toContain('--deny-tool shell');
+        expect(execution).toContain('--deny-tool write');
+        expect(execution).not.toContain('--allow-tool shell');
+        expect(execution).not.toContain('--allow-tool write');
     });
 });
