@@ -16,6 +16,8 @@ Try Pyright in your browser using the [Pyright Playground](https://pyright-play.
 
 Refer to [the documentation](https://microsoft.github.io/pyright) for installation, configuration, and usage details.
 
+The latest [weekly type checker benchmark results](https://microsoft.github.io/pyright/typecheck-benchmark/) compare Pyright with other Python type checkers.
+
 
 ## Environment variables
 
