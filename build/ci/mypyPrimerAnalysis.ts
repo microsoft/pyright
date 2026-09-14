@@ -47,6 +47,7 @@ interface Manifest extends ReturnType<typeof summarizeDiffs> {
 
 const shardCount = 8;
 const maxFileBytes = 8 * 1024 * 1024;
+const maxReportLength = 1000000;
 const reportPrefix = '<!-- pyright-primer-analysis:';
 const assessments = new Map([
     ['expected-improvement', 'Expected improvement'],
@@ -423,6 +424,7 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
         '| --- | ---: | ---: | ---: | --- | --- | --- |',
     ];
     const details: string[] = [];
+    const fullDetails: string[] = [];
     for (const project of manifest.projects) {
         const item = reports.find((candidate) => candidate.name === project.name)!;
         const assessment = assessments.get(text(item.assessment));
@@ -431,7 +433,8 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
             throw new Error(`Invalid assessment or confidence for ${project.name}`);
         }
         const summary = escapeMarkdown(text(item.summary, 240));
-        const explanation = escapeMarkdown(text(item.explanation, 1800));
+        const explanation = text(item.explanation, maxReportLength);
+        const explanationPreview = Array.from(explanation).slice(0, 1800).join('');
         const unresolved = escapeMarkdown(text(item.unresolved, 800));
         const evidence = array(item.evidence).map((entry) => {
             const source = record(entry);
@@ -455,16 +458,17 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
                 `${project.detailLinesAdded} / ${project.detailLinesRemoved} | ` +
                 `${assessment} | ${confidence} | ${summary} |`
         );
+        const projectHeading = [`### ${escapeMarkdown(project.name)}`, ''];
+        const projectEvidence = ['', `**Unresolved / coverage limits:** ${unresolved}`, '', ...evidence, ''];
         details.push(
-            `### ${escapeMarkdown(project.name)}`,
-            '',
-            explanation,
-            '',
-            `**Unresolved / coverage limits:** ${unresolved}`,
-            '',
-            ...evidence,
-            ''
+            ...projectHeading,
+            escapeMarkdown(explanationPreview),
+            ...(explanationPreview.length < explanation.length
+                ? ['', '**Explanation truncated; see the full report artifact linked below.**']
+                : []),
+            ...projectEvidence
         );
+        fullDetails.push(...projectHeading, escapeMarkdown(explanation), ...projectEvidence);
     }
     const footer = [
         `**Full evidence and limitations:** download \`mypy-primer-analysis-report\` from [this analysis run](${analysisUrl}).`,
@@ -487,7 +491,7 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
     if (body.length > 60000) {
         throw new Error('The report exceeds the comment limit; refusing to omit projects');
     }
-    return { body, fullReport: [...heading, ...rows, '', ...details].join('\n') };
+    return { body, fullReport: [...heading, ...rows, '', ...fullDetails].join('\n') };
 }
 
 export function getStagedMode(activationInfo: unknown, repository: string, runId: number, runAttempt: number): boolean {
@@ -519,7 +523,7 @@ export async function publishAnalysis(
     if (items.length !== 1) {
         throw new Error('Expected exactly one primer analysis report');
     }
-    const rendered = renderReport(manifest, JSON.parse(text(items[0].report, 1000000)), analysisRunId);
+    const rendered = renderReport(manifest, JSON.parse(text(items[0].report, maxReportLength)), analysisRunId);
     writeFileSync(reportPath, rendered.fullReport);
     const currentSource = await loadSource(request, manifest.repository, manifest.source);
     if (!(await isCurrentPullRequest(request, manifest.repository, currentSource, manifest.prNumber))) {

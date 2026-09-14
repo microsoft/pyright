@@ -14,6 +14,15 @@ available. Added/removed counts refer to diagnostic headers; message rewrites ca
 count on both sides. A separate column counts added/removed indented detail lines,
 including projects where no diagnostic header changed.
 
+Explanations longer than 1,800 characters do not prevent publication. The comment
+shows the first 1,800 Unicode code points with an explicit truncation notice, while
+the artifact retains the complete explanation. Truncation happens before Markdown
+escaping, without splitting surrogate pairs. The 60,000-character comment budget
+still falls back to the compact table when expanded details do not fit.
+Nonempty explanations and the overall 1,000,000-character input bound remain
+required. Other field limits, project coverage, assessment/evidence validation,
+and stale-PR checks are unchanged.
+
 Concise primer diffs omit unchanged headers and context. The parser therefore
 preserves detail lines separately rather than attributing them to a nearby
 diagnostic or inventing a location or severity. The manifest's `groups` summarize
