@@ -197,13 +197,15 @@ async function isCurrentPullRequest(request: Request, repository: string, source
         return false;
     }
 
-    // Fork workflow_run events can omit pull_requests. Require an unambiguous
-    // GitHub association rather than trusting the uploaded PR number by itself.
+    // Fork runs can omit pull_requests, and commit-to-PR lookups can also be empty.
+    // Query open PRs by the run's head branch, then require an exact, unique match.
     let associated = source.pullRequests;
     if (!associated.length) {
-        const prs = await pages(request, 'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', {
+        const headOwner = repositoryParameters(source.headRepository).owner;
+        const prs = await pages(request, 'GET /repos/{owner}/{repo}/pulls', {
             ...repositoryParameters(repository),
-            commit_sha: source.headSha,
+            state: 'open',
+            head: `${headOwner}:${source.headBranch}`,
         });
         associated = prs
             .map(record)
@@ -213,12 +215,16 @@ async function isCurrentPullRequest(request: Request, repository: string, source
                     candidate.state === 'open' &&
                     candidateHead.sha === source.headSha &&
                     candidateHead.ref === source.headBranch &&
-                    record(candidateHead.repo).full_name === source.headRepository
+                    record(candidateHead.repo).full_name === source.headRepository &&
+                    record(record(candidate.base).repo).full_name === repository
                 );
             })
             .map((candidate) => positiveInteger(candidate.number));
         if (associated.length !== 1) {
-            throw new Error('The fork run cannot be associated with a unique open PR');
+            throw new Error(
+                `The fork run cannot be associated with a unique open PR: found ${associated.length} matches for ` +
+                    `${source.headRepository}:${source.headBranch} at ${source.headSha}`
+            );
         }
     }
     if (!associated.includes(prNumber)) {
