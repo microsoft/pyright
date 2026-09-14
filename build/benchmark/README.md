@@ -70,6 +70,11 @@ accidentally resolve an npm-installed executable from `PATH`. Both variants run 
 corpus in one invocation; their versions, timing, and peak memory are reported in adjacent summary
 rows. Upgrade the package first when the comparison should use the latest PyPI release.
 
+The hosted release-history workflow installs each official npm release separately and sets
+`PYRIGHT_BENCHMARK_ENTRY_POINT` to its `index.js`. This bypasses the Python package wrapper so Linux
+peak RSS measures the Node checker process directly. The override must point to a package containing
+both `index.js` and `dist/pyright.js`; normal local and weekly benchmarks leave it unset.
+
 Use `--skip-pyright-build` to reuse an existing production bundle. The script rejects this flag if
 `packages/pyright/dist/pyright.js` does not exist.
 

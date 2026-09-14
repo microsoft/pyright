@@ -101,10 +101,17 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+
       - name: Install Pyright ${{ matrix.version }}
         env:
           PYRIGHT_VERSION: ${{ matrix.version }}
-        run: python -m pip install --upgrade "pyright==$PYRIGHT_VERSION"
+        run: |
+          install_dir="$RUNNER_TEMP/pyright-release"
+          mkdir -p "$install_dir"
+          printf '{"private":true}\n' > "$install_dir/package.json"
+          pnpm --dir "$install_dir" add --save-exact "pyright@$PYRIGHT_VERSION"
+          echo "PYRIGHT_BENCHMARK_ENTRY_POINT=$install_dir/node_modules/pyright/index.js" >> "$GITHUB_ENV"
 
       - name: Run historical benchmark
         env:
@@ -113,8 +120,8 @@ jobs:
           PYTHONNOUSERSITE: '1'
         run: |
           python build/benchmark/typecheck_benchmark.py \
-            -c pyright-pip -r 1 -w 0 -t 1800 \
-            --memory-limit-mb 8192 --os-name linux-x64 \
+            -c pyright -r 1 -w 0 -t 1800 \
+            --memory-limit-mb 8192 --skip-pyright-build --os-name linux-x64 \
             --output build/benchmark/history-results
 
       - name: Record release metadata
@@ -129,7 +136,7 @@ jobs:
 
           path = Path('build/benchmark/history-results/latest-linux-x64.json')
           data = json.loads(path.read_text(encoding='utf-8'))
-          actual = data['type_checker_versions']['pyright-pip']
+          actual = data['type_checker_versions']['pyright']
           if actual != os.environ['PYRIGHT_VERSION']:
               raise RuntimeError(f'Expected Pyright {os.environ["PYRIGHT_VERSION"]}, found {actual}')
           data['release_version'] = os.environ['PYRIGHT_VERSION']
