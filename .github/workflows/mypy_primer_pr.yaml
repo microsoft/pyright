@@ -109,12 +109,6 @@ jobs:
             --output concise \
             | tee diff_${{ matrix.shard-index }}.txt
           ) || [ $? -eq 1 ]
-      # pandas-stubs is a high-signal compatibility canary. Unlike the full
-      # corpus comparison above, any change in its diagnostics is blocking.
-      - if: ${{ matrix.shard-index == 0 }}
-        name: Require stable pandas-stubs diagnostics
-        shell: bash
-        run: mypy_primer --repo pyright_to_test --type-checker pyright --new new_commit --old base_commit --project-selector 'pandas-dev/pandas-stubs' --debug --output concise
       - name: Upload mypy_primer diff
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -130,3 +124,9 @@ jobs:
         with:
           name: mypy_primer_diffs_pr_number
           path: pr_number.txt
+      # pandas-stubs is a high-signal compatibility canary. Unlike the full
+      # corpus comparison above, any change in its diagnostics is blocking.
+      - if: ${{ matrix.shard-index == 0 }}
+        name: Require stable pandas-stubs diagnostics
+        shell: bash
+        run: mypy_primer --repo pyright_to_test --type-checker pyright --new new_commit --old base_commit --project-selector 'pandas-dev/pandas-stubs' --debug --output concise
