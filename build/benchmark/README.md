@@ -105,21 +105,22 @@ result contract, and the comparator rejects mismatched environments.
 
 ## Maintainer workflow
 
-The hosted pull-request benchmark runs only when a maintainer comments exactly `/benchmark` on an
-open pull request. The command must be the entire comment. The trusted command workflow checks that
-the commenter has `write`, `maintain`, or `admin` repository permission and then toggles the
-`benchmark-requested` label and reruns the current commit's existing pull-request workflow. Users
-without one of these permissions cannot start the benchmark. The initial workflow run for each pull
-request commit performs only the request check; measured work is restricted to authorized reruns.
+The hosted pull-request benchmark runs automatically when a pull request changes files under
+`packages/pyright-internal/src/analyzer/`. For other pull requests, a maintainer can run it by
+commenting exactly `/benchmark` on an open pull request. The command must be the entire comment. The
+trusted command workflow checks that the commenter has `write`, `maintain`, or `admin` repository
+permission and then toggles the `benchmark-requested` label and reruns the current commit's existing
+pull-request workflow. Users without one of these permissions cannot manually start the benchmark.
 
-The authorized rerun executes an unprivileged `pull_request` workflow that runs the pull request's
-synthetic merge commit with read-only repository and issue permissions. It cannot read or write the
-shared benchmark cache. When it completes, a separate trusted `workflow_run` workflow accepts only
-rerun attempts, uses only default-branch code to validate the candidate artifact and pull request
-revisions, benchmarks or restores the exact base commit, renders the comparison, and creates or
-updates one benchmark comment. Candidate output is treated only as bounded JSON data and is never
-executed by the trusted workflow. The Actions job summary and benchmark artifact contain the same
-candidate results.
+The automatic run or authorized rerun executes an unprivileged `pull_request` workflow that runs the
+pull request's synthetic merge commit with read-only repository, issue, and pull-request permissions.
+It cannot read or write the shared benchmark cache. When it completes, a separate trusted
+`workflow_run` workflow uses only default-branch code to independently verify that the run changed an
+analyzer file or was explicitly requested, validate the candidate artifact and pull-request
+revisions, benchmark or restore the exact base commit, render the comparison, and create or update
+one benchmark comment. Candidate output is treated only as bounded JSON data and is never executed by
+the trusted workflow. The Actions job summary and benchmark artifact contain the same candidate
+results.
 
 Comment `/benchmark` again after pushing a new commit or when rerunning the same head. No benchmark is
 started automatically for later commits. The command workflow must already exist on the repository's

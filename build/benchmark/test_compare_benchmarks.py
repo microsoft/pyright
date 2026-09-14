@@ -648,6 +648,11 @@ Regression threshold: `10.0%`
         self.assertNotIn("- labeled", benchmark_workflow)
         self.assertIn("Number(process.env.RUN_ATTEMPT) > 1", benchmark_workflow)
         self.assertIn("label.name === 'benchmark-requested'", benchmark_workflow)
+        self.assertIn("github.rest.pulls.listFiles", benchmark_workflow)
+        self.assertIn(
+            "file.filename.startsWith('packages/pyright-internal/src/analyzer/')",
+            benchmark_workflow,
+        )
         self.assertIn("needs.authorize.outputs.requested == 'true'", benchmark_workflow)
         self.assertNotIn("workflow_dispatch:", benchmark_workflow)
         self.assertNotIn("paths:", benchmark_workflow)
@@ -657,7 +662,11 @@ Regression threshold: `10.0%`
         candidate_job = benchmark_workflow_data["jobs"]["candidate-benchmark"]
         self.assertEqual(
             benchmark_workflow_data["permissions"],
-            {"contents": "read", "issues": "read"},
+            {
+                "contents": "read",
+                "issues": "read",
+                "pull-requests": "read",
+            },
         )
         self.assertNotIn("permissions", candidate_job)
         self.assertNotIn("actions/cache", benchmark_workflow)
@@ -665,7 +674,6 @@ Regression threshold: `10.0%`
 
         self.assertIn("workflow_run:", report_workflow)
         self.assertIn("Type checker benchmark candidate", report_workflow)
-        self.assertIn("github.event.workflow_run.run_attempt > 1", report_workflow)
         self.assertIn("github.event.workflow_run.id", report_workflow)
         self.assertIn("ref: ${{ github.sha }}", report_workflow)
         self.assertNotIn("workflow_dispatch:", report_workflow)
@@ -675,6 +683,10 @@ Regression threshold: `10.0%`
         comment_job = report_workflow_data["jobs"]["comment"]
         self.assertEqual(report_workflow_data["permissions"], {})
         self.assertEqual(metadata_job["permissions"], {"pull-requests": "read"})
+        self.assertIn(
+            "needs.metadata.outputs.authorized == 'true'",
+            base_job["if"],
+        )
         self.assertEqual(base_job["permissions"], {"contents": "read"})
         self.assertEqual(comparison_job["permissions"], {"actions": "read", "contents": "read"})
         self.assertEqual(
@@ -688,6 +700,15 @@ Regression threshold: `10.0%`
         self.assertIn(
             "mergeCommit.data.parents[0]?.sha !== pullRequest.data.base.sha",
             report_workflow,
+        )
+        self.assertIn("github.rest.pulls.listFiles", report_workflow)
+        self.assertIn(
+            "file.filename.startsWith('packages/pyright-internal/src/analyzer/')",
+            report_workflow,
+        )
+        self.assertIn(
+            "needs.metadata.outputs.authorized == 'true'",
+            comment_job["if"],
         )
         self.assertEqual(
             [

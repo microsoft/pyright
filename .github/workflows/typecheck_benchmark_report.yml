@@ -23,11 +23,12 @@ concurrency:
 jobs:
   metadata:
     name: Validate pull request revisions
-    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.run_attempt > 1 }}
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
     outputs:
+      authorized: ${{ steps.pull-request.outputs.authorized }}
       pr-number: ${{ steps.pull-request.outputs.pr-number }}
       head-sha: ${{ steps.pull-request.outputs.head-sha }}
       merge-sha: ${{ steps.pull-request.outputs.merge-sha }}
@@ -57,6 +58,24 @@ jobs:
               repo: context.repo.repo,
               pull_number: issueNumber,
             })
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: issueNumber,
+              per_page: 100,
+            })
+            const analyzerChanged = files.some(
+              (file) => file.filename.startsWith('packages/pyright-internal/src/analyzer/')
+            )
+            const explicitlyRequested = workflowRun.run_attempt > 1 && pullRequest.data.labels.some(
+              (label) => label.name === 'benchmark-requested'
+            )
+            const authorized = analyzerChanged || explicitlyRequested
+            core.setOutput('authorized', authorized)
+            if (!authorized) {
+              core.notice('The benchmark was neither automatic for an analyzer change nor explicitly requested')
+              return
+            }
             if (
               pullRequest.data.state !== 'open' ||
               pullRequest.data.head.sha !== workflowRun.head_sha ||
@@ -82,7 +101,9 @@ jobs:
   base-benchmark:
     name: Benchmark main commit
     needs: metadata
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      ${{ needs.metadata.outputs.authorized == 'true' &&
+      github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
@@ -316,7 +337,9 @@ jobs:
   comment:
     name: Comment benchmark results
     needs: [metadata, comparison]
-    if: ${{ always() && needs.metadata.result == 'success' }}
+    if: >-
+      ${{ always() && needs.metadata.result == 'success' &&
+      needs.metadata.outputs.authorized == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read

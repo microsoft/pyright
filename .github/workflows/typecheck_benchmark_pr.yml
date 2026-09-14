@@ -17,6 +17,7 @@ on:
 permissions:
   contents: read
   issues: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -29,7 +30,7 @@ jobs:
     outputs:
       requested: ${{ steps.request.outputs.requested }}
     steps:
-      - name: Check request label
+      - name: Check benchmark conditions
         id: request
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
@@ -41,10 +42,19 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.issue.number,
             })
-            const requested = Number(process.env.RUN_ATTEMPT) > 1 && pullRequest.data.labels.some(
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            })
+            const analyzerChanged = files.some(
+              (file) => file.filename.startsWith('packages/pyright-internal/src/analyzer/')
+            )
+            const explicitlyRequested = Number(process.env.RUN_ATTEMPT) > 1 && pullRequest.data.labels.some(
               (label) => label.name === 'benchmark-requested'
             )
-            core.setOutput('requested', requested)
+            core.setOutput('requested', analyzerChanged || explicitlyRequested)
 
   candidate-benchmark:
     name: Benchmark pull request merge
