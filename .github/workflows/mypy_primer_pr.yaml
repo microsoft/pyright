@@ -129,4 +129,4 @@ jobs:
       - if: ${{ matrix.shard-index == 0 }}
         name: Require stable pandas-stubs diagnostics
         shell: bash
-        run: mypy_primer --repo pyright_to_test --type-checker pyright --new new_commit --old base_commit --project-selector 'pandas-dev/pandas-stubs' --debug --output concise
+        run: mypy_primer --repo pyright_to_test --type-checker pyright --new new_commit --old base_commit --project-selector 'pandas-dev/pandas-stubs' --old-success --debug --output concise
