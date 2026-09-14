@@ -156,15 +156,6 @@ def load_history(
     }
 
 
-def _nice_max(value: float) -> float:
-    if value <= 0:
-        return 1.0
-    magnitude = 10 ** math.floor(math.log10(value))
-    normalized = value / magnitude
-    step = 1 if normalized <= 1 else 2 if normalized <= 2 else 5 if normalized <= 5 else 10
-    return step * magnitude
-
-
 def render_svg(
     history: dict[str, Any],
     metric_name: str,
@@ -181,13 +172,30 @@ def render_svg(
     bottom = 170
     chart_width = width - left - right
     chart_height = height - top - bottom
-    values = [
-        metrics[metric_name]
-        for release in releases
-        for metrics in release["packages"].values()
-        if metric_name in metrics
-    ]
-    y_max = _nice_max(max(values, default=1.0) * 1.05)
+    baseline_values = {}
+    normalized_values = []
+    for package in packages:
+        for release in releases:
+            metrics = release["packages"].get(package)
+            if metrics and metric_name in metrics:
+                baseline_values[package] = metrics[metric_name]
+                break
+        baseline = baseline_values.get(package)
+        if not baseline:
+            continue
+        normalized_values.extend(
+            metrics[metric_name] / baseline * 100
+            for release in releases
+            if (metrics := release["packages"].get(package))
+            and metric_name in metrics
+        )
+    observed_min = min(normalized_values, default=100.0)
+    observed_max = max(normalized_values, default=100.0)
+    y_min = max(0.0, math.floor((min(observed_min, 100.0) - 5) / 10) * 10)
+    y_max = math.ceil((max(observed_max, 100.0) + 5) / 10) * 10
+    if y_max - y_min < 20:
+        y_min = max(0.0, y_min - 10)
+        y_max += 10
 
     def x_position(index: int) -> float:
         if len(releases) == 1:
@@ -195,7 +203,7 @@ def render_svg(
         return left + chart_width * index / (len(releases) - 1)
 
     def y_position(value: float) -> float:
-        return top + chart_height * (1 - value / y_max)
+        return top + chart_height * (y_max - value) / (y_max - y_min)
 
     elements = [
         f'<svg xmlns="http://www.w3.org/2000/svg" role="img" '
@@ -210,19 +218,24 @@ def render_svg(
         "</style>",
         '<rect width="1280" height="760" fill="#f8faf9"/>',
         f'<text x="{left}" y="38" font-size="26" font-weight="700">{html.escape(title)}</text>',
-        f'<text x="{left}" y="61" font-size="14" fill="#60717f">Same pinned corpus · lower is better</text>',
+        f'<text x="{left}" y="61" font-size="14" fill="#60717f">Earliest release = 100% for each package · lower is better</text>',
     ]
 
     for tick in range(6):
-        value = y_max * tick / 5
+        value = y_min + (y_max - y_min) * tick / 5
         y = y_position(value)
         elements.append(
             f'<line class="grid" x1="{left}" y1="{y:.1f}" x2="{width - right}" y2="{y:.1f}"/>'
         )
         elements.append(
             f'<text class="tick" x="{left - 12}" y="{y + 4:.1f}" text-anchor="end">'
-            f"{value:g} {html.escape(unit)}</text>"
+            f"{value:g}%</text>"
         )
+    baseline_y = y_position(100)
+    elements.append(
+        f'<line x1="{left}" y1="{baseline_y:.1f}" x2="{width - right}" '
+        f'y2="{baseline_y:.1f}" stroke="#52616b" stroke-width="1.5" stroke-dasharray="6 5"/>'
+    )
 
     elements.extend(
         [
@@ -248,20 +261,24 @@ def render_svg(
 
     for package_index, package in enumerate(packages):
         color = PALETTE[package_index % len(PALETTE)]
+        baseline = baseline_values.get(package)
+        if not baseline:
+            continue
         points: list[str] = []
         circles: list[str] = []
         for release_index, release in enumerate(releases):
             metrics = release["packages"].get(package)
             if not metrics or metric_name not in metrics:
                 continue
-            value = metrics[metric_name]
+            exact_value = metrics[metric_name]
+            value = exact_value / baseline * 100
             x = x_position(release_index)
             y = y_position(value)
             points.append(f"{x:.1f},{y:.1f}")
             circles.append(
                 f'<circle class="point" cx="{x:.1f}" cy="{y:.1f}" r="4" fill="{color}">'
                 f"<title>{html.escape(package)} · {html.escape(release['version'])}: "
-                f"{value:.2f} {html.escape(unit)}</title></circle>"
+                f"{exact_value:.2f} {html.escape(unit)} ({value:.1f}%)</title></circle>"
             )
         if len(points) > 1:
             elements.append(
@@ -323,7 +340,7 @@ thead {{ background:#edf2ef; }} code {{ background:#e5ece8; padding:2px 5px; }}
 <section><h2>Execution time</h2><img src="execution-time.svg" alt="Per-package Pyright execution time across releases"></section>
 <section><h2>Peak memory</h2><img src="peak-memory.svg" alt="Per-package Pyright peak memory across releases"></section>
 <section><h2>Methodology</h2>
-<p class="note">Each point is one measured run on a GitHub-hosted Ubuntu runner. Releases use the same package commits, check paths, Python version, memory limit, and dependency-isolation mode. Separate hosted runners introduce machine variance, so use the charts for release-scale trends rather than small differences.</p>
+<p class="note">Each point is one measured run on a GitHub-hosted Ubuntu runner and is normalized to that package's earliest release. Releases use the same package commits, check paths, Python version, memory limit, and dependency-isolation mode. Separate hosted runners introduce machine variance, so use the charts for release-scale trends rather than small differences.</p>
 <p>Profile: Python <code>{html.escape(str(profile.get("python_version", "unknown")))}</code>,
 runner <code>{html.escape(str(profile.get("runner_class", "unknown")))}</code>,
 {html.escape(str(profile.get("runs_per_package", "unknown")))} measured run per package.</p></section>

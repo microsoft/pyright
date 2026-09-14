@@ -93,6 +93,8 @@ class RenderPyrightHistoryTest(unittest.TestCase):
             self.assertIn("Pyright execution time by package", execution_chart)
             self.assertIn("1.1.406", execution_chart)
             self.assertIn("alpha", execution_chart)
+            self.assertIn("Earliest release = 100%", execution_chart)
+            self.assertIn("(100.0%)", execution_chart)
             page = (output / "index.html").read_text()
             self.assertIn("Peak memory", page)
             self.assertIn("same package commits", page.lower())

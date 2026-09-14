@@ -197,6 +197,11 @@ Each checker performs three measured runs after one warmup over the same pinned 
 job stores each raw JSON result with a self-contained `index.html` comparison for 90 days; its Actions
 job summary links directly to the downloadable report artifact.
 
+The release-history workflow benchmarks every stable Pyright release published in the prior year
+against the same pinned corpus. It runs one measured pass per package, renders normalized per-package
+execution-time and peak-memory SVG charts, and publishes them under
+`typecheck-benchmark/history/`. Each new GitHub release rebuilds the rolling one-year history.
+
 The top-level JSON records the timestamp, platform, checker versions, run settings, aggregate
 statistics, per-package results, configured memory limit, and an `upstream_source` object containing
 the original repository, exact commit, and source-file URL. Each package result records the cloned

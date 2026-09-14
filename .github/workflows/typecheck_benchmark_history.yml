@@ -5,10 +5,6 @@ on:
   release:
     types:
       - published
-  # Temporary branch trigger for the initial backfill. Removed after the generated history is committed.
-  push:
-    branches:
-      - feature/pyright-release-history
 
 permissions: {}
 
