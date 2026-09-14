@@ -37,6 +37,37 @@ nor a successful primer job establishes correctness. The agent is specifically
 instructed to investigate assertion failures, type precision loss, and diagnostics
 that may have disappeared because a result became `Any` or `Unknown`.
 
+When the only changed project is the canonical `sympy` project, the comment is a
+short notice that treats these differences as non-blocking primer noise. It keeps
+the recorded counts and full-report link instead of presenting a regression table.
+This is a reporting policy, not proof that the checker change is harmless. The
+complete validated analysis remains in the artifact, and mixed-project runs retain
+their normal per-project analysis, including SymPy.
+
+## Manual previews
+
+After the manual trigger is merged into `main`, select **Run workflow** under
+**Explain mypy_primer differences**, or run:
+
+```text
+gh workflow run mypy-primer-analysis.lock.yml --repo microsoft/pyright --ref main -f primer-run-id=31429223864 -f primer-run-attempt=1
+```
+
+This example previews the final recorded primer run for PR #11601. Use the
+**Run mypy_primer on PR** run ID, not the raw-comment or analysis run ID. The run
+must be successful, its requested attempt must match, and all eight shards plus
+the PR-number artifact must still be available. The PR must match the source
+repository, branch, and head commit; superseded heads are still skipped.
+
+Manual mode permits verified closed or merged PRs but never posts a PR comment.
+The regular publishing job is disabled for manual dispatch, the separate preview
+job has read-only GitHub permissions, and the publisher rejects preview manifests.
+The same analysis model, budget, report validation, and threat detection apply.
+After a successful run, open the **preview** job's summary or download
+`mypy-primer-analysis-report`: `comment.md` contains the comment preview and
+`full-report.md` contains the full analysis. Both are labeled as previews.
+Automatic workflow-run analysis still requires a current, open PR.
+
 ## Activation and maintenance
 
 The Markdown workflow and its generated `.lock.yml` must be merged into `main`
