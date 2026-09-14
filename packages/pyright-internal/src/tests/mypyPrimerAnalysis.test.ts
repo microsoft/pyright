@@ -7,6 +7,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { runInNewContext } from 'vm';
 import { isMap, isSeq, parseDocument } from 'yaml';
 
 import {
@@ -17,6 +18,8 @@ import {
     publishAnalysis,
     renderReport,
     summarizeDiffs,
+    validateSubmittedReport,
+    validateSubmittedReportFile,
 } from '../../../../build/ci/mypyPrimerAnalysis';
 
 const repository = 'microsoft/pyright';
@@ -797,6 +800,122 @@ describe('mypy_primer analysis', () => {
         expect(() => renderReport(f.manifest, report, 100)).toThrow('Unsupported evidence URL');
     });
 
+    test.each([
+        { name: 'missing items', output: {} },
+        { name: 'empty output', output: { items: [] } },
+        {
+            name: 'no-op claiming the report is prepared',
+            output: { items: [{ type: 'noop', message: 'The required report has been prepared for publication.' }] },
+        },
+        { name: 'incomplete-only output', output: { items: [{ type: 'report_incomplete', details: 'No evidence' }] } },
+        { name: 'missing payload', output: { items: [{ type: 'publish_primer_analysis' }] } },
+        { name: 'malformed payload', output: { items: [{ type: 'publish_primer_analysis', report: '{' }] } },
+        {
+            name: 'omitted project',
+            output: { items: [{ type: 'publish_primer_analysis', report: '{"projects":[]}' }] },
+        },
+    ])('report completion rejects $name before GitHub access', async ({ output }) => {
+        const f = fixture();
+        expect(() => validateSubmittedReport(f.manifest, output, 100)).toThrow();
+        await expect(
+            publishAnalysis(f.request, f.manifest, output, 100, join(directory, 'report.md'), false)
+        ).rejects.toThrow();
+        expect(f.request).not.toHaveBeenCalled();
+    });
+
+    test('report completion rejects duplicate and oversized submissions', () => {
+        const f = fixture();
+        const output = f.output();
+        expect(() => validateSubmittedReport(f.manifest, { items: [...output.items, ...output.items] }, 100)).toThrow(
+            'Expected exactly one primer analysis report; found 2'
+        );
+        output.items[0].report = ' '.repeat(1000001);
+        expect(() => validateSubmittedReport(f.manifest, output, 100)).toThrow(
+            'Expected nonempty text of at most 1000000 characters'
+        );
+    });
+
+    test('report completion reuses evidence and project validation', () => {
+        const f = fixture();
+        f.report.projects[0].assessment = 'expected-improvement';
+        expect(() => validateSubmittedReport(f.manifest, f.output(), 100)).toThrow('evidence');
+        f.report.projects[0].assessment = 'needs-review';
+        f.report.projects.push(f.report.projects[0]);
+        expect(() => validateSubmittedReport(f.manifest, f.output(), 100)).toThrow();
+    });
+
+    test('report completion accepts an honest needs-review report without evidence', () => {
+        const f = fixture();
+        const path = join(directory, 'agent_output.json');
+        writeFileSync(path, JSON.stringify(f.output()));
+        expect(validateSubmittedReportFile(f.manifest, path, 100)).toStrictEqual(expectedReport);
+        expect(f.request).not.toHaveBeenCalled();
+    });
+
+    test('report completion requires a bounded regular JSON output file', () => {
+        const f = fixture();
+        const path = join(directory, 'agent_output.json');
+        expect(() => validateSubmittedReportFile(f.manifest, path, 100)).toThrow('ENOENT');
+        expect(() => validateSubmittedReportFile(f.manifest, directory, 100)).toThrow('bounded regular input file');
+        writeFileSync(path, '');
+        expect(() => validateSubmittedReportFile(f.manifest, path, 100)).toThrow();
+        writeFileSync(path, ' '.repeat(8 * 1024 * 1024 + 1));
+        expect(() => validateSubmittedReportFile(f.manifest, path, 100)).toThrow('bounded regular input file');
+    });
+
+    test('compiled completion step rejects no-op output and accepts a submitted report', () => {
+        const workflow = parseDocument(
+            readFileSync(join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'), 'utf8')
+        );
+        const steps = workflow.getIn(['jobs', 'agent', 'steps'], true);
+        if (!isSeq(steps)) {
+            throw new Error('Missing agent steps');
+        }
+        const step = steps.items.find((item) => isMap(item) && item.get('id') === 'require_primer_report');
+        if (!isMap(step)) {
+            throw new Error('Missing report completion step');
+        }
+        const script = step.getIn(['with', 'script']);
+        if (typeof script !== 'string') {
+            throw new Error('Missing report completion script');
+        }
+
+        const f = fixture();
+        const actionsDir = join(directory, 'gh-aw', 'actions');
+        const path = join(directory, 'agent_output.json');
+        mkdirSync(actionsDir, { recursive: true });
+        writeFileSync(join(actionsDir, 'primer-manifest.json'), JSON.stringify(f.manifest));
+        const notice = jest.fn();
+        const run = () =>
+            runInNewContext(script, {
+                require: (name: string): unknown => {
+                    if (name === 'fs') {
+                        return { readFileSync };
+                    }
+                    if (name === 'path') {
+                        return { join };
+                    }
+                    if (name === join(actionsDir, 'mypyPrimerAnalysis.ts')) {
+                        return { validateSubmittedReportFile };
+                    }
+                    throw new Error(`Unexpected module: ${name}`);
+                },
+                process: { env: { RUNNER_TEMP: directory, PRIMER_AGENT_OUTPUT: path } },
+                context: { runId: 100 },
+                core: { notice },
+            });
+
+        writeFileSync(path, JSON.stringify({ items: [{ type: 'noop', message: 'Report prepared' }], errors: [] }));
+        expect(run).toThrow('Submit publish_primer_analysis, not noop or report_incomplete');
+        expect(notice).not.toHaveBeenCalled();
+        writeFileSync(path, JSON.stringify(f.output()));
+        run();
+        expect(notice).toHaveBeenCalledWith(
+            'A complete primer report was submitted; threat detection and publisher checks still apply'
+        );
+        expect(f.request).not.toHaveBeenCalled();
+    });
+
     test('staged reports never mutate GitHub', async () => {
         const f = fixture();
         const path = join(directory, 'report.md');
@@ -943,7 +1062,8 @@ describe('mypy_primer analysis', () => {
         expect(source.getIn(['tools', 'edit'])).toBe(false);
         expect(source.getIn(['tools', 'github', 'read-only'])).toBe(true);
         expect(source.get('max-ai-credits')).toBe(25);
-        expect(source.getIn(['engine', 'model'])).toBe('gpt-5.4-mini');
+        expect(source.getIn(['engine', 'model'])).toBe('gpt-5.6-luna');
+        expect(source.getIn(['safe-outputs', 'noop'])).toBe(false);
         expect(source.getIn(['sandbox', 'agent', 'token-steering'])).toBe(false);
         expect(source.getIn(['safe-outputs', 'threat-detection', 'engine', 'model'])).toBe('detection');
         expect(source.getIn(['safe-outputs', 'threat-detection', 'engine', 'version'])).toBe('1.0.80');
@@ -988,7 +1108,10 @@ describe('mypy_primer analysis', () => {
         const preflight = getStep('stage_mcp_preflight');
         expect(preflight.get('continue-on-error')).toBeUndefined();
         expect(preflight.get('if')).toBeUndefined();
-        expect(preflight.getIn(['with', 'script'])).toContain("['mypyPrimerMcp.ts', 'mypyPrimerCopilotHarness.cjs']");
+        expect(preflight.getIn(['with', 'script'])).toContain(
+            "['mypyPrimerMcp.ts', 'mypyPrimerCopilotHarness.cjs', 'mypyPrimerAnalysis.ts']"
+        );
+        expect(preflight.getIn(['with', 'script'])).toContain("'primer-manifest.json'");
         expect(agentSteps.items.indexOf(preflight)).toBeLessThan(
             agentSteps.items.indexOf(getStep('agentic_execution'))
         );
@@ -999,9 +1122,38 @@ describe('mypy_primer analysis', () => {
         expect(String(workflow.getIn(['jobs', 'collect', 'steps'], true))).toContain(
             "fs.copyFileSync('./build/ci/mypyPrimerCopilotHarness.cjs'"
         );
+        expect(String(workflow.getIn(['jobs', 'collect', 'steps'], true))).toContain(
+            "fs.copyFileSync('./build/ci/mypyPrimerAnalysis.ts'"
+        );
+
+        const reportCheck = getStep('require_primer_report');
+        expect(reportCheck.get('continue-on-error')).toBeUndefined();
+        expect(reportCheck.get('if')).toBe("${{ !cancelled() && steps.agentic_execution.outcome == 'success' }}");
+        expect(reportCheck.getIn(['env', 'PRIMER_AGENT_OUTPUT'])).toBe('/tmp/gh-aw/agent_output.json');
+        expect(agentSteps.items.indexOf(getStep('agentic_execution'))).toBeLessThan(
+            agentSteps.items.indexOf(getStep('collect_output'))
+        );
+        expect(agentSteps.items.indexOf(getStep('collect_output'))).toBeLessThan(agentSteps.items.indexOf(reportCheck));
+        const upload = agentSteps.items.find(
+            (item) => isMap(item) && item.getIn(['with', 'name']) === 'agent-output-fallback'
+        );
+        if (!isMap(upload)) {
+            throw new Error('Missing output artifact upload');
+        }
+        expect(upload.get('if')).toBe('always()');
+        expect(agentSteps.items.indexOf(reportCheck)).toBeLessThan(agentSteps.items.indexOf(upload));
+        const configStep = agentSteps.items.find(
+            (item) => isMap(item) && item.getIn(['env', 'GH_AW_SAFE_OUTPUTS_CONFIG']) !== undefined
+        );
+        if (!isMap(configStep)) {
+            throw new Error('Missing safe outputs configuration');
+        }
+        const safeOutputConfig = parseDocument(String(configStep.getIn(['env', 'GH_AW_SAFE_OUTPUTS_CONFIG'])));
+        expect(safeOutputConfig.has('noop')).toBe(false);
+        expect(safeOutputConfig.has('publish-primer-analysis')).toBe(true);
 
         const execution = getStep('agentic_execution').get('run');
-        expect(getStep('agentic_execution').getIn(['env', 'COPILOT_MODEL'])).toBe('gpt-5.4-mini');
+        expect(getStep('agentic_execution').getIn(['env', 'COPILOT_MODEL'])).toBe('gpt-5.6-luna');
         expect(execution).toContain('"enableTokenSteering":false');
         expect(execution).toContain('"maxAiCredits":25');
         expect(execution).toContain('/gh-aw/actions/mypyPrimerCopilotHarness.cjs"');

@@ -509,6 +509,23 @@ export function getStagedMode(activationInfo: unknown, repository: string, runId
     return info.staged;
 }
 
+export function validateSubmittedReport(manifest: Manifest, agentOutput: unknown, analysisRunId: number) {
+    const items = array(record(agentOutput).items)
+        .map(record)
+        .filter((item) => item.type === 'publish_primer_analysis');
+    if (items.length !== 1) {
+        throw new Error(
+            `Expected exactly one primer analysis report; found ${items.length}. ` +
+                'Submit publish_primer_analysis, not noop or report_incomplete.'
+        );
+    }
+    return renderReport(manifest, JSON.parse(text(items[0].report, maxReportLength)), analysisRunId);
+}
+
+export function validateSubmittedReportFile(manifest: Manifest, outputPath: string, analysisRunId: number) {
+    return validateSubmittedReport(manifest, JSON.parse(readInput(outputPath)), analysisRunId);
+}
+
 export async function publishAnalysis(
     request: Request,
     manifest: Manifest,
@@ -517,13 +534,7 @@ export async function publishAnalysis(
     reportPath: string,
     staged: boolean
 ) {
-    const items = array(record(agentOutput).items)
-        .map(record)
-        .filter((item) => item.type === 'publish_primer_analysis');
-    if (items.length !== 1) {
-        throw new Error('Expected exactly one primer analysis report');
-    }
-    const rendered = renderReport(manifest, JSON.parse(text(items[0].report, maxReportLength)), analysisRunId);
+    const rendered = validateSubmittedReport(manifest, agentOutput, analysisRunId);
     writeFileSync(reportPath, rendered.fullReport);
     const currentSource = await loadSource(request, manifest.repository, manifest.source);
     if (!(await isCurrentPullRequest(request, manifest.repository, currentSource, manifest.prNumber))) {
