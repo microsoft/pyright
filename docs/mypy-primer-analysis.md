@@ -74,6 +74,13 @@ analysis sandbox. The check does not post a comment or replace threat detection,
 staged-mode handling, or stale-PR validation. Inaccessible evidence should produce
 a low-confidence `needs-review` report, not a no-op.
 
+Keep `typing.python.org` in `safe-outputs.allowed-domains`: the report validator
+and agent instructions allow typing-specification citations alongside GitHub links.
+gh-aw sanitizes the serialized report before validation; redacting an allowed
+citation can also consume its closing JSON quote and corrupt an otherwise valid
+report. This output-only allowance does not expand the agent's network access or
+disable URL redaction and the publisher's evidence-host checks.
+
 Keep `tools.cli-proxy: false` explicit. The agent denies shell execution, so GitHub
 reads and safe-output submissions must use MCP directly, not shell-backed CLI
 wrappers. Regeneration must retain both MCP servers and omit CLI-only prompt

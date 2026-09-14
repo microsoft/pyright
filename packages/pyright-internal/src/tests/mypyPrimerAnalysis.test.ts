@@ -863,6 +863,32 @@ describe('mypy_primer analysis', () => {
         expect(() => validateSubmittedReportFile(f.manifest, path, 100)).toThrow('bounded regular input file');
     });
 
+    test('report completion preserves typing specification citations in serialized reports', () => {
+        const f = fixture();
+        const url = 'https://typing.python.org/en/latest/spec/typeddict.html';
+        const report = {
+            projects: [
+                {
+                    ...f.report.projects[0],
+                    evidence: [{ url, detail: 'TypedDict specification' }],
+                },
+            ],
+        };
+        const output = { items: [{ type: 'publish_primer_analysis', report: JSON.stringify(report) }] };
+        const path = join(directory, 'agent_output.json');
+        writeFileSync(path, JSON.stringify(output));
+        const originalDetails = expectedReportDetails.join('\n');
+        const details = [
+            ...expectedReportDetails.slice(0, -1),
+            '- TypedDict specification: <https://typing.python.org/en/latest/spec/typeddict.html>',
+            '',
+        ].join('\n');
+        expect(validateSubmittedReportFile(f.manifest, path, 100)).toStrictEqual({
+            body: expectedReport.body.replace(originalDetails, details),
+            fullReport: expectedReport.fullReport.replace(originalDetails, details),
+        });
+    });
+
     test('compiled completion step rejects no-op output and accepts a submitted report', () => {
         const workflow = parseDocument(
             readFileSync(join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'), 'utf8')
@@ -1006,6 +1032,86 @@ describe('mypy_primer analysis', () => {
             publishAnalysis(f.request, f.manifest, f.output(), 100, join(directory, 'report.md'), false)
         ).resolves.toBe('Skipped: a newer primer analysis has already been posted for this commit');
         expect(f.request.mock.calls.some(([route]) => /^(POST|PATCH) /.test(route))).toBe(false);
+    });
+
+    test('compiled ingestion permits typing citations without expanding network access', () => {
+        const source = parseDocument(
+            readFileSync(join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.md'), 'utf8').split(
+                /^---\r?$/m
+            )[1]
+        );
+        const networkDomains = source.getIn(['network', 'allowed'], true);
+        const outputDomains = source.getIn(['safe-outputs', 'allowed-domains'], true);
+        if (!isSeq(networkDomains) || !isSeq(outputDomains)) {
+            throw new Error('Missing network or safe-output domain configuration');
+        }
+        expect(networkDomains.toJSON()).toStrictEqual(['defaults', 'github']);
+        expect(outputDomains.toJSON()).toStrictEqual(['typing.python.org']);
+        const workflow = parseDocument(
+            readFileSync(join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'), 'utf8')
+        );
+        const steps = workflow.getIn(['jobs', 'agent', 'steps'], true);
+        if (!isSeq(steps)) {
+            throw new Error('Missing agent steps');
+        }
+        const ingestion = steps.items.find((item) => isMap(item) && item.get('id') === 'collect_output');
+        if (!isMap(ingestion)) {
+            throw new Error('Missing safe-output ingestion step');
+        }
+        expect(ingestion.getIn(['env', 'GH_AW_ALLOWED_DOMAINS'])).toBe(
+            [
+                '*.githubusercontent.com',
+                'api.snapcraft.io',
+                'archive.ubuntu.com',
+                'azure.archive.ubuntu.com',
+                'codeload.github.com',
+                'crl.geotrust.com',
+                'crl.globalsign.com',
+                'crl.identrust.com',
+                'crl.sectigo.com',
+                'crl.thawte.com',
+                'crl.usertrust.com',
+                'crl.verisign.com',
+                'crl3.digicert.com',
+                'crl4.digicert.com',
+                'crls.ssl.com',
+                'docs.github.com',
+                'github-cloud.githubusercontent.com',
+                'github-cloud.s3.amazonaws.com',
+                'github.blog',
+                'github.com',
+                'github.githubassets.com',
+                'json-schema.org',
+                'json.schemastore.org',
+                'keyserver.ubuntu.com',
+                'lfs.github.com',
+                'localhost', // gh-aw includes this implicitly when safe-output domains are configured.
+                'objects.githubusercontent.com',
+                'ocsp.digicert.com',
+                'ocsp.geotrust.com',
+                'ocsp.globalsign.com',
+                'ocsp.identrust.com',
+                'ocsp.sectigo.com',
+                'ocsp.ssl.com',
+                'ocsp.thawte.com',
+                'ocsp.usertrust.com',
+                'ocsp.verisign.com',
+                'packagecloud.io',
+                'packages.cloud.google.com',
+                'packages.microsoft.com',
+                'patch-diff.githubusercontent.com',
+                'patchdiff.githubusercontent.com',
+                'ppa.launchpad.net',
+                'raw.githubusercontent.com',
+                's.symcb.com',
+                's.symcd.com',
+                'security.ubuntu.com',
+                'ts-crl.ws.symantec.com',
+                'ts-ocsp.ws.symantec.com',
+                'typing.python.org',
+                'www.googleapis.com',
+            ].join(',')
+        );
     });
 
     test('compiled workflow runtime matches the compiler resolution lock', () => {

@@ -143,6 +143,7 @@ post-steps:
         validateSubmittedReportFile(manifest, process.env.PRIMER_AGENT_OUTPUT, context.runId);
         core.notice('A complete primer report was submitted; threat detection and publisher checks still apply');
 safe-outputs:
+  allowed-domains: [typing.python.org]
   noop: false
   threat-detection:
     engine:
