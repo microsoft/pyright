@@ -505,9 +505,11 @@ Regression threshold: `10.0%`
             self.assertNotIn("apt-get", workflow)
             self.assertNotIn(".github/actions/npm-cache-dir", workflow)
 
-        weekly_workflow = (
+        weekly_workflow_path = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_weekly.yml"
-        ).read_text(encoding="utf-8")
+        )
+        weekly_workflow = weekly_workflow_path.read_text(encoding="utf-8")
+        weekly_workflow_data = _load_yaml(weekly_workflow_path)
         self.assertIn("cache: 'pnpm'", weekly_workflow)
         self.assertIn("pnpm-lock.yaml", weekly_workflow)
         self.assertIn(
@@ -515,29 +517,166 @@ Regression threshold: `10.0%`
             weekly_workflow,
         )
         self.assertNotIn("actions/download-artifact@v4", weekly_workflow)
-        self.assertIn("uses: ./.github/workflows/publish_pages.yml", weekly_workflow)
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["publish"],
+            {
+                "name": "Publish comparison report",
+                "needs": "report",
+                "if": "${{ github.repository == 'microsoft/pyright' && github.ref == 'refs/heads/main' }}",
+                "permissions": {
+                    "actions": "read",
+                    "contents": "read",
+                    "pages": "write",
+                    "id-token": "write",
+                },
+                "uses": "./.github/workflows/publish_pages.yml",
+                "with": {"benchmark-run-id": "${{ github.run_id }}"},
+            },
+        )
         self.assertNotIn("actions/deploy-pages@", weekly_workflow)
 
-        docs_workflow = (
-            REPO_ROOT / ".github" / "workflows" / "publish_docs.yml"
-        ).read_text(encoding="utf-8")
-        pages_workflow = (
-            REPO_ROOT / ".github" / "workflows" / "publish_pages.yml"
-        ).read_text(encoding="utf-8")
-        self.assertIn("'docs/**'", docs_workflow)
-        self.assertIn("uses: ./.github/workflows/publish_pages.yml", docs_workflow)
-        self.assertIn("ref: main", pages_workflow)
-        self.assertIn("weekly-typecheck-report-*", pages_workflow)
-        self.assertIn("typecheck_benchmark_history.yml", pages_workflow)
-        self.assertIn("pyright-release-history", pages_workflow)
-        self.assertIn("! -name history", pages_workflow)
-        self.assertIn(
-            "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0",
-            pages_workflow,
+        docs_workflow_path = REPO_ROOT / ".github" / "workflows" / "publish_docs.yml"
+        docs_workflow_data = _load_yaml(docs_workflow_path)
+        self.assertEqual(
+            docs_workflow_data,
+            {
+                "name": "Publish documentation site",
+                "on": {
+                    "push": {
+                        "branches": ["main"],
+                        "paths": [
+                            ".github/workflows/publish_docs.yml",
+                            ".github/workflows/publish_pages.yml",
+                            "docs/**",
+                        ],
+                    },
+                    "workflow_dispatch": None,
+                },
+                "permissions": {},
+                "jobs": {
+                    "publish": {
+                        "name": "Publish current documentation",
+                        "if": "${{ github.repository == 'microsoft/pyright' && github.ref == 'refs/heads/main' }}",
+                        "permissions": {
+                            "actions": "read",
+                            "contents": "read",
+                            "pages": "write",
+                            "id-token": "write",
+                        },
+                        "uses": "./.github/workflows/publish_pages.yml",
+                    }
+                },
+            },
         )
-        self.assertIn(
-            "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1",
-            pages_workflow,
+
+        pages_workflow_path = (
+            REPO_ROOT / ".github" / "workflows" / "publish_pages.yml"
+        )
+        pages_workflow_data = _load_yaml(pages_workflow_path)
+        self.assertEqual(
+            pages_workflow_data["on"],
+            {
+                "workflow_call": {
+                    "inputs": {
+                        "benchmark-run-id": {
+                            "description": "Workflow run containing the weekly benchmark report artifact",
+                            "required": False,
+                            "default": "",
+                            "type": "string",
+                        },
+                        "history-run-id": {
+                            "description": "Workflow run containing the Pyright release history artifact",
+                            "required": False,
+                            "default": "",
+                            "type": "string",
+                        },
+                    }
+                }
+            },
+        )
+        pages_job = pages_workflow_data["jobs"]["publish"]
+        self.assertEqual(
+            {
+                key: pages_job[key]
+                for key in (
+                    "name",
+                    "runs-on",
+                    "permissions",
+                    "concurrency",
+                    "environment",
+                )
+            },
+            {
+                "name": "Publish documentation site",
+                "runs-on": "ubuntu-latest",
+                "permissions": {
+                    "actions": "read",
+                    "contents": "read",
+                    "pages": "write",
+                    "id-token": "write",
+                },
+                "concurrency": {"group": "pages", "cancel-in-progress": True},
+                "environment": {
+                    "name": "github-pages",
+                    "url": "${{ steps.deployment.outputs.page_url }}",
+                },
+            },
+        )
+        steps = pages_job["steps"]
+        self.assertEqual(
+            [step.get("name") for step in steps],
+            [
+                None,
+                "Find retained report artifacts",
+                "Download latest benchmark report",
+                "Download Pyright release history",
+                "Add report to documentation site",
+                "Configure Pages",
+                "Upload Pages artifact",
+                "Deploy to GitHub Pages",
+            ],
+        )
+        self.assertEqual(
+            [step.get("uses") for step in steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3",
+                "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+                "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+                None,
+                "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d",
+                "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9",
+                "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
+            ],
+        )
+        self.assertEqual(
+            steps[0]["with"],
+            {"ref": "main", "persist-credentials": False},
+        )
+        self.assertEqual(
+            steps[2]["with"],
+            {
+                "pattern": "weekly-typecheck-report-*",
+                "path": "weekly-report",
+                "merge-multiple": True,
+                "repository": "${{ github.repository }}",
+                "run-id": "${{ steps.reports.outputs.benchmark-run-id }}",
+                "github-token": "${{ secrets.GITHUB_TOKEN }}",
+            },
+        )
+        self.assertEqual(
+            steps[3]["with"],
+            {
+                "name": "pyright-release-history",
+                "path": "release-history",
+                "repository": "${{ github.repository }}",
+                "run-id": "${{ steps.reports.outputs.history-run-id }}",
+                "github-token": "${{ secrets.GITHUB_TOKEN }}",
+            },
+        )
+        self.assertEqual(
+            steps[6]["with"],
+            {"path": "docs", "include-hidden-files": True},
         )
 
         pr_workflow = (

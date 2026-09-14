@@ -1,9 +1,46 @@
 import json
 import tempfile
 import unittest
+import xml.etree.ElementTree as ElementTree
+from html.parser import HTMLParser
 from pathlib import Path
 
 import render_pyright_history
+
+
+class _HistoryHtmlParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.title = ""
+        self.headings: list[str] = []
+        self.cells: list[str] = []
+        self.images: list[tuple[str, str]] = []
+        self.links: list[str] = []
+        self._capture: str | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        if tag in ("title", "h1", "h2", "th", "td"):
+            self._capture = tag
+        if tag == "img":
+            self.images.append((attributes.get("src", ""), attributes.get("alt", "")))
+        if tag == "a":
+            self.links.append(attributes.get("href", ""))
+
+    def handle_endtag(self, tag: str) -> None:
+        if self._capture == tag:
+            self._capture = None
+
+    def handle_data(self, data: str) -> None:
+        value = data.strip()
+        if not value or not self._capture:
+            return
+        if self._capture == "title":
+            self.title += value
+        elif self._capture in ("h1", "h2"):
+            self.headings.append(value)
+        else:
+            self.cells.append(value)
 
 
 def _result(version: str, published_at: str, scale: float = 1.0) -> dict:
@@ -89,15 +126,114 @@ class RenderPyrightHistoryTest(unittest.TestCase):
                 "index.html",
             ):
                 self.assertTrue((output / name).is_file())
-            execution_chart = (output / "execution-time.svg").read_text()
-            self.assertIn("Pyright execution time by package", execution_chart)
-            self.assertIn("1.1.406", execution_chart)
-            self.assertIn("alpha", execution_chart)
-            self.assertIn("Earliest release = 100%", execution_chart)
-            self.assertIn("(100.0%)", execution_chart)
-            page = (output / "index.html").read_text()
-            self.assertIn("Peak memory", page)
-            self.assertIn("same package commits", page.lower())
+            namespace = {"svg": "http://www.w3.org/2000/svg"}
+            execution_chart = ElementTree.fromstring(
+                (output / "execution-time.svg").read_text()
+            )
+            self.assertEqual(
+                execution_chart.attrib,
+                {
+                    "role": "img",
+                    "aria-labelledby": "title description",
+                    "viewBox": "0 0 1280 760",
+                },
+            )
+            self.assertEqual(
+                execution_chart.find("svg:title", namespace).text,
+                "Pyright execution time by package",
+            )
+            self.assertEqual(
+                execution_chart.find("svg:desc", namespace).text,
+                "One line per benchmark package across Pyright releases.",
+            )
+            subtitles = [
+                element.text
+                for element in execution_chart.findall("svg:text", namespace)
+                if element.attrib.get("y") == "61"
+            ]
+            self.assertEqual(
+                subtitles,
+                ["Earliest release = 100% for each package - lower is better"],
+            )
+            release_labels = [
+                element.text
+                for element in execution_chart.findall("svg:text", namespace)
+                if element.attrib.get("text-anchor") == "middle"
+            ]
+            self.assertEqual(
+                release_labels,
+                ["1.1.406", "2025-10-01", "1.1.407", "2025-10-24"],
+            )
+            self.assertEqual(
+                [
+                    element.text
+                    for element in execution_chart.findall(
+                        "svg:text[@class='label']", namespace
+                    )
+                ],
+                ["alpha", "beta"],
+            )
+            self.assertEqual(
+                len(execution_chart.findall("svg:polyline", namespace)),
+                2,
+            )
+            self.assertEqual(
+                [
+                    circle.find("svg:title", namespace).text
+                    for circle in execution_chart.findall("svg:circle", namespace)
+                ],
+                [
+                    "alpha - 1.1.406: 2.00 s (100.0%)",
+                    "alpha - 1.1.407: 1.60 s (80.0%)",
+                    "beta - 1.1.406: 4.00 s (100.0%)",
+                    "beta - 1.1.407: 3.20 s (80.0%)",
+                ],
+            )
+
+            page_parser = _HistoryHtmlParser()
+            page_parser.feed((output / "index.html").read_text())
+            self.assertEqual(page_parser.title, "Pyright package performance by release")
+            self.assertEqual(
+                page_parser.headings,
+                [
+                    "Pyright package performance by release",
+                    "Execution time",
+                    "Peak memory",
+                    "Methodology",
+                    "Release runs",
+                ],
+            )
+            self.assertEqual(
+                page_parser.images,
+                [
+                    (
+                        "execution-time.svg",
+                        "Per-package Pyright execution time across releases",
+                    ),
+                    (
+                        "peak-memory.svg",
+                        "Per-package Pyright peak memory across releases",
+                    ),
+                ],
+            )
+            self.assertEqual(page_parser.links, ["../", "history.json"])
+            self.assertEqual(
+                page_parser.cells,
+                [
+                    "Version",
+                    "Published",
+                    "Packages measured",
+                    "Measured at",
+                    "1.1.406",
+                    "2025-10-01",
+                    "2",
+                    "2026-09-14T12:00:00+00:00",
+                    "1.1.407",
+                    "2025-10-24",
+                    "2",
+                    "2026-09-14T12:00:00+00:00",
+                ],
+            )
 
     def test_rejects_mismatched_corpus(self) -> None:
         first = _result("1.1.406", "2025-10-01")

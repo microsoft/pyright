@@ -218,7 +218,7 @@ def render_svg(
         "</style>",
         '<rect width="1280" height="760" fill="#f8faf9"/>',
         f'<text x="{left}" y="38" font-size="26" font-weight="700">{html.escape(title)}</text>',
-        f'<text x="{left}" y="61" font-size="14" fill="#60717f">Earliest release = 100% for each package · lower is better</text>',
+        f'<text x="{left}" y="61" font-size="14" fill="#60717f">Earliest release = 100% for each package - lower is better</text>',
     ]
 
     for tick in range(6):
@@ -277,7 +277,7 @@ def render_svg(
             points.append(f"{x:.1f},{y:.1f}")
             circles.append(
                 f'<circle class="point" cx="{x:.1f}" cy="{y:.1f}" r="4" fill="{color}">'
-                f"<title>{html.escape(package)} · {html.escape(release['version'])}: "
+                f"<title>{html.escape(package)} - {html.escape(release['version'])}: "
                 f"{exact_value:.2f} {html.escape(unit)} ({value:.1f}%)</title></circle>"
             )
         if len(points) > 1:
@@ -345,7 +345,7 @@ thead {{ background:#edf2ef; }} code {{ background:#e5ece8; padding:2px 5px; }}
 runner <code>{html.escape(str(profile.get("runner_class", "unknown")))}</code>,
 {html.escape(str(profile.get("runs_per_package", "unknown")))} measured run per package.</p></section>
 <section><h2>Release runs</h2><div class="table-wrap"><table><thead><tr><th>Version</th><th>Published</th><th>Packages measured</th><th>Measured at</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div></section>
-<p><a href="../">Back to the weekly type checker comparison</a> · <a href="history.json">Download summarized JSON</a></p>
+<p><a href="../">Back to the weekly type checker comparison</a> | <a href="history.json">Download summarized JSON</a></p>
 </main>
 </body>
 </html>
