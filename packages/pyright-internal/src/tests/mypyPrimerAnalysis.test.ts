@@ -1092,6 +1092,12 @@ describe('mypy_primer analysis', () => {
             }
             return step;
         };
+        const normalizeScript = (script: unknown) => {
+            if (typeof script !== 'string') {
+                throw new Error('Missing workflow script');
+            }
+            return script.replace(/\r\n/g, '\n').trim();
+        };
         const gateway = getStep('start-mcp-gateway').get('run');
         expect(gateway).toContain('export GH_AW_ENGINE="copilot"');
         expect(gateway).toContain('"github": {');
@@ -1108,22 +1114,54 @@ describe('mypy_primer analysis', () => {
         const preflight = getStep('stage_mcp_preflight');
         expect(preflight.get('continue-on-error')).toBeUndefined();
         expect(preflight.get('if')).toBeUndefined();
-        expect(preflight.getIn(['with', 'script'])).toContain(
-            "['mypyPrimerMcp.ts', 'mypyPrimerCopilotHarness.cjs', 'mypyPrimerAnalysis.ts']"
+        expect(normalizeScript(preflight.getIn(['with', 'script']))).toBe(
+            [
+                "const fs = require('fs');",
+                "const path = require('path');",
+                "for (const file of ['mypyPrimerMcp.ts', 'mypyPrimerCopilotHarness.cjs', 'mypyPrimerAnalysis.ts']) {",
+                '  fs.copyFileSync(',
+                "    path.join('/tmp/gh-aw/primer-input', file),",
+                "    path.join(process.env.RUNNER_TEMP, 'gh-aw', 'actions', file)",
+                '  );',
+                '}',
+                'fs.copyFileSync(',
+                "  '/tmp/gh-aw/primer-input/manifest.json',",
+                "  path.join(process.env.RUNNER_TEMP, 'gh-aw', 'actions', 'primer-manifest.json')",
+                ');',
+            ].join('\n')
         );
-        expect(preflight.getIn(['with', 'script'])).toContain("'primer-manifest.json'");
         expect(agentSteps.items.indexOf(preflight)).toBeLessThan(
             agentSteps.items.indexOf(getStep('agentic_execution'))
         );
         expect(getStep('agentic_execution').get('if')).toBeUndefined();
-        expect(String(workflow.getIn(['jobs', 'collect', 'steps'], true))).toContain(
-            "fs.copyFileSync('./build/ci/mypyPrimerMcp.ts'"
-        );
-        expect(String(workflow.getIn(['jobs', 'collect', 'steps'], true))).toContain(
-            "fs.copyFileSync('./build/ci/mypyPrimerCopilotHarness.cjs'"
-        );
-        expect(String(workflow.getIn(['jobs', 'collect', 'steps'], true))).toContain(
-            "fs.copyFileSync('./build/ci/mypyPrimerAnalysis.ts'"
+        const collectSteps = workflow.getIn(['jobs', 'collect', 'steps'], true);
+        if (!isSeq(collectSteps)) {
+            throw new Error('Missing collection steps');
+        }
+        const prepare = collectSteps.items.find((item) => isMap(item) && item.get('id') === 'prepare');
+        if (!isMap(prepare)) {
+            throw new Error('Missing preparation step');
+        }
+        expect(normalizeScript(prepare.getIn(['with', 'script']))).toBe(
+            [
+                "const fs = require('fs');",
+                "const path = require('path');",
+                "const { prepareAnalysis } = require('./build/ci/mypyPrimerAnalysis.ts');",
+                "const source = JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'primer-source.json'), 'utf8'));",
+                "const folder = path.join(process.env.RUNNER_TEMP, 'primer-input');",
+                "const manifest = await prepareAnalysis(github.request.bind(github), `${context.repo.owner}/${context.repo.repo}`, source, path.join(folder, 'raw'));",
+                'if (!manifest) {',
+                "  core.notice('Skipping analysis: the PR is closed or its head has changed');",
+                "  core.setOutput('has_changes', 'false');",
+                '  return;',
+                '}',
+                "fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2));",
+                "fs.copyFileSync('./build/ci/mypyPrimerMcp.ts', path.join(folder, 'mypyPrimerMcp.ts'));",
+                "fs.copyFileSync('./build/ci/mypyPrimerCopilotHarness.cjs', path.join(folder, 'mypyPrimerCopilotHarness.cjs'));",
+                "fs.copyFileSync('./build/ci/mypyPrimerAnalysis.ts', path.join(folder, 'mypyPrimerAnalysis.ts'));",
+                "core.setOutput('has_changes', String(manifest.projects.length > 0));",
+                'core.notice(`${manifest.projects.length} changed projects; all eight shards accounted for`);',
+            ].join('\n')
         );
 
         const reportCheck = getStep('require_primer_report');
