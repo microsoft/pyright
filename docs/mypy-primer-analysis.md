@@ -43,13 +43,23 @@ They can be adjusted in `.github/workflows/mypy-primer-analysis.md`. The agent m
 mark insufficiently investigated projects as needing review rather than inventing
 evidence to meet its budget.
 
-The workflow is compiled with GitHub Agentic Workflows v0.86.2. Use that exact
+Keep `tools.cli-proxy: false` explicit. The agent denies shell execution, so GitHub
+reads and safe-output submissions must use MCP directly, not shell-backed CLI
+wrappers. Regeneration must retain both MCP servers and omit CLI-only prompt
+instructions; do not resolve tool-access failures by enabling shell execution.
+
+The workflow is compiled with GitHub Agentic Workflows v0.88.7. Use that exact
 compiler version for regeneration; check the installed version first:
 
 ```text
 gh aw version
 gh aw compile mypy-primer-analysis --validate
 ```
+
+The older v0.86.2 compiler advertised shell-backed tools even with
+`cli-proxy: false`. v0.88.7 omits that guidance when bash is disabled and supplies
+MCP-compatible safe-output instructions. It still prepares CLI wrappers
+internally, but they are not advertised to the agent or required for MCP access.
 
 The compiler owns the `github/gh-aw-actions/setup` runtime as well as the generated
 script calls. `.github/aw/actions-lock.json` records its version-to-SHA resolution;
@@ -71,10 +81,10 @@ them. Local compilation does not prove a live comment was posted: `workflow_run`
 uses the trusted default-branch workflow, so a PR-only repair cannot fix an existing
 run on `main`.
 
-For `gh aw compile --staged`, the publisher reads the staged flag
-from the trusted activation artifact: v0.86.2 does not propagate that flag's
-environment variable into custom output jobs. Missing activation metadata fails
-closed rather than defaulting to live publication.
+For `gh aw compile --staged`, the publisher reads the staged flag from the trusted
+activation artifact rather than relying on an environment variable inherited by
+custom output jobs. Missing activation metadata fails closed rather than
+defaulting to live publication.
 
 `build/ci/mypyPrimerAnalysis.ts` runs using Node's built-in TypeScript
 stripping in `actions/github-script` v9, without installing PR dependencies. Its
