@@ -16,7 +16,7 @@ permissions:
 engine:
   id: copilot
   version: 1.0.80
-  model: gpt-5.4-mini
+  model: gpt-5.6-luna
   harness: mypyPrimerCopilotHarness.cjs
   args: [--deny-tool, write, --deny-tool, shell]
 timeout-minutes: 15
@@ -94,6 +94,7 @@ jobs:
             fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2));
             fs.copyFileSync('./build/ci/mypyPrimerMcp.ts', path.join(folder, 'mypyPrimerMcp.ts'));
             fs.copyFileSync('./build/ci/mypyPrimerCopilotHarness.cjs', path.join(folder, 'mypyPrimerCopilotHarness.cjs'));
+            fs.copyFileSync('./build/ci/mypyPrimerAnalysis.ts', path.join(folder, 'mypyPrimerAnalysis.ts'));
             core.setOutput('has_changes', String(manifest.projects.length > 0));
             core.notice(`${manifest.projects.length} changed projects; all eight shards accounted for`);
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -108,20 +109,41 @@ steps:
       name: primer-analysis-input
       path: /tmp/gh-aw/primer-input
 pre-agent-steps:
-  - name: Stage the native MCP preflight harness
+  - name: Stage the native MCP preflight harness and report validator
     id: stage_mcp_preflight
     uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
     with:
       script: |
         const fs = require('fs');
         const path = require('path');
-        for (const file of ['mypyPrimerMcp.ts', 'mypyPrimerCopilotHarness.cjs']) {
+        for (const file of ['mypyPrimerMcp.ts', 'mypyPrimerCopilotHarness.cjs', 'mypyPrimerAnalysis.ts']) {
           fs.copyFileSync(
             path.join('/tmp/gh-aw/primer-input', file),
             path.join(process.env.RUNNER_TEMP, 'gh-aw', 'actions', file)
           );
         }
+        fs.copyFileSync(
+          '/tmp/gh-aw/primer-input/manifest.json',
+          path.join(process.env.RUNNER_TEMP, 'gh-aw', 'actions', 'primer-manifest.json')
+        );
+post-steps:
+  - name: Require a complete primer analysis report
+    id: require_primer_report
+    if: ${{ !cancelled() && steps.agentic_execution.outcome == 'success' }}
+    uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+    env:
+      PRIMER_AGENT_OUTPUT: /tmp/gh-aw/agent_output.json
+    with:
+      script: |
+        const fs = require('fs');
+        const path = require('path');
+        const actionsDir = path.join(process.env.RUNNER_TEMP, 'gh-aw', 'actions');
+        const { validateSubmittedReportFile } = require(path.join(actionsDir, 'mypyPrimerAnalysis.ts'));
+        const manifest = JSON.parse(fs.readFileSync(path.join(actionsDir, 'primer-manifest.json'), 'utf8'));
+        validateSubmittedReportFile(manifest, process.env.PRIMER_AGENT_OUTPUT, context.runId);
+        core.notice('A complete primer report was submitted; threat detection and publisher checks still apply');
 safe-outputs:
+  noop: false
   threat-detection:
     engine:
       id: copilot
@@ -135,7 +157,7 @@ safe-outputs:
   report-failed-jobs: false
   jobs:
     publish-primer-analysis:
-      description: Publish one advisory JSON report covering every project in the trusted primer manifest.
+      description: Required for every analysis. Submit one JSON report covering every manifest project. This queues validation by the trusted publisher, not a direct GitHub write.
       runs-on: ubuntu-latest
       permissions:
         contents: read
@@ -199,6 +221,14 @@ not a PR approval, a merge recommendation, or an instruction to modify code.
 Use native file-reading tools for local artifacts and MCP tools for GitHub reads
 and report submission. Shell execution and file editing are disabled; do not
 invoke `github` or `safeoutputs` as shell commands.
+
+Submitting `publish_primer_analysis` is required, even though direct GitHub writes
+are forbidden. This tool queues your report for a separate trusted publisher; it
+does not directly post a comment. The workflow only invokes you when changed
+projects exist, so `noop` is not a valid outcome. A chat response, a claim that a
+report was prepared, or `report_incomplete` does not submit the required report.
+If evidence is inaccessible, still submit every project as `needs-review` with
+low confidence where appropriate and explain the missing evidence.
 
 ## Evidence and coverage
 

@@ -52,13 +52,27 @@ They can be adjusted in `.github/workflows/mypy-primer-analysis.md`. The agent m
 mark insufficiently investigated projects as needing review rather than inventing
 evidence to meet its budget.
 
-The analysis uses `engine.model: gpt-5.4-mini` as a lower-cost alternative to
-automatic model selection. Keep `sandbox.agent.token-steering: false` so the
+The analysis uses `engine.model: gpt-5.6-luna`, a newer lightweight GPT model with
+lower standard token rates than the previous GPT-5.4 mini; consult the
+[Copilot pricing table](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing)
+for current rates. Keep `sandbox.agent.token-steering: false` so the
 proxy preserves the selected model rather than steering requests to another one.
 The 25-credit cap is unchanged; a cheaper model does not guarantee completion.
 The model must be enabled for the organization, and its advisory assessments
 still require human review. Threat detection explicitly retains its existing
 `detection` model alias rather than inheriting the analysis model.
+
+Every activated analysis must submit exactly one `publish_primer_analysis` report.
+This safe-output submission queues the trusted publisher; it is not a direct GitHub
+write. `noop` is disabled, and an independent post-step validates successful agent
+executions after safe-output ingestion, using the normalized `agent_output.json`
+and the same report validator as the publisher. Empty, no-op-only,
+incomplete, duplicate, or malformed submissions fail the agent job rather than
+leaving a misleading green run with publication skipped. The validator and manifest
+are staged before execution into the runtime directory mounted read-only in the
+analysis sandbox. The check does not post a comment or replace threat detection,
+staged-mode handling, or stale-PR validation. Inaccessible evidence should produce
+a low-confidence `needs-review` report, not a no-op.
 
 Keep `tools.cli-proxy: false` explicit. The agent denies shell execution, so GitHub
 reads and safe-output submissions must use MCP directly, not shell-backed CLI
