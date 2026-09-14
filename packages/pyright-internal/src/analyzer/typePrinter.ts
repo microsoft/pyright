@@ -42,6 +42,8 @@ import {
     Variance,
 } from './types';
 import {
+    applySolvedTypeVars,
+    buildSolution,
     convertToInstance,
     doForEachSubtype,
     isNoneInstance,
@@ -321,8 +323,10 @@ function printTypeInternal(
                 }
 
                 // If it's a TypeVar, don't use the alias name. Instead, use the full
-                // name, which may have a scope associated with it.
-                if (type.category !== TypeCategory.TypeVar) {
+                // name, which may have a scope associated with it. The exception is
+                // the synthesized TypeVar that represents a recursive type alias;
+                // it has no user-visible name of its own.
+                if (type.category !== TypeCategory.TypeVar || type.shared.recursiveAlias) {
                     return aliasName;
                 }
             } finally {
@@ -342,7 +346,11 @@ function printTypeInternal(
         // If this is a recursive TypeVar, we've already expanded it once, so
         // just print its name at this point.
         if (isTypeVar(type) && type.shared.isSynthesized && type.shared.recursiveAlias) {
-            return type.shared.recursiveAlias.name;
+            // If the alias was specialized, fall through so the type arguments
+            // are printed along with the alias name.
+            if (!aliasInfo?.typeArgs) {
+                return type.shared.recursiveAlias.name;
+            }
         }
 
         if (aliasInfo) {
@@ -560,10 +568,33 @@ function printTypeInternal(
                     // aliases, return the type alias name.
                     if (type.shared.recursiveAlias) {
                         if ((printTypeFlags & PrintTypeFlags.ExpandTypeAlias) !== 0 && type.shared.boundType) {
+                            let boundType = TypeBase.isInstance(type)
+                                ? convertToInstance(type.shared.boundType)
+                                : type.shared.boundType;
+
+                            // If the alias was specialized, apply the type arguments to
+                            // the bound type. The type arguments are also retained on the
+                            // expanded type so recursive references within it are printed
+                            // using the specialized form rather than the alias's own
+                            // type parameters.
+                            const typeParams = type.shared.recursiveAlias.typeParams;
+                            if (aliasInfo?.typeArgs && typeParams) {
+                                boundType = applySolvedTypeVars(
+                                    boundType,
+                                    buildSolution(typeParams, aliasInfo.typeArgs)
+                                );
+
+                                const boundTypeAliasInfo = boundType.props?.typeAliasInfo;
+                                if (boundTypeAliasInfo && !boundTypeAliasInfo.typeArgs) {
+                                    boundType = TypeBase.cloneForTypeAlias(boundType, {
+                                        ...boundTypeAliasInfo,
+                                        typeArgs: aliasInfo.typeArgs,
+                                    });
+                                }
+                            }
+
                             return printTypeInternal(
-                                TypeBase.isInstance(type)
-                                    ? convertToInstance(type.shared.boundType)
-                                    : type.shared.boundType,
+                                boundType,
                                 printTypeFlags,
                                 returnTypeCallback,
                                 uniqueNameMap,
