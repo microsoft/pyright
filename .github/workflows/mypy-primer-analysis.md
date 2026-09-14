@@ -254,7 +254,7 @@ Call `publish_primer_analysis` exactly once with `report` containing a JSON stri
       "assessment": "needs-review",
       "confidence": "low",
       "summary": "A concise explanation for the PR table, at most 240 characters.",
-      "explanation": "Evidence-backed explanation of the meaningful groups, at most 1800 characters.",
+      "explanation": "Evidence-backed explanation of the meaningful groups. Aim for 1800 characters; longer explanations are preserved in the full report.",
       "unresolved": "Uninvestigated groups, missing provenance, or remaining questions; at most 800 characters. Use None identified only when justified.",
       "evidence": [
         {
@@ -278,5 +278,7 @@ evidence. Do not emit placeholder URLs from this example.
 
 The publisher supplies the authoritative counts, commit, run links, and report
 heading. It posts a compact per-project table and expandable explanations when
-they fit. The complete explanations and limitations are always retained in the
-`mypy-primer-analysis-report` artifact.
+they fit. Each explanation is previewed up to 1800 characters in the comment,
+with an explicit notice if truncated. The complete explanations and limitations
+are always retained in the `mypy-primer-analysis-report` artifact. Missing or
+empty explanations are still invalid; the overall report payload remains bounded.

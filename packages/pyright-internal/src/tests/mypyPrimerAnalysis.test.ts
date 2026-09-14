@@ -630,6 +630,113 @@ describe('mypy_primer analysis', () => {
         expect(result).toStrictEqual(expectedReport);
     });
 
+    test.each([1799, 1800, 1801, 2143])(
+        'previews a %i-character explanation without losing the full report',
+        (length) => {
+            const f = fixture();
+            const original = f.report.projects[0].explanation;
+            const explanation = 'x'.repeat(length);
+            f.report.projects[0].explanation = explanation;
+            const notice =
+                length > 1800 ? '\n\n**Explanation truncated; see the full report artifact linked below.**' : '';
+            expect(renderReport(f.manifest, f.report, 100)).toStrictEqual({
+                body: expectedReport.body.replace(original, 'x'.repeat(Math.min(length, 1800)) + notice),
+                fullReport: expectedReport.fullReport.replace(original, explanation),
+            });
+        }
+    );
+
+    test.each([
+        ['@', '&#64;'],
+        ['|', '\\|'],
+        ['\\', '\\\\'],
+        ['\u{1f642}', '\u{1f642}'],
+    ])('truncates before escaping and preserves the last Unicode code point: %s', (character, escaped) => {
+        const f = fixture();
+        const original = f.report.projects[0].explanation;
+        f.report.projects[0].explanation = '@'.repeat(1799) + character + ' Omitted qualification.';
+        const preview = '&#64;'.repeat(1799) + escaped;
+        expect(renderReport(f.manifest, f.report, 100)).toStrictEqual({
+            body: expectedReport.body.replace(
+                original,
+                preview + '\n\n**Explanation truncated; see the full report artifact linked below.**'
+            ),
+            fullReport: expectedReport.fullReport.replace(original, preview + ' Omitted qualification.'),
+        });
+    });
+
+    test.each([undefined, null, 42, '', ' \n '])('rejects an invalid explanation: %s', (explanation) => {
+        const f = fixture();
+        const report = { projects: [{ ...f.report.projects[0], explanation }] };
+        expect(() => renderReport(f.manifest, report, 100)).toThrow('Expected nonempty text');
+    });
+
+    test('keeps other field limits and the overall input bound', async () => {
+        const f = fixture();
+        for (const [field, value] of [
+            ['summary', 'x'.repeat(241)],
+            ['unresolved', 'x'.repeat(801)],
+            ['explanation', 'x'.repeat(1000001)],
+        ]) {
+            const report = { projects: [{ ...f.report.projects[0], [field]: value }] };
+            expect(() => renderReport(f.manifest, report, 100)).toThrow('Expected nonempty text');
+        }
+        f.report.projects[0].explanation = 'x'.repeat(1000000);
+        await expect(
+            publishAnalysis(f.request, f.manifest, f.output(), 100, join(directory, 'report.md'), false)
+        ).rejects.toThrow('at most 1000000 characters');
+        expect(f.request).not.toHaveBeenCalled();
+    });
+
+    test('publishes an oversized explanation preview and saves its complete text', async () => {
+        const f = fixture();
+        const original = f.report.projects[0].explanation;
+        const preview = 'x'.repeat(1800);
+        const explanation = preview + ' Qualification that must remain in the full artifact.';
+        f.report.projects[0].explanation = explanation;
+        const path = join(directory, 'report.md');
+        await expect(publishAnalysis(f.request, f.manifest, f.output(), 100, path, false)).resolves.toBe(
+            'Published: advisory analysis of every changed project'
+        );
+        expect(readFileSync(path, 'utf8')).toBe(expectedReport.fullReport.replace(original, explanation));
+        const calls = f.request.mock.calls.filter(([route]) => /^(POST|PATCH) /.test(route));
+        expect(calls).toStrictEqual([
+            [
+                'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
+                {
+                    owner: 'microsoft',
+                    repo: 'pyright',
+                    issue_number: 7,
+                    body: expectedReport.body.replace(
+                        original,
+                        preview + '\n\n**Explanation truncated; see the full report artifact linked below.**'
+                    ),
+                },
+            ],
+        ]);
+    });
+
+    test('long explanations still allow compact fallback without losing projects or artifact text', () => {
+        const f = fixture();
+        const names = Array.from({ length: 40 }, (_, index) => `project_${index}`);
+        const manifest = {
+            ...f.manifest,
+            projects: names.map((name) => ({ ...f.manifest.projects[0], name })),
+        };
+        const explanation = 'x'.repeat(2143);
+        const report = { projects: names.map((name) => ({ ...f.report.projects[0], name, explanation })) };
+        const result = renderReport(manifest, report, 100);
+        expect(result.body.length).toBeLessThanOrEqual(60000);
+        expect(result.body).not.toContain('<details>');
+        expect(result.body).toContain(expectedReportFooter[0]);
+        expect(result.fullReport).not.toContain('Explanation truncated');
+        for (const name of names) {
+            const escaped = name.replace('_', '\\_');
+            expect(result.body).toContain(`| ${escaped} |`);
+            expect(result.fullReport).toContain(`### ${escaped}\n\n${explanation}\n`);
+        }
+    });
+
     test('large reports retain every project in the comment and full artifact', () => {
         const f = fixture();
         const names = Array.from({ length: 40 }, (_, index) => `project_${index}`);
