@@ -13,53 +13,12 @@ on:
 permissions: {}
 
 jobs:
-  benchmark:
-    name: Find latest benchmark report
-    if: ${{ github.repository == 'microsoft/pyright' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-    outputs:
-      run-id: ${{ steps.report.outputs.run-id }}
-    steps:
-      - name: Find latest retained weekly report
-        id: report
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const runs = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'typecheck_benchmark_weekly.yml',
-              status: 'success',
-              per_page: 20,
-            })
-            for (const run of runs.data.workflow_runs) {
-              const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                run_id: run.id,
-                per_page: 100,
-              })
-              const report = artifacts.data.artifacts.find(
-                (artifact) =>
-                  !artifact.expired && artifact.name.startsWith('weekly-typecheck-report-')
-              )
-              if (report) {
-                core.setOutput('run-id', run.id)
-                return
-              }
-            }
-            core.setFailed('No retained weekly benchmark report artifact was found')
-
   publish:
     name: Publish current documentation
-    needs: benchmark
+    if: ${{ github.repository == 'microsoft/pyright' && github.ref == 'refs/heads/main' }}
     permissions:
       actions: read
       contents: read
       pages: write
       id-token: write
     uses: ./.github/workflows/publish_pages.yml
-    with:
-      benchmark-run-id: ${{ needs.benchmark.outputs.run-id }}

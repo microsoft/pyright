@@ -94,7 +94,12 @@ class RenderBenchmarkHtmlTest(unittest.TestCase):
         self.assertEqual(parser.title, "Python type checker benchmark")
         self.assertEqual(
             parser.headings,
-            ["Python type checker benchmark", "Run summary", "Package comparison"],
+            [
+                "Python type checker benchmark",
+                "Run summary",
+                "Package comparison",
+                "Pyright release history",
+            ],
         )
         self.assertEqual(
             parser.cells,

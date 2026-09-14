@@ -5,7 +5,13 @@ on:
     inputs:
       benchmark-run-id:
         description: Workflow run containing the weekly benchmark report artifact
-        required: true
+        required: false
+        default: ''
+        type: string
+      history-run-id:
+        description: Workflow run containing the Pyright release history artifact
+        required: false
+        default: ''
         type: string
 
 permissions: {}
@@ -31,6 +37,68 @@ jobs:
           ref: main
           persist-credentials: false
 
+      - name: Find retained report artifacts
+        id: reports
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          BENCHMARK_RUN_ID: ${{ inputs.benchmark-run-id }}
+          HISTORY_RUN_ID: ${{ inputs.history-run-id }}
+        with:
+          script: |
+            async function findRun(workflowId, artifactPrefix, required) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflowId,
+                status: 'success',
+                per_page: 20,
+              })
+              for (const run of runs.data.workflow_runs) {
+                const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: run.id,
+                  per_page: 100,
+                })
+                if (artifacts.data.artifacts.some(
+                  (artifact) => !artifact.expired && artifact.name.startsWith(artifactPrefix)
+                )) {
+                  return String(run.id)
+                }
+              }
+              if (required) core.setFailed(`No retained ${artifactPrefix} artifact was found`)
+              return ''
+            }
+
+            const benchmarkRunId = process.env.BENCHMARK_RUN_ID ||
+              await findRun('typecheck_benchmark_weekly.yml', 'weekly-typecheck-report-', true)
+            let historyRunId = process.env.HISTORY_RUN_ID
+            if (!historyRunId) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'typecheck_benchmark_history.yml',
+                status: 'success',
+                per_page: 20,
+              })
+              for (const run of runs.data.workflow_runs) {
+                const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: run.id,
+                  per_page: 100,
+                })
+                if (artifacts.data.artifacts.some(
+                  (artifact) => !artifact.expired && artifact.name === 'pyright-release-history'
+                )) {
+                  historyRunId = String(run.id)
+                  break
+                }
+              }
+            }
+            core.setOutput('benchmark-run-id', benchmarkRunId)
+            core.setOutput('history-run-id', historyRunId)
+
       - name: Download latest benchmark report
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -38,14 +106,28 @@ jobs:
           path: weekly-report
           merge-multiple: true
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.benchmark-run-id }}
+          run-id: ${{ steps.reports.outputs.benchmark-run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Pyright release history
+        if: ${{ steps.reports.outputs.history-run-id != '' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pyright-release-history
+          path: release-history
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.reports.outputs.history-run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Add report to documentation site
         run: |
-          rm -rf docs/typecheck-benchmark
           mkdir -p docs/typecheck-benchmark
+          find docs/typecheck-benchmark -mindepth 1 -maxdepth 1 ! -name history -exec rm -rf {} +
           cp -R weekly-report/. docs/typecheck-benchmark/
+          if [[ -d release-history ]]; then
+            rm -rf docs/typecheck-benchmark/history
+            cp -R release-history docs/typecheck-benchmark/history
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

@@ -525,12 +525,12 @@ Regression threshold: `10.0%`
             REPO_ROOT / ".github" / "workflows" / "publish_pages.yml"
         ).read_text(encoding="utf-8")
         self.assertIn("'docs/**'", docs_workflow)
-        self.assertIn("workflow_id: 'typecheck_benchmark_weekly.yml'", docs_workflow)
-        self.assertIn("!artifact.expired", docs_workflow)
         self.assertIn("uses: ./.github/workflows/publish_pages.yml", docs_workflow)
         self.assertIn("ref: main", pages_workflow)
         self.assertIn("weekly-typecheck-report-*", pages_workflow)
-        self.assertIn("rm -rf docs/typecheck-benchmark", pages_workflow)
+        self.assertIn("typecheck_benchmark_history.yml", pages_workflow)
+        self.assertIn("pyright-release-history", pages_workflow)
+        self.assertIn("! -name history", pages_workflow)
         self.assertIn(
             "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0",
             pages_workflow,
