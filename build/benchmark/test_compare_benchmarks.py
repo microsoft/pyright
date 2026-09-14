@@ -488,7 +488,7 @@ Regression threshold: `10.0%`
                 workflow,
             )
             self.assertIn(
-                "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6",
+                "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0",
                 workflow,
             )
             self.assertIn("SKIP_LERNA_BOOTSTRAP: 'yes'", workflow)
@@ -515,6 +515,30 @@ Regression threshold: `10.0%`
             weekly_workflow,
         )
         self.assertNotIn("actions/download-artifact@v4", weekly_workflow)
+        self.assertIn("uses: ./.github/workflows/publish_pages.yml", weekly_workflow)
+        self.assertNotIn("actions/deploy-pages@", weekly_workflow)
+
+        docs_workflow = (
+            REPO_ROOT / ".github" / "workflows" / "publish_docs.yml"
+        ).read_text(encoding="utf-8")
+        pages_workflow = (
+            REPO_ROOT / ".github" / "workflows" / "publish_pages.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("'docs/**'", docs_workflow)
+        self.assertIn("workflow_id: 'typecheck_benchmark_weekly.yml'", docs_workflow)
+        self.assertIn("!artifact.expired", docs_workflow)
+        self.assertIn("uses: ./.github/workflows/publish_pages.yml", docs_workflow)
+        self.assertIn("ref: main", pages_workflow)
+        self.assertIn("weekly-typecheck-report-*", pages_workflow)
+        self.assertIn("rm -rf docs/typecheck-benchmark", pages_workflow)
+        self.assertIn(
+            "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0",
+            pages_workflow,
+        )
+        self.assertIn(
+            "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1",
+            pages_workflow,
+        )
 
         pr_workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
