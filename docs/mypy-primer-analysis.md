@@ -61,6 +61,32 @@ The older v0.86.2 compiler advertised shell-backed tools even with
 MCP-compatible safe-output instructions. It still prepares CLI wrappers
 internally, but they are not advertised to the agent or required for MCP access.
 
+Keep `engine.version: 1.0.80` explicit as well. Without it, the installer can select
+a newer CLI through the runtime compatibility catalog even when generated metadata
+records `1.0.80`. CLI `1.0.83` connects to the bundled gateway `v0.4.18` but its
+native `tools/list` requests fail with MCP error `-32022` (unsupported protocol
+version). CLI `1.0.80` supports native tool discovery with that gateway.
+
+A preflight harness starts the installed CLI in headless mode and checks its live
+GitHub and safe-output tool lists, including `publish_primer_analysis`. It uses
+the same authenticated gateway inside the analysis sandbox, an isolated CLI
+home in its writable `/tmp/gh-aw` mount, no repository credentials, and an
+unreachable local inference endpoint.
+It never sends a prompt or calls a tool. Missing tools or protocol errors fail the
+job before paid analysis starts; gateway health or successful initialization alone
+does not establish compatibility. Only successful discovery launches the unmodified
+standard Copilot harness, preserving its arguments, environment, and exit status.
+The trusted collector stages the preflight scripts from the workflow commit, not
+from the candidate PR. `pre-agent-steps` only copies them into the runtime directory:
+that hook runs before gateway setup in this compiler version.
+The compiler omits its outer AWF startup retry wrapper for custom harnesses, so
+preflight failures stop immediately. The standard harness's inference retries
+remain unchanged.
+
+Before changing the CLI pin or gateway, repeat native tool discovery against the
+actual selected binaries; compilation alone cannot catch transport incompatibility.
+The preflight checks discovery, not model quality or successful comment publication.
+
 The compiler owns the `github/gh-aw-actions/setup` runtime as well as the generated
 script calls. `.github/aw/actions-lock.json` records its version-to-SHA resolution;
 the generated metadata, runtime pin, and compiler version must agree. A standalone

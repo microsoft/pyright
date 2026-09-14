@@ -836,6 +836,8 @@ describe('mypy_primer analysis', () => {
         expect(source.getIn(['tools', 'edit'])).toBe(false);
         expect(source.getIn(['tools', 'github', 'read-only'])).toBe(true);
         expect(source.get('max-ai-credits')).toBe(25);
+        expect(source.getIn(['engine', 'version'])).toBe('1.0.80');
+        expect(source.getIn(['engine', 'harness'])).toBe('mypyPrimerCopilotHarness.cjs');
 
         const content = readFileSync(
             join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'),
@@ -843,6 +845,7 @@ describe('mypy_primer analysis', () => {
         );
         const metadata = parseDocument(content.split('\n')[0].replace('# gh-aw-metadata: ', ''));
         expect(metadata.get('compiler_version')).toBe('v0.88.7');
+        expect(metadata.getIn(['engine_versions', 'copilot'])).toBe('1.0.80');
         expect(content.includes('mcp_cli_tools')).toBe(false);
         expect(content.includes('GH_AW_MCP_CLI_SERVERS')).toBe(false);
 
@@ -864,7 +867,30 @@ describe('mypy_primer analysis', () => {
         expect(gateway).toContain('"safeoutputs": {');
         expect(gateway).toContain('"GITHUB_READ_ONLY": "1"');
 
+        const install = agentSteps.items.find(
+            (item) => isMap(item) && String(item.get('run')).includes('install_copilot_cli.sh')
+        );
+        if (!isMap(install)) {
+            throw new Error('Missing Copilot installation step');
+        }
+        expect(install.get('run')).toContain('install_copilot_cli.sh" 1.0.80');
+        const preflight = getStep('stage_mcp_preflight');
+        expect(preflight.get('continue-on-error')).toBeUndefined();
+        expect(preflight.get('if')).toBeUndefined();
+        expect(preflight.getIn(['with', 'script'])).toContain("['mypyPrimerMcp.ts', 'mypyPrimerCopilotHarness.cjs']");
+        expect(agentSteps.items.indexOf(preflight)).toBeLessThan(
+            agentSteps.items.indexOf(getStep('agentic_execution'))
+        );
+        expect(getStep('agentic_execution').get('if')).toBeUndefined();
+        expect(String(workflow.getIn(['jobs', 'collect', 'steps'], true))).toContain(
+            "fs.copyFileSync('./build/ci/mypyPrimerMcp.ts'"
+        );
+        expect(String(workflow.getIn(['jobs', 'collect', 'steps'], true))).toContain(
+            "fs.copyFileSync('./build/ci/mypyPrimerCopilotHarness.cjs'"
+        );
+
         const execution = getStep('agentic_execution').get('run');
+        expect(execution).toContain('/gh-aw/actions/mypyPrimerCopilotHarness.cjs"');
         expect(execution).toContain('export GH_AW_MCP_CONFIG="$HOME/.copilot/mcp-config.json"');
         expect(execution).toContain('--allow-tool github');
         expect(execution).toContain('--allow-tool safeoutputs');

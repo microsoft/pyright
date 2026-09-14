@@ -15,6 +15,8 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
+  version: 1.0.80
+  harness: mypyPrimerCopilotHarness.cjs
   args: [--deny-tool, write, --deny-tool, shell]
 timeout-minutes: 15
 max-turns: 30
@@ -86,6 +88,8 @@ jobs:
               return;
             }
             fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2));
+            fs.copyFileSync('./build/ci/mypyPrimerMcp.ts', path.join(folder, 'mypyPrimerMcp.ts'));
+            fs.copyFileSync('./build/ci/mypyPrimerCopilotHarness.cjs', path.join(folder, 'mypyPrimerCopilotHarness.cjs'));
             core.setOutput('has_changes', String(manifest.projects.length > 0));
             core.notice(`${manifest.projects.length} changed projects; all eight shards accounted for`);
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -99,6 +103,20 @@ steps:
     with:
       name: primer-analysis-input
       path: /tmp/gh-aw/primer-input
+pre-agent-steps:
+  - name: Stage the native MCP preflight harness
+    id: stage_mcp_preflight
+    uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+    with:
+      script: |
+        const fs = require('fs');
+        const path = require('path');
+        for (const file of ['mypyPrimerMcp.ts', 'mypyPrimerCopilotHarness.cjs']) {
+          fs.copyFileSync(
+            path.join('/tmp/gh-aw/primer-input', file),
+            path.join(process.env.RUNNER_TEMP, 'gh-aw', 'actions', file)
+          );
+        }
 safe-outputs:
   missing-tool: false
   missing-data: false
