@@ -16,7 +16,6 @@ on:
 
 permissions:
   contents: read
-  issues: read
   pull-requests: read
 
 concurrency:
@@ -37,11 +36,6 @@ jobs:
           RUN_ATTEMPT: ${{ github.run_attempt }}
         with:
           script: |
-            const pullRequest = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-            })
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -51,9 +45,7 @@ jobs:
             const analyzerChanged = files.some(
               (file) => file.filename.startsWith('packages/pyright-internal/src/analyzer/')
             )
-            const explicitlyRequested = Number(process.env.RUN_ATTEMPT) > 1 && pullRequest.data.labels.some(
-              (label) => label.name === 'benchmark-requested'
-            )
+            const explicitlyRequested = Number(process.env.RUN_ATTEMPT) > 1
             core.setOutput('requested', analyzerChanged || explicitlyRequested)
 
   candidate-benchmark:

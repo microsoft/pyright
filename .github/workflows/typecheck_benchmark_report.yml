@@ -67,9 +67,7 @@ jobs:
             const analyzerChanged = files.some(
               (file) => file.filename.startsWith('packages/pyright-internal/src/analyzer/')
             )
-            const explicitlyRequested = workflowRun.run_attempt > 1 && pullRequest.data.labels.some(
-              (label) => label.name === 'benchmark-requested'
-            )
+            const explicitlyRequested = workflowRun.run_attempt > 1
             const authorized = analyzerChanged || explicitlyRequested
             core.setOutput('authorized', authorized)
             if (!authorized) {
@@ -396,35 +394,4 @@ jobs:
                 issue_number: issueNumber,
                 body,
               })
-            }
-
-  cleanup:
-    name: Clear benchmark request
-    if: >-
-      ${{ always() && github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.run_attempt > 1 }}
-    needs: [metadata, base-benchmark, comparison, comment]
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-    steps:
-      - name: Remove request label
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const pullRequests = context.payload.workflow_run.pull_requests
-            const issueNumber = Number('${{ needs.metadata.outputs.pr-number }}') || pullRequests[0]?.number
-            if (!issueNumber) {
-              core.notice('No pull request was associated with the benchmark run')
-              return
-            }
-            try {
-              await github.rest.issues.removeLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                name: 'benchmark-requested',
-              })
-            } catch (error) {
-              if (error.status !== 404) throw error
             }

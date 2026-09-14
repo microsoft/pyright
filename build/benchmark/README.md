@@ -109,18 +109,19 @@ The hosted pull-request benchmark runs automatically when a pull request changes
 `packages/pyright-internal/src/analyzer/`. For other pull requests, a maintainer can run it by
 commenting exactly `/benchmark` on an open pull request. The command must be the entire comment. The
 trusted command workflow checks that the commenter has `write`, `maintain`, or `admin` repository
-permission and then toggles the `benchmark-requested` label and reruns the current commit's existing
-pull-request workflow. Users without one of these permissions cannot manually start the benchmark.
+permission and then reruns the current commit's existing pull-request workflow. Users without one of
+these permissions cannot manually start the benchmark. GitHub likewise restricts direct workflow
+reruns to users with repository write access, so a rerun attempt itself is the authorization signal;
+no pull-request-wide request label is used.
 
 The automatic run or authorized rerun executes an unprivileged `pull_request` workflow that runs the
 pull request's synthetic merge commit with read-only repository, issue, and pull-request permissions.
 It cannot read or write the shared benchmark cache. When it completes, a separate trusted
 `workflow_run` workflow uses only default-branch code to independently verify that the run changed an
-analyzer file or was explicitly requested, validate the candidate artifact and pull-request
-revisions, benchmark or restore the exact base commit, render the comparison, and create or update
-one benchmark comment. Candidate output is treated only as bounded JSON data and is never executed by
-the trusted workflow. The Actions job summary and benchmark artifact contain the same candidate
-results.
+analyzer file or is an authorized rerun, validate the candidate artifact and pull-request revisions,
+benchmark or restore the exact base commit, render the comparison, and create or update one benchmark
+comment. Candidate output is treated only as bounded JSON data and is never executed by the trusted
+workflow. The Actions job summary and benchmark artifact contain the same candidate results.
 
 Comment `/benchmark` again after pushing a new commit or when rerunning the same head. No benchmark is
 started automatically for later commits. The command workflow must already exist on the repository's

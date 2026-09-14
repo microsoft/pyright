@@ -7,7 +7,6 @@ on:
 
 permissions:
   actions: write
-  issues: write
   pull-requests: read
 
 jobs:
@@ -36,7 +35,6 @@ jobs:
               return
             }
 
-            const label = 'benchmark-requested'
             const pullRequest = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -66,38 +64,6 @@ jobs:
               core.setFailed('The pull request validation workflow is not ready; retry /benchmark shortly')
               return
             }
-            try {
-              await github.rest.issues.getLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: label,
-              })
-            } catch (error) {
-              if (error.status !== 404) throw error
-              await github.rest.issues.createLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: label,
-                color: '1d76db',
-                description: 'Run the hosted type checker benchmark',
-              })
-            }
-            try {
-              await github.rest.issues.removeLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                name: label,
-              })
-            } catch (error) {
-              if (error.status !== 404) throw error
-            }
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              labels: [label],
-            })
             await github.rest.actions.reRunWorkflow({
               owner: context.repo.owner,
               repo: context.repo.repo,

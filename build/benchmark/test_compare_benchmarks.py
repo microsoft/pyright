@@ -619,14 +619,12 @@ Regression threshold: `10.0%`
         self.assertIn("github.event.issue.state == 'open'", trigger_workflow)
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
-        self.assertIn("issues: write", trigger_workflow)
         self.assertIn("pull-requests: read", trigger_workflow)
         self.assertIn("actions: write", trigger_workflow)
         self.assertIn("actions.listWorkflowRuns", trigger_workflow)
         self.assertIn("actions.reRunWorkflow", trigger_workflow)
-        self.assertIn("issues.addLabels", trigger_workflow)
-        self.assertIn("issues.removeLabel", trigger_workflow)
-        self.assertIn("issues.createLabel", trigger_workflow)
+        self.assertNotIn("issues:", trigger_workflow)
+        self.assertNotIn("benchmark-requested", trigger_workflow)
         self.assertNotIn("createWorkflowDispatch", trigger_workflow)
         self.assertNotIn("workflow_dispatch:", trigger_workflow)
         self.assertNotIn("inputs:", trigger_workflow)
@@ -647,7 +645,7 @@ Regression threshold: `10.0%`
         self.assertIn("- synchronize", benchmark_workflow)
         self.assertNotIn("- labeled", benchmark_workflow)
         self.assertIn("Number(process.env.RUN_ATTEMPT) > 1", benchmark_workflow)
-        self.assertIn("label.name === 'benchmark-requested'", benchmark_workflow)
+        self.assertNotIn("benchmark-requested", benchmark_workflow)
         self.assertIn("github.rest.pulls.listFiles", benchmark_workflow)
         self.assertIn(
             "file.filename.startsWith('packages/pyright-internal/src/analyzer/')",
@@ -664,7 +662,6 @@ Regression threshold: `10.0%`
             benchmark_workflow_data["permissions"],
             {
                 "contents": "read",
-                "issues": "read",
                 "pull-requests": "read",
             },
         )
@@ -702,6 +699,8 @@ Regression threshold: `10.0%`
             report_workflow,
         )
         self.assertIn("github.rest.pulls.listFiles", report_workflow)
+        self.assertIn("const explicitlyRequested = workflowRun.run_attempt > 1", report_workflow)
+        self.assertNotIn("benchmark-requested", report_workflow)
         self.assertIn(
             "file.filename.startsWith('packages/pyright-internal/src/analyzer/')",
             report_workflow,
