@@ -90,7 +90,11 @@ pnpm --dir packages/pyright-internal exec jest mypyPrimerAnalysis.test --runInBa
   Its small handoff artifact identifies the upstream primer run and attempt.
 - Preparation verifies the source workflow, repository, successful run, artifact
   inventory, PR association, and current head. Fork runs with missing PR metadata
-  require an unambiguous GitHub commit-to-PR association.
+  are associated by listing open PRs in the target repository with the run's head
+  owner and branch. Exactly one PR must match the head repository, branch, SHA,
+  and base repository, and its number must agree with the uploaded artifact.
+  GitHub's commit-to-PR lookup can return an empty list for an open fork PR, so it
+  is not used for this fallback. Missing or ambiguous matches fail explicitly.
 - All eight shards are required. Missing, duplicate, expired, oversized, or
   old-attempt artifacts cause an explicit failure, not a partial success report.
   Partial reruns that reuse old shard artifacts should be rerun in full.

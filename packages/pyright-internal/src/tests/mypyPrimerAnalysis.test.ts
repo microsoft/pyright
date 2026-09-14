@@ -159,21 +159,21 @@ const expectedReport = {
     fullReport: [...expectedReportHeading, expectedReportRow, '', ...expectedReportDetails].join('\n'),
 };
 
-function fixture(contents = sample) {
+function fixture(contents = sample, headRepository = repository) {
     const source = {
         runId: 42,
         runAttempt: 1,
         headSha,
-        headRepository: repository,
+        headRepository,
         headBranch: 'feature',
-        pullRequests: [7],
+        pullRequests: headRepository === repository ? [7] : [],
     };
     const manifest = { repository, source, prNumber: 7, ...summarizeDiffs(parseDiff(contents, 0)) };
     const pr = {
         number: 7,
         state: 'open',
         base: { repo: { full_name: repository } },
-        head: { sha: headSha, ref: 'feature', repo: { full_name: repository } },
+        head: { sha: headSha, ref: 'feature', repo: { full_name: headRepository } },
     };
     const run = {
         id: 42,
@@ -183,9 +183,9 @@ function fixture(contents = sample) {
         conclusion: 'success',
         repository: { full_name: repository },
         head_sha: headSha,
-        head_repository: { full_name: repository },
+        head_repository: { full_name: headRepository },
         head_branch: 'feature',
-        pull_requests: [{ number: 7 }],
+        pull_requests: source.pullRequests.map((number) => ({ number })),
         run_started_at: '2026-09-10T00:00:00Z',
     };
     const artifacts = [
@@ -206,6 +206,9 @@ function fixture(contents = sample) {
                 return { data: pr };
             }
             if (route === 'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls') {
+                return { data: [] };
+            }
+            if (route === 'GET /repos/{owner}/{repo}/pulls') {
                 return { data: associated };
             }
             if (route === 'GET /repos/{owner}/{repo}/issues/{issue_number}/comments') {
@@ -500,15 +503,115 @@ describe('mypy_primer analysis', () => {
         await expect(prepareAnalysis(f.request, repository, f.source, directory)).rejects.toThrow('Invalid PR number');
     });
 
-    test('accepts a uniquely associated fork but rejects ambiguous associations', async () => {
+    test('associates a fork by its head branch when GitHub omits commit and run PR associations', async () => {
         writeShards();
-        const f = fixture();
-        f.source.pullRequests = [];
-        f.source.headRepository = 'contributor/pyright';
-        f.pr.head.repo.full_name = 'contributor/pyright';
-        await expect(prepareAnalysis(f.request, repository, f.source, directory)).resolves.toBeDefined();
+        const f = fixture(sample, 'contributor/pyright');
+        f.source.headBranch = f.run.head_branch = f.pr.head.ref = 'fix/feature';
+        const source = await loadSource(f.request, repository, f.source);
+        expect(source).toStrictEqual(f.source);
+        await expect(prepareAnalysis(f.request, repository, source, directory)).resolves.toStrictEqual(f.manifest);
+        expect(f.request).toHaveBeenCalledWith('GET /repos/{owner}/{repo}/pulls', {
+            owner: 'microsoft',
+            repo: 'pyright',
+            state: 'open',
+            head: 'contributor:fix/feature',
+            per_page: 100,
+            page: 1,
+        });
+        expect(f.request.mock.calls.some(([route]) => route.includes('/commits/'))).toBe(false);
+    });
+
+    test('rejects missing or ambiguous fork associations', async () => {
+        writeShards();
+        const f = fixture(sample, 'contributor/pyright');
+        f.associated.length = 0;
+        await expect(prepareAnalysis(f.request, repository, f.source, directory)).rejects.toThrow('found 0');
+        f.associated.push(f.pr);
         f.associated.push({ ...f.pr, number: 8 });
-        await expect(prepareAnalysis(f.request, repository, f.source, directory)).rejects.toThrow('unique');
+        await expect(prepareAnalysis(f.request, repository, f.source, directory)).rejects.toThrow('found 2');
+    });
+
+    test('filters fork candidates by state, head SHA, branch, head repository, and base repository', async () => {
+        writeShards();
+        const f = fixture(sample, 'contributor/pyright');
+        const other = { ...f.pr, number: 8 };
+        f.associated.push(
+            { ...other, state: 'closed' },
+            { ...other, head: { ...other.head, sha: 'b'.repeat(40) } },
+            { ...other, head: { ...other.head, ref: 'different' } },
+            { ...other, head: { ...other.head, repo: { full_name: 'someone/pyright' } } },
+            { ...other, head: { ...other.head, repo: { full_name: 'contributor/other' } } },
+            { ...other, base: { repo: { full_name: 'someone/else' } } }
+        );
+        await expect(prepareAnalysis(f.request, repository, f.source, directory)).resolves.toStrictEqual(f.manifest);
+    });
+
+    test('does not trust a fork PR number artifact without a matching branch association', async () => {
+        writeShards();
+        const f = fixture(sample, 'contributor/pyright');
+        f.associated.splice(0, 1, { ...f.pr, number: 8 });
+        await expect(prepareAnalysis(f.request, repository, f.source, directory)).rejects.toThrow('not associated');
+    });
+
+    test('paginates fork branch associations before requiring a unique match', async () => {
+        writeShards();
+        const f = fixture(sample, 'contributor/pyright');
+        const original = f.request.getMockImplementation()!;
+        f.request.mockImplementation(async (route, parameters) => {
+            if (route === 'GET /repos/{owner}/{repo}/pulls' && parameters.page === 1) {
+                return { data: Array.from({ length: 100 }, () => ({ ...f.pr, state: 'closed' })) };
+            }
+            return original(route, parameters);
+        });
+        await expect(prepareAnalysis(f.request, repository, f.source, directory)).resolves.toStrictEqual(f.manifest);
+        expect(
+            f.request.mock.calls
+                .filter(([route]) => route === 'GET /repos/{owner}/{repo}/pulls')
+                .map(([, parameters]) => parameters.page)
+        ).toStrictEqual([1, 2]);
+    });
+
+    test.each(['closed', 'superseded'])('skips a %s fork PR without looking up associations', async (state) => {
+        writeShards();
+        const f = fixture(sample, 'contributor/pyright');
+        if (state === 'closed') {
+            f.pr.state = 'closed';
+        } else {
+            f.pr.head.sha = 'b'.repeat(40);
+        }
+        await expect(prepareAnalysis(f.request, repository, f.source, directory)).resolves.toBeUndefined();
+        expect(f.request.mock.calls.map(([route]) => route)).toStrictEqual([
+            'GET /repos/{owner}/{repo}/pulls/{pull_number}',
+        ]);
+    });
+
+    test('revalidates fork branch associations before publishing', async () => {
+        const f = fixture(sample, 'contributor/pyright');
+        await expect(
+            publishAnalysis(f.request, f.manifest, f.output(), 100, join(directory, 'report.md'), false)
+        ).resolves.toBe('Published: advisory analysis of every changed project');
+        expect(f.request.mock.calls.filter(([route]) => route === 'GET /repos/{owner}/{repo}/pulls')).toHaveLength(2);
+        expect(f.request.mock.calls.filter(([route]) => /^(POST|PATCH) /.test(route))).toStrictEqual([
+            [
+                'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
+                { owner: 'microsoft', repo: 'pyright', issue_number: 7, body: expectedReport.body },
+            ],
+        ]);
+    });
+
+    test('refuses to publish when a fork branch association becomes ambiguous', async () => {
+        const f = fixture(sample, 'contributor/pyright');
+        const original = f.request.getMockImplementation()!;
+        f.request.mockImplementation(async (route, parameters) => {
+            if (route === 'GET /repos/{owner}/{repo}/issues/{issue_number}/comments') {
+                f.associated.push({ ...f.pr, number: 8 });
+            }
+            return original(route, parameters);
+        });
+        await expect(
+            publishAnalysis(f.request, f.manifest, f.output(), 100, join(directory, 'report.md'), false)
+        ).rejects.toThrow('found 2');
+        expect(f.request.mock.calls.some(([route]) => /^(POST|PATCH) /.test(route))).toBe(false);
     });
 
     test('rejects duplicate project sections and unexpected shard files', async () => {
