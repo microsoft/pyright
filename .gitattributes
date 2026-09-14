@@ -1,4 +1,5 @@
 *.json                       linguist-language=JSON-with-Comments
+*.ipynb                      text eol=lf
 **/pnpm-lock.yaml            text eol=lf
 
 .github/workflows/*.lock.yml linguist-generated=true

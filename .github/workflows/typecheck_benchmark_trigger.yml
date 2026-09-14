@@ -7,7 +7,6 @@ on:
 
 permissions:
   actions: write
-  contents: read
   pull-requests: read
 
 jobs:
@@ -42,18 +41,31 @@ jobs:
               pull_number: context.issue.number,
             })
             if (!pullRequest.data.merge_commit_sha) {
-              core.setFailed('The pull request does not have a merge commit to benchmark')
+              core.setFailed('The pull request must be mergeable before it can be benchmarked')
               return
             }
-            await github.rest.actions.createWorkflowDispatch({
+            let candidateRun
+            for (let attempt = 0; attempt < 12; attempt++) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'typecheck_benchmark_pr.yml',
+                event: 'pull_request',
+                head_sha: pullRequest.data.head.sha,
+                per_page: 100,
+              })
+              candidateRun = runs.data.workflow_runs.find(
+                (run) => run.pull_requests.some((item) => item.number === context.issue.number)
+              )
+              if (candidateRun?.status === 'completed') break
+              await new Promise((resolve) => setTimeout(resolve, 5000))
+            }
+            if (!candidateRun || candidateRun.status !== 'completed') {
+              core.setFailed('The pull request validation workflow is not ready; retry /benchmark shortly')
+              return
+            }
+            await github.rest.actions.reRunWorkflow({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'typecheck_benchmark_pr.yml',
-              ref: context.payload.repository.default_branch,
-              inputs: {
-                pr_number: String(context.issue.number),
-                head_sha: pullRequest.data.head.sha,
-                base_sha: pullRequest.data.base.sha,
-                merge_sha: pullRequest.data.merge_commit_sha,
-              },
+              run_id: candidateRun.id,
             })

@@ -1,0 +1,179 @@
+name: Cache type checker benchmark for main
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/typecheck_benchmark_main.yml'
+      - '.github/workflows/typecheck_benchmark_pr.yml'
+      - '.github/workflows/typecheck_benchmark_report.yml'
+      - 'build/benchmark/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'packages/*/package.json'
+      - 'packages/pyright/**'
+      - 'packages/pyright-internal/src/**'
+      - 'packages/pyright-internal/typeshed-fallback/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  BENCHMARK_RUNNER_CLASS: 'github-ubuntu-latest'
+  NODE_VERSION: '24.15.0'
+  PNPM_VERSION: '10.12.2'
+  PYTHON_VERSION: '3.14.6'
+
+jobs:
+  benchmark:
+    name: Benchmark main commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Determine base cache key
+        id: cache-key
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.sha }}
+        run: |
+          profile="${ImageOS}-${ImageVersion}-$(uname -m)-cpu$(nproc)-python${PYTHON_VERSION}-node${NODE_VERSION}-pnpm${PNPM_VERSION}-r1-w0-m8192-heap6656"
+          profile="$(printf '%s' "$profile" | tr -c 'A-Za-z0-9_.-' '-')"
+          echo "value=typecheck-benchmark-base-v2-${BASE_SHA}-${profile}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore cached result
+        id: base-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: build/benchmark/base-results/latest-linux-x64.json
+          key: ${{ steps.cache-key.outputs.value }}
+
+      - name: Validate cached result
+        id: cached-result
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.sha }}
+        run: |
+          result=build/benchmark/base-results/latest-linux-x64.json
+          if [[ "${{ steps.base-cache.outputs.cache-hit }}" == "true" ]] && \
+            python -c "import hashlib,json,sys; data=json.load(open(sys.argv[1], encoding='utf-8')); digest=hashlib.sha256(b''.join(open(path, 'rb').read() for path in sys.argv[3:])).hexdigest(); sys.exit(data.get('source_revision') != sys.argv[2] or not data.get('source_commit_subject') or not data.get('source_commit_timestamp') or data.get('benchmark_profile_hash') != digest)" \
+              "$result" "$BASE_SHA" build/benchmark/typecheck_benchmark.py \
+              build/benchmark/install_envs.json && \
+            python build/benchmark/compare_benchmarks.py "$result" "$result" \
+              --fail-on-preparation-error; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+          else
+            rm -f "$result"
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: ${{ steps.cached-result.outputs.valid != 'true' }}
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - if: ${{ steps.cached-result.outputs.valid != 'true' }}
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify build prerequisites
+        if: ${{ steps.cached-result.outputs.valid != 'true' }}
+        run: |
+          gcc --version
+          g++ --version
+          make --version
+
+      - name: Install JavaScript dependencies
+        if: ${{ steps.cached-result.outputs.valid != 'true' }}
+        timeout-minutes: 10
+        env:
+          SKIP_LERNA_BOOTSTRAP: 'yes'
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Build Pyright CLI
+        if: ${{ steps.cached-result.outputs.valid != 'true' }}
+        working-directory: packages/pyright
+        run: pnpm run build
+
+      - name: Benchmark main commit
+        if: ${{ steps.cached-result.outputs.valid != 'true' }}
+        env:
+          NODE_OPTIONS: '--max-old-space-size=6656'
+          PYTHONNOUSERSITE: '1'
+        run: |
+          python build/benchmark/typecheck_benchmark.py \
+            -c pyright -r 1 -w 0 -t 1800 --memory-limit-mb 8192 \
+            --skip-pyright-build --os-name linux-x64 \
+            --output build/benchmark/base-results
+
+      - name: Record revision and profile
+        if: ${{ steps.cached-result.outputs.valid != 'true' }}
+        env:
+          BASE_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          path = Path('build/benchmark/base-results/latest-linux-x64.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          data['source_revision'] = os.environ['BASE_SHA']
+          data['source_commit_subject'] = subprocess.check_output(
+              ['git', 'show', '-s', '--format=%s', os.environ['BASE_SHA']], text=True
+          ).strip()
+          data['source_commit_timestamp'] = subprocess.check_output(
+              ['git', 'show', '-s', '--format=%cI', os.environ['BASE_SHA']], text=True
+          ).strip()
+          profile = hashlib.sha256()
+          for profile_path in (
+              Path('build/benchmark/typecheck_benchmark.py'),
+              Path('build/benchmark/install_envs.json'),
+          ):
+              profile.update(profile_path.read_bytes())
+          data['benchmark_profile_hash'] = profile.hexdigest()
+          path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Validate result
+        env:
+          BASE_SHA: ${{ github.sha }}
+        run: |
+          python build/benchmark/compare_benchmarks.py \
+            build/benchmark/base-results/latest-linux-x64.json \
+            build/benchmark/base-results/latest-linux-x64.json \
+            --fail-on-preparation-error \
+            --baseline-revision "$BASE_SHA" --candidate-revision "$BASE_SHA"
+
+      - name: Save result cache
+        if: ${{ steps.cached-result.outputs.valid != 'true' }}
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: build/benchmark/base-results/latest-linux-x64.json
+          key: ${{ steps.cache-key.outputs.value }}
+
+      - name: Upload main result
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typecheck-benchmark-main-${{ github.sha }}
+          path: build/benchmark/base-results/latest-linux-x64.json
+          if-no-files-found: error
+          retention-days: 90
