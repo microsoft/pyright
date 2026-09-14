@@ -943,6 +943,10 @@ describe('mypy_primer analysis', () => {
         expect(source.getIn(['tools', 'edit'])).toBe(false);
         expect(source.getIn(['tools', 'github', 'read-only'])).toBe(true);
         expect(source.get('max-ai-credits')).toBe(25);
+        expect(source.getIn(['engine', 'model'])).toBe('gpt-5.4-mini');
+        expect(source.getIn(['sandbox', 'agent', 'token-steering'])).toBe(false);
+        expect(source.getIn(['safe-outputs', 'threat-detection', 'engine', 'model'])).toBe('detection');
+        expect(source.getIn(['safe-outputs', 'threat-detection', 'engine', 'version'])).toBe('1.0.80');
         expect(source.getIn(['engine', 'version'])).toBe('1.0.80');
         expect(source.getIn(['engine', 'harness'])).toBe('mypyPrimerCopilotHarness.cjs');
 
@@ -997,6 +1001,9 @@ describe('mypy_primer analysis', () => {
         );
 
         const execution = getStep('agentic_execution').get('run');
+        expect(getStep('agentic_execution').getIn(['env', 'COPILOT_MODEL'])).toBe('gpt-5.4-mini');
+        expect(execution).toContain('"enableTokenSteering":false');
+        expect(execution).toContain('"maxAiCredits":25');
         expect(execution).toContain('/gh-aw/actions/mypyPrimerCopilotHarness.cjs"');
         expect(execution).toContain('export GH_AW_MCP_CONFIG="$HOME/.copilot/mcp-config.json"');
         expect(execution).toContain('--allow-tool github');
@@ -1005,5 +1012,17 @@ describe('mypy_primer analysis', () => {
         expect(execution).toContain('--deny-tool write');
         expect(execution).not.toContain('--allow-tool shell');
         expect(execution).not.toContain('--allow-tool write');
+
+        const detectionSteps = workflow.getIn(['jobs', 'detection', 'steps'], true);
+        if (!isSeq(detectionSteps)) {
+            throw new Error('Missing detection steps');
+        }
+        const detection = detectionSteps.items.find(
+            (item) => isMap(item) && item.getIn(['env', 'COPILOT_MODEL']) !== undefined
+        );
+        if (!isMap(detection)) {
+            throw new Error('Missing threat detection model configuration');
+        }
+        expect(detection.getIn(['env', 'COPILOT_MODEL'])).toBe('detection');
     });
 });

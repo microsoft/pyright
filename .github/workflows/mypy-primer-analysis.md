@@ -16,11 +16,15 @@ permissions:
 engine:
   id: copilot
   version: 1.0.80
+  model: gpt-5.4-mini
   harness: mypyPrimerCopilotHarness.cjs
   args: [--deny-tool, write, --deny-tool, shell]
 timeout-minutes: 15
 max-turns: 30
 max-ai-credits: 25
+sandbox:
+  agent:
+    token-steering: false
 network:
   allowed: [defaults, github]
 checkout: false
@@ -118,6 +122,11 @@ pre-agent-steps:
           );
         }
 safe-outputs:
+  threat-detection:
+    engine:
+      id: copilot
+      version: 1.0.80
+      model: detection
   missing-tool: false
   missing-data: false
   report-incomplete:

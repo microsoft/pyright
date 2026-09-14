@@ -52,6 +52,14 @@ They can be adjusted in `.github/workflows/mypy-primer-analysis.md`. The agent m
 mark insufficiently investigated projects as needing review rather than inventing
 evidence to meet its budget.
 
+The analysis uses `engine.model: gpt-5.4-mini` as a lower-cost alternative to
+automatic model selection. Keep `sandbox.agent.token-steering: false` so the
+proxy preserves the selected model rather than steering requests to another one.
+The 25-credit cap is unchanged; a cheaper model does not guarantee completion.
+The model must be enabled for the organization, and its advisory assessments
+still require human review. Threat detection explicitly retains its existing
+`detection` model alias rather than inheriting the analysis model.
+
 Keep `tools.cli-proxy: false` explicit. The agent denies shell execution, so GitHub
 reads and safe-output submissions must use MCP directly, not shell-backed CLI
 wrappers. Regeneration must retain both MCP servers and omit CLI-only prompt
