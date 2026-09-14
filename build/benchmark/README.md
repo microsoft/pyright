@@ -187,10 +187,10 @@ commit validated against the pull request base. If the pull request or default b
 the trusted workflow validates those revisions, the report stops and a new `/benchmark` request is
 required. The base result is cached under an exact key containing its commit and hosted measurement
 profile. A missing, expired, or invalid cache entry causes a fresh base build and benchmark; prefix
-and fallback cache matches are not used. Only the job that checks out trusted default-branch code can
-populate this shared cache. The job that executes pull-request code cannot write it. A newly measured
-base result is also committed to the checked-in dated and `latest` baseline files on same-repository
-pull requests after confirming that the pull request head has not changed.
+and fallback cache matches are not used. A trusted push workflow proactively benchmarks relevant
+commits on `main` and saves their exact-SHA results in the shared cache. The trusted pull-request
+report workflow uses the same cache key and benchmarks the base itself on a cache miss. The job that
+executes pull-request code cannot read or write the shared cache.
 
 Both revisions use Python 3.14.6, a 6.5 GiB V8 old-space limit, one measured run, no discarded warmup,
 and a 30-minute invocation timeout. A regression must exceed both a 20% relative threshold and an
@@ -201,14 +201,11 @@ not apply a performance regression gate. Once that change is merged, its commit 
 later pull requests and is cached normally.
 
 The base result, candidate result, and comparison are attached to the workflow run and rendered in the
-Actions job summary and existing benchmark pull-request comment. When the exact base result was not
-already cached, the workflow commits it as both the dated baseline and `latest-linux-x64.json` on a
-same-repository pull-request branch. The write-scoped job uses the GitHub API without checking out or
-executing pull-request code, and skips the update if the pull-request head has changed. Fork pull
-requests retain the result as an artifact because the repository token cannot update their branches.
-The baseline commit changes the pull-request head and can retrigger push-based checks. The report
-comment cannot dispatch another benchmark: the trigger accepts only a newly created comment whose
-entire trimmed body is `/benchmark`, whereas later reports update the marker comment.
+Actions job summary and existing benchmark pull-request comment. Relevant pushes to `main` also retain
+the raw result as a 90-day artifact. Benchmark workflows never commit generated results to a pull
+request branch. The report comment cannot dispatch another benchmark: the trigger accepts only a
+newly created comment whose entire trimmed body is `/benchmark`, whereas later reports update the
+marker comment.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
 Each checker performs three measured runs after one warmup over the same pinned corpus. The aggregate

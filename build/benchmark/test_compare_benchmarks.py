@@ -515,24 +515,30 @@ Regression threshold: `10.0%`
         report_workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_report.yml"
         ).read_text(encoding="utf-8")
+        main_workflow = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_main.yml"
+        ).read_text(encoding="utf-8")
         timeout_matches = re.findall(
             r"typecheck_benchmark\.py \\\s+"
             r"-c pyright -r 1 -w 0 -t (\d+)",
-            candidate_workflow + report_workflow,
+            candidate_workflow + report_workflow + main_workflow,
         )
-        self.assertEqual(timeout_matches, ["1800", "1800"])
+        self.assertEqual(timeout_matches, ["1800", "1800", "1800"])
         self.assertIn("data['source_revision'] = os.environ['MERGE_SHA']", candidate_workflow)
         self.assertIn("data['source_head_revision']", candidate_workflow)
         self.assertIn("data['source_base_revision']", candidate_workflow)
         self.assertIn("data['source_revision'] = os.environ['BASE_SHA']", report_workflow)
-        for workflow in (candidate_workflow, report_workflow):
+        self.assertIn("data['source_revision'] = os.environ['BASE_SHA']", main_workflow)
+        for workflow in (candidate_workflow, report_workflow, main_workflow):
             self.assertIn("data['source_commit_subject']", workflow)
             self.assertIn("data['source_commit_timestamp']", workflow)
             self.assertIn("data['benchmark_profile_hash'] = profile.hexdigest()", workflow)
-        self.assertIn("build/benchmark/baselines/latest-linux-x64.json", report_workflow)
+        self.assertIn("typecheck-benchmark-base-v2-${BASE_SHA}-${profile}", report_workflow)
+        self.assertIn("typecheck-benchmark-base-v2-${BASE_SHA}-${profile}", main_workflow)
 
     def test_workflows_use_current_pnpm_setup(self) -> None:
         for workflow_name in (
+            "typecheck_benchmark_main.yml",
             "typecheck_benchmark_pr.yml",
             "typecheck_benchmark_report.yml",
             "typecheck_benchmark_weekly.yml",
@@ -667,7 +673,6 @@ Regression threshold: `10.0%`
         base_job = report_workflow_data["jobs"]["base-benchmark"]
         comparison_job = report_workflow_data["jobs"]["comparison"]
         comment_job = report_workflow_data["jobs"]["comment"]
-        persist_job = report_workflow_data["jobs"]["persist-base-result"]
         self.assertEqual(report_workflow_data["permissions"], {})
         self.assertEqual(metadata_job["permissions"], {"pull-requests": "read"})
         self.assertEqual(base_job["permissions"], {"contents": "read"})
@@ -679,11 +684,11 @@ Regression threshold: `10.0%`
                 "pull-requests": "write",
             },
         )
-        self.assertEqual(
-            persist_job["permissions"],
-            {"actions": "read", "contents": "write"},
-        )
         self.assertEqual(comment_job["needs"], ["metadata", "comparison"])
+        self.assertIn(
+            "mergeCommit.data.parents[0]?.sha !== pullRequest.data.base.sha",
+            report_workflow,
+        )
         self.assertEqual(
             [
                 job_name
@@ -698,11 +703,11 @@ Regression threshold: `10.0%`
                 for job_name, job in report_workflow_data["jobs"].items()
                 if job.get("permissions", {}).get("contents") == "write"
             ],
-            ["persist-base-result"],
+            [],
         )
         self.assertIn("github.event.workflow_run.conclusion == 'success'", report_workflow)
 
-    def test_pr_workflow_caches_only_the_base_result(self) -> None:
+    def test_main_and_pr_workflows_share_base_cache_without_pr_writes(self) -> None:
         candidate_workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
@@ -712,14 +717,20 @@ Regression threshold: `10.0%`
         workflow = report_workflow_path.read_text(encoding="utf-8")
         workflow_data = _load_yaml(report_workflow_path)
         base_job = json.dumps(workflow_data["jobs"]["base-benchmark"])
+        main_workflow_path = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_main.yml"
+        )
+        main_workflow = main_workflow_path.read_text(encoding="utf-8")
+        main_workflow_data = _load_yaml(main_workflow_path)
+        main_job = json.dumps(main_workflow_data["jobs"]["benchmark"])
 
-        self.assertIn("actions/cache/restore@0057852", base_job)
-        self.assertIn("actions/cache/save@0057852", base_job)
-        self.assertIn("typecheck-benchmark-base-v2-", base_job)
-        self.assertNotIn("restore-keys", base_job)
+        for cache_job in (base_job, main_job):
+            self.assertIn("actions/cache/restore@0057852", cache_job)
+            self.assertIn("actions/cache/save@0057852", cache_job)
+            self.assertIn("typecheck-benchmark-base-v2-", cache_job)
+            self.assertNotIn("restore-keys", cache_job)
         self.assertNotIn("actions/cache/", candidate_workflow)
         self.assertIn("ref: ${{ github.sha }}", workflow)
-        self.assertNotIn("actions/checkout", workflow_data["jobs"]["persist-base-result"])
         self.assertIn("--baseline-revision", workflow)
         self.assertIn("--candidate-revision", workflow)
         self.assertIn("--allow-incompatible", workflow)
@@ -727,32 +738,15 @@ Regression threshold: `10.0%`
         self.assertIn("updateComment", workflow)
         self.assertIn("comment.user?.login === 'github-actions[bot]'", workflow)
         self.assertNotIn("git push", workflow)
-        persist_job = workflow_data["jobs"]["persist-base-result"]
-        persist_job_text = json.dumps(persist_job)
-        self.assertNotIn("actions/checkout", persist_job_text)
-        self.assertIn("needs.base-benchmark.outputs.cached != 'true'", persist_job["if"])
-        self.assertIn("needs.metadata.outputs.head-repository == github.repository", persist_job["if"])
-        self.assertIn("!cancelled()", persist_job["if"])
-        self.assertIn("github.rest.git.createCommit", workflow)
-        self.assertIn("github.rest.git.updateRef", workflow)
-        self.assertIn("currentRef.data.object.sha !== expectedHeadSha", workflow)
-        self.assertIn("build/benchmark/baselines/latest-linux-x64.json", workflow)
-        self.assertIn("build/benchmark/baselines/benchmark_${result.date}_linux-x64.json", workflow)
-        self.assertTrue(
-            (REPO_ROOT / "build" / "benchmark" / "baselines" / "latest-linux-x64.json").exists()
-        )
-        baseline = json.loads(
-            (
-                REPO_ROOT
-                / "build"
-                / "benchmark"
-                / "baselines"
-                / "latest-linux-x64.json"
-            ).read_text(encoding="utf-8")
-        )
-        self.assertRegex(baseline["source_revision"], r"^[0-9a-f]{40}$")
-        self.assertTrue(baseline["source_commit_subject"])
-        self.assertTrue(baseline["source_commit_timestamp"])
+        self.assertNotIn("persist-base-result", workflow_data["jobs"])
+        self.assertNotIn("contents: write", workflow)
+        self.assertNotIn("github.rest.git.createCommit", workflow)
+        self.assertNotIn("github.rest.git.updateRef", workflow)
+        self.assertEqual(main_workflow_data["permissions"], {"contents": "read"})
+        self.assertEqual(main_workflow_data["on"]["push"]["branches"], ["main"])
+        self.assertIn("workflow_dispatch", main_workflow_data["on"])
+        self.assertIn("typecheck-benchmark-main-${{ github.sha }}", main_workflow)
+        self.assertIn("retention-days: 90", main_workflow)
 
 
 if __name__ == "__main__":

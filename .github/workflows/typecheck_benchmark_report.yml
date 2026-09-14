@@ -30,8 +30,6 @@ jobs:
     outputs:
       pr-number: ${{ steps.pull-request.outputs.pr-number }}
       head-sha: ${{ steps.pull-request.outputs.head-sha }}
-      head-ref: ${{ steps.pull-request.outputs.head-ref }}
-      head-repository: ${{ steps.pull-request.outputs.head-repository }}
       merge-sha: ${{ steps.pull-request.outputs.merge-sha }}
     steps:
       - name: Validate pull request metadata
@@ -68,10 +66,17 @@ jobs:
               core.setFailed('The pull request changed after the benchmark was requested')
               return
             }
+            const mergeCommit = await github.rest.git.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: pullRequest.data.merge_commit_sha,
+            })
+            if (mergeCommit.data.parents[0]?.sha !== pullRequest.data.base.sha) {
+              core.setFailed('The pull request merge commit does not have the validated base as its first parent')
+              return
+            }
             core.setOutput('pr-number', issueNumber)
             core.setOutput('head-sha', pullRequest.data.head.sha)
-            core.setOutput('head-ref', pullRequest.data.head.ref)
-            core.setOutput('head-repository', pullRequest.data.head.repo.full_name)
             core.setOutput('merge-sha', pullRequest.data.merge_commit_sha)
 
   base-benchmark:
@@ -82,9 +87,6 @@ jobs:
     timeout-minutes: 180
     permissions:
       contents: read
-    outputs:
-      cached: ${{ steps.cached-result.outputs.valid }}
-
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -373,109 +375,12 @@ jobs:
               })
             }
 
-  persist-base-result:
-    name: Update pull request baseline
-    needs: [metadata, base-benchmark, comment]
-    if: >-
-      ${{ !cancelled() && needs.base-benchmark.result == 'success' &&
-      needs.base-benchmark.outputs.cached != 'true' &&
-      needs.metadata.outputs.head-repository == github.repository }}
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: write
-    steps:
-      - name: Download base result
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: typecheck-benchmark-base
-          path: benchmark-result
-
-      - name: Commit baseline to pull request branch
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          EXPECTED_HEAD_SHA: ${{ needs.metadata.outputs.head-sha }}
-          HEAD_REF: ${{ needs.metadata.outputs.head-ref }}
-          BASE_SHA: ${{ github.sha }}
-        with:
-          script: |
-            const fs = require('fs')
-            const contents = fs.readFileSync('benchmark-result/latest-linux-x64.json', 'utf8')
-            const result = JSON.parse(contents)
-            const expectedHeadSha = process.env.EXPECTED_HEAD_SHA
-            const headRef = process.env.HEAD_REF
-            const baseSha = process.env.BASE_SHA
-            if (
-              result.source_revision !== baseSha ||
-              typeof result.source_commit_subject !== 'string' ||
-              result.source_commit_subject.length === 0 ||
-              Number.isNaN(Date.parse(result.source_commit_timestamp)) ||
-              Number.isNaN(Date.parse(result.timestamp)) ||
-              !/^\d{4}-\d{2}-\d{2}$/.test(result.date)
-            ) {
-              core.setFailed('The base benchmark result metadata is invalid')
-              return
-            }
-            const currentRef = await github.rest.git.getRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `heads/${headRef}`,
-            })
-            if (currentRef.data.object.sha !== expectedHeadSha) {
-              core.notice('The pull request head changed; skipping the baseline update')
-              return
-            }
-            const parent = await github.rest.git.getCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: expectedHeadSha,
-            })
-            const blob = await github.rest.git.createBlob({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              content: Buffer.from(contents).toString('base64'),
-              encoding: 'base64',
-            })
-            const tree = await github.rest.git.createTree({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              base_tree: parent.data.tree.sha,
-              tree: [
-                {
-                  path: 'build/benchmark/baselines/latest-linux-x64.json',
-                  mode: '100644',
-                  type: 'blob',
-                  sha: blob.data.sha,
-                },
-                {
-                  path: `build/benchmark/baselines/benchmark_${result.date}_linux-x64.json`,
-                  mode: '100644',
-                  type: 'blob',
-                  sha: blob.data.sha,
-                },
-              ],
-            })
-            const commit = await github.rest.git.createCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              message: `Update benchmark baseline for ${baseSha.slice(0, 12)}`,
-              tree: tree.data.sha,
-              parents: [expectedHeadSha],
-            })
-            await github.rest.git.updateRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `heads/${headRef}`,
-              sha: commit.data.sha,
-              force: false,
-            })
-
   cleanup:
     name: Clear benchmark request
     if: >-
       ${{ always() && github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.run_attempt > 1 }}
-    needs: [metadata, base-benchmark, comparison, comment, persist-base-result]
+    needs: [metadata, base-benchmark, comparison, comment]
     runs-on: ubuntu-latest
     permissions:
       issues: write
