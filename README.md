@@ -16,12 +16,7 @@ Try Pyright in your browser using the [Pyright Playground](https://pyright-play.
 
 Refer to [the documentation](https://microsoft.github.io/pyright) for installation, configuration, and usage details.
 
-
-## Performance
-
-The [weekly type checker benchmark](https://microsoft.github.io/pyright/typecheck-benchmark/) compares Pyright with other Python type checkers.
-
-The [Pyright release history](https://microsoft.github.io/pyright/typecheck-benchmark/history/) tracks per-package execution time and peak memory across releases.
+The latest [weekly type checker benchmark results](https://microsoft.github.io/pyright/typecheck-benchmark/) compare Pyright with other Python type checkers.
 
 
 ## Environment variables
