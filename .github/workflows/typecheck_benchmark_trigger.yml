@@ -13,7 +13,7 @@ permissions:
 jobs:
   trigger:
     name: Authorize benchmark request
-    if: ${{ github.repository == 'microsoft/pyright' && github.event.issue.pull_request && github.event.issue.state == 'open' && startsWith(github.event.comment.body, '/benchmark') }}
+    if: ${{ github.repository == 'microsoft/pyright' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark') }}
     runs-on: ubuntu-latest
     steps:
       - name: Trigger benchmark for authorized maintainer
@@ -41,8 +41,23 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.issue.number,
             })
-            if (!pullRequest.data.merge_commit_sha) {
-              core.setFailed('The pull request does not have a merge commit to benchmark')
+            if (pullRequest.data.state !== 'open' && !pullRequest.data.merged) {
+              core.notice('Only open or merged pull requests can be benchmarked')
+              return
+            }
+            const candidateSha = pullRequest.data.merge_commit_sha
+            if (!candidateSha) {
+              core.setFailed('The pull request does not have a candidate commit to benchmark')
+              return
+            }
+            const candidateCommit = await github.rest.repos.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: candidateSha,
+            })
+            const baseSha = candidateCommit.data.parents[0]?.sha
+            if (!baseSha) {
+              core.setFailed('The candidate commit does not have a first parent')
               return
             }
             await github.rest.actions.createWorkflowDispatch({
@@ -53,7 +68,7 @@ jobs:
               inputs: {
                 pr_number: String(context.issue.number),
                 head_sha: pullRequest.data.head.sha,
-                base_sha: pullRequest.data.base.sha,
-                merge_sha: pullRequest.data.merge_commit_sha,
+                base_sha: baseSha,
+                merge_sha: candidateSha,
               },
             })

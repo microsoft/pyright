@@ -807,19 +807,25 @@ Regression threshold: `10.0%`
         self.assertIn(
             "context.payload.comment.body.trim() !== '/benchmark'", trigger_workflow
         )
-        self.assertIn("github.event.issue.state == 'open'", trigger_workflow)
         self.assertEqual(
             trigger_workflow_data["jobs"]["trigger"]["if"],
-            "${{ github.repository == 'microsoft/pyright' && github.event.issue.pull_request && github.event.issue.state == 'open' && startsWith(github.event.comment.body, '/benchmark') }}",
+            "${{ github.repository == 'microsoft/pyright' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark') }}",
         )
+        self.assertNotIn("github.event.issue.state == 'open'", trigger_workflow)
+        self.assertIn(
+            "pullRequest.data.state !== 'open' && !pullRequest.data.merged",
+            trigger_workflow,
+        )
+        self.assertIn("github.rest.repos.getCommit", trigger_workflow)
+        self.assertIn("candidateCommit.data.parents[0]?.sha", trigger_workflow)
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
         self.assertIn("actions: write", trigger_workflow)
         self.assertIn("pull-requests: read", trigger_workflow)
         self.assertIn("createWorkflowDispatch", trigger_workflow)
         self.assertIn("workflow_id: 'typecheck_benchmark_pr.yml'", trigger_workflow)
-        self.assertIn("base_sha: pullRequest.data.base.sha", trigger_workflow)
-        self.assertIn("merge_sha: pullRequest.data.merge_commit_sha", trigger_workflow)
+        self.assertIn("base_sha: baseSha", trigger_workflow)
+        self.assertIn("merge_sha: candidateSha", trigger_workflow)
         self.assertNotIn("actions/checkout", trigger_workflow)
         self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
@@ -846,9 +852,35 @@ Regression threshold: `10.0%`
         self.assertIn("ref: ${{ inputs.merge_sha }}", benchmark_workflow)
         self.assertIn("-merge-${{ inputs.merge_sha }}", benchmark_workflow)
         self.assertIn("run_id: context.runId", benchmark_workflow)
-        self.assertIn("pullRequest.data.base.sha !== expectedBaseSha", benchmark_workflow)
+        self.assertIn(
+            "candidateCommit.data.parents[0]?.sha !== expectedBaseSha",
+            benchmark_workflow,
+        )
         self.assertIn(
             "pullRequest.data.merge_commit_sha !== expectedMergeSha",
+            benchmark_workflow,
+        )
+        self.assertIn(
+            "Compared candidate \\`${process.env.CANDIDATE_SHA}\\` against its first parent",
+            benchmark_workflow,
+        )
+        self.assertEqual(
+            [
+                step.get("with")
+                for step in benchmark_workflow_data["jobs"]["comment"]["steps"]
+                if step.get("name") == "Check out trusted baseline"
+            ],
+            [
+                {
+                    "ref": "${{ inputs.base_sha }}",
+                    "path": "benchmark-baseline",
+                    "sparse-checkout": "build/benchmark/baselines",
+                    "persist-credentials": False,
+                }
+            ],
+        )
+        self.assertIn(
+            "benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json",
             benchmark_workflow,
         )
         benchmark_job = benchmark_workflow_data["jobs"]["benchmark"]
