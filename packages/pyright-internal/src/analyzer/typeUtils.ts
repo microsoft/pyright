@@ -1773,7 +1773,11 @@ export function lookUpClassMember(
     // Skip the "type" class as an optimization because it is known to not
     // define any instance variables, and it's by far the most common metaclass.
     if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
-        const metaMemberItr = getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers);
+        let metaFlags = MemberAccessFlags.SkipClassMembers;
+        if (isClassInstance(classType) || (flags & MemberAccessFlags.SkipTypeBaseClass) !== 0) {
+            metaFlags |= MemberAccessFlags.SkipTypeBaseClass;
+        }
+        const metaMemberItr = getClassMemberIterator(metaclass, memberName, metaFlags);
         const metaMember = metaMemberItr.next()?.value;
 
         // If the metaclass defines the member and we didn't hit an Unknown
@@ -2005,7 +2009,7 @@ export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.De
 
             // Should we ignore members on the 'object' base class?
             if (flags & ClassIteratorFlags.SkipObjectBaseClass) {
-                if (isInstantiableClass(specializedMroClass)) {
+                if (isClass(specializedMroClass)) {
                     if (ClassType.isBuiltIn(specializedMroClass, 'object')) {
                         break;
                     }
@@ -2014,7 +2018,7 @@ export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.De
 
             // Should we ignore members on the 'type' base class?
             if (flags & ClassIteratorFlags.SkipTypeBaseClass) {
-                if (isInstantiableClass(specializedMroClass)) {
+                if (isClass(specializedMroClass)) {
                     if (ClassType.isBuiltIn(specializedMroClass, 'type')) {
                         break;
                     }
