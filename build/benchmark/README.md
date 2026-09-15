@@ -110,12 +110,16 @@ result contract, and the comparator rejects mismatched environments.
 
 ## Maintainer workflow
 
-The hosted pull-request benchmark runs only when a maintainer comments exactly `/benchmark` on an
-open or merged pull request. The command must be the entire comment. The trusted command workflow
-checks that the commenter has `write`, `maintain`, or `admin` repository permission and then
-explicitly dispatches the benchmark with the pull request's head and candidate commits. Closed,
-unmerged pull requests are ignored. Users without one of these permissions cannot start the
-benchmark.
+Pull requests that change `packages/pyright-internal/src/analyzer/` automatically run the hosted
+benchmark when opened, reopened, updated, or marked ready for review. Draft pull requests wait until
+they are ready. The trusted trigger runs from the base repository and dispatches the existing
+read-only benchmark workflow without checking out or executing pull-request code.
+
+For other pull requests, a maintainer can comment exactly `/benchmark` on an open or merged pull
+request. The command must be the entire comment. The trusted command workflow checks that the
+commenter has `write`, `maintain`, or `admin` repository permission and then explicitly dispatches
+the benchmark with the pull request's head and candidate commits. Closed, unmerged pull requests are
+ignored. Users without one of these permissions cannot start the benchmark.
 
 For an open pull request, the dispatched workflow runs GitHub's current synthetic merge commit. For
 a merged pull request, it runs the checked-in merge or squash commit. Both modes compare the
@@ -127,10 +131,9 @@ code and the first parent's checked-in baseline. It creates or updates one bench
 trusted job runs on a separate runner with pull-request write permission. The Actions job summary and
 benchmark artifact contain the same candidate results.
 
-Comment `/benchmark` again after pushing a new commit or when rerunning the same head. No benchmark is
-started automatically for later commits. The command workflow must already exist on the repository's
-default branch before comments can trigger it; a pull request that first introduces the workflow
-cannot trigger itself.
+Analyzer changes run again after each pushed commit. For other changes, comment `/benchmark` again
+after pushing a new commit or when rerunning the same head. The trigger workflows must already exist
+on the repository's default branch; a pull request that first introduces them cannot trigger itself.
 
 ## Options
 
