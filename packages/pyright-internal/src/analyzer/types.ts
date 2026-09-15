@@ -4091,10 +4091,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
                         // If neither narrowed form subsumes the other, retain
                         // the un-narrowed TypedDict shape rather than exposing
                         // a union of incompatible presence states.
-                        unionType.priv.subtypes[i] = ClassType.cloneForNarrowedTypedDictEntries(
-                            type,
-                            undefined
-                        );
+                        unionType.priv.subtypes[i] = ClassType.cloneForNarrowedTypedDictEntries(type, undefined);
                         return;
                     }
                 }
