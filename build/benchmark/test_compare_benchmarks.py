@@ -474,49 +474,70 @@ Regression threshold: `10.0%`
             )
 
     def test_workflows_use_current_pnpm_setup(self) -> None:
-        for workflow_name in (
-            "typecheck_benchmark_pr.yml",
-            "typecheck_benchmark_weekly.yml",
-        ):
-            workflow = (
-                REPO_ROOT / ".github" / "workflows" / workflow_name
-            ).read_text(encoding="utf-8")
-
-            self.assertIn("uses: pnpm/action-setup@", workflow)
-            self.assertIn(
-                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
-                workflow,
-            )
-            self.assertIn(
-                "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0",
-                workflow,
-            )
-            self.assertIn("SKIP_LERNA_BOOTSTRAP: 'yes'", workflow)
-            self.assertIn("--max-old-space-size=6656", workflow)
-            self.assertIn("timeout-minutes: 10", workflow)
-            self.assertIn("pnpm install --frozen-lockfile --prefer-offline", workflow)
-            self.assertIn(
-                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1",
-                workflow,
-            )
-            self.assertNotIn("actions/upload-artifact@v4", workflow)
-            self.assertNotIn("actions/checkout@v4", workflow)
-            self.assertNotIn("actions/setup-python@v5", workflow)
-            self.assertNotIn("apt-get", workflow)
-            self.assertNotIn(".github/actions/npm-cache-dir", workflow)
-
         weekly_workflow_path = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_weekly.yml"
         )
-        weekly_workflow = weekly_workflow_path.read_text(encoding="utf-8")
         weekly_workflow_data = _load_yaml(weekly_workflow_path)
-        self.assertIn("cache: 'pnpm'", weekly_workflow)
-        self.assertIn("pnpm-lock.yaml", weekly_workflow)
-        self.assertIn(
-            "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
-            weekly_workflow,
+        weekly_benchmark_steps = weekly_workflow_data["jobs"]["benchmark"]["steps"]
+        self.assertEqual(
+            [step.get("uses") for step in weekly_benchmark_steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+                None,
+                None,
+                "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
+                "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+                None,
+                None,
+                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            ],
         )
-        self.assertNotIn("actions/download-artifact@v4", weekly_workflow)
+        self.assertEqual(
+            weekly_benchmark_steps[1]["with"],
+            {
+                "python-version": "${{ env.PYTHON_VERSION }}",
+                "cache": "pip",
+                "cache-dependency-path": "build/benchmark/install_envs.json\n.github/workflows/typecheck_benchmark_weekly.yml\n",
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[5]["with"],
+            {
+                "node-version": "${{ env.NODE_VERSION }}",
+                "cache": "pnpm",
+                "cache-dependency-path": "pnpm-lock.yaml",
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[6],
+            {
+                "name": "Build Pyright CLI",
+                "if": "${{ matrix.checker == 'pyright' }}",
+                "timeout-minutes": 10,
+                "env": {"SKIP_LERNA_BOOTSTRAP": "yes"},
+                "run": "pnpm install --frozen-lockfile --prefer-offline\npnpm --dir packages/pyright run build\n",
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[7]["env"],
+            {
+                "BENCHMARK_RUNNER_CLASS": "github-ubuntu-latest",
+                "NODE_OPTIONS": "${{ matrix.checker == 'pyright' && '--max-old-space-size=6656' || '' }}",
+                "PYTHONNOUSERSITE": "1",
+            },
+        )
+        weekly_report_steps = weekly_workflow_data["jobs"]["report"]["steps"]
+        self.assertEqual(
+            [step.get("uses") for step in weekly_report_steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+                None,
+                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                None,
+            ],
+        )
         self.assertEqual(
             weekly_workflow_data["jobs"]["publish"],
             {
@@ -533,7 +554,6 @@ Regression threshold: `10.0%`
                 "with": {"benchmark-run-id": "${{ github.run_id }}"},
             },
         )
-        self.assertNotIn("actions/deploy-pages@", weekly_workflow)
 
         docs_workflow_path = REPO_ROOT / ".github" / "workflows" / "publish_docs.yml"
         docs_workflow_data = _load_yaml(docs_workflow_path)
@@ -679,17 +699,56 @@ Regression threshold: `10.0%`
             {"path": "docs", "include-hidden-files": True},
         )
 
-        pr_workflow = (
+        pr_workflow_path = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
-        ).read_text(encoding="utf-8")
-        self.assertIn(
-            "run-name: 'Type checker benchmark for PR #${{ inputs.pr_number }}'",
-            pr_workflow,
         )
-        self.assertNotIn("PNPM_VERSION:", pr_workflow)
-        self.assertNotRegex(
-            pr_workflow,
-            r"uses: pnpm/action-setup@[^\n]+\n\s+with:\n\s+version:",
+        pr_workflow_data = _load_yaml(pr_workflow_path)
+        self.assertEqual(
+            pr_workflow_data["run-name"],
+            "Type checker benchmark for PR #${{ inputs.pr_number }}",
+        )
+        self.assertEqual(
+            pr_workflow_data["env"],
+            {
+                "BENCHMARK_RUNNER_CLASS": "github-ubuntu-latest",
+                "NODE_VERSION": "24.15.0",
+                "PYTHON_VERSION": "3.14.6",
+            },
+        )
+        pr_benchmark_steps = pr_workflow_data["jobs"]["benchmark"]["steps"]
+        self.assertEqual(
+            [step.get("uses") for step in pr_benchmark_steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+                "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
+                "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+                None,
+                None,
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                None,
+                None,
+                None,
+                None,
+                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                None,
+            ],
+        )
+        self.assertEqual(
+            pr_benchmark_steps[5],
+            {
+                "name": "Install JavaScript dependencies",
+                "timeout-minutes": 10,
+                "env": {"SKIP_LERNA_BOOTSTRAP": "yes"},
+                "run": "pnpm install --frozen-lockfile --prefer-offline",
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[9]["env"],
+            {
+                "NODE_OPTIONS": "--max-old-space-size=6656",
+                "PYTHONNOUSERSITE": "1",
+            },
         )
 
     def test_pr_benchmark_requires_authorized_comment(self) -> None:
