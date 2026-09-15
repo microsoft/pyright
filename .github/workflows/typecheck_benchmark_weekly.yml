@@ -74,12 +74,14 @@ jobs:
           NODE_OPTIONS: ${{ matrix.checker == 'pyright' && '--max-old-space-size=6656' || '' }}
           PYTHONNOUSERSITE: '1'
         run: |
+          checkers=('${{ matrix.checker }}')
           extra_args=()
           if [[ '${{ matrix.checker }}' == 'pyright' ]]; then
+            checkers+=(pyright-threads)
             extra_args+=(--skip-pyright-build)
           fi
           python build/benchmark/typecheck_benchmark.py \
-            -c '${{ matrix.checker }}' -r 3 -w 1 -t 1800 \
+            -c "${checkers[@]}" -r 3 -w 1 -t 1800 \
             --memory-limit-mb 8192 --os-name linux-x64 \
             --output build/benchmark/results \
             "${extra_args[@]}"
