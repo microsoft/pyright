@@ -959,25 +959,53 @@ describe('mypy_primer analysis', () => {
         );
     });
 
-    test('accepts exact-head evidence while keeping attribution distinct from the assessment', () => {
-        const f = fixture();
-        const url = `https://github.com/microsoft/pyright/blob/${headSha}/file.ts#L1-L5`;
+    test.each([
+        { headRepository: repository, evidenceRepository: repository },
+        { headRepository: 'contributor/pyright', evidenceRepository: repository },
+        { headRepository: 'contributor/pyright', evidenceRepository: 'contributor/pyright' },
+    ])(
+        'accepts $evidenceRepository evidence for a PR from $headRepository',
+        ({ headRepository, evidenceRepository }) => {
+            const f = fixture(sample, headRepository);
+            const url = `https://github.com/${evidenceRepository}/blob/${headSha}/file.ts#L1-L5`;
+            const report = {
+                projects: [
+                    {
+                        ...f.report.projects[0],
+                        attribution: 'likely-pr',
+                        evidence: [{ url, detail: 'Changed branch.' }],
+                    },
+                ],
+            };
+            const details = [...expectedReportDetails.slice(0, -1), `- Changed branch.: <${url}>`, '']
+                .join('\n')
+                .replace('PR attribution:** Not established.', 'PR attribution:** Likely caused by the PR.');
+            expect(renderReport(f.manifest, report, 100)).toStrictEqual({
+                body: expectedReport.body.replace(expectedReportDetails.join('\n'), details),
+                fullReport: expectedReport.fullReport.replace(expectedReportDetails.join('\n'), details),
+            });
+        }
+    );
+
+    test.each([
+        `https://github.com/contributor/pyright/blob/${'b'.repeat(40)}/file.ts#L1`,
+        `https://github.com/contributor/pyright/blob/${headSha}/file.ts`,
+        `https://github.com/contributor/pyright-extra/blob/${headSha}/file.ts#L1`,
+        `https://github.com/other/pyright/blob/${headSha}/file.ts#L1`,
+    ])('rejects mismatched attribution evidence for a fork PR: %s', (url) => {
+        const f = fixture(sample, 'contributor/pyright');
         const report = {
             projects: [
                 {
                     ...f.report.projects[0],
                     attribution: 'likely-pr',
-                    evidence: [{ url, detail: 'Changed branch.' }],
+                    evidence: [{ url, detail: 'Insufficient attribution evidence.' }],
                 },
             ],
         };
-        const details = [...expectedReportDetails.slice(0, -1), `- Changed branch.: <${url}>`, '']
-            .join('\n')
-            .replace('PR attribution:** Not established.', 'PR attribution:** Likely caused by the PR.');
-        expect(renderReport(f.manifest, report, 100)).toStrictEqual({
-            body: expectedReport.body.replace(expectedReportDetails.join('\n'), details),
-            fullReport: expectedReport.fullReport.replace(expectedReportDetails.join('\n'), details),
-        });
+        expect(() => renderReport(f.manifest, report, 100)).toThrow(
+            new Error('PR attribution requires a line-pinned citation at the analyzed head for example')
+        );
     });
 
     test.each(['before', 'after', 'impact', 'attribution'])('requires the %s investigation field', (field) => {
