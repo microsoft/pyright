@@ -57,6 +57,7 @@ import {
     NeverType,
     OverloadedType,
     Type,
+    TypeCondition,
     TypedDictEntries,
     TypedDictEntry,
     TypeVarScopeType,
@@ -68,6 +69,7 @@ import {
     buildSolutionFromSpecializedClass,
     computeMroLinearization,
     convertToInstance,
+    getTypeCondition,
     getTypeVarScopeId,
     isLiteralType,
     mapSubtypes,
@@ -1537,7 +1539,18 @@ export function getTypeOfIndexedTypedDict(
     let diag = new DiagnosticAddendum();
     let allDiagsInvolveNotRequiredKeys = true;
 
+    const conditionFilter = getTypeCondition(baseType);
+    const setType =
+        usage.method === 'set' && usage.setType && conditionFilter
+            ? evaluator.mapSubtypesExpandTypeVars(usage.setType.type, /* options */ undefined, (subtype) =>
+                  TypeCondition.isCompatible(getTypeCondition(subtype), conditionFilter) ? subtype : undefined
+              )
+            : usage.setType?.type;
     const resultingType = mapSubtypes(indexType, (subtype) => {
+        if (!TypeCondition.isCompatible(getTypeCondition(subtype), conditionFilter)) {
+            return undefined;
+        }
+
         if (isAnyOrUnknown(subtype)) {
             return subtype;
         }
@@ -1578,7 +1591,7 @@ export function getTypeOfIndexedTypedDict(
             }
 
             if (usage.method === 'set') {
-                if (!evaluator.assignType(entry.valueType, usage.setType?.type ?? AnyType.create(), diag)) {
+                if (!evaluator.assignType(entry.valueType, setType ?? AnyType.create(), diag)) {
                     allDiagsInvolveNotRequiredKeys = false;
                 }
             } else if (usage.method === 'del' && entry.isRequired) {
