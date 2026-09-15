@@ -7228,12 +7228,23 @@ export function createTypeEvaluator(
             }
         }
 
+        const memberClass = memberInfo && isInstantiableClass(memberInfo.classType) ? memberInfo.classType : undefined;
+
+        let effectiveSelfType = selfType;
+        if (
+            effectiveSelfType &&
+            isClass(effectiveSelfType) &&
+            !(memberName === '__get__' && memberClass && isInstantiableMetaclass(memberClass))
+        ) {
+            effectiveSelfType = ClassType.cloneIncludeSubclasses(effectiveSelfType);
+        }
+
         const boundType = bindFunctionToClassOrObject(
             classType,
             concreteType,
-            memberInfo && isInstantiableClass(memberInfo.classType) ? memberInfo.classType : undefined,
+            memberClass,
             (flags & MemberAccessFlags.TreatConstructorAsClassMethod) !== 0,
-            selfType && isClass(selfType) ? ClassType.cloneIncludeSubclasses(selfType) : selfType,
+            effectiveSelfType,
             diag,
             recursionCount
         );
