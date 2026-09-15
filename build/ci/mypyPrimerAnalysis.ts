@@ -727,13 +727,27 @@ export function validateSubmittedReport(manifest: Manifest, agentOutput: unknown
     const items = array(record(agentOutput).items)
         .map(record)
         .filter((item) => item.type === 'publish_primer_analysis');
-    if (items.length !== 1) {
+    if (!items.length || items.length > manifest.projects.length) {
         throw new Error(
-            `Expected exactly one primer analysis report; found ${items.length}. ` +
+            `Expected 1 to ${manifest.projects.length} primer analysis submissions; found ${items.length}. ` +
                 'Submit publish_primer_analysis, not noop or report_incomplete.'
         );
     }
-    return renderReport(manifest, JSON.parse(text(items[0].report, maxReportLength)), analysisRunId);
+    let combinedLength = 0;
+    const projects = items.flatMap((item) => {
+        const content = text(item.report, maxReportLength);
+        combinedLength += content.length;
+        if (combinedLength > maxReportLength) {
+            throw new Error(`The combined primer analysis report exceeds ${maxReportLength} characters`);
+        }
+        const projects = array(record(JSON.parse(content)).projects);
+        // Retain compatibility with historical, single-submission reports.
+        if (items.length > 1 && projects.length !== 1) {
+            throw new Error('Each per-project submission must contain exactly one project');
+        }
+        return projects;
+    });
+    return renderReport(manifest, { projects }, analysisRunId);
 }
 
 export function validateSubmittedReportFile(manifest: Manifest, outputPath: string, analysisRunId: number) {

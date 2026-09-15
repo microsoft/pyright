@@ -292,7 +292,12 @@ function fixture(contents = sample, headRepository = repository) {
             },
         ],
     };
-    const output = () => ({ items: [{ type: 'publish_primer_analysis', report: JSON.stringify(report) }] });
+    const output = (perProject = false) => ({
+        items: (perProject ? report.projects.map((project) => ({ projects: [project] })) : [report]).map((report) => ({
+            type: 'publish_primer_analysis',
+            report: JSON.stringify(report),
+        })),
+    });
     return { source, manifest, pr, run, artifacts, comments, associated, request, report, output };
 }
 
@@ -1236,12 +1241,149 @@ describe('mypy_primer analysis', () => {
         const f = fixture();
         const output = f.output();
         expect(() => validateSubmittedReport(f.manifest, { items: [...output.items, ...output.items] }, 100)).toThrow(
-            'Expected exactly one primer analysis report; found 2'
+            'Expected 1 to 1 primer analysis submissions; found 2'
         );
         output.items[0].report = ' '.repeat(1000001);
         expect(() => validateSubmittedReport(f.manifest, output, 100)).toThrow(
             'Expected nonempty text of at most 1000000 characters'
         );
+    });
+
+    test('assembles per-project submissions larger than the single-call transport limit', () => {
+        const f = fixture();
+        const names = Array.from({ length: 11 }, (_, index) => `project_${index}`);
+        const manifest = {
+            ...f.manifest,
+            projects: names.map((name) => ({ ...f.manifest.projects[0], name })),
+        };
+        const report = {
+            projects: names.map((name) => ({
+                ...f.report.projects[0],
+                name,
+                assessment: 'possible-regression',
+                attribution: 'likely-pr',
+                explanation: 'x'.repeat(2143),
+                evidence: [
+                    {
+                        url: `https://github.com/${repository}/blob/${headSha}/example.py#L1`,
+                        detail: 'The analyzed implementation.',
+                    },
+                ],
+            })),
+        };
+        const output = {
+            items: report.projects.map((project) => ({
+                type: 'publish_primer_analysis',
+                report: JSON.stringify({ projects: [project] }),
+            })),
+        };
+        expect(Buffer.byteLength(JSON.stringify(report), 'utf8')).toBeGreaterThan(10240);
+        for (const item of output.items) {
+            expect(Buffer.byteLength(item.report, 'utf8')).toBeLessThanOrEqual(10240);
+        }
+        const path = join(directory, 'agent_output.json');
+        writeFileSync(path, JSON.stringify(output));
+        expect(validateSubmittedReportFile(manifest, path, 100)).toStrictEqual(renderReport(manifest, report, 100));
+    });
+
+    test('retains compatibility with a single report covering multiple projects', () => {
+        const f = fixture([sample, sample.replace(/example/g, 'second')].join('\n'));
+        f.report.projects.push({ ...f.report.projects[0], name: 'second' });
+        expect(validateSubmittedReport(f.manifest, f.output(), 100)).toStrictEqual(
+            renderReport(f.manifest, f.report, 100)
+        );
+    });
+
+    test('publishes per-project submissions only after every project is present', async () => {
+        const f = fixture([sample, sample.replace(/example/g, 'second')].join('\n'));
+        f.report.projects.push({ ...f.report.projects[0], name: 'second' });
+        const output = f.output(true);
+        const path = join(directory, 'report.md');
+        await expect(
+            publishAnalysis(f.request, f.manifest, { items: output.items.slice(0, 1) }, 100, path, false)
+        ).rejects.toThrow('every changed project exactly once');
+        expect(f.request).not.toHaveBeenCalled();
+
+        expect(await publishAnalysis(f.request, f.manifest, output, 100, path, false)).toBe(
+            'Published: advisory analysis of every changed project'
+        );
+        const expected = renderReport(f.manifest, f.report, 100);
+        expect(readFileSync(path, 'utf8')).toBe(expected.fullReport);
+        expect(f.request).toHaveBeenLastCalledWith('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+            owner: 'microsoft',
+            repo: 'pyright',
+            issue_number: 7,
+            body: expected.body,
+        });
+    });
+
+    test('rejects invalid per-project payloads and evidence before GitHub access', async () => {
+        const f = fixture([sample, sample.replace(/example/g, 'second')].join('\n'));
+        f.report.projects.push({ ...f.report.projects[0], name: 'second' });
+        const [first, second] = f.report.projects;
+        const invalidReports = [
+            [JSON.stringify({ projects: [first] }), 'every changed project exactly once'],
+            [JSON.stringify({ projects: [{ ...second, name: 'unexpected' }] }), 'every changed project exactly once'],
+            [JSON.stringify({ projects: [] }), 'exactly one project'],
+            [JSON.stringify(f.report), 'exactly one project'],
+            ['{}', 'Expected a JSON array'],
+            ['{', 'JSON'],
+            [
+                JSON.stringify({ projects: [{ ...second, assessment: 'possible-regression' }] }),
+                'Expected cited evidence',
+            ],
+            [
+                JSON.stringify({
+                    projects: [
+                        {
+                            ...second,
+                            attribution: 'likely-pr',
+                            evidence: [
+                                {
+                                    url: `https://github.com/${repository}/blob/main/example.py#L1`,
+                                    detail: 'Not the analyzed head.',
+                                },
+                            ],
+                        },
+                    ],
+                }),
+                'PR attribution requires a line-pinned citation',
+            ],
+        ];
+        for (const [report, error] of invalidReports) {
+            const output = f.output(true);
+            output.items[1].report = report;
+            expect(() => validateSubmittedReport(f.manifest, output, 100)).toThrow(error);
+            await expect(
+                publishAnalysis(f.request, f.manifest, output, 100, join(directory, 'report.md'), false)
+            ).rejects.toThrow(error);
+        }
+        expect(f.request).not.toHaveBeenCalled();
+    });
+
+    test.each([10000, 10001])('enforces the combined bound for 100 submissions of %s characters', (length) => {
+        const f = fixture();
+        const names = Array.from({ length: 100 }, (_, index) => `project_${index}`);
+        f.manifest.projects = names.map((name) => ({ ...f.manifest.projects[0], name }));
+        f.report.projects = names.map((name) => {
+            const project = { ...f.report.projects[0], name, explanation: '' };
+            project.explanation = 'x'.repeat(length - JSON.stringify({ projects: [project] }).length);
+            return project;
+        });
+        const output = f.output(true);
+        expect(output.items.map((item) => Buffer.byteLength(item.report, 'utf8'))).toStrictEqual(
+            Array.from({ length: 100 }, () => length)
+        );
+        expect(length).toBeLessThanOrEqual(10240);
+        if (length === 10000) {
+            expect(validateSubmittedReport(f.manifest, output, 100)).toStrictEqual(
+                renderReport(f.manifest, f.report, 100)
+            );
+        } else {
+            expect(() => validateSubmittedReport(f.manifest, output, 100)).toThrow(
+                'The combined primer analysis report exceeds 1000000 characters'
+            );
+        }
     });
 
     test('report completion reuses evidence and project validation', () => {
@@ -1728,7 +1870,8 @@ describe('mypy_primer analysis', () => {
         expect(source.getIn(['tools', 'edit'])).toBe(false);
         expect(source.getIn(['tools', 'github', 'read-only'])).toBe(true);
         expect(source.get('max-ai-credits')).toBe(100);
-        expect(source.getIn(['engine', 'model'])).toBe('gpt-5.6-terra');
+        expect(source.getIn(['engine', 'model'])).toBe('gpt-5.6-sol');
+        expect(source.getIn(['safe-outputs', 'jobs', 'publish-primer-analysis', 'max'])).toBe(100);
         expect(source.getIn(['safe-outputs', 'noop'])).toBe(false);
         expect(source.getIn(['sandbox', 'agent', 'token-steering'])).toBe(false);
         expect(source.getIn(['safe-outputs', 'threat-detection', 'engine', 'model'])).toBe('detection');
@@ -1856,9 +1999,10 @@ describe('mypy_primer analysis', () => {
         const safeOutputConfig = parseDocument(String(configStep.getIn(['env', 'GH_AW_SAFE_OUTPUTS_CONFIG'])));
         expect(safeOutputConfig.has('noop')).toBe(false);
         expect(safeOutputConfig.has('publish-primer-analysis')).toBe(true);
+        expect(safeOutputConfig.getIn(['publish-primer-analysis', 'max'])).toBe(100);
 
         const execution = getStep('agentic_execution').get('run');
-        expect(getStep('agentic_execution').getIn(['env', 'COPILOT_MODEL'])).toBe('gpt-5.6-terra');
+        expect(getStep('agentic_execution').getIn(['env', 'COPILOT_MODEL'])).toBe('gpt-5.6-sol');
         const awfConfig = /^printf '%s\\n' '(.+)' > "\$\{RUNNER_TEMP\}\/gh-aw\/awf-config\.json"$/m.exec(
             String(execution)
         );

@@ -102,7 +102,7 @@ They can be adjusted in `.github/workflows/mypy-primer-analysis.md`. The agent m
 mark insufficiently investigated projects as needing review rather than inventing
 evidence to meet its budget.
 
-The analysis uses `engine.model: gpt-5.6-terra` rather than the lightweight Luna
+The analysis uses `engine.model: gpt-5.6-sol` rather than the lightweight Luna
 model, with a larger budget for causal regression investigation; consult the
 [Copilot pricing table](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing)
 for current rates. Keep `sandbox.agent.token-steering: false` so the
@@ -113,10 +113,18 @@ The model must be enabled for the organization, and its advisory assessments
 still require human review. Threat detection explicitly retains its existing
 `detection` model alias rather than inheriting the analysis model.
 
-Every activated analysis must submit exactly one `publish_primer_analysis` report.
-This safe-output submission queues the trusted publisher; it is not a direct GitHub
-write. `noop` is disabled, and an independent post-step validates successful agent
-executions after safe-output ingestion, using the normalized `agent_output.json`
+Every activated analysis must call `publish_primer_analysis` once per changed
+project, with exactly one entry in each payload's `projects` array. The pinned
+framework limits each string input to 10240 UTF-8 bytes; per-project submissions
+avoid squeezing every investigation into that single allowance. Up to 100 calls
+are allowed, matching the maximum project inventory. The validator assembles all
+projects, preserves the combined 1000000-character payload limit, and rejects
+missing or duplicate projects. Historical single-submission reports remain
+readable. Individual tool successes do not mean the complete report is valid.
+
+These safe-output submissions queue the trusted publisher; they are not direct
+GitHub writes. `noop` is disabled, and an independent post-step validates successful
+agent executions after safe-output ingestion, using the normalized `agent_output.json`
 and the same report validator as the publisher. Empty, no-op-only,
 incomplete, duplicate, or malformed submissions fail the agent job rather than
 leaving a misleading green run with publication skipped. The validator and manifest

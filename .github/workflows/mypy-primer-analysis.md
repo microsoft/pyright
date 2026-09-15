@@ -29,7 +29,7 @@ permissions:
 engine:
   id: copilot
   version: 1.0.80
-  model: gpt-5.6-terra
+  model: gpt-5.6-sol
   harness: mypyPrimerCopilotHarness.cjs
   args: [--deny-tool, write, --deny-tool, shell]
 timeout-minutes: 15
@@ -226,7 +226,8 @@ safe-outputs:
   jobs:
     publish-primer-analysis:
       if: github.event_name != 'workflow_dispatch'
-      description: Required for every analysis. Submit one JSON report covering every manifest project. This queues validation by the trusted publisher, not a direct GitHub write.
+      description: Required once for each manifest project. Submit one project's JSON report per call, with its evidence. All projects must be submitted before analysis is complete. This queues validation by the trusted publisher, not a direct GitHub write.
+      max: 100
       runs-on: ubuntu-latest
       permissions:
         contents: read
@@ -234,7 +235,7 @@ safe-outputs:
         pull-requests: write
       inputs:
         report:
-          description: JSON object with a projects array in the format described in the workflow instructions.
+          description: JSON object with a projects array containing exactly one project in the required format. Maximum 10240 UTF-8 bytes per call; preserve citations.
           required: true
           type: string
       steps:
@@ -393,7 +394,8 @@ the PR and rejects stale or incomplete reports.
 
 ## Output
 
-Call `publish_primer_analysis` exactly once with `report` containing a JSON string:
+Call `publish_primer_analysis` once for each manifest project, with `report`
+containing a JSON string whose `projects` array has exactly one entry:
 
 ```json
 {
@@ -420,8 +422,20 @@ Call `publish_primer_analysis` exactly once with `report` containing a JSON stri
 }
 ```
 
+Each call has a 10240-byte UTF-8 input limit. Do not put all projects in one call.
+Shorten redundant prose if needed, not required evidence. A successful call only
+queues that project's analysis: continue until every manifest project has been
+submitted exactly once. The trusted workflow assembles and validates the complete
+report; missing or duplicate projects still fail. The combined report payload is
+limited to 1000000 characters.
+
 Include every manifest project exactly once, even when you run out of investigation
-budget. Assessments are `expected-improvement`, `exposed-typing-issue`,
+budget. Before each submission, check its required fields and citations:
+non-`needs-review` assessments require evidence, and `likely-pr` requires a
+line-pinned source citation at the manifest's exact head SHA. If the evidence is
+unavailable, use `needs-review` and `unclear` rather than dropping citations from a
+stronger claim.
+Assessments are `expected-improvement`, `exposed-typing-issue`,
 `possible-regression`, or `needs-review`. Confidence is `low`, `medium`, or `high`.
 Use `possible-regression` for a credible problem needing investigation, not only
 proven defects. Mixed or incompletely investigated projects should not receive a
