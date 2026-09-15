@@ -111,17 +111,21 @@ result contract, and the comparator rejects mismatched environments.
 ## Maintainer workflow
 
 The hosted pull-request benchmark runs only when a maintainer comments exactly `/benchmark` on an
-open pull request. The command must be the entire comment. The trusted command workflow checks that
-the commenter has `write`, `maintain`, or `admin` repository permission and then explicitly dispatches
-the benchmark with the pull request's current head, base, and synthetic merge commits. Users without
-one of these permissions cannot start the benchmark.
+open or merged pull request. The command must be the entire comment. The trusted command workflow
+checks that the commenter has `write`, `maintain`, or `admin` repository permission and then
+explicitly dispatches the benchmark with the pull request's head and candidate commits. Closed,
+unmerged pull requests are ignored. Users without one of these permissions cannot start the
+benchmark.
 
-The dispatched workflow runs the pull request's synthetic merge commit, so all mergeable open pull
-requests use the current pnpm build metadata from the base branch. It uses read-only repository
-permissions. When the run completes, a separate trusted job validates the result's head, base, and
-merge commits, renders it using default-branch code, and creates or updates one benchmark comment.
-The trusted job runs on a separate runner with pull-request write permission. The Actions job summary
-and benchmark artifact contain the same candidate results.
+For an open pull request, the dispatched workflow runs GitHub's current synthetic merge commit. For
+a merged pull request, it runs the checked-in merge or squash commit. Both modes compare the
+candidate against its exact first parent, so a historical run uses the base revision from merge time
+rather than the current `main` head. The candidate commit must contain the benchmark harness. The
+workflow uses read-only repository permissions. When the run completes, a separate trusted job
+validates the result's head, candidate, and first-parent commits, then renders it using default-branch
+code and the first parent's checked-in baseline. It creates or updates one benchmark comment. The
+trusted job runs on a separate runner with pull-request write permission. The Actions job summary and
+benchmark artifact contain the same candidate results.
 
 Comment `/benchmark` again after pushing a new commit or when rerunning the same head. No benchmark is
 started automatically for later commits. The command workflow must already exist on the repository's

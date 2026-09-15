@@ -144,6 +144,14 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
+      - name: Check out trusted baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.base_sha }}
+          path: benchmark-baseline
+          sparse-checkout: build/benchmark/baselines
+          persist-credentials: false
+
       - name: Download benchmark results
         id: download
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -193,12 +201,21 @@ jobs:
               core.setFailed('The workflow run head does not match the pull request head')
               return
             }
-            if (pullRequest.data.base.sha !== expectedBaseSha) {
-              core.setFailed('The workflow run base does not match the pull request base')
+            if (pullRequest.data.state !== 'open' && !pullRequest.data.merged) {
+              core.setFailed('The pull request is neither open nor merged')
               return
             }
             if (pullRequest.data.merge_commit_sha !== expectedMergeSha) {
-              core.setFailed('The workflow run merge commit does not match the pull request merge commit')
+              core.setFailed('The workflow run candidate does not match the pull request candidate')
+              return
+            }
+            const candidateCommit = await github.rest.repos.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: expectedMergeSha,
+            })
+            if (candidateCommit.data.parents[0]?.sha !== expectedBaseSha) {
+              core.setFailed('The workflow run base is not the candidate commit first parent')
               return
             }
             const download = await github.rest.actions.downloadArtifact({
@@ -245,7 +262,7 @@ jobs:
         run: |
           set +e
           python build/benchmark/compare_benchmarks.py \
-            build/benchmark/baselines/latest-linux-x64.json \
+            benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json \
             candidate.json \
             --fail-on-preparation-error \
             --markdown-output report.md
@@ -262,13 +279,18 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PR_NUMBER: ${{ steps.download.outputs.pr-number }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          CANDIDATE_SHA: ${{ inputs.merge_sha }}
         with:
           script: |
             const fs = require('fs')
             const marker = '<!-- typecheck-benchmark-report -->'
             const report = fs.readFileSync('report.md', 'utf8')
             const issueNumber = Number(process.env.PR_NUMBER)
-            const body = `${marker}\n${report}`
+            const revisions =
+              `Compared candidate \`${process.env.CANDIDATE_SHA}\` against its first parent ` +
+              `\`${process.env.BASE_SHA}\`.\n\n`
+            const body = `${marker}\n${revisions}${report}`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
