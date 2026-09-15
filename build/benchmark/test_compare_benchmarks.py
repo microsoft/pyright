@@ -750,7 +750,7 @@ Regression threshold: `10.0%`
         )
         self.assertEqual(
             pr_workflow_data["jobs"]["comment"]["if"],
-            "${{ always() && github.repository == 'microsoft/pyright' }}",
+            "${{ always() && needs.benchmark.result != 'cancelled' && github.repository == 'microsoft/pyright' }}",
         )
         self.assertEqual(
             [step.get("uses") for step in pr_benchmark_steps],
@@ -877,17 +877,35 @@ Regression threshold: `10.0%`
             trigger_workflow,
         )
         self.assertIn(
-            "automatic && baseSha !== pullRequest.data.base.sha",
+            "candidateCommit.data.parents[1]?.sha !== pullRequest.data.head.sha",
             trigger_workflow,
         )
+        self.assertNotIn("pullRequest.data.base.sha", trigger_workflow)
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
-        self.assertIn("actions: write", trigger_workflow)
-        self.assertIn("pull-requests: read", trigger_workflow)
-        self.assertIn("createWorkflowDispatch", trigger_workflow)
-        self.assertIn("workflow_id: 'typecheck_benchmark_pr.yml'", trigger_workflow)
-        self.assertIn("base_sha: baseSha", trigger_workflow)
-        self.assertIn("merge_sha: candidateSha", trigger_workflow)
+        self.assertEqual(
+            trigger_workflow_data["permissions"],
+            {"contents": "read", "pull-requests": "write"},
+        )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["trigger"]["permissions"],
+            {"contents": "read", "pull-requests": "read"},
+        )
+        self.assertNotIn("actions: write", trigger_workflow)
+        self.assertNotIn("createWorkflowDispatch", trigger_workflow)
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["benchmark"]["uses"],
+            "./.github/workflows/typecheck_benchmark_pr.yml",
+        )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["benchmark"]["with"],
+            {
+                "pr_number": "${{ needs.trigger.outputs.pr-number }}",
+                "head_sha": "${{ needs.trigger.outputs.head-sha }}",
+                "base_sha": "${{ needs.trigger.outputs.base-sha }}",
+                "merge_sha": "${{ needs.trigger.outputs.merge-sha }}",
+            },
+        )
         self.assertNotIn("actions/checkout", trigger_workflow)
         self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
@@ -904,7 +922,8 @@ Regression threshold: `10.0%`
         )
         self.assertNotIn("actions/checkout@v4", benchmark_workflow)
         self.assertNotIn("actions/github-script@v7", benchmark_workflow)
-        self.assertIn("workflow_dispatch:", benchmark_workflow)
+        self.assertIn("workflow_call:", benchmark_workflow)
+        self.assertNotIn("workflow_dispatch:", benchmark_workflow)
         self.assertNotIn("paths:", benchmark_workflow)
         self.assertNotIn("pull_request:", benchmark_workflow)
         self.assertNotIn("cache: 'pip'", benchmark_workflow)
@@ -919,9 +938,14 @@ Regression threshold: `10.0%`
             benchmark_workflow,
         )
         self.assertIn(
+            "candidateCommit.data.parents[1]?.sha !== expectedHeadSha",
+            benchmark_workflow,
+        )
+        self.assertIn(
             "pullRequest.data.merge_commit_sha !== expectedMergeSha",
             benchmark_workflow,
         )
+        self.assertIn("pullRequest.data.merged &&", benchmark_workflow)
         self.assertIn(
             "Compared candidate \\`${process.env.CANDIDATE_SHA}\\` against its first parent",
             benchmark_workflow,
