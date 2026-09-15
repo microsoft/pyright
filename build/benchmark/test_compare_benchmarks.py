@@ -750,7 +750,7 @@ Regression threshold: `10.0%`
         )
         self.assertEqual(
             pr_workflow_data["jobs"]["comment"]["if"],
-            "${{ always() && github.repository == 'microsoft/pyright' }}",
+            "${{ always() && needs.benchmark.result != 'cancelled' && github.repository == 'microsoft/pyright' }}",
         )
         self.assertEqual(
             [step.get("uses") for step in pr_benchmark_steps],
@@ -854,9 +854,10 @@ Regression threshold: `10.0%`
             trigger_workflow,
         )
         self.assertIn(
-            "automatic && baseSha !== pullRequest.data.base.sha",
+            "candidateCommit.data.parents[1]?.sha !== pullRequest.data.head.sha",
             trigger_workflow,
         )
+        self.assertNotIn("pullRequest.data.base.sha", trigger_workflow)
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
         self.assertIn("actions: write", trigger_workflow)
@@ -896,9 +897,14 @@ Regression threshold: `10.0%`
             benchmark_workflow,
         )
         self.assertIn(
+            "candidateCommit.data.parents[1]?.sha !== expectedHeadSha",
+            benchmark_workflow,
+        )
+        self.assertIn(
             "pullRequest.data.merge_commit_sha !== expectedMergeSha",
             benchmark_workflow,
         )
+        self.assertIn("pullRequest.data.merged &&", benchmark_workflow)
         self.assertIn(
             "Compared candidate \\`${process.env.CANDIDATE_SHA}\\` against its first parent",
             benchmark_workflow,

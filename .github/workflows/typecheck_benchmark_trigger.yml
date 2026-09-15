@@ -78,8 +78,11 @@ jobs:
               core.setFailed('The candidate commit does not have a first parent')
               return
             }
-            if (automatic && baseSha !== pullRequest.data.base.sha) {
-              core.setFailed('The pull request merge commit does not use the current base')
+            if (
+              !pullRequest.data.merged &&
+              candidateCommit.data.parents[1]?.sha !== pullRequest.data.head.sha
+            ) {
+              core.setFailed('The pull request merge commit does not use the current head')
               return
             }
             await github.rest.actions.createWorkflowDispatch({
