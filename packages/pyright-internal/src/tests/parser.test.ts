@@ -67,6 +67,122 @@ test('Parser2', () => {
     assert.strictEqual(diagSink.getErrors().length, 0);
 });
 
+test('Async comprehensions respect lambda function boundaries', () => {
+    const testCases = [
+        {
+            name: 'direct async comprehensions',
+            source: `from typing import Any
+async def func(values: Any):
+    [value async for value in values]
+    {value async for value in values}
+    {value: value async for value in values}
+    (value async for value in values)`,
+            expectedErrors: 0,
+        },
+        {
+            name: 'list comprehension in lambda',
+            source: `from typing import Any
+async def func(values: Any):
+    return lambda: [value async for value in values]`,
+            expectedErrors: 1,
+        },
+        {
+            name: 'set comprehension in lambda',
+            source: `from typing import Any
+async def func(values: Any):
+    return lambda: {value async for value in values}`,
+            expectedErrors: 1,
+        },
+        {
+            name: 'dict comprehension in lambda',
+            source: `from typing import Any
+async def func(values: Any):
+    return lambda: {value: value async for value in values}`,
+            expectedErrors: 1,
+        },
+        {
+            name: 'generator expression in lambda',
+            source: `from typing import Any
+async def func(values: Any):
+    return lambda: (value async for value in values)`,
+            expectedErrors: 0,
+        },
+        {
+            name: 'nested lambda body',
+            source: `from typing import Any
+async def func(values: Any):
+    return lambda: lambda: [value async for value in values]`,
+            expectedErrors: 1,
+        },
+        {
+            name: 'nested lambda default in lambda body',
+            source: `from typing import Any
+async def func(values: Any):
+    return lambda: (lambda default=[value async for value in values]: default)`,
+            expectedErrors: 1,
+        },
+        {
+            name: 'lambda default in async function',
+            source: `from typing import Any
+async def func(values: Any):
+    return lambda default=[value async for value in values]: default`,
+            expectedErrors: 0,
+        },
+        {
+            name: 'eager comprehensions in sync function',
+            source: `from typing import Any
+def func(values: Any):
+    [value async for value in values]
+    {value async for value in values}
+    {value: value async for value in values}`,
+            expectedErrors: 3,
+        },
+        {
+            name: 'generator expression in sync function',
+            source: `from typing import Any
+def func(values: Any):
+    return (value async for value in values)`,
+            expectedErrors: 0,
+        },
+        {
+            name: 'nested sync function',
+            source: `from typing import Any
+async def func(values: Any):
+    def nested():
+        return [value async for value in values]`,
+            expectedErrors: 1,
+        },
+        {
+            name: 'nested class body',
+            source: `from typing import Any
+class_values: Any
+async def func():
+    class Nested:
+        values = [value async for value in class_values]`,
+            expectedErrors: 1,
+        },
+    ];
+
+    for (const testCase of testCases) {
+        const code = testCase.source
+            .split('\n')
+            .map((line) => `//// ${line}`)
+            .join('\n');
+        const state = parseAndGetTestState(code).state;
+        while (state.program.analyze()) {
+            // Analyze until stable.
+        }
+
+        const source = state.program.getBoundSourceFile(state.activeFile.fileUri)!;
+        const diagnostics = source.getDiagnostics(state.configOptions) ?? [];
+        const asyncContextDiagnostics = diagnostics.filter(
+            (diagnostic) => diagnostic.message === LocMessage.asyncNotInAsyncFunction()
+        );
+
+        assert.strictEqual(asyncContextDiagnostics.length, testCase.expectedErrors, testCase.name);
+    }
+});
+
 test('FStringEmptyTuple', () => {
     assert.doesNotThrow(() => {
         const diagSink = new DiagnosticSink();
