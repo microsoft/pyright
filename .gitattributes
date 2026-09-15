@@ -2,3 +2,4 @@
 **/pnpm-lock.yaml            text eol=lf
 
 .github/workflows/*.lock.yml linguist-generated=true
+docs/typecheck-benchmark/history/** linguist-generated=true

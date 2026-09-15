@@ -1,0 +1,215 @@
+name: Pyright release benchmark history
+
+on:
+  workflow_dispatch:
+  release:
+    types:
+      - published
+
+permissions: {}
+
+env:
+  NODE_VERSION: '24.15.0'
+  PYTHON_VERSION: '3.14.6'
+
+jobs:
+  releases:
+    name: Find releases from the prior year
+    if: ${{ github.repository == 'microsoft/pyright' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.releases.outputs.matrix }}
+    steps:
+      - name: Build release matrix
+        id: releases
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs')
+            const cutoff = new Date()
+            cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 1)
+            const allReleases = await github.paginate(github.rest.repos.listReleases, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            })
+            const releases = allReleases
+              .filter((release) =>
+                !release.draft &&
+                !release.prerelease &&
+                release.published_at &&
+                new Date(release.published_at) >= cutoff &&
+                /^\d+\.\d+\.\d+$/.test(release.tag_name)
+              )
+              .map((release) => ({
+                version: release.tag_name,
+                published_at: release.published_at,
+              }))
+              .sort((left, right) =>
+                left.version.localeCompare(right.version, undefined, { numeric: true })
+              )
+            if (releases.length === 0) {
+              core.setFailed('No stable Pyright releases were published in the prior year')
+              return
+            }
+            const manifest = {
+              generated_at: new Date().toISOString(),
+              cutoff: cutoff.toISOString(),
+              releases,
+            }
+            fs.writeFileSync('release-manifest.json', `${JSON.stringify(manifest, null, 2)}\n`)
+            core.setOutput('matrix', JSON.stringify({ include: releases }))
+
+      - name: Upload release manifest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pyright-release-manifest
+          path: release-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+
+  benchmark:
+    name: Benchmark Pyright ${{ matrix.version }}
+    needs: releases
+    if: ${{ github.repository == 'microsoft/pyright' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 9
+      matrix: ${{ fromJson(needs.releases.outputs.matrix) }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: |
+            build/benchmark/install_envs.json
+            .github/workflows/typecheck_benchmark_history.yml
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+
+      - name: Install Pyright ${{ matrix.version }}
+        env:
+          PYRIGHT_VERSION: ${{ matrix.version }}
+        run: |
+          install_dir="$RUNNER_TEMP/pyright-release"
+          mkdir -p "$install_dir"
+          printf '{"private":true}\n' > "$install_dir/package.json"
+          pnpm --dir "$install_dir" add --save-exact "pyright@$PYRIGHT_VERSION"
+          echo "PYRIGHT_BENCHMARK_ENTRY_POINT=$install_dir/node_modules/pyright/index.js" >> "$GITHUB_ENV"
+
+      - name: Run historical benchmark
+        env:
+          BENCHMARK_RUNNER_CLASS: 'github-ubuntu-latest'
+          NODE_OPTIONS: '--max-old-space-size=6656'
+          PYTHONNOUSERSITE: '1'
+        run: |
+          python build/benchmark/typecheck_benchmark.py \
+            -c pyright -r 1 -w 0 -t 1800 \
+            --memory-limit-mb 8192 --skip-pyright-build --os-name linux-x64 \
+            --output build/benchmark/history-results
+
+      - name: Record release metadata
+        env:
+          PYRIGHT_VERSION: ${{ matrix.version }}
+          RELEASE_PUBLISHED_AT: ${{ matrix.published_at }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path('build/benchmark/history-results/latest-linux-x64.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          actual = data['type_checker_versions']['pyright']
+          if actual != os.environ['PYRIGHT_VERSION']:
+              raise RuntimeError(f'Expected Pyright {os.environ["PYRIGHT_VERSION"]}, found {actual}')
+          data['release_version'] = os.environ['PYRIGHT_VERSION']
+          data['release_published_at'] = os.environ['RELEASE_PUBLISHED_AT']
+          path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Upload release result
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pyright-release-result-${{ matrix.version }}
+          path: build/benchmark/history-results/latest-linux-x64.json
+          if-no-files-found: error
+          retention-days: 14
+
+  report:
+    name: Build release history charts
+    needs: [releases, benchmark]
+    if: ${{ always() && github.repository == 'microsoft/pyright' && needs.releases.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download release manifest
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pyright-release-manifest
+          path: history-manifest
+
+      - name: Download release results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: pyright-release-result-*
+          path: history-results
+
+      - name: Render release history
+        run: |
+          mapfile -t results < <(find history-results -name 'latest-linux-x64.json' -print | sort)
+          python build/benchmark/render_pyright_history.py \
+            "${results[@]}" \
+            --manifest history-manifest/release-manifest.json \
+            --output release-history
+
+      - name: Upload release history
+        id: history
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pyright-release-history
+          path: release-history/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Link history from summary
+        run: |
+          printf '%s\n' \
+            '## Pyright release benchmark history' \
+            '' \
+            '[Download the release history charts and summarized JSON](${{ steps.history.outputs.artifact-url }})' \
+            >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Publish release history
+    needs: report
+    if: >-
+      ${{ github.repository == 'microsoft/pyright' &&
+      (github.event_name == 'release' || github.ref == 'refs/heads/main') }}
+    permissions:
+      actions: read
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/publish_pages.yml
+    with:
+      history-run-id: ${{ github.run_id }}

@@ -8,3 +8,4 @@
 *.md
 **/.github/ISSUE_TEMPLATE/**
 .github/workflows/*.lock.yml
+docs/typecheck-benchmark/history/**

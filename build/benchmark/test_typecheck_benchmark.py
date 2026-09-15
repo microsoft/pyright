@@ -56,6 +56,24 @@ class TypecheckBenchmarkTest(unittest.TestCase):
 
         self.assertEqual(command, ["node", str(entry_point)])
 
+    def test_pyright_command_uses_configured_entry_point(self) -> None:
+        entry_point = self.root / "historical" / "index.js"
+        bundle = entry_point.parent / "dist" / "pyright.js"
+        bundle.parent.mkdir(parents=True)
+        entry_point.touch()
+        bundle.touch()
+
+        with (
+            patch.dict(
+                os.environ,
+                {benchmark.PYRIGHT_ENTRY_POINT_ENV: str(entry_point)},
+            ),
+            patch.object(benchmark, "_executable", return_value="node"),
+        ):
+            command = benchmark._pyright_command()
+
+        self.assertEqual(command, ["node", str(entry_point.resolve())])
+
     def test_pip_pyright_command_uses_active_python_environment(self) -> None:
         with patch.object(
             benchmark.subprocess,
@@ -117,6 +135,25 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             cwd=self.root,
             timeout=benchmark.BUILD_TIMEOUT,
         )
+
+    def test_prepare_local_pyright_accepts_configured_entry_point(self) -> None:
+        entry_point = self.root / "historical" / "index.js"
+        bundle = entry_point.parent / "dist" / "pyright.js"
+        bundle.parent.mkdir(parents=True)
+        entry_point.touch()
+        bundle.touch()
+
+        with (
+            patch.dict(
+                os.environ,
+                {benchmark.PYRIGHT_ENTRY_POINT_ENV: str(entry_point)},
+            ),
+            patch.object(benchmark, "_executable", return_value="node"),
+            patch.object(benchmark.subprocess, "run") as run,
+        ):
+            benchmark.prepare_local_pyright(skip_build=False)
+
+        run.assert_not_called()
 
     def test_pyright_config_and_command(self) -> None:
         source_dir = self.root / "src"

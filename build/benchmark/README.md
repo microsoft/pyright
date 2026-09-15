@@ -70,6 +70,11 @@ accidentally resolve an npm-installed executable from `PATH`. Both variants run 
 corpus in one invocation; their versions, timing, and peak memory are reported in adjacent summary
 rows. Upgrade the package first when the comparison should use the latest PyPI release.
 
+The hosted release-history workflow installs each official npm release separately and sets
+`PYRIGHT_BENCHMARK_ENTRY_POINT` to its `index.js`. This bypasses the Python package wrapper so Linux
+peak RSS measures the Node checker process directly. The override must point to a package containing
+both `index.js` and `dist/pyright.js`; normal local and weekly benchmarks leave it unset.
+
 Use `--skip-pyright-build` to reuse an existing production bundle. The script rejects this flag if
 `packages/pyright/dist/pyright.js` does not exist.
 
@@ -191,6 +196,11 @@ The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent ho
 Each checker performs three measured runs after one warmup over the same pinned corpus. The aggregate
 job stores each raw JSON result with a self-contained `index.html` comparison for 90 days; its Actions
 job summary links directly to the downloadable report artifact.
+
+The release-history workflow benchmarks every stable Pyright release published in the prior year
+against the same pinned corpus. It runs one measured pass per package, renders normalized per-package
+execution-time and peak-memory SVG charts, and publishes them under
+`typecheck-benchmark/history/`. Each new GitHub release rebuilds the rolling one-year history.
 
 The top-level JSON records the timestamp, platform, checker versions, run settings, aggregate
 statistics, per-package results, configured memory limit, and an `upstream_source` object containing

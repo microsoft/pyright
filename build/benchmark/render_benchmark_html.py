@@ -180,6 +180,7 @@ small {{ display:block; margin-top:3px; color:var(--muted); font-family:"IBM Ple
 <div class="table-wrap"><table><thead><tr><th>Checker</th><th>Measured</th><th>Failed</th><th>Total time</th><th>Median time</th><th>Median RSS</th></tr></thead><tbody>{''.join(summary_rows)}</tbody></table></div></section>
 <section><h2>Package comparison</h2><p class="legend">Each checker runs on a separate hosted runner, so timings are independent trends rather than a fastest-checker ranking. Cells show wall time and peak RSS.</p>
 <div class="table-wrap"><table><thead><tr><th>Package</th>{checker_headers}</tr></thead><tbody>{''.join(package_rows)}</tbody></table></div></section>
+<section><h2>Pyright release history</h2><p class="legend">Track per-package execution time and peak memory across every stable Pyright release from the prior year.</p><p><a href="history/">View Pyright package performance by release</a></p></section>
 {pyright_stats_section}
 </main>
 </body>
