@@ -7,6 +7,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { runInNewContext } from 'vm';
 import { isMap, isSeq, parseDocument } from 'yaml';
 
 import {
@@ -17,6 +18,8 @@ import {
     publishAnalysis,
     renderReport,
     summarizeDiffs,
+    validateSubmittedReport,
+    validateSubmittedReportFile,
 } from '../../../../build/ci/mypyPrimerAnalysis';
 
 const repository = 'microsoft/pyright';
@@ -114,13 +117,16 @@ const expectedDetailOnlySummary = {
     },
 };
 
-const expectedReportHeading = [
+const expectedReportProvenance = [
     `<!-- pyright-primer-analysis:${headSha}:42:1 -->`,
     '## mypy_primer analysis',
     '',
     'Advisory AI analysis of [primer run 42, attempt 1](https://github.com/microsoft/pyright/actions/runs/42)',
     `for commit \`${headSha}\`. This is not an approval or proof of correctness.`,
     '',
+];
+const expectedReportHeading = [
+    ...expectedReportProvenance,
     'Added/removed counts are diagnostic headers; message rewrites can appear on both sides.',
     'Detail lines are counted separately, without assuming a location or association with nearby headers.',
     '',
@@ -435,6 +441,57 @@ describe('mypy_primer analysis', () => {
         await expect(prepareAnalysis(f.request, repository, f.source, directory)).resolves.toBeUndefined();
     });
 
+    test.each([repository, 'contributor/pyright'])('previews a verified closed PR from %s', async (headRepository) => {
+        writeShards();
+        const f = fixture(sample, headRepository);
+        f.pr.state = 'closed';
+        f.source.pullRequests = [];
+        await expect(prepareAnalysis(f.request, repository, f.source, directory)).resolves.toBeUndefined();
+        await expect(prepareAnalysis(f.request, repository, f.source, directory, true)).resolves.toStrictEqual({
+            ...f.manifest,
+            preview: true,
+        });
+        expect(f.request.mock.calls.filter(([route]) => route === 'GET /repos/{owner}/{repo}/pulls')).toStrictEqual([
+            [
+                'GET /repos/{owner}/{repo}/pulls',
+                {
+                    owner: 'microsoft',
+                    repo: 'pyright',
+                    state: 'all',
+                    head: `${headRepository.split('/')[0]}:feature`,
+                    per_page: 100,
+                    page: 1,
+                },
+            ],
+        ]);
+    });
+
+    test('previews reject ambiguous closed-PR associations and superseded heads', async () => {
+        writeShards();
+        const f = fixture(sample, 'contributor/pyright');
+        f.pr.state = 'closed';
+        f.associated.push({ ...f.pr, number: 8 });
+        await expect(prepareAnalysis(f.request, repository, f.source, directory, true)).rejects.toThrow('found 2');
+        f.pr.head.sha = 'b'.repeat(40);
+        await expect(prepareAnalysis(f.request, repository, f.source, directory, true)).resolves.toBeUndefined();
+    });
+
+    test.each(['repository', 'branch', 'number', 'shard'])('previews retain %s validation', async (mismatch) => {
+        writeShards();
+        const f = fixture();
+        f.pr.state = 'closed';
+        if (mismatch === 'repository') {
+            f.pr.head.repo.full_name = 'someone/else';
+        } else if (mismatch === 'branch') {
+            f.pr.head.ref = 'different';
+        } else if (mismatch === 'number') {
+            f.source.pullRequests = [99];
+        } else {
+            rmSync(join(directory, 'mypy_primer_diffs_7'), { recursive: true });
+        }
+        await expect(prepareAnalysis(f.request, repository, f.source, directory, true)).rejects.toThrow();
+    });
+
     test('prepares and renders a detail-only project without treating zero headers as no changes', async () => {
         writeShards(detailOnlySample);
         const f = fixture(detailOnlySample);
@@ -630,6 +687,82 @@ describe('mypy_primer analysis', () => {
         expect(result).toStrictEqual(expectedReport);
     });
 
+    test('uses a short non-blocking notice only for canonical SymPy-only changes', () => {
+        const f = fixture(
+            sample
+                .replace(/example/g, 'sympy')
+                .replace('https://github.com/sympy/project', 'https://github.com/sympy/sympy')
+        );
+        f.report.projects[0].name = 'sympy';
+        expect(renderReport(f.manifest, f.report, 100)).toStrictEqual({
+            body: [
+                ...expectedReportProvenance,
+                '**Only SymPy changed.** These differences are treated as non-blocking primer noise; no other project changed.',
+                '',
+                'Recorded changes: 1 added / 1 removed diagnostic headers; 1 added / 1 removed detail lines.',
+                '',
+                ...expectedReportFooter,
+            ].join('\n'),
+            fullReport: expectedReport.fullReport.replace(/example/g, 'sympy'),
+        });
+        expect(() => renderReport(f.manifest, { projects: [] }, 100)).toThrow(
+            'The analysis must cover every changed project exactly once'
+        );
+        f.report.projects[0].explanation = '';
+        expect(() => renderReport(f.manifest, f.report, 100)).toThrow('Expected nonempty text');
+    });
+
+    test('keeps normal analysis for noncanonical SymPy and mixed-project changes', () => {
+        const f = fixture();
+        const sympy = { ...f.report.projects[0], name: 'sympy' };
+        const manifest = { ...f.manifest, projects: [{ ...f.manifest.projects[0], name: 'sympy' }] };
+        expect(renderReport(manifest, { projects: [sympy] }, 100)).toStrictEqual({
+            body: expectedReport.body.replace(/example/g, 'sympy'),
+            fullReport: expectedReport.fullReport.replace(/example/g, 'sympy'),
+        });
+        manifest.projects[0].url = 'https://github.com/sympy/sympy';
+        manifest.projects.push(f.manifest.projects[0]);
+        const rows = [expectedReportRow.replace('example', 'sympy'), expectedReportRow];
+        const details = [
+            ...expectedReportDetails.map((line) => line.replace('example', 'sympy')),
+            ...expectedReportDetails,
+        ];
+        expect(renderReport(manifest, { projects: [sympy, ...f.report.projects] }, 100)).toStrictEqual({
+            body: [
+                ...expectedReportHeading,
+                ...rows,
+                '',
+                '<details>',
+                '<summary>Evidence and limitations by project</summary>',
+                '',
+                ...details,
+                '</details>',
+                '',
+                ...expectedReportFooter,
+            ].join('\n'),
+            fullReport: [...expectedReportHeading, ...rows, '', ...details].join('\n'),
+        });
+    });
+
+    test('labels preview reports and refuses to send them through the publisher', async () => {
+        const f = fixture();
+        const manifest = { ...f.manifest, preview: true };
+        const asPreview = (content: string) =>
+            content
+                .replace('<!-- pyright-primer-analysis:', '<!-- pyright-primer-analysis-preview:')
+                .replace(
+                    '## mypy_primer analysis\n\n',
+                    '## mypy_primer analysis preview\n\n**Preview only. No PR comment was posted.**\n\n'
+                );
+        expect(renderReport(manifest, f.report, 100)).toStrictEqual({
+            body: asPreview(expectedReport.body),
+            fullReport: asPreview(expectedReport.fullReport),
+        });
+        await expect(
+            publishAnalysis(f.request, manifest, f.output(), 100, join(directory, 'report.md'), false)
+        ).rejects.toThrow('Preview analyses cannot publish PR comments');
+        expect(f.request.mock.calls).toStrictEqual([]);
+    });
     test.each([1799, 1800, 1801, 2143])(
         'previews a %i-character explanation without losing the full report',
         (length) => {
@@ -797,6 +930,148 @@ describe('mypy_primer analysis', () => {
         expect(() => renderReport(f.manifest, report, 100)).toThrow('Unsupported evidence URL');
     });
 
+    test.each([
+        { name: 'missing items', output: {} },
+        { name: 'empty output', output: { items: [] } },
+        {
+            name: 'no-op claiming the report is prepared',
+            output: { items: [{ type: 'noop', message: 'The required report has been prepared for publication.' }] },
+        },
+        { name: 'incomplete-only output', output: { items: [{ type: 'report_incomplete', details: 'No evidence' }] } },
+        { name: 'missing payload', output: { items: [{ type: 'publish_primer_analysis' }] } },
+        { name: 'malformed payload', output: { items: [{ type: 'publish_primer_analysis', report: '{' }] } },
+        {
+            name: 'omitted project',
+            output: { items: [{ type: 'publish_primer_analysis', report: '{"projects":[]}' }] },
+        },
+    ])('report completion rejects $name before GitHub access', async ({ output }) => {
+        const f = fixture();
+        expect(() => validateSubmittedReport(f.manifest, output, 100)).toThrow();
+        await expect(
+            publishAnalysis(f.request, f.manifest, output, 100, join(directory, 'report.md'), false)
+        ).rejects.toThrow();
+        expect(f.request).not.toHaveBeenCalled();
+    });
+
+    test('report completion rejects duplicate and oversized submissions', () => {
+        const f = fixture();
+        const output = f.output();
+        expect(() => validateSubmittedReport(f.manifest, { items: [...output.items, ...output.items] }, 100)).toThrow(
+            'Expected exactly one primer analysis report; found 2'
+        );
+        output.items[0].report = ' '.repeat(1000001);
+        expect(() => validateSubmittedReport(f.manifest, output, 100)).toThrow(
+            'Expected nonempty text of at most 1000000 characters'
+        );
+    });
+
+    test('report completion reuses evidence and project validation', () => {
+        const f = fixture();
+        f.report.projects[0].assessment = 'expected-improvement';
+        expect(() => validateSubmittedReport(f.manifest, f.output(), 100)).toThrow('evidence');
+        f.report.projects[0].assessment = 'needs-review';
+        f.report.projects.push(f.report.projects[0]);
+        expect(() => validateSubmittedReport(f.manifest, f.output(), 100)).toThrow();
+    });
+
+    test('report completion accepts an honest needs-review report without evidence', () => {
+        const f = fixture();
+        const path = join(directory, 'agent_output.json');
+        writeFileSync(path, JSON.stringify(f.output()));
+        expect(validateSubmittedReportFile(f.manifest, path, 100)).toStrictEqual(expectedReport);
+        expect(f.request).not.toHaveBeenCalled();
+    });
+
+    test('report completion requires a bounded regular JSON output file', () => {
+        const f = fixture();
+        const path = join(directory, 'agent_output.json');
+        expect(() => validateSubmittedReportFile(f.manifest, path, 100)).toThrow('ENOENT');
+        expect(() => validateSubmittedReportFile(f.manifest, directory, 100)).toThrow('bounded regular input file');
+        writeFileSync(path, '');
+        expect(() => validateSubmittedReportFile(f.manifest, path, 100)).toThrow();
+        writeFileSync(path, ' '.repeat(8 * 1024 * 1024 + 1));
+        expect(() => validateSubmittedReportFile(f.manifest, path, 100)).toThrow('bounded regular input file');
+    });
+
+    test('report completion preserves typing specification citations in serialized reports', () => {
+        const f = fixture();
+        const url = 'https://typing.python.org/en/latest/spec/typeddict.html';
+        const report = {
+            projects: [
+                {
+                    ...f.report.projects[0],
+                    evidence: [{ url, detail: 'TypedDict specification' }],
+                },
+            ],
+        };
+        const output = { items: [{ type: 'publish_primer_analysis', report: JSON.stringify(report) }] };
+        const path = join(directory, 'agent_output.json');
+        writeFileSync(path, JSON.stringify(output));
+        const originalDetails = expectedReportDetails.join('\n');
+        const details = [
+            ...expectedReportDetails.slice(0, -1),
+            '- TypedDict specification: <https://typing.python.org/en/latest/spec/typeddict.html>',
+            '',
+        ].join('\n');
+        expect(validateSubmittedReportFile(f.manifest, path, 100)).toStrictEqual({
+            body: expectedReport.body.replace(originalDetails, details),
+            fullReport: expectedReport.fullReport.replace(originalDetails, details),
+        });
+    });
+
+    test('compiled completion step rejects no-op output and accepts a submitted report', () => {
+        const workflow = parseDocument(
+            readFileSync(join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'), 'utf8')
+        );
+        const steps = workflow.getIn(['jobs', 'agent', 'steps'], true);
+        if (!isSeq(steps)) {
+            throw new Error('Missing agent steps');
+        }
+        const step = steps.items.find((item) => isMap(item) && item.get('id') === 'require_primer_report');
+        if (!isMap(step)) {
+            throw new Error('Missing report completion step');
+        }
+        const script = step.getIn(['with', 'script']);
+        if (typeof script !== 'string') {
+            throw new Error('Missing report completion script');
+        }
+
+        const f = fixture();
+        const actionsDir = join(directory, 'gh-aw', 'actions');
+        const path = join(directory, 'agent_output.json');
+        mkdirSync(actionsDir, { recursive: true });
+        writeFileSync(join(actionsDir, 'primer-manifest.json'), JSON.stringify(f.manifest));
+        const notice = jest.fn();
+        const run = () =>
+            runInNewContext(script, {
+                require: (name: string): unknown => {
+                    if (name === 'fs') {
+                        return { readFileSync };
+                    }
+                    if (name === 'path') {
+                        return { join };
+                    }
+                    if (name === join(actionsDir, 'mypyPrimerAnalysis.ts')) {
+                        return { validateSubmittedReportFile };
+                    }
+                    throw new Error(`Unexpected module: ${name}`);
+                },
+                process: { env: { RUNNER_TEMP: directory, PRIMER_AGENT_OUTPUT: path } },
+                context: { runId: 100 },
+                core: { notice },
+            });
+
+        writeFileSync(path, JSON.stringify({ items: [{ type: 'noop', message: 'Report prepared' }], errors: [] }));
+        expect(run).toThrow('Submit publish_primer_analysis, not noop or report_incomplete');
+        expect(notice).not.toHaveBeenCalled();
+        writeFileSync(path, JSON.stringify(f.output()));
+        run();
+        expect(notice).toHaveBeenCalledWith(
+            'A complete primer report was submitted; threat detection and publisher checks still apply'
+        );
+        expect(f.request).not.toHaveBeenCalled();
+    });
+
     test('staged reports never mutate GitHub', async () => {
         const f = fixture();
         const path = join(directory, 'report.md');
@@ -889,6 +1164,237 @@ describe('mypy_primer analysis', () => {
         expect(f.request.mock.calls.some(([route]) => /^(POST|PATCH) /.test(route))).toBe(false);
     });
 
+    test.each(['workflow_run', 'workflow_dispatch'])(
+        'compiled collector accepts %s source context',
+        async (eventName) => {
+            const workflow = parseDocument(
+                readFileSync(join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'), 'utf8')
+            );
+            const steps = workflow.getIn(['jobs', 'collect', 'steps'], true);
+            if (!isSeq(steps)) {
+                throw new Error('Missing collection steps');
+            }
+            const step = steps.items.find((item) => isMap(item) && item.get('id') === 'source');
+            if (!isMap(step)) {
+                throw new Error('Missing source validation step');
+            }
+            const script = step.getIn(['with', 'script']);
+            if (typeof script !== 'string') {
+                throw new Error('Missing source validation script');
+            }
+            const f = fixture();
+            if (eventName === 'workflow_run') {
+                mkdirSync(join(directory, 'primer-context'));
+                writeFileSync(
+                    join(directory, 'primer-context', 'primer-analysis-context.json'),
+                    JSON.stringify(f.source)
+                );
+            }
+            const result = await runInNewContext(`(async () => { ${script} })()`, {
+                require: (name: string): unknown => {
+                    if (name === 'fs') {
+                        return { readFileSync, writeFileSync };
+                    }
+                    if (name === 'path') {
+                        return { join };
+                    }
+                    if (name === './build/ci/mypyPrimerAnalysis.ts') {
+                        return { loadSource };
+                    }
+                    throw new Error(`Unexpected module: ${name}`);
+                },
+                process: {
+                    env: {
+                        RUNNER_TEMP: directory,
+                        PRIMER_EVENT_NAME: eventName,
+                        PRIMER_RUN_ID: eventName === 'workflow_dispatch' ? '42' : 'ignored',
+                        PRIMER_RUN_ATTEMPT: eventName === 'workflow_dispatch' ? '1' : 'ignored',
+                    },
+                },
+                github: { request: f.request },
+                context: { repo: { owner: 'microsoft', repo: 'pyright' } },
+            });
+            expect(result).toBe(42);
+            expect(JSON.parse(readFileSync(join(directory, 'primer-source.json'), 'utf8'))).toStrictEqual(f.source);
+        }
+    );
+
+    test('compiled manual preview is read-only and isolated from publication', async () => {
+        const workflow = parseDocument(
+            readFileSync(join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'), 'utf8')
+        );
+        const inputs = workflow.getIn(['on', 'workflow_dispatch', 'inputs'], true);
+        const preview = workflow.getIn(['jobs', 'preview'], true);
+        if (!isMap(inputs) || !isMap(preview)) {
+            throw new Error('Missing manual preview configuration');
+        }
+        expect(inputs.toJSON()).toStrictEqual({
+            aw_context: {
+                default: '',
+                description: 'Agent caller context (used internally by Agentic Workflows).',
+                required: false,
+                type: 'string',
+            },
+            'primer-run-id': {
+                description: 'Successful Run mypy_primer on PR run ID to preview, including merged PRs.',
+                required: true,
+                type: 'string',
+            },
+            'primer-run-attempt': {
+                description: 'Current attempt of the recorded primer run.',
+                required: true,
+                default: '1',
+                type: 'string',
+            },
+        });
+        expect(String(workflow.getIn(['jobs', 'publish_primer_analysis', 'if'])).trim()).toBe(
+            "(!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'publish_primer_analysis') && (github.event_name != 'workflow_dispatch')"
+        );
+        expect(String(preview.get('if')).trim()).toBe(
+            "${{ !cancelled() && github.event_name == 'workflow_dispatch' && needs.agent.result == 'success' && needs.detection.result == 'success' && needs.detection.outputs.detection_conclusion == 'success' }}"
+        );
+        const permissions = preview.get('permissions');
+        const steps = preview.get('steps');
+        if (!isMap(permissions) || !isSeq(steps)) {
+            throw new Error('Missing preview permissions or steps');
+        }
+        expect(permissions.toJSON()).toStrictEqual({ contents: 'read', actions: 'read' });
+        const renderStep = steps.items.find((item) => isMap(item) && item.get('id') === 'render_preview');
+        if (!isMap(renderStep)) {
+            throw new Error('Missing preview rendering step');
+        }
+        const script = renderStep.getIn(['with', 'script']);
+        if (typeof script !== 'string') {
+            throw new Error('Missing preview rendering script');
+        }
+        const f = fixture();
+        const manifestPath = join(directory, 'primer-input', 'manifest.json');
+        const outputPath = join(directory, 'primer-preview-output', 'agent_output.json');
+        mkdirSync(join(directory, 'primer-input'));
+        mkdirSync(join(directory, 'primer-preview-output'));
+        writeFileSync(outputPath, JSON.stringify(f.output()));
+        const summary = { addRaw: jest.fn().mockReturnThis(), write: jest.fn().mockResolvedValue(undefined) };
+        const run = () =>
+            runInNewContext(`(async () => { ${script} })()`, {
+                require: (name: string): unknown => {
+                    if (name === 'fs') {
+                        return { mkdirSync, readFileSync, writeFileSync };
+                    }
+                    if (name === 'path') {
+                        return { join };
+                    }
+                    if (name === './build/ci/mypyPrimerAnalysis.ts') {
+                        return { validateSubmittedReportFile };
+                    }
+                    throw new Error(`Unexpected module: ${name}`);
+                },
+                process: { env: { RUNNER_TEMP: directory } },
+                context: { runId: 100 },
+                core: { summary },
+            });
+        writeFileSync(manifestPath, JSON.stringify(f.manifest));
+        await expect(run()).rejects.toThrow('Expected a trusted manual-preview manifest');
+        expect(summary.addRaw.mock.calls).toStrictEqual([]);
+        writeFileSync(manifestPath, JSON.stringify({ ...f.manifest, preview: true }));
+        await run();
+        const asPreview = (content: string) =>
+            content
+                .replace('<!-- pyright-primer-analysis:', '<!-- pyright-primer-analysis-preview:')
+                .replace(
+                    '## mypy_primer analysis\n\n',
+                    '## mypy_primer analysis preview\n\n**Preview only. No PR comment was posted.**\n\n'
+                );
+        expect(readFileSync(join(directory, 'primer-preview', 'comment.md'), 'utf8')).toBe(
+            asPreview(expectedReport.body)
+        );
+        expect(readFileSync(join(directory, 'primer-preview', 'full-report.md'), 'utf8')).toBe(
+            asPreview(expectedReport.fullReport)
+        );
+        expect(summary.addRaw.mock.calls).toStrictEqual([[asPreview(expectedReport.body)]]);
+        expect(summary.write.mock.calls).toStrictEqual([[]]);
+        expect(f.request.mock.calls).toStrictEqual([]);
+    });
+
+    test('compiled ingestion permits typing citations without expanding network access', () => {
+        const source = parseDocument(
+            readFileSync(join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.md'), 'utf8').split(
+                /^---\r?$/m
+            )[1]
+        );
+        const networkDomains = source.getIn(['network', 'allowed'], true);
+        const outputDomains = source.getIn(['safe-outputs', 'allowed-domains'], true);
+        if (!isSeq(networkDomains) || !isSeq(outputDomains)) {
+            throw new Error('Missing network or safe-output domain configuration');
+        }
+        expect(networkDomains.toJSON()).toStrictEqual(['defaults', 'github']);
+        expect(outputDomains.toJSON()).toStrictEqual(['typing.python.org']);
+        const workflow = parseDocument(
+            readFileSync(join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'), 'utf8')
+        );
+        const steps = workflow.getIn(['jobs', 'agent', 'steps'], true);
+        if (!isSeq(steps)) {
+            throw new Error('Missing agent steps');
+        }
+        const ingestion = steps.items.find((item) => isMap(item) && item.get('id') === 'collect_output');
+        if (!isMap(ingestion)) {
+            throw new Error('Missing safe-output ingestion step');
+        }
+        expect(ingestion.getIn(['env', 'GH_AW_ALLOWED_DOMAINS'])).toBe(
+            [
+                '*.githubusercontent.com',
+                'api.snapcraft.io',
+                'archive.ubuntu.com',
+                'azure.archive.ubuntu.com',
+                'codeload.github.com',
+                'crl.geotrust.com',
+                'crl.globalsign.com',
+                'crl.identrust.com',
+                'crl.sectigo.com',
+                'crl.thawte.com',
+                'crl.usertrust.com',
+                'crl.verisign.com',
+                'crl3.digicert.com',
+                'crl4.digicert.com',
+                'crls.ssl.com',
+                'docs.github.com',
+                'github-cloud.githubusercontent.com',
+                'github-cloud.s3.amazonaws.com',
+                'github.blog',
+                'github.com',
+                'github.githubassets.com',
+                'json-schema.org',
+                'json.schemastore.org',
+                'keyserver.ubuntu.com',
+                'lfs.github.com',
+                'localhost', // gh-aw includes this implicitly when safe-output domains are configured.
+                'objects.githubusercontent.com',
+                'ocsp.digicert.com',
+                'ocsp.geotrust.com',
+                'ocsp.globalsign.com',
+                'ocsp.identrust.com',
+                'ocsp.sectigo.com',
+                'ocsp.ssl.com',
+                'ocsp.thawte.com',
+                'ocsp.usertrust.com',
+                'ocsp.verisign.com',
+                'packagecloud.io',
+                'packages.cloud.google.com',
+                'packages.microsoft.com',
+                'patch-diff.githubusercontent.com',
+                'patchdiff.githubusercontent.com',
+                'ppa.launchpad.net',
+                'raw.githubusercontent.com',
+                's.symcb.com',
+                's.symcd.com',
+                'security.ubuntu.com',
+                'ts-crl.ws.symantec.com',
+                'ts-ocsp.ws.symantec.com',
+                'typing.python.org',
+                'www.googleapis.com',
+            ].join(',')
+        );
+    });
+
     test('compiled workflow runtime matches the compiler resolution lock', () => {
         const content = readFileSync(
             join(__dirname, '../../../../.github/workflows/mypy-primer-analysis.lock.yml'),
@@ -943,6 +1449,11 @@ describe('mypy_primer analysis', () => {
         expect(source.getIn(['tools', 'edit'])).toBe(false);
         expect(source.getIn(['tools', 'github', 'read-only'])).toBe(true);
         expect(source.get('max-ai-credits')).toBe(25);
+        expect(source.getIn(['engine', 'model'])).toBe('gpt-5.6-luna');
+        expect(source.getIn(['safe-outputs', 'noop'])).toBe(false);
+        expect(source.getIn(['sandbox', 'agent', 'token-steering'])).toBe(false);
+        expect(source.getIn(['safe-outputs', 'threat-detection', 'engine', 'model'])).toBe('detection');
+        expect(source.getIn(['safe-outputs', 'threat-detection', 'engine', 'version'])).toBe('1.0.80');
         expect(source.getIn(['engine', 'version'])).toBe('1.0.80');
         expect(source.getIn(['engine', 'harness'])).toBe('mypyPrimerCopilotHarness.cjs');
 
@@ -968,6 +1479,12 @@ describe('mypy_primer analysis', () => {
             }
             return step;
         };
+        const normalizeScript = (script: unknown) => {
+            if (typeof script !== 'string') {
+                throw new Error('Missing workflow script');
+            }
+            return script.replace(/\r\n/g, '\n').trim();
+        };
         const gateway = getStep('start-mcp-gateway').get('run');
         expect(gateway).toContain('export GH_AW_ENGINE="copilot"');
         expect(gateway).toContain('"github": {');
@@ -984,19 +1501,87 @@ describe('mypy_primer analysis', () => {
         const preflight = getStep('stage_mcp_preflight');
         expect(preflight.get('continue-on-error')).toBeUndefined();
         expect(preflight.get('if')).toBeUndefined();
-        expect(preflight.getIn(['with', 'script'])).toContain("['mypyPrimerMcp.ts', 'mypyPrimerCopilotHarness.cjs']");
+        expect(normalizeScript(preflight.getIn(['with', 'script']))).toBe(
+            [
+                "const fs = require('fs');",
+                "const path = require('path');",
+                "for (const file of ['mypyPrimerMcp.ts', 'mypyPrimerCopilotHarness.cjs', 'mypyPrimerAnalysis.ts']) {",
+                '  fs.copyFileSync(',
+                "    path.join('/tmp/gh-aw/primer-input', file),",
+                "    path.join(process.env.RUNNER_TEMP, 'gh-aw', 'actions', file)",
+                '  );',
+                '}',
+                'fs.copyFileSync(',
+                "  '/tmp/gh-aw/primer-input/manifest.json',",
+                "  path.join(process.env.RUNNER_TEMP, 'gh-aw', 'actions', 'primer-manifest.json')",
+                ');',
+            ].join('\n')
+        );
         expect(agentSteps.items.indexOf(preflight)).toBeLessThan(
             agentSteps.items.indexOf(getStep('agentic_execution'))
         );
         expect(getStep('agentic_execution').get('if')).toBeUndefined();
-        expect(String(workflow.getIn(['jobs', 'collect', 'steps'], true))).toContain(
-            "fs.copyFileSync('./build/ci/mypyPrimerMcp.ts'"
-        );
-        expect(String(workflow.getIn(['jobs', 'collect', 'steps'], true))).toContain(
-            "fs.copyFileSync('./build/ci/mypyPrimerCopilotHarness.cjs'"
+        const collectSteps = workflow.getIn(['jobs', 'collect', 'steps'], true);
+        if (!isSeq(collectSteps)) {
+            throw new Error('Missing collection steps');
+        }
+        const prepare = collectSteps.items.find((item) => isMap(item) && item.get('id') === 'prepare');
+        if (!isMap(prepare)) {
+            throw new Error('Missing preparation step');
+        }
+        expect(prepare.getIn(['env', 'PRIMER_PREVIEW'])).toBe("${{ github.event_name == 'workflow_dispatch' }}");
+        expect(normalizeScript(prepare.getIn(['with', 'script']))).toBe(
+            [
+                "const fs = require('fs');",
+                "const path = require('path');",
+                "const { prepareAnalysis } = require('./build/ci/mypyPrimerAnalysis.ts');",
+                "const source = JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'primer-source.json'), 'utf8'));",
+                "const folder = path.join(process.env.RUNNER_TEMP, 'primer-input');",
+                "const manifest = await prepareAnalysis(github.request.bind(github), `${context.repo.owner}/${context.repo.repo}`, source, path.join(folder, 'raw'), process.env.PRIMER_PREVIEW === 'true');",
+                'if (!manifest) {',
+                "  core.notice('Skipping analysis: the PR is closed or its head has changed');",
+                "  core.setOutput('has_changes', 'false');",
+                '  return;',
+                '}',
+                "fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2));",
+                "fs.copyFileSync('./build/ci/mypyPrimerMcp.ts', path.join(folder, 'mypyPrimerMcp.ts'));",
+                "fs.copyFileSync('./build/ci/mypyPrimerCopilotHarness.cjs', path.join(folder, 'mypyPrimerCopilotHarness.cjs'));",
+                "fs.copyFileSync('./build/ci/mypyPrimerAnalysis.ts', path.join(folder, 'mypyPrimerAnalysis.ts'));",
+                "core.setOutput('has_changes', String(manifest.projects.length > 0));",
+                'core.notice(`${manifest.projects.length} changed projects; all eight shards accounted for`);',
+            ].join('\n')
         );
 
+        const reportCheck = getStep('require_primer_report');
+        expect(reportCheck.get('continue-on-error')).toBeUndefined();
+        expect(reportCheck.get('if')).toBe("${{ !cancelled() && steps.agentic_execution.outcome == 'success' }}");
+        expect(reportCheck.getIn(['env', 'PRIMER_AGENT_OUTPUT'])).toBe('/tmp/gh-aw/agent_output.json');
+        expect(agentSteps.items.indexOf(getStep('agentic_execution'))).toBeLessThan(
+            agentSteps.items.indexOf(getStep('collect_output'))
+        );
+        expect(agentSteps.items.indexOf(getStep('collect_output'))).toBeLessThan(agentSteps.items.indexOf(reportCheck));
+        const upload = agentSteps.items.find(
+            (item) => isMap(item) && item.getIn(['with', 'name']) === 'agent-output-fallback'
+        );
+        if (!isMap(upload)) {
+            throw new Error('Missing output artifact upload');
+        }
+        expect(upload.get('if')).toBe('always()');
+        expect(agentSteps.items.indexOf(reportCheck)).toBeLessThan(agentSteps.items.indexOf(upload));
+        const configStep = agentSteps.items.find(
+            (item) => isMap(item) && item.getIn(['env', 'GH_AW_SAFE_OUTPUTS_CONFIG']) !== undefined
+        );
+        if (!isMap(configStep)) {
+            throw new Error('Missing safe outputs configuration');
+        }
+        const safeOutputConfig = parseDocument(String(configStep.getIn(['env', 'GH_AW_SAFE_OUTPUTS_CONFIG'])));
+        expect(safeOutputConfig.has('noop')).toBe(false);
+        expect(safeOutputConfig.has('publish-primer-analysis')).toBe(true);
+
         const execution = getStep('agentic_execution').get('run');
+        expect(getStep('agentic_execution').getIn(['env', 'COPILOT_MODEL'])).toBe('gpt-5.6-luna');
+        expect(execution).toContain('"enableTokenSteering":false');
+        expect(execution).toContain('"maxAiCredits":25');
         expect(execution).toContain('/gh-aw/actions/mypyPrimerCopilotHarness.cjs"');
         expect(execution).toContain('export GH_AW_MCP_CONFIG="$HOME/.copilot/mcp-config.json"');
         expect(execution).toContain('--allow-tool github');
@@ -1005,5 +1590,17 @@ describe('mypy_primer analysis', () => {
         expect(execution).toContain('--deny-tool write');
         expect(execution).not.toContain('--allow-tool shell');
         expect(execution).not.toContain('--allow-tool write');
+
+        const detectionSteps = workflow.getIn(['jobs', 'detection', 'steps'], true);
+        if (!isSeq(detectionSteps)) {
+            throw new Error('Missing detection steps');
+        }
+        const detection = detectionSteps.items.find(
+            (item) => isMap(item) && item.getIn(['env', 'COPILOT_MODEL']) !== undefined
+        );
+        if (!isMap(detection)) {
+            throw new Error('Missing threat detection model configuration');
+        }
+        expect(detection.getIn(['env', 'COPILOT_MODEL'])).toBe('detection');
     });
 });
