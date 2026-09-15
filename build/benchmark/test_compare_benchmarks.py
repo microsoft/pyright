@@ -486,6 +486,10 @@ Regression threshold: `10.0%`
             weekly_workflow_data["jobs"]["report"]["if"],
             "${{ always() && github.repository == 'microsoft/pyright' }}",
         )
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["benchmark"]["strategy"]["matrix"]["checker"],
+            ["pyright", "pyrefly", "ty", "mypy", "zuban"],
+        )
         weekly_benchmark_steps = weekly_workflow_data["jobs"]["benchmark"]["steps"]
         self.assertEqual(
             [step.get("uses") for step in weekly_benchmark_steps],
@@ -518,6 +522,18 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
+            weekly_benchmark_steps[3]["if"],
+            "${{ matrix.checker != 'pyright' }}",
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[4]["if"],
+            "${{ matrix.checker == 'pyright' }}",
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[5]["if"],
+            "${{ matrix.checker == 'pyright' }}",
+        )
+        self.assertEqual(
             weekly_benchmark_steps[6],
             {
                 "name": "Build Pyright CLI",
@@ -534,6 +550,10 @@ Regression threshold: `10.0%`
                 "NODE_OPTIONS": "${{ matrix.checker == 'pyright' && '--max-old-space-size=6656' || '' }}",
                 "PYTHONNOUSERSITE": "1",
             },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[7]["run"],
+            "checkers=('${{ matrix.checker }}')\nextra_args=()\nif [[ '${{ matrix.checker }}' == 'pyright' ]]; then\n  checkers+=(pyright-threads)\n  extra_args+=(--skip-pyright-build)\nfi\npython build/benchmark/typecheck_benchmark.py \\\n  -c \"${checkers[@]}\" -r 3 -w 1 -t 1800 \\\n  --memory-limit-mb 8192 --os-name linux-x64 \\\n  --output build/benchmark/results \\\n  \"${extra_args[@]}\"\n",
         )
         weekly_report_steps = weekly_workflow_data["jobs"]["report"]["steps"]
         self.assertEqual(

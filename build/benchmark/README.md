@@ -52,6 +52,7 @@ From the repository root:
 python build/benchmark/typecheck_benchmark.py
 python build/benchmark/typecheck_benchmark.py -c pyright mypy -r 3 -w 1
 python build/benchmark/typecheck_benchmark.py -c pyright --skip-pyright-build
+python build/benchmark/typecheck_benchmark.py -c pyright pyright-threads -r 3 -w 1
 python build/benchmark/typecheck_benchmark.py -c pyright --local path/to/project
 python build/benchmark/typecheck_benchmark.py -c pyright pyright-pip -r 3 -w 1
 ```
@@ -77,6 +78,12 @@ both `index.js` and `dist/pyright.js`; normal local and weekly benchmarks leave 
 
 Use `--skip-pyright-build` to reuse an existing production bundle. The script rejects this flag if
 `packages/pyright/dist/pyright.js` does not exist.
+
+Select `pyright-threads` alongside `pyright` to compare normal single-threaded analysis with
+Pyright's `--threads` mode. The benchmark supplies no explicit thread count, so Pyright selects its
+default from the machine's logical CPU count (and falls back to one thread on machines with fewer
+than four logical CPUs). It does not collect `--stats` phase timings because Pyright does not allow
+`--threads` and `--stats` together.
 
 ## Local directories
 
@@ -139,7 +146,7 @@ on the repository's default branch; a pull request that first introduces them ca
 
 | Flag | Description |
 | --- | --- |
-| `-c, --checkers NAME [NAME ...]` | Checkers to run; choices are `pyright`, `pyright-pip`, `pyrefly`, `ty`, `mypy`, and `zuban` |
+| `-c, --checkers NAME [NAME ...]` | Checkers to run; choices are `pyright`, `pyright-threads`, `pyright-pip`, `pyrefly`, `ty`, `mypy`, and `zuban` |
 | `-r, --runs N` | Measured runs per checker (default: 5) |
 | `-w, --warmup N` | Warmup runs discarded before measurement (default: 1) |
 | `-t, --timeout SECONDS` | Timeout for each checker invocation (default: 300) |
@@ -200,9 +207,11 @@ comment renderer share one configuration source. Reports and artifacts are publi
 comparison marks the job unsuccessful.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
-Each checker performs three measured runs after one warmup over the same pinned corpus. The aggregate
-job stores each raw JSON result with a self-contained `index.html` comparison for 90 days; its Actions
-job summary links directly to the downloadable report artifact.
+The Pyright job measures single-threaded mode and `--threads` mode sequentially on the same runner and
+prepared package corpus. Each mode performs three measured runs after one warmup. The report includes
+a per-package Pyright threading chart with wall time, peak RSS, and speedup. The aggregate job stores
+each raw JSON result with a self-contained `index.html` comparison for 90 days; its Actions job
+summary links directly to the downloadable report artifact.
 
 The release-history workflow benchmarks every stable Pyright release published in the prior year
 against the same pinned corpus. It runs one measured pass per package, renders normalized per-package

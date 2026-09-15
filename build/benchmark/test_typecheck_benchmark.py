@@ -176,6 +176,29 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertIs(config["useLibraryCodeForTypes"], True)
         configs[0].unlink()
 
+    def test_threaded_pyright_uses_runner_cpu_count_without_stats(self) -> None:
+        source_dir = self.root / "src"
+        source_dir.mkdir()
+        with patch.object(
+            benchmark, "_checker_command", return_value=["node", "pyright.js"]
+        ):
+            command, configs = benchmark._build_checker_command(
+                "pyright-threads", self.root, [source_dir]
+            )
+
+        self.assertEqual(
+            command,
+            [
+                "node",
+                "pyright.js",
+                "--project",
+                str(configs[0]),
+                "--threads",
+            ],
+        )
+        self.assertNotIn("--stats", command)
+        configs[0].unlink()
+
     def test_pip_pyright_uses_pyright_config(self) -> None:
         with patch.object(
             benchmark,
