@@ -5,9 +5,11 @@ differences** analyzes the complete eight-shard output and posts a separate,
 commit-specific explanation. It is advisory: it does not approve PRs, change
 labels, merge changes, or make mypy_primer diagnostic differences fail CI.
 
-The PR comment lists every changed project, deterministic added/removed diagnostic
-counts, an assessment, confidence, and a short explanation, followed by expandable
-evidence and limitations when they fit. The linked workflow run's
+The PR comment leads with potential regressions and unresolved investigations,
+not a diagnostic-count table. Each project analysis states baseline evidence,
+changed behavior, downstream impact, a causal explanation, PR attribution, and
+the remaining uncertainty or next check. Type-erasure signals are ranked first;
+other assessed changes are collapsed. The linked workflow run's
 `mypy-primer-analysis-report` artifact always contains the complete explanation,
 evidence, and limitations for every project. The original raw diff remains
 available. Added/removed counts refer to diagnostic headers; message rewrites can
@@ -18,7 +20,7 @@ Explanations longer than 1,800 characters do not prevent publication. The commen
 shows the first 1,800 Unicode code points with an explicit truncation notice, while
 the artifact retains the complete explanation. Truncation happens before Markdown
 escaping, without splitting surrogate pairs. The 60,000-character comment budget
-still falls back to the compact table when expanded details do not fit.
+still falls back to a compact regression outline when expanded details do not fit.
 Nonempty explanations and the overall 1,000,000-character input bound remain
 required. Other field limits, project coverage, assessment/evidence validation,
 and stale-PR checks are unchanged.
@@ -31,11 +33,28 @@ explicitly present on that line, or `unspecified` when absent. Both retain bound
 examples, with complete evidence in the raw artifacts. Detail-only projects still
 require an assessment, even with zero added/removed headers.
 
+The collector also extracts generic `regressionSignals`: new assertion failures
+returning bare `Any`/`Unknown`, other assertion failures, removed checking diagnostics
+without replacements at the same locations/rules, and newly appearing gradual
+types in diagnostic details. These are investigation leads, not confirmed bugs or
+proof that the PR caused them. Detail-only signals do not pair unrelated lines.
+Signals stay visible in the regression section even if the model labels a project
+an improvement or a stub issue; such a label cannot silently dismiss the warning.
+This is not an exhaustive detector, and absence of signals does not establish safety.
+
 Assessments distinguish expected improvements, newly exposed typing issues,
 possible regressions, and changes needing human review. Neither fewer diagnostics
 nor a successful primer job establishes correctness. The agent is specifically
 instructed to investigate assertion failures, type precision loss, and diagnostics
 that may have disappeared because a result became `Any` or `Unknown`.
+PR attribution is separate: `likely-pr`, `unclear`, or `unlikely-pr`. A likely
+attribution requires an implementation citation pinned to the analyzed head and
+line, as well as a causal explanation. Source links do not independently prove the
+reasoning, so these remain advisory findings. Conformance intent and newly changed
+test expectations are not evidence that a loss of downstream checking is harmless.
+New assertion failures must not be blamed on stubs without inspecting the relevant
+declarations. The agent cannot execute reproductions and must label static reasoning
+and proposed follow-up checks accordingly.
 
 When the only changed project is the canonical `sympy` project, the comment is a
 short notice that treats these differences as non-blocking primer noise. It keeps
@@ -78,25 +97,34 @@ policy disallows this inference permission, a repository administrator must reso
 that configuration before the workflow can run. See the
 [Copilot authentication reference](https://github.github.com/gh-aw/reference/auth/).
 
-The initial limits are 25 AI credits, 30 agent turns, and 15 minutes for the agent.
+The limits are 200 AI credits, 30 agent turns, and 15 minutes for the agent.
 They can be adjusted in `.github/workflows/mypy-primer-analysis.md`. The agent must
 mark insufficiently investigated projects as needing review rather than inventing
 evidence to meet its budget.
 
-The analysis uses `engine.model: gpt-5.6-luna`, a newer lightweight GPT model with
-lower standard token rates than the previous GPT-5.4 mini; consult the
+The analysis uses `engine.model: gpt-5.6-sol` rather than the lightweight Luna
+model, with a larger budget for causal regression investigation; consult the
 [Copilot pricing table](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing)
 for current rates. Keep `sandbox.agent.token-steering: false` so the
 proxy preserves the selected model rather than steering requests to another one.
-The 25-credit cap is unchanged; a cheaper model does not guarantee completion.
+The 200-credit analysis budget is approximately $2; it does not guarantee completion
+or detection of every regression.
 The model must be enabled for the organization, and its advisory assessments
 still require human review. Threat detection explicitly retains its existing
 `detection` model alias rather than inheriting the analysis model.
 
-Every activated analysis must submit exactly one `publish_primer_analysis` report.
-This safe-output submission queues the trusted publisher; it is not a direct GitHub
-write. `noop` is disabled, and an independent post-step validates successful agent
-executions after safe-output ingestion, using the normalized `agent_output.json`
+Every activated analysis must call `publish_primer_analysis` once per changed
+project, with exactly one entry in each payload's `projects` array. The pinned
+framework limits each string input to 10240 UTF-8 bytes; per-project submissions
+avoid squeezing every investigation into that single allowance. Up to 100 calls
+are allowed, matching the maximum project inventory. The validator assembles all
+projects, preserves the combined 1000000-character payload limit, and rejects
+missing or duplicate projects. Historical single-submission reports remain
+readable. Individual tool successes do not mean the complete report is valid.
+
+These safe-output submissions queue the trusted publisher; they are not direct
+GitHub writes. `noop` is disabled, and an independent post-step validates successful
+agent executions after safe-output ingestion, using the normalized `agent_output.json`
 and the same report validator as the publisher. Empty, no-op-only,
 incomplete, duplicate, or malformed submissions fail the agent job rather than
 leaving a misleading green run with publication skipped. The validator and manifest

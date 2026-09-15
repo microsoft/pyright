@@ -83,6 +83,16 @@ const expectedDetailOnlyProject = {
     ],
 };
 const expectedDetailOnlySummary = {
+    regressionSignals: {
+        example: [
+            {
+                kind: 'gradual-detail',
+                count: 1,
+                examplesAdded: [expectedDetailOnlyProject.detailsAdded[0].text],
+                examplesRemoved: expectedDetailOnlyProject.detailsRemoved.map((entry) => entry.text),
+            },
+        ],
+    },
     projects: [
         {
             name: 'example',
@@ -136,11 +146,21 @@ const expectedReportHeading = [
 const expectedReportRow =
     '| example | 1 | 1 | 1 / 1 | Needs human review | low | The argument error changed its wording. |';
 const expectedReportDetails = [
-    '### example',
+    '### example: The argument error changed its wording.',
+    '',
+    '**AI assessment:** Needs human review (low confidence). **PR attribution:** Not established.',
+    '',
+    '**Before / baseline evidence:** An argument error was reported.',
+    '',
+    '**After / PR evidence:** An argument error remains.',
+    '',
+    '**Why this matters:** No changed checking has been established.',
+    '',
+    '**Causal analysis:**',
     '',
     'The error remains at the same location. Its cause has not been established.',
     '',
-    '**Unresolved / coverage limits:** Exact dependency revision unavailable.',
+    '**Uncertainty / next check:** Exact dependency revision unavailable.',
     '',
     '',
 ];
@@ -149,21 +169,50 @@ const expectedReportFooter = [
         '[this analysis run](https://github.com/microsoft/pyright/actions/runs/100).',
     'The original raw primer comment is unchanged. Treat uncertainty and possible regressions as requests for human review.',
 ];
+const incompleteOverview =
+    '**Regression analysis incomplete.** No concrete regression has been established; unresolved investigations follow.';
+const riskOverview =
+    '**Regression review required.** Potential regressions or recorded warning signals are listed first; causation must be established separately.';
 const expectedReport = {
     body: [
-        ...expectedReportHeading,
-        expectedReportRow,
+        ...expectedReportProvenance,
+        incompleteOverview,
         '',
-        '<details>',
-        '<summary>Evidence and limitations by project</summary>',
+        '## Unresolved investigations',
         '',
         ...expectedReportDetails,
-        '</details>',
-        '',
         ...expectedReportFooter,
     ].join('\n'),
     fullReport: [...expectedReportHeading, expectedReportRow, '', ...expectedReportDetails].join('\n'),
 };
+
+function expectedLargeReport(projectCount: number, explanation: string) {
+    const escapedNames = Array.from({ length: projectCount }, (_, index) => `project\\_${index}`);
+    const rows = escapedNames.map((name) => expectedReportRow.replace('example', name));
+    const details = escapedNames.flatMap((name) =>
+        expectedReportDetails.map((line) =>
+            line
+                .replace('### example:', `### ${name}:`)
+                .replace('The error remains at the same location. Its cause has not been established.', explanation)
+        )
+    );
+    return {
+        body: [
+            ...expectedReportProvenance,
+            incompleteOverview,
+            '',
+            'Full causal analyses are available in the report artifact.',
+            '',
+            ...escapedNames.map(
+                (name) =>
+                    `- **${name}: Needs human review.** The argument error changed its wording. PR attribution: Not established.`
+            ),
+            '',
+            ...expectedReportFooter,
+        ].join('\n'),
+        fullReport: [...expectedReportHeading, ...rows, '', ...details].join('\n'),
+    };
+}
 
 function fixture(contents = sample, headRepository = repository) {
     const source = {
@@ -232,14 +281,23 @@ function fixture(contents = sample, headRepository = repository) {
                 name: 'example',
                 assessment: 'needs-review',
                 confidence: 'low',
+                attribution: 'unclear',
                 summary: 'The argument error changed its wording.',
+                before: 'An argument error was reported.',
+                after: 'An argument error remains.',
+                impact: 'No changed checking has been established.',
                 explanation: 'The error remains at the same location. Its cause has not been established.',
                 unresolved: 'Exact dependency revision unavailable.',
                 evidence: [],
             },
         ],
     };
-    const output = () => ({ items: [{ type: 'publish_primer_analysis', report: JSON.stringify(report) }] });
+    const output = (perProject = false) => ({
+        items: (perProject ? report.projects.map((project) => ({ projects: [project] })) : [report]).map((report) => ({
+            type: 'publish_primer_analysis',
+            report: JSON.stringify(report),
+        })),
+    });
     return { source, manifest, pr, run, artifacts, comments, associated, request, report, output };
 }
 
@@ -506,6 +564,7 @@ describe('mypy_primer analysis', () => {
             throw new Error('Preparation unexpectedly skipped the detail-only project');
         }
         f.report.projects[0] = {
+            ...f.report.projects[0],
             name: 'example',
             assessment: 'needs-review',
             confidence: 'low',
@@ -515,26 +574,36 @@ describe('mypy_primer analysis', () => {
             evidence: [],
         };
         const expectedDetails = [
-            '### example',
+            '### example: Only diagnostic details changed.',
+            '',
+            '**Regression warning signals require review, regardless of the AI assessment:**',
+            '- Changed diagnostic details introduce Any/Unknown.',
+            '',
+            '**AI assessment:** Needs human review (low confidence). **PR attribution:** Not established.',
+            '',
+            '**Before / baseline evidence:** An argument error was reported.',
+            '',
+            '**After / PR evidence:** An argument error remains.',
+            '',
+            '**Why this matters:** No changed checking has been established.',
+            '',
+            '**Causal analysis:**',
             '',
             'The return type changed from Match\\[str\\] \\| None to Unknown.',
             '',
-            '**Unresolved / coverage limits:** Diagnostic headers and locations are absent from the concise diff.',
+            '**Uncertainty / next check:** Diagnostic headers and locations are absent from the concise diff.',
             '',
             '',
         ];
         const expectedRow = '| example | 0 | 0 | 2 / 2 | Needs human review | low | Only diagnostic details changed. |';
         const expected = {
             body: [
-                ...expectedReportHeading,
-                expectedRow,
+                ...expectedReportProvenance,
+                riskOverview,
                 '',
-                '<details>',
-                '<summary>Evidence and limitations by project</summary>',
+                '## Potential regressions',
                 '',
                 ...expectedDetails,
-                '</details>',
-                '',
                 ...expectedReportFooter,
             ].join('\n'),
             fullReport: [...expectedReportHeading, expectedRow, '', ...expectedDetails].join('\n'),
@@ -687,6 +756,272 @@ describe('mypy_primer analysis', () => {
         expect(result).toStrictEqual(expectedReport);
     });
 
+    test('extracts type-erasure and other assertion signals without inferring baseline reveals', () => {
+        const erased = [
+            '.../projects/pandas-stubs/test.py:1:1 - error: "assert_type" mismatch: expected "Index[Any]" but received "Any" (reportAssertTypeFailure)',
+            '.../projects/pandas-stubs/test.py:2:1 - error: "assert_type" mismatch: expected "Rotation[tuple[Any, ...]]" but received "Unknown" (reportAssertTypeFailure)',
+        ];
+        const assertion =
+            '.../projects/pandas-stubs/test.py:3:1 - error: "assert_type" mismatch: expected "int" but received "Literal[1]" (reportAssertTypeFailure)';
+        const diff = [
+            'pandas-stubs (https://github.com/pandas-dev/pandas-stubs)',
+            ...[...erased, assertion].map((line) => `+   ${line}`),
+            '- 0 errors, 0 warnings, 0 informations',
+            '+ 3 errors, 0 warnings, 0 informations',
+        ].join('\n');
+        expect(summarizeDiffs(parseDiff(diff, 0)).regressionSignals).toStrictEqual({
+            'pandas-stubs': [
+                { kind: 'type-erasure', count: 2, examplesAdded: erased, examplesRemoved: [] },
+                { kind: 'assertion-failure', count: 1, examplesAdded: [assertion], examplesRemoved: [] },
+            ],
+        });
+    });
+
+    test('flags removed checks but not replacements or unrelated lint removals', () => {
+        const removed = '.../projects/example/test.py:2:1 - error: Missing member (reportAttributeAccessIssue)';
+        const diff = [
+            'example (https://github.com/example/project)',
+            '-   .../projects/example/test.py:1:1 - error: Old argument error (reportArgumentType)',
+            '+   .../projects/example/test.py:1:1 - error: Reworded argument error (reportArgumentType)',
+            `-   ${removed}`,
+            '+   .../projects/example/test.py:2:1 - error: Different argument error (reportArgumentType)',
+            '-   .../projects/example/test.py:3:1 - warning: Unused import (reportUnusedImport)',
+            '- 2 errors, 1 warning, 0 informations',
+            '+ 2 errors, 0 warnings, 0 informations',
+        ].join('\n');
+        expect(summarizeDiffs(parseDiff(diff, 0)).regressionSignals).toStrictEqual({
+            example: [{ kind: 'removed-check', count: 1, examplesAdded: [], examplesRemoved: [removed] }],
+        });
+        expect(summarizeDiffs(parseDiff(sample, 0)).regressionSignals).toBeUndefined();
+    });
+
+    test('detects new Unknown returns despite pre-existing Unknown parameters', () => {
+        const before = '     Return type mismatch: override returns type "(value: Unknown) -> int"';
+        const after = '     Return type mismatch: override returns type "(value: Unknown) -> Unknown"';
+        const diff = ['pip (https://github.com/pypa/pip)', `-${before}`, `+${after}`].join('\n');
+        expect(summarizeDiffs(parseDiff(diff, 0)).regressionSignals).toStrictEqual({
+            pip: [{ kind: 'gradual-detail', count: 1, examplesAdded: [after], examplesRemoved: [before] }],
+        });
+    });
+
+    test('does not flag a gradual type merely moving from a header into a detail', () => {
+        const diff = [
+            'example (https://github.com/example/project)',
+            '-   .../projects/example/test.py:1:1 - error: Argument of type Unknown is incompatible (reportArgumentType)',
+            '+   .../projects/example/test.py:1:1 - error: Argument is incompatible (reportArgumentType)',
+            '+     Type Unknown is incompatible (reportArgumentType)',
+        ].join('\n');
+        expect(summarizeDiffs(parseDiff(diff, 0)).regressionSignals).toBeUndefined();
+    });
+
+    test('bounds warning examples without undercounting the observed signal', () => {
+        const lines = Array.from(
+            { length: 5 },
+            (_, index) =>
+                `.../projects/example/test.py:${index + 1}:1 - error: "assert_type" mismatch: expected "${'X'.repeat(
+                    800
+                )}" but received "Any" (reportAssertTypeFailure)`
+        );
+        const diff = [
+            'example (https://github.com/example/project)',
+            ...lines.map((line) => `+   ${line}`),
+            '- 0 errors, 0 warnings, 0 informations',
+            '+ 5 errors, 0 warnings, 0 informations',
+        ].join('\n');
+        expect(summarizeDiffs(parseDiff(diff, 0)).regressionSignals).toStrictEqual({
+            example: [
+                {
+                    kind: 'type-erasure',
+                    count: 5,
+                    examplesAdded: lines.slice(0, 3).map((line) => line.slice(0, 600)),
+                    examplesRemoved: [],
+                },
+            ],
+        });
+    });
+
+    test.each([
+        ['__proto__', '\\_\\_proto\\_\\_'],
+        ['constructor', 'constructor'],
+        ['toString', 'toString'],
+    ])('treats project name %s as data rather than an inherited key', (name, escapedName) => {
+        const f = fixture(sample.replace(/example/g, name));
+        f.report.projects[0].name = name;
+        expect(renderReport({ ...f.manifest, regressionSignals: {} }, f.report, 100)).toStrictEqual({
+            body: expectedReport.body.replace(/example/g, escapedName),
+            fullReport: expectedReport.fullReport.replace(/example/g, escapedName),
+        });
+        const line = `.../projects/${name}/test.py:1:1 - error: "assert_type" mismatch: expected "int" but received "Any" (reportAssertTypeFailure)`;
+        const diff = [
+            `${name} (https://github.com/example/project)`,
+            `+   ${line}`,
+            '- 0 errors, 0 warnings, 0 informations',
+            '+ 1 error, 0 warnings, 0 informations',
+        ].join('\n');
+        // Compare entries so Jest does not treat a constructor data key as a class identity.
+        expect(
+            Object.entries(JSON.parse(JSON.stringify(summarizeDiffs(parseDiff(diff, 0)).regressionSignals)))
+        ).toStrictEqual([[name, [{ kind: 'type-erasure', count: 1, examplesAdded: [line], examplesRemoved: [] }]]]);
+    });
+
+    test('keeps type-erasure risks first even when the model blames stubs', () => {
+        const diff = [
+            sample,
+            'pandas-stubs (https://github.com/pandas-dev/pandas-stubs)',
+            '+   .../projects/pandas-stubs/test.py:1:1 - error: "assert_type" mismatch: expected "Index[Any]" but received "Any" (reportAssertTypeFailure)',
+            '- 0 errors, 0 warnings, 0 informations',
+            '+ 1 error, 0 warnings, 0 informations',
+        ].join('\n');
+        const f = fixture(diff);
+        const pandas = {
+            ...f.report.projects[0],
+            name: 'pandas-stubs',
+            assessment: 'exposed-typing-issue',
+            confidence: 'high',
+            summary: 'The model claims that the stub expectation is wrong.',
+            before: 'The assertion expects Index[Any]; the baseline reveal is not recorded.',
+            after: 'The new assertion receives Any.',
+            impact: 'The expected outer container type is absent from the reported result.',
+            explanation: 'Conformance intent alone does not establish that the lost type information is harmless.',
+            evidence: [
+                {
+                    url: 'https://typing.python.org/en/latest/spec/overload.html',
+                    detail: 'Specification context, not proof of a bad stub.',
+                },
+            ],
+        };
+        const pandasDetails = [
+            '### pandas-stubs: The model claims that the stub expectation is wrong.',
+            '',
+            '**Regression warning signals require review, regardless of the AI assessment:**',
+            '- New assertions receive bare Any/Unknown instead of their expected type.',
+            '',
+            '**AI assessment:** Exposed typing issue (high confidence). **PR attribution:** Not established.',
+            '',
+            '**Before / baseline evidence:** The assertion expects Index\\[Any\\]; the baseline reveal is not recorded.',
+            '',
+            '**After / PR evidence:** The new assertion receives Any.',
+            '',
+            '**Why this matters:** The expected outer container type is absent from the reported result.',
+            '',
+            '**Causal analysis:**',
+            '',
+            'Conformance intent alone does not establish that the lost type information is harmless.',
+            '',
+            '**Uncertainty / next check:** Exact dependency revision unavailable.',
+            '',
+            '- Specification context, not proof of a bad stub.: <https://typing.python.org/en/latest/spec/overload.html>',
+            '',
+        ];
+        expect(renderReport(f.manifest, { projects: [...f.report.projects, pandas] }, 100)).toStrictEqual({
+            body: [
+                ...expectedReportProvenance,
+                riskOverview,
+                '',
+                '## Potential regressions',
+                '',
+                ...pandasDetails,
+                '## Unresolved investigations',
+                '',
+                ...expectedReportDetails,
+                ...expectedReportFooter,
+            ].join('\n'),
+            fullReport: [
+                ...expectedReportHeading,
+                expectedReportRow,
+                '| pandas-stubs | 1 | 0 | 0 / 0 | Exposed typing issue | high | The model claims that the stub expectation is wrong. |',
+                '',
+                ...pandasDetails,
+                ...expectedReportDetails,
+            ].join('\n'),
+        });
+    });
+
+    test.each([
+        `https://github.com/microsoft/pyright/blob/main/file.ts#L1`,
+        `https://github.com/microsoft/pyright/blob/${'b'.repeat(40)}/file.ts#L1`,
+        `https://github.com/microsoft/pyright/blob/${headSha}/file.ts`,
+        `https://github.com/other/repo/blob/${headSha}/file.ts#L1`,
+        'https://typing.python.org/en/latest/spec/overload.html#step-5',
+    ])('rejects likely PR attribution without exact head and line evidence: %s', (url) => {
+        const f = fixture();
+        const report = {
+            projects: [
+                {
+                    ...f.report.projects[0],
+                    attribution: 'likely-pr',
+                    evidence: [{ url, detail: 'Insufficient attribution evidence.' }],
+                },
+            ],
+        };
+        expect(() => renderReport(f.manifest, report, 100)).toThrow(
+            new Error('PR attribution requires a line-pinned citation at the analyzed head for example')
+        );
+    });
+
+    test.each([
+        { headRepository: repository, evidenceRepository: repository },
+        { headRepository: 'contributor/pyright', evidenceRepository: repository },
+        { headRepository: 'contributor/pyright', evidenceRepository: 'contributor/pyright' },
+    ])(
+        'accepts $evidenceRepository evidence for a PR from $headRepository',
+        ({ headRepository, evidenceRepository }) => {
+            const f = fixture(sample, headRepository);
+            const url = `https://github.com/${evidenceRepository}/blob/${headSha}/file.ts#L1-L5`;
+            const report = {
+                projects: [
+                    {
+                        ...f.report.projects[0],
+                        attribution: 'likely-pr',
+                        evidence: [{ url, detail: 'Changed branch.' }],
+                    },
+                ],
+            };
+            const details = [...expectedReportDetails.slice(0, -1), `- Changed branch.: <${url}>`, '']
+                .join('\n')
+                .replace('PR attribution:** Not established.', 'PR attribution:** Likely caused by the PR.');
+            expect(renderReport(f.manifest, report, 100)).toStrictEqual({
+                body: expectedReport.body.replace(expectedReportDetails.join('\n'), details),
+                fullReport: expectedReport.fullReport.replace(expectedReportDetails.join('\n'), details),
+            });
+        }
+    );
+
+    test.each([
+        `https://github.com/contributor/pyright/blob/${'b'.repeat(40)}/file.ts#L1`,
+        `https://github.com/contributor/pyright/blob/${headSha}/file.ts`,
+        `https://github.com/contributor/pyright-extra/blob/${headSha}/file.ts#L1`,
+        `https://github.com/other/pyright/blob/${headSha}/file.ts#L1`,
+    ])('rejects mismatched attribution evidence for a fork PR: %s', (url) => {
+        const f = fixture(sample, 'contributor/pyright');
+        const report = {
+            projects: [
+                {
+                    ...f.report.projects[0],
+                    attribution: 'likely-pr',
+                    evidence: [{ url, detail: 'Insufficient attribution evidence.' }],
+                },
+            ],
+        };
+        expect(() => renderReport(f.manifest, report, 100)).toThrow(
+            new Error('PR attribution requires a line-pinned citation at the analyzed head for example')
+        );
+    });
+
+    test.each(['before', 'after', 'impact', 'attribution'])('requires the %s investigation field', (field) => {
+        const f = fixture();
+        const report = { projects: [{ ...f.report.projects[0], [field]: undefined }] };
+        expect(() => renderReport(f.manifest, report, 100)).toThrow(
+            new Error(`Expected nonempty text of at most ${field === 'attribution' ? 2000 : 1200} characters`)
+        );
+    });
+
+    test('rejects unsupported PR attribution classifications', () => {
+        const f = fixture();
+        f.report.projects[0].attribution = 'definitely-caused-by-pr';
+        expect(() => renderReport(f.manifest, f.report, 100)).toThrow(new Error('Invalid PR attribution for example'));
+    });
+
     test('uses a short non-blocking notice only for canonical SymPy-only changes', () => {
         const f = fixture(
             sample
@@ -729,15 +1064,12 @@ describe('mypy_primer analysis', () => {
         ];
         expect(renderReport(manifest, { projects: [sympy, ...f.report.projects] }, 100)).toStrictEqual({
             body: [
-                ...expectedReportHeading,
-                ...rows,
+                ...expectedReportProvenance,
+                incompleteOverview,
                 '',
-                '<details>',
-                '<summary>Evidence and limitations by project</summary>',
+                '## Unresolved investigations',
                 '',
                 ...details,
-                '</details>',
-                '',
                 ...expectedReportFooter,
             ].join('\n'),
             fullReport: [...expectedReportHeading, ...rows, '', ...details].join('\n'),
@@ -810,6 +1142,9 @@ describe('mypy_primer analysis', () => {
             ['summary', 'x'.repeat(241)],
             ['unresolved', 'x'.repeat(801)],
             ['explanation', 'x'.repeat(1000001)],
+            ['before', 'x'.repeat(1201)],
+            ['after', 'x'.repeat(1201)],
+            ['impact', 'x'.repeat(1201)],
         ]) {
             const report = { projects: [{ ...f.report.projects[0], [field]: value }] };
             expect(() => renderReport(f.manifest, report, 100)).toThrow('Expected nonempty text');
@@ -860,14 +1195,7 @@ describe('mypy_primer analysis', () => {
         const report = { projects: names.map((name) => ({ ...f.report.projects[0], name, explanation })) };
         const result = renderReport(manifest, report, 100);
         expect(result.body.length).toBeLessThanOrEqual(60000);
-        expect(result.body).not.toContain('<details>');
-        expect(result.body).toContain(expectedReportFooter[0]);
-        expect(result.fullReport).not.toContain('Explanation truncated');
-        for (const name of names) {
-            const escaped = name.replace('_', '\\_');
-            expect(result.body).toContain(`| ${escaped} |`);
-            expect(result.fullReport).toContain(`### ${escaped}\n\n${explanation}\n`);
-        }
+        expect(result).toStrictEqual(expectedLargeReport(names.length, explanation));
     });
 
     test('large reports retain every project in the comment and full artifact', () => {
@@ -883,23 +1211,7 @@ describe('mypy_primer analysis', () => {
         const result = renderReport(manifest, report, 100);
         expect(result.body.length).toBeLessThan(60000);
         expect(result.fullReport.length).toBeGreaterThan(60000);
-        const expectedRows = names.map(
-            (_, index) =>
-                `| project\\_${index} | 1 | 1 | 1 / 1 | Needs human review | low | The argument error changed its wording. |`
-        );
-        const expectedDetails = names.flatMap((_, index) => [
-            `### project\\_${index}`,
-            '',
-            'x'.repeat(1800),
-            '',
-            '**Unresolved / coverage limits:** Exact dependency revision unavailable.',
-            '',
-            '',
-        ]);
-        expect(result).toStrictEqual({
-            body: [...expectedReportHeading, ...expectedRows, '', ...expectedReportFooter].join('\n'),
-            fullReport: [...expectedReportHeading, ...expectedRows, '', ...expectedDetails].join('\n'),
-        });
+        expect(result).toStrictEqual(expectedLargeReport(names.length, 'x'.repeat(1800)));
     });
 
     test('rejects missing projects, unsupported classifications, and uncited certainty', () => {
@@ -919,8 +1231,8 @@ describe('mypy_primer analysis', () => {
         f.report.projects[0].summary = '<script> @someone | injected row';
         const escapedSummary = '\\<script\\> &#64;someone \\| injected row';
         expect(renderReport(f.manifest, f.report, 100)).toStrictEqual({
-            body: expectedReport.body.replace('The argument error changed its wording.', escapedSummary),
-            fullReport: expectedReport.fullReport.replace('The argument error changed its wording.', escapedSummary),
+            body: expectedReport.body.replace(/The argument error changed its wording\./g, escapedSummary),
+            fullReport: expectedReport.fullReport.replace(/The argument error changed its wording\./g, escapedSummary),
         });
         const report = {
             projects: [
@@ -957,12 +1269,149 @@ describe('mypy_primer analysis', () => {
         const f = fixture();
         const output = f.output();
         expect(() => validateSubmittedReport(f.manifest, { items: [...output.items, ...output.items] }, 100)).toThrow(
-            'Expected exactly one primer analysis report; found 2'
+            'Expected 1 to 1 primer analysis submissions; found 2'
         );
         output.items[0].report = ' '.repeat(1000001);
         expect(() => validateSubmittedReport(f.manifest, output, 100)).toThrow(
             'Expected nonempty text of at most 1000000 characters'
         );
+    });
+
+    test('assembles per-project submissions larger than the single-call transport limit', () => {
+        const f = fixture();
+        const names = Array.from({ length: 11 }, (_, index) => `project_${index}`);
+        const manifest = {
+            ...f.manifest,
+            projects: names.map((name) => ({ ...f.manifest.projects[0], name })),
+        };
+        const report = {
+            projects: names.map((name) => ({
+                ...f.report.projects[0],
+                name,
+                assessment: 'possible-regression',
+                attribution: 'likely-pr',
+                explanation: 'x'.repeat(2143),
+                evidence: [
+                    {
+                        url: `https://github.com/${repository}/blob/${headSha}/example.py#L1`,
+                        detail: 'The analyzed implementation.',
+                    },
+                ],
+            })),
+        };
+        const output = {
+            items: report.projects.map((project) => ({
+                type: 'publish_primer_analysis',
+                report: JSON.stringify({ projects: [project] }),
+            })),
+        };
+        expect(Buffer.byteLength(JSON.stringify(report), 'utf8')).toBeGreaterThan(10240);
+        for (const item of output.items) {
+            expect(Buffer.byteLength(item.report, 'utf8')).toBeLessThanOrEqual(10240);
+        }
+        const path = join(directory, 'agent_output.json');
+        writeFileSync(path, JSON.stringify(output));
+        expect(validateSubmittedReportFile(manifest, path, 100)).toStrictEqual(renderReport(manifest, report, 100));
+    });
+
+    test('retains compatibility with a single report covering multiple projects', () => {
+        const f = fixture([sample, sample.replace(/example/g, 'second')].join('\n'));
+        f.report.projects.push({ ...f.report.projects[0], name: 'second' });
+        expect(validateSubmittedReport(f.manifest, f.output(), 100)).toStrictEqual(
+            renderReport(f.manifest, f.report, 100)
+        );
+    });
+
+    test('publishes per-project submissions only after every project is present', async () => {
+        const f = fixture([sample, sample.replace(/example/g, 'second')].join('\n'));
+        f.report.projects.push({ ...f.report.projects[0], name: 'second' });
+        const output = f.output(true);
+        const path = join(directory, 'report.md');
+        await expect(
+            publishAnalysis(f.request, f.manifest, { items: output.items.slice(0, 1) }, 100, path, false)
+        ).rejects.toThrow('every changed project exactly once');
+        expect(f.request).not.toHaveBeenCalled();
+
+        expect(await publishAnalysis(f.request, f.manifest, output, 100, path, false)).toBe(
+            'Published: advisory analysis of every changed project'
+        );
+        const expected = renderReport(f.manifest, f.report, 100);
+        expect(readFileSync(path, 'utf8')).toBe(expected.fullReport);
+        expect(f.request).toHaveBeenLastCalledWith('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+            owner: 'microsoft',
+            repo: 'pyright',
+            issue_number: 7,
+            body: expected.body,
+        });
+    });
+
+    test('rejects invalid per-project payloads and evidence before GitHub access', async () => {
+        const f = fixture([sample, sample.replace(/example/g, 'second')].join('\n'));
+        f.report.projects.push({ ...f.report.projects[0], name: 'second' });
+        const [first, second] = f.report.projects;
+        const invalidReports = [
+            [JSON.stringify({ projects: [first] }), 'every changed project exactly once'],
+            [JSON.stringify({ projects: [{ ...second, name: 'unexpected' }] }), 'every changed project exactly once'],
+            [JSON.stringify({ projects: [] }), 'exactly one project'],
+            [JSON.stringify(f.report), 'exactly one project'],
+            ['{}', 'Expected a JSON array'],
+            ['{', 'JSON'],
+            [
+                JSON.stringify({ projects: [{ ...second, assessment: 'possible-regression' }] }),
+                'Expected cited evidence',
+            ],
+            [
+                JSON.stringify({
+                    projects: [
+                        {
+                            ...second,
+                            attribution: 'likely-pr',
+                            evidence: [
+                                {
+                                    url: `https://github.com/${repository}/blob/main/example.py#L1`,
+                                    detail: 'Not the analyzed head.',
+                                },
+                            ],
+                        },
+                    ],
+                }),
+                'PR attribution requires a line-pinned citation',
+            ],
+        ];
+        for (const [report, error] of invalidReports) {
+            const output = f.output(true);
+            output.items[1].report = report;
+            expect(() => validateSubmittedReport(f.manifest, output, 100)).toThrow(error);
+            await expect(
+                publishAnalysis(f.request, f.manifest, output, 100, join(directory, 'report.md'), false)
+            ).rejects.toThrow(error);
+        }
+        expect(f.request).not.toHaveBeenCalled();
+    });
+
+    test.each([10000, 10001])('enforces the combined bound for 100 submissions of %s characters', (length) => {
+        const f = fixture();
+        const names = Array.from({ length: 100 }, (_, index) => `project_${index}`);
+        f.manifest.projects = names.map((name) => ({ ...f.manifest.projects[0], name }));
+        f.report.projects = names.map((name) => {
+            const project = { ...f.report.projects[0], name, explanation: '' };
+            project.explanation = 'x'.repeat(length - JSON.stringify({ projects: [project] }).length);
+            return project;
+        });
+        const output = f.output(true);
+        expect(output.items.map((item) => Buffer.byteLength(item.report, 'utf8'))).toStrictEqual(
+            Array.from({ length: 100 }, () => length)
+        );
+        expect(length).toBeLessThanOrEqual(10240);
+        if (length === 10000) {
+            expect(validateSubmittedReport(f.manifest, output, 100)).toStrictEqual(
+                renderReport(f.manifest, f.report, 100)
+            );
+        } else {
+            expect(() => validateSubmittedReport(f.manifest, output, 100)).toThrow(
+                'The combined primer analysis report exceeds 1000000 characters'
+            );
+        }
     });
 
     test('report completion reuses evidence and project validation', () => {
@@ -1448,8 +1897,9 @@ describe('mypy_primer analysis', () => {
         expect(source.getIn(['tools', 'bash'])).toBe(false);
         expect(source.getIn(['tools', 'edit'])).toBe(false);
         expect(source.getIn(['tools', 'github', 'read-only'])).toBe(true);
-        expect(source.get('max-ai-credits')).toBe(25);
-        expect(source.getIn(['engine', 'model'])).toBe('gpt-5.6-luna');
+        expect(source.get('max-ai-credits')).toBe(200);
+        expect(source.getIn(['engine', 'model'])).toBe('gpt-5.6-sol');
+        expect(source.getIn(['safe-outputs', 'jobs', 'publish-primer-analysis', 'max'])).toBe(100);
         expect(source.getIn(['safe-outputs', 'noop'])).toBe(false);
         expect(source.getIn(['sandbox', 'agent', 'token-steering'])).toBe(false);
         expect(source.getIn(['safe-outputs', 'threat-detection', 'engine', 'model'])).toBe('detection');
@@ -1577,11 +2027,20 @@ describe('mypy_primer analysis', () => {
         const safeOutputConfig = parseDocument(String(configStep.getIn(['env', 'GH_AW_SAFE_OUTPUTS_CONFIG'])));
         expect(safeOutputConfig.has('noop')).toBe(false);
         expect(safeOutputConfig.has('publish-primer-analysis')).toBe(true);
+        expect(safeOutputConfig.getIn(['publish-primer-analysis', 'max'])).toBe(100);
 
         const execution = getStep('agentic_execution').get('run');
-        expect(getStep('agentic_execution').getIn(['env', 'COPILOT_MODEL'])).toBe('gpt-5.6-luna');
-        expect(execution).toContain('"enableTokenSteering":false');
-        expect(execution).toContain('"maxAiCredits":25');
+        expect(getStep('agentic_execution').getIn(['env', 'COPILOT_MODEL'])).toBe('gpt-5.6-sol');
+        const awfConfig = /^printf '%s\\n' '(.+)' > "\$\{RUNNER_TEMP\}\/gh-aw\/awf-config\.json"$/m.exec(
+            String(execution)
+        );
+        if (!awfConfig) {
+            throw new Error('Missing generated firewall configuration');
+        }
+        const proxy = parseDocument(awfConfig[1]);
+        expect(proxy.getIn(['apiProxy', 'enableTokenSteering'])).toBe(false);
+        expect(proxy.getIn(['apiProxy', 'maxAiCredits'])).toBe(200);
+        expect(proxy.getIn(['apiProxy', 'maxRuns'])).toBe(30);
         expect(execution).toContain('/gh-aw/actions/mypyPrimerCopilotHarness.cjs"');
         expect(execution).toContain('export GH_AW_MCP_CONFIG="$HOME/.copilot/mcp-config.json"');
         expect(execution).toContain('--allow-tool github');

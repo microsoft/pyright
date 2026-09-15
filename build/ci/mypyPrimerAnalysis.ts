@@ -39,6 +39,13 @@ interface ProjectDiff {
     detailsRemoved: DiffLine[];
 }
 
+interface RegressionSignal {
+    kind: 'type-erasure' | 'assertion-failure' | 'removed-check' | 'gradual-detail';
+    count: number;
+    examplesAdded: string[];
+    examplesRemoved: string[];
+}
+
 interface Manifest extends ReturnType<typeof summarizeDiffs> {
     repository: string;
     source: SourceRun;
@@ -55,6 +62,33 @@ const assessments = new Map([
     ['exposed-typing-issue', 'Exposed typing issue'],
     ['possible-regression', 'Possible regression'],
     ['needs-review', 'Needs human review'],
+]);
+const attributions = new Map([
+    ['likely-pr', 'Likely caused by the PR'],
+    ['unclear', 'Not established'],
+    ['unlikely-pr', 'Likely unrelated to the PR'],
+]);
+const signalLabels: Record<RegressionSignal['kind'], string> = {
+    'type-erasure': 'New assertions receive bare Any/Unknown instead of their expected type',
+    'assertion-failure': 'New type assertions fail',
+    'removed-check': 'Type-checking diagnostics disappear without replacements at the same locations',
+    'gradual-detail': 'Changed diagnostic details introduce Any/Unknown',
+};
+const checkingRules = new Set([
+    'reportArgumentType',
+    'reportAssignmentType',
+    'reportAttributeAccessIssue',
+    'reportCallIssue',
+    'reportGeneralTypeIssues',
+    'reportIndexIssue',
+    'reportOperatorIssue',
+    'reportOptionalSubscript',
+    'reportOptionalMemberAccess',
+    'reportOptionalCall',
+    'reportOptionalIterable',
+    'reportOptionalContextManager',
+    'reportOptionalOperand',
+    'reportReturnType',
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -346,8 +380,67 @@ function groupChanges(added: DiffLine[], removed: DiffLine[]) {
     return Object.fromEntries(groups);
 }
 
+function getRegressionSignals(project: ProjectDiff): RegressionSignal[] {
+    const signals: RegressionSignal[] = [];
+    const addSignal = (kind: RegressionSignal['kind'], added: DiffLine[], removed: DiffLine[], count: number) => {
+        if (count) {
+            signals.push({
+                kind,
+                count,
+                examplesAdded: added.slice(0, 3).map((entry) => entry.text.slice(0, 600)),
+                examplesRemoved: removed.slice(0, 3).map((entry) => entry.text.slice(0, 600)),
+            });
+        }
+    };
+    const assertions = project.added.filter((entry) => entry.rule === 'reportAssertTypeFailure');
+    const erased = assertions.filter((entry) => {
+        const match = /"assert_type" mismatch: expected "(.+)" but received "(Any|Unknown)"/.exec(entry.text);
+        return match && !['Any', 'Unknown'].includes(match[1]);
+    });
+    const erasedSet = new Set(erased);
+    const otherAssertions = assertions.filter((entry) => !erasedSet.has(entry));
+    addSignal('type-erasure', erased, [], erased.length);
+    addSignal('assertion-failure', otherAssertions, [], otherAssertions.length);
+
+    const locationKey = (entry: Diagnostic) => {
+        const match = /^(.+:\d+:\d+) - (?:error|warning|information):/.exec(entry.text);
+        return match ? `${match[1]}:${entry.rule}` : undefined;
+    };
+    const replacements = new Set(project.added.map(locationKey));
+    const removedChecks = project.removed.filter((entry) => {
+        const key = locationKey(entry);
+        return key !== undefined && checkingRules.has(entry.rule) && !replacements.has(key);
+    });
+    addSignal('removed-check', [], removedChecks, removedChecks.length);
+
+    // Detail-only diffs have no reliable location. These are investigation leads,
+    // not a pairing of before/after types or proof of lost precision.
+    const occurrences = (entries: DiffLine[], pattern: RegExp) =>
+        entries.reduce((total, entry) => total + (entry.text.match(pattern)?.length ?? 0), 0);
+    const newGradualTypes = [/\bAny\b/g, /\bUnknown\b/g]
+        .filter(
+            (pattern) =>
+                occurrences([...project.added, ...project.detailsAdded], pattern) >
+                occurrences([...project.removed, ...project.detailsRemoved], pattern)
+        )
+        .map((pattern) => new RegExp(pattern.source));
+    const gradualDetails = project.detailsAdded.filter((entry) =>
+        newGradualTypes.some((pattern) => pattern.test(entry.text))
+    );
+    addSignal('gradual-detail', gradualDetails, project.detailsRemoved, gradualDetails.length);
+    return signals;
+}
+
 export function summarizeDiffs(projects: ProjectDiff[]) {
+    const regressionSignals = new Map<string, RegressionSignal[]>();
+    for (const project of projects) {
+        const signals = getRegressionSignals(project);
+        if (signals.length) {
+            regressionSignals.set(project.name, signals);
+        }
+    }
     return {
+        ...(regressionSignals.size ? { regressionSignals: Object.fromEntries(regressionSignals) } : {}),
         projects: projects.map((project) => ({
             name: project.name,
             url: project.url,
@@ -407,6 +500,7 @@ function escapeMarkdown(value: string): string {
 
 export function renderReport(manifest: Manifest, report: unknown, analysisRunId: number) {
     const reports = array(record(report).projects).map(record);
+    const signalsByProject = new Map<string, RegressionSignal[]>(Object.entries(manifest.regressionSignals ?? {}));
     const names = reports.map((item) => text(item.name, 80));
     if (
         names.length !== manifest.projects.length ||
@@ -438,8 +532,13 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
         '| Project | Added | Removed | Detail lines + / - | Assessment | Confidence | Explanation |',
         '| --- | ---: | ---: | ---: | --- | --- | --- |',
     ];
-    const details: string[] = [];
-    const fullDetails: string[] = [];
+    const analyses: {
+        rank: number;
+        category: 'risk' | 'unresolved' | 'other';
+        compact: string;
+        details: string[];
+        fullDetails: string[];
+    }[] = [];
     for (const project of manifest.projects) {
         const item = reports.find((candidate) => candidate.name === project.name)!;
         const assessment = assessments.get(text(item.assessment));
@@ -447,10 +546,18 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
         if (!assessment || !['low', 'medium', 'high'].includes(confidence)) {
             throw new Error(`Invalid assessment or confidence for ${project.name}`);
         }
+        const attribution = attributions.get(text(item.attribution));
+        if (!attribution) {
+            throw new Error(`Invalid PR attribution for ${project.name}`);
+        }
+        const before = escapeMarkdown(text(item.before, 1200));
+        const after = escapeMarkdown(text(item.after, 1200));
+        const impact = escapeMarkdown(text(item.impact, 1200));
         const summary = escapeMarkdown(text(item.summary, 240));
         const explanation = text(item.explanation, maxReportLength);
         const explanationPreview = Array.from(explanation).slice(0, 1800).join('');
         const unresolved = escapeMarkdown(text(item.unresolved, 800));
+        let citesPrCode = false;
         const evidence = array(item.evidence).map((entry) => {
             const source = record(entry);
             const url = new URL(text(source.url, 1000));
@@ -463,43 +570,120 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
             ) {
                 throw new Error(`Unsupported evidence URL for ${project.name}`);
             }
+            if (
+                url.hostname === 'github.com' &&
+                /^#L\d+(?:-L\d+)?$/.test(url.hash) &&
+                [manifest.repository, manifest.source.headRepository].some((repository) =>
+                    url.pathname
+                        .toLowerCase()
+                        .startsWith(`/${repository}/blob/${manifest.source.headSha}/`.toLowerCase())
+                )
+            ) {
+                citesPrCode = true;
+            }
             return `- ${escapeMarkdown(text(source.detail, 400))}: <${url.href}>`;
         });
         if (evidence.length > 5 || (!evidence.length && item.assessment !== 'needs-review')) {
             throw new Error(`Expected cited evidence for ${project.name}`);
+        }
+        if (item.attribution === 'likely-pr' && !citesPrCode) {
+            throw new Error(`PR attribution requires a line-pinned citation at the analyzed head for ${project.name}`);
         }
         rows.push(
             `| ${escapeMarkdown(project.name)} | ${project.added} | ${project.removed} | ` +
                 `${project.detailLinesAdded} / ${project.detailLinesRemoved} | ` +
                 `${assessment} | ${confidence} | ${summary} |`
         );
-        const projectHeading = [`### ${escapeMarkdown(project.name)}`, ''];
-        const projectEvidence = ['', `**Unresolved / coverage limits:** ${unresolved}`, '', ...evidence, ''];
-        details.push(
+        const signals = signalsByProject.get(project.name) ?? [];
+        const risk = item.assessment === 'possible-regression' || signals.length > 0;
+        const category = risk ? 'risk' : item.assessment === 'needs-review' ? 'unresolved' : 'other';
+        const projectHeading = [
+            `### ${escapeMarkdown(project.name)}: ${summary}`,
+            '',
+            ...(signals.length
+                ? [
+                      '**Regression warning signals require review, regardless of the AI assessment:**',
+                      ...signals.map((signal) => `- ${signalLabels[signal.kind]}.`),
+                      '',
+                  ]
+                : []),
+            `**AI assessment:** ${assessment} (${confidence} confidence). **PR attribution:** ${attribution}.`,
+            '',
+            `**Before / baseline evidence:** ${before}`,
+            '',
+            `**After / PR evidence:** ${after}`,
+            '',
+            `**Why this matters:** ${impact}`,
+            '',
+            '**Causal analysis:**',
+            '',
+        ];
+        const projectEvidence = ['', `**Uncertainty / next check:** ${unresolved}`, '', ...evidence, ''];
+        const details = [
             ...projectHeading,
             escapeMarkdown(explanationPreview),
             ...(explanationPreview.length < explanation.length
                 ? ['', '**Explanation truncated; see the full report artifact linked below.**']
                 : []),
-            ...projectEvidence
-        );
-        fullDetails.push(...projectHeading, escapeMarkdown(explanation), ...projectEvidence);
+            ...projectEvidence,
+        ];
+        analyses.push({
+            category,
+            rank: signals.some((signal) => signal.kind === 'type-erasure')
+                ? 0
+                : risk
+                ? 1
+                : category === 'unresolved'
+                ? 2
+                : 3,
+            compact:
+                `- **${escapeMarkdown(project.name)}: ${risk ? 'Regression review required' : assessment}.** ` +
+                `${summary} PR attribution: ${attribution}.`,
+            details,
+            fullDetails: [...projectHeading, escapeMarkdown(explanation), ...projectEvidence],
+        });
     }
+    analyses.sort((a, b) => a.rank - b.rank);
     const footer = [
         `**Full evidence and limitations:** download \`mypy-primer-analysis-report\` from [this analysis run](${analysisUrl}).`,
         'The original raw primer comment is unchanged. Treat uncertainty and possible regressions as requests for human review.',
     ];
-    const compactBody = [...heading, ...rows, '', ...footer].join('\n');
+    const risks = analyses.filter((analysis) => analysis.category === 'risk');
+    const unresolved = analyses.filter((analysis) => analysis.category === 'unresolved');
+    const other = analyses.filter((analysis) => analysis.category === 'other');
+    const overview = risks.length
+        ? '**Regression review required.** Potential regressions or recorded warning signals are listed first; causation must be established separately.'
+        : unresolved.length
+        ? '**Regression analysis incomplete.** No concrete regression has been established; unresolved investigations follow.'
+        : '**No potential regression identified in the investigated changes.** This is not proof that the PR is regression-free.';
+    const compactBody = [
+        ...provenance,
+        overview,
+        '',
+        'Full causal analyses are available in the report artifact.',
+        '',
+        ...analyses.map((analysis) => analysis.compact),
+        '',
+        ...footer,
+    ].join('\n');
     const expandedBody = [
-        ...heading,
-        ...rows,
+        ...provenance,
+        overview,
         '',
-        '<details>',
-        '<summary>Evidence and limitations by project</summary>',
-        '',
-        ...details,
-        '</details>',
-        '',
+        ...(risks.length ? ['## Potential regressions', '', ...risks.flatMap((analysis) => analysis.details)] : []),
+        ...(unresolved.length
+            ? ['## Unresolved investigations', '', ...unresolved.flatMap((analysis) => analysis.details)]
+            : []),
+        ...(other.length
+            ? [
+                  '<details>',
+                  '<summary>Other project assessments</summary>',
+                  '',
+                  ...other.flatMap((analysis) => analysis.details),
+                  '</details>',
+                  '',
+              ]
+            : []),
         ...footer,
     ].join('\n');
     let body = expandedBody.length <= 60000 ? expandedBody : compactBody;
@@ -518,7 +702,10 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
     if (body.length > 60000) {
         throw new Error('The report exceeds the comment limit; refusing to omit projects');
     }
-    return { body, fullReport: [...heading, ...rows, '', ...fullDetails].join('\n') };
+    return {
+        body,
+        fullReport: [...heading, ...rows, '', ...analyses.flatMap((analysis) => analysis.fullDetails)].join('\n'),
+    };
 }
 
 export function getStagedMode(activationInfo: unknown, repository: string, runId: number, runAttempt: number): boolean {
@@ -540,13 +727,27 @@ export function validateSubmittedReport(manifest: Manifest, agentOutput: unknown
     const items = array(record(agentOutput).items)
         .map(record)
         .filter((item) => item.type === 'publish_primer_analysis');
-    if (items.length !== 1) {
+    if (!items.length || items.length > manifest.projects.length) {
         throw new Error(
-            `Expected exactly one primer analysis report; found ${items.length}. ` +
+            `Expected 1 to ${manifest.projects.length} primer analysis submissions; found ${items.length}. ` +
                 'Submit publish_primer_analysis, not noop or report_incomplete.'
         );
     }
-    return renderReport(manifest, JSON.parse(text(items[0].report, maxReportLength)), analysisRunId);
+    let combinedLength = 0;
+    const projects = items.flatMap((item) => {
+        const content = text(item.report, maxReportLength);
+        combinedLength += content.length;
+        if (combinedLength > maxReportLength) {
+            throw new Error(`The combined primer analysis report exceeds ${maxReportLength} characters`);
+        }
+        const projects = array(record(JSON.parse(content)).projects);
+        // Retain compatibility with historical, single-submission reports.
+        if (items.length > 1 && projects.length !== 1) {
+            throw new Error('Each per-project submission must contain exactly one project');
+        }
+        return projects;
+    });
+    return renderReport(manifest, { projects }, analysisRunId);
 }
 
 export function validateSubmittedReportFile(manifest: Manifest, outputPath: string, analysisRunId: number) {

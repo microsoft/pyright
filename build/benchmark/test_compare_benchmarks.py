@@ -486,6 +486,10 @@ Regression threshold: `10.0%`
             weekly_workflow_data["jobs"]["report"]["if"],
             "${{ always() && github.repository == 'microsoft/pyright' }}",
         )
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["benchmark"]["strategy"]["matrix"]["checker"],
+            ["pyright", "pyrefly", "ty", "mypy", "zuban"],
+        )
         weekly_benchmark_steps = weekly_workflow_data["jobs"]["benchmark"]["steps"]
         self.assertEqual(
             [step.get("uses") for step in weekly_benchmark_steps],
@@ -518,6 +522,18 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
+            weekly_benchmark_steps[3]["if"],
+            "${{ matrix.checker != 'pyright' }}",
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[4]["if"],
+            "${{ matrix.checker == 'pyright' }}",
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[5]["if"],
+            "${{ matrix.checker == 'pyright' }}",
+        )
+        self.assertEqual(
             weekly_benchmark_steps[6],
             {
                 "name": "Build Pyright CLI",
@@ -534,6 +550,10 @@ Regression threshold: `10.0%`
                 "NODE_OPTIONS": "${{ matrix.checker == 'pyright' && '--max-old-space-size=6656' || '' }}",
                 "PYTHONNOUSERSITE": "1",
             },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[7]["run"],
+            "checkers=('${{ matrix.checker }}')\nextra_args=()\nif [[ '${{ matrix.checker }}' == 'pyright' ]]; then\n  checkers+=(pyright-threads)\n  extra_args+=(--skip-pyright-build)\nfi\npython build/benchmark/typecheck_benchmark.py \\\n  -c \"${checkers[@]}\" -r 3 -w 1 -t 1800 \\\n  --memory-limit-mb 8192 --os-name linux-x64 \\\n  --output build/benchmark/results \\\n  \"${extra_args[@]}\"\n",
         )
         weekly_report_steps = weekly_workflow_data["jobs"]["report"]["steps"]
         self.assertEqual(
@@ -823,16 +843,27 @@ Regression threshold: `10.0%`
         benchmark_workflow = benchmark_workflow_path.read_text(encoding="utf-8")
         benchmark_workflow_data = _load_yaml(benchmark_workflow_path)
 
-        self.assertIn("issue_comment:", trigger_workflow)
-        self.assertIn(
-            "startsWith(github.event.comment.body, '/benchmark')", trigger_workflow
+        self.assertEqual(
+            trigger_workflow_data["on"],
+            {
+                "issue_comment": {"types": ["created"]},
+                "pull_request_target": {
+                    "types": [
+                        "opened",
+                        "reopened",
+                        "synchronize",
+                        "ready_for_review",
+                    ],
+                    "paths": ["packages/pyright-internal/src/analyzer/**"],
+                },
+            },
         )
         self.assertIn(
             "context.payload.comment.body.trim() !== '/benchmark'", trigger_workflow
         )
         self.assertEqual(
             trigger_workflow_data["jobs"]["trigger"]["if"],
-            "${{ github.repository == 'microsoft/pyright' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark') }}",
+            "${{ github.repository == 'microsoft/pyright' && ((github.event_name == 'pull_request_target' && !github.event.pull_request.draft) || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark'))) }}",
         )
         self.assertNotIn("github.event.issue.state == 'open'", trigger_workflow)
         self.assertIn(
@@ -841,6 +872,14 @@ Regression threshold: `10.0%`
         )
         self.assertIn("github.rest.repos.getCommit", trigger_workflow)
         self.assertIn("candidateCommit.data.parents[0]?.sha", trigger_workflow)
+        self.assertIn(
+            "const automatic = context.eventName === 'pull_request_target'",
+            trigger_workflow,
+        )
+        self.assertIn(
+            "automatic && baseSha !== pullRequest.data.base.sha",
+            trigger_workflow,
+        )
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
         self.assertIn("actions: write", trigger_workflow)

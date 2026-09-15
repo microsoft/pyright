@@ -63,7 +63,42 @@ export function contextualTypeCacheEntryMatches(
     entry: ContextualTypeCacheEntry,
     expectedType: Type | undefined
 ): boolean {
-    return expectedType ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType) : !entry.expectedType;
+    if (entry.expectedType === expectedType) {
+        return true;
+    }
+
+    return expectedType ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType) : false;
+}
+
+export function findContextualTypeCacheEntry<T extends ContextualTypeCacheEntry>(
+    cacheEntries: readonly T[] | undefined,
+    expectedType: Type | undefined
+): T | undefined {
+    if (!cacheEntries) {
+        return undefined;
+    }
+
+    // Contextual entries are appended when added or replaced, so check the newest entries first.
+    // The same expected type object is normally reused, which avoids structural type
+    // comparison on the common path.
+    for (let i = cacheEntries.length - 1; i >= 0; i--) {
+        if (cacheEntries[i].expectedType === expectedType) {
+            return cacheEntries[i];
+        }
+    }
+
+    if (!expectedType) {
+        return undefined;
+    }
+
+    for (let i = cacheEntries.length - 1; i >= 0; i--) {
+        const entryExpectedType = cacheEntries[i].expectedType;
+        if (entryExpectedType && isTypeSame(expectedType, entryExpectedType)) {
+            return cacheEntries[i];
+        }
+    }
+
+    return undefined;
 }
 
 export function addContextualTypeCacheEntry<T extends ContextualTypeCacheEntry>(

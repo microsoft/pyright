@@ -13,6 +13,7 @@ import {
     addContextualTypeCacheEntry,
     ContextualTypeCacheEntry,
     contextualTypeCacheEntryMatches,
+    findContextualTypeCacheEntry,
 } from '../analyzer/typeCacheUtils';
 import { Type, TypeVarType } from '../analyzer/types';
 
@@ -60,4 +61,21 @@ test('ContextualTypeCacheEntryReplacementAndEviction', () => {
         entries.map((entry) => entry.value),
         [1, 3, 5, 6, 7, 8, 9, 10]
     );
+});
+
+test('ContextualTypeCacheEntryLookup', () => {
+    const firstExpectedType = TypeVarType.createInstance('T');
+    const latestExpectedType = TypeVarType.createInstance('U');
+    const equivalentExpectedType = TypeVarType.cloneForNewName(firstExpectedType, 'T');
+    const entries: TestCacheEntry[] = [
+        { expectedType: firstExpectedType, value: 1 },
+        { expectedType: undefined, value: 2 },
+        { expectedType: latestExpectedType, value: 3 },
+    ];
+
+    assert.strictEqual(findContextualTypeCacheEntry(entries, latestExpectedType)?.value, 3);
+    assert.strictEqual(findContextualTypeCacheEntry(entries, firstExpectedType)?.value, 1);
+    assert.strictEqual(findContextualTypeCacheEntry(entries, equivalentExpectedType)?.value, 1);
+    assert.strictEqual(findContextualTypeCacheEntry(entries, undefined)?.value, 2);
+    assert.strictEqual(findContextualTypeCacheEntry(entries, TypeVarType.createInstance('V')), undefined);
 });

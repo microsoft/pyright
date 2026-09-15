@@ -183,6 +183,7 @@ import {
     addContextualTypeCacheEntry,
     ContextualTypeCacheEntry,
     contextualTypeCacheEntryMatches,
+    findContextualTypeCacheEntry,
     SpeculativeModeOptions,
     SpeculativeTypeTracker,
 } from './typeCacheUtils';
@@ -776,9 +777,7 @@ export function createTypeEvaluator(
     }
 
     function readTypeFormTypeCacheEntry(node: ParseNode, expectedType: Type | undefined) {
-        return getTypeFormTypeCache(node)
-            .get(node.id)
-            ?.find((entry) => contextualTypeCacheEntryMatches(entry, expectedType));
+        return findContextualTypeCacheEntry(getTypeFormTypeCache(node).get(node.id), expectedType);
     }
 
     // Contextual reads consult expectedTypeCache and prefer a matching TypeForm result.

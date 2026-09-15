@@ -29,12 +29,12 @@ permissions:
 engine:
   id: copilot
   version: 1.0.80
-  model: gpt-5.6-luna
+  model: gpt-5.6-sol
   harness: mypyPrimerCopilotHarness.cjs
   args: [--deny-tool, write, --deny-tool, shell]
 timeout-minutes: 15
 max-turns: 30
-max-ai-credits: 25
+max-ai-credits: 200
 sandbox:
   agent:
     token-steering: false
@@ -226,7 +226,8 @@ safe-outputs:
   jobs:
     publish-primer-analysis:
       if: github.event_name != 'workflow_dispatch'
-      description: Required for every analysis. Submit one JSON report covering every manifest project. This queues validation by the trusted publisher, not a direct GitHub write.
+      description: Required once for each manifest project. Submit one project's JSON report per call, with its evidence. All projects must be submitted before analysis is complete. This queues validation by the trusted publisher, not a direct GitHub write.
+      max: 100
       runs-on: ubuntu-latest
       permissions:
         contents: read
@@ -234,7 +235,7 @@ safe-outputs:
         pull-requests: write
       inputs:
         report:
-          description: JSON object with a projects array in the format described in the workflow instructions.
+          description: JSON object with a projects array containing exactly one project in the required format. Maximum 10240 UTF-8 bytes per call; preserve citations.
           required: true
           type: string
       steps:
@@ -287,6 +288,12 @@ Help the Pyright reviewer understand the ecosystem effect of the exact PR commit
 identified in `/tmp/gh-aw/primer-input/manifest.json`. This is advisory analysis,
 not a PR approval, a merge recommendation, or an instruction to modify code.
 
+Your deliverable is a regression investigation, not a description of the diff.
+Explain what checking or useful type information changed, why the PR could cause
+that change, and what a downstream user can no longer rely on. Diagnostic counts
+and project inventories are already available; do not use them as your summary.
+A type-checker regression does not require a Python runtime bug.
+
 Use native file-reading tools for local artifacts and MCP tools for GitHub reads
 and report submission. Shell execution and file editing are disabled; do not
 invoke `github` or `safeoutputs` as shell commands.
@@ -304,7 +311,7 @@ the recorded primer run; its PR may already be merged or closed. Submit the same
 required report rather than stopping because of the PR's current state. The
 trusted workflow renders a preview and never posts a PR comment in this mode.
 
-## Evidence and coverage
+## Regression investigation
 
 1. Read the manifest first. Its `projects` inventory and counts are deterministic
    and include every changed project across all eight shards, including projects
@@ -316,6 +323,12 @@ trusted workflow renders a preview and never posts a PR comment in this mode.
    These summaries are not a replacement for the complete raw evidence. Raw diffs are under
    `/tmp/gh-aw/primer-input/raw/mypy_primer_diffs_N/diff_N.txt`. Do not analyze the
    truncated PR comment instead.
+   `regressionSignals`, when present, contains independently extracted leads:
+   `type-erasure`, `assertion-failure`, `removed-check`, and `gradual-detail`.
+   Investigate non-SymPy type-erasure and assertion failures first, then possible
+   suppressed checks and new gradual types. These are warning signals, not proof
+   of causation. Address them explicitly even if you think the change is intentional.
+   Do not spend most of the budget describing a large noisy SymPy diff.
 2. Read the PR diff and relevant Pyright implementation/tests. `source.headSha`
    identifies the PR branch, but primer normally analyzes GitHub's synthetic merge
    commit. Use the recorded new/base commits in the source run's logs when
@@ -323,7 +336,7 @@ trusted workflow renders a preview and never posts a PR comment in this mode.
    Do not assume current main, a published release, or the PR head is identical to
    that checkout. Use read-only GitHub tools; do not execute or install PR or
    ecosystem code.
-3. Group changes by diagnostic rule and inferred-type transition. Distinguish
+3. Group changes by a common causal mechanism, not just diagnostic rule. Distinguish
    added/removed diagnostics from message rewrites at the same location. Explain
    representative groups, including any group you could not investigate, for every
    changed project. Do not let one large project hide the others. Concise diffs
@@ -332,6 +345,10 @@ trusted workflow renders a preview and never posts a PR comment in this mode.
    Zero added/removed headers does not mean no change. Explain detail-only type
    transitions and disclose missing context; do not fabricate diagnostic counts
    or locations. Treat detail-only precision loss as potentially significant.
+   For each important mechanism, inspect a representative affected call site and
+   its relevant overloads, annotations, or protocol declarations. Determine what
+   the old and new checker paths do with the same inputs. An assertion's expected
+   type is not itself an observed baseline reveal; label that distinction.
 4. Prioritize added `reportAssertTypeFailure` diagnostics, loss of precision to
    `Any`/`Unknown`, and removed attribute/argument/operator errors that might have
    disappeared because of lost precision. More errors can also mean restored
@@ -341,13 +358,29 @@ trusted workflow renders a preview and never posts a PR comment in this mode.
    Pin source citations to commits where possible. If the exact ecosystem revision
    or environment is unavailable, say so; current upstream source is not proof of
    what the recorded run analyzed.
+   A `likely-pr` attribution must cite a relevant implementation line at the
+   manifest's exact head SHA. Explain the changed branch or constraint decision
+   and the path from that decision to the observed result; a link alone is not an
+   explanation. If the causal path cannot be established, use `unclear`.
 6. For overload changes, consider whether inferred results preserve operations
    supported by the retained candidate returns. Do not call a loss of supported
    operations an expected improvement merely because a container was preserved.
+   Also check the opposite failure: results such as Index[Any], ndarray, or a
+   shape-specialized object becoming bare Any/Unknown lose the outer API, not
+   merely an element parameter. Inspect whether members, argument checks,
+   operators, or inferred constructor types stop being checked. Propose a small
+   positive/negative control that would distinguish the old and new behavior.
 7. Never infer correctness from a successful primer job, PR description, historical
    diagnostic count, or absence of `assert_type` failures. Separate static annotation
    gaps from actual runtime bugs. Do not claim a reproduction or historical
    comparison you did not perform. Use `needs-review` when evidence is insufficient.
+   In particular, do not dismiss new assertion failures or erased container types
+   as an "exposed typing issue" merely because the PR claims conformance or adds
+   tests expecting Any. Intentional behavior can still regress downstream checking.
+   Blaming a stub requires evidence that the declaration or expectation is wrong,
+   including consideration of counterevidence. Otherwise flag `possible-regression`
+   and state the attribution uncertainty. An uninspected overload set cannot
+   justify a high-confidence claim that the stubs need to change.
 8. SymPy frequently has noisy primer differences. Do not attribute its changes to
    the PR solely because they appear in the diff. When only SymPy changed, the
    publisher uses a short non-blocking-noise notice, but you must still submit a
@@ -361,7 +394,8 @@ the PR and rejects stale or incomplete reports.
 
 ## Output
 
-Call `publish_primer_analysis` exactly once with `report` containing a JSON string:
+Call `publish_primer_analysis` once for each manifest project, with `report`
+containing a JSON string whose `projects` array has exactly one entry:
 
 ```json
 {
@@ -370,9 +404,13 @@ Call `publish_primer_analysis` exactly once with `report` containing a JSON stri
       "name": "the exact project name from the manifest",
       "assessment": "needs-review",
       "confidence": "low",
-      "summary": "A concise explanation for the PR table, at most 240 characters.",
-      "explanation": "Evidence-backed explanation of the meaningful groups. Aim for 1800 characters; longer explanations are preserved in the full report.",
-      "unresolved": "Uninvestigated groups, missing provenance, or remaining questions; at most 800 characters. Use None identified only when justified.",
+      "attribution": "unclear",
+      "summary": "A specific regression hypothesis or investigation conclusion, not counts; at most 240 characters.",
+      "before": "Baseline behavior and its evidence. Distinguish observed types from assertion expectations or static inference; at most 1200 characters.",
+      "after": "Changed inferred type or checking behavior, with a representative location; at most 1200 characters.",
+      "impact": "What downstream operation, error check, API, or valid program is affected, not just that diagnostics changed; at most 1200 characters.",
+      "explanation": "Trace the PR's changed implementation through the affected declarations to the result. Explain counterevidence and why this may or may not be a checker regression. Aim for 1800 characters; longer analysis is preserved in the full report.",
+      "unresolved": "Remaining uncertainty and the exact next check or minimal positive/negative control needed. Do not claim it was run. At most 800 characters.",
       "evidence": [
         {
           "url": "https://github.com/owner/repo/blob/COMMIT/path#L123",
@@ -384,18 +422,37 @@ Call `publish_primer_analysis` exactly once with `report` containing a JSON stri
 }
 ```
 
+Each call has a 10240-byte UTF-8 input limit. Do not put all projects in one call.
+Shorten redundant prose if needed, not required evidence. A successful call only
+queues that project's analysis: continue until every manifest project has been
+submitted exactly once. The trusted workflow assembles and validates the complete
+report; missing or duplicate projects still fail. The combined report payload is
+limited to 1000000 characters.
+
 Include every manifest project exactly once, even when you run out of investigation
-budget. Assessments are `expected-improvement`, `exposed-typing-issue`,
+budget. Before each submission, check its required fields and citations:
+non-`needs-review` assessments require evidence, and `likely-pr` requires a
+line-pinned source citation at the manifest's exact head SHA. If the evidence is
+unavailable, use `needs-review` and `unclear` rather than dropping citations from a
+stronger claim.
+Assessments are `expected-improvement`, `exposed-typing-issue`,
 `possible-regression`, or `needs-review`. Confidence is `low`, `medium`, or `high`.
 Use `possible-regression` for a credible problem needing investigation, not only
 proven defects. Mixed or incompletely investigated projects should not receive a
 blanket expected classification. Supply up to five evidence links per project,
 using `github.com` or `typing.python.org`; non-`needs-review` assessments require
 evidence. Do not emit placeholder URLs from this example.
+Attribution is `likely-pr`, `unclear`, or `unlikely-pr`; it is separate from the
+assessment and its confidence. For an uninvestigated project, explicitly say what
+is unknown rather than inventing before/after behavior. Reserve enough budget to
+submit the complete report; use the investigation budget on the highest-risk
+mechanisms rather than exhaustive narration of routine changes.
 
 The publisher supplies the authoritative counts, commit, run links, and report
-heading. It posts a compact per-project table and expandable explanations when
-they fit. Each explanation is previewed up to 1800 characters in the comment,
+heading. The comment leads with potential regressions and unresolved investigations,
+including recorded warning signals even when the AI assessment is benign. Counts
+remain in the full artifact rather than occupying the main comment.
+Each causal explanation is previewed up to 1800 characters in the comment,
 with an explicit notice if truncated. The complete explanations and limitations
 are always retained in the `mypy-primer-analysis-report` artifact. Missing or
 empty explanations are still invalid; the overall report payload remains bounded.

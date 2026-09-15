@@ -43,7 +43,7 @@ PYRIGHT_BUNDLE = PYRIGHT_PACKAGE_DIR / "dist" / "pyright.js"
 PYRIGHT_ENTRY_POINT_ENV = "PYRIGHT_BENCHMARK_ENTRY_POINT"
 
 DEFAULT_TYPE_CHECKERS = ["pyright", "pyrefly", "ty", "mypy", "zuban"]
-AVAILABLE_TYPE_CHECKERS = [*DEFAULT_TYPE_CHECKERS, "pyright-pip"]
+AVAILABLE_TYPE_CHECKERS = [*DEFAULT_TYPE_CHECKERS, "pyright-threads", "pyright-pip"]
 DEFAULT_TIMEOUT = 300
 DEFAULT_MEMORY_LIMIT_MB = 4096
 CLONE_TIMEOUT = 300
@@ -157,7 +157,7 @@ def _pyright_command() -> list[str] | None:
 
 
 def _checker_command(checker: str) -> list[str] | None:
-    if checker == "pyright":
+    if checker in ("pyright", "pyright-threads"):
         return _pyright_command()
     if checker == "pyright-pip":
         try:
@@ -734,14 +734,18 @@ def _build_checker_command(
         return None, []
 
     relative_paths = _relative_check_paths(package_path, check_paths)
-    if checker in ("pyright", "pyright-pip"):
+    if checker in ("pyright", "pyright-threads", "pyright-pip"):
         config_path = _write_pyright_config(package_path, relative_paths)
-        return [
+        command = [
             *base_command,
             "--project",
             str(config_path),
-            "--stats",
-        ], [config_path]
+        ]
+        if checker == "pyright-threads":
+            command.append("--threads")
+        else:
+            command.append("--stats")
+        return command, [config_path]
     if checker == "pyrefly":
         config_path = _write_pyrefly_config(package_path, relative_paths)
         return [
@@ -1255,7 +1259,7 @@ def run_benchmark(
     local_dir: Path | None,
     skip_pyright_build: bool,
 ) -> Path:
-    if "pyright" in type_checkers:
+    if any(checker in type_checkers for checker in ("pyright", "pyright-threads")):
         prepare_local_pyright(skip_pyright_build)
 
     destination = output_dir or SCRIPT_DIR / "results"
