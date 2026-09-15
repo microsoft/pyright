@@ -33,6 +33,7 @@ concurrency:
 jobs:
   benchmark:
     name: Compare Pyright performance
+    if: ${{ github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
@@ -131,7 +132,7 @@ jobs:
   comment:
     name: Comment benchmark results
     needs: benchmark
-    if: ${{ always() }}
+    if: ${{ always() && github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read

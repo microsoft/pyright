@@ -13,7 +13,7 @@ permissions:
 jobs:
   trigger:
     name: Authorize benchmark request
-    if: ${{ github.event.issue.pull_request && github.event.issue.state == 'open' && startsWith(github.event.comment.body, '/benchmark') }}
+    if: ${{ github.repository == 'microsoft/pyright' && github.event.issue.pull_request && github.event.issue.state == 'open' && startsWith(github.event.comment.body, '/benchmark') }}
     runs-on: ubuntu-latest
     steps:
       - name: Trigger benchmark for authorized maintainer

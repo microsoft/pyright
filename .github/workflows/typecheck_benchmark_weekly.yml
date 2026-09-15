@@ -15,6 +15,7 @@ env:
 jobs:
   benchmark:
     name: Benchmark ${{ matrix.checker }}
+    if: ${{ github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
     strategy:
@@ -95,7 +96,7 @@ jobs:
   report:
     name: Build comparison report
     needs: benchmark
-    if: ${{ always() }}
+    if: ${{ always() && github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

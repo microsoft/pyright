@@ -15,6 +15,7 @@ env:
 jobs:
   releases:
     name: Find releases from the prior year
+    if: ${{ github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -72,6 +73,7 @@ jobs:
   benchmark:
     name: Benchmark Pyright ${{ matrix.version }}
     needs: releases
+    if: ${{ github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
@@ -151,7 +153,7 @@ jobs:
   report:
     name: Build release history charts
     needs: [releases, benchmark]
-    if: ${{ always() && needs.releases.result == 'success' }}
+    if: ${{ always() && github.repository == 'microsoft/pyright' && needs.releases.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -478,6 +478,14 @@ Regression threshold: `10.0%`
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_weekly.yml"
         )
         weekly_workflow_data = _load_yaml(weekly_workflow_path)
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["benchmark"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["report"]["if"],
+            "${{ always() && github.repository == 'microsoft/pyright' }}",
+        )
         weekly_benchmark_steps = weekly_workflow_data["jobs"]["benchmark"]["steps"]
         self.assertEqual(
             [step.get("uses") for step in weekly_benchmark_steps],
@@ -717,6 +725,14 @@ Regression threshold: `10.0%`
         )
         pr_benchmark_steps = pr_workflow_data["jobs"]["benchmark"]["steps"]
         self.assertEqual(
+            pr_workflow_data["jobs"]["benchmark"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            pr_workflow_data["jobs"]["comment"]["if"],
+            "${{ always() && github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
             [step.get("uses") for step in pr_benchmark_steps],
             [
                 "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
@@ -750,14 +766,34 @@ Regression threshold: `10.0%`
                 "PYTHONNOUSERSITE": "1",
             },
         )
+        history_workflow_data = _load_yaml(
+            REPO_ROOT
+            / ".github"
+            / "workflows"
+            / "typecheck_benchmark_history.yml"
+        )
+        self.assertEqual(
+            history_workflow_data["jobs"]["releases"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            history_workflow_data["jobs"]["benchmark"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            history_workflow_data["jobs"]["report"]["if"],
+            "${{ always() && github.repository == 'microsoft/pyright' && needs.releases.result == 'success' }}",
+        )
 
     def test_pr_benchmark_requires_authorized_comment(self) -> None:
-        trigger_workflow = (
+        trigger_workflow_path = (
             REPO_ROOT
             / ".github"
             / "workflows"
             / "typecheck_benchmark_trigger.yml"
-        ).read_text(encoding="utf-8")
+        )
+        trigger_workflow = trigger_workflow_path.read_text(encoding="utf-8")
+        trigger_workflow_data = _load_yaml(trigger_workflow_path)
         benchmark_workflow_path = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         )
@@ -772,6 +808,10 @@ Regression threshold: `10.0%`
             "context.payload.comment.body.trim() !== '/benchmark'", trigger_workflow
         )
         self.assertIn("github.event.issue.state == 'open'", trigger_workflow)
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["trigger"]["if"],
+            "${{ github.repository == 'microsoft/pyright' && github.event.issue.pull_request && github.event.issue.state == 'open' && startsWith(github.event.comment.body, '/benchmark') }}",
+        )
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
         self.assertIn("actions: write", trigger_workflow)
@@ -805,7 +845,6 @@ Regression threshold: `10.0%`
         self.assertIn("inputs.base_sha", benchmark_workflow)
         self.assertIn("ref: ${{ inputs.merge_sha }}", benchmark_workflow)
         self.assertIn("-merge-${{ inputs.merge_sha }}", benchmark_workflow)
-        self.assertIn("if: ${{ always() }}", benchmark_workflow)
         self.assertIn("run_id: context.runId", benchmark_workflow)
         self.assertIn("pullRequest.data.base.sha !== expectedBaseSha", benchmark_workflow)
         self.assertIn(
