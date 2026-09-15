@@ -959,6 +959,9 @@ export function addConditionToType<T extends Type>(
         case TypeCategory.Function:
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
 
+        case TypeCategory.OverloadResult:
+            return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
+
         case TypeCategory.Overloaded:
             return OverloadedType.create(
                 OverloadedType.getOverloads(type).map((t) => addConditionToType(t, condition))
@@ -986,6 +989,7 @@ export function getTypeCondition(type: Type): TypeCondition[] | undefined {
 
         case TypeCategory.Class:
         case TypeCategory.Function:
+        case TypeCategory.OverloadResult:
             return type.props?.condition;
     }
 }

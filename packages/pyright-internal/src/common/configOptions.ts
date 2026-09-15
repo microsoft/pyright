@@ -1080,6 +1080,9 @@ export class ConfigOptions {
     // Run additional analysis as part of test cases?
     internalTestMode?: boolean | undefined;
 
+    // Internal opt-in only; intentionally not read from project configuration.
+    experimentalOverloadResults?: boolean;
+
     // Run program in index generation mode.
     indexGenerationMode?: boolean | undefined;
 
