@@ -1869,7 +1869,7 @@ describe('mypy_primer analysis', () => {
         expect(source.getIn(['tools', 'bash'])).toBe(false);
         expect(source.getIn(['tools', 'edit'])).toBe(false);
         expect(source.getIn(['tools', 'github', 'read-only'])).toBe(true);
-        expect(source.get('max-ai-credits')).toBe(100);
+        expect(source.get('max-ai-credits')).toBe(200);
         expect(source.getIn(['engine', 'model'])).toBe('gpt-5.6-sol');
         expect(source.getIn(['safe-outputs', 'jobs', 'publish-primer-analysis', 'max'])).toBe(100);
         expect(source.getIn(['safe-outputs', 'noop'])).toBe(false);
@@ -2011,7 +2011,7 @@ describe('mypy_primer analysis', () => {
         }
         const proxy = parseDocument(awfConfig[1]);
         expect(proxy.getIn(['apiProxy', 'enableTokenSteering'])).toBe(false);
-        expect(proxy.getIn(['apiProxy', 'maxAiCredits'])).toBe(100);
+        expect(proxy.getIn(['apiProxy', 'maxAiCredits'])).toBe(200);
         expect(proxy.getIn(['apiProxy', 'maxRuns'])).toBe(30);
         expect(execution).toContain('/gh-aw/actions/mypyPrimerCopilotHarness.cjs"');
         expect(execution).toContain('export GH_AW_MCP_CONFIG="$HOME/.copilot/mcp-config.json"');

@@ -97,7 +97,7 @@ policy disallows this inference permission, a repository administrator must reso
 that configuration before the workflow can run. See the
 [Copilot authentication reference](https://github.github.com/gh-aw/reference/auth/).
 
-The limits are 100 AI credits, 30 agent turns, and 15 minutes for the agent.
+The limits are 200 AI credits, 30 agent turns, and 15 minutes for the agent.
 They can be adjusted in `.github/workflows/mypy-primer-analysis.md`. The agent must
 mark insufficiently investigated projects as needing review rather than inventing
 evidence to meet its budget.
@@ -107,7 +107,7 @@ model, with a larger budget for causal regression investigation; consult the
 [Copilot pricing table](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing)
 for current rates. Keep `sandbox.agent.token-steering: false` so the
 proxy preserves the selected model rather than steering requests to another one.
-The 100-credit analysis budget is approximately $1; it does not guarantee completion
+The 200-credit analysis budget is approximately $2; it does not guarantee completion
 or detection of every regression.
 The model must be enabled for the organization, and its advisory assessments
 still require human review. Threat detection explicitly retains its existing

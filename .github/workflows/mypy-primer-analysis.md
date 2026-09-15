@@ -34,7 +34,7 @@ engine:
   args: [--deny-tool, write, --deny-tool, shell]
 timeout-minutes: 15
 max-turns: 30
-max-ai-credits: 100
+max-ai-credits: 200
 sandbox:
   agent:
     token-steering: false
