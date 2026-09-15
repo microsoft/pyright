@@ -186,8 +186,8 @@ const expectedReport = {
     fullReport: [...expectedReportHeading, expectedReportRow, '', ...expectedReportDetails].join('\n'),
 };
 
-function expectedLargeReport(names: string[], explanation: string) {
-    const escapedNames = names.map((name) => name.replace(/_/g, '\\_'));
+function expectedLargeReport(projectCount: number, explanation: string) {
+    const escapedNames = Array.from({ length: projectCount }, (_, index) => `project\\_${index}`);
     const rows = escapedNames.map((name) => expectedReportRow.replace('example', name));
     const details = escapedNames.flatMap((name) =>
         expectedReportDetails.map((line) =>
@@ -835,28 +835,29 @@ describe('mypy_primer analysis', () => {
         });
     });
 
-    test.each(['__proto__', 'constructor', 'toString'])(
-        'treats project name %s as data rather than an inherited key',
-        (name) => {
-            const f = fixture(sample.replace(/example/g, name));
-            f.report.projects[0].name = name;
-            expect(renderReport({ ...f.manifest, regressionSignals: {} }, f.report, 100)).toStrictEqual({
-                body: expectedReport.body.replace(/example/g, name.replace(/_/g, '\\_')),
-                fullReport: expectedReport.fullReport.replace(/example/g, name.replace(/_/g, '\\_')),
-            });
-            const line = `.../projects/${name}/test.py:1:1 - error: "assert_type" mismatch: expected "int" but received "Any" (reportAssertTypeFailure)`;
-            const diff = [
-                `${name} (https://github.com/example/project)`,
-                `+   ${line}`,
-                '- 0 errors, 0 warnings, 0 informations',
-                '+ 1 error, 0 warnings, 0 informations',
-            ].join('\n');
-            // Compare entries so Jest does not treat a constructor data key as a class identity.
-            expect(
-                Object.entries(JSON.parse(JSON.stringify(summarizeDiffs(parseDiff(diff, 0)).regressionSignals)))
-            ).toStrictEqual([[name, [{ kind: 'type-erasure', count: 1, examplesAdded: [line], examplesRemoved: [] }]]]);
-        }
-    );
+    test.each([
+        ['__proto__', '\\_\\_proto\\_\\_'],
+        ['constructor', 'constructor'],
+        ['toString', 'toString'],
+    ])('treats project name %s as data rather than an inherited key', (name, escapedName) => {
+        const f = fixture(sample.replace(/example/g, name));
+        f.report.projects[0].name = name;
+        expect(renderReport({ ...f.manifest, regressionSignals: {} }, f.report, 100)).toStrictEqual({
+            body: expectedReport.body.replace(/example/g, escapedName),
+            fullReport: expectedReport.fullReport.replace(/example/g, escapedName),
+        });
+        const line = `.../projects/${name}/test.py:1:1 - error: "assert_type" mismatch: expected "int" but received "Any" (reportAssertTypeFailure)`;
+        const diff = [
+            `${name} (https://github.com/example/project)`,
+            `+   ${line}`,
+            '- 0 errors, 0 warnings, 0 informations',
+            '+ 1 error, 0 warnings, 0 informations',
+        ].join('\n');
+        // Compare entries so Jest does not treat a constructor data key as a class identity.
+        expect(
+            Object.entries(JSON.parse(JSON.stringify(summarizeDiffs(parseDiff(diff, 0)).regressionSignals)))
+        ).toStrictEqual([[name, [{ kind: 'type-erasure', count: 1, examplesAdded: [line], examplesRemoved: [] }]]]);
+    });
 
     test('keeps type-erasure risks first even when the model blames stubs', () => {
         const diff = [
@@ -1161,7 +1162,7 @@ describe('mypy_primer analysis', () => {
         const report = { projects: names.map((name) => ({ ...f.report.projects[0], name, explanation })) };
         const result = renderReport(manifest, report, 100);
         expect(result.body.length).toBeLessThanOrEqual(60000);
-        expect(result).toStrictEqual(expectedLargeReport(names, explanation));
+        expect(result).toStrictEqual(expectedLargeReport(names.length, explanation));
     });
 
     test('large reports retain every project in the comment and full artifact', () => {
@@ -1177,7 +1178,7 @@ describe('mypy_primer analysis', () => {
         const result = renderReport(manifest, report, 100);
         expect(result.body.length).toBeLessThan(60000);
         expect(result.fullReport.length).toBeGreaterThan(60000);
-        expect(result).toStrictEqual(expectedLargeReport(names, 'x'.repeat(1800)));
+        expect(result).toStrictEqual(expectedLargeReport(names.length, 'x'.repeat(1800)));
     });
 
     test('rejects missing projects, unsupported classifications, and uncited certainty', () => {
