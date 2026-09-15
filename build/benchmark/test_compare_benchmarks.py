@@ -800,16 +800,27 @@ Regression threshold: `10.0%`
         benchmark_workflow = benchmark_workflow_path.read_text(encoding="utf-8")
         benchmark_workflow_data = _load_yaml(benchmark_workflow_path)
 
-        self.assertIn("issue_comment:", trigger_workflow)
-        self.assertIn(
-            "startsWith(github.event.comment.body, '/benchmark')", trigger_workflow
+        self.assertEqual(
+            trigger_workflow_data["on"],
+            {
+                "issue_comment": {"types": ["created"]},
+                "pull_request_target": {
+                    "types": [
+                        "opened",
+                        "reopened",
+                        "synchronize",
+                        "ready_for_review",
+                    ],
+                    "paths": ["packages/pyright-internal/src/analyzer/**"],
+                },
+            },
         )
         self.assertIn(
             "context.payload.comment.body.trim() !== '/benchmark'", trigger_workflow
         )
         self.assertEqual(
             trigger_workflow_data["jobs"]["trigger"]["if"],
-            "${{ github.repository == 'microsoft/pyright' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark') }}",
+            "${{ github.repository == 'microsoft/pyright' && ((github.event_name == 'pull_request_target' && !github.event.pull_request.draft) || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark'))) }}",
         )
         self.assertNotIn("github.event.issue.state == 'open'", trigger_workflow)
         self.assertIn(
@@ -818,6 +829,14 @@ Regression threshold: `10.0%`
         )
         self.assertIn("github.rest.repos.getCommit", trigger_workflow)
         self.assertIn("candidateCommit.data.parents[0]?.sha", trigger_workflow)
+        self.assertIn(
+            "const automatic = context.eventName === 'pull_request_target'",
+            trigger_workflow,
+        )
+        self.assertIn(
+            "automatic && baseSha !== pullRequest.data.base.sha",
+            trigger_workflow,
+        )
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
         self.assertIn("actions: write", trigger_workflow)
@@ -910,96 +929,6 @@ Regression threshold: `10.0%`
                 / "workflows"
                 / "typecheck_benchmark_comment.yml"
             ).exists()
-        )
-
-    def test_analyzer_changes_automatically_dispatch_benchmark(self) -> None:
-        workflow_path = (
-            REPO_ROOT
-            / ".github"
-            / "workflows"
-            / "typecheck_benchmark_auto.yml"
-        )
-        workflow = _load_yaml(workflow_path)
-
-        self.assertEqual(
-            workflow["on"],
-            {
-                "pull_request_target": {
-                    "types": [
-                        "opened",
-                        "reopened",
-                        "synchronize",
-                        "ready_for_review",
-                    ],
-                    "paths": ["packages/pyright-internal/src/analyzer/**"],
-                }
-            },
-        )
-        self.assertEqual(
-            workflow["permissions"],
-            {
-                "actions": "write",
-                "contents": "read",
-                "pull-requests": "read",
-            },
-        )
-        job = workflow["jobs"]["trigger"]
-        self.assertEqual(
-            {
-                key: job[key]
-                for key in ("name", "if", "runs-on")
-            },
-            {
-                "name": "Trigger analyzer benchmark",
-                "if": "${{ github.repository == 'microsoft/pyright' && !github.event.pull_request.draft }}",
-                "runs-on": "ubuntu-latest",
-            },
-        )
-        self.assertEqual(
-            job["steps"],
-            [
-                {
-                    "name": "Dispatch benchmark",
-                    "uses": "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3",
-                    "with": {
-                        "script": (
-                            "const issueNumber = context.payload.pull_request.number\n"
-                            "const pullRequest = await github.rest.pulls.get({\n"
-                            "  owner: context.repo.owner,\n"
-                            "  repo: context.repo.repo,\n"
-                            "  pull_number: issueNumber,\n"
-                            "})\n"
-                            "const candidateSha = pullRequest.data.merge_commit_sha\n"
-                            "if (!candidateSha) {\n"
-                            "  core.notice('The pull request does not have a merge commit to benchmark')\n"
-                            "  return\n"
-                            "}\n"
-                            "const candidateCommit = await github.rest.repos.getCommit({\n"
-                            "  owner: context.repo.owner,\n"
-                            "  repo: context.repo.repo,\n"
-                            "  ref: candidateSha,\n"
-                            "})\n"
-                            "const baseSha = candidateCommit.data.parents[0]?.sha\n"
-                            "if (!baseSha || baseSha !== pullRequest.data.base.sha) {\n"
-                            "  core.setFailed('The pull request merge commit does not use the current base')\n"
-                            "  return\n"
-                            "}\n"
-                            "await github.rest.actions.createWorkflowDispatch({\n"
-                            "  owner: context.repo.owner,\n"
-                            "  repo: context.repo.repo,\n"
-                            "  workflow_id: 'typecheck_benchmark_pr.yml',\n"
-                            "  ref: context.payload.repository.default_branch,\n"
-                            "  inputs: {\n"
-                            "    pr_number: String(issueNumber),\n"
-                            "    head_sha: pullRequest.data.head.sha,\n"
-                            "    base_sha: baseSha,\n"
-                            "    merge_sha: candidateSha,\n"
-                            "  },\n"
-                            "})\n"
-                        )
-                    },
-                }
-            ],
         )
 
     def test_pr_workflow_prefers_trusted_baseline_with_bootstrap_fallback(self) -> None:
