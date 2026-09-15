@@ -2205,14 +2205,19 @@ function narrowTypeForContainerType(
         return referenceType;
     }
 
-    // Determine which tuple types can be eliminated. Only "None" and
-    // literal types can be handled here.
+    // Determine which tuple types can be eliminated. Only "None",
+    // literal types, and final instantiable classes can be handled here.
+    // Non-final instantiable classes (type[A]) cannot be eliminated in negative
+    // tests because a subclass SubA(A) reaches the negative branch at runtime
+    // (since SubA != A).
     const typesToEliminate: Type[] = [];
     containerType.priv.tupleTypeArgs.forEach((tupleEntry) => {
         if (!tupleEntry.isUnbounded) {
             if (isNoneInstance(tupleEntry.type)) {
                 typesToEliminate.push(tupleEntry.type);
             } else if (isClassInstance(tupleEntry.type) && isLiteralType(tupleEntry.type)) {
+                typesToEliminate.push(tupleEntry.type);
+            } else if (isInstantiableClass(tupleEntry.type) && ClassType.isFinal(tupleEntry.type)) {
                 typesToEliminate.push(tupleEntry.type);
             }
         }
