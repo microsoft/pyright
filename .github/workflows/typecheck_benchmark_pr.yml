@@ -205,10 +205,6 @@ jobs:
               core.setFailed('The pull request is neither open nor merged')
               return
             }
-            if (pullRequest.data.merge_commit_sha !== expectedMergeSha) {
-              core.setFailed('The workflow run candidate does not match the pull request candidate')
-              return
-            }
             const candidateCommit = await github.rest.repos.getCommit({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -216,6 +212,20 @@ jobs:
             })
             if (candidateCommit.data.parents[0]?.sha !== expectedBaseSha) {
               core.setFailed('The workflow run base is not the candidate commit first parent')
+              return
+            }
+            if (
+              !pullRequest.data.merged &&
+              candidateCommit.data.parents[1]?.sha !== expectedHeadSha
+            ) {
+              core.setFailed('The workflow run head is not the candidate commit second parent')
+              return
+            }
+            if (
+              pullRequest.data.merged &&
+              pullRequest.data.merge_commit_sha !== expectedMergeSha
+            ) {
+              core.setFailed('The workflow run candidate is not the merged pull request commit')
               return
             }
             const download = await github.rest.actions.downloadArtifact({
