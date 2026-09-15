@@ -4,6 +4,14 @@ on:
   issue_comment:
     types:
       - created
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+    paths:
+      - 'packages/pyright-internal/src/analyzer/**'
 
 permissions:
   actions: write
@@ -12,34 +20,44 @@ permissions:
 
 jobs:
   trigger:
-    name: Authorize benchmark request
-    if: ${{ github.repository == 'microsoft/pyright' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark') }}
+    name: Trigger benchmark
+    if: >-
+      ${{ github.repository == 'microsoft/pyright' &&
+      ((github.event_name == 'pull_request_target' && !github.event.pull_request.draft) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/benchmark'))) }}
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger benchmark for authorized maintainer
+      - name: Dispatch benchmark
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            if (context.payload.comment.body.trim() !== '/benchmark') {
-              core.notice('The benchmark command must be the entire comment')
-              return
+            const automatic = context.eventName === 'pull_request_target'
+            if (!automatic) {
+              if (context.payload.comment.body.trim() !== '/benchmark') {
+                core.notice('The benchmark command must be the entire comment')
+                return
+              }
+
+              const permission = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: context.actor,
+              })
+              const allowedPermissions = new Set(['admin', 'maintain', 'write'])
+              if (!allowedPermissions.has(permission.data.permission)) {
+                core.notice(`${context.actor} does not have permission to run the benchmark`)
+                return
+              }
             }
 
-            const permission = await github.rest.repos.getCollaboratorPermissionLevel({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              username: context.actor,
-            })
-            const allowedPermissions = new Set(['admin', 'maintain', 'write'])
-            if (!allowedPermissions.has(permission.data.permission)) {
-              core.notice(`${context.actor} does not have permission to run the benchmark`)
-              return
-            }
-
+            const issueNumber = automatic
+              ? context.payload.pull_request.number
+              : context.issue.number
             const pullRequest = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.issue.number,
+              pull_number: issueNumber,
             })
             if (pullRequest.data.state !== 'open' && !pullRequest.data.merged) {
               core.notice('Only open or merged pull requests can be benchmarked')
@@ -60,13 +78,17 @@ jobs:
               core.setFailed('The candidate commit does not have a first parent')
               return
             }
+            if (automatic && baseSha !== pullRequest.data.base.sha) {
+              core.setFailed('The pull request merge commit does not use the current base')
+              return
+            }
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'typecheck_benchmark_pr.yml',
               ref: context.payload.repository.default_branch,
               inputs: {
-                pr_number: String(context.issue.number),
+                pr_number: String(issueNumber),
                 head_sha: pullRequest.data.head.sha,
                 base_sha: baseSha,
                 merge_sha: candidateSha,

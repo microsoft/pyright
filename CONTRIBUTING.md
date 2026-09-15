@@ -20,6 +20,7 @@ See the script's `--help` and module docstring for options and methodology.
 
 To compare the local Pyright build's speed and peak memory with the latest PyPI release or with
 Pyrefly, ty, mypy, and Zuban on the pinned corpus, use `build/benchmark/typecheck_benchmark.py`.
-Maintainers can also request the hosted regression benchmark on a pull request by commenting
-`/benchmark`. See [the benchmark README](build/benchmark/README.md) for the developer and maintainer
-workflows, prerequisites, and methodology.
+Pull requests that change analyzer sources run the hosted regression benchmark automatically.
+Maintainers can request it for other pull requests by commenting `/benchmark`. See
+[the benchmark README](build/benchmark/README.md) for the developer and maintainer workflows,
+prerequisites, and methodology.

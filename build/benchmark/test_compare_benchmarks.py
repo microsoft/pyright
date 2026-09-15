@@ -800,16 +800,27 @@ Regression threshold: `10.0%`
         benchmark_workflow = benchmark_workflow_path.read_text(encoding="utf-8")
         benchmark_workflow_data = _load_yaml(benchmark_workflow_path)
 
-        self.assertIn("issue_comment:", trigger_workflow)
-        self.assertIn(
-            "startsWith(github.event.comment.body, '/benchmark')", trigger_workflow
+        self.assertEqual(
+            trigger_workflow_data["on"],
+            {
+                "issue_comment": {"types": ["created"]},
+                "pull_request_target": {
+                    "types": [
+                        "opened",
+                        "reopened",
+                        "synchronize",
+                        "ready_for_review",
+                    ],
+                    "paths": ["packages/pyright-internal/src/analyzer/**"],
+                },
+            },
         )
         self.assertIn(
             "context.payload.comment.body.trim() !== '/benchmark'", trigger_workflow
         )
         self.assertEqual(
             trigger_workflow_data["jobs"]["trigger"]["if"],
-            "${{ github.repository == 'microsoft/pyright' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark') }}",
+            "${{ github.repository == 'microsoft/pyright' && ((github.event_name == 'pull_request_target' && !github.event.pull_request.draft) || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark'))) }}",
         )
         self.assertNotIn("github.event.issue.state == 'open'", trigger_workflow)
         self.assertIn(
@@ -818,6 +829,14 @@ Regression threshold: `10.0%`
         )
         self.assertIn("github.rest.repos.getCommit", trigger_workflow)
         self.assertIn("candidateCommit.data.parents[0]?.sha", trigger_workflow)
+        self.assertIn(
+            "const automatic = context.eventName === 'pull_request_target'",
+            trigger_workflow,
+        )
+        self.assertIn(
+            "automatic && baseSha !== pullRequest.data.base.sha",
+            trigger_workflow,
+        )
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
         self.assertIn("actions: write", trigger_workflow)
