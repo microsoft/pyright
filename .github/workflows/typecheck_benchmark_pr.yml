@@ -132,7 +132,7 @@ jobs:
   comment:
     name: Comment benchmark results
     needs: benchmark
-    if: ${{ always() && github.repository == 'microsoft/pyright' }}
+    if: ${{ always() && needs.benchmark.result != 'cancelled' && github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read

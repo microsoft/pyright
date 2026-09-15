@@ -750,7 +750,7 @@ Regression threshold: `10.0%`
         )
         self.assertEqual(
             pr_workflow_data["jobs"]["comment"]["if"],
-            "${{ always() && github.repository == 'microsoft/pyright' }}",
+            "${{ always() && needs.benchmark.result != 'cancelled' && github.repository == 'microsoft/pyright' }}",
         )
         self.assertEqual(
             [step.get("uses") for step in pr_benchmark_steps],
