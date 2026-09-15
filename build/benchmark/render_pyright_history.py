@@ -60,6 +60,52 @@ def _package_signature(data: dict[str, Any]) -> list[tuple[Any, ...]]:
     )
 
 
+def _package_corpus(data: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "package_name": package_name,
+            "commit": commit,
+            "check_paths": list(check_paths),
+            "exclude_directories": list(exclude_directories),
+        }
+        for package_name, commit, check_paths, exclude_directories in _package_signature(
+            data
+        )
+    ]
+
+
+def _corpus_signature(corpus: list[dict[str, Any]]) -> list[tuple[Any, ...]]:
+    return sorted(
+        (
+            package.get("package_name"),
+            package.get("commit"),
+            tuple(package.get("check_paths", [])),
+            tuple(package.get("exclude_directories", [])),
+        )
+        for package in corpus
+    )
+
+
+def _package_metrics(data: dict[str, Any], checker: str) -> dict[str, dict[str, float]]:
+    package_metrics: dict[str, dict[str, float]] = {}
+    for package in data.get("results", []):
+        name = package.get("package_name")
+        metric = package.get("metrics", {}).get(checker, {})
+        if not name or not metric.get("ok"):
+            continue
+        execution_time = metric.get("execution_time_s")
+        peak_memory = metric.get("peak_memory_mb")
+        if not isinstance(execution_time, (int, float)) or not isinstance(
+            peak_memory, (int, float)
+        ):
+            continue
+        package_metrics[str(name)] = {
+            "execution_time_s": float(execution_time),
+            "peak_memory_mb": float(peak_memory),
+        }
+    return package_metrics
+
+
 def load_history(
     paths: list[Path], manifest_path: Path | None = None
 ) -> dict[str, Any]:
@@ -103,23 +149,6 @@ def load_history(
         elif current_signature != package_signature:
             raise ValueError(f"{path} uses a different package corpus")
 
-        package_metrics: dict[str, dict[str, float]] = {}
-        for package in data.get("results", []):
-            name = package.get("package_name")
-            metric = package.get("metrics", {}).get(checker, {})
-            if not name or not metric.get("ok"):
-                continue
-            execution_time = metric.get("execution_time_s")
-            peak_memory = metric.get("peak_memory_mb")
-            if not isinstance(execution_time, (int, float)) or not isinstance(
-                peak_memory, (int, float)
-            ):
-                continue
-            package_metrics[str(name)] = {
-                "execution_time_s": float(execution_time),
-                "peak_memory_mb": float(peak_memory),
-            }
-
         releases.append(
             {
                 "version": version,
@@ -127,7 +156,7 @@ def load_history(
                     data.get("release_published_at") or expected.get(version, "")
                 ),
                 "measured_at": str(data.get("timestamp", "")),
-                "packages": package_metrics,
+                "packages": _package_metrics(data, checker),
             }
         )
 
@@ -152,8 +181,61 @@ def load_history(
     return {
         "profile": profile or {},
         "packages": packages,
+        "package_corpus": _package_corpus(
+            json.loads(paths[0].read_text(encoding="utf-8"))
+        ),
         "releases": releases,
     }
+
+
+def append_candidates(
+    history_path: Path,
+    candidate_paths: list[Path],
+    candidate_labels: list[str],
+) -> dict[str, Any]:
+    history = json.loads(history_path.read_text(encoding="utf-8"))
+    expected_packages = set(history.get("packages", []))
+    expected_signature = _corpus_signature(history.get("package_corpus", []))
+    if not expected_signature:
+        raise ValueError(f"{history_path} does not contain a package corpus")
+    existing_labels = {str(release.get("version")) for release in history["releases"]}
+    comparison_signature: list[tuple[Any, ...]] | None = None
+    for candidate_path, candidate_label in zip(
+        candidate_paths, candidate_labels, strict=True
+    ):
+        candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+        checker = _checker(candidate, candidate_path)
+        profile = {field: candidate.get(field) for field in PROFILE_FIELDS}
+        if profile != history.get("profile"):
+            raise ValueError(f"{candidate_path} uses a different benchmark profile")
+
+        candidate_packages = {
+            str(package.get("package_name"))
+            for package in candidate.get("results", [])
+            if package.get("package_name")
+        }
+        if candidate_packages != expected_packages:
+            raise ValueError(f"{candidate_path} uses a different package corpus")
+        current_signature = _package_signature(candidate)
+        if current_signature != expected_signature:
+            raise ValueError(f"{candidate_path} uses a different history package corpus")
+        if comparison_signature is None:
+            comparison_signature = current_signature
+        elif current_signature != comparison_signature:
+            raise ValueError(f"{candidate_path} uses a different package corpus")
+        if candidate_label in existing_labels:
+            raise ValueError(f"Duplicate history label: {candidate_label}")
+        existing_labels.add(candidate_label)
+        history["releases"].append(
+            {
+                "version": candidate_label,
+                "published_at": "",
+                "measured_at": str(candidate.get("timestamp", "")),
+                "packages": _package_metrics(candidate, checker),
+                "comparison": True,
+            }
+        )
+    return history
 
 
 def render_svg(
@@ -209,7 +291,10 @@ def render_svg(
         f'<svg xmlns="http://www.w3.org/2000/svg" role="img" '
         f'aria-labelledby="title description" viewBox="0 0 {width} {height}">',
         f'<title id="title">{html.escape(title)}</title>',
-        '<desc id="description">One line per benchmark package across Pyright releases.</desc>',
+        (
+            '<desc id="description">One line per benchmark package across Pyright releases'
+            f'{" plus the base and pull request comparison" if any(release.get("comparison") for release in releases) else ""}.</desc>'
+        ),
         "<style>",
         "text{font-family:Aptos,Arial,sans-serif;fill:#18222c}",
         ".grid{stroke:#d5ded9;stroke-width:1}.axis{stroke:#52616b;stroke-width:1.5}",
@@ -306,6 +391,7 @@ def render_svg(
 def render_html(history: dict[str, Any]) -> str:
     profile = history["profile"]
     releases = history["releases"]
+    has_comparison = any(release.get("comparison") for release in releases)
     rows = []
     for release in releases:
         rows.append(
@@ -335,7 +421,7 @@ thead {{ background:#edf2ef; }} code {{ background:#e5ece8; padding:2px 5px; }}
 </style>
 </head>
 <body>
-<header><h1>Pyright package performance by release</h1><p>Every stable Pyright release from the prior year, measured against one pinned package corpus.</p></header>
+<header><h1>Pyright package performance by release</h1><p>Every stable Pyright release from the prior year{" plus the base and pull request comparison" if has_comparison else ""}, measured against one pinned package corpus.</p></header>
 <main>
 <section><h2>Execution time</h2><img src="execution-time.svg" alt="Per-package Pyright execution time across releases"></section>
 <section><h2>Peak memory</h2><img src="peak-memory.svg" alt="Per-package Pyright peak memory across releases"></section>
@@ -344,7 +430,7 @@ thead {{ background:#edf2ef; }} code {{ background:#e5ece8; padding:2px 5px; }}
 <p>Profile: Python <code>{html.escape(str(profile.get("python_version", "unknown")))}</code>,
 runner <code>{html.escape(str(profile.get("runner_class", "unknown")))}</code>,
 {html.escape(str(profile.get("runs_per_package", "unknown")))} measured run per package.</p></section>
-<section><h2>Release runs</h2><div class="table-wrap"><table><thead><tr><th>Version</th><th>Published</th><th>Packages measured</th><th>Measured at</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div></section>
+<section><h2>{"Benchmark runs" if has_comparison else "Release runs"}</h2><div class="table-wrap"><table><thead><tr><th>{"Version / comparison" if has_comparison else "Version"}</th><th>Published</th><th>Packages measured</th><th>Measured at</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div></section>
 <p><a href="../">Back to the weekly type checker comparison</a> | <a href="history.json">Download summarized JSON</a></p>
 </main>
 </body>
@@ -352,10 +438,7 @@ runner <code>{html.escape(str(profile.get("runner_class", "unknown")))}</code>,
 """
 
 
-def write_history(
-    paths: list[Path], output_dir: Path, manifest_path: Path | None = None
-) -> dict[str, Any]:
-    history = load_history(paths, manifest_path)
+def _write_bundle(history: dict[str, Any], output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "history.json").write_text(
         json.dumps(history, indent=2) + "\n", encoding="utf-8"
@@ -369,16 +452,54 @@ def write_history(
         encoding="utf-8",
     )
     (output_dir / "index.html").write_text(render_html(history), encoding="utf-8")
+
+
+def write_history(
+    paths: list[Path], output_dir: Path, manifest_path: Path | None = None
+) -> dict[str, Any]:
+    history = load_history(paths, manifest_path)
+    _write_bundle(history, output_dir)
+    return history
+
+
+def write_candidate_history(
+    history_path: Path,
+    candidate_paths: list[Path],
+    candidate_labels: list[str],
+    output_dir: Path,
+) -> dict[str, Any]:
+    history = append_candidates(history_path, candidate_paths, candidate_labels)
+    _write_bundle(history, output_dir)
     return history
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render Pyright release history charts")
-    parser.add_argument("results", nargs="+", type=Path)
+    parser.add_argument("results", nargs="*", type=Path)
     parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--existing-history", type=Path)
+    parser.add_argument("--candidate-label", action="append")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    write_history(args.results, args.output, args.manifest)
+    if args.existing_history:
+        if (
+            not args.results
+            or len(args.results) != len(args.candidate_label or [])
+            or args.manifest
+        ):
+            parser.error(
+                "--existing-history requires one --candidate-label per result"
+            )
+        write_candidate_history(
+            args.existing_history,
+            args.results,
+            args.candidate_label,
+            args.output,
+        )
+    else:
+        if not args.results or args.candidate_label:
+            parser.error("release history rendering requires release result files")
+        write_history(args.results, args.output, args.manifest)
     return 0
 
 
