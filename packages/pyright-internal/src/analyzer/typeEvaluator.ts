@@ -30124,9 +30124,7 @@ export function createTypeEvaluator(
         useSpeculativeMode,
         isSpeculativeModeInUse,
         setTypeResultForNode,
-
         getMaxCodeComplexity,
-
         checkForCancellation,
         printControlFlowGraph,
     };
