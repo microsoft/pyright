@@ -117,7 +117,6 @@ import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclarationForSymbol } from './symbolUtils';
 import { getEffectiveExtraItemsEntryType, getTypedDictMembersForClass } from './typedDicts';
-import { maxCodeComplexity } from './typeEvaluator';
 import {
     Arg,
     AssignTypeFlags,
@@ -265,7 +264,7 @@ export class Checker extends ParseTreeWalker {
             );
         }
 
-        if (codeComplexity > maxCodeComplexity) {
+        if (codeComplexity > this._evaluator.getMaxCodeComplexity()) {
             this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -684,7 +683,7 @@ export class Checker extends ParseTreeWalker {
         });
 
         const codeComplexity = this._nodeInfo.getCodeFlowComplexity(node);
-        const isTooComplexToAnalyze = codeComplexity > maxCodeComplexity;
+        const isTooComplexToAnalyze = codeComplexity > this._evaluator.getMaxCodeComplexity();
 
         if (isPrintCodeComplexityEnabled) {
             console.log(`Code complexity of function ${node.d.name.d.value} is ${codeComplexity.toString()}`);
