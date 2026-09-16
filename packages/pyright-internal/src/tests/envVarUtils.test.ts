@@ -41,6 +41,20 @@ test('expands ${workspaceFolder:sibling}', () => {
     assert.equal(expandPathVariables(test_path, workspaceFolderUri, [workspace]), path);
 });
 
+test.each(['$&', '$$', '$`', "$'"])('preserves replacement characters in workspace paths: %s', (directory) => {
+    const rootUri = UriEx.file(`/src/${directory}/project`);
+    const workspace = createWorkspace(rootUri);
+    workspace.workspaceName = 'sibling';
+    for (const variable of ['${workspaceFolder}', '${workspaceFolder:sibling}']) {
+        const path = `${variable}/lib`;
+        assert.equal(expandPathVariables(path, rootUri, [workspace]), `${rootUri.getPath()}/lib`);
+        assert.equal(
+            resolvePathWithEnvVariables(workspace, path, [workspace])?.getFilePath(),
+            rootUri.resolvePaths('lib').getFilePath()
+        );
+    }
+});
+
 test('resolvePathWithEnvVariables ${workspaceFolder}', () => {
     const workspaceFolderUri = UriEx.parse('mem-fs:/hello/there');
     const test_path = `\${workspaceFolder}/foo`;
