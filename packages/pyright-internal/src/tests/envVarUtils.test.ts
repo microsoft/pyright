@@ -83,6 +83,16 @@ describe('expandPathVariables', () => {
         process.env = OLD_ENV;
     });
 
+    test.each(['$&', '$$', '$`', "$'"])('preserves replacement characters in environment values: %s', (value) => {
+        process.env.VIRTUAL_ENV = `/src/${value}/project`;
+        const path = '${env:VIRTUAL_ENV}/lib';
+        assert.equal(expandPathVariables(path, Uri.empty(), []), `${process.env.VIRTUAL_ENV}/lib`);
+        assert.equal(
+            resolvePathWithEnvVariables(defaultWorkspace, path, [])?.getFilePath(),
+            UriEx.file(process.env.VIRTUAL_ENV).resolvePaths('lib').getFilePath()
+        );
+    });
+
     test('expands ${env:HOME}', () => {
         process.env.HOME = 'file:///home/foo';
         const test_path = '${env:HOME}/bar';
