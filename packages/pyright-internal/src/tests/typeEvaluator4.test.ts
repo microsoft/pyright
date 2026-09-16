@@ -576,7 +576,7 @@ test('FunctionAssignabilityPositionalParamMessage1', () => {
         [
             'Argument of type "(a: int, b: int, /) -> int" cannot be assigned to parameter "func" of type "(int) -> int" in function "decorator"',
             '  Type "(a: int, b: int, /) -> int" is not assignable to type "(int) -> int"',
-            '    Position-only parameter mismatch; expected 2 but received 1',
+            '    Position-only parameter mismatch; expected 1 but received 2',
             '    Function accepts too many positional parameters; expected 1 but received 2',
         ].join('\n')
     );
