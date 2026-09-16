@@ -1990,6 +1990,7 @@ export class Program {
                 evaluateUnknownImportsAsAny: !!this._configOptions.evaluateUnknownImportsAsAny,
                 verifyTypeCacheEvaluatorFlags: !!this._configOptions.internalTestMode,
                 nodeInfoReader: this._analyzerNodeInfoContext,
+                maxCodeComplexity: this._configOptions.maxCodeComplexity,
             },
             this._logTracker,
             this._configOptions.logTypeEvaluationTime
