@@ -1,12 +1,10 @@
 from _typeshed import Incomplete
 from collections.abc import Callable
-from email._policybase import Compat32 as Compat32, Policy as Policy, _MessageFactory, compat32 as compat32
+from email._policybase import Compat32 as Compat32, Policy as Policy, _MessageFactory, _MessageT, compat32 as compat32
 from email.contentmanager import ContentManager
-from email.message import EmailMessage, Message
-from typing import Any, TypeVar, overload
+from email.message import EmailMessage
+from typing import overload
 from typing_extensions import Self
-
-_MessageT = TypeVar("_MessageT", bound=Message[Any, Any], default=EmailMessage)
 
 __all__ = ["Compat32", "compat32", "Policy", "EmailPolicy", "default", "strict", "SMTP", "HTTP"]
 
