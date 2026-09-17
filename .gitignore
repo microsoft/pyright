@@ -146,3 +146,6 @@ packages/pyright-internal/src/tests/benchmarks/.generated/
 
 # Cross-type-checker benchmark results
 /build/benchmark/results/
+
+# Local evaluation/state trace artifacts
+/.generated/evaluation-traces/
