@@ -238,7 +238,6 @@ class _SpecialForm(_Final):
     def __ror__(self, other: Any) -> _SpecialForm: ...
 
 Union: _SpecialForm
-Protocol: _SpecialForm
 Callable: _SpecialForm
 Type: _SpecialForm
 NoReturn: _SpecialForm
@@ -471,6 +470,11 @@ class _Generic:
     def __class_getitem__(cls, args: TypeVar | ParamSpec | tuple[TypeVar | ParamSpec, ...]) -> _Final: ...
 
 Generic: type[_Generic]
+
+@type_check_only
+class _Protocol: ...
+
+Protocol: type[_Protocol]
 
 class _ProtocolMeta(ABCMeta):
     if sys.version_info >= (3, 12):
