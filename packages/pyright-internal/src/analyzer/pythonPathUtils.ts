@@ -14,7 +14,7 @@ import { Host } from '../common/host';
 import * as pathConsts from '../common/pathConsts';
 import { PythonVersion } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
-import { getFileSystemEntries, isDirectory, tryStat } from '../common/uri/uriUtils';
+import { getFileSystemEntries, isDirectory, tryStat, UriEx } from '../common/uri/uriUtils';
 import { ImportLogger } from './importLogger';
 
 export interface PythonPathResult {
@@ -25,7 +25,18 @@ export interface PythonPathResult {
 export const stdLibFolderName = 'stdlib';
 export const thirdPartyFolderName = 'stubs';
 
-export function getTypeShedFallbackPath(fs: Pick<FileSystem, 'getModulePath' | 'existsSync' | 'realCasePath'>) {
+export function getTypeShedFallbackPath(
+    fs: Pick<FileSystem, 'getModulePath' | 'existsSync' | 'realCasePath' | 'statSync'>
+) {
+    const envTypeshedPath = process.env.PYRIGHT_TYPESHED_PATH;
+    if (envTypeshedPath) {
+        const envTypeshedUri = UriEx.file(envTypeshedPath);
+        const stats = fs.statSync(envTypeshedUri);
+        if (stats.isDirectory()) {
+            return fs.realCasePath(envTypeshedUri);
+        }
+    }
+
     const moduleDirectory = fs.getModulePath();
     if (!moduleDirectory || moduleDirectory.isEmpty()) {
         return undefined;
