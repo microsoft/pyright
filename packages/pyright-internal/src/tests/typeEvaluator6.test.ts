@@ -14,6 +14,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { UriEx } from '../common/uri/uriUtils';
 import * as TestUtils from './testUtils';
 
 test('Overload1', () => {
@@ -1133,9 +1134,37 @@ test('ConstructorCallable2', () => {
 });
 
 test('ConstructorCallable3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable3.py']);
+    const configOptions = new ConfigOptions(UriEx.file(TestUtils.resolveSampleFilePath('constructorCallable3')));
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(
+        ['constructorCallable3/pyproject_metadata/__init__.py'],
+        configOptions
+    );
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1, 0, 4);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => ({
+            line: diagnostic.range.start.line + 1,
+            rule: diagnostic.getRule(),
+            message: diagnostic.message,
+        })),
+        [
+            {
+                line: 40,
+                rule: DiagnosticRule.reportCallIssue,
+                message: 'Argument missing for parameter "message_factory"',
+            },
+        ]
+    );
+    assert.deepStrictEqual(
+        analysisResults[0].infos.map((diagnostic) => diagnostic.message),
+        [
+            'Type of "email.policy.EmailPolicy()" is "EmailPolicy[EmailMessage[Any, Any]]"',
+            'Type of "RFC822Policy()" is "RFC822Policy"',
+            'Type of "custom_policy" is "CustomPolicy"',
+            'Type of "email.policy.EmailPolicy[CustomMessage](message_factory=CustomMessage)" is "EmailPolicy[CustomMessage]"',
+        ]
+    );
 });
 
 test('InconsistentConstructor1', () => {
