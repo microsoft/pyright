@@ -1132,6 +1132,12 @@ test('ConstructorCallable2', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('ConstructorCallable3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable3.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('InconsistentConstructor1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

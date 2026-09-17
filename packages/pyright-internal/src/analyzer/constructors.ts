@@ -500,7 +500,7 @@ function validateInitMethod(
         addConstraintsForExpectedType(evaluator, type, type, constraints, /* liveTypeVarScopes */ undefined);
     }
 
-    const returnTypeOverride = selfSpecializeClass(type);
+    const returnTypeOverride = selfSpecializeClass(type, { overrideTypeArgs: true });
     const callResult = evaluator.validateCallArgs(
         errorNode,
         argList,
