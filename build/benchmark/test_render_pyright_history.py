@@ -7,6 +7,8 @@ from pathlib import Path
 
 import render_pyright_history
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 class _HistoryHtmlParser(HTMLParser):
     def __init__(self) -> None:
@@ -90,6 +92,135 @@ def _result(version: str, published_at: str, scale: float = 1.0) -> dict:
 
 
 class RenderPyrightHistoryTest(unittest.TestCase):
+    def test_appends_candidate_to_release_history(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            older = root / "older.json"
+            base = root / "base.json"
+            candidate = root / "candidate.json"
+            release_output = root / "release-output"
+            candidate_output = root / "candidate-output"
+            older.write_text(json.dumps(_result("1.1.406", "2025-10-01")))
+            base_data = _result("1.1.998", "", 0.95)
+            candidate_data = _result("1.1.999", "", 0.9)
+            for data in (base_data, candidate_data):
+                data.pop("release_version")
+                data.pop("release_published_at")
+            base.write_text(json.dumps(base_data))
+            candidate.write_text(json.dumps(candidate_data))
+            release_history = render_pyright_history.write_history(
+                [older], release_output
+            )
+
+            history = render_pyright_history.write_candidate_history(
+                release_output / "history.json",
+                [base, candidate],
+                ["Base", "PR #123"],
+                candidate_output,
+            )
+
+            self.assertEqual(history["profile"], release_history["profile"])
+            self.assertEqual(
+                [release["version"] for release in history["releases"]],
+                ["1.1.406", "Base", "PR #123"],
+            )
+            self.assertEqual(
+                history["releases"][2],
+                {
+                    "version": "PR #123",
+                    "published_at": "",
+                    "measured_at": "2026-09-14T12:00:00+00:00",
+                    "packages": {
+                        "alpha": {
+                            "execution_time_s": 1.8,
+                            "peak_memory_mb": 90.0,
+                        },
+                        "beta": {
+                            "execution_time_s": 3.6,
+                            "peak_memory_mb": 180.0,
+                        },
+                    },
+                    "comparison": True,
+                },
+            )
+            namespace = {"svg": "http://www.w3.org/2000/svg"}
+            chart = ElementTree.fromstring(
+                (candidate_output / "execution-time.svg").read_text()
+            )
+            self.assertEqual(
+                chart.find("svg:desc", namespace).text,
+                "One line per benchmark package across Pyright releases plus the base and pull request comparison.",
+            )
+            self.assertEqual(
+                [
+                    element.text
+                    for element in chart.findall("svg:text", namespace)
+                    if element.attrib.get("text-anchor") == "middle"
+                ],
+                ["1.1.406", "2025-10-01", "Base", "PR #123"],
+            )
+            page_parser = _HistoryHtmlParser()
+            page_parser.feed((candidate_output / "index.html").read_text())
+            self.assertIn("Benchmark runs", page_parser.headings)
+            self.assertEqual(page_parser.cells[0], "Version / comparison")
+            self.assertIn("Base", page_parser.cells)
+            self.assertIn("PR #123", page_parser.cells)
+
+    def test_rejects_candidate_with_mismatched_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            release = root / "release.json"
+            candidate = root / "candidate.json"
+            output = root / "output"
+            release.write_text(json.dumps(_result("1.1.406", "2025-10-01")))
+            candidate_data = _result("1.1.999", "")
+            candidate_data["python_version"] = "3.15.0"
+            candidate.write_text(json.dumps(candidate_data))
+            render_pyright_history.write_history([release], output)
+
+            with self.assertRaisesRegex(ValueError, "different benchmark profile"):
+                render_pyright_history.append_candidates(
+                    output / "history.json", [candidate], ["PR #123"]
+                )
+
+    def test_checked_in_history_records_current_package_corpus(self) -> None:
+        history = json.loads(
+            (
+                REPO_ROOT / "docs" / "typecheck-benchmark" / "history" / "history.json"
+            ).read_text(encoding="utf-8")
+        )
+        baseline = json.loads(
+            (
+                REPO_ROOT
+                / "build"
+                / "benchmark"
+                / "baselines"
+                / "latest-linux-x64.json"
+            ).read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(
+            history["package_corpus"],
+            render_pyright_history._package_corpus(baseline),
+        )
+
+    def test_rejects_candidate_with_mismatched_history_corpus(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            release = root / "release.json"
+            candidate = root / "candidate.json"
+            output = root / "output"
+            release.write_text(json.dumps(_result("1.1.406", "2025-10-01")))
+            candidate_data = _result("1.1.999", "")
+            candidate_data["results"][0]["commit"] = "c" * 40
+            candidate.write_text(json.dumps(candidate_data))
+            render_pyright_history.write_history([release], output)
+
+            with self.assertRaisesRegex(ValueError, "history package corpus"):
+                render_pyright_history.append_candidates(
+                    output / "history.json", [candidate], ["PR #123"]
+                )
+
     def test_renders_release_history_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

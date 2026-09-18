@@ -131,12 +131,17 @@ ignored. Users without one of these permissions cannot start the benchmark.
 For an open pull request, the dispatched workflow runs GitHub's current synthetic merge commit. For
 a merged pull request, it runs the checked-in merge or squash commit. Both modes compare the
 candidate against its exact first parent, so a historical run uses the base revision from merge time
-rather than the current `main` head. The candidate commit must contain the benchmark harness. The
-workflow uses read-only repository permissions. When the run completes, a separate trusted job
-validates the result's head, candidate, and first-parent commits, then renders it using default-branch
-code and the first parent's checked-in baseline. It creates or updates one benchmark comment. The
-trusted job runs on a separate runner with pull-request write permission. The Actions job summary and
-benchmark artifact contain the same candidate results.
+rather than the current `main` head. Both commits must contain a compatible benchmark harness. The
+workflow uses read-only repository permissions and measures the base and candidate sequentially on
+the same runner. When the run completes, a separate trusted job validates the result's head,
+candidate, and first-parent commits, then renders the exact measured comparison using default-branch
+code. It creates or updates one benchmark comment. The trusted job runs on a separate runner with
+pull-request write permission. The Actions job summary and benchmark artifact contain both results.
+
+The benchmark measures the exact first-parent and candidate commits on the same hosted runner. The
+trusted job appends both measurements to the checked-in Pyright release history and uploads an HTML
+report, execution-time and peak-memory SVG charts, and combined JSON as a 90-day artifact linked from
+the benchmark comment. The published release history remains unchanged.
 
 Analyzer changes run again after each pushed commit. For other changes, comment `/benchmark` again
 after pushing a new commit or when rerunning the same head. The trigger workflows must already exist
