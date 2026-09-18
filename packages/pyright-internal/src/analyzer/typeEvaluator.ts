@@ -2483,6 +2483,10 @@ export function createTypeEvaluator(
         applyOptions?: ApplyTypeVarOptions,
         solveOptions?: SolveConstraintsOptions
     ): Type {
+        if (!type.props?.typeAliasInfo && !requiresSpecialization(type)) {
+            return type;
+        }
+
         const solution = solveConstraints(evaluatorInterface, constraints, solveOptions);
         return applySolvedTypeVars(type, solution, applyOptions);
     }
