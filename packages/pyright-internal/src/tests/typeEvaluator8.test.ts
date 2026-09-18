@@ -392,6 +392,12 @@ test('Operator1', () => {
     TestUtils.validateResults(analysisResults, 5);
 });
 
+test('Tuple24', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple24.py']);
+
+    TestUtils.validateResults(analysisResults, 0, 0, 2);
+});
+
 test('Operator2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator2.py']);
 
