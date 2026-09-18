@@ -81,6 +81,17 @@ Activation state is local to an evaluator/controller and keyed by parse-node
 identity. Replacement parse generations do not inherit activations or pending
 probes. Disposal clears pending work and retires owned outcomes.
 
+Memory-pressure eviction requested by lazy import lookup is deferred until the
+owning Program invocation unwinds. A checker retains one evaluator/controller
+for the complete file; analysis releases that ownership between files, not at
+the end of the entire project. Language-service requests retain ownership across
+nested and asynchronous work. Pending eviction runs when the outermost invocation
+finishes, including cancellation or failure, without changing the memory threshold.
+Program disposal cancels pending eviction; a late async completion or rejection
+must not recreate an evaluator after shutdown or replace the request's outcome.
+Each controller's discovery callback is bound to its own evaluator, never a
+replacement evaluator's caches. Direct use of a retired controller remains an error.
+
 Ordinary public queries do not become experimental operations merely because
 another function in the module activated a producer. Records that already own
 ordinary or failed outcomes still require their private restoration and

@@ -8,6 +8,7 @@ import * as assert from 'assert';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { createAnalyzerNodeInfoAccessor } from '../analyzer/analyzerNodeInfo';
+import { CacheManager } from '../analyzer/cacheManager';
 import { ImportResolver } from '../analyzer/importResolver';
 import { ExperimentalOverloadResultOptions, OverloadResultEvent } from '../analyzer/overloadResultController';
 import { getEnclosingFunction } from '../analyzer/parseTreeUtils';
@@ -27,6 +28,7 @@ import {
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { NullConsole } from '../common/console';
+import { createDeferred } from '../common/deferred';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { FullAccessHost } from '../common/fullAccessHost';
 import { pythonVersion3_12 } from '../common/pythonVersion';
@@ -86,7 +88,8 @@ function create(
     checking?: ConstructorParameters<typeof Program>[6]
 ) {
     const temp = new RealTempFile();
-    const service = createServiceProvider(createFromRealFileSystem(temp), new NullConsole(), temp);
+    const cacheManager = new CacheManager();
+    const service = createServiceProvider(createFromRealFileSystem(temp), new NullConsole(), temp, cacheManager);
     const uri = UriEx.file(resolveSampleFilePath('overloadResultController1.py'));
     const config = new ConfigOptions(uri.getDirectory());
     config.defaultPythonVersion = pythonVersion3_12;
@@ -171,6 +174,7 @@ function create(
     let disposed = false;
     return {
         program,
+        cacheManager,
         uri,
         config,
         events,
@@ -188,6 +192,226 @@ function create(
         },
     };
 }
+
+test.each(['default', false] as const)(
+    'AutomaticOverloadResult memory pressure during lazy import preserves checking config=%s',
+    (config) => {
+        const source = 'from os import name\nbefore: int = "bad"\nafter: str = 1\n';
+        const reference = create(source, false, config);
+        const test = create(source, false, config);
+        const nextUri = test.uri.getDirectory().combinePaths('overloadResultCachePressureNext.py');
+        test.program.setTrackedFiles([test.uri, nextUri]);
+        test.program.setFileOpened(nextUri, 1, 'next_error: int = "bad"\n');
+        let pressure = false;
+        const heap = jest.spyOn(test.cacheManager, 'getUsedHeapRatio').mockImplementation(() => {
+            if (!pressure) {
+                return 0;
+            }
+            pressure = false;
+            return 1;
+        });
+        const empty = jest.spyOn(test.program, 'emptyCache');
+        const evaluator = test.program.evaluator!;
+        const name = test.nodes.find((node): node is NameNode => node.nodeType === ParseNodeType.Name)!;
+        let nextEvaluator: TypeEvaluator | undefined;
+        test.program.setPreCheckCallback((parsed, current) => {
+            if (parsed.parseTree === test.module) {
+                pressure = true;
+            } else {
+                nextEvaluator = current;
+            }
+        });
+        try {
+            const expected = reference.analyze();
+            assert.equal(expected.filter((d) => d.category === DiagnosticCategory.Error).length, 2);
+            assert.deepStrictEqual(test.analyze(), expected);
+            assert.equal(empty.mock.calls.length, 2);
+            assert.notStrictEqual(test.program.evaluator, evaluator);
+            assert.strictEqual(nextEvaluator, test.program.evaluator);
+            const nextDiagnostics = test.program.getSourceFile(nextUri)!.getDiagnostics(test.config)!;
+            assert.equal(nextDiagnostics.length, 1);
+            assert.equal(nextDiagnostics[0].getRule(), 'reportAssignmentType');
+            if (config === 'default') {
+                assert.throws(() => evaluator.getTypeOfExpression(name), /Retired overload-result controller/);
+            }
+        } finally {
+            heap.mockRestore();
+            empty.mockRestore();
+            reference.dispose();
+            test.dispose();
+        }
+    }
+);
+
+test.each([false, true])(
+    'AutomaticOverloadResult memory pressure inside an owned operation queryFirst=%s',
+    (queryFirst) => {
+        const source = readSampleFile('overloadResultCachePressure1.py');
+        const reference = create(source, { automatic: true });
+        let pressure = false;
+        let triggered = false;
+        const test = create(source, {
+            automatic: true,
+            observe(event) {
+                if (
+                    !triggered &&
+                    event.kind === 'beforeCall' &&
+                    event.node.d.leftExpr.nodeType === ParseNodeType.Name &&
+                    event.node.d.leftExpr.d.value === 'cold'
+                ) {
+                    pressure = true;
+                    triggered = true;
+                }
+            },
+        });
+        const original = test.program.evaluator!;
+        const controller = test.program.experimentalOverloadResultController!;
+        const heap = jest.spyOn(test.cacheManager, 'getUsedHeapRatio').mockImplementation(() => {
+            if (!pressure) {
+                return 0;
+            }
+            pressure = false;
+            return 1;
+        });
+        const empty = jest.spyOn(test.cacheManager, 'emptyCache');
+        try {
+            if (queryFirst) {
+                test.program.run((program) => {
+                    const call = test.nodes.find(
+                        (node): node is CallNode =>
+                            node.nodeType === ParseNodeType.Call &&
+                            node.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
+                            node.d.leftExpr.d.member.d.value === 'append' &&
+                            source.substring(node.start, node.start + node.length).includes('cold()')
+                    )!;
+                    program.evaluator!.getType(call);
+                    assert.strictEqual(program.evaluator, original);
+                    assert.ok(isOverloadResult(program.evaluator!.getType(test.name('ret'))!));
+                }, CancellationToken.None);
+            }
+            const expected = reference.analyze();
+            assert.deepStrictEqual(
+                expected
+                    .filter((d) => d.category === DiagnosticCategory.Error)
+                    .map((d) => [d.range.start.line, d.rule]),
+                [
+                    ['before: int', 'reportAssignmentType'],
+                    ['ret.append(cold())', 'reportArgumentType'],
+                    ['ret.extend([1, "mixed"])', 'reportArgumentType'],
+                    ['bad: list[bytes]', 'reportAssignmentType'],
+                    ['ret.append(3.14)', 'reportArgumentType'],
+                    ['ret.nonexistent()', 'reportAttributeAccessIssue'],
+                    ['after: int', 'reportAssignmentType'],
+                    ['after_file: str', 'reportAssignmentType'],
+                ].map(([text, rule]) => [source.slice(0, source.indexOf(text)).split('\n').length - 1, rule])
+            );
+            assert.ok(expected.some((d) => d.message.includes('OverloadResult[list[int], list[str]]')));
+            assert.deepStrictEqual(test.analyze(), expected);
+            assert.equal(empty.mock.calls.length, 1);
+            assert.notStrictEqual(test.program.evaluator, original);
+            assert.equal(controller.getStats(test.module), undefined);
+            assert.throws(() => original.getType(test.name('ret')), /Retired overload-result controller/);
+            const nodes = new Nodes();
+            nodes.walk(test.program.getParseResults(test.uri)!.parserOutput.parseTree);
+            const alias = nodes.nodes.find(
+                (node): node is NameNode => node.nodeType === ParseNodeType.Name && node.d.value === 'alias'
+            )!;
+            test.program.run((program) => {
+                assert.deepStrictEqual(
+                    resultSummary(program.evaluator!, program.evaluator!.getTypeOfExpression(alias)),
+                    resultSummary(
+                        reference.program.evaluator!,
+                        reference.program.evaluator!.getTypeOfExpression(reference.name('alias'))
+                    )
+                );
+            }, CancellationToken.None);
+            assert.deepStrictEqual(test.analyze(), expected);
+        } finally {
+            heap.mockRestore();
+            empty.mockRestore();
+            reference.dispose();
+            test.dispose();
+        }
+    }
+);
+
+test.each(['complete', 'cancel', 'error'] as const)(
+    'AutomaticOverloadResult deferred cache cleanup unwinds nested async requests: %s',
+    async (outcome) => {
+        const source = 'def positive():\n    bad: int = "wrong"\n';
+        const reference = create(source, false, 'default');
+        const test = create(source, false, 'default');
+        const evaluator = test.program.evaluator!;
+        const node = test.name('bad');
+        try {
+            const request = test.program.run(async (program) => {
+                test.cacheManager.emptyCache();
+                test.program.run(() => {
+                    test.cacheManager.emptyCache();
+                }, CancellationToken.None);
+                await Promise.resolve();
+                assert.strictEqual(program.evaluator, evaluator);
+                if (outcome === 'cancel') {
+                    throw new OperationCanceledException();
+                }
+                if (outcome === 'error') {
+                    throw new Error('cache pressure interruption');
+                }
+            }, CancellationToken.None);
+            if (outcome === 'complete') {
+                await request;
+            } else {
+                await assert.rejects(request, (error) =>
+                    outcome === 'cancel'
+                        ? OperationCanceledException.is(error)
+                        : error instanceof Error && error.message === 'cache pressure interruption'
+                );
+            }
+            assert.notStrictEqual(test.program.evaluator, evaluator);
+            assert.throws(() => evaluator.getType(node), /Retired overload-result controller/);
+            assert.deepStrictEqual(test.analyze(), reference.analyze());
+            const current = test.program.evaluator;
+            test.cacheManager.emptyCache();
+            assert.notStrictEqual(test.program.evaluator, current);
+        } finally {
+            reference.dispose();
+            test.dispose();
+        }
+    }
+);
+
+test.each(['complete', 'cancel', 'error'] as const)(
+    'AutomaticOverloadResult pending cache cleanup cannot recreate a disposed program: %s',
+    async (outcome) => {
+        const test = create('def positive():\n    bad: int = "wrong"\n', false, 'default');
+        const evaluator = test.program.evaluator!;
+        const node = test.name('bad');
+        const resume = createDeferred<void>();
+        const error = outcome === 'cancel' ? new OperationCanceledException() : new Error('shutdown interruption');
+        try {
+            const request = test.program.run(async () => {
+                test.cacheManager.emptyCache();
+                await resume.promise;
+                if (outcome !== 'complete') {
+                    throw error;
+                }
+                return 42;
+            }, CancellationToken.None);
+            test.dispose();
+            resume.resolve();
+            if (outcome === 'complete') {
+                assert.equal(await request, 42);
+            } else {
+                await assert.rejects(request, (actual) => actual === error);
+            }
+            assert.strictEqual(test.program.evaluator, evaluator);
+            assert.throws(() => evaluator.getType(node), /Retired overload-result controller/);
+        } finally {
+            resume.resolve();
+            test.dispose();
+        }
+    }
+);
 
 test.each([false, true])('AutomaticOverloadResult live checker handoff queryFirst=%s', (queryFirst) => {
     const baseline = create(fixture, { automatic: true, checkerHandoff: false }, false, false);

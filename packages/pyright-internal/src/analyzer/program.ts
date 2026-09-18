@@ -176,6 +176,8 @@ export class Program {
     private _importResolver: ImportResolver;
     private _evaluator: TypeEvaluator | undefined;
     private _experimentalOverloadResult?: ExperimentalOverloadResultController;
+    private _evaluatorInvocationCount = 0;
+    private _cacheClearPending = false;
     private _disposed = false;
     private _parsedFileCount = 0;
     private _preCheckCallback: PreCheckCallback | undefined;
@@ -266,6 +268,7 @@ export class Program {
     }
 
     dispose() {
+        this._cacheClearPending = false;
         if ((this._testOnlyChecking || this._experimentalOverloadResult) && !this._disposed) {
             this._evaluator?.disposeEvaluator();
         }
@@ -783,52 +786,48 @@ export class Program {
     // analysis. In interactive mode, the timeout is always limited
     // to the smaller value to maintain responsiveness.
     analyze(maxTime?: MaxAnalysisTime, token: CancellationToken = CancellationToken.None): boolean {
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const elapsedTime = new Duration();
+        const elapsedTime = new Duration();
 
-            const openFiles = this._sourceFileList.filter(
-                (sf) => sf.isOpenByClient && sf.sourceFile.isCheckingRequired()
-            );
+        const openFiles = this._sourceFileList.filter((sf) => sf.isOpenByClient && sf.sourceFile.isCheckingRequired());
 
-            if (openFiles.length > 0) {
-                const effectiveMaxTime = maxTime ? maxTime.openFilesTimeInMs : Number.MAX_VALUE;
+        if (openFiles.length > 0) {
+            const effectiveMaxTime = maxTime ? maxTime.openFilesTimeInMs : Number.MAX_VALUE;
 
-                // Check the open files.
-                for (const sourceFileInfo of openFiles) {
-                    if (this._checkTypes(sourceFileInfo)) {
-                        if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
-                            return true;
-                        }
-                    }
-                }
-
-                // If the caller specified a maxTime, return at this point
-                // since we've finalized all open files. We want to get
-                // the results to the user as quickly as possible.
-                if (maxTime !== undefined) {
-                    return true;
-                }
-            }
-
-            if (!this._configOptions.checkOnlyOpenFiles) {
-                const effectiveMaxTime = maxTime ? maxTime.noOpenFilesTimeInMs : Number.MAX_VALUE;
-
-                // Now do type parsing and analysis of the remaining.
-                for (const sourceFileInfo of this._sourceFileList) {
-                    if (!isUserCode(sourceFileInfo)) {
-                        continue;
-                    }
-
-                    if (this._checkTypes(sourceFileInfo)) {
-                        if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
-                            return true;
-                        }
+            // Check the open files.
+            for (const sourceFileInfo of openFiles) {
+                if (this._runEvaluatorWithCancellationToken(token, () => this._checkTypes(sourceFileInfo))) {
+                    if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+                        return true;
                     }
                 }
             }
 
-            return false;
-        });
+            // If the caller specified a maxTime, return at this point
+            // since we've finalized all open files. We want to get
+            // the results to the user as quickly as possible.
+            if (maxTime !== undefined) {
+                return true;
+            }
+        }
+
+        if (!this._configOptions.checkOnlyOpenFiles) {
+            const effectiveMaxTime = maxTime ? maxTime.noOpenFilesTimeInMs : Number.MAX_VALUE;
+
+            // Now do type parsing and analysis of the remaining.
+            for (const sourceFileInfo of this._sourceFileList) {
+                if (!isUserCode(sourceFileInfo)) {
+                    continue;
+                }
+
+                if (this._runEvaluatorWithCancellationToken(token, () => this._checkTypes(sourceFileInfo))) {
+                    if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     // Performs parsing and analysis of a single file in the program. If the file is not part of
@@ -988,10 +987,9 @@ export class Program {
     }
 
     getTypeOfSymbol(symbol: Symbol) {
-        this._handleMemoryHighUsage();
-
-        const evaluator = this._evaluator || this._createNewEvaluator();
-        return evaluator.getEffectiveTypeOfSymbol(symbol);
+        return this._runEvaluatorWithCancellationToken(undefined, () =>
+            this._evaluator!.getEffectiveTypeOfSymbol(symbol)
+        );
     }
 
     printType(type: Type, options?: PrintTypeOptions): string {
@@ -1173,6 +1171,13 @@ export class Program {
 
     // Discards any cached information associated with this program.
     emptyCache() {
+        // Lazy import lookup can request eviction while a checker or language-service
+        // request still owns this evaluator, its controller, and private cache scopes.
+        if (this._evaluatorInvocationCount > 0) {
+            this._cacheClearPending = true;
+            return;
+        }
+        this._cacheClearPending = false;
         this._createNewEvaluator();
         this._discardCachedParseResults();
         this._parsedFileCount = 0;
@@ -1242,6 +1247,9 @@ export class Program {
     }
 
     private _handleMemoryHighUsage() {
+        if (this._cacheClearPending) {
+            return;
+        }
         const cacheUsage = this._cacheManager.getCacheUsage();
         const usedHeapRatio = this._cacheManager.getUsedHeapRatio(
             this._configOptions.verboseOutput ? this._console : undefined
@@ -1289,31 +1297,53 @@ export class Program {
         token: CancellationToken | undefined,
         callback: () => T | Promise<T>
     ): T | Promise<T> {
+        if (this._evaluatorInvocationCount === 0) {
+            this._handleMemoryHighUsage();
+        }
+        let isAsync = false;
+        this._evaluatorInvocationCount++;
+        const release = () => {
+            this._evaluatorInvocationCount--;
+            if (!this._disposed && this._evaluatorInvocationCount === 0 && this._cacheClearPending) {
+                this.emptyCache();
+            }
+        };
         try {
             const result = token ? this._evaluator!.runWithCancellationToken(token, callback) : callback();
             if (!isThenable(result)) {
                 return result;
             }
 
-            return result.catch((e) => {
-                if (
-                    !OperationCanceledException.is(e) ||
-                    e.isTypeCacheInvalid ||
-                    e.code === LSPErrorCodes.ServerCancelled
-                ) {
-                    this._createNewEvaluator();
-                }
+            isAsync = true;
+            return result
+                .catch((e) => {
+                    if (
+                        !this._disposed &&
+                        (!OperationCanceledException.is(e) ||
+                            e.isTypeCacheInvalid ||
+                            e.code === LSPErrorCodes.ServerCancelled)
+                    ) {
+                        this._createNewEvaluator();
+                    }
 
-                throw e;
-            });
+                    throw e;
+                })
+                .finally(release);
         } catch (e: any) {
             // An unexpected exception occurred, potentially leaving the current evaluator
             // in an inconsistent state. Discard it and replace it with a fresh one. It is
             // Cancellation exceptions are known to handle this correctly.
-            if (!OperationCanceledException.is(e) || e.isTypeCacheInvalid || e.code === LSPErrorCodes.ServerCancelled) {
+            if (
+                !this._disposed &&
+                (!OperationCanceledException.is(e) || e.isTypeCacheInvalid || e.code === LSPErrorCodes.ServerCancelled)
+            ) {
                 this._createNewEvaluator();
             }
             throw e;
+        } finally {
+            if (!isAsync) {
+                release();
+            }
         }
     }
 
@@ -2006,14 +2036,14 @@ export class Program {
                 ? { automatic: true, checkerHandoff: false }
                 : undefined);
         assert(!this._testOnlyChecking || !overloadResultOptions);
-        this._experimentalOverloadResult = overloadResultOptions
+        const overloadResultController = overloadResultOptions
             ? new ExperimentalOverloadResultController(
                   overloadResultOptions,
-                  () => this._evaluator!,
+                  () => evaluator,
                   this._analyzerNodeInfoContext
               )
             : undefined;
-        this._evaluator = createTypeEvaluatorWithTracker(
+        const evaluator: TypeEvaluator = createTypeEvaluatorWithTracker(
             this._lookUpImport,
             {
                 printTypeFlags: getPrintTypeFlags(this._configOptions),
@@ -2024,7 +2054,7 @@ export class Program {
                 nodeInfoReader: this._analyzerNodeInfoContext,
                 maxCodeComplexity: this._configOptions.maxCodeComplexity,
                 testOnlyExpression: this._testOnlyChecking?.expression(),
-                experimentalOverloadResult: this._experimentalOverloadResult,
+                experimentalOverloadResult: overloadResultController,
             },
             this._logTracker,
             this._configOptions.logTypeEvaluationTime
@@ -2037,7 +2067,9 @@ export class Program {
                 : undefined
         );
 
-        return this._evaluator;
+        this._experimentalOverloadResult = overloadResultController;
+        this._evaluator = evaluator;
+        return evaluator;
     }
 
     private _parseFile(fileToParse: SourceFileInfo, content?: string, skipFileNeededCheck?: boolean) {
@@ -2309,10 +2341,6 @@ export class Program {
         fileToCheck: SourceFileInfo,
         options?: { chainedByList?: SourceFileInfo[]; skipFileNeededCheck?: boolean }
     ) {
-        // For very large programs, we may need to discard the evaluator and
-        // its cached types to avoid running out of heap space.
-        this._handleMemoryHighUsage();
-
         return this._logTracker.log(`analyzing: ${fileToCheck.uri}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting
