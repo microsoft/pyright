@@ -14,6 +14,7 @@ import {
     ConfigurationItem,
     DidChangeWorkspaceFoldersNotification,
     DidCloseTextDocumentNotification,
+    DiagnosticSeverity,
     DocumentDiagnosticRequest,
     InitializedNotification,
     InitializeRequest,
@@ -183,6 +184,82 @@ describe(`Basic language server tests`, () => {
             // Background analysis takes longer than 5 seconds sometimes, so we need to
             // increase the timeout.
             jest.setTimeout(200000);
+            test.each([false, true])(
+                'automatic overload results default with background thread=%s',
+                async (supportsBackgroundThread) => {
+                    const code = `
+// @filename: root/test.py
+//// from typing import Any, overload
+//// @overload
+//// def choose(value: list[int]) -> list[int]: ...
+//// @overload
+//// def choose(value: list[str]) -> list[str]: ...
+//// def choose(value: Any) -> Any:
+////     return value
+//// def check(value: list[Any]) -> None:
+////     [|/*result*/result|] = choose(value)
+////     integer: list[int] = result
+////     string: list[str] = result
+////     result.append(1)
+////     result.append("x")
+////     bad: list[bytes] = result
+////     result.append(3.14)
+////     result.nonexistent()
+//// def ordinary(value: list[int]) -> None:
+////     [|/*concrete*/concrete|] = choose(value)
+////     concrete.append("bad")
+`;
+                    const info = await runLanguageServer(
+                        DEFAULT_WORKSPACE_ROOT,
+                        code,
+                        true,
+                        [
+                            {
+                                item: {
+                                    scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
+                                    section: 'python.analysis',
+                                },
+                                value: { typeCheckingMode: 'standard' },
+                            },
+                        ],
+                        undefined,
+                        supportsBackgroundThread,
+                        supportsPullDiagnostics
+                    );
+                    await openFile(info, 'result');
+                    for (const [marker, type] of [
+                        ['result', 'OverloadResult[list[int], list[str]]'],
+                        ['concrete', 'list[int]'],
+                    ]) {
+                        const result = await hover(info, marker);
+                        assert(result && MarkupContent.is(result.contents));
+                        assert.strictEqual(
+                            result.contents.value,
+                            `\`\`\`python\n(variable) ${marker}: ${type}\n\`\`\``
+                        );
+                    }
+                    const diagnostics = (await waitForDiagnostics(info)).find((d) => d.uri.endsWith('root/test.py'));
+                    assert(diagnostics);
+                    const marker = info.testData.markerPositions.get('result')!;
+                    const content = info.testData.files.find((f) => f.fileName === marker.fileName)!.content;
+                    const expected = [
+                        ['bad: list[bytes]', 'reportAssignmentType'],
+                        ['result.append(3.14)', 'reportArgumentType'],
+                        ['result.nonexistent()', 'reportAttributeAccessIssue'],
+                        ['concrete.append("bad")', 'reportArgumentType'],
+                    ];
+                    assert.deepStrictEqual(
+                        Array.from(diagnostics.diagnostics)
+                            .filter((d) => d.severity === DiagnosticSeverity.Error)
+                            .map((d) => [d.range.start.line, d.code]),
+                        expected.map(([text, rule]) => [
+                            content.slice(0, content.indexOf(text)).split('\n').length - 1,
+                            rule,
+                        ])
+                    );
+                }
+            );
+
             test('background thread diagnostics', async () => {
                 const code = `
 // @filename: root/test.py

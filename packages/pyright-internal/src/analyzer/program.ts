@@ -39,15 +39,17 @@ import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
+import { ExperimentalOverloadResultController, ExperimentalOverloadResultOptions } from './overloadResultController';
 import { getDocString } from './parseTreeUtils';
 import { ISourceFileFactory } from './programTypes';
 import { Scope } from './scope';
-import { IPythonMode, SourceFile } from './sourceFile';
+import { CheckOperationFactory, IPythonMode, SourceFile } from './sourceFile';
 import { SourceFileInfo } from './sourceFileInfo';
 import { isUserCode, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
 import { SourceMapper } from './sourceMapper';
 import { Symbol, SymbolTable } from './symbol';
 import { createTracePrinter } from './tracePrinter';
+import { EvaluatorOptions } from './typeEvaluator';
 import { PrintTypeOptions, TypeEvaluator } from './typeEvaluatorTypes';
 import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { getPrintTypeFlags } from './typePrinter';
@@ -173,6 +175,7 @@ export class Program {
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
     private _evaluator: TypeEvaluator | undefined;
+    private _experimentalOverloadResult?: ExperimentalOverloadResultController;
     private _disposed = false;
     private _parsedFileCount = 0;
     private _preCheckCallback: PreCheckCallback | undefined;
@@ -185,8 +188,17 @@ export class Program {
         readonly serviceProvider: ServiceProvider,
         logTracker?: LogTracker,
         private _disableChecker?: boolean,
-        id?: string
+        id?: string,
+        private _testOnlyChecking?: {
+            expression: () => EvaluatorOptions['testOnlyExpression'];
+            check: CheckOperationFactory;
+        },
+        private _experimentalOverloadResultOptions?: ExperimentalOverloadResultOptions
     ) {
+        assert(
+            !_testOnlyChecking || !_experimentalOverloadResultOptions,
+            'Only one operation controller may be installed'
+        );
         this._console = serviceProvider.tryGet(ServiceKeys.console) || new StandardConsole();
         this._logTracker = logTracker ?? new LogTracker(this._console, 'FG');
         this._importResolver = initialImportResolver;
@@ -216,6 +228,10 @@ export class Program {
 
     get evaluator(): TypeEvaluator | undefined {
         return this._evaluator;
+    }
+
+    get experimentalOverloadResultController(): ExperimentalOverloadResultController | undefined {
+        return this._experimentalOverloadResult;
     }
 
     get configOptions(): ConfigOptions {
@@ -250,6 +266,9 @@ export class Program {
     }
 
     dispose() {
+        if ((this._testOnlyChecking || this._experimentalOverloadResult) && !this._disposed) {
+            this._evaluator?.disposeEvaluator();
+        }
         this.disposeInternal(this._disposed);
 
         this._analyzerNodeInfoContext.dispose();
@@ -1981,6 +2000,19 @@ export class Program {
             this._evaluator.disposeEvaluator();
         }
 
+        const overloadResultOptions =
+            this._experimentalOverloadResultOptions ??
+            (!this._testOnlyChecking && this._configOptions.experimentalOverloadResults !== false
+                ? { automatic: true, checkerHandoff: false }
+                : undefined);
+        assert(!this._testOnlyChecking || !overloadResultOptions);
+        this._experimentalOverloadResult = overloadResultOptions
+            ? new ExperimentalOverloadResultController(
+                  overloadResultOptions,
+                  () => this._evaluator!,
+                  this._analyzerNodeInfoContext
+              )
+            : undefined;
         this._evaluator = createTypeEvaluatorWithTracker(
             this._lookUpImport,
             {
@@ -1991,6 +2023,8 @@ export class Program {
                 verifyTypeCacheEvaluatorFlags: !!this._configOptions.internalTestMode,
                 nodeInfoReader: this._analyzerNodeInfoContext,
                 maxCodeComplexity: this._configOptions.maxCodeComplexity,
+                testOnlyExpression: this._testOnlyChecking?.expression(),
+                experimentalOverloadResult: this._experimentalOverloadResult,
             },
             this._logTracker,
             this._configOptions.logTypeEvaluationTime
@@ -2328,7 +2362,11 @@ export class Program {
                         this._importResolver,
                         this._evaluator!,
                         dependentFiles,
-                        this._analyzerNodeInfoContext
+                        this._analyzerNodeInfoContext,
+                        this._testOnlyChecking?.check ??
+                            (this._experimentalOverloadResult
+                                ? (_uri, parsed) => this._experimentalOverloadResult!.check(parsed.parseTree)
+                                : undefined)
                     );
                 }
             }

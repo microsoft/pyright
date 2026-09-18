@@ -589,6 +589,10 @@ export function printOperator(operator: OperatorType): string {
 
 // If the name node is the LHS of a call expression or is a member
 // name in the LHS of a call expression, returns the call node.
+export function isImplicitRevealTypeName(node: ExpressionNode): node is NameNode {
+    return node.nodeType === ParseNodeType.Name && node.d.value === 'reveal_type';
+}
+
 export function getCallForName(node: NameNode): CallNode | undefined {
     if (node.parent?.nodeType === ParseNodeType.Call && node.parent.d.leftExpr === node) {
         return node.parent;

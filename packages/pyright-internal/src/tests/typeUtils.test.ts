@@ -8,7 +8,7 @@
 
 import * as assert from 'assert';
 
-import { mapSignatures, transformTypePair } from '../analyzer/typeUtils';
+import { containsLiteralType, mapSignatures, transformTypePair } from '../analyzer/typeUtils';
 import {
     AnyType,
     ClassType,
@@ -21,7 +21,9 @@ import {
     isOverloaded,
     isTypeVar,
     OverloadedType,
+    OverloadResultType,
     Type,
+    TypeCategory,
     TypeVarScopeType,
     TypeVarType,
     UnionType,
@@ -30,6 +32,48 @@ import {
 } from '../analyzer/types';
 import { Uri } from '../common/uri/uri';
 import { ParamCategory } from '../parser/parseNodes';
+
+test('Literal detection keeps cancellation and type-argument options local to each walk', () => {
+    const plain = ClassType.cloneAsInstance(createClass('Value'));
+    const literal = ClassType.cloneWithLiteral(plain, 1);
+    const nested = ClassType.specialize(ClassType.cloneAsInstance(createClass('Container')), [literal]);
+
+    for (let i = 0; i < 3; i++) {
+        assert.strictEqual(containsLiteralType(literal), true);
+        assert.strictEqual(containsLiteralType(plain), false);
+        assert.strictEqual(containsLiteralType(nested, true), true);
+        assert.strictEqual(containsLiteralType(nested), false);
+        assert.strictEqual(containsLiteralType(nested, false), false);
+    }
+    assert.strictEqual(nested.priv.typeArgs?.[0], literal);
+    assert.strictEqual(plain.priv.literalValue, undefined);
+});
+
+test('Literal detection visits callable, union and overload-result components', () => {
+    const plain = ClassType.cloneAsInstance(createClass('Value'));
+    const literal = ClassType.cloneWithLiteral(plain, 'value');
+    const first = createFunction(plain, plain, plain);
+    const second = createFunction(plain, plain, literal);
+    const overloads = OverloadedType.create([first, second]);
+    const union = UnionType.create();
+    union.priv.subtypes = [plain, literal];
+    const result = OverloadResultType.create([plain, literal], plain, TypeCategory.Any);
+
+    for (const type of [second, overloads, union, result]) {
+        assert.strictEqual(containsLiteralType(type), true);
+        assert.strictEqual(containsLiteralType(first), false);
+    }
+});
+
+test('Literal detection does not retain recursion-limit state between walks', () => {
+    const recursive = ClassType.cloneAsInstance(createClass('Recursive'));
+    recursive.priv.typeArgs = [recursive];
+    const literal = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(createClass('Value')), 1);
+
+    assert.strictEqual(containsLiteralType(recursive, true), false);
+    assert.strictEqual(containsLiteralType(literal), true);
+    assert.strictEqual(containsLiteralType(recursive, true), false);
+});
 
 test('Map signatures preserves replaced overloads and their order', () => {
     const unknown = UnknownType.create();
