@@ -17,7 +17,12 @@
 
 import assert from 'assert';
 
+import { ClassType, isClass, OverloadResultType, TypeCategory } from '../../analyzer/types';
+import { isExpressionNode } from '../../parser/parseNodes';
+import { makeProgram } from '../../typeServer/programWrapper';
 import { TypeServerProtocol } from '../../typeServer/protocol/typeServerProtocol';
+import { ProtocolTypeFactory } from '../../typeServer/typeServerConversionUtils';
+import { getNodeAtMarker, parseAndGetTestState } from '../harness/fourslash/testState';
 import { initializeDependenciesForInProcTests, withInProcTypeServer } from './inProcTypeServerTestUtils';
 
 jest.setTimeout(120000);
@@ -32,6 +37,14 @@ function getClassTypeName(type: TypeServerProtocol.Type | undefined): string | u
         return classType.declaration.name;
     }
     return undefined;
+}
+
+function getListElement(type: TypeServerProtocol.Type): TypeServerProtocol.Type {
+    assert(type.kind === TypeServerProtocol.TypeKind.Class);
+    assert.strictEqual(getClassTypeName(type), 'list');
+    assert.strictEqual(type.flags, TypeServerProtocol.TypeFlags.Instance | TypeServerProtocol.TypeFlags.Generic);
+    assert(type.typeArgs && type.typeArgs.length === 1);
+    return type.typeArgs[0];
 }
 
 describe('TypeServer in-proc protocol', () => {
@@ -196,6 +209,97 @@ describe('TypeServer in-proc protocol', () => {
             assert.strictEqual(type.kind, TypeServerProtocol.TypeKind.Class);
             assert.strictEqual(getClassTypeName(type), 'int');
         });
+    });
+
+    test('getComputedType serializes automatically retained overload alternatives', async () => {
+        const code = `
+// @filename: main.py
+//// from typing import Any, overload
+////
+//// @overload
+//// def choose(value: list[int]) -> list[list[int]]: ...
+//// @overload
+//// def choose(value: list[str]) -> list[list[str]]: ...
+//// def choose(value: Any) -> Any: ...
+////
+//// def ambiguous(value: list[Any]):
+////     [|/*ambiguous*/result|] = choose(value)
+////
+//// def concrete(value: list[int]):
+////     [|/*concrete*/result|] = choose(value)
+`;
+
+        await withInProcTypeServer(code, async (context) => {
+            await context.openFileForMarker('ambiguous');
+            await context.refreshSnapshot();
+            const type = await context.sendRequestWithSnapshot(TypeServerProtocol.GetComputedTypeRequest.type, {
+                arg: context.getNodeForMarker('ambiguous'),
+            });
+
+            assert(type?.kind === TypeServerProtocol.TypeKind.OverloadResult, JSON.stringify(type));
+            assert.strictEqual(type.flags, TypeServerProtocol.TypeFlags.Instance);
+            assert.strictEqual(type.uncertaintyKind, 'any');
+            assert.strictEqual(type.candidates.length, 2);
+            assert.deepStrictEqual(
+                type.candidates.map((candidate) => getClassTypeName(getListElement(getListElement(candidate)))),
+                ['int', 'str']
+            );
+            assert(type.baselineType.kind === TypeServerProtocol.TypeKind.TypeReference);
+            assert.strictEqual(type.baselineType.typeReferenceId, type.candidates[0].id);
+
+            const concrete = await context.sendRequestWithSnapshot(TypeServerProtocol.GetComputedTypeRequest.type, {
+                arg: context.getNodeForMarker('concrete'),
+            });
+            assert(concrete);
+            assert.strictEqual(getClassTypeName(getListElement(getListElement(concrete))), 'int');
+        });
+    });
+
+    test('ProtocolTypeFactory preserves nested unknown alternatives and shared references', () => {
+        const state = parseAndGetTestState(`
+// @filename: main.py
+//// def example(integers: list[int], strings: list[str]):
+////     /*integers*/integers
+////     /*strings*/strings
+`).state;
+
+        try {
+            state.program.analyze();
+            const integersNode = getNodeAtMarker(state, 'integers');
+            const stringsNode = getNodeAtMarker(state, 'strings');
+            assert(isExpressionNode(integersNode) && isExpressionNode(stringsNode));
+            const evaluator = state.program.evaluator;
+            assert(evaluator);
+            const integers = evaluator.getType(integersNode);
+            const strings = evaluator.getType(stringsNode);
+            assert(integers && isClass(integers) && strings && isClass(strings));
+
+            // Unknown ambiguity is transportable without widening automatic Any-only admission.
+            const carrier = OverloadResultType.create([integers, strings], integers, TypeCategory.Unknown);
+            const nested = ClassType.specialize(integers, [carrier]);
+            const factory = new ProtocolTypeFactory(
+                makeProgram(state.program),
+                state.configOptions.getDefaultExecEnvironment().pythonVersion,
+                integersNode
+            );
+            const type = getListElement(factory.getType(nested));
+            assert(type.kind === TypeServerProtocol.TypeKind.OverloadResult);
+            assert.strictEqual(type.flags, TypeServerProtocol.TypeFlags.Instance);
+            assert.strictEqual(type.uncertaintyKind, 'unknown');
+            assert.strictEqual(type.candidates.length, 2);
+            assert.deepStrictEqual(
+                type.candidates.map((candidate) => getClassTypeName(getListElement(candidate))),
+                ['int', 'str']
+            );
+            assert(type.baselineType.kind === TypeServerProtocol.TypeKind.TypeReference);
+            assert.strictEqual(type.baselineType.typeReferenceId, type.candidates[0].id);
+
+            const repeated = factory.getType(carrier);
+            assert(repeated.kind === TypeServerProtocol.TypeKind.TypeReference);
+            assert.strictEqual(repeated.typeReferenceId, type.id);
+        } finally {
+            state.dispose();
+        }
     });
 
     test('getExpectedType returns a type for a node', async () => {

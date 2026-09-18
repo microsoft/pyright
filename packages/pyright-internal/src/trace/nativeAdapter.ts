@@ -147,11 +147,7 @@ export function instrument(
     if (experimental && file === 'analyzer/typeCacheUtils.js') {
         spec = {
             ...spec,
-            functions: [
-                ...spec.functions,
-                'useTestOnlyCacheIsolation',
-                'SpeculativeTypeTracker.useTestOnlyCacheIsolation',
-            ],
+            functions: [...spec.functions, 'useNodeCacheIsolation', 'SpeculativeTypeTracker.useNodeCacheIsolation'],
         };
     }
     const source = ts.createSourceFile(file, code, ts.ScriptTarget.ES2020, true, ts.ScriptKind.JS);

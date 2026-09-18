@@ -16,6 +16,7 @@ import {
     ModuleType,
     NeverType,
     OverloadedType,
+    OverloadResultType,
     Type,
     TypeCategory,
     TypeVarType,
@@ -77,6 +78,10 @@ export class TypeWalker {
 
             case TypeCategory.Overloaded:
                 this.visitOverloaded(type);
+                break;
+
+            case TypeCategory.OverloadResult:
+                this.visitOverloadResult(type);
                 break;
 
             case TypeCategory.Class:
@@ -169,6 +174,16 @@ export class TypeWalker {
         if (impl) {
             this.walk(impl);
         }
+    }
+
+    visitOverloadResult(type: OverloadResultType): void {
+        for (const candidate of type.priv.candidates) {
+            this.walk(candidate);
+            if (this._isWalkCanceled) {
+                return;
+            }
+        }
+        this.walk(type.priv.baselineType);
     }
 
     visitClass(type: ClassType): void {
