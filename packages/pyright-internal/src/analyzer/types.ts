@@ -725,6 +725,9 @@ export interface ClassDetailsShared {
     // is used.
     deprecatedMessage?: string | undefined;
 
+    // Indicates that the final class decorator returns its class argument.
+    decoratorPreservesClassIdentity?: boolean;
+
     // A cache of protocol classes (indexed by the class full name)
     // that have been determined to be compatible or incompatible
     // with this class. We use "object" here to avoid a circular dependency.
