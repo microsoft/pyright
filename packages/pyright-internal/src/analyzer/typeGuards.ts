@@ -2799,9 +2799,11 @@ function isPrimitiveBackedEnumAndPrimitive(enumType: ClassType, primitiveType: C
 }
 
 // If the specified type is a literal member of a primitive-backed enum class,
-// returns the corresponding primitive literal type. Otherwise returns the type
+// returns the corresponding primitive literal type. If the member's underlying
+// primitive value is not known statically (e.g. it was assigned with auto() or
+// a computed expression), returns undefined. Otherwise returns the type
 // unmodified.
-function unwrapPrimitiveBackedEnumLiteral(classType: ClassType): ClassType {
+function unwrapPrimitiveBackedEnumLiteral(classType: ClassType): ClassType | undefined {
     const literalValue = classType.priv.literalValue;
     if (!(literalValue instanceof EnumLiteral) || !isPrimitiveBackedEnumClass(classType)) {
         return classType;
@@ -2812,18 +2814,24 @@ function unwrapPrimitiveBackedEnumLiteral(classType: ClassType): ClassType {
         return itemType;
     }
 
-    return classType;
+    return undefined;
 }
 
 // Determines whether two literal types compare equal using the `==` operator at
 // runtime. This differs from ClassType.isLiteralValueSame only for members of
 // primitive-backed enum classes, which compare equal to their underlying
-// primitive values.
-function isLiteralValueEqualAtRuntime(type1: ClassType, type2: ClassType): boolean {
-    return ClassType.isLiteralValueSame(
-        unwrapPrimitiveBackedEnumLiteral(type1),
-        unwrapPrimitiveBackedEnumLiteral(type2)
-    );
+// primitive values. Returns undefined if the result of the comparison cannot
+// be determined statically because an enum member's underlying primitive
+// value is unknown.
+function isLiteralValueEqualAtRuntime(type1: ClassType, type2: ClassType): boolean | undefined {
+    const unwrappedType1 = unwrapPrimitiveBackedEnumLiteral(type1);
+    const unwrappedType2 = unwrapPrimitiveBackedEnumLiteral(type2);
+
+    if (!unwrappedType1 || !unwrappedType2) {
+        return undefined;
+    }
+
+    return ClassType.isLiteralValueSame(unwrappedType1, unwrappedType2);
 }
 
 // Attempts to narrow a type (make it more constrained) based on a comparison
@@ -2865,6 +2873,14 @@ function narrowTypeForLiteralComparison(
                 const literalValueMatches = isPrimitiveBackedEnumComparison
                     ? isLiteralValueEqualAtRuntime(subtype, literalType)
                     : ClassType.isLiteralValueSame(subtype, literalType);
+
+                if (literalValueMatches === undefined) {
+                    // The outcome of the comparison cannot be determined statically
+                    // because an enum member's underlying primitive value is unknown,
+                    // so no narrowing can be applied in either direction.
+                    return subtype;
+                }
+
                 if (isPositiveTest) {
                     return literalValueMatches ? subtype : undefined;
                 }
@@ -2888,8 +2904,28 @@ function narrowTypeForLiteralComparison(
                     // to the primitive literal type.
                     if (ClassType.isEnumClass(subtype)) {
                         const allLiteralTypes = enumerateLiteralsForType(evaluator, subtype);
-                        const match = allLiteralTypes?.find((type) => isLiteralValueEqualAtRuntime(type, literalType));
-                        return match ?? subtype;
+
+                        if (allLiteralTypes) {
+                            let match: ClassType | undefined;
+                            let isIndeterminate = false;
+
+                            for (const type of allLiteralTypes) {
+                                const isEqual = isLiteralValueEqualAtRuntime(type, literalType);
+                                if (isEqual === undefined) {
+                                    // The member's underlying primitive value is unknown,
+                                    // so it cannot be safely eliminated.
+                                    isIndeterminate = true;
+                                } else if (isEqual && !match) {
+                                    match = type;
+                                }
+                            }
+
+                            if (!isIndeterminate && match) {
+                                return match;
+                            }
+                        }
+
+                        return subtype;
                     }
 
                     // The reference type is the primitive type, so narrowing it to the
@@ -2908,7 +2944,9 @@ function narrowTypeForLiteralComparison(
                 return combineTypes(
                     allLiteralTypes.filter((type) =>
                         isPrimitiveBackedEnumComparison
-                            ? !isLiteralValueEqualAtRuntime(type, literalType)
+                            ? // Eliminate a member only if it definitely compares equal;
+                              // an indeterminate result must retain the member.
+                              isLiteralValueEqualAtRuntime(type, literalType) !== true
                             : !ClassType.isLiteralValueSame(type, literalType)
                     )
                 );
