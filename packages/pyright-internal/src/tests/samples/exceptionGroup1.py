@@ -125,3 +125,33 @@ def func8():
     except* BaseException as e:
         reveal_type(e, expected_text="BaseExceptionGroup[BaseException]")
         pass
+
+
+def func9():
+    try:
+        pass
+
+    except* KeyboardInterrupt as e:
+        reveal_type(e, expected_text="BaseExceptionGroup[KeyboardInterrupt]")
+
+    except* (ValueError, KeyboardInterrupt) as e:
+        reveal_type(e, expected_text="BaseExceptionGroup[ValueError | KeyboardInterrupt]")
+
+
+class CustomBaseException(BaseException):
+    pass
+
+
+class CustomException(Exception):
+    pass
+
+
+def func10():
+    try:
+        pass
+
+    except* CustomBaseException as e:
+        reveal_type(e, expected_text="BaseExceptionGroup[CustomBaseException]")
+
+    except* CustomException as e:
+        reveal_type(e, expected_text="ExceptionGroup[CustomException]")

@@ -20826,7 +20826,10 @@ export function createTypeEvaluator(
             }
 
             if (isInstantiableClass(exceptionType)) {
-                if (ClassType.isBuiltIn(exceptionType, 'BaseException')) {
+                if (
+                    derivesFromStdlibClass(exceptionType, 'BaseException') &&
+                    !derivesFromStdlibClass(exceptionType, 'Exception')
+                ) {
                     includesBaseException = true;
                 }
                 return ClassType.cloneAsInstance(exceptionType);
