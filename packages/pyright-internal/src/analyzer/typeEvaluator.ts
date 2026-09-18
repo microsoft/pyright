@@ -3664,6 +3664,11 @@ export function createTypeEvaluator(
         return undefined;
     }
 
+    function getFunctionClassType(type: FunctionType | OverloadedType): ClassType | undefined {
+        const classType = isMethodType(type) ? prefetched?.methodClass : prefetched?.functionClass;
+        return classType && isInstantiableClass(classType) ? classType : undefined;
+    }
+
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
         return (
             getTypeOfModule(node, symbolName, ['typing']) ?? getTypeOfModule(node, symbolName, ['typing_extensions'])
@@ -30101,6 +30106,7 @@ export function createTypeEvaluator(
         getNoneType,
         getUnionClassType,
         getTypeClassType,
+        getFunctionClassType,
         getBuiltInObject,
         getTypingType,
         getTypeCheckerInternalsType,
