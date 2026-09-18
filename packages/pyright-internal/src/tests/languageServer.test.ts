@@ -11,6 +11,7 @@ import {
     CancellationToken,
     CompletionItem,
     CompletionRequest,
+    CompletionTriggerKind,
     ConfigurationItem,
     DidChangeWorkspaceFoldersNotification,
     DidCloseTextDocumentNotification,
@@ -176,6 +177,50 @@ describe(`Basic language server tests`, () => {
 
         const completionItem = completionResult.items.find((i: CompletionItem) => i.label === 'path')!;
         assert(completionItem);
+        assert.strictEqual(completionResult.isIncomplete, false);
+    });
+
+    test('Completion incompleteness reflects deferred auto-imports', async () => {
+        const code = `
+// @filename: test.py
+//// import os
+//// [|/*empty*/|]
+//// [|pri/*prefix*/|]
+
+// @filename: unused.py
+//// class PriorityAutoImport:
+////     pass
+        `;
+        const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, /* callInitialize */ true);
+
+        openFile(info, 'empty');
+
+        const getCompletions = async (markerName: string, triggerKind: CompletionTriggerKind) => {
+            const marker = info.testData.markerPositions.get(markerName)!;
+            const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
+            const parseResult = getParseResults(text);
+            const result = await info.connection.sendRequest(
+                CompletionRequest.type,
+                {
+                    textDocument: { uri: marker.fileUri.toString() },
+                    position: convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
+                    context: { triggerKind },
+                },
+                CancellationToken.None
+            );
+
+            assert(result);
+            assert(!isArray(result));
+            return result;
+        };
+
+        const emptyResult = await getCompletions('empty', CompletionTriggerKind.Invoked);
+        assert.strictEqual(emptyResult.isIncomplete, true);
+        assert(!emptyResult.items.some((item) => item.label === 'PriorityAutoImport'));
+
+        const prefixResult = await getCompletions('prefix', CompletionTriggerKind.TriggerForIncompleteCompletions);
+        assert.strictEqual(prefixResult.isIncomplete, false);
+        assert(prefixResult.items.some((item) => item.label === 'print'));
     });
 
     [false, true].forEach((supportsPullDiagnostics) => {
