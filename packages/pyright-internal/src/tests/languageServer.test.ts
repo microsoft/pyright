@@ -316,6 +316,34 @@ describe(`Basic language server tests`, () => {
             });
 
             if (supportsPullDiagnostics) {
+                // Regression test: document diagnostic pulls can occur after every edit,
+                // so they should not create server-initiated work done progress notifications.
+                test('document diagnostic pull does not create work done progress', async () => {
+                    const code = `
+// @filename: test.py
+//// /*marker*/pass
+        `;
+                    const info = await runLanguageServer(
+                        DEFAULT_WORKSPACE_ROOT,
+                        code,
+                        /* callInitialize */ true,
+                        undefined,
+                        undefined,
+                        /* supportsBackgroundThread */ false,
+                        supportsPullDiagnostics
+                    );
+
+                    await openFile(info, 'marker');
+                    const fileUri = info.testData.markerPositions.get('marker')!.fileUri.toString();
+                    const progressReporterCount = info.progressReporters.length;
+
+                    await info.connection.sendRequest(DocumentDiagnosticRequest.type, {
+                        textDocument: { uri: fileUri },
+                    });
+
+                    assert.strictEqual(info.progressReporters.length, progressReporterCount);
+                });
+
                 // Regression test: in open-files-only mode, diagnostics for a library/out-of-workspace
                 // file that was transiently opened (e.g. via go-to-definition) must clear once the client
                 // closes the file. A re-pull of the now-closed file must return an empty `full` report.
