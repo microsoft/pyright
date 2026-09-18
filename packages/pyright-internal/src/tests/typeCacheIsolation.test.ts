@@ -1,17 +1,39 @@
 /*
- * testOnlyCacheTransaction.test.ts
+ * typeCacheIsolation.test.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Tests for the opt-in exact-node experiment transaction.
+ * Tests for exact-node cache isolation and rollback.
  */
 
 import * as assert from 'assert';
 
-import { useTestOnlyCacheIsolation } from '../analyzer/typeCacheUtils';
+import { useNodeCacheIsolation } from '../analyzer/typeCacheUtils';
 import { OperationCanceledException } from '../common/cancellationUtils';
 
-test('TestOnlyCacheTransactionCommitsSelectedEntries', () => {
+test('CacheIsolationRestoresSelectedEntriesAndPreservesUnownedWrites', () => {
+    const original = {};
+    const replacement = {};
+    const cache = new Map<number, object | undefined>([
+        [1, original],
+        [4, undefined],
+    ]);
+    const result = useNodeCacheIsolation(cache, new Set([1, 3, 4]), () => {
+        assert.ok(!cache.has(1) && !cache.has(3) && !cache.has(4));
+        cache.set(1, replacement);
+        cache.set(2, replacement);
+        cache.set(3, undefined);
+        cache.set(4, replacement);
+        return replacement;
+    });
+    assert.strictEqual(result, replacement);
+    assert.strictEqual(cache.get(1), original);
+    assert.strictEqual(cache.get(2), replacement);
+    assert.ok(!cache.has(3) && cache.has(4));
+    assert.strictEqual(cache.get(4), undefined);
+});
+
+test('CacheIsolationCommitsSelectedEntries', () => {
     const original = {};
     const unrelated = {};
     const replacement = {};
@@ -20,7 +42,7 @@ test('TestOnlyCacheTransactionCommitsSelectedEntries', () => {
         [2, unrelated],
         [4, undefined],
     ]);
-    const result = useTestOnlyCacheIsolation(
+    const result = useNodeCacheIsolation(
         cache,
         new Set([1, 3, 4]),
         () => {
@@ -38,7 +60,7 @@ test('TestOnlyCacheTransactionCommitsSelectedEntries', () => {
     assert.ok(cache.has(3) && !cache.has(4));
 });
 
-test('TestOnlyCacheTransactionRollsBackFailures', () => {
+test('CacheIsolationRollsBackFailures', () => {
     for (const error of [new Error('failure'), new OperationCanceledException()]) {
         const original = {};
         const unrelated = {};
@@ -49,7 +71,7 @@ test('TestOnlyCacheTransactionRollsBackFailures', () => {
         ]);
         assert.throws(
             () =>
-                useTestOnlyCacheIsolation(
+                useNodeCacheIsolation(
                     cache,
                     new Set([1, 3, 4]),
                     () => {

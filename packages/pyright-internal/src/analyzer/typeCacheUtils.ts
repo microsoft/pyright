@@ -119,8 +119,9 @@ export function addContextualTypeCacheEntry<T extends ContextualTypeCacheEntry>(
     return newCacheEntries;
 }
 
-// Exact-node experiment support. Unrelated cache entries are never cleared.
-export function useTestOnlyCacheIsolation<T, V>(
+// Isolate exactly these node IDs for a synchronous operation. Restore entry presence
+// and values on exit unless successful results are retained; unrelated writes survive.
+export function useNodeCacheIsolation<T, V>(
     cache: Map<number, V>,
     nodeIds: ReadonlySet<number>,
     callback: () => T,
@@ -162,12 +163,12 @@ export class SpeculativeTypeTracker {
     private _speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
     private _activeDependentTypes: DependentType[] = [];
 
-    testOnlyEvict(nodeIds: ReadonlySet<number>) {
+    evictCacheEntries(nodeIds: ReadonlySet<number>) {
         assert(this._speculativeContextStack.length === 0);
         nodeIds.forEach((id) => this._speculativeTypeCache.delete(id));
     }
 
-    canUseTestOnlyCacheIsolation(root: ParseNode) {
+    canUseNodeCacheIsolation(root: ParseNode) {
         return this._speculativeContextStack.every(
             (context) =>
                 !ParseTreeUtils.isNodeContainedWithin(root, context.speculativeRootNode) &&
@@ -175,9 +176,9 @@ export class SpeculativeTypeTracker {
         );
     }
 
-    useTestOnlyCacheIsolation<T>(nodeIds: ReadonlySet<number>, callback: () => T, root?: ParseNode): T {
-        assert(root ? this.canUseTestOnlyCacheIsolation(root) : this._speculativeContextStack.length === 0);
-        return useTestOnlyCacheIsolation(this._speculativeTypeCache, nodeIds, callback);
+    useNodeCacheIsolation<T>(nodeIds: ReadonlySet<number>, callback: () => T, root?: ParseNode): T {
+        assert(root ? this.canUseNodeCacheIsolation(root) : this._speculativeContextStack.length === 0);
+        return useNodeCacheIsolation(this._speculativeTypeCache, nodeIds, callback);
     }
 
     enterSpeculativeContext(speculativeRootNode: ParseNode, options?: SpeculativeModeOptions) {

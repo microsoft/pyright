@@ -43,21 +43,21 @@ test.each(['complete', 'error', 'cancel'] as const)(
         tracker.addSpeculativeType(secondValue, { type }, 0, undefined);
         const original = tracker.getSpeculativeType(secondValue, undefined);
         assert.ok(original);
-        assert.equal(tracker.canUseTestOnlyCacheIsolation(first), true);
-        assert.equal(tracker.canUseTestOnlyCacheIsolation(second), false);
-        assert.equal(tracker.canUseTestOnlyCacheIsolation(secondValue), false);
-        assert.equal(tracker.canUseTestOnlyCacheIsolation(module), false);
-        assert.throws(() => tracker.useTestOnlyCacheIsolation(new Set([secondValue.id]), () => {}, second));
+        assert.equal(tracker.canUseNodeCacheIsolation(first), true);
+        assert.equal(tracker.canUseNodeCacheIsolation(second), false);
+        assert.equal(tracker.canUseNodeCacheIsolation(secondValue), false);
+        assert.equal(tracker.canUseNodeCacheIsolation(module), false);
+        assert.throws(() => tracker.useNodeCacheIsolation(new Set([secondValue.id]), () => {}, second));
         const error = outcome === 'cancel' ? new OperationCanceledException() : new Error('trial interruption');
         const isolated = () =>
-            tracker.useTestOnlyCacheIsolation(
+            tracker.useNodeCacheIsolation(
                 new Set([first.id, firstValue.id]),
                 () => {
                     assert.strictEqual(tracker.getSpeculativeType(secondValue, undefined), original);
                     tracker.enterSpeculativeContext(firstValue);
                     try {
-                        assert.equal(tracker.canUseTestOnlyCacheIsolation(first), false);
-                        assert.equal(tracker.canUseTestOnlyCacheIsolation(third), true);
+                        assert.equal(tracker.canUseNodeCacheIsolation(first), false);
+                        assert.equal(tracker.canUseNodeCacheIsolation(third), true);
                         tracker.addSpeculativeType(firstValue, { type }, 0, undefined);
                         if (outcome !== 'complete') {
                             throw error;
@@ -83,8 +83,8 @@ test.each(['complete', 'error', 'cancel'] as const)(
         assert.equal(cache.has(secondValue.id), false);
         assert.equal(tracker.isSpeculative(undefined), false);
         tracker.enterSpeculativeContext(second);
-        assert.equal(tracker.canUseTestOnlyCacheIsolation(secondValue), false);
-        assert.throws(() => tracker.useTestOnlyCacheIsolation(new Set([secondValue.id]), () => {}, secondValue));
+        assert.equal(tracker.canUseNodeCacheIsolation(secondValue), false);
+        assert.throws(() => tracker.useNodeCacheIsolation(new Set([secondValue.id]), () => {}, secondValue));
         tracker.leaveSpeculativeContext();
     }
 );

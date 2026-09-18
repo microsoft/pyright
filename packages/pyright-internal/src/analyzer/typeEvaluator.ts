@@ -186,7 +186,7 @@ import {
     findContextualTypeCacheEntry,
     SpeculativeModeOptions,
     SpeculativeTypeTracker,
-    useTestOnlyCacheIsolation,
+    useNodeCacheIsolation,
 } from './typeCacheUtils';
 import {
     assignToTypedDict,
@@ -215,6 +215,7 @@ import {
     EffectiveTypeResult,
     ensureExpectedTypeCandidates,
     EvalFlags,
+    EvaluationOperationController,
     EvaluatorUsage,
     ExpectedTypeOptions,
     ExpectedTypeResult,
@@ -632,21 +633,9 @@ export interface EvaluatorOptions {
         nodes: ReadonlySet<MemberAccessNode>;
         install: (getMember: (node: MemberAccessNode, baseTypeResult: TypeResult) => TypeResult) => void;
     };
-    testOnlyExpression?: {
-        roots: ReadonlyMap<ParseNode, ReadonlySet<number>>;
-        install: (isolate: (root: ParseNode, callback: () => TypeResult, retain?: boolean) => TypeResult) => void;
-        route?: (
-            request:
-                | { kind: 'query'; node: ExpressionNode }
-                | { kind: 'expression'; node: ExpressionNode; flags: EvalFlags; context?: InferenceContext }
-                | { kind: 'statement'; node: AssignmentNode; evaluate: () => void }
-        ) => { result?: TypeResult } | undefined;
+    // Test-only injection uses the same production cache-ownership contract.
+    testOnlyExpression?: EvaluationOperationController & {
         query?: (node: ExpressionNode) => TypeResult | undefined;
-        dispose?: () => void;
-        installEviction?: (evict: (root: ParseNode) => void) => void;
-        dispatch: (node: ExpressionNode, flags: EvalFlags, context?: InferenceContext) => TypeResult | undefined;
-        project: (node: ExpressionNode, result: TypeResult) => TypeResult;
-        beforeCall: (node: CallNode) => void;
     };
 }
 
@@ -695,7 +684,8 @@ export function createTypeEvaluator(
 ): TypeEvaluator {
     const nodeInfo = AnalyzerNodeInfo.createAnalyzerNodeInfoAccessor(evaluatorOptions.nodeInfoReader);
     const maxCodeComplexity = evaluatorOptions.maxCodeComplexity;
-    const operationController = evaluatorOptions.experimentalOverloadResult ?? evaluatorOptions.testOnlyExpression;
+    const operationController: EvaluationOperationController | undefined =
+        evaluatorOptions.experimentalOverloadResult ?? evaluatorOptions.testOnlyExpression;
     let operationRouter = evaluatorOptions.experimentalOverloadResult?.isAutomatic ? undefined : operationController;
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const speculativeTypeTracker = new SpeculativeTypeTracker();
@@ -30500,42 +30490,44 @@ export function createTypeEvaluator(
     });
 
     if (operationController) {
-        const { roots, install } = operationController;
-        operationController.installEviction?.((root) => {
-            const ids = roots.get(root);
-            assert(ids && ids.size <= 256);
-            assert(!returnTypeInferenceTypeCache && !isSpeculativeModeInUse(undefined));
-            ids.forEach((id) => {
-                typeCache.delete(id);
-                expectedTypeCache.delete(id);
-                typeFormTypeCache.delete(id);
-            });
-            speculativeTypeTracker.testOnlyEvict(ids);
-        });
-        install((root, callback, retain = false) => {
-            const ids = roots.get(root);
-            assert(ids && ids.size <= 256);
-            // Native argument speculation can query earlier, disjoint operations
-            // through code flow. Never isolate a root that overlaps that context.
-            assert(!returnTypeInferenceTypeCache && speculativeTypeTracker.canUseTestOnlyCacheIsolation(root));
-            return useTestOnlyCacheIsolation(
-                typeCache,
-                ids,
-                () =>
-                    useTestOnlyCacheIsolation(
-                        expectedTypeCache,
-                        ids,
-                        () =>
-                            useTestOnlyCacheIsolation(
-                                typeFormTypeCache,
-                                ids,
-                                () => speculativeTypeTracker.useTestOnlyCacheIsolation(ids, callback, root),
-                                retain
-                            ),
-                        retain
-                    ),
-                retain
-            );
+        const { roots } = operationController;
+        operationController.installCacheIsolation({
+            evict(root) {
+                const ids = roots.get(root);
+                assert(ids && ids.size <= 256);
+                assert(!returnTypeInferenceTypeCache && !isSpeculativeModeInUse(undefined));
+                ids.forEach((id) => {
+                    typeCache.delete(id);
+                    expectedTypeCache.delete(id);
+                    typeFormTypeCache.delete(id);
+                });
+                speculativeTypeTracker.evictCacheEntries(ids);
+            },
+            isolate(root, callback, retain = false) {
+                const ids = roots.get(root);
+                assert(ids && ids.size <= 256);
+                // Native argument speculation can query earlier, disjoint operations
+                // through code flow. Never isolate a root that overlaps that context.
+                assert(!returnTypeInferenceTypeCache && speculativeTypeTracker.canUseNodeCacheIsolation(root));
+                return useNodeCacheIsolation(
+                    typeCache,
+                    ids,
+                    () =>
+                        useNodeCacheIsolation(
+                            expectedTypeCache,
+                            ids,
+                            () =>
+                                useNodeCacheIsolation(
+                                    typeFormTypeCache,
+                                    ids,
+                                    () => speculativeTypeTracker.useNodeCacheIsolation(ids, callback, root),
+                                    retain
+                                ),
+                            retain
+                        ),
+                    retain
+                );
+            },
         });
     }
 

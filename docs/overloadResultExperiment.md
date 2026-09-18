@@ -77,6 +77,18 @@ Rejected concrete calls no longer perform the old charged discovery operation.
 
 ## Ownership and invalidation
 
+`EvaluationOperationController` and `EvaluationCacheIsolation` define the production
+evaluator/controller boundary. The evaluator installs isolation and eviction together,
+bound to its own lifetime. `useNodeCacheIsolation` restores the exact registered
+node-ID entries on ordinary exit, error, or cancellation; explicit successful retention
+keeps only non-speculative results. Unowned cache writes survive. Speculative isolation
+requires disjoint native roots and never replaces the native speculation stack;
+eviction requires no active speculation, and both operations forbid return inference.
+The controller separately owns private diagnostic capture and complete-witness
+publication, while ordinary unowned diagnostics retain their surrounding native sink.
+`testOnlyExpression` and `testOnlyMemberAccess` remain test-only injection options,
+not names for these required production guarantees.
+
 Activation state is local to an evaluator/controller and keyed by parse-node
 identity. Replacement parse generations do not inherit activations or pending
 probes. Disposal clears pending work and retires owned outcomes.
@@ -121,6 +133,10 @@ native diagnostics and TypeResult metadata, proves actual carrier selection,
 and requires a single complete witness for mixed-element `extend` operations.
 Separate tests preserve pending activation across external call speculation and
 exercise disjoint/overlapping cache roots under completion, error and cancellation.
+Type-server tests request a normally activated carrier over the real in-process
+JSON-RPC connection, checking both candidates, nested generic arguments, baseline
+references, uncertainty and ordinary concrete-type compatibility. A separate factory
+case covers nested Unknown-origin carriers without broadening automatic admission.
 
 Timing is measured separately from observer instrumentation; no timing threshold
 is asserted in CI. Earlier V3 residual measurements are historical evidence,

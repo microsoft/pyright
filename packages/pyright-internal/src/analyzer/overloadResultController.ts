@@ -36,7 +36,14 @@ import {
     isFixedOverloadArgumentShape,
     OverloadSelectionBudget,
 } from './overloadResultSelector';
-import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import {
+    EvalFlags,
+    EvaluationCacheIsolation,
+    EvaluationOperationController,
+    EvaluationOperationRequest,
+    TypeEvaluator,
+    TypeResult,
+} from './typeEvaluatorTypes';
 import { isClassInstance, isOverloadResult, OverloadResultType, Type, TypeCategory } from './types';
 import { InferenceContext } from './typeUtils';
 
@@ -110,11 +117,6 @@ export interface LocalOverloadOperation {
     flags?: EvalFlags;
     context?: InferenceContext;
 }
-
-export type OverloadOperationRequest =
-    | { kind: 'query'; node: ExpressionNode }
-    | { kind: 'expression'; node: ExpressionNode; flags: EvalFlags; context?: InferenceContext }
-    | { kind: 'statement'; node: AssignmentNode; evaluate: () => void };
 
 type OperationMode =
     | 'baseline'
@@ -197,7 +199,7 @@ const defaultLimits: Readonly<OverloadResultLimits> = {
 class CandidateCutoff extends Error {}
 class ActivationRestart extends Error {}
 
-export class ExperimentalOverloadResultController {
+export class ExperimentalOverloadResultController implements EvaluationOperationController {
     readonly roots = new Map<ParseNode, ReadonlySet<number>>();
     private readonly _limits: OverloadResultLimits;
     private readonly _info: AnalyzerNodeInfoAccessor;
@@ -214,8 +216,7 @@ export class ExperimentalOverloadResultController {
     private readonly _activationChecked = new WeakSet<CallNode>();
     private readonly _activated = new WeakSet<CallNode>();
     private readonly _pendingActivation = new Set<CallNode>();
-    private _isolate?: (root: ParseNode, callback: () => TypeResult, retain?: boolean) => TypeResult;
-    private _evict?: (root: ParseNode) => void;
+    private _cacheIsolation?: EvaluationCacheIsolation;
     private _select?: (node: CallNode, limit: number, proofUnits: number) => AutomaticOverloadSelection;
     private _captureQueryCache?: (root: ParseNode, node: NameNode) => (() => boolean) | undefined;
     private _checkerHandoff?: (
@@ -265,12 +266,9 @@ export class ExperimentalOverloadResultController {
         return this._pendingActivation.size > 0;
     }
 
-    install = (isolate: (root: ParseNode, callback: () => TypeResult, retain?: boolean) => TypeResult) => {
-        this._isolate = isolate;
-    };
-
-    installEviction = (evict: (root: ParseNode) => void) => {
-        this._evict = evict;
+    installCacheIsolation = (isolation: EvaluationCacheIsolation) => {
+        assert(!this._cacheIsolation && !this._disposed);
+        this._cacheIsolation = isolation;
     };
 
     installSelector = (select: (node: CallNode, limit: number, proofUnits: number) => AutomaticOverloadSelection) => {
@@ -432,11 +430,10 @@ export class ExperimentalOverloadResultController {
         this._disposed = true;
     };
 
-    // Kept structurally compatible with the original default-off cache seam.
     dispatch = (_node: ExpressionNode, _flags: EvalFlags, _context?: InferenceContext): TypeResult | undefined =>
         undefined;
 
-    route = (request: OverloadOperationRequest): { result?: TypeResult } | undefined => {
+    route = (request: EvaluationOperationRequest): { result?: TypeResult } | undefined => {
         assert(!this._disposed, 'Retired overload-result controller');
         if (request.kind !== 'statement') {
             const result = this._query(
@@ -591,7 +588,7 @@ export class ExperimentalOverloadResultController {
         const generation = this._ensure(module);
         generation?.admission.records.forEach((record) => {
             if (this._isEnabled(generation, record)) {
-                this._evict?.(record.root);
+                this._cacheIsolation!.evict(record.root);
             }
         });
     }
@@ -882,7 +879,7 @@ export class ExperimentalOverloadResultController {
             result =
                 nestedSpeculative || liveCheckerCache
                     ? evaluateAndContinue()
-                    : this._isolate!(record.root, evaluateAndContinue, retain);
+                    : this._cacheIsolation!.isolate(record.root, evaluateAndContinue, retain);
             completed = true;
         } finally {
             diagnostics.push(...sink.fetchAndClear());
