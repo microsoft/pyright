@@ -10,8 +10,7 @@
 ////
 //// def callByName():
 ////    func()
-//// def [|callByAlias|]():
-////    /*marker2*/foobar()
+//// def [|/*callByAliasRange*/callByAlias|](): /*marker2*/foobar()
 
 // @filename: consume2.py
 //// from declare import func as foobar
@@ -20,10 +19,15 @@
 ////    func()
 
 {
-    const ranges = helper.getRanges();
-    const itemList = ranges.map((range) => {
-        return { filePath: range.fileName, range: helper.convertPositionRange(range), name: 'callByAlias' };
-    });
+    const callByAliasRange = helper.getPositionRange('callByAliasRange');
+    const itemList = [
+        {
+            filePath: helper.getMappedFilePath('consume.py'),
+            range: helper.expandPositionRange(callByAliasRange, 4, 12),
+            selectionRange: callByAliasRange,
+            name: 'callByAlias',
+        },
+    ];
 
     helper.verifyShowCallHierarchyGetIncomingCalls({
         marker1: {
