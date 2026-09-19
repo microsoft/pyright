@@ -17,7 +17,13 @@ import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName, isSingleDunderName } from './symbolNameUtils';
 import { Arg, EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
-import { MemberAccessFlags, computeMroLinearization, lookUpClassMember, makeInferenceContext } from './typeUtils';
+import {
+    MemberAccessFlags,
+    computeMroLinearization,
+    isTupleClass,
+    lookUpClassMember,
+    makeInferenceContext,
+} from './typeUtils';
 import {
     AnyType,
     ClassType,
@@ -528,6 +534,10 @@ export function transformTypeForEnumMember(
             return undefined;
         }
 
+        if (!isUnpackedTuple) {
+            valueType = applyEnumDataTypeToTupleValue(evaluator, classType, valueType);
+        }
+
         const enumLiteral = new EnumLiteral(
             memberInfo.classType.shared.fullName,
             memberInfo.classType.shared.name,
@@ -752,6 +762,59 @@ export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExpressionN
     }
 
     return evaluator.getBuiltInObject(node, 'int');
+}
+
+// If an enum class mixes in a built-in data type such as str or int, a member
+// whose assigned value is a tuple gets the value "data_type(*value)" at runtime.
+// For example, the value of "A = 'a'," in a str-based enum is "a", not ("a",).
+function applyEnumDataTypeToTupleValue(evaluator: TypeEvaluator, enumClass: ClassType, valueType: Type): Type {
+    if (!isClassInstance(valueType) || !isTupleClass(valueType) || !valueType.priv.tupleTypeArgs) {
+        return valueType;
+    }
+
+    // A custom __new__, __init__ or metaclass receives the tuple itself and may
+    // compute the value differently, so leave those enums alone.
+    const metaclass = enumClass.shared.effectiveMetaclass;
+    if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass)) {
+        return valueType;
+    }
+
+    for (const methodName of ['__new__', '__init__']) {
+        const methodInfo = lookUpClassMember(enumClass, methodName, MemberAccessFlags.SkipObjectBaseClass);
+        if (methodInfo && isClass(methodInfo.classType) && !ClassType.isBuiltIn(methodInfo.classType)) {
+            return valueType;
+        }
+    }
+
+    const dataType = enumClass.shared.mro.find(
+        (mroClass) => isClass(mroClass) && !ClassType.isEnumClass(mroClass) && !ClassType.isBuiltIn(mroClass, 'object')
+    );
+
+    // Only handle built-in data types, whose constructors are known. A tuple
+    // mixin receives the tuple itself, so leave that case alone.
+    if (
+        !dataType ||
+        !isInstantiableClass(dataType) ||
+        !ClassType.isBuiltIn(dataType) ||
+        ClassType.isBuiltIn(dataType, 'tuple')
+    ) {
+        return valueType;
+    }
+
+    const dataInstanceType = ClassType.cloneAsInstance(dataType);
+    const tupleTypeArgs = valueType.priv.tupleTypeArgs;
+
+    // A single argument that is already an instance of the data type is
+    // returned unchanged by the constructor, so preserve its (literal) type.
+    if (
+        tupleTypeArgs.length === 1 &&
+        !tupleTypeArgs[0].isUnbounded &&
+        evaluator.assignType(dataInstanceType, tupleTypeArgs[0].type)
+    ) {
+        return tupleTypeArgs[0].type;
+    }
+
+    return dataInstanceType;
 }
 
 function isReprEnumClass(enumClass: ClassType) {
