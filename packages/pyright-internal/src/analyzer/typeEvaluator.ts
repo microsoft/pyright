@@ -455,6 +455,11 @@ interface MatchedOverloadInfo {
     constraints: ConstraintTracker;
     argResults: ArgResult[];
     returnType: Type;
+
+    // For an __init__ overload bound to a class instance, the specialized
+    // type of "self" produced by this overload. The __init__ return type
+    // is always None, so this is what distinguishes the overloads.
+    specializedInitSelfType?: Type;
 }
 
 interface ValidateArgTypeOptions {
@@ -10083,6 +10088,7 @@ export function createTypeEvaluator(
                         constraints: effectiveConstraints,
                         returnType: callResult.returnType,
                         argResults: callResult.argResults ?? [],
+                        specializedInitSelfType: getSpecializedInitSelfType(overload, callResult, effectiveConstraints),
                     };
                     matchedOverloads.push(matchedOverloadInfo);
 
@@ -10098,22 +10104,8 @@ export function createTypeEvaluator(
                         returnTypes.push(callResult.returnType);
                         // Each definitive union branch needs its own constructed type;
                         // __init__ return types alone cannot represent the specialization.
-                        const boundToType = overload.priv.boundToType;
-                        if (
-                            expandedArgTypes.length > 1 &&
-                            overload.shared.name === '__init__' &&
-                            boundToType &&
-                            isClassInstance(boundToType)
-                        ) {
-                            specializedInitSelfTypes.push(
-                                callResult.specializedInitSelfType ??
-                                    solveAndApplyConstraints(boundToType, effectiveConstraints, {
-                                        replaceUnsolved: {
-                                            scopeIds: getTypeVarScopeIds(boundToType),
-                                            tupleClassType: getTupleClassType(),
-                                        },
-                                    })
-                            );
+                        if (expandedArgTypes.length > 1 && matchedOverloadInfo.specializedInitSelfType) {
+                            specializedInitSelfTypes.push(matchedOverloadInfo.specializedInitSelfType);
                         }
                         isDefinitiveMatchFound = true;
                         break;
@@ -10136,62 +10128,25 @@ export function createTypeEvaluator(
                     returnTypes.push(possibleMatchResults[0].returnType);
                     matchedOverloads = [possibleMatchResults[0]];
                 } else {
-                    // Eliminate any return types that are subsumed by other return types.
-                    let dedupedMatchResults: Type[] = [];
-                    let dedupedResultsIncludeAny = false;
+                    returnTypes.push(
+                        combineAmbiguousOverloadResults(
+                            possibleMatchResults.map((result) => result.returnType),
+                            possibleMatchInvolvesIncompleteUnknown
+                        )
+                    );
 
-                    possibleMatchResults.forEach((result) => {
-                        let isSubtypeSubsumed = false;
-
-                        for (let dedupedIndex = 0; dedupedIndex < dedupedMatchResults.length; dedupedIndex++) {
-                            if (assignType(dedupedMatchResults[dedupedIndex], result.returnType)) {
-                                const anyOrUnknown = containsAnyOrUnknown(
-                                    dedupedMatchResults[dedupedIndex],
-                                    /* recurse */ false
-                                );
-                                if (!anyOrUnknown) {
-                                    isSubtypeSubsumed = true;
-                                } else if (isAny(anyOrUnknown)) {
-                                    dedupedResultsIncludeAny = true;
-                                }
-                                break;
-                            } else if (assignType(result.returnType, dedupedMatchResults[dedupedIndex])) {
-                                const anyOrUnknown = containsAnyOrUnknown(result.returnType, /* recurse */ false);
-                                if (!anyOrUnknown) {
-                                    dedupedMatchResults[dedupedIndex] = NeverType.createNever();
-                                } else if (isAny(anyOrUnknown)) {
-                                    dedupedResultsIncludeAny = true;
-                                }
-                                break;
-                            }
-                        }
-
-                        if (!isSubtypeSubsumed) {
-                            dedupedMatchResults.push(result.returnType);
-                        }
-                    });
-
-                    dedupedMatchResults = dedupedMatchResults.filter((t) => !isNever(t));
-                    const combinedTypes = combineTypes(dedupedMatchResults);
-
-                    let returnType = combinedTypes;
-                    if (dedupedMatchResults.length > 1) {
-                        // If one or more of the deduped types is Any or contains Any,
-                        // we will assume that the person who defined the overload really
-                        // wanted Any rather than Unknown. In cases where the deduped types
-                        // simply contains conflicting results without an Any, we'll use
-                        // an UnknownType.
-                        if (dedupedResultsIncludeAny) {
-                            returnType = AnyType.create();
-                        } else {
-                            returnType = UnknownType.createPossibleType(
-                                combinedTypes,
+                    // The __init__ return types are all None, so combine the constructed
+                    // "self" types too; otherwise the first overload's specialization
+                    // would be used even though the match is ambiguous.
+                    const initSelfTypes = possibleMatchResults.map((result) => result.specializedInitSelfType);
+                    if (initSelfTypes.every((selfType) => selfType !== undefined)) {
+                        specializedInitSelfTypes.push(
+                            combineAmbiguousOverloadResults(
+                                initSelfTypes as Type[],
                                 possibleMatchInvolvesIncompleteUnknown
-                            );
-                        }
+                            )
+                        );
                     }
-
-                    returnTypes.push(returnType);
                 }
             }
 
@@ -10239,6 +10194,84 @@ export function createTypeEvaluator(
         };
     }
 
+    // Returns the specialized "self" type produced by an __init__ overload that
+    // is bound to a class instance, or undefined for any other overload.
+    function getSpecializedInitSelfType(
+        overload: FunctionType,
+        callResult: CallResult,
+        constraints: ConstraintTracker
+    ): Type | undefined {
+        const boundToType = overload.priv.boundToType;
+        if (overload.shared.name !== '__init__' || !boundToType || !isClassInstance(boundToType)) {
+            return undefined;
+        }
+
+        return (
+            callResult.specializedInitSelfType ??
+            solveAndApplyConstraints(boundToType, constraints, {
+                replaceUnsolved: {
+                    scopeIds: getTypeVarScopeIds(boundToType),
+                    tupleClassType: getTupleClassType(),
+                },
+            })
+        );
+    }
+
+    // Combines the results of multiple overloads that match only because of an
+    // Any or Unknown argument. Results that are subsumed by other results are
+    // eliminated. If conflicting results remain, the result is Any if one of them
+    // is Any, or Unknown otherwise.
+    function combineAmbiguousOverloadResults(types: Type[], involvesIncompleteUnknown: boolean): Type {
+        let dedupedTypes: Type[] = [];
+        let dedupedTypesIncludeAny = false;
+
+        types.forEach((type) => {
+            let isSubtypeSubsumed = false;
+
+            for (let dedupedIndex = 0; dedupedIndex < dedupedTypes.length; dedupedIndex++) {
+                if (assignType(dedupedTypes[dedupedIndex], type)) {
+                    const anyOrUnknown = containsAnyOrUnknown(dedupedTypes[dedupedIndex], /* recurse */ false);
+                    if (!anyOrUnknown) {
+                        isSubtypeSubsumed = true;
+                    } else if (isAny(anyOrUnknown)) {
+                        dedupedTypesIncludeAny = true;
+                    }
+                    break;
+                } else if (assignType(type, dedupedTypes[dedupedIndex])) {
+                    const anyOrUnknown = containsAnyOrUnknown(type, /* recurse */ false);
+                    if (!anyOrUnknown) {
+                        dedupedTypes[dedupedIndex] = NeverType.createNever();
+                    } else if (isAny(anyOrUnknown)) {
+                        dedupedTypesIncludeAny = true;
+                    }
+                    break;
+                }
+            }
+
+            if (!isSubtypeSubsumed) {
+                dedupedTypes.push(type);
+            }
+        });
+
+        dedupedTypes = dedupedTypes.filter((t) => !isNever(t));
+        const combinedTypes = combineTypes(dedupedTypes);
+
+        if (dedupedTypes.length <= 1) {
+            return combinedTypes;
+        }
+
+        // If one or more of the deduped types is Any or contains Any,
+        // we will assume that the person who defined the overload really
+        // wanted Any rather than Unknown. In cases where the deduped types
+        // simply contains conflicting results without an Any, we'll use
+        // an UnknownType.
+        if (dedupedTypesIncludeAny) {
+            return AnyType.create();
+        }
+
+        return UnknownType.createPossibleType(combinedTypes, involvesIncompleteUnknown);
+    }
+
     // Determines whether one or more overloads can be eliminated because they
     // rely on an unpacked argument of unknown length when there is at least
     // one overload that doesn't because it maps to an *args parameter.
@@ -10263,10 +10296,12 @@ export function createTypeEvaluator(
             return matches;
         }
 
-        // If all of the return types match, select the first one.
+        // If all of the return types match, select the first one. For __init__
+        // overloads, compare the constructed "self" types; their return types
+        // are always None.
         if (
             areTypesSame(
-                matches.map((match) => match.returnType),
+                matches.map((match) => match.specializedInitSelfType ?? match.returnType),
                 { treatAnySameAsUnknown: true }
             )
         ) {

@@ -1120,6 +1120,12 @@ test('Constructor34', () => {
     );
 });
 
+test('Constructor35', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor35.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ConstructorCallable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable1.py']);
 
