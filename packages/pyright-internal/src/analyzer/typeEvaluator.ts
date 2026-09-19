@@ -17376,8 +17376,9 @@ export function createTypeEvaluator(
 
         // Validate that we received at least two type arguments. One type argument
         // is allowed if it's an unpacked TypeVarTuple or tuple. None is also allowed
-        // since it is used to define NoReturn in typeshed stubs).
-        if (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0])) {
+        // since it is used to define NoReturn in typeshed stubs). No type arguments,
+        // as in "Union[()]", is a runtime error.
+        if (types.length === 0 || (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0]))) {
             if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeArguments, LocMessage.unionTypeArgCount(), errorNode);
             }
