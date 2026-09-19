@@ -669,6 +669,14 @@ test('MatchSequence2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('MatchSequence3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MatchSequenceVariadic', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

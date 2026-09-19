@@ -412,7 +412,19 @@ function narrowTypeBasedOnSequencePattern(
             // If this is a tuple, we can narrow it to a specific tuple type.
             // Other sequences cannot be narrowed because we don't know if they
             // are immutable (covariant).
-            if (canNarrowTuple) {
+            // Keep a tuple subclass such as a NamedTuple unchanged if the pattern
+            // didn't narrow any of its entries. Replacing it with a plain tuple
+            // would lose the class.
+            const isUnnarrowedTupleSubclass =
+                isClassInstance(entry.subtype) &&
+                !ClassType.isBuiltIn(entry.subtype, 'tuple') &&
+                !entry.isIndeterminateLength &&
+                narrowedEntryTypes.length === unnarrowedEntryTypes.length &&
+                narrowedEntryTypes.every((narrowedType, index) =>
+                    isTypeSame(narrowedType, unnarrowedEntryTypes[index])
+                );
+
+            if (canNarrowTuple && !isUnnarrowedTupleSubclass) {
                 const tupleClassType = evaluator.getBuiltInType(pattern, 'tuple');
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
                     entry.subtype = ClassType.cloneAsInstance(
