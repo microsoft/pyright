@@ -56,8 +56,20 @@ jobs:
         if: ${{ matrix.checker == 'pyright' }}
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
+
+      - name: Locate benchmark pnpm store
+        if: ${{ matrix.checker == 'pyright' }}
+        id: benchmark-pnpm
+        run: |
+          echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+          echo "lock-hash=$(sha256sum pnpm-lock.yaml | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore and save trusted benchmark pnpm store
+        if: ${{ matrix.checker == 'pyright' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.benchmark-pnpm.outputs.path }}
+          key: typecheck-benchmark-pnpm-${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ steps.benchmark-pnpm.outputs.lock-hash }}
 
       - name: Build Pyright CLI
         if: ${{ matrix.checker == 'pyright' }}

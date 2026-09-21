@@ -203,15 +203,17 @@ or otherwise failed, it is reported as `No baseline` until a new hosted baseline
 The pull-request workflow also fails if any candidate package cannot be prepared or any checker
 times out, crashes, or otherwise fails, even when that package has no successful baseline yet.
 
-On pull requests, the benchmark pins Python 3.14.6, disables shared dependency caches because it
-executes untrusted pull-request code, runs Pyright with a 6.5 GiB V8 old-space limit, and compares
-the median of three measured runs after one discarded warmup. Each invocation may take up to 30
-minutes. A regression must exceed both a 20% relative threshold and an absolute variance guard of 1
-second for time or 100 MB for peak memory. These are the comparator defaults, so the gate and trusted
-comment renderer share one configuration source. The comparison-history artifact retains the
-single-run release series and labels the paired base and PR points with their separate multi-run
-median methodology. Reports and artifacts are published before a failed comparison marks the job
-unsuccessful.
+On pull requests, the benchmark pins Python 3.14.6 and never writes dependency caches because it
+executes untrusted pull-request code. It can restore a benchmark-only pnpm store created by the
+trusted weekly workflow; the lockfile hash isolates incompatible stores, and
+`actions/cache/restore` prevents the PR workflow from saving cache content. The benchmark runs
+Pyright with a 6.5 GiB V8 old-space limit and compares the median of three measured runs after one
+discarded warmup. Each invocation may take up to 30 minutes. A regression must exceed both a 20%
+relative threshold and an absolute variance guard of 1 second for time or 100 MB for peak memory.
+These are the comparator defaults, so the gate and trusted comment renderer share one configuration
+source. The comparison-history artifact retains the single-run release series and labels the paired
+base and PR points with their separate multi-run median methodology. Reports and artifacts are
+published before a failed comparison marks the job unsuccessful.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
 The Pyright job measures single-threaded mode and `--threads` mode sequentially on the same runner and

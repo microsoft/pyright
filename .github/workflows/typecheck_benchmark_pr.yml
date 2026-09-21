@@ -61,6 +61,18 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Locate benchmark pnpm store
+        id: benchmark-pnpm
+        run: |
+          echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+          echo "lock-hash=$(sha256sum benchmark-base/pnpm-lock.yaml | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore trusted benchmark pnpm store
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.benchmark-pnpm.outputs.path }}
+          key: typecheck-benchmark-pnpm-${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ steps.benchmark-pnpm.outputs.lock-hash }}
+
       - name: Verify build prerequisites
         run: |
           gcc --version
