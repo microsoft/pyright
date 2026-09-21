@@ -23156,8 +23156,14 @@ export function createTypeEvaluator(
 
         // PEP 563 indicates that if a forward reference can be resolved in the module
         // scope (or, by implication, in the builtins scope), it should prefer that
-        // resolution over local resolutions.
-        if (symbolWithScope && preferGlobalScope) {
+        // resolution over local resolutions. This doesn't apply to a PEP 695 "type"
+        // statement's target, which binds synchronously in the scope where it appears
+        // (including a class scope) rather than being deferred like other annotations.
+        const isTypeAliasStatementTarget = symbolWithScope?.symbol
+            .getDeclarations()
+            .some((decl) => decl.type === DeclarationType.TypeAlias);
+
+        if (symbolWithScope && preferGlobalScope && !isTypeAliasStatementTarget) {
             let curSymbolWithScope: SymbolWithScope | undefined = symbolWithScope;
             while (
                 curSymbolWithScope.scope.type !== ScopeType.Module &&
