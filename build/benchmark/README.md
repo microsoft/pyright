@@ -131,11 +131,11 @@ ignored. Users without one of these permissions cannot start the benchmark.
 For an open pull request, the dispatched workflow runs GitHub's current synthetic merge commit. For
 a merged pull request, it runs the checked-in merge or squash commit. Both modes compare the
 candidate against its exact first parent, so a historical run uses the base revision from merge time
-rather than the current `main` head. Both commits must contain a compatible benchmark harness. The
-workflow uses read-only repository permissions and measures the base and candidate sequentially on
-the same runner. When the run completes, a separate trusted job validates the result's head,
-candidate, and first-parent commits, then renders the exact measured comparison using default-branch
-code. It creates or updates one benchmark comment. The trusted job runs on a separate runner with
+rather than the current `main` head. The workflow uses the base revision's benchmark harness and
+package configuration for both binaries, uses read-only repository permissions, and measures the
+base and candidate sequentially on the same runner. When the run completes, a separate trusted job
+validates the result's head, candidate, and first-parent commits, then renders the exact measured
+comparison using default-branch code. It creates or updates one benchmark comment. The trusted job runs on a separate runner with
 pull-request write permission. The Actions job summary and benchmark artifact contain both results.
 
 The benchmark measures the exact first-parent and candidate commits on the same hosted runner. The
@@ -204,12 +204,14 @@ The pull-request workflow also fails if any candidate package cannot be prepared
 times out, crashes, or otherwise fails, even when that package has no successful baseline yet.
 
 On pull requests, the benchmark pins Python 3.14.6, disables shared dependency caches because it
-executes untrusted pull-request code, runs Pyright with a 6.5 GiB V8 old-space limit, and runs each
-package once with no discarded warmup. Each invocation may take up to 30 minutes. A regression must
-exceed both a 20% relative threshold and an absolute variance guard of 1
+executes untrusted pull-request code, runs Pyright with a 6.5 GiB V8 old-space limit, and compares
+the median of three measured runs after one discarded warmup. Each invocation may take up to 30
+minutes. A regression must exceed both a 20% relative threshold and an absolute variance guard of 1
 second for time or 100 MB for peak memory. These are the comparator defaults, so the gate and trusted
-comment renderer share one configuration source. Reports and artifacts are published before a failed
-comparison marks the job unsuccessful.
+comment renderer share one configuration source. The comparison-history artifact retains the
+single-run release series and labels the paired base and PR points with their separate multi-run
+median methodology. Reports and artifacts are published before a failed comparison marks the job
+unsuccessful.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
 The Pyright job measures single-threaded mode and `--threads` mode sequentially on the same runner and

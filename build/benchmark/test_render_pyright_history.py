@@ -71,6 +71,12 @@ def _result(version: str, published_at: str, scale: float = 1.0) -> dict:
                         "ok": True,
                         "execution_time_s": 2.0 * scale,
                         "peak_memory_mb": 100.0 * scale,
+                        "execution_time_stats": {
+                            "median": 1.5 * scale,
+                        },
+                        "peak_memory_stats": {
+                            "median": 90.0 * scale,
+                        },
                     }
                 },
             },
@@ -84,6 +90,12 @@ def _result(version: str, published_at: str, scale: float = 1.0) -> dict:
                         "ok": True,
                         "execution_time_s": 4.0 * scale,
                         "peak_memory_mb": 200.0 * scale,
+                        "execution_time_stats": {
+                            "median": 3.0 * scale,
+                        },
+                        "peak_memory_stats": {
+                            "median": 180.0 * scale,
+                        },
                     }
                 },
             },
@@ -106,6 +118,8 @@ class RenderPyrightHistoryTest(unittest.TestCase):
             for data in (base_data, candidate_data):
                 data.pop("release_version")
                 data.pop("release_published_at")
+                data["runs_per_package"] = 3
+                data["warmup_runs"] = 1
             base.write_text(json.dumps(base_data))
             candidate.write_text(json.dumps(candidate_data))
             release_history = render_pyright_history.write_history(
@@ -117,6 +131,7 @@ class RenderPyrightHistoryTest(unittest.TestCase):
                 [base, candidate],
                 ["Base", "PR #123"],
                 candidate_output,
+                "median",
             )
 
             self.assertEqual(history["profile"], release_history["profile"])
@@ -132,17 +147,22 @@ class RenderPyrightHistoryTest(unittest.TestCase):
                     "measured_at": "2026-09-14T12:00:00+00:00",
                     "packages": {
                         "alpha": {
-                            "execution_time_s": 1.8,
-                            "peak_memory_mb": 90.0,
+                            "execution_time_s": 1.35,
+                            "peak_memory_mb": 81.0,
                         },
                         "beta": {
-                            "execution_time_s": 3.6,
-                            "peak_memory_mb": 180.0,
+                            "execution_time_s": 2.7,
+                            "peak_memory_mb": 162.0,
                         },
                     },
                     "comparison": True,
                 },
             )
+            self.assertEqual(
+                history["comparison_profile"]["runs_per_package"], 3
+            )
+            self.assertEqual(history["comparison_profile"]["warmup_runs"], 1)
+            self.assertEqual(history["comparison_statistic"], "median")
             namespace = {"svg": "http://www.w3.org/2000/svg"}
             chart = ElementTree.fromstring(
                 (candidate_output / "execution-time.svg").read_text()
@@ -165,6 +185,10 @@ class RenderPyrightHistoryTest(unittest.TestCase):
             self.assertEqual(page_parser.cells[0], "Version / comparison")
             self.assertIn("Base", page_parser.cells)
             self.assertIn("PR #123", page_parser.cells)
+            self.assertIn(
+                "The base and PR points use the median of 3 measured runs after 1 warmup run(s)",
+                (candidate_output / "index.html").read_text(),
+            )
 
     def test_rejects_candidate_with_mismatched_profile(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

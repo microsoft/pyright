@@ -85,7 +85,7 @@ jobs:
           PYTHONNOUSERSITE: '1'
         run: |
           python build/benchmark/typecheck_benchmark.py \
-            -c pyright -r 1 -w 0 -t 1800 --memory-limit-mb 8192 \
+            -c pyright -r 3 -w 1 -t 1800 --memory-limit-mb 8192 \
             --skip-pyright-build --os-name linux-x64 \
             --output ../build/benchmark/results/base
 
@@ -103,9 +103,10 @@ jobs:
         env:
           NODE_OPTIONS: '--max-old-space-size=6656'
           PYTHONNOUSERSITE: '1'
+          PYRIGHT_BENCHMARK_ENTRY_POINT: ${{ github.workspace }}/packages/pyright/index.js
         run: |
-          python build/benchmark/typecheck_benchmark.py \
-            -c pyright -r 1 -w 0 -t 1800 --memory-limit-mb 8192 \
+          python benchmark-base/build/benchmark/typecheck_benchmark.py \
+            -c pyright -r 3 -w 1 -t 1800 --memory-limit-mb 8192 \
             --skip-pyright-build --os-name linux-x64 \
             --output build/benchmark/results/candidate
 
@@ -117,6 +118,7 @@ jobs:
           python build/benchmark/compare_benchmarks.py \
             build/benchmark/results/base/latest-linux-x64.json \
             build/benchmark/results/candidate/latest-linux-x64.json \
+            --statistic median \
             --fail-on-preparation-error \
             --markdown-output build/benchmark/results/report.md
           comparison_status=$?
@@ -285,6 +287,7 @@ jobs:
           python build/benchmark/compare_benchmarks.py \
             base.json \
             candidate.json \
+            --statistic median \
             --fail-on-preparation-error \
             --markdown-output report.md
           if [[ ! -s report.md ]]; then
@@ -304,6 +307,7 @@ jobs:
             --existing-history docs/typecheck-benchmark/history/history.json \
             --candidate-label 'Base' \
             --candidate-label 'PR #${{ inputs.pr_number }}' \
+            --candidate-statistic median \
             --output pr-history
 
       - name: Upload comparison history charts

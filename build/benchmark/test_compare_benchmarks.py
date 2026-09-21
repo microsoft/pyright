@@ -54,6 +54,20 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
                         "ok": ok,
                         "execution_time_s": time,
                         "peak_memory_mb": memory,
+                        "execution_time_stats": {
+                            "min": time,
+                            "max": time,
+                            "mean": time,
+                            "median": time,
+                            "stddev": 0.0,
+                        },
+                        "peak_memory_stats": {
+                            "min": memory,
+                            "max": memory,
+                            "mean": memory,
+                            "median": memory,
+                            "stddev": 0.0,
+                        },
                         "files_checked": 123,
                     }
                 },
@@ -70,6 +84,28 @@ class CompareBenchmarksTest(unittest.TestCase):
             )
 
         self.assertEqual(failures, [])
+
+    def test_compares_median_run_statistics(self) -> None:
+        baseline = _result(100.0, 1000.0)
+        candidate = _result(100.0, 1000.0)
+        baseline_metrics = baseline["results"][0]["metrics"]["pyright"]
+        candidate_metrics = candidate["results"][0]["metrics"]["pyright"]
+        baseline_metrics["execution_time_stats"]["median"] = 10.0
+        baseline_metrics["peak_memory_stats"]["median"] = 100.0
+        candidate_metrics["execution_time_stats"]["median"] = 11.0
+        candidate_metrics["peak_memory_stats"]["median"] = 105.0
+
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                baseline, candidate, 20.0, statistic="median"
+            )
+        report = compare_benchmarks.render_markdown(
+            baseline, candidate, 20.0, statistic="median"
+        )
+
+        self.assertEqual(failures, [])
+        self.assertIn("Statistic: `median`", report)
+        self.assertIn("| example | pyright | 123 | 11.000s | +10.0%", report)
 
     def test_report_includes_pyright_stats(self) -> None:
         candidate = _result(10.0, 100.0)
@@ -430,48 +466,19 @@ Regression threshold: `10.0%`
             with self.assertRaisesRegex(ValueError, "non-finite number NaN"):
                 compare_benchmarks._load_results(result_file)
 
-    def test_workflow_profile_matches_checked_in_baseline(self) -> None:
+    def test_pr_workflow_uses_paired_multi_run_profile(self) -> None:
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
-        timeout_match = re.search(
+        profile_matches = re.findall(
             r"typecheck_benchmark\.py \\\s+"
-            r"-c pyright -r 1 -w 0 -t (\d+)",
+            r"-c pyright -r (\d+) -w (\d+) -t (\d+)",
             workflow,
         )
-        self.assertIsNotNone(timeout_match)
 
-        baseline = json.loads(
-            (
-                REPO_ROOT
-                / "build"
-                / "benchmark"
-                / "baselines"
-                / "latest-linux-x64.json"
-            ).read_text(encoding="utf-8")
-        )
-        config = json.loads(
-            (
-                REPO_ROOT / "build" / "benchmark" / "install_envs.json"
-            ).read_text(encoding="utf-8")
-        )
-
-        self.assertEqual(int(timeout_match.group(1)), 1800)
-        baseline_packages = {
-            package["package_name"]: package for package in baseline["results"]
-        }
-        for package in config["packages"]:
-            package_name = package.get("name") or package["github_url"].rsplit(
-                "/", 1
-            )[-1]
-            baseline_package = baseline_packages[package_name]
-            self.assertEqual(
-                package.get("check_paths", []), baseline_package["check_paths"]
-            )
-            self.assertEqual(
-                package.get("exclude_directories", []),
-                baseline_package["exclude_directories"],
-            )
+        self.assertEqual(profile_matches, [("3", "1", "1800"), ("3", "1", "1800")])
+        self.assertEqual(workflow.count("--statistic median"), 2)
+        self.assertIn("--candidate-statistic median", workflow)
 
     def test_workflows_use_current_pnpm_setup(self) -> None:
         weekly_workflow_path = (
@@ -807,6 +814,7 @@ Regression threshold: `10.0%`
             {
                 "NODE_OPTIONS": "--max-old-space-size=6656",
                 "PYTHONNOUSERSITE": "1",
+                "PYRIGHT_BENCHMARK_ENTRY_POINT": "${{ github.workspace }}/packages/pyright/index.js",
             },
         )
         history_workflow_data = _load_yaml(
@@ -972,7 +980,7 @@ Regression threshold: `10.0%`
             {
                 "name": "Render comparison history charts",
                 "if": "${{ steps.download.outputs.pr-number != '' }}",
-                "run": "python build/benchmark/render_pyright_history.py \\\n  base.json \\\n  candidate.json \\\n  --existing-history docs/typecheck-benchmark/history/history.json \\\n  --candidate-label 'Base' \\\n  --candidate-label 'PR #${{ inputs.pr_number }}' \\\n  --output pr-history\n",
+                "run": "python build/benchmark/render_pyright_history.py \\\n  base.json \\\n  candidate.json \\\n  --existing-history docs/typecheck-benchmark/history/history.json \\\n  --candidate-label 'Base' \\\n  --candidate-label 'PR #${{ inputs.pr_number }}' \\\n  --candidate-statistic median \\\n  --output pr-history\n",
             },
         )
         history_upload = next(
@@ -1053,6 +1061,12 @@ Regression threshold: `10.0%`
         self.assertIn(
             "--output build/benchmark/results/candidate",
             workflow,
+        )
+        self.assertEqual(
+            workflow.count(
+                "python benchmark-base/build/benchmark/typecheck_benchmark.py"
+            ),
+            1,
         )
         self.assertIn(
             "build/benchmark/results/base/latest-linux-x64.json",

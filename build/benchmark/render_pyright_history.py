@@ -8,7 +8,7 @@ import json
 import math
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 
 CHECKERS = ("pyright", "pyright-pip")
@@ -33,6 +33,10 @@ PROFILE_FIELDS = (
     "runs_per_package",
     "warmup_runs",
 )
+COMPARISON_PROFILE_FIELDS = tuple(
+    field for field in PROFILE_FIELDS if field not in {"runs_per_package", "warmup_runs"}
+)
+Statistic = Literal["mean", "median"]
 
 
 def _version_key(version: str) -> tuple[int, ...]:
@@ -86,15 +90,27 @@ def _corpus_signature(corpus: list[dict[str, Any]]) -> list[tuple[Any, ...]]:
     )
 
 
-def _package_metrics(data: dict[str, Any], checker: str) -> dict[str, dict[str, float]]:
+def _metric_value(metric: dict[str, Any], field: str, statistic: Statistic) -> Any:
+    if statistic == "mean":
+        return metric.get(field)
+    stats_field = (
+        "execution_time_stats" if field == "execution_time_s" else "peak_memory_stats"
+    )
+    stats = metric.get(stats_field)
+    return stats.get("median") if isinstance(stats, dict) else None
+
+
+def _package_metrics(
+    data: dict[str, Any], checker: str, statistic: Statistic = "mean"
+) -> dict[str, dict[str, float]]:
     package_metrics: dict[str, dict[str, float]] = {}
     for package in data.get("results", []):
         name = package.get("package_name")
         metric = package.get("metrics", {}).get(checker, {})
         if not name or not metric.get("ok"):
             continue
-        execution_time = metric.get("execution_time_s")
-        peak_memory = metric.get("peak_memory_mb")
+        execution_time = _metric_value(metric, "execution_time_s", statistic)
+        peak_memory = _metric_value(metric, "peak_memory_mb", statistic)
         if not isinstance(execution_time, (int, float)) or not isinstance(
             peak_memory, (int, float)
         ):
@@ -192,6 +208,7 @@ def append_candidates(
     history_path: Path,
     candidate_paths: list[Path],
     candidate_labels: list[str],
+    statistic: Statistic = "mean",
 ) -> dict[str, Any]:
     history = json.loads(history_path.read_text(encoding="utf-8"))
     expected_packages = set(history.get("packages", []))
@@ -200,14 +217,26 @@ def append_candidates(
         raise ValueError(f"{history_path} does not contain a package corpus")
     existing_labels = {str(release.get("version")) for release in history["releases"]}
     comparison_signature: list[tuple[Any, ...]] | None = None
+    comparison_profile: dict[str, Any] | None = None
     for candidate_path, candidate_label in zip(
         candidate_paths, candidate_labels, strict=True
     ):
         candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
         checker = _checker(candidate, candidate_path)
         profile = {field: candidate.get(field) for field in PROFILE_FIELDS}
-        if profile != history.get("profile"):
+        comparable_profile = {
+            field: candidate.get(field) for field in COMPARISON_PROFILE_FIELDS
+        }
+        history_profile = {
+            field: history.get("profile", {}).get(field)
+            for field in COMPARISON_PROFILE_FIELDS
+        }
+        if comparable_profile != history_profile:
             raise ValueError(f"{candidate_path} uses a different benchmark profile")
+        if comparison_profile is None:
+            comparison_profile = profile
+        elif profile != comparison_profile:
+            raise ValueError(f"{candidate_path} uses a different comparison profile")
 
         candidate_packages = {
             str(package.get("package_name"))
@@ -231,10 +260,12 @@ def append_candidates(
                 "version": candidate_label,
                 "published_at": "",
                 "measured_at": str(candidate.get("timestamp", "")),
-                "packages": _package_metrics(candidate, checker),
+                "packages": _package_metrics(candidate, checker, statistic),
                 "comparison": True,
             }
         )
+    history["comparison_profile"] = comparison_profile
+    history["comparison_statistic"] = statistic
     return history
 
 
@@ -392,6 +423,17 @@ def render_html(history: dict[str, Any]) -> str:
     profile = history["profile"]
     releases = history["releases"]
     has_comparison = any(release.get("comparison") for release in releases)
+    comparison_profile = history.get("comparison_profile", {})
+    comparison_statistic = history.get("comparison_statistic", "mean")
+    comparison_methodology = ""
+    if has_comparison:
+        comparison_methodology = (
+            f" The base and PR points use the {html.escape(str(comparison_statistic))} "
+            f"of {html.escape(str(comparison_profile.get('runs_per_package', 'unknown')))} "
+            "measured runs after "
+            f"{html.escape(str(comparison_profile.get('warmup_runs', 'unknown')))} "
+            "warmup run(s) on the same hosted runner."
+        )
     rows = []
     for release in releases:
         rows.append(
@@ -426,7 +468,7 @@ thead {{ background:#edf2ef; }} code {{ background:#e5ece8; padding:2px 5px; }}
 <section><h2>Execution time</h2><img src="execution-time.svg" alt="Per-package Pyright execution time across releases"></section>
 <section><h2>Peak memory</h2><img src="peak-memory.svg" alt="Per-package Pyright peak memory across releases"></section>
 <section><h2>Methodology</h2>
-<p class="note">Each point is one measured run on a GitHub-hosted Ubuntu runner and is normalized to that package's earliest release. Releases use the same package commits, check paths, Python version, memory limit, and dependency-isolation mode. Separate hosted runners introduce machine variance, so use the charts for release-scale trends rather than small differences.</p>
+<p class="note">Each release point is one measured run on a GitHub-hosted Ubuntu runner and is normalized to that package's earliest release.{comparison_methodology} Releases and comparisons use the same package commits, check paths, Python version, memory limit, and dependency-isolation mode. Separate hosted runners introduce machine variance, so use the release series for release-scale trends rather than small differences.</p>
 <p>Profile: Python <code>{html.escape(str(profile.get("python_version", "unknown")))}</code>,
 runner <code>{html.escape(str(profile.get("runner_class", "unknown")))}</code>,
 {html.escape(str(profile.get("runs_per_package", "unknown")))} measured run per package.</p></section>
@@ -467,8 +509,11 @@ def write_candidate_history(
     candidate_paths: list[Path],
     candidate_labels: list[str],
     output_dir: Path,
+    statistic: Statistic = "mean",
 ) -> dict[str, Any]:
-    history = append_candidates(history_path, candidate_paths, candidate_labels)
+    history = append_candidates(
+        history_path, candidate_paths, candidate_labels, statistic
+    )
     _write_bundle(history, output_dir)
     return history
 
@@ -479,6 +524,9 @@ def main() -> int:
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--existing-history", type=Path)
     parser.add_argument("--candidate-label", action="append")
+    parser.add_argument(
+        "--candidate-statistic", choices=("mean", "median"), default="mean"
+    )
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     if args.existing_history:
@@ -495,6 +543,7 @@ def main() -> int:
             args.results,
             args.candidate_label,
             args.output,
+            args.candidate_statistic,
         )
     else:
         if not args.results or args.candidate_label:
