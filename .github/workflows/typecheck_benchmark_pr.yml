@@ -35,7 +35,7 @@ jobs:
     name: Compare Pyright performance
     if: ${{ github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 360
     permissions:
       contents: read
 
@@ -43,6 +43,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.merge_sha }}
+          persist-credentials: false
+
+      - name: Check out baseline revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.base_sha }}
+          path: benchmark-base
           persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -61,69 +68,82 @@ jobs:
           g++ --version
           make --version
 
-      - name: Install JavaScript dependencies
+      - name: Install baseline JavaScript dependencies
+        timeout-minutes: 10
+        working-directory: benchmark-base
+        env:
+          SKIP_LERNA_BOOTSTRAP: 'yes'
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Build baseline Pyright CLI
+        working-directory: benchmark-base/packages/pyright
+        run: pnpm run build
+
+      - name: Install candidate JavaScript dependencies
         timeout-minutes: 10
         env:
           SKIP_LERNA_BOOTSTRAP: 'yes'
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Check out trusted baseline
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ inputs.base_sha }}
-          path: benchmark-baseline
-          sparse-checkout: build/benchmark/baselines
-          persist-credentials: false
-
-      - name: Select benchmark baseline
-        id: baseline
-        run: |
-          trusted=benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json
-          bootstrap=build/benchmark/baselines/latest-linux-x64.json
-          if [[ -f "$trusted" ]]; then
-            echo "path=$trusted" >> "$GITHUB_OUTPUT"
-          elif [[ -f "$bootstrap" ]]; then
-            echo "Using the pull request's initial benchmark baseline"
-            echo "path=$bootstrap" >> "$GITHUB_OUTPUT"
-          else
-            echo "No benchmark baseline is available" >&2
-            exit 1
-          fi
-
-      - name: Build Pyright CLI
+      - name: Build candidate Pyright CLI
         working-directory: packages/pyright
         run: pnpm run build
 
-      - name: Run benchmark
+      - name: Benchmark baseline revision
         env:
           NODE_OPTIONS: '--max-old-space-size=6656'
           PYTHONNOUSERSITE: '1'
         run: |
-          python build/benchmark/typecheck_benchmark.py \
-            -c pyright -r 1 -w 0 -t 1800 --memory-limit-mb 8192 \
+          python benchmark-base/build/benchmark/typecheck_benchmark.py \
+            -c pyright -r 3 -w 1 -t 1800 --memory-limit-mb 8192 \
             --skip-pyright-build --os-name linux-x64 \
-            --output build/benchmark/results
+            --output build/benchmark/base-results
+
+      - name: Benchmark candidate revision
+        env:
+          NODE_OPTIONS: '--max-old-space-size=6656'
+          PYTHONNOUSERSITE: '1'
+          PYRIGHT_BENCHMARK_ENTRY_POINT: ${{ github.workspace }}/packages/pyright/index.js
+        run: |
+          python benchmark-base/build/benchmark/typecheck_benchmark.py \
+            -c pyright -r 3 -w 1 -t 1800 --memory-limit-mb 8192 \
+            --skip-pyright-build --os-name linux-x64 \
+            --output build/benchmark/candidate-results
 
       - name: Compare with baseline
         id: comparison
         continue-on-error: true
         run: |
           set +e
-          python build/benchmark/compare_benchmarks.py \
-            "${{ steps.baseline.outputs.path }}" \
-            build/benchmark/results/latest-linux-x64.json \
+          python benchmark-base/build/benchmark/compare_benchmarks.py \
+            build/benchmark/base-results/latest-linux-x64.json \
+            build/benchmark/candidate-results/latest-linux-x64.json \
+            --statistic median \
             --fail-on-preparation-error \
-            --markdown-output build/benchmark/results/report.md
+            --markdown-output build/benchmark/candidate-results/report.md
           comparison_status=$?
-          cat build/benchmark/results/report.md >> "$GITHUB_STEP_SUMMARY"
+          cat build/benchmark/candidate-results/report.md >> "$GITHUB_STEP_SUMMARY"
           exit "$comparison_status"
 
-      - name: Upload candidate results
+      - name: Collect paired results
+        if: always()
+        run: |
+          mkdir -p build/benchmark/pr-results
+          cp build/benchmark/base-results/latest-linux-x64.json \
+            build/benchmark/pr-results/baseline.json
+          cp build/benchmark/candidate-results/latest-linux-x64.json \
+            build/benchmark/pr-results/candidate.json
+          if [[ -f build/benchmark/candidate-results/report.md ]]; then
+            cp build/benchmark/candidate-results/report.md \
+              build/benchmark/pr-results/report.md
+          fi
+
+      - name: Upload paired results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: typecheck-benchmark-linux-x64-pr-${{ inputs.pr_number }}-head-${{ inputs.head_sha }}-base-${{ inputs.base_sha }}-merge-${{ inputs.merge_sha }}
-          path: build/benchmark/results/
+          path: build/benchmark/pr-results/
 
       - name: Fail on benchmark regressions
         if: ${{ steps.comparison.outcome == 'failure' }}
@@ -142,14 +162,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-
-      - name: Check out trusted baseline
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ inputs.base_sha }}
-          path: benchmark-baseline
-          sparse-checkout: build/benchmark/baselines
           persist-credentials: false
 
       - name: Download benchmark results
@@ -249,22 +261,23 @@ jobs:
               raise ValueError(f'Non-finite JSON number: {value}')
 
           with zipfile.ZipFile('benchmark-report.zip') as archive:
-              matches = [
-                  info
-                  for info in archive.infolist()
-                  if PurePosixPath(info.filename).name == 'latest-linux-x64.json'
-                  and '..' not in PurePosixPath(info.filename).parts
-              ]
-              if len(matches) != 1:
-                  raise RuntimeError(f'Expected one candidate result, found {len(matches)}')
-              if matches[0].file_size > 5 * 1024 * 1024:
-                  raise RuntimeError('Candidate result exceeds 5 MB')
-              contents = archive.read(matches[0])
-          data = json.loads(contents, parse_constant=reject_constant)
-          if not isinstance(data, dict):
-              raise RuntimeError('Candidate result must be a JSON object')
-          with open('candidate.json', 'wb') as output:
-              output.write(contents)
+              for name in ('baseline.json', 'candidate.json'):
+                  matches = [
+                      info
+                      for info in archive.infolist()
+                      if PurePosixPath(info.filename).name == name
+                      and '..' not in PurePosixPath(info.filename).parts
+                  ]
+                  if len(matches) != 1:
+                      raise RuntimeError(f'Expected one {name}, found {len(matches)}')
+                  if matches[0].file_size > 5 * 1024 * 1024:
+                      raise RuntimeError(f'{name} exceeds 5 MB')
+                  contents = archive.read(matches[0])
+                  data = json.loads(contents, parse_constant=reject_constant)
+                  if not isinstance(data, dict):
+                      raise RuntimeError(f'{name} must be a JSON object')
+                  with open(name, 'wb') as output:
+                      output.write(contents)
           PY
 
       - name: Render benchmark report
@@ -272,8 +285,9 @@ jobs:
         run: |
           set +e
           python build/benchmark/compare_benchmarks.py \
-            benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json \
+            baseline.json \
             candidate.json \
+            --statistic median \
             --fail-on-preparation-error \
             --markdown-output report.md
           if [[ ! -s report.md ]]; then
@@ -298,7 +312,7 @@ jobs:
             const report = fs.readFileSync('report.md', 'utf8')
             const issueNumber = Number(process.env.PR_NUMBER)
             const revisions =
-              `Compared candidate \`${process.env.CANDIDATE_SHA}\` against its first parent ` +
+              `Compared measured candidate \`${process.env.CANDIDATE_SHA}\` against measured first parent ` +
               `\`${process.env.BASE_SHA}\`.\n\n`
             const body = `${marker}\n${revisions}${report}`
             await github.rest.issues.createComment({
