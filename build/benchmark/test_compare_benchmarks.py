@@ -755,7 +755,8 @@ Regression threshold: `10.0%`
             {"GH_TOKEN": "${{ secrets.GITHUB_TOKEN }}"},
         )
         self.assertIn("pr-history-artifacts.json", steps[4]["run"])
-        self.assertIn("Unexpected PR history archive entries", steps[4]["run"])
+        self.assertIn("pr_history_artifacts.py", steps[4]["run"])
+        self.assertIn("retained-pr-histories.json", steps[4]["run"])
         self.assertIn("listArtifactsForRepo", steps[1]["with"]["script"])
         self.assertIn(
             "run.data.path !== '.github/workflows/typecheck_benchmark_trigger.yml'",
@@ -1077,7 +1078,7 @@ Regression threshold: `10.0%`
                 "BASE_SHA": "${{ inputs.base_sha }}",
                 "CANDIDATE_SHA": "${{ inputs.merge_sha }}",
                 "HISTORY_ARTIFACT_URL": "${{ steps.history.outputs.artifact-url }}",
-                "HISTORY_URL": "https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/",
+                "HISTORY_URL": "https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/${{ github.run_id }}/",
             },
         )
         packages_job = benchmark_workflow_data["jobs"]["packages"]
@@ -1093,6 +1094,7 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(benchmark_job["needs"], "packages")
+        self.assertEqual(benchmark_job["timeout-minutes"], 300)
         self.assertEqual(
             benchmark_job["strategy"],
             {

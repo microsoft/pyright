@@ -71,7 +71,7 @@ jobs:
     needs: packages
     if: ${{ github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 300
     permissions:
       contents: read
     strategy:
@@ -437,7 +437,7 @@ jobs:
           BASE_SHA: ${{ inputs.base_sha }}
           CANDIDATE_SHA: ${{ inputs.merge_sha }}
           HISTORY_ARTIFACT_URL: ${{ steps.history.outputs.artifact-url }}
-          HISTORY_URL: https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/
+          HISTORY_URL: https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/${{ github.run_id }}/
         with:
           script: |
             const fs = require('fs')

@@ -108,31 +108,23 @@ jobs:
             })
             const pattern =
               /^typecheck-benchmark-history-pr-(\d+)-base-[0-9a-f]{40}-candidate-[0-9a-f]{40}$/
-            const latestByPullRequest = new Map()
+            const retained = []
             for (const artifact of artifacts) {
               const match = artifact.name.match(pattern)
               if (!match || artifact.expired || !artifact.workflow_run?.id) continue
-              const pullRequestNumber = Number(match[1])
-              const existing = latestByPullRequest.get(pullRequestNumber)
-              if (
-                existing &&
-                new Date(existing.created_at) >= new Date(artifact.created_at)
-              ) continue
               const run = await github.rest.actions.getWorkflowRun({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 run_id: artifact.workflow_run.id,
               })
               if (run.data.path !== '.github/workflows/typecheck_benchmark_trigger.yml') continue
-              latestByPullRequest.set(pullRequestNumber, {
+              retained.push({
                 id: artifact.id,
-                pr_number: pullRequestNumber,
+                name: artifact.name,
+                run_id: artifact.workflow_run.id,
                 created_at: artifact.created_at,
               })
             }
-            const retained = [...latestByPullRequest.values()].map(
-              ({ id, pr_number }) => ({ id, pr_number })
-            )
             fs.writeFileSync(
               'pr-history-artifacts.json',
               `${JSON.stringify(retained)}\n`
@@ -163,39 +155,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p pr-histories
-          jq -r '.[] | [.id, .pr_number] | @tsv' pr-history-artifacts.json |
-            while IFS=$'\t' read -r artifact_id pr_number; do
-              archive="$RUNNER_TEMP/pr-history-$pr_number.zip"
-              destination="pr-histories/$pr_number"
+          python build/benchmark/pr_history_artifacts.py \
+            select pr-history-artifacts.json retained-pr-histories.json
+          jq -r '.[] | [.id, .pr_number, .run_id] | @tsv' retained-pr-histories.json |
+            while IFS=$'\t' read -r artifact_id pr_number run_id; do
+              archive="$RUNNER_TEMP/pr-history-$pr_number-$run_id.zip"
+              destination="pr-histories/$pr_number/$run_id"
               gh api \
                 "/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" \
                 > "$archive"
-              python - "$archive" "$destination" <<'PY'
-          import sys
-          import zipfile
-          from pathlib import Path, PurePosixPath
-
-          archive_path = Path(sys.argv[1])
-          destination = Path(sys.argv[2])
-          allowed = {
-              "execution-time.svg",
-              "history.json",
-              "index.html",
-              "peak-memory.svg",
-          }
-          with zipfile.ZipFile(archive_path) as archive:
-              files = [info for info in archive.infolist() if not info.is_dir()]
-              names = {PurePosixPath(info.filename).name for info in files}
-              if names != allowed or any(
-                  len(PurePosixPath(info.filename).parts) != 1 for info in files
-              ):
-                  raise RuntimeError(f"Unexpected PR history archive entries: {sorted(names)}")
-              destination.mkdir(parents=True, exist_ok=True)
-              for info in files:
-                  if info.file_size > 5 * 1024 * 1024:
-                      raise RuntimeError(f"PR history file is too large: {info.filename}")
-                  (destination / info.filename).write_bytes(archive.read(info))
-          PY
+              python build/benchmark/pr_history_artifacts.py \
+                extract "$archive" "$destination"
             done
 
       - name: Add report to documentation site

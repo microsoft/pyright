@@ -216,9 +216,9 @@ of 1 second for time or 100 MB for peak memory. These are the comparator default
 trusted comment renderer share one configuration source. The comparison-history artifact retains the
 single-run release series and labels the paired base and PR points with their separate multi-run
 median methodology. Retained PR history artifacts are published under
-`typecheck-benchmark/pr/<number>/`, and the benchmark comment embeds the execution-time and
-peak-memory charts. Reports and artifacts are published before a failed comparison marks the job
-unsuccessful.
+`typecheck-benchmark/pr/<number>/<run-id>/`, so each benchmark comment retains immutable chart URLs.
+The benchmark comment embeds the execution-time and peak-memory charts. Reports and artifacts are
+published before a failed comparison marks the job unsuccessful.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
 The Pyright job measures single-threaded mode and `--threads` mode sequentially on the same runner and
