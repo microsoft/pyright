@@ -29469,8 +29469,6 @@ export function createTypeEvaluator(
         return undefined;
     }
 
-    // Returns a list of unimplemented abstract symbols (methods or variables) for
-    // the specified class.
     // Determines whether the class's `__new__` method is declared to return
     // only instances of other concrete classes. `pathlib.Path` is the canonical
     // example: calling it always produces a `PosixPath` or a `WindowsPath`, so
@@ -29511,6 +29509,8 @@ export function createTypeEvaluator(
         return instantiatesOthers;
     }
 
+    // Returns a list of unimplemented abstract symbols (methods or variables) for
+    // the specified class.
     function getAbstractSymbols(classType: ClassType): AbstractSymbol[] {
         const symbolTable = new Map<string, AbstractSymbol>();
 
