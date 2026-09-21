@@ -54,3 +54,10 @@ def func3(a: Any) -> None:
     # Both overloads produce the same specialization, so the result is
     # not ambiguous.
     reveal_type(ClassB(a, 1), expected_text="ClassB[int]")
+
+
+def func4(a):
+    # An unannotated parameter is Unknown rather than an explicit Any. It
+    # takes the same code path, so it must not pick the first overload either.
+    reveal_type(ClassA(a), expected_text="ClassA[Unknown]")
+    reveal_type(ClassB(a, 1), expected_text="ClassB[int]")
