@@ -535,7 +535,7 @@ export function transformTypeForEnumMember(
         }
 
         if (!isUnpackedTuple) {
-            valueType = applyEnumDataTypeToTupleValue(evaluator, classType, valueType);
+            valueType = applyEnumDataTypeToTupleValue(classType, valueType);
         }
 
         const enumLiteral = new EnumLiteral(
@@ -767,7 +767,7 @@ export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExpressionN
 // If an enum class mixes in a built-in data type such as str or int, a member
 // whose assigned value is a tuple gets the value "data_type(*value)" at runtime.
 // For example, the value of "A = 'a'," in a str-based enum is "a", not ("a",).
-function applyEnumDataTypeToTupleValue(evaluator: TypeEvaluator, enumClass: ClassType, valueType: Type): Type {
+function applyEnumDataTypeToTupleValue(enumClass: ClassType, valueType: Type): Type {
     if (!isClassInstance(valueType) || !isTupleClass(valueType) || !valueType.priv.tupleTypeArgs) {
         return valueType;
     }
@@ -806,12 +806,14 @@ function applyEnumDataTypeToTupleValue(evaluator: TypeEvaluator, enumClass: Clas
 
     // A single argument that is already an instance of the data type is
     // returned unchanged by the constructor, so preserve its (literal) type.
-    if (
-        tupleTypeArgs.length === 1 &&
-        !tupleTypeArgs[0].isUnbounded &&
-        evaluator.assignType(dataInstanceType, tupleTypeArgs[0].type)
-    ) {
-        return tupleTypeArgs[0].type;
+    // The argument's type must be the data type exactly rather than merely
+    // assignable to it, because the constructor converts a subtype: int(True)
+    // is 1 and float(1) is 1.0, neither of which keeps the original literal.
+    if (tupleTypeArgs.length === 1 && !tupleTypeArgs[0].isUnbounded) {
+        const soleArgType = tupleTypeArgs[0].type;
+        if (isClassInstance(soleArgType) && ClassType.isSameGenericClass(soleArgType, dataInstanceType)) {
+            return soleArgType;
+        }
     }
 
     return dataInstanceType;

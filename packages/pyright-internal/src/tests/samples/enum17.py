@@ -69,3 +69,22 @@ class Pairs(tuple[int, int], Enum):
 
 
 reveal_type(Pairs.Origin.value, expected_text="tuple[Literal[0], Literal[0]]")
+
+
+class Flag(int, Enum):
+    # int(True) is 1, so the constructor converts the bool rather than
+    # returning it unchanged; the value is an int, not Literal[True].
+    Yes = (True,)
+
+
+reveal_type(Flag.Yes.value, expected_text="int")
+
+
+class Ratio(float, Enum):
+    # float(1) is 1.0, so the int literal is likewise converted.
+    Half = (1,)
+    Whole = (1.0,)
+
+
+reveal_type(Ratio.Half.value, expected_text="float")
+reveal_type(Ratio.Whole.value, expected_text="float")
