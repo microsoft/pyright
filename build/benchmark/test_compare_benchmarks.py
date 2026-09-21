@@ -508,6 +508,8 @@ Regression threshold: `10.0%`
                 "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
                 "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
                 None,
+                "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                None,
                 None,
                 "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
             ],
@@ -522,10 +524,27 @@ Regression threshold: `10.0%`
         )
         self.assertEqual(
             weekly_benchmark_steps[5]["with"],
+            {"node-version": "${{ env.NODE_VERSION }}"},
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[6],
             {
-                "node-version": "${{ env.NODE_VERSION }}",
-                "cache": "pnpm",
-                "cache-dependency-path": "pnpm-lock.yaml",
+                "name": "Locate benchmark pnpm store",
+                "if": "${{ matrix.checker == 'pyright' }}",
+                "id": "benchmark-pnpm",
+                "run": 'echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"\necho "lock-hash=$(sha256sum pnpm-lock.yaml | cut -d\' \' -f1)" >> "$GITHUB_OUTPUT"\n',
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[7],
+            {
+                "name": "Restore and save trusted benchmark pnpm store",
+                "if": "${{ matrix.checker == 'pyright' }}",
+                "uses": "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                "with": {
+                    "path": "${{ steps.benchmark-pnpm.outputs.path }}",
+                    "key": "typecheck-benchmark-pnpm-${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ steps.benchmark-pnpm.outputs.lock-hash }}",
+                },
             },
         )
         self.assertEqual(
@@ -541,7 +560,7 @@ Regression threshold: `10.0%`
             "${{ matrix.checker == 'pyright' }}",
         )
         self.assertEqual(
-            weekly_benchmark_steps[6],
+            weekly_benchmark_steps[8],
             {
                 "name": "Build Pyright CLI",
                 "if": "${{ matrix.checker == 'pyright' }}",
@@ -551,7 +570,7 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            weekly_benchmark_steps[7]["env"],
+            weekly_benchmark_steps[9]["env"],
             {
                 "BENCHMARK_RUNNER_CLASS": "github-ubuntu-latest",
                 "NODE_OPTIONS": "${{ matrix.checker == 'pyright' && '--max-old-space-size=6656' || '' }}",
@@ -559,7 +578,7 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            weekly_benchmark_steps[7]["run"],
+            weekly_benchmark_steps[9]["run"],
             "checkers=('${{ matrix.checker }}')\nextra_args=()\nif [[ '${{ matrix.checker }}' == 'pyright' ]]; then\n  checkers+=(pyright-threads)\n  extra_args+=(--skip-pyright-build)\nfi\npython build/benchmark/typecheck_benchmark.py \\\n  -c \"${checkers[@]}\" -r 3 -w 1 -t 1800 \\\n  --memory-limit-mb 8192 --os-name linux-x64 \\\n  --output build/benchmark/results \\\n  \"${extra_args[@]}\"\n",
         )
         weekly_report_steps = weekly_workflow_data["jobs"]["report"]["steps"]
@@ -768,6 +787,8 @@ Regression threshold: `10.0%`
                 "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
                 "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
                 None,
+                "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                None,
                 None,
                 None,
                 None,
@@ -780,7 +801,26 @@ Regression threshold: `10.0%`
             ],
         )
         self.assertEqual(
+            pr_benchmark_steps[5],
+            {
+                "name": "Locate benchmark pnpm store",
+                "id": "benchmark-pnpm",
+                "run": 'echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"\necho "lock-hash=$(sha256sum benchmark-base/pnpm-lock.yaml | cut -d\' \' -f1)" >> "$GITHUB_OUTPUT"\n',
+            },
+        )
+        self.assertEqual(
             pr_benchmark_steps[6],
+            {
+                "name": "Restore trusted benchmark pnpm store",
+                "uses": "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                "with": {
+                    "path": "${{ steps.benchmark-pnpm.outputs.path }}",
+                    "key": "typecheck-benchmark-pnpm-${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ steps.benchmark-pnpm.outputs.lock-hash }}",
+                },
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[8],
             {
                 "name": "Install base JavaScript dependencies",
                 "timeout-minutes": 10,
@@ -790,7 +830,7 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[9],
+            pr_benchmark_steps[11],
             {
                 "name": "Install candidate JavaScript dependencies",
                 "timeout-minutes": 10,
@@ -799,18 +839,18 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[8]["working-directory"],
+            pr_benchmark_steps[10]["working-directory"],
             "benchmark-base",
         )
         self.assertEqual(
-            pr_benchmark_steps[8]["env"],
+            pr_benchmark_steps[10]["env"],
             {
                 "NODE_OPTIONS": "--max-old-space-size=6656",
                 "PYTHONNOUSERSITE": "1",
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[11]["env"],
+            pr_benchmark_steps[13]["env"],
             {
                 "NODE_OPTIONS": "--max-old-space-size=6656",
                 "PYTHONNOUSERSITE": "1",
