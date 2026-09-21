@@ -14,21 +14,29 @@ on:
       - 'packages/pyright-internal/src/analyzer/**'
 
 permissions:
-  actions: write
   contents: read
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   trigger:
-    name: Trigger benchmark
+    name: Authorize benchmark
     if: >-
       ${{ github.repository == 'microsoft/pyright' &&
       ((github.event_name == 'pull_request_target' && !github.event.pull_request.draft) ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/benchmark'))) }}
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
+    outputs:
+      pr-number: ${{ steps.resolve.outputs.pr-number }}
+      head-sha: ${{ steps.resolve.outputs.head-sha }}
+      base-sha: ${{ steps.resolve.outputs.base-sha }}
+      merge-sha: ${{ steps.resolve.outputs.merge-sha }}
     steps:
-      - name: Dispatch benchmark
+      - name: Resolve benchmark revisions
+        id: resolve
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
@@ -85,15 +93,22 @@ jobs:
               core.setFailed('The pull request merge commit does not use the current head')
               return
             }
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'typecheck_benchmark_pr.yml',
-              ref: context.payload.repository.default_branch,
-              inputs: {
-                pr_number: String(issueNumber),
-                head_sha: pullRequest.data.head.sha,
-                base_sha: baseSha,
-                merge_sha: candidateSha,
-              },
-            })
+            core.setOutput('pr-number', issueNumber)
+            core.setOutput('head-sha', pullRequest.data.head.sha)
+            core.setOutput('base-sha', baseSha)
+            core.setOutput('merge-sha', candidateSha)
+
+  benchmark:
+    name: Run benchmark
+    needs: trigger
+    if: ${{ needs.trigger.outputs.pr-number != '' }}
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    uses: ./.github/workflows/typecheck_benchmark_pr.yml
+    with:
+      pr_number: ${{ needs.trigger.outputs.pr-number }}
+      head_sha: ${{ needs.trigger.outputs.head-sha }}
+      base_sha: ${{ needs.trigger.outputs.base-sha }}
+      merge_sha: ${{ needs.trigger.outputs.merge-sha }}

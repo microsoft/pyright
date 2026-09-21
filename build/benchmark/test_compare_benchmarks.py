@@ -54,6 +54,20 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
                         "ok": ok,
                         "execution_time_s": time,
                         "peak_memory_mb": memory,
+                        "execution_time_stats": {
+                            "min": time,
+                            "max": time,
+                            "mean": time,
+                            "median": time,
+                            "stddev": 0.0,
+                        },
+                        "peak_memory_stats": {
+                            "min": memory,
+                            "max": memory,
+                            "mean": memory,
+                            "median": memory,
+                            "stddev": 0.0,
+                        },
                         "files_checked": 123,
                     }
                 },
@@ -70,6 +84,28 @@ class CompareBenchmarksTest(unittest.TestCase):
             )
 
         self.assertEqual(failures, [])
+
+    def test_compares_median_run_statistics(self) -> None:
+        baseline = _result(100.0, 1000.0)
+        candidate = _result(100.0, 1000.0)
+        baseline_metrics = baseline["results"][0]["metrics"]["pyright"]
+        candidate_metrics = candidate["results"][0]["metrics"]["pyright"]
+        baseline_metrics["execution_time_stats"]["median"] = 10.0
+        baseline_metrics["peak_memory_stats"]["median"] = 100.0
+        candidate_metrics["execution_time_stats"]["median"] = 11.0
+        candidate_metrics["peak_memory_stats"]["median"] = 105.0
+
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                baseline, candidate, 20.0, statistic="median"
+            )
+        report = compare_benchmarks.render_markdown(
+            baseline, candidate, 20.0, statistic="median"
+        )
+
+        self.assertEqual(failures, [])
+        self.assertIn("Statistic: `median`", report)
+        self.assertIn("| example | pyright | 123 | 11.000s | +10.0%", report)
 
     def test_report_includes_pyright_stats(self) -> None:
         candidate = _result(10.0, 100.0)
@@ -430,48 +466,19 @@ Regression threshold: `10.0%`
             with self.assertRaisesRegex(ValueError, "non-finite number NaN"):
                 compare_benchmarks._load_results(result_file)
 
-    def test_workflow_profile_matches_checked_in_baseline(self) -> None:
+    def test_pr_workflow_uses_paired_multi_run_profile(self) -> None:
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
-        timeout_match = re.search(
+        profile_matches = re.findall(
             r"typecheck_benchmark\.py \\\s+"
-            r"-c pyright -r 1 -w 0 -t (\d+)",
+            r"-c pyright -r (\d+) -w (\d+) -t (\d+)",
             workflow,
         )
-        self.assertIsNotNone(timeout_match)
 
-        baseline = json.loads(
-            (
-                REPO_ROOT
-                / "build"
-                / "benchmark"
-                / "baselines"
-                / "latest-linux-x64.json"
-            ).read_text(encoding="utf-8")
-        )
-        config = json.loads(
-            (
-                REPO_ROOT / "build" / "benchmark" / "install_envs.json"
-            ).read_text(encoding="utf-8")
-        )
-
-        self.assertEqual(int(timeout_match.group(1)), 1800)
-        baseline_packages = {
-            package["package_name"]: package for package in baseline["results"]
-        }
-        for package in config["packages"]:
-            package_name = package.get("name") or package["github_url"].rsplit(
-                "/", 1
-            )[-1]
-            baseline_package = baseline_packages[package_name]
-            self.assertEqual(
-                package.get("check_paths", []), baseline_package["check_paths"]
-            )
-            self.assertEqual(
-                package.get("exclude_directories", []),
-                baseline_package["exclude_directories"],
-            )
+        self.assertEqual(profile_matches, [("3", "1", "1800"), ("3", "1", "1800")])
+        self.assertEqual(workflow.count("--statistic median"), 2)
+        self.assertIn("--candidate-statistic median", workflow)
 
     def test_workflows_use_current_pnpm_setup(self) -> None:
         weekly_workflow_path = (
@@ -756,12 +763,14 @@ Regression threshold: `10.0%`
             [step.get("uses") for step in pr_benchmark_steps],
             [
                 "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
                 "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
                 "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
                 "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
                 None,
                 None,
-                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -771,19 +780,41 @@ Regression threshold: `10.0%`
             ],
         )
         self.assertEqual(
-            pr_benchmark_steps[5],
+            pr_benchmark_steps[6],
             {
-                "name": "Install JavaScript dependencies",
+                "name": "Install base JavaScript dependencies",
+                "timeout-minutes": 10,
+                "working-directory": "benchmark-base",
+                "env": {"SKIP_LERNA_BOOTSTRAP": "yes"},
+                "run": "pnpm install --frozen-lockfile --prefer-offline",
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[9],
+            {
+                "name": "Install candidate JavaScript dependencies",
                 "timeout-minutes": 10,
                 "env": {"SKIP_LERNA_BOOTSTRAP": "yes"},
                 "run": "pnpm install --frozen-lockfile --prefer-offline",
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[9]["env"],
+            pr_benchmark_steps[8]["working-directory"],
+            "benchmark-base",
+        )
+        self.assertEqual(
+            pr_benchmark_steps[8]["env"],
             {
                 "NODE_OPTIONS": "--max-old-space-size=6656",
                 "PYTHONNOUSERSITE": "1",
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[11]["env"],
+            {
+                "NODE_OPTIONS": "--max-old-space-size=6656",
+                "PYTHONNOUSERSITE": "1",
+                "PYRIGHT_BENCHMARK_ENTRY_POINT": "${{ github.workspace }}/packages/pyright/index.js",
             },
         )
         history_workflow_data = _load_yaml(
@@ -860,12 +891,29 @@ Regression threshold: `10.0%`
         self.assertNotIn("pullRequest.data.base.sha", trigger_workflow)
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
-        self.assertIn("actions: write", trigger_workflow)
-        self.assertIn("pull-requests: read", trigger_workflow)
-        self.assertIn("createWorkflowDispatch", trigger_workflow)
-        self.assertIn("workflow_id: 'typecheck_benchmark_pr.yml'", trigger_workflow)
-        self.assertIn("base_sha: baseSha", trigger_workflow)
-        self.assertIn("merge_sha: candidateSha", trigger_workflow)
+        self.assertEqual(
+            trigger_workflow_data["permissions"],
+            {"contents": "read", "pull-requests": "write"},
+        )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["trigger"]["permissions"],
+            {"contents": "read", "pull-requests": "read"},
+        )
+        self.assertNotIn("actions: write", trigger_workflow)
+        self.assertNotIn("createWorkflowDispatch", trigger_workflow)
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["benchmark"]["uses"],
+            "./.github/workflows/typecheck_benchmark_pr.yml",
+        )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["benchmark"]["with"],
+            {
+                "pr_number": "${{ needs.trigger.outputs.pr-number }}",
+                "head_sha": "${{ needs.trigger.outputs.head-sha }}",
+                "base_sha": "${{ needs.trigger.outputs.base-sha }}",
+                "merge_sha": "${{ needs.trigger.outputs.merge-sha }}",
+            },
+        )
         self.assertNotIn("actions/checkout", trigger_workflow)
         self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
@@ -882,7 +930,8 @@ Regression threshold: `10.0%`
         )
         self.assertNotIn("actions/checkout@v4", benchmark_workflow)
         self.assertNotIn("actions/github-script@v7", benchmark_workflow)
-        self.assertIn("workflow_dispatch:", benchmark_workflow)
+        self.assertIn("workflow_call:", benchmark_workflow)
+        self.assertNotIn("workflow_dispatch:", benchmark_workflow)
         self.assertNotIn("paths:", benchmark_workflow)
         self.assertNotIn("pull_request:", benchmark_workflow)
         self.assertNotIn("cache: 'pip'", benchmark_workflow)
@@ -909,24 +958,65 @@ Regression threshold: `10.0%`
             "Compared candidate \\`${process.env.CANDIDATE_SHA}\\` against its first parent",
             benchmark_workflow,
         )
+        comment_steps = benchmark_workflow_data["jobs"]["comment"]["steps"]
         self.assertEqual(
             [
-                step.get("with")
-                for step in benchmark_workflow_data["jobs"]["comment"]["steps"]
-                if step.get("name") == "Check out trusted baseline"
+                step.get("name")
+                for step in comment_steps
+                if step.get("name") in (
+                    "Render comparison history charts",
+                    "Upload comparison history charts",
+                )
             ],
-            [
-                {
-                    "ref": "${{ inputs.base_sha }}",
-                    "path": "benchmark-baseline",
-                    "sparse-checkout": "build/benchmark/baselines",
-                    "persist-credentials": False,
-                }
-            ],
+            ["Render comparison history charts", "Upload comparison history charts"],
         )
-        self.assertIn(
-            "benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json",
-            benchmark_workflow,
+        history_render = next(
+            step
+            for step in comment_steps
+            if step.get("name") == "Render comparison history charts"
+        )
+        self.assertEqual(
+            history_render,
+            {
+                "name": "Render comparison history charts",
+                "if": "${{ steps.download.outputs.pr-number != '' }}",
+                "run": "python build/benchmark/render_pyright_history.py \\\n  base.json \\\n  candidate.json \\\n  --existing-history docs/typecheck-benchmark/history/history.json \\\n  --candidate-label 'Base' \\\n  --candidate-label 'PR #${{ inputs.pr_number }}' \\\n  --candidate-statistic median \\\n  --output pr-history\n",
+            },
+        )
+        history_upload = next(
+            step
+            for step in comment_steps
+            if step.get("name") == "Upload comparison history charts"
+        )
+        self.assertEqual(
+            {
+                key: history_upload[key]
+                for key in ("name", "id", "if", "uses", "with")
+            },
+            {
+                "name": "Upload comparison history charts",
+                "id": "history",
+                "if": "${{ steps.download.outputs.pr-number != '' }}",
+                "uses": "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                "with": {
+                    "name": "typecheck-benchmark-history-pr-${{ inputs.pr_number }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}",
+                    "path": "pr-history/",
+                    "if-no-files-found": "error",
+                    "retention-days": 90,
+                },
+            },
+        )
+        post_comment = next(
+            step for step in comment_steps if step.get("name") == "Post benchmark comment"
+        )
+        self.assertEqual(
+            post_comment["env"],
+            {
+                "PR_NUMBER": "${{ steps.download.outputs.pr-number }}",
+                "BASE_SHA": "${{ inputs.base_sha }}",
+                "CANDIDATE_SHA": "${{ inputs.merge_sha }}",
+                "HISTORY_URL": "${{ steps.history.outputs.artifact-url }}",
+            },
         )
         benchmark_job = benchmark_workflow_data["jobs"]["benchmark"]
         comment_job = benchmark_workflow_data["jobs"]["comment"]
@@ -957,20 +1047,35 @@ Regression threshold: `10.0%`
             ).exists()
         )
 
-    def test_pr_workflow_prefers_trusted_baseline_with_bootstrap_fallback(self) -> None:
+    def test_pr_workflow_benchmarks_exact_base_and_candidate(self) -> None:
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
 
-        trusted = "benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json"
-        bootstrap = "build/benchmark/baselines/latest-linux-x64.json"
-        self.assertLess(
-            workflow.index('if [[ -f "$trusted" ]]'),
-            workflow.index('elif [[ -f "$bootstrap" ]]'),
+        self.assertIn("ref: ${{ inputs.base_sha }}", workflow)
+        self.assertIn("working-directory: benchmark-base", workflow)
+        self.assertIn(
+            "--output ../build/benchmark/results/base",
+            workflow,
         )
-        self.assertIn('echo "path=$trusted" >> "$GITHUB_OUTPUT"', workflow)
-        self.assertIn('echo "path=$bootstrap" >> "$GITHUB_OUTPUT"', workflow)
-        self.assertIn('"${{ steps.baseline.outputs.path }}"', workflow)
+        self.assertIn(
+            "--output build/benchmark/results/candidate",
+            workflow,
+        )
+        self.assertEqual(
+            workflow.count(
+                "python benchmark-base/build/benchmark/typecheck_benchmark.py"
+            ),
+            1,
+        )
+        self.assertIn(
+            "build/benchmark/results/base/latest-linux-x64.json",
+            workflow,
+        )
+        self.assertIn(
+            "build/benchmark/results/candidate/latest-linux-x64.json",
+            workflow,
+        )
 
 
 if __name__ == "__main__":
