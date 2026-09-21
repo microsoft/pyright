@@ -105,6 +105,8 @@ jobs:
     permissions:
       actions: read
       contents: read
+      id-token: write
+      pages: write
       pull-requests: write
     uses: ./.github/workflows/typecheck_benchmark_pr.yml
     with:

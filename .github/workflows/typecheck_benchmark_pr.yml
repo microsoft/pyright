@@ -31,13 +31,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  benchmark:
-    name: Compare Pyright performance
+  packages:
+    name: Resolve benchmark packages
     if: ${{ github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 360
     permissions:
       contents: read
+    outputs:
+      count: ${{ steps.packages.outputs.count }}
+      matrix: ${{ steps.packages.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.base_sha }}
+          sparse-checkout: build/benchmark/install_envs.json
+          persist-credentials: false
+
+      - name: Build package matrix
+        id: packages
+        shell: python
+        run: |
+          import json
+          import os
+          from pathlib import Path
+
+          config = json.loads(
+              Path("build/benchmark/install_envs.json").read_text(encoding="utf-8")
+          )
+          packages = [
+              package.get("name") or package["github_url"].rsplit("/", 1)[-1]
+              for package in config["packages"]
+          ]
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"count={len(packages)}\n")
+              output.write(f"matrix={json.dumps(packages, separators=(',', ':'))}\n")
+
+  benchmark:
+    name: Compare ${{ matrix.package }}
+    needs: packages
+    if: ${{ github.repository == 'microsoft/pyright' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.packages.outputs.matrix) }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -98,6 +138,7 @@ jobs:
         run: |
           python build/benchmark/typecheck_benchmark.py \
             -c pyright -r 3 -w 1 -t 1800 --memory-limit-mb 8192 \
+            --package-names '${{ matrix.package }}' \
             --skip-pyright-build --os-name linux-x64 \
             --output ../build/benchmark/results/base
 
@@ -119,8 +160,64 @@ jobs:
         run: |
           python benchmark-base/build/benchmark/typecheck_benchmark.py \
             -c pyright -r 3 -w 1 -t 1800 --memory-limit-mb 8192 \
+            --package-names '${{ matrix.package }}' \
             --skip-pyright-build --os-name linux-x64 \
             --output build/benchmark/results/candidate
+
+      - name: Upload package results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typecheck-benchmark-shard-pr-${{ inputs.pr_number }}-${{ matrix.package }}
+          path: build/benchmark/results/
+          if-no-files-found: error
+
+  aggregate:
+    name: Aggregate benchmark results
+    needs: [packages, benchmark]
+    if: ${{ always() && needs.benchmark.result != 'cancelled' && github.repository == 'microsoft/pyright' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download package results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: typecheck-benchmark-shard-pr-${{ inputs.pr_number }}-*
+          path: benchmark-shards
+
+      - name: Merge package results
+        env:
+          EXPECTED_PACKAGE_COUNT: ${{ needs.packages.outputs.count }}
+        run: |
+          mapfile -t base_results < <(find benchmark-shards -path '*/base/latest-linux-x64.json' -print | sort)
+          mapfile -t candidate_results < <(find benchmark-shards -path '*/candidate/latest-linux-x64.json' -print | sort)
+          if (( ${#base_results[@]} != EXPECTED_PACKAGE_COUNT )); then
+            echo "Expected $EXPECTED_PACKAGE_COUNT base results, found ${#base_results[@]}" >&2
+            exit 1
+          fi
+          if (( ${#candidate_results[@]} != EXPECTED_PACKAGE_COUNT )); then
+            echo "Expected $EXPECTED_PACKAGE_COUNT candidate results, found ${#candidate_results[@]}" >&2
+            exit 1
+          fi
+          mkdir -p build/benchmark/results/base build/benchmark/results/candidate
+          python build/benchmark/merge_benchmark_results.py \
+            "${base_results[@]}" \
+            --output build/benchmark/results/base/latest-linux-x64.json
+          python build/benchmark/merge_benchmark_results.py \
+            "${candidate_results[@]}" \
+            --output build/benchmark/results/candidate/latest-linux-x64.json
 
       - name: Compare base and candidate
         id: comparison
@@ -137,7 +234,7 @@ jobs:
           cat build/benchmark/results/report.md >> "$GITHUB_STEP_SUMMARY"
           exit "$comparison_status"
 
-      - name: Upload benchmark results
+      - name: Upload combined benchmark results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -150,8 +247,8 @@ jobs:
 
   comment:
     name: Comment benchmark results
-    needs: benchmark
-    if: ${{ always() && needs.benchmark.result != 'cancelled' && github.repository == 'microsoft/pyright' }}
+    needs: aggregate
+    if: ${{ always() && needs.aggregate.result != 'cancelled' && github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -339,7 +436,8 @@ jobs:
           PR_NUMBER: ${{ steps.download.outputs.pr-number }}
           BASE_SHA: ${{ inputs.base_sha }}
           CANDIDATE_SHA: ${{ inputs.merge_sha }}
-          HISTORY_URL: ${{ steps.history.outputs.artifact-url }}
+          HISTORY_ARTIFACT_URL: ${{ steps.history.outputs.artifact-url }}
+          HISTORY_URL: https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/
         with:
           script: |
             const fs = require('fs')
@@ -350,7 +448,14 @@ jobs:
               `Compared candidate \`${process.env.CANDIDATE_SHA}\` against its first parent ` +
               `\`${process.env.BASE_SHA}\`.\n\n`
             const history =
-              `[Download release history charts with the base and PR results](${process.env.HISTORY_URL}).\n\n`
+              `[View the full release history charts with the base and PR results](${process.env.HISTORY_URL}).\n\n` +
+              `### Execution time history\n\n` +
+              `[![Execution time history](${process.env.HISTORY_URL}execution-time.svg)]` +
+              `(${process.env.HISTORY_URL})\n\n` +
+              `### Peak memory history\n\n` +
+              `[![Peak memory history](${process.env.HISTORY_URL}peak-memory.svg)]` +
+              `(${process.env.HISTORY_URL})\n\n` +
+              `[Download the chart artifact](${process.env.HISTORY_ARTIFACT_URL}).\n\n`
             const body = `${marker}\n${revisions}${history}${report}`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -358,3 +463,14 @@ jobs:
               issue_number: issueNumber,
               body,
             })
+
+  publish:
+    name: Publish comparison history charts
+    needs: comment
+    if: ${{ needs.comment.result == 'success' && github.repository == 'microsoft/pyright' }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      pages: write
+    uses: ./.github/workflows/publish_pages.yml
