@@ -237,7 +237,8 @@ export class Checker extends ParseTreeWalker {
         private _evaluator: TypeEvaluator,
         parseResults: ParserOutput,
         private _dependentFiles: ParserOutput[] | undefined,
-        nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+        nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
+        private _walkOperation?: (node: ParseNode, callback: () => void) => void
     ) {
         // Forward the reader to the base walker so the structural walk expands both tier-1
         // (parser-derived) and tier-2 (evaluator-discovered, e.g. `cast("Foo", v)`) string
@@ -293,6 +294,18 @@ export class Checker extends ParseTreeWalker {
     }
 
     override walk(node: ParseNode) {
+        if (this._walkOperation) {
+            this._walkOperation(node, () => {
+                if (!this._nodeInfo.isCodeUnreachable(node)) {
+                    super.walk(node);
+                } else {
+                    this._evaluator.suppressDiagnostics(node, () => {
+                        super.walk(node);
+                    });
+                }
+            });
+            return;
+        }
         if (!this._nodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
         } else {
