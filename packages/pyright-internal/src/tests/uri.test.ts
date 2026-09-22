@@ -11,9 +11,11 @@ import * as nodefs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
 
+import { deserialize, serialize } from '../backgroundThreadBase';
 import { expandPathVariables } from '../common/envVarUtils';
 import { isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
 import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
+import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
 import { UriEx, deduplicateFolders, getWildcardRegexPattern, getWildcardRoot } from '../common/uri/uriUtils';
 import * as vfs from './harness/vfs/filesystem';
@@ -80,6 +82,89 @@ test('key', () => {
     const key11 = UriEx.parse('file:///c%3A/foo/bar/D.txt', false).key;
     const key12 = UriEx.parse('file:///c%3A/foo/bar/d.txt', false).key;
     assert.equal(key11, key12);
+});
+
+describe('file URI encoding', () => {
+    const drives = ['c%3A', 'c%3a', 'C%3A', 'C%3a', 'c:', 'C:'];
+    const literalPercentDrives = ['c%3A', 'c%3a', 'C%3A', 'C%3a'];
+
+    function assertFilePathAndRoundTrips(uri: Uri, filePath: string) {
+        const expectedPath = normalizeSlashes(filePath);
+        assert.strictEqual(uri.scheme, 'file');
+        assert.strictEqual(uri.getFilePath(), expectedPath);
+        const expected = Uri.file(expectedPath, caseDetector);
+        assert.strictEqual(uri.key, expected.key);
+        assert.ok(uri.equals(expected));
+
+        const reparsed = Uri.parse(uri.toString(), caseDetector);
+        const deserialized = deserialize<Uri>(serialize(uri));
+        for (const roundTrip of [reparsed, deserialized]) {
+            assert.strictEqual(roundTrip.getFilePath(), expectedPath);
+            assert.strictEqual(roundTrip.key, uri.key);
+            assert.ok(roundTrip.equals(uri));
+        }
+    }
+
+    describe.each(['parse', 'file'] as const)('Uri.%s', (method) => {
+        test.each(drives)('normalizes drive %s', (drive) => {
+            const uri = Uri[method](`file:///${drive}/Users/project/file.py`, caseDetector);
+            assertFilePathAndRoundTrips(uri, 'c:/Users/project/file.py');
+            assert.strictEqual(uri.root.getFilePath(), normalizeSlashes('c:/'));
+        });
+
+        test.each(drives)('preserves drive root %s', (drive) => {
+            const uri = Uri[method](`file:///${drive}/`, caseDetector);
+            assertFilePathAndRoundTrips(uri, 'c:/');
+            assert.ok(uri.isRoot());
+            assert.strictEqual(uri.getRootPathLength(), 3);
+        });
+
+        test.each(literalPercentDrives)('decodes escaped percent only once in %s', (drive) => {
+            const escapedDrive = drive.replace('%', '%25');
+            const uri = Uri[method](`file:///${escapedDrive}/project/file.py`, caseDetector);
+            assertFilePathAndRoundTrips(uri, `/${drive}/project/file.py`);
+            assert.strictEqual(uri.root.getFilePath(), normalizeSlashes('/'));
+            assert.ok(!uri.equals(Uri.file('c:/project/file.py', caseDetector)));
+        });
+
+        test.each([
+            ['a%20b%23c%25.py', 'a b#c%.py'],
+            ['%253A%2520%2523%2525.py', '%3A%20%23%25.py'],
+        ])('decodes filename %s only once', (encodedName, fileName) => {
+            const uri = Uri[method](`file:///c%3A/project/${encodedName}`, caseDetector);
+            assertFilePathAndRoundTrips(uri, `c:/project/${fileName}`);
+            assert.strictEqual(uri.fileName, fileName);
+            assert.strictEqual(uri.query, '');
+            assert.strictEqual(uri.fragment, '');
+        });
+
+        test.each([
+            ['file://server/share/a%20b%23c%25.py', '//server/share/a b#c%.py'],
+            ['file://server/share/c%253A/file.py', '//server/share/c%3A/file.py'],
+            ['file://server/', '//server/'],
+        ])('preserves UNC authority in %s', (uriString, filePath) => {
+            const uri = Uri[method](uriString, caseDetector);
+            assertFilePathAndRoundTrips(uri, filePath);
+            assert.strictEqual(uri.root.getFilePath(), normalizeSlashes('//server/'));
+            assert.strictEqual(uri.root.toString(), 'file://server/');
+            assert.ok(uri.root.isRoot());
+        });
+    });
+
+    test.each(literalPercentDrives)('does not decode raw filesystem component %s', (drive) => {
+        const filePath = `/${drive}/project/file.py`;
+        const uri = Uri.file(filePath, caseDetector);
+        assertFilePathAndRoundTrips(uri, filePath);
+        assert.strictEqual(uri.root.getFilePath(), normalizeSlashes('/'));
+        assert.ok(!uri.equals(Uri.file('c:/project/file.py', caseDetector)));
+    });
+
+    test('parses a worker root URI string with a service provider', () => {
+        const serviceProvider = createServiceProvider(caseDetector);
+        const rootUri = Uri.parse('file:///c%3A/Users/project', caseDetector).toString();
+        const uri = Uri.parse(rootUri, serviceProvider);
+        assertFilePathAndRoundTrips(uri, 'c:/Users/project');
+    });
 });
 
 test('filename', () => {
