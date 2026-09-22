@@ -791,11 +791,13 @@ function applyEnumDataTypeToTupleValue(enumClass: ClassType, valueType: Type): T
     );
 
     // Only handle built-in data types, whose constructors are known. A tuple
-    // mixin receives the tuple itself, so leave that case alone.
+    // mixin receives the tuple itself, so leave that case alone. A mixin with
+    // only __init__ (such as Queue) does not construct the enum's value.
     if (
         !dataType ||
         !isInstantiableClass(dataType) ||
         !ClassType.isBuiltIn(dataType) ||
+        !dataType.shared.fields.has('__new__') ||
         ClassType.isBuiltIn(dataType, 'tuple')
     ) {
         return valueType;

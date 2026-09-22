@@ -88,3 +88,23 @@ class Ratio(float, Enum):
 
 reveal_type(Ratio.Half.value, expected_text="float")
 reveal_type(Ratio.Whole.value, expected_text="float")
+
+# Queue mixins initialize the enum member, but do not construct its value.
+from queue import Queue, LifoQueue, PriorityQueue
+
+
+class QueueEnum(Queue[int], Enum):
+    Item = (1,)
+
+
+class LifoEnum(LifoQueue[int], Enum):
+    Item = (2,)
+
+
+class PriorityEnum(PriorityQueue[int], Enum):
+    Item = (3,)
+
+
+reveal_type(QueueEnum.Item.value, expected_text="tuple[Literal[1]]")
+reveal_type(LifoEnum.Item.value, expected_text="tuple[Literal[2]]")
+reveal_type(PriorityEnum.Item.value, expected_text="tuple[Literal[3]]")
