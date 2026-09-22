@@ -790,15 +790,25 @@ function applyEnumDataTypeToTupleValue(enumClass: ClassType, valueType: Type): T
         (mroClass) => isClass(mroClass) && !ClassType.isEnumClass(mroClass) && !ClassType.isBuiltIn(mroClass, 'object')
     );
 
-    // Only handle built-in data types, whose constructors are known. A tuple
-    // mixin receives the tuple itself, so leave that case alone. A mixin with
-    // only __init__ (such as Queue) does not construct the enum's value.
+    // Only handle known built-in value constructors. Stub fields don't mirror
+    // runtime class dictionaries: list and set have __new__ at runtime even
+    // though their stubs declare only __init__. Queue mixins don't construct
+    // enum values, and tuple mixins receive the tuple itself.
     if (
         !dataType ||
         !isInstantiableClass(dataType) ||
-        !ClassType.isBuiltIn(dataType) ||
-        !dataType.shared.fields.has('__new__') ||
-        ClassType.isBuiltIn(dataType, 'tuple')
+        !ClassType.isBuiltIn(dataType, [
+            'int',
+            'float',
+            'complex',
+            'str',
+            'bytes',
+            'bytearray',
+            'list',
+            'set',
+            'frozenset',
+            'dict',
+        ])
     ) {
         return valueType;
     }

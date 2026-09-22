@@ -108,3 +108,15 @@ class PriorityEnum(PriorityQueue[int], Enum):
 reveal_type(QueueEnum.Item.value, expected_text="tuple[Literal[1]]")
 reveal_type(LifoEnum.Item.value, expected_text="tuple[Literal[2]]")
 reveal_type(PriorityEnum.Item.value, expected_text="tuple[Literal[3]]")
+
+
+class ListEnum(list[int], Enum):
+    Item = ([1, 2],)
+
+
+class SetEnum(set[int], Enum):
+    Item = ({1, 2},)
+
+
+reveal_type(ListEnum.Item.value, expected_text="list[int]")
+reveal_type(SetEnum.Item.value, expected_text="set[int]")
