@@ -89,3 +89,53 @@ def func5(a: Any) -> None:
 
 def func6(a) -> None:
     reveal_type(ClassC(a), expected_text="ClassC[str, Unknown]")
+
+
+from typing_extensions import TypeVarTuple, Unpack
+
+Ts = TypeVarTuple("Ts")
+
+
+class ClassD(Generic[Unpack[Ts]]):
+    @overload
+    def __init__(self: "ClassD[int, str]", x: int) -> None: ...
+
+    @overload
+    def __init__(self: "ClassD[int, bytes]", x: str) -> None: ...
+
+    def __init__(self, x: Any) -> None:
+        pass
+
+    def values(self) -> tuple[Unpack[Ts]]:
+        raise NotImplementedError
+
+
+def func7(a: Any) -> None:
+    value = ClassD(a)
+    reveal_type(value, expected_text="ClassD[int, Unknown]")
+    reveal_type(value.values()[1], expected_text="Unknown")
+    first, second = value.values()
+    reveal_type(first, expected_text="int")
+    reveal_type(second, expected_text="Unknown")
+
+
+def func8(a) -> None:
+    reveal_type(ClassD(a), expected_text="ClassD[int, Unknown]")
+    reveal_type(ClassD(1), expected_text="ClassD[int, str]")
+    reveal_type(ClassD("a"), expected_text="ClassD[int, bytes]")
+
+
+class ClassE(Generic[Unpack[Ts]]):
+    @overload
+    def __init__(self: "ClassE[int]", x: int) -> None: ...
+
+    @overload
+    def __init__(self: "ClassE[str, bytes]", x: str) -> None: ...
+
+    def __init__(self, x: Any) -> None:
+        pass
+
+
+def func9(a: Any) -> None:
+    # Different pack lengths must not invent a fixed one-element pack.
+    reveal_type(ClassE(a), expected_text="ClassE[*tuple[Unknown, ...]]")

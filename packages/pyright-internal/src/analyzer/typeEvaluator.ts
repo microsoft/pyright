@@ -10165,7 +10165,46 @@ export function createTypeEvaluator(
                                 firstSelfType,
                                 firstSelfType.priv.typeArgs.map((arg, index) => {
                                     const args = (initSelfTypes as ClassType[]).map((t) => t.priv.typeArgs![index]);
-                                    return areTypesSame(args, {}) ? arg : UnknownType.create();
+                                    if (areTypesSame(args, {})) {
+                                        return arg;
+                                    }
+
+                                    // A TypeVarTuple argument is an unpacked tuple, not
+                                    // one ordinary argument. Preserve its shape when
+                                    // replacing conflicting element types with Unknown.
+                                    if (isUnpackedClass(arg) && isTupleClass(arg) && arg.priv.tupleTypeArgs) {
+                                        const tupleArgs = args.map((type) =>
+                                            isUnpackedClass(type) && isTupleClass(type)
+                                                ? type.priv.tupleTypeArgs
+                                                : undefined
+                                        );
+                                        const firstTupleArgs = arg.priv.tupleTypeArgs;
+                                        const sameShape = tupleArgs.every(
+                                            (entries) =>
+                                                entries?.length === firstTupleArgs.length &&
+                                                entries.every(
+                                                    (entry, i) =>
+                                                        !!entry.isUnbounded === !!firstTupleArgs[i].isUnbounded
+                                                )
+                                        );
+                                        return specializeTupleClass(
+                                            arg,
+                                            sameShape
+                                                ? firstTupleArgs.map((entry, i) => ({
+                                                      ...entry,
+                                                      type: areTypesSame(
+                                                          tupleArgs.map((entries) => entries![i].type),
+                                                          {}
+                                                      )
+                                                          ? entry.type
+                                                          : UnknownType.create(),
+                                                  }))
+                                                : [{ type: UnknownType.create(), isUnbounded: true }],
+                                            /* isTypeArgExplicit */ true,
+                                            /* isUnpacked */ true
+                                        );
+                                    }
+                                    return UnknownType.create();
                                 })
                             );
                         }
