@@ -139,3 +139,39 @@ class ClassE(Generic[Unpack[Ts]]):
 def func9(a: Any) -> None:
     # Different pack lengths must not invent a fixed one-element pack.
     reveal_type(ClassE(a), expected_text="ClassE[*tuple[Unknown, ...]]")
+
+
+class Animal:
+    pass
+
+
+class Dog(Animal):
+    def bark(self) -> None:
+        pass
+
+
+T_co = TypeVar("T_co", covariant=True)
+
+
+class Box(Generic[T_co]):
+    @overload
+    def __init__(self: "Box[Dog]", value: int) -> None: ...
+    @overload
+    def __init__(self: "Box[Animal]", value: str) -> None: ...
+    def __init__(self, value: Any) -> None:
+        pass
+
+    def get(self) -> T_co:
+        raise NotImplementedError
+
+
+def explicit_covariant(value: Any) -> None:
+    result = Box[Dog](value)
+    reveal_type(result, expected_text="Box[Dog]")
+    result.get().bark()
+    reveal_type(Box[Animal](value), expected_text="Box[Animal]")
+    reveal_type(Box(value), expected_text="Box[Animal]")
+
+
+def explicit_covariant_unknown(value) -> None:
+    reveal_type(Box[Dog](value), expected_text="Box[Dog]")

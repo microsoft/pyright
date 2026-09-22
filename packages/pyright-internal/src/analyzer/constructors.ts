@@ -523,8 +523,10 @@ function validateInitMethod(
             );
         }
 
+        // A specialized __init__ self type must not widen type arguments
+        // explicitly supplied by the caller, even when overloads are ambiguous.
         const adjustedClassType =
-            isClassInstance(selfType) && ClassType.isSameGenericClass(selfType, type)
+            !type.priv.typeArgs && isClassInstance(selfType) && ClassType.isSameGenericClass(selfType, type)
                 ? ClassType.cloneAsInstantiable(selfType)
                 : type;
         return applyExpectedTypeForConstructor(
