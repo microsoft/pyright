@@ -9,7 +9,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
-import { pythonVersion3_11, pythonVersion3_12, pythonVersion3_13 } from '../common/pythonVersion';
+import { pythonVersion3_11, pythonVersion3_12, pythonVersion3_13, pythonVersion3_14 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -159,6 +159,14 @@ test('TypeAliasStatement5', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasStatement5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeAliasStatement6', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_14;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasStatement6.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
