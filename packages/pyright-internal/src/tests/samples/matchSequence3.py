@@ -45,3 +45,33 @@ def func4(t: tuple[int, ...]) -> None:
         case _, _:
             # A plain tuple is still narrowed to the matched length.
             reveal_type(t, expected_text="tuple[int, int]")
+
+class Integers(tuple[int, ...]):
+    pass
+
+
+def consume_pair(value: tuple[int, int]) -> None:
+    pass
+
+
+def variable_length_subclass(value: Integers) -> None:
+    match value:
+        case [_, _]:
+            reveal_type(value, expected_text="tuple[int, int]")
+            consume_pair(value)
+
+
+def empty_subclass(value: Integers) -> None:
+    match value:
+        case []:
+            reveal_type(value, expected_text="tuple[()]")
+
+
+class TaggedIntegers(tuple[str, *tuple[int, ...]]):
+    pass
+
+
+def variadic_subclass(value: TaggedIntegers) -> None:
+    match value:
+        case [_, _]:
+            reveal_type(value, expected_text="tuple[str, int]")

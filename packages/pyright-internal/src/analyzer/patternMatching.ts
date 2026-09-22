@@ -419,6 +419,7 @@ function narrowTypeBasedOnSequencePattern(
                 isClassInstance(entry.subtype) &&
                 !ClassType.isBuiltIn(entry.subtype, 'tuple') &&
                 !entry.isIndeterminateLength &&
+                !entry.isUnboundedTuple &&
                 narrowedEntryTypes.length === unnarrowedEntryTypes.length &&
                 narrowedEntryTypes.every((narrowedType, index) =>
                     isTypeSame(narrowedType, unnarrowedEntryTypes[index])
