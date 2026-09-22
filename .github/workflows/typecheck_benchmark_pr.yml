@@ -424,7 +424,7 @@ jobs:
         if: ${{ steps.download.outputs.pr-number != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: typecheck-benchmark-history-pr-${{ inputs.pr_number }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}
+          name: typecheck-benchmark-history-pr-${{ inputs.pr_number }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}
           path: pr-history/
           if-no-files-found: error
           retention-days: 90
@@ -437,7 +437,7 @@ jobs:
           BASE_SHA: ${{ inputs.base_sha }}
           CANDIDATE_SHA: ${{ inputs.merge_sha }}
           HISTORY_ARTIFACT_URL: ${{ steps.history.outputs.artifact-url }}
-          HISTORY_URL: https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/${{ github.run_id }}/
+          HISTORY_URL: https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/${{ github.run_id }}/${{ github.run_attempt }}/
         with:
           script: |
             const fs = require('fs')

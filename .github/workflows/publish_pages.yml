@@ -107,7 +107,7 @@ jobs:
               per_page: 100,
             })
             const pattern =
-              /^typecheck-benchmark-history-pr-(\d+)-base-[0-9a-f]{40}-candidate-[0-9a-f]{40}$/
+              /^typecheck-benchmark-history-pr-(\d+)-run-(\d+)-attempt-(\d+)-base-[0-9a-f]{40}-candidate-[0-9a-f]{40}$/
             const retained = []
             for (const artifact of artifacts) {
               const match = artifact.name.match(pattern)
@@ -157,10 +157,10 @@ jobs:
           mkdir -p pr-histories
           python build/benchmark/pr_history_artifacts.py \
             select pr-history-artifacts.json retained-pr-histories.json
-          jq -r '.[] | [.id, .pr_number, .run_id] | @tsv' retained-pr-histories.json |
-            while IFS=$'\t' read -r artifact_id pr_number run_id; do
-              archive="$RUNNER_TEMP/pr-history-$pr_number-$run_id.zip"
-              destination="pr-histories/$pr_number/$run_id"
+          jq -r '.[] | [.id, .pr_number, .run_id, .run_attempt] | @tsv' retained-pr-histories.json |
+            while IFS=$'\t' read -r artifact_id pr_number run_id run_attempt; do
+              archive="$RUNNER_TEMP/pr-history-$pr_number-$run_id-$run_attempt.zip"
+              destination="pr-histories/$pr_number/$run_id/$run_attempt"
               gh api \
                 "/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" \
                 > "$archive"

@@ -11,12 +11,14 @@ def _artifact(
     artifact_id: int,
     pr_number: int,
     run_id: int,
+    run_attempt: int,
     created_at: str,
 ) -> dict:
     return {
         "id": artifact_id,
         "name": (
             f"typecheck-benchmark-history-pr-{pr_number}-"
+            f"run-{run_id}-attempt-{run_attempt}-"
             f"base-{'a' * 40}-candidate-{'b' * 40}"
         ),
         "run_id": run_id,
@@ -25,13 +27,18 @@ def _artifact(
 
 
 class PrHistoryArtifactsTest(unittest.TestCase):
-    def test_selects_latest_artifact_for_each_run(self) -> None:
+    def test_selects_latest_artifact_for_each_run_attempt(self) -> None:
         artifacts = [
-            _artifact(1, 10, 100, "2026-09-21T10:00:00Z"),
-            _artifact(2, 10, 100, "2026-09-21T11:00:00Z"),
-            _artifact(3, 10, 101, "2026-09-21T12:00:00Z"),
-            _artifact(4, 11, 102, "2026-09-21T13:00:00Z"),
-            {"id": 5, "name": "unrelated", "run_id": 103, "created_at": "later"},
+            _artifact(1, 10, 100, 1, "2026-09-21T10:00:00Z"),
+            _artifact(2, 10, 100, 1, "2026-09-21T11:00:00Z"),
+            _artifact(3, 10, 100, 2, "2026-09-21T12:00:00Z"),
+            _artifact(4, 11, 102, 1, "2026-09-21T13:00:00Z"),
+            {
+                "id": 5,
+                "name": "unrelated",
+                "run_id": 103,
+                "created_at": "later",
+            },
         ]
 
         selected = pr_history_artifacts.select_artifacts(artifacts)
@@ -39,11 +46,17 @@ class PrHistoryArtifactsTest(unittest.TestCase):
         self.assertEqual(
             selected,
             [
-                {"id": 2, "pr_number": 10, "run_id": 100},
-                {"id": 3, "pr_number": 10, "run_id": 101},
-                {"id": 4, "pr_number": 11, "run_id": 102},
+                {"id": 2, "pr_number": 10, "run_id": 100, "run_attempt": 1},
+                {"id": 3, "pr_number": 10, "run_id": 100, "run_attempt": 2},
+                {"id": 4, "pr_number": 11, "run_id": 102, "run_attempt": 1},
             ],
         )
+
+    def test_rejects_artifact_with_mismatched_run_identity(self) -> None:
+        artifact = _artifact(1, 10, 100, 2, "2026-09-21T10:00:00Z")
+        artifact["run_id"] = 101
+
+        self.assertEqual(pr_history_artifacts.select_artifacts([artifact]), [])
 
     def test_extracts_expected_chart_files(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

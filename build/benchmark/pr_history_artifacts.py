@@ -11,7 +11,8 @@ from typing import Any
 
 
 ARTIFACT_PATTERN = re.compile(
-    r"^typecheck-benchmark-history-pr-(\d+)-base-[0-9a-f]{40}-candidate-[0-9a-f]{40}$"
+    r"^typecheck-benchmark-history-pr-(\d+)-run-(\d+)-attempt-(\d+)"
+    r"-base-[0-9a-f]{40}-candidate-[0-9a-f]{40}$"
 )
 EXPECTED_FILES = {
     "execution-time.svg",
@@ -23,7 +24,7 @@ MAX_FILE_SIZE = 5 * 1024 * 1024
 
 
 def select_artifacts(artifacts: list[dict[str, Any]]) -> list[dict[str, int]]:
-    selected: dict[tuple[int, int], dict[str, Any]] = {}
+    selected: dict[tuple[int, int, int], dict[str, Any]] = {}
     for artifact in artifacts:
         match = ARTIFACT_PATTERN.fullmatch(str(artifact.get("name", "")))
         artifact_id = artifact.get("id")
@@ -38,13 +39,17 @@ def select_artifacts(artifacts: list[dict[str, Any]]) -> list[dict[str, int]]:
         ):
             continue
         pr_number = int(match.group(1))
-        key = (pr_number, run_id)
+        if run_id != int(match.group(2)):
+            continue
+        run_attempt = int(match.group(3))
+        key = (pr_number, run_id, run_attempt)
         current = selected.get(key)
         if current is None or str(current["created_at"]) < created_at:
             selected[key] = {
                 "id": artifact_id,
                 "pr_number": pr_number,
                 "run_id": run_id,
+                "run_attempt": run_attempt,
                 "created_at": created_at,
             }
     return [
@@ -52,12 +57,14 @@ def select_artifacts(artifacts: list[dict[str, Any]]) -> list[dict[str, int]]:
             "id": int(artifact["id"]),
             "pr_number": int(artifact["pr_number"]),
             "run_id": int(artifact["run_id"]),
+            "run_attempt": int(artifact["run_attempt"]),
         }
         for artifact in sorted(
             selected.values(),
             key=lambda artifact: (
                 int(artifact["pr_number"]),
                 int(artifact["run_id"]),
+                int(artifact["run_attempt"]),
             ),
         )
     ]

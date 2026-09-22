@@ -757,7 +757,16 @@ Regression threshold: `10.0%`
         self.assertIn("pr-history-artifacts.json", steps[4]["run"])
         self.assertIn("pr_history_artifacts.py", steps[4]["run"])
         self.assertIn("retained-pr-histories.json", steps[4]["run"])
+        self.assertIn(".run_attempt", steps[4]["run"])
+        self.assertIn(
+            "pr-histories/$pr_number/$run_id/$run_attempt",
+            steps[4]["run"],
+        )
         self.assertIn("listArtifactsForRepo", steps[1]["with"]["script"])
+        self.assertIn(
+            "attempt-(\\d+)-base",
+            steps[1]["with"]["script"],
+        )
         self.assertIn(
             "run.data.path !== '.github/workflows/typecheck_benchmark_trigger.yml'",
             steps[1]["with"]["script"],
@@ -1061,7 +1070,7 @@ Regression threshold: `10.0%`
                 "if": "${{ steps.download.outputs.pr-number != '' }}",
                 "uses": "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
                 "with": {
-                    "name": "typecheck-benchmark-history-pr-${{ inputs.pr_number }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}",
+                    "name": "typecheck-benchmark-history-pr-${{ inputs.pr_number }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}",
                     "path": "pr-history/",
                     "if-no-files-found": "error",
                     "retention-days": 90,
@@ -1078,7 +1087,7 @@ Regression threshold: `10.0%`
                 "BASE_SHA": "${{ inputs.base_sha }}",
                 "CANDIDATE_SHA": "${{ inputs.merge_sha }}",
                 "HISTORY_ARTIFACT_URL": "${{ steps.history.outputs.artifact-url }}",
-                "HISTORY_URL": "https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/${{ github.run_id }}/",
+                "HISTORY_URL": "https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/${{ github.run_id }}/${{ github.run_attempt }}/",
             },
         )
         packages_job = benchmark_workflow_data["jobs"]["packages"]
