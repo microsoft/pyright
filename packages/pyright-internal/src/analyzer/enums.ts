@@ -535,7 +535,7 @@ export function transformTypeForEnumMember(
         }
 
         if (!isUnpackedTuple) {
-            valueType = applyEnumDataTypeToTupleValue(classType, valueType);
+            valueType = applyEnumDataTypeToTupleValue(evaluator, nameNode, classType, valueType);
         }
 
         const enumLiteral = new EnumLiteral(
@@ -767,7 +767,12 @@ export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExpressionN
 // If an enum class mixes in a built-in data type such as str or int, a member
 // whose assigned value is a tuple gets the value "data_type(*value)" at runtime.
 // For example, the value of "A = 'a'," in a str-based enum is "a", not ("a",).
-function applyEnumDataTypeToTupleValue(enumClass: ClassType, valueType: Type): Type {
+function applyEnumDataTypeToTupleValue(
+    evaluator: TypeEvaluator,
+    errorNode: NameNode,
+    enumClass: ClassType,
+    valueType: Type
+): Type {
     if (!isClassInstance(valueType) || !isTupleClass(valueType) || !valueType.priv.tupleTypeArgs) {
         return valueType;
     }
@@ -815,6 +820,30 @@ function applyEnumDataTypeToTupleValue(enumClass: ClassType, valueType: Type): T
 
     const dataInstanceType = ClassType.cloneAsInstance(dataType);
     const tupleTypeArgs = valueType.priv.tupleTypeArgs;
+
+    // Preserve the original tuple when construction is invalid so member
+    // validation can still report its incompatibility with the declared value.
+    const callResult = evaluator.useSpeculativeMode(errorNode, () =>
+        evaluator.validateCallArgs(
+            errorNode,
+            [{ argCategory: ArgCategory.UnpackedList, typeResult: { type: valueType } }],
+            { type: dataType },
+            undefined,
+            undefined,
+            undefined
+        )
+    );
+    if (callResult.argumentErrors) {
+        return valueType;
+    }
+    // StrEnum requires a string for its single-argument form, unlike str().
+    if (
+        enumClass.shared.mro.some((base) => isClass(base) && ClassType.isBuiltIn(base, 'StrEnum')) &&
+        tupleTypeArgs.length === 1 &&
+        !evaluator.assignType(dataInstanceType, tupleTypeArgs[0].type)
+    ) {
+        return valueType;
+    }
 
     // A single argument that is already an instance of the data type is
     // returned unchanged by the constructor, so preserve its (literal) type.

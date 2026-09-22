@@ -8,7 +8,7 @@ class BodyType1(str, Enum):
     # The value is the result of str("text"), which is the literal itself.
     Text = ("text",)
     Html = "html",
-    Pair = "a", "b"
+    Pair = b"a", "utf8"
 
 
 reveal_type(BodyType1.Text.value, expected_text="Literal['text']")
@@ -120,3 +120,17 @@ class SetEnum(set[int], Enum):
 
 reveal_type(ListEnum.Item.value, expected_text="list[int]")
 reveal_type(SetEnum.Item.value, expected_text="set[int]")
+
+
+class InvalidIntMembers(IntEnum):
+    # This should generate an error because object cannot be converted to int.
+    WrongType = (object(),)
+    # This should generate an error because int accepts at most two arguments.
+    WrongArity = (1, 2, 3)
+
+
+class InvalidStrMembers(StrEnum):
+    # This should generate an error because StrEnum requires string arguments.
+    WrongType = (object(),)
+    # This should generate an error because StrEnum accepts at most three arguments.
+    WrongArity = ("a", "utf8", "strict", "extra")
