@@ -63,6 +63,40 @@ class ReturnsTypingSelf(ABC):
 ReturnsTypingSelf()
 
 
+class ConcreteParent:
+    def __new__(cls) -> "ConcreteParent":
+        return object.__new__(cls)
+
+
+class AbstractChild(ConcreteParent, ABC):
+    @abstractmethod
+    def method(self) -> None: ...
+
+
+# A base-class return annotation also permits an instance of this abstract child.
+AbstractChild()
+
+
+class AbstractGrandchild(AbstractChild):
+    pass
+
+
+# Indirect inheritance must not bypass the abstract check either.
+AbstractGrandchild()
+
+
+class ReturnsObject(ABC):
+    def __new__(cls) -> object:
+        return object.__new__(cls)
+
+    @abstractmethod
+    def method(self) -> None: ...
+
+
+# The broad object annotation does not establish a different concrete class.
+ReturnsObject()
+
+
 class ReturnsNever(ABC):
     def __new__(cls) -> Never: ...
 

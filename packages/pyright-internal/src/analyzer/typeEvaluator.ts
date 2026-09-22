@@ -29494,8 +29494,11 @@ export function createTypeEvaluator(
                 return;
             }
 
-            // A return of the class itself, including `Self`, still instantiates it.
-            if (ClassType.isSameGenericClass(subtype, ClassType.cloneAsInstance(classType))) {
+            // The class itself or one of its bases can still describe an instance
+            // of this abstract class, so neither proves a concrete factory result.
+            if (
+                derivesFromClassRecursive(classType, ClassType.cloneAsInstantiable(subtype), /* ignoreUnknown */ false)
+            ) {
                 instantiatesOthers = false;
                 return;
             }
