@@ -61,3 +61,31 @@ def func4(a):
     # takes the same code path, so it must not pick the first overload either.
     reveal_type(ClassA(a), expected_text="ClassA[Unknown]")
     reveal_type(ClassB(a, 1), expected_text="ClassB[int]")
+
+from typing_extensions import TypeVar as TypeVarWithDefault
+
+U = TypeVarWithDefault("U", default=bytes)
+V = TypeVarWithDefault("V", default=bool)
+
+
+class ClassC(Generic[U, V]):
+    @overload
+    def __init__(self: "ClassC[str, int]", x: int) -> None: ...
+
+    @overload
+    def __init__(self: "ClassC[str, str]", x: str) -> None: ...
+
+    def __init__(self, x: Any) -> None:
+        pass
+
+
+def func5(a: Any) -> None:
+    # Keep the shared str argument. Conflicting arguments are unknown, not
+    # the unrelated default bool (nor the first overload's int).
+    reveal_type(ClassC(a), expected_text="ClassC[str, Unknown]")
+    reveal_type(ClassC(1), expected_text="ClassC[str, int]")
+    reveal_type(ClassC("a"), expected_text="ClassC[str, str]")
+
+
+def func6(a) -> None:
+    reveal_type(ClassC(a), expected_text="ClassC[str, Unknown]")

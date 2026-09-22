@@ -10140,12 +10140,36 @@ export function createTypeEvaluator(
                     // would be used even though the match is ambiguous.
                     const initSelfTypes = possibleMatchResults.map((result) => result.specializedInitSelfType);
                     if (initSelfTypes.every((selfType) => selfType !== undefined)) {
-                        specializedInitSelfTypes.push(
-                            combineAmbiguousOverloadResults(
-                                initSelfTypes as Type[],
-                                possibleMatchInvolvesIncompleteUnknown
-                            )
+                        let combinedSelfType = combineAmbiguousOverloadResults(
+                            initSelfTypes as Type[],
+                            possibleMatchInvolvesIncompleteUnknown
                         );
+                        const firstSelfType = initSelfTypes[0];
+                        if (
+                            isUnknown(combinedSelfType) &&
+                            firstSelfType &&
+                            isClassInstance(firstSelfType) &&
+                            firstSelfType.priv.typeArgs &&
+                            initSelfTypes.every(
+                                (selfType) =>
+                                    selfType &&
+                                    isClassInstance(selfType) &&
+                                    ClassType.isSameGenericClass(firstSelfType, selfType) &&
+                                    selfType.priv.typeArgs?.length === firstSelfType.priv.typeArgs!.length
+                            )
+                        ) {
+                            // Preserve arguments shared by every matching specialization.
+                            // Conflicting arguments are unknown, not unsolved: applying
+                            // generic defaults here would invent an unrelated type.
+                            combinedSelfType = ClassType.specialize(
+                                firstSelfType,
+                                firstSelfType.priv.typeArgs.map((arg, index) => {
+                                    const args = (initSelfTypes as ClassType[]).map((t) => t.priv.typeArgs![index]);
+                                    return areTypesSame(args, {}) ? arg : UnknownType.create();
+                                })
+                            );
+                        }
+                        specializedInitSelfTypes.push(combinedSelfType);
                     }
                 }
             }
