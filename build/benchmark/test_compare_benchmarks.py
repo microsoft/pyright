@@ -704,6 +704,7 @@ Regression threshold: `10.0%`
                 "Find retained report artifacts",
                 "Download latest benchmark report",
                 "Download Pyright release history",
+                "Download retained PR histories",
                 "Add report to documentation site",
                 "Configure Pages",
                 "Upload Pages artifact",
@@ -717,6 +718,7 @@ Regression threshold: `10.0%`
                 "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3",
                 "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
                 "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+                None,
                 None,
                 "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d",
                 "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9",
@@ -749,7 +751,28 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            steps[6]["with"],
+            steps[4]["env"],
+            {"GH_TOKEN": "${{ secrets.GITHUB_TOKEN }}"},
+        )
+        self.assertIn("pr-history-artifacts.json", steps[4]["run"])
+        self.assertIn("pr_history_artifacts.py", steps[4]["run"])
+        self.assertIn("retained-pr-histories.json", steps[4]["run"])
+        self.assertIn(".run_attempt", steps[4]["run"])
+        self.assertIn(
+            "pr-histories/$pr_number/$run_id/$run_attempt",
+            steps[4]["run"],
+        )
+        self.assertIn("listArtifactsForRepo", steps[1]["with"]["script"])
+        self.assertIn(
+            "attempt-(\\d+)-base",
+            steps[1]["with"]["script"],
+        )
+        self.assertIn(
+            "run.data.path !== '.github/workflows/typecheck_benchmark_trigger.yml'",
+            steps[1]["with"]["script"],
+        )
+        self.assertEqual(
+            steps[7]["with"],
             {"path": "docs", "include-hidden-files": True},
         )
 
@@ -776,7 +799,7 @@ Regression threshold: `10.0%`
         )
         self.assertEqual(
             pr_workflow_data["jobs"]["comment"]["if"],
-            "${{ always() && needs.benchmark.result != 'cancelled' && github.repository == 'microsoft/pyright' }}",
+            "${{ always() && needs.aggregate.result != 'cancelled' && github.repository == 'microsoft/pyright' }}",
         )
         self.assertEqual(
             [step.get("uses") for step in pr_benchmark_steps],
@@ -795,9 +818,7 @@ Regression threshold: `10.0%`
                 None,
                 None,
                 None,
-                None,
                 "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
-                None,
             ],
         )
         self.assertEqual(
@@ -954,6 +975,16 @@ Regression threshold: `10.0%`
                 "merge_sha": "${{ needs.trigger.outputs.merge-sha }}",
             },
         )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["benchmark"]["permissions"],
+            {
+                "actions": "read",
+                "contents": "read",
+                "id-token": "write",
+                "pages": "write",
+                "pull-requests": "write",
+            },
+        )
         self.assertNotIn("actions/checkout", trigger_workflow)
         self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
@@ -1039,7 +1070,7 @@ Regression threshold: `10.0%`
                 "if": "${{ steps.download.outputs.pr-number != '' }}",
                 "uses": "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
                 "with": {
-                    "name": "typecheck-benchmark-history-pr-${{ inputs.pr_number }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}",
+                    "name": "typecheck-benchmark-history-pr-${{ inputs.pr_number }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}",
                     "path": "pr-history/",
                     "if-no-files-found": "error",
                     "retention-days": 90,
@@ -1055,12 +1086,39 @@ Regression threshold: `10.0%`
                 "PR_NUMBER": "${{ steps.download.outputs.pr-number }}",
                 "BASE_SHA": "${{ inputs.base_sha }}",
                 "CANDIDATE_SHA": "${{ inputs.merge_sha }}",
-                "HISTORY_URL": "${{ steps.history.outputs.artifact-url }}",
+                "HISTORY_ARTIFACT_URL": "${{ steps.history.outputs.artifact-url }}",
+                "HISTORY_URL": "https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/${{ github.run_id }}/${{ github.run_attempt }}/",
             },
         )
+        packages_job = benchmark_workflow_data["jobs"]["packages"]
         benchmark_job = benchmark_workflow_data["jobs"]["benchmark"]
+        aggregate_job = benchmark_workflow_data["jobs"]["aggregate"]
         comment_job = benchmark_workflow_data["jobs"]["comment"]
+        publish_job = benchmark_workflow_data["jobs"]["publish"]
+        self.assertEqual(
+            packages_job["outputs"],
+            {
+                "count": "${{ steps.packages.outputs.count }}",
+                "matrix": "${{ steps.packages.outputs.matrix }}",
+            },
+        )
+        self.assertEqual(benchmark_job["needs"], "packages")
+        self.assertEqual(benchmark_job["timeout-minutes"], 300)
+        self.assertEqual(
+            benchmark_job["strategy"],
+            {
+                "fail-fast": False,
+                "matrix": {
+                    "package": "${{ fromJson(needs.packages.outputs.matrix) }}"
+                },
+            },
+        )
+        self.assertIn("--package-names '${{ matrix.package }}'", benchmark_workflow)
         self.assertEqual(benchmark_job["permissions"], {"contents": "read"})
+        self.assertEqual(aggregate_job["needs"], ["packages", "benchmark"])
+        self.assertIn(
+            "build/benchmark/merge_benchmark_results.py", benchmark_workflow
+        )
         self.assertEqual(
             comment_job["permissions"],
             {
@@ -1069,7 +1127,24 @@ Regression threshold: `10.0%`
                 "pull-requests": "write",
             },
         )
-        self.assertEqual(comment_job["needs"], "benchmark")
+        self.assertEqual(comment_job["needs"], "aggregate")
+        self.assertEqual(
+            {
+                key: publish_job[key]
+                for key in ("needs", "if", "permissions", "uses")
+            },
+            {
+                "needs": "comment",
+                "if": "${{ needs.comment.result == 'success' && github.repository == 'microsoft/pyright' }}",
+                "permissions": {
+                    "actions": "read",
+                    "contents": "read",
+                    "id-token": "write",
+                    "pages": "write",
+                },
+                "uses": "./.github/workflows/publish_pages.yml",
+            },
+        )
         self.assertEqual(
             [
                 job_name
