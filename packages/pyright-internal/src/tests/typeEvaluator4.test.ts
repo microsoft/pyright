@@ -601,6 +601,12 @@ test('Unions6', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Unions7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unions7.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+});
+
 test('ParamSpec1', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec1.py']);
     TestUtils.validateResults(results, 9);
