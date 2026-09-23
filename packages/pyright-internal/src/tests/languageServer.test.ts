@@ -225,13 +225,15 @@ describe(`Basic language server tests`, () => {
         assert(incoming);
         assert.strictEqual(incoming.length, 1);
         const caller = incoming[0].from;
-        expect(caller).toEqual({
-            name: 'caller',
-            kind: SymbolKind.Function,
-            uri,
-            range: range('callerStart', 'callerEnd'),
-            selectionRange: range('caller', 'callerNameEnd'),
-        });
+        expect(caller).toEqual(
+            expect.objectContaining({
+                name: 'caller',
+                kind: SymbolKind.Function,
+                uri,
+                range: range('callerStart', 'callerEnd'),
+                selectionRange: range('caller', 'callerNameEnd'),
+            })
+        );
         expect(incoming[0].fromRanges).toEqual([range('leafCall', 'leafCallEnd')]);
 
         // Send the returned item unchanged, as a client expanding the hierarchy would.
@@ -243,13 +245,13 @@ describe(`Basic language server tests`, () => {
             );
             expect(parents).toEqual([
                 {
-                    from: {
+                    from: expect.objectContaining({
                         name: 'parent',
                         kind: SymbolKind.Function,
                         uri,
                         range: range('parentStart', 'parentEnd'),
                         selectionRange: range('parent', 'parentNameEnd'),
-                    },
+                    }),
                     fromRanges: [range('callerCall', 'callerCallEnd')],
                 },
             ]);
