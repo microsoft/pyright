@@ -682,6 +682,12 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             };
         } else {
             const functionRange = convertOffsetsToRange(
+                executionNode.start,
+                executionNode.start + executionNode.length,
+                this._parseResults.tokenizerOutput.lines
+            );
+
+            const functionSelectionRange = convertOffsetsToRange(
                 executionNode.d.name.start,
                 executionNode.d.name.start + executionNode.d.name.length,
                 this._parseResults.tokenizerOutput.lines
@@ -694,7 +700,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                 detail: classNode ? `class ${classNode.d.name.d.value} (${fileName})` : `(${fileName})`,
                 uri: convertUriToLspUriString(this._program.fileSystem, this._fileUri),
                 range: functionRange,
-                selectionRange: functionRange,
+                selectionRange: functionSelectionRange,
             };
         }
 
