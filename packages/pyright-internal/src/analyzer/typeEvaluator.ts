@@ -7025,8 +7025,7 @@ export function createTypeEvaluator(
         // Accessors can be defined at different levels of the descriptor's MRO.
         // Ignore instance members so an instance attribute that happens to share
         // a dunder name doesn't shadow the descriptor protocol during this check.
-        const accessorFlags =
-            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride;
+        const accessorFlags = MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride;
         const getterSymbolResult = lookUpClassMember(classType, '__get__', accessorFlags);
         const setterSymbolResult = lookUpClassMember(classType, '__set__', accessorFlags);
 
