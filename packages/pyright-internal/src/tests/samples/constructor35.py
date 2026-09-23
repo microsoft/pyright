@@ -175,3 +175,30 @@ def explicit_covariant(value: Any) -> None:
 
 def explicit_covariant_unknown(value) -> None:
     reveal_type(Box[Dog](value), expected_text="Box[Dog]")
+
+
+from typing import TypeAlias
+
+T_alias = TypeVar("T_alias")
+
+
+class AliasBox(Generic[T_alias]):
+    def __init__(self: "AliasBox[int]", value: int) -> None: ...
+
+    def get(self) -> T_alias:
+        raise NotImplementedError
+
+
+Alias: TypeAlias = AliasBox[T_alias]
+reveal_type(AliasBox(1), expected_text="AliasBox[int]")
+reveal_type(Alias(1), expected_text="AliasBox[int]")
+reveal_type(Alias(1).get(), expected_text="int")
+
+
+DogBox: TypeAlias = Box[Dog]
+GenericBox: TypeAlias = Box[T_co]
+
+
+def explicit_alias(value: Any) -> None:
+    reveal_type(DogBox(value), expected_text="Box[Dog]")
+    reveal_type(GenericBox[Dog](value), expected_text="Box[Dog]")
