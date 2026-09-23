@@ -235,3 +235,29 @@ def func24(a: bytes | int, b: list[bytearray], c: bytearray | str, d: list[memor
     if c in d:
         reveal_type(c, expected_text="bytearray")
 
+
+def func25(value: Literal[b"a", b"b"]) -> Literal[b"a"]:
+    if value in (b"a",):
+        reveal_type(value, expected_text='Literal[b"a"]')
+        return value
+
+    reveal_type(value, expected_text='Literal[b"b"]')
+    return b"a"
+
+
+def func26(value: Literal[b"a", b"b"], container: list[Literal[b"a"]]):
+    if value in container:
+        reveal_type(value, expected_text='Literal[b"a"]')
+
+    if value not in (b"a",):
+        reveal_type(value, expected_text='Literal[b"b"]')
+    else:
+        reveal_type(value, expected_text='Literal[b"a"]')
+
+
+def func27(value: Literal[b"a"] | int, a: list[bytearray], b: list[memoryview]):
+    if value in a:
+        reveal_type(value, expected_text='Literal[b"a"]')
+
+    if value in b:
+        reveal_type(value, expected_text='Literal[b"a"]')

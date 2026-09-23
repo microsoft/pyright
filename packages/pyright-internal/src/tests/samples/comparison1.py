@@ -106,10 +106,37 @@ def func8(a: memoryview, b: bytes, c: bytearray):
     if a == b:
         ...
 
+    if b == a:
+        ...
+
+    if a != b:
+        ...
+
+    if b != a:
+        ...
+
     if a == c:
         ...
 
+    if c == a:
+        ...
+
+    if a != c:
+        ...
+
+    if c != a:
+        ...
+
     if b == c:
+        ...
+
+    if c == b:
+        ...
+
+    if b != c:
+        ...
+
+    if c != b:
         ...
 
 
@@ -125,3 +152,20 @@ def func9(a: memoryview, b: bytes, c: bytearray):
     if b is c:
         ...
 
+
+def func10(a: Literal[b"a"] | int, b: Literal[b"a"] | None):
+    # This should generate an error because neither subtype can equal b"b".
+    if a == b"b":
+        ...
+
+    # This should generate an error because neither subtype can equal b"b".
+    if b"b" != a:
+        ...
+
+    # This should generate an error because neither subtype can equal b"b".
+    if b"b" == b:
+        ...
+
+    # This should generate an error because neither subtype can equal b"b".
+    if b != b"b":
+        ...

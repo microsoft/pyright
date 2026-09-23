@@ -27629,14 +27629,14 @@ export function createTypeEvaluator(
                         return boolVal === (intVal === 1);
                     }
 
-                    // Types like "bytes", "bytearray" and "memoryview" are otherwise
-                    // disjoint but are still comparable with "==" and "!=" because
-                    // their "__eq__" methods support cross-type content comparisons.
-                    // Pyright models this relationship as a "type promotion" (used
-                    // elsewhere for assignability), so reuse that same list here
-                    // regardless of the "disableBytesTypePromotions" setting, since
-                    // comparability isn't affected by that assignability toggle.
-                    if (!assumeIsOperator && isTypePromotionRelated(leftType, rightType)) {
+                    // Distinct bytes-like classes support cross-type equality regardless
+                    // of disableBytesTypePromotions. Don't apply this to the same class:
+                    // different bytes literals must remain disjoint.
+                    if (
+                        !assumeIsOperator &&
+                        !ClassType.isSameGenericClass(leftType, rightType) &&
+                        isTypePromotionRelated(leftType, rightType)
+                    ) {
                         return true;
                     }
 
