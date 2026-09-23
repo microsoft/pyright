@@ -14,6 +14,7 @@ import {
     pythonVersion3_11,
     pythonVersion3_12,
     pythonVersion3_13,
+    pythonVersion3_14,
     pythonVersion3_9,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -878,6 +879,14 @@ test('RecursiveTypeAlias17', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias17.py']);
 
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('UnknownRecursiveAliasBranches1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_14;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unknownRecursiveAliasBranches1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 0, 0);
 });
 
 test('Classes1', () => {

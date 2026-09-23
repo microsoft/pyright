@@ -697,6 +697,7 @@ export function createTypeEvaluator(
     let typeCache = new Map<number, TypeCacheEntry>();
     let typeFormTypeCache = new Map<number, TypeFormTypeCacheEntry[]>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
+    let exceptionTargetSymbolCache = new Map<number, boolean>();
     let expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
     let asymmetricAccessorAssignmentCache = new Set<number>();
     let deferredClassCompletions: DeferredClassCompletion[] = [];
@@ -776,6 +777,7 @@ export function createTypeEvaluator(
         typeCache = new Map<number, TypeCacheEntry>();
         typeFormTypeCache = new Map<number, TypeFormTypeCacheEntry[]>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
+        exceptionTargetSymbolCache = new Map<number, boolean>();
         expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
         asymmetricAccessorAssignmentCache = new Set<number>();
     }
@@ -24769,8 +24771,26 @@ export function createTypeEvaluator(
             // This will avoid a pathological performance condition for unannotated
             // code that reassigns the same variable hundreds of times. If the symbol
             // effectively has an "Any" annotation, it won't be narrowed.
-            if (symbol.getDeclarations().length > maxDeclarationsToUseForInference) {
-                return { type: UnknownType.create() };
+            const declarations = symbol.getDeclarations();
+            if (declarations.length > maxDeclarationsToUseForInference) {
+                let isExceptionVariable = exceptionTargetSymbolCache.get(symbol.id);
+                if (isExceptionVariable === undefined) {
+                    isExceptionVariable = declarations.every((decl) => {
+                        if (decl.type !== DeclarationType.Variable) {
+                            return false;
+                        }
+
+                        const parent = decl.node.parent;
+                        return parent?.nodeType === ParseNodeType.Except && parent.d.name === decl.node;
+                    });
+                    exceptionTargetSymbolCache.set(symbol.id, isExceptionVariable);
+                }
+
+                // Exception targets get their types from code flow. Don't let the
+                // declaration-count safeguard turn repeated targets into declared Unknown.
+                if (!isExceptionVariable) {
+                    return { type: UnknownType.create() };
+                }
             }
 
             // There was no declaration with a defined type.
