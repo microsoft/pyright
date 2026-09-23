@@ -6,28 +6,31 @@
 
 // @filename: consume.py
 //// from declare import func
+//// from declare import /*marker2*/func as foobar
 ////
-//// def [|/*callByNameSelection*/callByName|](): /*marker2*/func()
+//// [|def [|/*callByNameSelection*/callByName|]():
+////    /*marker3*/func()/*callByNameRange*/|]
+//// def callByAlias():
+////    foobar()
 
 // @filename: consume2.py
 //// from declare import func
 ////
-//// def [|/*callByName2Selection*/callByName2|](): func()
+//// [|/*callByName2Range*/def [|/*callByName2Selection*/callByName2|]():
+////    func()|]
 
 {
-    const callByNameSelectionRange = helper.getPositionRange('callByNameSelection');
-    const callByName2SelectionRange = helper.getPositionRange('callByName2Selection');
     const itemList = [
         {
             filePath: helper.getMappedFilePath('consume.py'),
-            range: helper.expandPositionRange(callByNameSelectionRange, 4, 10),
-            selectionRange: callByNameSelectionRange,
+            range: helper.getPositionRange('callByNameRange'),
+            selectionRange: helper.getPositionRange('callByNameSelection'),
             name: 'callByName',
         },
         {
             filePath: helper.getMappedFilePath('consume2.py'),
-            range: helper.expandPositionRange(callByName2SelectionRange, 4, 10),
-            selectionRange: callByName2SelectionRange,
+            range: helper.getPositionRange('callByName2Range'),
+            selectionRange: helper.getPositionRange('callByName2Selection'),
             name: 'callByName2',
         },
     ];
@@ -37,6 +40,9 @@
             items: itemList,
         },
         marker2: {
+            items: itemList,
+        },
+        marker3: {
             items: itemList,
         },
     });

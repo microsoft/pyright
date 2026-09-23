@@ -10,7 +10,8 @@
 ////
 //// def callByName():
 ////    func()
-//// def [|/*callByAliasRange*/callByAlias|](): /*marker2*/foobar()
+//// [|def [|/*callByAliasSelection*/callByAlias|]():
+////    /*marker2*/foobar()/*callByAliasRange*/|]
 
 // @filename: consume2.py
 //// from declare import func as foobar
@@ -19,12 +20,11 @@
 ////    func()
 
 {
-    const callByAliasRange = helper.getPositionRange('callByAliasRange');
     const itemList = [
         {
             filePath: helper.getMappedFilePath('consume.py'),
-            range: helper.expandPositionRange(callByAliasRange, 4, 12),
-            selectionRange: callByAliasRange,
+            range: helper.getPositionRange('callByAliasRange'),
+            selectionRange: helper.getPositionRange('callByAliasSelection'),
             name: 'callByAlias',
         },
     ];

@@ -1269,12 +1269,7 @@ export class TestState {
                 continue;
             }
 
-            const expectedFilePath = map[name].items.map((x) => x.filePath);
-            const expectedRange = map[name].items.map((x) => x.range);
-            const expectedName = map[name].items.map((x) => x.name);
-            const expectedSelectionRange = map[name].items
-                .map((x) => x.selectionRange)
-                .filter((x): x is PositionRange => x !== undefined);
+            const expected = [...map[name].items];
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
             const actual = new CallHierarchyProvider(
@@ -1284,25 +1279,21 @@ export class TestState {
                 CancellationToken.None
             ).getIncomingCalls();
 
-            assert.strictEqual(actual?.length ?? 0, expectedFilePath.length, `${name} has failed`);
-            assert.strictEqual(actual?.length ?? 0, expectedRange.length, `${name} has failed`);
-            assert.strictEqual(actual?.length ?? 0, expectedName.length, `${name} has failed`);
+            assert.strictEqual(actual?.length ?? 0, expected.length, `${name} has failed`);
 
             if (actual) {
                 for (const a of actual) {
-                    assert.strictEqual(expectedRange?.filter((e) => this._deepEqual(a.from.range, e)).length, 1);
-                    assert.strictEqual(expectedName?.filter((e) => this._deepEqual(a.from.name, e)).length, 1);
-                    if (expectedSelectionRange.length > 0) {
-                        assert.strictEqual(
-                            expectedSelectionRange.filter((e) => this._deepEqual(a.from.selectionRange, e)).length,
-                            1
-                        );
-                    }
-                    assert.ok(
-                        expectedFilePath?.filter((e) =>
-                            this._deepEqual(a.from.uri, Uri.file(e, this.serviceProvider).toString())
-                        ).length >= 1
+                    const index = expected.findIndex(
+                        (e) =>
+                            a.from.uri === Uri.file(e.filePath, this.serviceProvider).toString() &&
+                            a.from.name === e.name &&
+                            this._deepEqual(a.from.range, e.range)
                     );
+                    assert.ok(index >= 0, `${name}: unexpected caller ${a.from.name}`);
+                    const [item] = expected.splice(index, 1);
+                    if (item.selectionRange !== undefined) {
+                        assert.deepStrictEqual(a.from.selectionRange, item.selectionRange);
+                    }
                 }
             }
         }
