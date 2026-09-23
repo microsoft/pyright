@@ -23,7 +23,16 @@ class InsufficientPrivilegesException(Exception):
     CODE: int = -32001
 
 
+def handle_keyboard_interrupt(exc: KeyboardInterrupt | BaseExceptionGroup[KeyboardInterrupt]) -> None:
+    pass
+
+
 def dispatch(request: JsonRpcRequest) -> object | None:
+    try:
+        raise KeyboardInterrupt()
+    except* KeyboardInterrupt as _e:
+        handle_keyboard_interrupt(_e.exceptions[0])
+
     if request.method == 'm0':
         try:
             do_something_0()
