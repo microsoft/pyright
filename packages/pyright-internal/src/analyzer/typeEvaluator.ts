@@ -29116,6 +29116,7 @@ export function createTypeEvaluator(
                 // valid operations fail because the literal tuple's element
                 // types are bound independently for each operand.
                 if (
+                    !isUnion(declaredType) &&
                     isClassInstance(declaredSubtype) &&
                     isTupleClass(declaredSubtype) &&
                     isUnboundedTupleClass(declaredSubtype) &&
