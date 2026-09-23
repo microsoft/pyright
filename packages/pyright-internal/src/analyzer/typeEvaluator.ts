@@ -21090,7 +21090,10 @@ export function createTypeEvaluator(
             }
 
             if (isInstantiableClass(exceptionType)) {
-                if (ClassType.isBuiltIn(exceptionType, 'BaseException')) {
+                if (
+                    derivesFromStdlibClass(exceptionType, 'BaseException') &&
+                    !derivesFromStdlibClass(exceptionType, 'Exception')
+                ) {
                     includesBaseException = true;
                 }
                 return ClassType.cloneAsInstance(exceptionType);
@@ -21131,9 +21134,8 @@ export function createTypeEvaluator(
             return getExceptionType(subType, node.d.typeExpr!);
         });
 
-        // If this is an except group, wrap the exception type in an ExceptionGroup
-        // or BaseExceptionGroup depending on whether the target exception is
-        // a BaseException.
+        // If this is an except group, use a BaseExceptionGroup when it can contain
+        // an exception outside the Exception hierarchy.
         if (node.d.isExceptGroup) {
             targetType = getBuiltInObject(node, includesBaseException ? 'BaseExceptionGroup' : 'ExceptionGroup', [
                 targetType,
