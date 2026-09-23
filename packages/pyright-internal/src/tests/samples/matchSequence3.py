@@ -75,3 +75,39 @@ def variadic_subclass(value: TaggedIntegers) -> None:
     match value:
         case [_, _]:
             reveal_type(value, expected_text="tuple[str, int]")
+
+
+class Record(NamedTuple):
+    number: int
+    text: str
+    enabled: bool
+
+
+def nested_star(value: Record) -> None:
+    match value:
+        case [_, _, _]:
+            match value:
+                case [_, *rest]:
+                    a, b, c = value
+                    reveal_type(a, expected_text="int")
+                    reveal_type(b, expected_text="str")
+                    reveal_type(c, expected_text="bool")
+
+
+def independent_record(value: Record) -> None:
+    match value:
+        case [_, _, _]:
+            reveal_type(value, expected_text="Record")
+            # This should generate an error; the case must remain reachable.
+            wrong: int = "not an int"
+
+
+def consume_empty(value: tuple[()]) -> None:
+    pass
+
+
+def repeated_empty(value: Integers) -> None:
+    match value:
+        case []:
+            reveal_type(value, expected_text="tuple[()]")
+            consume_empty(value)

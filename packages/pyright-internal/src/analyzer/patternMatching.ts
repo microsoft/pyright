@@ -1568,7 +1568,8 @@ function getSequencePatternInfo(
                 ) as ClassType;
 
                 if (isTupleClass(specializedSequence)) {
-                    const typeArgs = specializedSequence.priv.tupleTypeArgs ?? [
+                    // Pattern expansion must not mutate the cached tuple specialization.
+                    const typeArgs = specializedSequence.priv.tupleTypeArgs?.slice() ?? [
                         { type: UnknownType.create(), isUnbounded: true },
                     ];
 
@@ -1599,7 +1600,6 @@ function getSequencePatternInfo(
                             typeArgs.splice(tupleIndeterminateIndex, 1);
                             removedIndeterminate = true;
                             tupleIndeterminateIndex = -1;
-                            removedIndeterminate = true;
                         }
                     }
 
