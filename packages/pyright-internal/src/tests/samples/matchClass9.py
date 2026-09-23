@@ -26,3 +26,29 @@ def func2(subclass: type[Example], subject: Example) -> None:
             reveal_type(subject, expected_text="Example")
         case _:
             reveal_type(subject, expected_text="Example")
+
+
+from typing import final
+
+
+@final
+class Leaf:
+    pass
+
+
+def final_pattern(value: Leaf | str, pattern: type[Leaf]) -> str:
+    match value:
+        case pattern():
+            return "leaf"
+        case _:
+            reveal_type(value, expected_text="str")
+            return value
+
+
+def bool_pattern(value: bool | str, pattern: type[bool]) -> str:
+    match value:
+        case pattern():
+            return "bool"
+        case _:
+            reveal_type(value, expected_text="str")
+            return value

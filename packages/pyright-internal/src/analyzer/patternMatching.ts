@@ -892,8 +892,9 @@ function narrowTypeBasedOnClassPattern(
 
         // If the class in the pattern may be a subclass of the named class (for
         // example, an expression of type type[X] rather than X itself), a failed
-        // match says nothing about the subject, so it can't be narrowed.
-        if (exprType.priv.includeSubclasses) {
+        // match says nothing about the subject, so it can't be narrowed. A final
+        // class cannot have subclasses, so normal negative narrowing still applies.
+        if (exprType.priv.includeSubclasses && !ClassType.isFinal(exprType)) {
             return type;
         }
 
