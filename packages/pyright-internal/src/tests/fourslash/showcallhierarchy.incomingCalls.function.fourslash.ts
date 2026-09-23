@@ -1,7 +1,7 @@
 /// <reference path="typings/fourslash.d.ts" />
 
 // @filename: declare.py
-//// /*marker3*/def /*marker1*/func():
+//// def /*marker1*/func():
 ////    return 1
 
 // @filename: consume.py
@@ -37,9 +37,6 @@
             items: itemList,
         },
         marker2: {
-            items: itemList,
-        },
-        marker3: {
             items: itemList,
         },
     });
