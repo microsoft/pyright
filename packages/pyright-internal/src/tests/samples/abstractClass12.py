@@ -3,7 +3,7 @@
 # itself has abstract members. `pathlib.Path` uses this pattern.
 
 from abc import ABC, abstractmethod
-from typing import Any, Never, Self, overload
+from typing import Any, Never, Protocol, Self, overload
 
 
 class Base(ABC):
@@ -95,6 +95,23 @@ class ReturnsObject(ABC):
 
 # The broad object annotation does not establish a different concrete class.
 ReturnsObject()
+
+
+class Readable(Protocol):
+    def read(self) -> str:
+        return ""
+
+
+class AbstractReader(ABC):
+    def __new__(cls) -> Readable:
+        return object.__new__(cls)
+
+    @abstractmethod
+    def read(self) -> str: ...
+
+
+# Structural compatibility does not prove the factory returns another class.
+AbstractReader()
 
 
 class ReturnsNever(ABC):

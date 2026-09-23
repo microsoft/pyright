@@ -29495,9 +29495,15 @@ export function createTypeEvaluator(
             }
 
             // The class itself or one of its bases can still describe an instance
-            // of this abstract class, so neither proves a concrete factory result.
+            // of this abstract class. Structural compatibility can do the same, so
+            // reject return types that can accept an instance of this class.
             if (
-                derivesFromClassRecursive(classType, ClassType.cloneAsInstantiable(subtype), /* ignoreUnknown */ false)
+                derivesFromClassRecursive(
+                    classType,
+                    ClassType.cloneAsInstantiable(subtype),
+                    /* ignoreUnknown */ false
+                ) ||
+                assignType(subtype, ClassType.cloneAsInstance(classType))
             ) {
                 instantiatesOthers = false;
                 return;
