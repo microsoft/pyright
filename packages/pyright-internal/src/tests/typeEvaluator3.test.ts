@@ -14,6 +14,7 @@ import {
     pythonVersion3_11,
     pythonVersion3_12,
     pythonVersion3_13,
+    pythonVersion3_14,
     pythonVersion3_9,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -902,6 +903,14 @@ test('RecursiveTypeAlias18', () => {
             '        "str" is not assignable to "int"',
         ].join('\n')
     );
+});
+
+test('UnknownRecursiveAliasBranches1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_14;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unknownRecursiveAliasBranches1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 0, 0);
 });
 
 test('Classes1', () => {
