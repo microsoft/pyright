@@ -28257,8 +28257,8 @@ export function createTypeEvaluator(
         ) {
             diag?.createAddendum().addMessage(
                 LocAddendum.argsPositionOnly().format({
-                    expected: srcParamDetails.positionOnlyParamCount,
-                    received: destParamDetails.firstPositionOrKeywordIndex,
+                    expected: destParamDetails.firstPositionOrKeywordIndex,
+                    received: srcParamDetails.positionOnlyParamCount,
                 })
             );
             canAssign = false;
