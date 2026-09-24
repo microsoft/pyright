@@ -14665,12 +14665,18 @@ export function createTypeEvaluator(
                             }
                         });
 
-                        if (!expectedTypedDictEntries && tdEntries.extraItems) {
+                        if (!expectedTypedDictEntries) {
+                            // A TypedDict's keys are always str, even if it has no
+                            // known items. Include a value type for extra items if
+                            // declared, or fall back to object if nothing else is known.
                             keyTypes.push({ node: entryNode, type: ClassType.cloneAsInstance(strObject) });
-                            valueTypes.push({
-                                node: entryNode,
-                                type: tdEntries.extraItems.valueType,
-                            });
+
+                            if (tdEntries.extraItems || tdEntries.knownItems.size === 0) {
+                                valueTypes.push({
+                                    node: entryNode,
+                                    type: tdEntries.extraItems?.valueType ?? getObjectType(),
+                                });
+                            }
                         }
 
                         addUnknown = false;
