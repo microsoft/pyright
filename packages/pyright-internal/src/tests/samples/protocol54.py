@@ -1,7 +1,7 @@
 # This sample tests that @runtime_checkable can be applied only to
 # classes that are protocols (Protocol must appear in the base list).
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -47,3 +47,52 @@ class C2:
 @replace_with_non_protocol
 class P4(Protocol):
     pass
+
+
+# No error should be reported when the decorator below runtime_checkable
+# produces a type that is not a single known class.
+def replace_with_any(cls: type) -> Any: ...
+
+
+def replace_with_union(cls: type) -> type[P1] | type[C1]: ...
+
+
+def replace_with_object(cls: type) -> type[object]: ...
+
+
+@runtime_checkable
+@replace_with_any
+class C3:
+    pass
+
+
+@runtime_checkable
+@replace_with_union
+class C4:
+    pass
+
+
+@runtime_checkable
+@replace_with_object
+class P5(Protocol):
+    pass
+
+
+class P6(Protocol):
+    def baz(self) -> int: ...
+
+
+def replace_with_p6(cls: type) -> type[P6]: ...
+
+
+# Applying runtime_checkable to a replacement protocol should not make
+# that other protocol class runtime-checkable.
+@runtime_checkable
+@replace_with_p6
+class C5:
+    pass
+
+
+def func1(val: object):
+    # This should generate an error because P6 is not runtime-checkable.
+    isinstance(val, P6)
