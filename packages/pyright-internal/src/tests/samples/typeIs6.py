@@ -74,3 +74,82 @@ def test_direct_class_vs_type_param(x: Base, cls: type[Base]):
     
     if type(x) is not cls:
         reveal_type(x, expected_text="Base")
+
+
+def func9(value: bool, kind: type[int]):
+    if type(value) is kind:
+        reveal_type(value, expected_text="bool")
+
+
+def func10[T](value: object, kind: type[T]) -> T:
+    if type(value) is kind:
+        reveal_type(value, expected_text="object*")
+        return value
+    raise TypeError
+
+
+class A: pass
+
+class B: pass
+
+class C(A, B): pass
+
+
+def func11(x: A, cls: type[B]):
+    # A subclass of both A and B (such as C) could satisfy the comparison.
+    if type(x) is cls:
+        reveal_type(x, expected_text="A")
+
+
+def func12(x: int | str, y: int):
+    if type(y) is type(x):
+        reveal_type(x, expected_text="int")
+    else:
+        reveal_type(x, expected_text="int | str")
+
+
+def get_class() -> type[int]: ...
+
+
+def func13(x: int | str):
+    if get_class() is type(x):
+        reveal_type(x, expected_text="int")
+    else:
+        reveal_type(x, expected_text="int | str")
+
+
+def func14(x: int | str, cls: type[int]):
+    if cls is not type(x):
+        reveal_type(x, expected_text="int | str")
+    else:
+        reveal_type(x, expected_text="int")
+
+    if cls == type(x):
+        reveal_type(x, expected_text="int")
+
+    if cls != type(x):
+        reveal_type(x, expected_text="int | str")
+    else:
+        reveal_type(x, expected_text="int")
+
+    if type(x) != cls:
+        reveal_type(x, expected_text="int | str")
+    else:
+        reveal_type(x, expected_text="int")
+
+
+def func15(x: int | str):
+    if type(x) is not bool:
+        reveal_type(x, expected_text="int | str")
+    else:
+        reveal_type(x, expected_text="bool")
+
+
+def func16(x: int | str, cls: type[int] | type[object]):
+    if type(x) is cls:
+        reveal_type(x, expected_text="int | str")
+
+
+def func17(x: int | str):
+    if type(x) is object:
+        reveal_type(x, expected_text="Never")
