@@ -8,7 +8,10 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_11, pythonVersion3_12, pythonVersion3_13 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
@@ -354,6 +357,18 @@ test('TypedDictReadOnly3', () => {
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly3.py'], configOptions);
     TestUtils.validateResults(analysisResults, 4);
+    analysisResults[0].errors.forEach((diagnostic) =>
+        assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportGeneralTypeIssues)
+    );
+});
+
+test('TypedDictReadOnly3WithGeneralTypeIssuesDisabled', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportGeneralTypeIssues = 'none';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportTypedDictNotRequiredAccess);
 });
 
 test('TypedDictClosed1', () => {

@@ -21,3 +21,8 @@ def func1(td: TD1):
 
     # This should generate an error because "b" is ReadOnly.
     del td["b"]
+
+
+def func2(td: TD1):
+    # This should generate an error when reportTypedDictNotRequiredAccess is enabled.
+    return td["b"]
