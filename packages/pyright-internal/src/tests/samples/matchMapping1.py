@@ -204,3 +204,42 @@ def test_capture_pattern_negative_narrowing(msg: MsgA | MsgB) -> None:
             reveal_type(x, expected_text="Literal['a', 'b']")
         case _:
             reveal_type(msg, expected_text="Never")
+
+
+class UnionFieldA(TypedDict):
+    kind: Literal["a"]
+    payload: str | int
+
+
+class UnionFieldB(TypedDict):
+    kind: Literal["b"]
+    payload: str | int
+
+
+def test_capture_union_field_negative_narrowing(msg: UnionFieldA | UnionFieldB) -> None:
+    match msg:
+        case {"kind": "a", "payload": p}:
+            reveal_type(msg, expected_text="UnionFieldA")
+        case _:
+            reveal_type(msg, expected_text="UnionFieldB")
+
+
+def test_expand_entry_negative_narrowing(msg: MsgA | MsgB) -> None:
+    match msg:
+        case {"v": 1, "kind": "a", **rest}:
+            reveal_type(msg, expected_text="MsgA")
+        case _:
+            reveal_type(msg, expected_text="MsgB")
+
+
+class Reading(TypedDict):
+    kind: Literal["reading"]
+    value: float
+
+
+def test_non_literal_field_negative_narrowing(msg: Reading | None) -> None:
+    match msg:
+        case {"kind": "reading", "value": 1.5}:
+            reveal_type(msg, expected_text="Reading")
+        case _:
+            reveal_type(msg, expected_text="Reading | None")
